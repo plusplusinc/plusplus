@@ -1,0 +1,141 @@
+# PlusPlus (++) — Project Instructions
+
+Read this at the start of every session. Update it when decisions are made. Keep it accurate — a stale CLAUDE.md is worse than none.
+
+---
+
+## What This App Is
+
+**PlusPlus** (`++`) is an iOS fitness tracking app with Apple Watch companion functionality. The name references the programming increment operator; the `++` mark visually resembles a dumbbell, which is intentional branding.
+
+---
+
+## Tech Stack
+
+- **Language:** Swift / SwiftUI
+- **Platform targets:** iOS 26+, watchOS 26+
+
+No third-party dependencies without discussion first.
+
+---
+
+## Tooling: XcodeBuildMCP
+
+XcodeBuildMCP is configured as an MCP server for this project. Use it as the primary interface for all Xcode operations — don't fall back to raw `xcodebuild` shell commands when an MCP tool exists for the job.
+
+**What it provides:**
+
+- **Build & run** — build for Simulator, build and launch in one step, incremental builds
+- **Testing** — run tests on Simulator
+- **Simulator control** — list, boot, open simulators; install, launch, and stop the app
+- **Log capture** — capture runtime logs from the running app on Simulator
+- **Screenshots** — capture Simulator screenshots for visual validation
+- **UI automation** — tap, swipe, and interact with the running app programmatically
+- **Debugging** — attach debugger, set breakpoints, run LLDB commands
+- **Project introspection** — discover projects/workspaces, list schemes, show build settings
+- **Clean** — remove build artifacts and derived data when needed
+
+**How to use it for validation:**
+
+The Simulator validation step in every task should use these tools in sequence: build → launch → navigate using UI automation → screenshot to confirm. Don't just build and consider it done — actually exercise the changed behavior in a running app.
+
+**Log capture is part of debugging:** If something behaves unexpectedly in the Simulator, capture runtime logs before concluding. Don't guess at the cause.
+
+**The MCP Skill:** XcodeBuildMCP ships an optional "MCP Skill" document that primes agents with detailed usage instructions. If it has been installed (via the `install-skill.sh` script), it will be available in your context. Follow its guidance on tool selection — it has opinions on which tools to prefer for which jobs.
+
+---
+
+## Architecture Principles
+
+- Effective complexity management above all else — code should be easy to understand and easy to adapt
+- Deep modules over shallow ones: hide significant complexity behind simple interfaces
+- No premature abstraction — only abstract when duplication is real and present
+- iOS-native first: start with what SwiftUI provides, customize deliberately
+
+---
+
+## Current State
+
+> Update this section at the end of every session that changes the codebase.
+
+**Last updated:** —
+**Last known good build:** —
+
+Nothing exists yet.
+
+---
+
+## Decisions Log
+
+> Record architectural and significant implementation decisions as they're made.
+> Format: **Date — Decision — Reason**
+
+*Empty. First entry when the project skeleton is created.*
+
+---
+
+## Patterns Reference
+
+> Add established patterns here as they emerge to avoid re-litigating decisions.
+
+*Empty. Populated as patterns are established.*
+
+---
+
+## CLAUDE.md Hygiene
+
+This root CLAUDE.md is the source of truth for project-wide decisions. As the codebase grows, subdirectory-level CLAUDE.md files are appropriate when a directory has enough established patterns or context to warrant it — not before.
+
+**When to create a nested CLAUDE.md:**
+
+- A subdirectory has accumulated enough specific patterns that they'd be noise at the root level
+- A module has conventions that differ meaningfully from the rest of the project
+- The root doc is growing large enough that splitting improves signal-to-noise
+
+**How they load:**
+
+Nested CLAUDE.md files are loaded lazily — only when Claude Code is actually working in that subtree. So they don't burn context on unrelated sessions, which makes them cheap to create once patterns are established.
+
+**How to maintain them:**
+
+- Nested docs inherit from the root — don't repeat root-level decisions
+- Keep them focused on what's specific to that directory
+- Same hygiene rules apply: suggest additions at end of session, don't modify without approval
+
+**CLAUDE.local.md:**
+
+A  at the project root is automatically gitignored and meant for your personal local preferences — sandbox URLs, local test data, dev shortcuts that shouldn't be in source control. Use it instead of cluttering the main project doc with machine-specific config.
+
+**What should stay at the root:**
+
+- Architecture principles
+- Cross-cutting decisions
+- The decisions log and patterns reference
+- Session discipline
+
+---
+
+## Session Discipline
+
+Start each session with:
+
+```txt
+Task: [one sentence]
+Context: [what already exists that's relevant]
+Done when: [specific, testable completion criteria]
+```
+
+### Before Marking Any Task Complete
+
+1. **Build successfully** — use XcodeBuildMCP's build tool; no errors or warnings introduced by your changes
+2. **Run relevant tests** — if tests exist for the modified area, run them via XcodeBuildMCP and confirm they pass
+3. **Validate in Simulator** — use XcodeBuildMCP to launch the app, use UI automation tools to navigate to the affected screen and interact with what you built, then capture a screenshot confirming the result. Complete flows end-to-end. Capture runtime logs if anything looks off.
+
+If any step fails, fix it before reporting completion.
+
+### End-of-Session Summary
+
+- What was built
+- Decisions made (flag any that should be added to this file)
+- Known issues or follow-on tasks
+- Build / test / Simulator validation status
