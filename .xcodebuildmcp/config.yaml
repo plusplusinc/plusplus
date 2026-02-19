@@ -1,0 +1,8 @@
+schemaVersion: 1
+sessionDefaults:
+  projectPath: PlusPlus.xcodeproj
+  scheme: PlusPlus
+  simulatorName: iPhone 17 Pro
+  bundleId: com.davidcole.plusplus
+  simulatorId: ABA9021B-1D67-4343-9BAF-E62CA31EDC5E
+  simulatorPlatform: iOS Simulator
