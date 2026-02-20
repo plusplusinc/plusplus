@@ -96,7 +96,7 @@ private struct WorkoutRow: View {
     var body: some View {
         VStack(alignment: .leading) {
             Text(workout.name)
-            Text("\(workout.groups.count) exercises")
+            Text("^[\(workout.groups.count) exercise](inflect: true)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
