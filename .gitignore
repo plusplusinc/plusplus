@@ -30,4 +30,4 @@ Pods/
 .DS_Store
 
 # Local Claude config
-CLAUDE.local.md
+.claude
