@@ -15,7 +15,7 @@ final class ExerciseGroup {
     }
 
     var sortedExercises: [WorkoutExercise] {
-        exercises.sorted { $0.order < $1.order }
+        exercises.filter { !$0.isDeleted }.sorted { $0.order < $1.order }
     }
 
     var isSuperset: Bool {
@@ -23,7 +23,7 @@ final class ExerciseGroup {
     }
 
     func reindexExercises() {
-        for (index, exercise) in sortedExercises.enumerated() {
+        for (index, exercise) in sortedExercises.filter({ !$0.isDeleted }).enumerated() {
             exercise.order = index
         }
     }

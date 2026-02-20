@@ -16,11 +16,11 @@ final class Workout {
     }
 
     var sortedGroups: [ExerciseGroup] {
-        groups.sorted { $0.order < $1.order }
+        groups.filter { !$0.isDeleted }.sorted { $0.order < $1.order }
     }
 
     func reindexGroups() {
-        for (index, group) in sortedGroups.enumerated() {
+        for (index, group) in sortedGroups.filter({ !$0.isDeleted }).enumerated() {
             group.order = index
         }
     }

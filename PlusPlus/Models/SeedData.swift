@@ -34,6 +34,11 @@ enum SeedData {
 
     // MARK: - Exercises
 
+    // Exposed as internal for testing; use loadIfNeeded for production
+    static func makeBuiltInExercisesForTesting(equipment: [Equipment]) -> [Exercise] {
+        makeBuiltInExercises(equipment: equipment)
+    }
+
     private static func makeBuiltInExercises(equipment: [Equipment]) -> [Exercise] {
         let eq = Dictionary(uniqueKeysWithValues: equipment.map { ($0.name, $0) })
 
@@ -93,6 +98,9 @@ enum SeedData {
             // Core
             e("Plank", .core, [], .duration),
             e("Dead Bug", .core, [], .duration),
+
+            // Full Body
+            e("Burpee", .fullBody, []),
         ]
     }
 }
