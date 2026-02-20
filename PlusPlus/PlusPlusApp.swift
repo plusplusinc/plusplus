@@ -13,6 +13,7 @@ struct PlusPlusApp: App {
         } catch {
             fatalError("Failed to create ModelContainer: \(error)")
         }
+        SeedData.loadIfNeeded(context: modelContainer.mainContext)
     }
 
     var body: some Scene {
