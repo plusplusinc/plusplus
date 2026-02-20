@@ -19,6 +19,15 @@ final class Workout {
         groups.filter { !$0.isDeleted }.sorted { $0.order < $1.order }
     }
 
+    var equipmentNames: [String] {
+        let names = sortedGroups
+            .flatMap { $0.sortedExercises }
+            .compactMap { $0.exercise }
+            .flatMap { $0.equipment }
+            .map { $0.name }
+        return Array(Set(names)).sorted()
+    }
+
     func reindexGroups() {
         for (index, group) in sortedGroups.filter({ !$0.isDeleted }).enumerated() {
             group.order = index

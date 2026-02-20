@@ -17,6 +17,7 @@ struct WorkoutListView: View {
                     NavigationLink(value: workout) {
                         WorkoutRow(workout: workout)
                     }
+                    .contentShape(.dragPreview, RoundedRectangle(cornerRadius: 12).inset(by: -16))
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         Button(role: .destructive) {
                             deleteWorkout(workout)
@@ -27,25 +28,32 @@ struct WorkoutListView: View {
                 }
                 .onMove(perform: moveWorkouts)
             }
+            .listRowSpacing(8)
             .navigationTitle("Workouts")
             .navigationDestination(for: Workout.self) { workout in
                 WorkoutDetailView(workout: workout)
-            }
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { showingNewWorkout = true } label: {
-                        Image(systemName: "plus")
-                    }
-                }
             }
             .overlay {
                 if workouts.isEmpty {
                     ContentUnavailableView(
                         "No Workouts",
                         systemImage: "figure.strengthtraining.traditional",
-                        description: Text("Tap + to create your first workout.")
+                        description: Text("Create your first workout to get started.")
                     )
                 }
+            }
+            .overlay(alignment: .bottomTrailing) {
+                Button { showingNewWorkout = true } label: {
+                    Text("++")
+                        .font(.title2.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .offset(y: -2)
+                        .frame(width: 56, height: 56)
+                        .background(Color.accentColor)
+                        .clipShape(Circle())
+                        .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
+                }
+                .padding(24)
             }
             .alert("New Workout", isPresented: $showingNewWorkout) {
                 TextField("Name", text: $newWorkoutName)
@@ -94,12 +102,26 @@ struct WorkoutListView: View {
 private struct WorkoutRow: View {
     let workout: Workout
 
+    private var pills: [String] {
+        let names = workout.equipmentNames
+        return names.isEmpty ? ["No equipment"] : names
+    }
+
     var body: some View {
-        VStack(alignment: .leading) {
+        HStack {
             Text(workout.name)
-            Text("^[\(workout.groups.count) exercise](inflect: true)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(.title3)
+            Spacer()
+            HStack(spacing: 6) {
+                ForEach(pills, id: \.self) { name in
+                    Text(name)
+                        .font(.caption)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(.quaternary)
+                        .clipShape(Capsule())
+                }
+            }
         }
     }
 }
