@@ -18,7 +18,7 @@ struct PlusPlusApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            WorkoutListView()
         }
         .modelContainer(modelContainer)
     }
