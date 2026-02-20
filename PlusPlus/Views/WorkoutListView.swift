@@ -23,7 +23,7 @@ struct WorkoutListView: View {
             }
             .navigationTitle("Workouts")
             .navigationDestination(for: Workout.self) { workout in
-                Text(workout.name) // Placeholder — replaced in Task 5
+                WorkoutDetailView(workout: workout)
             }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

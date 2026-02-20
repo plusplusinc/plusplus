@@ -14,6 +14,12 @@ enum MuscleGroup: String, Codable, CaseIterable, Identifiable {
         default: rawValue.capitalized
         }
     }
+
+    static let grouped: [(region: String, groups: [MuscleGroup])] = [
+        ("Upper Body", [.chest, .back, .shoulders, .biceps, .triceps]),
+        ("Lower Body", [.quads, .hamstrings, .glutes, .calves]),
+        ("Other", [.core, .fullBody]),
+    ]
 }
 
 enum ExerciseType: String, Codable {
