@@ -9,6 +9,7 @@ struct WorkoutListView: View {
     @State private var path: [Workout] = []
     @State private var showingNewWorkout = false
     @State private var newWorkoutName = ""
+    @State private var showingSettings = false
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -30,6 +31,17 @@ struct WorkoutListView: View {
             }
             .listRowSpacing(8)
             .navigationTitle("Workouts")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showingSettings = true } label: {
+                        Image(systemName: "gearshape")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingSettings) {
+                SettingsView()
+                    .presentationDetents([.medium])
+            }
             .navigationDestination(for: Workout.self) { workout in
                 WorkoutDetailView(workout: workout)
             }
