@@ -17,8 +17,14 @@ struct WorkoutListView: View {
                     NavigationLink(value: workout) {
                         WorkoutRow(workout: workout)
                     }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) {
+                            deleteWorkout(workout)
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
                 }
-                .onDelete(perform: deleteWorkouts)
                 .onMove(perform: moveWorkouts)
             }
             .navigationTitle("Workouts")
@@ -26,9 +32,6 @@ struct WorkoutListView: View {
                 WorkoutDetailView(workout: workout)
             }
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    EditButton()
-                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showingNewWorkout = true } label: {
                         Image(systemName: "plus")
@@ -68,15 +71,13 @@ struct WorkoutListView: View {
         path.append(workout)
     }
 
-    private func deleteWorkouts(at offsets: IndexSet) {
-        for index in offsets {
-            modelContext.delete(workouts[index])
-        }
+    private func deleteWorkout(_ workout: Workout) {
+        modelContext.delete(workout)
         reindexWorkouts()
     }
 
     private func moveWorkouts(from source: IndexSet, to destination: Int) {
-        var reordered = workouts
+        var reordered = Array(workouts)
         reordered.move(fromOffsets: source, toOffset: destination)
         for (index, workout) in reordered.enumerated() {
             workout.order = index
