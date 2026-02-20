@@ -15,9 +15,12 @@ struct SettingsView: View {
                     .pickerStyle(.segmented)
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Color.slate1)
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
         }
+        .preferredColorScheme(appearance.colorScheme)
         .onAppear {
             UISegmentedControl.appearance().setTitleTextAttributes(
                 [.font: UIFont.systemFont(ofSize: 15, weight: .medium)],

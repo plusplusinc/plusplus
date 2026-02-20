@@ -24,9 +24,11 @@ struct ExercisePickerView: View {
                     } label: {
                         ExerciseRow(exercise: exercise)
                     }
-                    .tint(.primary)
+                    .tint(Color.slate12)
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Color.slate1)
             .navigationTitle("Add Exercise")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -65,7 +67,7 @@ private struct ExerciseRow: View {
             Text(exercise.name)
             Text(subtitle)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.slate11)
         }
     }
 
@@ -101,7 +103,7 @@ private struct FilterBar: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 10)
-        .background(.bar)
+        .background(Color.slate2)
     }
 
     private var muscleGroupSelections: [String] {
@@ -130,11 +132,11 @@ private struct FilterDropdownButton: View {
                 HStack(spacing: 4) {
                     Text(label)
                         .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(Color.slate12)
                     Spacer()
                     Image(systemName: "chevron.down")
                         .font(.caption)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(Color.slate8)
                 }
 
                 summaryPills
@@ -142,10 +144,10 @@ private struct FilterDropdownButton: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isActive ? Color.primary.opacity(0.08) : Color(.secondarySystemFill))
+            .background(isActive ? Color.indigo3 : Color.slate3)
             .clipShape(RoundedRectangle(cornerRadius: 10))
         }
-        .tint(.primary)
+        .tint(Color.slate12)
     }
 
     private var summaryPills: some View {
@@ -160,7 +162,7 @@ private struct FilterDropdownButton: View {
                 if selections.count > maxShown {
                     Text("+\(selections.count - maxShown)")
                         .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.slate11)
                 }
             }
         }
@@ -176,8 +178,8 @@ private struct SummaryPill: View {
             .font(.subheadline)
             .padding(.horizontal, 9)
             .padding(.vertical, 4)
-            .background(active ? Color.primary.opacity(0.15) : Color.primary.opacity(0.06))
-            .foregroundStyle(active ? .primary : .tertiary)
+            .background(active ? Color.indigo4 : Color.slate3)
+            .foregroundStyle(active ? Color.slate12 : Color.slate11)
             .clipShape(Capsule())
     }
 }
@@ -196,7 +198,7 @@ private struct MuscleGroupFilterSheet: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(region)
                                 .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.slate11)
                                 .padding(.leading, 4)
 
                             FlowLayout(spacing: 8) {
@@ -285,10 +287,10 @@ private struct SelectableChip: View {
                 .font(.subheadline.weight(.medium))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
-                .background(isSelected ? Color.primary : Color.clear)
-                .foregroundStyle(isSelected ? Color(.systemBackground) : .primary)
+                .background(isSelected ? Color.indigo9 : Color.clear)
+                .foregroundStyle(isSelected ? .white : Color.slate12)
                 .clipShape(Capsule())
-                .overlay(Capsule().stroke(Color.primary.opacity(isSelected ? 0 : 0.35)))
+                .overlay(Capsule().stroke(isSelected ? Color.clear : Color.slate7))
         }
     }
 }
