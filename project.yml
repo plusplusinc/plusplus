@@ -21,6 +21,18 @@ targets:
     dependencies:
       - target: PlusPlusWatch
 
+  PlusPlusTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - PlusPlusTests
+    dependencies:
+      - target: PlusPlus
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.davidcole.plusplus.tests
+        GENERATE_INFOPLIST_FILE: YES
+
   PlusPlusWatch:
     type: application
     platform: watchOS
