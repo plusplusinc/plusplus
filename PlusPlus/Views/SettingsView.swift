@@ -15,8 +15,6 @@ struct SettingsView: View {
                     .pickerStyle(.segmented)
                 }
             }
-            .scrollContentBackground(.hidden)
-            .background(Color.slate1)
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
         }

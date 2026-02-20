@@ -16,8 +16,6 @@ struct WorkoutDetailView: View {
             .onDelete(perform: deleteGroups)
             .onMove(perform: moveGroups)
         }
-        .scrollContentBackground(.hidden)
-        .background(Color.slate1)
         .navigationTitle(workout.name)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -41,7 +39,7 @@ struct WorkoutDetailView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
-            .tint(Color.indigo9)
+            .tint(.indigo)
             .padding()
             .background(.bar)
         }
@@ -100,7 +98,7 @@ private struct GroupSection: View {
                 if group.isSuperset {
                     Text("Superset")
                         .font(.caption)
-                        .foregroundStyle(Color.slate11)
+                        .foregroundStyle(.secondary)
                 }
                 Spacer()
                 Stepper("Sets: \(group.sets)", value: $group.sets, in: 1...20)
@@ -119,7 +117,6 @@ private struct ExerciseInputRow: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(workoutExercise.exercise?.name ?? "Unknown")
                 .font(.headline)
-                .foregroundStyle(Color.slate12)
 
             if workoutExercise.exercise?.exerciseType == .duration {
                 durationInput
@@ -136,7 +133,7 @@ private struct ExerciseInputRow: View {
             HStack {
                 Text("lbs")
                     .font(.caption)
-                    .foregroundStyle(Color.slate11)
+                    .foregroundStyle(.secondary)
                 TextField("Weight", value: $workoutExercise.weight, format: .number)
                     .keyboardType(.decimalPad)
                     .textFieldStyle(.roundedBorder)
@@ -145,7 +142,7 @@ private struct ExerciseInputRow: View {
             HStack {
                 Text("reps")
                     .font(.caption)
-                    .foregroundStyle(Color.slate11)
+                    .foregroundStyle(.secondary)
                 TextField("Reps", value: $workoutExercise.reps, format: .number)
                     .keyboardType(.numberPad)
                     .textFieldStyle(.roundedBorder)

@@ -24,11 +24,9 @@ struct ExercisePickerView: View {
                     } label: {
                         ExerciseRow(exercise: exercise)
                     }
-                    .tint(Color.slate12)
+                    .tint(.primary)
                 }
             }
-            .scrollContentBackground(.hidden)
-            .background(Color.slate1)
             .navigationTitle("Add Exercise")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -67,7 +65,7 @@ private struct ExerciseRow: View {
             Text(exercise.name)
             Text(subtitle)
                 .font(.caption)
-                .foregroundStyle(Color.slate11)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -103,7 +101,7 @@ private struct FilterBar: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 10)
-        .background(Color.slate2)
+        .background(.bar)
     }
 
     private var muscleGroupSelections: [String] {
@@ -132,11 +130,10 @@ private struct FilterDropdownButton: View {
                 HStack(spacing: 4) {
                     Text(label)
                         .font(.subheadline.weight(.medium))
-                        .foregroundStyle(Color.slate12)
                     Spacer()
                     Image(systemName: "chevron.down")
                         .font(.caption)
-                        .foregroundStyle(Color.slate8)
+                        .foregroundStyle(.tertiary)
                 }
 
                 summaryPills
@@ -144,10 +141,10 @@ private struct FilterDropdownButton: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isActive ? Color.indigo3 : Color.slate3)
+            .background(isActive ? Color.indigo.opacity(0.15) : Color(.secondarySystemFill))
             .clipShape(RoundedRectangle(cornerRadius: 10))
         }
-        .tint(Color.slate12)
+        .tint(.primary)
     }
 
     private var summaryPills: some View {
@@ -162,7 +159,7 @@ private struct FilterDropdownButton: View {
                 if selections.count > maxShown {
                     Text("+\(selections.count - maxShown)")
                         .font(.subheadline.weight(.medium))
-                        .foregroundStyle(Color.slate11)
+                        .foregroundStyle(.secondary)
                 }
             }
         }
@@ -178,8 +175,8 @@ private struct SummaryPill: View {
             .font(.subheadline)
             .padding(.horizontal, 9)
             .padding(.vertical, 4)
-            .background(active ? Color.indigo4 : Color.slate3)
-            .foregroundStyle(active ? Color.slate12 : Color.slate11)
+            .background(active ? Color.indigo.opacity(0.2) : Color.primary.opacity(0.06))
+            .foregroundStyle(active ? .primary : .tertiary)
             .clipShape(Capsule())
     }
 }
@@ -198,7 +195,7 @@ private struct MuscleGroupFilterSheet: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(region)
                                 .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(Color.slate11)
+                                .foregroundStyle(.secondary)
                                 .padding(.leading, 4)
 
                             FlowLayout(spacing: 8) {
@@ -287,10 +284,10 @@ private struct SelectableChip: View {
                 .font(.subheadline.weight(.medium))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
-                .background(isSelected ? Color.indigo9 : Color.clear)
-                .foregroundStyle(isSelected ? .white : Color.slate12)
+                .background(isSelected ? Color.indigo : Color.clear)
+                .foregroundStyle(isSelected ? Color(.systemBackground) : .primary)
                 .clipShape(Capsule())
-                .overlay(Capsule().stroke(isSelected ? Color.clear : Color.slate7))
+                .overlay(Capsule().stroke(Color.primary.opacity(isSelected ? 0 : 0.35)))
         }
     }
 }

@@ -18,7 +18,6 @@ struct WorkoutListView: View {
                     NavigationLink(value: workout) {
                         WorkoutRow(workout: workout)
                     }
-                    .listRowBackground(Color.slate2)
                     .contentShape(.dragPreview, RoundedRectangle(cornerRadius: 12).inset(by: -16))
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         Button(role: .destructive) {
@@ -26,13 +25,10 @@ struct WorkoutListView: View {
                         } label: {
                             Label("Delete", systemImage: "trash")
                         }
-                        .tint(Color.red9)
                     }
                 }
                 .onMove(perform: moveWorkouts)
             }
-            .scrollContentBackground(.hidden)
-            .background(Color.slate1)
             .listRowSpacing(8)
             .navigationTitle("Workouts")
             .toolbar {
@@ -65,9 +61,9 @@ struct WorkoutListView: View {
                         .foregroundStyle(.white)
                         .offset(y: -2)
                         .frame(width: 56, height: 56)
-                        .background(Color.indigo9)
+                        .background(Color.indigo)
                         .clipShape(Circle())
-                        .shadow(color: .slate12.opacity(0.15), radius: 8, y: 4)
+                        .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
                 }
                 .padding(24)
             }
@@ -127,16 +123,15 @@ private struct WorkoutRow: View {
         HStack {
             Text(workout.name)
                 .font(.title3)
-                .foregroundStyle(Color.slate12)
             Spacer()
             HStack(spacing: 6) {
                 ForEach(pills, id: \.self) { name in
                     Text(name)
                         .font(.caption)
-                        .foregroundStyle(Color.slate11)
+                        .foregroundStyle(.secondary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
-                        .background(Color.slate3)
+                        .background(.quaternary)
                         .clipShape(Capsule())
                 }
             }

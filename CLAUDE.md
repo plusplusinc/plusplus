@@ -58,10 +58,12 @@ The Simulator validation step in every task should use these tools in sequence: 
 
 > Update this section at the end of every session that changes the codebase.
 
-**Last updated:** 2026-02-19
-**Last known good build:** 2026-02-19 (Xcode 26.2, iPhone 17 Pro / iOS 26.2 Simulator)
+**Last updated:** 2026-02-20
+**Last known good build:** 2026-02-20 (Xcode 26.2, iPhone 17 Pro / iOS 26.2 Simulator)
 
 Chunk 1 complete: data model + workout builder. Users can create workouts, add exercises from a built-in library (27 exercises, 12 equipment items), set weight/reps/duration per exercise, manage set counts, and reorder/delete exercise groups.
+
+Dark mode is the default. Users can toggle appearance (dark/light/system) via a settings tray.
 
 **Targets:**
 - **PlusPlus** — iOS app (deployment target iOS 26.0)
@@ -72,7 +74,9 @@ Chunk 1 complete: data model + workout builder. Users can create workouts, add e
 ```
 project.yml              # XcodeGen project definition
 PlusPlus/                # iOS app target
-  PlusPlusApp.swift      # App entry point, ModelContainer, seed data loading
+  PlusPlusApp.swift      # App entry point, ModelContainer, seed data, appearance
+  Theme/
+    AppAppearance.swift  # Dark/Light/System enum, persisted via @AppStorage
   Models/
     Exercise.swift       # MuscleGroup enum, ExerciseType enum, Exercise @Model
     Equipment.swift      # Equipment @Model
@@ -85,6 +89,7 @@ PlusPlus/                # iOS app target
     WorkoutDetailView.swift   # Workout detail — exercise groups with set/rep/weight inputs
     ExercisePickerView.swift  # Exercise picker with filter sheets (muscle group + equipment)
     ExerciseFilterState.swift # @Observable filter logic (testable, pure)
+    SettingsView.swift        # Settings tray (appearance toggle)
 PlusPlusWatch/           # watchOS app target
   PlusPlusWatchApp.swift
   ContentView.swift
@@ -119,6 +124,10 @@ PlusPlusTests/
 **2026-02-19 — Filter state as @Observable class** — `ExerciseFilterState` is a plain `@Observable` class, not a SwiftData model. Takes an array parameter instead of running queries — keeps filter logic pure and testable without a ModelContainer.
 
 **2026-02-19 — Order management via `order: Int` + reindex helpers** — SwiftData relationships are unordered. Every ordered collection uses an `order: Int` property with `sortedX` computed properties and `reindexX()` methods called after every mutation. Sorted properties filter `isDeleted` objects.
+
+**2026-02-20 — Dark mode default with user toggle** — `@AppStorage("appearance")` defaults to `.dark`. Applied via `.preferredColorScheme()` at app root.
+
+**2026-02-20 — System semantic colors over custom color scales** — Use Apple's semantic colors (`.primary`, `.secondary`, `.label`, `.systemBackground`, etc.) for all UI chrome. They handle dark mode, Increase Contrast accessibility, Liquid Glass (iOS 26), and future OS changes automatically. Use built-in `Color.indigo` for brand accent. Custom color scales (Radix, etc.) fight the platform on iOS.
 
 ---
 
