@@ -11,7 +11,9 @@ struct WorkoutDetailView: View {
     var body: some View {
         List {
             ForEach(workout.sortedGroups) { group in
-                GroupSection(group: group, modelContext: modelContext, workout: workout)
+                if let exercise = group.sortedExercises.first?.exercise {
+                    Text(exercise.name)
+                }
             }
             .onDelete(perform: deleteGroups)
             .onMove(perform: moveGroups)
@@ -48,7 +50,6 @@ struct WorkoutDetailView: View {
                 addExercise(exercise)
             }
         }
-        .scrollDismissesKeyboard(.interactively)
     }
 
     private func addExercise(_ exercise: Exercise) {
@@ -77,90 +78,6 @@ struct WorkoutDetailView: View {
         sorted.move(fromOffsets: source, toOffset: destination)
         for (index, group) in sorted.enumerated() {
             group.order = index
-        }
-    }
-}
-
-// MARK: - Group Section
-
-private struct GroupSection: View {
-    @Bindable var group: ExerciseGroup
-    let modelContext: ModelContext
-    let workout: Workout
-
-    var body: some View {
-        Section {
-            ForEach(group.sortedExercises) { workoutExercise in
-                ExerciseInputRow(workoutExercise: workoutExercise)
-            }
-        } header: {
-            HStack {
-                if group.isSuperset {
-                    Text("Superset")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Stepper("Sets: \(group.sets)", value: $group.sets, in: 1...20)
-                    .font(.caption)
-            }
-        }
-    }
-}
-
-// MARK: - Exercise Input Row
-
-private struct ExerciseInputRow: View {
-    @Bindable var workoutExercise: WorkoutExercise
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(workoutExercise.exercise?.name ?? "Unknown")
-                .font(.headline)
-
-            if workoutExercise.exercise?.exerciseType == .duration {
-                durationInput
-            } else {
-                weightRepsInput
-            }
-        }
-        .padding(.vertical, 4)
-    }
-
-    // TODO: Replace with custom input controls (scroll/stepper)
-    private var weightRepsInput: some View {
-        HStack(spacing: 16) {
-            HStack {
-                Text("lbs")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                TextField("Weight", value: $workoutExercise.weight, format: .number)
-                    .keyboardType(.decimalPad)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 80)
-            }
-            HStack {
-                Text("reps")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                TextField("Reps", value: $workoutExercise.reps, format: .number)
-                    .keyboardType(.numberPad)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 60)
-            }
-        }
-    }
-
-    // TODO: Replace with custom input controls (scroll/stepper)
-    private var durationInput: some View {
-        HStack {
-            Text("seconds")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            TextField("Duration", value: $workoutExercise.durationSeconds, format: .number)
-                .keyboardType(.numberPad)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 80)
         }
     }
 }
