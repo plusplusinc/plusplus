@@ -62,6 +62,16 @@ struct WorkoutMetricTests {
         #expect(repsWheel.count == 100)
     }
 
+    @Test("Rest metric: 15s steps within 15...600, default 90")
+    func restMetric() {
+        #expect(WorkoutMetric.rest.incremented(nil) == 90)
+        #expect(WorkoutMetric.rest.incremented(90) == 105)
+        #expect(WorkoutMetric.rest.decremented(15) == 15)
+        #expect(WorkoutMetric.rest.incremented(600) == 600)
+        #expect(WorkoutMetric.rest.wheelValues.first == 15)
+        #expect(WorkoutMetric.rest.wheelValues.last == 600)
+    }
+
     @Test("Every wheel value formats to a stable label")
     func wheelValueFormatting() {
         let hasEmptyLabel = WorkoutMetric.weight.wheelValues

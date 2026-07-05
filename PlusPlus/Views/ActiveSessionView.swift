@@ -84,7 +84,7 @@ struct ActiveSessionView: View {
     private func completeCurrentSet(_ log: SetLog) {
         log.completedAt = Date()
         if session.nextPendingLog != nil {
-            restEndDate = Date().addingTimeInterval(90)
+            restEndDate = Date().addingTimeInterval(TimeInterval(session.restSeconds))
         } else {
             finishSession(dismissAfter: false)
         }

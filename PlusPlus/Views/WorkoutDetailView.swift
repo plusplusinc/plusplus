@@ -24,6 +24,12 @@ struct WorkoutDetailView: View {
                     }
                 )
             }
+
+            if !workout.groups.isEmpty {
+                Section("Between Sets") {
+                    MetricRow(metric: .rest, value: restBinding)
+                }
+            }
         }
         .navigationTitle(workout.name)
         .overlay {
@@ -70,6 +76,15 @@ struct WorkoutDetailView: View {
         .fullScreenCover(item: $activeSession) { session in
             ActiveSessionView(session: session)
         }
+    }
+
+    /// Bridges the non-optional stored rest setting to MetricRow's optional
+    /// interface; a cleared value falls back to the metric default.
+    private var restBinding: Binding<Double?> {
+        Binding(
+            get: { Double(workout.restSeconds) },
+            set: { workout.restSeconds = Int(($0 ?? WorkoutMetric.rest.defaultValue).rounded()) }
+        )
     }
 
     private func addExercise(_ exercise: Exercise, to destination: PickerDestination) {

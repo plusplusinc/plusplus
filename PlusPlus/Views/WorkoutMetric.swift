@@ -9,12 +9,14 @@ enum WorkoutMetric {
     case weight
     case reps
     case duration
+    case rest
 
     var label: String {
         switch self {
         case .weight: "Weight"
         case .reps: "Reps"
         case .duration: "Duration"
+        case .rest: "Rest"
         }
     }
 
@@ -23,6 +25,7 @@ enum WorkoutMetric {
         case .weight: "lb"
         case .reps: "reps"
         case .duration: "sec"
+        case .rest: "sec"
         }
     }
 
@@ -32,6 +35,7 @@ enum WorkoutMetric {
         case .weight: 5
         case .reps: 1
         case .duration: 15
+        case .rest: 15
         }
     }
 
@@ -42,6 +46,7 @@ enum WorkoutMetric {
         case .weight: 2.5
         case .reps: 1
         case .duration: 5
+        case .rest: 15
         }
     }
 
@@ -50,6 +55,7 @@ enum WorkoutMetric {
         case .weight: 0...1000
         case .reps: 1...100
         case .duration: 5...900
+        case .rest: 15...600
         }
     }
 
@@ -59,6 +65,7 @@ enum WorkoutMetric {
         case .weight: 45
         case .reps: 10
         case .duration: 30
+        case .rest: 90
         }
     }
 

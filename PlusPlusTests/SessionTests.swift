@@ -122,6 +122,20 @@ struct SessionTests {
         #expect(session.nextPendingLog == nil)
     }
 
+    @Test("Session snapshots the workout's rest setting")
+    func restSnapshot() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let workout = makePTWorkout(context: context)
+        workout.restSeconds = 45
+
+        let session = WorkoutSession.start(from: workout, context: context)
+        #expect(session.restSeconds == 45)
+
+        workout.restSeconds = 120
+        #expect(session.restSeconds == 45, "Later template edits must not change the running session")
+    }
+
     @Test("Finishing stamps endedAt and duration")
     func finishing() throws {
         let container = try makeContainer()
