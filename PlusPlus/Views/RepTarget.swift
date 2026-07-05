@@ -1,0 +1,50 @@
+import Foundation
+
+/// A planned rep target: a single value ("10") or a range ("15–20"), as PT
+/// and hypertrophy prescriptions are usually written. Pure value logic,
+/// SwiftUI-free and unit tested; `WorkoutExercise` stores it as the
+/// `reps`/`repsUpper` pair.
+struct RepTarget: Equatable {
+    let lower: Int?
+    /// Set only when this is a real range (upper > lower).
+    let upper: Int?
+
+    static let allowedReps = 1...100
+    static let defaultReps = 10
+
+    init(lower: Int?, upper: Int? = nil) {
+        guard let lower else {
+            self.lower = nil
+            self.upper = nil
+            return
+        }
+        let clampedLower = min(max(lower, Self.allowedReps.lowerBound), Self.allowedReps.upperBound)
+        self.lower = clampedLower
+        if let upper, upper > clampedLower {
+            self.upper = min(upper, Self.allowedReps.upperBound)
+        } else {
+            self.upper = nil
+        }
+    }
+
+    var isRange: Bool { upper != nil }
+
+    /// "—" when unset, "10" for a single target, "15–20" for a range.
+    var display: String {
+        guard let lower else { return "—" }
+        guard let upper else { return "\(lower)" }
+        return "\(lower)–\(upper)"
+    }
+
+    /// Stepping shifts the whole range ("15–20" → "16–21") so the span the
+    /// prescription asked for is preserved. From empty, lands on the default.
+    func incremented() -> RepTarget {
+        guard let lower else { return RepTarget(lower: Self.defaultReps) }
+        return RepTarget(lower: lower + 1, upper: upper.map { $0 + 1 })
+    }
+
+    func decremented() -> RepTarget {
+        guard let lower else { return RepTarget(lower: Self.defaultReps) }
+        return RepTarget(lower: lower - 1, upper: upper.map { $0 - 1 })
+    }
+}

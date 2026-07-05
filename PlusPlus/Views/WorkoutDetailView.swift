@@ -167,7 +167,7 @@ private struct ExerciseInputRow: View {
                 MetricRow(metric: .duration, value: intMetricBinding($workoutExercise.durationSeconds))
             } else {
                 MetricRow(metric: .weight, value: $workoutExercise.weight)
-                MetricRow(metric: .reps, value: intMetricBinding($workoutExercise.reps))
+                RepTargetRow(lower: $workoutExercise.reps, upper: $workoutExercise.repsUpper)
             }
         }
         .padding(.vertical, 4)
