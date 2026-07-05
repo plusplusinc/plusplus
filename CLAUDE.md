@@ -61,20 +61,16 @@ The Simulator validation step in every task should use these tools in sequence: 
 **Last updated:** 2026-07-05
 **Last known good build:** 2026-02-20 (Xcode 26.2, iPhone 17 Pro / iOS 26.2 Simulator)
 
-⚠️ **Needs Mac validation:** The 2026-07-05 session ran in a remote Linux environment (no Xcode available). The workout detail view rebuild (issue #1) compiles and passes unit tests in CI (see the CI decision below), but interactive Simulator validation (exercise the flows, screenshots) still needs a local Mac session before closing issue #1.
+⚠️ **Needs Mac validation:** The 2026-07-05 sessions ran in a remote Linux environment (no Xcode available). Everything compiles and passes unit tests in CI (see the CI decision below), but none of the 2026-07-05 UI (detail view inputs, custom exercise editor, supersets, execution flow, history) has had interactive Simulator validation. First Mac session: walk the full flow — build a workout with a superset and rep ranges, create a custom exercise with notes/video, run the workout (rest timer, backgrounding), check history — then close issue #1.
 
-**Work tracking:** The v1 backlog lives in GitHub issues #1–#6 on `mrdavidjcole/plusplus`, feeding the user's GitHub Project board via its auto-add workflow. Reference issue numbers in commits and close issues only after validation.
+**Work tracking:** The v1 backlog lives in GitHub issues on `mrdavidjcole/plusplus`, feeding the user's GitHub Project board via its auto-add workflow. Changes land via PRs (self-merged once CI is green) with `Closes #N` linking; issues close on merge except where validation is explicitly pending (#1).
 
-Chunk 1 complete: data model + workout builder. Users can create workouts, add exercises from a built-in library (27 exercises, 12 equipment items), set weight/reps/duration per exercise, manage set counts, and reorder/delete exercise groups.
-
-The workout detail view was stripped to a flat exercise-name list in `1d5930e` (Feb 28) and rebuilt on 2026-07-05 with keyboard-free inputs: each weight/reps/duration line is a `MetricRow` — tap the value for a wheel picker (big jumps), use the stepper for fine adjustment. Group management uses swipe-to-delete on exercise rows plus a per-group header menu (Move Up / Move Down / Delete); deleting a group's last exercise removes the group.
-
-Dark mode is the default. Users can toggle appearance (dark/light/system) via a settings tray.
+**What works (as of 2026-07-05):** create workouts; add exercises from the built-in library (27 exercises, 13 equipment items) or create custom exercises (muscle group, equipment, type, notes, video link); keyboard-free weight/reps/duration inputs with rep ranges ("15–20"); supersets (add to group / split out, rotation during execution); run a workout end to end (prefilled set logging, 90s rest timer, finish/discard); browse and delete history with per-set detail. Dark mode default with dark/light/system toggle.
 
 **Targets:**
 - **PlusPlus** — iOS app (deployment target iOS 26.0)
 - **PlusPlusWatch** — watchOS companion app (deployment target watchOS 26.0)
-- **PlusPlusTests** — unit test target (30 tests)
+- **PlusPlusTests** — unit test target (56 tests)
 
 **Project structure:**
 ```
@@ -84,38 +80,50 @@ PlusPlus/                # iOS app target
   Theme/
     AppAppearance.swift  # Dark/Light/System enum, persisted via @AppStorage
   Models/
-    Exercise.swift       # MuscleGroup enum, ExerciseType enum, Exercise @Model
+    Exercise.swift       # MuscleGroup enum, ExerciseType enum, Exercise @Model (incl. notes/videoURL)
     Equipment.swift      # Equipment @Model
-    Workout.swift        # Workout @Model with reindexGroups()
+    Workout.swift        # Workout @Model, reindex + structure mutations (supersets)
     ExerciseGroup.swift  # ExerciseGroup @Model (superset container)
-    WorkoutExercise.swift # WorkoutExercise @Model (join table)
+    WorkoutExercise.swift # WorkoutExercise @Model (join table, reps/repsUpper range)
+    WorkoutSession.swift # WorkoutSession + SetLog @Models, session factory w/ superset rotation
     SeedData.swift       # Built-in exercises/equipment seeder
   Views/
-    WorkoutListView.swift     # Home screen — workout list with create/reorder/delete
-    WorkoutDetailView.swift   # Workout detail — exercise groups with set/rep/weight inputs
-    MetricInput.swift         # WorkoutMetric enum (pure input logic) + MetricRow control
-    ExercisePickerView.swift  # Exercise picker with filter sheets (muscle group + equipment)
+    WorkoutListView.swift     # Home screen — workout list with create/reorder/delete, history entry
+    WorkoutDetailView.swift   # Workout detail — groups, inputs, superset actions, Start Workout
+    MetricInput.swift         # MetricRow + RepTargetRow controls (wheel sheet + stepper)
+    WorkoutMetric.swift       # Pure metric logic (steps, clamps, formatting) — no SwiftUI import
+    RepTarget.swift           # Pure rep-range logic — no SwiftUI import
+    ActiveSessionView.swift   # Execution: set logging, rest countdown, finish/discard
+    HistoryView.swift         # Completed sessions list + per-set session detail
+    ExercisePickerView.swift  # Exercise picker with filter sheets, custom exercise management
+    ExerciseEditorView.swift  # Create/edit custom exercises + ExerciseInfoView (notes/video)
+    ExerciseDraft.swift       # Pure validation/normalization for the editor — no SwiftUI import
     ExerciseFilterState.swift # @Observable filter logic (testable, pure)
     SettingsView.swift        # Settings tray (appearance toggle)
-PlusPlusWatch/           # watchOS app target
+PlusPlusWatch/           # watchOS app target (stub — #6)
   PlusPlusWatchApp.swift
   ContentView.swift
   Assets.xcassets/
 PlusPlusTests/
-  ExerciseFilterTests.swift  # Filter logic tests (9 tests)
-  SeedDataTests.swift        # Seed data integrity tests (7 tests)
-  ReindexTests.swift         # Reindex helper tests (5 tests + 1 placeholder)
-  WorkoutMetricTests.swift   # Metric stepping/clamping/formatting tests (8 tests, 30 total)
+  ExerciseFilterTests.swift  # Filter logic tests (9)
+  SeedDataTests.swift        # Seed data integrity tests (7)
+  ReindexTests.swift         # Reindex helper tests (5 + 1 placeholder)
+  WorkoutMetricTests.swift   # Metric stepping/clamping/formatting (8)
+  RepTargetTests.swift       # Rep range normalization/stepping (7)
+  ExerciseDraftTests.swift   # Custom exercise validation (8)
+  SupersetTests.swift        # Workout structure mutations (5)
+  SessionTests.swift         # Session factory/rotation/snapshots/progress (6) = 56 total
+.github/workflows/ci.yml # macOS CI: xcodegen + xcodebuild test
 .xcodebuildmcp/          # XcodeBuildMCP session config
 ```
 
 `PlusPlus.xcodeproj` is generated by XcodeGen from `project.yml` and is gitignored.
 
 **Known TODOs (tracked as GitHub issues):**
-- #2 Superset creation UI — the data model supports supersets (multiple exercises in one ExerciseGroup), but there's no UI to create them yet. Each exercise currently gets its own group.
-- #3/#4 Workout execution — WorkoutSession data model, then the active session UI (set logging, rest timer).
-- #5 Workout history view.
-- #6 Watch app workout execution (currently a stub target).
+- #1 Interactive Simulator validation of all 2026-07-05 UI (needs a Mac session).
+- #6 Watch app workout execution (currently a stub target). Needs a sync-strategy decision (WatchConnectivity vs. CloudKit) and paired-simulator testing — deliberately left for a Mac session.
+- Rest duration is fixed at 90s (+15s/skip during rest). Make it configurable per workout or per exercise later.
+- Set ranges ("2–3×10") collapse to a single sets number by design; revisit only if it chafes.
 
 ---
 
@@ -147,6 +155,14 @@ PlusPlusTests/
 **2026-07-05 — GitHub Actions macOS CI as the remote-session verification path** — Remote Claude sessions run on Linux: no Xcode, no Simulator, and the sandbox network policy blocks installing a Swift toolchain (download.swift.org and Docker Hub's CDN are unreachable). `.github/workflows/ci.yml` runs `xcodegen generate` + `xcodebuild test` on a `macos-26` runner for pushes to `main` and `claude/**` (plus manual dispatch). This verifies compilation and the unit test suite; it does NOT replace interactive Simulator validation (UI automation + screenshots), which still requires a local Mac session. Note: macOS runner minutes bill at 10x on private repos — keep triggers narrow. A shared `PlusPlus` scheme is defined in `project.yml` because `xcodebuild test` requires one.
 
 **2026-07-05 — PT program as v1 acceptance scenario** — The user's shoulder-PT prescription (band work, external rotations, rep ranges like 3×15–20, form notes, a reference video link) is the concrete bar for v1: issues #7 (custom exercises + notes/video) and #8 (rep/set ranges) exist because the current model can't represent it.
+
+**2026-07-05 — Sessions snapshot, never reference-only** — `WorkoutSession`/`SetLog` copy the workout name, exercise name/type, and targets at start time; the `workout`/`exercise` references are conveniences that may go stale. History must survive template edits and deletions. Tested explicitly.
+
+**2026-07-05 — Superset execution order is strict rotation** — A group with exercises [A, B] and 3 sets expands to A1 B1 A2 B2 A3 B3 at session start (one flat, pre-ordered SetLog list). The execution UI just walks `nextPendingLog`; it holds no ordering logic of its own.
+
+**2026-07-05 — Rest timer is date-based, not tick-based** — The countdown stores an end `Date` and renders via `TimelineView`; backgrounding or suspension can't drift it. Fixed 90s default with +15s/skip for v1.
+
+**2026-07-05 — Rep ranges shift, sets stay scalar** — `reps`/`repsUpper` express "15–20"; the stepper shifts the whole range to preserve the prescribed span. Set ranges ("2–3×10") deliberately collapse to one number — the range's meaning ("stop when cooked") lives with the user, not the model.
 
 ---
 
