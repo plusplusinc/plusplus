@@ -27,13 +27,14 @@ public enum InterchangeCodec {
         try encoder().encode(value)
     }
 
+    private struct VersionProbe: Decodable {
+        let schemaVersion: Int?
+    }
+
     /// Decodes after checking the document's declared schema version, so a
     /// v1 reader fails loudly (not with a field-level decoding error) on a
     /// future-versioned file.
     public static func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
-        struct VersionProbe: Decodable {
-            let schemaVersion: Int?
-        }
         guard let probe = try? decoder().decode(VersionProbe.self, from: data) else {
             throw CodecError.notAnInterchangeDocument
         }
