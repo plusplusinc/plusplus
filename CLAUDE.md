@@ -61,7 +61,7 @@ The Simulator validation step in every task should use these tools in sequence: 
 **Last updated:** 2026-07-05
 **Last known good build:** 2026-02-20 (Xcode 26.2, iPhone 17 Pro / iOS 26.2 Simulator)
 
-⚠️ **Needs Mac validation:** The 2026-07-05 session ran in a remote Linux environment (no Xcode available), so the workout detail view rebuild (issue #1) was written and pushed but NOT built, tested, or Simulator-validated. First session on a Mac: `xcodegen generate`, build, run the test suite (30 tests expected), and Simulator-validate the detail view flow end-to-end before closing issue #1.
+⚠️ **Needs Mac validation:** The 2026-07-05 session ran in a remote Linux environment (no Xcode available). The workout detail view rebuild (issue #1) compiles and passes unit tests in CI (see the CI decision below), but interactive Simulator validation (exercise the flows, screenshots) still needs a local Mac session before closing issue #1.
 
 **Work tracking:** The v1 backlog lives in GitHub issues #1–#6 on `mrdavidjcole/plusplus`, feeding the user's GitHub Project board via its auto-add workflow. Reference issue numbers in commits and close issues only after validation.
 
@@ -143,6 +143,10 @@ PlusPlusTests/
 **2026-07-05 — Group actions via header menu, not EditButton** — With exercises as rows inside per-group Sections, `onMove`/`onDelete` on a ForEach of Sections doesn't produce usable edit controls. Groups are reordered/deleted via an ellipsis menu in each section header (Move Up / Move Down / Delete); individual exercises use swipe-to-delete, and deleting a group's last exercise deletes the group.
 
 **2026-07-05 — Work tracked as GitHub issues, board synced via auto-add** — Remote Claude sessions can create/close issues but cannot touch the GitHub Projects board directly (no Projects v2 API in the toolset). The project board's "Auto-add to project" workflow ingests repo issues automatically; issue state drives board state.
+
+**2026-07-05 — GitHub Actions macOS CI as the remote-session verification path** — Remote Claude sessions run on Linux: no Xcode, no Simulator, and the sandbox network policy blocks installing a Swift toolchain (download.swift.org and Docker Hub's CDN are unreachable). `.github/workflows/ci.yml` runs `xcodegen generate` + `xcodebuild test` on a `macos-26` runner for pushes to `main` and `claude/**` (plus manual dispatch). This verifies compilation and the unit test suite; it does NOT replace interactive Simulator validation (UI automation + screenshots), which still requires a local Mac session. Note: macOS runner minutes bill at 10x on private repos — keep triggers narrow. A shared `PlusPlus` scheme is defined in `project.yml` because `xcodebuild test` requires one.
+
+**2026-07-05 — PT program as v1 acceptance scenario** — The user's shoulder-PT prescription (band work, external rotations, rep ranges like 3×15–20, form notes, a reference video link) is the concrete bar for v1: issues #7 (custom exercises + notes/video) and #8 (rep/set ranges) exist because the current model can't represent it.
 
 ---
 
