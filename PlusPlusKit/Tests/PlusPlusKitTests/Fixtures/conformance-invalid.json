@@ -1,0 +1,38 @@
+{
+  "exercises" : [
+    {
+      "equipment" : [],
+      "exerciseType" : "weightReps",
+      "isBuiltIn" : false,
+      "muscleGroup" : "biceps",
+      "name" : "Curl"
+    },
+    {
+      "equipment" : [],
+      "exerciseType" : "weightReps",
+      "isBuiltIn" : false,
+      "muscleGroup" : "biceps",
+      "name" : "curl"
+    }
+  ],
+  "schemaVersion" : 1,
+  "sessions" : [],
+  "workouts" : [
+    {
+      "groups" : [
+        {
+          "exercises" : [
+            {
+              "exercise" : "Ghost Exercise",
+              "reps" : 20,
+              "repsUpper" : 15
+            }
+          ],
+          "sets" : 0
+        }
+      ],
+      "name" : "Arms",
+      "restSeconds" : 5
+    }
+  ]
+}

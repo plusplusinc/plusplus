@@ -1,0 +1,81 @@
+{
+  "exercises" : [
+    {
+      "equipment" : [
+        "Resistance Band"
+      ],
+      "exerciseType" : "weightReps",
+      "isBuiltIn" : false,
+      "muscleGroup" : "shoulders",
+      "name" : "Band Pulses",
+      "notes" : "Elbows bent, shoulder flexed to 90 degrees.",
+      "videoURL" : "https://youtu.be/ykZHbcGNfII"
+    },
+    {
+      "equipment" : [],
+      "exerciseType" : "duration",
+      "isBuiltIn" : false,
+      "muscleGroup" : "core",
+      "name" : "Plank Hold"
+    }
+  ],
+  "schemaVersion" : 1,
+  "sessions" : [
+    {
+      "endedAt" : "2026-07-05T15:04:11Z",
+      "restSeconds" : 60,
+      "sets" : [
+        {
+          "actualReps" : 18,
+          "completedAt" : "2026-07-05T14:33:20Z",
+          "exerciseName" : "Band Pulses",
+          "exerciseType" : "weightReps",
+          "groupIndex" : 0,
+          "order" : 0,
+          "setNumber" : 1,
+          "targetRepsLower" : 15,
+          "targetRepsUpper" : 20
+        },
+        {
+          "actualDuration" : 60,
+          "completedAt" : "2026-07-05T14:36:05Z",
+          "exerciseName" : "Plank Hold",
+          "exerciseType" : "duration",
+          "groupIndex" : 1,
+          "order" : 1,
+          "setNumber" : 1,
+          "targetDuration" : 60
+        }
+      ],
+      "startedAt" : "2026-07-05T14:31:00Z",
+      "workoutName" : "Shoulder PT"
+    }
+  ],
+  "workouts" : [
+    {
+      "groups" : [
+        {
+          "exercises" : [
+            {
+              "exercise" : "Band Pulses",
+              "reps" : 15,
+              "repsUpper" : 20
+            }
+          ],
+          "sets" : 3
+        },
+        {
+          "exercises" : [
+            {
+              "durationSeconds" : 60,
+              "exercise" : "Plank Hold"
+            }
+          ],
+          "sets" : 2
+        }
+      ],
+      "name" : "Shoulder PT",
+      "restSeconds" : 60
+    }
+  ]
+}

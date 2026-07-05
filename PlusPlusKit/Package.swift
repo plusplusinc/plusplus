@@ -15,6 +15,10 @@ let package = Package(
     ],
     targets: [
         .target(name: "PlusPlusKit"),
-        .testTarget(name: "PlusPlusKitTests", dependencies: ["PlusPlusKit"]),
+        .testTarget(
+            name: "PlusPlusKitTests",
+            dependencies: ["PlusPlusKit"],
+            resources: [.copy("Fixtures")]
+        ),
     ]
 )

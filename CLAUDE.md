@@ -84,6 +84,9 @@ PlusPlusKit/             # Pure SwiftPM package (Linux-tested in CI)
   Sources/PlusPlusKit/   # MuscleGroup/ExerciseType, WorkoutMetric, RepTarget,
                          #   Interchange DTOs + deterministic codec + validator + Slug
   Tests/PlusPlusKitTests/ # Metric/RepTarget/Interchange tests (17)
+PlusPlusCLI/             # plusplus CLI (SwiftPM exec, Linux-tested in CI)
+  Sources/plusplus/      # lint/stats/import/export over the repo layout
+  Tests/PlusPlusCLITests/
 PlusPlus/                # iOS app target
   PlusPlusApp.swift      # App entry point, ModelContainer, seed data, appearance
   Theme/
@@ -178,6 +181,8 @@ PlusPlusUITests/
 **2026-07-05 — Watch sync will be WatchConnectivity, not CloudKit (planned)** — Full plan lives in issue #6 comments: Codable plan/result payloads (`updateApplicationContext` for template pushes, `transferUserInfo` for finished sessions), no SwiftData on the wrist for v1, HKWorkoutSession for runtime. CloudKit rejected for v1: iCloud dependency, opaque debugging, network-at-the-gym requirement.
 
 **2026-07-05 — Developer platform: repo-as-backend, format-as-contract (see docs/PLATFORM.md)** — First niche is developers; training data lives as versioned JSON, eventually synced to a private GitHub repo the user owns (GitHub App + device flow, no PlusPlus server). The interchange format (schema v1, deterministic serialization for clean diffs) is the API contract for app export/import, repo sync, the CLI, and agents. Phases tracked in issues #20–#25.
+
+**2026-07-05 — CLI is Swift, shells out to git, never authenticates** — Swift over Go because the contract (deterministic codec, validator) already lives tested in PlusPlusKit; a second implementation would drift byte-level. Conformance fixtures in PlusPlusKitTests/Fixtures are the language-neutral spec for future ports. The CLI operates on a clone; git is transport and auth; the app (#23) is the only surface with GitHub auth.
 
 **2026-07-05 — PlusPlusKit package holds everything platform-pure** — MuscleGroup/ExerciseType, WorkoutMetric, RepTarget, and the interchange DTOs/codec/validator live in a local SwiftPM package with no SwiftUI/SwiftData. The `kit-test` CI job runs its tests on Linux (1x minutes); if it fails, someone leaked an Apple-only dependency into the shared core. SwiftData models, mapping (InterchangeMapping), and views stay in the app.
 
