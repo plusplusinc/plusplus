@@ -1,31 +1,6 @@
 import Foundation
 import SwiftData
-
-enum MuscleGroup: String, Codable, CaseIterable, Identifiable {
-    case chest, back, shoulders, biceps, triceps
-    case quads, hamstrings, glutes, calves, core
-    case fullBody
-
-    var id: Self { self }
-
-    var displayName: String {
-        switch self {
-        case .fullBody: "Full Body"
-        default: rawValue.capitalized
-        }
-    }
-
-    static let grouped: [(region: String, groups: [MuscleGroup])] = [
-        ("Upper Body", [.chest, .back, .shoulders, .biceps, .triceps]),
-        ("Lower Body", [.quads, .hamstrings, .glutes, .calves]),
-        ("Other", [.core, .fullBody]),
-    ]
-}
-
-enum ExerciseType: String, Codable {
-    case weightReps
-    case duration
-}
+import PlusPlusKit
 
 @Model
 final class Exercise {

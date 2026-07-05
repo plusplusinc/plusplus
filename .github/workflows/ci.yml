@@ -67,6 +67,18 @@ jobs:
           path: xcodebuild.log
           if-no-files-found: ignore
 
+  # PlusPlusKit is platform-pure by design (docs/PLATFORM.md); its tests run
+  # on Linux at 1x minutes, and this job failing means someone leaked an
+  # Apple-only dependency into the shared core.
+  kit-test:
+    runs-on: ubuntu-latest
+    container: swift:latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run PlusPlusKit tests
+        run: swift test --package-path PlusPlusKit
+
   # UI smoke tests + screenshots. Slower and more minute-hungry than the
   # unit job, so gated to manual dispatch and pushes to main.
   ui-test:

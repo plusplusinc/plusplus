@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import PlusPlusKit
 
 /// Editable state for creating or editing a custom exercise. Pure logic —
 /// validation and normalization live here, SwiftUI-free, so they're unit

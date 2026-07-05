@@ -1,5 +1,5 @@
 import Testing
-@testable import PlusPlus
+import PlusPlusKit
 
 @Suite("RepTarget")
 struct RepTargetTests {

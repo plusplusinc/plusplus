@@ -1,5 +1,6 @@
 import Testing
 import SwiftData
+import PlusPlusKit
 @testable import PlusPlus
 
 @Suite("Reindex")
