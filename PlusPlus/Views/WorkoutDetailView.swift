@@ -46,6 +46,7 @@ struct WorkoutDetailView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(.indigo)
+                    .accessibilityIdentifier("startWorkoutButton")
                 }
 
                 Button {
@@ -56,6 +57,7 @@ struct WorkoutDetailView: View {
                 }
                 .buttonStyle(.bordered)
                 .tint(.indigo)
+                .accessibilityIdentifier("addExerciseButton")
             }
             .padding()
             .background(.bar)
@@ -144,6 +146,7 @@ private struct GroupSection: View {
             .onDelete(perform: onDeleteExercises)
 
             Stepper("Sets: \(group.sets)", value: $group.sets, in: 1...20)
+                .accessibilityIdentifier("setsStepper")
         } header: {
             HStack {
                 if group.isSuperset {
@@ -171,6 +174,7 @@ private struct GroupSection: View {
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
+                .accessibilityIdentifier("groupMenu")
             }
         }
     }

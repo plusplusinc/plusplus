@@ -15,6 +15,15 @@ schemes:
       targets:
         - PlusPlusTests
 
+  PlusPlusUI:
+    build:
+      targets:
+        PlusPlus: all
+    test:
+      gatherCoverageData: false
+      targets:
+        - PlusPlusUITests
+
 targets:
   PlusPlus:
     type: application
@@ -42,6 +51,19 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.davidcole.plusplus.tests
         GENERATE_INFOPLIST_FILE: YES
+
+  PlusPlusUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - PlusPlusUITests
+    dependencies:
+      - target: PlusPlus
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.davidcole.plusplus.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: PlusPlus
 
   PlusPlusWatch:
     type: application

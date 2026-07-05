@@ -66,3 +66,78 @@ jobs:
           name: xcodebuild-log
           path: xcodebuild.log
           if-no-files-found: ignore
+
+  # UI smoke tests + screenshots. Slower and more minute-hungry than the
+  # unit job, so gated to manual dispatch and pushes to main.
+  ui-test:
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select newest Xcode 26
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$XCODE" ]; then
+            echo "No Xcode 26 found; available:" && ls -d /Applications/Xcode*.app
+            exit 1
+          fi
+          echo "Using $XCODE"
+          sudo xcode-select -s "$XCODE"
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate project
+        run: xcodegen generate
+
+      - name: Pick a simulator
+        id: sim
+        run: |
+          DEVICE=$(xcrun simctl list devices available --json | python3 -c "
+          import sys, json
+          devices = json.load(sys.stdin)['devices']
+          iphones = [d['name'] for runtime, devs in devices.items()
+                     if 'iOS' in runtime for d in devs
+                     if d['name'].startswith('iPhone')]
+          print(sorted(iphones)[-1])
+          ")
+          echo "Using simulator: $DEVICE"
+          echo "device=$DEVICE" >> "$GITHUB_OUTPUT"
+
+      - name: Run UI smoke tests
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project PlusPlus.xcodeproj \
+            -scheme PlusPlusUI \
+            -destination "platform=iOS Simulator,name=${{ steps.sim.outputs.device }}" \
+            -resultBundlePath UITestResults.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee ui-xcodebuild.log
+
+      - name: Export screenshots
+        if: always()
+        run: |
+          if [ -d UITestResults.xcresult ]; then
+            xcrun xcresulttool export attachments \
+              --path UITestResults.xcresult \
+              --output-path screenshots || echo "attachment export failed"
+          fi
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-screenshots
+          path: screenshots
+          if-no-files-found: ignore
+
+      - name: Upload UI test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-xcodebuild-log
+          path: ui-xcodebuild.log
+          if-no-files-found: ignore

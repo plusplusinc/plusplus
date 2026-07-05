@@ -29,6 +29,7 @@ struct ActiveSessionView: View {
                     Button("Exit", systemImage: "xmark") {
                         showingExitDialog = true
                     }
+                    .accessibilityIdentifier("exitSessionButton")
                 }
             }
             .confirmationDialog("End this workout?", isPresented: $showingExitDialog, titleVisibility: .visible) {
@@ -112,6 +113,7 @@ struct ActiveSessionView: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(.indigo)
+            .accessibilityIdentifier("sessionDoneButton")
             .padding(.top)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -166,6 +168,7 @@ private struct SetLoggingView: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(.indigo)
+            .accessibilityIdentifier("completeSetButton")
             .padding()
             .background(.bar)
         }
@@ -235,6 +238,7 @@ private struct RestView: View {
                 Button("Skip Rest", action: onSkip)
                     .buttonStyle(.borderedProminent)
                     .tint(.indigo)
+                    .accessibilityIdentifier("skipRestButton")
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

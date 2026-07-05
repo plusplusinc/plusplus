@@ -8,7 +8,10 @@ struct PlusPlusApp: App {
 
     init() {
         let schema = Schema([Workout.self, Exercise.self, Equipment.self, WorkoutSession.self, SetLog.self])
-        let config = ModelConfiguration(isStoredInMemoryOnly: false)
+        // UI tests pass --uitest-reset so every launch starts from a clean,
+        // throwaway store (seed data still loads).
+        let inMemory = CommandLine.arguments.contains("--uitest-reset")
+        let config = ModelConfiguration(isStoredInMemoryOnly: inMemory)
         do {
             modelContainer = try ModelContainer(for: schema, configurations: [config])
         } catch {
