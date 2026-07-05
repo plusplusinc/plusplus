@@ -28,7 +28,7 @@ enum SeedData {
             "Barbell", "Squat Rack", "Bench", "Dumbbells",
             "Cable Machine", "Leg Press Machine", "Lat Pulldown Machine",
             "Leg Extension Machine", "Leg Curl Machine", "Calf Raise Machine",
-            "Kettlebell", "Resistance Band",
+            "Kettlebell", "Resistance Band", "Pull-Up Bar",
         ].map { Equipment(name: $0, isBuiltIn: true) }
     }
 
@@ -61,7 +61,7 @@ enum SeedData {
 
             // Back
             e("Barbell Row", .back, ["Barbell"]),
-            e("Pull-Up", .back, []),
+            e("Pull-Up", .back, ["Pull-Up Bar"]),
             e("Lat Pulldown", .back, ["Lat Pulldown Machine"]),
             e("Cable Row", .back, ["Cable Machine"]),
 

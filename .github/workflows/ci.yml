@@ -1,0 +1,68 @@
+# CI on GitHub's macOS runners — the substitute for local Simulator
+# validation when development happens in remote (Linux) Claude sessions.
+# Note: macOS runner minutes bill at 10x on private repos; triggers are
+# kept narrow on purpose.
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - "claude/**"
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select newest Xcode 26
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$XCODE" ]; then
+            echo "No Xcode 26 found; available:" && ls -d /Applications/Xcode*.app
+            exit 1
+          fi
+          echo "Using $XCODE"
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate project
+        run: xcodegen generate
+
+      - name: Pick a simulator
+        id: sim
+        run: |
+          DEVICE=$(xcrun simctl list devices available --json | python3 -c "
+          import sys, json
+          devices = json.load(sys.stdin)['devices']
+          iphones = [d['name'] for runtime, devs in devices.items()
+                     if 'iOS' in runtime for d in devs
+                     if d['name'].startswith('iPhone')]
+          print(sorted(iphones)[-1])
+          ")
+          echo "Using simulator: $DEVICE"
+          echo "device=$DEVICE" >> "$GITHUB_OUTPUT"
+
+      - name: Build and test
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project PlusPlus.xcodeproj \
+            -scheme PlusPlus \
+            -destination "platform=iOS Simulator,name=${{ steps.sim.outputs.device }}" \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee xcodebuild.log
+
+      - name: Upload full build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: xcodebuild.log
+          if-no-files-found: ignore

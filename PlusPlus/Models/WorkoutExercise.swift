@@ -8,6 +8,9 @@ final class WorkoutExercise {
     var order: Int
     var weight: Double?
     var reps: Int?
+    /// Upper bound of a target rep range (e.g. 20 in "15–20"). nil means
+    /// `reps` is a single target. Only meaningful when `reps` is set.
+    var repsUpper: Int?
     var durationSeconds: Int?
 
     init(exercise: Exercise, order: Int = 0) {

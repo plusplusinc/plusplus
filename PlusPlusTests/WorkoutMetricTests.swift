@@ -1,0 +1,72 @@
+import Testing
+@testable import PlusPlus
+
+@Suite("WorkoutMetric")
+struct WorkoutMetricTests {
+    @Test("Incrementing nil lands on the metric's default value")
+    func incrementFromNil() {
+        #expect(WorkoutMetric.weight.incremented(nil) == 45)
+        #expect(WorkoutMetric.reps.incremented(nil) == 10)
+        #expect(WorkoutMetric.duration.incremented(nil) == 30)
+    }
+
+    @Test("Decrementing nil also lands on the default value")
+    func decrementFromNil() {
+        #expect(WorkoutMetric.weight.decremented(nil) == 45)
+        #expect(WorkoutMetric.reps.decremented(nil) == 10)
+        #expect(WorkoutMetric.duration.decremented(nil) == 30)
+    }
+
+    @Test("Increment applies the metric's step")
+    func incrementStep() {
+        #expect(WorkoutMetric.weight.incremented(135) == 140)
+        #expect(WorkoutMetric.reps.incremented(10) == 11)
+        #expect(WorkoutMetric.duration.incremented(30) == 45)
+    }
+
+    @Test("Values clamp at the range bounds")
+    func clamping() {
+        #expect(WorkoutMetric.weight.decremented(0) == 0)
+        #expect(WorkoutMetric.reps.decremented(1) == 1)
+        #expect(WorkoutMetric.weight.incremented(1000) == 1000)
+        #expect(WorkoutMetric.duration.decremented(5) == 5)
+    }
+
+    @Test("Formatting drops trailing .0 and keeps real fractions")
+    func formatting() {
+        #expect(WorkoutMetric.weight.formatted(nil) == "—")
+        #expect(WorkoutMetric.weight.formatted(135) == "135")
+        #expect(WorkoutMetric.weight.formatted(137.5) == "137.5")
+        #expect(WorkoutMetric.reps.formatted(8) == "8")
+    }
+
+    @Test("Nearest wheel value snaps to the wheel step")
+    func nearestWheelValue() {
+        #expect(WorkoutMetric.weight.nearestWheelValue(to: nil) == 45)
+        #expect(WorkoutMetric.weight.nearestWheelValue(to: 137.4) == 137.5)
+        #expect(WorkoutMetric.weight.nearestWheelValue(to: 136) == 135)
+        #expect(WorkoutMetric.weight.nearestWheelValue(to: -20) == 0)
+        #expect(WorkoutMetric.weight.nearestWheelValue(to: 5000) == 1000)
+    }
+
+    @Test("Wheel values span the full range at wheel-step granularity")
+    func wheelValues() {
+        let weightWheel = WorkoutMetric.weight.wheelValues
+        #expect(weightWheel.first == 0)
+        #expect(weightWheel.last == 1000)
+        #expect(weightWheel.contains(2.5))
+
+        let repsWheel = WorkoutMetric.reps.wheelValues
+        #expect(repsWheel.first == 1)
+        #expect(repsWheel.last == 100)
+        #expect(repsWheel.count == 100)
+    }
+
+    @Test("Every wheel value formats to a stable label")
+    func wheelValueFormatting() {
+        let hasEmptyLabel = WorkoutMetric.weight.wheelValues
+            .map { WorkoutMetric.weight.formatted($0) }
+            .contains("")
+        #expect(!hasEmptyLabel)
+    }
+}
