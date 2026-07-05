@@ -7,6 +7,9 @@ import PackageDescription
 // CI job), because the CLI and MCP server depend on it running anywhere.
 let package = Package(
     name: "PlusPlusKit",
+    // Floors for Apple builds (the app targets iOS 26 anyway); no effect on
+    // Linux. Needed because the codec uses .withoutEscapingSlashes (iOS 13+).
+    platforms: [.iOS(.v17), .macOS(.v13)],
     products: [
         .library(name: "PlusPlusKit", targets: ["PlusPlusKit"])
     ],

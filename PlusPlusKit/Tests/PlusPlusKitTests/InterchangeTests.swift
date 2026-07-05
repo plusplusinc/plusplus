@@ -78,7 +78,8 @@ struct InterchangeTests {
     func encodingShape() throws {
         let data = try InterchangeCodec.encode(makePTBundle())
         let text = String(decoding: data, as: UTF8.self)
-        #expect(text.contains("\"startedAt\" : \"2025-07-05T13:31:00Z\"") || text.contains("\"startedAt\":\"2025-07-05T13:31:00Z\"") || text.contains("2025-07-05T13:31:00Z"))
+        let expectedDate = ISO8601DateFormatter().string(from: Date(timeIntervalSince1970: 1_751_724_660))
+        #expect(text.contains(expectedDate))
         // sortedKeys puts "exercises" before "schemaVersion" before "sessions"
         let exercisesIndex = try #require(text.range(of: "\"exercises\"")).lowerBound
         let schemaIndex = try #require(text.range(of: "\"schemaVersion\"")).lowerBound
