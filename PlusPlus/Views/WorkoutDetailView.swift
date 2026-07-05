@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import PlusPlusKit
 
 struct WorkoutDetailView: View {
     @Environment(\.modelContext) private var modelContext

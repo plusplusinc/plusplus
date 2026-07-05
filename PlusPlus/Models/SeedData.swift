@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import PlusPlusKit
 
 enum SeedData {
     static func loadIfNeeded(context: ModelContext) {

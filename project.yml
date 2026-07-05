@@ -1,4 +1,7 @@
 name: PlusPlus
+packages:
+  PlusPlusKit:
+    path: PlusPlusKit
 options:
   bundleIdPrefix: com.davidcole
   deploymentTarget:
@@ -39,6 +42,7 @@ targets:
         SWIFT_EMIT_LOC_STRINGS: YES
     dependencies:
       - target: PlusPlusWatch
+      - package: PlusPlusKit
 
   PlusPlusTests:
     type: bundle.unit-test
@@ -47,6 +51,7 @@ targets:
       - PlusPlusTests
     dependencies:
       - target: PlusPlus
+      - package: PlusPlusKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.davidcole.plusplus.tests

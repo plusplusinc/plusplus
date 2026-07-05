@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import PlusPlusKit
 
 /// Create or edit a custom exercise. Built-ins are never passed here —
 /// they stay read-only.

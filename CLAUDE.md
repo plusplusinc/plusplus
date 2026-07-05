@@ -72,18 +72,26 @@ The Simulator validation step in every task should use these tools in sequence: 
 **Targets:**
 - **PlusPlus** — iOS app (deployment target iOS 26.0)
 - **PlusPlusWatch** — watchOS companion app (deployment target watchOS 26.0)
-- **PlusPlusTests** — unit test target (64 tests)
+- **PlusPlusKit** — pure SwiftPM package shared with future CLI/MCP (tested on Linux in CI)
+- **PlusPlusTests** — unit test target (53 tests; 25 more live in PlusPlusKit)
 - **PlusPlusUITests** — UI smoke test target (3 flows, `PlusPlusUI` scheme, CI-only by convention)
 
 **Project structure:**
 ```
-project.yml              # XcodeGen project definition
+project.yml              # XcodeGen project definition (registers PlusPlusKit)
+docs/PLATFORM.md         # Developer-platform architecture + owner TODOs
+PlusPlusKit/             # Pure SwiftPM package (Linux-tested in CI)
+  Sources/PlusPlusKit/   # MuscleGroup/ExerciseType, WorkoutMetric, RepTarget,
+                         #   Interchange DTOs + deterministic codec + validator + Slug
+  Tests/PlusPlusKitTests/ # Metric/RepTarget/Interchange tests (17)
 PlusPlus/                # iOS app target
   PlusPlusApp.swift      # App entry point, ModelContainer, seed data, appearance
   Theme/
     AppAppearance.swift  # Dark/Light/System enum, persisted via @AppStorage
+  Interchange/
+    InterchangeMapping.swift # SwiftData models ↔ DTOs, import policies
   Models/
-    Exercise.swift       # MuscleGroup enum, ExerciseType enum, Exercise @Model (incl. notes/videoURL)
+    Exercise.swift       # Exercise @Model (incl. notes/videoURL); enums now in Kit
     Equipment.swift      # Equipment @Model
     Workout.swift        # Workout @Model, reindex + structure mutations (supersets)
     ExerciseGroup.swift  # ExerciseGroup @Model (superset container)
@@ -94,15 +102,13 @@ PlusPlus/                # iOS app target
     WorkoutListView.swift     # Home screen — workout list with create/reorder/delete, history entry
     WorkoutDetailView.swift   # Workout detail — groups, inputs, superset actions, Start Workout
     MetricInput.swift         # MetricRow + RepTargetRow controls (wheel sheet + stepper)
-    WorkoutMetric.swift       # Pure metric logic (steps, clamps, formatting) — no SwiftUI import
-    RepTarget.swift           # Pure rep-range logic — no SwiftUI import
     ActiveSessionView.swift   # Execution: set logging, rest countdown, finish/discard
     HistoryView.swift         # Completed sessions list + per-set session detail
     ExercisePickerView.swift  # Exercise picker with filter sheets, custom exercise management
     ExerciseEditorView.swift  # Create/edit custom exercises + ExerciseInfoView (notes/video)
     ExerciseDraft.swift       # Pure validation/normalization for the editor — no SwiftUI import
     ExerciseFilterState.swift # @Observable filter logic (testable, pure)
-    SettingsView.swift        # Settings tray (appearance toggle)
+    SettingsView.swift        # Settings tray (appearance, data export/import)
 PlusPlusWatch/           # watchOS app target (stub — #6)
   PlusPlusWatchApp.swift
   ContentView.swift
@@ -111,12 +117,11 @@ PlusPlusTests/
   ExerciseFilterTests.swift  # Filter logic tests (9)
   SeedDataTests.swift        # Seed data integrity tests (7)
   ReindexTests.swift         # Reindex helper tests (5 + 1 placeholder)
-  WorkoutMetricTests.swift   # Metric stepping/clamping/formatting (9)
-  RepTargetTests.swift       # Rep range normalization/stepping (7)
   ExerciseDraftTests.swift   # Custom exercise validation (8)
   SupersetTests.swift        # Workout structure mutations (5)
   SessionTests.swift         # Session factory/rotation/snapshots/progress (7)
-  LastPerformanceTests.swift # "Last time" lookup (6) = 64 total
+  LastPerformanceTests.swift # "Last time" lookup (6)
+  InterchangeMappingTests.swift # Export/import round-trip + policies (5) = 53 app + 25 Kit
 PlusPlusUITests/
   SmokeTests.swift           # 3 end-to-end flows w/ screenshot attachments
 .github/workflows/ci.yml # macOS CI: xcodegen + xcodebuild test
@@ -171,6 +176,10 @@ PlusPlusUITests/
 **2026-07-05 — UI smoke tests + screenshot artifacts as the remote validation layer** — With no Mac available for days, XCUITests on the CI simulator exercise the real flows and export screenshots reviewable from any browser. Gated to `workflow_dispatch` + main pushes to control 10x macOS minute billing; dispatch the workflow on a branch (`actions_run_trigger` / the Actions UI) to run them pre-merge. First hands-on Mac session still owns #1.
 
 **2026-07-05 — Watch sync will be WatchConnectivity, not CloudKit (planned)** — Full plan lives in issue #6 comments: Codable plan/result payloads (`updateApplicationContext` for template pushes, `transferUserInfo` for finished sessions), no SwiftData on the wrist for v1, HKWorkoutSession for runtime. CloudKit rejected for v1: iCloud dependency, opaque debugging, network-at-the-gym requirement.
+
+**2026-07-05 — Developer platform: repo-as-backend, format-as-contract (see docs/PLATFORM.md)** — First niche is developers; training data lives as versioned JSON, eventually synced to a private GitHub repo the user owns (GitHub App + device flow, no PlusPlus server). The interchange format (schema v1, deterministic serialization for clean diffs) is the API contract for app export/import, repo sync, the CLI, and agents. Phases tracked in issues #20–#25.
+
+**2026-07-05 — PlusPlusKit package holds everything platform-pure** — MuscleGroup/ExerciseType, WorkoutMetric, RepTarget, and the interchange DTOs/codec/validator live in a local SwiftPM package with no SwiftUI/SwiftData. The `kit-test` CI job runs its tests on Linux (1x minutes); if it fails, someone leaked an Apple-only dependency into the shared core. SwiftData models, mapping (InterchangeMapping), and views stay in the app.
 
 **2026-07-05 — Rep ranges shift, sets stay scalar** — `reps`/`repsUpper` express "15–20"; the stepper shifts the whole range to preserve the prescribed span. Set ranges ("2–3×10") deliberately collapse to one number — the range's meaning ("stop when cooked") lives with the user, not the model.
 
