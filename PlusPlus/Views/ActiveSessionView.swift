@@ -9,6 +9,10 @@ struct ActiveSessionView: View {
     @Environment(\.modelContext) private var modelContext
     @Bindable var session: WorkoutSession
 
+    /// Finished sessions, for "last time" lookups on the set screen.
+    @Query(filter: #Predicate<WorkoutSession> { $0.endedAt != nil })
+    private var finishedSessions: [WorkoutSession]
+
     /// When set and in the future, we're resting until this instant.
     /// Date-based so backgrounding the app keeps the countdown honest.
     @State private var restEndDate: Date?
@@ -70,6 +74,7 @@ struct ActiveSessionView: View {
             } else {
                 SetLoggingView(
                     log: currentLog,
+                    lastTime: WorkoutSession.lastPerformance(matching: currentLog, in: finishedSessions),
                     setPosition: completedSets + 1,
                     totalSets: totalSets,
                     onComplete: { completeCurrentSet(currentLog) }
@@ -124,6 +129,7 @@ struct ActiveSessionView: View {
 
 private struct SetLoggingView: View {
     @Bindable var log: SetLog
+    let lastTime: SetLog?
     let setPosition: Int
     let totalSets: Int
     let onComplete: () -> Void
@@ -140,6 +146,11 @@ private struct SetLoggingView: View {
                     Text(targetDescription)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                    if let lastTime {
+                        Text("Last time: \(lastTime.resultSummary)")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 .padding(.vertical, 4)
                 ProgressView(value: Double(setPosition - 1), total: Double(totalSets))
