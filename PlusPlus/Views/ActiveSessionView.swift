@@ -13,8 +13,10 @@ struct ActiveSessionView: View {
     @Query(filter: #Predicate<WorkoutSession> { $0.endedAt != nil })
     private var finishedSessions: [WorkoutSession]
 
-    /// When set and in the future, we're resting until this instant.
-    /// Date-based so backgrounding the app keeps the countdown honest.
+    /// When set, we're resting until this instant. Date-based so
+    /// backgrounding the app keeps the countdown honest. Only the rest
+    /// screen ticks a clock — the set screen renders statically so taps
+    /// never race a re-render.
     @State private var restEndDate: Date?
     @State private var showingExitDialog = false
 
@@ -23,8 +25,30 @@ struct ActiveSessionView: View {
 
     var body: some View {
         NavigationStack {
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                content(now: context.date)
+            Group {
+                if session.isFinished {
+                    finishedView
+                } else if let currentLog = session.nextPendingLog {
+                    if let restEndDate {
+                        RestView(
+                            endDate: restEndDate,
+                            upNext: currentLog,
+                            onAddTime: { self.restEndDate = restEndDate.addingTimeInterval(15) },
+                            onEnd: { self.restEndDate = nil }
+                        )
+                    } else {
+                        SetLoggingView(
+                            log: currentLog,
+                            lastTime: WorkoutSession.lastPerformance(matching: currentLog, in: finishedSessions),
+                            setPosition: completedSets + 1,
+                            totalSets: totalSets,
+                            onComplete: { completeCurrentSet(currentLog) }
+                        )
+                    }
+                } else {
+                    finishedView
+                        .onAppear { finishSession(dismissAfter: false) }
+                }
             }
             .navigationTitle(session.workoutName)
             .navigationBarTitleDisplayMode(.inline)
@@ -56,34 +80,6 @@ struct ActiveSessionView: View {
             }
         }
         .interactiveDismissDisabled()
-    }
-
-    @ViewBuilder
-    private func content(now: Date) -> some View {
-        if session.isFinished {
-            finishedView
-        } else if let currentLog = session.nextPendingLog {
-            if let restEndDate, restEndDate > now {
-                RestView(
-                    endDate: restEndDate,
-                    now: now,
-                    upNext: currentLog,
-                    onAddTime: { self.restEndDate = restEndDate.addingTimeInterval(15) },
-                    onSkip: { self.restEndDate = nil }
-                )
-            } else {
-                SetLoggingView(
-                    log: currentLog,
-                    lastTime: WorkoutSession.lastPerformance(matching: currentLog, in: finishedSessions),
-                    setPosition: completedSets + 1,
-                    totalSets: totalSets,
-                    onComplete: { completeCurrentSet(currentLog) }
-                )
-            }
-        } else {
-            finishedView
-                .onAppear { finishSession(dismissAfter: false) }
-        }
     }
 
     private func completeCurrentSet(_ log: SetLog) {
@@ -214,48 +210,55 @@ private struct SetLoggingView: View {
 
 // MARK: - Rest
 
+/// The only ticking view in the session: renders the countdown and ends
+/// itself (via `onEnd`) when the clock runs out.
 private struct RestView: View {
     let endDate: Date
-    let now: Date
     let upNext: SetLog
     let onAddTime: () -> Void
-    let onSkip: () -> Void
-
-    private var remaining: Int {
-        max(0, Int(endDate.timeIntervalSince(now).rounded(.up)))
-    }
+    let onEnd: () -> Void
 
     var body: some View {
-        VStack(spacing: 24) {
-            Text("Rest")
-                .font(.title3)
-                .foregroundStyle(.secondary)
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let remaining = max(0, Int(endDate.timeIntervalSince(context.date).rounded(.up)))
 
-            Text(timeString)
-                .font(.system(size: 64, weight: .semibold).monospacedDigit())
-                .contentTransition(.numericText(countsDown: true))
-
-            VStack(spacing: 4) {
-                Text("Up next")
-                    .font(.caption)
+            VStack(spacing: 24) {
+                Text("Rest")
+                    .font(.title3)
                     .foregroundStyle(.secondary)
-                Text("\(upNext.exerciseName) — set \(upNext.setNumber)")
-                    .font(.headline)
-            }
 
-            HStack(spacing: 12) {
-                Button("+15s", action: onAddTime)
-                    .buttonStyle(.bordered)
-                Button("Skip Rest", action: onSkip)
-                    .buttonStyle(.borderedProminent)
-                    .tint(.indigo)
-                    .accessibilityIdentifier("skipRestButton")
+                Text(timeString(remaining))
+                    .font(.system(size: 64, weight: .semibold).monospacedDigit())
+                    .contentTransition(.numericText(countsDown: true))
+
+                VStack(spacing: 4) {
+                    Text("Up next")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("\(upNext.exerciseName) — set \(upNext.setNumber)")
+                        .font(.headline)
+                }
+
+                HStack(spacing: 12) {
+                    Button("+15s", action: onAddTime)
+                        .buttonStyle(.bordered)
+                    Button("Skip Rest", action: onEnd)
+                        .buttonStyle(.borderedProminent)
+                        .tint(.indigo)
+                        .accessibilityIdentifier("skipRestButton")
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onChange(of: remaining) { _, newValue in
+                if newValue <= 0 { onEnd() }
+            }
+            .onAppear {
+                if remaining <= 0 { onEnd() }
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private var timeString: String {
+    private func timeString(_ remaining: Int) -> String {
         let minutes = remaining / 60
         let seconds = remaining % 60
         return String(format: "%d:%02d", minutes, seconds)

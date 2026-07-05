@@ -69,19 +69,14 @@ final class SmokeTests: XCTestCase {
         // 3 sets (default): complete each, skipping the rest countdown.
         for setIndex in 1...3 {
             let complete = app.buttons["completeSetButton"]
-            XCTAssertTrue(complete.waitForExistence(timeout: 5), "Set \(setIndex) screen should appear")
+            XCTAssertTrue(complete.waitForExistence(timeout: 10), "Set \(setIndex) screen should appear")
             if setIndex == 1 {
                 snap("set-logging")
             }
             complete.tap()
 
             if setIndex < 3 {
-                let skip = app.buttons["skipRestButton"]
-                XCTAssertTrue(skip.waitForExistence(timeout: 5), "Rest screen should appear after set \(setIndex)")
-                if setIndex == 1 {
-                    snap("rest-countdown")
-                }
-                skip.tap()
+                skipRest(afterSet: setIndex)
             }
         }
 
@@ -142,5 +137,22 @@ final class SmokeTests: XCTestCase {
         let row = app.cells.staticTexts[name]
         XCTAssertTrue(row.waitForExistence(timeout: 5))
         row.tap()
+    }
+
+    /// Skips the rest countdown, retrying once if the tap landed during a
+    /// view transition (a tap synthesized mid-transition can be dropped).
+    private func skipRest(afterSet setIndex: Int) {
+        let skip = app.buttons["skipRestButton"]
+        XCTAssertTrue(skip.waitForExistence(timeout: 10), "Rest screen should appear after set \(setIndex)")
+        if setIndex == 1 {
+            snap("rest-countdown")
+        }
+        skip.tap()
+
+        let complete = app.buttons["completeSetButton"]
+        if !complete.waitForExistence(timeout: 5) && skip.exists {
+            skip.tap()
+        }
+        XCTAssertTrue(complete.waitForExistence(timeout: 10), "Set \(setIndex + 1) screen should appear after skipping rest")
     }
 }
