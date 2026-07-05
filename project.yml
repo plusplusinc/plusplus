@@ -5,6 +5,16 @@ options:
     iOS: "26.0"
     watchOS: "26.0"
 
+schemes:
+  PlusPlus:
+    build:
+      targets:
+        PlusPlus: all
+    test:
+      gatherCoverageData: false
+      targets:
+        - PlusPlusTests
+
 targets:
   PlusPlus:
     type: application
