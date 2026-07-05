@@ -104,7 +104,7 @@ struct SessionDetailView: View {
                                     .font(.subheadline)
                             }
                             Spacer()
-                            Text(resultText(for: log))
+                            Text(log.resultSummary)
                                 .font(.body.monospacedDigit())
                         }
                     }
@@ -123,20 +123,5 @@ struct SessionDetailView: View {
             names.append(log.exerciseName)
         }
         return names.joined(separator: " + ")
-    }
-
-    private func resultText(for log: SetLog) -> String {
-        if log.exerciseType == .duration {
-            guard let seconds = log.actualDuration else { return "—" }
-            return "\(seconds) sec"
-        }
-        var parts: [String] = []
-        if let reps = log.actualReps {
-            parts.append("\(reps) reps")
-        }
-        if let weight = log.actualWeight, weight > 0 {
-            parts.append("@ \(WorkoutMetric.weight.formatted(weight)) lb")
-        }
-        return parts.isEmpty ? "—" : parts.joined(separator: " ")
     }
 }

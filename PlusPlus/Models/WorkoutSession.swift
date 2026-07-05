@@ -45,6 +45,29 @@ final class WorkoutSession {
         endedAt = date
     }
 
+    /// The most recent completed log for the same exercise as `log` from an
+    /// earlier finished session — what "last time" looked like. Prefers the
+    /// same set number within the newest session that included the exercise;
+    /// falls back to that session's last set of the exercise. Matches by
+    /// exercise identity when both references survive, else by name snapshot.
+    static func lastPerformance(matching log: SetLog, in sessions: [WorkoutSession]) -> SetLog? {
+        let priorSessions = sessions
+            .filter { $0 !== log.session && $0.endedAt != nil }
+            .sorted { ($0.endedAt ?? .distantPast) > ($1.endedAt ?? .distantPast) }
+
+        for session in priorSessions {
+            let matches = session.completedSetLogs.filter { candidate in
+                if let a = candidate.exercise, let b = log.exercise {
+                    return a === b
+                }
+                return candidate.exerciseName == log.exerciseName
+            }
+            guard !matches.isEmpty else { continue }
+            return matches.first { $0.setNumber == log.setNumber } ?? matches.last
+        }
+        return nil
+    }
+
     /// Builds a session from a workout template with one SetLog per
     /// exercise per set, in execution order. Supersets rotate: a group with
     /// exercises [A, B] and 3 sets produces A1 B1 A2 B2 A3 B3.
@@ -136,5 +159,21 @@ final class SetLog {
 
     var targetReps: RepTarget {
         RepTarget(lower: targetRepsLower, upper: targetRepsUpper)
+    }
+
+    /// "10 reps @ 135 lb", "60 sec", or "—" — how this set went.
+    var resultSummary: String {
+        if exerciseType == .duration {
+            guard let seconds = actualDuration else { return "—" }
+            return "\(seconds) sec"
+        }
+        var parts: [String] = []
+        if let reps = actualReps {
+            parts.append("\(reps) reps")
+        }
+        if let weight = actualWeight, weight > 0 {
+            parts.append("@ \(WorkoutMetric.weight.formatted(weight)) lb")
+        }
+        return parts.isEmpty ? "—" : parts.joined(separator: " ")
     }
 }
