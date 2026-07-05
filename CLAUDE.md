@@ -65,12 +65,15 @@ The Simulator validation step in every task should use these tools in sequence: 
 
 **Work tracking:** The v1 backlog lives in GitHub issues on `mrdavidjcole/plusplus`, feeding the user's GitHub Project board via its auto-add workflow. Changes land via PRs (self-merged once CI is green) with `Closes #N` linking; issues close on merge except where validation is explicitly pending (#1).
 
-**What works (as of 2026-07-05):** create workouts; add exercises from the built-in library (27 exercises, 13 equipment items) or create custom exercises (muscle group, equipment, type, notes, video link); keyboard-free weight/reps/duration inputs with rep ranges ("15–20"); supersets (add to group / split out, rotation during execution); run a workout end to end (prefilled set logging, 90s rest timer, finish/discard); browse and delete history with per-set detail. Dark mode default with dark/light/system toggle.
+**What works (as of 2026-07-05):** create workouts; add exercises from the built-in library (27 exercises, 13 equipment items) or create custom exercises (muscle group, equipment, type, notes, video link); keyboard-free weight/reps/duration inputs with rep ranges ("15–20"); supersets (add to group / split out, rotation during execution); run a workout end to end (prefilled set logging, configurable rest countdown with a "Between Sets" row per workout, "Last time" line from prior history, finish/discard); browse and delete history with per-set detail. Dark mode default with dark/light/system toggle.
+
+**Remote validation layer:** 3 XCUITest smoke tests (`PlusPlusUITests`) run on the CI simulator via the `ui-test` job (workflow_dispatch + pushes to main) and upload a `ui-screenshots` artifact — list, detail, editor, set logging, rest, complete, history are all reviewable from a browser. The app supports `--uitest-reset` (in-memory store) for clean test launches. This narrows, but does not replace, the hands-on #1 checklist.
 
 **Targets:**
 - **PlusPlus** — iOS app (deployment target iOS 26.0)
 - **PlusPlusWatch** — watchOS companion app (deployment target watchOS 26.0)
-- **PlusPlusTests** — unit test target (56 tests)
+- **PlusPlusTests** — unit test target (64 tests)
+- **PlusPlusUITests** — UI smoke test target (3 flows, `PlusPlusUI` scheme, CI-only by convention)
 
 **Project structure:**
 ```
@@ -108,11 +111,14 @@ PlusPlusTests/
   ExerciseFilterTests.swift  # Filter logic tests (9)
   SeedDataTests.swift        # Seed data integrity tests (7)
   ReindexTests.swift         # Reindex helper tests (5 + 1 placeholder)
-  WorkoutMetricTests.swift   # Metric stepping/clamping/formatting (8)
+  WorkoutMetricTests.swift   # Metric stepping/clamping/formatting (9)
   RepTargetTests.swift       # Rep range normalization/stepping (7)
   ExerciseDraftTests.swift   # Custom exercise validation (8)
   SupersetTests.swift        # Workout structure mutations (5)
-  SessionTests.swift         # Session factory/rotation/snapshots/progress (6) = 56 total
+  SessionTests.swift         # Session factory/rotation/snapshots/progress (7)
+  LastPerformanceTests.swift # "Last time" lookup (6) = 64 total
+PlusPlusUITests/
+  SmokeTests.swift           # 3 end-to-end flows w/ screenshot attachments
 .github/workflows/ci.yml # macOS CI: xcodegen + xcodebuild test
 .xcodebuildmcp/          # XcodeBuildMCP session config
 ```
@@ -122,7 +128,7 @@ PlusPlusTests/
 **Known TODOs (tracked as GitHub issues):**
 - #1 Interactive Simulator validation of all 2026-07-05 UI (needs a Mac session).
 - #6 Watch app workout execution (currently a stub target). Needs a sync-strategy decision (WatchConnectivity vs. CloudKit) and paired-simulator testing — deliberately left for a Mac session.
-- Rest duration is fixed at 90s (+15s/skip during rest). Make it configurable per workout or per exercise later.
+- Rest is configurable per workout (15–600s); per-exercise override deferred until per-workout proves insufficient.
 - Set ranges ("2–3×10") collapse to a single sets number by design; revisit only if it chafes.
 
 ---
@@ -161,6 +167,10 @@ PlusPlusTests/
 **2026-07-05 — Superset execution order is strict rotation** — A group with exercises [A, B] and 3 sets expands to A1 B1 A2 B2 A3 B3 at session start (one flat, pre-ordered SetLog list). The execution UI just walks `nextPendingLog`; it holds no ordering logic of its own.
 
 **2026-07-05 — Rest timer is date-based, not tick-based** — The countdown stores an end `Date` and renders via `TimelineView`; backgrounding or suspension can't drift it. Fixed 90s default with +15s/skip for v1.
+
+**2026-07-05 — UI smoke tests + screenshot artifacts as the remote validation layer** — With no Mac available for days, XCUITests on the CI simulator exercise the real flows and export screenshots reviewable from any browser. Gated to `workflow_dispatch` + main pushes to control 10x macOS minute billing; dispatch the workflow on a branch (`actions_run_trigger` / the Actions UI) to run them pre-merge. First hands-on Mac session still owns #1.
+
+**2026-07-05 — Watch sync will be WatchConnectivity, not CloudKit (planned)** — Full plan lives in issue #6 comments: Codable plan/result payloads (`updateApplicationContext` for template pushes, `transferUserInfo` for finished sessions), no SwiftData on the wrist for v1, HKWorkoutSession for runtime. CloudKit rejected for v1: iCloud dependency, opaque debugging, network-at-the-gym requirement.
 
 **2026-07-05 — Rep ranges shift, sets stay scalar** — `reps`/`repsUpper` express "15–20"; the stepper shifts the whole range to preserve the prescribed span. Set ranges ("2–3×10") deliberately collapse to one number — the range's meaning ("stop when cooked") lives with the user, not the model.
 
