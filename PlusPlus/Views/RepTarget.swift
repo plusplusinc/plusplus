@@ -20,8 +20,9 @@ struct RepTarget: Equatable {
         }
         let clampedLower = min(max(lower, Self.allowedReps.lowerBound), Self.allowedReps.upperBound)
         self.lower = clampedLower
-        if let upper, upper > clampedLower {
-            self.upper = min(upper, Self.allowedReps.upperBound)
+        if let upper {
+            let clampedUpper = min(upper, Self.allowedReps.upperBound)
+            self.upper = clampedUpper > clampedLower ? clampedUpper : nil
         } else {
             self.upper = nil
         }
