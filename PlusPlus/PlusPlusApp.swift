@@ -7,7 +7,7 @@ struct PlusPlusApp: App {
     let modelContainer: ModelContainer
 
     init() {
-        let schema = Schema([Workout.self, Exercise.self, Equipment.self])
+        let schema = Schema([Workout.self, Exercise.self, Equipment.self, WorkoutSession.self, SetLog.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: false)
         do {
             modelContainer = try ModelContainer(for: schema, configurations: [config])

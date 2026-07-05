@@ -7,6 +7,7 @@ struct WorkoutDetailView: View {
 
     @State private var filterState = ExerciseFilterState()
     @State private var pickerDestination: PickerDestination?
+    @State private var activeSession: WorkoutSession?
 
     var body: some View {
         List {
@@ -35,14 +36,27 @@ struct WorkoutDetailView: View {
             }
         }
         .safeAreaInset(edge: .bottom) {
-            Button {
-                pickerDestination = .newGroup
-            } label: {
-                Label("Add Exercise", systemImage: "plus")
-                    .frame(maxWidth: .infinity)
+            VStack(spacing: 10) {
+                if !workout.groups.isEmpty {
+                    Button {
+                        activeSession = WorkoutSession.start(from: workout, context: modelContext)
+                    } label: {
+                        Label("Start Workout", systemImage: "play.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.indigo)
+                }
+
+                Button {
+                    pickerDestination = .newGroup
+                } label: {
+                    Label("Add Exercise", systemImage: "plus")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .tint(.indigo)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(.indigo)
             .padding()
             .background(.bar)
         }
@@ -50,6 +64,9 @@ struct WorkoutDetailView: View {
             ExercisePickerView(filterState: filterState) { exercise in
                 addExercise(exercise, to: destination)
             }
+        }
+        .fullScreenCover(item: $activeSession) { session in
+            ActiveSessionView(session: session)
         }
     }
 
