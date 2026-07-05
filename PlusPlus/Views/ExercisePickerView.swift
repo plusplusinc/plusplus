@@ -5,6 +5,7 @@ import SwiftData
 
 struct ExercisePickerView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @Query(sort: \Exercise.name) private var allExercises: [Exercise]
     @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
 
@@ -13,6 +14,9 @@ struct ExercisePickerView: View {
 
     @State private var showingMuscleGroupFilter = false
     @State private var showingEquipmentFilter = false
+    @State private var showingCreateSheet = false
+    @State private var editingExercise: Exercise?
+    @State private var deletionCandidate: Exercise?
 
     var body: some View {
         NavigationStack {
@@ -25,6 +29,16 @@ struct ExercisePickerView: View {
                         ExerciseRow(exercise: exercise)
                     }
                     .tint(.primary)
+                    .contextMenu {
+                        if !exercise.isBuiltIn {
+                            Button("Edit", systemImage: "pencil") {
+                                editingExercise = exercise
+                            }
+                            Button("Delete", systemImage: "trash", role: .destructive) {
+                                deletionCandidate = exercise
+                            }
+                        }
+                    }
                 }
             }
             .navigationTitle("Add Exercise")
@@ -32,6 +46,35 @@ struct ExercisePickerView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button("New Exercise", systemImage: "plus") {
+                        showingCreateSheet = true
+                    }
+                }
+            }
+            .sheet(isPresented: $showingCreateSheet) {
+                ExerciseEditorView()
+            }
+            .sheet(item: $editingExercise) { exercise in
+                ExerciseEditorView(editing: exercise)
+            }
+            .confirmationDialog(
+                deletionTitle,
+                isPresented: Binding(
+                    get: { deletionCandidate != nil },
+                    set: { if !$0 { deletionCandidate = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("Delete Exercise", role: .destructive) {
+                    if let exercise = deletionCandidate {
+                        deleteExercise(exercise)
+                    }
+                    deletionCandidate = nil
+                }
+                Button("Cancel", role: .cancel) {
+                    deletionCandidate = nil
                 }
             }
             .searchable(text: Bindable(filterState).searchText, prompt: "Search exercises")
@@ -52,6 +95,24 @@ struct ExercisePickerView: View {
                     .presentationDetents([.medium, .large])
             }
         }
+    }
+
+    private var deletionTitle: String {
+        guard let exercise = deletionCandidate else { return "" }
+        let uses = usageCount(of: exercise)
+        if uses == 0 {
+            return "Delete “\(exercise.name)”?"
+        }
+        return "Delete “\(exercise.name)”? It appears in \(uses) workout \(uses == 1 ? "entry" : "entries"), which will show as Unknown."
+    }
+
+    private func usageCount(of exercise: Exercise) -> Int {
+        let all = (try? modelContext.fetch(FetchDescriptor<WorkoutExercise>())) ?? []
+        return all.filter { $0.exercise === exercise }.count
+    }
+
+    private func deleteExercise(_ exercise: Exercise) {
+        modelContext.delete(exercise)
     }
 }
 

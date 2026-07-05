@@ -141,10 +141,27 @@ private struct GroupSection: View {
 private struct ExerciseInputRow: View {
     @Bindable var workoutExercise: WorkoutExercise
 
+    @State private var showingInfo = false
+
+    private var hasDetails: Bool {
+        workoutExercise.exercise?.notes != nil || workoutExercise.exercise?.videoURL != nil
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(workoutExercise.exercise?.name ?? "Unknown")
-                .font(.headline)
+            HStack {
+                Text(workoutExercise.exercise?.name ?? "Unknown")
+                    .font(.headline)
+                if hasDetails {
+                    Button {
+                        showingInfo = true
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .foregroundStyle(.indigo)
+                    }
+                    .buttonStyle(.borderless)
+                }
+            }
 
             if workoutExercise.exercise?.exerciseType == .duration {
                 MetricRow(metric: .duration, value: intMetricBinding($workoutExercise.durationSeconds))
@@ -154,6 +171,11 @@ private struct ExerciseInputRow: View {
             }
         }
         .padding(.vertical, 4)
+        .sheet(isPresented: $showingInfo) {
+            if let exercise = workoutExercise.exercise {
+                ExerciseInfoView(exercise: exercise)
+            }
+        }
     }
 }
 

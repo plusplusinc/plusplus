@@ -41,7 +41,7 @@ struct SeedDataTests {
         let exerciseCount = try context.fetchCount(FetchDescriptor<Exercise>())
         let equipmentCount = try context.fetchCount(FetchDescriptor<Equipment>())
         #expect(exerciseCount == 27)
-        #expect(equipmentCount == 12)
+        #expect(equipmentCount == 13)
     }
 
     @Test func loadIfNeededDoesNotDuplicateOnSecondRun() throws {
@@ -54,7 +54,7 @@ struct SeedDataTests {
         let exerciseCount = try context.fetchCount(FetchDescriptor<Exercise>())
         let equipmentCount = try context.fetchCount(FetchDescriptor<Equipment>())
         #expect(exerciseCount == 27)
-        #expect(equipmentCount == 12)
+        #expect(equipmentCount == 13)
     }
 
     @Test func allSeededExercisesAreBuiltIn() throws {
