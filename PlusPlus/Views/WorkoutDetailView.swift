@@ -6,7 +6,7 @@ struct WorkoutDetailView: View {
     @Bindable var workout: Workout
 
     @State private var filterState = ExerciseFilterState()
-    @State private var showingPicker = false
+    @State private var pickerDestination: PickerDestination?
 
     var body: some View {
         List {
@@ -16,7 +16,11 @@ struct WorkoutDetailView: View {
                     groupCount: workout.sortedGroups.count,
                     onDeleteExercises: { offsets in deleteExercises(at: offsets, in: group) },
                     onDeleteGroup: { deleteGroup(group) },
-                    onMoveGroup: { delta in moveGroup(group, by: delta) }
+                    onMoveGroup: { delta in moveGroup(group, by: delta) },
+                    onAddToSuperset: { pickerDestination = .group(group) },
+                    onSplitExercise: { workoutExercise in
+                        workout.splitExercise(workoutExercise, context: modelContext)
+                    }
                 )
             }
         }
@@ -32,7 +36,7 @@ struct WorkoutDetailView: View {
         }
         .safeAreaInset(edge: .bottom) {
             Button {
-                showingPicker = true
+                pickerDestination = .newGroup
             } label: {
                 Label("Add Exercise", systemImage: "plus")
                     .frame(maxWidth: .infinity)
@@ -42,24 +46,20 @@ struct WorkoutDetailView: View {
             .padding()
             .background(.bar)
         }
-        .sheet(isPresented: $showingPicker) {
+        .sheet(item: $pickerDestination) { destination in
             ExercisePickerView(filterState: filterState) { exercise in
-                addExercise(exercise)
+                addExercise(exercise, to: destination)
             }
         }
     }
 
-    private func addExercise(_ exercise: Exercise) {
-        // TODO: Superset UI (issue #2) — add exercise to existing group
-        let group = ExerciseGroup(order: workout.groups.count, sets: 3)
-        group.workout = workout
-        modelContext.insert(group)
-
-        let workoutExercise = WorkoutExercise(exercise: exercise, order: 0)
-        workoutExercise.group = group
-        modelContext.insert(workoutExercise)
-
-        workout.reindexGroups()
+    private func addExercise(_ exercise: Exercise, to destination: PickerDestination) {
+        switch destination {
+        case .newGroup:
+            workout.addExerciseInNewGroup(exercise, context: modelContext)
+        case .group(let group):
+            workout.addExercise(exercise, to: group, context: modelContext)
+        }
     }
 
     private func deleteExercises(at offsets: IndexSet, in group: ExerciseGroup) {
@@ -91,6 +91,20 @@ struct WorkoutDetailView: View {
     }
 }
 
+/// Where a picked exercise should land: a fresh group at the end, or an
+/// existing group (forming a superset).
+private enum PickerDestination: Identifiable {
+    case newGroup
+    case group(ExerciseGroup)
+
+    var id: AnyHashable {
+        switch self {
+        case .newGroup: AnyHashable("newGroup")
+        case .group(let group): AnyHashable(group.persistentModelID)
+        }
+    }
+}
+
 // MARK: - Group Section
 
 private struct GroupSection: View {
@@ -99,11 +113,16 @@ private struct GroupSection: View {
     let onDeleteExercises: (IndexSet) -> Void
     let onDeleteGroup: () -> Void
     let onMoveGroup: (Int) -> Void
+    let onAddToSuperset: () -> Void
+    let onSplitExercise: (WorkoutExercise) -> Void
 
     var body: some View {
         Section {
             ForEach(group.sortedExercises) { workoutExercise in
-                ExerciseInputRow(workoutExercise: workoutExercise)
+                ExerciseInputRow(
+                    workoutExercise: workoutExercise,
+                    onSplit: group.isSuperset ? { onSplitExercise(workoutExercise) } : nil
+                )
             }
             .onDelete(perform: onDeleteExercises)
 
@@ -115,6 +134,10 @@ private struct GroupSection: View {
                 }
                 Spacer()
                 Menu {
+                    Button("Add to Superset", systemImage: "plus.square.on.square") {
+                        onAddToSuperset()
+                    }
+
                     Button("Move Up", systemImage: "arrow.up") {
                         onMoveGroup(-1)
                     }
@@ -140,6 +163,7 @@ private struct GroupSection: View {
 
 private struct ExerciseInputRow: View {
     @Bindable var workoutExercise: WorkoutExercise
+    var onSplit: (() -> Void)?
 
     @State private var showingInfo = false
 
@@ -171,6 +195,13 @@ private struct ExerciseInputRow: View {
             }
         }
         .padding(.vertical, 4)
+        .contextMenu {
+            if let onSplit {
+                Button("Move to Own Group", systemImage: "rectangle.split.1x2") {
+                    onSplit()
+                }
+            }
+        }
         .sheet(isPresented: $showingInfo) {
             if let exercise = workoutExercise.exercise {
                 ExerciseInfoView(exercise: exercise)
