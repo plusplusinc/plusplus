@@ -10,13 +10,16 @@ final class WorkoutSession {
     var workoutName: String
     var startedAt: Date
     var endedAt: Date?
+    /// Snapshot of the workout's rest setting at start time.
+    var restSeconds: Int = 90
     @Relationship(deleteRule: .cascade, inverse: \SetLog.session)
     var setLogs: [SetLog] = []
 
-    init(workout: Workout? = nil, workoutName: String, startedAt: Date = Date()) {
+    init(workout: Workout? = nil, workoutName: String, startedAt: Date = Date(), restSeconds: Int = 90) {
         self.workout = workout
         self.workoutName = workoutName
         self.startedAt = startedAt
+        self.restSeconds = restSeconds
     }
 
     var sortedSetLogs: [SetLog] {
@@ -46,7 +49,12 @@ final class WorkoutSession {
     /// exercise per set, in execution order. Supersets rotate: a group with
     /// exercises [A, B] and 3 sets produces A1 B1 A2 B2 A3 B3.
     static func start(from workout: Workout, context: ModelContext, at date: Date = Date()) -> WorkoutSession {
-        let session = WorkoutSession(workout: workout, workoutName: workout.name, startedAt: date)
+        let session = WorkoutSession(
+            workout: workout,
+            workoutName: workout.name,
+            startedAt: date,
+            restSeconds: workout.restSeconds
+        )
         context.insert(session)
 
         var order = 0

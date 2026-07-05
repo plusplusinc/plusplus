@@ -6,13 +6,16 @@ final class Workout {
     var name: String
     var createdAt: Date
     var order: Int
+    /// Rest between sets during execution, in seconds.
+    var restSeconds: Int = 90
     @Relationship(deleteRule: .cascade, inverse: \ExerciseGroup.workout)
     var groups: [ExerciseGroup] = []
 
-    init(name: String, order: Int = 0) {
+    init(name: String, order: Int = 0, restSeconds: Int = 90) {
         self.name = name
         self.createdAt = Date()
         self.order = order
+        self.restSeconds = restSeconds
     }
 
     var sortedGroups: [ExerciseGroup] {
