@@ -11,19 +11,16 @@ struct WorkoutDetailView: View {
     var body: some View {
         List {
             ForEach(workout.sortedGroups) { group in
-                if let exercise = group.sortedExercises.first?.exercise {
-                    Text(exercise.name)
-                }
+                GroupSection(
+                    group: group,
+                    groupCount: workout.sortedGroups.count,
+                    onDeleteExercises: { offsets in deleteExercises(at: offsets, in: group) },
+                    onDeleteGroup: { deleteGroup(group) },
+                    onMoveGroup: { delta in moveGroup(group, by: delta) }
+                )
             }
-            .onDelete(perform: deleteGroups)
-            .onMove(perform: moveGroups)
         }
         .navigationTitle(workout.name)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                EditButton()
-            }
-        }
         .overlay {
             if workout.groups.isEmpty {
                 ContentUnavailableView {
@@ -53,7 +50,7 @@ struct WorkoutDetailView: View {
     }
 
     private func addExercise(_ exercise: Exercise) {
-        // TODO: Superset UI — add exercise to existing group
+        // TODO: Superset UI (issue #2) — add exercise to existing group
         let group = ExerciseGroup(order: workout.groups.count, sets: 3)
         group.workout = workout
         modelContext.insert(group)
@@ -65,19 +62,105 @@ struct WorkoutDetailView: View {
         workout.reindexGroups()
     }
 
-    private func deleteGroups(at offsets: IndexSet) {
-        let sorted = workout.sortedGroups
+    private func deleteExercises(at offsets: IndexSet, in group: ExerciseGroup) {
+        let sorted = group.sortedExercises
         for index in offsets {
             modelContext.delete(sorted[index])
         }
+        group.reindexExercises()
+        if group.sortedExercises.isEmpty {
+            modelContext.delete(group)
+            workout.reindexGroups()
+        }
+    }
+
+    private func deleteGroup(_ group: ExerciseGroup) {
+        modelContext.delete(group)
         workout.reindexGroups()
     }
 
-    private func moveGroups(from source: IndexSet, to destination: Int) {
+    private func moveGroup(_ group: ExerciseGroup, by delta: Int) {
         var sorted = workout.sortedGroups
-        sorted.move(fromOffsets: source, toOffset: destination)
-        for (index, group) in sorted.enumerated() {
-            group.order = index
+        guard let index = sorted.firstIndex(where: { $0 === group }) else { return }
+        let target = index + delta
+        guard sorted.indices.contains(target) else { return }
+        sorted.swapAt(index, target)
+        for (newOrder, moved) in sorted.enumerated() {
+            moved.order = newOrder
         }
     }
+}
+
+// MARK: - Group Section
+
+private struct GroupSection: View {
+    @Bindable var group: ExerciseGroup
+    let groupCount: Int
+    let onDeleteExercises: (IndexSet) -> Void
+    let onDeleteGroup: () -> Void
+    let onMoveGroup: (Int) -> Void
+
+    var body: some View {
+        Section {
+            ForEach(group.sortedExercises) { workoutExercise in
+                ExerciseInputRow(workoutExercise: workoutExercise)
+            }
+            .onDelete(perform: onDeleteExercises)
+
+            Stepper("Sets: \(group.sets)", value: $group.sets, in: 1...20)
+        } header: {
+            HStack {
+                if group.isSuperset {
+                    Text("Superset")
+                }
+                Spacer()
+                Menu {
+                    Button("Move Up", systemImage: "arrow.up") {
+                        onMoveGroup(-1)
+                    }
+                    .disabled(group.order == 0)
+
+                    Button("Move Down", systemImage: "arrow.down") {
+                        onMoveGroup(1)
+                    }
+                    .disabled(group.order == groupCount - 1)
+
+                    Button("Delete", systemImage: "trash", role: .destructive) {
+                        onDeleteGroup()
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Exercise Input Row
+
+private struct ExerciseInputRow: View {
+    @Bindable var workoutExercise: WorkoutExercise
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(workoutExercise.exercise?.name ?? "Unknown")
+                .font(.headline)
+
+            if workoutExercise.exercise?.exerciseType == .duration {
+                MetricRow(metric: .duration, value: intMetricBinding($workoutExercise.durationSeconds))
+            } else {
+                MetricRow(metric: .weight, value: $workoutExercise.weight)
+                MetricRow(metric: .reps, value: intMetricBinding($workoutExercise.reps))
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+/// Bridges the model's optional Int storage to MetricRow's Double interface.
+private func intMetricBinding(_ source: Binding<Int?>) -> Binding<Double?> {
+    Binding(
+        get: { source.wrappedValue.map(Double.init) },
+        set: { source.wrappedValue = $0.map { Int($0.rounded()) } }
+    )
 }
