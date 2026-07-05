@@ -56,7 +56,7 @@ enum HistoryStats {
     static func table(for stats: [ExerciseStats]) -> String {
         var rows: [[String]] = [["Exercise", "Sessions", "Sets", "Reps", "Best", "Last"]]
         for entry in stats {
-            let last = entry.lastPerformed.map { WorkoutRepo.utcDateParts(of: $0).dateStamp } ?? "—"
+            let last = entry.lastPerformed.map { FileLayout.utcDateParts(of: $0).dateStamp } ?? "—"
             rows.append([
                 entry.name,
                 String(entry.sessionCount),

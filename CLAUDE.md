@@ -82,7 +82,8 @@ project.yml              # XcodeGen project definition (registers PlusPlusKit)
 docs/PLATFORM.md         # Developer-platform architecture + owner TODOs
 PlusPlusKit/             # Pure SwiftPM package (Linux-tested in CI)
   Sources/PlusPlusKit/   # MuscleGroup/ExerciseType, WorkoutMetric, RepTarget,
-                         #   Interchange DTOs + deterministic codec + validator + Slug
+                         #   Interchange DTOs + codec + validator + Slug + documents,
+                         #   FileLayout (repo paths) + SyncPlanner (3-way merge, #23)
   Tests/PlusPlusKitTests/ # Metric/RepTarget/Interchange tests (17)
 PlusPlusCLI/             # plusplus CLI (SwiftPM exec, Linux-tested in CI)
   Sources/plusplus/      # lint/stats/import/export over the repo layout
@@ -181,6 +182,8 @@ PlusPlusUITests/
 **2026-07-05 — Watch sync will be WatchConnectivity, not CloudKit (planned)** — Full plan lives in issue #6 comments: Codable plan/result payloads (`updateApplicationContext` for template pushes, `transferUserInfo` for finished sessions), no SwiftData on the wrist for v1, HKWorkoutSession for runtime. CloudKit rejected for v1: iCloud dependency, opaque debugging, network-at-the-gym requirement.
 
 **2026-07-05 — Developer platform: repo-as-backend, format-as-contract (see docs/PLATFORM.md)** — First niche is developers; training data lives as versioned JSON, eventually synced to a private GitHub repo the user owns (GitHub App + device flow, no PlusPlus server). The interchange format (schema v1, deterministic serialization for clean diffs) is the API contract for app export/import, repo sync, the CLI, and agents. Phases tracked in issues #20–#25.
+
+**2026-07-05 — Sync is a pure three-way merge in the Kit** — `SyncPlanner.plan(local:remote:base:)` decides writes/pulls/conflicts per template file; `FileLayout` owns all repo paths and append-only session placement. Transports (GitHub API in the app for #23, disk in the CLI) stay thin adapters. Deletions deferred: a remotely-present, locally-absent file is adopted, never deleted.
 
 **2026-07-05 — CLI is Swift, shells out to git, never authenticates** — Swift over Go because the contract (deterministic codec, validator) already lives tested in PlusPlusKit; a second implementation would drift byte-level. Conformance fixtures in PlusPlusKitTests/Fixtures are the language-neutral spec for future ports. The CLI operates on a clone; git is transport and auth; the app (#23) is the only surface with GitHub auth.
 
