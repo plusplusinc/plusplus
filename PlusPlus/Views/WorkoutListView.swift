@@ -38,6 +38,7 @@ struct WorkoutListView: View {
                     } label: {
                         Image(systemName: "clock.arrow.circlepath")
                     }
+                    .accessibilityIdentifier("historyButton")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showingSettings = true } label: {
@@ -72,6 +73,7 @@ struct WorkoutListView: View {
                         .clipShape(Circle())
                         .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
                 }
+                .accessibilityIdentifier("newWorkoutButton")
                 .padding(24)
             }
             .alert("New Workout", isPresented: $showingNewWorkout) {

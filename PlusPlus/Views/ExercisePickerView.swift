@@ -51,6 +51,7 @@ struct ExercisePickerView: View {
                     Button("New Exercise", systemImage: "plus") {
                         showingCreateSheet = true
                     }
+                    .accessibilityIdentifier("newExerciseButton")
                 }
             }
             .sheet(isPresented: $showingCreateSheet) {

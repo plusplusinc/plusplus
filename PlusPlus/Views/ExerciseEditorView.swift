@@ -26,6 +26,7 @@ struct ExerciseEditorView: View {
             Form {
                 Section {
                     TextField("Name", text: $draft.name)
+                        .accessibilityIdentifier("exerciseNameField")
 
                     Picker("Muscle Group", selection: $draft.muscleGroup) {
                         ForEach(MuscleGroup.allCases) { group in
@@ -89,6 +90,7 @@ struct ExerciseEditorView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { save() }
                         .disabled(!draft.canSave(existingNames: existingNames, editedName: editingExercise?.name))
+                        .accessibilityIdentifier("saveExerciseButton")
                 }
             }
         }
