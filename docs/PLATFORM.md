@@ -144,8 +144,9 @@ The app's single-file export (backup / manual transport) is a bundle:
 }
 ```
 
-In the repo layout, the same DTOs are stored one entity per file (each file
-wraps its DTO with `schemaVersion`). A group with >1 exercise is a superset —
+In the repo layout, the same DTOs are stored one entity per file, wrapped in a
+document envelope: `{ "schemaVersion": 1, "exercise": { … } }` (likewise
+`"workout"` / `"session"` — see `InterchangeDocuments.swift`). A group with >1 exercise is a superset —
 same uniform model as the app.
 
 Semantics worth writing down:
@@ -183,8 +184,11 @@ one workout repo), token in the Keychain. Not classic OAuth `repo` scope.
 3. **GitHub sync in the app** (#23) — device flow, `RepoStore`, repo bootstrap,
    sync engine. *Needs Mac + GitHub App registration; sync-engine tests
    remote-buildable against a fake store.*
-4. **CLI** (#24) — `lint`, `program`, `history stats` over a clone; Homebrew tap.
-   *Remote-buildable.*
+4. **CLI** (#24) — v0 shipped: `plusplus lint / stats / import / export` in
+   `PlusPlusCLI/` (Swift + swift-argument-parser; decisions recorded on the
+   issue: Swift over Go, no GitHub auth — git is transport and auth).
+   Conformance fixtures live in `PlusPlusKit/Tests/.../Fixtures/`. Remaining:
+   `program` editing subcommands, Homebrew tap.
 5. **Agents** (#25) — MCP server + showcase Actions. *Remote-buildable.*
 
 Sequencing note: all platform work stays behind v1 validation (#1) in priority —

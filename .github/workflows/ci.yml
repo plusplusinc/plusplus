@@ -79,6 +79,19 @@ jobs:
       - name: Run PlusPlusKit tests
         run: swift test --package-path PlusPlusKit
 
+  # The plusplus CLI builds and tests on Linux (issue #24); same 1x-minute
+  # economics as kit-test.
+  cli-test:
+    runs-on: ubuntu-latest
+    container: swift:latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run CLI tests
+        run: swift test --package-path PlusPlusCLI
+      - name: Build release binary
+        run: swift build -c release --package-path PlusPlusCLI
+
   # UI smoke tests + screenshots. Slower and more minute-hungry than the
   # unit job, so gated to manual dispatch and pushes to main.
   ui-test:
