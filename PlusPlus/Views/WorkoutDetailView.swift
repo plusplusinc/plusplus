@@ -314,7 +314,7 @@ struct WorkoutDetailView: View {
                 }
                 let layout = RailLayout.build(groupSizes: sizes)
                 let fallbackY = layout.row(for: .exercise(group: g, index: i))?.midY ?? 0
-                railGesture = .ring(group: g, edge: edge, fingerY: drag?.location.y ?? fallbackY)
+                railGesture = .ring(group: g, edge: edge, fingerY: drag.map { Double($0.location.y) } ?? fallbackY)
             }
             .onEnded { _ in
                 if case .ring(let rg, let edge, let fingerY) = railGesture {
