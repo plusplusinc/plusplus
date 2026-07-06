@@ -1,0 +1,65 @@
+# Weekly training report for a workout repo — copy to
+# .github/workflows/weekly-report.yml there. Opens an issue every Monday
+# with per-exercise stats. Two jobs because the CLI builds in the Swift
+# container while github-script wants the plain runner.
+name: Weekly progress report
+
+on:
+  schedule:
+    - cron: "0 13 * * 1" # Mondays 13:00 UTC — adjust to your morning
+  workflow_dispatch:
+
+jobs:
+  stats:
+    runs-on: ubuntu-latest
+    container: swift:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # See README.md in this directory re: PLUSPLUS_REPO_TOKEN.
+      - uses: actions/checkout@v4
+        with:
+          repository: mrdavidjcole/plusplus # ← your fork if you have one
+          token: ${{ secrets.PLUSPLUS_REPO_TOKEN }}
+          path: .plusplus-src
+
+      - name: Build plusplus CLI
+        run: swift build -c release --package-path .plusplus-src/PlusPlusCLI
+
+      - name: Compute stats
+        run: |
+          BIN=.plusplus-src/PlusPlusCLI/.build/release/plusplus
+          {
+            echo '## Training stats'
+            echo
+            echo '```'
+            "$BIN" stats . || echo "No history yet."
+            echo '```'
+          } > report.md
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: report
+          path: report.md
+
+  post:
+    needs: stats
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: report
+
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('report.md', 'utf8');
+            const date = new Date().toISOString().slice(0, 10);
+            await github.rest.issues.create({
+              ...context.repo,
+              title: `Weekly training report — ${date}`,
+              body,
+            });

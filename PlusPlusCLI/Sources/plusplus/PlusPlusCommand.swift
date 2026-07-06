@@ -12,7 +12,7 @@ struct PlusPlusCommand: ParsableCommand {
         or on a single export bundle from the iPhone app. Transport and auth \
         are git's job — this tool never talks to GitHub.
         """,
-        subcommands: [InitCommand.self, Lint.self, Stats.self, ImportCommand.self, ExportCommand.self]
+        subcommands: [InitCommand.self, Lint.self, Stats.self, ImportCommand.self, ExportCommand.self, MCPCommand.self]
     )
 }
 
@@ -122,6 +122,26 @@ struct ImportCommand: ParsableCommand {
             print("wrote   \(path)")
         }
         print("\(summary.written.count) written, \(summary.skipped.count) unchanged — review with `git status`, then commit.")
+    }
+}
+
+struct MCPCommand: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "mcp",
+        abstract: "Serve a workout repo to agents over MCP (stdio JSON-RPC).",
+        discussion: """
+        Blocks reading newline-delimited JSON-RPC on stdin — run it from an \
+        MCP client configuration, not interactively. Read tools return \
+        interchange JSON; propose_program_change writes a git branch and \
+        never pushes. See docs/AGENTS.md.
+        """
+    )
+
+    @Option(name: .long, help: "Workout repo root to serve.")
+    var repo: String = "."
+
+    func run() throws {
+        MCPServer(repoRoot: repo).serve()
     }
 }
 
