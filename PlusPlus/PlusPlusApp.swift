@@ -18,6 +18,7 @@ struct PlusPlusApp: App {
             fatalError("Failed to create ModelContainer: \(error)")
         }
         SeedData.loadIfNeeded(context: modelContainer.mainContext)
+        RestNotifier.shared.activate()
     }
 
     var body: some Scene {

@@ -34,8 +34,19 @@ struct ActiveSessionView: View {
                         RestView(
                             endDate: restEndDate,
                             upNext: currentLog,
-                            onAddTime: { self.restEndDate = restEndDate.addingTimeInterval(15) },
-                            onEnd: { self.restEndDate = nil }
+                            onAddTime: {
+                                let extended = restEndDate.addingTimeInterval(15)
+                                self.restEndDate = extended
+                                RestNotifier.shared.scheduleRestEnd(
+                                    at: extended,
+                                    exerciseName: currentLog.exerciseName,
+                                    setNumber: currentLog.setNumber
+                                )
+                            },
+                            onEnd: {
+                                self.restEndDate = nil
+                                RestNotifier.shared.cancelPending()
+                            }
                         )
                     } else {
                         SetLoggingView(
@@ -71,6 +82,7 @@ struct ActiveSessionView: View {
                     }
                 }
                 Button("Discard Workout", role: .destructive) {
+                    RestNotifier.shared.cancelPending()
                     modelContext.delete(session)
                     dismiss()
                 }
@@ -84,18 +96,29 @@ struct ActiveSessionView: View {
             }
         }
         .interactiveDismissDisabled()
+        .task {
+            // First workout start is when the permission makes sense.
+            RestNotifier.shared.requestAuthorizationIfNeeded()
+        }
     }
 
     private func completeCurrentSet(_ log: SetLog) {
         log.completedAt = Date()
-        if session.nextPendingLog != nil {
-            restEndDate = Date().addingTimeInterval(TimeInterval(session.restSeconds))
+        if let upNext = session.nextPendingLog {
+            let endDate = Date().addingTimeInterval(TimeInterval(session.restSeconds))
+            restEndDate = endDate
+            RestNotifier.shared.scheduleRestEnd(
+                at: endDate,
+                exerciseName: upNext.exerciseName,
+                setNumber: upNext.setNumber
+            )
         } else {
             finishSession(dismissAfter: false)
         }
     }
 
     private func finishSession(dismissAfter: Bool = true) {
+        RestNotifier.shared.cancelPending()
         if !session.isFinished {
             session.finish()
         }

@@ -73,7 +73,7 @@ The Simulator validation step in every task should use these tools in sequence: 
 - **PlusPlus** — iOS app (deployment target iOS 26.0)
 - **PlusPlusWatch** — watchOS companion app (deployment target watchOS 26.0)
 - **PlusPlusKit** — pure SwiftPM package shared with the CLI and future MCP (tested on Linux in CI)
-- **PlusPlusTests** — unit test target (53 tests; 49 more live in PlusPlusKit, 23 in PlusPlusCLI)
+- **PlusPlusTests** — unit test target (55 tests; 49 more live in PlusPlusKit, 23 in PlusPlusCLI)
 - **PlusPlusUITests** — UI smoke test target (3 flows, `PlusPlusUI` scheme, CI-only by convention)
 
 **Project structure:**
@@ -93,6 +93,8 @@ PlusPlusCLI/             # plusplus CLI (SwiftPM exec, Linux-tested in CI)
   Tests/PlusPlusCLITests/
 PlusPlus/                # iOS app target
   PlusPlusApp.swift      # App entry point, ModelContainer, seed data, appearance
+  Notifications/
+    RestNotifier.swift   # "Rest over" local notification (backgrounded only)
   Theme/
     AppAppearance.swift  # Dark/Light/System enum, persisted via @AppStorage
   Interchange/
@@ -128,7 +130,7 @@ PlusPlusTests/
   SupersetTests.swift        # Workout structure mutations (5)
   SessionTests.swift         # Session factory/rotation/snapshots/progress (7)
   LastPerformanceTests.swift # "Last time" lookup (6)
-  InterchangeMappingTests.swift # Export/import round-trip + policies (5) = 53 app + 49 Kit + 23 CLI
+  InterchangeMappingTests.swift # Export/import round-trip + policies (5) = 55 app + 49 Kit + 23 CLI
 PlusPlusUITests/
   SmokeTests.swift           # 3 end-to-end flows w/ screenshot attachments
 .github/workflows/ci.yml # macOS CI: xcodegen + xcodebuild test
@@ -191,6 +193,8 @@ PlusPlusUITests/
 **2026-07-05 — CLI is Swift, shells out to git, never authenticates** — Swift over Go because the contract (deterministic codec, validator) already lives tested in PlusPlusKit; a second implementation would drift byte-level. Conformance fixtures in PlusPlusKitTests/Fixtures are the language-neutral spec for future ports. The CLI operates on a clone; git is transport and auth; the app (#23) is the only surface with GitHub auth.
 
 **2026-07-05 — PlusPlusKit package holds everything platform-pure** — MuscleGroup/ExerciseType, WorkoutMetric, RepTarget, and the interchange DTOs/codec/validator live in a local SwiftPM package with no SwiftUI/SwiftData. The `kit-test` CI job runs its tests on Linux (1x minutes); if it fails, someone leaked an Apple-only dependency into the shared core. SwiftData models, mapping (InterchangeMapping), and views stay in the app.
+
+**2026-07-06 — Rest-end notification: scheduled always, presented only when backgrounded** — Extends the date-based rest timer: `RestNotifier` schedules one local notification (stable identifier, so each rest replaces the last) at rest start, reschedules on +15 s, cancels on skip/finish/discard/natural expiry. Foreground presentation is suppressed by the delegate (the ticking RestView is already on screen) rather than by conditional scheduling — no race with backgrounding. Permission is requested at first workout start, not app launch. Fully disabled under `--uitest-reset` so the permission dialog never eats a smoke test's tap. Felt behavior (sound while locked) still needs the #1 Mac pass.
 
 **2026-07-06 — MCP server is a CLI subcommand with one heavily-fenced mutating tool** — `plusplus mcp` hand-rolls stdio JSON-RPC (~100 lines; no third-party MCP SDK, keeping the Linux build dependency-free). Read tools return interchange DTOs / the `--json` reports verbatim — no bespoke shapes to keep in sync. `propose_program_change` is the only write: `program/**.json` paths only, clean work tree required, must lint or it's fully rolled back, commits to a fresh branch, never pushes (the CLI still never authenticates — review/push/PR is the caller's job, and the repo's lint Action recipe is the second gate).
 
