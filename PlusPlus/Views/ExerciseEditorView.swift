@@ -44,6 +44,9 @@ struct ExerciseEditorView: View {
                     if draft.isDuplicate(among: existingNames, excluding: editingExercise?.name) {
                         Text("An exercise with this name already exists.")
                             .foregroundStyle(.red)
+                    } else if draft.isRename(of: editingExercise?.name) {
+                        Text("Renaming starts a fresh exercise: past sets and \"last time\" stay with \"\(editingExercise?.name ?? "")\".")
+                            .foregroundStyle(.orange)
                     }
                 }
 

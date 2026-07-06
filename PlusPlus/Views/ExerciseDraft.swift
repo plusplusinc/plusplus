@@ -68,6 +68,16 @@ final class ExerciseDraft {
         }
     }
 
+    /// True when editing an existing exercise and the name has really
+    /// changed (case-only changes keep the same slug and history match, so
+    /// they don't count). A rename makes a NEW exercise identity: history
+    /// stays with the old name and sync treats the old file as separate —
+    /// the decided v1 semantics (issue #32).
+    func isRename(of originalName: String?) -> Bool {
+        guard let originalName, !trimmedName.isEmpty else { return false }
+        return trimmedName.lowercased() != originalName.lowercased()
+    }
+
     func canSave(existingNames: [String], editedName: String? = nil) -> Bool {
         !trimmedName.isEmpty
             && normalizedVideoURL != .invalid

@@ -133,4 +133,16 @@ struct ExerciseDraftTests {
         #expect(draft.notes == "Elbows bent, shoulder flexed to 90°.")
         #expect(draft.videoURL == "https://example.com/demo")
     }
+
+    @Test("Rename detection: real renames only, not case tweaks or new exercises")
+    func renameDetection() {
+        let draft = ExerciseDraft()
+        draft.name = "Banded Pulses"
+        #expect(draft.isRename(of: "Band Pulses"))
+        #expect(!draft.isRename(of: "banded pulses"), "Case-only changes keep the same slug and history match")
+        #expect(!draft.isRename(of: nil), "A new exercise cannot be a rename")
+
+        draft.name = "   "
+        #expect(!draft.isRename(of: "Band Pulses"), "Empty names are handled by canSave, not the rename warning")
+    }
 }
