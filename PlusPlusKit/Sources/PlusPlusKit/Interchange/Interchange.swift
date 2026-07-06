@@ -41,11 +41,13 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
 public struct WorkoutDTO: Codable, Equatable, Sendable {
     public var name: String
     public var restSeconds: Int
+    public var notes: String?
     public var groups: [GroupDTO]
 
-    public init(name: String, restSeconds: Int, groups: [GroupDTO]) {
+    public init(name: String, restSeconds: Int, notes: String? = nil, groups: [GroupDTO]) {
         self.name = name
         self.restSeconds = restSeconds
+        self.notes = notes
         self.groups = groups
     }
 

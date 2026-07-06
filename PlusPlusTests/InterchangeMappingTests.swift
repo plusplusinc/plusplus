@@ -28,7 +28,7 @@ struct InterchangeMappingTests {
         context.insert(pulses)
         context.insert(yRaise)
 
-        let workout = Workout(name: "Shoulder PT", restSeconds: 60)
+        let workout = Workout(name: "Shoulder PT", restSeconds: 60, notes: "Keep it under an hour.")
         context.insert(workout)
         let superset = workout.addExerciseInNewGroup(yRaise, context: context)
         superset.sets = 3
@@ -72,6 +72,7 @@ struct InterchangeMappingTests {
         let workout = try #require(workouts.first)
         #expect(workout.name == "Shoulder PT")
         #expect(workout.restSeconds == 60)
+        #expect(workout.notes == "Keep it under an hour.")
         #expect(workout.sortedGroups.count == 1)
         let group = try #require(workout.sortedGroups.first)
         #expect(group.isSuperset)
@@ -132,6 +133,7 @@ struct InterchangeMappingTests {
         #expect(workouts.count == 1)
         let workout = try #require(workouts.first)
         #expect(workout.restSeconds == 90)
+        #expect(workout.notes == nil, "A replacing DTO without notes clears them")
         #expect(workout.sortedGroups.count == 1)
         #expect(workout.sortedGroups[0].sets == 4)
         #expect(!workout.sortedGroups[0].isSuperset)

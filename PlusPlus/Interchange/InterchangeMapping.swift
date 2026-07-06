@@ -53,6 +53,7 @@ enum InterchangeMapping {
         WorkoutDTO(
             name: workout.name,
             restSeconds: workout.restSeconds,
+            notes: workout.notes,
             groups: workout.sortedGroups.map { group in
                 .init(
                     sets: group.sets,
@@ -161,6 +162,7 @@ enum InterchangeMapping {
                 summary.workoutsCreated += 1
             }
             target.restSeconds = dto.restSeconds
+            target.notes = dto.notes
 
             for groupDTO in dto.groups {
                 var group: ExerciseGroup?

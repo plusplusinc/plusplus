@@ -19,7 +19,7 @@ struct InterchangeTests {
                 ExerciseDTO(name: "T Raise", muscleGroup: .shoulders, exerciseType: .weightReps, equipment: ["Bench", "Dumbbells"]),
             ],
             workouts: [
-                WorkoutDTO(name: "Shoulder PT", restSeconds: 60, groups: [
+                WorkoutDTO(name: "Shoulder PT", restSeconds: 60, notes: "Every day during rehab.", groups: [
                     .init(sets: 3, exercises: [
                         .init(exercise: "Y Raise", weight: 5, reps: 10),
                         .init(exercise: "T Raise", weight: 5, reps: 10),

@@ -41,6 +41,9 @@ struct ActiveSessionView: View {
                         SetLoggingView(
                             log: currentLog,
                             lastTime: WorkoutSession.lastPerformance(matching: currentLog, in: finishedSessions),
+                            // Workout intent shows once, on the first set —
+                            // it's context, not per-set chrome.
+                            workoutNotes: completedSets == 0 ? session.workout?.notes : nil,
                             setPosition: completedSets + 1,
                             totalSets: totalSets,
                             onComplete: { completeCurrentSet(currentLog) }
@@ -127,6 +130,7 @@ struct ActiveSessionView: View {
 private struct SetLoggingView: View {
     @Bindable var log: SetLog
     let lastTime: SetLog?
+    let workoutNotes: String?
     let setPosition: Int
     let totalSets: Int
     let onComplete: () -> Void
@@ -147,6 +151,12 @@ private struct SetLoggingView: View {
                         Text("Last time: \(lastTime.resultSummary)")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
+                    }
+                    if let workoutNotes {
+                        Text(workoutNotes)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .padding(.top, 2)
                     }
                 }
                 .padding(.vertical, 4)

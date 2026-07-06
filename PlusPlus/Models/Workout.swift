@@ -8,14 +8,18 @@ final class Workout {
     var order: Int
     /// Rest between sets during execution, in seconds.
     var restSeconds: Int = 90
+    /// Freeform intent for the whole workout ("keep it under an hour",
+    /// "finisher optional") — shown at session start.
+    var notes: String?
     @Relationship(deleteRule: .cascade, inverse: \ExerciseGroup.workout)
     var groups: [ExerciseGroup] = []
 
-    init(name: String, order: Int = 0, restSeconds: Int = 90) {
+    init(name: String, order: Int = 0, restSeconds: Int = 90, notes: String? = nil) {
         self.name = name
         self.createdAt = Date()
         self.order = order
         self.restSeconds = restSeconds
+        self.notes = notes
     }
 
     var sortedGroups: [ExerciseGroup] {
