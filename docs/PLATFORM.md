@@ -160,6 +160,13 @@ Semantics worth writing down:
 - **Import policy** (app side): exercises upsert by case-insensitive name;
   workouts replace-or-create by name; sessions append only — an incoming session
   with the same workout name and start time as an existing one is skipped.
+- **Renames** (decided 2026-07-06, issue #32): exercise identity IS the name.
+  Renaming an exercise starts a fresh identity — history and "last time" stay
+  with the old name, and sync sees a new file alongside the old one (which the
+  deletion-deferred policy keeps). The app warns on rename; case-only changes
+  don't count (same slug, same match). No stable IDs, no rename manifest, by
+  choice: cheapest model, and it matches how lifters think ("front squat" and
+  "squat" are different lifts, not one lift renamed). Revisit only if it chafes.
 
 ## Sync semantics (phase: #23)
 
