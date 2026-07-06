@@ -41,6 +41,9 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        # No non-exempt encryption: skips the compliance question on every
+        # TestFlight upload (#55).
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         SWIFT_EMIT_LOC_STRINGS: YES
     dependencies:
       - target: PlusPlusWatch
@@ -82,4 +85,5 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.davidcole.plusplus.watchkitapp
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_WKCompanionAppBundleIdentifier: com.davidcole.plusplus
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         SWIFT_EMIT_LOC_STRINGS: YES
