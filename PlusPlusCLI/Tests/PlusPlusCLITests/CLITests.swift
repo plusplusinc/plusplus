@@ -46,11 +46,12 @@ struct HistoryStatsTests {
         #expect(bench.setCount == 3)
         #expect(bench.totalReps == 28)
         #expect(bench.maxWeight == 145)
-        #expect(bench.bestDescription == "145 lb")
+        #expect(bench.bestDescription(weightUnit: .lb) == "145 lb")
+        #expect(bench.bestDescription(weightUnit: .kg) == "145 kg", "Numbers are unit-agnostic; only the label changes")
         #expect(bench.lastPerformed == Date(timeIntervalSince1970: 3 * 86_400))
 
         let plank = stats[1]
-        #expect(plank.bestDescription == "90 sec")
+        #expect(plank.bestDescription(weightUnit: .lb) == "1:30", "Durations follow the m:ss convention")
     }
 
     @Test("Incomplete sets don't count")

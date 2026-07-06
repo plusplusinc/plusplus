@@ -73,7 +73,12 @@ private struct SessionRow: View {
 /// Per-set breakdown of a completed session, grouped the way the workout
 /// was structured (superset members share a section).
 struct SessionDetailView: View {
+    @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
     let session: WorkoutSession
+
+    private var weightUnit: WeightUnit {
+        WeightUnit(rawValue: weightUnitRaw) ?? .lb
+    }
 
     private var groupedLogs: [(groupIndex: Int, logs: [SetLog])] {
         let completed = session.completedSetLogs
@@ -104,7 +109,7 @@ struct SessionDetailView: View {
                                     .font(.subheadline)
                             }
                             Spacer()
-                            Text(log.resultSummary)
+                            Text(log.resultSummary(weightUnit: weightUnit))
                                 .font(.body.monospacedDigit())
                         }
                     }

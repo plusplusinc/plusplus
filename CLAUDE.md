@@ -73,7 +73,7 @@ The Simulator validation step in every task should use these tools in sequence: 
 - **PlusPlus** — iOS app (deployment target iOS 26.0)
 - **PlusPlusWatch** — watchOS companion app (deployment target watchOS 26.0)
 - **PlusPlusKit** — pure SwiftPM package shared with the CLI and future MCP (tested on Linux in CI)
-- **PlusPlusTests** — unit test target (55 tests; 49 more live in PlusPlusKit, 23 in PlusPlusCLI)
+- **PlusPlusTests** — unit test target (55 tests; 52 more live in PlusPlusKit, 23 in PlusPlusCLI)
 - **PlusPlusUITests** — UI smoke test target (3 flows, `PlusPlusUI` scheme, CI-only by convention)
 
 **Project structure:**
@@ -87,7 +87,7 @@ PlusPlusKit/             # Pure SwiftPM package (Linux-tested in CI)
                          #   Interchange DTOs + codec + validator + Slug + documents,
                          #   FileLayout (repo paths) + SyncPlanner (3-way merge)
                          #   + SyncEngine/RepoStore/SyncBaseStore (sync pass, #23)
-  Tests/PlusPlusKitTests/ # Metric/RepTarget/Interchange/Sync/Conformance tests (49)
+  Tests/PlusPlusKitTests/ # Metric/Units/RepTarget/Interchange/Sync/Conformance tests (52)
 PlusPlusCLI/             # plusplus CLI (SwiftPM exec, Linux-tested in CI)
   Sources/plusplus/      # init/lint/stats/import/export + MCP server (mcp subcommand)
   Tests/PlusPlusCLITests/
@@ -130,7 +130,7 @@ PlusPlusTests/
   SupersetTests.swift        # Workout structure mutations (5)
   SessionTests.swift         # Session factory/rotation/snapshots/progress (7)
   LastPerformanceTests.swift # "Last time" lookup (6)
-  InterchangeMappingTests.swift # Export/import round-trip + policies (5) = 55 app + 49 Kit + 23 CLI
+  InterchangeMappingTests.swift # Export/import round-trip + policies (5) = 55 app + 52 Kit + 23 CLI
 PlusPlusUITests/
   SmokeTests.swift           # 3 end-to-end flows w/ screenshot attachments
 .github/workflows/ci.yml # macOS CI: xcodegen + xcodebuild test (+ release.yml on v* tags)
@@ -193,6 +193,8 @@ PlusPlusUITests/
 **2026-07-05 — CLI is Swift, shells out to git, never authenticates** — Swift over Go because the contract (deterministic codec, validator) already lives tested in PlusPlusKit; a second implementation would drift byte-level. Conformance fixtures in PlusPlusKitTests/Fixtures are the language-neutral spec for future ports. The CLI operates on a clone; git is transport and auth; the app (#23) is the only surface with GitHub auth.
 
 **2026-07-05 — PlusPlusKit package holds everything platform-pure** — MuscleGroup/ExerciseType, WorkoutMetric, RepTarget, and the interchange DTOs/codec/validator live in a local SwiftPM package with no SwiftUI/SwiftData. The `kit-test` CI job runs its tests on Linux (1x minutes); if it fails, someone leaked an Apple-only dependency into the shared core. SwiftData models, mapping (InterchangeMapping), and views stay in the app.
+
+**2026-07-06 — Weight numbers are unit-agnostic; the unit is a declaration, not a conversion** — `WeightUnit` (lb/kg) in the Kit owns per-unit semantics (step 5/2.5, wheel 2.5/1.25, empty-bar default 45/20); `WorkoutMetric`'s weight paths take a `weightUnit:` param defaulting to `.lb`. The app setting (`@AppStorage("weightUnit")`, Settings segmented control) changes labels/stepping/defaults only — stored numbers never convert (225 stays 225). Bundles carry an optional `units` field (absent = lb, so old files stay valid); import adopts a bundle's declared unit; CLI stats honor it. The per-file repo layout stays lb-implied until a real kg repo needs a meta file.
 
 **2026-07-06 — Renames are new exercises; identity IS the name** — Decided on #32's option 3: no stable IDs, no rename manifest. Renaming an exercise starts a fresh identity — history and "last time" stay with the old name; sync sees a new file next to the old. The editor warns on a real rename (`ExerciseDraft.isRename`, case-only changes exempt since slug and match are unchanged). Documented in docs/PLATFORM.md. Revisit stable IDs only if this chafes in practice.
 

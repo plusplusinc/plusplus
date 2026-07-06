@@ -42,9 +42,13 @@ struct StatsReport: Codable, Equatable {
         var lastPerformed: Date?
     }
 
+    /// What maxWeight numbers are denominated in (the bundle's declared
+    /// units; lb when undeclared).
+    var units: WeightUnit
     var exercises: [Entry]
 
-    init(stats: [ExerciseStats]) {
+    init(stats: [ExerciseStats], units: WeightUnit = .lb) {
+        self.units = units
         exercises = stats.map {
             Entry(
                 name: $0.name,

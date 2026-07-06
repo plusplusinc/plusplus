@@ -12,12 +12,12 @@ struct ExerciseStats: Equatable {
     var maxDurationSeconds: Int?
     var lastPerformed: Date?
 
-    var bestDescription: String {
+    func bestDescription(weightUnit: WeightUnit) -> String {
         if let maxWeight, maxWeight > 0 {
-            return "\(WorkoutMetric.weight.formatted(maxWeight)) lb"
+            return WorkoutMetric.weight.displayText(maxWeight, weightUnit: weightUnit)
         }
         if let maxDurationSeconds {
-            return "\(maxDurationSeconds) sec"
+            return WorkoutMetric.duration.displayText(Double(maxDurationSeconds))
         }
         return "—"
     }
@@ -53,7 +53,7 @@ enum HistoryStats {
     }
 
     /// Fixed-width text table; dates in UTC for determinism.
-    static func table(for stats: [ExerciseStats]) -> String {
+    static func table(for stats: [ExerciseStats], weightUnit: WeightUnit = .lb) -> String {
         var rows: [[String]] = [["Exercise", "Sessions", "Sets", "Reps", "Best", "Last"]]
         for entry in stats {
             let last = entry.lastPerformed.map { FileLayout.utcDateParts(of: $0).dateStamp } ?? "—"
@@ -62,7 +62,7 @@ enum HistoryStats {
                 String(entry.sessionCount),
                 String(entry.setCount),
                 String(entry.totalReps),
-                entry.bestDescription,
+                entry.bestDescription(weightUnit: weightUnit),
                 last,
             ])
         }

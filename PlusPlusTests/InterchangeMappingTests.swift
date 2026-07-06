@@ -56,9 +56,10 @@ struct InterchangeMappingTests {
         let source = ModelContext(try makeContainer())
         try populate(source)
 
-        let bundle = try InterchangeMapping.exportBundle(context: source)
+        let bundle = try InterchangeMapping.exportBundle(context: source, units: .kg)
         let encoded = try InterchangeCodec.encode(bundle)
         let decoded = try InterchangeCodec.decode(ExportBundle.self, from: encoded)
+        #expect(decoded.units == .kg, "The declared unit survives the round trip")
 
         let destination = ModelContext(try makeContainer())
         let summary = try InterchangeMapping.importBundle(decoded, context: destination)

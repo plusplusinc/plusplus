@@ -158,16 +158,21 @@ public struct SessionDTO: Codable, Equatable, Sendable {
 /// layout stores the same DTOs one entity per file instead.
 public struct ExportBundle: Codable, Equatable, Sendable {
     public var schemaVersion: Int
+    /// What weight numbers are denominated in. Absent means pounds —
+    /// every pre-units file stays valid, and values are never converted.
+    public var units: WeightUnit?
     public var exercises: [ExerciseDTO]
     public var workouts: [WorkoutDTO]
     public var sessions: [SessionDTO]
 
     public init(
+        units: WeightUnit? = nil,
         exercises: [ExerciseDTO],
         workouts: [WorkoutDTO],
         sessions: [SessionDTO]
     ) {
         self.schemaVersion = Interchange.schemaVersion
+        self.units = units
         // Plain lowercased comparison, not localized — output ordering must be
         // identical on every platform for deterministic diffs.
         self.exercises = exercises.sorted { $0.name.lowercased() < $1.name.lowercased() }

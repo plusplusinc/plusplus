@@ -80,22 +80,23 @@ struct Stats: ParsableCommand {
             stats = stats.filter { $0.name.lowercased() == exercise.lowercased() }
             if stats.isEmpty {
                 if json {
-                    try printJSON(StatsReport(stats: []))
+                    try printJSON(StatsReport(stats: [], units: bundle.units ?? .lb))
                 } else {
                     print("No completed sets found for \"\(exercise)\".")
                 }
                 throw ExitCode.failure
             }
         }
+        let units = bundle.units ?? .lb
         if json {
-            try printJSON(StatsReport(stats: stats))
+            try printJSON(StatsReport(stats: stats, units: units))
             return
         }
         if stats.isEmpty {
             print("No history yet.")
             return
         }
-        print(HistoryStats.table(for: stats))
+        print(HistoryStats.table(for: stats, weightUnit: units))
     }
 }
 

@@ -163,7 +163,9 @@ final class SetLog {
     }
 
     /// "10 reps @ 135 lb", "45 sec", "25:00", or "—" — how this set went.
-    var resultSummary: String {
+    /// Weight numbers are unit-agnostic; the caller supplies the current
+    /// unit setting (issue #33).
+    func resultSummary(weightUnit: WeightUnit) -> String {
         if exerciseType == .duration {
             guard let seconds = actualDuration else { return "—" }
             return WorkoutMetric.duration.displayText(Double(seconds))
@@ -173,7 +175,7 @@ final class SetLog {
             parts.append("\(reps) reps")
         }
         if let weight = actualWeight, weight > 0 {
-            parts.append("@ \(WorkoutMetric.weight.formatted(weight)) lb")
+            parts.append("@ \(WorkoutMetric.weight.displayText(weight, weightUnit: weightUnit))")
         }
         return parts.isEmpty ? "—" : parts.joined(separator: " ")
     }

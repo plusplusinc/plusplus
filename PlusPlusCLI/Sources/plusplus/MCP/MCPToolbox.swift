@@ -101,7 +101,7 @@ enum MCPToolbox {
             if let exercise = arguments["exercise"] as? String {
                 stats = stats.filter { $0.name.lowercased() == exercise.lowercased() }
             }
-            return try encode(StatsReport(stats: stats))
+            return try encode(StatsReport(stats: stats, units: bundle.units ?? .lb))
         case "lint":
             let bundle = try BundleSource.load(path: repoRoot)
             return try encode(LintReport(bundle: bundle, issues: InterchangeValidator.validate(bundle)))
