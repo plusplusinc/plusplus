@@ -257,6 +257,11 @@ struct ActiveSessionView: View {
 
 /// The current-set sliver of the progress bar, pulsing.
 private struct PulsingSegment: View {
+    /// XCUITest waits for app quiescence before every event, and an
+    /// endless animation means quiescence never arrives — so the sliver
+    /// holds still under --uitest-reset.
+    private static let animated = !CommandLine.arguments.contains("--uitest-reset")
+
     @State private var dim = false
 
     var body: some View {
@@ -264,6 +269,7 @@ private struct PulsingSegment: View {
             .fill(Theme.accent)
             .opacity(dim ? 0.45 : 1)
             .onAppear {
+                guard Self.animated else { return }
                 withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
                     dim = true
                 }
