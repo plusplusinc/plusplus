@@ -127,11 +127,14 @@ final class Workout {
     }
 
     /// Moves a superset member out into its own group, placed immediately
-    /// after the group it came from. No-op for a solo exercise.
-    func splitExercise(_ workoutExercise: WorkoutExercise, context: ModelContext) {
+    /// after (or, with `placeAbove`, immediately before) the group it
+    /// came from. No-op for a solo exercise. `placeAbove` is the ring
+    /// gesture's top-edge contraction (#78): the ejected member lands
+    /// just outside the edge it crossed.
+    func splitExercise(_ workoutExercise: WorkoutExercise, placeAbove: Bool = false, context: ModelContext) {
         guard let sourceGroup = workoutExercise.group, sourceGroup.isSuperset else { return }
 
-        let insertionOrder = sourceGroup.order + 1
+        let insertionOrder = placeAbove ? sourceGroup.order : sourceGroup.order + 1
         for group in sortedGroups where group.order >= insertionOrder {
             group.order += 1
         }
@@ -145,5 +148,48 @@ final class Workout {
 
         sourceGroup.reindexExercises()
         reindexGroups()
+    }
+
+    /// Drops an exercise into the gap between groups (#78 drag-drop):
+    /// `gap` is 0...sortedGroups.count in pre-move indices. A solo
+    /// exercise moves its whole group; a superset member leaves its group
+    /// and lands solo, keeping the source group's set count. Membership
+    /// never grows this way — joining a superset is the ring gesture.
+    func placeSolo(_ workoutExercise: WorkoutExercise, atGap gap: Int, context: ModelContext) {
+        guard let source = workoutExercise.group else { return }
+        var arranged = sortedGroups
+        guard let sourceIndex = arranged.firstIndex(where: { $0 === source }) else { return }
+        let gap = max(0, min(gap, arranged.count))
+
+        if source.isSuperset {
+            let newGroup = ExerciseGroup(order: 0, sets: source.sets)
+            newGroup.workout = self
+            context.insert(newGroup)
+            workoutExercise.group = newGroup
+            workoutExercise.order = 0
+            source.reindexExercises()
+            arranged.insert(newGroup, at: gap)
+        } else {
+            arranged.remove(at: sourceIndex)
+            let insertion = gap > sourceIndex ? gap - 1 : gap
+            arranged.insert(source, at: min(insertion, arranged.count))
+        }
+        for (index, group) in arranged.enumerated() {
+            group.order = index
+        }
+    }
+
+    /// Reorders a member within its own group (#78 in-ring drag).
+    func reorderExercise(_ workoutExercise: WorkoutExercise, toIndex target: Int) {
+        guard let group = workoutExercise.group else { return }
+        var members = group.sortedExercises
+        guard let from = members.firstIndex(where: { $0 === workoutExercise }) else { return }
+        let to = max(0, min(target, members.count - 1))
+        guard from != to else { return }
+        members.remove(at: from)
+        members.insert(workoutExercise, at: to)
+        for (index, member) in members.enumerated() {
+            member.order = index
+        }
     }
 }

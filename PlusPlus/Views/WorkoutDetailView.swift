@@ -16,6 +16,17 @@ struct WorkoutDetailView: View {
     @State private var activeSession: WorkoutSession?
     @State private var showingWorkoutSettings = false
     @State private var selectedExercise: WorkoutExercise?
+    @State private var railGesture: RailGestureState = .idle
+    @State private var openSwipeRow: PersistentIdentifier?
+
+    /// The two #78 long-press interactions. Rows are identified by
+    /// (group, index) — the model never mutates while a gesture is live,
+    /// so indices are stable until commit.
+    private enum RailGestureState: Equatable {
+        case idle
+        case dragging(group: Int, index: Int, fingerY: Double, grabOffset: Double)
+        case ring(group: Int, edge: RingEdge, fingerY: Double)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -131,61 +142,125 @@ struct WorkoutDetailView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    // MARK: - Rail list
+    // MARK: - Rail list (custom gesture surface, #78)
+    // ScrollView + absolutely-positioned rows instead of List: we own the
+    // whole gesture stack (long-press drag to rearrange, ring-drag for
+    // membership, custom swipe reveal). Geometry and drop/ring semantics
+    // are pure PlusPlusKit logic (RailArrangement); this layer renders
+    // rows at the positions the logic dictates and commits results
+    // through the Workout mutations.
+
+    private var groupSizes: [Int] {
+        workout.sortedGroups.map { $0.sortedExercises.count }
+    }
 
     private var railList: some View {
-        List {
-            ForEach(workout.sortedGroups) { group in
-                if group.isSuperset {
-                    SupersetCaptionRow(
-                        group: group,
-                        groupCount: workout.sortedGroups.count,
-                        onAddToSuperset: { pickerDestination = .group(group) },
-                        onMoveUp: { moveGroup(group, by: -1) },
-                        onMoveDown: { moveGroup(group, by: 1) },
-                        onDelete: { deleteGroup(group) }
-                    )
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 14))
-                }
+        let sizes = groupSizes
+        let layout = RailLayout.build(groupSizes: sizes)
+        let positions = rowPositions(layout: layout, sizes: sizes)
+        let groups = workout.sortedGroups
 
-                ForEach(Array(group.sortedExercises.enumerated()), id: \.element.persistentModelID) { index, workoutExercise in
-                    ExerciseRailRow(
-                        workoutExercise: workoutExercise,
-                        role: railRole(index: index, of: group),
-                        topPadding: group.isSuperset || index > 0 ? 0 : 6
-                    )
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 14))
+        return ScrollView {
+            ZStack(alignment: .topLeading) {
+                ForEach(Array(groups.enumerated()), id: \.element.persistentModelID) { g, group in
+                    if group.isSuperset {
+                        SupersetCaptionRow(
+                            group: group,
+                            groupCount: groups.count,
+                            onAddToSuperset: { pickerDestination = .group(group) },
+                            onMoveUp: { moveGroup(group, by: -1) },
+                            onMoveDown: { moveGroup(group, by: 1) },
+                            onDelete: { deleteGroup(group) }
+                        )
+                        .frame(height: RailMetrics.v2.captionHeight, alignment: .bottom)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .offset(y: positions[.caption(group: g)] ?? 0)
+                    }
+                    ForEach(Array(group.sortedExercises.enumerated()), id: \.element.persistentModelID) { i, workoutExercise in
+                        railRow(workoutExercise, group: group, groupIndex: g, index: i)
+                            .offset(y: positions[.exercise(group: g, index: i)] ?? 0)
+                    }
+                }
+                ringHighlight(layout: layout, sizes: sizes)
+                floatingDragPreview(layout: layout, groups: groups)
+            }
+            .frame(maxWidth: .infinity, minHeight: layout.totalHeight, alignment: .topLeading)
+            .padding(.leading, 20)
+            .padding(.trailing, 14)
+            .coordinateSpace(name: Self.railSpace)
+            .animation(.easeOut(duration: 0.16), value: positions)
+        }
+        .scrollDisabled(railGesture != .idle)
+        .sensoryFeedback(.impact(weight: .light), trigger: gestureFeedbackToken)
+    }
+
+    private static let railSpace = "railSpace"
+
+    /// One row: swipe-revealable content with the two long-press zones —
+    /// the rail column grabs the ring, the body drags the row.
+    private func railRow(_ workoutExercise: WorkoutExercise, group: ExerciseGroup, groupIndex g: Int, index i: Int) -> some View {
+        let solo = !group.isSuperset
+        let height = solo ? RailMetrics.v2.soloRowHeight : RailMetrics.v2.memberRowHeight
+        let isDragged: Bool = {
+            if case .dragging(let dg, let di, _, _) = railGesture { return dg == g && di == i }
+            return false
+        }()
+
+        return SwipeRevealRow(
+            id: workoutExercise.persistentModelID,
+            openRow: $openSwipeRow,
+            enabled: railGesture == .idle,
+            actionsWidth: 174
+        ) {
+            ExerciseRailRow(
+                workoutExercise: workoutExercise,
+                role: railRole(index: i, of: group),
+                topPadding: solo ? 6 : 0
+            )
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if openSwipeRow != nil { openSwipeRow = nil } else { selectedExercise = workoutExercise }
+            }
+            .overlay(alignment: .leading) {
+                // The dot zone: ring gesture lives on the rail column.
+                Color.clear
+                    .frame(width: 37)
                     .contentShape(Rectangle())
                     .onTapGesture { selectedExercise = workoutExercise }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button(role: .destructive) {
-                            deleteExercise(workoutExercise, in: group)
-                        } label: {
-                            Label("Delete", systemImage: "xmark")
-                        }
-                        Button {
-                            duplicateExercise(workoutExercise, in: group)
-                        } label: {
-                            Label("Dupe", systemImage: "plus.circle")
-                        }
-                        .tint(Theme.borderStrong)
-                        Button {
-                            pickerDestination = .group(group)
-                        } label: {
-                            Label("Super", systemImage: "square.on.square")
-                        }
-                        .tint(Theme.supersetLine)
-                    }
+                    .gesture(ringGesture(groupIndex: g, index: i))
+            }
+            .gesture(dragGesture(groupIndex: g, index: i, rowHeight: height))
+        } actions: {
+            HStack(spacing: 0) {
+                swipeAction("Super", color: Theme.supersetLine) {
+                    openSwipeRow = nil
+                    pickerDestination = .group(group)
+                }
+                swipeAction("Dupe", color: Theme.borderStrong) {
+                    openSwipeRow = nil
+                    duplicateExercise(workoutExercise, in: group)
+                }
+                swipeAction("Delete", color: Theme.destructive) {
+                    openSwipeRow = nil
+                    deleteExercise(workoutExercise, in: group)
                 }
             }
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .environment(\.defaultMinListRowHeight, 10)
+        .frame(height: height)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .opacity(isDragged ? 0 : 1)
+    }
+
+    private func swipeAction(_ label: String, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .foregroundStyle(color)
+                .frame(width: 58)
+                .frame(maxHeight: .infinity)
+                .background(Theme.surface)
+                .overlay(Rectangle().frame(width: 1).foregroundStyle(Theme.border), alignment: .leading)
+        }
     }
 
     private func railRole(index: Int, of group: ExerciseGroup) -> RailRole {
@@ -193,6 +268,194 @@ struct WorkoutDetailView: View {
         if index == 0 { return .supersetFirst }
         if index == group.sortedExercises.count - 1 { return .supersetLast }
         return .supersetMiddle
+    }
+
+    // MARK: Gesture plumbing
+
+    private func dragGesture(groupIndex g: Int, index i: Int, rowHeight: Double) -> some Gesture {
+        LongPressGesture(minimumDuration: 0.35)
+            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .named(Self.railSpace)))
+            .onChanged { value in
+                guard case .second(true, let drag) = value else { return }
+                let layout = RailLayout.build(groupSizes: groupSizes)
+                let rowY = layout.row(for: .exercise(group: g, index: i))?.y ?? 0
+                if let drag {
+                    let grabOffset: Double
+                    if case .dragging(_, _, _, let existing) = railGesture {
+                        grabOffset = existing
+                    } else {
+                        grabOffset = drag.startLocation.y - rowY
+                    }
+                    railGesture = .dragging(group: g, index: i, fingerY: drag.location.y, grabOffset: grabOffset)
+                } else if railGesture == .idle {
+                    // Long press satisfied, finger not yet moved.
+                    railGesture = .dragging(group: g, index: i, fingerY: rowY + rowHeight / 2, grabOffset: rowHeight / 2)
+                }
+            }
+            .onEnded { _ in
+                if case .dragging(let dg, let di, let fingerY, let grabOffset) = railGesture {
+                    commitDrag(group: dg, index: di, fingerY: fingerY, grabOffset: grabOffset)
+                }
+                railGesture = .idle
+            }
+    }
+
+    private func ringGesture(groupIndex g: Int, index i: Int) -> some Gesture {
+        LongPressGesture(minimumDuration: 0.35)
+            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .named(Self.railSpace)))
+            .onChanged { value in
+                guard case .second(true, let drag) = value else { return }
+                let sizes = groupSizes
+                let edge: RingEdge
+                if case .ring(_, let held, _) = railGesture {
+                    edge = held
+                } else {
+                    edge = RailRing.grabbedEdge(groupSizes: sizes, group: g, pressedIndex: i)
+                }
+                let layout = RailLayout.build(groupSizes: sizes)
+                let fallbackY = layout.row(for: .exercise(group: g, index: i))?.midY ?? 0
+                railGesture = .ring(group: g, edge: edge, fingerY: drag?.location.y ?? fallbackY)
+            }
+            .onEnded { _ in
+                if case .ring(let rg, let edge, let fingerY) = railGesture {
+                    commitRing(group: rg, edge: edge, fingerY: fingerY)
+                }
+                railGesture = .idle
+            }
+    }
+
+    /// The dragged row's tentative drop target, from the floating row's
+    /// visual center.
+    private func tentativeTarget(sizes: [Int]) -> RailDropTarget? {
+        guard case .dragging(let g, let i, let fingerY, let grabOffset) = railGesture else { return nil }
+        let height = sizes[g] > 1 ? RailMetrics.v2.memberRowHeight : RailMetrics.v2.soloRowHeight
+        let centerY = fingerY - grabOffset + height / 2
+        return RailDrag.nearestTarget(groupSizes: sizes, dragging: (group: g, index: i), fingerY: centerY)
+    }
+
+    private func rowPositions(layout: RailLayout, sizes: [Int]) -> [RailRowKind: Double] {
+        if case .dragging(let g, let i, _, _) = railGesture,
+           let target = tentativeTarget(sizes: sizes) {
+            return RailDrag.previewPositions(groupSizes: sizes, dragging: (group: g, index: i), target: target)
+        }
+        return Dictionary(uniqueKeysWithValues: layout.rows.map { ($0.kind, $0.y) })
+    }
+
+    /// Changes whenever the tentative outcome changes — drives one haptic
+    /// tick per slot/row crossed.
+    private var gestureFeedbackToken: Int {
+        let sizes = groupSizes
+        switch railGesture {
+        case .idle:
+            return 0
+        case .dragging:
+            return tentativeTarget(sizes: sizes)?.hashValue ?? 0
+        case .ring(let g, let edge, let fingerY):
+            let span = RailRing.span(groupSizes: sizes, group: g, edge: edge, fingerY: fingerY)
+            return span.firstFlat &* 31 &+ span.lastFlat
+        }
+    }
+
+    @ViewBuilder
+    private func ringHighlight(layout: RailLayout, sizes: [Int]) -> some View {
+        if case .ring(let g, let edge, let fingerY) = railGesture {
+            let span = RailRing.span(groupSizes: sizes, group: g, edge: edge, fingerY: fingerY)
+            if let first = exerciseRow(layout: layout, sizes: sizes, flat: span.firstFlat),
+               let last = exerciseRow(layout: layout, sizes: sizes, flat: span.lastFlat) {
+                // Full-width ring: the tentative membership reads across
+                // the whole rows, not under the thumb (Dave's occlusion
+                // spec on #78).
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Theme.supersetLine.opacity(0.08))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(Theme.supersetLine, lineWidth: 2)
+                    )
+                    .frame(height: last.maxY - first.y + 4)
+                    .offset(y: first.y - 2)
+                    .allowsHitTesting(false)
+            }
+        }
+    }
+
+    private func exerciseRow(layout: RailLayout, sizes: [Int], flat: Int) -> RailRow? {
+        var remaining = flat
+        for (g, size) in sizes.enumerated() {
+            if remaining < size {
+                return layout.row(for: .exercise(group: g, index: remaining))
+            }
+            remaining -= size
+        }
+        return nil
+    }
+
+    @ViewBuilder
+    private func floatingDragPreview(layout: RailLayout, groups: [ExerciseGroup]) -> some View {
+        if case .dragging(let g, let i, let fingerY, let grabOffset) = railGesture,
+           groups.indices.contains(g), groups[g].sortedExercises.indices.contains(i) {
+            let workoutExercise = groups[g].sortedExercises[i]
+            ExerciseRailRow(workoutExercise: workoutExercise, role: .solo, topPadding: 0)
+                .padding(.horizontal, 8)
+                .frame(height: RailMetrics.v2.memberRowHeight)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.surface, in: RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.borderStrong))
+                .shadow(color: .black.opacity(0.5), radius: 14, y: 8)
+                .scaleEffect(1.02)
+                .offset(y: fingerY - grabOffset)
+                .zIndex(10)
+                .allowsHitTesting(false)
+        }
+    }
+
+    // MARK: Gesture commits
+
+    private func commitDrag(group g: Int, index i: Int, fingerY: Double, grabOffset: Double) {
+        let sizes = groupSizes
+        guard sizes.indices.contains(g), i < sizes[g] else { return }
+        let height = sizes[g] > 1 ? RailMetrics.v2.memberRowHeight : RailMetrics.v2.soloRowHeight
+        let centerY = fingerY - grabOffset + height / 2
+        guard let target = RailDrag.nearestTarget(groupSizes: sizes, dragging: (group: g, index: i), fingerY: centerY) else { return }
+
+        let groups = workout.sortedGroups
+        guard groups.indices.contains(g), groups[g].sortedExercises.indices.contains(i) else { return }
+        let workoutExercise = groups[g].sortedExercises[i]
+
+        switch target {
+        case .gap(let gap):
+            workout.placeSolo(workoutExercise, atGap: gap, context: modelContext)
+        case .within(_, let index):
+            workout.reorderExercise(workoutExercise, toIndex: index)
+        }
+    }
+
+    private func commitRing(group g: Int, edge: RingEdge, fingerY: Double) {
+        let sizes = groupSizes
+        guard sizes.indices.contains(g) else { return }
+        let span = RailRing.span(groupSizes: sizes, group: g, edge: edge, fingerY: fingerY)
+        guard !span.isNoOp else { return }
+        let group = workout.sortedGroups[g]
+
+        for _ in 0..<span.absorbAfter {
+            let groups = workout.sortedGroups
+            guard let index = groups.firstIndex(where: { $0 === group }),
+                  groups.indices.contains(index + 1) else { break }
+            workout.mergeSoloGroup(groups[index + 1], direction: -1, context: modelContext)
+        }
+        for _ in 0..<span.absorbBefore {
+            let groups = workout.sortedGroups
+            guard let index = groups.firstIndex(where: { $0 === group }),
+                  index > 0 else { break }
+            workout.mergeSoloGroup(groups[index - 1], direction: 1, context: modelContext)
+        }
+        for _ in 0..<span.ejectLast {
+            guard group.isSuperset, let last = group.sortedExercises.last else { break }
+            workout.splitExercise(last, context: modelContext)
+        }
+        for _ in 0..<span.ejectFirst {
+            guard group.isSuperset, let first = group.sortedExercises.first else { break }
+            workout.splitExercise(first, placeAbove: true, context: modelContext)
+        }
     }
 
     private var bottomBar: some View {
@@ -302,6 +565,63 @@ enum PickerDestination: Identifiable {
         case .newGroup: AnyHashable("newGroup")
         case .group(let group): AnyHashable(group.persistentModelID)
         }
+    }
+}
+
+// MARK: - Swipe reveal
+
+/// Minimal trailing-actions swipe, since List's swipeActions left with
+/// List (#78). Horizontal-dominant drags reveal the actions; vertical
+/// movement is left to the ScrollView. One row open at a time via the
+/// shared `openRow` binding.
+private struct SwipeRevealRow<Content: View, Actions: View>: View {
+    let id: PersistentIdentifier
+    @Binding var openRow: PersistentIdentifier?
+    let enabled: Bool
+    let actionsWidth: CGFloat
+    @ViewBuilder let content: () -> Content
+    @ViewBuilder let actions: () -> Actions
+
+    @State private var dragX: CGFloat = 0
+
+    private var restingOffset: CGFloat {
+        openRow == id ? -actionsWidth : 0
+    }
+
+    private var offset: CGFloat {
+        min(0, max(restingOffset + dragX, -actionsWidth - 24))
+    }
+
+    var body: some View {
+        ZStack(alignment: .trailing) {
+            actions()
+                .frame(width: actionsWidth)
+                .frame(maxHeight: .infinity)
+                .opacity(offset < -12 ? 1 : 0)
+            content()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.background)
+                .offset(x: offset)
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 16)
+                        .onChanged { value in
+                            guard enabled,
+                                  abs(value.translation.width) > abs(value.translation.height)
+                            else { return }
+                            dragX = value.translation.width
+                        }
+                        .onEnded { value in
+                            guard enabled else { return }
+                            if dragX != 0 {
+                                let projected = restingOffset + value.predictedEndTranslation.width
+                                openRow = projected < -actionsWidth / 2 ? id : (openRow == id ? nil : openRow)
+                            }
+                            dragX = 0
+                        }
+                )
+        }
+        .clipped()
+        .animation(.easeOut(duration: 0.18), value: offset)
     }
 }
 

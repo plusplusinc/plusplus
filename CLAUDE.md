@@ -73,7 +73,7 @@ The Simulator validation step in every task should use these tools in sequence: 
 - **PlusPlus** — iOS app (deployment target iOS 26.0)
 - **PlusPlusWatch** — watchOS companion app (deployment target watchOS 26.0)
 - **PlusPlusKit** — pure SwiftPM package shared with the CLI and future MCP (tested on Linux in CI)
-- **PlusPlusTests** — unit test target (65 tests; 52 more live in PlusPlusKit, 23 in PlusPlusCLI)
+- **PlusPlusTests** — unit test target (72 tests; 70 more live in PlusPlusKit, 23 in PlusPlusCLI)
 - **PlusPlusUITests** — UI smoke test target (3 flows, `PlusPlusUI` scheme, CI-only by convention)
 
 **Project structure:**
@@ -133,7 +133,7 @@ PlusPlusTests/
   SupersetTests.swift        # Workout structure mutations (5)
   SessionTests.swift         # Session factory/rotation/snapshots/progress (7)
   LastPerformanceTests.swift # "Last time" lookup (6)
-  InterchangeMappingTests.swift # Export/import round-trip + policies (5) = 65 app + 52 Kit + 23 CLI
+  InterchangeMappingTests.swift # Export/import round-trip + policies (5) = 72 app + 70 Kit + 23 CLI
 PlusPlusUITests/
   SmokeTests.swift           # 3 end-to-end flows w/ screenshot attachments
 .github/workflows/ci.yml # macOS CI: xcodegen + xcodebuild test (+ release.yml on v* tags)
@@ -214,6 +214,8 @@ PlusPlusUITests/
 **2026-07-06 — Sync engine is transport-blind; sessions bypass the merge entirely** — `SyncEngine` (Kit) runs one sync pass — load base → fetch remote → `SyncPlanner` → resolve conflicts (keep-mine / take-theirs / postpone) → push → save the converged base — against two tiny protocols: `RepoStore` (the GitHub adapter in the app, a fake in tests) and `SyncBaseStore` (base-snapshot persistence, answering where "base" lives: the store owned by the app, a dictionary in tests). Postponed conflicts keep their old base entry so they re-conflict next pass. Finished sessions never enter the merge: `pushSession` is append-only via `FileLayout.sessionPlacement`, idempotent on retry, and composes its own "Log: …" commit message. What remains for #23 is UI + the GitHub `RepoStore` adapter + device-flow auth.
 
 **2026-07-06 — Duration spans to a full hour; m:ss display above a minute** — Dogfooding the real program (#29) hit the old 900 s cap with "20–30 min spin bike". `WorkoutMetric.duration` now ranges 5–3600 with a tiered wheel (5 s steps to 2 min, 15 s to 10 min, whole minutes beyond) so the picker stays usable; values ≥ 60 s render as m:ss ("25:00") with no unit suffix. The interchange validator stays permissive (duration > 0) — the format doesn't encode UI limits.
+
+**2026-07-06 — Rail direct manipulation is a custom gesture layer; List is out of the detail view** — Issue #78 (Dave's design): two separate long-press interactions — drag a row body to rearrange, drag a rail dot's ring edge to manage superset membership (full-width blue highlight while active, so state reads around the thumb). `List` was rejected a third and final time: its drag machinery can't express grouped semantics (2026-02 Sections attempt, 2026-07-05 header-menu retreat), gives no live preview, and has an unfixable drop ambiguity at group boundaries. The detail view now uses ScrollView + rows positioned absolutely by `RailLayout`; all geometry/semantics (drop slots, ring spans, clamps) are pure `RailArrangement` logic in PlusPlusKit (Linux-tested), and commits compose the existing Workout mutations plus `placeSolo`/`reorderExercise`/directional `splitExercise`. Division of labor kills ambiguity: gaps between groups always mean "land solo", in-ring positions exist only for the dragged row's own group, joining a ring is exclusively the ring gesture. Swipe actions are a small custom `SwipeRevealRow` (List-only feature otherwise). Gesture feel is unvalidated remotely — on the #1 checklist.
 
 **2026-07-05 — Rep ranges shift, sets stay scalar** — `reps`/`repsUpper` express "15–20"; the stepper shifts the whole range to preserve the prescribed span. Set ranges ("2–3×10") deliberately collapse to one number — the range's meaning ("stop when cooked") lives with the user, not the model.
 
