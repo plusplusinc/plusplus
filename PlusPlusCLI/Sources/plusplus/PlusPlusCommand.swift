@@ -36,9 +36,25 @@ struct Lint: ParsableCommand {
     @Argument(help: "Path to a workout repo directory or a bundle .json file.")
     var path: String = "."
 
+    @Flag(name: .long, help: "Emit a machine-readable JSON report instead of text.")
+    var json = false
+
     func run() throws {
         let bundle = try BundleSource.load(path: path)
-        try requireValid(bundle)
+        let issues = InterchangeValidator.validate(bundle)
+
+        if json {
+            try printJSON(LintReport(bundle: bundle, issues: issues))
+            guard issues.isEmpty else { throw ExitCode.failure }
+            return
+        }
+
+        guard issues.isEmpty else {
+            for issue in issues {
+                print("error: \(issue)")
+            }
+            throw ExitCode.failure
+        }
         print("OK — \(bundle.exercises.count) exercises, \(bundle.workouts.count) workouts, \(bundle.sessions.count) sessions")
     }
 }
@@ -54,15 +70,26 @@ struct Stats: ParsableCommand {
     @Option(name: .long, help: "Only show one exercise (case-insensitive name match).")
     var exercise: String?
 
+    @Flag(name: .long, help: "Emit machine-readable JSON instead of the table.")
+    var json = false
+
     func run() throws {
         let bundle = try BundleSource.load(path: path)
         var stats = HistoryStats.compute(from: bundle.sessions)
         if let exercise {
             stats = stats.filter { $0.name.lowercased() == exercise.lowercased() }
             if stats.isEmpty {
-                print("No completed sets found for \"\(exercise)\".")
+                if json {
+                    try printJSON(StatsReport(stats: []))
+                } else {
+                    print("No completed sets found for \"\(exercise)\".")
+                }
                 throw ExitCode.failure
             }
+        }
+        if json {
+            try printJSON(StatsReport(stats: stats))
+            return
         }
         if stats.isEmpty {
             print("No history yet.")
