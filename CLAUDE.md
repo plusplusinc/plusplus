@@ -73,7 +73,7 @@ The Simulator validation step in every task should use these tools in sequence: 
 - **PlusPlus** — iOS app (deployment target iOS 26.0)
 - **PlusPlusWatch** — watchOS companion app (deployment target watchOS 26.0)
 - **PlusPlusKit** — pure SwiftPM package shared with the CLI and future MCP (tested on Linux in CI)
-- **PlusPlusTests** — unit test target (53 tests; 49 more live in PlusPlusKit, 8 in PlusPlusCLI)
+- **PlusPlusTests** — unit test target (53 tests; 49 more live in PlusPlusKit, 12 in PlusPlusCLI)
 - **PlusPlusUITests** — UI smoke test target (3 flows, `PlusPlusUI` scheme, CI-only by convention)
 
 **Project structure:**
@@ -126,7 +126,7 @@ PlusPlusTests/
   SupersetTests.swift        # Workout structure mutations (5)
   SessionTests.swift         # Session factory/rotation/snapshots/progress (7)
   LastPerformanceTests.swift # "Last time" lookup (6)
-  InterchangeMappingTests.swift # Export/import round-trip + policies (5) = 53 app + 49 Kit + 8 CLI
+  InterchangeMappingTests.swift # Export/import round-trip + policies (5) = 53 app + 49 Kit + 12 CLI
 PlusPlusUITests/
   SmokeTests.swift           # 3 end-to-end flows w/ screenshot attachments
 .github/workflows/ci.yml # macOS CI: xcodegen + xcodebuild test
