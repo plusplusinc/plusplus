@@ -75,10 +75,16 @@ jobs:
             -authenticationKeyPath ~/private_keys/AuthKey_"$ASC_KEY_ID".p8 \
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
-            CODE_SIGN_STYLE=Automatic \
+            CODE_SIGNING_ALLOWED=NO \
             DEVELOPMENT_TEAM="$ASC_TEAM_ID" \
             CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
             2>&1 | tee archive.log
+        # The archive is deliberately unsigned: automatic signing at
+        # archive time wants a *development* profile, which requires a
+        # registered device — a fresh team has none, and overriding the
+        # identity to Apple Distribution conflicts with automatic style.
+        # The export step below does the real signing: cloud signing via
+        # the API key mints App Store profiles, which need no devices.
 
       - name: Export and upload to TestFlight
         env:
