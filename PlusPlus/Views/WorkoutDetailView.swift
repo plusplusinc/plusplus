@@ -30,6 +30,16 @@ struct WorkoutDetailView: View {
                 Section("Between Sets") {
                     MetricRow(metric: .rest, value: restBinding)
                 }
+
+                Section("Notes") {
+                    TextField(
+                        "Intent for this workout — shown when you start it",
+                        text: notesBinding,
+                        axis: .vertical
+                    )
+                    .lineLimit(1...6)
+                    .accessibilityIdentifier("workoutNotesField")
+                }
             }
         }
         .navigationTitle(workout.name)
@@ -77,6 +87,18 @@ struct WorkoutDetailView: View {
         .fullScreenCover(item: $activeSession) { session in
             ActiveSessionView(session: session)
         }
+    }
+
+    /// Empty text and nil are the same thing for notes; only real content
+    /// is stored (and therefore exported).
+    private var notesBinding: Binding<String> {
+        Binding(
+            get: { workout.notes ?? "" },
+            set: { newValue in
+                let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                workout.notes = trimmed.isEmpty ? nil : newValue
+            }
+        )
     }
 
     /// Bridges the non-optional stored rest setting to MetricRow's optional
