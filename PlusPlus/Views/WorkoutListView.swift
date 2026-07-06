@@ -9,12 +9,19 @@ struct WorkoutListView: View {
     @Query(sort: [SortDescriptor(\Workout.order), SortDescriptor(\Workout.createdAt, order: .reverse)])
     private var workouts: [Workout]
 
-    @State private var path: [Workout] = []
+    /// Non-workout pushes from the home screen. Everything the stack can
+    /// show must flow through the one path binding: mixing a typed path
+    /// with navigationDestination(isPresented:) leaves SwiftUI with two
+    /// sources of truth it can't reconcile, which livelocks the push.
+    private enum HomeDestination: Hashable {
+        case history
+        case library
+    }
+
+    @State private var path = NavigationPath()
     @State private var showingNewWorkout = false
     @State private var newWorkoutName = ""
     @State private var showingSettings = false
-    @State private var showingHistory = false
-    @State private var showingLibrary = false
     @State private var catalogSheet: AddFromCatalogSheet.Kind?
     @State private var newCustomPrefill: CustomExercisePrefill?
 
@@ -49,11 +56,11 @@ struct WorkoutListView: View {
             .navigationDestination(for: Workout.self) { workout in
                 WorkoutDetailView(workout: workout)
             }
-            .navigationDestination(isPresented: $showingHistory) {
-                HistoryView()
-            }
-            .navigationDestination(isPresented: $showingLibrary) {
-                LibraryView()
+            .navigationDestination(for: HomeDestination.self) { destination in
+                switch destination {
+                case .history: HistoryView()
+                case .library: LibraryView()
+                }
             }
             .sheet(item: $catalogSheet) { kind in
                 AddFromCatalogSheet(kind: kind) { prefill in
@@ -96,10 +103,10 @@ struct WorkoutListView: View {
                 Spacer()
                 HStack(spacing: 8) {
                     HeaderIconButton(systemImage: "dumbbell", identifier: "libraryButton") {
-                        showingLibrary = true
+                        path.append(HomeDestination.library)
                     }
                     HeaderIconButton(systemImage: "clock", identifier: "historyButton") {
-                        showingHistory = true
+                        path.append(HomeDestination.history)
                     }
                     HeaderIconButton(systemImage: "slider.horizontal.3", identifier: "settingsButton") {
                         showingSettings = true

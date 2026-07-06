@@ -122,7 +122,9 @@ final class SmokeTests: XCTestCase {
 
     /// Waits for an element's label to become `label` — for values that
     /// render inside buttons, where waitForExistence can't see the text.
-    private func waitForLabel(_ element: XCUIElement, _ label: String, timeout: TimeInterval = 5) -> Bool {
+    /// The timeout must absorb accessibility-snapshot latency: on a loaded
+    /// CI simulator a single evaluation has been observed to take ~15 s.
+    private func waitForLabel(_ element: XCUIElement, _ label: String, timeout: TimeInterval = 30) -> Bool {
         let predicate = NSPredicate(format: "label == %@", label)
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
         return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
