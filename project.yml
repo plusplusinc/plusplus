@@ -36,6 +36,10 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.davidcole.plusplus
+        # App Store validation rejects an empty CFBundleShortVersionString;
+        # the build number (CFBundleVersion) comes from the TestFlight
+        # workflow's run number.
+        MARKETING_VERSION: 0.1.0
         # iPhone-only for v1 (issue #41); still runs letterboxed on iPad.
         TARGETED_DEVICE_FAMILY: 1
         # Placeholder ++ mark (issue #39) so TestFlight upload validation
@@ -86,6 +90,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.davidcole.plusplus.watchkitapp
+        MARKETING_VERSION: 0.1.0
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_WKCompanionAppBundleIdentifier: com.davidcole.plusplus
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
