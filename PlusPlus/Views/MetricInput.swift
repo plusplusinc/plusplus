@@ -130,7 +130,7 @@ struct RepTargetRow: View {
 }
 
 /// Two wheels: the target (or range start) and an optional "up to" bound.
-private struct RepTargetWheelSheet: View {
+struct RepTargetWheelSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     let onSave: (RepTarget) -> Void
