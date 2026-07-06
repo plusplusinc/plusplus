@@ -45,7 +45,9 @@ final class SmokeTests: XCTestCase {
     }
 
     func testCreateCustomExerciseWithNotes() throws {
-        createWorkout(named: "PT")
+        // Not "PT": typeText with two consecutive shifted characters is a
+        // known flake on slow simulators (the second shift can drop).
+        createWorkout(named: "Rehab")
 
         app.buttons["addExerciseButton"].tap()
         let newButton = app.buttons["newExerciseButton"]
@@ -103,6 +105,10 @@ final class SmokeTests: XCTestCase {
         let history = app.buttons["historyButton"]
         XCTAssertTrue(history.waitForExistence(timeout: 5))
         history.tap()
+
+        // Snapshot the list before asserting, so a failure here leaves
+        // visual evidence of what history actually showed.
+        snap("history-list")
 
         // Generous timeouts: on a loaded CI simulator, the first snapshot
         // after navigation can take most of a minute to evaluate.
