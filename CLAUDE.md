@@ -73,7 +73,7 @@ The Simulator validation step in every task should use these tools in sequence: 
 - **PlusPlus** — iOS app (deployment target iOS 26.0)
 - **PlusPlusWatch** — watchOS companion app (deployment target watchOS 26.0)
 - **PlusPlusKit** — pure SwiftPM package shared with the CLI and future MCP (tested on Linux in CI)
-- **PlusPlusTests** — unit test target (55 tests; 52 more live in PlusPlusKit, 23 in PlusPlusCLI)
+- **PlusPlusTests** — unit test target (65 tests; 52 more live in PlusPlusKit, 23 in PlusPlusCLI)
 - **PlusPlusUITests** — UI smoke test target (3 flows, `PlusPlusUI` scheme, CI-only by convention)
 
 **Project structure:**
@@ -111,7 +111,10 @@ PlusPlus/                # iOS app target
     WorkoutListView.swift     # Home screen — workout list with create/reorder/delete, history entry
     WorkoutDetailView.swift   # Workout detail — groups, inputs, superset actions, Start Workout
     MetricInput.swift         # MetricRow + RepTargetRow controls (wheel sheet + stepper)
-    ActiveSessionView.swift   # Execution: set logging, rest countdown, finish/discard
+    ActiveSessionView.swift   # Execution v2: stepper cards, auto-timer, rest, carry-forward
+    SessionOverviewSheet.swift # Mid-session overview + per-block sheet (jump/redo)
+    ExerciseDetailSheet.swift # Planning sheet: metrics, structure actions, recent
+    LibraryView.swift         # Personal library (curation, catalog add, built-in info)
     HistoryView.swift         # Completed sessions list + per-set session detail
     ExercisePickerView.swift  # Exercise picker with filter sheets, custom exercise management
     ExerciseEditorView.swift  # Create/edit custom exercises + ExerciseInfoView (notes/video)
@@ -130,7 +133,7 @@ PlusPlusTests/
   SupersetTests.swift        # Workout structure mutations (5)
   SessionTests.swift         # Session factory/rotation/snapshots/progress (7)
   LastPerformanceTests.swift # "Last time" lookup (6)
-  InterchangeMappingTests.swift # Export/import round-trip + policies (5) = 55 app + 52 Kit + 23 CLI
+  InterchangeMappingTests.swift # Export/import round-trip + policies (5) = 65 app + 52 Kit + 23 CLI
 PlusPlusUITests/
   SmokeTests.swift           # 3 end-to-end flows w/ screenshot attachments
 .github/workflows/ci.yml # macOS CI: xcodegen + xcodebuild test (+ release.yml on v* tags)
@@ -193,6 +196,8 @@ PlusPlusUITests/
 **2026-07-05 — CLI is Swift, shells out to git, never authenticates** — Swift over Go because the contract (deterministic codec, validator) already lives tested in PlusPlusKit; a second implementation would drift byte-level. Conformance fixtures in PlusPlusKitTests/Fixtures are the language-neutral spec for future ports. The CLI operates on a clone; git is transport and auth; the app (#23) is the only surface with GitHub auth.
 
 **2026-07-05 — PlusPlusKit package holds everything platform-pure** — MuscleGroup/ExerciseType, WorkoutMetric, RepTarget, and the interchange DTOs/codec/validator live in a local SwiftPM package with no SwiftUI/SwiftData. The `kit-test` CI job runs its tests on Linux (1x minutes); if it fails, someone leaked an Apple-only dependency into the shared core. SwiftData models, mapping (InterchangeMapping), and views stay in the app.
+
+**2026-07-06 — Session v2: cursor navigation, weight carry-forward, auto-timers** — The session model gains `cursorOrder`: `currentLog` is the cursor's log when pending, else the first pending. `jump(to:redo:)` powers Do now / Redo / Skip-to from the overview sheet (redo reopens a completed log keeping its actuals as prefill); `complete(_:)` prefills actuals, carries an edited weight forward to the remaining pending sets of the same exercise, and advances the cursor (wrapping). Timed sets run a date-based AUTO TIMER (pause stores remaining; auto-logs at zero with haptic + a `TimerNotification` for backgrounded expiry; "log now" logs elapsed). Tested in SessionNavigationTests.
 
 **2026-07-06 — v2 "quiet-terminal" design system; dark-only** — Dave's Claude Design prototype v2 (design handoff in issues #59–#67) supersedes the 2026-02-20 system-semantic-colors decision: a fixed GitHub-dark palette (`Theme` in `PlusPlus/Theme/Theme.swift`), green accent (#3fb950/#238636) replacing indigo, monospace for data/numbers, and no light mode (appearance toggle removed). Screens must draw colors from `Theme`, never ad-hoc literals. Accessibility trade-offs (Increase Contrast, dynamic type on fixed layouts) go on the #1 Mac checklist.
 

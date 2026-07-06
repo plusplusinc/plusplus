@@ -13,6 +13,10 @@ final class WorkoutSession {
     var endedAt: Date?
     /// Snapshot of the workout's rest setting at start time.
     var restSeconds: Int = 90
+    /// Where the session is pointed (v2 jump/redo, #66): the order of the
+    /// log the user is doing now. `currentLog` falls back to the first
+    /// pending log when the cursor's log is already done.
+    var cursorOrder: Int = 0
     @Relationship(deleteRule: .cascade, inverse: \SetLog.session)
     var setLogs: [SetLog] = []
 
@@ -34,6 +38,55 @@ final class WorkoutSession {
     /// The set the user should do next; nil when everything is logged.
     var nextPendingLog: SetLog? {
         sortedSetLogs.first { !$0.isCompleted }
+    }
+
+    /// The cursor's log when it's still pending, else the first pending
+    /// log (v2 jump/redo can move the cursor anywhere).
+    var currentLog: SetLog? {
+        sortedSetLogs.first { $0.order == cursorOrder && !$0.isCompleted } ?? nextPendingLog
+    }
+
+    /// Jump the session to a specific log ("Do now" / "Skip to"). With
+    /// `redo`, a completed log is reopened first — its previous actuals
+    /// stay as the prefill.
+    func jump(to log: SetLog, redo: Bool = false) {
+        if redo, log.isCompleted {
+            log.completedAt = nil
+        }
+        guard !log.isCompleted else { return }
+        cursorOrder = log.order
+    }
+
+    /// Marks the current log complete, prefilling actuals from targets,
+    /// and carries a changed weight forward to the remaining pending sets
+    /// of the same exercise (v2, #65). Advances the cursor to the next
+    /// pending log after this one (wrapping to the first pending).
+    func complete(_ log: SetLog, at date: Date = Date()) {
+        if log.exerciseType == .duration {
+            if log.actualDuration == nil { log.actualDuration = log.targetDuration }
+        } else {
+            if log.actualWeight == nil { log.actualWeight = log.targetWeight }
+            if log.actualReps == nil { log.actualReps = log.targetRepsLower }
+            if let newWeight = log.actualWeight, newWeight != log.targetWeight {
+                for other in sortedSetLogs
+                where !other.isCompleted && other !== log && other.exerciseName == log.exerciseName {
+                    other.targetWeight = newWeight
+                }
+            }
+        }
+        log.completedAt = date
+        let pending = sortedSetLogs.filter { !$0.isCompleted }
+        cursorOrder = (pending.first { $0.order > log.order } ?? pending.first)?.order ?? cursorOrder
+    }
+
+    /// True when a different pending set of the same exercise will pick up
+    /// this log's edited weight on completion — drives the carry-forward
+    /// hint line.
+    func weightCarriesForward(from log: SetLog) -> Bool {
+        guard log.exerciseType != .duration,
+              let actual = log.actualWeight, actual != log.targetWeight
+        else { return false }
+        return sortedSetLogs.contains { !$0.isCompleted && $0 !== log && $0.exerciseName == log.exerciseName }
     }
 
     var isFinished: Bool { endedAt != nil }
