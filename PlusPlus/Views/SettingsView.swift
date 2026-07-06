@@ -3,7 +3,11 @@ import SwiftData
 import UniformTypeIdentifiers
 import PlusPlusKit
 
+/// Settings, v2 (#67): sync first, then units and data. The SYNC section
+/// is the #23 shape with the wiring pending — the connect button explains
+/// itself instead of doing nothing silently.
 struct SettingsView: View {
+    @Environment(\.dismiss) private var dismiss
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
     @Environment(\.modelContext) private var modelContext
 
@@ -12,75 +16,135 @@ struct SettingsView: View {
     @State private var showingImporter = false
     @State private var importResultMessage: String?
     @State private var dataError: String?
+    @State private var showingSyncExplainer = false
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    Picker("Weight Unit", selection: $weightUnitRaw) {
-                        Text("lb").tag(WeightUnit.lb.rawValue)
-                        Text("kg").tag(WeightUnit.kg.rawValue)
-                    }
-                    .pickerStyle(.segmented)
-                } header: {
-                    Text("Units")
-                } footer: {
-                    Text("Changes labels and stepping only — logged numbers are never converted.")
-                }
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Spacer()
+                Text("Settings").font(.system(size: 15, weight: .bold))
+                Spacer()
+            }
+            .overlay(alignment: .trailing) {
+                Button("Done") { dismiss() }
+                    .font(.system(size: 13.5, weight: .bold))
+                    .foregroundStyle(Theme.accent)
+            }
+            .padding(.top, 14)
 
-                Section {
-                    Button("Export Data…") {
-                        prepareExport()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    SheetSectionLabel("SYNC")
+                        .padding(.top, 16)
+
+                    Button {
+                        showingSyncExplainer = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .font(.system(size: 13))
+                            Text("Connect GitHub")
+                                .font(.system(size: 14, weight: .bold))
+                        }
+                        .foregroundStyle(Theme.textPrimary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 46)
+                        .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.borderStrong))
                     }
-                    Button("Import Data…") {
-                        showingImporter = true
+                    Text("Your program and history live as JSON in a repo you own.")
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(Theme.textFaint)
+                        .padding(.top, 6)
+
+                    SheetSectionLabel("UNITS")
+                        .padding(.top, 16)
+                    SegmentedTabs(
+                        options: ["lb", "kg"],
+                        selectedIndex: Binding(
+                            get: { weightUnitRaw == WeightUnit.kg.rawValue ? 1 : 0 },
+                            set: { weightUnitRaw = ($0 == 1 ? WeightUnit.kg : WeightUnit.lb).rawValue }
+                        )
+                    )
+                    Text("Changes labels and stepping only — logged numbers are never converted.")
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(Theme.textFaint)
+                        .padding(.top, 6)
+
+                    SheetSectionLabel("DATA")
+                        .padding(.top, 16)
+                    VStack(spacing: 0) {
+                        Button {
+                            prepareExport()
+                        } label: {
+                            Text("Export data…")
+                                .font(.system(size: 13.5))
+                                .foregroundStyle(Theme.textPrimary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 11)
+                        }
+                        Divider().overlay(Theme.border)
+                        Button {
+                            showingImporter = true
+                        } label: {
+                            Text("Import data…")
+                                .font(.system(size: 13.5))
+                                .foregroundStyle(Theme.textPrimary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 11)
+                        }
                     }
-                } header: {
-                    Text("Data")
-                } footer: {
-                    Text("Exports your exercises, workouts, and history as a JSON file (interchange schema v1). Import merges: exercises and workouts by name, history append-only.")
+                    .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
+
+                    Text("Interchange schema v\(Interchange.schemaVersion) — exercises + workouts + history as JSON, ready for the workouts repo.")
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(Theme.textFaint)
+                        .padding(.top, 6)
                 }
-            }
-            .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.inline)
-            .fileExporter(
-                isPresented: $showingExporter,
-                document: exportDocument,
-                contentType: .json,
-                defaultFilename: "plusplus-export"
-            ) { result in
-                if case .failure(let error) = result {
-                    dataError = error.localizedDescription
-                }
-            }
-            .fileImporter(
-                isPresented: $showingImporter,
-                allowedContentTypes: [.json]
-            ) { result in
-                handleImport(result)
-            }
-            .alert("Import Complete", isPresented: Binding(
-                get: { importResultMessage != nil },
-                set: { if !$0 { importResultMessage = nil } }
-            )) {
-                Button("OK") { importResultMessage = nil }
-            } message: {
-                Text(importResultMessage ?? "")
-            }
-            .alert("Something Went Wrong", isPresented: Binding(
-                get: { dataError != nil },
-                set: { if !$0 { dataError = nil } }
-            )) {
-                Button("OK") { dataError = nil }
-            } message: {
-                Text(dataError ?? "")
+                .padding(.horizontal, 18)
+                .padding(.bottom, 30)
             }
         }
-        .onAppear {
-            UISegmentedControl.appearance().setTitleTextAttributes(
-                [.font: UIFont.systemFont(ofSize: 15, weight: .medium)],
-                for: .normal
-            )
+        .presentationBackground(Theme.surface)
+        .fileExporter(
+            isPresented: $showingExporter,
+            document: exportDocument,
+            contentType: .json,
+            defaultFilename: "plusplus-export"
+        ) { result in
+            if case .failure(let error) = result {
+                dataError = error.localizedDescription
+            }
+        }
+        .fileImporter(
+            isPresented: $showingImporter,
+            allowedContentTypes: [.json]
+        ) { result in
+            handleImport(result)
+        }
+        .alert("GitHub Sync", isPresented: $showingSyncExplainer) {
+            Button("OK") {}
+        } message: {
+            Text("Coming soon: the sync engine is built and tested; connecting your account lands with the GitHub App setup (issue #23). Until then, Export/Import moves data through the same format.")
+        }
+        .alert("Import Complete", isPresented: Binding(
+            get: { importResultMessage != nil },
+            set: { if !$0 { importResultMessage = nil } }
+        )) {
+            Button("OK") { importResultMessage = nil }
+        } message: {
+            Text(importResultMessage ?? "")
+        }
+        .alert("Something Went Wrong", isPresented: Binding(
+            get: { dataError != nil },
+            set: { if !$0 { dataError = nil } }
+        )) {
+            Button("OK") { dataError = nil }
+        } message: {
+            Text(dataError ?? "")
         }
     }
 
