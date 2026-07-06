@@ -4,7 +4,6 @@ import UniformTypeIdentifiers
 import PlusPlusKit
 
 struct SettingsView: View {
-    @AppStorage("appearance") private var appearance: AppAppearance = .dark
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
     @Environment(\.modelContext) private var modelContext
 
@@ -17,15 +16,6 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Appearance") {
-                    Picker("Theme", selection: $appearance) {
-                        ForEach(AppAppearance.allCases) { option in
-                            Text(option.displayName)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                }
-
                 Section {
                     Picker("Weight Unit", selection: $weightUnitRaw) {
                         Text("lb").tag(WeightUnit.lb.rawValue)
@@ -86,7 +76,6 @@ struct SettingsView: View {
                 Text(dataError ?? "")
             }
         }
-        .preferredColorScheme(appearance.colorScheme)
         .onAppear {
             UISegmentedControl.appearance().setTitleTextAttributes(
                 [.font: UIFont.systemFont(ofSize: 15, weight: .medium)],

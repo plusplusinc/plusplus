@@ -61,7 +61,7 @@ struct ExerciseEditorView: View {
                                 Spacer()
                                 if draft.selectedEquipment.contains(equipment) {
                                     Image(systemName: "checkmark")
-                                        .foregroundStyle(.indigo)
+                                        .foregroundStyle(Theme.accent)
                                 }
                             }
                         }

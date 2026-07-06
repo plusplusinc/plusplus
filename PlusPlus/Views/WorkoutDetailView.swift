@@ -62,7 +62,7 @@ struct WorkoutDetailView: View {
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(.indigo)
+                    .tint(Theme.accent)
                     .accessibilityIdentifier("startWorkoutButton")
                 }
 
@@ -73,7 +73,7 @@ struct WorkoutDetailView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
-                .tint(.indigo)
+                .tint(Theme.accent)
                 .accessibilityIdentifier("addExerciseButton")
             }
             .padding()
@@ -240,7 +240,7 @@ private struct ExerciseInputRow: View {
                         showingInfo = true
                     } label: {
                         Image(systemName: "info.circle")
-                            .foregroundStyle(.indigo)
+                            .foregroundStyle(Theme.accent)
                     }
                     .buttonStyle(.borderless)
                 }

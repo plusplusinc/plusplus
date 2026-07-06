@@ -69,7 +69,7 @@ struct WorkoutListView: View {
                         .foregroundStyle(.white)
                         .offset(y: -2)
                         .frame(width: 56, height: 56)
-                        .background(Color.indigo)
+                        .background(Theme.accent)
                         .clipShape(Circle())
                         .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
                 }
