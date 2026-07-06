@@ -38,6 +38,9 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.davidcole.plusplus
         # iPhone-only for v1 (issue #41); still runs letterboxed on iPad.
         TARGETED_DEVICE_FAMILY: 1
+        # Placeholder ++ mark (issue #39) so TestFlight upload validation
+        # passes; Dave designs the real one later.
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
