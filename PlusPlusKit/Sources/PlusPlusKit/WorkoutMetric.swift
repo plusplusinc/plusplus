@@ -39,7 +39,8 @@ public enum WorkoutMetric: Sendable {
     }
 
     /// Granularity of the wheel picker — finer than the stepper for weight
-    /// so microplate loads (2.5 lb) stay reachable.
+    /// so microplate loads (2.5 lb) stay reachable. Duration uses tiered
+    /// granularity instead (see `wheelValues`).
     public var wheelStep: Double {
         switch self {
         case .weight: 2.5
@@ -53,7 +54,7 @@ public enum WorkoutMetric: Sendable {
         switch self {
         case .weight: 0...1000
         case .reps: 1...100
-        case .duration: 5...900
+        case .duration: 5...3600
         case .rest: 15...600
         }
     }
@@ -83,8 +84,19 @@ public enum WorkoutMetric: Sendable {
         return clamped(value - step)
     }
 
+    /// Duration covers a full hour, so its wheel coarsens as values grow:
+    /// 5 s steps for short holds, 15 s steps to ten minutes, then whole
+    /// minutes. A uniform 5 s stride to 3600 would be a 720-row wheel.
     public var wheelValues: [Double] {
-        Array(stride(from: range.lowerBound, through: range.upperBound, by: wheelStep))
+        switch self {
+        case .duration:
+            var values = Array(stride(from: 5.0, to: 120, by: 5))
+            values += Array(stride(from: 120.0, to: 600, by: 15))
+            values += Array(stride(from: 600.0, through: 3600, by: 60))
+            return values
+        case .weight, .reps, .rest:
+            return Array(stride(from: range.lowerBound, through: range.upperBound, by: wheelStep))
+        }
     }
 
     /// Snaps an arbitrary stored value onto the wheel so the picker has a
@@ -92,16 +104,34 @@ public enum WorkoutMetric: Sendable {
     public func nearestWheelValue(to value: Double?) -> Double {
         guard let value else { return defaultValue }
         let bounded = clamped(value)
-        let steps = ((bounded - range.lowerBound) / wheelStep).rounded()
-        return range.lowerBound + steps * wheelStep
+        return wheelValues.min { abs($0 - bounded) < abs($1 - bounded) } ?? defaultValue
     }
 
-    /// Whole numbers render without a decimal; fractional weights keep one place.
+    /// Whole numbers render without a decimal; fractional weights keep one
+    /// place. Durations of a minute or more render as m:ss ("25:00", not
+    /// "1500"), which needs no unit suffix — see `unit(for:)`.
     public func formatted(_ value: Double?) -> String {
         guard let value else { return "—" }
+        if self == .duration, value >= 60 {
+            let total = Int(value.rounded())
+            return String(format: "%d:%02d", total / 60, total % 60)
+        }
         if value.truncatingRemainder(dividingBy: 1) == 0 {
             return String(Int(value))
         }
         return String(format: "%.1f", value)
+    }
+
+    /// Unit suffix appropriate for a specific rendered value. Empty when
+    /// `formatted` already carries the units (m:ss durations).
+    public func unit(for value: Double?) -> String {
+        if self == .duration, let value, value >= 60 { return "" }
+        return unit
+    }
+
+    /// Value and unit as one display string: "45 sec", "25:00", "135 lb".
+    public func displayText(_ value: Double?) -> String {
+        let suffix = unit(for: value)
+        return suffix.isEmpty ? formatted(value) : "\(formatted(value)) \(suffix)"
     }
 }

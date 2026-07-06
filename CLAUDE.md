@@ -72,8 +72,8 @@ The Simulator validation step in every task should use these tools in sequence: 
 **Targets:**
 - **PlusPlus** — iOS app (deployment target iOS 26.0)
 - **PlusPlusWatch** — watchOS companion app (deployment target watchOS 26.0)
-- **PlusPlusKit** — pure SwiftPM package shared with future CLI/MCP (tested on Linux in CI)
-- **PlusPlusTests** — unit test target (53 tests; 25 more live in PlusPlusKit)
+- **PlusPlusKit** — pure SwiftPM package shared with the CLI and future MCP (tested on Linux in CI)
+- **PlusPlusTests** — unit test target (53 tests; 40 more live in PlusPlusKit, 8 in PlusPlusCLI)
 - **PlusPlusUITests** — UI smoke test target (3 flows, `PlusPlusUI` scheme, CI-only by convention)
 
 **Project structure:**
@@ -84,7 +84,7 @@ PlusPlusKit/             # Pure SwiftPM package (Linux-tested in CI)
   Sources/PlusPlusKit/   # MuscleGroup/ExerciseType, WorkoutMetric, RepTarget,
                          #   Interchange DTOs + codec + validator + Slug + documents,
                          #   FileLayout (repo paths) + SyncPlanner (3-way merge, #23)
-  Tests/PlusPlusKitTests/ # Metric/RepTarget/Interchange tests (17)
+  Tests/PlusPlusKitTests/ # Metric/RepTarget/Interchange/Sync/Conformance tests (40)
 PlusPlusCLI/             # plusplus CLI (SwiftPM exec, Linux-tested in CI)
   Sources/plusplus/      # lint/stats/import/export over the repo layout
   Tests/PlusPlusCLITests/
@@ -125,7 +125,7 @@ PlusPlusTests/
   SupersetTests.swift        # Workout structure mutations (5)
   SessionTests.swift         # Session factory/rotation/snapshots/progress (7)
   LastPerformanceTests.swift # "Last time" lookup (6)
-  InterchangeMappingTests.swift # Export/import round-trip + policies (5) = 53 app + 25 Kit
+  InterchangeMappingTests.swift # Export/import round-trip + policies (5) = 53 app + 40 Kit + 8 CLI
 PlusPlusUITests/
   SmokeTests.swift           # 3 end-to-end flows w/ screenshot attachments
 .github/workflows/ci.yml # macOS CI: xcodegen + xcodebuild test
@@ -188,6 +188,8 @@ PlusPlusUITests/
 **2026-07-05 — CLI is Swift, shells out to git, never authenticates** — Swift over Go because the contract (deterministic codec, validator) already lives tested in PlusPlusKit; a second implementation would drift byte-level. Conformance fixtures in PlusPlusKitTests/Fixtures are the language-neutral spec for future ports. The CLI operates on a clone; git is transport and auth; the app (#23) is the only surface with GitHub auth.
 
 **2026-07-05 — PlusPlusKit package holds everything platform-pure** — MuscleGroup/ExerciseType, WorkoutMetric, RepTarget, and the interchange DTOs/codec/validator live in a local SwiftPM package with no SwiftUI/SwiftData. The `kit-test` CI job runs its tests on Linux (1x minutes); if it fails, someone leaked an Apple-only dependency into the shared core. SwiftData models, mapping (InterchangeMapping), and views stay in the app.
+
+**2026-07-06 — Duration spans to a full hour; m:ss display above a minute** — Dogfooding the real program (#29) hit the old 900 s cap with "20–30 min spin bike". `WorkoutMetric.duration` now ranges 5–3600 with a tiered wheel (5 s steps to 2 min, 15 s to 10 min, whole minutes beyond) so the picker stays usable; values ≥ 60 s render as m:ss ("25:00") with no unit suffix. The interchange validator stays permissive (duration > 0) — the format doesn't encode UI limits.
 
 **2026-07-05 — Rep ranges shift, sets stay scalar** — `reps`/`repsUpper` express "15–20"; the stepper shifts the whole range to preserve the prescribed span. Set ranges ("2–3×10") deliberately collapse to one number — the range's meaning ("stop when cooked") lives with the user, not the model.
 

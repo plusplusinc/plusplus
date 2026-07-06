@@ -196,7 +196,7 @@ private struct SetLoggingView: View {
     private var targetDescription: String {
         if log.exerciseType == .duration {
             guard let seconds = log.targetDuration else { return "Set \(log.setNumber)" }
-            return "Target: \(seconds) sec"
+            return "Target: \(WorkoutMetric.duration.displayText(Double(seconds)))"
         }
         var parts: [String] = []
         if log.targetReps.lower != nil {

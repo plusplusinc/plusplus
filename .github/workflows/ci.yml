@@ -9,7 +9,17 @@ on:
     branches:
       - main
       - "claude/**"
+    # Doc-only pushes don't need a 10x-billed macOS run.
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
   workflow_dispatch:
+
+# A superseded push on the same branch cancels the older run; runs on main
+# are never cancelled so every merge keeps its artifacts.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   test:

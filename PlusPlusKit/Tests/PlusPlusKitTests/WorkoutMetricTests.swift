@@ -79,4 +79,49 @@ struct WorkoutMetricTests {
             .contains("")
         #expect(!hasEmptyLabel)
     }
+
+    @Test("Duration covers cardio blocks up to an hour")
+    func durationRange() {
+        #expect(WorkoutMetric.duration.clamped(1500) == 1500)
+        #expect(WorkoutMetric.duration.incremented(3600) == 3600)
+        #expect(WorkoutMetric.duration.clamped(4000) == 3600)
+    }
+
+    @Test("Duration wheel granularity coarsens with the value")
+    func durationWheelTiers() {
+        let wheel = WorkoutMetric.duration.wheelValues
+        #expect(wheel.first == 5)
+        #expect(wheel.last == 3600)
+        // 5 s steps for short holds, 15 s to ten minutes, whole minutes beyond.
+        #expect(wheel.contains(45) && wheel.contains(115))
+        #expect(wheel.contains(135) && !wheel.contains(125))
+        #expect(wheel.contains(1500) && !wheel.contains(630))
+        // Strictly increasing with no duplicates at the tier seams.
+        let isSorted = zip(wheel, wheel.dropFirst()).allSatisfy { $0 < $1 }
+        #expect(isSorted)
+    }
+
+    @Test("Nearest wheel value works on the tiered duration wheel")
+    func durationNearestWheelValue() {
+        #expect(WorkoutMetric.duration.nearestWheelValue(to: nil) == 30)
+        #expect(WorkoutMetric.duration.nearestWheelValue(to: 1500) == 1500)
+        #expect(WorkoutMetric.duration.nearestWheelValue(to: 631) == 660)
+        #expect(WorkoutMetric.duration.nearestWheelValue(to: 9999) == 3600)
+    }
+
+    @Test("Durations of a minute or more render as m:ss with no unit")
+    func durationFormatting() {
+        #expect(WorkoutMetric.duration.formatted(45) == "45")
+        #expect(WorkoutMetric.duration.unit(for: 45) == "sec")
+        #expect(WorkoutMetric.duration.formatted(90) == "1:30")
+        #expect(WorkoutMetric.duration.unit(for: 90) == "")
+        #expect(WorkoutMetric.duration.formatted(1500) == "25:00")
+        #expect(WorkoutMetric.duration.formatted(3600) == "60:00")
+        #expect(WorkoutMetric.duration.displayText(45) == "45 sec")
+        #expect(WorkoutMetric.duration.displayText(1500) == "25:00")
+        #expect(WorkoutMetric.duration.displayText(nil) == "— sec")
+        // Other metrics are untouched by the m:ss rule.
+        #expect(WorkoutMetric.rest.formatted(90) == "90")
+        #expect(WorkoutMetric.weight.displayText(135) == "135 lb")
+    }
 }
