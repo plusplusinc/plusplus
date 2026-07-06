@@ -133,7 +133,7 @@ PlusPlusTests/
   InterchangeMappingTests.swift # Export/import round-trip + policies (5) = 55 app + 49 Kit + 23 CLI
 PlusPlusUITests/
   SmokeTests.swift           # 3 end-to-end flows w/ screenshot attachments
-.github/workflows/ci.yml # macOS CI: xcodegen + xcodebuild test
+.github/workflows/ci.yml # macOS CI: xcodegen + xcodebuild test (+ release.yml on v* tags)
 .xcodebuildmcp/          # XcodeBuildMCP session config
 ```
 
