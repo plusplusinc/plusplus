@@ -73,21 +73,42 @@ public enum WorkoutMetric: Sendable {
         min(max(value, range.lowerBound), range.upperBound)
     }
 
-    /// Stepping from nil lands on `defaultValue` rather than stepping from zero.
-    public func incremented(_ value: Double?) -> Double {
-        guard let value else { return defaultValue }
-        return clamped(value + step)
+    // MARK: - Unit-aware value semantics
+    // Only weight is denominated in a settable unit (WeightUnit); every
+    // other metric ignores the parameter. The parameter defaults to .lb so
+    // unit-indifferent callers and pre-units code read unchanged.
+
+    private func step(weightUnit: WeightUnit) -> Double {
+        self == .weight ? weightUnit.step : step
     }
 
-    public func decremented(_ value: Double?) -> Double {
-        guard let value else { return defaultValue }
-        return clamped(value - step)
+    private func wheelStep(weightUnit: WeightUnit) -> Double {
+        self == .weight ? weightUnit.wheelStep : wheelStep
+    }
+
+    public func defaultValue(weightUnit: WeightUnit) -> Double {
+        self == .weight ? weightUnit.defaultValue : defaultValue
+    }
+
+    /// Stepping from nil lands on `defaultValue` rather than stepping from zero.
+    public func incremented(_ value: Double?, weightUnit: WeightUnit = .lb) -> Double {
+        guard let value else { return defaultValue(weightUnit: weightUnit) }
+        return clamped(value + step(weightUnit: weightUnit))
+    }
+
+    public func decremented(_ value: Double?, weightUnit: WeightUnit = .lb) -> Double {
+        guard let value else { return defaultValue(weightUnit: weightUnit) }
+        return clamped(value - step(weightUnit: weightUnit))
     }
 
     /// Duration covers a full hour, so its wheel coarsens as values grow:
     /// 5 s steps for short holds, 15 s steps to ten minutes, then whole
     /// minutes. A uniform 5 s stride to 3600 would be a 720-row wheel.
     public var wheelValues: [Double] {
+        wheelValues(weightUnit: .lb)
+    }
+
+    public func wheelValues(weightUnit: WeightUnit) -> [Double] {
         switch self {
         case .duration:
             var values = Array(stride(from: 5.0, to: 120, by: 5))
@@ -95,16 +116,20 @@ public enum WorkoutMetric: Sendable {
             values += Array(stride(from: 600.0, through: 3600, by: 60))
             return values
         case .weight, .reps, .rest:
-            return Array(stride(from: range.lowerBound, through: range.upperBound, by: wheelStep))
+            return Array(stride(
+                from: range.lowerBound, through: range.upperBound,
+                by: wheelStep(weightUnit: weightUnit)
+            ))
         }
     }
 
     /// Snaps an arbitrary stored value onto the wheel so the picker has a
     /// valid selection; nil lands on `defaultValue`.
-    public func nearestWheelValue(to value: Double?) -> Double {
-        guard let value else { return defaultValue }
+    public func nearestWheelValue(to value: Double?, weightUnit: WeightUnit = .lb) -> Double {
+        guard let value else { return defaultValue(weightUnit: weightUnit) }
         let bounded = clamped(value)
-        return wheelValues.min { abs($0 - bounded) < abs($1 - bounded) } ?? defaultValue
+        return wheelValues(weightUnit: weightUnit).min { abs($0 - bounded) < abs($1 - bounded) }
+            ?? defaultValue(weightUnit: weightUnit)
     }
 
     /// Whole numbers render without a decimal; fractional weights keep one
@@ -124,14 +149,16 @@ public enum WorkoutMetric: Sendable {
 
     /// Unit suffix appropriate for a specific rendered value. Empty when
     /// `formatted` already carries the units (m:ss durations).
-    public func unit(for value: Double?) -> String {
+    public func unit(for value: Double?, weightUnit: WeightUnit = .lb) -> String {
         if self == .duration, let value, value >= 60 { return "" }
+        if self == .weight { return weightUnit.symbol }
         return unit
     }
 
-    /// Value and unit as one display string: "45 sec", "25:00", "135 lb".
-    public func displayText(_ value: Double?) -> String {
-        let suffix = unit(for: value)
+    /// Value and unit as one display string: "45 sec", "25:00", "135 lb",
+    /// "100 kg".
+    public func displayText(_ value: Double?, weightUnit: WeightUnit = .lb) -> String {
+        let suffix = unit(for: value, weightUnit: weightUnit)
         return suffix.isEmpty ? formatted(value) : "\(formatted(value)) \(suffix)"
     }
 }

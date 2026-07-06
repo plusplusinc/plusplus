@@ -5,6 +5,7 @@ import PlusPlusKit
 
 struct SettingsView: View {
     @AppStorage("appearance") private var appearance: AppAppearance = .dark
+    @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
     @Environment(\.modelContext) private var modelContext
 
     @State private var showingExporter = false
@@ -23,6 +24,18 @@ struct SettingsView: View {
                         }
                     }
                     .pickerStyle(.segmented)
+                }
+
+                Section {
+                    Picker("Weight Unit", selection: $weightUnitRaw) {
+                        Text("lb").tag(WeightUnit.lb.rawValue)
+                        Text("kg").tag(WeightUnit.kg.rawValue)
+                    }
+                    .pickerStyle(.segmented)
+                } header: {
+                    Text("Units")
+                } footer: {
+                    Text("Changes labels and stepping only — logged numbers are never converted.")
                 }
 
                 Section {
@@ -84,7 +97,10 @@ struct SettingsView: View {
 
     private func prepareExport() {
         do {
-            let bundle = try InterchangeMapping.exportBundle(context: modelContext)
+            let bundle = try InterchangeMapping.exportBundle(
+                context: modelContext,
+                units: WeightUnit(rawValue: weightUnitRaw) ?? .lb
+            )
             exportDocument = InterchangeDocument(data: try InterchangeCodec.encode(bundle))
             showingExporter = true
         } catch {
@@ -104,6 +120,11 @@ struct SettingsView: View {
             let data = try Data(contentsOf: url)
             let bundle = try InterchangeCodec.decode(ExportBundle.self, from: data)
             let summary = try InterchangeMapping.importBundle(bundle, context: modelContext)
+            // A bundle that declares units is authoritative for its own
+            // numbers — adopt its setting so they keep meaning what they say.
+            if let units = bundle.units, units.rawValue != weightUnitRaw {
+                weightUnitRaw = units.rawValue
+            }
             importResultMessage = summaryText(summary)
         } catch let InterchangeMapping.ImportError.invalidBundle(issues) {
             dataError = "Invalid file:\n" + issues.prefix(5).map(\.description).joined(separator: "\n")

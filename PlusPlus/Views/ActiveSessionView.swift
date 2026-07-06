@@ -158,6 +158,12 @@ private struct SetLoggingView: View {
     let totalSets: Int
     let onComplete: () -> Void
 
+    @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
+
+    private var weightUnit: WeightUnit {
+        WeightUnit(rawValue: weightUnitRaw) ?? .lb
+    }
+
     var body: some View {
         List {
             Section {
@@ -171,7 +177,7 @@ private struct SetLoggingView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     if let lastTime {
-                        Text("Last time: \(lastTime.resultSummary)")
+                        Text("Last time: \(lastTime.resultSummary(weightUnit: weightUnit))")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -236,7 +242,7 @@ private struct SetLoggingView: View {
             parts.append("\(log.targetReps.display) reps")
         }
         if let weight = log.targetWeight {
-            parts.append("@ \(WorkoutMetric.weight.formatted(weight)) lb")
+            parts.append("@ \(WorkoutMetric.weight.displayText(weight, weightUnit: weightUnit))")
         }
         return parts.isEmpty ? "Set \(log.setNumber)" : "Target: " + parts.joined(separator: " ")
     }

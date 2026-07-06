@@ -20,13 +20,14 @@ enum InterchangeMapping {
 
     // MARK: - Export
 
-    static func exportBundle(context: ModelContext) throws -> ExportBundle {
+    static func exportBundle(context: ModelContext, units: WeightUnit? = nil) throws -> ExportBundle {
         let exercises = try context.fetch(FetchDescriptor<Exercise>())
         let workouts = try context.fetch(FetchDescriptor<Workout>())
         let sessions = try context.fetch(
             FetchDescriptor<WorkoutSession>(predicate: #Predicate { $0.endedAt != nil })
         )
         return ExportBundle(
+            units: units,
             // Built-ins ship with every install; only export ones the user
             // has annotated so imports stay meaningful.
             exercises: exercises

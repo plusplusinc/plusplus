@@ -160,6 +160,13 @@ Semantics worth writing down:
 - **Import policy** (app side): exercises upsert by case-insensitive name;
   workouts replace-or-create by name; sessions append only — an incoming session
   with the same workout name and start time as an existing one is skipped.
+- **Units** (decided 2026-07-06, issue #33): weight numbers are unit-agnostic;
+  a bundle's optional `units` field (`"lb"` / `"kg"`) declares what they mean,
+  and **absent always means pounds** — every pre-units file stays valid.
+  Nothing ever converts values: switching the app's unit setting (or a bundle
+  declaring `kg`) changes labels, stepping, and defaults only. The per-file
+  repo layout carries no units marker yet (lb-implied) — add a repo-level meta
+  file only when a real kg repo exists.
 - **Renames** (decided 2026-07-06, issue #32): exercise identity IS the name.
   Renaming an exercise starts a fresh identity — history and "last time" stay
   with the old name, and sync sees a new file alongside the old one (which the

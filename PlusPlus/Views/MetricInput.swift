@@ -9,7 +9,12 @@ struct MetricRow: View {
     let metric: WorkoutMetric
     @Binding var value: Double?
 
+    @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
     @State private var showingWheel = false
+
+    private var weightUnit: WeightUnit {
+        WeightUnit(rawValue: weightUnitRaw) ?? .lb
+    }
 
     var body: some View {
         HStack {
@@ -25,7 +30,7 @@ struct MetricRow: View {
                     Text(metric.formatted(value))
                         .font(.body.monospacedDigit())
                         .fontWeight(.medium)
-                    let unit = metric.unit(for: value)
+                    let unit = metric.unit(for: value, weightUnit: weightUnit)
                     if !unit.isEmpty {
                         Text(unit)
                             .font(.caption)
@@ -36,9 +41,9 @@ struct MetricRow: View {
             .buttonStyle(.borderless)
 
             Stepper(metric.label) {
-                value = metric.incremented(value)
+                value = metric.incremented(value, weightUnit: weightUnit)
             } onDecrement: {
-                value = metric.decremented(value)
+                value = metric.decremented(value, weightUnit: weightUnit)
             }
             .labelsHidden()
         }
@@ -50,11 +55,11 @@ struct MetricRow: View {
     private var wheelPicker: some View {
         NavigationStack {
             Picker(metric.label, selection: Binding(
-                get: { metric.nearestWheelValue(to: value) },
+                get: { metric.nearestWheelValue(to: value, weightUnit: weightUnit) },
                 set: { value = $0 }
             )) {
-                ForEach(metric.wheelValues, id: \.self) { candidate in
-                    Text(metric.displayText(candidate))
+                ForEach(metric.wheelValues(weightUnit: weightUnit), id: \.self) { candidate in
+                    Text(metric.displayText(candidate, weightUnit: weightUnit))
                         .tag(candidate)
                 }
             }
