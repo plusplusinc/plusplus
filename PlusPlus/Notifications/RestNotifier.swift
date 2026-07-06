@@ -14,6 +14,19 @@ enum RestNotification {
     }
 }
 
+/// The duration auto-timer's backgrounded-expiry notification (v2, #66).
+/// Same pattern as rest: always armed, foreground-suppressed, stable
+/// identifier so each timer replaces the last.
+enum TimerNotification {
+    static let identifier = "duration-end"
+
+    static let title = "Time"
+
+    static func body(exerciseName: String) -> String {
+        "\(exerciseName) — set logged"
+    }
+}
+
 /// Fires a local notification when the rest countdown expires while the
 /// app is backgrounded or the phone is locked — the common case at the
 /// gym. In the foreground the ticking RestView is already on screen, so
@@ -67,7 +80,27 @@ final class RestNotifier: NSObject, UNUserNotificationCenterDelegate {
     func cancelPending() {
         guard !disabled else { return }
         UNUserNotificationCenter.current()
-            .removePendingNotificationRequests(withIdentifiers: [RestNotification.identifier])
+            .removePendingNotificationRequests(withIdentifiers: [RestNotification.identifier, TimerNotification.identifier])
+    }
+
+    /// Arms the duration auto-timer's expiry notification; pause/reset/
+    /// complete cancel or re-arm it.
+    func scheduleTimerEnd(at endDate: Date, exerciseName: String) {
+        guard !disabled else { return }
+        cancelPending()
+
+        let interval = endDate.timeIntervalSinceNow
+        guard interval > 1 else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = TimerNotification.title
+        content.body = TimerNotification.body(exerciseName: exerciseName)
+        content.sound = .default
+
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)
+        UNUserNotificationCenter.current().add(
+            UNNotificationRequest(identifier: TimerNotification.identifier, content: content, trigger: trigger)
+        )
     }
 
     // MARK: - UNUserNotificationCenterDelegate
