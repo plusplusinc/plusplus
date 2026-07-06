@@ -121,6 +121,11 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(fab.waitForExistence(timeout: 10))
         fab.tap()
 
+        // The FAB opens a menu (v2); pick "New workout" from it.
+        let menuItem = app.buttons["New workout"]
+        XCTAssertTrue(menuItem.waitForExistence(timeout: 5))
+        menuItem.tap()
+
         let alert = app.alerts["New Workout"]
         XCTAssertTrue(alert.waitForExistence(timeout: 5))
         let field = alert.textFields.firstMatch

@@ -9,6 +9,11 @@ final class Exercise {
     @Relationship var equipment: [Equipment] = []
     var exerciseType: ExerciseType
     var isBuiltIn: Bool
+    /// Personal-library membership (v2 Library, #63). Built-ins default
+    /// to true so existing stores show everything until the user prunes;
+    /// removing a built-in from the library sets this false (the catalog
+    /// keeps it). Customs are always in the library.
+    var inLibrary: Bool = true
     var notes: String?
     var videoURL: String?
 

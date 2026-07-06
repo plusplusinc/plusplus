@@ -18,6 +18,15 @@ struct ExerciseEditorView: View {
         _draft = State(initialValue: exercise.map(ExerciseDraft.init(from:)) ?? ExerciseDraft())
     }
 
+    /// New custom exercise with the name pre-filled (the Library's
+    /// "Create “query”" path, #63).
+    init(prefillName: String) {
+        editingExercise = nil
+        let draft = ExerciseDraft()
+        draft.name = prefillName
+        _draft = State(initialValue: draft)
+    }
+
     private var existingNames: [String] {
         allExercises.map(\.name)
     }
