@@ -111,4 +111,58 @@ struct SupersetTests {
         #expect(workout.sortedGroups[1].sortedExercises.map { $0.exercise?.name } == ["B"])
         #expect(superset.isSuperset)
     }
+
+    @Test("A solo exercise merges into the group above, at the end")
+    func mergeSoloUp() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let workout = Workout(name: "PT")
+        context.insert(workout)
+
+        let top = workout.addExerciseInNewGroup(makeExercise("A", in: context), context: context)
+        workout.addExercise(makeExercise("B", in: context), to: top, context: context)
+        let solo = workout.addExerciseInNewGroup(makeExercise("C", in: context), context: context)
+
+        workout.mergeSoloGroup(solo, direction: -1, context: context)
+
+        #expect(workout.sortedGroups.count == 1)
+        #expect(top.sortedExercises.map { $0.exercise?.name } == ["A", "B", "C"])
+        #expect(top.sortedExercises.map(\.order) == [0, 1, 2])
+    }
+
+    @Test("A solo exercise merges into the group below, at the front")
+    func mergeSoloDown() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let workout = Workout(name: "PT")
+        context.insert(workout)
+
+        let solo = workout.addExerciseInNewGroup(makeExercise("A", in: context), context: context)
+        let bottom = workout.addExerciseInNewGroup(makeExercise("B", in: context), context: context)
+        workout.addExercise(makeExercise("C", in: context), to: bottom, context: context)
+
+        workout.mergeSoloGroup(solo, direction: 1, context: context)
+
+        #expect(workout.sortedGroups.count == 1)
+        #expect(bottom.sortedExercises.map { $0.exercise?.name } == ["A", "B", "C"])
+    }
+
+    @Test("Merging refuses supersets and missing neighbors")
+    func mergeGuards() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let workout = Workout(name: "PT")
+        context.insert(workout)
+
+        let pair = workout.addExerciseInNewGroup(makeExercise("A", in: context), context: context)
+        workout.addExercise(makeExercise("B", in: context), to: pair, context: context)
+        let solo = workout.addExerciseInNewGroup(makeExercise("C", in: context), context: context)
+
+        workout.mergeSoloGroup(pair, direction: 1, context: context)   // superset: refused
+        workout.mergeSoloGroup(solo, direction: 1, context: context)   // no neighbor below: refused
+
+        #expect(workout.sortedGroups.count == 2)
+        #expect(pair.sortedExercises.count == 2)
+        #expect(solo.sortedExercises.count == 1)
+    }
 }

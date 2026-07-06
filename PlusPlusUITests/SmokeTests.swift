@@ -20,16 +20,24 @@ final class SmokeTests: XCTestCase {
         createWorkout(named: "Push Day")
         addExercise(searching: "Bench Press")
 
-        XCTAssertTrue(app.staticTexts["Bench Press"].waitForExistence(timeout: 5))
+        // The exercise appears as a rail row; tapping it opens the
+        // planning sheet where metrics are edited (v2 design).
+        let row = app.staticTexts["Bench Press"]
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        row.tap()
 
-        // First tap on the weight stepper lands on the 45 lb default.
-        let weightStepper = app.steppers["Weight"]
-        XCTAssertTrue(weightStepper.waitForExistence(timeout: 5))
-        weightStepper.buttons["Increment"].tap()
-        XCTAssertTrue(app.staticTexts["45"].waitForExistence(timeout: 5))
-        weightStepper.buttons["Increment"].tap()
-        XCTAssertTrue(app.staticTexts["50"].waitForExistence(timeout: 5))
+        // First increment lands on the 45 lb default.
+        let increment = app.buttons["weightIncrement"]
+        XCTAssertTrue(increment.waitForExistence(timeout: 5))
+        increment.tap()
+        XCTAssertTrue(app.staticTexts["45 lb"].waitForExistence(timeout: 5))
+        increment.tap()
+        XCTAssertTrue(app.staticTexts["50 lb"].waitForExistence(timeout: 5))
 
+        snap("exercise-sheet")
+
+        app.buttons["closeExerciseSheet"].tap()
+        XCTAssertTrue(app.buttons["startWorkoutButton"].waitForExistence(timeout: 5))
         snap("workout-detail")
     }
 
@@ -85,7 +93,7 @@ final class SmokeTests: XCTestCase {
         app.buttons["sessionDoneButton"].tap()
 
         // Back out to the list, then into history.
-        let back = app.navigationBars.buttons.element(boundBy: 0)
+        let back = app.buttons["backButton"]
         XCTAssertTrue(back.waitForExistence(timeout: 5))
         back.tap()
 
@@ -120,8 +128,10 @@ final class SmokeTests: XCTestCase {
         field.typeText(name)
         alert.buttons["Create"].tap()
 
-        // Lands on the new workout's detail screen.
-        XCTAssertTrue(app.navigationBars[name].waitForExistence(timeout: 5))
+        // Lands on the new workout's detail screen (custom header — v2
+        // has no system navigation bar here).
+        XCTAssertTrue(app.staticTexts[name].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["addExerciseButton"].waitForExistence(timeout: 5))
     }
 
     private func search(for text: String) {

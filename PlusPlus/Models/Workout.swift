@@ -35,6 +35,24 @@ final class Workout {
         return Array(Set(names)).sorted()
     }
 
+    /// Rough all-in seconds for the detail meta line: ~45 s of work per
+    /// weight set, the actual target for timed sets, plus rest between
+    /// sets (matches the v2 prototype's estimate).
+    var estimatedSeconds: Int {
+        var work = 0
+        var totalSets = 0
+        for group in sortedGroups {
+            for entry in group.sortedExercises {
+                let perSet = entry.exercise?.exerciseType == .duration
+                    ? (entry.durationSeconds ?? 45)
+                    : 45
+                work += perSet * group.sets
+                totalSets += group.sets
+            }
+        }
+        return work + max(0, totalSets - 1) * restSeconds
+    }
+
     func reindexGroups() {
         for (index, group) in sortedGroups.filter({ !$0.isDeleted }).enumerated() {
             group.order = index
@@ -66,6 +84,34 @@ final class Workout {
         workoutExercise.group = group
         context.insert(workoutExercise)
         group.reindexExercises()
+    }
+
+    /// Merges a solo group's exercise into the adjacent group (direction
+    /// -1 = above, +1 = below), forming or extending a superset there.
+    /// No-op when the group isn't solo or there is no neighbor (the v2
+    /// design only offers the action for solo rows).
+    func mergeSoloGroup(_ group: ExerciseGroup, direction: Int, context: ModelContext) {
+        let sorted = sortedGroups
+        guard group.sortedExercises.count == 1,
+              let index = sorted.firstIndex(where: { $0 === group }),
+              sorted.indices.contains(index + direction),
+              let moving = group.sortedExercises.first
+        else { return }
+
+        let target = sorted[index + direction]
+        if direction < 0 {
+            moving.order = target.exercises.count
+            moving.group = target
+        } else {
+            for member in target.sortedExercises {
+                member.order += 1
+            }
+            moving.order = 0
+            moving.group = target
+        }
+        target.reindexExercises()
+        context.delete(group)
+        reindexGroups()
     }
 
     /// Moves a superset member out into its own group, placed immediately
