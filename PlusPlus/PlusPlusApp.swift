@@ -3,7 +3,6 @@ import SwiftData
 
 @main
 struct PlusPlusApp: App {
-    @AppStorage("appearance") private var appearance: AppAppearance = .dark
     let modelContainer: ModelContainer
 
     init() {
@@ -24,7 +23,7 @@ struct PlusPlusApp: App {
     var body: some Scene {
         WindowGroup {
             WorkoutListView()
-                .preferredColorScheme(appearance.colorScheme)
+                .preferredColorScheme(.dark) // v2 is dark-only (#59)
         }
         .modelContainer(modelContainer)
     }

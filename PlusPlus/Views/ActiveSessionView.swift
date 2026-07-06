@@ -131,7 +131,7 @@ struct ActiveSessionView: View {
         VStack(spacing: 16) {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 64))
-                .foregroundStyle(.indigo)
+                .foregroundStyle(Theme.accent)
             Text("Workout Complete")
                 .font(.title2.bold())
             Text("\(completedSets) \(completedSets == 1 ? "set" : "sets") logged")
@@ -140,7 +140,7 @@ struct ActiveSessionView: View {
                 dismiss()
             }
             .buttonStyle(.borderedProminent)
-            .tint(.indigo)
+            .tint(Theme.accent)
             .accessibilityIdentifier("sessionDoneButton")
             .padding(.top)
         }
@@ -190,7 +190,7 @@ private struct SetLoggingView: View {
                 }
                 .padding(.vertical, 4)
                 ProgressView(value: Double(setPosition - 1), total: Double(totalSets))
-                    .tint(.indigo)
+                    .tint(Theme.accent)
             }
 
             Section("Log this set") {
@@ -214,7 +214,7 @@ private struct SetLoggingView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
-            .tint(.indigo)
+            .tint(Theme.accent)
             .accessibilityIdentifier("completeSetButton")
             .padding()
             .background(.bar)
@@ -284,7 +284,7 @@ private struct RestView: View {
                         .buttonStyle(.bordered)
                     Button("Skip Rest", action: onEnd)
                         .buttonStyle(.borderedProminent)
-                        .tint(.indigo)
+                        .tint(Theme.accent)
                         .accessibilityIdentifier("skipRestButton")
                 }
             }

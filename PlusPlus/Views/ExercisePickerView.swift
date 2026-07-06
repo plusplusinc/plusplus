@@ -204,7 +204,7 @@ private struct FilterDropdownButton: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isActive ? Color.indigo.opacity(0.15) : Color(.secondarySystemFill))
+            .background(isActive ? Theme.accent.opacity(0.15) : Color(.secondarySystemFill))
             .clipShape(RoundedRectangle(cornerRadius: 10))
         }
         .tint(.primary)
@@ -238,7 +238,7 @@ private struct SummaryPill: View {
             .font(.subheadline)
             .padding(.horizontal, 9)
             .padding(.vertical, 4)
-            .background(active ? Color.indigo.opacity(0.2) : Color.primary.opacity(0.06))
+            .background(active ? Theme.accent.opacity(0.2) : Color.primary.opacity(0.06))
             .foregroundStyle(active ? .primary : .tertiary)
             .clipShape(Capsule())
     }
@@ -347,7 +347,7 @@ private struct SelectableChip: View {
                 .font(.subheadline.weight(.medium))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
-                .background(isSelected ? Color.indigo : Color.clear)
+                .background(isSelected ? Theme.accent : Color.clear)
                 .foregroundStyle(isSelected ? Color(.systemBackground) : .primary)
                 .clipShape(Capsule())
                 .overlay(Capsule().stroke(Color.primary.opacity(isSelected ? 0 : 0.35)))

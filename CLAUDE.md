@@ -65,7 +65,7 @@ The Simulator validation step in every task should use these tools in sequence: 
 
 **Work tracking:** The v1 backlog lives in GitHub issues on `mrdavidjcole/plusplus`, feeding the user's GitHub Project board via its auto-add workflow. Changes land via PRs (self-merged once CI is green) with `Closes #N` linking; issues close on merge except where validation is explicitly pending (#1).
 
-**What works (as of 2026-07-06):** create workouts; add exercises from the built-in library (27 exercises, 13 equipment items) or create custom exercises (muscle group, equipment, type, notes, video link); keyboard-free weight/reps/duration inputs with rep ranges ("15–20"); supersets (add to group / split out, rotation during execution); run a workout end to end (prefilled set logging, configurable rest countdown with a "Between Sets" row per workout, "Last time" line from prior history, finish/discard); workout-level notes (edited on the detail screen, shown at session start, round-tripped through the interchange format); browse and delete history with per-set detail. Dark mode default with dark/light/system toggle.
+**What works (as of 2026-07-06):** create workouts; add exercises from the built-in library (27 exercises, 13 equipment items) or create custom exercises (muscle group, equipment, type, notes, video link); keyboard-free weight/reps/duration inputs with rep ranges ("15–20"); supersets (add to group / split out, rotation during execution); run a workout end to end (prefilled set logging, configurable rest countdown with a "Between Sets" row per workout, "Last time" line from prior history, finish/discard); workout-level notes (edited on the detail screen, shown at session start, round-tripped through the interchange format); browse and delete history with per-set detail. Dark-only v2 "quiet-terminal" theme (green accent, mono data).
 
 **Remote validation layer:** 3 XCUITest smoke tests (`PlusPlusUITests`) run on the CI simulator via the `ui-test` job (workflow_dispatch + pushes to main) and upload a `ui-screenshots` artifact — list, detail, editor, set logging, rest, complete, history are all reviewable from a browser. The app supports `--uitest-reset` (in-memory store) for clean test launches. This narrows, but does not replace, the hands-on #1 checklist.
 
@@ -96,7 +96,7 @@ PlusPlus/                # iOS app target
   Notifications/
     RestNotifier.swift   # "Rest over" local notification (backgrounded only)
   Theme/
-    AppAppearance.swift  # Dark/Light/System enum, persisted via @AppStorage
+    Theme.swift          # v2 quiet-terminal palette + metrics (dark-only, #59)
   Interchange/
     InterchangeMapping.swift # SwiftData models ↔ DTOs, import policies
   Models/
@@ -193,6 +193,8 @@ PlusPlusUITests/
 **2026-07-05 — CLI is Swift, shells out to git, never authenticates** — Swift over Go because the contract (deterministic codec, validator) already lives tested in PlusPlusKit; a second implementation would drift byte-level. Conformance fixtures in PlusPlusKitTests/Fixtures are the language-neutral spec for future ports. The CLI operates on a clone; git is transport and auth; the app (#23) is the only surface with GitHub auth.
 
 **2026-07-05 — PlusPlusKit package holds everything platform-pure** — MuscleGroup/ExerciseType, WorkoutMetric, RepTarget, and the interchange DTOs/codec/validator live in a local SwiftPM package with no SwiftUI/SwiftData. The `kit-test` CI job runs its tests on Linux (1x minutes); if it fails, someone leaked an Apple-only dependency into the shared core. SwiftData models, mapping (InterchangeMapping), and views stay in the app.
+
+**2026-07-06 — v2 "quiet-terminal" design system; dark-only** — Dave's Claude Design prototype v2 (design handoff in issues #59–#67) supersedes the 2026-02-20 system-semantic-colors decision: a fixed GitHub-dark palette (`Theme` in `PlusPlus/Theme/Theme.swift`), green accent (#3fb950/#238636) replacing indigo, monospace for data/numbers, and no light mode (appearance toggle removed). Screens must draw colors from `Theme`, never ad-hoc literals. Accessibility trade-offs (Increase Contrast, dynamic type on fixed layouts) go on the #1 Mac checklist.
 
 **2026-07-06 — Weight numbers are unit-agnostic; the unit is a declaration, not a conversion** — `WeightUnit` (lb/kg) in the Kit owns per-unit semantics (step 5/2.5, wheel 2.5/1.25, empty-bar default 45/20); `WorkoutMetric`'s weight paths take a `weightUnit:` param defaulting to `.lb`. The app setting (`@AppStorage("weightUnit")`, Settings segmented control) changes labels/stepping/defaults only — stored numbers never convert (225 stays 225). Bundles carry an optional `units` field (absent = lb, so old files stay valid); import adopts a bundle's declared unit; CLI stats honor it. The per-file repo layout stays lb-implied until a real kg repo needs a meta file.
 
