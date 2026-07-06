@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 @main
 struct PlusPlusApp: App {
@@ -10,6 +11,13 @@ struct PlusPlusApp: App {
         // UI tests pass --uitest-reset so every launch starts from a clean,
         // throwaway store (seed data still loads).
         let inMemory = CommandLine.arguments.contains("--uitest-reset")
+        // XCUITest waits for animations to settle before every event and
+        // query; on a loaded CI simulator that wait can starve the whole
+        // run ("App animations complete notification not received"). Kill
+        // animations outright under test.
+        if inMemory {
+            UIView.setAnimationsEnabled(false)
+        }
         let config = ModelConfiguration(isStoredInMemoryOnly: inMemory)
         do {
             modelContainer = try ModelContainer(for: schema, configurations: [config])

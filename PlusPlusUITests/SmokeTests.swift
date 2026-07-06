@@ -26,13 +26,16 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 5))
         row.tap()
 
-        // First increment lands on the 45 lb default.
+        // First increment lands on the 45 lb default. The value renders
+        // as a tappable button (it opens the wheel picker), so assert on
+        // the button's label — there is no separate static text.
         let increment = app.buttons["weightIncrement"]
         XCTAssertTrue(increment.waitForExistence(timeout: 5))
+        let weightValue = app.buttons["weightValue"]
         increment.tap()
-        XCTAssertTrue(app.staticTexts["45 lb"].waitForExistence(timeout: 5))
+        XCTAssertTrue(waitForLabel(weightValue, "45 lb"), "first increment lands on the empty-bar default")
         increment.tap()
-        XCTAssertTrue(app.staticTexts["50 lb"].waitForExistence(timeout: 5))
+        XCTAssertTrue(waitForLabel(weightValue, "50 lb"), "second increment steps by 5 lb")
 
         snap("exercise-sheet")
 
@@ -42,7 +45,9 @@ final class SmokeTests: XCTestCase {
     }
 
     func testCreateCustomExerciseWithNotes() throws {
-        createWorkout(named: "PT")
+        // Not "PT": typeText with two consecutive shifted characters is a
+        // known flake on slow simulators (the second shift can drop).
+        createWorkout(named: "Rehab")
 
         app.buttons["addExerciseButton"].tap()
         let newButton = app.buttons["newExerciseButton"]
@@ -101,13 +106,29 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(history.waitForExistence(timeout: 5))
         history.tap()
 
-        XCTAssertTrue(app.staticTexts["Quick Session"].waitForExistence(timeout: 5))
+        // Snapshot the list before asserting, so a failure here leaves
+        // visual evidence of what history actually showed.
+        snap("history-list")
+
+        // Generous timeouts: on a loaded CI simulator, the first snapshot
+        // after navigation can take most of a minute to evaluate.
+        XCTAssertTrue(app.staticTexts["Quick Session"].waitForExistence(timeout: 30))
         app.staticTexts["Quick Session"].tap()
-        XCTAssertTrue(app.staticTexts["Set 1"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Set 1"].waitForExistence(timeout: 15))
         snap("history-detail")
     }
 
     // MARK: - Helpers
+
+    /// Waits for an element's label to become `label` — for values that
+    /// render inside buttons, where waitForExistence can't see the text.
+    /// The timeout must absorb accessibility-snapshot latency: on a loaded
+    /// CI simulator a single evaluation has been observed to take ~15 s.
+    private func waitForLabel(_ element: XCUIElement, _ label: String, timeout: TimeInterval = 30) -> Bool {
+        let predicate = NSPredicate(format: "label == %@", label)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
+    }
 
     private func snap(_ name: String) {
         let attachment = XCTAttachment(screenshot: app.screenshot())
