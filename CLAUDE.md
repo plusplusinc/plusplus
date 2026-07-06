@@ -73,7 +73,7 @@ The Simulator validation step in every task should use these tools in sequence: 
 - **PlusPlus** — iOS app (deployment target iOS 26.0)
 - **PlusPlusWatch** — watchOS companion app (deployment target watchOS 26.0)
 - **PlusPlusKit** — pure SwiftPM package shared with the CLI and future MCP (tested on Linux in CI)
-- **PlusPlusTests** — unit test target (53 tests; 49 more live in PlusPlusKit, 12 in PlusPlusCLI)
+- **PlusPlusTests** — unit test target (53 tests; 49 more live in PlusPlusKit, 15 in PlusPlusCLI)
 - **PlusPlusUITests** — UI smoke test target (3 flows, `PlusPlusUI` scheme, CI-only by convention)
 
 **Project structure:**
@@ -87,7 +87,7 @@ PlusPlusKit/             # Pure SwiftPM package (Linux-tested in CI)
                          #   + SyncEngine/RepoStore/SyncBaseStore (sync pass, #23)
   Tests/PlusPlusKitTests/ # Metric/RepTarget/Interchange/Sync/Conformance tests (49)
 PlusPlusCLI/             # plusplus CLI (SwiftPM exec, Linux-tested in CI)
-  Sources/plusplus/      # lint/stats/import/export over the repo layout
+  Sources/plusplus/      # init/lint/stats/import/export over the repo layout
   Tests/PlusPlusCLITests/
 PlusPlus/                # iOS app target
   PlusPlusApp.swift      # App entry point, ModelContainer, seed data, appearance
@@ -126,7 +126,7 @@ PlusPlusTests/
   SupersetTests.swift        # Workout structure mutations (5)
   SessionTests.swift         # Session factory/rotation/snapshots/progress (7)
   LastPerformanceTests.swift # "Last time" lookup (6)
-  InterchangeMappingTests.swift # Export/import round-trip + policies (5) = 53 app + 49 Kit + 12 CLI
+  InterchangeMappingTests.swift # Export/import round-trip + policies (5) = 53 app + 49 Kit + 15 CLI
 PlusPlusUITests/
   SmokeTests.swift           # 3 end-to-end flows w/ screenshot attachments
 .github/workflows/ci.yml # macOS CI: xcodegen + xcodebuild test

@@ -12,7 +12,7 @@ struct PlusPlusCommand: ParsableCommand {
         or on a single export bundle from the iPhone app. Transport and auth \
         are git's job — this tool never talks to GitHub.
         """,
-        subcommands: [Lint.self, Stats.self, ImportCommand.self, ExportCommand.self]
+        subcommands: [InitCommand.self, Lint.self, Stats.self, ImportCommand.self, ExportCommand.self]
     )
 }
 
