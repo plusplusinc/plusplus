@@ -22,7 +22,7 @@ struct ExercisePickerView: View {
     var body: some View {
         NavigationStack {
             List {
-                ForEach(filterState.filteredExercises(from: allExercises)) { exercise in
+                ForEach(filterState.filteredExercises(from: allExercises.filter { $0.inLibrary || !$0.isBuiltIn })) { exercise in
                     Button {
                         onSelect(exercise)
                         dismiss()

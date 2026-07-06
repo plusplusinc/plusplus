@@ -14,6 +14,9 @@ struct WorkoutListView: View {
     @State private var newWorkoutName = ""
     @State private var showingSettings = false
     @State private var showingHistory = false
+    @State private var showingLibrary = false
+    @State private var catalogSheet: AddFromCatalogSheet.Kind?
+    @State private var newCustomPrefill: CustomExercisePrefill?
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -49,6 +52,17 @@ struct WorkoutListView: View {
             .navigationDestination(isPresented: $showingHistory) {
                 HistoryView()
             }
+            .navigationDestination(isPresented: $showingLibrary) {
+                LibraryView()
+            }
+            .sheet(item: $catalogSheet) { kind in
+                AddFromCatalogSheet(kind: kind) { prefill in
+                    newCustomPrefill = CustomExercisePrefill(name: prefill)
+                }
+            }
+            .sheet(item: $newCustomPrefill) { prefill in
+                ExerciseEditorView(prefillName: prefill.name)
+            }
             .sheet(isPresented: $showingSettings) {
                 SettingsView()
                     .presentationDetents([.medium, .large])
@@ -81,6 +95,9 @@ struct WorkoutListView: View {
                     .foregroundStyle(Theme.accent)
                 Spacer()
                 HStack(spacing: 8) {
+                    HeaderIconButton(systemImage: "dumbbell", identifier: "libraryButton") {
+                        showingLibrary = true
+                    }
                     HeaderIconButton(systemImage: "clock", identifier: "historyButton") {
                         showingHistory = true
                     }
@@ -103,8 +120,14 @@ struct WorkoutListView: View {
     }
 
     private var fab: some View {
-        Button {
-            showingNewWorkout = true
+        Menu {
+            Button("New workout", systemImage: "plus") { showingNewWorkout = true }
+            Button("Add exercise", systemImage: "figure.strengthtraining.traditional") {
+                catalogSheet = .exercises
+            }
+            Button("Add equipment", systemImage: "dumbbell") {
+                catalogSheet = .equipment
+            }
         } label: {
             Text("+")
                 .font(.system(size: 24, weight: .semibold, design: .monospaced))
