@@ -182,8 +182,11 @@ one workout repo), token in the Keychain. Not classic OAuth `repo` scope.
    version of everything above; also the backup story. *Remote-buildable except
    hands-on UI validation.*
 3. **GitHub sync in the app** (#23) — device flow, `RepoStore`, repo bootstrap,
-   sync engine. *Needs Mac + GitHub App registration; sync-engine tests
-   remote-buildable against a fake store.*
+   sync engine. *Groundwork shipped remotely: `FileLayout` (paths + append-only
+   session placement) and `SyncPlanner` (pure per-file three-way merge:
+   writes/pulls/conflicts, deletions deferred) live in PlusPlusKit with tests.
+   Remaining — device-flow auth, the GitHub `RepoStore`, and wiring — needs
+   Mac + GitHub App registration.*
 4. **CLI** (#24) — v0 shipped: `plusplus lint / stats / import / export` in
    `PlusPlusCLI/` (Swift + swift-argument-parser; decisions recorded on the
    issue: Swift over Go, no GitHub auth — git is transport and auth).

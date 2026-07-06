@@ -247,10 +247,3 @@ private struct ExerciseInputRow: View {
     }
 }
 
-/// Bridges the model's optional Int storage to MetricRow's Double interface.
-private func intMetricBinding(_ source: Binding<Int?>) -> Binding<Double?> {
-    Binding(
-        get: { source.wrappedValue.map(Double.init) },
-        set: { source.wrappedValue = $0.map { Int($0.rounded()) } }
-    )
-}

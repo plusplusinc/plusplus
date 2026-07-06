@@ -16,6 +16,18 @@ struct PlusPlusCommand: ParsableCommand {
     )
 }
 
+/// Prints every validation issue and exits nonzero — the shared gate all
+/// commands run before trusting a bundle.
+func requireValid(_ bundle: PlusPlusKit.ExportBundle) throws {
+    let issues = InterchangeValidator.validate(bundle)
+    guard issues.isEmpty else {
+        for issue in issues {
+            print("error: \(issue)")
+        }
+        throw ExitCode.failure
+    }
+}
+
 struct Lint: ParsableCommand {
     static let configuration = CommandConfiguration(
         abstract: "Validate a workout repo or bundle file against schema v\(Interchange.schemaVersion)."
@@ -26,15 +38,8 @@ struct Lint: ParsableCommand {
 
     func run() throws {
         let bundle = try BundleSource.load(path: path)
-        let issues = InterchangeValidator.validate(bundle)
-        if issues.isEmpty {
-            print("OK — \(bundle.exercises.count) exercises, \(bundle.workouts.count) workouts, \(bundle.sessions.count) sessions")
-            return
-        }
-        for issue in issues {
-            print("error: \(issue)")
-        }
-        throw ExitCode.failure
+        try requireValid(bundle)
+        print("OK — \(bundle.exercises.count) exercises, \(bundle.workouts.count) workouts, \(bundle.sessions.count) sessions")
     }
 }
 
@@ -83,13 +88,7 @@ struct ImportCommand: ParsableCommand {
     func run() throws {
         let data = try Data(contentsOf: URL(fileURLWithPath: bundlePath))
         let bundle = try InterchangeCodec.decode(PlusPlusKit.ExportBundle.self, from: data)
-        let issues = InterchangeValidator.validate(bundle)
-        guard issues.isEmpty else {
-            for issue in issues {
-                print("error: \(issue)")
-            }
-            throw ExitCode.failure
-        }
+        try requireValid(bundle)
 
         let summary = try WorkoutRepo(root: URL(fileURLWithPath: into)).write(bundle: bundle)
         for path in summary.written {
@@ -113,13 +112,7 @@ struct ExportCommand: ParsableCommand {
 
     func run() throws {
         let bundle = try WorkoutRepo(root: URL(fileURLWithPath: path)).loadBundle()
-        let issues = InterchangeValidator.validate(bundle)
-        guard issues.isEmpty else {
-            for issue in issues {
-                print("error: \(issue)")
-            }
-            throw ExitCode.failure
-        }
+        try requireValid(bundle)
         try InterchangeCodec.encode(bundle).write(to: URL(fileURLWithPath: to))
         print("Wrote \(to) — \(bundle.exercises.count) exercises, \(bundle.workouts.count) workouts, \(bundle.sessions.count) sessions")
     }

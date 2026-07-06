@@ -30,13 +30,13 @@ struct WorkoutRepo {
     private let fileManager = FileManager.default
 
     var exercisesDirectory: URL {
-        root.appendingPathComponent("program").appendingPathComponent("exercises")
+        root.appendingPathComponent(FileLayout.exercisesDirectory)
     }
     var workoutsDirectory: URL {
-        root.appendingPathComponent("program").appendingPathComponent("workouts")
+        root.appendingPathComponent(FileLayout.workoutsDirectory)
     }
     var historyDirectory: URL {
-        root.appendingPathComponent("history")
+        root.appendingPathComponent(FileLayout.historyDirectory)
     }
 
     var looksLikeRepo: Bool {
@@ -99,76 +99,40 @@ struct WorkoutRepo {
     func write(bundle: ExportBundle) throws -> WriteSummary {
         var summary = WriteSummary()
 
-        try fileManager.createDirectory(at: exercisesDirectory, withIntermediateDirectories: true)
-        try fileManager.createDirectory(at: workoutsDirectory, withIntermediateDirectories: true)
+        for (path, data) in try FileLayout.templateFiles(for: bundle) {
+            if contents(atRelativePath: path) == data {
+                summary.skipped.append(path)
+                continue
+            }
+            try writeFile(data, atRelativePath: path)
+            summary.written.append(path)
+        }
 
-        for exercise in bundle.exercises {
-            let url = exercisesDirectory.appendingPathComponent("\(Slug.make(exercise.name)).json")
-            try overwrite(InterchangeCodec.encode(ExerciseDocument(exercise: exercise)), at: url, summary: &summary)
-        }
-        for workout in bundle.workouts {
-            let url = workoutsDirectory.appendingPathComponent("\(Slug.make(workout.name)).json")
-            try overwrite(InterchangeCodec.encode(WorkoutDocument(workout: workout)), at: url, summary: &summary)
-        }
         for session in bundle.sessions {
-            try appendSession(session, summary: &summary)
+            let placement = try FileLayout.sessionPlacement(for: session) { path in
+                contents(atRelativePath: path)
+            }
+            if placement.alreadyPresent {
+                summary.skipped.append(placement.path)
+            } else {
+                try writeFile(placement.data, atRelativePath: placement.path)
+                summary.written.append(placement.path)
+            }
         }
         return summary
     }
 
-    private func overwrite(_ data: Data, at url: URL, summary: inout WriteSummary) throws {
-        if fileManager.fileExists(atPath: url.path),
-           let existing = try? Data(contentsOf: url), existing == data {
-            summary.skipped.append(relativePath(of: url))
-            return
-        }
+    private func contents(atRelativePath path: String) -> Data? {
+        try? Data(contentsOf: root.appendingPathComponent(path))
+    }
+
+    private func writeFile(_ data: Data, atRelativePath path: String) throws {
+        let url = root.appendingPathComponent(path)
+        try fileManager.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
         try data.write(to: url)
-        summary.written.append(relativePath(of: url))
-    }
-
-    private func appendSession(_ session: SessionDTO, summary: inout WriteSummary) throws {
-        let (year, dateStamp) = Self.utcDateParts(of: session.startedAt)
-        let directory = historyDirectory.appendingPathComponent(year)
-        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
-
-        let base = "\(dateStamp)-\(Slug.make(session.workoutName))"
-        let data = try InterchangeCodec.encode(SessionDocument(session: session))
-
-        var attempt = 1
-        while true {
-            let name = attempt == 1 ? "\(base).json" : "\(base)-\(attempt).json"
-            let url = directory.appendingPathComponent(name)
-            if !fileManager.fileExists(atPath: url.path) {
-                try data.write(to: url)
-                summary.written.append(relativePath(of: url))
-                return
-            }
-            if let existing = try? Data(contentsOf: url), existing == data {
-                summary.skipped.append(relativePath(of: url))
-                return
-            }
-            attempt += 1
-        }
-    }
-
-    private func relativePath(of url: URL) -> String {
-        let rootPath = root.standardizedFileURL.path
-        let path = url.standardizedFileURL.path
-        if path.hasPrefix(rootPath + "/") {
-            return String(path.dropFirst(rootPath.count + 1))
-        }
-        return path
-    }
-
-    /// ("2026", "2026-07-05") in UTC — deterministic file names regardless
-    /// of the machine's time zone.
-    static func utcDateParts(of date: Date) -> (year: String, dateStamp: String) {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(identifier: "UTC") ?? .current
-        let parts = calendar.dateComponents([.year, .month, .day], from: date)
-        let year = String(format: "%04d", parts.year ?? 0)
-        let stamp = String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
-        return (year, stamp)
     }
 }
 

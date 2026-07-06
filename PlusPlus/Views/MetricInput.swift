@@ -179,3 +179,12 @@ private struct RepTargetWheelSheet: View {
         .presentationDetents([.height(320)])
     }
 }
+
+/// Bridges optional Int model storage (reps, durations) to MetricRow's
+/// Double-based interface. Shared by the detail and execution screens.
+func intMetricBinding(_ source: Binding<Int?>) -> Binding<Double?> {
+    Binding(
+        get: { source.wrappedValue.map(Double.init) },
+        set: { source.wrappedValue = $0.map { Int($0.rounded()) } }
+    )
+}
