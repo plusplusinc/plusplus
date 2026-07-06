@@ -1,25 +1,91 @@
-# ++
+# ++ (PlusPlus)
 
-++ (PlusPlus) is an iOS fitness tracking app with Apple Watch companion functionality.
+An iOS fitness tracker where **your training data is a git repo you own**.
+The `++` mark is the increment operator — squint and it's a dumbbell.
 
-## Status
+## What it does
 
-Early development.
+- **Build workouts** from a built-in exercise library or your own custom
+  exercises (muscle group, equipment, form notes, reference video)
+- **Supersets** as a first-class structure — groups rotate strictly
+  (A1 B1 A2 B2 …) during execution
+- **Keyboard-free logging**: steppers + wheel pickers for weight, reps,
+  rep ranges ("15–20"), and durations; sensible defaults from empty
+- **Run workouts** with prefilled set logging, a date-based rest countdown
+  (survives backgrounding, notifies when rest ends), "last time" context
+  from history, and workout-level notes at session start
+- **History** that snapshots everything at run time — editing or deleting
+  a template never rewrites what you actually did
+- **Export/import** the whole library through a documented, deterministic
+  JSON format
 
-## Tech
+Built for a real acceptance case: a physical-therapy prescription with
+band work, rep ranges, form cues, and a reference video — entered exactly
+as prescribed.
 
-- Swift / SwiftUI
-- iOS 17+, watchOS 10+
-- XcodeBuildMCP for agent-assisted development
+## The platform: repo-as-backend
+
+There is no PlusPlus server. Training data serializes to versioned JSON
+(sorted keys, ISO-8601 dates — clean diffs) in a layout shared by the
+app, the CLI, and agents:
+
+```
+program/exercises/   one exercise per file
+program/workouts/    one workout per file
+history/YYYY/        finished sessions — append-only
+```
+
+- **`plusplus` CLI** (Linux + macOS): `init`, `lint`, `stats`, `import`,
+  `export`, and `mcp` — an MCP server exposing the repo to agents,
+  including a fenced `propose_program_change` that writes branches, never
+  pushes
+- **App ↔ GitHub sync** (in progress, #23): device-flow auth, per-file
+  three-way merge for templates, append-only pushes for sessions
+- **Agents**: see [`docs/AGENTS.md`](docs/AGENTS.md);
+  [`docs/recipes/`](docs/recipes/) has copy-paste Actions (schema lint on
+  PRs, weekly stats report)
+
+Architecture and format contract: [`docs/PLATFORM.md`](docs/PLATFORM.md).
+
+## Repo tour
+
+| Directory | What it is |
+|---|---|
+| `PlusPlus/` | iOS app (SwiftUI + SwiftData, iOS 26) |
+| `PlusPlusWatch/` | watchOS companion (stub — #6) |
+| `PlusPlusKit/` | Platform-pure SwiftPM package: taxonomy, metrics, interchange codec/validator, sync engine. No SwiftUI/SwiftData — tested on Linux in CI to keep it that way |
+| `PlusPlusCLI/` | The `plusplus` CLI + MCP server (SwiftPM executable, Linux-native) |
+| `PlusPlusTests/` · `PlusPlusKit/Tests/` · `PlusPlusCLI/Tests/` | ~130 unit tests across the three layers |
+| `PlusPlusUITests/` | Smoke flows that run on the CI simulator and upload screenshots |
 
 ## Development
 
-This project is developed with Claude Code. See `CLAUDE.md` for architecture principles, conventions, and session discipline.
+Requirements: Xcode 26+, [XcodeGen](https://github.com/yonaskolb/XcodeGen).
+The `.xcodeproj` is generated, not checked in:
 
-```bash
-# Open in Xcode
+```sh
+xcodegen generate
 open PlusPlus.xcodeproj
 ```
+
+The Kit and CLI build anywhere Swift 6 does:
+
+```sh
+swift test --package-path PlusPlusKit
+swift test --package-path PlusPlusCLI
+swift build -c release --package-path PlusPlusCLI   # → .build/release/plusplus
+```
+
+CI (`.github/workflows/ci.yml`) runs the app suite on a macOS runner and
+the Kit/CLI suites on Linux; UI smoke tests run on pushes to main and by
+manual dispatch, uploading a `ui-screenshots` artifact. Tagging `v*` cuts
+a CLI release with Linux/macOS binaries.
+
+Work is tracked in GitHub issues; changes land via PRs. `CLAUDE.md` holds
+architecture principles, the decisions log, and session discipline — this
+project is developed largely through Claude Code sessions, including
+fully remote ones (the Linux-testable core exists partly so remote
+sessions can verify their own work).
 
 ## License
 
