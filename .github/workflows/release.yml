@@ -1,6 +1,8 @@
-# Tag-triggered CLI release: push v* and get a GitHub Release with Linux
-# and macOS binaries plus checksums (issue #37). The macOS job bills at
-# 10x but only runs on tags, so cost stays bounded. The Homebrew tap
+# CLI release: push a v* tag — or dispatch with a version, which creates
+# the tag as part of the release (remote Claude sessions can't push tags
+# through the git relay). Either way: a GitHub Release with Linux and
+# macOS binaries plus checksums (issue #37). The macOS job bills at 10x
+# but only runs on releases, so cost stays bounded. The Homebrew tap
 # (owner action — see #37) will point at these artifacts.
 name: Release CLI
 
@@ -8,6 +10,11 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Tag to create and release (e.g. v0.1.0)"
+        required: true
 
 jobs:
   linux:
@@ -65,9 +72,13 @@ jobs:
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version || github.ref_name }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
+          # On dispatch the tag doesn't exist yet; --target makes gh
+          # create it at the dispatched commit.
+          gh release create "$VERSION" \
             --repo "$GITHUB_REPOSITORY" \
-            --title "plusplus $GITHUB_REF_NAME" \
+            --target "$GITHUB_SHA" \
+            --title "plusplus $VERSION" \
             --generate-notes \
             dist/plusplus-linux-x86_64 dist/plusplus-macos-arm64 dist/SHA256SUMS
