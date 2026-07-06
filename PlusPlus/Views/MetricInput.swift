@@ -25,9 +25,12 @@ struct MetricRow: View {
                     Text(metric.formatted(value))
                         .font(.body.monospacedDigit())
                         .fontWeight(.medium)
-                    Text(metric.unit)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    let unit = metric.unit(for: value)
+                    if !unit.isEmpty {
+                        Text(unit)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
             .buttonStyle(.borderless)
@@ -51,7 +54,7 @@ struct MetricRow: View {
                 set: { value = $0 }
             )) {
                 ForEach(metric.wheelValues, id: \.self) { candidate in
-                    Text("\(metric.formatted(candidate)) \(metric.unit)")
+                    Text(metric.displayText(candidate))
                         .tag(candidate)
                 }
             }

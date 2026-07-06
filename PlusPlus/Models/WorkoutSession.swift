@@ -162,11 +162,11 @@ final class SetLog {
         RepTarget(lower: targetRepsLower, upper: targetRepsUpper)
     }
 
-    /// "10 reps @ 135 lb", "60 sec", or "—" — how this set went.
+    /// "10 reps @ 135 lb", "45 sec", "25:00", or "—" — how this set went.
     var resultSummary: String {
         if exerciseType == .duration {
             guard let seconds = actualDuration else { return "—" }
-            return "\(seconds) sec"
+            return WorkoutMetric.duration.displayText(Double(seconds))
         }
         var parts: [String] = []
         if let reps = actualReps {
