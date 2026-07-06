@@ -93,7 +93,7 @@ struct ExercisePickerView: View {
                     .presentationDetents([.medium])
             }
             .sheet(isPresented: $showingEquipmentFilter) {
-                EquipmentFilterSheet(filterState: filterState, allEquipment: allEquipment)
+                EquipmentFilterSheet(filterState: filterState, allEquipment: allEquipment.filter { $0.inLibrary || !$0.isBuiltIn })
                     .presentationDetents([.medium, .large])
             }
         }
@@ -201,46 +201,20 @@ private struct FilterDropdownButton: View {
 
                 summaryPills
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isActive ? Theme.accent.opacity(0.15) : Color(.secondarySystemFill))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .background(Theme.background, in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(isActive ? Theme.accentButton : Theme.border))
         }
         .tint(.primary)
     }
 
     private var summaryPills: some View {
-        HStack(spacing: 5) {
-            if selections.isEmpty {
-                SummaryPill(text: "All", active: false)
-            } else {
-                let maxShown = 4
-                ForEach(selections.prefix(maxShown), id: \.self) { name in
-                    SummaryPill(text: name, active: true)
-                }
-                if selections.count > maxShown {
-                    Text("+\(selections.count - maxShown)")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-    }
-}
-
-private struct SummaryPill: View {
-    let text: String
-    let active: Bool
-
-    var body: some View {
-        Text(text)
-            .font(.subheadline)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 4)
-            .background(active ? Theme.accent.opacity(0.2) : Color.primary.opacity(0.06))
-            .foregroundStyle(active ? .primary : .tertiary)
-            .clipShape(Capsule())
+        Text(selections.isEmpty ? "all" : selections.joined(separator: ", "))
+            .font(.system(size: 10, design: .monospaced))
+            .foregroundStyle(selections.isEmpty ? Theme.textFaint : Theme.accent)
+            .lineLimit(1)
     }
 }
 
@@ -344,13 +318,13 @@ private struct SelectableChip: View {
     var body: some View {
         Button(action: action) {
             Text(label)
-                .font(.subheadline.weight(.medium))
+                .font(.system(size: 13, weight: .semibold))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
-                .background(isSelected ? Theme.accent : Color.clear)
-                .foregroundStyle(isSelected ? Color(.systemBackground) : .primary)
+                .background(isSelected ? Theme.accentButton : Color.clear)
+                .foregroundStyle(isSelected ? .white : Theme.textPrimary)
                 .clipShape(Capsule())
-                .overlay(Capsule().stroke(Color.primary.opacity(isSelected ? 0 : 0.35)))
+                .overlay(Capsule().strokeBorder(isSelected ? Theme.accentButton : Theme.borderStrong))
         }
     }
 }

@@ -71,6 +71,7 @@ final class Workout {
         context.insert(group)
 
         let workoutExercise = WorkoutExercise(exercise: exercise, order: 0)
+        applyDefaultTargets(to: workoutExercise, for: exercise)
         workoutExercise.group = group
         context.insert(workoutExercise)
 
@@ -78,9 +79,20 @@ final class Workout {
         return group
     }
 
+    /// Fresh entries start with the design's defaults (10 reps / 45 s)
+    /// instead of blank targets.
+    private func applyDefaultTargets(to entry: WorkoutExercise, for exercise: Exercise) {
+        if exercise.exerciseType == .duration {
+            entry.durationSeconds = 45
+        } else {
+            entry.reps = 10
+        }
+    }
+
     /// Adds an exercise to an existing group, making (or extending) a superset.
     func addExercise(_ exercise: Exercise, to group: ExerciseGroup, context: ModelContext) {
         let workoutExercise = WorkoutExercise(exercise: exercise, order: group.exercises.count)
+        applyDefaultTargets(to: workoutExercise, for: exercise)
         workoutExercise.group = group
         context.insert(workoutExercise)
         group.reindexExercises()
