@@ -1,0 +1,35 @@
+# Schema lint for a workout repo — copy to .github/workflows/lint.yml
+# there. Fails the PR when program files don't validate, so agents (and
+# humans) can't merge a broken program.
+name: Lint program
+
+on:
+  pull_request:
+    paths:
+      - "program/**"
+  push:
+    branches: [main]
+    paths:
+      - "program/**"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    container: swift:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Build the CLI from source. Needs PLUSPLUS_REPO_TOKEN (fine-grained
+      # PAT, read-only) while the PlusPlus repo is private — see README.md
+      # in this directory.
+      - uses: actions/checkout@v4
+        with:
+          repository: mrdavidjcole/plusplus # ← your fork if you have one
+          token: ${{ secrets.PLUSPLUS_REPO_TOKEN }}
+          path: .plusplus-src
+
+      - name: Build plusplus CLI
+        run: swift build -c release --package-path .plusplus-src/PlusPlusCLI
+
+      - name: Lint
+        run: .plusplus-src/PlusPlusCLI/.build/release/plusplus lint --json .

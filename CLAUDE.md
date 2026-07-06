@@ -73,13 +73,15 @@ The Simulator validation step in every task should use these tools in sequence: 
 - **PlusPlus** — iOS app (deployment target iOS 26.0)
 - **PlusPlusWatch** — watchOS companion app (deployment target watchOS 26.0)
 - **PlusPlusKit** — pure SwiftPM package shared with the CLI and future MCP (tested on Linux in CI)
-- **PlusPlusTests** — unit test target (53 tests; 49 more live in PlusPlusKit, 15 in PlusPlusCLI)
+- **PlusPlusTests** — unit test target (53 tests; 49 more live in PlusPlusKit, 23 in PlusPlusCLI)
 - **PlusPlusUITests** — UI smoke test target (3 flows, `PlusPlusUI` scheme, CI-only by convention)
 
 **Project structure:**
 ```
 project.yml              # XcodeGen project definition (registers PlusPlusKit)
 docs/PLATFORM.md         # Developer-platform architecture + owner TODOs
+docs/AGENTS.md           # Agent quickstart: files, CLI --json, MCP server
+docs/recipes/            # Copy-paste Actions for workout repos (lint, weekly report)
 PlusPlusKit/             # Pure SwiftPM package (Linux-tested in CI)
   Sources/PlusPlusKit/   # MuscleGroup/ExerciseType, WorkoutMetric, RepTarget,
                          #   Interchange DTOs + codec + validator + Slug + documents,
@@ -87,7 +89,7 @@ PlusPlusKit/             # Pure SwiftPM package (Linux-tested in CI)
                          #   + SyncEngine/RepoStore/SyncBaseStore (sync pass, #23)
   Tests/PlusPlusKitTests/ # Metric/RepTarget/Interchange/Sync/Conformance tests (49)
 PlusPlusCLI/             # plusplus CLI (SwiftPM exec, Linux-tested in CI)
-  Sources/plusplus/      # init/lint/stats/import/export over the repo layout
+  Sources/plusplus/      # init/lint/stats/import/export + MCP server (mcp subcommand)
   Tests/PlusPlusCLITests/
 PlusPlus/                # iOS app target
   PlusPlusApp.swift      # App entry point, ModelContainer, seed data, appearance
@@ -126,7 +128,7 @@ PlusPlusTests/
   SupersetTests.swift        # Workout structure mutations (5)
   SessionTests.swift         # Session factory/rotation/snapshots/progress (7)
   LastPerformanceTests.swift # "Last time" lookup (6)
-  InterchangeMappingTests.swift # Export/import round-trip + policies (5) = 53 app + 49 Kit + 15 CLI
+  InterchangeMappingTests.swift # Export/import round-trip + policies (5) = 53 app + 49 Kit + 23 CLI
 PlusPlusUITests/
   SmokeTests.swift           # 3 end-to-end flows w/ screenshot attachments
 .github/workflows/ci.yml # macOS CI: xcodegen + xcodebuild test
@@ -189,6 +191,8 @@ PlusPlusUITests/
 **2026-07-05 — CLI is Swift, shells out to git, never authenticates** — Swift over Go because the contract (deterministic codec, validator) already lives tested in PlusPlusKit; a second implementation would drift byte-level. Conformance fixtures in PlusPlusKitTests/Fixtures are the language-neutral spec for future ports. The CLI operates on a clone; git is transport and auth; the app (#23) is the only surface with GitHub auth.
 
 **2026-07-05 — PlusPlusKit package holds everything platform-pure** — MuscleGroup/ExerciseType, WorkoutMetric, RepTarget, and the interchange DTOs/codec/validator live in a local SwiftPM package with no SwiftUI/SwiftData. The `kit-test` CI job runs its tests on Linux (1x minutes); if it fails, someone leaked an Apple-only dependency into the shared core. SwiftData models, mapping (InterchangeMapping), and views stay in the app.
+
+**2026-07-06 — MCP server is a CLI subcommand with one heavily-fenced mutating tool** — `plusplus mcp` hand-rolls stdio JSON-RPC (~100 lines; no third-party MCP SDK, keeping the Linux build dependency-free). Read tools return interchange DTOs / the `--json` reports verbatim — no bespoke shapes to keep in sync. `propose_program_change` is the only write: `program/**.json` paths only, clean work tree required, must lint or it's fully rolled back, commits to a fresh branch, never pushes (the CLI still never authenticates — review/push/PR is the caller's job, and the repo's lint Action recipe is the second gate).
 
 **2026-07-06 — Sync engine is transport-blind; sessions bypass the merge entirely** — `SyncEngine` (Kit) runs one sync pass — load base → fetch remote → `SyncPlanner` → resolve conflicts (keep-mine / take-theirs / postpone) → push → save the converged base — against two tiny protocols: `RepoStore` (the GitHub adapter in the app, a fake in tests) and `SyncBaseStore` (base-snapshot persistence, answering where "base" lives: the store owned by the app, a dictionary in tests). Postponed conflicts keep their old base entry so they re-conflict next pass. Finished sessions never enter the merge: `pushSession` is append-only via `FileLayout.sessionPlacement`, idempotent on retry, and composes its own "Log: …" commit message. What remains for #23 is UI + the GitHub `RepoStore` adapter + device-flow auth.
 
