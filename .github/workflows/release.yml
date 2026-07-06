@@ -1,0 +1,73 @@
+# Tag-triggered CLI release: push v* and get a GitHub Release with Linux
+# and macOS binaries plus checksums (issue #37). The macOS job bills at
+# 10x but only runs on tags, so cost stays bounded. The Homebrew tap
+# (owner action — see #37) will point at these artifacts.
+name: Release CLI
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    container: swift:latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build (static stdlib)
+        run: |
+          swift build -c release --package-path PlusPlusCLI --static-swift-stdlib
+          mkdir -p dist
+          cp PlusPlusCLI/.build/release/plusplus dist/plusplus-linux-x86_64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plusplus-linux-x86_64
+          path: dist/plusplus-linux-x86_64
+
+  macos:
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          swift build -c release --package-path PlusPlusCLI
+          mkdir -p dist
+          cp PlusPlusCLI/.build/release/plusplus dist/plusplus-macos-arm64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plusplus-macos-arm64
+          path: dist/plusplus-macos-arm64
+
+  release:
+    needs: [linux, macos]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        run: |
+          cd dist
+          sha256sum plusplus-* > SHA256SUMS
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "plusplus $GITHUB_REF_NAME" \
+            --generate-notes \
+            dist/plusplus-linux-x86_64 dist/plusplus-macos-arm64 dist/SHA256SUMS
