@@ -25,18 +25,14 @@ struct WorkoutDetailView: View {
     private enum RailGestureState: Equatable {
         case idle
         case dragging(group: Int, index: Int, fingerY: Double, grabOffset: Double)
-        case ring(group: Int, edge: RingEdge, fingerY: Double)
+        case ring(group: Int, edge: RingEdge?, pressY: Double, fingerY: Double)
     }
 
     var body: some View {
         VStack(spacing: 0) {
             header
 
-            if workout.groups.isEmpty {
-                emptyState
-            } else {
-                railList
-            }
+            railList
         }
         .background(Theme.background)
         .toolbar(.hidden, for: .navigationBar)
@@ -81,10 +77,16 @@ struct WorkoutDetailView: View {
             }
             .accessibilityIdentifier("backButton")
 
-            Text(workout.name)
-                .font(.system(size: 26, weight: .bold))
-                .lineLimit(1)
-                .padding(.top, 2)
+            HStack(alignment: .center) {
+                Text(workout.name)
+                    .font(.system(size: 26, weight: .bold))
+                    .lineLimit(1)
+                Spacer()
+                HeaderIconButton(systemImage: "slider.horizontal.3", identifier: "workoutSettingsButton") {
+                    showingWorkoutSettings = true
+                }
+            }
+            .padding(.top, 2)
 
             if !workout.groups.isEmpty {
                 HStack(spacing: 14) {
@@ -97,7 +99,6 @@ struct WorkoutDetailView: View {
                             + Text(restText).font(.system(size: 12.5, design: .monospaced)).bold().foregroundStyle(Theme.textPrimary)
                             + Text(" ▾").font(.system(size: 10)).foregroundStyle(Theme.textSecondary))
                     }
-                    .accessibilityIdentifier("workoutSettingsButton")
                 }
                 .padding(.top, 6)
 
@@ -128,18 +129,17 @@ struct WorkoutDetailView: View {
             + (workout.restSeconds < 60 ? "s" : "")
     }
 
-    private var emptyState: some View {
-        VStack(spacing: 10) {
+    private var emptyHint: some View {
+        VStack(spacing: 8) {
             Image(systemName: "dumbbell")
-                .font(.system(size: 40))
+                .font(.system(size: 32))
                 .foregroundStyle(Theme.borderStrong)
-            Text("No exercises")
-                .font(.system(size: 18, weight: .bold))
-            Text("Tap below to add exercises to this workout.")
-                .font(.system(size: 13))
+            Text("No exercises yet")
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Theme.textSecondary)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 26)
     }
 
     // MARK: - Rail list (custom gesture surface, #78)
@@ -157,50 +157,88 @@ struct WorkoutDetailView: View {
     private var railList: some View {
         let sizes = groupSizes
         let layout = RailLayout.build(groupSizes: sizes)
-        let positions = rowPositions(layout: layout, sizes: sizes)
+        let offsets = rowOffsets(layout: layout, sizes: sizes)
         let groups = workout.sortedGroups
+        let ringGroup = activeRingGroup
 
+        // Rows are REAL layout (a plain VStack) so the ScrollView sizes
+        // and scrolls naturally — #87's below-the-fold bug came from
+        // offset-positioned rows that occupied no layout space. Offsets
+        // now carry only the drag-preview deltas.
         return ScrollView {
-            ZStack(alignment: .topLeading) {
+            VStack(spacing: 0) {
+                if groups.isEmpty {
+                    emptyHint
+                }
                 ForEach(Array(groups.enumerated()), id: \.element.persistentModelID) { g, group in
-                    if group.isSuperset {
-                        SupersetCaptionRow(
-                            group: group,
-                            groupCount: groups.count,
-                            onAddToSuperset: { pickerDestination = .group(group) },
-                            onMoveUp: { moveGroup(group, by: -1) },
-                            onMoveDown: { moveGroup(group, by: 1) },
-                            onDelete: { deleteGroup(group) }
-                        )
-                        .frame(height: RailMetrics.v2.captionHeight, alignment: .bottom)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .offset(y: positions[.caption(group: g)] ?? 0)
-                    }
                     ForEach(Array(group.sortedExercises.enumerated()), id: \.element.persistentModelID) { i, workoutExercise in
-                        railRow(workoutExercise, group: group, groupIndex: g, index: i)
-                            .offset(y: positions[.exercise(group: g, index: i)] ?? 0)
+                        railRow(workoutExercise, group: group, groupIndex: g, index: i, hideLoop: ringGroup == g)
+                            .offset(y: offsets[.exercise(group: g, index: i)] ?? 0)
                     }
                 }
-                ringHighlight(layout: layout, sizes: sizes)
-                floatingDragPreview(layout: layout, groups: groups)
+                addExerciseRow
             }
-            .frame(maxWidth: .infinity, minHeight: layout.totalHeight, alignment: .topLeading)
+            .coordinateSpace(name: Self.railSpace)
+            .overlay(alignment: .topLeading) { ringHighlight(layout: layout, sizes: sizes) }
+            .overlay(alignment: .topLeading) { floatingDragPreview(layout: layout, groups: groups) }
+            .animation(.easeOut(duration: 0.16), value: offsets)
+            .padding(.top, 10)
             .padding(.leading, 20)
             .padding(.trailing, 14)
-            .coordinateSpace(name: Self.railSpace)
-            .animation(.easeOut(duration: 0.16), value: positions)
+            .padding(.bottom, 8)
         }
         .scrollDisabled(railGesture != .idle)
         .sensoryFeedback(.impact(weight: .light), trigger: gestureFeedbackToken)
+        .onDisappear { railGesture = .idle }
+    }
+
+    private var activeRingGroup: Int? {
+        if case .ring(let g, _, _, _) = railGesture { return g }
+        return nil
+    }
+
+    /// The + row terminating the rail (#84): full-width tap target at the
+    /// bottom of the list, where the thumb already is.
+    private var addExerciseRow: some View {
+        Button {
+            pickerDestination = .newGroup
+        } label: {
+            HStack(spacing: 13) {
+                Canvas { context, _ in
+                    var spine = Path()
+                    spine.move(to: CGPoint(x: 11, y: 0))
+                    spine.addLine(to: CGPoint(x: 11, y: 13))
+                    context.stroke(spine, with: .color(Theme.border), style: StrokeStyle(lineWidth: 2))
+                    let dotRect = CGRect(x: 11 - 8, y: 24 - 8, width: 16, height: 16)
+                    context.stroke(
+                        Path(ellipseIn: dotRect),
+                        with: .color(Theme.borderStrong),
+                        style: StrokeStyle(lineWidth: 2, dash: [2.5, 3])
+                    )
+                    context.draw(
+                        Text("+").font(.system(size: 12, weight: .semibold, design: .monospaced)).foregroundStyle(Theme.accent),
+                        at: CGPoint(x: 11, y: 23.5)
+                    )
+                }
+                .frame(width: 24, height: 48)
+
+                Text("Add exercise")
+                    .font(.system(size: 14.5, weight: .semibold))
+                    .foregroundStyle(Theme.textSecondary)
+                Spacer(minLength: 0)
+            }
+            .frame(height: 48)
+            .contentShape(Rectangle())
+        }
+        .accessibilityIdentifier("addExerciseButton")
     }
 
     private static let railSpace = "railSpace"
 
     /// One row: swipe-revealable content with the two long-press zones —
     /// the rail column grabs the ring, the body drags the row.
-    private func railRow(_ workoutExercise: WorkoutExercise, group: ExerciseGroup, groupIndex g: Int, index i: Int) -> some View {
-        let solo = !group.isSuperset
-        let height = solo ? RailMetrics.v2.soloRowHeight : RailMetrics.v2.memberRowHeight
+    private func railRow(_ workoutExercise: WorkoutExercise, group: ExerciseGroup, groupIndex g: Int, index i: Int, hideLoop: Bool) -> some View {
+        let height = RailMetrics.v2.rowHeight
         let isDragged: Bool = {
             if case .dragging(let dg, let di, _, _) = railGesture { return dg == g && di == i }
             return false
@@ -215,7 +253,7 @@ struct WorkoutDetailView: View {
             ExerciseRailRow(
                 workoutExercise: workoutExercise,
                 role: railRole(index: i, of: group),
-                topPadding: solo ? 6 : 0
+                hideLoop: hideLoop
             )
             .contentShape(Rectangle())
             .onTapGesture {
@@ -306,18 +344,28 @@ struct WorkoutDetailView: View {
             .onChanged { value in
                 guard case .second(true, let drag) = value else { return }
                 let sizes = groupSizes
-                let edge: RingEdge
-                if case .ring(_, let held, _) = railGesture {
-                    edge = held
-                } else {
-                    edge = RailRing.grabbedEdge(groupSizes: sizes, group: g, pressedIndex: i)
-                }
                 let layout = RailLayout.build(groupSizes: sizes)
-                let fallbackY = layout.row(for: .exercise(group: g, index: i))?.midY ?? 0
-                railGesture = .ring(group: g, edge: edge, fingerY: drag.map { Double($0.location.y) } ?? fallbackY)
+                let rowMid = layout.row(for: .exercise(group: g, index: i))?.midY ?? 0
+                let y = drag.map { Double($0.location.y) } ?? rowMid
+
+                if case .ring(let held, let heldEdge, let pressY, _) = railGesture, held == g {
+                    var edge = heldEdge
+                    if edge == nil, abs(y - pressY) > 10 {
+                        edge = y < pressY ? .top : .bottom
+                    }
+                    railGesture = .ring(group: g, edge: edge, pressY: pressY, fingerY: y)
+                } else {
+                    // Superset rows grab their nearest edge immediately; a
+                    // solo waits for the first movement so dragging UP can
+                    // extend the ring upward too (#87).
+                    let edge: RingEdge? = sizes[g] > 1
+                        ? RailRing.grabbedEdge(groupSizes: sizes, group: g, pressedIndex: i)
+                        : nil
+                    railGesture = .ring(group: g, edge: edge, pressY: y, fingerY: y)
+                }
             }
             .onEnded { _ in
-                if case .ring(let rg, let edge, let fingerY) = railGesture {
+                if case .ring(let rg, let edge?, _, let fingerY) = railGesture {
                     commitRing(group: rg, edge: edge, fingerY: fingerY)
                 }
                 railGesture = .idle
@@ -328,17 +376,25 @@ struct WorkoutDetailView: View {
     /// visual center.
     private func tentativeTarget(sizes: [Int]) -> RailDropTarget? {
         guard case .dragging(let g, let i, let fingerY, let grabOffset) = railGesture else { return nil }
-        let height = sizes[g] > 1 ? RailMetrics.v2.memberRowHeight : RailMetrics.v2.soloRowHeight
-        let centerY = fingerY - grabOffset + height / 2
+        let centerY = fingerY - grabOffset + RailMetrics.v2.rowHeight / 2
         return RailDrag.nearestTarget(groupSizes: sizes, dragging: (group: g, index: i), fingerY: centerY)
     }
 
-    private func rowPositions(layout: RailLayout, sizes: [Int]) -> [RailRowKind: Double] {
-        if case .dragging(let g, let i, _, _) = railGesture,
-           let target = tentativeTarget(sizes: sizes) {
-            return RailDrag.previewPositions(groupSizes: sizes, dragging: (group: g, index: i), target: target)
+    /// Per-row deltas from the natural layout. Empty when idle; during a
+    /// drag every surviving row shifts by (previewY − idleY) and the
+    /// dragged row gets no entry — it stays anchored (hidden) in place,
+    /// so nothing ever flies to the top of the viewport (#87).
+    private func rowOffsets(layout: RailLayout, sizes: [Int]) -> [RailRowKind: Double] {
+        guard case .dragging(let g, let i, _, _) = railGesture,
+              let target = tentativeTarget(sizes: sizes) else { return [:] }
+        let preview = RailDrag.previewPositions(groupSizes: sizes, dragging: (group: g, index: i), target: target)
+        var offsets: [RailRowKind: Double] = [:]
+        for row in layout.rows {
+            if let previewY = preview[row.kind] {
+                offsets[row.kind] = previewY - row.y
+            }
         }
-        return Dictionary(uniqueKeysWithValues: layout.rows.map { ($0.kind, $0.y) })
+        return offsets
     }
 
     /// Changes whenever the tentative outcome changes — drives one haptic
@@ -350,7 +406,8 @@ struct WorkoutDetailView: View {
             return 0
         case .dragging:
             return tentativeTarget(sizes: sizes)?.hashValue ?? 0
-        case .ring(let g, let edge, let fingerY):
+        case .ring(let g, let edge, _, let fingerY):
+            guard let edge else { return 1 }
             let span = RailRing.span(groupSizes: sizes, group: g, edge: edge, fingerY: fingerY)
             return span.firstFlat &* 31 &+ span.lastFlat
         }
@@ -358,21 +415,27 @@ struct WorkoutDetailView: View {
 
     @ViewBuilder
     private func ringHighlight(layout: RailLayout, sizes: [Int]) -> some View {
-        if case .ring(let g, let edge, let fingerY) = railGesture {
-            let span = RailRing.span(groupSizes: sizes, group: g, edge: edge, fingerY: fingerY)
-            if let first = exerciseRow(layout: layout, sizes: sizes, flat: span.firstFlat),
-               let last = exerciseRow(layout: layout, sizes: sizes, flat: span.lastFlat) {
+        if case .ring(let g, let edge, _, let fingerY) = railGesture, sizes.indices.contains(g) {
+            // Before a direction is chosen (solo press, finger still) the
+            // highlight spans the pressed group; after, the live span.
+            let span: RingSpan? = edge.map { RailRing.span(groupSizes: sizes, group: g, edge: $0, fingerY: fingerY) }
+            let firstFlat = span?.firstFlat ?? RailLayout.flatIndex(groupSizes: sizes, group: g, index: 0)
+            let lastFlat = span?.lastFlat ?? (firstFlat + sizes[g] - 1)
+            if let first = exerciseRow(layout: layout, sizes: sizes, flat: firstFlat),
+               let last = exerciseRow(layout: layout, sizes: sizes, flat: lastFlat) {
                 // Full-width ring: the tentative membership reads across
-                // the whole rows, not under the thumb (Dave's occlusion
-                // spec on #78).
+                // the whole rows, not under the thumb. Breathing room on
+                // all sides; the list's 10 pt top inset keeps the stroke
+                // visible even when the span starts at the first row.
                 RoundedRectangle(cornerRadius: 12)
                     .fill(Theme.supersetLine.opacity(0.08))
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
                             .strokeBorder(Theme.supersetLine, lineWidth: 2)
                     )
-                    .frame(height: last.maxY - first.y + 4)
-                    .offset(y: first.y - 2)
+                    .frame(height: last.maxY - first.y + 12)
+                    .padding(.horizontal, -8)
+                    .offset(y: first.y - 6)
                     .allowsHitTesting(false)
             }
         }
@@ -394,9 +457,9 @@ struct WorkoutDetailView: View {
         if case .dragging(let g, let i, let fingerY, let grabOffset) = railGesture,
            groups.indices.contains(g), groups[g].sortedExercises.indices.contains(i) {
             let workoutExercise = groups[g].sortedExercises[i]
-            ExerciseRailRow(workoutExercise: workoutExercise, role: .solo, topPadding: 0)
+            ExerciseRailRow(workoutExercise: workoutExercise, role: .solo)
                 .padding(.horizontal, 8)
-                .frame(height: RailMetrics.v2.memberRowHeight)
+                .frame(height: RailMetrics.v2.rowHeight)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Theme.surface, in: RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.borderStrong))
@@ -413,8 +476,7 @@ struct WorkoutDetailView: View {
     private func commitDrag(group g: Int, index i: Int, fingerY: Double, grabOffset: Double) {
         let sizes = groupSizes
         guard sizes.indices.contains(g), i < sizes[g] else { return }
-        let height = sizes[g] > 1 ? RailMetrics.v2.memberRowHeight : RailMetrics.v2.soloRowHeight
-        let centerY = fingerY - grabOffset + height / 2
+        let centerY = fingerY - grabOffset + RailMetrics.v2.rowHeight / 2
         guard let target = RailDrag.nearestTarget(groupSizes: sizes, dragging: (group: g, index: i), fingerY: centerY) else { return }
 
         let groups = workout.sortedGroups
@@ -458,41 +520,27 @@ struct WorkoutDetailView: View {
         }
     }
 
+    @ViewBuilder
     private var bottomBar: some View {
-        VStack(spacing: 9) {
-            if !workout.groups.isEmpty {
-                Button {
-                    activeSession = WorkoutSession.start(from: workout, context: modelContext)
-                } label: {
-                    HStack(spacing: 9) {
-                        Image(systemName: "play.fill").font(.system(size: 13))
-                        Text("Start workout").font(.system(size: 15.5, weight: .bold))
-                    }
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 54)
-                    .background(Theme.accentButton, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
-                }
-                .accessibilityIdentifier("startWorkoutButton")
-            }
-
+        if !workout.groups.isEmpty {
             Button {
-                pickerDestination = .newGroup
+                activeSession = WorkoutSession.start(from: workout, context: modelContext)
             } label: {
-                HStack(spacing: 8) {
-                    Text("+").font(.system(size: 16, design: .monospaced)).foregroundStyle(Theme.accent)
-                    Text("Add exercise").font(.system(size: 14.5, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                HStack(spacing: 9) {
+                    Image(systemName: "play.fill").font(.system(size: 13))
+                    Text("Start workout").font(.system(size: 15.5, weight: .bold))
                 }
+                .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
-                .frame(height: 48)
-                .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.borderStrong))
+                .frame(height: 54)
+                .background(Theme.accentButton, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
             }
-            .accessibilityIdentifier("addExerciseButton")
+            .accessibilityIdentifier("startWorkoutButton")
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+            .background(.bar)
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 12)
-        .padding(.bottom, 8)
-        .background(.bar)
     }
 
     // MARK: - Mutations
@@ -537,21 +585,6 @@ struct WorkoutDetailView: View {
         workout.reindexGroups()
     }
 
-    private func deleteGroup(_ group: ExerciseGroup) {
-        modelContext.delete(group)
-        workout.reindexGroups()
-    }
-
-    private func moveGroup(_ group: ExerciseGroup, by delta: Int) {
-        var sorted = workout.sortedGroups
-        guard let index = sorted.firstIndex(where: { $0 === group }) else { return }
-        let target = index + delta
-        guard sorted.indices.contains(target) else { return }
-        sorted.swapAt(index, target)
-        for (newOrder, moved) in sorted.enumerated() {
-            moved.order = newOrder
-        }
-    }
 }
 
 /// Where a picked exercise should land: a fresh group at the end, or an
@@ -625,44 +658,6 @@ private struct SwipeRevealRow<Content: View, Actions: View>: View {
     }
 }
 
-// MARK: - Superset caption
-
-private struct SupersetCaptionRow: View {
-    let group: ExerciseGroup
-    let groupCount: Int
-    let onAddToSuperset: () -> Void
-    let onMoveUp: () -> Void
-    let onMoveDown: () -> Void
-    let onDelete: () -> Void
-
-    var body: some View {
-        HStack {
-            (Text("⧉ ").font(.system(size: 10.5)) + Text("SUPERSET"))
-                .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
-                .foregroundStyle(Theme.superset)
-                .kerning(0.7)
-                .padding(.leading, 9)
-            Spacer()
-            Menu {
-                Button("Add to superset", systemImage: "plus.square.on.square", action: onAddToSuperset)
-                Button("Move up", systemImage: "arrow.up", action: onMoveUp)
-                    .disabled(group.order == 0)
-                Button("Move down", systemImage: "arrow.down", action: onMoveDown)
-                    .disabled(group.order == groupCount - 1)
-                Button("Delete group", systemImage: "trash", role: .destructive, action: onDelete)
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Theme.textSecondary)
-                    .frame(width: 26, height: 22)
-            }
-            .accessibilityIdentifier("groupMenu")
-        }
-        .padding(.top, 10)
-        .padding(.bottom, 2)
-    }
-}
-
 // MARK: - Rail rows
 
 /// How a row sits on the rail: alone, or as part of a superset loop.
@@ -677,7 +672,10 @@ private struct ExerciseRailRow: View {
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
     let workoutExercise: WorkoutExercise
     let role: RailRole
-    let topPadding: CGFloat
+    /// Ring-edit mode (#87): the small loop and the expanded full-width
+    /// ring are mutually exclusive — the active group's rows drop their
+    /// loop drawing while the highlight is up.
+    var hideLoop = false
 
     private var isDuration: Bool {
         workoutExercise.exercise?.exerciseType == .duration
@@ -705,14 +703,13 @@ private struct ExerciseRailRow: View {
 
     var body: some View {
         HStack(spacing: 13) {
-            RailGlyph(role: role, height: 48 + topPadding, dotY: 24 + topPadding)
-                .frame(width: 24, height: 48 + topPadding)
+            RailGlyph(role: hideLoop ? .solo : role, height: 48, dotY: 24)
+                .frame(width: 24, height: 48)
 
             Text(workoutExercise.exercise?.name ?? "Unknown")
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
                 .lineLimit(1)
-                .padding(.top, topPadding)
 
             Spacer(minLength: 6)
 
@@ -720,14 +717,12 @@ private struct ExerciseRailRow: View {
                 Image(systemName: "clock")
                     .font(.system(size: 11))
                     .foregroundStyle(Theme.textFaint)
-                    .padding(.top, topPadding)
             }
             Text(summary)
                 .font(.system(size: 13, design: .monospaced))
                 .foregroundStyle(Theme.textSecondary)
-                .padding(.top, topPadding)
         }
-        .frame(height: 48 + topPadding)
+        .frame(height: 48)
     }
 }
 
@@ -787,7 +782,7 @@ struct RailGlyph: View {
                 cap(up: true)
                 vline(3, dotY, height, style: loopStyle, color: loop)
                 vline(19, dotY, height, style: loopStyle, color: loop)
-                arrow(x: 3, tipY: dotY + 12, pointingDown: true)
+                arrow(x: 3, tipY: dotY + 8, pointingDown: false)
             case .supersetMiddle:
                 vline(11, 0, height, style: dashed, color: spine)
                 vline(3, 0, height, style: loopStyle, color: loop)
