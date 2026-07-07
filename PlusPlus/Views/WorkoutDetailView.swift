@@ -782,6 +782,14 @@ struct RailGlyph: View {
 struct WorkoutSettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Bindable var workout: Workout
+    /// Other workouts' schedules feed the day-occupancy dots (#112);
+    /// finished sessions anchor the next-due line.
+    @Query(sort: \Workout.order) private var allWorkouts: [Workout]
+    @Query(
+        filter: #Predicate<WorkoutSession> { $0.endedAt != nil },
+        sort: [SortDescriptor(\WorkoutSession.startedAt, order: .reverse)]
+    )
+    private var finishedSessions: [WorkoutSession]
 
     @State private var scheduleMode: Int
     @State private var scheduleDays: Set<Int>
@@ -820,7 +828,7 @@ struct WorkoutSettingsSheet: View {
                     SheetSectionLabel("SCHEDULE")
                         .padding(.top, 16)
 
-                    SegmentedTabs(options: ["None", "Days", "Frequency"], selectedIndex: Binding(
+                    SegmentedTabs(options: ["Off", "Days", "Pace"], selectedIndex: Binding(
                         get: { scheduleMode },
                         set: { scheduleMode = $0; persistSchedule() }
                     ))
@@ -837,6 +845,12 @@ struct WorkoutSettingsSheet: View {
                         .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
                         .padding(.top, 6)
+
+                    if let nextDue = nextDueText {
+                        (Text("next due ").font(.system(.caption, design: .monospaced)).foregroundStyle(Theme.textSecondary)
+                            + Text(nextDue).font(.system(.caption, design: .monospaced, weight: .semibold)).foregroundStyle(Theme.accent))
+                            .padding(.top, 8)
+                    }
 
                     SheetSectionLabel("BETWEEN SETS")
                         .padding(.top, 16)
@@ -882,32 +896,55 @@ struct WorkoutSettingsSheet: View {
 
     private var dayChips: some View {
         HStack(spacing: 6) {
-            ForEach(1...7, id: \.self) { weekday in
+            ForEach(Self.mondayFirstWeekdays, id: \.self) { weekday in
                 let selected = scheduleDays.contains(weekday)
-                Button {
-                    if selected {
-                        scheduleDays.remove(weekday)
-                    } else {
-                        scheduleDays.insert(weekday)
+                VStack(spacing: 4) {
+                    Button {
+                        if selected {
+                            scheduleDays.remove(weekday)
+                        } else {
+                            scheduleDays.insert(weekday)
+                        }
+                        persistSchedule()
+                    } label: {
+                        // Accent-tinted, not primaryFill: a selected day
+                        // is data (it drives due-ness).
+                        Text(Self.dayLabels[weekday - 1])
+                            .font(.system(.footnote, design: .monospaced, weight: .semibold))
+                            .foregroundStyle(selected ? Theme.accent : Theme.textSecondary)
+                            .frame(width: 38, height: 38)
+                            .background(
+                                selected ? Theme.accent.opacity(0.16) : Theme.background,
+                                in: Circle()
+                            )
+                            .overlay(Circle().strokeBorder(selected ? Theme.accent.opacity(0.5) : Theme.border))
                     }
-                    persistSchedule()
-                } label: {
-                    // Accent-tinted, not primaryFill: a selected day is
-                    // data (it drives due-ness), so it gets the green.
-                    Text(Self.dayLabels[weekday - 1])
-                        .font(.system(.footnote, design: .monospaced, weight: .semibold))
-                        .foregroundStyle(selected ? Theme.accent : Theme.textSecondary)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 34)
-                        .background(
-                            selected ? Theme.accent.opacity(0.16) : Theme.background,
-                            in: RoundedRectangle(cornerRadius: 8)
-                        )
-                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(selected ? Theme.accent.opacity(0.5) : Theme.border))
+                    .accessibilityIdentifier("scheduleDay\(weekday)")
+
+                    // 4 pt occupancy dot: another workout lives here.
+                    Circle()
+                        .fill(occupiedDays.keys.contains(weekday) ? Theme.textFaint : Color.clear)
+                        .frame(width: 4, height: 4)
                 }
-                .accessibilityIdentifier("scheduleDay\(weekday)")
+                .frame(maxWidth: .infinity)
             }
         }
+    }
+
+    /// Monday-first calendar weekday numbers, matching the prototype.
+    private static let mondayFirstWeekdays = [2, 3, 4, 5, 6, 7, 1]
+
+    /// weekday → another scheduled workout's name occupying that day.
+    private var occupiedDays: [Int: String] {
+        var result: [Int: String] = [:]
+        for other in allWorkouts where other !== workout {
+            if case .weekdays(let days) = other.schedule.normalized {
+                for day in days where result[day] == nil {
+                    result[day] = other.name
+                }
+            }
+        }
+        return result
     }
 
     private var frequencySteppers: some View {
@@ -934,13 +971,48 @@ struct WorkoutSettingsSheet: View {
     private var scheduleCaption: String {
         switch scheduleMode {
         case 1:
-            return scheduleDays.isEmpty
-                ? "Pick the days this workout should happen."
-                : "Due on the marked days."
+            if scheduleDays.isEmpty {
+                return "Pick the days this workout should happen."
+            }
+            if let (day, name) = occupiedExample {
+                let names = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
+                return "· = another workout lives on that day — \(name) on \(names[day - 1])"
+            }
+            return "Due on the marked days; a missed day carries over until you do it."
         case 2:
-            return "Due \(scheduleTimes)× every \(schedulePerDays) days, counted from your last session — not the calendar week."
+            let interval = (schedulePerDays + scheduleTimes - 1) / scheduleTimes
+            return "Anchored to your last completion, not the calendar week — \(scheduleTimes)×/\(schedulePerDays)d comes due every ~\(interval) day\(interval == 1 ? "" : "s")."
         default:
-            return "No schedule — do it whenever."
+            return "No schedule — this workout never appears on Today by itself. Swap it in whenever."
+        }
+    }
+
+    /// First occupancy example for the caption, preferring dotted days.
+    private var occupiedExample: (Int, String)? {
+        for weekday in Self.mondayFirstWeekdays {
+            if let name = occupiedDays[weekday] {
+                return (weekday, name)
+            }
+        }
+        return nil
+    }
+
+    /// "today" / "thu" under the mode UI, in the data green.
+    private var nextDueText: String? {
+        guard scheduleMode != 0 else { return nil }
+        let schedule: WorkoutSchedule = scheduleMode == 1
+            ? .weekdays(scheduleDays)
+            : .frequency(times: scheduleTimes, perDays: schedulePerDays)
+        let lastCompleted = finishedSessions
+            .first { $0.workout === workout || $0.workoutName == workout.name }?
+            .endedAt
+        switch schedule.dueState(lastCompleted: lastCompleted, today: Date(), calendar: .current) {
+        case .due:
+            return "today"
+        case .notDue(let next):
+            return next.formatted(.dateTime.weekday(.abbreviated)).lowercased()
+        case .unscheduled:
+            return nil
         }
     }
 

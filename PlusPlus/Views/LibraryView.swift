@@ -129,7 +129,14 @@ struct ExercisesTabView: View {
 
     private func subtitle(for exercise: Exercise) -> String {
         let equipment = exercise.equipment.map(\.name).sorted().joined(separator: ", ")
-        return "\(exercise.muscleGroup.displayName) · \(equipment.isEmpty ? "Bodyweight" : equipment)"
+        var subtitle = "\(exercise.muscleGroup.displayName) · \(equipment.isEmpty ? "Bodyweight" : equipment)"
+        // Curated items are never hidden by ownership (#113) — your
+        // library is yours — but the gap is flagged.
+        let missing = ExerciseFilterState.missingEquipment(for: exercise)
+        if !missing.isEmpty {
+            subtitle += " · needs \(missing.joined(separator: ", "))"
+        }
+        return subtitle
     }
 
     private func remove(_ exercise: Exercise) {
@@ -223,6 +230,12 @@ struct EquipmentTabView: View {
         if equipment.isBuiltIn {
             equipment.inLibrary = false
         } else {
+            // Exercise→Equipment has no inverse, so SwiftData can't
+            // nullify referencing exercises on deletion — strip the
+            // references first or they dangle (bug hunt B1).
+            for exercise in allExercises {
+                exercise.equipment.removeAll { $0 === equipment }
+            }
             modelContext.delete(equipment)
         }
     }
@@ -277,6 +290,7 @@ struct AddFromCatalogSheet: View {
     let onCreateCustom: (String) -> Void
 
     @State private var query = ""
+    @State private var showUnowned = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -327,6 +341,20 @@ struct AddFromCatalogSheet: View {
                             exercise.inLibrary = true
                         }
                     }
+                    // #113: hidden-by-ownership escape hatch.
+                    Button {
+                        showUnowned.toggle()
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: showUnowned ? "checkmark.square" : "square")
+                                .font(.system(.caption))
+                            Text("show exercises needing equipment I don't have")
+                                .font(.system(.caption))
+                        }
+                        .foregroundStyle(showUnowned ? Theme.textPrimary : Theme.textSecondary)
+                    }
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
                 } else {
                     ForEach(candidateEquipment) { equipment in
                         catalogRow(name: equipment.name, sub: "catalog") {
@@ -352,6 +380,7 @@ struct AddFromCatalogSheet: View {
     private var candidateExercises: [Exercise] {
         allExercises
             .filter { $0.isBuiltIn && !$0.inLibrary }
+            .filter { showUnowned || ExerciseFilterState.missingEquipment(for: $0).isEmpty }
             .filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) }
     }
 
@@ -363,7 +392,12 @@ struct AddFromCatalogSheet: View {
 
     private func exerciseSubtitle(_ exercise: Exercise) -> String {
         let equipment = exercise.equipment.map(\.name).sorted().joined(separator: ", ")
-        return "\(exercise.muscleGroup.displayName) · \(equipment.isEmpty ? "Bodyweight" : equipment)"
+        var subtitle = "\(exercise.muscleGroup.displayName) · \(equipment.isEmpty ? "Bodyweight" : equipment)"
+        let missing = ExerciseFilterState.missingEquipment(for: exercise)
+        if !missing.isEmpty {
+            subtitle += " · needs \(missing.joined(separator: ", "))"
+        }
+        return subtitle
     }
 
     private func catalogRow(name: String, sub: String, onAdd: @escaping () -> Void) -> some View {

@@ -21,6 +21,13 @@ struct PlusPlusApp: App {
         // animations outright under test.
         if inMemory {
             UIView.setAnimationsEnabled(false)
+            // Smoke tests start past onboarding; a dedicated flag opts
+            // back in for an onboarding-flow test.
+            if !CommandLine.arguments.contains("--uitest-onboarding") {
+                UserDefaults.standard.set(true, forKey: OnboardingView.completedKey)
+            } else {
+                UserDefaults.standard.set(false, forKey: OnboardingView.completedKey)
+            }
         }
         let config = ModelConfiguration(isStoredInMemoryOnly: inMemory)
         do {

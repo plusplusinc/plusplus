@@ -12,6 +12,7 @@ struct RootTabView: View {
     }
 
     @State private var tab: AppTab = .today
+    @AppStorage(OnboardingView.completedKey) private var onboardingComplete = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -28,6 +29,12 @@ struct RootTabView: View {
             tabBar
         }
         .background(Theme.background)
+        .fullScreenCover(isPresented: Binding(
+            get: { !onboardingComplete },
+            set: { presented in if !presented { onboardingComplete = true } }
+        )) {
+            OnboardingView()
+        }
     }
 
     private var tabBar: some View {
