@@ -21,17 +21,8 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Spacer()
-                Text("Settings").font(.system(.subheadline, weight: .bold))
-                Spacer()
-            }
-            .overlay(alignment: .trailing) {
-                Button("Done") { dismiss() }
-                    .font(.system(.footnote, weight: .bold))
-                    .foregroundStyle(Theme.accent)
-            }
-            .padding(.top, 14)
+            SheetHeader(title: "Settings", action: { dismiss() })
+                .padding(.horizontal, 18)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {

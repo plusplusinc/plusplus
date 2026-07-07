@@ -47,21 +47,14 @@ struct ExerciseEditorView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Button("Cancel") { dismiss() }
-                    .font(.system(.subheadline))
-                    .foregroundStyle(Theme.textSecondary)
-                Spacer()
-                Text(editingExercise == nil ? "New exercise" : "Edit exercise")
-                    .font(.system(.subheadline, weight: .bold))
-                Spacer()
-                Button("Save") { save() }
-                    .font(.system(.subheadline, weight: .bold))
-                    .foregroundStyle(canSave ? Theme.accent : Theme.textFaint)
-                    .disabled(!canSave)
-                    .accessibilityIdentifier("saveExerciseButton")
-            }
-            .padding(.top, 14)
+            SheetHeader(
+                title: editingExercise == nil ? "New exercise" : "Edit exercise",
+                actionLabel: "Save",
+                actionEnabled: canSave,
+                actionIdentifier: "saveExerciseButton",
+                onCancel: { dismiss() },
+                action: { save() }
+            )
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {

@@ -762,17 +762,7 @@ struct WorkoutSettingsSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Spacer()
-                Text("Workout settings").font(.system(.subheadline, weight: .bold))
-                Spacer()
-            }
-            .overlay(alignment: .trailing) {
-                Button("Done") { dismiss() }
-                    .font(.system(.footnote, weight: .bold))
-                    .foregroundStyle(Theme.accent)
-            }
-            .padding(.top, 14)
+            SheetHeader(title: "Workout settings", action: { dismiss() })
 
             SheetSectionLabel("BETWEEN SETS")
                 .padding(.top, 16)
@@ -818,22 +808,5 @@ struct WorkoutSettingsSheet: View {
                 workout.notes = trimmed.isEmpty ? nil : newValue
             }
         )
-    }
-}
-
-/// Mono section caption used inside v2 sheets.
-struct SheetSectionLabel: View {
-    let text: String
-
-    init(_ text: String) {
-        self.text = text
-    }
-
-    var body: some View {
-        Text(text)
-            .font(.system(.caption2, design: .monospaced, weight: .semibold))
-            .foregroundStyle(Theme.textSecondary)
-            .kerning(0.7)
-            .padding(.bottom, 6)
     }
 }
