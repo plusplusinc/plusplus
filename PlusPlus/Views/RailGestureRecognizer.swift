@@ -57,19 +57,24 @@ struct RailGestureRecognizer: UIViewRepresentable {
                 coordinator?.detach()
                 return
             }
-            // Prefer the enclosing scroll view: its recognizer sees every
-            // touch on the list and loses to the scroll pan the way
-            // UIKit intends. Fall back to the outermost ancestor if the
-            // ScrollView isn't UIScrollView-backed.
+            // Attach to the enclosing scroll view ONLY: its recognizer
+            // sees every touch on the list and loses to the scroll pan
+            // the way UIKit intends. No fallback — walking to the top
+            // would land on the UIWindow and intercept holds app-wide
+            // (bug hunt finding 2); SwiftUI's ScrollView is
+            // UIScrollView-backed, and if that ever changes we want the
+            // gestures dead, not global.
             var host: UIView = self
-            var scrollView: UIView?
+            var scrollView: UIScrollView?
             while let superview = host.superview {
                 host = superview
-                if scrollView == nil, host is UIScrollView {
-                    scrollView = host
+                if scrollView == nil, let found = host as? UIScrollView {
+                    scrollView = found
                 }
             }
-            coordinator?.attach(to: scrollView ?? host, probe: self)
+            if let scrollView {
+                coordinator?.attach(to: scrollView, probe: self)
+            }
         }
     }
 

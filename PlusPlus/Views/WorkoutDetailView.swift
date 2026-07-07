@@ -290,6 +290,9 @@ struct WorkoutDetailView: View {
             )
             .contentShape(Rectangle())
             .onTapGesture {
+                // A second finger must not open sheets (and mutate the
+                // model) while a rail gesture is live.
+                guard railGesture == .idle else { return }
                 if openSwipeRow != nil { openSwipeRow = nil } else { selectedExercise = workoutExercise }
             }
             .overlay(alignment: .leading) {
@@ -299,7 +302,10 @@ struct WorkoutDetailView: View {
                 Color.clear
                     .frame(width: Self.dotZoneWidth)
                     .contentShape(Rectangle())
-                    .onTapGesture { selectedExercise = workoutExercise }
+                    .onTapGesture {
+                        guard railGesture == .idle else { return }
+                        selectedExercise = workoutExercise
+                    }
             }
         } actions: {
             HStack(spacing: 0) {
@@ -335,8 +341,15 @@ struct WorkoutDetailView: View {
     /// starts here is the ring gesture; anywhere else on the row drags it.
     private static let dotZoneWidth: Double = 37
 
+    /// True only for a y actually INSIDE an exercise row's extent.
+    /// RailLayout.exercise(at:) clamps to the nearest row by design
+    /// (ring spans rely on that), so an unbounded call here would make
+    /// every press in the viewport — the add row, the empty space below
+    /// a short list — grab the nearest row (bug hunt finding 1).
     private func exerciseRowExists(at y: Double) -> Bool {
-        RailLayout.build(groupSizes: groupSizes, metrics: railMetrics).exercise(at: y) != nil
+        let layout = RailLayout.build(groupSizes: groupSizes, metrics: railMetrics)
+        guard let last = layout.rows.last, y >= 0, y < last.maxY else { return false }
+        return layout.exercise(at: y) != nil
     }
 
     private func beginRailGesture(at location: CGPoint) {
@@ -350,7 +363,9 @@ struct WorkoutDetailView: View {
         }
         let sizes = groupSizes
         let layout = RailLayout.build(groupSizes: sizes, metrics: railMetrics)
-        guard let (g, i) = layout.exercise(at: y) else { return }
+        // Same bound as shouldReceive: never grab from outside a row.
+        guard let last = layout.rows.last, y >= 0, y < last.maxY,
+              let (g, i) = layout.exercise(at: y) else { return }
 
         if x < Self.dotZoneWidth {
             // Superset rows grab their nearest ring edge immediately; a

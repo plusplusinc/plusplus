@@ -13,7 +13,11 @@ struct SwipeRevealRow<Content: View, Actions: View>: View {
     @ViewBuilder let content: () -> Content
     @ViewBuilder let actions: () -> Actions
 
-    @State private var dragX: CGFloat = 0
+    /// @GestureState, not @State: the system resets it when the touch
+    /// sequence is CANCELLED (incoming call, Control Center swipe),
+    /// where onEnded never runs — a plain state var left rows frozen
+    /// half-swiped (bug hunt finding 3).
+    @GestureState private var dragX: CGFloat = 0
 
     private var restingOffset: CGFloat {
         openRow == id ? -actionsWidth : 0
@@ -35,19 +39,18 @@ struct SwipeRevealRow<Content: View, Actions: View>: View {
                 .offset(x: offset)
                 .simultaneousGesture(
                     DragGesture(minimumDistance: 16)
-                        .onChanged { value in
+                        .updating($dragX) { value, state, _ in
                             guard enabled,
                                   abs(value.translation.width) > abs(value.translation.height)
                             else { return }
-                            dragX = value.translation.width
+                            state = value.translation.width
                         }
                         .onEnded { value in
-                            guard enabled else { return }
-                            if dragX != 0 {
-                                let projected = restingOffset + value.predictedEndTranslation.width
-                                openRow = projected < -actionsWidth / 2 ? id : (openRow == id ? nil : openRow)
-                            }
-                            dragX = 0
+                            guard enabled,
+                                  abs(value.translation.width) > abs(value.translation.height)
+                            else { return }
+                            let projected = restingOffset + value.predictedEndTranslation.width
+                            openRow = projected < -actionsWidth / 2 ? id : (openRow == id ? nil : openRow)
                         }
                 )
         }
