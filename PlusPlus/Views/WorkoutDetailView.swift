@@ -537,10 +537,10 @@ struct WorkoutDetailView: View {
                     Image(systemName: "play.fill").font(.system(.footnote))
                     Text("Start workout").font(.system(.body, weight: .bold))
                 }
-                .foregroundStyle(Theme.onAccent)
+                .foregroundStyle(Theme.onPrimary)
                 .frame(maxWidth: .infinity)
                 .frame(height: 54)
-                .background(Theme.accentButton, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+                .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
             }
             .accessibilityIdentifier("startWorkoutButton")
             .padding(.horizontal, 16)
@@ -875,16 +875,18 @@ struct WorkoutSettingsSheet: View {
                     }
                     persistSchedule()
                 } label: {
+                    // Accent-tinted, not primaryFill: a selected day is
+                    // data (it drives due-ness), so it gets the green.
                     Text(Self.dayLabels[weekday - 1])
                         .font(.system(.footnote, design: .monospaced, weight: .semibold))
-                        .foregroundStyle(selected ? Theme.onAccent : Theme.textSecondary)
+                        .foregroundStyle(selected ? Theme.accent : Theme.textSecondary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 34)
                         .background(
-                            selected ? Theme.accentButton : Theme.background,
+                            selected ? Theme.accent.opacity(0.16) : Theme.background,
                             in: RoundedRectangle(cornerRadius: 8)
                         )
-                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(selected ? Color.clear : Theme.border))
+                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(selected ? Theme.accent.opacity(0.5) : Theme.border))
                 }
                 .accessibilityIdentifier("scheduleDay\(weekday)")
             }

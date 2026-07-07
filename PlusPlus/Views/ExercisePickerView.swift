@@ -208,7 +208,7 @@ private struct FilterDropdownButton: View {
             .padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Theme.background, in: RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(isActive ? Theme.accentButton : Theme.border))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(isActive ? Theme.primaryFill : Theme.border))
         }
         .tint(.primary)
     }
@@ -324,10 +324,10 @@ private struct SelectableChip: View {
                 .font(.system(.footnote, weight: .semibold))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
-                .background(isSelected ? Theme.accentButton : Color.clear)
-                .foregroundStyle(isSelected ? Theme.onAccent : Theme.textPrimary)
+                .background(isSelected ? Theme.primaryFill : Color.clear)
+                .foregroundStyle(isSelected ? Theme.onPrimary : Theme.textPrimary)
                 .clipShape(Capsule())
-                .overlay(Capsule().strokeBorder(isSelected ? Theme.accentButton : Theme.borderStrong))
+                .overlay(Capsule().strokeBorder(isSelected ? Theme.primaryFill : Theme.borderStrong))
         }
     }
 }

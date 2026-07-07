@@ -1,50 +1,55 @@
 import SwiftUI
 import UIKit
 
-/// The v2 "quiet-terminal" design system (issue #59), now adaptive
-/// (#97): a GitHub-dark palette with a green accent and monospace for
-/// data, paired with its GitHub-light sibling. Every screen draws from
-/// here, never from ad-hoc color literals; the appearance setting
-/// (AppAppearance) decides which side of each pair renders.
+/// The v3 "ink × increment green" design system (issue #108, Claude
+/// Design handoff §1), superseding the v2 GitHub palette. Chrome is
+/// monochrome ink; full-chroma green is reserved for the data — deltas,
+/// net chips, committed timeline nodes, next-due values, and the ++
+/// glyph. Every screen draws from here, never from ad-hoc color
+/// literals; the appearance setting (AppAppearance) decides which side
+/// of each pair renders.
 enum Theme {
     // MARK: - Palette (light / dark)
 
     /// Screen background.
-    static let background = Color(light: 0xFFFFFF, dark: 0x0D1117)
+    static let background = Color(light: 0xFFFFFF, dark: 0x141414)
     /// Cards, sheets, pills.
-    static let surface = Color(light: 0xF6F8FA, dark: 0x161B22)
+    static let surface = Color(light: 0xF4F3F1, dark: 0x1C1C1C)
     /// Raised elements on a surface (menus, selected rows).
-    static let surfaceRaised = Color(light: 0xEAEEF2, dark: 0x1C2129)
+    static let surfaceRaised = Color(light: 0xEAE8E4, dark: 0x242424)
     /// Hairline borders on cards and rows.
-    static let border = Color(light: 0xD0D7DE, dark: 0x21262D)
+    static let border = Color(light: 0xDDDBD7, dark: 0x292929)
     /// Stronger borders (sheets, outlined buttons, chips).
-    static let borderStrong = Color(light: 0xAFB8C1, dark: 0x30363D)
+    static let borderStrong = Color(light: 0xC2C0BA, dark: 0x383838)
 
-    static let textPrimary = Color(light: 0x1F2328, dark: 0xE6EDF3)
-    static let textSecondary = Color(light: 0x59636E, dark: 0x7D8590)
-    static let textFaint = Color(light: 0x818B98, dark: 0x484F58)
+    static let textPrimary = Color(light: 0x232220, dark: 0xF0EDE6)
+    static let textSecondary = Color(light: 0x6B6965, dark: 0x9D9B96)
+    static let textFaint = Color(light: 0x999691, dark: 0x5F5D59)
 
-    /// The brand green — glyphs, highlights, captions.
-    static let accent = Color(light: 0x1A7F37, dark: 0x3FB950)
-    /// Filled buttons (Start workout, Log set).
-    static let accentButton = Color(light: 0x2DA44E, dark: 0x238636)
-    /// Filled-button hover/active companion.
-    static let accentButtonBright = Color(light: 0x2C974B, dark: 0x2EA043)
+    /// The data green. Green is data, never chrome: deltas, net chips,
+    /// next-due values, live progress, and the ++ glyph.
+    static let accent = Color(light: 0x17914B, dark: 0x46D17C)
+    /// Committed timeline nodes on the Today rail.
+    static let committedFill = Color(light: 0x1E9E54, dark: 0x46D17C)
+    /// "new" markers in diffs.
+    static let info = Color(light: 0x1A7FA8, dark: 0x62B6DE)
 
-    /// Text and glyphs sitting on filled accent/destructive buttons —
-    /// white on both palettes, matching GitHub's filled buttons.
-    static let onAccent = Color.white
+    /// Filled controls — Start/Continue/Log set, active tabs, selected
+    /// segments: ink in light, cream in dark. Never green.
+    static let primaryFill = Color(light: 0x232220, dark: 0xF0EDE6)
+    /// Text and glyphs sitting on primaryFill.
+    static let onPrimary = Color(light: 0xFFFFFF, dark: 0x161616)
 
-    /// Superset text/badges.
-    static let superset = Color(light: 0x0969DA, dark: 0x58A6FF)
+    /// Superset text/badges — desaturated so it recedes behind the data
+    /// green (Dave, 2026-07-07).
+    static let superset = Color(light: 0x3B6FB0, dark: 0x7FA3D0)
     /// Superset rail loop stroke.
-    static let supersetLine = Color(light: 0x218BFF, dark: 0x388BFD)
+    static let supersetLine = Color(light: 0x3B6FB0, dark: 0x7FA3D0)
 
     /// Exercise/workout notes ("form cues" amber).
-    static let notes = Color(light: 0x9A6700, dark: 0xD29922)
+    static let notes = Color(light: 0x9A6700, dark: 0xCFA14A)
 
-    static let destructive = Color(light: 0xCF222E, dark: 0xF85149)
-    static let destructiveFill = Color(light: 0xA40E26, dark: 0xDA3633)
+    static let destructive = Color(light: 0xCF222E, dark: 0xE5534B)
 
     // MARK: - Metrics
 

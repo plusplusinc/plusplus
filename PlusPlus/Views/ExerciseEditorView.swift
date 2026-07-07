@@ -154,11 +154,11 @@ struct ExerciseEditorView: View {
         } label: {
             Text(group.displayName)
                 .font(.system(.footnote, weight: .semibold))
-                .foregroundStyle(selected ? Theme.onAccent : Theme.textSecondary)
+                .foregroundStyle(selected ? Theme.onPrimary : Theme.textSecondary)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 7)
-                .background(selected ? Theme.accentButton : Theme.background, in: Capsule())
+                .background(selected ? Theme.primaryFill : Theme.background, in: Capsule())
                 .overlay(Capsule().strokeBorder(selected ? Color.clear : Theme.border))
         }
     }

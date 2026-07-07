@@ -217,7 +217,7 @@ struct ActiveSessionView: View {
         VStack(spacing: 14) {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 64))
-                .foregroundStyle(Theme.accentButton)
+                .foregroundStyle(Theme.primaryFill)
             Text("Workout Complete")
                 .font(.system(.title3, weight: .bold))
             Text("\(completedSets) \(completedSets == 1 ? "set" : "sets") · \(finalElapsedText)")
@@ -231,10 +231,10 @@ struct ActiveSessionView: View {
             } label: {
                 Text("Done")
                     .font(.system(.subheadline, weight: .bold))
-                    .foregroundStyle(Theme.onAccent)
+                    .foregroundStyle(Theme.onPrimary)
                     .padding(.horizontal, 36)
                     .frame(height: 48)
-                    .background(Theme.accentButton, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+                    .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
             }
             .accessibilityIdentifier("sessionDoneButton")
             .padding(.top, 8)
@@ -422,10 +422,10 @@ private struct SetLoggingView: View {
                             Text("+").font(.system(.title3, design: .monospaced, weight: .semibold))
                             Text("Log set").font(.system(.body, weight: .bold))
                         }
-                        .foregroundStyle(Theme.onAccent)
+                        .foregroundStyle(Theme.onPrimary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 58)
-                        .background(Theme.accentButton, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+                        .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
                     }
                     .accessibilityIdentifier("completeSetButton")
 
@@ -765,10 +765,10 @@ private struct RestView: View {
                     Button(action: onEnd) {
                         Text("Skip rest")
                             .font(.system(.subheadline, weight: .bold))
-                            .foregroundStyle(Theme.onAccent)
+                            .foregroundStyle(Theme.onPrimary)
                             .padding(.horizontal, 26)
                             .frame(height: 48)
-                            .background(Theme.accentButton, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+                            .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
                     }
                     .accessibilityIdentifier("skipRestButton")
                 }
