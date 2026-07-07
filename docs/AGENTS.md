@@ -2,7 +2,21 @@
 
 Your training data is a git repo of documented, deterministic JSON
 (schema: `docs/PLATFORM.md`). That means agents can already work with it
-three ways, from zero setup to turnkey.
+four ways, from zero setup to turnkey.
+
+## 0. The repo explains itself
+
+`plusplus init` scaffolds every training repo with a `CLAUDE.md` (the
+format, the layout, the rules — append-only history, program edits via
+branch + lint) and three skills under `.claude/skills/`:
+
+- `/weekly-review` — sessions, per-exercise increments, streak;
+  anti-shame framing is part of the contract
+- `/tweak-program` — program changes as lint-gated branch proposals
+- `/deload-check` — progression-stall analysis, read-only
+
+Any Claude that can see the repo — Claude Code in a checkout, claude.ai
+through the GitHub connector — picks these up with zero hosting.
 
 ## 1. No tooling: it's just files
 
@@ -63,6 +77,21 @@ limits), the work tree must be clean, the result must lint or the branch
 is rolled back, and **nothing is ever pushed** — the CLI never
 authenticates to GitHub. Review the branch, push it, open the PR; your
 repo's lint recipe (`docs/recipes/`) is the second gate.
+
+## The Claude Code plugin
+
+This repo doubles as a plugin marketplace. In Claude Code:
+
+```
+/plugin marketplace add plusplusinc/plusplus
+/plugin install plusplus@plusplus
+```
+
+You get the MCP server config (spawns `plusplus mcp` in the current
+directory — the CLI must be on PATH) plus the same three skills as the
+scaffolding, available in ANY directory rather than living in one repo.
+Build the CLI with `swift build -c release --package-path PlusPlusCLI`
+until release binaries ship (#37).
 
 ## Automation recipes
 

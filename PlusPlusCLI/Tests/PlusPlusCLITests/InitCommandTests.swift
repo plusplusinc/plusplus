@@ -22,6 +22,26 @@ struct InitCommandTests {
         #expect(paths.contains("history/.gitkeep"))
     }
 
+    @Test("Scaffold includes the Claude layer: CLAUDE.md + three skills (#148)")
+    func claudeScaffold() throws {
+        let files = try InitCommand.scaffoldFiles(example: false)
+        let paths = files.map(\.path)
+        #expect(paths.contains("CLAUDE.md"))
+        for skill in ["weekly-review", "tweak-program", "deload-check"] {
+            let path = ".claude/skills/\(skill)/SKILL.md"
+            #expect(paths.contains(path))
+            // Every skill needs frontmatter (name + description) or Claude
+            // Code won't register it.
+            let text = String(decoding: files.first { $0.path == path }!.data, as: UTF8.self)
+            #expect(text.hasPrefix("---\nname: \(skill)\n"))
+            #expect(text.contains("description:"))
+        }
+        // The rules the assistant must never break travel with the repo.
+        let claudeMD = String(decoding: files.first { $0.path == "CLAUDE.md" }!.data, as: UTF8.self)
+        #expect(claudeMD.contains("history/"))
+        #expect(claudeMD.contains("propose_program_change"))
+    }
+
     @Test("Example scaffold lints clean")
     func exampleLintsClean() throws {
         let root = try makeTempRoot()

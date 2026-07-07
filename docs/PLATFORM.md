@@ -16,7 +16,9 @@ What this unlocks, concretely:
 
 - Point an agent at your routine repo: "review my last month and PR an adjustment
   to my program." No PlusPlus-specific tooling required — agents already speak
-  GitHub.
+  GitHub. `plusplus init` even ships the repo with its own CLAUDE.md and skills
+  (weekly-review / tweak-program / deload-check), and the app repo doubles as a
+  Claude Code plugin marketplace — see `docs/AGENTS.md`.
 - GitHub Actions on your own training data: weekly progress-report issues, schema
   lint on program PRs, badges.
 - Every finished routine is a commit. Diffs show progression; the contribution

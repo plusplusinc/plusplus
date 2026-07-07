@@ -5,11 +5,14 @@ import PlusPlusKit
 struct InitCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "init",
-        abstract: "Scaffold a new routine repo (program/ + history/ + README).",
+        abstract: "Scaffold a new routine repo (program/ + history/ + README + CLAUDE.md + skills).",
         discussion: """
-        Creates the layout the app, the CLI, and agents all share. Run it in \
-        an empty directory (a fresh git repo is fine), commit, and start \
-        adding exercises and routines — `plusplus lint` keeps you honest.
+        Creates the layout the app, the CLI, and agents all share, plus the \
+        Claude layer (#148): a CLAUDE.md that teaches any Claude the format \
+        and the rules, and three skills (/weekly-review, /tweak-program, \
+        /deload-check). Run it in an empty directory (a fresh git repo is \
+        fine), commit, and start adding exercises and routines — \
+        `plusplus lint` keeps you honest.
         """
     )
 
@@ -64,6 +67,7 @@ struct InitCommand: ParsableCommand {
             ("\(FileLayout.routinesDirectory)/.gitkeep", Data()),
             ("\(FileLayout.historyDirectory)/.gitkeep", Data()),
         ]
+        files.append(contentsOf: ClaudeScaffold.files)
 
         if example {
             let exercise = ExerciseDTO(
@@ -91,7 +95,7 @@ struct InitCommand: ParsableCommand {
     private static let readme = """
     # My Routines
 
-    Training data for [PlusPlus](https://github.com/mrdavidjcole/plusplus), \
+    Training data for [PlusPlus](https://github.com/plusplusinc/plusplus), \
     stored as versioned JSON (interchange schema v\(Interchange.schemaVersion)).
 
     ## Layout
@@ -107,6 +111,7 @@ struct InitCommand: ParsableCommand {
     - Edit anything under `program/` freely; run `plusplus lint` before committing
     - `plusplus stats` summarizes training history
     - Don't edit or rename files under `history/` — they're the record
+    - This repo explains itself to Claude: see CLAUDE.md and `.claude/skills/`
 
     """
 }
