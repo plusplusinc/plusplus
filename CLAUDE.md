@@ -58,18 +58,22 @@ The Simulator validation step in every task should use these tools in sequence: 
 
 > Update this section at the end of every session that changes the codebase.
 
-**Last updated:** 2026-07-07 (daytime: build-11 feedback pass + setup-as-timeline onboarding)
+**Last updated:** 2026-07-07 (evening: routines rename, share links, catalog graph, Vercel site)
 **Last known good build:** 2026-02-20 (Xcode 26.2, iPhone 17 Pro / iOS 26.2 Simulator)
 
 ⚠️ **Needs Mac validation:** All 2026-07 sessions ran in a remote Linux environment (no Xcode). Everything compiles, passes unit tests and the UI smoke suite in CI, and TestFlight puts real builds on Dave's iPhone. The #1 Mac checklist now covers: v3 gesture feel (rail drag/ring under the UIKit recognizer), onboarding on a fresh install, the watch app on real hardware (paired-simulator or device), accessibility settings, and store migration over real data (#31 — FIRST).
 
 **CI flake note:** the ui-test job's `app.launch()` can wedge indefinitely on a runner simulator (DebuggerLLDB errors in the log, 45-min timeout kills it). Seen once 2026-07-07; the identical commit passed in 7 min on re-dispatch. Cancel + re-dispatch once before suspecting code.
 
-**TestFlight:** `.github/workflows/testflight.yml` (manual dispatch, any ref) archives unsigned, cloud-signs at export with an Admin-role ASC API key, and uploads; build number = run number. **Build 12** is current: v3 end to end, the build-11 HIG/feedback pass (#129–#131), and the setup-as-timeline onboarding (#132).
+**TestFlight:** `.github/workflows/testflight.yml` (manual dispatch, any ref) archives unsigned, cloud-signs at export with an Admin-role ASC API key, and uploads; build number = run number. **Build 15** is current: everything through the routines rename (#144) and share links (#145). Build 13 = tap-through fixes/session-flicker fix/equipment detail/SF Symbols (#134); build 14 = catalog graph + editable built-ins (#138) and the toggle catalog browser (#140). ⚠️ Builds ≥15 need a FRESH INSTALL — the #144 entity renames reset the SwiftData store (throwaway data per Dave).
+
+**Vocabulary (#144):** templates are **routines**, performed things are **workouts** — `Routine`/`RoutineExercise` vs `WorkoutSession`/`SetLog`. Interchange keys renamed with no schema bump (zero external users at the time).
+
+**plusplus.fit:** on Vercel (Dave's account owns the domain; static, `vercel.json`, Pages workflow retired) with the marketing page, docs, `/privacy` (public-TestFlight prerequisite), and `/r` — the client-side shared-routine viewer. AASA file has a TEAMID placeholder pending universal links.
 
 **Work tracking:** The v1 backlog lives in GitHub issues on `mrdavidjcole/plusplus`, feeding the user's GitHub Project board via its auto-add workflow. Changes land via PRs (self-merged once CI is green) with `Closes #N` linking; issues close on merge except where validation is explicitly pending (#1).
 
-**What works (as of 2026-07-07 late-night, design-v3 end to end):** the Claude Design v3 handoff shipped in one overnight arc — #114 palette, #115 nav, #124 Today+diffs, #125 schedule+onboarding, #126 watch v1, plus the #107 scroll root-cause fix and #127 gesture hardening. The app is four bottom tabs on the native iOS 26 Liquid Glass TabView (#130 swapped out the custom bar): **Today** — the unified timeline: pending (due) workouts as dashed cards with per-exercise diff summaries (`+5 lb · +2 reps · 1 new · 2 =`), expandable rows, due captions ("due today" / "due since thu"), full-width Start; committed sessions below with net chips (green, up-only); rest-day/first-run timeline items and a swap-in sheet for off-schedule sessions; settings opens here. **Workouts** — cards with schedule + equipment pills, header + creates; detail keeps the v2 rail (drag/ring gestures now on a UIKit recognizer so the list actually scrolls) with schedule/rest chips under the title. **Exercises / Equipment** — the old Library split in two, each with search and contextual +; exercises needing unowned equipment hide behind a "show all" escape hatch with "needs X" cues. **Onboarding** — setup-as-timeline (#132): no cover screen; a fresh install's Today shows three setup steps as gated timeline entries (equipment → first workout → schedule, bottom-up like commits) that become committed-style cards when done and yield to real history at the first logged session; equipment access re-runnable from Settings → EQUIPMENT ACCESS. **Watch** — WatchConnectivity companion: plan pushed on launch/backgrounding, wrist execution (frozen step list, log/rest/haptics, watch-local rest-over notification, early exit), finished sessions sync back as append-only history with a synchronous acked import. Session records show block-level Δ vs the previous same-workout session. Execution screen unchanged this round per the handoff.
+**What works (as of 2026-07-07 late-night, design-v3 end to end):** the Claude Design v3 handoff shipped in one overnight arc — #114 palette, #115 nav, #124 Today+diffs, #125 schedule+onboarding, #126 watch v1, plus the #107 scroll root-cause fix and #127 gesture hardening. The app is four bottom tabs on the native iOS 26 Liquid Glass TabView (#130): Today · Routines · Exercises · Equipment. **Today** — the unified timeline: pending (due) workouts as dashed cards with per-exercise diff summaries (`+5 lb · +2 reps · 1 new · 2 =`), expandable rows, due captions ("due today" / "due since thu"), full-width Start; committed sessions below with net chips (green, up-only); rest-day/first-run timeline items and a swap-in sheet for off-schedule sessions; settings opens here. **Routines** — cards with schedule + equipment pills, header + creates; detail keeps the v2 rail (+ a share button, #145) (drag/ring gestures now on a UIKit recognizer so the list actually scrolls) with schedule/rest chips under the title. **Exercises / Equipment** — pushed detail screens forming a navigable graph (#137: equipment ⇢ exercises ⇢ routines, create-at-every-dead-end); the header + pushes CatalogBrowseScreen (#139: whole catalog listed, membership toggles, All/In-library/Not filters); built-ins editable except name, with revert-to-default (#136). **Sharing** — routine detail → `plusplus.fit/r#…` link (payload in the fragment, never on a server); `plusplus://` links open an import preview (#145). **Onboarding** — setup-as-timeline (#132): no cover screen; a fresh install's Today shows three setup steps as gated timeline entries (equipment → first workout → schedule, bottom-up like commits) that become committed-style cards when done and yield to real history at the first logged session; equipment access re-runnable from Settings → EQUIPMENT ACCESS. **Watch** — WatchConnectivity companion: plan pushed on launch/backgrounding, wrist execution (frozen step list, log/rest/haptics, watch-local rest-over notification, early exit), finished sessions sync back as append-only history with a synchronous acked import. Session records show block-level Δ vs the previous same-workout session. Execution screen unchanged this round per the handoff.
 
 **Remote validation layer:** 5 XCUITest smoke tests (`PlusPlusUITests`) run on the CI simulator via the `ui-test` job (workflow_dispatch + pushes to main) and upload a `ui-screenshots` artifact — list, detail, editor, set logging, rest, complete, history, the overflow-scroll regression, and the full setup-timeline onboarding flow are all reviewable from a browser. The app supports `--uitest-reset` (in-memory store) for clean test launches. This narrows, but does not replace, the hands-on #1 checklist.
 
@@ -88,8 +92,9 @@ docs/AGENTS.md           # Agent quickstart: files, CLI --json, MCP server
 docs/recipes/            # Copy-paste Actions for workout repos (lint, weekly report)
 PlusPlusKit/             # Pure SwiftPM package (Linux-tested in CI)
   Sources/PlusPlusKit/   # MuscleGroup/ExerciseType, WorkoutMetric, RepTarget,
-                         #   WorkoutSchedule (cadence, carried-over dueState, dueSince),
-                         #   WorkoutDiff (Today's diff engine, #111),
+                         #   RoutineSchedule (cadence, carried-over dueState, dueSince),
+                         #   RoutineDiff (Today's diff engine, #111),
+                         #   RoutineShareLink (share-link payload codec, #145),
                          #   WatchSync (watch payloads + codec, #6),
                          #   RailArrangement (detail-view gesture geometry, #78),
                          #   Interchange DTOs + codec + validator + Slug + documents,
@@ -122,18 +127,21 @@ PlusPlus/                # iOS app target
     Components/               # Shared controls: SearchField, SwipeRevealRow +
                               #   SwipeActionButton, SheetComponents (SheetHeader/
                               #   SectionLabel/ActionButton/MetricStepperRow), SegmentedTabs
-    RootTabView.swift         # Root: native Liquid Glass TabView (4 tabs), ++ splash beat
+    RootTabView.swift         # Root: native Liquid Glass TabView (4 tabs), ++ splash beat,
+                              #   onOpenURL share-link handler (#145)
     TodayView.swift           # Unified timeline: pending diffs + committed cards + swap-in
                               #   + setup-as-timeline scaffold (3 gated steps, fresh installs)
     OnboardingView.swift      # SetupState + EquipmentAccessSheet + StarterSeedSheet (setup-as-timeline)
+    CatalogDetailViews.swift  # Pushed ExerciseDetailScreen + EquipmentDetailScreen (#137)
+    ShareImportSheet.swift    # Shared-routine import preview (#145)
     RailGestureRecognizer.swift # UIKit long-press layer for the rail (scroll-safe)
-    WorkoutListView.swift     # Workouts tab — cards w/ schedule pills, create/reorder/delete
-    WorkoutDetailView.swift   # Workout detail — groups, inputs, superset actions, Start Workout
+    RoutineListView.swift     # Routines tab — cards w/ schedule pills, create/reorder/delete
+    RoutineDetailView.swift   # Routine detail — rail, superset actions, share link, Start workout
     MetricInput.swift         # MetricRow + RepTargetRow controls (wheel sheet + stepper)
     ActiveSessionView.swift   # Execution v2: stepper cards, auto-timer, rest, carry-forward
     SessionOverviewSheet.swift # Mid-session overview + per-block sheet (jump/redo)
     ExerciseDetailSheet.swift # Planning sheet: metrics, structure actions, recent
-    LibraryView.swift         # ExercisesTabView + EquipmentTabView (Library split, #109) + catalog sheets
+    LibraryView.swift         # ExercisesTabView + EquipmentTabView + CatalogBrowseScreen (#139)
     HistoryView.swift         # SessionRow + SessionDetailView (block Δs); standalone screen died in #109
     ExercisePickerView.swift  # Exercise picker with filter sheets, custom exercise management
     ExerciseEditorView.swift  # Create/edit custom exercises + ExerciseInfoView (notes/video)
@@ -277,6 +285,16 @@ PlusPlusUITests/
 **2026-07-07 (day) — Set screen redesigned around the values (#131)** — The active-exercise screen felt empty and Log set sat dangerously close to the steppers. Weight/reps are now two big card columns center-stage (44 pt mono values opening the wheel, 56 pt −/+ buttons); Log set stands alone in a bottom dock with 28 pt of clearance.
 
 **2026-07-07 (day) — Onboarding is the timeline: setup steps as gated commits (#132, supersedes the #125 cover and #129's land-on-Workouts)** — The Claude Design setup-as-timeline handoff: no onboarding screen at all. A fresh install lands on Today, where three setup steps render as timeline entries stacked bottom-up like commits — equipment (1 of 3), first workout (2 of 3, gated), schedule (3 of 3, gated) — ready steps as dashed pending cards with a CTA, gated steps dimmed with "needs X first", done steps as committed-style cards (green node, `date · summary`, edit ›). The scaffold yields to real history at the first logged session. Only equipment stores a flag (`SetupState`, UserDefaults) — its done-ness can't be derived; workouts and schedules are derived live, so the steps self-heal (delete your last workout and the step reopens). The equipment picker and starter-split seeder are standalone sheets shared with Settings.
+
+**2026-07-07 (eve) — SwipeRevealRow hit-testing + session identity save (#134)** — Two tap bugs, one lesson each: `opacity(0)` does NOT remove a view from hit testing (hidden swipe actions now `allowsHitTesting(false)` and `.plain`-styled — List routes row taps into default-styled buttons); and `fullScreenCover(item:)` keys on `persistentModelID`, which CHANGES at the first save of a fresh model — `WorkoutSession.start` saves synchronously so a live session never re-presents. Same PR: per-equipment `weightStep` (Kit `stepOverride` param; smallest override among an exercise's gear wins) and the SF Symbols sweep (no pictographic glyphs in strings; typography like Δ − → stays).
+
+**2026-07-07 (eve) — Catalog is a graph; built-ins editable except name (#136/#137/#139)** — Exercises/Equipment tabs push real detail screens (cross-links: equipment ⇢ exercises ⇢ routines; creation at every dead end); sheets survive only for create/edit forms — a rule that then made the catalog browser a pushed page too (Dave's call): CatalogBrowseScreen lists the WHOLE catalog with membership Toggles (nothing vanishes on add), All/In-library/Not filter, the picker's muscle/equipment filter sheets reused. Built-ins open in the full editor with the name locked (identity IS the name, #32) and revert-to-default backed by a SeedData definitions table.
+
+**2026-07-07 (eve) — Routines rename, no schema bump (#144)** — Dave: templates are ROUTINES, performed things are WORKOUTS. Renamed everywhere (code, interchange keys `workouts`→`routines` and `workoutName`→`routineName`, FileLayout `program/routines`, fixtures, UI); kept WorkoutSession/SetLog/WorkoutMetric/"Workout Complete"/"Start workout". Schema stayed v1 — zero external users made it the free window. Entity renames reset local stores (accepted; data was throwaway).
+
+**2026-07-07 (eve) — Share links carry the routine inside the URL fragment (#145, PLG #141-A)** — `RoutineShareLink` (Kit): `{share:1, units?, routine: RoutineDTO, exercises: [ExerciseDTO]}` → sorted-keys JSON → base64url behind a "0" encoding tag on `https://plusplus.fit/r#…`. Fragments never reach servers — privacy by construction — and sorted keys make identical routines produce identical links. The static viewer renders client-side; `plusplus://r#…` opens ShareImportSheet, which imports via the normal interchange policies. Explicit Info.plist now (URL types can't be INFOPLIST_KEY settings) with CFBundleVersion still `$(CURRENT_PROJECT_VERSION)` for TestFlight numbering. Universal links deferred until the associated-domains entitlement + real team ID.
+
+**2026-07-07 (eve) — plusplus.fit hosts on Vercel** — Domain already lives in Dave's Vercel account; static + preview deploys + serverless headroom beat migrating elsewhere. `/r` viewer + `/privacy` shipped; GitHub Pages workflow retired; Dave's one-time dashboard import connects the repo.
 
 ---
 
