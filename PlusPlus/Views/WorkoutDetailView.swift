@@ -133,19 +133,8 @@ struct WorkoutDetailView: View {
             + (workout.restSeconds < 60 ? "s" : "")
     }
 
-    /// Chip text for the workout's cadence: "mon/thu", "2×/7d", or
-    /// "no schedule". Monday-first, matching the v3 editor.
     private var scheduleChipText: String {
-        switch workout.schedule.normalized {
-        case .unscheduled:
-            return "no schedule"
-        case .weekdays(let days):
-            let names = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
-            let mondayFirst = days.sorted { (($0 + 5) % 7) < (($1 + 5) % 7) }
-            return mondayFirst.map { names[$0 - 1] }.joined(separator: "/")
-        case .frequency(let times, let perDays):
-            return "\(times)×/\(perDays)d"
-        }
+        workout.schedule.shortLabel
     }
 
     private func detailChip(_ text: String, identifier: String) -> some View {

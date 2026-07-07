@@ -43,10 +43,17 @@ struct SessionRow: View {
 }
 
 /// Per-set breakdown of a completed session, grouped the way the workout
-/// was structured (superset members share a block).
+/// was structured (superset members share a block). Block headers carry
+/// a mono weight delta against the previous session of the same workout
+/// (#110 §3) — neutral gray both directions; deloads are intentional.
 struct SessionDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
+    @Query(
+        filter: #Predicate<WorkoutSession> { $0.endedAt != nil },
+        sort: [SortDescriptor(\WorkoutSession.startedAt, order: .reverse)]
+    )
+    private var allFinished: [WorkoutSession]
     let session: WorkoutSession
 
     private var weightUnit: WeightUnit {
@@ -66,6 +73,40 @@ struct SessionDetailView: View {
             byKey[key]?.sets.append(log)
         }
         return order.compactMap { byKey[$0] }
+    }
+
+    /// The previous committed session of the same workout, if any.
+    private var previousSession: WorkoutSession? {
+        allFinished.first {
+            $0 !== session
+                && $0.workoutName == session.workoutName
+                && ($0.endedAt ?? .distantPast) < (session.endedAt ?? .distantPast)
+        }
+    }
+
+    private func topWeight(of name: String, in candidate: WorkoutSession) -> Double? {
+        let weights = candidate.completedSetLogs
+            .filter { $0.exerciseName == name }
+            .compactMap(\.actualWeight)
+            .filter { $0 > 0 }
+        return weights.max()
+    }
+
+    private var previousDateText: String {
+        (previousSession?.startedAt ?? .now)
+            .formatted(.dateTime.month(.abbreviated).day())
+            .lowercased()
+    }
+
+    /// "+5 lb" / "−5 lb" vs the previous session; nil when there is no
+    /// prior data or nothing moved.
+    private func blockDelta(_ name: String) -> String? {
+        guard let previousSession,
+              let now = topWeight(of: name, in: session),
+              let before = topWeight(of: name, in: previousSession),
+              now != before
+        else { return nil }
+        return WorkoutDiff.summary(deltas: [.weight(now - before)], weightUnit: weightUnit).first?.text
     }
 
     var body: some View {
@@ -95,10 +136,25 @@ struct SessionDetailView: View {
 
             ScrollView {
                 VStack(spacing: 0) {
+                    if previousSession != nil {
+                        Text("Δ vs \(previousDateText) session")
+                            .font(.system(.caption2, design: .monospaced))
+                            .foregroundStyle(Theme.textFaint)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                            .padding(.top, 10)
+                    }
                     ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
                         VStack(alignment: .leading, spacing: 5) {
-                            Text(block.name)
-                                .font(.system(.footnote, weight: .semibold))
+                            HStack {
+                                Text(block.name)
+                                    .font(.system(.footnote, weight: .semibold))
+                                Spacer()
+                                if let delta = blockDelta(block.name) {
+                                    Text(delta)
+                                        .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                                        .foregroundStyle(Theme.textSecondary)
+                                }
+                            }
                             ForEach(Array(block.sets.enumerated()), id: \.offset) { _, log in
                                 HStack {
                                     Text("Set \(log.setNumber)")
