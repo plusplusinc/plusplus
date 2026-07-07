@@ -222,6 +222,6 @@ the phone loop must be confirmed working in hand first.
       device flow needs no client secret).
 - [ ] **Decide the public repo template name** (e.g. `plusplus-routines-template`)
       when #23/#25 need it.
-- [ ] **Create a Homebrew tap repo** (`mrdavidjcole/homebrew-plusplus`) when #24
+- [ ] **Create a Homebrew tap repo** (`plusplusinc/homebrew-plusplus`) when #24
       is ready to ship.
 - [ ] **Watch app (#6)** — unchanged; plan lives on the issue.

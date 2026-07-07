@@ -19,7 +19,7 @@ jobs:
       # See README.md in this directory re: PLUSPLUS_REPO_TOKEN.
       - uses: actions/checkout@v4
         with:
-          repository: mrdavidjcole/plusplus # ← your fork if you have one
+          repository: plusplusinc/plusplus # ← your fork if you have one
           token: ${{ secrets.PLUSPLUS_REPO_TOKEN }}
           path: .plusplus-src
 
