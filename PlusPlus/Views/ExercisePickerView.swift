@@ -132,7 +132,18 @@ private struct ExerciseRow: View {
             Text(subtitle)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            // Visible only under "show all" (#113): owned exercises
+            // never reach this row with missing equipment.
+            if !missing.isEmpty {
+                Text("needs \(missing.joined(separator: ", "))")
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(Theme.notes)
+            }
         }
+    }
+
+    private var missing: [String] {
+        ExerciseFilterState.missingEquipment(for: exercise)
     }
 
     private var subtitle: String {
@@ -164,6 +175,22 @@ private struct FilterBar: View {
                 selections: equipmentSelections,
                 action: { showingEquipmentFilter = true }
             )
+
+            // #113: the catalog hides what your equipment can't do;
+            // this is the escape hatch.
+            Button {
+                filterState.showUnowned.toggle()
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: filterState.showUnowned ? "checkmark.square" : "square")
+                        .font(.system(.caption))
+                    Text("show exercises needing equipment I don't have")
+                        .font(.system(.caption))
+                }
+                .foregroundStyle(filterState.showUnowned ? Theme.textPrimary : Theme.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .accessibilityIdentifier("showUnownedToggle")
         }
         .padding(.horizontal)
         .padding(.vertical, 10)

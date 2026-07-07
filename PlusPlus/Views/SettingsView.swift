@@ -18,6 +18,8 @@ struct SettingsView: View {
     @State private var importResultMessage: String?
     @State private var dataError: String?
     @State private var showingSyncExplainer = false
+    @State private var showingEquipmentSetup = false
+    @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -75,6 +77,31 @@ struct SettingsView: View {
                         .foregroundStyle(Theme.textFaint)
                         .padding(.top, 6)
 
+                    SheetSectionLabel("EQUIPMENT ACCESS")
+                        .padding(.top, 16)
+                    Button {
+                        showingEquipmentSetup = true
+                    } label: {
+                        HStack {
+                            Text("Re-run setup")
+                                .font(.system(.footnote))
+                                .foregroundStyle(Theme.textPrimary)
+                            Spacer()
+                            Text(equipmentSummary)
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 11)
+                    }
+                    .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
+                    .accessibilityIdentifier("equipmentSetupButton")
+                    Text("filters the exercise catalog everywhere · never touches logged history")
+                        .font(.system(.caption))
+                        .foregroundStyle(Theme.textFaint)
+                        .padding(.top, 6)
+
                     SheetSectionLabel("DATA")
                         .padding(.top, 16)
                     VStack(spacing: 0) {
@@ -113,6 +140,9 @@ struct SettingsView: View {
             }
         }
         .presentationBackground(Theme.surface)
+        .fullScreenCover(isPresented: $showingEquipmentSetup) {
+            OnboardingView(isRerun: true)
+        }
         .fileExporter(
             isPresented: $showingExporter,
             document: exportDocument,
@@ -150,6 +180,11 @@ struct SettingsView: View {
         } message: {
             Text(dataError ?? "")
         }
+    }
+
+    private var equipmentSummary: String {
+        let owned = allEquipment.filter { $0.isBuiltIn && $0.inLibrary }.count
+        return owned == 0 ? "bodyweight only" : "\(owned) item\(owned == 1 ? "" : "s")"
     }
 
     private func prepareExport() {

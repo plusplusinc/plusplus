@@ -7,12 +7,27 @@ final class ExerciseFilterState {
     var searchText: String = ""
     var selectedMuscleGroups: Set<MuscleGroup> = []
     var selectedEquipment: Set<Equipment> = []
+    /// #113 escape hatch: exercises needing equipment you don't own are
+    /// hidden by default; "show all" reveals them (the row then shows
+    /// what's missing).
+    var showUnowned = false
 
     func filteredExercises(from allExercises: [Exercise]) -> [Exercise] {
         allExercises.filter { exercise in
-            matchesSearch(exercise) && matchesMuscleGroup(exercise) && matchesEquipment(exercise)
+            matchesSearch(exercise) && matchesMuscleGroup(exercise)
+                && matchesEquipment(exercise) && matchesOwnership(exercise)
         }
         .sorted { $0.name < $1.name }
+    }
+
+    /// Equipment the exercise needs but the user doesn't own — drives
+    /// both the hide and the "needs squat rack" cue when shown anyway.
+    static func missingEquipment(for exercise: Exercise) -> [String] {
+        exercise.equipment.filter { !$0.inLibrary }.map(\.name).sorted()
+    }
+
+    private func matchesOwnership(_ exercise: Exercise) -> Bool {
+        showUnowned || Self.missingEquipment(for: exercise).isEmpty
     }
 
     private func matchesSearch(_ exercise: Exercise) -> Bool {
