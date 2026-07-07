@@ -58,24 +58,26 @@ The Simulator validation step in every task should use these tools in sequence: 
 
 > Update this section at the end of every session that changes the codebase.
 
-**Last updated:** 2026-07-07
+**Last updated:** 2026-07-07 (late-night v3 session)
 **Last known good build:** 2026-02-20 (Xcode 26.2, iPhone 17 Pro / iOS 26.2 Simulator)
 
-⚠️ **Needs Mac validation:** The 2026-07-05→07 sessions ran in a remote Linux environment (no Xcode available). Everything compiles and passes unit tests in CI, and TestFlight now puts real builds on Dave's iPhone (see below) — device feedback has already driven two rounds of fixes. But TestFlight thumb-testing is not the #1 checklist: gesture feel, accessibility settings (Increase Contrast, full dynamic-type range), notification sound while locked, and store migration over real data (#31 — run FIRST in that session) still need a hands-on Mac/Simulator pass.
+⚠️ **Needs Mac validation:** All 2026-07 sessions ran in a remote Linux environment (no Xcode). Everything compiles, passes unit tests and the UI smoke suite in CI, and TestFlight puts real builds on Dave's iPhone. The #1 Mac checklist now covers: v3 gesture feel (rail drag/ring under the UIKit recognizer), onboarding on a fresh install, the watch app on real hardware (paired-simulator or device), accessibility settings, and store migration over real data (#31 — FIRST).
 
-**TestFlight:** `.github/workflows/testflight.yml` (manual dispatch, any ref) archives unsigned, cloud-signs at export with an Admin-role ASC API key, and uploads to TestFlight; build number = run number. Dave installs from his phone. Latest overnight batch: build 7 (rail fixes — scroll still broken there), build 8 (real scroll fix + Dynamic Type + appearance setting), build 9 (editor restyle, unified search/swipes, components audit, cadence editor).
+**CI flake note:** the ui-test job's `app.launch()` can wedge indefinitely on a runner simulator (DebuggerLLDB errors in the log, 45-min timeout kills it). Seen once 2026-07-07; the identical commit passed in 7 min on re-dispatch. Cancel + re-dispatch once before suspecting code.
+
+**TestFlight:** `.github/workflows/testflight.yml` (manual dispatch, any ref) archives unsigned, cloud-signs at export with an Admin-role ASC API key, and uploads; build number = run number. **Build 10** is the v3 build: everything below, including the watch app.
 
 **Work tracking:** The v1 backlog lives in GitHub issues on `mrdavidjcole/plusplus`, feeding the user's GitHub Project board via its auto-add workflow. Changes land via PRs (self-merged once CI is green) with `Closes #N` linking; issues close on merge except where validation is explicitly pending (#1).
 
-**What works (as of 2026-07-07, design-v2 + feedback round 1):** the app wears Dave's v2 "quiet-terminal" design end to end (issues #59–#67), now with the first device-feedback batch landed (#82–#91 minus held items, PRs #98–#105). Home: workout cards with equipment pills, Library/History/Settings header buttons, glass FAB menu. Library: curated personal catalog (add from the full catalog, custom exercises/equipment, built-in info sheets). Detail: rail visualization with superset loops and direct-manipulation drag/ring gestures (#78), swipe SUPER/DUPE/DELETE, ~time estimate + settings sheet (schedule/rest/notes), per-exercise planning sheet (steppers, wheels, rep ranges, split/merge/move, recent history). Execution: set-counter pill with elapsed, progress bar, stepper cards, weight carry-forward, superset chips, duration AUTO TIMER (pause/reset, auto-log, backgrounded notification), mitosis log animation, session overview with jump/redo, done screen with the repo history path. History: append-only cards + per-block session records (no delete affordance, per design). Settings sheet: SYNC placeholder (pending #23), appearance (system/dark/light), lb/kg, export/import. Cross-cutting since the feedback batch: Dynamic Type text styles everywhere (capped at xxLarge), adaptive light/dark palette, one SearchField and one SwipeRevealRow affordance app-wide, v2-language exercise editor with explicit REQUIRES equipment chips, per-workout cadence (days or frequency — editor only; surfacing waits on #96 design).
+**What works (as of 2026-07-07 late-night, design-v3 end to end):** the Claude Design v3 handoff shipped in one overnight arc — #114 palette, #115 nav, #124 Today+diffs, #125 schedule+onboarding, #126 watch v1, plus the #107 scroll root-cause fix and #127 gesture hardening. The app is four bottom tabs on a custom quiet-terminal bar (Canvas-drawn icons): **Today** — the unified timeline: pending (due) workouts as dashed cards with per-exercise diff summaries (`+5 lb · +2 reps · 1 new · 2 =`), expandable rows, due captions ("due today" / "due since thu"), full-width Start; committed sessions below with net chips (green, up-only); rest-day/first-run timeline items and a swap-in sheet for off-schedule sessions; settings opens here. **Workouts** — cards with schedule + equipment pills, header + creates; detail keeps the v2 rail (drag/ring gestures now on a UIKit recognizer so the list actually scrolls) with schedule/rest chips under the title. **Exercises / Equipment** — the old Library split in two, each with search and contextual +; exercises needing unowned equipment hide behind a "show all" escape hatch with "needs X" cues. **Onboarding** — two skippable beats (equipment access presets writing the Equipment-tab list; starter push/pull split composed equipment-aware from built-ins), re-runnable from Settings → EQUIPMENT ACCESS. **Watch** — WatchConnectivity companion: plan pushed on launch/backgrounding, wrist execution (frozen step list, log/rest/haptics, watch-local rest-over notification, early exit), finished sessions sync back as append-only history with a synchronous acked import. Session records show block-level Δ vs the previous same-workout session. Execution screen unchanged this round per the handoff.
 
 **Remote validation layer:** 3 XCUITest smoke tests (`PlusPlusUITests`) run on the CI simulator via the `ui-test` job (workflow_dispatch + pushes to main) and upload a `ui-screenshots` artifact — list, detail, editor, set logging, rest, complete, history are all reviewable from a browser. The app supports `--uitest-reset` (in-memory store) for clean test launches. This narrows, but does not replace, the hands-on #1 checklist.
 
 **Targets:**
 - **PlusPlus** — iOS app (deployment target iOS 26.0)
-- **PlusPlusWatch** — watchOS companion app (deployment target watchOS 26.0)
+- **PlusPlusWatch** — watchOS companion (WatchConnectivity, no SwiftData/HealthKit; depends on PlusPlusKit)
 - **PlusPlusKit** — pure SwiftPM package shared with the CLI and future MCP (tested on Linux in CI)
-- **PlusPlusTests** — unit test target (72 tests; 87 more live in PlusPlusKit, 23 in PlusPlusCLI)
+- **PlusPlusTests** — unit test target (72 tests; 109 more live in PlusPlusKit, 23 in PlusPlusCLI)
 - **PlusPlusUITests** — UI smoke test target (3 flows, `PlusPlusUI` scheme, CI-only by convention)
 
 **Project structure:**
@@ -86,17 +88,21 @@ docs/AGENTS.md           # Agent quickstart: files, CLI --json, MCP server
 docs/recipes/            # Copy-paste Actions for workout repos (lint, weekly report)
 PlusPlusKit/             # Pure SwiftPM package (Linux-tested in CI)
   Sources/PlusPlusKit/   # MuscleGroup/ExerciseType, WorkoutMetric, RepTarget,
-                         #   WorkoutSchedule (cadence + dueState, #83),
+                         #   WorkoutSchedule (cadence, carried-over dueState, dueSince),
+                         #   WorkoutDiff (Today's diff engine, #111),
+                         #   WatchSync (watch payloads + codec, #6),
                          #   RailArrangement (detail-view gesture geometry, #78),
                          #   Interchange DTOs + codec + validator + Slug + documents,
                          #   FileLayout (repo paths) + SyncPlanner (3-way merge)
                          #   + SyncEngine/RepoStore/SyncBaseStore (sync pass, #23)
-  Tests/PlusPlusKitTests/ # Metric/Units/RepTarget/Rail/Schedule/Interchange/Sync/Conformance (87)
+  Tests/PlusPlusKitTests/ # Metric/Units/RepTarget/Rail/Schedule/Diff/WatchSync/Interchange/Sync/Conformance (109)
 PlusPlusCLI/             # plusplus CLI (SwiftPM exec, Linux-tested in CI)
   Sources/plusplus/      # init/lint/stats/import/export + MCP server (mcp subcommand)
   Tests/PlusPlusCLITests/
 PlusPlus/                # iOS app target
-  PlusPlusApp.swift      # App entry point, ModelContainer, seed data, appearance
+  PlusPlusApp.swift      # App entry point, ModelContainer, seed data, appearance, watch bridge
+  Watch/
+    WatchBridge.swift    # Phone side of watch sync: plan push, synchronous result import
   Notifications/
     RestNotifier.swift   # "Rest over" local notification (backgrounded only)
   Theme/
@@ -113,26 +119,29 @@ PlusPlus/                # iOS app target
     WorkoutSession.swift # WorkoutSession + SetLog @Models, session factory w/ superset rotation
     SeedData.swift       # Built-in exercises/equipment seeder
   Views/
-    Components/               # Shared v2 controls: SearchField, SwipeRevealRow +
+    Components/               # Shared controls: SearchField, SwipeRevealRow +
                               #   SwipeActionButton, SheetComponents (SheetHeader/
                               #   SectionLabel/ActionButton/MetricStepperRow), SegmentedTabs
-    WorkoutListView.swift     # Home screen — workout list with create/reorder/delete, history entry
+    RootTabView.swift         # v3 root: four tabs, custom bar + Canvas icons, onboarding cover
+    TodayView.swift           # Unified timeline: pending diffs + committed cards + swap-in
+    OnboardingView.swift      # Two-beat first run: equipment access + starter split
+    RailGestureRecognizer.swift # UIKit long-press layer for the rail (scroll-safe)
+    WorkoutListView.swift     # Workouts tab — cards w/ schedule pills, create/reorder/delete
     WorkoutDetailView.swift   # Workout detail — groups, inputs, superset actions, Start Workout
     MetricInput.swift         # MetricRow + RepTargetRow controls (wheel sheet + stepper)
     ActiveSessionView.swift   # Execution v2: stepper cards, auto-timer, rest, carry-forward
     SessionOverviewSheet.swift # Mid-session overview + per-block sheet (jump/redo)
     ExerciseDetailSheet.swift # Planning sheet: metrics, structure actions, recent
-    LibraryView.swift         # Personal library (curation, catalog add, built-in info)
-    HistoryView.swift         # Completed sessions list + per-set session detail
+    LibraryView.swift         # ExercisesTabView + EquipmentTabView (Library split, #109) + catalog sheets
+    HistoryView.swift         # SessionRow + SessionDetailView (block Δs); standalone screen died in #109
     ExercisePickerView.swift  # Exercise picker with filter sheets, custom exercise management
     ExerciseEditorView.swift  # Create/edit custom exercises + ExerciseInfoView (notes/video)
     ExerciseDraft.swift       # Pure validation/normalization for the editor — no SwiftUI import
     ExerciseFilterState.swift # @Observable filter logic (testable, pure)
     SettingsView.swift        # Settings tray (appearance, data export/import)
-PlusPlusWatch/           # watchOS app target (stub — #6)
-  PlusPlusWatchApp.swift
-  ContentView.swift
-  Assets.xcassets/
+PlusPlusWatch/           # watchOS companion (#6): WatchStore (plan cache + outbox),
+  PlusPlusWatchApp.swift #   ContentView (workout list), WorkoutRunView (wrist execution),
+  ...                    #   WatchRestNotifier (rest-over while suspended)
 PlusPlusTests/
   ExerciseFilterTests.swift  # Filter logic tests (9)
   SeedDataTests.swift        # Seed data integrity tests (7)
@@ -141,7 +150,7 @@ PlusPlusTests/
   SupersetTests.swift        # Workout structure mutations (5)
   SessionTests.swift         # Session factory/rotation/snapshots/progress (7)
   LastPerformanceTests.swift # "Last time" lookup (6)
-  InterchangeMappingTests.swift # Export/import round-trip + policies (5) = 72 app + 87 Kit + 23 CLI
+  InterchangeMappingTests.swift # Export/import round-trip + policies (5) = 72 app + 109 Kit + 23 CLI
 PlusPlusUITests/
   SmokeTests.swift           # 3 end-to-end flows w/ screenshot attachments
 .github/workflows/ci.yml # macOS CI: xcodegen + xcodebuild test (+ release.yml on v* tags,
@@ -152,10 +161,10 @@ PlusPlusUITests/
 `PlusPlus.xcodeproj` is generated by XcodeGen from `project.yml` and is gitignored.
 
 **Known TODOs (tracked as GitHub issues):**
-- #1 Interactive Simulator validation of the 2026-07 UI (needs a Mac session) — TestFlight covers happy-path thumb-testing, not gesture feel or accessibility settings.
-- #96 Today ⊕ History unification + "diff" concept — ON HOLD awaiting a Claude Design handoff (prompt delivered to Dave 2026-07-07). #83's due-state surfacing on Home waits with it.
-- #6 Watch app workout execution (currently a stub target). Needs a sync-strategy decision (WatchConnectivity vs. CloudKit) and paired-simulator testing — deliberately left for a Mac session.
-- Held/deferred by Dave: #93 community workout-sharing repo ("hold for now"), #90 Apple Health ("leave for later"), #94 monetization (his decision to make).
+- #1 Interactive Simulator/device validation (Mac session): v3 gesture feel, onboarding fresh-install, watch on real hardware, accessibility settings, #31 store migration FIRST.
+- Strategy backlog #116–#123 (label `fable-token-maxing`): App Store 1.0 path, increment engine, launch plan, Live Activities/widgets, pricing analysis, community flywheel, reliability program, platform framework — detailed, prioritized, written for a future agent or Dave.
+- Held/deferred by Dave: #93 community workout-sharing repo ("hold for now"), #90 Apple Health ("leave for later"), #94 monetization (his decision; analysis in #120).
+- plusplus.fit is live on its own repo (Pages deploy ready); DNS + Pages settings need Dave (its issue #1).
 - Rest is configurable per workout (15–600s); per-exercise override deferred until per-workout proves insufficient.
 - Set ranges ("2–3×10") collapse to a single sets number by design; revisit only if it chafes.
 
@@ -245,6 +254,22 @@ PlusPlusUITests/
 **2026-07-07 — Cadence is a Kit enum; due-state is pure; surfacing waits for design (#83)** — `WorkoutSchedule`: `.weekdays(Set<Int>)` (Calendar weekday numbers) or `.frequency(times:perDays:)` anchored to the last completion (rational slots — "3× per 7 days" is due when `daysSince × times ≥ perDays` — so it doesn't drift to every-3-days). `dueState(lastCompleted:today:calendar:)` takes the clock as a parameter. Stored app-local as additive `Workout.scheduleData` JSON; NOT in the interchange format until something consumes it. The editor lives in workout settings; how "due" renders on Home belongs to the #96 design.
 
 **2026-07-07 — Today ⊕ History + "diff" handed to Claude Design; #96 on hold** — Dave's framing: Today's workout is just a pending history entry, and a per-exercise "diff" against last time should show how you're improving (incrementing — ++ing). This collapses the Today/History tabs into one timeline and is the app's identity moment, so it gets real design exploration (prompt delivered 2026-07-07) instead of a first-pass implementation. Nav restructure/onboarding (#96) and cadence surfacing ride on the handoff.
+
+**2026-07-07 (night) — v3 "ink × increment green" palette; green is data, never chrome** — The Claude Design v3 handoff replaced the GitHub palette with warm ink/cream neutrals; full-chroma green survives only on data (deltas, net chips, committed nodes, next-due values, the ++ glyph). New `primaryFill`/`onPrimary` tokens carry every filled control; `accentButton`/`onAccent` died. Superset blue desaturated (3B6FB0/7FA3D0, Dave's pick) to recede behind the green.
+
+**2026-07-07 (night) — Four bottom tabs; History and the FAB die** — RootTabView with a custom quiet-terminal bar (Canvas commit-node/cards/list/dumbbell icons): Today · Workouts · Exercises · Equipment. Creation is contextual per tab header +; settings lives on Today; LibraryView split into the two catalog tabs. Tab switching is a `switch`, so per-tab navigation state resets on switch — accepted for v3.
+
+**2026-07-07 (night) — Today ⊕ History shipped: the timeline IS the app** — Pending (due) workouts render as dashed cards with per-exercise diffs against last performance; committed sessions sit below on the same rail. `WorkoutDiff` (Kit, pure): weight wins over reps in the summary, never-performed = new, regressions neutral (anti-shame), net chip sums positive movement only. The diff PRIOR is one real set — the top completed set's weight with THAT set's reps (mixing max-weight with last-set reps described sets that never happened).
+
+**2026-07-07 (night) — Carried-over weekday due-ness; occurrences never stack** — A missed Thursday keeps the workout due through Friday ("due since thu") and a late completion satisfies that occurrence; the next scheduled day supersedes rather than stacks. `dueSince` feeds captions; `shortLabel` ("mon/thu", "2×/7d") is the shared pill vocabulary. Editor tabs are Off / Days / Pace with Monday-first 38 pt circles, accent-tinted selection (due-ness is data), and occupancy dots for other workouts' days.
+
+**2026-07-07 (night) — Onboarding: equipment access IS the Equipment tab list** — Two skippable beats (preset cards + chips → Equipment.inLibrary; starter push/pull split composed slot-by-slot from owned built-ins). Ownership filters the catalog everywhere per Dave's call: hide + "show all" escape hatch + "needs X" cues; curated library rows are never hidden, only flagged. Custom-equipment deletion strips references first (the relationship has no inverse).
+
+**2026-07-07 (night) — Watch v1 is WatchConnectivity with a frozen-plan run view; no HealthKit** — Kit `WatchSync` payloads (plan pre-expanded in rotation order; ISO 8601 deterministic JSON). Phone pushes via updateApplicationContext on launch/backgrounding; results return via transferUserInfo and import SYNCHRONOUSLY inside the delegate callback (WCSession acks on return — deferred work can permanently drop a delivered workout). The wrist freezes its step list at first render so mid-session plan pushes can't corrupt a live workout; partial sessions ship on early exit or unexpected pop; a watch-local notification carries "rest over" through suspension (no HKWorkoutSession until #90 un-defers).
+
+**2026-07-07 (night) — Rail gestures live on a UIKit UILongPressGestureRecognizer** — Third strike on the detail scroll bug: SwiftUI's LongPressGesture starves UIScrollView's pan in ANY composition (sequenced, simultaneous, either order). A zero-size probe attaches one UIKit recognizer to the enclosing UIScrollView — the primitive system drag-to-reorder uses — reporting rail-content coordinates; geometry routes ring (x < 37) vs drag, bounded to actual row extents (RailLayout.exercise(at:) clamps to nearest BY DESIGN, so callers must bound y). Regression-tested by a 16-row seeded workout in the UI suite.
+
+**2026-07-07 (night) — Overnight adversarial bug hunt: 3 agents, ~20 verified findings, fixed same night** — Highest-severity: staging an empty-but-scheduled workout committed a permanent 0-set session and satisfied the schedule; the diff prior described nonexistent sets; watch results could be dropped after the WCSession ack; a hold anywhere in the detail viewport hijacked the nearest row. Pattern worth keeping: hunt on fresh code with parallel reviewers told to VERIFY against the actual code before reporting, then fix in the same PRs that introduced the surface.
 
 ---
 
