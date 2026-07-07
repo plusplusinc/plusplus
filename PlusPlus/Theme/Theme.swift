@@ -46,7 +46,7 @@ enum Theme {
     /// Superset rail loop stroke.
     static let supersetLine = Color(light: 0x3B6FB0, dark: 0x7FA3D0)
 
-    /// Exercise/workout notes ("form cues" amber).
+    /// Exercise/routine notes ("form cues" amber).
     static let notes = Color(light: 0x9A6700, dark: 0xCFA14A)
 
     static let destructive = Color(light: 0xCF222E, dark: 0xE5534B)

@@ -5,15 +5,15 @@ The `++` mark is the increment operator — squint and it's a dumbbell.
 
 ## What it does
 
-- **Build workouts** from a built-in exercise library or your own custom
+- **Build routines** from a built-in exercise library or your own custom
   exercises (muscle group, equipment, form notes, reference video)
 - **Supersets** as a first-class structure — groups rotate strictly
   (A1 B1 A2 B2 …) during execution
 - **Keyboard-free logging**: steppers + wheel pickers for weight, reps,
   rep ranges ("15–20"), and durations; sensible defaults from empty
-- **Run workouts** with prefilled set logging, a date-based rest countdown
+- **Run routines** with prefilled set logging, a date-based rest countdown
   (survives backgrounding, notifies when rest ends), "last time" context
-  from history, and workout-level notes at session start
+  from history, and routine-level notes at session start
 - **History** that snapshots everything at run time — editing or deleting
   a template never rewrites what you actually did
 - **Export/import** the whole library through a documented, deterministic
@@ -31,7 +31,7 @@ app, the CLI, and agents:
 
 ```
 program/exercises/   one exercise per file
-program/workouts/    one workout per file
+program/routines/    one routine per file
 history/YYYY/        finished sessions — append-only
 ```
 

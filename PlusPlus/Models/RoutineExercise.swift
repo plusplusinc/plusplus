@@ -2,7 +2,7 @@ import Foundation
 import SwiftData
 
 @Model
-final class WorkoutExercise {
+final class RoutineExercise {
     var group: ExerciseGroup?
     var exercise: Exercise?
     var order: Int

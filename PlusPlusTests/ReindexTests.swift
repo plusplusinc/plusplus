@@ -6,28 +6,28 @@ import PlusPlusKit
 @Suite("Reindex")
 struct ReindexTests {
     private func makeContainer() throws -> ModelContainer {
-        let schema = Schema([Exercise.self, Equipment.self, Workout.self, ExerciseGroup.self, WorkoutExercise.self])
+        let schema = Schema([Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self, RoutineExercise.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         return try ModelContainer(for: schema, configurations: [config])
     }
 
-    // MARK: - Workout.reindexGroups
+    // MARK: - Routine.reindexGroups
 
     @Test func reindexGroupsAssignsSequentialOrders() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
 
-        let workout = Workout(name: "Test")
-        context.insert(workout)
+        let routine = Routine(name: "Test")
+        context.insert(routine)
 
         for i in 0..<3 {
             let group = ExerciseGroup(order: i * 10) // arbitrary initial orders
-            group.workout = workout
+            group.routine = routine
             context.insert(group)
         }
 
-        workout.reindexGroups()
-        let orders = workout.sortedGroups.map(\.order)
+        routine.reindexGroups()
+        let orders = routine.sortedGroups.map(\.order)
         #expect(orders == [0, 1, 2])
     }
 
@@ -35,22 +35,22 @@ struct ReindexTests {
         let container = try makeContainer()
         let context = ModelContext(container)
 
-        let workout = Workout(name: "Test")
-        context.insert(workout)
+        let routine = Routine(name: "Test")
+        context.insert(routine)
 
         var groups: [ExerciseGroup] = []
         for i in 0..<3 {
             let group = ExerciseGroup(order: i)
-            group.workout = workout
+            group.routine = routine
             context.insert(group)
             groups.append(group)
         }
 
         // Delete middle group
         context.delete(groups[1])
-        workout.reindexGroups()
+        routine.reindexGroups()
 
-        let orders = workout.sortedGroups.map(\.order)
+        let orders = routine.sortedGroups.map(\.order)
         #expect(orders == [0, 1])
     }
 
@@ -58,26 +58,26 @@ struct ReindexTests {
         let container = try makeContainer()
         let context = ModelContext(container)
 
-        let workout = Workout(name: "Test")
-        context.insert(workout)
+        let routine = Routine(name: "Test")
+        context.insert(routine)
 
         let groupA = ExerciseGroup(order: 0)
-        groupA.workout = workout
+        groupA.routine = routine
         context.insert(groupA)
 
         let groupB = ExerciseGroup(order: 1)
-        groupB.workout = workout
+        groupB.routine = routine
         context.insert(groupB)
 
         let groupC = ExerciseGroup(order: 2)
-        groupC.workout = workout
+        groupC.routine = routine
         context.insert(groupC)
 
         // Simulate moving last to first
         groupC.order = -1
-        workout.reindexGroups()
+        routine.reindexGroups()
 
-        let sorted = workout.sortedGroups
+        let sorted = routine.sortedGroups
         #expect(sorted[0] === groupC)
         #expect(sorted[0].order == 0)
         #expect(sorted[1].order == 1)
@@ -97,7 +97,7 @@ struct ReindexTests {
         context.insert(exercise)
 
         for i in 0..<3 {
-            let we = WorkoutExercise(exercise: exercise, order: i * 5)
+            let we = RoutineExercise(exercise: exercise, order: i * 5)
             we.group = group
             context.insert(we)
         }
@@ -117,15 +117,15 @@ struct ReindexTests {
         let exercise = Exercise(name: "Test", muscleGroup: .chest)
         context.insert(exercise)
 
-        var workoutExercises: [WorkoutExercise] = []
+        var routineExercises: [RoutineExercise] = []
         for i in 0..<3 {
-            let we = WorkoutExercise(exercise: exercise, order: i)
+            let we = RoutineExercise(exercise: exercise, order: i)
             we.group = group
             context.insert(we)
-            workoutExercises.append(we)
+            routineExercises.append(we)
         }
 
-        context.delete(workoutExercises[1])
+        context.delete(routineExercises[1])
         group.reindexExercises()
 
         let orders = group.sortedExercises.map(\.order)

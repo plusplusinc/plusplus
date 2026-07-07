@@ -16,8 +16,8 @@ final class SmokeTests: XCTestCase {
 
     // MARK: - Flows
 
-    func testBuildWorkoutWithExerciseAndWeight() throws {
-        createWorkout(named: "Push Day")
+    func testBuildRoutineWithExerciseAndWeight() throws {
+        createRoutine(named: "Push Day")
         addExercise(searching: "Bench Press")
 
         // The exercise appears as a rail row; tapping it opens the
@@ -41,13 +41,13 @@ final class SmokeTests: XCTestCase {
 
         app.buttons["closeExerciseSheet"].tap()
         XCTAssertTrue(app.buttons["startWorkoutButton"].waitForExistence(timeout: 5))
-        snap("workout-detail")
+        snap("routine-detail")
     }
 
     func testCreateCustomExerciseWithNotes() throws {
         // Not "PT": typeText with two consecutive shifted characters is a
         // known flake on slow simulators (the second shift can drop).
-        createWorkout(named: "Rehab")
+        createRoutine(named: "Rehab")
 
         app.buttons["addExerciseButton"].tap()
         let newButton = app.buttons["newExerciseButton"]
@@ -70,11 +70,11 @@ final class SmokeTests: XCTestCase {
         row.tap()
 
         XCTAssertTrue(app.staticTexts["Band Pulses"].waitForExistence(timeout: 5))
-        snap("custom-exercise-in-workout")
+        snap("custom-exercise-in-routine")
     }
 
     func testExecuteWorkoutAndSeeHistory() throws {
-        createWorkout(named: "Quick Session")
+        createRoutine(named: "Quick Session")
         addExercise(searching: "Push-Up")
 
         app.buttons["startWorkoutButton"].tap()
@@ -94,7 +94,7 @@ final class SmokeTests: XCTestCase {
         }
 
         XCTAssertTrue(app.staticTexts["Workout Complete"].waitForExistence(timeout: 5))
-        snap("workout-complete")
+        snap("routine-complete")
         app.buttons["sessionDoneButton"].tap()
 
         // Back out to the list, then into the record via the Today tab
@@ -127,9 +127,9 @@ final class SmokeTests: XCTestCase {
         app.launchArguments += ["--uitest-bigworkout"]
         app.launch()
 
-        let workoutsTab = app.tabBars.buttons["workouts"]
-        XCTAssertTrue(workoutsTab.waitForExistence(timeout: 10))
-        workoutsTab.tap()
+        let routinesTab = app.tabBars.buttons["routines"]
+        XCTAssertTrue(routinesTab.waitForExistence(timeout: 10))
+        routinesTab.tap()
 
         let card = app.staticTexts["Big Day"]
         XCTAssertTrue(card.waitForExistence(timeout: 10))
@@ -151,7 +151,7 @@ final class SmokeTests: XCTestCase {
 
     /// The setup-as-timeline onboarding: a fresh install's Today shows
     /// three gated setup entries; completing them bottom-up commits each
-    /// to the rail and stages the first real workout.
+    /// to the rail and stages the first real routine.
     func testSetupTimelineOnboarding() throws {
         app.terminate()
         app.launchArguments += ["--uitest-onboarding"]
@@ -172,11 +172,11 @@ final class SmokeTests: XCTestCase {
         setEquipment.tap()
 
         // Step 2 unlocks: seed the starter split.
-        let workoutCTA = app.buttons["setupWorkoutStep"]
-        XCTAssertTrue(workoutCTA.waitForExistence(timeout: 10))
+        let routineCTA = app.buttons["setupRoutineStep"]
+        XCTAssertTrue(routineCTA.waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Equipment set"].waitForExistence(timeout: 5))
         snap("setup-step2")
-        workoutCTA.tap()
+        routineCTA.tap()
         let split = app.buttons["starterSplitButton"]
         XCTAssertTrue(split.waitForExistence(timeout: 5))
         split.tap()
@@ -222,25 +222,25 @@ final class SmokeTests: XCTestCase {
         add(attachment)
     }
 
-    private func createWorkout(named name: String) {
-        // v3 nav (#109): the app lands on Today; workout creation is the
-        // contextual + in the Workouts tab header.
-        let workoutsTab = app.tabBars.buttons["workouts"]
-        XCTAssertTrue(workoutsTab.waitForExistence(timeout: 10))
-        workoutsTab.tap()
+    private func createRoutine(named name: String) {
+        // v3 nav (#109): the app lands on Today; routine creation is the
+        // contextual + in the Routines tab header.
+        let routinesTab = app.tabBars.buttons["routines"]
+        XCTAssertTrue(routinesTab.waitForExistence(timeout: 10))
+        routinesTab.tap()
 
-        let plus = app.buttons["newWorkoutButton"]
+        let plus = app.buttons["newRoutineButton"]
         XCTAssertTrue(plus.waitForExistence(timeout: 5))
         plus.tap()
 
-        let alert = app.alerts["New Workout"]
+        let alert = app.alerts["New Routine"]
         XCTAssertTrue(alert.waitForExistence(timeout: 5))
         let field = alert.textFields.firstMatch
         field.tap()
         field.typeText(name)
         alert.buttons["Create"].tap()
 
-        // Lands on the new workout's detail screen (custom header — v2
+        // Lands on the new routine's detail screen (custom header — v2
         // has no system navigation bar here).
         XCTAssertTrue(app.staticTexts[name].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["addExerciseButton"].waitForExistence(timeout: 5))

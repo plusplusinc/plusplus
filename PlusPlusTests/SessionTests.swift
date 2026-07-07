@@ -8,17 +8,17 @@ import PlusPlusKit
 struct SessionTests {
     private func makeContainer() throws -> ModelContainer {
         let schema = Schema([
-            Exercise.self, Equipment.self, Workout.self, ExerciseGroup.self,
-            WorkoutExercise.self, WorkoutSession.self, SetLog.self,
+            Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self,
+            RoutineExercise.self, WorkoutSession.self, SetLog.self,
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         return try ModelContainer(for: schema, configurations: [config])
     }
 
     /// Superset (Y Raise + T Raise) × 3 sets, then Band Pulses × 2 sets.
-    private func makePTWorkout(context: ModelContext) -> Workout {
-        let workout = Workout(name: "Shoulder PT")
-        context.insert(workout)
+    private func makePTRoutine(context: ModelContext) -> Routine {
+        let routine = Routine(name: "Shoulder PT")
+        context.insert(routine)
 
         let yRaise = Exercise(name: "Y Raise", muscleGroup: .shoulders)
         let tRaise = Exercise(name: "T Raise", muscleGroup: .shoulders)
@@ -27,29 +27,29 @@ struct SessionTests {
         context.insert(tRaise)
         context.insert(pulses)
 
-        let superset = workout.addExerciseInNewGroup(yRaise, context: context)
+        let superset = routine.addExerciseInNewGroup(yRaise, context: context)
         superset.sets = 3
-        workout.addExercise(tRaise, to: superset, context: context)
+        routine.addExercise(tRaise, to: superset, context: context)
         superset.sortedExercises[0].weight = 5
         superset.sortedExercises[0].reps = 10
         superset.sortedExercises[1].weight = 5
         superset.sortedExercises[1].reps = 10
 
-        let pulsesGroup = workout.addExerciseInNewGroup(pulses, context: context)
+        let pulsesGroup = routine.addExerciseInNewGroup(pulses, context: context)
         pulsesGroup.sets = 2
         pulsesGroup.sortedExercises[0].reps = 15
         pulsesGroup.sortedExercises[0].repsUpper = 20
 
-        return workout
+        return routine
     }
 
     @Test("Supersets rotate: A B A B A B, then the next group")
     func rotationOrder() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let workout = makePTWorkout(context: context)
+        let routine = makePTRoutine(context: context)
 
-        let session = WorkoutSession.start(from: workout, context: context)
+        let session = WorkoutSession.start(from: routine, context: context)
         let logs = session.sortedSetLogs
 
         #expect(logs.count == 8)
@@ -66,9 +66,9 @@ struct SessionTests {
     func targetsCopied() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let workout = makePTWorkout(context: context)
+        let routine = makePTRoutine(context: context)
 
-        let session = WorkoutSession.start(from: workout, context: context)
+        let session = WorkoutSession.start(from: routine, context: context)
         let logs = session.sortedSetLogs
 
         #expect(logs[0].targetWeight == 5)
@@ -86,16 +86,16 @@ struct SessionTests {
     func snapshotsSurviveTemplateEdits() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let workout = makePTWorkout(context: context)
+        let routine = makePTRoutine(context: context)
 
-        let session = WorkoutSession.start(from: workout, context: context)
+        let session = WorkoutSession.start(from: routine, context: context)
 
-        workout.name = "Renamed"
-        let firstGroup = workout.sortedGroups[0]
+        routine.name = "Renamed"
+        let firstGroup = routine.sortedGroups[0]
         context.delete(firstGroup)
-        workout.reindexGroups()
+        routine.reindexGroups()
 
-        #expect(session.workoutName == "Shoulder PT")
+        #expect(session.routineName == "Shoulder PT")
         #expect(session.sortedSetLogs.count == 8)
         #expect(session.sortedSetLogs[0].exerciseName == "Y Raise")
     }
@@ -104,9 +104,9 @@ struct SessionTests {
     func pendingLogAdvances() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let workout = makePTWorkout(context: context)
+        let routine = makePTRoutine(context: context)
 
-        let session = WorkoutSession.start(from: workout, context: context)
+        let session = WorkoutSession.start(from: routine, context: context)
 
         #expect(session.nextPendingLog === session.sortedSetLogs[0])
 
@@ -123,17 +123,17 @@ struct SessionTests {
         #expect(session.nextPendingLog == nil)
     }
 
-    @Test("Session snapshots the workout's rest setting")
+    @Test("Session snapshots the routine's rest setting")
     func restSnapshot() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let workout = makePTWorkout(context: context)
-        workout.restSeconds = 45
+        let routine = makePTRoutine(context: context)
+        routine.restSeconds = 45
 
-        let session = WorkoutSession.start(from: workout, context: context)
+        let session = WorkoutSession.start(from: routine, context: context)
         #expect(session.restSeconds == 45)
 
-        workout.restSeconds = 120
+        routine.restSeconds = 120
         #expect(session.restSeconds == 45, "Later template edits must not change the running session")
     }
 
@@ -141,10 +141,10 @@ struct SessionTests {
     func finishing() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let workout = makePTWorkout(context: context)
+        let routine = makePTRoutine(context: context)
 
         let start = Date(timeIntervalSince1970: 1_000_000)
-        let session = WorkoutSession.start(from: workout, context: context, at: start)
+        let session = WorkoutSession.start(from: routine, context: context, at: start)
         #expect(!session.isFinished)
         #expect(session.duration == nil)
 
@@ -158,15 +158,15 @@ struct SessionTests {
         let container = try makeContainer()
         let context = ModelContext(container)
 
-        let workout = Workout(name: "Core")
-        context.insert(workout)
+        let routine = Routine(name: "Core")
+        context.insert(routine)
         let plank = Exercise(name: "Plank", muscleGroup: .core, exerciseType: .duration)
         context.insert(plank)
-        let group = workout.addExerciseInNewGroup(plank, context: context)
+        let group = routine.addExerciseInNewGroup(plank, context: context)
         group.sets = 2
         group.sortedExercises[0].durationSeconds = 60
 
-        let session = WorkoutSession.start(from: workout, context: context)
+        let session = WorkoutSession.start(from: routine, context: context)
         let logs = session.sortedSetLogs
 
         #expect(logs.count == 2)

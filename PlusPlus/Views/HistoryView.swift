@@ -12,7 +12,7 @@ struct SessionRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(session.workoutName)
+            Text(session.routineName)
                 .font(.system(.subheadline, weight: .semibold))
             Text(subtitle)
                 .font(.system(.caption, design: .monospaced))
@@ -42,9 +42,9 @@ struct SessionRow: View {
     }
 }
 
-/// Per-set breakdown of a completed session, grouped the way the workout
+/// Per-set breakdown of a completed session, grouped the way the routine
 /// was structured (superset members share a block). Block headers carry
-/// a mono weight delta against the previous session of the same workout
+/// a mono weight delta against the previous session of the same routine
 /// (#110 §3) — neutral gray both directions; deloads are intentional.
 struct SessionDetailView: View {
     @Environment(\.dismiss) private var dismiss
@@ -75,18 +75,18 @@ struct SessionDetailView: View {
         return order.compactMap { byKey[$0] }
     }
 
-    /// The previous committed session of the same workout, if any.
-    /// Identity wins over the name fallback (same-name workouts must not
+    /// The previous committed session of the same routine, if any.
+    /// Identity wins over the name fallback (same-name routines must not
     /// cross-contaminate), and "previous" is the max endedAt below this
     /// one — the query's startedAt order isn't the comparison order.
     private var previousSession: WorkoutSession? {
         allFinished
             .filter { other in
                 guard other !== session else { return false }
-                if let a = other.workout, let b = session.workout {
+                if let a = other.routine, let b = session.routine {
                     return a === b && (other.endedAt ?? .distantPast) < (session.endedAt ?? .distantPast)
                 }
-                return other.workoutName == session.workoutName
+                return other.routineName == session.routineName
                     && (other.endedAt ?? .distantPast) < (session.endedAt ?? .distantPast)
             }
             .max { ($0.endedAt ?? .distantPast) < ($1.endedAt ?? .distantPast) }
@@ -114,7 +114,7 @@ struct SessionDetailView: View {
               let before = topWeight(of: name, in: previousSession),
               now != before
         else { return nil }
-        return WorkoutDiff.summary(deltas: [.weight(now - before)], weightUnit: weightUnit).first?.text
+        return RoutineDiff.summary(deltas: [.weight(now - before)], weightUnit: weightUnit).first?.text
     }
 
     var body: some View {
@@ -131,7 +131,7 @@ struct SessionDetailView: View {
                     .padding(.vertical, 6)
                 }
 
-                Text(session.workoutName)
+                Text(session.routineName)
                     .font(.system(.title3, weight: .bold))
                     .padding(.top, 2)
                 Text(subtitle)

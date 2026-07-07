@@ -82,7 +82,7 @@ struct MCPServerTests {
         let result = try #require(message["result"] as? [String: Any])
         let tools = try #require(result["tools"] as? [[String: Any]])
         let names = Set(tools.compactMap { $0["name"] as? String })
-        #expect(names == ["list_exercises", "list_workouts", "get_history", "stats", "lint", "propose_program_change"])
+        #expect(names == ["list_exercises", "list_routines", "get_history", "stats", "lint", "propose_program_change"])
         #expect(tools.allSatisfy { $0["inputSchema"] != nil && $0["description"] != nil })
     }
 
@@ -97,11 +97,11 @@ struct MCPServerTests {
         let lintText = try toolText(server.handle(line: request(4, "tools/call", params: ["name": "lint"])))
         let lint = try InterchangeCodec.decoder().decode(LintReport.self, from: Data(lintText.utf8))
         #expect(lint.valid)
-        #expect(lint.counts.exercises == 1 && lint.counts.workouts == 1)
+        #expect(lint.counts.exercises == 1 && lint.counts.routines == 1)
 
-        let workoutsText = try toolText(server.handle(line: request(5, "tools/call", params: ["name": "list_workouts"])))
-        let workouts = try InterchangeCodec.decoder().decode([WorkoutDTO].self, from: Data(workoutsText.utf8))
-        #expect(workouts.map(\.name) == ["Example Day"])
+        let routinesText = try toolText(server.handle(line: request(5, "tools/call", params: ["name": "list_routines"])))
+        let routines = try InterchangeCodec.decoder().decode([RoutineDTO].self, from: Data(routinesText.utf8))
+        #expect(routines.map(\.name) == ["Example Day"])
 
         let exercisesText = try toolText(server.handle(line: request(6, "tools/call", params: ["name": "list_exercises"])))
         let exercises = try InterchangeCodec.decoder().decode([ExerciseDTO].self, from: Data(exercisesText.utf8))
@@ -124,17 +124,17 @@ struct MCPServerTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let server = MCPServer(repoRoot: root.path)
 
-        let workout = WorkoutDTO(name: "Example Day", restSeconds: 60, groups: [
+        let routine = RoutineDTO(name: "Example Day", restSeconds: 60, groups: [
             .init(sets: 4, exercises: [.init(exercise: "Push-Up", reps: 12)])
         ])
-        let content = String(decoding: try InterchangeCodec.encode(WorkoutDocument(workout: workout)), as: UTF8.self)
+        let content = String(decoding: try InterchangeCodec.encode(RoutineDocument(routine: routine)), as: UTF8.self)
 
         let text = try toolText(server.handle(line: request(8, "tools/call", params: [
             "name": "propose_program_change",
             "arguments": [
                 "message": "Bump Example Day to 4x12",
                 "branch": "plusplus/test-proposal",
-                "files": [["path": "program/workouts/example-day.json", "content": content]],
+                "files": [["path": "program/routines/example-day.json", "content": content]],
             ],
         ])))
         let receipt = try InterchangeCodec.decoder().decode(MCPToolbox.ProposalReceipt.self, from: Data(text.utf8))
@@ -157,7 +157,7 @@ struct MCPServerTests {
             "name": "propose_program_change",
             "arguments": [
                 "message": "Bad rest",
-                "files": [["path": "program/workouts/bad.json", "content": #"{"schemaVersion":1,"workout":{"name":"Bad","restSeconds":2,"groups":[]}}"#]],
+                "files": [["path": "program/routines/bad.json", "content": #"{"schemaVersion":1,"routine":{"name":"Bad","restSeconds":2,"groups":[]}}"#]],
             ],
         ])))
         let result = try #require(message["result"] as? [String: Any])
@@ -171,12 +171,12 @@ struct MCPServerTests {
 
     @Test("History paths and traversal are refused")
     func pathPolicy() {
-        #expect(MCPToolbox.isAllowedProgramPath("program/workouts/push-day.json"))
+        #expect(MCPToolbox.isAllowedProgramPath("program/routines/push-day.json"))
         #expect(MCPToolbox.isAllowedProgramPath("program/exercises/band-pulses.json"))
         #expect(!MCPToolbox.isAllowedProgramPath("history/2026/2026-07-06-push-day.json"))
         #expect(!MCPToolbox.isAllowedProgramPath("program/../history/x.json"))
         #expect(!MCPToolbox.isAllowedProgramPath("/etc/passwd.json"))
-        #expect(!MCPToolbox.isAllowedProgramPath("program/workouts/evil.sh"))
+        #expect(!MCPToolbox.isAllowedProgramPath("program/routines/evil.sh"))
         #expect(!MCPToolbox.isAllowedProgramPath("README.md"))
     }
 }

@@ -4,9 +4,9 @@ import PlusPlusKit
 /// Reads and writes the per-entity repo layout (docs/PLATFORM.md):
 ///
 ///     program/exercises/<slug>.json    ExerciseDocument
-///     program/workouts/<slug>.json     WorkoutDocument
+///     program/routines/<slug>.json     RoutineDocument
 ///     history/<YYYY>/<date>-<slug>.json SessionDocument (append-only)
-struct WorkoutRepo {
+struct RoutineRepo {
     enum RepoError: Error, CustomStringConvertible {
         case notARepo(String)
         case unreadable(String, Error)
@@ -14,7 +14,7 @@ struct WorkoutRepo {
         var description: String {
             switch self {
             case .notARepo(let path):
-                "\(path) doesn't look like a workout repo (no program/ or history/ directory) or a bundle file"
+                "\(path) doesn't look like a routine repo (no program/ or history/ directory) or a bundle file"
             case .unreadable(let path, let error):
                 "\(path): \(error)"
             }
@@ -32,8 +32,8 @@ struct WorkoutRepo {
     var exercisesDirectory: URL {
         root.appendingPathComponent(FileLayout.exercisesDirectory)
     }
-    var workoutsDirectory: URL {
-        root.appendingPathComponent(FileLayout.workoutsDirectory)
+    var routinesDirectory: URL {
+        root.appendingPathComponent(FileLayout.routinesDirectory)
     }
     var historyDirectory: URL {
         root.appendingPathComponent(FileLayout.historyDirectory)
@@ -53,8 +53,8 @@ struct WorkoutRepo {
         let exercises: [ExerciseDTO] = try loadDocuments(in: exercisesDirectory) {
             (document: ExerciseDocument) in document.exercise
         }
-        let workouts: [WorkoutDTO] = try loadDocuments(in: workoutsDirectory) {
-            (document: WorkoutDocument) in document.workout
+        let routines: [RoutineDTO] = try loadDocuments(in: routinesDirectory) {
+            (document: RoutineDocument) in document.routine
         }
         var sessions: [SessionDTO] = []
         for yearDirectory in try subdirectories(of: historyDirectory) {
@@ -62,7 +62,7 @@ struct WorkoutRepo {
                 (document: SessionDocument) in document.session
             }
         }
-        return ExportBundle(exercises: exercises, workouts: workouts, sessions: sessions)
+        return ExportBundle(exercises: exercises, routines: routines, sessions: sessions)
     }
 
     private func subdirectories(of url: URL) throws -> [URL] {
@@ -92,9 +92,9 @@ struct WorkoutRepo {
 
     // MARK: - Writing
 
-    /// Writes a bundle into the layout. Templates (exercises, workouts) are
+    /// Writes a bundle into the layout. Templates (exercises, routines) are
     /// overwritten; sessions are append-only — an existing file with
-    /// identical content counts as skipped, a same-day/same-workout session
+    /// identical content counts as skipped, a same-day/same-routine session
     /// with different content gets a numbered suffix.
     func write(bundle: ExportBundle) throws -> WriteSummary {
         var summary = WriteSummary()
@@ -136,7 +136,7 @@ struct WorkoutRepo {
     }
 }
 
-/// Loads either a workout repo directory or a single bundle file — every
+/// Loads either a routine repo directory or a single bundle file — every
 /// read-only command accepts both.
 enum BundleSource {
     static func load(path: String) throws -> ExportBundle {
@@ -148,6 +148,6 @@ enum BundleSource {
             let data = try Data(contentsOf: url)
             return try InterchangeCodec.decode(ExportBundle.self, from: data)
         }
-        return try WorkoutRepo(root: url).loadBundle()
+        return try RoutineRepo(root: url).loadBundle()
     }
 }

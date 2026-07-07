@@ -1,6 +1,6 @@
 import Foundation
 
-/// The editable quantities on a WorkoutExercise. Pure value logic —
+/// The editable quantities on a RoutineExercise. Pure value logic —
 /// stepping, clamping, wheel values, display formatting — lives here so it
 /// can be unit tested without a view or a ModelContainer, and used by the
 /// CLI on non-Apple platforms.

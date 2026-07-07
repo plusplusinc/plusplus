@@ -1,11 +1,11 @@
 import Foundation
 
 /// The diff engine behind the Today timeline (#111, Claude Design v3
-/// handoff §4): how a staged workout differs from the last time each
+/// handoff §4): how a staged routine differs from the last time each
 /// exercise was performed, and how a committed session moved against
 /// the one before it. Pure value logic — the app maps its SwiftData
 /// models into these inputs.
-public enum WorkoutDiff {
+public enum RoutineDiff {
     /// One exercise's staged targets.
     public struct Target: Equatable, Sendable {
         public var name: String
@@ -91,7 +91,7 @@ public enum WorkoutDiff {
         }
     }
 
-    /// Aggregates deltas (in workout order) into the collapsed summary:
+    /// Aggregates deltas (in routine order) into the collapsed summary:
     /// changed deltas first, then "n =" for the unchanged count; a diff
     /// with no changes at all collapses to one faint "no changes".
     public static func summary(deltas: [Delta], weightUnit: WeightUnit = .lb) -> [Segment] {
@@ -136,7 +136,7 @@ public enum WorkoutDiff {
     // MARK: - Net chip (committed entries)
 
     /// Sum of POSITIVE per-exercise weight movements between two
-    /// committed sessions of the same workout, keyed by exercise name
+    /// committed sessions of the same routine, keyed by exercise name
     /// (top completed set weight per exercise). Regressions don't
     /// subtract — deloads are intentional; the chip celebrates up only,
     /// and the caller hides it when the result is zero.

@@ -1,7 +1,7 @@
 import Foundation
 
 /// Per-entity file envelopes for the repo layout (docs/PLATFORM.md): each
-/// file in `program/exercises/`, `program/workouts/`, and `history/` wraps
+/// file in `program/exercises/`, `program/routines/`, and `history/` wraps
 /// one DTO together with the schema version, so every file stands alone.
 
 public struct ExerciseDocument: Codable, Equatable, Sendable {
@@ -14,13 +14,13 @@ public struct ExerciseDocument: Codable, Equatable, Sendable {
     }
 }
 
-public struct WorkoutDocument: Codable, Equatable, Sendable {
+public struct RoutineDocument: Codable, Equatable, Sendable {
     public var schemaVersion: Int
-    public var workout: WorkoutDTO
+    public var routine: RoutineDTO
 
-    public init(workout: WorkoutDTO) {
+    public init(routine: RoutineDTO) {
         self.schemaVersion = Interchange.schemaVersion
-        self.workout = workout
+        self.routine = routine
     }
 }
 

@@ -5,18 +5,18 @@ import Foundation
 /// Neither transport should invent paths on its own.
 public enum FileLayout {
     public static let exercisesDirectory = "program/exercises"
-    public static let workoutsDirectory = "program/workouts"
+    public static let routinesDirectory = "program/routines"
     public static let historyDirectory = "history"
 
     public static func exercisePath(for name: String) -> String {
         "\(exercisesDirectory)/\(Slug.make(name)).json"
     }
 
-    public static func workoutPath(for name: String) -> String {
-        "\(workoutsDirectory)/\(Slug.make(name)).json"
+    public static func routinePath(for name: String) -> String {
+        "\(routinesDirectory)/\(Slug.make(name)).json"
     }
 
-    /// Template files (exercises + workouts) for a bundle: repo-relative
+    /// Template files (exercises + routines) for a bundle: repo-relative
     /// path → canonical bytes. Templates overwrite on write; sessions go
     /// through `sessionPlacement` because they're append-only.
     public static func templateFiles(for bundle: ExportBundle) throws -> [(path: String, data: Data)] {
@@ -27,10 +27,10 @@ public enum FileLayout {
                 try InterchangeCodec.encode(ExerciseDocument(exercise: exercise))
             ))
         }
-        for workout in bundle.workouts {
+        for routine in bundle.routines {
             files.append((
-                workoutPath(for: workout.name),
-                try InterchangeCodec.encode(WorkoutDocument(workout: workout))
+                routinePath(for: routine.name),
+                try InterchangeCodec.encode(RoutineDocument(routine: routine))
             ))
         }
         return files
@@ -47,7 +47,7 @@ public enum FileLayout {
     ) throws -> (path: String, data: Data, alreadyPresent: Bool) {
         let data = try InterchangeCodec.encode(SessionDocument(session: session))
         let (year, stamp) = utcDateParts(of: session.startedAt)
-        let base = "\(historyDirectory)/\(year)/\(stamp)-\(Slug.make(session.workoutName))"
+        let base = "\(historyDirectory)/\(year)/\(stamp)-\(Slug.make(session.routineName))"
 
         var attempt = 1
         while true {

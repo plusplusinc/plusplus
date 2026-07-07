@@ -8,8 +8,8 @@ enum InterchangeMapping {
     struct ImportSummary: Equatable {
         var exercisesCreated = 0
         var exercisesUpdated = 0
-        var workoutsCreated = 0
-        var workoutsReplaced = 0
+        var routinesCreated = 0
+        var routinesReplaced = 0
         var sessionsAdded = 0
         var sessionsSkipped = 0
     }
@@ -22,7 +22,7 @@ enum InterchangeMapping {
 
     static func exportBundle(context: ModelContext, units: WeightUnit? = nil) throws -> ExportBundle {
         let exercises = try context.fetch(FetchDescriptor<Exercise>())
-        let workouts = try context.fetch(FetchDescriptor<Workout>())
+        let routines = try context.fetch(FetchDescriptor<Routine>())
         let sessions = try context.fetch(
             FetchDescriptor<WorkoutSession>(predicate: #Predicate { $0.endedAt != nil })
         )
@@ -33,7 +33,7 @@ enum InterchangeMapping {
             exercises: exercises
                 .filter { !$0.isBuiltIn || $0.notes != nil || $0.videoURL != nil }
                 .map(makeDTO),
-            workouts: workouts.map(makeDTO),
+            routines: routines.map(makeDTO),
             sessions: sessions.map(makeDTO)
         )
     }
@@ -50,12 +50,12 @@ enum InterchangeMapping {
         )
     }
 
-    static func makeDTO(_ workout: Workout) -> WorkoutDTO {
-        WorkoutDTO(
-            name: workout.name,
-            restSeconds: workout.restSeconds,
-            notes: workout.notes,
-            groups: workout.sortedGroups.map { group in
+    static func makeDTO(_ routine: Routine) -> RoutineDTO {
+        RoutineDTO(
+            name: routine.name,
+            restSeconds: routine.restSeconds,
+            notes: routine.notes,
+            groups: routine.sortedGroups.map { group in
                 .init(
                     sets: group.sets,
                     exercises: group.sortedExercises.compactMap { entry in
@@ -75,7 +75,7 @@ enum InterchangeMapping {
 
     static func makeDTO(_ session: WorkoutSession) -> SessionDTO {
         SessionDTO(
-            workoutName: session.workoutName,
+            routineName: session.routineName,
             startedAt: session.startedAt,
             endedAt: session.endedAt,
             restSeconds: session.restSeconds,
@@ -102,8 +102,8 @@ enum InterchangeMapping {
     // MARK: - Import
 
     /// Import policy (documented in docs/PLATFORM.md): exercises upsert by
-    /// case-insensitive name; workouts replace-or-create by name; sessions
-    /// are append-only — a session matching an existing (workoutName,
+    /// case-insensitive name; routines replace-or-create by name; sessions
+    /// are append-only — a session matching an existing (routineName,
     /// startedAt) is skipped, so history is never overwritten.
     @discardableResult
     static func importBundle(_ bundle: ExportBundle, context: ModelContext) throws -> ImportSummary {
@@ -146,21 +146,21 @@ enum InterchangeMapping {
             }
         }
 
-        let existingWorkouts = try context.fetch(FetchDescriptor<Workout>())
-        var workoutOrder = existingWorkouts.count
-        for dto in bundle.workouts {
-            let target: Workout
-            if let existing = existingWorkouts.first(where: { $0.name.lowercased() == dto.name.lowercased() }) {
+        let existingRoutines = try context.fetch(FetchDescriptor<Routine>())
+        var routineOrder = existingRoutines.count
+        for dto in bundle.routines {
+            let target: Routine
+            if let existing = existingRoutines.first(where: { $0.name.lowercased() == dto.name.lowercased() }) {
                 for group in existing.groups {
                     context.delete(group)
                 }
                 target = existing
-                summary.workoutsReplaced += 1
+                summary.routinesReplaced += 1
             } else {
-                target = Workout(name: dto.name, order: workoutOrder)
-                workoutOrder += 1
+                target = Routine(name: dto.name, order: routineOrder)
+                routineOrder += 1
                 context.insert(target)
-                summary.workoutsCreated += 1
+                summary.routinesCreated += 1
             }
             target.restSeconds = dto.restSeconds
             target.notes = dto.notes
@@ -194,9 +194,9 @@ enum InterchangeMapping {
         }
 
         let existingSessions = try context.fetch(FetchDescriptor<WorkoutSession>())
-        var seenSessionKeys = Set(existingSessions.map { sessionKey($0.workoutName, $0.startedAt) })
+        var seenSessionKeys = Set(existingSessions.map { sessionKey($0.routineName, $0.startedAt) })
         for dto in bundle.sessions {
-            let key = sessionKey(dto.workoutName, dto.startedAt)
+            let key = sessionKey(dto.routineName, dto.startedAt)
             guard !seenSessionKeys.contains(key) else {
                 summary.sessionsSkipped += 1
                 continue
@@ -204,7 +204,7 @@ enum InterchangeMapping {
             seenSessionKeys.insert(key)
 
             let session = WorkoutSession(
-                workoutName: dto.workoutName,
+                routineName: dto.routineName,
                 startedAt: dto.startedAt,
                 restSeconds: dto.restSeconds
             )

@@ -1,12 +1,12 @@
 import SwiftUI
 
-/// v3 navigation root (#109): four bottom tabs — Today · Workouts ·
+/// v3 navigation root (#109): four bottom tabs — Today · Routines ·
 /// Exercises · Equipment. Creation is contextual (each tab's header +
 /// creates its own thing); the FAB menu and the History destination are
 /// gone (Today's timeline subsumes history, #110).
 struct RootTabView: View {
     enum AppTab: String, CaseIterable {
-        case today, workouts, exercises, equipment
+        case today, routines, exercises, equipment
 
         var label: String { rawValue }
     }
@@ -30,10 +30,10 @@ struct RootTabView: View {
         // is the platform's (Dave, build 10 feedback).
         TabView(selection: $tab) {
             Tab("today", systemImage: "smallcircle.filled.circle", value: AppTab.today) {
-                TodayView(onGoToWorkouts: { tab = .workouts })
+                TodayView(onGoToRoutines: { tab = .routines })
             }
-            Tab("workouts", systemImage: "square.stack", value: AppTab.workouts) {
-                WorkoutListView()
+            Tab("routines", systemImage: "square.stack", value: AppTab.routines) {
+                RoutineListView()
             }
             Tab("exercises", systemImage: "list.bullet", value: AppTab.exercises) {
                 ExercisesTabView()

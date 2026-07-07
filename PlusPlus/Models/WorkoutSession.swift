@@ -2,16 +2,16 @@ import Foundation
 import SwiftData
 import PlusPlusKit
 
-/// A performed (or in-progress) run of a workout. Snapshots what it needs
+/// A performed (or in-progress) run of a routine. Snapshots what it needs
 /// from the template at start time — later edits or deletion of the source
-/// workout must never corrupt logged history.
+/// routine must never corrupt logged history.
 @Model
 final class WorkoutSession {
-    var workout: Workout?
-    var workoutName: String
+    var routine: Routine?
+    var routineName: String
     var startedAt: Date
     var endedAt: Date?
-    /// Snapshot of the workout's rest setting at start time.
+    /// Snapshot of the routine's rest setting at start time.
     var restSeconds: Int = 90
     /// Where the session is pointed (v2 jump/redo, #66): the order of the
     /// log the user is doing now. `currentLog` falls back to the first
@@ -20,9 +20,9 @@ final class WorkoutSession {
     @Relationship(deleteRule: .cascade, inverse: \SetLog.session)
     var setLogs: [SetLog] = []
 
-    init(workout: Workout? = nil, workoutName: String, startedAt: Date = Date(), restSeconds: Int = 90) {
-        self.workout = workout
-        self.workoutName = workoutName
+    init(routine: Routine? = nil, routineName: String, startedAt: Date = Date(), restSeconds: Int = 90) {
+        self.routine = routine
+        self.routineName = routineName
         self.startedAt = startedAt
         self.restSeconds = restSeconds
     }
@@ -122,23 +122,23 @@ final class WorkoutSession {
         return nil
     }
 
-    /// Builds a session from a workout template with one SetLog per
+    /// Builds a session from a routine template with one SetLog per
     /// exercise per set, in execution order. Supersets rotate: a group with
     /// exercises [A, B] and 3 sets produces A1 B1 A2 B2 A3 B3.
-    static func start(from workout: Workout, context: ModelContext, at date: Date = Date()) -> WorkoutSession {
+    static func start(from routine: Routine, context: ModelContext, at date: Date = Date()) -> WorkoutSession {
         let session = WorkoutSession(
-            workout: workout,
-            workoutName: workout.name,
+            routine: routine,
+            routineName: routine.name,
             startedAt: date,
-            restSeconds: workout.restSeconds
+            restSeconds: routine.restSeconds
         )
         context.insert(session)
 
         var order = 0
-        for (groupIndex, group) in workout.sortedGroups.enumerated() {
+        for (groupIndex, group) in routine.sortedGroups.enumerated() {
             for setNumber in 1...max(group.sets, 1) {
-                for workoutExercise in group.sortedExercises {
-                    guard let exercise = workoutExercise.exercise else { continue }
+                for routineExercise in group.sortedExercises {
+                    guard let exercise = routineExercise.exercise else { continue }
                     let log = SetLog(
                         order: order,
                         groupIndex: groupIndex,
@@ -146,10 +146,10 @@ final class WorkoutSession {
                         exercise: exercise,
                         exerciseName: exercise.name,
                         exerciseType: exercise.exerciseType,
-                        targetWeight: workoutExercise.weight,
-                        targetRepsLower: workoutExercise.reps,
-                        targetRepsUpper: workoutExercise.repsUpper,
-                        targetDuration: workoutExercise.durationSeconds
+                        targetWeight: routineExercise.weight,
+                        targetRepsLower: routineExercise.reps,
+                        targetRepsUpper: routineExercise.repsUpper,
+                        targetDuration: routineExercise.durationSeconds
                     )
                     log.session = session
                     context.insert(log)
@@ -160,7 +160,7 @@ final class WorkoutSession {
         // Save NOW, not on the next autosave: the session is presented
         // via fullScreenCover(item:), which keys on persistentModelID —
         // the temporary→permanent ID swap at first save reads as a new
-        // item and briefly dismisses/re-presents a live workout (Dave,
+        // item and briefly dismisses/re-presents a live routine (Dave,
         // build 12).
         try? context.save()
         return session

@@ -21,7 +21,7 @@ struct ConformanceTests {
 
         #expect(bundle.schemaVersion == 1)
         #expect(bundle.exercises.map(\.name) == ["Band Pulses", "Plank Hold"])
-        #expect(bundle.workouts.first?.groups.count == 2)
+        #expect(bundle.routines.first?.groups.count == 2)
         #expect(bundle.sessions.first?.sets.count == 2)
         #expect(InterchangeValidator.validate(bundle).isEmpty)
 

@@ -5,10 +5,10 @@ import PlusPlusKit
 
 @Suite("HistoryStats")
 struct HistoryStatsTests {
-    private func session(named workout: String, day: Int, sets: [SessionDTO.SetDTO]) -> SessionDTO {
+    private func session(named routine: String, day: Int, sets: [SessionDTO.SetDTO]) -> SessionDTO {
         let start = Date(timeIntervalSince1970: TimeInterval(day) * 86_400)
         return SessionDTO(
-            workoutName: workout,
+            routineName: routine,
             startedAt: start,
             endedAt: start.addingTimeInterval(1800),
             restSeconds: 90,
@@ -79,21 +79,21 @@ struct HistoryStatsTests {
     }
 }
 
-@Suite("WorkoutRepo layout")
-struct WorkoutRepoTests {
+@Suite("RoutineRepo layout")
+struct RoutineRepoTests {
     private func makeBundle() -> ExportBundle {
         ExportBundle(
             exercises: [
                 ExerciseDTO(name: "Band Pulses", muscleGroup: .shoulders, exerciseType: .weightReps, equipment: ["Resistance Band"])
             ],
-            workouts: [
-                WorkoutDTO(name: "Shoulder PT", restSeconds: 60, groups: [
+            routines: [
+                RoutineDTO(name: "Shoulder PT", restSeconds: 60, groups: [
                     .init(sets: 3, exercises: [.init(exercise: "Band Pulses", reps: 15, repsUpper: 20)])
                 ])
             ],
             sessions: [
                 SessionDTO(
-                    workoutName: "Shoulder PT",
+                    routineName: "Shoulder PT",
                     startedAt: Date(timeIntervalSince1970: 1_782_000_000),
                     endedAt: Date(timeIntervalSince1970: 1_782_002_000),
                     restSeconds: 60,
@@ -119,13 +119,13 @@ struct WorkoutRepoTests {
     func roundTrip() throws {
         let root = try makeTempRoot()
         defer { try? FileManager.default.removeItem(at: root) }
-        let repo = WorkoutRepo(root: root)
+        let repo = RoutineRepo(root: root)
         let bundle = makeBundle()
 
         let summary = try repo.write(bundle: bundle)
         #expect(summary.written.count == 3)
         #expect(summary.written.contains("program/exercises/band-pulses.json"))
-        #expect(summary.written.contains("program/workouts/shoulder-pt.json"))
+        #expect(summary.written.contains("program/routines/shoulder-pt.json"))
         #expect(summary.written.contains { $0.hasPrefix("history/") && $0.hasSuffix("-shoulder-pt.json") })
 
         let loaded = try repo.loadBundle()
@@ -136,7 +136,7 @@ struct WorkoutRepoTests {
     func idempotentWrite() throws {
         let root = try makeTempRoot()
         defer { try? FileManager.default.removeItem(at: root) }
-        let repo = WorkoutRepo(root: root)
+        let repo = RoutineRepo(root: root)
 
         _ = try repo.write(bundle: makeBundle())
         let second = try repo.write(bundle: makeBundle())
@@ -148,13 +148,13 @@ struct WorkoutRepoTests {
     func sessionCollision() throws {
         let root = try makeTempRoot()
         defer { try? FileManager.default.removeItem(at: root) }
-        let repo = WorkoutRepo(root: root)
+        let repo = RoutineRepo(root: root)
 
         _ = try repo.write(bundle: makeBundle())
 
         var secondSession = makeBundle().sessions[0]
         secondSession.startedAt = secondSession.startedAt.addingTimeInterval(3600) // same UTC day
-        let bundle2 = ExportBundle(exercises: [], workouts: [], sessions: [secondSession])
+        let bundle2 = ExportBundle(exercises: [], routines: [], sessions: [secondSession])
         let summary = try repo.write(bundle: bundle2)
 
         #expect(summary.written.count == 1)
@@ -164,12 +164,12 @@ struct WorkoutRepoTests {
         #expect(loaded.sessions.count == 2)
     }
 
-    @Test("Loading a directory that isn't a workout repo fails clearly")
+    @Test("Loading a directory that isn't a routine repo fails clearly")
     func notARepo() throws {
         let root = try makeTempRoot()
         defer { try? FileManager.default.removeItem(at: root) }
-        #expect(throws: WorkoutRepo.RepoError.self) {
-            try WorkoutRepo(root: root).loadBundle()
+        #expect(throws: RoutineRepo.RepoError.self) {
+            try RoutineRepo(root: root).loadBundle()
         }
     }
 

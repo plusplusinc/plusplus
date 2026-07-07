@@ -8,8 +8,8 @@ import PlusPlusKit
 struct LastPerformanceTests {
     private func makeContainer() throws -> ModelContainer {
         let schema = Schema([
-            Exercise.self, Equipment.self, Workout.self, ExerciseGroup.self,
-            WorkoutExercise.self, WorkoutSession.self, SetLog.self,
+            Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self,
+            RoutineExercise.self, WorkoutSession.self, SetLog.self,
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         return try ModelContainer(for: schema, configurations: [config])
@@ -25,7 +25,7 @@ struct LastPerformanceTests {
         endedAt: Date,
         context: ModelContext
     ) -> WorkoutSession {
-        let session = WorkoutSession(workoutName: "W", startedAt: endedAt.addingTimeInterval(-1800))
+        let session = WorkoutSession(routineName: "W", startedAt: endedAt.addingTimeInterval(-1800))
         context.insert(session)
         for setNumber in 1...sets {
             let log = SetLog(order: setNumber - 1, groupIndex: 0, setNumber: setNumber,
@@ -41,7 +41,7 @@ struct LastPerformanceTests {
     }
 
     private func pendingLog(for exercise: Exercise?, named name: String, setNumber: Int, context: ModelContext) -> SetLog {
-        let current = WorkoutSession(workoutName: "W", startedAt: Date())
+        let current = WorkoutSession(routineName: "W", startedAt: Date())
         context.insert(current)
         let log = SetLog(order: 0, groupIndex: 0, setNumber: setNumber, exercise: exercise, exerciseName: name)
         log.session = current

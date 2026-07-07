@@ -108,11 +108,11 @@ struct ExercisePickerView: View {
         if uses == 0 {
             return "Delete “\(exercise.name)”?"
         }
-        return "Delete “\(exercise.name)”? It appears in \(uses) workout \(uses == 1 ? "entry" : "entries"), which will show as Unknown."
+        return "Delete “\(exercise.name)”? It appears in \(uses) routine \(uses == 1 ? "entry" : "entries"), which will show as Unknown."
     }
 
     private func usageCount(of exercise: Exercise) -> Int {
-        let all = (try? modelContext.fetch(FetchDescriptor<WorkoutExercise>())) ?? []
+        let all = (try? modelContext.fetch(FetchDescriptor<RoutineExercise>())) ?? []
         return all.filter { $0.exercise === exercise }.count
     }
 

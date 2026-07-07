@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 import PlusPlusKit
 
-/// Mid-workout overview (#66): every block of the session on a rail with
+/// Mid-routine overview (#66): every block of the session on a rail with
 /// per-set pips, the live block highlighted. Tapping a block opens its
 /// sheet for target edits and jump/redo navigation.
 struct SessionOverviewSheet: View {

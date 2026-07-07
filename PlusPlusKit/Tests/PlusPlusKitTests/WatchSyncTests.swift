@@ -7,8 +7,8 @@ struct WatchSyncTests {
     private var plan: WatchSync.Plan {
         WatchSync.Plan(
             generatedAt: Date(timeIntervalSince1970: 1_780_000_000),
-            workouts: [
-                WatchSync.PlanWorkout(name: "Push Day", restSeconds: 90, steps: [
+            routines: [
+                WatchSync.PlanRoutine(name: "Push Day", restSeconds: 90, steps: [
                     WatchSync.Step(exerciseName: "Bench Press", groupIndex: 0, setNumber: 1, isDuration: false, targetWeight: 135, targetRepsLower: 8, targetRepsUpper: 12),
                     WatchSync.Step(exerciseName: "Plank", groupIndex: 1, setNumber: 1, isDuration: true, targetDuration: 60),
                 ]),
@@ -25,13 +25,13 @@ struct WatchSyncTests {
     @Test func sessionResultRoundTrips() throws {
         let started = Date(timeIntervalSince1970: 1_780_000_100)
         let result = WatchSync.SessionResult(
-            workoutName: "Push Day",
+            routineName: "Push Day",
             startedAt: started,
             endedAt: started.addingTimeInterval(1800),
             restSeconds: 90,
             steps: [
                 WatchSync.StepResult(
-                    step: plan.workouts[0].steps[0],
+                    step: plan.routines[0].steps[0],
                     actualWeight: 135,
                     actualReps: 10,
                     completedAt: started.addingTimeInterval(120)

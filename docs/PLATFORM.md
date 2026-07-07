@@ -14,12 +14,12 @@ for programs and history.
 
 What this unlocks, concretely:
 
-- Point an agent at your workout repo: "review my last month and PR an adjustment
+- Point an agent at your routine repo: "review my last month and PR an adjustment
   to my program." No PlusPlus-specific tooling required — agents already speak
   GitHub.
 - GitHub Actions on your own training data: weekly progress-report issues, schema
   lint on program PRs, badges.
-- Every finished workout is a commit. Diffs show progression; the contribution
+- Every finished routine is a commit. Diffs show progression; the contribution
   graph goes green on gym days.
 - A CLI (`plusplus`) for stats, program editing, and linting — over a plain git
   clone.
@@ -35,7 +35,7 @@ What this unlocks, concretely:
    truth during a session. Sync is opportunistic; a concrete basement changes
    nothing.
 4. **History is append-only.** Finished sessions flow app → repo, one file each,
-   and never conflict. Templates (exercises, workouts) sync bidirectionally,
+   and never conflict. Templates (exercises, routines) sync bidirectionally,
    per-file, with a keep-mine/take-theirs prompt on the rare true conflict.
 5. **Deterministic serialization.** Sorted keys, ISO-8601 dates, stable array
    ordering. Git diffs of these files must be readable, or the whole story falls
@@ -45,7 +45,7 @@ What this unlocks, concretely:
 
 ```
 ┌────────────┐   contents/git-data API   ┌──────────────────┐   git clone   ┌─────────────┐
-│ iPhone app │ ◄────────────────────────► │  you/workouts    │ ◄───────────► │ plusplus CLI │
+│ iPhone app │ ◄────────────────────────► │  you/routines    │ ◄───────────► │ plusplus CLI │
 │ (SwiftData │      (GitHub App,          │  (private repo)  │               │  / agents /  │
 │  is live   │       device flow)         │                  │ ◄──webhooks── │  Actions     │
 │  truth)    │                            └──────────────────┘               └─────────────┘
@@ -62,21 +62,21 @@ What this unlocks, concretely:
   (a local-folder implementation falls out for free and serves tests and
   non-GitHub users).
 
-## Repo layout (the user's workout repo)
+## Repo layout (the user's routine repo)
 
 ```
 program/
   exercises/
     band-pulses.json          # one file per custom exercise (slugged name)
-  workouts/
-    shoulder-pt.json          # one file per workout template
+  routines/
+    shoulder-pt.json          # one file per routine template
 history/
   2026/
     2026-07-05-shoulder-pt.json   # one file per finished session; append-only
 README.md                     # (later) auto-generated summary
 ```
 
-Built-in library exercises are not written to the repo; workout files may
+Built-in library exercises are not written to the repo; routine files may
 reference them by name, and the app resolves them against its seed library.
 An exercise file is written only for custom exercises (or built-ins the user
 has effectively customized).
@@ -103,7 +103,7 @@ The app's single-file export (backup / manual transport) is a bundle:
       "videoURL": "https://youtu.be/ykZHbcGNfII"
     }
   ],
-  "workouts": [
+  "routines": [
     {
       "groups": [
         {
@@ -138,7 +138,7 @@ The app's single-file export (backup / manual transport) is a bundle:
         }
       ],
       "startedAt": "2026-07-05T14:31:00Z",
-      "workoutName": "Shoulder PT"
+      "routineName": "Shoulder PT"
     }
   ]
 }
@@ -146,7 +146,7 @@ The app's single-file export (backup / manual transport) is a bundle:
 
 In the repo layout, the same DTOs are stored one entity per file, wrapped in a
 document envelope: `{ "schemaVersion": 1, "exercise": { … } }` (likewise
-`"workout"` / `"session"` — see `InterchangeDocuments.swift`). A group with >1 exercise is a superset —
+`"routine"` / `"session"` — see `InterchangeDocuments.swift`). A group with >1 exercise is a superset —
 same uniform model as the app.
 
 Semantics worth writing down:
@@ -158,8 +158,8 @@ Semantics worth writing down:
 - **Sessions snapshot everything** (names, types, targets) exactly like the app's
   data model, so history files stand alone even if templates change.
 - **Import policy** (app side): exercises upsert by case-insensitive name;
-  workouts replace-or-create by name; sessions append only — an incoming session
-  with the same workout name and start time as an existing one is skipped.
+  routines replace-or-create by name; sessions append only — an incoming session
+  with the same routine name and start time as an existing one is skipped.
 - **Units** (decided 2026-07-06, issue #33): weight numbers are unit-agnostic;
   a bundle's optional `units` field (`"lb"` / `"kg"`) declares what they mean,
   and **absent always means pounds** — every pre-units file stays valid.
@@ -180,13 +180,13 @@ Semantics worth writing down:
 | Data | Direction | Conflict handling |
 |---|---|---|
 | Sessions | app → repo, on finish (queued offline) | none possible (new file, append-only) |
-| Workouts / exercises | bidirectional, on app foreground + manual pull | per-file SHA compare; only both-sides-changed prompts keep-mine/take-theirs |
+| Routines / exercises | bidirectional, on app foreground + manual pull | per-file SHA compare; only both-sides-changed prompts keep-mine/take-theirs |
 
 Commit messages are human-readable: `Log: Shoulder PT — 8 sets`,
 `Edit: Push Day (from iPhone)`.
 
 Auth is a **GitHub App with device flow** (fine-grained, installed on exactly the
-one workout repo), token in the Keychain. Not classic OAuth `repo` scope.
+one routine repo), token in the Keychain. Not classic OAuth `repo` scope.
 
 ## Phases
 
@@ -220,7 +220,7 @@ the phone loop must be confirmed working in hand first.
       no webhooks needed initially. Put the app slug/client ID somewhere Claude
       can reach (issue comment on #23 is fine — client IDs aren't secrets; the
       device flow needs no client secret).
-- [ ] **Decide the public repo template name** (e.g. `plusplus-workouts-template`)
+- [ ] **Decide the public repo template name** (e.g. `plusplus-routines-template`)
       when #23/#25 need it.
 - [ ] **Create a Homebrew tap repo** (`mrdavidjcole/homebrew-plusplus`) when #24
       is ready to ship.

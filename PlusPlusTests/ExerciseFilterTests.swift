@@ -6,7 +6,7 @@ import PlusPlusKit
 @Suite("ExerciseFilterState")
 struct ExerciseFilterTests {
     private func makeContainer() throws -> ModelContainer {
-        let schema = Schema([Exercise.self, Equipment.self, Workout.self, ExerciseGroup.self, WorkoutExercise.self])
+        let schema = Schema([Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self, RoutineExercise.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         return try ModelContainer(for: schema, configurations: [config])
     }

@@ -1,4 +1,4 @@
-# Point your agent at your workout repo
+# Point your agent at your routine repo
 
 Your training data is a git repo of documented, deterministic JSON
 (schema: `docs/PLATFORM.md`). That means agents can already work with it
@@ -10,7 +10,7 @@ Any agent that can read a repo can coach from it today:
 
 - `program/exercises/*.json` — one exercise per file (muscle group, type,
   equipment, notes, video link)
-- `program/workouts/*.json` — templates; a group with more than one
+- `program/routines/*.json` — templates; a group with more than one
   exercise is a superset
 - `history/YYYY/*.json` — finished sessions, append-only, targets and
   actuals per set
@@ -24,7 +24,7 @@ clean, so "what changed in my program last month" is `git log -p program/`.
 plusplus lint --json      # {valid, counts, issues[{path, message}]}
 plusplus stats --json     # per-exercise aggregates
 plusplus export           # whole repo as one bundle file
-plusplus init new-repo    # scaffold a fresh workout repo
+plusplus init new-repo    # scaffold a fresh routine repo
 ```
 
 Agents should lint before committing program edits — the same validator
@@ -38,9 +38,9 @@ client config:
 ```json
 {
   "mcpServers": {
-    "workouts": {
+    "routines": {
       "command": "plusplus",
-      "args": ["mcp", "--repo", "/Users/you/workouts"]
+      "args": ["mcp", "--repo", "/Users/you/routines"]
     }
   }
 }
@@ -51,8 +51,8 @@ Tools:
 | Tool | What it returns |
 |---|---|
 | `list_exercises` | Exercise DTOs, verbatim interchange JSON |
-| `list_workouts` | Workout templates with groups/supersets and targets |
-| `get_history` | Sessions, newest first (`limit`, `workout` filters) |
+| `list_routines` | Routine templates with groups/supersets and targets |
+| `get_history` | Sessions, newest first (`limit`, `routine` filters) |
 | `stats` | Per-exercise aggregates (`exercise` filter) |
 | `lint` | `{valid, counts, issues}` |
 | `propose_program_change` | Writes program files to a **new git branch**, commits, returns the branch name |
@@ -66,5 +66,5 @@ repo's lint recipe (`docs/recipes/`) is the second gate.
 
 ## Automation recipes
 
-`docs/recipes/` has copy-paste GitHub Actions for workout repos: schema
+`docs/recipes/` has copy-paste GitHub Actions for routine repos: schema
 lint on every program PR, and a weekly stats report filed as an issue.

@@ -2,8 +2,8 @@ import Foundation
 import PlusPlusKit
 
 /// A minimal MCP (Model Context Protocol) server over stdio: newline-
-/// delimited JSON-RPC 2.0, tools capability only. Exposes a workout repo
-/// to agents — `plusplus mcp --repo ~/workouts` and point your client at
+/// delimited JSON-RPC 2.0, tools capability only. Exposes a routine repo
+/// to agents — `plusplus mcp --repo ~/routines` and point your client at
 /// it (docs/AGENTS.md in the main repo).
 ///
 /// The protocol layer is deliberately hand-rolled: it's ~100 lines, the

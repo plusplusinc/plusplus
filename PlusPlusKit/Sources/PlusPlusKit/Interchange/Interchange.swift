@@ -38,7 +38,7 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
     }
 }
 
-public struct WorkoutDTO: Codable, Equatable, Sendable {
+public struct RoutineDTO: Codable, Equatable, Sendable {
     public var name: String
     public var restSeconds: Int
     public var notes: String?
@@ -87,20 +87,20 @@ public struct WorkoutDTO: Codable, Equatable, Sendable {
 }
 
 public struct SessionDTO: Codable, Equatable, Sendable {
-    public var workoutName: String
+    public var routineName: String
     public var startedAt: Date
     public var endedAt: Date?
     public var restSeconds: Int
     public var sets: [SetDTO]
 
     public init(
-        workoutName: String,
+        routineName: String,
         startedAt: Date,
         endedAt: Date?,
         restSeconds: Int,
         sets: [SetDTO]
     ) {
-        self.workoutName = workoutName
+        self.routineName = routineName
         self.startedAt = startedAt
         self.endedAt = endedAt
         self.restSeconds = restSeconds
@@ -162,13 +162,13 @@ public struct ExportBundle: Codable, Equatable, Sendable {
     /// every pre-units file stays valid, and values are never converted.
     public var units: WeightUnit?
     public var exercises: [ExerciseDTO]
-    public var workouts: [WorkoutDTO]
+    public var routines: [RoutineDTO]
     public var sessions: [SessionDTO]
 
     public init(
         units: WeightUnit? = nil,
         exercises: [ExerciseDTO],
-        workouts: [WorkoutDTO],
+        routines: [RoutineDTO],
         sessions: [SessionDTO]
     ) {
         self.schemaVersion = Interchange.schemaVersion
@@ -176,7 +176,7 @@ public struct ExportBundle: Codable, Equatable, Sendable {
         // Plain lowercased comparison, not localized — output ordering must be
         // identical on every platform for deterministic diffs.
         self.exercises = exercises.sorted { $0.name.lowercased() < $1.name.lowercased() }
-        self.workouts = workouts.sorted { $0.name.lowercased() < $1.name.lowercased() }
+        self.routines = routines.sorted { $0.name.lowercased() < $1.name.lowercased() }
         self.sessions = sessions.sorted { $0.startedAt < $1.startedAt }
     }
 }

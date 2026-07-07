@@ -18,7 +18,7 @@ struct InitCommandTests {
         #expect(paths.contains("README.md"))
         #expect(paths.contains(".gitattributes"))
         #expect(paths.contains("program/exercises/.gitkeep"))
-        #expect(paths.contains("program/workouts/.gitkeep"))
+        #expect(paths.contains("program/routines/.gitkeep"))
         #expect(paths.contains("history/.gitkeep"))
     }
 
@@ -38,7 +38,7 @@ struct InitCommandTests {
         let bundle = try BundleSource.load(path: root.path)
         #expect(InterchangeValidator.validate(bundle).isEmpty)
         #expect(bundle.exercises.map(\.name) == ["Push-Up"])
-        #expect(bundle.workouts.map(\.name) == ["Example Day"])
+        #expect(bundle.routines.map(\.name) == ["Example Day"])
     }
 
     @Test("Dotfiles don't block scaffolding; visible files do")

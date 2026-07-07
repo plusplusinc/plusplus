@@ -8,8 +8,8 @@ import PlusPlusKit
 struct SessionNavigationTests {
     private func makeContainer() throws -> ModelContainer {
         let schema = Schema([
-            Exercise.self, Equipment.self, Workout.self, ExerciseGroup.self,
-            WorkoutExercise.self, WorkoutSession.self, SetLog.self,
+            Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self,
+            RoutineExercise.self, WorkoutSession.self, SetLog.self,
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         return try ModelContainer(for: schema, configurations: [config])
@@ -22,15 +22,15 @@ struct SessionNavigationTests {
         context.insert(bench)
         context.insert(plank)
 
-        let workout = Workout(name: "W", restSeconds: 60)
-        context.insert(workout)
-        let benchGroup = workout.addExerciseInNewGroup(bench, context: context)
+        let routine = Routine(name: "W", restSeconds: 60)
+        context.insert(routine)
+        let benchGroup = routine.addExerciseInNewGroup(bench, context: context)
         benchGroup.sortedExercises[0].weight = 100
-        let plankGroup = workout.addExerciseInNewGroup(plank, context: context)
+        let plankGroup = routine.addExerciseInNewGroup(plank, context: context)
         plankGroup.sets = 1
         plankGroup.sortedExercises[0].durationSeconds = 45
 
-        return WorkoutSession.start(from: workout, context: context)
+        return WorkoutSession.start(from: routine, context: context)
     }
 
     @Test("Completing advances the cursor; a changed weight carries to remaining sets")

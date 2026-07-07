@@ -10,8 +10,8 @@ struct ExerciseDetailSheet: View {
     @Environment(\.modelContext) private var modelContext
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
 
-    let workout: Workout
-    @Bindable var workoutExercise: WorkoutExercise
+    let routine: Routine
+    @Bindable var routineExercise: RoutineExercise
     let onAddToSuperset: (ExerciseGroup) -> Void
 
     /// Finished sessions, newest first, for the RECENT block.
@@ -28,13 +28,13 @@ struct ExerciseDetailSheet: View {
     }
 
     private var weightUnit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .lb }
-    private var exercise: Exercise? { workoutExercise.exercise }
-    private var group: ExerciseGroup? { workoutExercise.group }
+    private var exercise: Exercise? { routineExercise.exercise }
+    private var group: ExerciseGroup? { routineExercise.group }
     private var isDuration: Bool { exercise?.exerciseType == .duration }
 
     private var groupIndex: Int? {
         guard let group else { return nil }
-        return workout.sortedGroups.firstIndex(where: { $0 === group })
+        return routine.sortedGroups.firstIndex(where: { $0 === group })
     }
 
     var body: some View {
@@ -123,8 +123,8 @@ struct ExerciseDetailSheet: View {
                     metric: .weight,
                     weightUnit: weightUnit,
                     value: Binding(
-                        get: { workoutExercise.weight },
-                        set: { workoutExercise.weight = $0 }
+                        get: { routineExercise.weight },
+                        set: { routineExercise.weight = $0 }
                     )
                 )
             case .duration:
@@ -132,18 +132,18 @@ struct ExerciseDetailSheet: View {
                     metric: .duration,
                     weightUnit: weightUnit,
                     value: intMetricBinding(Binding(
-                        get: { workoutExercise.durationSeconds },
-                        set: { workoutExercise.durationSeconds = $0 }
+                        get: { routineExercise.durationSeconds },
+                        set: { routineExercise.durationSeconds = $0 }
                     ))
                 )
             }
         }
         .sheet(isPresented: $showingRepsWheel) {
             RepTargetWheelSheet(
-                target: RepTarget(lower: workoutExercise.reps, upper: workoutExercise.repsUpper)
+                target: RepTarget(lower: routineExercise.reps, upper: routineExercise.repsUpper)
             ) { newTarget in
-                workoutExercise.reps = newTarget.lower
-                workoutExercise.repsUpper = newTarget.upper
+                routineExercise.reps = newTarget.lower
+                routineExercise.repsUpper = newTarget.upper
             }
         }
     }
@@ -163,25 +163,25 @@ struct ExerciseDetailSheet: View {
                     value: durationText,
                     identifier: "duration",
                     onTapValue: { wheel = .duration },
-                    onDecrement: { workoutExercise.durationSeconds = step(.duration, workoutExercise.durationSeconds, -1) },
-                    onIncrement: { workoutExercise.durationSeconds = step(.duration, workoutExercise.durationSeconds, 1) }
+                    onDecrement: { routineExercise.durationSeconds = step(.duration, routineExercise.durationSeconds, -1) },
+                    onIncrement: { routineExercise.durationSeconds = step(.duration, routineExercise.durationSeconds, 1) }
                 )
             } else {
                 MetricStepperRow(
                     label: "Weight",
-                    value: WorkoutMetric.weight.displayText(workoutExercise.weight, weightUnit: weightUnit),
+                    value: WorkoutMetric.weight.displayText(routineExercise.weight, weightUnit: weightUnit),
                     identifier: "weight",
                     onTapValue: { wheel = .weight },
-                    onDecrement: { workoutExercise.weight = WorkoutMetric.weight.decremented(workoutExercise.weight, weightUnit: weightUnit, stepOverride: workoutExercise.exercise?.weightStepOverride) },
-                    onIncrement: { workoutExercise.weight = WorkoutMetric.weight.incremented(workoutExercise.weight, weightUnit: weightUnit, stepOverride: workoutExercise.exercise?.weightStepOverride) }
+                    onDecrement: { routineExercise.weight = WorkoutMetric.weight.decremented(routineExercise.weight, weightUnit: weightUnit, stepOverride: routineExercise.exercise?.weightStepOverride) },
+                    onIncrement: { routineExercise.weight = WorkoutMetric.weight.incremented(routineExercise.weight, weightUnit: weightUnit, stepOverride: routineExercise.exercise?.weightStepOverride) }
                 )
                 MetricStepperRow(
                     label: "Reps",
-                    value: RepTarget(lower: workoutExercise.reps, upper: workoutExercise.repsUpper).display,
+                    value: RepTarget(lower: routineExercise.reps, upper: routineExercise.repsUpper).display,
                     identifier: "reps",
                     onTapValue: { showingRepsWheel = true },
-                    onDecrement: { applyReps(RepTarget(lower: workoutExercise.reps, upper: workoutExercise.repsUpper).decremented()) },
-                    onIncrement: { applyReps(RepTarget(lower: workoutExercise.reps, upper: workoutExercise.repsUpper).incremented()) }
+                    onDecrement: { applyReps(RepTarget(lower: routineExercise.reps, upper: routineExercise.repsUpper).decremented()) },
+                    onIncrement: { applyReps(RepTarget(lower: routineExercise.reps, upper: routineExercise.repsUpper).incremented()) }
                 )
             }
             MetricStepperRow(
@@ -198,7 +198,7 @@ struct ExerciseDetailSheet: View {
     }
 
     private var durationText: String {
-        guard let seconds = workoutExercise.durationSeconds else { return "—" }
+        guard let seconds = routineExercise.durationSeconds else { return "—" }
         return seconds >= 60
             ? WorkoutMetric.duration.formatted(Double(seconds))
             : "\(seconds)s"
@@ -212,8 +212,8 @@ struct ExerciseDetailSheet: View {
     }
 
     private func applyReps(_ target: RepTarget) {
-        workoutExercise.reps = target.lower
-        workoutExercise.repsUpper = target.upper
+        routineExercise.reps = target.lower
+        routineExercise.repsUpper = target.upper
     }
 
     // MARK: - Recent
@@ -253,20 +253,20 @@ struct ExerciseDetailSheet: View {
         VStack(spacing: 7) {
             if let group, group.isSuperset {
                 SheetActionButton("Move out of superset", systemImage: "square.on.square") {
-                    workout.splitExercise(workoutExercise, context: modelContext)
+                    routine.splitExercise(routineExercise, context: modelContext)
                     dismiss()
                 }
             }
             if let group, !group.isSuperset, let index = groupIndex {
                 if index > 0 {
                     SheetActionButton("Superset with exercise above", systemImage: "square.on.square") {
-                        workout.mergeSoloGroup(group, direction: -1, context: modelContext)
+                        routine.mergeSoloGroup(group, direction: -1, context: modelContext)
                         dismiss()
                     }
                 }
-                if index < workout.sortedGroups.count - 1 {
+                if index < routine.sortedGroups.count - 1 {
                     SheetActionButton("Superset with exercise below", systemImage: "square.on.square") {
-                        workout.mergeSoloGroup(group, direction: 1, context: modelContext)
+                        routine.mergeSoloGroup(group, direction: 1, context: modelContext)
                         dismiss()
                     }
                 }
@@ -275,7 +275,7 @@ struct ExerciseDetailSheet: View {
                 SheetActionButton("Move up", systemImage: "arrow.up", dimmed: groupIndex == 0) {
                     moveGroup(-1)
                 }
-                SheetActionButton("Move down", systemImage: "arrow.down", dimmed: groupIndex == workout.sortedGroups.count - 1) {
+                SheetActionButton("Move down", systemImage: "arrow.down", dimmed: groupIndex == routine.sortedGroups.count - 1) {
                     moveGroup(1)
                 }
             }
@@ -287,7 +287,7 @@ struct ExerciseDetailSheet: View {
 
     private func moveGroup(_ delta: Int) {
         guard let group, let index = groupIndex else { return }
-        var sorted = workout.sortedGroups
+        var sorted = routine.sortedGroups
         let target = index + delta
         guard sorted.indices.contains(target) else { return }
         sorted.swapAt(index, target)
@@ -299,13 +299,13 @@ struct ExerciseDetailSheet: View {
     }
 
     private func deleteExercise() {
-        let group = workoutExercise.group
-        modelContext.delete(workoutExercise)
+        let group = routineExercise.group
+        modelContext.delete(routineExercise)
         if let group {
             group.reindexExercises()
             if group.sortedExercises.isEmpty {
                 modelContext.delete(group)
-                workout.reindexGroups()
+                routine.reindexGroups()
             }
         }
         dismiss()

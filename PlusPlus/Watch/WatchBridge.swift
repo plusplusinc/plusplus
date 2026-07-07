@@ -4,7 +4,7 @@ import SwiftData
 import WatchConnectivity
 import PlusPlusKit
 
-/// The phone side of watch sync (#6): pushes the workout plan whenever
+/// The phone side of watch sync (#6): pushes the routine plan whenever
 /// it may have changed (launch, backgrounding) via
 /// updateApplicationContext — latest-wins, delivered even when the
 /// watch app is closed — and imports finished wrist sessions arriving
@@ -27,7 +27,7 @@ final class WatchBridge: NSObject, WCSessionDelegate {
         }
     }
 
-    /// Encodes every workout in its execution order (the same superset
+    /// Encodes every routine in its execution order (the same superset
     /// rotation the phone's session factory produces) and ships it.
     func pushPlan() {
         guard let container, WCSession.isSupported() else { return }
@@ -36,12 +36,12 @@ final class WatchBridge: NSObject, WCSessionDelegate {
 
         Task { @MainActor in
             let context = container.mainContext
-            let workouts = (try? context.fetch(
-                FetchDescriptor<Workout>(sortBy: [SortDescriptor(\.order)])
+            let routines = (try? context.fetch(
+                FetchDescriptor<Routine>(sortBy: [SortDescriptor(\.order)])
             )) ?? []
             let plan = WatchSync.Plan(
                 generatedAt: Date(),
-                workouts: workouts.map(Self.planWorkout)
+                routines: routines.map(Self.planRoutine)
             )
             do {
                 let data = try WatchSync.encode(plan)
@@ -57,9 +57,9 @@ final class WatchBridge: NSObject, WCSessionDelegate {
     }
 
     @MainActor
-    private static func planWorkout(_ workout: Workout) -> WatchSync.PlanWorkout {
+    private static func planRoutine(_ routine: Routine) -> WatchSync.PlanRoutine {
         var steps: [WatchSync.Step] = []
-        for (groupIndex, group) in workout.sortedGroups.enumerated() {
+        for (groupIndex, group) in routine.sortedGroups.enumerated() {
             for setNumber in 1...max(group.sets, 1) {
                 for entry in group.sortedExercises {
                     guard let exercise = entry.exercise else { continue }
@@ -76,14 +76,14 @@ final class WatchBridge: NSObject, WCSessionDelegate {
                 }
             }
         }
-        return WatchSync.PlanWorkout(name: workout.name, restSeconds: workout.restSeconds, steps: steps)
+        return WatchSync.PlanRoutine(name: routine.name, restSeconds: routine.restSeconds, steps: steps)
     }
 
     // MARK: - Receiving results
 
     /// IMPORTANT: WCSession marks the transfer delivered when this
     /// method RETURNS — anything deferred past that point can drop a
-    /// once-delivered workout forever (bug hunt A4). So the import runs
+    /// once-delivered routine forever (bug hunt A4). So the import runs
     /// synchronously, on this queue, in a context created here (a
     /// ModelContext is usable on its creating thread).
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
@@ -107,13 +107,13 @@ final class WatchBridge: NSObject, WCSessionDelegate {
     private func importResult(_ result: WatchSync.SessionResult, into context: ModelContext) {
         let existing = (try? context.fetch(FetchDescriptor<WorkoutSession>())) ?? []
         let alreadyImported = existing.contains {
-            $0.workoutName == result.workoutName
+            $0.routineName == result.routineName
                 && abs($0.startedAt.timeIntervalSince(result.startedAt)) < 1
         }
         guard !alreadyImported else { return }
 
         let session = WorkoutSession(
-            workoutName: result.workoutName,
+            routineName: result.routineName,
             startedAt: result.startedAt,
             restSeconds: result.restSeconds
         )

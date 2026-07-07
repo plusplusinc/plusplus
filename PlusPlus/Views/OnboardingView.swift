@@ -7,7 +7,7 @@ import PlusPlusKit
 /// install's Today shows three setup steps as timeline entries, gated
 /// bottom-up like commits. Equipment is the only step needing a stored
 /// flag (its "done" can't be derived — the catalog defaults to
-/// everything owned); workouts and schedules are derived live.
+/// everything owned); routines and schedules are derived live.
 enum SetupState {
     static let equipmentDoneKey = "setupEquipmentDone"
     static let equipmentDoneDateKey = "setupEquipmentDoneDate"
@@ -147,7 +147,7 @@ struct EquipmentAccessSheet: View {
     }
 }
 
-/// The first-workout seeder as a standalone sheet — the setup
+/// The first-routine seeder as a standalone sheet — the setup
 /// timeline's "2 of 3". Dismissing without choosing leaves the step
 /// pending; that IS the skip.
 struct StarterSeedSheet: View {
@@ -157,7 +157,7 @@ struct StarterSeedSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "Build your first workout", actionLabel: "Cancel", action: { dismiss() })
+            SheetHeader(title: "Build your first routine", actionLabel: "Cancel", action: { dismiss() })
 
             Text("You can change everything later — it's just a starting point")
                 .font(.system(.caption, design: .monospaced))
@@ -167,7 +167,7 @@ struct StarterSeedSheet: View {
             VStack(spacing: 8) {
                 option(
                     title: "Starter push/pull split",
-                    caption: "Two workouts from the catalog, matched to your equipment"
+                    caption: "Two routines from the catalog, matched to your equipment"
                 ) {
                     seedStarterSplit()
                     dismiss()
@@ -175,10 +175,10 @@ struct StarterSeedSheet: View {
                 .accessibilityIdentifier("starterSplitButton")
 
                 option(
-                    title: "One empty workout",
-                    caption: "A blank \"Workout A\" to build yourself"
+                    title: "One empty routine",
+                    caption: "A blank \"Routine A\" to build yourself"
                 ) {
-                    modelContext.insert(Workout(name: "Workout A", order: 0))
+                    modelContext.insert(Routine(name: "Routine A", order: 0))
                     dismiss()
                 }
             }
@@ -208,10 +208,10 @@ struct StarterSeedSheet: View {
         }
     }
 
-    /// Two workouts from the built-in catalog, equipment-aware: each
+    /// Two routines from the built-in catalog, equipment-aware: each
     /// slot takes its first owned candidate and is skipped outright when
     /// nothing fits, with bodyweight anchors guaranteeing neither
-    /// workout comes out empty. 3×8–12 on lifts.
+    /// routine comes out empty. 3×8–12 on lifts.
     private func seedStarterSplit() {
         let pushSlots = [
             ["Bench Press", "Incline Dumbbell Press", "Push-Up"],
@@ -225,14 +225,14 @@ struct StarterSeedSheet: View {
             ["Barbell Curl", "Dumbbell Curl"],
             ["Burpee"],
         ]
-        seedWorkout(named: "Push Day", slots: pushSlots, order: 0)
-        seedWorkout(named: "Pull Day", slots: pullSlots, order: 1)
+        seedRoutine(named: "Push Day", slots: pushSlots, order: 0)
+        seedRoutine(named: "Pull Day", slots: pullSlots, order: 1)
     }
 
-    private func seedWorkout(named name: String, slots: [[String]], order: Int) {
+    private func seedRoutine(named name: String, slots: [[String]], order: Int) {
         let byName = Dictionary(uniqueKeysWithValues: allExercises.filter(\.isBuiltIn).map { ($0.name, $0) })
-        let workout = Workout(name: name, order: order)
-        modelContext.insert(workout)
+        let routine = Routine(name: name, order: order)
+        modelContext.insert(routine)
 
         var used: Set<String> = []
         for slot in slots {
@@ -242,7 +242,7 @@ struct StarterSeedSheet: View {
             }), let exercise = byName[pick] else { continue }
             used.insert(pick)
             exercise.inLibrary = true
-            let group = workout.addExerciseInNewGroup(exercise, context: modelContext)
+            let group = routine.addExerciseInNewGroup(exercise, context: modelContext)
             if exercise.exerciseType == .weightReps, let entry = group.sortedExercises.first {
                 entry.reps = 8
                 entry.repsUpper = 12

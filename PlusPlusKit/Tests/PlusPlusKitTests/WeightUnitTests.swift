@@ -35,7 +35,7 @@ struct WeightUnitTests {
 
     @Test("Bundle units field round-trips; absent means nil (pounds)")
     func bundleField() throws {
-        let kg = ExportBundle(units: .kg, exercises: [], workouts: [], sessions: [])
+        let kg = ExportBundle(units: .kg, exercises: [], routines: [], sessions: [])
         let data = try InterchangeCodec.encode(kg)
         #expect(String(decoding: data, as: UTF8.self).contains("\"units\" : \"kg\""))
         let decoded = try InterchangeCodec.decode(ExportBundle.self, from: data)
@@ -43,7 +43,7 @@ struct WeightUnitTests {
 
         // A pre-units file (no units key) still decodes, as nil.
         let legacy = Data("""
-        {"schemaVersion": 1, "exercises": [], "workouts": [], "sessions": []}
+        {"schemaVersion": 1, "exercises": [], "routines": [], "sessions": []}
         """.utf8)
         let old = try InterchangeCodec.decode(ExportBundle.self, from: legacy)
         #expect(old.units == nil)

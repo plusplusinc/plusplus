@@ -4,13 +4,13 @@ import PlusPlusKit
 
 /// Pushed detail screens for the two catalog tabs (#137): the catalog
 /// is a navigable graph, not three isolated lists. Equipment links to
-/// the exercises that need it, exercises link to the workouts that
+/// the exercises that need it, exercises link to the routines that
 /// contain them, and every dead end offers creation — chains push in
 /// place with standard back navigation. Sheets survive only for
 /// create/edit forms.
 
 /// Back-button + title header shared by the pushed catalog screens,
-/// mirroring WorkoutDetailView's pattern (custom quiet-terminal header,
+/// mirroring RoutineDetailView's pattern (custom quiet-terminal header,
 /// system navigation bar hidden).
 struct CatalogDetailHeader<Trailing: View>: View {
     @Environment(\.dismiss) private var dismiss
@@ -123,26 +123,26 @@ struct ExerciseDetailScreen: View {
     @Environment(\.modelContext) private var modelContext
     @Bindable var exercise: Exercise
 
-    @Query(sort: [SortDescriptor(\Workout.order), SortDescriptor(\Workout.createdAt, order: .reverse)])
-    private var allWorkouts: [Workout]
+    @Query(sort: [SortDescriptor(\Routine.order), SortDescriptor(\Routine.createdAt, order: .reverse)])
+    private var allRoutines: [Routine]
 
     @State private var path: PushTarget?
     @State private var showingEditor = false
-    @State private var showingNewWorkout = false
-    @State private var newWorkoutName = ""
+    @State private var showingNewRoutine = false
+    @State private var newRoutineName = ""
     @State private var showingDeleteConfirm = false
-    /// A workout created from here pushes immediately — the fluid-nav
+    /// A routine created from here pushes immediately — the fluid-nav
     /// promise: create it with this exercise already inside, land in it.
-    @State private var createdWorkout: Workout?
+    @State private var createdRoutine: Routine?
 
     private enum PushTarget: Hashable {
         case equipment(Equipment)
-        case workout(Workout)
+        case routine(Routine)
     }
 
-    private var usedInWorkouts: [Workout] {
-        allWorkouts.filter { workout in
-            workout.sortedGroups.flatMap(\.sortedExercises).contains { $0.exercise === exercise }
+    private var usedInRoutines: [Routine] {
+        allRoutines.filter { routine in
+            routine.sortedGroups.flatMap(\.sortedExercises).contains { $0.exercise === exercise }
         }
     }
 
@@ -215,29 +215,29 @@ struct ExerciseDetailScreen: View {
                         }
                     }
 
-                    SheetSectionLabel("WORKOUTS (\(usedInWorkouts.count))")
+                    SheetSectionLabel("ROUTINES (\(usedInRoutines.count))")
                         .padding(.top, 18)
-                    if usedInWorkouts.isEmpty {
-                        Text("Not in any workout yet.")
+                    if usedInRoutines.isEmpty {
+                        Text("Not in any routine yet.")
                             .font(.system(.caption))
                             .foregroundStyle(Theme.textFaint)
                             .padding(.bottom, 7)
                     } else {
                         crossRefBlock {
-                            ForEach(Array(usedInWorkouts.enumerated()), id: \.element.persistentModelID) { index, workout in
-                                CrossRefRow(title: workout.name, meta: workout.schedule.shortLabel) {
-                                    path = .workout(workout)
+                            ForEach(Array(usedInRoutines.enumerated()), id: \.element.persistentModelID) { index, routine in
+                                CrossRefRow(title: routine.name, meta: routine.schedule.shortLabel) {
+                                    path = .routine(routine)
                                 }
-                                if index < usedInWorkouts.count - 1 {
+                                if index < usedInRoutines.count - 1 {
                                     Divider().overlay(Theme.border)
                                 }
                             }
                         }
                         .padding(.bottom, 7)
                     }
-                    CreateRow(label: "New workout with \(exercise.name)", identifier: "newWorkoutWithExercise") {
-                        newWorkoutName = ""
-                        showingNewWorkout = true
+                    CreateRow(label: "New routine with \(exercise.name)", identifier: "newRoutineWithExercise") {
+                        newRoutineName = ""
+                        showingNewRoutine = true
                     }
 
                     libraryActions
@@ -252,19 +252,19 @@ struct ExerciseDetailScreen: View {
         .navigationDestination(item: $path) { target in
             switch target {
             case .equipment(let equipment): EquipmentDetailScreen(equipment: equipment)
-            case .workout(let workout): WorkoutDetailView(workout: workout)
+            case .routine(let routine): RoutineDetailView(routine: routine)
             }
         }
-        .navigationDestination(item: $createdWorkout) { workout in
-            WorkoutDetailView(workout: workout)
+        .navigationDestination(item: $createdRoutine) { routine in
+            RoutineDetailView(routine: routine)
         }
         .sheet(isPresented: $showingEditor) {
             ExerciseEditorView(editing: exercise)
         }
-        .alert("New workout", isPresented: $showingNewWorkout) {
-            TextField("Name", text: $newWorkoutName)
-            Button("Cancel", role: .cancel) { newWorkoutName = "" }
-            Button("Create") { createWorkout() }
+        .alert("New routine", isPresented: $showingNewRoutine) {
+            TextField("Name", text: $newRoutineName)
+            Button("Cancel", role: .cancel) { newRoutineName = "" }
+            Button("Create") { createRoutine() }
         } message: {
             Text("Starts with \(exercise.name) already in it.")
         }
@@ -272,8 +272,8 @@ struct ExerciseDetailScreen: View {
             Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive) { deleteCustom() }
         } message: {
-            if !usedInWorkouts.isEmpty {
-                Text("It appears in \(usedInWorkouts.count) workout\(usedInWorkouts.count == 1 ? "" : "s") — it will be removed from them. Logged history keeps its name.")
+            if !usedInRoutines.isEmpty {
+                Text("It appears in \(usedInRoutines.count) routine\(usedInRoutines.count == 1 ? "" : "s") — it will be removed from them. Logged history keeps its name.")
             } else {
                 Text("Logged history keeps its name.")
             }
@@ -300,17 +300,17 @@ struct ExerciseDetailScreen: View {
         }
     }
 
-    private func createWorkout() {
-        let name = newWorkoutName.trimmingCharacters(in: .whitespacesAndNewlines)
-        newWorkoutName = ""
+    private func createRoutine() {
+        let name = newRoutineName.trimmingCharacters(in: .whitespacesAndNewlines)
+        newRoutineName = ""
         guard !name.isEmpty else { return }
-        let workout = Workout(name: name, order: 0)
-        modelContext.insert(workout)
-        for existing in allWorkouts where existing !== workout {
+        let routine = Routine(name: name, order: 0)
+        modelContext.insert(routine)
+        for existing in allRoutines where existing !== routine {
             existing.order += 1
         }
-        _ = workout.addExerciseInNewGroup(exercise, context: modelContext)
-        createdWorkout = workout
+        _ = routine.addExerciseInNewGroup(exercise, context: modelContext)
+        createdRoutine = routine
     }
 
     private func deleteCustom() {
@@ -328,8 +328,8 @@ struct EquipmentDetailScreen: View {
 
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
     @Query(sort: \Exercise.name) private var allExercises: [Exercise]
-    @Query(sort: [SortDescriptor(\Workout.order), SortDescriptor(\Workout.createdAt, order: .reverse)])
-    private var allWorkouts: [Workout]
+    @Query(sort: [SortDescriptor(\Routine.order), SortDescriptor(\Routine.createdAt, order: .reverse)])
+    private var allRoutines: [Routine]
 
     @State private var path: PushTarget?
     @State private var showingAddExercise = false
@@ -338,7 +338,7 @@ struct EquipmentDetailScreen: View {
 
     private enum PushTarget: Hashable {
         case exercise(Exercise)
-        case workout(Workout)
+        case routine(Routine)
     }
 
     private var weightUnit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .lb }
@@ -357,8 +357,8 @@ struct EquipmentDetailScreen: View {
         }
     }
 
-    private var usedInWorkouts: [Workout] {
-        allWorkouts.filter { $0.equipmentNames.contains(equipment.name) }
+    private var usedInRoutines: [Routine] {
+        allRoutines.filter { $0.equipmentNames.contains(equipment.name) }
     }
 
     var body: some View {
@@ -424,19 +424,19 @@ struct EquipmentDetailScreen: View {
                         showingAddExercise = true
                     }
 
-                    SheetSectionLabel("WORKOUTS (\(usedInWorkouts.count))")
+                    SheetSectionLabel("ROUTINES (\(usedInRoutines.count))")
                         .padding(.top, 18)
-                    if usedInWorkouts.isEmpty {
-                        Text("Not used in any workout yet.")
+                    if usedInRoutines.isEmpty {
+                        Text("Not used in any routine yet.")
                             .font(.system(.caption))
                             .foregroundStyle(Theme.textFaint)
                     } else {
                         crossRefBlock {
-                            ForEach(Array(usedInWorkouts.enumerated()), id: \.element.persistentModelID) { index, workout in
-                                CrossRefRow(title: workout.name, meta: workout.schedule.shortLabel) {
-                                    path = .workout(workout)
+                            ForEach(Array(usedInRoutines.enumerated()), id: \.element.persistentModelID) { index, routine in
+                                CrossRefRow(title: routine.name, meta: routine.schedule.shortLabel) {
+                                    path = .routine(routine)
                                 }
-                                if index < usedInWorkouts.count - 1 {
+                                if index < usedInRoutines.count - 1 {
                                     Divider().overlay(Theme.border)
                                 }
                             }
@@ -461,7 +461,7 @@ struct EquipmentDetailScreen: View {
         .navigationDestination(item: $path) { target in
             switch target {
             case .exercise(let exercise): ExerciseDetailScreen(exercise: exercise)
-            case .workout(let workout): WorkoutDetailView(workout: workout)
+            case .routine(let routine): RoutineDetailView(routine: routine)
             }
         }
         .sheet(isPresented: $showingAddExercise) {
