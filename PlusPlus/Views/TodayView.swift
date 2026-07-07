@@ -124,6 +124,13 @@ struct TodayView: View {
             .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
                 dayToken += 1
             }
+            .onReceive(NotificationCenter.default.publisher(for: .plusplusStartRoutine)) { note in
+                guard activeSession == nil,
+                      let name = note.object as? String,
+                      let routine = routines.first(where: { $0.name.lowercased() == name.lowercased() })
+                else { return }
+                start(routine)
+            }
         }
     }
 

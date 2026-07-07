@@ -42,6 +42,7 @@ struct PlusPlusApp: App {
         }
         RestNotifier.shared.activate()
         WatchBridge.shared.activate(container: modelContainer)
+        WidgetSnapshotWriter.write(container: modelContainer)
     }
 
     /// 16 rows guarantees the rail overflows the viewport at every
@@ -72,6 +73,7 @@ struct PlusPlusApp: App {
         .onChange(of: scenePhase) { _, phase in
             if phase == .background {
                 WatchBridge.shared.pushPlan()
+                WidgetSnapshotWriter.write(container: modelContainer)
             }
         }
     }

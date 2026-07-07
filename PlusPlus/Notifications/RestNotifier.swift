@@ -73,6 +73,12 @@ final class RestNotifier: NSObject, UNUserNotificationCenterDelegate {
             identifier: RestNotification.identifier, content: content, trigger: trigger
         )
         UNUserNotificationCenter.current().add(request)
+
+        // The Dynamic Island countdown lives and dies with the
+        // notification schedule — one source of truth for "resting".
+        RestActivityController.shared.restStarted(
+            endDate: endDate, exerciseName: exerciseName, setNumber: setNumber
+        )
     }
 
     /// Skip, +15 s (before rescheduling), finish, discard, and natural
@@ -81,6 +87,7 @@ final class RestNotifier: NSObject, UNUserNotificationCenterDelegate {
         guard !disabled else { return }
         UNUserNotificationCenter.current()
             .removePendingNotificationRequests(withIdentifiers: [RestNotification.identifier, TimerNotification.identifier])
+        RestActivityController.shared.restEnded()
     }
 
     /// Arms the duration auto-timer's expiry notification; pause/reset/
