@@ -23,6 +23,7 @@ struct WorkoutListView: View {
     @State private var newWorkoutName = ""
     @State private var showingSettings = false
     @State private var catalogSheet: AddFromCatalogSheet.Kind?
+    @State private var openSwipeRow: PersistentIdentifier?
     @State private var newCustomPrefill: CustomExercisePrefill?
 
     var body: some View {
@@ -31,21 +32,21 @@ struct WorkoutListView: View {
                 header
 
                 List {
-                    ForEach(workouts) { workout in
+                ForEach(workouts) { workout in
+                    SwipeRevealRow(id: workout.persistentModelID, openRow: $openSwipeRow, actionsWidth: 58) {
                         WorkoutCard(workout: workout) {
-                            path.append(workout)
+                            if openSwipeRow != nil { openSwipeRow = nil } else { path.append(workout) }
                         }
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
-                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            Button(role: .destructive) {
-                                deleteWorkout(workout)
-                            } label: {
-                                Label("Delete", systemImage: "xmark")
-                            }
+                    } actions: {
+                        SwipeActionButton(label: "DELETE", color: Theme.destructive) {
+                            openSwipeRow = nil
+                            deleteWorkout(workout)
                         }
                     }
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                }
                     .onMove(perform: moveWorkouts)
                 }
                 .listStyle(.plain)

@@ -283,15 +283,15 @@ struct WorkoutDetailView: View {
             .simultaneousGesture(dragGesture(groupIndex: g, index: i, rowHeight: height))
         } actions: {
             HStack(spacing: 0) {
-                swipeAction("Super", color: Theme.supersetLine) {
+                SwipeActionButton(label: "SUPER", color: Theme.supersetLine) {
                     openSwipeRow = nil
                     pickerDestination = .group(group)
                 }
-                swipeAction("Dupe", color: Theme.borderStrong) {
+                SwipeActionButton(label: "DUPE", color: Theme.textSecondary) {
                     openSwipeRow = nil
                     duplicateExercise(workoutExercise, in: group)
                 }
-                swipeAction("Delete", color: Theme.destructive) {
+                SwipeActionButton(label: "DELETE", color: Theme.destructive) {
                     openSwipeRow = nil
                     deleteExercise(workoutExercise, in: group)
                 }
@@ -300,18 +300,6 @@ struct WorkoutDetailView: View {
         .frame(height: height)
         .frame(maxWidth: .infinity, alignment: .leading)
         .opacity(isDragged ? 0 : 1)
-    }
-
-    private func swipeAction(_ label: String, color: Color, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(label)
-                .font(.system(.caption, design: .monospaced, weight: .semibold))
-                .foregroundStyle(color)
-                .frame(width: 58)
-                .frame(maxHeight: .infinity)
-                .background(Theme.surface)
-                .overlay(Rectangle().frame(width: 1).foregroundStyle(Theme.border), alignment: .leading)
-        }
     }
 
     private func railRole(index: Int, of group: ExerciseGroup) -> RailRole {
@@ -611,63 +599,6 @@ enum PickerDestination: Identifiable {
         case .newGroup: AnyHashable("newGroup")
         case .group(let group): AnyHashable(group.persistentModelID)
         }
-    }
-}
-
-// MARK: - Swipe reveal
-
-/// Minimal trailing-actions swipe, since List's swipeActions left with
-/// List (#78). Horizontal-dominant drags reveal the actions; vertical
-/// movement is left to the ScrollView. One row open at a time via the
-/// shared `openRow` binding.
-private struct SwipeRevealRow<Content: View, Actions: View>: View {
-    let id: PersistentIdentifier
-    @Binding var openRow: PersistentIdentifier?
-    let enabled: Bool
-    let actionsWidth: CGFloat
-    @ViewBuilder let content: () -> Content
-    @ViewBuilder let actions: () -> Actions
-
-    @State private var dragX: CGFloat = 0
-
-    private var restingOffset: CGFloat {
-        openRow == id ? -actionsWidth : 0
-    }
-
-    private var offset: CGFloat {
-        min(0, max(restingOffset + dragX, -actionsWidth - 24))
-    }
-
-    var body: some View {
-        ZStack(alignment: .trailing) {
-            actions()
-                .frame(width: actionsWidth)
-                .frame(maxHeight: .infinity)
-                .opacity(offset < -12 ? 1 : 0)
-            content()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Theme.background)
-                .offset(x: offset)
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 16)
-                        .onChanged { value in
-                            guard enabled,
-                                  abs(value.translation.width) > abs(value.translation.height)
-                            else { return }
-                            dragX = value.translation.width
-                        }
-                        .onEnded { value in
-                            guard enabled else { return }
-                            if dragX != 0 {
-                                let projected = restingOffset + value.predictedEndTranslation.width
-                                openRow = projected < -actionsWidth / 2 ? id : (openRow == id ? nil : openRow)
-                            }
-                            dragX = 0
-                        }
-                )
-        }
-        .clipped()
-        .animation(.easeOut(duration: 0.18), value: offset)
     }
 }
 
