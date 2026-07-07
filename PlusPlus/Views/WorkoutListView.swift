@@ -98,7 +98,7 @@ struct WorkoutListView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("++")
-                    .font(.system(size: 15, weight: .bold, design: .monospaced))
+                    .font(.system(.subheadline, design: .monospaced, weight: .bold))
                     .foregroundStyle(Theme.accent)
                 Spacer()
                 HStack(spacing: 8) {
@@ -114,11 +114,11 @@ struct WorkoutListView: View {
                 }
             }
             Text("Workouts")
-                .font(.system(size: 30, weight: .bold))
+                .font(.system(.title, weight: .bold))
                 .padding(.top, 10)
             // Sync caption goes live with #23; until then it points at the plan.
             Text("sync off — connect GitHub in settings")
-                .font(.system(size: 11, design: .monospaced))
+                .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
                 .padding(.top, 3)
         }
@@ -137,7 +137,7 @@ struct WorkoutListView: View {
             }
         } label: {
             Text("+")
-                .font(.system(size: 24, weight: .semibold, design: .monospaced))
+                .font(.system(.title3, design: .monospaced, weight: .semibold))
                 .foregroundStyle(.white)
                 .offset(y: -1)
                 .frame(width: 56, height: 56)
@@ -194,7 +194,7 @@ struct HeaderIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemImage)
-                .font(.system(size: 15, weight: .medium))
+                .font(.system(.subheadline, weight: .medium))
                 .foregroundStyle(Theme.textSecondary)
                 .frame(width: 38, height: 38)
                 .background(Theme.surface, in: Circle())
@@ -222,14 +222,14 @@ private struct WorkoutCard: View {
         Button(action: onOpen) {
             HStack(spacing: 8) {
                 Text(workout.name)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(.body, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
                 Spacer(minLength: 8)
                 HStack(spacing: 5) {
                     ForEach(pills, id: \.self) { pill in
                         Text(pill)
-                            .font(.system(size: 10, design: .monospaced))
+                            .font(.system(.caption2, design: .monospaced))
                             .foregroundStyle(Theme.textSecondary)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 2.5)
@@ -239,7 +239,7 @@ private struct WorkoutCard: View {
                 }
                 .layoutPriority(-1)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.system(.footnote, weight: .bold))
                     .foregroundStyle(Theme.textFaint)
             }
             .padding(.vertical, 16)

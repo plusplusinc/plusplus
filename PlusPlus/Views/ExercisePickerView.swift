@@ -212,7 +212,7 @@ private struct FilterDropdownButton: View {
 
     private var summaryPills: some View {
         Text(selections.isEmpty ? "all" : selections.joined(separator: ", "))
-            .font(.system(size: 10, design: .monospaced))
+            .font(.system(.caption2, design: .monospaced))
             .foregroundStyle(selections.isEmpty ? Theme.textFaint : Theme.accent)
             .lineLimit(1)
     }
@@ -318,7 +318,7 @@ private struct SelectableChip: View {
     var body: some View {
         Button(action: action) {
             Text(label)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(.footnote, weight: .semibold))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
                 .background(isSelected ? Theme.accentButton : Color.clear)

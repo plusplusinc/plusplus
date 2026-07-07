@@ -19,8 +19,8 @@ struct HistoryView: View {
                     dismiss()
                 } label: {
                     HStack(spacing: 4) {
-                        Image(systemName: "chevron.left").font(.system(size: 12, weight: .bold))
-                        Text("Workouts").font(.system(size: 12.5, weight: .semibold))
+                        Image(systemName: "chevron.left").font(.system(.footnote, weight: .bold))
+                        Text("Workouts").font(.system(.footnote, weight: .semibold))
                     }
                     .foregroundStyle(Theme.textSecondary)
                     .padding(.vertical, 6)
@@ -28,10 +28,10 @@ struct HistoryView: View {
                 .accessibilityIdentifier("backButton")
 
                 Text("History")
-                    .font(.system(size: 26, weight: .bold))
+                    .font(.system(.title, weight: .bold))
                     .padding(.top, 2)
                 Text("history/\(yearText) · append-only")
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(.system(.caption2, design: .monospaced))
                     .foregroundStyle(Theme.textFaint)
                     .padding(.top, 3)
             }
@@ -59,7 +59,7 @@ struct HistoryView: View {
         .overlay {
             if sessions.isEmpty {
                 Text("Finished workouts show up here.")
-                    .font(.system(size: 13))
+                    .font(.system(.footnote))
                     .foregroundStyle(Theme.textSecondary)
             }
         }
@@ -76,9 +76,9 @@ private struct SessionRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(session.workoutName)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(.subheadline, weight: .semibold))
             Text(subtitle)
-                .font(.system(size: 10.5, design: .monospaced))
+                .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textSecondary)
         }
         .padding(.vertical, 13)
@@ -138,18 +138,18 @@ struct SessionDetailView: View {
                     dismiss()
                 } label: {
                     HStack(spacing: 4) {
-                        Image(systemName: "chevron.left").font(.system(size: 12, weight: .bold))
-                        Text("History").font(.system(size: 12.5, weight: .semibold))
+                        Image(systemName: "chevron.left").font(.system(.footnote, weight: .bold))
+                        Text("History").font(.system(.footnote, weight: .semibold))
                     }
                     .foregroundStyle(Theme.textSecondary)
                     .padding(.vertical, 6)
                 }
 
                 Text(session.workoutName)
-                    .font(.system(size: 24, weight: .bold))
+                    .font(.system(.title3, weight: .bold))
                     .padding(.top, 2)
                 Text(subtitle)
-                    .font(.system(size: 10.5, design: .monospaced))
+                    .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(Theme.textSecondary)
                     .padding(.top, 4)
             }
@@ -161,15 +161,15 @@ struct SessionDetailView: View {
                     ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
                         VStack(alignment: .leading, spacing: 5) {
                             Text(block.name)
-                                .font(.system(size: 13.5, weight: .semibold))
+                                .font(.system(.footnote, weight: .semibold))
                             ForEach(Array(block.sets.enumerated()), id: \.offset) { _, log in
                                 HStack {
                                     Text("Set \(log.setNumber)")
-                                        .font(.system(size: 11.5))
+                                        .font(.system(.caption))
                                         .foregroundStyle(Theme.textSecondary)
                                     Spacer()
                                     Text(log.resultSummary(weightUnit: weightUnit))
-                                        .font(.system(size: 11.5, design: .monospaced))
+                                        .font(.system(.caption, design: .monospaced))
                                 }
                             }
                         }

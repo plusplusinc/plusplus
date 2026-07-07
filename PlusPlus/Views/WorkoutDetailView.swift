@@ -18,6 +18,11 @@ struct WorkoutDetailView: View {
     @State private var selectedExercise: WorkoutExercise?
     @State private var railGesture: RailGestureState = .idle
     @State private var openSwipeRow: PersistentIdentifier?
+    /// Rows track Dynamic Type: 52 pt at standard body size, growing with
+    /// the user's setting so 17 pt+ text never clips (#82).
+    @ScaledMetric(relativeTo: .body) private var railRowHeight: Double = 52
+
+    private var railMetrics: RailMetrics { RailMetrics(rowHeight: railRowHeight) }
 
     /// The two #78 long-press interactions. Rows are identified by
     /// (group, index) — the model never mutates while a gesture is live,
@@ -68,9 +73,9 @@ struct WorkoutDetailView: View {
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.system(.footnote, weight: .bold))
                     Text("Workouts")
-                        .font(.system(size: 12.5, weight: .semibold))
+                        .font(.system(.footnote, weight: .semibold))
                 }
                 .foregroundStyle(Theme.textSecondary)
                 .padding(.vertical, 6)
@@ -79,7 +84,7 @@ struct WorkoutDetailView: View {
 
             HStack(alignment: .center) {
                 Text(workout.name)
-                    .font(.system(size: 26, weight: .bold))
+                    .font(.system(.title, weight: .bold))
                     .lineLimit(1)
                 Spacer()
                 HeaderIconButton(systemImage: "slider.horizontal.3", identifier: "workoutSettingsButton") {
@@ -90,14 +95,14 @@ struct WorkoutDetailView: View {
 
             if !workout.groups.isEmpty {
                 HStack(spacing: 14) {
-                    (Text(estimatedTimeText).font(.system(size: 12.5, design: .monospaced)).bold().foregroundStyle(Theme.textPrimary)
-                        + Text(" est").font(.system(size: 12.5)).foregroundStyle(Theme.textSecondary))
+                    (Text(estimatedTimeText).font(.system(.footnote, design: .monospaced)).bold().foregroundStyle(Theme.textPrimary)
+                        + Text(" est").font(.system(.footnote)).foregroundStyle(Theme.textSecondary))
                     Button {
                         showingWorkoutSettings = true
                     } label: {
-                        (Text("rest ").font(.system(size: 12.5)).foregroundStyle(Theme.textSecondary)
-                            + Text(restText).font(.system(size: 12.5, design: .monospaced)).bold().foregroundStyle(Theme.textPrimary)
-                            + Text(" ▾").font(.system(size: 10)).foregroundStyle(Theme.textSecondary))
+                        (Text("rest ").font(.system(.footnote)).foregroundStyle(Theme.textSecondary)
+                            + Text(restText).font(.system(.footnote, design: .monospaced)).bold().foregroundStyle(Theme.textPrimary)
+                            + Text(" ▾").font(.system(.caption2)).foregroundStyle(Theme.textSecondary))
                     }
                 }
                 .padding(.top, 6)
@@ -106,7 +111,7 @@ struct WorkoutDetailView: View {
                     showingWorkoutSettings = true
                 } label: {
                     Text(workout.notes ?? "add notes…")
-                        .font(.system(size: 12.5))
+                        .font(.system(.footnote))
                         .foregroundStyle(workout.notes == nil ? Theme.textFaint : Theme.textSecondary)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
@@ -135,7 +140,7 @@ struct WorkoutDetailView: View {
                 .font(.system(size: 32))
                 .foregroundStyle(Theme.borderStrong)
             Text("No exercises yet")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(.subheadline, weight: .semibold))
                 .foregroundStyle(Theme.textSecondary)
         }
         .frame(maxWidth: .infinity)
@@ -156,7 +161,7 @@ struct WorkoutDetailView: View {
 
     private var railList: some View {
         let sizes = groupSizes
-        let layout = RailLayout.build(groupSizes: sizes)
+        let layout = RailLayout.build(groupSizes: sizes, metrics: railMetrics)
         let offsets = rowOffsets(layout: layout, sizes: sizes)
         let groups = workout.sortedGroups
         let ringGroup = activeRingGroup
@@ -204,30 +209,31 @@ struct WorkoutDetailView: View {
             pickerDestination = .newGroup
         } label: {
             HStack(spacing: 13) {
-                Canvas { context, _ in
+                Canvas { context, size in
+                    let mid = size.height / 2
                     var spine = Path()
                     spine.move(to: CGPoint(x: 11, y: 0))
-                    spine.addLine(to: CGPoint(x: 11, y: 13))
+                    spine.addLine(to: CGPoint(x: 11, y: mid - 11))
                     context.stroke(spine, with: .color(Theme.border), style: StrokeStyle(lineWidth: 2))
-                    let dotRect = CGRect(x: 11 - 8, y: 24 - 8, width: 16, height: 16)
+                    let dotRect = CGRect(x: 11 - 8, y: mid - 8, width: 16, height: 16)
                     context.stroke(
                         Path(ellipseIn: dotRect),
                         with: .color(Theme.borderStrong),
                         style: StrokeStyle(lineWidth: 2, dash: [2.5, 3])
                     )
                     context.draw(
-                        Text("+").font(.system(size: 12, weight: .semibold, design: .monospaced)).foregroundStyle(Theme.accent),
-                        at: CGPoint(x: 11, y: 23.5)
+                        Text("+").font(.system(.footnote, design: .monospaced, weight: .semibold)).foregroundStyle(Theme.accent),
+                        at: CGPoint(x: 11, y: mid - 0.5)
                     )
                 }
-                .frame(width: 24, height: 48)
+                .frame(width: 24, height: railRowHeight)
 
                 Text("Add exercise")
-                    .font(.system(size: 14.5, weight: .semibold))
+                    .font(.system(.subheadline, weight: .semibold))
                     .foregroundStyle(Theme.textSecondary)
                 Spacer(minLength: 0)
             }
-            .frame(height: 48)
+            .frame(height: railRowHeight)
             .contentShape(Rectangle())
         }
         .accessibilityIdentifier("addExerciseButton")
@@ -238,7 +244,7 @@ struct WorkoutDetailView: View {
     /// One row: swipe-revealable content with the two long-press zones —
     /// the rail column grabs the ring, the body drags the row.
     private func railRow(_ workoutExercise: WorkoutExercise, group: ExerciseGroup, groupIndex g: Int, index i: Int, hideLoop: Bool) -> some View {
-        let height = RailMetrics.v2.rowHeight
+        let height = railRowHeight
         let isDragged: Bool = {
             if case .dragging(let dg, let di, _, _) = railGesture { return dg == g && di == i }
             return false
@@ -253,6 +259,7 @@ struct WorkoutDetailView: View {
             ExerciseRailRow(
                 workoutExercise: workoutExercise,
                 role: railRole(index: i, of: group),
+                rowHeight: railRowHeight,
                 hideLoop: hideLoop
             )
             .contentShape(Rectangle())
@@ -292,7 +299,7 @@ struct WorkoutDetailView: View {
     private func swipeAction(_ label: String, color: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
-                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .font(.system(.caption, design: .monospaced, weight: .semibold))
                 .foregroundStyle(color)
                 .frame(width: 58)
                 .frame(maxHeight: .infinity)
@@ -315,7 +322,7 @@ struct WorkoutDetailView: View {
             .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .named(Self.railSpace)))
             .onChanged { value in
                 guard case .second(true, let drag) = value else { return }
-                let layout = RailLayout.build(groupSizes: groupSizes)
+                let layout = RailLayout.build(groupSizes: groupSizes, metrics: railMetrics)
                 let rowY = layout.row(for: .exercise(group: g, index: i))?.y ?? 0
                 if let drag {
                     let grabOffset: Double
@@ -344,7 +351,7 @@ struct WorkoutDetailView: View {
             .onChanged { value in
                 guard case .second(true, let drag) = value else { return }
                 let sizes = groupSizes
-                let layout = RailLayout.build(groupSizes: sizes)
+                let layout = RailLayout.build(groupSizes: sizes, metrics: railMetrics)
                 let rowMid = layout.row(for: .exercise(group: g, index: i))?.midY ?? 0
                 let y = drag.map { Double($0.location.y) } ?? rowMid
 
@@ -376,8 +383,8 @@ struct WorkoutDetailView: View {
     /// visual center.
     private func tentativeTarget(sizes: [Int]) -> RailDropTarget? {
         guard case .dragging(let g, let i, let fingerY, let grabOffset) = railGesture else { return nil }
-        let centerY = fingerY - grabOffset + RailMetrics.v2.rowHeight / 2
-        return RailDrag.nearestTarget(groupSizes: sizes, dragging: (group: g, index: i), fingerY: centerY)
+        let centerY = fingerY - grabOffset + railRowHeight / 2
+        return RailDrag.nearestTarget(groupSizes: sizes, dragging: (group: g, index: i), fingerY: centerY, metrics: railMetrics)
     }
 
     /// Per-row deltas from the natural layout. Empty when idle; during a
@@ -387,7 +394,7 @@ struct WorkoutDetailView: View {
     private func rowOffsets(layout: RailLayout, sizes: [Int]) -> [RailRowKind: Double] {
         guard case .dragging(let g, let i, _, _) = railGesture,
               let target = tentativeTarget(sizes: sizes) else { return [:] }
-        let preview = RailDrag.previewPositions(groupSizes: sizes, dragging: (group: g, index: i), target: target)
+        let preview = RailDrag.previewPositions(groupSizes: sizes, dragging: (group: g, index: i), target: target, metrics: railMetrics)
         var offsets: [RailRowKind: Double] = [:]
         for row in layout.rows {
             if let previewY = preview[row.kind] {
@@ -408,7 +415,7 @@ struct WorkoutDetailView: View {
             return tentativeTarget(sizes: sizes)?.hashValue ?? 0
         case .ring(let g, let edge, _, let fingerY):
             guard let edge else { return 1 }
-            let span = RailRing.span(groupSizes: sizes, group: g, edge: edge, fingerY: fingerY)
+            let span = RailRing.span(groupSizes: sizes, group: g, edge: edge, fingerY: fingerY, metrics: railMetrics)
             return span.firstFlat &* 31 &+ span.lastFlat
         }
     }
@@ -418,7 +425,7 @@ struct WorkoutDetailView: View {
         if case .ring(let g, let edge, _, let fingerY) = railGesture, sizes.indices.contains(g) {
             // Before a direction is chosen (solo press, finger still) the
             // highlight spans the pressed group; after, the live span.
-            let span: RingSpan? = edge.map { RailRing.span(groupSizes: sizes, group: g, edge: $0, fingerY: fingerY) }
+            let span: RingSpan? = edge.map { RailRing.span(groupSizes: sizes, group: g, edge: $0, fingerY: fingerY, metrics: railMetrics) }
             let firstFlat = span?.firstFlat ?? RailLayout.flatIndex(groupSizes: sizes, group: g, index: 0)
             let lastFlat = span?.lastFlat ?? (firstFlat + sizes[g] - 1)
             if let first = exerciseRow(layout: layout, sizes: sizes, flat: firstFlat),
@@ -459,7 +466,7 @@ struct WorkoutDetailView: View {
             let workoutExercise = groups[g].sortedExercises[i]
             ExerciseRailRow(workoutExercise: workoutExercise, role: .solo)
                 .padding(.horizontal, 8)
-                .frame(height: RailMetrics.v2.rowHeight)
+                .frame(height: railRowHeight)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Theme.surface, in: RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.borderStrong))
@@ -476,8 +483,8 @@ struct WorkoutDetailView: View {
     private func commitDrag(group g: Int, index i: Int, fingerY: Double, grabOffset: Double) {
         let sizes = groupSizes
         guard sizes.indices.contains(g), i < sizes[g] else { return }
-        let centerY = fingerY - grabOffset + RailMetrics.v2.rowHeight / 2
-        guard let target = RailDrag.nearestTarget(groupSizes: sizes, dragging: (group: g, index: i), fingerY: centerY) else { return }
+        let centerY = fingerY - grabOffset + railRowHeight / 2
+        guard let target = RailDrag.nearestTarget(groupSizes: sizes, dragging: (group: g, index: i), fingerY: centerY, metrics: railMetrics) else { return }
 
         let groups = workout.sortedGroups
         guard groups.indices.contains(g), groups[g].sortedExercises.indices.contains(i) else { return }
@@ -494,7 +501,7 @@ struct WorkoutDetailView: View {
     private func commitRing(group g: Int, edge: RingEdge, fingerY: Double) {
         let sizes = groupSizes
         guard sizes.indices.contains(g) else { return }
-        let span = RailRing.span(groupSizes: sizes, group: g, edge: edge, fingerY: fingerY)
+        let span = RailRing.span(groupSizes: sizes, group: g, edge: edge, fingerY: fingerY, metrics: railMetrics)
         guard !span.isNoOp else { return }
         let group = workout.sortedGroups[g]
 
@@ -527,8 +534,8 @@ struct WorkoutDetailView: View {
                 activeSession = WorkoutSession.start(from: workout, context: modelContext)
             } label: {
                 HStack(spacing: 9) {
-                    Image(systemName: "play.fill").font(.system(size: 13))
-                    Text("Start workout").font(.system(size: 15.5, weight: .bold))
+                    Image(systemName: "play.fill").font(.system(.footnote))
+                    Text("Start workout").font(.system(.body, weight: .bold))
                 }
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
@@ -672,6 +679,7 @@ private struct ExerciseRailRow: View {
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
     let workoutExercise: WorkoutExercise
     let role: RailRole
+    var rowHeight: Double = 52
     /// Ring-edit mode (#87): the small loop and the expanded full-width
     /// ring are mutually exclusive — the active group's rows drop their
     /// loop drawing while the highlight is up.
@@ -703,11 +711,11 @@ private struct ExerciseRailRow: View {
 
     var body: some View {
         HStack(spacing: 13) {
-            RailGlyph(role: hideLoop ? .solo : role, height: 48, dotY: 24)
-                .frame(width: 24, height: 48)
+            RailGlyph(role: hideLoop ? .solo : role, height: rowHeight, dotY: rowHeight / 2)
+                .frame(width: 24, height: rowHeight)
 
             Text(workoutExercise.exercise?.name ?? "Unknown")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(.body, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
                 .lineLimit(1)
 
@@ -715,14 +723,14 @@ private struct ExerciseRailRow: View {
 
             if isDuration {
                 Image(systemName: "clock")
-                    .font(.system(size: 11))
+                    .font(.system(.caption))
                     .foregroundStyle(Theme.textFaint)
             }
             Text(summary)
-                .font(.system(size: 13, design: .monospaced))
+                .font(.system(.footnote, design: .monospaced))
                 .foregroundStyle(Theme.textSecondary)
         }
-        .frame(height: 48)
+        .frame(height: rowHeight)
     }
 }
 
@@ -819,12 +827,12 @@ struct WorkoutSettingsSheet: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Spacer()
-                Text("Workout settings").font(.system(size: 15, weight: .bold))
+                Text("Workout settings").font(.system(.subheadline, weight: .bold))
                 Spacer()
             }
             .overlay(alignment: .trailing) {
                 Button("Done") { dismiss() }
-                    .font(.system(size: 13.5, weight: .bold))
+                    .font(.system(.footnote, weight: .bold))
                     .foregroundStyle(Theme.accent)
             }
             .padding(.top, 14)
@@ -846,7 +854,7 @@ struct WorkoutSettingsSheet: View {
                 .padding(.top, 16)
 
             TextField("Intent for this workout — shown when you start it", text: notesBinding, axis: .vertical)
-                .font(.system(size: 13))
+                .font(.system(.footnote))
                 .lineLimit(1...4)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 11)
@@ -855,7 +863,7 @@ struct WorkoutSettingsSheet: View {
                 .accessibilityIdentifier("workoutNotesField")
 
             Text("Shown once, when you start the workout.")
-                .font(.system(size: 10.5))
+                .font(.system(.caption))
                 .foregroundStyle(Theme.textFaint)
                 .padding(.top, 6)
 
@@ -886,7 +894,7 @@ struct SheetSectionLabel: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
+            .font(.system(.caption2, design: .monospaced, weight: .semibold))
             .foregroundStyle(Theme.textSecondary)
             .kerning(0.7)
             .padding(.bottom, 6)

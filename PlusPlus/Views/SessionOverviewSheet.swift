@@ -44,10 +44,10 @@ struct SessionOverviewSheet: View {
                 .padding(.top, 8)
 
             HStack(alignment: .firstTextBaseline) {
-                Text("Session").font(.system(size: 16, weight: .bold))
+                Text("Session").font(.system(.body, weight: .bold))
                 Spacer()
                 Text("elapsed \(elapsedText)")
-                    .font(.system(size: 11, design: .monospaced))
+                    .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(Theme.textSecondary)
             }
             .padding(.horizontal, 20)
@@ -62,7 +62,7 @@ struct SessionOverviewSheet: View {
                         .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 14))
                 }
                 Text("tap any row for detail · jump from there")
-                    .font(.system(size: 10))
+                    .font(.system(.caption2))
                     .foregroundStyle(Theme.textFaint)
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
@@ -75,7 +75,7 @@ struct SessionOverviewSheet: View {
                 dismiss()
             } label: {
                 Text("↩ Back to now · \(backLabel)")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(.subheadline, weight: .bold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity)
@@ -129,11 +129,11 @@ struct SessionOverviewSheet: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(block.name)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(.subheadline, weight: .semibold))
                         .foregroundStyle(allDone ? Theme.textSecondary : Theme.textPrimary)
                         .lineLimit(1)
                     Text(subText(for: block, isLive: isLive))
-                        .font(.system(size: 11, design: .monospaced))
+                        .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(isLive ? Theme.accent : Theme.textFaint)
                         .lineLimit(1)
                 }
@@ -226,19 +226,19 @@ struct SessionExerciseSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     Text(statusText)
-                        .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
+                        .font(.system(.caption2, design: .monospaced, weight: .semibold))
                         .foregroundStyle(isLive ? Theme.accent : Theme.textSecondary)
                         .kerning(0.7)
                         .padding(.top, 10)
                     Text(block.name)
-                        .font(.system(size: 19, weight: .bold))
+                        .font(.system(.title3, weight: .bold))
                         .padding(.top, 3)
 
                     if !pending.isEmpty {
                         targetEditor
                             .padding(.top, 12)
                         Text("edits apply to the remaining sets")
-                            .font(.system(size: 9.5))
+                            .font(.system(.caption2))
                             .foregroundStyle(Theme.textFaint)
                             .padding(.top, 5)
                     }
@@ -264,7 +264,7 @@ struct SessionExerciseSheet: View {
                         dismiss()
                     } label: {
                         Text("⤳ Skip to this exercise")
-                            .font(.system(size: 14, weight: .bold))
+                            .font(.system(.subheadline, weight: .bold))
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .frame(height: 48)
@@ -275,7 +275,7 @@ struct SessionExerciseSheet: View {
                     dismiss()
                 } label: {
                     Text("Close")
-                        .font(.system(size: 13.5, weight: .bold))
+                        .font(.system(.footnote, weight: .bold))
                         .foregroundStyle(Theme.textPrimary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
@@ -354,11 +354,11 @@ struct SessionExerciseSheet: View {
                 let isCurrent = session.currentLog?.order == log.order
                 HStack(spacing: 10) {
                     Text("Set \(log.setNumber)")
-                        .font(.system(size: 12))
+                        .font(.system(.footnote))
                         .foregroundStyle(Theme.textSecondary)
                         .frame(width: 44, alignment: .leading)
                     Text(setResult(log, isCurrent: isCurrent))
-                        .font(.system(size: 11.5, design: .monospaced))
+                        .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(setColor(log, isCurrent: isCurrent))
                     Spacer()
                     if !session.isFinished && !isCurrent {
@@ -368,7 +368,7 @@ struct SessionExerciseSheet: View {
                             dismiss()
                         } label: {
                             Text(log.isCompleted ? "Redo" : "Do now")
-                                .font(.system(size: 11.5, weight: .bold))
+                                .font(.system(.caption, weight: .bold))
                                 .foregroundStyle(Theme.accent)
                                 .padding(.horizontal, 11)
                                 .padding(.vertical, 5)
