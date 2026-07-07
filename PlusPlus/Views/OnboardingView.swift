@@ -125,9 +125,11 @@ struct OnboardingView: View {
                     .font(.system(.footnote))
                     .foregroundStyle(Theme.textSecondary)
                     .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .contentShape(Rectangle())
             }
-            .padding(.top, 10)
-            .padding(.bottom, 14)
+            .padding(.top, 8)
+            .padding(.bottom, 10)
         }
     }
 
@@ -137,21 +139,26 @@ struct OnboardingView: View {
 
     private func presetCard(_ preset: Preset) -> some View {
         let active = selected == preset.items
+        let count = preset.items.count
+        // Accent-tinted when active: what you own is data (it drives the
+        // catalog filter), same rationale as the schedule day circles —
+        // and surface-vs-surfaceRaised was unreadably subtle (Dave,
+        // build 10).
         return Button {
             selected = preset.items
         } label: {
             VStack(alignment: .leading, spacing: 3) {
                 Text(preset.name)
                     .font(.system(.footnote, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-                Text(preset.items.isEmpty ? "0 items" : "\(preset.items.count) items")
+                    .foregroundStyle(active ? Theme.accent : Theme.textPrimary)
+                Text(count == 0 ? "just you" : "\(count) item\(count == 1 ? "" : "s")")
                     .font(.system(.caption2, design: .monospaced))
-                    .foregroundStyle(Theme.textFaint)
+                    .foregroundStyle(active ? Theme.accent.opacity(0.75) : Theme.textFaint)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(10)
-            .background(active ? Theme.surfaceRaised : Theme.surface, in: RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(active ? Theme.borderStrong : Theme.border))
+            .background(active ? Theme.accent.opacity(0.14) : Theme.surface, in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(active ? Theme.accent.opacity(0.55) : Theme.border))
         }
     }
 
@@ -298,14 +305,17 @@ private struct FlowChips: View {
                 Button {
                     toggle(name)
                 } label: {
+                    // Accent tint, not primaryFill: ownership is data
+                    // (see the schedule day circles), and cream-vs-
+                    // outline read as ambiguous on device.
                     Text(name)
                         .font(.system(.footnote, weight: .semibold))
-                        .foregroundStyle(active ? Theme.onPrimary : Theme.textSecondary)
+                        .foregroundStyle(active ? Theme.accent : Theme.textSecondary)
                         .lineLimit(1)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
-                        .background(active ? Theme.primaryFill : Theme.background, in: Capsule())
-                        .overlay(Capsule().strokeBorder(active ? Color.clear : Theme.border))
+                        .background(active ? Theme.accent.opacity(0.16) : Theme.background, in: Capsule())
+                        .overlay(Capsule().strokeBorder(active ? Theme.accent.opacity(0.55) : Theme.border))
                 }
             }
         }

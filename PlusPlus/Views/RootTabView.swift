@@ -11,8 +11,19 @@ struct RootTabView: View {
         var label: String { rawValue }
     }
 
-    @State private var tab: AppTab = .today
+    @State private var tab: AppTab
+    @State private var showingSplash: Bool
     @AppStorage(OnboardingView.completedKey) private var onboardingComplete = false
+
+    init() {
+        // A fresh install lands on Workouts (where building starts) with
+        // onboarding presenting over it; returning users land on Today.
+        let complete = UserDefaults.standard.bool(forKey: OnboardingView.completedKey)
+        _tab = State(initialValue: complete ? .today : .workouts)
+        // The launch beat: the ++ mark centered, then the app. Skipped
+        // under UI tests (speed + quiescence).
+        _showingSplash = State(initialValue: !CommandLine.arguments.contains("--uitest-reset"))
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -29,12 +40,36 @@ struct RootTabView: View {
             tabBar
         }
         .background(Theme.background)
+        .overlay {
+            if showingSplash {
+                splash
+            }
+        }
+        .task {
+            guard showingSplash else { return }
+            try? await Task.sleep(for: .seconds(0.9))
+            withAnimation(.easeOut(duration: 0.35)) {
+                showingSplash = false
+            }
+        }
+        // Presents once the splash has faded, so first launch reads:
+        // ++ mark → the Workouts view → onboarding rising over it.
         .fullScreenCover(isPresented: Binding(
-            get: { !onboardingComplete },
+            get: { !onboardingComplete && !showingSplash },
             set: { presented in if !presented { onboardingComplete = true } }
         )) {
             OnboardingView()
         }
+    }
+
+    private var splash: some View {
+        ZStack {
+            Theme.background.ignoresSafeArea()
+            Text("++")
+                .font(.system(size: 72, weight: .bold, design: .monospaced))
+                .foregroundStyle(Theme.accent)
+        }
+        .transition(.opacity)
     }
 
     private var tabBar: some View {
