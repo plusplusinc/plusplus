@@ -16,25 +16,17 @@ struct OnboardingView: View {
     @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
     @Query(sort: \Exercise.name) private var allExercises: [Exercise]
 
-    /// Re-run mode (from Settings) skips the welcome and starter beats —
-    /// a returning user just wants the equipment picker.
-    let isRerun: Bool
+    /// Re-run mode (from Settings) skips beat 2 — a returning user
+    /// doesn't want another starter workout.
+    var isRerun = false
 
     private enum Beat {
-        case welcome, equipment, starter
+        case equipment, starter
     }
 
-    @State private var beat: Beat
+    @State private var beat: Beat = .equipment
     @State private var selected: Set<String> = []
     @State private var search = ""
-
-    init(isRerun: Bool = false) {
-        self.isRerun = isRerun
-        // A fresh install gets the brand beat first — being dropped
-        // straight into a form read as sudden (Dave, build 10). Re-runs
-        // from Settings go straight to the equipment picker.
-        _beat = State(initialValue: isRerun ? .equipment : .welcome)
-    }
 
     private var builtIns: [Equipment] {
         allEquipment.filter(\.isBuiltIn)
@@ -47,7 +39,6 @@ struct OnboardingView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             switch beat {
-            case .welcome: welcomeBeat
             case .equipment: equipmentBeat
             case .starter: starterBeat
             }
@@ -58,49 +49,6 @@ struct OnboardingView: View {
             selected = Set(builtIns.filter(\.inLibrary).map(\.name))
         }
         .interactiveDismissDisabled(!isRerun)
-    }
-
-    // MARK: - Beat 0: welcome
-
-    private var welcomeBeat: some View {
-        VStack(spacing: 0) {
-            Spacer()
-            Text("++")
-                .font(.system(size: 64, design: .monospaced, weight: .bold))
-                .foregroundStyle(Theme.accent)
-            Text("PlusPlus")
-                .font(.system(.title2, weight: .bold))
-                .padding(.top, 16)
-            Text("the fitness tracker for people who increment")
-                .font(.system(.footnote, design: .monospaced))
-                .foregroundStyle(Theme.textSecondary)
-                .multilineTextAlignment(.center)
-                .padding(.top, 6)
-            Text("Every workout is a diff against your last. History is append-only. Progress is the point.")
-                .font(.system(.footnote))
-                .foregroundStyle(Theme.textSecondary)
-                .multilineTextAlignment(.center)
-                .padding(.top, 14)
-                .padding(.horizontal, 12)
-            Spacer()
-            Button {
-                beat = .equipment
-            } label: {
-                Text("Get started")
-                    .font(.system(.subheadline, weight: .bold))
-                    .foregroundStyle(Theme.onPrimary)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 46)
-                    .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
-            }
-            .accessibilityIdentifier("onboardingGetStarted")
-            Text("two quick questions — both skippable")
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(Theme.textFaint)
-                .frame(maxWidth: .infinity)
-                .padding(.top, 10)
-                .padding(.bottom, 14)
-        }
     }
 
     // MARK: - Beat 1: equipment access
