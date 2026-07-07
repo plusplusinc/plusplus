@@ -75,16 +75,24 @@ jobs:
             -authenticationKeyPath ~/private_keys/AuthKey_"$ASC_KEY_ID".p8 \
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGNING_REQUIRED=NO \
             DEVELOPMENT_TEAM="$ASC_TEAM_ID" \
             CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
             2>&1 | tee archive.log
-        # The archive is deliberately unsigned: automatic signing at
-        # archive time wants a *development* profile, which requires a
-        # registered device — a fresh team has none, and overriding the
-        # identity to Apple Distribution conflicts with automatic style.
-        # The export step below does the real signing: cloud signing via
-        # the API key mints App Store profiles, which need no devices.
+        # The archive is AD-HOC signed (identity "-", no certificate
+        # needed) rather than unsigned: a fully unsigned archive carries
+        # no .xcent files, so the export step's cloud signing requested
+        # NO capability entitlements — build 18 failed upload validation
+        # because the watch bundle demanded healthkit (90701), and the
+        # App Group entitlement silently never shipped in build 17.
+        # Ad-hoc signing runs the entitlements phase and embeds each
+        # bundle's .xcent; the export re-signs with those requests and
+        # -allowProvisioningUpdates aligns App IDs/profiles to match.
+        # (Historical note: automatic signing at archive time wants a
+        # development profile + registered device, which this team
+        # doesn't have — that's why archive-time REAL signing is out.)
 
       - name: Export and upload to TestFlight
         env:
