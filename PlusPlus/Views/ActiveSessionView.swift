@@ -337,19 +337,18 @@ private struct SetLoggingView: View {
                             .padding(.top, 10)
                     }
 
-                    Text(targetDescription)
-                        .font(.system(.subheadline))
-                        .foregroundStyle(Theme.textSecondary)
-                        .padding(.top, 8)
-
-                    if let lastTime {
-                        (Text("last time ").foregroundStyle(Theme.textSecondary)
-                            + Text(lastTime.resultSummary(weightUnit: weightUnit))
-                            .font(.system(.subheadline, design: .monospaced))
-                            .foregroundStyle(Theme.textPrimary))
-                            .font(.system(.subheadline))
-                            .padding(.top, 3)
+                    HStack(spacing: 12) {
+                        Text(targetDescription)
+                        if let lastTime {
+                            (Text("last ").foregroundStyle(Theme.textSecondary)
+                                + Text(lastTime.resultSummary(weightUnit: weightUnit))
+                                .font(.system(.subheadline, design: .monospaced))
+                                .foregroundStyle(Theme.textPrimary))
+                        }
                     }
+                    .font(.system(.subheadline))
+                    .foregroundStyle(Theme.textSecondary)
+                    .padding(.top, 8)
 
                     if let workoutNotes {
                         Text(workoutNotes)
@@ -370,74 +369,45 @@ private struct SetLoggingView: View {
                 .padding(.horizontal, 20)
             }
 
-            dock
+            if log.exerciseType == .duration {
+                durationDock
+            } else {
+                stage
+                logDock
+            }
         }
     }
 
-    // MARK: - Dock
+    // MARK: - Stage
+    // The set's adjustable values ARE the screen: two big columns —
+    // value up top, its −/+ pair directly beneath — occupying the
+    // middle so the thumb tweaks mid-screen and logs at the bottom,
+    // with enough air between the two that neither is ever an
+    // accident.
 
-    private var dock: some View {
-        VStack(spacing: 10) {
-            if log.exerciseType == .duration {
-                DurationTimerCard(log: log) {
-                    onComplete()
-                }
-            } else {
-                HStack(spacing: 10) {
-                    stepperCard(
-                        label: "WEIGHT",
-                        value: WorkoutMetric.weight.formatted(log.actualWeight ?? log.targetWeight),
-                        unit: weightUnit.symbol,
-                        identifier: "logWeight",
-                        onTap: { wheel = .weight },
-                        onDec: { log.actualWeight = WorkoutMetric.weight.decremented(log.actualWeight ?? log.targetWeight, weightUnit: weightUnit) },
-                        onInc: { log.actualWeight = WorkoutMetric.weight.incremented(log.actualWeight ?? log.targetWeight, weightUnit: weightUnit) }
-                    )
-                    stepperCard(
-                        label: "REPS",
-                        value: (log.actualReps ?? log.targetRepsLower).map(String.init) ?? "—",
-                        unit: nil,
-                        identifier: "logReps",
-                        onTap: { wheel = .reps },
-                        onDec: { log.actualReps = max(1, (log.actualReps ?? log.targetRepsLower ?? 11) - 1) },
-                        onInc: { log.actualReps = (log.actualReps ?? log.targetRepsLower ?? 9) + 1 }
-                    )
-                }
-
-                if session.weightCarriesForward(from: log) {
-                    HStack(spacing: 7) {
-                        Text("→")
-                            .font(.system(.caption, design: .monospaced))
-                        Text("new weight carries to your remaining \(log.exerciseName) sets")
-                            .font(.system(.footnote))
-                    }
-                    .foregroundStyle(Theme.accent)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 4)
-                }
-
-                ZStack {
-                    Button(action: onComplete) {
-                        HStack(spacing: 9) {
-                            Text("+").font(.system(.title3, design: .monospaced, weight: .semibold))
-                            Text("Log set").font(.system(.body, weight: .bold))
-                        }
-                        .foregroundStyle(Theme.onPrimary)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 58)
-                        .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
-                    }
-                    .accessibilityIdentifier("completeSetButton")
-
-                    MitosisBurst(trigger: burstCount)
-                        .offset(y: -44)
-                }
-            }
+    private var stage: some View {
+        HStack(alignment: .top, spacing: 12) {
+            valueColumn(
+                label: "WEIGHT",
+                value: WorkoutMetric.weight.formatted(log.actualWeight ?? log.targetWeight),
+                unit: weightUnit.symbol,
+                identifier: "logWeight",
+                onTap: { wheel = .weight },
+                onDec: { log.actualWeight = WorkoutMetric.weight.decremented(log.actualWeight ?? log.targetWeight, weightUnit: weightUnit) },
+                onInc: { log.actualWeight = WorkoutMetric.weight.incremented(log.actualWeight ?? log.targetWeight, weightUnit: weightUnit) }
+            )
+            valueColumn(
+                label: "REPS",
+                value: (log.actualReps ?? log.targetRepsLower).map(String.init) ?? "—",
+                unit: nil,
+                identifier: "logReps",
+                onTap: { wheel = .reps },
+                onDec: { log.actualReps = max(1, (log.actualReps ?? log.targetRepsLower ?? 11) - 1) },
+                onInc: { log.actualReps = (log.actualReps ?? log.targetRepsLower ?? 9) + 1 }
+            )
         }
         .padding(.horizontal, 16)
-        .padding(.top, 10)
-        .padding(.bottom, 12)
-        .background(.bar)
+        .padding(.top, 6)
         .sheet(item: $wheel) { which in
             switch which {
             case .weight:
@@ -459,7 +429,7 @@ private struct SetLoggingView: View {
         }
     }
 
-    private func stepperCard(
+    private func valueColumn(
         label: String,
         value: String,
         unit: String?,
@@ -469,47 +439,106 @@ private struct SetLoggingView: View {
         onInc: @escaping () -> Void
     ) -> some View {
         VStack(spacing: 0) {
-            VStack(spacing: 1) {
-                Text(label)
-                    .font(.system(.caption, weight: .semibold))
-                    .foregroundStyle(Theme.textSecondary)
-                    .kerning(0.6)
-                Button(action: onTap) {
-                    (Text(value)
-                        .font(.system(size: 32, weight: .bold, design: .monospaced))
-                        .foregroundStyle(Theme.textPrimary)
-                        + Text(unit.map { " \($0)" } ?? "")
-                        .font(.system(.footnote))
-                        .foregroundStyle(Theme.textSecondary))
-                }
+            Text(label)
+                .font(.system(.footnote, weight: .semibold))
+                .foregroundStyle(Theme.textSecondary)
+                .kerning(0.7)
+                .padding(.top, 14)
+            Button(action: onTap) {
+                (Text(value)
+                    .font(.system(size: 44, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Theme.textPrimary)
+                    + Text(unit.map { " \($0)" } ?? "")
+                    .font(.system(.subheadline))
+                    .foregroundStyle(Theme.textSecondary))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
             }
-            .padding(.top, 9)
-            .padding(.bottom, 5)
+            .accessibilityIdentifier("\(identifier)Value")
+            .padding(.top, 2)
+            .padding(.horizontal, 8)
 
-            Divider().overlay(Theme.border)
-
-            HStack(spacing: 0) {
+            HStack(spacing: 8) {
                 Button(action: onDec) {
                     Text("−")
-                        .font(.system(.title3))
-                        .foregroundStyle(Theme.textSecondary)
+                        .font(.system(.title2))
+                        .foregroundStyle(Theme.textPrimary)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 48)
+                        .frame(height: 56)
+                        .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: 12))
+                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
                 }
                 .accessibilityIdentifier("\(identifier)Decrement")
-                Divider().frame(height: 48).overlay(Theme.border)
                 Button(action: onInc) {
                     Text("+")
-                        .font(.system(.title3))
-                        .foregroundStyle(Theme.textSecondary)
+                        .font(.system(.title2))
+                        .foregroundStyle(Theme.textPrimary)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 48)
+                        .frame(height: 56)
+                        .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: 12))
+                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
                 }
                 .accessibilityIdentifier("\(identifier)Increment")
             }
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
+            .padding(.bottom, 14)
         }
+        .frame(maxWidth: .infinity)
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
         .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
+    }
+
+    // MARK: - Log dock
+    // Log set stands alone: a full 28 pt of clear air above it, nothing
+    // adjacent to mis-hit.
+
+    private var logDock: some View {
+        VStack(spacing: 0) {
+            if session.weightCarriesForward(from: log) {
+                HStack(spacing: 7) {
+                    Text("→")
+                        .font(.system(.caption, design: .monospaced))
+                    Text("new weight carries to your remaining \(log.exerciseName) sets")
+                        .font(.system(.footnote))
+                }
+                .foregroundStyle(Theme.accent)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+            }
+
+            ZStack {
+                Button(action: onComplete) {
+                    HStack(spacing: 9) {
+                        Text("+").font(.system(.title3, design: .monospaced, weight: .semibold))
+                        Text("Log set").font(.system(.body, weight: .bold))
+                    }
+                    .foregroundStyle(Theme.onPrimary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 58)
+                    .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+                }
+                .accessibilityIdentifier("completeSetButton")
+
+                MitosisBurst(trigger: burstCount)
+                    .offset(y: -44)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 28)
+            .padding(.bottom, 12)
+        }
+    }
+
+    private var durationDock: some View {
+        VStack(spacing: 10) {
+            DurationTimerCard(log: log) {
+                onComplete()
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 12)
     }
 
     private var targetDescription: String {
