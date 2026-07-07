@@ -58,14 +58,16 @@ The Simulator validation step in every task should use these tools in sequence: 
 
 > Update this section at the end of every session that changes the codebase.
 
-**Last updated:** 2026-07-06
+**Last updated:** 2026-07-07
 **Last known good build:** 2026-02-20 (Xcode 26.2, iPhone 17 Pro / iOS 26.2 Simulator)
 
-⚠️ **Needs Mac validation:** The 2026-07-05/06 sessions ran in a remote Linux environment (no Xcode available). Everything compiles and passes unit tests in CI (see the CI decision below), but none of the UI shipped since 2026-02-20 (detail view inputs, custom exercise editor, supersets, execution flow, history, workout notes, rest-end notification, m:ss durations) has had interactive Simulator validation. Issue #1 holds the full checklist; issue #31 (store migration over real data) should run FIRST in that session, before anything reinstalls over the on-device store.
+⚠️ **Needs Mac validation:** The 2026-07-05→07 sessions ran in a remote Linux environment (no Xcode available). Everything compiles and passes unit tests in CI, and TestFlight now puts real builds on Dave's iPhone (see below) — device feedback has already driven two rounds of fixes. But TestFlight thumb-testing is not the #1 checklist: gesture feel, accessibility settings (Increase Contrast, full dynamic-type range), notification sound while locked, and store migration over real data (#31 — run FIRST in that session) still need a hands-on Mac/Simulator pass.
+
+**TestFlight:** `.github/workflows/testflight.yml` (manual dispatch, any ref) archives unsigned, cloud-signs at export with an Admin-role ASC API key, and uploads to TestFlight; build number = run number. Dave installs from his phone. Latest overnight batch: build 7 (rail fixes — scroll still broken there), build 8 (real scroll fix + Dynamic Type + appearance setting), build 9 (editor restyle, unified search/swipes, components audit, cadence editor).
 
 **Work tracking:** The v1 backlog lives in GitHub issues on `mrdavidjcole/plusplus`, feeding the user's GitHub Project board via its auto-add workflow. Changes land via PRs (self-merged once CI is green) with `Closes #N` linking; issues close on merge except where validation is explicitly pending (#1).
 
-**What works (as of 2026-07-06, design-v2):** the app now wears Dave's v2 "quiet-terminal" design end to end (issues #59–#67). Home: workout cards with equipment pills, Library/History/Settings header buttons, glass FAB menu. Library: curated personal catalog (add from the full catalog, custom exercises/equipment, built-in info sheets). Detail: rail visualization with superset loops, swipe Super/Dupe/Delete, ~time estimate + rest/notes settings sheet, per-exercise planning sheet (steppers, wheels, rep ranges, split/merge/move, recent history). Execution: set-counter pill with elapsed, progress bar, stepper cards, weight carry-forward, superset chips, duration AUTO TIMER (pause/reset, auto-log, backgrounded notification), mitosis log animation, session overview with jump/redo, done screen with the repo history path. History: append-only cards + per-block session records (no delete affordance, per design). Settings sheet: SYNC placeholder (pending #23), lb/kg, export/import.
+**What works (as of 2026-07-07, design-v2 + feedback round 1):** the app wears Dave's v2 "quiet-terminal" design end to end (issues #59–#67), now with the first device-feedback batch landed (#82–#91 minus held items, PRs #98–#105). Home: workout cards with equipment pills, Library/History/Settings header buttons, glass FAB menu. Library: curated personal catalog (add from the full catalog, custom exercises/equipment, built-in info sheets). Detail: rail visualization with superset loops and direct-manipulation drag/ring gestures (#78), swipe SUPER/DUPE/DELETE, ~time estimate + settings sheet (schedule/rest/notes), per-exercise planning sheet (steppers, wheels, rep ranges, split/merge/move, recent history). Execution: set-counter pill with elapsed, progress bar, stepper cards, weight carry-forward, superset chips, duration AUTO TIMER (pause/reset, auto-log, backgrounded notification), mitosis log animation, session overview with jump/redo, done screen with the repo history path. History: append-only cards + per-block session records (no delete affordance, per design). Settings sheet: SYNC placeholder (pending #23), appearance (system/dark/light), lb/kg, export/import. Cross-cutting since the feedback batch: Dynamic Type text styles everywhere (capped at xxLarge), adaptive light/dark palette, one SearchField and one SwipeRevealRow affordance app-wide, v2-language exercise editor with explicit REQUIRES equipment chips, per-workout cadence (days or frequency — editor only; surfacing waits on #96 design).
 
 **Remote validation layer:** 3 XCUITest smoke tests (`PlusPlusUITests`) run on the CI simulator via the `ui-test` job (workflow_dispatch + pushes to main) and upload a `ui-screenshots` artifact — list, detail, editor, set logging, rest, complete, history are all reviewable from a browser. The app supports `--uitest-reset` (in-memory store) for clean test launches. This narrows, but does not replace, the hands-on #1 checklist.
 
@@ -73,7 +75,7 @@ The Simulator validation step in every task should use these tools in sequence: 
 - **PlusPlus** — iOS app (deployment target iOS 26.0)
 - **PlusPlusWatch** — watchOS companion app (deployment target watchOS 26.0)
 - **PlusPlusKit** — pure SwiftPM package shared with the CLI and future MCP (tested on Linux in CI)
-- **PlusPlusTests** — unit test target (72 tests; 70 more live in PlusPlusKit, 23 in PlusPlusCLI)
+- **PlusPlusTests** — unit test target (72 tests; 87 more live in PlusPlusKit, 23 in PlusPlusCLI)
 - **PlusPlusUITests** — UI smoke test target (3 flows, `PlusPlusUI` scheme, CI-only by convention)
 
 **Project structure:**
@@ -84,10 +86,12 @@ docs/AGENTS.md           # Agent quickstart: files, CLI --json, MCP server
 docs/recipes/            # Copy-paste Actions for workout repos (lint, weekly report)
 PlusPlusKit/             # Pure SwiftPM package (Linux-tested in CI)
   Sources/PlusPlusKit/   # MuscleGroup/ExerciseType, WorkoutMetric, RepTarget,
+                         #   WorkoutSchedule (cadence + dueState, #83),
+                         #   RailArrangement (detail-view gesture geometry, #78),
                          #   Interchange DTOs + codec + validator + Slug + documents,
                          #   FileLayout (repo paths) + SyncPlanner (3-way merge)
                          #   + SyncEngine/RepoStore/SyncBaseStore (sync pass, #23)
-  Tests/PlusPlusKitTests/ # Metric/Units/RepTarget/Interchange/Sync/Conformance tests (52)
+  Tests/PlusPlusKitTests/ # Metric/Units/RepTarget/Rail/Schedule/Interchange/Sync/Conformance (87)
 PlusPlusCLI/             # plusplus CLI (SwiftPM exec, Linux-tested in CI)
   Sources/plusplus/      # init/lint/stats/import/export + MCP server (mcp subcommand)
   Tests/PlusPlusCLITests/
@@ -96,7 +100,8 @@ PlusPlus/                # iOS app target
   Notifications/
     RestNotifier.swift   # "Rest over" local notification (backgrounded only)
   Theme/
-    Theme.swift          # v2 quiet-terminal palette + metrics (dark-only, #59)
+    Theme.swift          # v2 quiet-terminal palette + metrics; adaptive light/dark pairs (#59, #97)
+    AppAppearance.swift  # system/dark/light setting enum (#97)
   Interchange/
     InterchangeMapping.swift # SwiftData models ↔ DTOs, import policies
   Models/
@@ -108,6 +113,9 @@ PlusPlus/                # iOS app target
     WorkoutSession.swift # WorkoutSession + SetLog @Models, session factory w/ superset rotation
     SeedData.swift       # Built-in exercises/equipment seeder
   Views/
+    Components/               # Shared v2 controls: SearchField, SwipeRevealRow +
+                              #   SwipeActionButton, SheetComponents (SheetHeader/
+                              #   SectionLabel/ActionButton/MetricStepperRow), SegmentedTabs
     WorkoutListView.swift     # Home screen — workout list with create/reorder/delete, history entry
     WorkoutDetailView.swift   # Workout detail — groups, inputs, superset actions, Start Workout
     MetricInput.swift         # MetricRow + RepTargetRow controls (wheel sheet + stepper)
@@ -133,18 +141,21 @@ PlusPlusTests/
   SupersetTests.swift        # Workout structure mutations (5)
   SessionTests.swift         # Session factory/rotation/snapshots/progress (7)
   LastPerformanceTests.swift # "Last time" lookup (6)
-  InterchangeMappingTests.swift # Export/import round-trip + policies (5) = 72 app + 70 Kit + 23 CLI
+  InterchangeMappingTests.swift # Export/import round-trip + policies (5) = 72 app + 87 Kit + 23 CLI
 PlusPlusUITests/
   SmokeTests.swift           # 3 end-to-end flows w/ screenshot attachments
-.github/workflows/ci.yml # macOS CI: xcodegen + xcodebuild test (+ release.yml on v* tags)
+.github/workflows/ci.yml # macOS CI: xcodegen + xcodebuild test (+ release.yml on v* tags,
+                         #   testflight.yml manual-dispatch TestFlight upload)
 .xcodebuildmcp/          # XcodeBuildMCP session config
 ```
 
 `PlusPlus.xcodeproj` is generated by XcodeGen from `project.yml` and is gitignored.
 
 **Known TODOs (tracked as GitHub issues):**
-- #1 Interactive Simulator validation of all 2026-07-05 UI (needs a Mac session).
+- #1 Interactive Simulator validation of the 2026-07 UI (needs a Mac session) — TestFlight covers happy-path thumb-testing, not gesture feel or accessibility settings.
+- #96 Today ⊕ History unification + "diff" concept — ON HOLD awaiting a Claude Design handoff (prompt delivered to Dave 2026-07-07). #83's due-state surfacing on Home waits with it.
 - #6 Watch app workout execution (currently a stub target). Needs a sync-strategy decision (WatchConnectivity vs. CloudKit) and paired-simulator testing — deliberately left for a Mac session.
+- Held/deferred by Dave: #93 community workout-sharing repo ("hold for now"), #90 Apple Health ("leave for later"), #94 monetization (his decision to make).
 - Rest is configurable per workout (15–600s); per-exercise override deferred until per-workout proves insufficient.
 - Set ranges ("2–3×10") collapse to a single sets number by design; revisit only if it chafes.
 
@@ -218,6 +229,22 @@ PlusPlusUITests/
 **2026-07-06 — Rail direct manipulation is a custom gesture layer; List is out of the detail view** — Issue #78 (Dave's design): two separate long-press interactions — drag a row body to rearrange, drag a rail dot's ring edge to manage superset membership (full-width blue highlight while active, so state reads around the thumb). `List` was rejected a third and final time: its drag machinery can't express grouped semantics (2026-02 Sections attempt, 2026-07-05 header-menu retreat), gives no live preview, and has an unfixable drop ambiguity at group boundaries. The detail view now uses ScrollView + rows positioned absolutely by `RailLayout`; all geometry/semantics (drop slots, ring spans, clamps) are pure `RailArrangement` logic in PlusPlusKit (Linux-tested), and commits compose the existing Workout mutations plus `placeSolo`/`reorderExercise`/directional `splitExercise`. Division of labor kills ambiguity: gaps between groups always mean "land solo", in-ring positions exist only for the dragged row's own group, joining a ring is exclusively the ring gesture. Swipe actions are a small custom `SwipeRevealRow` (List-only feature otherwise). Gesture feel is unvalidated remotely — on the #1 checklist.
 
 **2026-07-05 — Rep ranges shift, sets stay scalar** — `reps`/`repsUpper` express "15–20"; the stepper shifts the whole range to preserve the prescribed span. Set ranges ("2–3×10") deliberately collapse to one number — the range's meaning ("stop when cooked") lives with the user, not the model.
+
+**2026-07-06 — TestFlight via unsigned archive + cloud signing on CI (#55)** — `testflight.yml` archives with `CODE_SIGNING_ALLOWED=NO` and lets `xcodebuild -exportArchive` do ALL signing via cloud signing with an ASC API key (which must be **Admin** role — App Manager gets "Cloud signing permission error"). Injecting a signing identity at archive time fails ("conflicting provisioning settings"); dev-profile signing fails on runners (no registered device). Build number = workflow run number; placeholder ++ icons + `ITSAppUsesNonExemptEncryption: NO` satisfy validation, and the watch target needs its own icon or the upload rejects.
+
+**2026-07-07 — Dynamic Type text styles, capped at xxLarge (#82/#98)** — All `.system(size:)` fixed sizes became text styles (`.body`, `.footnote`, etc., keeping design/weight); display numerals ≥32 pt stay fixed. Rail geometry scales via `@ScaledMetric(relativeTo: .body)` row height threaded into the Kit's `RailMetrics`. Root caps at `.xxLarge` because the fixed v2 layouts break beyond it — full accessibility sizes are a #1-checklist item, not a regression.
+
+**2026-07-07 — Adaptive palette + appearance setting (#97; amends the dark-only call in the v2 decision)** — `Theme` colors became `Color(light:dark:)` dynamic providers (UIColor trait resolvers, so previews and sheets resolve correctly); a GitHub-light palette mirrors the dark one. `AppAppearance` (system/dark/light, default **system**) drives `.preferredColorScheme` from Settings. Stored numbers and the design language are unchanged — light mode is the same quiet terminal, inverted.
+
+**2026-07-07 — Equipment stays to-many; the editor makes it legible (#86)** — Dave's "multi-equipment feels weird" feedback was a UI problem, not a model problem: Bench Press genuinely needs [Barbell, Bench]. The editor presents equipment as removable REQUIRES chips with a caption spelling out the semantics ("needs all of these; filtering by what you own uses it") instead of an unexplained multi-select.
+
+**2026-07-07 — Shared v2 controls live in `Views/Components/` (#85/#88/#91)** — Once a control appears in a second view it moves to `Views/Components/` rather than being redefined or imported across screens: `SearchField` (one search affordance app-wide), `SwipeRevealRow` + `SwipeActionButton` (one swipe affordance — reveal-then-tap, uppercase mono labels; native `.swipeActions` is out), `SheetHeader`/`SheetSectionLabel`/`SheetActionButton`/`MetricStepperRow`, `SegmentedTabs`. XcodeGen's `sources: [PlusPlus]` picks the directory up automatically.
+
+**2026-07-07 — Scroll starvation was gesture claiming, not layout (#99)** — The detail-view bug where the exercise list couldn't scroll had two layers: offset-positioned rows gave the ScrollView no real content height (#92, necessary but insufficient), and `.gesture(LongPressGesture().sequenced(DragGesture()))` on rows claimed every touch before the ScrollView's pan could run. Long-press-initiated row gestures must use `.simultaneousGesture`; the handlers already ignore events until the long-press fires, and `scrollDisabled` during an active drag prevents fighting.
+
+**2026-07-07 — Cadence is a Kit enum; due-state is pure; surfacing waits for design (#83)** — `WorkoutSchedule`: `.weekdays(Set<Int>)` (Calendar weekday numbers) or `.frequency(times:perDays:)` anchored to the last completion (rational slots — "3× per 7 days" is due when `daysSince × times ≥ perDays` — so it doesn't drift to every-3-days). `dueState(lastCompleted:today:calendar:)` takes the clock as a parameter. Stored app-local as additive `Workout.scheduleData` JSON; NOT in the interchange format until something consumes it. The editor lives in workout settings; how "due" renders on Home belongs to the #96 design.
+
+**2026-07-07 — Today ⊕ History + "diff" handed to Claude Design; #96 on hold** — Dave's framing: Today's workout is just a pending history entry, and a per-exercise "diff" against last time should show how you're improving (incrementing — ++ing). This collapses the Today/History tabs into one timeline and is the app's identity moment, so it gets real design exploration (prompt delivered 2026-07-07) instead of a first-pass implementation. Nav restructure/onboarding (#96) and cadence surfacing ride on the handoff.
 
 ---
 
