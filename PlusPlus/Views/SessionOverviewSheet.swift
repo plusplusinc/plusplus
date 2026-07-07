@@ -61,7 +61,7 @@ struct SessionOverviewSheet: View {
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 14))
                 }
-                Text("tap any row for detail · jump from there")
+                Text("Tap any row for detail · jump from there")
                     .font(.system(.caption2))
                     .foregroundStyle(Theme.textFaint)
                     .listRowSeparator(.hidden)
@@ -241,7 +241,7 @@ struct SessionExerciseSheet: View {
                     if !pending.isEmpty {
                         targetEditor
                             .padding(.top, 12)
-                        Text("edits apply to the remaining sets")
+                        Text("Edits apply to the remaining sets")
                             .font(.system(.caption2))
                             .foregroundStyle(Theme.textFaint)
                             .padding(.top, 5)

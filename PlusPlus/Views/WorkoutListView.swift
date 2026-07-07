@@ -77,7 +77,7 @@ struct WorkoutListView: View {
                 .font(.system(.title, weight: .bold))
                 .padding(.top, 10)
             // Sync caption goes live with #23; until then it points at the plan.
-            Text("sync off — connect GitHub in settings")
+            Text("Sync off — connect GitHub in settings")
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
                 .padding(.top, 3)

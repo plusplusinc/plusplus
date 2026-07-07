@@ -527,8 +527,8 @@ struct TodayView: View {
                 badge: "3 of 3",
                 title: "Schedule it",
                 doneTitle: "Schedule set",
-                sub: scheduleStepDone ? scheduleDoneSub : "days or a pace — due workouts stage here",
-                gatedSub: "needs a workout first",
+                sub: scheduleStepDone ? scheduleDoneSub : "Days or a pace — due workouts stage here",
+                gatedSub: "Needs a workout first",
                 cta: "Choose days or pace",
                 identifier: "setupScheduleStep",
                 action: { scheduleEditTarget = scheduleEditWorkout },
@@ -539,8 +539,8 @@ struct TodayView: View {
                 badge: "2 of 3",
                 title: "Create your first workout",
                 doneTitle: workouts.count == 1 ? "Workout created" : "Workouts created",
-                sub: workoutStepDone ? workoutDoneSub : "a starter split from the catalog, or a blank slate",
-                gatedSub: "needs your equipment first",
+                sub: workoutStepDone ? workoutDoneSub : "A starter split from the catalog, or a blank slate",
+                gatedSub: "Needs your equipment first",
                 cta: "Seed or start empty",
                 identifier: "setupWorkoutStep",
                 action: { showingStarterSeed = true },
@@ -551,7 +551,7 @@ struct TodayView: View {
                 badge: "1 of 3",
                 title: "What do you have access to?",
                 doneTitle: "Equipment set",
-                sub: equipmentStepDone ? equipmentDoneSub : "what you own filters the catalog everywhere",
+                sub: equipmentStepDone ? equipmentDoneSub : "What you own filters the catalog everywhere",
                 gatedSub: "",
                 cta: "Pick equipment",
                 identifier: "setupEquipmentStep",
@@ -644,7 +644,7 @@ struct TodayView: View {
                 }
             }
         }
-        guard let best else { return "nothing scheduled — swap one in whenever" }
+        guard let best else { return "Nothing scheduled — swap one in whenever" }
         let day = best.date.formatted(.dateTime.weekday(.abbreviated)).lowercased()
         return "on pace · next due \(day) — \(best.name)"
     }
@@ -847,7 +847,7 @@ private struct SwapInSheet: View {
         VStack(alignment: .leading, spacing: 0) {
             SheetHeader(title: "Swap in a workout", action: { dismiss() })
 
-            Text("off-schedule session — it commits to the timeline like any other")
+            Text("Off-schedule session — it commits to the timeline like any other")
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
                 .padding(.top, 8)

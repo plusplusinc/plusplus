@@ -694,7 +694,7 @@ private struct DurationTimerCard: View {
             .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
 
             HStack(spacing: 8) {
-                Text("logs automatically at 0:00")
+                Text("Logs automatically at 0:00")
                     .font(.system(.caption))
                     .foregroundStyle(Theme.textFaint)
                 Text("·").foregroundStyle(Theme.borderStrong)

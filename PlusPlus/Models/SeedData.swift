@@ -40,17 +40,35 @@ enum SeedData {
         makeBuiltInExercises(equipment: equipment)
     }
 
+    /// Canonical catalog definition — the "default" a customized
+    /// built-in reverts to (#136).
+    struct BuiltInExerciseDefinition {
+        let name: String
+        let muscleGroup: MuscleGroup
+        let equipmentNames: [String]
+        let exerciseType: ExerciseType
+    }
+
+    static func builtInDefinition(named name: String) -> BuiltInExerciseDefinition? {
+        builtInExerciseDefinitions.first { $0.name == name }
+    }
+
     private static func makeBuiltInExercises(equipment: [Equipment]) -> [Exercise] {
         let eq = Dictionary(uniqueKeysWithValues: equipment.map { ($0.name, $0) })
-
-        func e(_ name: String, _ muscle: MuscleGroup, _ eqNames: [String], _ type: ExerciseType = .weightReps) -> Exercise {
+        return builtInExerciseDefinitions.map { def in
             Exercise(
-                name: name,
-                muscleGroup: muscle,
-                equipment: eqNames.compactMap { eq[$0] },
-                exerciseType: type,
+                name: def.name,
+                muscleGroup: def.muscleGroup,
+                equipment: def.equipmentNames.compactMap { eq[$0] },
+                exerciseType: def.exerciseType,
                 isBuiltIn: true
             )
+        }
+    }
+
+    private static let builtInExerciseDefinitions: [BuiltInExerciseDefinition] = {
+        func e(_ name: String, _ muscle: MuscleGroup, _ eqNames: [String], _ type: ExerciseType = .weightReps) -> BuiltInExerciseDefinition {
+            BuiltInExerciseDefinition(name: name, muscleGroup: muscle, equipmentNames: eqNames, exerciseType: type)
         }
 
         return [
@@ -103,5 +121,5 @@ enum SeedData {
             // Full Body
             e("Burpee", .fullBody, []),
         ]
-    }
+    }()
 }

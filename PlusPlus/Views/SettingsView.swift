@@ -97,7 +97,7 @@ struct SettingsView: View {
                     .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                     .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
                     .accessibilityIdentifier("equipmentSetupButton")
-                    Text("filters the exercise catalog everywhere · never touches logged history")
+                    Text("Filters the exercise catalog everywhere · never touches logged history")
                         .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
                         .padding(.top, 6)

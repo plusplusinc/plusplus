@@ -184,7 +184,7 @@ private struct FilterBar: View {
                 HStack(spacing: 5) {
                     Image(systemName: filterState.showUnowned ? "checkmark.square" : "square")
                         .font(.system(.caption))
-                    Text("show exercises needing equipment I don't have")
+                    Text("Show exercises needing equipment I don't have")
                         .font(.system(.caption))
                 }
                 .foregroundStyle(filterState.showUnowned ? Theme.textPrimary : Theme.textSecondary)
