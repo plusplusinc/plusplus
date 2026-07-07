@@ -89,10 +89,6 @@ sessions can verify their own work).
 
 ## License
 
-Private.
-
-## License
-
 PlusPlus is open source with a deliberate split:
 
 - **The app** (`PlusPlus/`, `PlusPlusWatch/`, `PlusPlusWidgets/`, and this repo as a whole) is licensed under **[AGPL-3.0](LICENSE)** — read it, fork it, contribute to it; shipping a rebranded clone obligates you to publish your changes under the same terms.
