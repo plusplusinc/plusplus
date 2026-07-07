@@ -87,6 +87,8 @@ targets:
     platform: watchOS
     sources:
       - PlusPlusWatch
+    dependencies:
+      - package: PlusPlusKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.davidcole.plusplus.watchkitapp

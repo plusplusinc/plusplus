@@ -42,6 +42,7 @@ struct PlusPlusApp: App {
             Self.seedBigWorkout(context: modelContainer.mainContext)
         }
         RestNotifier.shared.activate()
+        WatchBridge.shared.activate(container: modelContainer)
     }
 
     /// 16 rows guarantees the rail overflows the viewport at every
@@ -56,6 +57,8 @@ struct PlusPlusApp: App {
         }
     }
 
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some Scene {
         WindowGroup {
             RootTabView()
@@ -65,5 +68,12 @@ struct PlusPlusApp: App {
                 .dynamicTypeSize(...DynamicTypeSize.xxLarge)
         }
         .modelContainer(modelContainer)
+        // Any edits made this foreground stint reach the wrist before
+        // the phone goes in the gym bag.
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background {
+                WatchBridge.shared.pushPlan()
+            }
+        }
     }
 }
