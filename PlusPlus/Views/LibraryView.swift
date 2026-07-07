@@ -130,17 +130,7 @@ struct LibraryView: View {
 
     private var searchRow: some View {
         HStack(spacing: 8) {
-            HStack(spacing: 7) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(.footnote))
-                    .foregroundStyle(Theme.textFaint)
-                TextField("Search", text: $search)
-                    .font(.system(.subheadline))
-            }
-            .padding(.horizontal, 10)
-            .frame(height: 36)
-            .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
-            .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
+            SearchField(prompt: "Search", text: $search)
 
             Button {
                 sheet = tab == .exercises ? .addExercises : .addEquipment
@@ -331,19 +321,9 @@ struct AddFromCatalogSheet: View {
             .padding(.horizontal, 16)
             .padding(.top, 14)
 
-            HStack(spacing: 7) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(.footnote))
-                    .foregroundStyle(Theme.textFaint)
-                TextField("Search the catalog", text: $query)
-                    .font(.system(.subheadline))
-            }
-            .padding(.horizontal, 10)
-            .frame(height: 36)
-            .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
-            .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
+            SearchField(prompt: "Search the catalog", text: $query, fill: Theme.background)
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
 
             Button {
                 createCustom()

@@ -161,7 +161,7 @@ final class SmokeTests: XCTestCase {
     }
 
     private func search(for text: String) {
-        let searchField = app.searchFields.firstMatch
+        let searchField = app.textFields["searchField"].firstMatch
         XCTAssertTrue(searchField.waitForExistence(timeout: 5))
         searchField.tap()
         searchField.typeText(text)

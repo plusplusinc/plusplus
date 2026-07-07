@@ -79,14 +79,17 @@ struct ExercisePickerView: View {
                     deletionCandidate = nil
                 }
             }
-            .searchable(text: Bindable(filterState).searchText, prompt: "Search exercises")
             .safeAreaInset(edge: .top) {
-                FilterBar(
-                    filterState: filterState,
-                    allEquipment: allEquipment,
-                    showingMuscleGroupFilter: $showingMuscleGroupFilter,
-                    showingEquipmentFilter: $showingEquipmentFilter
-                )
+                VStack(spacing: 8) {
+                    SearchField(prompt: "Search exercises", text: Bindable(filterState).searchText)
+                        .padding(.horizontal, 16)
+                    FilterBar(
+                        filterState: filterState,
+                        allEquipment: allEquipment,
+                        showingMuscleGroupFilter: $showingMuscleGroupFilter,
+                        showingEquipmentFilter: $showingEquipmentFilter
+                    )
+                }
             }
             .sheet(isPresented: $showingMuscleGroupFilter) {
                 MuscleGroupFilterSheet(filterState: filterState)
