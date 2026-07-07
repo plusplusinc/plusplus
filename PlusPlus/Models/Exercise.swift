@@ -17,6 +17,14 @@ final class Exercise {
     var notes: String?
     var videoURL: String?
 
+    /// The per-tap weight increment this exercise's gear implies: the
+    /// smallest override among its equipment (microplates win over a
+    /// pin stack when both are involved), nil when none is set.
+    /// isDeleted guard mirrors ExerciseFilterState (bug hunt B1).
+    var weightStepOverride: Double? {
+        equipment.filter { !$0.isDeleted }.compactMap(\.weightStep).min()
+    }
+
     init(
         name: String,
         muscleGroup: MuscleGroup,

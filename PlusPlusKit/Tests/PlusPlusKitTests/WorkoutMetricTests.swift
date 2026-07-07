@@ -24,6 +24,17 @@ struct WorkoutMetricTests {
         #expect(WorkoutMetric.duration.incremented(30) == 45)
     }
 
+    @Test("A step override replaces the unit step, not the default or clamp")
+    func stepOverride() {
+        #expect(WorkoutMetric.weight.incremented(135, stepOverride: 2.5) == 137.5)
+        #expect(WorkoutMetric.weight.decremented(135, stepOverride: 10) == 125)
+        #expect(WorkoutMetric.weight.incremented(135, weightUnit: .kg, stepOverride: 1) == 136)
+        // nil value still lands on the default, override or not.
+        #expect(WorkoutMetric.weight.incremented(nil, stepOverride: 10) == 45)
+        // clamping still applies.
+        #expect(WorkoutMetric.weight.decremented(5, stepOverride: 10) == 0)
+    }
+
     @Test("Values clamp at the range bounds")
     func clamping() {
         #expect(WorkoutMetric.weight.decremented(0) == 0)

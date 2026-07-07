@@ -75,12 +75,14 @@ struct SheetSectionLabel: View {
 /// Bordered full-width action button used in v2 sheets.
 struct SheetActionButton: View {
     let title: String
+    var systemImage: String?
     var destructive = false
     var dimmed = false
     let action: () -> Void
 
-    init(_ title: String, destructive: Bool = false, dimmed: Bool = false, action: @escaping () -> Void) {
+    init(_ title: String, systemImage: String? = nil, destructive: Bool = false, dimmed: Bool = false, action: @escaping () -> Void) {
         self.title = title
+        self.systemImage = systemImage
         self.destructive = destructive
         self.dimmed = dimmed
         self.action = action
@@ -88,15 +90,21 @@ struct SheetActionButton: View {
 
     var body: some View {
         Button(action: action) {
-            Text(title)
-                .font(.system(.footnote, weight: .semibold))
-                .foregroundStyle(destructive ? Theme.destructive : Theme.textPrimary)
-                .frame(maxWidth: .infinity)
-                .frame(height: 42)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 11)
-                        .strokeBorder(destructive ? Theme.destructive.opacity(0.4) : Theme.borderStrong)
-                )
+            HStack(spacing: 6) {
+                if let systemImage {
+                    Image(systemName: systemImage)
+                        .font(.system(.caption, weight: .semibold))
+                }
+                Text(title)
+                    .font(.system(.footnote, weight: .semibold))
+            }
+            .foregroundStyle(destructive ? Theme.destructive : Theme.textPrimary)
+            .frame(maxWidth: .infinity)
+            .frame(height: 42)
+            .overlay(
+                RoundedRectangle(cornerRadius: 11)
+                    .strokeBorder(destructive ? Theme.destructive.opacity(0.4) : Theme.borderStrong)
+            )
         }
         .opacity(dimmed ? 0.35 : 1)
         .disabled(dimmed)
@@ -134,16 +142,16 @@ struct MetricStepperRow: View {
 
             HStack(spacing: 0) {
                 Button(action: onDecrement) {
-                    Text("−")
-                        .font(.system(.subheadline))
+                    Image(systemName: "minus")
+                        .font(.system(.caption, weight: .medium))
                         .foregroundStyle(Theme.textSecondary)
                         .frame(width: 42, height: 28)
                 }
                 .accessibilityIdentifier("\(identifier)Decrement")
                 Divider().frame(height: 28).overlay(Theme.border)
                 Button(action: onIncrement) {
-                    Text("+")
-                        .font(.system(.subheadline))
+                    Image(systemName: "plus")
+                        .font(.system(.caption, weight: .medium))
                         .foregroundStyle(Theme.textSecondary)
                         .frame(width: 42, height: 28)
                 }

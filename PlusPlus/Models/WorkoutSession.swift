@@ -157,6 +157,12 @@ final class WorkoutSession {
                 }
             }
         }
+        // Save NOW, not on the next autosave: the session is presented
+        // via fullScreenCover(item:), which keys on persistentModelID —
+        // the temporary→permanent ID swap at first save reads as a new
+        // item and briefly dismisses/re-presents a live workout (Dave,
+        // build 12).
+        try? context.save()
         return session
     }
 }

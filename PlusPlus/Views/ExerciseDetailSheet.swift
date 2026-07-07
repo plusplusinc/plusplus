@@ -61,8 +61,8 @@ struct ExerciseDetailSheet: View {
 
                     if group?.isSuperset == true {
                         HStack(spacing: 6) {
-                            Text("⧉")
-                                .font(.system(.caption, design: .monospaced))
+                            Image(systemName: "square.on.square")
+                                .font(.system(.caption))
                                 .foregroundStyle(Theme.superset)
                             Text("Sets count applies to the whole superset — one round runs every exercise once.")
                                 .font(.system(.caption))
@@ -172,8 +172,8 @@ struct ExerciseDetailSheet: View {
                     value: WorkoutMetric.weight.displayText(workoutExercise.weight, weightUnit: weightUnit),
                     identifier: "weight",
                     onTapValue: { wheel = .weight },
-                    onDecrement: { workoutExercise.weight = WorkoutMetric.weight.decremented(workoutExercise.weight, weightUnit: weightUnit) },
-                    onIncrement: { workoutExercise.weight = WorkoutMetric.weight.incremented(workoutExercise.weight, weightUnit: weightUnit) }
+                    onDecrement: { workoutExercise.weight = WorkoutMetric.weight.decremented(workoutExercise.weight, weightUnit: weightUnit, stepOverride: workoutExercise.exercise?.weightStepOverride) },
+                    onIncrement: { workoutExercise.weight = WorkoutMetric.weight.incremented(workoutExercise.weight, weightUnit: weightUnit, stepOverride: workoutExercise.exercise?.weightStepOverride) }
                 )
                 MetricStepperRow(
                     label: "Reps",
@@ -252,30 +252,30 @@ struct ExerciseDetailSheet: View {
     private var structureActions: some View {
         VStack(spacing: 7) {
             if let group, group.isSuperset {
-                SheetActionButton("⧉ Move out of superset") {
+                SheetActionButton("Move out of superset", systemImage: "square.on.square") {
                     workout.splitExercise(workoutExercise, context: modelContext)
                     dismiss()
                 }
             }
             if let group, !group.isSuperset, let index = groupIndex {
                 if index > 0 {
-                    SheetActionButton("⧉ Superset with exercise above") {
+                    SheetActionButton("Superset with exercise above", systemImage: "square.on.square") {
                         workout.mergeSoloGroup(group, direction: -1, context: modelContext)
                         dismiss()
                     }
                 }
                 if index < workout.sortedGroups.count - 1 {
-                    SheetActionButton("⧉ Superset with exercise below") {
+                    SheetActionButton("Superset with exercise below", systemImage: "square.on.square") {
                         workout.mergeSoloGroup(group, direction: 1, context: modelContext)
                         dismiss()
                     }
                 }
             }
             HStack(spacing: 7) {
-                SheetActionButton("↑ Move up", dimmed: groupIndex == 0) {
+                SheetActionButton("Move up", systemImage: "arrow.up", dimmed: groupIndex == 0) {
                     moveGroup(-1)
                 }
-                SheetActionButton("↓ Move down", dimmed: groupIndex == workout.sortedGroups.count - 1) {
+                SheetActionButton("Move down", systemImage: "arrow.down", dimmed: groupIndex == workout.sortedGroups.count - 1) {
                     moveGroup(1)
                 }
             }

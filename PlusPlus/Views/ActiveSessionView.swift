@@ -24,6 +24,9 @@ struct ActiveSessionView: View {
     @State private var showingExitDialog = false
     @State private var showingOverview = false
     @State private var burstCount = 0
+    /// Flips on appear of the finished screen to fire the checkmark's
+    /// one-shot bounce.
+    @State private var completeBounce = false
 
     private var totalSets: Int { session.sortedSetLogs.count }
     private var completedSets: Int { session.completedSetLogs.count }
@@ -218,12 +221,14 @@ struct ActiveSessionView: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 64))
                 .foregroundStyle(Theme.primaryFill)
+                .symbolEffect(.bounce, options: .nonRepeating, value: completeBounce)
+                .onAppear { completeBounce = true }
             Text("Workout Complete")
                 .font(.system(.title3, weight: .bold))
             Text("\(completedSets) \(completedSets == 1 ? "set" : "sets") · \(finalElapsedText)")
                 .font(.system(.footnote, design: .monospaced))
                 .foregroundStyle(Theme.textSecondary)
-            Text("→ \(historyPathText)")
+            Text("\(Image(systemName: "arrow.right")) \(historyPathText)")
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
             Button {
@@ -322,8 +327,10 @@ private struct SetLoggingView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     (Text("SET \(log.setNumber) OF \(setsTotal)")
                         .foregroundStyle(Theme.accent)
-                        + Text(supersetNames.isEmpty ? "" : " · ⧉ SUPERSET")
-                        .foregroundStyle(Theme.superset))
+                        + (supersetNames.isEmpty
+                            ? Text("")
+                            : (Text(" · ") + Text(Image(systemName: "square.on.square")) + Text(" SUPERSET"))
+                                .foregroundStyle(Theme.superset)))
                         .font(.system(.footnote, design: .monospaced, weight: .semibold))
                         .kerning(0.7)
                         .padding(.top, 20)
@@ -393,8 +400,8 @@ private struct SetLoggingView: View {
                 unit: weightUnit.symbol,
                 identifier: "logWeight",
                 onTap: { wheel = .weight },
-                onDec: { log.actualWeight = WorkoutMetric.weight.decremented(log.actualWeight ?? log.targetWeight, weightUnit: weightUnit) },
-                onInc: { log.actualWeight = WorkoutMetric.weight.incremented(log.actualWeight ?? log.targetWeight, weightUnit: weightUnit) }
+                onDec: { log.actualWeight = WorkoutMetric.weight.decremented(log.actualWeight ?? log.targetWeight, weightUnit: weightUnit, stepOverride: log.exercise?.weightStepOverride) },
+                onInc: { log.actualWeight = WorkoutMetric.weight.incremented(log.actualWeight ?? log.targetWeight, weightUnit: weightUnit, stepOverride: log.exercise?.weightStepOverride) }
             )
             valueColumn(
                 label: "REPS",
@@ -460,8 +467,8 @@ private struct SetLoggingView: View {
 
             HStack(spacing: 8) {
                 Button(action: onDec) {
-                    Text("−")
-                        .font(.system(.title2))
+                    Image(systemName: "minus")
+                        .font(.system(.body, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 56)
@@ -470,8 +477,8 @@ private struct SetLoggingView: View {
                 }
                 .accessibilityIdentifier("\(identifier)Decrement")
                 Button(action: onInc) {
-                    Text("+")
-                        .font(.system(.title2))
+                    Image(systemName: "plus")
+                        .font(.system(.body, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 56)
@@ -497,8 +504,8 @@ private struct SetLoggingView: View {
         VStack(spacing: 0) {
             if session.weightCarriesForward(from: log) {
                 HStack(spacing: 7) {
-                    Text("→")
-                        .font(.system(.caption, design: .monospaced))
+                    Image(systemName: "arrow.right")
+                        .font(.system(.caption, weight: .semibold))
                     Text("new weight carries to your remaining \(log.exerciseName) sets")
                         .font(.system(.footnote))
                 }
@@ -657,19 +664,29 @@ private struct DurationTimerCard: View {
 
                 HStack(spacing: 0) {
                     Button(action: togglePause) {
-                        Text(pausedRemaining != nil ? "▶ Resume" : "‖ Pause")
-                            .font(.system(.footnote, weight: .bold))
-                            .foregroundStyle(Theme.textPrimary)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 46)
+                        HStack(spacing: 6) {
+                            Image(systemName: pausedRemaining != nil ? "play.fill" : "pause.fill")
+                                .font(.system(.caption, weight: .bold))
+                                .contentTransition(.symbolEffect(.replace))
+                            Text(pausedRemaining != nil ? "Resume" : "Pause")
+                                .font(.system(.footnote, weight: .bold))
+                        }
+                        .foregroundStyle(Theme.textPrimary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 46)
+                        .animation(.default, value: pausedRemaining != nil)
                     }
                     Divider().frame(height: 46).overlay(Theme.border)
                     Button(action: reset) {
-                        Text("↺ Reset")
-                            .font(.system(.footnote, weight: .bold))
-                            .foregroundStyle(Theme.textSecondary)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 46)
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.counterclockwise")
+                                .font(.system(.caption, weight: .bold))
+                            Text("Reset")
+                                .font(.system(.footnote, weight: .bold))
+                        }
+                        .foregroundStyle(Theme.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 46)
                     }
                 }
             }

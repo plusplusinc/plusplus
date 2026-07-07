@@ -33,6 +33,11 @@ struct SwipeRevealRow<Content: View, Actions: View>: View {
                 .frame(width: actionsWidth)
                 .frame(maxHeight: .infinity)
                 .opacity(offset < -12 ? 1 : 0)
+                // opacity(0) does NOT remove a view from hit testing —
+                // and inside a List, taps on the row could dispatch to
+                // the hidden action button, silently deleting the row
+                // (Dave, build 12: "items inexplicably disappear").
+                .allowsHitTesting(offset < -12)
             content()
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Theme.background)
@@ -75,5 +80,9 @@ struct SwipeActionButton: View {
                 .background(Theme.surface)
                 .overlay(Rectangle().frame(width: 1).foregroundStyle(Theme.border), alignment: .leading)
         }
+        // Plain, not default: List routes row taps into default-styled
+        // buttons anywhere in the row — the second half of the
+        // disappearing-rows bug.
+        .buttonStyle(.plain)
     }
 }
