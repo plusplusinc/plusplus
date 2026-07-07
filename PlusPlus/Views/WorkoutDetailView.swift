@@ -272,9 +272,15 @@ struct WorkoutDetailView: View {
                     .frame(width: 37)
                     .contentShape(Rectangle())
                     .onTapGesture { selectedExercise = workoutExercise }
-                    .gesture(ringGesture(groupIndex: g, index: i))
+                    // simultaneousGesture, not gesture: a sequenced
+                    // long-press claims touches while it waits, which
+                    // blocks the ScrollView from scrolling at all when
+                    // the drag starts on a row (every drag does). The
+                    // 0.35 s stationary hold still gates activation —
+                    // scrolling movement cancels the long press.
+                    .simultaneousGesture(ringGesture(groupIndex: g, index: i))
             }
-            .gesture(dragGesture(groupIndex: g, index: i, rowHeight: height))
+            .simultaneousGesture(dragGesture(groupIndex: g, index: i, rowHeight: height))
         } actions: {
             HStack(spacing: 0) {
                 swipeAction("Super", color: Theme.supersetLine) {
