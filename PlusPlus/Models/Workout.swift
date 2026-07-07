@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import PlusPlusKit
 
 @Model
 final class Workout {
@@ -11,6 +12,9 @@ final class Workout {
     /// Freeform intent for the whole workout ("keep it under an hour",
     /// "finisher optional") — shown at session start.
     var notes: String?
+    /// Encoded WorkoutSchedule (#83); nil means unscheduled. Stored as
+    /// JSON Data (with a default) so the SwiftData migration is additive.
+    var scheduleData: Data?
     @Relationship(deleteRule: .cascade, inverse: \ExerciseGroup.workout)
     var groups: [ExerciseGroup] = []
 
@@ -20,6 +24,21 @@ final class Workout {
         self.order = order
         self.restSeconds = restSeconds
         self.notes = notes
+    }
+
+    /// Typed view over `scheduleData`. Unscheduled round-trips as nil so
+    /// a workout that has never been scheduled stays byte-identical.
+    var schedule: WorkoutSchedule {
+        get {
+            guard let scheduleData,
+                  let decoded = try? JSONDecoder().decode(WorkoutSchedule.self, from: scheduleData)
+            else { return .unscheduled }
+            return decoded
+        }
+        set {
+            let normalized = newValue.normalized
+            scheduleData = normalized == .unscheduled ? nil : try? JSONEncoder().encode(normalized)
+        }
     }
 
     var sortedGroups: [ExerciseGroup] {
