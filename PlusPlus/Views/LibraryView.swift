@@ -12,20 +12,8 @@ struct ExercisesTabView: View {
 
     @State private var search = ""
     @State private var openSwipeRow: PersistentIdentifier?
-    @State private var sheet: LibrarySheet?
+    @State private var showingCatalog = false
     @State private var path = NavigationPath()
-
-    enum LibrarySheet: Identifiable {
-        case addExercises
-        case newCustom(prefill: String)
-
-        var id: String {
-            switch self {
-            case .addExercises: "addExercises"
-            case .newCustom(let prefill): "new-\(prefill)"
-            }
-        }
-    }
 
     private var libraryExercises: [Exercise] {
         allExercises
@@ -37,7 +25,7 @@ struct ExercisesTabView: View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
                 CatalogTabHeader(title: "Exercises", addIdentifier: "addExercisesButton") {
-                    sheet = .addExercises
+                    showingCatalog = true
                 }
 
                 SearchField(prompt: "Search", text: $search)
@@ -61,15 +49,11 @@ struct ExercisesTabView: View {
             .navigationDestination(for: Exercise.self) { exercise in
                 ExerciseDetailScreen(exercise: exercise)
             }
-            .sheet(item: $sheet) { destination in
-                switch destination {
-                case .addExercises:
-                    AddFromCatalogSheet(kind: .exercises) { prefill in
-                        sheet = .newCustom(prefill: prefill)
-                    }
-                case .newCustom(let prefill):
-                    ExerciseEditorView(prefillName: prefill)
-                }
+            // Full-page push, not a tray (#139 follow-up): the catalog
+            // browser is a browsing surface — search, filters, a long
+            // toggle list. Sheets stay for create/edit forms only.
+            .navigationDestination(isPresented: $showingCatalog) {
+                CatalogBrowseScreen(kind: .exercises)
             }
         }
     }
@@ -156,7 +140,7 @@ struct EquipmentTabView: View {
 
     @State private var search = ""
     @State private var openSwipeRow: PersistentIdentifier?
-    @State private var showingAdd = false
+    @State private var showingCatalog = false
     @State private var path = NavigationPath()
 
     private var libraryEquipment: [Equipment] {
@@ -169,7 +153,7 @@ struct EquipmentTabView: View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
                 CatalogTabHeader(title: "Equipment", addIdentifier: "addEquipmentButton") {
-                    showingAdd = true
+                    showingCatalog = true
                 }
 
                 SearchField(prompt: "Search", text: $search)
@@ -193,8 +177,8 @@ struct EquipmentTabView: View {
             .navigationDestination(for: Equipment.self) { equipment in
                 EquipmentDetailScreen(equipment: equipment)
             }
-            .sheet(isPresented: $showingAdd) {
-                AddFromCatalogSheet(kind: .equipment) { _ in }
+            .navigationDestination(isPresented: $showingCatalog) {
+                CatalogBrowseScreen(kind: .equipment)
             }
         }
     }
@@ -289,9 +273,15 @@ struct CatalogTabHeader: View {
 
 // MARK: - Add from catalog
 
-/// Bottom sheet browsing the not-yet-in-library catalog (#63); `+ Add`
-/// flips membership, the dashed row creates a custom entry.
-struct AddFromCatalogSheet: View {
+/// The catalog browser, rethought as a curation surface (#139): the
+/// whole built-in catalog stays listed, membership is a Toggle per row
+/// — nothing vanishes when you flip one. A full pushed page, not a
+/// tray (Dave): browsing surfaces push, sheets are for forms. Filters:
+/// library state (All / In library / Not in library), and for
+/// exercises the picker's muscle-group/equipment sheets plus the
+/// ownership escape hatch. Customs don't appear here — they live in
+/// the library list, where deletion is a deliberate act, not a toggle.
+struct CatalogBrowseScreen: View {
     enum Kind: String, Identifiable {
         case exercises
         case equipment
@@ -305,109 +295,202 @@ struct AddFromCatalogSheet: View {
     @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
 
     let kind: Kind
-    /// Called with the current query when "Create custom…" is tapped
-    /// (exercises only — the parent presents the editor).
-    let onCreateCustom: (String) -> Void
 
-    @State private var query = ""
-    @State private var showUnowned = false
+    @State private var filterState = ExerciseFilterState()
+    /// 0 = All · 1 = In library · 2 = Not in library.
+    @State private var libraryFilter = 0
+    @State private var showingMuscleFilter = false
+    @State private var showingEquipmentFilter = false
+    /// Prefill for the custom-exercise editor sheet (create/edit forms
+    /// are the one thing that stays modal here).
+    @State private var customPrefill: String?
+
+    private var query: String { filterState.searchText }
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Spacer()
-                Text(kind == .exercises ? "Add exercises" : "Add equipment")
-                    .font(.system(.subheadline, weight: .bold))
-                Spacer()
+            CatalogDetailHeader(title: kind == .exercises ? "Exercise catalog" : "Equipment catalog") {
+                EmptyView()
             }
-            .overlay(alignment: .trailing) {
-                Button("Done") { dismiss() }
-                    .font(.system(.footnote, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary)
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 14)
 
-            SearchField(prompt: "Search the catalog", text: $query, fill: Theme.background)
+            Text("Toggles curate your library — removing never touches workouts or logged history.")
+                .font(.system(.caption))
+                .foregroundStyle(Theme.textFaint)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.top, 6)
+
+            SearchField(prompt: "Search the catalog", text: Bindable(filterState).searchText)
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
+
+            SegmentedTabs(options: ["All", "In library", "Not in library"], selectedIndex: $libraryFilter)
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+
+            if kind == .exercises {
+                HStack(spacing: 7) {
+                    FilterDropdownButton(
+                        label: "Muscle group",
+                        selections: filterState.selectedMuscleGroups.sorted { $0.rawValue < $1.rawValue }.map(\.displayName),
+                        action: { showingMuscleFilter = true }
+                    )
+                    FilterDropdownButton(
+                        label: "Equipment",
+                        selections: filterState.selectedEquipment.sorted { $0.name < $1.name }.map(\.name),
+                        action: { showingEquipmentFilter = true }
+                    )
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+
+                Button {
+                    filterState.showUnowned.toggle()
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: filterState.showUnowned ? "checkmark.square" : "square")
+                            .font(.system(.caption))
+                        Text("Show exercises needing equipment I don't have")
+                            .font(.system(.caption))
+                    }
+                    .foregroundStyle(filterState.showUnowned ? Theme.textPrimary : Theme.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .accessibilityIdentifier("showUnownedToggle")
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+            }
 
             Button {
                 createCustom()
             } label: {
                 HStack(spacing: 8) {
-                    Text("+").font(.system(.subheadline, design: .monospaced))
+                    Image(systemName: "plus")
+                        .font(.system(.caption, weight: .semibold))
                     Text(createLabel).font(.system(.footnote, weight: .semibold))
                 }
                 .foregroundStyle(Theme.accent)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 12)
                 .frame(height: 40)
+                .contentShape(Rectangle())
                 .overlay(
                     RoundedRectangle(cornerRadius: Theme.controlRadius)
                         .strokeBorder(Theme.borderStrong, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
                 )
             }
+            .buttonStyle(.plain)
             .padding(.horizontal, 16)
             .padding(.top, 8)
 
             List {
                 if kind == .exercises {
                     ForEach(candidateExercises) { exercise in
-                        catalogRow(
+                        toggleRow(
                             name: exercise.name,
-                            sub: exerciseSubtitle(exercise)
-                        ) {
-                            exercise.inLibrary = true
-                        }
+                            sub: exerciseSubtitle(exercise),
+                            isOn: Binding(
+                                get: { exercise.inLibrary },
+                                set: { exercise.inLibrary = $0 }
+                            )
+                        )
                     }
-                    // #113: hidden-by-ownership escape hatch.
-                    Button {
-                        showUnowned.toggle()
-                    } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: showUnowned ? "checkmark.square" : "square")
-                                .font(.system(.caption))
-                            Text("Show exercises needing equipment I don't have")
-                                .font(.system(.caption))
-                        }
-                        .foregroundStyle(showUnowned ? Theme.textPrimary : Theme.textSecondary)
-                    }
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
                 } else {
                     ForEach(candidateEquipment) { equipment in
-                        catalogRow(name: equipment.name, sub: "catalog") {
-                            equipment.inLibrary = true
-                        }
+                        toggleRow(
+                            name: equipment.name,
+                            sub: equipmentSubtitle(equipment),
+                            isOn: Binding(
+                                get: { equipment.inLibrary },
+                                set: { equipment.inLibrary = $0 }
+                            )
+                        )
                     }
+                }
+                if candidatesEmpty {
+                    Text("Nothing matches these filters.")
+                        .font(.system(.caption))
+                        .foregroundStyle(Theme.textFaint)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                 }
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .padding(.top, 2)
         }
-        .presentationBackground(Theme.surface)
-        .presentationDetents([.fraction(0.8)])
+        .background(Theme.background)
+        .toolbar(.hidden, for: .navigationBar)
+        .sheet(isPresented: Binding(
+            get: { customPrefill != nil },
+            set: { if !$0 { customPrefill = nil } }
+        )) {
+            ExerciseEditorView(prefillName: customPrefill ?? "")
+        }
+        .sheet(isPresented: $showingMuscleFilter) {
+            MuscleGroupFilterSheet(filterState: filterState)
+                .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showingEquipmentFilter) {
+            EquipmentFilterSheet(filterState: filterState, allEquipment: allEquipment.filter { $0.inLibrary || !$0.isBuiltIn })
+                .presentationDetents([.medium, .large])
+        }
+    }
+
+    // MARK: - Rows
+
+    private func toggleRow(name: String, sub: String, isOn: Binding<Bool>) -> some View {
+        // Toggle wraps the whole label: the full row flips it, and the
+        // row stays put either way — membership is visible state, not a
+        // disappearing act (#139).
+        Toggle(isOn: isOn) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(name)
+                    .font(.system(.subheadline, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                Text(sub)
+                    .font(.system(.caption))
+                    .foregroundStyle(Theme.textSecondary)
+                    .lineLimit(1)
+            }
+        }
+        .tint(Theme.accent)
+        .padding(.vertical, 4)
+        .listRowBackground(Color.clear)
+        .listRowSeparatorTint(Theme.border)
+    }
+
+    // MARK: - Candidates
+
+    private var candidatesEmpty: Bool {
+        kind == .exercises ? candidateExercises.isEmpty : candidateEquipment.isEmpty
+    }
+
+    private func matchesLibraryFilter(_ inLibrary: Bool) -> Bool {
+        switch libraryFilter {
+        case 1: inLibrary
+        case 2: !inLibrary
+        default: true
+        }
+    }
+
+    private var candidateExercises: [Exercise] {
+        filterState.filteredExercises(from: allExercises.filter(\.isBuiltIn))
+            .filter { matchesLibraryFilter($0.inLibrary) }
+    }
+
+    private var candidateEquipment: [Equipment] {
+        allEquipment
+            .filter(\.isBuiltIn)
+            .filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) }
+            .filter { matchesLibraryFilter($0.inLibrary) }
     }
 
     private var createLabel: String {
         let trimmed = query.trimmingCharacters(in: .whitespaces)
         if !trimmed.isEmpty { return "Create “\(trimmed)”" }
         return kind == .exercises ? "Create custom exercise…" : "Create custom equipment…"
-    }
-
-    private var candidateExercises: [Exercise] {
-        allExercises
-            .filter { $0.isBuiltIn && !$0.inLibrary }
-            .filter { showUnowned || ExerciseFilterState.missingEquipment(for: $0).isEmpty }
-            .filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) }
-    }
-
-    private var candidateEquipment: [Equipment] {
-        allEquipment
-            .filter { $0.isBuiltIn && !$0.inLibrary }
-            .filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) }
     }
 
     private func exerciseSubtitle(_ exercise: Exercise) -> String {
@@ -420,31 +503,18 @@ struct AddFromCatalogSheet: View {
         return subtitle
     }
 
-    private func catalogRow(name: String, sub: String, onAdd: @escaping () -> Void) -> some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(name).font(.system(.subheadline, weight: .semibold)).lineLimit(1)
-                Text(sub).font(.system(.caption)).foregroundStyle(Theme.textSecondary).lineLimit(1)
-            }
-            Spacer()
-            Button(action: onAdd) {
-                Text("+ Add")
-                    .font(.system(.caption, weight: .bold))
-                    .foregroundStyle(Theme.accent)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 5)
-                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.accent.opacity(0.4)))
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.vertical, 6)
-        .listRowBackground(Color.clear)
-        .listRowSeparatorTint(Theme.border)
+    private func equipmentSubtitle(_ equipment: Equipment) -> String {
+        let used = allExercises.filter { exercise in
+            exercise.equipment.contains { $0 === equipment }
+        }.count
+        return used == 0 ? "No catalog exercise uses it" : "\(used) exercise\(used == 1 ? "" : "s") in the catalog"
     }
 
     private func createCustom() {
         let trimmed = query.trimmingCharacters(in: .whitespaces)
         if kind == .equipment {
+            // Creating custom gear pops back to the library, where the
+            // new item is actually visible (customs aren't catalog rows).
             guard !trimmed.isEmpty else { return }
             let existing = allEquipment.first { $0.name.lowercased() == trimmed.lowercased() }
             if let existing {
@@ -454,8 +524,7 @@ struct AddFromCatalogSheet: View {
             }
             dismiss()
         } else {
-            dismiss()
-            onCreateCustom(trimmed)
+            customPrefill = trimmed
         }
     }
 }

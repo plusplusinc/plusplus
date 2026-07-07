@@ -210,7 +210,8 @@ private struct FilterBar: View {
     }
 }
 
-private struct FilterDropdownButton: View {
+/// Internal (not private): the catalog tray (#139) reuses it.
+struct FilterDropdownButton: View {
     let label: String
     let selections: [String]
     let action: () -> Void
@@ -250,7 +251,8 @@ private struct FilterDropdownButton: View {
 
 // MARK: - Muscle Group Filter Sheet
 
-private struct MuscleGroupFilterSheet: View {
+/// Internal (not private): the catalog tray (#139) reuses it.
+struct MuscleGroupFilterSheet: View {
     @Environment(\.dismiss) private var dismiss
     var filterState: ExerciseFilterState
 
@@ -300,7 +302,8 @@ private struct MuscleGroupFilterSheet: View {
 
 // MARK: - Equipment Filter Sheet
 
-private struct EquipmentFilterSheet: View {
+/// Internal (not private): the catalog tray (#139) reuses it.
+struct EquipmentFilterSheet: View {
     @Environment(\.dismiss) private var dismiss
     var filterState: ExerciseFilterState
     let allEquipment: [Equipment]
