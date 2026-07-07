@@ -24,8 +24,13 @@ struct TodayView: View {
 
     @State private var showingSettings = false
     @State private var showingSwapIn = false
+    @State private var swapInPick: Workout?
     @State private var activeSession: WorkoutSession?
     @State private var expandedDiffs: Set<PersistentIdentifier> = []
+    /// Bumped on day change so every Date()-based computed re-evaluates
+    /// — without it, an app resident overnight keeps rendering
+    /// yesterday's due list (bug hunt).
+    @State private var dayToken = 0
 
     private var weightUnit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .lb }
     private var calendar: Calendar { Calendar.current }
@@ -36,7 +41,10 @@ struct TodayView: View {
                 header
 
                 ScrollView {
-                    VStack(spacing: 0) {
+                    // Lazy: the committed section is the whole history —
+                    // eager building made every render O(sessions) (bug
+                    // hunt perf finding).
+                    LazyVStack(spacing: 0) {
                         if workouts.isEmpty && sessions.isEmpty {
                             firstRunCard
                                 .padding(.top, 8)
@@ -72,47 +80,83 @@ struct TodayView: View {
                 SettingsView()
                     .presentationDetents([.medium, .large])
             }
-            .sheet(isPresented: $showingSwapIn) {
-                SwapInSheet(workouts: workouts) { workout in
-                    showingSwapIn = false
+            .sheet(isPresented: $showingSwapIn, onDismiss: {
+                // Start only once the sheet is fully gone: dismissing a
+                // sheet and presenting a cover in one transaction can
+                // drop the presentation — with the session already
+                // inserted, that left an invisible orphan (bug hunt).
+                if let workout = swapInPick {
+                    swapInPick = nil
                     start(workout)
+                }
+            }) {
+                SwapInSheet(workouts: workouts.filter { !$0.groups.isEmpty }) { workout in
+                    swapInPick = workout
+                    showingSwapIn = false
                 }
             }
             .fullScreenCover(item: $activeSession) { session in
                 ActiveSessionView(session: session)
             }
+            .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
+                dayToken += 1
+            }
         }
+    }
+
+    /// Reading this in the timeline ties the render to day rollovers.
+    private var today: Date {
+        _ = dayToken
+        return Date()
     }
 
     // MARK: - Data assembly
 
     private var dueWorkouts: [Workout] {
+        // Only workouts with something in them stage: starting an empty
+        // workout would instantly commit a bogus 0-set session AND mark
+        // the schedule satisfied (bug hunt, highest severity).
         workouts.filter { workout in
-            workout.schedule.dueState(
+            !workout.groups.isEmpty && workout.schedule.dueState(
                 lastCompleted: lastCompleted(of: workout),
-                today: Date(),
+                today: today,
                 calendar: calendar
             ) == .due
         }
     }
 
+    /// Identity match wins; the name fallback only applies when no
+    /// session references this workout — two workouts sharing a name
+    /// must not satisfy each other's schedules (bug hunt). "Latest" is
+    /// by endedAt, matching the comparison the schedule engine makes.
     private func lastCompleted(of workout: Workout) -> Date? {
-        sessions.first { $0.workout === workout || $0.workoutName == workout.name }?.endedAt
+        let identityMatches = sessions.filter { $0.workout === workout }
+        let pool = identityMatches.isEmpty
+            ? sessions.filter { $0.workoutName == workout.name }
+            : identityMatches
+        return pool.compactMap(\.endedAt).max()
     }
 
     private func dueCaption(for workout: Workout) -> String {
         guard let since = workout.schedule.dueSince(
             lastCompleted: lastCompleted(of: workout),
-            today: Date(),
+            today: today,
             calendar: calendar
         ) else { return "due today" }
         if calendar.isDateInToday(since) { return "due today" }
-        return "due since " + since.formatted(.dateTime.weekday(.abbreviated)).lowercased()
+        // Within the week a weekday reads naturally; older than that,
+        // "due since thu" would lie about how long it's been.
+        if let days = calendar.dateComponents([.day], from: since, to: calendar.startOfDay(for: today)).day, days <= 6 {
+            return "due since " + since.formatted(.dateTime.weekday(.abbreviated)).lowercased()
+        }
+        return "due since " + since.formatted(.dateTime.month(.abbreviated).day()).lowercased()
     }
 
     /// The last time each staged exercise was actually performed —
-    /// newest finished session containing it, top completed set weight,
-    /// last set's reps/duration.
+    /// newest finished session containing it, represented by its TOP
+    /// set (heaviest completed weight) with THAT set's reps: weight and
+    /// reps must come from the same set or the delta describes a set
+    /// that never happened (bug hunt). Duration takes the last set.
     private func prior(for workoutExercise: WorkoutExercise) -> WorkoutDiff.Prior? {
         let exercise = workoutExercise.exercise
         let name = exercise?.name ?? ""
@@ -122,9 +166,10 @@ struct TodayView: View {
                 return log.exerciseName == name
             }
             guard let last = matches.last else { continue }
+            let top = matches.max { ($0.actualWeight ?? 0) < ($1.actualWeight ?? 0) } ?? last
             return WorkoutDiff.Prior(
-                weight: matches.compactMap(\.actualWeight).max() ?? last.actualWeight,
-                reps: last.actualReps,
+                weight: top.actualWeight,
+                reps: top.actualReps ?? last.actualReps,
                 durationSeconds: last.actualDuration
             )
         }
@@ -185,15 +230,27 @@ struct TodayView: View {
     }
 
     private func netGain(for session: WorkoutSession) -> Double? {
-        guard let previous = sessions.first(where: {
-            $0.workoutName == session.workoutName
-                && ($0.endedAt ?? .distantPast) < (session.endedAt ?? .distantPast)
-        }) else { return nil }
+        // Identity when both sessions still reference a workout; name
+        // otherwise. "Previous" is the max endedAt below this one — the
+        // query's startedAt order isn't the comparison order (bug hunt).
+        let candidates = sessions.filter { other in
+            let sameWorkout: Bool
+            if let a = other.workout, let b = session.workout {
+                sameWorkout = a === b
+            } else {
+                sameWorkout = other.workoutName == session.workoutName
+            }
+            return sameWorkout && (other.endedAt ?? .distantPast) < (session.endedAt ?? .distantPast)
+        }
+        guard let previous = candidates.max(by: { ($0.endedAt ?? .distantPast) < ($1.endedAt ?? .distantPast) }) else { return nil }
         let gain = WorkoutDiff.netWeightGain(current: topWeights(session), previous: topWeights(previous))
         return gain > 0 ? gain : nil
     }
 
     private func start(_ workout: Workout) {
+        // Belt and braces with the dueWorkouts/swap-in filters: an empty
+        // workout must never become a committed 0-set session.
+        guard !workout.groups.isEmpty else { return }
         // ActiveSessionView requests notification permission on appear.
         activeSession = WorkoutSession.start(from: workout, context: modelContext)
     }
@@ -222,7 +279,7 @@ struct TodayView: View {
     }
 
     private var caption: String {
-        let date = Date().formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()).lowercased()
+        let date = today.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()).lowercased()
         let due = dueWorkouts.count
         return due == 0 ? date : "\(date) · \(due) due"
     }
@@ -476,7 +533,7 @@ struct TodayView: View {
         for workout in workouts {
             let state = workout.schedule.dueState(
                 lastCompleted: lastCompleted(of: workout),
-                today: Date(),
+                today: today,
                 calendar: calendar
             )
             if case .notDue(let next) = state {

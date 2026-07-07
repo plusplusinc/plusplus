@@ -76,12 +76,20 @@ struct SessionDetailView: View {
     }
 
     /// The previous committed session of the same workout, if any.
+    /// Identity wins over the name fallback (same-name workouts must not
+    /// cross-contaminate), and "previous" is the max endedAt below this
+    /// one — the query's startedAt order isn't the comparison order.
     private var previousSession: WorkoutSession? {
-        allFinished.first {
-            $0 !== session
-                && $0.workoutName == session.workoutName
-                && ($0.endedAt ?? .distantPast) < (session.endedAt ?? .distantPast)
-        }
+        allFinished
+            .filter { other in
+                guard other !== session else { return false }
+                if let a = other.workout, let b = session.workout {
+                    return a === b && (other.endedAt ?? .distantPast) < (session.endedAt ?? .distantPast)
+                }
+                return other.workoutName == session.workoutName
+                    && (other.endedAt ?? .distantPast) < (session.endedAt ?? .distantPast)
+            }
+            .max { ($0.endedAt ?? .distantPast) < ($1.endedAt ?? .distantPast) }
     }
 
     private func topWeight(of name: String, in candidate: WorkoutSession) -> Double? {
