@@ -66,7 +66,7 @@ struct RootTabView: View {
         ZStack {
             Theme.background.ignoresSafeArea()
             Text("++")
-                .font(.system(size: 72, design: .monospaced, weight: .bold))
+                .font(.system(size: 72, weight: .bold, design: .monospaced))
                 .foregroundStyle(Theme.accent)
         }
         .transition(.opacity)
