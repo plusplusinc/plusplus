@@ -24,7 +24,7 @@ enum Theme {
 
     static let textPrimary = Color(light: 0x232220, dark: 0xF0EDE6)
     static let textSecondary = Color(light: 0x6B6965, dark: 0x9D9B96)
-    static let textFaint = Color(light: 0x999691, dark: 0x5F5D59)
+    static let textFaint = Color(light: 0x767370, dark: 0x8A8781)
 
     /// The data green. Green is data, never chrome: deltas, net chips,
     /// next-due values, live progress, and the ++ glyph.

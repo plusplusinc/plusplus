@@ -122,7 +122,7 @@ struct WorkoutListView: View {
     }
 }
 
-/// 38 pt round icon button used in tab headers.
+/// 44 pt round icon button used in tab headers (HIG minimum target).
 struct HeaderIconButton: View {
     let systemImage: String
     var identifier: String?
@@ -131,9 +131,9 @@ struct HeaderIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemImage)
-                .font(.system(.subheadline, weight: .medium))
+                .font(.system(.body, weight: .medium))
                 .foregroundStyle(Theme.textSecondary)
-                .frame(width: 38, height: 38)
+                .frame(width: 44, height: 44)
                 .background(Theme.surface, in: Circle())
                 .overlay(Circle().strokeBorder(Theme.border))
         }
