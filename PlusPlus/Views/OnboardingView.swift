@@ -16,17 +16,25 @@ struct OnboardingView: View {
     @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
     @Query(sort: \Exercise.name) private var allExercises: [Exercise]
 
-    /// Re-run mode (from Settings) skips beat 2 — a returning user
-    /// doesn't want another starter workout.
-    var isRerun = false
+    /// Re-run mode (from Settings) skips the welcome and starter beats —
+    /// a returning user just wants the equipment picker.
+    let isRerun: Bool
 
     private enum Beat {
-        case equipment, starter
+        case welcome, equipment, starter
     }
 
-    @State private var beat: Beat = .equipment
+    @State private var beat: Beat
     @State private var selected: Set<String> = []
     @State private var search = ""
+
+    init(isRerun: Bool = false) {
+        self.isRerun = isRerun
+        // A fresh install gets the brand beat first — being dropped
+        // straight into a form read as sudden (Dave, build 10). Re-runs
+        // from Settings go straight to the equipment picker.
+        _beat = State(initialValue: isRerun ? .equipment : .welcome)
+    }
 
     private var builtIns: [Equipment] {
         allEquipment.filter(\.isBuiltIn)
@@ -39,6 +47,7 @@ struct OnboardingView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             switch beat {
+            case .welcome: welcomeBeat
             case .equipment: equipmentBeat
             case .starter: starterBeat
             }
@@ -49,6 +58,49 @@ struct OnboardingView: View {
             selected = Set(builtIns.filter(\.inLibrary).map(\.name))
         }
         .interactiveDismissDisabled(!isRerun)
+    }
+
+    // MARK: - Beat 0: welcome
+
+    private var welcomeBeat: some View {
+        VStack(spacing: 0) {
+            Spacer()
+            Text("++")
+                .font(.system(size: 64, design: .monospaced, weight: .bold))
+                .foregroundStyle(Theme.accent)
+            Text("PlusPlus")
+                .font(.system(.title2, weight: .bold))
+                .padding(.top, 16)
+            Text("the fitness tracker for people who increment")
+                .font(.system(.footnote, design: .monospaced))
+                .foregroundStyle(Theme.textSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.top, 6)
+            Text("Every workout is a diff against your last. History is append-only. Progress is the point.")
+                .font(.system(.footnote))
+                .foregroundStyle(Theme.textSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.top, 14)
+                .padding(.horizontal, 12)
+            Spacer()
+            Button {
+                beat = .equipment
+            } label: {
+                Text("Get started")
+                    .font(.system(.subheadline, weight: .bold))
+                    .foregroundStyle(Theme.onPrimary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 46)
+                    .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
+            }
+            .accessibilityIdentifier("onboardingGetStarted")
+            Text("two quick questions — both skippable")
+                .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(Theme.textFaint)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 10)
+                .padding(.bottom, 14)
+        }
     }
 
     // MARK: - Beat 1: equipment access
@@ -125,9 +177,11 @@ struct OnboardingView: View {
                     .font(.system(.footnote))
                     .foregroundStyle(Theme.textSecondary)
                     .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .contentShape(Rectangle())
             }
-            .padding(.top, 10)
-            .padding(.bottom, 14)
+            .padding(.top, 8)
+            .padding(.bottom, 10)
         }
     }
 
@@ -137,21 +191,26 @@ struct OnboardingView: View {
 
     private func presetCard(_ preset: Preset) -> some View {
         let active = selected == preset.items
+        let count = preset.items.count
+        // Accent-tinted when active: what you own is data (it drives the
+        // catalog filter), same rationale as the schedule day circles —
+        // and surface-vs-surfaceRaised was unreadably subtle (Dave,
+        // build 10).
         return Button {
             selected = preset.items
         } label: {
             VStack(alignment: .leading, spacing: 3) {
                 Text(preset.name)
                     .font(.system(.footnote, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-                Text(preset.items.isEmpty ? "0 items" : "\(preset.items.count) items")
+                    .foregroundStyle(active ? Theme.accent : Theme.textPrimary)
+                Text(count == 0 ? "just you" : "\(count) item\(count == 1 ? "" : "s")")
                     .font(.system(.caption2, design: .monospaced))
-                    .foregroundStyle(Theme.textFaint)
+                    .foregroundStyle(active ? Theme.accent.opacity(0.75) : Theme.textFaint)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(10)
-            .background(active ? Theme.surfaceRaised : Theme.surface, in: RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(active ? Theme.borderStrong : Theme.border))
+            .background(active ? Theme.accent.opacity(0.14) : Theme.surface, in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(active ? Theme.accent.opacity(0.55) : Theme.border))
         }
     }
 
@@ -298,14 +357,17 @@ private struct FlowChips: View {
                 Button {
                     toggle(name)
                 } label: {
+                    // Accent tint, not primaryFill: ownership is data
+                    // (see the schedule day circles), and cream-vs-
+                    // outline read as ambiguous on device.
                     Text(name)
                         .font(.system(.footnote, weight: .semibold))
-                        .foregroundStyle(active ? Theme.onPrimary : Theme.textSecondary)
+                        .foregroundStyle(active ? Theme.accent : Theme.textSecondary)
                         .lineLimit(1)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
-                        .background(active ? Theme.primaryFill : Theme.background, in: Capsule())
-                        .overlay(Capsule().strokeBorder(active ? Color.clear : Theme.border))
+                        .background(active ? Theme.accent.opacity(0.16) : Theme.background, in: Capsule())
+                        .overlay(Capsule().strokeBorder(active ? Theme.accent.opacity(0.55) : Theme.border))
                 }
             }
         }
