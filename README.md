@@ -44,6 +44,10 @@ history/YYYY/        finished sessions — append-only
 - **Agents**: see [`docs/AGENTS.md`](docs/AGENTS.md);
   [`docs/recipes/`](docs/recipes/) has copy-paste Actions (schema lint on
   PRs, weekly stats report)
+- **Claude**: `plusplus init` scaffolds training repos with a CLAUDE.md +
+  skills (weekly-review / tweak-program / deload-check), and this repo is
+  a Claude Code plugin marketplace — `/plugin marketplace add
+  plusplusinc/plusplus`, then `/plugin install plusplus@plusplus`
 
 Architecture and format contract: [`docs/PLATFORM.md`](docs/PLATFORM.md).
 

@@ -1,0 +1,18 @@
+{
+  "name": "plusplus",
+  "owner": {
+    "name": "PlusPlus",
+    "url": "https://github.com/plusplusinc"
+  },
+  "metadata": {
+    "description": "The PlusPlus plugin marketplace — the app repo doubles as the marketplace (#148).",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "plusplus",
+      "source": "./claude-plugin",
+      "description": "Training assistant for PlusPlus workout repos: MCP server + weekly-review / tweak-program / deload-check skills. Requires the plusplus CLI on PATH."
+    }
+  ]
+}

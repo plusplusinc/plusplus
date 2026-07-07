@@ -209,6 +209,9 @@ struct ActiveSessionView: View {
         RestNotifier.shared.cancelPending()
         if !session.isFinished {
             session.finish()
+            // Phone-logged sessions reach Health here; watch imports are
+            // recorded by the wrist's own live session (#90).
+            HealthRecorder.record(session)
         }
         if dismissAfter {
             dismiss()

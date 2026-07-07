@@ -25,6 +25,10 @@ struct WorkoutRunView: View {
     @State private var restEndsAt: Date?
     @State private var finished = false
 
+    /// One HealthKit workout session per run view (#90). Plain class in
+    /// @State: stable storage across re-renders, no observation needed.
+    @State private var health = WatchWorkoutController()
+
     private var stepIndex: Int { results.count }
     private var currentStep: WatchSync.Step? {
         routine.steps.indices.contains(stepIndex) ? routine.steps[stepIndex] : nil
@@ -44,6 +48,9 @@ struct WorkoutRunView: View {
         }
         .navigationTitle(routine.name)
         .navigationBarBackButtonHidden(startedAt != nil && !finished)
+        // The HK session starts as soon as the routine is opened —
+        // runtime + heart rate from the first set, not the first log.
+        .onAppear { health.start() }
         // If the system pops us mid-session (plan row vanished after a
         // rename/delete on the phone), the logged sets still count:
         // partial history beats lost history, and the phone-side
@@ -51,6 +58,11 @@ struct WorkoutRunView: View {
         .onDisappear {
             if startedAt != nil && !finished && !results.isEmpty {
                 finish()
+            } else {
+                // Browsed in and left without logging: no workout
+                // happened, so nothing reaches Health. No-op if finish()
+                // already saved the HK session.
+                health.discard()
             }
         }
     }
@@ -162,6 +174,7 @@ struct WorkoutRunView: View {
 
     private func finish() {
         WatchRestNotifier.cancel()
+        health.finish()
         let now = Date()
         store.send(WatchSync.SessionResult(
             routineName: routine.name,

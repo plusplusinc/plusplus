@@ -1,0 +1,13 @@
+{
+  "name": "plusplus",
+  "description": "Training assistant for PlusPlus workout repos: the plusplus MCP server (read tools + branch-gated program proposals) and weekly-review / tweak-program / deload-check skills.",
+  "version": "0.1.0",
+  "author": {
+    "name": "David Cole",
+    "url": "https://github.com/mrdavidjcole"
+  },
+  "homepage": "https://plusplus.fit",
+  "repository": "https://github.com/plusplusinc/plusplus",
+  "license": "MIT",
+  "keywords": ["fitness", "workout", "training", "mcp"]
+}
