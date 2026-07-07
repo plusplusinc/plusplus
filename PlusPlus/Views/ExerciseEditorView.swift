@@ -2,8 +2,10 @@ import SwiftUI
 import SwiftData
 import PlusPlusKit
 
-/// Create or edit a custom exercise. Built-ins are never passed here —
-/// they stay read-only.
+/// Create or edit a custom exercise, in the v2 sheet language (#86):
+/// terse sections, chips for muscle group, and equipment presented as
+/// explicit "requires all of these" chips. Built-ins are never passed
+/// here — they stay read-only.
 struct ExerciseEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -31,90 +33,184 @@ struct ExerciseEditorView: View {
         allExercises.map(\.name)
     }
 
+    private var canSave: Bool {
+        draft.canSave(existingNames: existingNames, editedName: editingExercise?.name)
+    }
+
+    private var selectedEquipmentSorted: [Equipment] {
+        draft.selectedEquipment.sorted { $0.name < $1.name }
+    }
+
+    private var unselectedEquipment: [Equipment] {
+        allEquipment.filter { !draft.selectedEquipment.contains($0) }
+    }
+
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    TextField("Name", text: $draft.name)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Button("Cancel") { dismiss() }
+                    .font(.system(.subheadline))
+                    .foregroundStyle(Theme.textSecondary)
+                Spacer()
+                Text(editingExercise == nil ? "New exercise" : "Edit exercise")
+                    .font(.system(.subheadline, weight: .bold))
+                Spacer()
+                Button("Save") { save() }
+                    .font(.system(.subheadline, weight: .bold))
+                    .foregroundStyle(canSave ? Theme.accent : Theme.textFaint)
+                    .disabled(!canSave)
+                    .accessibilityIdentifier("saveExerciseButton")
+            }
+            .padding(.top, 14)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    SheetSectionLabel("NAME")
+                        .padding(.top, 16)
+                    TextField("Exercise name", text: $draft.name)
+                        .font(.system(.body))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 11)
+                        .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
                         .accessibilityIdentifier("exerciseNameField")
-
-                    Picker("Muscle Group", selection: $draft.muscleGroup) {
-                        ForEach(MuscleGroup.allCases) { group in
-                            Text(group.displayName).tag(group)
-                        }
-                    }
-
-                    Picker("Type", selection: $draft.exerciseType) {
-                        Text("Weight & Reps").tag(ExerciseType.weightReps)
-                        Text("Duration").tag(ExerciseType.duration)
-                    }
-                    .pickerStyle(.segmented)
-                } footer: {
                     if draft.isDuplicate(among: existingNames, excluding: editingExercise?.name) {
                         Text("An exercise with this name already exists.")
-                            .foregroundStyle(.red)
+                            .font(.system(.caption))
+                            .foregroundStyle(Theme.destructive)
+                            .padding(.top, 6)
                     } else if draft.isRename(of: editingExercise?.name) {
                         Text("Renaming starts a fresh exercise: past sets and \"last time\" stay with \"\(editingExercise?.name ?? "")\".")
-                            .foregroundStyle(.orange)
+                            .font(.system(.caption))
+                            .foregroundStyle(Theme.notes)
+                            .padding(.top, 6)
                     }
-                }
 
-                Section("Equipment") {
-                    ForEach(allEquipment) { equipment in
-                        Button {
-                            toggle(equipment)
-                        } label: {
-                            HStack {
-                                Text(equipment.name)
-                                    .foregroundStyle(.primary)
-                                Spacer()
-                                if draft.selectedEquipment.contains(equipment) {
-                                    Image(systemName: "checkmark")
-                                        .foregroundStyle(Theme.accent)
-                                }
-                            }
+                    SheetSectionLabel("TYPE")
+                        .padding(.top, 16)
+                    SegmentedTabs(
+                        options: ["Weight & reps", "Duration"],
+                        selectedIndex: Binding(
+                            get: { draft.exerciseType == .duration ? 1 : 0 },
+                            set: { draft.exerciseType = $0 == 1 ? .duration : .weightReps }
+                        )
+                    )
+
+                    SheetSectionLabel("MUSCLE GROUP")
+                        .padding(.top, 16)
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 7)], spacing: 7) {
+                        ForEach(MuscleGroup.allCases) { group in
+                            muscleChip(group)
                         }
                     }
-                }
 
-                Section {
-                    TextField("Notes (form cues, tempo…)", text: $draft.notes, axis: .vertical)
+                    SheetSectionLabel("REQUIRES")
+                        .padding(.top, 16)
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 118), spacing: 7)], spacing: 7) {
+                        ForEach(selectedEquipmentSorted) { equipment in
+                            equipmentChip(equipment)
+                        }
+                        addEquipmentChip
+                    }
+                    Text(draft.selectedEquipment.isEmpty
+                         ? "Bodyweight — no equipment required."
+                         : "This exercise needs all of these; filtering by what you own uses it.")
+                        .font(.system(.caption))
+                        .foregroundStyle(Theme.textFaint)
+                        .padding(.top, 6)
+
+                    SheetSectionLabel("NOTES")
+                        .padding(.top, 16)
+                    TextField("Form cues, tempo…", text: $draft.notes, axis: .vertical)
+                        .font(.system(.footnote))
                         .lineLimit(3...8)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 11)
+                        .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
 
-                    TextField("Video link (optional)", text: $draft.videoURL)
+                    SheetSectionLabel("VIDEO")
+                        .padding(.top, 16)
+                    TextField("Link (optional)", text: $draft.videoURL)
+                        .font(.system(.footnote))
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                } header: {
-                    Text("Details")
-                } footer: {
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 11)
+                        .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
                     if draft.normalizedVideoURL == .invalid {
                         Text("That doesn't look like a valid link.")
-                            .foregroundStyle(.red)
+                            .font(.system(.caption))
+                            .foregroundStyle(Theme.destructive)
+                            .padding(.top, 6)
                     }
                 }
+                .padding(.bottom, 30)
             }
-            .navigationTitle(editingExercise == nil ? "New Exercise" : "Edit Exercise")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { save() }
-                        .disabled(!draft.canSave(existingNames: existingNames, editedName: editingExercise?.name))
-                        .accessibilityIdentifier("saveExerciseButton")
-                }
-            }
+        }
+        .padding(.horizontal, 18)
+        .presentationBackground(Theme.surface)
+    }
+
+    private func muscleChip(_ group: MuscleGroup) -> some View {
+        let selected = draft.muscleGroup == group
+        return Button {
+            draft.muscleGroup = group
+        } label: {
+            Text(group.displayName)
+                .font(.system(.footnote, weight: .semibold))
+                .foregroundStyle(selected ? Theme.onAccent : Theme.textSecondary)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 7)
+                .background(selected ? Theme.accentButton : Theme.background, in: Capsule())
+                .overlay(Capsule().strokeBorder(selected ? Color.clear : Theme.border))
         }
     }
 
-    private func toggle(_ equipment: Equipment) {
-        if draft.selectedEquipment.contains(equipment) {
+    private func equipmentChip(_ equipment: Equipment) -> some View {
+        Button {
             draft.selectedEquipment.remove(equipment)
-        } else {
-            draft.selectedEquipment.insert(equipment)
+        } label: {
+            HStack(spacing: 5) {
+                Text(equipment.name)
+                    .font(.system(.footnote, weight: .semibold))
+                    .lineLimit(1)
+                Image(systemName: "xmark")
+                    .font(.system(.caption2, weight: .bold))
+                    .foregroundStyle(Theme.textFaint)
+            }
+            .foregroundStyle(Theme.textPrimary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 7)
+            .background(Theme.surfaceRaised, in: Capsule())
+            .overlay(Capsule().strokeBorder(Theme.borderStrong))
         }
+    }
+
+    private var addEquipmentChip: some View {
+        Menu {
+            ForEach(unselectedEquipment) { equipment in
+                Button(equipment.name) {
+                    draft.selectedEquipment.insert(equipment)
+                }
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Text("+")
+                    .font(.system(.footnote, design: .monospaced, weight: .semibold))
+                    .foregroundStyle(Theme.accent)
+                Text("Add")
+                    .font(.system(.footnote, weight: .semibold))
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 7)
+            .overlay(Capsule().strokeBorder(Theme.borderStrong, style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
+        }
+        .disabled(unselectedEquipment.isEmpty)
     }
 
     private func save() {
