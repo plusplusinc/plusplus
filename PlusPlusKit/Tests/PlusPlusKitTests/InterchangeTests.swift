@@ -18,8 +18,8 @@ struct InterchangeTests {
                 ExerciseDTO(name: "Y Raise", muscleGroup: .shoulders, exerciseType: .weightReps, equipment: ["Dumbbells", "Bench"]),
                 ExerciseDTO(name: "T Raise", muscleGroup: .shoulders, exerciseType: .weightReps, equipment: ["Bench", "Dumbbells"]),
             ],
-            workouts: [
-                WorkoutDTO(name: "Shoulder PT", restSeconds: 60, notes: "Every day during rehab.", groups: [
+            routines: [
+                RoutineDTO(name: "Shoulder PT", restSeconds: 60, notes: "Every day during rehab.", groups: [
                     .init(sets: 3, exercises: [
                         .init(exercise: "Y Raise", weight: 5, reps: 10),
                         .init(exercise: "T Raise", weight: 5, reps: 10),
@@ -31,7 +31,7 @@ struct InterchangeTests {
             ],
             sessions: [
                 SessionDTO(
-                    workoutName: "Shoulder PT",
+                    routineName: "Shoulder PT",
                     startedAt: Date(timeIntervalSince1970: 1_751_724_660),
                     endedAt: Date(timeIntervalSince1970: 1_751_726_651),
                     restSeconds: 60,
@@ -67,7 +67,7 @@ struct InterchangeTests {
         let forward = makePTBundle()
         let reversed = ExportBundle(
             exercises: forward.exercises.reversed(),
-            workouts: forward.workouts,
+            routines: forward.routines,
             sessions: forward.sessions
         )
         #expect(try InterchangeCodec.encode(forward) == InterchangeCodec.encode(reversed))
@@ -88,7 +88,7 @@ struct InterchangeTests {
 
     @Test("Future schema versions are rejected loudly")
     func versionGuard() throws {
-        let json = #"{"schemaVersion": 99, "exercises": [], "workouts": [], "sessions": []}"#
+        let json = #"{"schemaVersion": 99, "exercises": [], "routines": [], "sessions": []}"#
         #expect(throws: InterchangeCodec.CodecError.unsupportedSchemaVersion(99)) {
             try InterchangeCodec.decode(ExportBundle.self, from: Data(json.utf8))
         }
@@ -113,8 +113,8 @@ struct InterchangeTests {
                 ExerciseDTO(name: "Curl", muscleGroup: .biceps, exerciseType: .weightReps, equipment: []),
                 ExerciseDTO(name: "curl", muscleGroup: .biceps, exerciseType: .weightReps, equipment: []),
             ],
-            workouts: [
-                WorkoutDTO(name: "Arms", restSeconds: 5, groups: [
+            routines: [
+                RoutineDTO(name: "Arms", restSeconds: 5, groups: [
                     .init(sets: 0, exercises: [
                         .init(exercise: "Ghost Exercise", reps: 20, repsUpper: 15)
                     ]),

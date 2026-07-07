@@ -4,7 +4,7 @@ import PlusPlusKit
 
 @Suite("SyncPlanner")
 struct SyncPlannerTests {
-    private let path = "program/workouts/push-day.json"
+    private let path = "program/routines/push-day.json"
     private let a = Data("a".utf8)
     private let b = Data("b".utf8)
     private let c = Data("c".utf8)

@@ -1,7 +1,7 @@
 import Foundation
 
 /// The WatchConnectivity payloads (#6): the phone pushes a Plan (every
-/// workout pre-expanded into execution order, exactly the rotation the
+/// routine pre-expanded into execution order, exactly the rotation the
 /// phone's session factory produces) via updateApplicationContext; the
 /// watch sends a SessionResult back via transferUserInfo when a wrist
 /// session finishes. Pure Codable values — no SwiftData on the wrist,
@@ -10,15 +10,15 @@ import Foundation
 public enum WatchSync {
     public struct Plan: Codable, Equatable, Sendable {
         public var generatedAt: Date
-        public var workouts: [PlanWorkout]
+        public var routines: [PlanRoutine]
 
-        public init(generatedAt: Date, workouts: [PlanWorkout]) {
+        public init(generatedAt: Date, routines: [PlanRoutine]) {
             self.generatedAt = generatedAt
-            self.workouts = workouts
+            self.routines = routines
         }
     }
 
-    public struct PlanWorkout: Codable, Equatable, Sendable, Identifiable {
+    public struct PlanRoutine: Codable, Equatable, Sendable, Identifiable {
         public var name: String
         public var restSeconds: Int
         public var steps: [Step]
@@ -66,14 +66,14 @@ public enum WatchSync {
     }
 
     public struct SessionResult: Codable, Equatable, Sendable {
-        public var workoutName: String
+        public var routineName: String
         public var startedAt: Date
         public var endedAt: Date
         public var restSeconds: Int
         public var steps: [StepResult]
 
-        public init(workoutName: String, startedAt: Date, endedAt: Date, restSeconds: Int, steps: [StepResult]) {
-            self.workoutName = workoutName
+        public init(routineName: String, startedAt: Date, endedAt: Date, restSeconds: Int, steps: [StepResult]) {
+            self.routineName = routineName
             self.startedAt = startedAt
             self.endedAt = endedAt
             self.restSeconds = restSeconds

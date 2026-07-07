@@ -3,18 +3,18 @@ import SwiftData
 
 @Model
 final class ExerciseGroup {
-    var workout: Workout?
+    var routine: Routine?
     var order: Int
     var sets: Int
-    @Relationship(deleteRule: .cascade, inverse: \WorkoutExercise.group)
-    var exercises: [WorkoutExercise] = []
+    @Relationship(deleteRule: .cascade, inverse: \RoutineExercise.group)
+    var exercises: [RoutineExercise] = []
 
     init(order: Int = 0, sets: Int = 3) {
         self.order = order
         self.sets = sets
     }
 
-    var sortedExercises: [WorkoutExercise] {
+    var sortedExercises: [RoutineExercise] {
         exercises.filter { !$0.isDeleted }.sorted { $0.order < $1.order }
     }
 

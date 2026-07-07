@@ -11,7 +11,7 @@ struct PlusPlusApp: App {
     @AppStorage(AppAppearance.storageKey) private var appearanceRaw: String = AppAppearance.system.rawValue
 
     init() {
-        let schema = Schema([Workout.self, Exercise.self, Equipment.self, WorkoutSession.self, SetLog.self])
+        let schema = Schema([Routine.self, Exercise.self, Equipment.self, WorkoutSession.self, SetLog.self])
         // UI tests pass --uitest-reset so every launch starts from a clean,
         // throwaway store (seed data still loads).
         let inMemory = CommandLine.arguments.contains("--uitest-reset")
@@ -22,7 +22,7 @@ struct PlusPlusApp: App {
         if inMemory {
             UIView.setAnimationsEnabled(false)
             // Smoke tests start past setup (the seeded store has
-            // workouts, so only the stored equipment flag needs
+            // routines, so only the stored equipment flag needs
             // forcing); a dedicated flag opts back in for a
             // setup-flow test.
             let onboarding = CommandLine.arguments.contains("--uitest-onboarding")
@@ -35,10 +35,10 @@ struct PlusPlusApp: App {
             fatalError("Failed to create ModelContainer: \(error)")
         }
         SeedData.loadIfNeeded(context: modelContainer.mainContext)
-        // A workout tall enough to overflow every simulator screen, for
+        // A routine tall enough to overflow every simulator screen, for
         // the scroll regression test. Only meaningful with --uitest-reset.
         if inMemory && CommandLine.arguments.contains("--uitest-bigworkout") {
-            Self.seedBigWorkout(context: modelContainer.mainContext)
+            Self.seedBigRoutine(context: modelContainer.mainContext)
         }
         RestNotifier.shared.activate()
         WatchBridge.shared.activate(container: modelContainer)
@@ -46,13 +46,13 @@ struct PlusPlusApp: App {
 
     /// 16 rows guarantees the rail overflows the viewport at every
     /// supported Dynamic Type size on every simulator device.
-    private static func seedBigWorkout(context: ModelContext) {
+    private static func seedBigRoutine(context: ModelContext) {
         let exercises = (try? context.fetch(FetchDescriptor<Exercise>(sortBy: [SortDescriptor(\.name)]))) ?? []
         guard !exercises.isEmpty else { return }
-        let workout = Workout(name: "Big Day", order: 0)
-        context.insert(workout)
+        let routine = Routine(name: "Big Day", order: 0)
+        context.insert(routine)
         for n in 0..<16 {
-            workout.addExerciseInNewGroup(exercises[n % exercises.count], context: context)
+            routine.addExerciseInNewGroup(exercises[n % exercises.count], context: context)
         }
     }
 

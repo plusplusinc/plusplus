@@ -48,10 +48,10 @@
         }
       ],
       "startedAt" : "2026-07-05T14:31:00Z",
-      "workoutName" : "Shoulder PT"
+      "routineName" : "Shoulder PT"
     }
   ],
-  "workouts" : [
+  "routines" : [
     {
       "groups" : [
         {

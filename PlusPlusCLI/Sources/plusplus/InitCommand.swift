@@ -5,18 +5,18 @@ import PlusPlusKit
 struct InitCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "init",
-        abstract: "Scaffold a new workout repo (program/ + history/ + README).",
+        abstract: "Scaffold a new routine repo (program/ + history/ + README).",
         discussion: """
         Creates the layout the app, the CLI, and agents all share. Run it in \
         an empty directory (a fresh git repo is fine), commit, and start \
-        adding exercises and workouts — `plusplus lint` keeps you honest.
+        adding exercises and routines — `plusplus lint` keeps you honest.
         """
     )
 
     @Argument(help: "Directory to scaffold (created if missing).")
     var path: String = "."
 
-    @Flag(name: .long, help: "Include a commented example exercise and workout.")
+    @Flag(name: .long, help: "Include a commented example exercise and routine.")
     var example = false
 
     @Flag(name: .long, help: "Scaffold even if the directory isn't empty.")
@@ -44,7 +44,7 @@ struct InitCommand: ParsableCommand {
         for line in written {
             print("wrote   \(line)")
         }
-        print("Initialized workout repo at \(path) — `git init && git add .` if it isn't one already.")
+        print("Initialized routine repo at \(path) — `git init && git add .` if it isn't one already.")
     }
 
     /// Empty enough to scaffold: nothing visible. Dotfiles (.git of a fresh
@@ -61,7 +61,7 @@ struct InitCommand: ParsableCommand {
             ("README.md", Data(readme.utf8)),
             (".gitattributes", Data("*.json text eol=lf\n".utf8)),
             ("\(FileLayout.exercisesDirectory)/.gitkeep", Data()),
-            ("\(FileLayout.workoutsDirectory)/.gitkeep", Data()),
+            ("\(FileLayout.routinesDirectory)/.gitkeep", Data()),
             ("\(FileLayout.historyDirectory)/.gitkeep", Data()),
         ]
 
@@ -73,7 +73,7 @@ struct InitCommand: ParsableCommand {
                 equipment: [],
                 notes: "Example exercise — edit or delete freely."
             )
-            let workout = WorkoutDTO(name: "Example Day", restSeconds: 90, groups: [
+            let routine = RoutineDTO(name: "Example Day", restSeconds: 90, groups: [
                 .init(sets: 3, exercises: [.init(exercise: "Push-Up", reps: 10)])
             ])
             files.append((
@@ -81,15 +81,15 @@ struct InitCommand: ParsableCommand {
                 try InterchangeCodec.encode(ExerciseDocument(exercise: exercise))
             ))
             files.append((
-                FileLayout.workoutPath(for: workout.name),
-                try InterchangeCodec.encode(WorkoutDocument(workout: workout))
+                FileLayout.routinePath(for: routine.name),
+                try InterchangeCodec.encode(RoutineDocument(routine: routine))
             ))
         }
         return files
     }
 
     private static let readme = """
-    # My Workouts
+    # My Routines
 
     Training data for [PlusPlus](https://github.com/mrdavidjcole/plusplus), \
     stored as versioned JSON (interchange schema v\(Interchange.schemaVersion)).
@@ -98,7 +98,7 @@ struct InitCommand: ParsableCommand {
 
     ```
     program/exercises/   one exercise per file
-    program/workouts/    one workout per file
+    program/routines/    one routine per file
     history/YYYY/        finished sessions — append-only, never rewritten
     ```
 

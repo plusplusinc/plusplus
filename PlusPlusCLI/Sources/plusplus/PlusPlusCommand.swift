@@ -6,9 +6,9 @@ import PlusPlusKit
 struct PlusPlusCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "plusplus",
-        abstract: "Manage PlusPlus workout data as files (interchange schema v\(Interchange.schemaVersion)).",
+        abstract: "Manage PlusPlus routine data as files (interchange schema v\(Interchange.schemaVersion)).",
         discussion: """
-        Operates on a workout repo (program/ + history/, usually a git clone) \
+        Operates on a routine repo (program/ + history/, usually a git clone) \
         or on a single export bundle from the iPhone app. Transport and auth \
         are git's job — this tool never talks to GitHub.
         """,
@@ -30,10 +30,10 @@ func requireValid(_ bundle: PlusPlusKit.ExportBundle) throws {
 
 struct Lint: ParsableCommand {
     static let configuration = CommandConfiguration(
-        abstract: "Validate a workout repo or bundle file against schema v\(Interchange.schemaVersion)."
+        abstract: "Validate a routine repo or bundle file against schema v\(Interchange.schemaVersion)."
     )
 
-    @Argument(help: "Path to a workout repo directory or a bundle .json file.")
+    @Argument(help: "Path to a routine repo directory or a bundle .json file.")
     var path: String = "."
 
     @Flag(name: .long, help: "Emit a machine-readable JSON report instead of text.")
@@ -55,7 +55,7 @@ struct Lint: ParsableCommand {
             }
             throw ExitCode.failure
         }
-        print("OK — \(bundle.exercises.count) exercises, \(bundle.workouts.count) workouts, \(bundle.sessions.count) sessions")
+        print("OK — \(bundle.exercises.count) exercises, \(bundle.routines.count) routines, \(bundle.sessions.count) sessions")
     }
 }
 
@@ -64,7 +64,7 @@ struct Stats: ParsableCommand {
         abstract: "Per-exercise history stats (sessions, sets, reps, best, last performed)."
     )
 
-    @Argument(help: "Path to a workout repo directory or a bundle .json file.")
+    @Argument(help: "Path to a routine repo directory or a bundle .json file.")
     var path: String = "."
 
     @Option(name: .long, help: "Only show one exercise (case-insensitive name match).")
@@ -104,13 +104,13 @@ struct ImportCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "import",
         abstract: "Write an app export bundle into the per-file repo layout.",
-        discussion: "Templates are overwritten; history is append-only. Typical use: bootstrap or refresh a workout repo from the iPhone app's Export Data file, then review and commit with git."
+        discussion: "Templates are overwritten; history is append-only. Typical use: bootstrap or refresh a routine repo from the iPhone app's Export Data file, then review and commit with git."
     )
 
     @Argument(help: "The bundle .json exported from the app.")
     var bundlePath: String
 
-    @Option(name: .long, help: "Workout repo root to write into.")
+    @Option(name: .long, help: "Routine repo root to write into.")
     var into: String = "."
 
     func run() throws {
@@ -118,7 +118,7 @@ struct ImportCommand: ParsableCommand {
         let bundle = try InterchangeCodec.decode(PlusPlusKit.ExportBundle.self, from: data)
         try requireValid(bundle)
 
-        let summary = try WorkoutRepo(root: URL(fileURLWithPath: into)).write(bundle: bundle)
+        let summary = try RoutineRepo(root: URL(fileURLWithPath: into)).write(bundle: bundle)
         for path in summary.written {
             print("wrote   \(path)")
         }
@@ -129,7 +129,7 @@ struct ImportCommand: ParsableCommand {
 struct MCPCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "mcp",
-        abstract: "Serve a workout repo to agents over MCP (stdio JSON-RPC).",
+        abstract: "Serve a routine repo to agents over MCP (stdio JSON-RPC).",
         discussion: """
         Blocks reading newline-delimited JSON-RPC on stdin — run it from an \
         MCP client configuration, not interactively. Read tools return \
@@ -138,7 +138,7 @@ struct MCPCommand: ParsableCommand {
         """
     )
 
-    @Option(name: .long, help: "Workout repo root to serve.")
+    @Option(name: .long, help: "Routine repo root to serve.")
     var repo: String = "."
 
     func run() throws {
@@ -149,19 +149,19 @@ struct MCPCommand: ParsableCommand {
 struct ExportCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "export",
-        abstract: "Combine a workout repo into a single bundle file (for the app's Import Data)."
+        abstract: "Combine a routine repo into a single bundle file (for the app's Import Data)."
     )
 
-    @Argument(help: "Workout repo root.")
+    @Argument(help: "Routine repo root.")
     var path: String = "."
 
     @Option(name: .long, help: "Output bundle file.")
     var to: String = "plusplus-export.json"
 
     func run() throws {
-        let bundle = try WorkoutRepo(root: URL(fileURLWithPath: path)).loadBundle()
+        let bundle = try RoutineRepo(root: URL(fileURLWithPath: path)).loadBundle()
         try requireValid(bundle)
         try InterchangeCodec.encode(bundle).write(to: URL(fileURLWithPath: to))
-        print("Wrote \(to) — \(bundle.exercises.count) exercises, \(bundle.workouts.count) workouts, \(bundle.sessions.count) sessions")
+        print("Wrote \(to) — \(bundle.exercises.count) exercises, \(bundle.routines.count) routines, \(bundle.sessions.count) sessions")
     }
 }

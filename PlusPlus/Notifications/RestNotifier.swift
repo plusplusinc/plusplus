@@ -48,7 +48,7 @@ final class RestNotifier: NSObject, UNUserNotificationCenterDelegate {
         UNUserNotificationCenter.current().delegate = self
     }
 
-    /// Asked at first workout start — the moment the permission makes
+    /// Asked at first routine start — the moment the permission makes
     /// sense to a user — not at app launch.
     func requestAuthorizationIfNeeded() {
         guard !disabled, !hasRequestedAuthorization else { return }

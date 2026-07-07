@@ -130,7 +130,7 @@ struct SettingsView: View {
                     .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                     .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
 
-                    Text("Interchange schema v\(Interchange.schemaVersion) — exercises + workouts + history as JSON, ready for the workouts repo.")
+                    Text("Interchange schema v\(Interchange.schemaVersion) — exercises + routines + history as JSON, ready for the routines repo.")
                         .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
                         .padding(.top, 6)
@@ -232,8 +232,8 @@ struct SettingsView: View {
         if summary.exercisesCreated + summary.exercisesUpdated > 0 {
             lines.append("Exercises: \(summary.exercisesCreated) added, \(summary.exercisesUpdated) updated")
         }
-        if summary.workoutsCreated + summary.workoutsReplaced > 0 {
-            lines.append("Workouts: \(summary.workoutsCreated) added, \(summary.workoutsReplaced) replaced")
+        if summary.routinesCreated + summary.routinesReplaced > 0 {
+            lines.append("Routines: \(summary.routinesCreated) added, \(summary.routinesReplaced) replaced")
         }
         lines.append("Sessions: \(summary.sessionsAdded) added, \(summary.sessionsSkipped) already present")
         return lines.joined(separator: "\n")

@@ -2,7 +2,7 @@
 import PackageDescription
 
 // The plusplus CLI (docs/PLATFORM.md, issue #24): UX over a git clone of a
-// workout repo. No GitHub auth — git is the transport and the auth. Builds
+// routine repo. No GitHub auth — git is the transport and the auth. Builds
 // and tests on macOS and Linux; all format logic comes from PlusPlusKit.
 let package = Package(
     name: "PlusPlusCLI",

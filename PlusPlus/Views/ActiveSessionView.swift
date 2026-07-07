@@ -64,7 +64,7 @@ struct ActiveSessionView: View {
                         session: session,
                         log: currentLog,
                         lastTime: WorkoutSession.lastPerformance(matching: currentLog, in: finishedSessions),
-                        workoutNotes: completedSets == 0 ? session.workout?.notes : nil,
+                        routineNotes: completedSets == 0 ? session.routine?.notes : nil,
                         burstCount: burstCount,
                         onComplete: { completeCurrentSet(currentLog) }
                     )
@@ -104,7 +104,7 @@ struct ActiveSessionView: View {
         }
         .interactiveDismissDisabled()
         .task {
-            // First workout start is when the permission makes sense.
+            // First routine start is when the permission makes sense.
             RestNotifier.shared.requestAuthorizationIfNeeded()
         }
     }
@@ -252,11 +252,11 @@ struct ActiveSessionView: View {
         return String(format: "%d:%02d", elapsed / 60, elapsed % 60)
     }
 
-    /// Where this session will land in the workouts repo — the same naming
+    /// Where this session will land in the routines repo — the same naming
     /// FileLayout uses, shown as provenance on the done screen.
     private var historyPathText: String {
         let (year, stamp) = FileLayout.utcDateParts(of: session.startedAt)
-        return "\(FileLayout.historyDirectory)/\(year)/\(stamp)-\(Slug.make(session.workoutName)).json"
+        return "\(FileLayout.historyDirectory)/\(year)/\(stamp)-\(Slug.make(session.routineName)).json"
     }
 }
 
@@ -288,7 +288,7 @@ private struct SetLoggingView: View {
     let session: WorkoutSession
     @Bindable var log: SetLog
     let lastTime: SetLog?
-    let workoutNotes: String?
+    let routineNotes: String?
     let burstCount: Int
     let onComplete: () -> Void
 
@@ -357,8 +357,8 @@ private struct SetLoggingView: View {
                     .foregroundStyle(Theme.textSecondary)
                     .padding(.top, 8)
 
-                    if let workoutNotes {
-                        Text(workoutNotes)
+                    if let routineNotes {
+                        Text(routineNotes)
                             .font(.system(.footnote))
                             .foregroundStyle(Theme.textSecondary)
                             .padding(11)

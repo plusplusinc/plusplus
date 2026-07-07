@@ -2,7 +2,7 @@ import Foundation
 
 /// A planned rep target: a single value ("10") or a range ("15–20"), as PT
 /// and hypertrophy prescriptions are usually written. Pure value logic,
-/// SwiftUI-free and unit tested; `WorkoutExercise` stores it as the
+/// SwiftUI-free and unit tested; `RoutineExercise` stores it as the
 /// `reps`/`repsUpper` pair.
 public struct RepTarget: Equatable, Sendable {
     public let lower: Int?

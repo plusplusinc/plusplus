@@ -271,8 +271,8 @@ struct ExerciseEditorView: View {
 }
 
 /// Read-only exercise details: muscle group, equipment, notes, video link.
-/// Reachable from the workout detail screen so form cues are available
-/// mid-workout.
+/// Reachable from the routine detail screen so form cues are available
+/// mid-routine.
 struct ExerciseInfoView: View {
     @Environment(\.dismiss) private var dismiss
     let exercise: Exercise

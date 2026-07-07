@@ -313,7 +313,7 @@ struct CatalogBrowseScreen: View {
                 EmptyView()
             }
 
-            Text("Toggles curate your library — removing never touches workouts or logged history.")
+            Text("Toggles curate your library — removing never touches routines or logged history.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textFaint)
                 .frame(maxWidth: .infinity, alignment: .leading)

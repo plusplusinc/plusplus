@@ -15,12 +15,12 @@ enum MCPToolbox {
     static var definitions: [[String: Any]] { [
         [
             "name": "list_exercises",
-            "description": "All exercises in the workout repo (interchange schema): name, muscle group, type, equipment, notes, video.",
+            "description": "All exercises in the routine repo (interchange schema): name, muscle group, type, equipment, notes, video.",
             "inputSchema": emptySchema,
         ],
         [
-            "name": "list_workouts",
-            "description": "All workout templates: groups (a group with >1 exercise is a superset), sets, targets (weight/reps/rep-ranges/duration), rest.",
+            "name": "list_routines",
+            "description": "All routine templates: groups (a group with >1 exercise is a superset), sets, targets (weight/reps/rep-ranges/duration), rest.",
             "inputSchema": emptySchema,
         ],
         [
@@ -30,7 +30,7 @@ enum MCPToolbox {
                 "type": "object",
                 "properties": [
                     "limit": ["type": "integer", "description": "Max sessions to return (default 20)."],
-                    "workout": ["type": "string", "description": "Only sessions of this workout (case-insensitive)."],
+                    "routine": ["type": "string", "description": "Only sessions of this routine (case-insensitive)."],
                 ],
             ],
         ],
@@ -84,14 +84,14 @@ enum MCPToolbox {
         case "list_exercises":
             let bundle = try BundleSource.load(path: repoRoot)
             return try encode(bundle.exercises)
-        case "list_workouts":
+        case "list_routines":
             let bundle = try BundleSource.load(path: repoRoot)
-            return try encode(bundle.workouts)
+            return try encode(bundle.routines)
         case "get_history":
             let bundle = try BundleSource.load(path: repoRoot)
             var sessions = bundle.sessions.sorted { $0.startedAt > $1.startedAt }
-            if let workout = arguments["workout"] as? String {
-                sessions = sessions.filter { $0.workoutName.lowercased() == workout.lowercased() }
+            if let routine = arguments["routine"] as? String {
+                sessions = sessions.filter { $0.routineName.lowercased() == routine.lowercased() }
             }
             let limit = arguments["limit"] as? Int ?? 20
             return try encode(Array(sessions.prefix(max(0, limit))))

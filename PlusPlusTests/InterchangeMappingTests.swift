@@ -8,14 +8,14 @@ import PlusPlusKit
 struct InterchangeMappingTests {
     private func makeContainer() throws -> ModelContainer {
         let schema = Schema([
-            Exercise.self, Equipment.self, Workout.self, ExerciseGroup.self,
-            WorkoutExercise.self, WorkoutSession.self, SetLog.self,
+            Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self,
+            RoutineExercise.self, WorkoutSession.self, SetLog.self,
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         return try ModelContainer(for: schema, configurations: [config])
     }
 
-    /// Custom exercise + superset workout + one finished session.
+    /// Custom exercise + superset routine + one finished session.
     private func populate(_ context: ModelContext) throws {
         let band = Equipment(name: "Resistance Band", isBuiltIn: true)
         context.insert(band)
@@ -28,18 +28,18 @@ struct InterchangeMappingTests {
         context.insert(pulses)
         context.insert(yRaise)
 
-        let workout = Workout(name: "Shoulder PT", restSeconds: 60, notes: "Keep it under an hour.")
-        context.insert(workout)
-        let superset = workout.addExerciseInNewGroup(yRaise, context: context)
+        let routine = Routine(name: "Shoulder PT", restSeconds: 60, notes: "Keep it under an hour.")
+        context.insert(routine)
+        let superset = routine.addExerciseInNewGroup(yRaise, context: context)
         superset.sets = 3
-        workout.addExercise(pulses, to: superset, context: context)
+        routine.addExercise(pulses, to: superset, context: context)
         superset.sortedExercises[0].weight = 5
         superset.sortedExercises[0].reps = 10
         superset.sortedExercises[1].reps = 15
         superset.sortedExercises[1].repsUpper = 20
 
         let session = WorkoutSession.start(
-            from: workout, context: context,
+            from: routine, context: context,
             at: Date(timeIntervalSince1970: 1_000_000)
         )
         for log in session.sortedSetLogs {
@@ -65,17 +65,17 @@ struct InterchangeMappingTests {
         let summary = try InterchangeMapping.importBundle(decoded, context: destination)
 
         #expect(summary.exercisesCreated == 2)
-        #expect(summary.workoutsCreated == 1)
+        #expect(summary.routinesCreated == 1)
         #expect(summary.sessionsAdded == 1)
 
-        let workouts = try destination.fetch(FetchDescriptor<Workout>())
-        #expect(workouts.count == 1)
-        let workout = try #require(workouts.first)
-        #expect(workout.name == "Shoulder PT")
-        #expect(workout.restSeconds == 60)
-        #expect(workout.notes == "Keep it under an hour.")
-        #expect(workout.sortedGroups.count == 1)
-        let group = try #require(workout.sortedGroups.first)
+        let routines = try destination.fetch(FetchDescriptor<Routine>())
+        #expect(routines.count == 1)
+        let routine = try #require(routines.first)
+        #expect(routine.name == "Shoulder PT")
+        #expect(routine.restSeconds == 60)
+        #expect(routine.notes == "Keep it under an hour.")
+        #expect(routine.sortedGroups.count == 1)
+        let group = try #require(routine.sortedGroups.first)
         #expect(group.isSuperset)
         #expect(group.sets == 3)
         #expect(group.sortedExercises.map { $0.exercise?.name } == ["Y Raise", "Band Pulses"])
@@ -110,8 +110,8 @@ struct InterchangeMappingTests {
         #expect(sessions.count == 1, "History must never duplicate on re-import")
     }
 
-    @Test("Workout import replaces structure rather than duplicating")
-    func workoutReplacement() throws {
+    @Test("Routine import replaces structure rather than duplicating")
+    func routineReplacement() throws {
         let context = ModelContext(try makeContainer())
         try populate(context)
 
@@ -119,8 +119,8 @@ struct InterchangeMappingTests {
         // Simulate an external edit: drop the superset down to one exercise.
         bundle = ExportBundle(
             exercises: bundle.exercises,
-            workouts: [
-                WorkoutDTO(name: "Shoulder PT", restSeconds: 90, groups: [
+            routines: [
+                RoutineDTO(name: "Shoulder PT", restSeconds: 90, groups: [
                     .init(sets: 4, exercises: [.init(exercise: "Y Raise", reps: 12)])
                 ])
             ],
@@ -128,17 +128,17 @@ struct InterchangeMappingTests {
         )
 
         let summary = try InterchangeMapping.importBundle(bundle, context: context)
-        #expect(summary.workoutsReplaced == 1)
+        #expect(summary.routinesReplaced == 1)
 
-        let workouts = try context.fetch(FetchDescriptor<Workout>())
-        #expect(workouts.count == 1)
-        let workout = try #require(workouts.first)
-        #expect(workout.restSeconds == 90)
-        #expect(workout.notes == nil, "A replacing DTO without notes clears them")
-        #expect(workout.sortedGroups.count == 1)
-        #expect(workout.sortedGroups[0].sets == 4)
-        #expect(!workout.sortedGroups[0].isSuperset)
-        #expect(workout.sortedGroups[0].sortedExercises[0].reps == 12)
+        let routines = try context.fetch(FetchDescriptor<Routine>())
+        #expect(routines.count == 1)
+        let routine = try #require(routines.first)
+        #expect(routine.restSeconds == 90)
+        #expect(routine.notes == nil, "A replacing DTO without notes clears them")
+        #expect(routine.sortedGroups.count == 1)
+        #expect(routine.sortedGroups[0].sets == 4)
+        #expect(!routine.sortedGroups[0].isSuperset)
+        #expect(routine.sortedGroups[0].sortedExercises[0].reps == 12)
     }
 
     @Test("Invalid bundles are rejected with the validator's issues")
@@ -146,7 +146,7 @@ struct InterchangeMappingTests {
         let context = ModelContext(try makeContainer())
         let bad = ExportBundle(
             exercises: [],
-            workouts: [WorkoutDTO(name: "Bad", restSeconds: 5, groups: [])],
+            routines: [RoutineDTO(name: "Bad", restSeconds: 5, groups: [])],
             sessions: []
         )
         #expect(throws: InterchangeMapping.ImportError.self) {
@@ -161,7 +161,7 @@ struct InterchangeMappingTests {
             exercises: [
                 ExerciseDTO(name: "Sled Push", muscleGroup: .fullBody, exerciseType: .weightReps, equipment: ["Sled"])
             ],
-            workouts: [],
+            routines: [],
             sessions: []
         )
         try InterchangeMapping.importBundle(bundle, context: context)

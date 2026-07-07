@@ -14,10 +14,10 @@ struct WorkoutRunView: View {
     /// backgrounding, and a live session must not have its step list
     /// swapped out underneath it (@State survives the parent's
     /// re-renders; the init value applies only once).
-    @State private var workout: WatchSync.PlanWorkout
+    @State private var routine: WatchSync.PlanRoutine
 
-    init(workout: WatchSync.PlanWorkout) {
-        _workout = State(initialValue: workout)
+    init(routine: WatchSync.PlanRoutine) {
+        _routine = State(initialValue: routine)
     }
 
     @State private var startedAt: Date?
@@ -27,7 +27,7 @@ struct WorkoutRunView: View {
 
     private var stepIndex: Int { results.count }
     private var currentStep: WatchSync.Step? {
-        workout.steps.indices.contains(stepIndex) ? workout.steps[stepIndex] : nil
+        routine.steps.indices.contains(stepIndex) ? routine.steps[stepIndex] : nil
     }
 
     var body: some View {
@@ -42,7 +42,7 @@ struct WorkoutRunView: View {
                 doneView
             }
         }
-        .navigationTitle(workout.name)
+        .navigationTitle(routine.name)
         .navigationBarBackButtonHidden(startedAt != nil && !finished)
         // If the system pops us mid-session (plan row vanished after a
         // rename/delete on the phone), the logged sets still count:
@@ -59,7 +59,7 @@ struct WorkoutRunView: View {
 
     private func stepView(_ step: WatchSync.Step) -> some View {
         VStack(spacing: 8) {
-            Text("set \(stepIndex + 1)/\(workout.steps.count)")
+            Text("set \(stepIndex + 1)/\(routine.steps.count)")
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(.secondary)
             Text(step.exerciseName)
@@ -119,14 +119,14 @@ struct WorkoutRunView: View {
             actualDuration: step.isDuration ? step.targetDuration : nil,
             completedAt: Date()
         ))
-        if results.count < workout.steps.count {
-            let end = Date().addingTimeInterval(TimeInterval(workout.restSeconds))
+        if results.count < routine.steps.count {
+            let end = Date().addingTimeInterval(TimeInterval(routine.restSeconds))
             restEndsAt = end
             // The in-app haptic only fires while the app is frontmost;
             // with the wrist down the app suspends, so a local
             // notification carries the "rest over" signal (no
             // HKWorkoutSession in v1 — Health is deferred, #90).
-            WatchRestNotifier.schedule(at: end, exerciseName: workout.steps[results.count].exerciseName)
+            WatchRestNotifier.schedule(at: end, exerciseName: routine.steps[results.count].exerciseName)
         } else {
             finish()
         }
@@ -164,10 +164,10 @@ struct WorkoutRunView: View {
         WatchRestNotifier.cancel()
         let now = Date()
         store.send(WatchSync.SessionResult(
-            workoutName: workout.name,
+            routineName: routine.name,
             startedAt: startedAt ?? now,
             endedAt: now,
-            restSeconds: workout.restSeconds,
+            restSeconds: routine.restSeconds,
             steps: results
         ))
         WKInterfaceDevice.current().play(.success)

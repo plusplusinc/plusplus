@@ -2,18 +2,18 @@ import SwiftUI
 import SwiftData
 import PlusPlusKit
 
-/// The Workouts tab, v3 (#109): workout cards with equipment pills and
-/// a contextual header + (new workout). Library/History/Settings left
+/// The Routines tab, v3 (#109): routine cards with equipment pills and
+/// a contextual header + (new routine). Library/History/Settings left
 /// this header with the nav restructure — Exercises and Equipment are
 /// tabs, history lives on Today, settings opens from Today's header.
-struct WorkoutListView: View {
+struct RoutineListView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: [SortDescriptor(\Workout.order), SortDescriptor(\Workout.createdAt, order: .reverse)])
-    private var workouts: [Workout]
+    @Query(sort: [SortDescriptor(\Routine.order), SortDescriptor(\Routine.createdAt, order: .reverse)])
+    private var routines: [Routine]
 
     @State private var path = NavigationPath()
-    @State private var showingNewWorkout = false
-    @State private var newWorkoutName = ""
+    @State private var showingNewRoutine = false
+    @State private var newRoutineName = ""
     @State private var openSwipeRow: PersistentIdentifier?
 
     var body: some View {
@@ -22,44 +22,44 @@ struct WorkoutListView: View {
                 header
 
                 List {
-                ForEach(workouts) { workout in
-                    SwipeRevealRow(id: workout.persistentModelID, openRow: $openSwipeRow, actionsWidth: 58) {
-                        WorkoutCard(workout: workout) {
-                            if openSwipeRow != nil { openSwipeRow = nil } else { path.append(workout) }
+                ForEach(routines) { routine in
+                    SwipeRevealRow(id: routine.persistentModelID, openRow: $openSwipeRow, actionsWidth: 58) {
+                        RoutineCard(routine: routine) {
+                            if openSwipeRow != nil { openSwipeRow = nil } else { path.append(routine) }
                         }
                     } actions: {
                         SwipeActionButton(label: "DELETE", color: Theme.destructive) {
                             openSwipeRow = nil
-                            deleteWorkout(workout)
+                            deleteRoutine(routine)
                         }
                     }
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                 }
-                    .onMove(perform: moveWorkouts)
+                    .onMove(perform: moveRoutines)
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
             }
             .background(Theme.background)
             .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(for: Workout.self) { workout in
-                WorkoutDetailView(workout: workout)
+            .navigationDestination(for: Routine.self) { routine in
+                RoutineDetailView(routine: routine)
             }
             .overlay {
-                if workouts.isEmpty {
+                if routines.isEmpty {
                     ContentUnavailableView(
-                        "No Workouts",
+                        "No Routines",
                         systemImage: "figure.strengthtraining.traditional",
-                        description: Text("Create your first workout to get started.")
+                        description: Text("Create your first routine to get started.")
                     )
                 }
             }
-            .alert("New Workout", isPresented: $showingNewWorkout) {
-                TextField("Name", text: $newWorkoutName)
-                Button("Cancel", role: .cancel) { newWorkoutName = "" }
-                Button("Create") { createWorkout() }
+            .alert("New Routine", isPresented: $showingNewRoutine) {
+                TextField("Name", text: $newRoutineName)
+                Button("Cancel", role: .cancel) { newRoutineName = "" }
+                Button("Create") { createRoutine() }
             }
         }
     }
@@ -69,11 +69,11 @@ struct WorkoutListView: View {
             HStack {
                 HeaderGlyph()
                 Spacer()
-                HeaderIconButton(systemImage: "plus", identifier: "newWorkoutButton") {
-                    showingNewWorkout = true
+                HeaderIconButton(systemImage: "plus", identifier: "newRoutineButton") {
+                    showingNewRoutine = true
                 }
             }
-            Text("Workouts")
+            Text("Routines")
                 .font(.system(.title, weight: .bold))
                 .padding(.top, 10)
             // Sync caption goes live with #23; until then it points at the plan.
@@ -86,38 +86,38 @@ struct WorkoutListView: View {
         .padding(.bottom, 12)
     }
 
-    private func createWorkout() {
-        let name = newWorkoutName.trimmingCharacters(in: .whitespacesAndNewlines)
-        newWorkoutName = ""
+    private func createRoutine() {
+        let name = newRoutineName.trimmingCharacters(in: .whitespacesAndNewlines)
+        newRoutineName = ""
         guard !name.isEmpty else { return }
 
-        let workout = Workout(name: name, order: 0)
-        modelContext.insert(workout)
+        let routine = Routine(name: name, order: 0)
+        modelContext.insert(routine)
 
-        // Push existing workouts down
-        for existing in workouts where existing !== workout {
+        // Push existing routines down
+        for existing in routines where existing !== routine {
             existing.order += 1
         }
 
-        path.append(workout)
+        path.append(routine)
     }
 
-    private func deleteWorkout(_ workout: Workout) {
-        modelContext.delete(workout)
-        reindexWorkouts()
+    private func deleteRoutine(_ routine: Routine) {
+        modelContext.delete(routine)
+        reindexRoutines()
     }
 
-    private func moveWorkouts(from source: IndexSet, to destination: Int) {
-        var reordered = Array(workouts)
+    private func moveRoutines(from source: IndexSet, to destination: Int) {
+        var reordered = Array(routines)
         reordered.move(fromOffsets: source, toOffset: destination)
-        for (index, workout) in reordered.enumerated() {
-            workout.order = index
+        for (index, routine) in reordered.enumerated() {
+            routine.order = index
         }
     }
 
-    private func reindexWorkouts() {
-        for (index, workout) in workouts.enumerated() {
-            workout.order = index
+    private func reindexRoutines() {
+        for (index, routine) in routines.enumerated() {
+            routine.order = index
         }
     }
 }
@@ -141,13 +141,13 @@ struct HeaderIconButton: View {
     }
 }
 
-private struct WorkoutCard: View {
-    let workout: Workout
+private struct RoutineCard: View {
+    let routine: Routine
     let onOpen: () -> Void
 
     /// Up to two equipment pills plus a "+N" overflow, per the design.
     private var pills: [String] {
-        let names = workout.equipmentNames
+        let names = routine.equipmentNames
         guard !names.isEmpty else { return ["bodyweight"] }
         if names.count > 2 {
             return Array(names.prefix(2)) + ["+\(names.count - 2)"]
@@ -158,17 +158,17 @@ private struct WorkoutCard: View {
     var body: some View {
         Button(action: onOpen) {
             HStack(spacing: 8) {
-                Text(workout.name)
+                Text(routine.name)
                     .font(.system(.body, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
                 Spacer(minLength: 8)
                 HStack(spacing: 5) {
                     // Schedule pill first (#112): the cadence at a glance,
-                    // faint when the workout is unscheduled.
-                    Text(workout.schedule.shortLabel)
+                    // faint when the routine is unscheduled.
+                    Text(routine.schedule.shortLabel)
                         .font(.system(.caption2, design: .monospaced))
-                        .foregroundStyle(workout.schedule.normalized == .unscheduled ? Theme.textFaint : Theme.textSecondary)
+                        .foregroundStyle(routine.schedule.normalized == .unscheduled ? Theme.textFaint : Theme.textSecondary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 2.5)
                         .overlay(Capsule().strokeBorder(Theme.border))

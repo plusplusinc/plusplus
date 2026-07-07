@@ -7,7 +7,7 @@ import PlusPlusKit
 struct LintReport: Codable, Equatable {
     struct Counts: Codable, Equatable {
         var exercises: Int
-        var workouts: Int
+        var routines: Int
         var sessions: Int
     }
 
@@ -24,7 +24,7 @@ struct LintReport: Codable, Equatable {
         valid = issues.isEmpty
         counts = Counts(
             exercises: bundle.exercises.count,
-            workouts: bundle.workouts.count,
+            routines: bundle.routines.count,
             sessions: bundle.sessions.count
         )
         self.issues = issues.map { Issue(path: $0.path, message: $0.message) }

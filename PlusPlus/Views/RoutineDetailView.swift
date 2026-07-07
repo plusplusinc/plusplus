@@ -2,20 +2,20 @@ import SwiftUI
 import SwiftData
 import PlusPlusKit
 
-/// Workout detail, v2 (#61): a compact program view — meta line with
+/// Routine detail, v2 (#61): a compact program view — meta line with
 /// estimated time and rest, exercise rows on a rail with supersets drawn
 /// as a stadium loop, swipe actions, and a pinned Start/Add bar. Editing
 /// a row happens in ExerciseDetailSheet (#62).
-struct WorkoutDetailView: View {
+struct RoutineDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @Bindable var workout: Workout
+    @Bindable var routine: Routine
 
     @State private var filterState = ExerciseFilterState()
     @State private var pickerDestination: PickerDestination?
     @State private var activeSession: WorkoutSession?
-    @State private var showingWorkoutSettings = false
-    @State private var selectedExercise: WorkoutExercise?
+    @State private var showingRoutineSettings = false
+    @State private var selectedExercise: RoutineExercise?
     @State private var railGesture: RailGestureState = .idle
     @State private var openSwipeRow: PersistentIdentifier?
     /// Rows track Dynamic Type: 52 pt at standard body size, growing with
@@ -47,14 +47,14 @@ struct WorkoutDetailView: View {
                 addExercise(exercise, to: destination)
             }
         }
-        .sheet(isPresented: $showingWorkoutSettings) {
-            WorkoutSettingsSheet(workout: workout)
+        .sheet(isPresented: $showingRoutineSettings) {
+            RoutineSettingsSheet(routine: routine)
                 .presentationDetents([.medium, .large])
         }
-        .sheet(item: $selectedExercise) { workoutExercise in
+        .sheet(item: $selectedExercise) { routineExercise in
             ExerciseDetailSheet(
-                workout: workout,
-                workoutExercise: workoutExercise,
+                routine: routine,
+                routineExercise: routineExercise,
                 onAddToSuperset: { group in pickerDestination = .group(group) }
             )
             .presentationDetents([.large])
@@ -74,7 +74,7 @@ struct WorkoutDetailView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "chevron.left")
                         .font(.system(.footnote, weight: .bold))
-                    // "Back", not "Workouts": with #137 this screen is
+                    // "Back", not "Routines": with #137 this screen is
                     // reachable from Today, the catalog tabs, and other
                     // pushed screens — the origin varies.
                     Text("Back")
@@ -86,19 +86,19 @@ struct WorkoutDetailView: View {
             .accessibilityIdentifier("backButton")
 
             HStack(alignment: .center) {
-                Text(workout.name)
+                Text(routine.name)
                     .font(.system(.title, weight: .bold))
                     .lineLimit(1)
                 Spacer()
-                HeaderIconButton(systemImage: "slider.horizontal.3", identifier: "workoutSettingsButton") {
-                    showingWorkoutSettings = true
+                HeaderIconButton(systemImage: "slider.horizontal.3", identifier: "routineSettingsButton") {
+                    showingRoutineSettings = true
                 }
             }
             .padding(.top, 2)
 
-            if !workout.groups.isEmpty {
+            if !routine.groups.isEmpty {
                 // Schedule + rest as chips under the title (#109); both
-                // open the workout-settings sheet. The ~time estimate
+                // open the routine-settings sheet. The ~time estimate
                 // rides along as plain meta.
                 HStack(spacing: 7) {
                     detailChip(scheduleChipText, identifier: "scheduleChip")
@@ -110,11 +110,11 @@ struct WorkoutDetailView: View {
                 .padding(.top, 8)
 
                 Button {
-                    showingWorkoutSettings = true
+                    showingRoutineSettings = true
                 } label: {
-                    Text(workout.notes ?? "add notes…")
+                    Text(routine.notes ?? "add notes…")
                         .font(.system(.footnote))
-                        .foregroundStyle(workout.notes == nil ? Theme.textFaint : Theme.textSecondary)
+                        .foregroundStyle(routine.notes == nil ? Theme.textFaint : Theme.textSecondary)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
                 }
@@ -127,22 +127,22 @@ struct WorkoutDetailView: View {
     }
 
     private var estimatedTimeText: String {
-        let minutes = max(5, Int((Double(workout.estimatedSeconds) / 300).rounded()) * 5)
+        let minutes = max(5, Int((Double(routine.estimatedSeconds) / 300).rounded()) * 5)
         return "~\(minutes) min"
     }
 
     private var restText: String {
-        WorkoutMetric.duration.formatted(Double(workout.restSeconds))
-            + (workout.restSeconds < 60 ? "s" : "")
+        WorkoutMetric.duration.formatted(Double(routine.restSeconds))
+            + (routine.restSeconds < 60 ? "s" : "")
     }
 
     private var scheduleChipText: String {
-        workout.schedule.shortLabel
+        routine.schedule.shortLabel
     }
 
     private func detailChip(_ text: String, identifier: String) -> some View {
         Button {
-            showingWorkoutSettings = true
+            showingRoutineSettings = true
         } label: {
             (Text(text).font(.system(.footnote, design: .monospaced, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                 + Text(" ") + Text(Image(systemName: "chevron.down")).font(.system(.caption2, weight: .semibold)).foregroundStyle(Theme.textSecondary))
@@ -173,17 +173,17 @@ struct WorkoutDetailView: View {
     // membership, custom swipe reveal). Geometry and drop/ring semantics
     // are pure PlusPlusKit logic (RailArrangement); this layer renders
     // rows at the positions the logic dictates and commits results
-    // through the Workout mutations.
+    // through the Routine mutations.
 
     private var groupSizes: [Int] {
-        workout.sortedGroups.map { $0.sortedExercises.count }
+        routine.sortedGroups.map { $0.sortedExercises.count }
     }
 
     private var railList: some View {
         let sizes = groupSizes
         let layout = RailLayout.build(groupSizes: sizes, metrics: railMetrics)
         let offsets = rowOffsets(layout: layout, sizes: sizes)
-        let groups = workout.sortedGroups
+        let groups = routine.sortedGroups
         let ringGroup = activeRingGroup
 
         // Rows are REAL layout (a plain VStack) so the ScrollView sizes
@@ -196,8 +196,8 @@ struct WorkoutDetailView: View {
                     emptyHint
                 }
                 ForEach(Array(groups.enumerated()), id: \.element.persistentModelID) { g, group in
-                    ForEach(Array(group.sortedExercises.enumerated()), id: \.element.persistentModelID) { i, workoutExercise in
-                        railRow(workoutExercise, group: group, groupIndex: g, index: i, hideLoop: ringGroup == g)
+                    ForEach(Array(group.sortedExercises.enumerated()), id: \.element.persistentModelID) { i, routineExercise in
+                        railRow(routineExercise, group: group, groupIndex: g, index: i, hideLoop: ringGroup == g)
                             .offset(y: offsets[.exercise(group: g, index: i)] ?? 0)
                     }
                 }
@@ -272,7 +272,7 @@ struct WorkoutDetailView: View {
 
     /// One row: swipe-revealable content with the two long-press zones —
     /// the rail column grabs the ring, the body drags the row.
-    private func railRow(_ workoutExercise: WorkoutExercise, group: ExerciseGroup, groupIndex g: Int, index i: Int, hideLoop: Bool) -> some View {
+    private func railRow(_ routineExercise: RoutineExercise, group: ExerciseGroup, groupIndex g: Int, index i: Int, hideLoop: Bool) -> some View {
         let height = railRowHeight
         let isDragged: Bool = {
             if case .dragging(let dg, let di, _, _) = railGesture { return dg == g && di == i }
@@ -280,13 +280,13 @@ struct WorkoutDetailView: View {
         }()
 
         return SwipeRevealRow(
-            id: workoutExercise.persistentModelID,
+            id: routineExercise.persistentModelID,
             openRow: $openSwipeRow,
             enabled: railGesture == .idle,
             actionsWidth: 174
         ) {
             ExerciseRailRow(
-                workoutExercise: workoutExercise,
+                routineExercise: routineExercise,
                 role: railRole(index: i, of: group),
                 rowHeight: railRowHeight,
                 hideLoop: hideLoop
@@ -296,7 +296,7 @@ struct WorkoutDetailView: View {
                 // A second finger must not open sheets (and mutate the
                 // model) while a rail gesture is live.
                 guard railGesture == .idle else { return }
-                if openSwipeRow != nil { openSwipeRow = nil } else { selectedExercise = workoutExercise }
+                if openSwipeRow != nil { openSwipeRow = nil } else { selectedExercise = routineExercise }
             }
             .overlay(alignment: .leading) {
                 // The dot zone still taps through to the sheet; its ring
@@ -307,7 +307,7 @@ struct WorkoutDetailView: View {
                     .contentShape(Rectangle())
                     .onTapGesture {
                         guard railGesture == .idle else { return }
-                        selectedExercise = workoutExercise
+                        selectedExercise = routineExercise
                     }
             }
         } actions: {
@@ -318,11 +318,11 @@ struct WorkoutDetailView: View {
                 }
                 SwipeActionButton(label: "DUPE", color: Theme.textSecondary) {
                     openSwipeRow = nil
-                    duplicateExercise(workoutExercise, in: group)
+                    duplicateExercise(routineExercise, in: group)
                 }
                 SwipeActionButton(label: "DELETE", color: Theme.destructive) {
                     openSwipeRow = nil
-                    deleteExercise(workoutExercise, in: group)
+                    deleteExercise(routineExercise, in: group)
                 }
             }
         }
@@ -498,8 +498,8 @@ struct WorkoutDetailView: View {
     private func floatingDragPreview(layout: RailLayout, groups: [ExerciseGroup]) -> some View {
         if case .dragging(let g, let i, let fingerY, let grabOffset) = railGesture,
            groups.indices.contains(g), groups[g].sortedExercises.indices.contains(i) {
-            let workoutExercise = groups[g].sortedExercises[i]
-            ExerciseRailRow(workoutExercise: workoutExercise, role: .solo)
+            let routineExercise = groups[g].sortedExercises[i]
+            ExerciseRailRow(routineExercise: routineExercise, role: .solo)
                 .padding(.horizontal, 8)
                 .frame(height: railRowHeight)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -521,15 +521,15 @@ struct WorkoutDetailView: View {
         let centerY = fingerY - grabOffset + railRowHeight / 2
         guard let target = RailDrag.nearestTarget(groupSizes: sizes, dragging: (group: g, index: i), fingerY: centerY, metrics: railMetrics) else { return }
 
-        let groups = workout.sortedGroups
+        let groups = routine.sortedGroups
         guard groups.indices.contains(g), groups[g].sortedExercises.indices.contains(i) else { return }
-        let workoutExercise = groups[g].sortedExercises[i]
+        let routineExercise = groups[g].sortedExercises[i]
 
         switch target {
         case .gap(let gap):
-            workout.placeSolo(workoutExercise, atGap: gap, context: modelContext)
+            routine.placeSolo(routineExercise, atGap: gap, context: modelContext)
         case .within(_, let index):
-            workout.reorderExercise(workoutExercise, toIndex: index)
+            routine.reorderExercise(routineExercise, toIndex: index)
         }
     }
 
@@ -538,35 +538,35 @@ struct WorkoutDetailView: View {
         guard sizes.indices.contains(g) else { return }
         let span = RailRing.span(groupSizes: sizes, group: g, edge: edge, fingerY: fingerY, metrics: railMetrics)
         guard !span.isNoOp else { return }
-        let group = workout.sortedGroups[g]
+        let group = routine.sortedGroups[g]
 
         for _ in 0..<span.absorbAfter {
-            let groups = workout.sortedGroups
+            let groups = routine.sortedGroups
             guard let index = groups.firstIndex(where: { $0 === group }),
                   groups.indices.contains(index + 1) else { break }
-            workout.mergeSoloGroup(groups[index + 1], direction: -1, context: modelContext)
+            routine.mergeSoloGroup(groups[index + 1], direction: -1, context: modelContext)
         }
         for _ in 0..<span.absorbBefore {
-            let groups = workout.sortedGroups
+            let groups = routine.sortedGroups
             guard let index = groups.firstIndex(where: { $0 === group }),
                   index > 0 else { break }
-            workout.mergeSoloGroup(groups[index - 1], direction: 1, context: modelContext)
+            routine.mergeSoloGroup(groups[index - 1], direction: 1, context: modelContext)
         }
         for _ in 0..<span.ejectLast {
             guard group.isSuperset, let last = group.sortedExercises.last else { break }
-            workout.splitExercise(last, context: modelContext)
+            routine.splitExercise(last, context: modelContext)
         }
         for _ in 0..<span.ejectFirst {
             guard group.isSuperset, let first = group.sortedExercises.first else { break }
-            workout.splitExercise(first, placeAbove: true, context: modelContext)
+            routine.splitExercise(first, placeAbove: true, context: modelContext)
         }
     }
 
     @ViewBuilder
     private var bottomBar: some View {
-        if !workout.groups.isEmpty {
+        if !routine.groups.isEmpty {
             Button {
-                activeSession = WorkoutSession.start(from: workout, context: modelContext)
+                activeSession = WorkoutSession.start(from: routine, context: modelContext)
             } label: {
                 HStack(spacing: 9) {
                     Image(systemName: "play.fill").font(.system(.footnote))
@@ -590,41 +590,41 @@ struct WorkoutDetailView: View {
     private func addExercise(_ exercise: Exercise, to destination: PickerDestination) {
         switch destination {
         case .newGroup:
-            workout.addExerciseInNewGroup(exercise, context: modelContext)
+            routine.addExerciseInNewGroup(exercise, context: modelContext)
         case .group(let group):
-            workout.addExercise(exercise, to: group, context: modelContext)
+            routine.addExercise(exercise, to: group, context: modelContext)
         }
     }
 
-    private func deleteExercise(_ workoutExercise: WorkoutExercise, in group: ExerciseGroup) {
-        modelContext.delete(workoutExercise)
+    private func deleteExercise(_ routineExercise: RoutineExercise, in group: ExerciseGroup) {
+        modelContext.delete(routineExercise)
         group.reindexExercises()
         if group.sortedExercises.isEmpty {
             modelContext.delete(group)
-            workout.reindexGroups()
+            routine.reindexGroups()
         }
     }
 
     /// The design's DUPE: copy the exercise (with its targets) into a new
     /// solo group directly below this one.
-    private func duplicateExercise(_ workoutExercise: WorkoutExercise, in group: ExerciseGroup) {
-        guard let exercise = workoutExercise.exercise else { return }
+    private func duplicateExercise(_ routineExercise: RoutineExercise, in group: ExerciseGroup) {
+        guard let exercise = routineExercise.exercise else { return }
 
-        for later in workout.sortedGroups where later.order > group.order {
+        for later in routine.sortedGroups where later.order > group.order {
             later.order += 1
         }
         let copyGroup = ExerciseGroup(order: group.order + 1, sets: group.sets)
-        copyGroup.workout = workout
+        copyGroup.routine = routine
         modelContext.insert(copyGroup)
 
-        let copy = WorkoutExercise(exercise: exercise, order: 0)
-        copy.weight = workoutExercise.weight
-        copy.reps = workoutExercise.reps
-        copy.repsUpper = workoutExercise.repsUpper
-        copy.durationSeconds = workoutExercise.durationSeconds
+        let copy = RoutineExercise(exercise: exercise, order: 0)
+        copy.weight = routineExercise.weight
+        copy.reps = routineExercise.reps
+        copy.repsUpper = routineExercise.repsUpper
+        copy.durationSeconds = routineExercise.durationSeconds
         copy.group = copyGroup
         modelContext.insert(copy)
-        workout.reindexGroups()
+        routine.reindexGroups()
     }
 
 }
@@ -655,7 +655,7 @@ enum RailRole {
 
 private struct ExerciseRailRow: View {
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
-    let workoutExercise: WorkoutExercise
+    let routineExercise: RoutineExercise
     let role: RailRole
     var rowHeight: Double = 52
     /// Ring-edit mode (#87): the small loop and the expanded full-width
@@ -664,24 +664,24 @@ private struct ExerciseRailRow: View {
     var hideLoop = false
 
     private var isDuration: Bool {
-        workoutExercise.exercise?.exerciseType == .duration
+        routineExercise.exercise?.exerciseType == .duration
     }
 
     /// "3×15", "3×10 · 5lb", "2×45s" — the condensed target summary.
     private var summary: String {
-        let sets = workoutExercise.group?.sets ?? 1
+        let sets = routineExercise.group?.sets ?? 1
         let unit = WeightUnit(rawValue: weightUnitRaw) ?? .lb
         if isDuration {
-            let dur = workoutExercise.durationSeconds.map { seconds in
+            let dur = routineExercise.durationSeconds.map { seconds in
                 seconds >= 60
                     ? WorkoutMetric.duration.formatted(Double(seconds))
                     : "\(seconds)s"
             } ?? "—"
             return "\(sets)×\(dur)"
         }
-        let reps = RepTarget(lower: workoutExercise.reps, upper: workoutExercise.repsUpper).display
+        let reps = RepTarget(lower: routineExercise.reps, upper: routineExercise.repsUpper).display
         var text = "\(sets)×\(reps)"
-        if let weight = workoutExercise.weight {
+        if let weight = routineExercise.weight {
             text += " · \(WorkoutMetric.weight.formatted(weight))\(unit.symbol)"
         }
         return text
@@ -692,7 +692,7 @@ private struct ExerciseRailRow: View {
             RailGlyph(role: hideLoop ? .solo : role, height: rowHeight, dotY: rowHeight / 2)
                 .frame(width: 24, height: rowHeight)
 
-            Text(workoutExercise.exercise?.name ?? "Unknown")
+            Text(routineExercise.exercise?.name ?? "Unknown")
                 .font(.system(.body, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
                 .lineLimit(1)
@@ -795,14 +795,14 @@ struct RailGlyph: View {
     }
 }
 
-// MARK: - Workout settings sheet (rest + notes)
+// MARK: - Routine settings sheet (rest + notes)
 
-struct WorkoutSettingsSheet: View {
+struct RoutineSettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @Bindable var workout: Workout
-    /// Other workouts' schedules feed the day-occupancy dots (#112);
+    @Bindable var routine: Routine
+    /// Other routines' schedules feed the day-occupancy dots (#112);
     /// finished sessions anchor the next-due line.
-    @Query(sort: \Workout.order) private var allWorkouts: [Workout]
+    @Query(sort: \Routine.order) private var allRoutines: [Routine]
     @Query(
         filter: #Predicate<WorkoutSession> { $0.endedAt != nil },
         sort: [SortDescriptor(\WorkoutSession.startedAt, order: .reverse)]
@@ -814,11 +814,11 @@ struct WorkoutSettingsSheet: View {
     @State private var scheduleTimes: Int
     @State private var schedulePerDays: Int
 
-    init(workout: Workout) {
-        self.workout = workout
+    init(routine: Routine) {
+        self.routine = routine
         // Seed the editor state from the stored schedule; edits write
         // back through persistSchedule() on every change.
-        switch workout.schedule {
+        switch routine.schedule {
         case .unscheduled:
             _scheduleMode = State(initialValue: 0)
             _scheduleDays = State(initialValue: [])
@@ -839,7 +839,7 @@ struct WorkoutSettingsSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "Workout settings", action: { dismiss() })
+            SheetHeader(title: "Routine settings", action: { dismiss() })
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -875,10 +875,10 @@ struct WorkoutSettingsSheet: View {
 
                     MetricStepperRow(
                         label: "Rest",
-                        value: WorkoutMetric.rest.displayText(Double(workout.restSeconds)),
+                        value: WorkoutMetric.rest.displayText(Double(routine.restSeconds)),
                         identifier: "rest",
-                        onDecrement: { workout.restSeconds = Int(WorkoutMetric.rest.decremented(Double(workout.restSeconds))) },
-                        onIncrement: { workout.restSeconds = Int(WorkoutMetric.rest.incremented(Double(workout.restSeconds))) }
+                        onDecrement: { routine.restSeconds = Int(WorkoutMetric.rest.decremented(Double(routine.restSeconds))) },
+                        onIncrement: { routine.restSeconds = Int(WorkoutMetric.rest.incremented(Double(routine.restSeconds))) }
                     )
                     .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
                     .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
@@ -886,16 +886,16 @@ struct WorkoutSettingsSheet: View {
                     SheetSectionLabel("NOTES")
                         .padding(.top, 16)
 
-                    TextField("Intent for this workout — shown when you start it", text: notesBinding, axis: .vertical)
+                    TextField("Intent for this routine — shown when you start it", text: notesBinding, axis: .vertical)
                         .font(.system(.footnote))
                         .lineLimit(1...4)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 11)
                         .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
                         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
-                        .accessibilityIdentifier("workoutNotesField")
+                        .accessibilityIdentifier("routineNotesField")
 
-                    Text("Shown once, when you start the workout.")
+                    Text("Shown once, when you start the routine.")
                         .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
                         .padding(.top, 6)
@@ -939,7 +939,7 @@ struct WorkoutSettingsSheet: View {
                     }
                     .accessibilityIdentifier("scheduleDay\(weekday)")
 
-                    // 4 pt occupancy dot: another workout lives here.
+                    // 4 pt occupancy dot: another routine lives here.
                     Circle()
                         .fill(occupiedDays.keys.contains(weekday) ? Theme.textFaint : Color.clear)
                         .frame(width: 4, height: 4)
@@ -952,10 +952,10 @@ struct WorkoutSettingsSheet: View {
     /// Monday-first calendar weekday numbers, matching the prototype.
     private static let mondayFirstWeekdays = [2, 3, 4, 5, 6, 7, 1]
 
-    /// weekday → another scheduled workout's name occupying that day.
+    /// weekday → another scheduled routine's name occupying that day.
     private var occupiedDays: [Int: String] {
         var result: [Int: String] = [:]
-        for other in allWorkouts where other !== workout {
+        for other in allRoutines where other !== routine {
             if case .weekdays(let days) = other.schedule.normalized {
                 for day in days where result[day] == nil {
                     result[day] = other.name
@@ -990,18 +990,18 @@ struct WorkoutSettingsSheet: View {
         switch scheduleMode {
         case 1:
             if scheduleDays.isEmpty {
-                return "Pick the days this workout should happen."
+                return "Pick the days this routine should happen."
             }
             if let (day, name) = occupiedExample {
                 let names = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
-                return "· = another workout lives on that day — \(name) on \(names[day - 1])"
+                return "· = another routine lives on that day — \(name) on \(names[day - 1])"
             }
             return "Due on the marked days; a missed day carries over until you do it."
         case 2:
             let interval = (schedulePerDays + scheduleTimes - 1) / scheduleTimes
             return "Anchored to your last completion, not the calendar week — \(scheduleTimes)×/\(schedulePerDays)d comes due every ~\(interval) day\(interval == 1 ? "" : "s")."
         default:
-            return "No schedule — this workout never appears on Today by itself. Swap it in whenever."
+            return "No schedule — this routine never appears on Today by itself. Swap it in whenever."
         }
     }
 
@@ -1018,11 +1018,11 @@ struct WorkoutSettingsSheet: View {
     /// "today" / "thu" under the mode UI, in the data green.
     private var nextDueText: String? {
         guard scheduleMode != 0 else { return nil }
-        let schedule: WorkoutSchedule = scheduleMode == 1
+        let schedule: RoutineSchedule = scheduleMode == 1
             ? .weekdays(scheduleDays)
             : .frequency(times: scheduleTimes, perDays: schedulePerDays)
         let lastCompleted = finishedSessions
-            .first { $0.workout === workout || $0.workoutName == workout.name }?
+            .first { $0.routine === routine || $0.routineName == routine.name }?
             .endedAt
         switch schedule.dueState(lastCompleted: lastCompleted, today: Date(), calendar: .current) {
         case .due:
@@ -1036,18 +1036,18 @@ struct WorkoutSettingsSheet: View {
 
     private func persistSchedule() {
         switch scheduleMode {
-        case 1: workout.schedule = .weekdays(scheduleDays)
-        case 2: workout.schedule = .frequency(times: scheduleTimes, perDays: schedulePerDays)
-        default: workout.schedule = .unscheduled
+        case 1: routine.schedule = .weekdays(scheduleDays)
+        case 2: routine.schedule = .frequency(times: scheduleTimes, perDays: schedulePerDays)
+        default: routine.schedule = .unscheduled
         }
     }
 
     private var notesBinding: Binding<String> {
         Binding(
-            get: { workout.notes ?? "" },
+            get: { routine.notes ?? "" },
             set: { newValue in
                 let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                workout.notes = trimmed.isEmpty ? nil : newValue
+                routine.notes = trimmed.isEmpty ? nil : newValue
             }
         )
     }

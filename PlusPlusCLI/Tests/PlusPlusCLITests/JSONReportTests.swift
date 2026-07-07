@@ -13,14 +13,14 @@ struct JSONReportTests {
     func lintReport() throws {
         let bad = ExportBundle(
             exercises: [],
-            workouts: [WorkoutDTO(name: "Bad", restSeconds: 5, groups: [])],
+            routines: [RoutineDTO(name: "Bad", restSeconds: 5, groups: [])],
             sessions: []
         )
         let issues = InterchangeValidator.validate(bad)
         let report = LintReport(bundle: bad, issues: issues)
 
         #expect(!report.valid)
-        #expect(report.counts == .init(exercises: 0, workouts: 1, sessions: 0))
+        #expect(report.counts == .init(exercises: 0, routines: 1, sessions: 0))
         #expect(!report.issues.isEmpty)
         #expect(report.issues.allSatisfy { !$0.path.isEmpty && !$0.message.isEmpty })
 
@@ -34,7 +34,7 @@ struct JSONReportTests {
     func lintReportValid() throws {
         let clean = ExportBundle(
             exercises: [ExerciseDTO(name: "Push-Up", muscleGroup: .chest, exerciseType: .weightReps, equipment: [])],
-            workouts: [],
+            routines: [],
             sessions: []
         )
         let report = LintReport(bundle: clean, issues: InterchangeValidator.validate(clean))
@@ -48,7 +48,7 @@ struct JSONReportTests {
     func statsReport() throws {
         let start = Date(timeIntervalSince1970: 3 * 86_400)
         let session = SessionDTO(
-            workoutName: "Push", startedAt: start,
+            routineName: "Push", startedAt: start,
             endedAt: start.addingTimeInterval(1800), restSeconds: 90,
             sets: [
                 .init(order: 0, groupIndex: 0, setNumber: 1,
@@ -72,7 +72,7 @@ struct JSONReportTests {
 
     @Test("Encoding is deterministic: same report, same bytes")
     func deterministicEncoding() throws {
-        let bundle = ExportBundle(exercises: [], workouts: [], sessions: [])
+        let bundle = ExportBundle(exercises: [], routines: [], sessions: [])
         let report = LintReport(bundle: bundle, issues: [])
         let first = try InterchangeCodec.encode(report)
         let second = try InterchangeCodec.encode(report)

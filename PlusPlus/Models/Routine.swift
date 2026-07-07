@@ -3,19 +3,19 @@ import SwiftData
 import PlusPlusKit
 
 @Model
-final class Workout {
+final class Routine {
     var name: String
     var createdAt: Date
     var order: Int
     /// Rest between sets during execution, in seconds.
     var restSeconds: Int = 90
-    /// Freeform intent for the whole workout ("keep it under an hour",
+    /// Freeform intent for the whole routine ("keep it under an hour",
     /// "finisher optional") — shown at session start.
     var notes: String?
-    /// Encoded WorkoutSchedule (#83); nil means unscheduled. Stored as
+    /// Encoded RoutineSchedule (#83); nil means unscheduled. Stored as
     /// JSON Data (with a default) so the SwiftData migration is additive.
     var scheduleData: Data?
-    @Relationship(deleteRule: .cascade, inverse: \ExerciseGroup.workout)
+    @Relationship(deleteRule: .cascade, inverse: \ExerciseGroup.routine)
     var groups: [ExerciseGroup] = []
 
     init(name: String, order: Int = 0, restSeconds: Int = 90, notes: String? = nil) {
@@ -27,11 +27,11 @@ final class Workout {
     }
 
     /// Typed view over `scheduleData`. Unscheduled round-trips as nil so
-    /// a workout that has never been scheduled stays byte-identical.
-    var schedule: WorkoutSchedule {
+    /// a routine that has never been scheduled stays byte-identical.
+    var schedule: RoutineSchedule {
         get {
             guard let scheduleData,
-                  let decoded = try? JSONDecoder().decode(WorkoutSchedule.self, from: scheduleData)
+                  let decoded = try? JSONDecoder().decode(RoutineSchedule.self, from: scheduleData)
             else { return .unscheduled }
             return decoded
         }
@@ -82,17 +82,17 @@ final class Workout {
     // All group/exercise structure changes go through these so the order
     // invariants hold; views should not assemble groups by hand.
 
-    /// Adds an exercise in its own new group at the end of the workout.
+    /// Adds an exercise in its own new group at the end of the routine.
     @discardableResult
     func addExerciseInNewGroup(_ exercise: Exercise, context: ModelContext) -> ExerciseGroup {
         let group = ExerciseGroup(order: groups.count, sets: 3)
-        group.workout = self
+        group.routine = self
         context.insert(group)
 
-        let workoutExercise = WorkoutExercise(exercise: exercise, order: 0)
-        applyDefaultTargets(to: workoutExercise, for: exercise)
-        workoutExercise.group = group
-        context.insert(workoutExercise)
+        let routineExercise = RoutineExercise(exercise: exercise, order: 0)
+        applyDefaultTargets(to: routineExercise, for: exercise)
+        routineExercise.group = group
+        context.insert(routineExercise)
 
         reindexGroups()
         return group
@@ -100,7 +100,7 @@ final class Workout {
 
     /// Fresh entries start with the design's defaults (10 reps / 45 s)
     /// instead of blank targets.
-    private func applyDefaultTargets(to entry: WorkoutExercise, for exercise: Exercise) {
+    private func applyDefaultTargets(to entry: RoutineExercise, for exercise: Exercise) {
         if exercise.exerciseType == .duration {
             entry.durationSeconds = 45
         } else {
@@ -110,10 +110,10 @@ final class Workout {
 
     /// Adds an exercise to an existing group, making (or extending) a superset.
     func addExercise(_ exercise: Exercise, to group: ExerciseGroup, context: ModelContext) {
-        let workoutExercise = WorkoutExercise(exercise: exercise, order: group.exercises.count)
-        applyDefaultTargets(to: workoutExercise, for: exercise)
-        workoutExercise.group = group
-        context.insert(workoutExercise)
+        let routineExercise = RoutineExercise(exercise: exercise, order: group.exercises.count)
+        applyDefaultTargets(to: routineExercise, for: exercise)
+        routineExercise.group = group
+        context.insert(routineExercise)
         group.reindexExercises()
     }
 
@@ -150,8 +150,8 @@ final class Workout {
     /// came from. No-op for a solo exercise. `placeAbove` is the ring
     /// gesture's top-edge contraction (#78): the ejected member lands
     /// just outside the edge it crossed.
-    func splitExercise(_ workoutExercise: WorkoutExercise, placeAbove: Bool = false, context: ModelContext) {
-        guard let sourceGroup = workoutExercise.group, sourceGroup.isSuperset else { return }
+    func splitExercise(_ routineExercise: RoutineExercise, placeAbove: Bool = false, context: ModelContext) {
+        guard let sourceGroup = routineExercise.group, sourceGroup.isSuperset else { return }
 
         let insertionOrder = placeAbove ? sourceGroup.order : sourceGroup.order + 1
         for group in sortedGroups where group.order >= insertionOrder {
@@ -159,11 +159,11 @@ final class Workout {
         }
 
         let newGroup = ExerciseGroup(order: insertionOrder, sets: sourceGroup.sets)
-        newGroup.workout = self
+        newGroup.routine = self
         context.insert(newGroup)
 
-        workoutExercise.group = newGroup
-        workoutExercise.order = 0
+        routineExercise.group = newGroup
+        routineExercise.order = 0
 
         sourceGroup.reindexExercises()
         reindexGroups()
@@ -174,18 +174,18 @@ final class Workout {
     /// exercise moves its whole group; a superset member leaves its group
     /// and lands solo, keeping the source group's set count. Membership
     /// never grows this way — joining a superset is the ring gesture.
-    func placeSolo(_ workoutExercise: WorkoutExercise, atGap gap: Int, context: ModelContext) {
-        guard let source = workoutExercise.group else { return }
+    func placeSolo(_ routineExercise: RoutineExercise, atGap gap: Int, context: ModelContext) {
+        guard let source = routineExercise.group else { return }
         var arranged = sortedGroups
         guard let sourceIndex = arranged.firstIndex(where: { $0 === source }) else { return }
         let gap = max(0, min(gap, arranged.count))
 
         if source.isSuperset {
             let newGroup = ExerciseGroup(order: 0, sets: source.sets)
-            newGroup.workout = self
+            newGroup.routine = self
             context.insert(newGroup)
-            workoutExercise.group = newGroup
-            workoutExercise.order = 0
+            routineExercise.group = newGroup
+            routineExercise.order = 0
             source.reindexExercises()
             arranged.insert(newGroup, at: gap)
         } else {
@@ -199,14 +199,14 @@ final class Workout {
     }
 
     /// Reorders a member within its own group (#78 in-ring drag).
-    func reorderExercise(_ workoutExercise: WorkoutExercise, toIndex target: Int) {
-        guard let group = workoutExercise.group else { return }
+    func reorderExercise(_ routineExercise: RoutineExercise, toIndex target: Int) {
+        guard let group = routineExercise.group else { return }
         var members = group.sortedExercises
-        guard let from = members.firstIndex(where: { $0 === workoutExercise }) else { return }
+        guard let from = members.firstIndex(where: { $0 === routineExercise }) else { return }
         let to = max(0, min(target, members.count - 1))
         guard from != to else { return }
         members.remove(at: from)
-        members.insert(workoutExercise, at: to)
+        members.insert(routineExercise, at: to)
         for (index, member) in members.enumerated() {
             member.order = index
         }

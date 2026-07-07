@@ -3,26 +3,26 @@ import SwiftData
 import PlusPlusKit
 
 /// Today — the unified timeline (#110, Claude Design v3 §3): pending
-/// (staged) workouts on top, committed sessions below, one scroll on a
-/// continuous rail. A pending entry is a workout the schedule says is
-/// due (one entry per workout, max — a missed day carries over until
+/// (staged) routines on top, committed sessions below, one scroll on a
+/// continuous rail. A pending entry is a routine the schedule says is
+/// due (one entry per routine, max — a missed day carries over until
 /// the next occurrence supersedes it). Committed entries are the
 /// append-only record; no delete affordances, ever.
 ///
 /// A fresh install's timeline IS the onboarding (setup-as-timeline
 /// handoff): three setup steps render as gated entries stacked
 /// bottom-up like commits — equipment at the bottom, then first
-/// workout, then schedule — each becoming a committed-style card when
+/// routine, then schedule — each becoming a committed-style card when
 /// done. The scaffold lives until the first real session commits.
 struct TodayView: View {
-    /// Switches the root to the Workouts tab (the done workout-step
+    /// Switches the root to the Routines tab (the done routine-step
     /// card's edit affordance).
-    var onGoToWorkouts: () -> Void = {}
+    var onGoToRoutines: () -> Void = {}
 
     @Environment(\.modelContext) private var modelContext
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
-    @Query(sort: [SortDescriptor(\Workout.order), SortDescriptor(\Workout.createdAt, order: .reverse)])
-    private var workouts: [Workout]
+    @Query(sort: [SortDescriptor(\Routine.order), SortDescriptor(\Routine.createdAt, order: .reverse)])
+    private var routines: [Routine]
     @Query(sort: \Equipment.name) private var equipment: [Equipment]
     @Query(
         filter: #Predicate<WorkoutSession> { $0.endedAt != nil },
@@ -32,10 +32,10 @@ struct TodayView: View {
 
     @State private var showingSettings = false
     @State private var showingSwapIn = false
-    @State private var swapInPick: Workout?
+    @State private var swapInPick: Routine?
     @State private var showingEquipmentSetup = false
     @State private var showingStarterSeed = false
-    @State private var scheduleEditTarget: Workout?
+    @State private var scheduleEditTarget: Routine?
     @State private var activeSession: WorkoutSession?
     @State private var expandedDiffs: Set<PersistentIdentifier> = []
     /// Bumped on day change so every Date()-based computed re-evaluates
@@ -60,12 +60,12 @@ struct TodayView: View {
                         // until every step is done — "nothing scheduled"
                         // and "schedule it (3 of 3)" saying the same
                         // thing twice reads broken.
-                        if dueWorkouts.isEmpty && (!setupActive || allSetupDone) {
+                        if dueRoutines.isEmpty && (!setupActive || allSetupDone) {
                             restDayItem
                         }
-                        ForEach(dueWorkouts) { workout in
+                        ForEach(dueRoutines) { routine in
                             TimelineItem(node: .pending) {
-                                pendingCard(workout)
+                                pendingCard(routine)
                             }
                         }
                         if setupActive {
@@ -83,8 +83,8 @@ struct TodayView: View {
             }
             .background(Theme.background)
             .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(for: Workout.self) { workout in
-                WorkoutDetailView(workout: workout)
+            .navigationDestination(for: Routine.self) { routine in
+                RoutineDetailView(routine: routine)
             }
             .navigationDestination(for: SessionRecordDestination.self) { destination in
                 SessionDetailView(session: destination.session)
@@ -98,13 +98,13 @@ struct TodayView: View {
                 // sheet and presenting a cover in one transaction can
                 // drop the presentation — with the session already
                 // inserted, that left an invisible orphan (bug hunt).
-                if let workout = swapInPick {
+                if let routine = swapInPick {
                     swapInPick = nil
-                    start(workout)
+                    start(routine)
                 }
             }) {
-                SwapInSheet(workouts: workouts.filter { !$0.groups.isEmpty }) { workout in
-                    swapInPick = workout
+                SwapInSheet(routines: routines.filter { !$0.groups.isEmpty }) { routine in
+                    swapInPick = routine
                     showingSwapIn = false
                 }
             }
@@ -117,8 +117,8 @@ struct TodayView: View {
             .sheet(isPresented: $showingStarterSeed) {
                 StarterSeedSheet()
             }
-            .sheet(item: $scheduleEditTarget) { workout in
-                WorkoutSettingsSheet(workout: workout)
+            .sheet(item: $scheduleEditTarget) { routine in
+                RoutineSettingsSheet(routine: routine)
                     .presentationDetents([.medium, .large])
             }
             .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
@@ -135,13 +135,13 @@ struct TodayView: View {
 
     // MARK: - Data assembly
 
-    private var dueWorkouts: [Workout] {
-        // Only workouts with something in them stage: starting an empty
-        // workout would instantly commit a bogus 0-set session AND mark
+    private var dueRoutines: [Routine] {
+        // Only routines with something in them stage: starting an empty
+        // routine would instantly commit a bogus 0-set session AND mark
         // the schedule satisfied (bug hunt, highest severity).
-        workouts.filter { workout in
-            !workout.groups.isEmpty && workout.schedule.dueState(
-                lastCompleted: lastCompleted(of: workout),
+        routines.filter { routine in
+            !routine.groups.isEmpty && routine.schedule.dueState(
+                lastCompleted: lastCompleted(of: routine),
                 today: today,
                 calendar: calendar
             ) == .due
@@ -149,20 +149,20 @@ struct TodayView: View {
     }
 
     /// Identity match wins; the name fallback only applies when no
-    /// session references this workout — two workouts sharing a name
+    /// session references this routine — two routines sharing a name
     /// must not satisfy each other's schedules (bug hunt). "Latest" is
     /// by endedAt, matching the comparison the schedule engine makes.
-    private func lastCompleted(of workout: Workout) -> Date? {
-        let identityMatches = sessions.filter { $0.workout === workout }
+    private func lastCompleted(of routine: Routine) -> Date? {
+        let identityMatches = sessions.filter { $0.routine === routine }
         let pool = identityMatches.isEmpty
-            ? sessions.filter { $0.workoutName == workout.name }
+            ? sessions.filter { $0.routineName == routine.name }
             : identityMatches
         return pool.compactMap(\.endedAt).max()
     }
 
-    private func dueCaption(for workout: Workout) -> String {
-        guard let since = workout.schedule.dueSince(
-            lastCompleted: lastCompleted(of: workout),
+    private func dueCaption(for routine: Routine) -> String {
+        guard let since = routine.schedule.dueSince(
+            lastCompleted: lastCompleted(of: routine),
             today: today,
             calendar: calendar
         ) else { return "due today" }
@@ -180,8 +180,8 @@ struct TodayView: View {
     /// set (heaviest completed weight) with THAT set's reps: weight and
     /// reps must come from the same set or the delta describes a set
     /// that never happened (bug hunt). Duration takes the last set.
-    private func prior(for workoutExercise: WorkoutExercise) -> WorkoutDiff.Prior? {
-        let exercise = workoutExercise.exercise
+    private func prior(for routineExercise: RoutineExercise) -> RoutineDiff.Prior? {
+        let exercise = routineExercise.exercise
         let name = exercise?.name ?? ""
         for session in sessions {
             let matches = session.completedSetLogs.filter { log in
@@ -190,7 +190,7 @@ struct TodayView: View {
             }
             guard let last = matches.last else { continue }
             let top = matches.max { ($0.actualWeight ?? 0) < ($1.actualWeight ?? 0) } ?? last
-            return WorkoutDiff.Prior(
+            return RoutineDiff.Prior(
                 weight: top.actualWeight,
                 reps: top.actualReps ?? last.actualReps,
                 durationSeconds: last.actualDuration
@@ -203,15 +203,15 @@ struct TodayView: View {
         let id: PersistentIdentifier
         let name: String
         let target: String
-        let delta: WorkoutDiff.Delta
+        let delta: RoutineDiff.Delta
     }
 
-    private func diffLines(for workout: Workout) -> [DiffLine] {
+    private func diffLines(for routine: Routine) -> [DiffLine] {
         var lines: [DiffLine] = []
-        for group in workout.sortedGroups {
+        for group in routine.sortedGroups {
             for entry in group.sortedExercises {
                 guard let exercise = entry.exercise else { continue }
-                let target = WorkoutDiff.Target(
+                let target = RoutineDiff.Target(
                     name: exercise.name,
                     isDuration: exercise.exerciseType == .duration,
                     weight: entry.weight,
@@ -222,15 +222,15 @@ struct TodayView: View {
                     id: entry.persistentModelID,
                     name: exercise.name,
                     target: targetText(entry, exercise: exercise, sets: group.sets),
-                    delta: WorkoutDiff.delta(target: target, prior: prior(for: entry))
+                    delta: RoutineDiff.delta(target: target, prior: prior(for: entry))
                 ))
             }
         }
-        // Changed first, unchanged (with =) after, both in workout order.
+        // Changed first, unchanged (with =) after, both in routine order.
         return lines.filter { $0.delta.isChange } + lines.filter { !$0.delta.isChange }
     }
 
-    private func targetText(_ entry: WorkoutExercise, exercise: Exercise, sets: Int) -> String {
+    private func targetText(_ entry: RoutineExercise, exercise: Exercise, sets: Int) -> String {
         if exercise.exerciseType == .duration {
             return "\(sets)× " + WorkoutMetric.duration.displayText(entry.durationSeconds.map(Double.init))
         }
@@ -253,29 +253,29 @@ struct TodayView: View {
     }
 
     private func netGain(for session: WorkoutSession) -> Double? {
-        // Identity when both sessions still reference a workout; name
+        // Identity when both sessions still reference a routine; name
         // otherwise. "Previous" is the max endedAt below this one — the
         // query's startedAt order isn't the comparison order (bug hunt).
         let candidates = sessions.filter { other in
-            let sameWorkout: Bool
-            if let a = other.workout, let b = session.workout {
-                sameWorkout = a === b
+            let sameRoutine: Bool
+            if let a = other.routine, let b = session.routine {
+                sameRoutine = a === b
             } else {
-                sameWorkout = other.workoutName == session.workoutName
+                sameRoutine = other.routineName == session.routineName
             }
-            return sameWorkout && (other.endedAt ?? .distantPast) < (session.endedAt ?? .distantPast)
+            return sameRoutine && (other.endedAt ?? .distantPast) < (session.endedAt ?? .distantPast)
         }
         guard let previous = candidates.max(by: { ($0.endedAt ?? .distantPast) < ($1.endedAt ?? .distantPast) }) else { return nil }
-        let gain = WorkoutDiff.netWeightGain(current: topWeights(session), previous: topWeights(previous))
+        let gain = RoutineDiff.netWeightGain(current: topWeights(session), previous: topWeights(previous))
         return gain > 0 ? gain : nil
     }
 
-    private func start(_ workout: Workout) {
-        // Belt and braces with the dueWorkouts/swap-in filters: an empty
-        // workout must never become a committed 0-set session.
-        guard !workout.groups.isEmpty else { return }
+    private func start(_ routine: Routine) {
+        // Belt and braces with the dueRoutines/swap-in filters: an empty
+        // routine must never become a committed 0-set session.
+        guard !routine.groups.isEmpty else { return }
         // ActiveSessionView requests notification permission on appear.
-        activeSession = WorkoutSession.start(from: workout, context: modelContext)
+        activeSession = WorkoutSession.start(from: routine, context: modelContext)
     }
 
     // MARK: - Header
@@ -306,26 +306,26 @@ struct TodayView: View {
         if setupActive && !allSetupDone {
             return "\(date) · setup \(setupDoneCount) of 3"
         }
-        let due = dueWorkouts.count
+        let due = dueRoutines.count
         return due == 0 ? date : "\(date) · \(due) due"
     }
 
     // MARK: - Pending card
 
-    private func pendingCard(_ workout: Workout) -> some View {
-        let lines = diffLines(for: workout)
-        let segments = WorkoutDiff.summary(deltas: lines.map(\.delta), weightUnit: weightUnit)
-        let expanded = expandedDiffs.contains(workout.persistentModelID)
+    private func pendingCard(_ routine: Routine) -> some View {
+        let lines = diffLines(for: routine)
+        let segments = RoutineDiff.summary(deltas: lines.map(\.delta), weightUnit: weightUnit)
+        let expanded = expandedDiffs.contains(routine.persistentModelID)
 
         return VStack(alignment: .leading, spacing: 0) {
-            NavigationLink(value: workout) {
+            NavigationLink(value: routine) {
                 HStack(spacing: 8) {
-                    Text(workout.name)
+                    Text(routine.name)
                         .font(.system(.body, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                         .lineLimit(1)
                     Spacer(minLength: 8)
-                    Text(dueCaption(for: workout))
+                    Text(dueCaption(for: routine))
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(Theme.textSecondary)
                     Image(systemName: "chevron.right")
@@ -335,16 +335,16 @@ struct TodayView: View {
             }
             .buttonStyle(.plain)
 
-            Text(metaLine(for: workout))
+            Text(metaLine(for: routine))
                 .font(.system(.footnote, design: .monospaced))
                 .foregroundStyle(Theme.textSecondary)
                 .padding(.top, 5)
 
             Button {
                 if expanded {
-                    expandedDiffs.remove(workout.persistentModelID)
+                    expandedDiffs.remove(routine.persistentModelID)
                 } else {
-                    expandedDiffs.insert(workout.persistentModelID)
+                    expandedDiffs.insert(routine.persistentModelID)
                 }
             } label: {
                 HStack(spacing: 5) {
@@ -386,7 +386,7 @@ struct TodayView: View {
             }
 
             Button {
-                start(workout)
+                start(routine)
             } label: {
                 Text("Start")
                     .font(.system(.subheadline, weight: .bold))
@@ -406,12 +406,12 @@ struct TodayView: View {
         )
     }
 
-    private func metaLine(for workout: Workout) -> String {
-        let count = workout.sortedGroups.reduce(0) { $0 + $1.sortedExercises.count }
-        let minutes = max(5, Int((Double(workout.estimatedSeconds) / 300).rounded()) * 5)
+    private func metaLine(for routine: Routine) -> String {
+        let count = routine.sortedGroups.reduce(0) { $0 + $1.sortedExercises.count }
+        let minutes = max(5, Int((Double(routine.estimatedSeconds) / 300).rounded()) * 5)
         var parts = ["\(count) exercise\(count == 1 ? "" : "s")", "~\(minutes) min"]
-        if workout.schedule.normalized != .unscheduled {
-            parts.append(workout.schedule.shortLabel)
+        if routine.schedule.normalized != .unscheduled {
+            parts.append(routine.schedule.shortLabel)
         }
         return parts.joined(separator: " · ")
     }
@@ -419,7 +419,7 @@ struct TodayView: View {
     /// The colored summary line, composed as one Text so it truncates
     /// gracefully. Up = data green; down = neutral gray (deloads are
     /// intentional — celebrate-up only); new = info; "n =" faint.
-    private func diffSummaryText(_ segments: [WorkoutDiff.Segment]) -> Text {
+    private func diffSummaryText(_ segments: [RoutineDiff.Segment]) -> Text {
         var result = Text("")
         for (index, segment) in segments.enumerated() {
             if index > 0 {
@@ -432,7 +432,7 @@ struct TodayView: View {
         return result
     }
 
-    private func color(for kind: WorkoutDiff.Segment.Kind) -> Color {
+    private func color(for kind: RoutineDiff.Segment.Kind) -> Color {
         switch kind {
         case .up: Theme.accent
         case .down: Theme.textSecondary
@@ -441,8 +441,8 @@ struct TodayView: View {
         }
     }
 
-    private func deltaText(_ delta: WorkoutDiff.Delta) -> some View {
-        let segment = WorkoutDiff.summary(deltas: [delta], weightUnit: weightUnit)[0]
+    private func deltaText(_ delta: RoutineDiff.Delta) -> some View {
+        let segment = RoutineDiff.summary(deltas: [delta], weightUnit: weightUnit)[0]
         let text: String
         switch delta {
         case .unchanged: text = "="
@@ -460,7 +460,7 @@ struct TodayView: View {
         NavigationLink(value: SessionRecordDestination(session: session)) {
             HStack(spacing: 8) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(session.workoutName)
+                    Text(session.routineName)
                         .font(.system(.subheadline, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                     Text(committedSubtitle(session))
@@ -469,7 +469,7 @@ struct TodayView: View {
                 }
                 Spacer(minLength: 8)
                 if let gain = netGain(for: session) {
-                    Text(WorkoutDiff.summary(deltas: [.weight(gain)], weightUnit: weightUnit)[0].text)
+                    Text(RoutineDiff.summary(deltas: [.weight(gain)], weightUnit: weightUnit)[0].text)
                         .font(.system(.caption2, design: .monospaced, weight: .semibold))
                         .foregroundStyle(Theme.accent)
                         .padding(.horizontal, 8)
@@ -507,15 +507,15 @@ struct TodayView: View {
     private var setupActive: Bool { sessions.isEmpty }
 
     private var equipmentStepDone: Bool { SetupState.equipmentDone }
-    private var workoutStepDone: Bool { !workouts.isEmpty }
+    private var routineStepDone: Bool { !routines.isEmpty }
     private var scheduleStepDone: Bool {
-        workouts.contains { $0.schedule.normalized != .unscheduled }
+        routines.contains { $0.schedule.normalized != .unscheduled }
     }
 
-    private var allSetupDone: Bool { equipmentStepDone && workoutStepDone && scheduleStepDone }
+    private var allSetupDone: Bool { equipmentStepDone && routineStepDone && scheduleStepDone }
 
     private var setupDoneCount: Int {
-        [equipmentStepDone, workoutStepDone, scheduleStepDone].filter { $0 }.count
+        [equipmentStepDone, routineStepDone, scheduleStepDone].filter { $0 }.count
     }
 
     /// Bottom-up like commits: equipment is the first entry (bottom),
@@ -523,28 +523,28 @@ struct TodayView: View {
     private var setupSection: some View {
         Group {
             SetupRow(
-                state: scheduleStepDone ? .done : (workoutStepDone ? .ready : .gated),
+                state: scheduleStepDone ? .done : (routineStepDone ? .ready : .gated),
                 badge: "3 of 3",
                 title: "Schedule it",
                 doneTitle: "Schedule set",
-                sub: scheduleStepDone ? scheduleDoneSub : "Days or a pace — due workouts stage here",
-                gatedSub: "Needs a workout first",
+                sub: scheduleStepDone ? scheduleDoneSub : "Days or a pace — due routines stage here",
+                gatedSub: "Needs a routine first",
                 cta: "Choose days or pace",
                 identifier: "setupScheduleStep",
-                action: { scheduleEditTarget = scheduleEditWorkout },
-                edit: { scheduleEditTarget = scheduleEditWorkout }
+                action: { scheduleEditTarget = scheduleEditRoutine },
+                edit: { scheduleEditTarget = scheduleEditRoutine }
             )
             SetupRow(
-                state: workoutStepDone ? .done : (equipmentStepDone ? .ready : .gated),
+                state: routineStepDone ? .done : (equipmentStepDone ? .ready : .gated),
                 badge: "2 of 3",
-                title: "Create your first workout",
-                doneTitle: workouts.count == 1 ? "Workout created" : "Workouts created",
-                sub: workoutStepDone ? workoutDoneSub : "A starter split from the catalog, or a blank slate",
+                title: "Create your first routine",
+                doneTitle: routines.count == 1 ? "Routine created" : "Routines created",
+                sub: routineStepDone ? routineDoneSub : "A starter split from the catalog, or a blank slate",
                 gatedSub: "Needs your equipment first",
                 cta: "Seed or start empty",
-                identifier: "setupWorkoutStep",
+                identifier: "setupRoutineStep",
                 action: { showingStarterSeed = true },
-                edit: { onGoToWorkouts() }
+                edit: { onGoToRoutines() }
             )
             SetupRow(
                 state: equipmentStepDone ? .done : .ready,
@@ -572,23 +572,23 @@ struct TodayView: View {
         return doneDatePrefix(SetupState.equipmentDoneDate) + summary
     }
 
-    private var workoutDoneSub: String {
-        let date = doneDatePrefix(workouts.map(\.createdAt).min())
-        let names = workouts.map(\.name)
+    private var routineDoneSub: String {
+        let date = doneDatePrefix(routines.map(\.createdAt).min())
+        let names = routines.map(\.name)
         if names.count <= 2 { return date + names.joined(separator: " + ") }
-        return date + "\(names.count) workouts"
+        return date + "\(names.count) routines"
     }
 
     private var scheduleDoneSub: String {
-        let scheduled = workouts.filter { $0.schedule.normalized != .unscheduled }
+        let scheduled = routines.filter { $0.schedule.normalized != .unscheduled }
         let labels = scheduled.prefix(2).map(\.schedule.shortLabel).joined(separator: " · ")
         return scheduled.count > 2 ? labels + " · …" : labels
     }
 
-    /// The workout the schedule step edits: the first already-scheduled
-    /// one, else the first workout.
-    private var scheduleEditWorkout: Workout? {
-        workouts.first { $0.schedule.normalized != .unscheduled } ?? workouts.first
+    /// The routine the schedule step edits: the first already-scheduled
+    /// one, else the first routine.
+    private var scheduleEditRoutine: Routine? {
+        routines.first { $0.schedule.normalized != .unscheduled } ?? routines.first
     }
 
     // MARK: - Empty states
@@ -598,7 +598,7 @@ struct TodayView: View {
     private var restDayItem: some View {
         TimelineItem(node: .pending) {
             VStack(alignment: .leading, spacing: 8) {
-                Text(scheduledWorkoutsExist ? "Rest day" : "Nothing scheduled")
+                Text(scheduledRoutinesExist ? "Rest day" : "Nothing scheduled")
                     .font(.system(.body, weight: .semibold))
                 Text(restDayCaption)
                     .font(.system(.caption, design: .monospaced))
@@ -609,7 +609,7 @@ struct TodayView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.left.arrow.right")
                             .font(.system(.caption, weight: .semibold))
-                        Text("Swap in a workout")
+                        Text("Swap in a routine")
                             .font(.system(.footnote, weight: .semibold))
                     }
                     .foregroundStyle(Theme.textPrimary)
@@ -626,21 +626,21 @@ struct TodayView: View {
         }
     }
 
-    private var scheduledWorkoutsExist: Bool {
-        workouts.contains { $0.schedule.normalized != .unscheduled }
+    private var scheduledRoutinesExist: Bool {
+        routines.contains { $0.schedule.normalized != .unscheduled }
     }
 
     private var restDayCaption: String {
         var best: (date: Date, name: String)?
-        for workout in workouts {
-            let state = workout.schedule.dueState(
-                lastCompleted: lastCompleted(of: workout),
+        for routine in routines {
+            let state = routine.schedule.dueState(
+                lastCompleted: lastCompleted(of: routine),
                 today: today,
                 calendar: calendar
             )
             if case .notDue(let next) = state {
                 if best == nil || next < best!.date {
-                    best = (next, workout.name)
+                    best = (next, routine.name)
                 }
             }
         }
@@ -836,16 +836,16 @@ private struct SetupRow: View {
     }
 }
 
-/// Off-schedule session picker (§3): choosing a workout starts it —
+/// Off-schedule session picker (§3): choosing a routine starts it —
 /// it commits to the timeline like any other session.
 private struct SwapInSheet: View {
     @Environment(\.dismiss) private var dismiss
-    let workouts: [Workout]
-    let onPick: (Workout) -> Void
+    let routines: [Routine]
+    let onPick: (Routine) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "Swap in a workout", action: { dismiss() })
+            SheetHeader(title: "Swap in a routine", action: { dismiss() })
 
             Text("Off-schedule session — it commits to the timeline like any other")
                 .font(.system(.caption, design: .monospaced))
@@ -854,16 +854,16 @@ private struct SwapInSheet: View {
 
             ScrollView {
                 VStack(spacing: 7) {
-                    ForEach(workouts) { workout in
+                    ForEach(routines) { routine in
                         Button {
-                            onPick(workout)
+                            onPick(routine)
                         } label: {
                             HStack {
-                                Text(workout.name)
+                                Text(routine.name)
                                     .font(.system(.subheadline, weight: .semibold))
                                     .foregroundStyle(Theme.textPrimary)
                                 Spacer()
-                                Text(workout.schedule.shortLabel)
+                                Text(routine.schedule.shortLabel)
                                     .font(.system(.caption2, design: .monospaced))
                                     .foregroundStyle(Theme.textFaint)
                             }

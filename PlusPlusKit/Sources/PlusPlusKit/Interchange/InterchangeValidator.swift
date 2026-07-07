@@ -31,15 +31,15 @@ public enum InterchangeValidator {
             }
         }
 
-        for workout in bundle.workouts {
-            let path = "workouts[\(workout.name)]"
-            if workout.name.trimmingCharacters(in: .whitespaces).isEmpty {
-                issues.append(.init(path: path, message: "workout name is empty"))
+        for routine in bundle.routines {
+            let path = "routines[\(routine.name)]"
+            if routine.name.trimmingCharacters(in: .whitespaces).isEmpty {
+                issues.append(.init(path: path, message: "routine name is empty"))
             }
-            if !(15...600).contains(workout.restSeconds) {
-                issues.append(.init(path: path, message: "restSeconds \(workout.restSeconds) outside 15...600"))
+            if !(15...600).contains(routine.restSeconds) {
+                issues.append(.init(path: path, message: "restSeconds \(routine.restSeconds) outside 15...600"))
             }
-            for (groupIndex, group) in workout.groups.enumerated() {
+            for (groupIndex, group) in routine.groups.enumerated() {
                 let groupPath = "\(path).groups[\(groupIndex)]"
                 if group.exercises.isEmpty {
                     issues.append(.init(path: groupPath, message: "group has no exercises"))
@@ -80,7 +80,7 @@ public enum InterchangeValidator {
         }
 
         for session in bundle.sessions {
-            let path = "sessions[\(session.workoutName) @ \(session.startedAt)]"
+            let path = "sessions[\(session.routineName) @ \(session.startedAt)]"
             if let endedAt = session.endedAt, endedAt < session.startedAt {
                 issues.append(.init(path: path, message: "endedAt precedes startedAt"))
             }

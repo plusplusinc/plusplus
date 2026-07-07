@@ -1,12 +1,12 @@
 import Foundation
 
-/// Pure geometry and semantics for direct manipulation on the workout
+/// Pure geometry and semantics for direct manipulation on the routine
 /// detail rail (issue #78): long-press-drag rearrangement and ring-drag
 /// superset membership. Everything here operates on a snapshot of the
 /// group structure (`groupSizes` — exercises per group, in order) and
 /// deterministic row heights, so the interaction rules are unit-testable
 /// without SwiftUI or SwiftData. The view layer translates gestures into
-/// these calls and commits results through the Workout mutations.
+/// these calls and commits results through the Routine mutations.
 public struct RailMetrics: Equatable, Sendable {
     /// Every exercise row is the same height regardless of superset
     /// membership (device feedback on #87: rows must not shift when

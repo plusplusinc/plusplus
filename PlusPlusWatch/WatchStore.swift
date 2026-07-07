@@ -34,7 +34,7 @@ final class WatchStore: NSObject, WCSessionDelegate {
     }
 
     /// transferUserInfo queues across launches and reachability gaps —
-    /// exactly the durability a just-finished workout deserves.
+    /// exactly the durability a just-finished routine deserves.
     func send(_ result: WatchSync.SessionResult) {
         guard let data = try? WatchSync.encode(result) else { return }
         WCSession.default.transferUserInfo(["sessionResult": data])

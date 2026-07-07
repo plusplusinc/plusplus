@@ -1,11 +1,11 @@
 import Foundation
 
-/// When a workout wants to happen (#83). Two modes mirror how people
+/// When a routine wants to happen (#83). Two modes mirror how people
 /// actually schedule: fixed weekdays ("Mon / Wed / Fri") and rolling
 /// frequency ("3× every 7 days"). Pure logic — storage and surfacing
 /// live in the app; nothing here reads a clock.
-public enum WorkoutSchedule: Equatable, Sendable {
-    /// No schedule — the workout is done whenever.
+public enum RoutineSchedule: Equatable, Sendable {
+    /// No schedule — the routine is done whenever.
     case unscheduled
     /// Fixed days of the week. Values are Calendar weekday numbers
     /// (1 = Sunday … 7 = Saturday), matching `DateComponents.weekday`
@@ -15,9 +15,9 @@ public enum WorkoutSchedule: Equatable, Sendable {
     /// anchored to the last completion rather than the calendar week.
     case frequency(times: Int, perDays: Int)
 
-    /// Where a workout stands relative to its schedule on a given day.
+    /// Where a routine stands relative to its schedule on a given day.
     public enum DueState: Equatable, Sendable {
-        /// The workout has no schedule; there is nothing to be due.
+        /// The routine has no schedule; there is nothing to be due.
         case unscheduled
         /// Scheduled for today (or overdue) and not yet done today.
         case due
@@ -29,7 +29,7 @@ public enum WorkoutSchedule: Equatable, Sendable {
     /// schedule at all), frequency counts are clamped to at least 1.
     /// Decoding normalizes, so hand-edited JSON can't smuggle in an
     /// impossible schedule.
-    public var normalized: WorkoutSchedule {
+    public var normalized: RoutineSchedule {
         switch self {
         case .unscheduled:
             return .unscheduled
@@ -42,7 +42,7 @@ public enum WorkoutSchedule: Equatable, Sendable {
     }
 
     /// Pure due computation. `lastCompleted` is the most recent finished
-    /// session of this workout (nil = never done). A completion on
+    /// session of this routine (nil = never done). A completion on
     /// `today` always reads as not due — the schedule is satisfied.
     ///
     /// Frequency stays rational instead of rounding to a fixed interval:
@@ -57,7 +57,7 @@ public enum WorkoutSchedule: Equatable, Sendable {
         case .weekdays(let days):
             // Due when any scheduled day since the last completion has
             // arrived and gone unmet — a missed Thursday keeps the
-            // workout due through Friday (§3's "due since thu"), and
+            // routine due through Friday (§3's "due since thu"), and
             // completing it then satisfies that occurrence. Occurrences
             // never stack: one due-ness, however many days were missed.
             let completedDay = lastCompleted.map { calendar.startOfDay(for: $0) }
@@ -92,10 +92,10 @@ public enum WorkoutSchedule: Equatable, Sendable {
     }
 }
 
-extension WorkoutSchedule {
+extension RoutineSchedule {
     /// The day the current due-ness began — today for an on-time
-    /// workout, the missed day for an overdue one ("due since thu").
-    /// Nil when the workout isn't due at all.
+    /// routine, the missed day for an overdue one ("due since thu").
+    /// Nil when the routine isn't due at all.
     public func dueSince(lastCompleted: Date?, today: Date, calendar: Calendar) -> Date? {
         guard case .due = dueState(lastCompleted: lastCompleted, today: today, calendar: calendar) else { return nil }
         let todayStart = calendar.startOfDay(for: today)
@@ -122,8 +122,8 @@ extension WorkoutSchedule {
     }
 
     /// Terse display label: "mon/thu" (Monday-first), "2×/7d", or
-    /// "no schedule" — the chip/pill vocabulary shared by the workout
-    /// detail header, workout cards, and the Today meta line.
+    /// "no schedule" — the chip/pill vocabulary shared by the routine
+    /// detail header, routine cards, and the Today meta line.
     public var shortLabel: String {
         switch normalized {
         case .unscheduled:
@@ -138,7 +138,7 @@ extension WorkoutSchedule {
     }
 }
 
-extension WorkoutSchedule: Codable {
+extension RoutineSchedule: Codable {
     private enum CodingKeys: String, CodingKey {
         case mode, weekdays, times, perDays
     }

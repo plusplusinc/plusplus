@@ -124,7 +124,7 @@ public struct SyncEngine {
         let sets = completed == 1 ? "1 set" : "\(completed) sets"
         try await store.write(
             [FileWrite(path: placement.path, data: placement.data)],
-            message: "Log: \(session.workoutName) — \(sets) (\(stamp))"
+            message: "Log: \(session.routineName) — \(sets) (\(stamp))"
         )
         return placement.path
     }

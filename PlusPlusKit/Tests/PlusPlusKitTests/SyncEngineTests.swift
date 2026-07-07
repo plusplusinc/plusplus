@@ -27,7 +27,7 @@ private final class FakeBaseStore: SyncBaseStore {
 
 @Suite("SyncEngine")
 struct SyncEngineTests {
-    private let workoutPath = "program/workouts/push-day.json"
+    private let routinePath = "program/routines/push-day.json"
     private let exercisePath = "program/exercises/band-pulses.json"
     private let a = Data("a".utf8)
     private let b = Data("b".utf8)
@@ -39,76 +39,76 @@ struct SyncEngineTests {
         let baseStore = FakeBaseStore()
         let engine = SyncEngine(store: repo, baseStore: baseStore)
 
-        let outcome = try await engine.sync(local: [workoutPath: a, exercisePath: b])
+        let outcome = try await engine.sync(local: [routinePath: a, exercisePath: b])
 
-        #expect(outcome.pushed == [exercisePath, workoutPath])
+        #expect(outcome.pushed == [exercisePath, routinePath])
         #expect(outcome.pulls.isEmpty && outcome.postponed.isEmpty)
-        #expect(repo.files == [workoutPath: a, exercisePath: b])
-        #expect(baseStore.base == [workoutPath: a, exercisePath: b])
+        #expect(repo.files == [routinePath: a, exercisePath: b])
+        #expect(baseStore.base == [routinePath: a, exercisePath: b])
         #expect(repo.commits.count == 1)
         #expect(repo.commits[0].message == "Sync: band-pulses, push-day")
     }
 
     @Test("A no-op sync makes no commit")
     func noOpMakesNoCommit() async throws {
-        let repo = FakeRepoStore(files: [workoutPath: a])
+        let repo = FakeRepoStore(files: [routinePath: a])
         let baseStore = FakeBaseStore()
-        baseStore.base = [workoutPath: a]
+        baseStore.base = [routinePath: a]
         let engine = SyncEngine(store: repo, baseStore: baseStore)
 
-        let outcome = try await engine.sync(local: [workoutPath: a])
+        let outcome = try await engine.sync(local: [routinePath: a])
 
         #expect(outcome.pushed.isEmpty && outcome.pulls.isEmpty)
         #expect(outcome.commitMessage == nil)
         #expect(repo.commits.isEmpty)
-        #expect(baseStore.base == [workoutPath: a])
+        #expect(baseStore.base == [routinePath: a])
     }
 
     @Test("Remote edits come back as pulls and advance the base")
     func remoteEditPulled() async throws {
-        let repo = FakeRepoStore(files: [workoutPath: b])
+        let repo = FakeRepoStore(files: [routinePath: b])
         let baseStore = FakeBaseStore()
-        baseStore.base = [workoutPath: a]
+        baseStore.base = [routinePath: a]
         let engine = SyncEngine(store: repo, baseStore: baseStore)
 
-        let outcome = try await engine.sync(local: [workoutPath: a])
+        let outcome = try await engine.sync(local: [routinePath: a])
 
-        #expect(outcome.pulls == [FileWrite(path: workoutPath, data: b)])
+        #expect(outcome.pulls == [FileWrite(path: routinePath, data: b)])
         #expect(repo.commits.isEmpty, "Pulling must not commit")
-        #expect(baseStore.base == [workoutPath: b])
+        #expect(baseStore.base == [routinePath: b])
     }
 
     @Test("Conflict resolved keep-mine pushes local; take-theirs pulls")
     func conflictResolution() async throws {
-        let repo = FakeRepoStore(files: [workoutPath: b, exercisePath: b])
+        let repo = FakeRepoStore(files: [routinePath: b, exercisePath: b])
         let baseStore = FakeBaseStore()
-        baseStore.base = [workoutPath: a, exercisePath: a]
+        baseStore.base = [routinePath: a, exercisePath: a]
         let engine = SyncEngine(store: repo, baseStore: baseStore)
 
-        let outcome = try await engine.sync(local: [workoutPath: c, exercisePath: c]) { path in
-            path == self.workoutPath ? .keepMine : .takeTheirs
+        let outcome = try await engine.sync(local: [routinePath: c, exercisePath: c]) { path in
+            path == self.routinePath ? .keepMine : .takeTheirs
         }
 
-        #expect(outcome.pushed == [workoutPath])
+        #expect(outcome.pushed == [routinePath])
         #expect(outcome.pulls == [FileWrite(path: exercisePath, data: b)])
-        #expect(repo.files[workoutPath] == c)
-        #expect(baseStore.base == [workoutPath: c, exercisePath: b])
+        #expect(repo.files[routinePath] == c)
+        #expect(baseStore.base == [routinePath: c, exercisePath: b])
     }
 
     @Test("Postponed conflicts stay out of the base and re-conflict")
     func postponedConflictRecurs() async throws {
-        let repo = FakeRepoStore(files: [workoutPath: b])
+        let repo = FakeRepoStore(files: [routinePath: b])
         let baseStore = FakeBaseStore()
-        baseStore.base = [workoutPath: a]
+        baseStore.base = [routinePath: a]
         let engine = SyncEngine(store: repo, baseStore: baseStore)
 
-        let first = try await engine.sync(local: [workoutPath: c])
-        #expect(first.postponed == [workoutPath])
+        let first = try await engine.sync(local: [routinePath: c])
+        #expect(first.postponed == [routinePath])
         #expect(repo.commits.isEmpty)
-        #expect(baseStore.base == [workoutPath: a], "Postponing must not advance the base")
+        #expect(baseStore.base == [routinePath: a], "Postponing must not advance the base")
 
-        let second = try await engine.sync(local: [workoutPath: c])
-        #expect(second.postponed == [workoutPath], "Unresolved conflict must surface again")
+        let second = try await engine.sync(local: [routinePath: c])
+        #expect(second.postponed == [routinePath], "Unresolved conflict must surface again")
     }
 
     // MARK: - Session pushes
@@ -121,7 +121,7 @@ struct SyncEngineTests {
         set.actualReps = 10
         set.completedAt = startedAt.addingTimeInterval(60)
         return SessionDTO(
-            workoutName: "Push Day",
+            routineName: "Push Day",
             startedAt: startedAt,
             endedAt: startedAt.addingTimeInterval(1800),
             restSeconds: 90,
@@ -178,7 +178,7 @@ struct SyncEngineTests {
     @Test("Commit messages summarize beyond two paths")
     func commitMessageSummarizes() {
         let message = SyncEngine.commitMessage(pushing: [
-            "program/workouts/a.json", "program/workouts/b.json",
+            "program/routines/a.json", "program/routines/b.json",
             "program/exercises/c.json", "program/exercises/d.json",
         ])
         #expect(message == "Sync: a, b (+2 more)")
