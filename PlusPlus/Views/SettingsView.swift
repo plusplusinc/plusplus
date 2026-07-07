@@ -140,8 +140,8 @@ struct SettingsView: View {
             }
         }
         .presentationBackground(Theme.surface)
-        .fullScreenCover(isPresented: $showingEquipmentSetup) {
-            OnboardingView(isRerun: true)
+        .sheet(isPresented: $showingEquipmentSetup) {
+            EquipmentAccessSheet()
         }
         .fileExporter(
             isPresented: $showingExporter,

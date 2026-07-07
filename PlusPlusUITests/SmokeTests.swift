@@ -149,6 +149,60 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(addRow.isHittable, "the add-exercise row at the bottom of the rail must be reachable by scrolling")
     }
 
+    /// The setup-as-timeline onboarding: a fresh install's Today shows
+    /// three gated setup entries; completing them bottom-up commits each
+    /// to the rail and stages the first real workout.
+    func testSetupTimelineOnboarding() throws {
+        app.terminate()
+        app.launchArguments += ["--uitest-onboarding"]
+        app.launch()
+
+        // Fresh install: equipment is the only ready step; the ones
+        // above it are gated.
+        let equipCTA = app.buttons["setupEquipmentStep"]
+        XCTAssertTrue(equipCTA.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["needs your equipment first"].exists)
+        snap("setup-fresh")
+        equipCTA.tap()
+
+        // Step 1: pick everything via the Full gym preset.
+        let setEquipment = app.buttons["setEquipmentButton"]
+        XCTAssertTrue(setEquipment.waitForExistence(timeout: 5))
+        app.staticTexts["Full gym"].tap()
+        setEquipment.tap()
+
+        // Step 2 unlocks: seed the starter split.
+        let workoutCTA = app.buttons["setupWorkoutStep"]
+        XCTAssertTrue(workoutCTA.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Equipment set"].waitForExistence(timeout: 5))
+        snap("setup-step2")
+        workoutCTA.tap()
+        let split = app.buttons["starterSplitButton"]
+        XCTAssertTrue(split.waitForExistence(timeout: 5))
+        split.tap()
+
+        // Step 3 unlocks: schedule Push Day for today so it stages.
+        let scheduleCTA = app.buttons["setupScheduleStep"]
+        XCTAssertTrue(scheduleCTA.waitForExistence(timeout: 10))
+        snap("setup-step3")
+        scheduleCTA.tap()
+
+        let daysTab = app.buttons["Days"]
+        XCTAssertTrue(daysTab.waitForExistence(timeout: 5))
+        daysTab.tap()
+        let weekday = Calendar.current.component(.weekday, from: Date())
+        let dayChip = app.buttons["scheduleDay\(weekday)"]
+        XCTAssertTrue(dayChip.waitForExistence(timeout: 5))
+        dayChip.tap()
+        app.buttons["Done"].tap()
+
+        // Scaffold fully committed; the real thing appears above it —
+        // Push Day staged and startable.
+        XCTAssertTrue(app.staticTexts["Schedule set"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["startStagedButton"].waitForExistence(timeout: 10))
+        snap("setup-complete")
+    }
+
     // MARK: - Helpers
 
     /// Waits for an element's label to become `label` — for values that

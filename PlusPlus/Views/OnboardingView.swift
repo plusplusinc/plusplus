@@ -2,29 +2,41 @@ import SwiftUI
 import SwiftData
 import PlusPlusKit
 
-/// First-run onboarding (#113, Claude Design v3 §6): two beats, both
-/// skippable, quiet-terminal voice, no confetti. Beat 1 sets equipment
-/// access (writes Equipment.inLibrary — it only filters the catalog and
-/// never touches history); beat 2 optionally seeds a starter split.
-/// Re-runnable from Settings → EQUIPMENT ACCESS.
-struct OnboardingView: View {
-    static let completedKey = "onboardingComplete"
+/// Setup state for the timeline onboarding (Claude Design handoff 2,
+/// "setup-as-timeline"): there is no onboarding flow anymore — a fresh
+/// install's Today shows three setup steps as timeline entries, gated
+/// bottom-up like commits. Equipment is the only step needing a stored
+/// flag (its "done" can't be derived — the catalog defaults to
+/// everything owned); workouts and schedules are derived live.
+enum SetupState {
+    static let equipmentDoneKey = "setupEquipmentDone"
+    static let equipmentDoneDateKey = "setupEquipmentDoneDate"
 
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
-    @AppStorage(Self.completedKey) private var completed = false
-    @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
-    @Query(sort: \Exercise.name) private var allExercises: [Exercise]
-
-    /// Re-run mode (from Settings) skips beat 2 — a returning user
-    /// doesn't want another starter workout.
-    var isRerun = false
-
-    private enum Beat {
-        case equipment, starter
+    static var equipmentDone: Bool {
+        UserDefaults.standard.bool(forKey: equipmentDoneKey)
     }
 
-    @State private var beat: Beat = .equipment
+    static func markEquipmentDone() {
+        UserDefaults.standard.set(true, forKey: equipmentDoneKey)
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: equipmentDoneDateKey)
+    }
+
+    static var equipmentDoneDate: Date? {
+        let stamp = UserDefaults.standard.double(forKey: equipmentDoneDateKey)
+        return stamp > 0 ? Date(timeIntervalSince1970: stamp) : nil
+    }
+}
+
+/// The equipment-access picker as a standalone sheet — opened from the
+/// Today setup timeline ("1 of 3") and from Settings → EQUIPMENT
+/// ACCESS. Writes Equipment.inLibrary; only filters the catalog, never
+/// touches history.
+struct EquipmentAccessSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
+
+    var onDone: () -> Void = {}
+
     @State private var selected: Set<String> = []
     @State private var search = ""
 
@@ -35,23 +47,6 @@ struct OnboardingView: View {
     private var visibleEquipment: [Equipment] {
         builtIns.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }
     }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            switch beat {
-            case .equipment: equipmentBeat
-            case .starter: starterBeat
-            }
-        }
-        .padding(.horizontal, 20)
-        .background(Theme.background)
-        .onAppear {
-            selected = Set(builtIns.filter(\.inLibrary).map(\.name))
-        }
-        .interactiveDismissDisabled(!isRerun)
-    }
-
-    // MARK: - Beat 1: equipment access
 
     private struct Preset {
         let name: String
@@ -68,17 +63,14 @@ struct OnboardingView: View {
         ]
     }
 
-    private var equipmentBeat: some View {
+    var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HeaderGlyph()
-                .padding(.top, 18)
-            Text("What do you have access to?")
-                .font(.system(.title2, weight: .bold))
-                .padding(.top, 12)
+            SheetHeader(title: "What do you have access to?", actionLabel: "Cancel", action: { dismiss() })
+
             Text("filters the exercise catalog everywhere · never touches logged history")
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
-                .padding(.top, 4)
+                .padding(.top, 6)
 
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
                 ForEach(presets, id: \.name) { preset in
@@ -106,44 +98,36 @@ struct OnboardingView: View {
             }
 
             Button {
-                applyEquipment()
-                advance()
+                for equipment in builtIns {
+                    equipment.inLibrary = selected.contains(equipment.name)
+                }
+                SetupState.markEquipmentDone()
+                onDone()
+                dismiss()
             } label: {
-                Text(continueLabel)
+                Text(selected.isEmpty ? "Set equipment · bodyweight only" : "Set equipment · \(selected.count) item\(selected.count == 1 ? "" : "s")")
                     .font(.system(.subheadline, weight: .bold))
                     .foregroundStyle(Theme.onPrimary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 46)
                     .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
             }
-            .accessibilityIdentifier("onboardingContinue")
-
-            Button {
-                advance()
-            } label: {
-                Text("skip — set later in Settings")
-                    .font(.system(.footnote))
-                    .foregroundStyle(Theme.textSecondary)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44)
-                    .contentShape(Rectangle())
-            }
+            .accessibilityIdentifier("setEquipmentButton")
             .padding(.top, 8)
-            .padding(.bottom, 10)
+            .padding(.bottom, 14)
         }
-    }
-
-    private var continueLabel: String {
-        selected.isEmpty ? "Continue · bodyweight only" : "Continue · \(selected.count) item\(selected.count == 1 ? "" : "s")"
+        .padding(.horizontal, 20)
+        .presentationBackground(Theme.background)
+        .onAppear {
+            selected = Set(builtIns.filter(\.inLibrary).map(\.name))
+        }
     }
 
     private func presetCard(_ preset: Preset) -> some View {
         let active = selected == preset.items
         let count = preset.items.count
-        // Accent-tinted when active: what you own is data (it drives the
-        // catalog filter), same rationale as the schedule day circles —
-        // and surface-vs-surfaceRaised was unreadably subtle (Dave,
-        // build 10).
+        // Accent-tinted when active: what you own is data, same
+        // rationale as the schedule day circles.
         return Button {
             selected = preset.items
         } label: {
@@ -152,7 +136,7 @@ struct OnboardingView: View {
                     .font(.system(.footnote, weight: .semibold))
                     .foregroundStyle(active ? Theme.accent : Theme.textPrimary)
                 Text(count == 0 ? "just you" : "\(count) item\(count == 1 ? "" : "s")")
-                    .font(.system(.caption2, design: .monospaced))
+                    .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(active ? Theme.accent.opacity(0.75) : Theme.textFaint)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -161,80 +145,60 @@ struct OnboardingView: View {
             .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(active ? Theme.accent.opacity(0.55) : Theme.border))
         }
     }
+}
 
-    private func applyEquipment() {
-        for equipment in builtIns {
-            equipment.inLibrary = selected.contains(equipment.name)
-        }
-    }
+/// The first-workout seeder as a standalone sheet — the setup
+/// timeline's "2 of 3". Dismissing without choosing leaves the step
+/// pending; that IS the skip.
+struct StarterSeedSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \Exercise.name) private var allExercises: [Exercise]
 
-    private func advance() {
-        if isRerun {
-            completed = true
-            dismiss()
-        } else {
-            beat = .starter
-        }
-    }
-
-    // MARK: - Beat 2: starter workout
-
-    private var starterBeat: some View {
+    var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HeaderGlyph()
-                .padding(.top, 18)
-            Text("Seed a first workout?")
-                .font(.system(.title2, weight: .bold))
-                .padding(.top, 12)
+            SheetHeader(title: "Build your first workout", actionLabel: "Cancel", action: { dismiss() })
+
             Text("you can change everything later — it's just a starting point")
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
-                .padding(.top, 4)
+                .padding(.top, 6)
 
             VStack(spacing: 8) {
-                starterOption(
+                option(
                     title: "Starter push/pull split",
                     caption: "two workouts from the catalog, matched to your equipment"
                 ) {
                     seedStarterSplit()
-                    finish()
+                    dismiss()
                 }
                 .accessibilityIdentifier("starterSplitButton")
 
-                starterOption(
+                option(
                     title: "One empty workout",
                     caption: "a blank \"Workout A\" to build yourself"
                 ) {
-                    let workout = Workout(name: "Workout A", order: 0)
-                    modelContext.insert(workout)
-                    finish()
+                    modelContext.insert(Workout(name: "Workout A", order: 0))
+                    dismiss()
                 }
             }
             .padding(.top, 16)
 
             Spacer()
-
-            Button {
-                finish()
-            } label: {
-                Text("skip — start blank")
-                    .font(.system(.footnote))
-                    .foregroundStyle(Theme.textSecondary)
-                    .frame(maxWidth: .infinity)
-            }
-            .padding(.bottom, 14)
-            .accessibilityIdentifier("onboardingSkipStarter")
         }
+        .padding(.horizontal, 20)
+        .presentationBackground(Theme.background)
+        .presentationDetents([.medium])
     }
 
-    private func starterOption(title: String, caption: String, action: @escaping () -> Void) -> some View {
+    private func option(title: String, caption: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.system(.subheadline, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                 Text(caption)
-                    .font(.system(.caption))
+                    .font(.system(.footnote))
                     .foregroundStyle(Theme.textSecondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -285,15 +249,10 @@ struct OnboardingView: View {
             }
         }
     }
-
-    private func finish() {
-        completed = true
-        dismiss()
-    }
 }
 
-/// Minimal wrapping chip row used by onboarding's equipment picker.
-private struct FlowChips: View {
+/// Minimal wrapping chip row used by the equipment picker.
+struct FlowChips: View {
     let items: [String]
     let isSelected: (String) -> Bool
     let toggle: (String) -> Void
@@ -305,15 +264,13 @@ private struct FlowChips: View {
                 Button {
                     toggle(name)
                 } label: {
-                    // Accent tint, not primaryFill: ownership is data
-                    // (see the schedule day circles), and cream-vs-
-                    // outline read as ambiguous on device.
+                    // Accent tint: ownership is data.
                     Text(name)
                         .font(.system(.footnote, weight: .semibold))
                         .foregroundStyle(active ? Theme.accent : Theme.textSecondary)
                         .lineLimit(1)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, 10)
                         .background(active ? Theme.accent.opacity(0.16) : Theme.background, in: Capsule())
                         .overlay(Capsule().strokeBorder(active ? Theme.accent.opacity(0.55) : Theme.border))
                 }

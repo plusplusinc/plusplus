@@ -11,17 +11,14 @@ struct RootTabView: View {
         var label: String { rawValue }
     }
 
-    @State private var tab: AppTab
+    @State private var tab: AppTab = .today
     @State private var showingSplash: Bool
-    @AppStorage(OnboardingView.completedKey) private var onboardingComplete = false
 
     init() {
-        // A fresh install lands on Workouts (where building starts) with
-        // onboarding presenting over it; returning users land on Today.
-        let complete = UserDefaults.standard.bool(forKey: OnboardingView.completedKey)
-        _tab = State(initialValue: complete ? .today : .workouts)
         // The launch beat: the ++ mark centered, then the app. Skipped
-        // under UI tests (speed + quiescence).
+        // under UI tests (speed + quiescence). Everyone lands on Today —
+        // a fresh install's timeline IS the onboarding (setup steps
+        // render as gated entries there).
         _showingSplash = State(initialValue: !CommandLine.arguments.contains("--uitest-reset"))
     }
 
@@ -57,14 +54,6 @@ struct RootTabView: View {
             withAnimation(.easeOut(duration: 0.35)) {
                 showingSplash = false
             }
-        }
-        // Presents once the splash has faded, so first launch reads:
-        // ++ mark → the Workouts view → onboarding rising over it.
-        .fullScreenCover(isPresented: Binding(
-            get: { !onboardingComplete && !showingSplash },
-            set: { presented in if !presented { onboardingComplete = true } }
-        )) {
-            OnboardingView()
         }
     }
 

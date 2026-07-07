@@ -21,13 +21,12 @@ struct PlusPlusApp: App {
         // animations outright under test.
         if inMemory {
             UIView.setAnimationsEnabled(false)
-            // Smoke tests start past onboarding; a dedicated flag opts
-            // back in for an onboarding-flow test.
-            if !CommandLine.arguments.contains("--uitest-onboarding") {
-                UserDefaults.standard.set(true, forKey: OnboardingView.completedKey)
-            } else {
-                UserDefaults.standard.set(false, forKey: OnboardingView.completedKey)
-            }
+            // Smoke tests start past setup (the seeded store has
+            // workouts, so only the stored equipment flag needs
+            // forcing); a dedicated flag opts back in for a
+            // setup-flow test.
+            let onboarding = CommandLine.arguments.contains("--uitest-onboarding")
+            UserDefaults.standard.set(!onboarding, forKey: SetupState.equipmentDoneKey)
         }
         let config = ModelConfiguration(isStoredInMemoryOnly: inMemory)
         do {

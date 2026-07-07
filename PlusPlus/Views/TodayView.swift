@@ -8,14 +8,22 @@ import PlusPlusKit
 /// due (one entry per workout, max — a missed day carries over until
 /// the next occurrence supersedes it). Committed entries are the
 /// append-only record; no delete affordances, ever.
+///
+/// A fresh install's timeline IS the onboarding (setup-as-timeline
+/// handoff): three setup steps render as gated entries stacked
+/// bottom-up like commits — equipment at the bottom, then first
+/// workout, then schedule — each becoming a committed-style card when
+/// done. The scaffold lives until the first real session commits.
 struct TodayView: View {
-    /// Switches the root to the Workouts tab (first-run empty state).
+    /// Switches the root to the Workouts tab (the done workout-step
+    /// card's edit affordance).
     var onGoToWorkouts: () -> Void = {}
 
     @Environment(\.modelContext) private var modelContext
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
     @Query(sort: [SortDescriptor(\Workout.order), SortDescriptor(\Workout.createdAt, order: .reverse)])
     private var workouts: [Workout]
+    @Query(sort: \Equipment.name) private var equipment: [Equipment]
     @Query(
         filter: #Predicate<WorkoutSession> { $0.endedAt != nil },
         sort: [SortDescriptor(\WorkoutSession.startedAt, order: .reverse)]
@@ -25,6 +33,9 @@ struct TodayView: View {
     @State private var showingSettings = false
     @State private var showingSwapIn = false
     @State private var swapInPick: Workout?
+    @State private var showingEquipmentSetup = false
+    @State private var showingStarterSeed = false
+    @State private var scheduleEditTarget: Workout?
     @State private var activeSession: WorkoutSession?
     @State private var expandedDiffs: Set<PersistentIdentifier> = []
     /// Bumped on day change so every Date()-based computed re-evaluates
@@ -45,22 +56,24 @@ struct TodayView: View {
                     // eager building made every render O(sessions) (bug
                     // hunt perf finding).
                     LazyVStack(spacing: 0) {
-                        if workouts.isEmpty && sessions.isEmpty {
-                            firstRunCard
-                                .padding(.top, 8)
-                        } else {
-                            if dueWorkouts.isEmpty {
-                                restDayItem
+                        // The rest-day item yields to the setup scaffold
+                        // until every step is done — "nothing scheduled"
+                        // and "schedule it (3 of 3)" saying the same
+                        // thing twice reads broken.
+                        if dueWorkouts.isEmpty && (!setupActive || allSetupDone) {
+                            restDayItem
+                        }
+                        ForEach(dueWorkouts) { workout in
+                            TimelineItem(node: .pending) {
+                                pendingCard(workout)
                             }
-                            ForEach(dueWorkouts) { workout in
-                                TimelineItem(node: .pending) {
-                                    pendingCard(workout)
-                                }
-                            }
-                            ForEach(sessions) { session in
-                                TimelineItem(node: .committed) {
-                                    committedCard(session)
-                                }
+                        }
+                        if setupActive {
+                            setupSection
+                        }
+                        ForEach(sessions) { session in
+                            TimelineItem(node: .committed) {
+                                committedCard(session)
                             }
                         }
                     }
@@ -97,6 +110,16 @@ struct TodayView: View {
             }
             .fullScreenCover(item: $activeSession) { session in
                 ActiveSessionView(session: session)
+            }
+            .sheet(isPresented: $showingEquipmentSetup) {
+                EquipmentAccessSheet()
+            }
+            .sheet(isPresented: $showingStarterSeed) {
+                StarterSeedSheet()
+            }
+            .sheet(item: $scheduleEditTarget) { workout in
+                WorkoutSettingsSheet(workout: workout)
+                    .presentationDetents([.medium, .large])
             }
             .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
                 dayToken += 1
@@ -280,6 +303,9 @@ struct TodayView: View {
 
     private var caption: String {
         let date = today.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()).lowercased()
+        if setupActive && !allSetupDone {
+            return "\(date) · setup \(setupDoneCount) of 3"
+        }
         let due = dueWorkouts.count
         return due == 0 ? date : "\(date) · \(due) due"
     }
@@ -468,32 +494,99 @@ struct TodayView: View {
         return parts.joined(separator: " · ")
     }
 
-    // MARK: - Empty states
+    // MARK: - Setup timeline
 
-    private var firstRunCard: some View {
-        VStack(spacing: 10) {
-            Text("Nothing staged yet")
-                .font(.system(.subheadline, weight: .semibold))
-                .foregroundStyle(Theme.textSecondary)
-            Button {
-                onGoToWorkouts()
-            } label: {
-                Text("Create a workout")
-                    .font(.system(.subheadline, weight: .bold))
-                    .foregroundStyle(Theme.onPrimary)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44)
-                    .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 11))
-            }
-            .accessibilityIdentifier("firstRunCreateWorkout")
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.cardRadius)
-                .strokeBorder(Theme.borderStrong, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-        )
+    /// The scaffold shows until the first real session commits — done
+    /// steps sit on the rail like history until actual history takes
+    /// their place.
+    private var setupActive: Bool { sessions.isEmpty }
+
+    private var equipmentStepDone: Bool { SetupState.equipmentDone }
+    private var workoutStepDone: Bool { !workouts.isEmpty }
+    private var scheduleStepDone: Bool {
+        workouts.contains { $0.schedule.normalized != .unscheduled }
     }
+
+    private var allSetupDone: Bool { equipmentStepDone && workoutStepDone && scheduleStepDone }
+
+    private var setupDoneCount: Int {
+        [equipmentStepDone, workoutStepDone, scheduleStepDone].filter { $0 }.count
+    }
+
+    /// Bottom-up like commits: equipment is the first entry (bottom),
+    /// schedule the last (top). Each step gates on the one below it.
+    private var setupSection: some View {
+        Group {
+            SetupRow(
+                state: scheduleStepDone ? .done : (workoutStepDone ? .ready : .gated),
+                badge: "3 of 3",
+                title: "Schedule it",
+                doneTitle: "Schedule set",
+                sub: scheduleStepDone ? scheduleDoneSub : "days or a pace — due workouts stage here",
+                gatedSub: "needs a workout first",
+                cta: "Choose days or pace",
+                identifier: "setupScheduleStep",
+                action: { scheduleEditTarget = scheduleEditWorkout },
+                edit: { scheduleEditTarget = scheduleEditWorkout }
+            )
+            SetupRow(
+                state: workoutStepDone ? .done : (equipmentStepDone ? .ready : .gated),
+                badge: "2 of 3",
+                title: "Create your first workout",
+                doneTitle: workouts.count == 1 ? "Workout created" : "Workouts created",
+                sub: workoutStepDone ? workoutDoneSub : "a starter split from the catalog, or a blank slate",
+                gatedSub: "needs your equipment first",
+                cta: "Seed or start empty",
+                identifier: "setupWorkoutStep",
+                action: { showingStarterSeed = true },
+                edit: { onGoToWorkouts() }
+            )
+            SetupRow(
+                state: equipmentStepDone ? .done : .ready,
+                badge: "1 of 3",
+                title: "What do you have access to?",
+                doneTitle: "Equipment set",
+                sub: equipmentStepDone ? equipmentDoneSub : "what you own filters the catalog everywhere",
+                gatedSub: "",
+                cta: "Pick equipment",
+                identifier: "setupEquipmentStep",
+                action: { showingEquipmentSetup = true },
+                edit: { showingEquipmentSetup = true }
+            )
+        }
+    }
+
+    private func doneDatePrefix(_ date: Date?) -> String {
+        guard let date else { return "" }
+        return date.formatted(.dateTime.month(.abbreviated).day()).lowercased() + " · "
+    }
+
+    private var equipmentDoneSub: String {
+        let count = equipment.filter(\.inLibrary).count
+        let summary = count == 0 ? "bodyweight only" : "\(count) item\(count == 1 ? "" : "s")"
+        return doneDatePrefix(SetupState.equipmentDoneDate) + summary
+    }
+
+    private var workoutDoneSub: String {
+        let date = doneDatePrefix(workouts.map(\.createdAt).min())
+        let names = workouts.map(\.name)
+        if names.count <= 2 { return date + names.joined(separator: " + ") }
+        return date + "\(names.count) workouts"
+    }
+
+    private var scheduleDoneSub: String {
+        let scheduled = workouts.filter { $0.schedule.normalized != .unscheduled }
+        let labels = scheduled.prefix(2).map(\.schedule.shortLabel).joined(separator: " · ")
+        return scheduled.count > 2 ? labels + " · …" : labels
+    }
+
+    /// The workout the schedule step edits: the first already-scheduled
+    /// one, else the first workout.
+    private var scheduleEditWorkout: Workout? {
+        workouts.first { $0.schedule.normalized != .unscheduled } ?? workouts.first
+    }
+
+    // MARK: - Empty states
 
     /// A timeline ITEM, not a floating empty state: rest days are part
     /// of the record too.
@@ -559,13 +652,16 @@ struct SessionRecordDestination: Hashable {
 /// continuous 2 px spine, card alongside. Pending = hollow 8 pt node
 /// with a SOLID border (dashes are not rail vocabulary); committed =
 /// filled green 10 pt.
-private struct TimelineItem<Content: View>: View {
-    enum Node {
-        case pending
-        case committed
-    }
+private enum TimelineNode {
+    case pending
+    case committed
+    /// A setup step whose prerequisite isn't met yet — hollow like
+    /// pending, but border-faint so the rail reads "not yet yours".
+    case gated
+}
 
-    let node: Node
+private struct TimelineItem<Content: View>: View {
+    let node: TimelineNode
     @ViewBuilder let content: () -> Content
 
     var body: some View {
@@ -579,6 +675,12 @@ private struct TimelineItem<Content: View>: View {
                 case .pending:
                     Circle()
                         .strokeBorder(Theme.textFaint, lineWidth: 2)
+                        .frame(width: 10, height: 10)
+                        .background(Circle().fill(Theme.background))
+                        .padding(.top, 18)
+                case .gated:
+                    Circle()
+                        .strokeBorder(Theme.borderStrong, lineWidth: 2)
                         .frame(width: 10, height: 10)
                         .background(Circle().fill(Theme.background))
                         .padding(.top, 18)
@@ -596,6 +698,128 @@ private struct TimelineItem<Content: View>: View {
                 .padding(.vertical, 5)
         }
         .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// One setup step on the Today rail (setup-as-timeline handoff).
+/// Three states: done reads like a committed entry (green node, solid
+/// card, an edit affordance); ready is a dashed pending card with its
+/// "N of 3" badge and a full-width CTA; gated is the same card dimmed,
+/// non-interactive, its sub explaining the prerequisite.
+private struct SetupRow: View {
+    enum StepState {
+        case done, ready, gated
+    }
+
+    let state: StepState
+    let badge: String
+    let title: String
+    let doneTitle: String
+    let sub: String
+    let gatedSub: String
+    let cta: String
+    let identifier: String
+    let action: () -> Void
+    let edit: () -> Void
+
+    var body: some View {
+        TimelineItem(node: node) {
+            card
+        }
+    }
+
+    private var node: TimelineNode {
+        switch state {
+        case .done: .committed
+        case .ready: .pending
+        case .gated: .gated
+        }
+    }
+
+    @ViewBuilder
+    private var card: some View {
+        switch state {
+        case .done:
+            Button(action: edit) {
+                HStack(spacing: 8) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(doneTitle)
+                            .font(.system(.subheadline, weight: .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                        Text(sub)
+                            .font(.system(.footnote, design: .monospaced))
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                    Spacer(minLength: 8)
+                    Text("edit ›")
+                        .font(.system(.footnote, design: .monospaced))
+                        .foregroundStyle(Theme.textFaint)
+                }
+                .padding(.vertical, 13)
+                .padding(.horizontal, 12)
+                .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+                .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier(identifier)
+
+        case .ready:
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 8) {
+                    Text(title)
+                        .font(.system(.body, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                    Spacer(minLength: 8)
+                    Text(badge)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(Theme.textFaint)
+                }
+                Text(sub)
+                    .font(.system(.footnote, design: .monospaced))
+                    .foregroundStyle(Theme.textSecondary)
+                    .padding(.top, 5)
+                Button(action: action) {
+                    Text(cta)
+                        .font(.system(.subheadline, weight: .bold))
+                        .foregroundStyle(Theme.onPrimary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                        .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 11))
+                }
+                .accessibilityIdentifier(identifier)
+                .padding(.top, 10)
+            }
+            .padding(12)
+            .background(Theme.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.cardRadius)
+                    .strokeBorder(Theme.borderStrong, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+            )
+
+        case .gated:
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 8) {
+                    Text(title)
+                        .font(.system(.body, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                    Spacer(minLength: 8)
+                    Text(badge)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(Theme.textFaint)
+                }
+                Text(gatedSub)
+                    .font(.system(.footnote, design: .monospaced))
+                    .foregroundStyle(Theme.textFaint)
+                    .padding(.top, 5)
+            }
+            .padding(12)
+            .background(Theme.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.cardRadius)
+                    .strokeBorder(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+            )
+            .opacity(0.55)
+        }
     }
 }
 
