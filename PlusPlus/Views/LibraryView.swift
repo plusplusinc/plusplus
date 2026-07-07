@@ -12,20 +12,8 @@ struct ExercisesTabView: View {
 
     @State private var search = ""
     @State private var openSwipeRow: PersistentIdentifier?
-    @State private var sheet: LibrarySheet?
+    @State private var showingCatalog = false
     @State private var path = NavigationPath()
-
-    enum LibrarySheet: Identifiable {
-        case addExercises
-        case newCustom(prefill: String)
-
-        var id: String {
-            switch self {
-            case .addExercises: "addExercises"
-            case .newCustom(let prefill): "new-\(prefill)"
-            }
-        }
-    }
 
     private var libraryExercises: [Exercise] {
         allExercises
@@ -37,7 +25,7 @@ struct ExercisesTabView: View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
                 CatalogTabHeader(title: "Exercises", addIdentifier: "addExercisesButton") {
-                    sheet = .addExercises
+                    showingCatalog = true
                 }
 
                 SearchField(prompt: "Search", text: $search)
@@ -61,15 +49,11 @@ struct ExercisesTabView: View {
             .navigationDestination(for: Exercise.self) { exercise in
                 ExerciseDetailScreen(exercise: exercise)
             }
-            .sheet(item: $sheet) { destination in
-                switch destination {
-                case .addExercises:
-                    AddFromCatalogSheet(kind: .exercises) { prefill in
-                        sheet = .newCustom(prefill: prefill)
-                    }
-                case .newCustom(let prefill):
-                    ExerciseEditorView(prefillName: prefill)
-                }
+            // Full-page push, not a tray (#139 follow-up): the catalog
+            // browser is a browsing surface — search, filters, a long
+            // toggle list. Sheets stay for create/edit forms only.
+            .navigationDestination(isPresented: $showingCatalog) {
+                CatalogBrowseScreen(kind: .exercises)
             }
         }
     }
@@ -156,7 +140,7 @@ struct EquipmentTabView: View {
 
     @State private var search = ""
     @State private var openSwipeRow: PersistentIdentifier?
-    @State private var showingAdd = false
+    @State private var showingCatalog = false
     @State private var path = NavigationPath()
 
     private var libraryEquipment: [Equipment] {
@@ -169,7 +153,7 @@ struct EquipmentTabView: View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
                 CatalogTabHeader(title: "Equipment", addIdentifier: "addEquipmentButton") {
-                    showingAdd = true
+                    showingCatalog = true
                 }
 
                 SearchField(prompt: "Search", text: $search)
@@ -193,8 +177,8 @@ struct EquipmentTabView: View {
             .navigationDestination(for: Equipment.self) { equipment in
                 EquipmentDetailScreen(equipment: equipment)
             }
-            .sheet(isPresented: $showingAdd) {
-                AddFromCatalogSheet(kind: .equipment) { _ in }
+            .navigationDestination(isPresented: $showingCatalog) {
+                CatalogBrowseScreen(kind: .equipment)
             }
         }
     }
@@ -289,14 +273,15 @@ struct CatalogTabHeader: View {
 
 // MARK: - Add from catalog
 
-/// The catalog tray, rethought as a curation surface (#139): the whole
-/// built-in catalog stays listed, membership is a Toggle per row —
-/// nothing vanishes when you flip one. Filters: library state
-/// (All / In library / Not in library), and for exercises the picker's
-/// muscle-group/equipment sheets plus the ownership escape hatch.
-/// Customs don't appear here — they live in the library list, where
-/// deletion is a deliberate act, not a toggle.
-struct AddFromCatalogSheet: View {
+/// The catalog browser, rethought as a curation surface (#139): the
+/// whole built-in catalog stays listed, membership is a Toggle per row
+/// — nothing vanishes when you flip one. A full pushed page, not a
+/// tray (Dave): browsing surfaces push, sheets are for forms. Filters:
+/// library state (All / In library / Not in library), and for
+/// exercises the picker's muscle-group/equipment sheets plus the
+/// ownership escape hatch. Customs don't appear here — they live in
+/// the library list, where deletion is a deliberate act, not a toggle.
+struct CatalogBrowseScreen: View {
     enum Kind: String, Identifiable {
         case exercises
         case equipment
@@ -310,33 +295,23 @@ struct AddFromCatalogSheet: View {
     @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
 
     let kind: Kind
-    /// Called with the current query when "Create custom…" is tapped
-    /// (exercises only — the parent presents the editor).
-    let onCreateCustom: (String) -> Void
 
     @State private var filterState = ExerciseFilterState()
     /// 0 = All · 1 = In library · 2 = Not in library.
     @State private var libraryFilter = 0
     @State private var showingMuscleFilter = false
     @State private var showingEquipmentFilter = false
+    /// Prefill for the custom-exercise editor sheet (create/edit forms
+    /// are the one thing that stays modal here).
+    @State private var customPrefill: String?
 
     private var query: String { filterState.searchText }
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Spacer()
-                Text(kind == .exercises ? "Exercise catalog" : "Equipment catalog")
-                    .font(.system(.subheadline, weight: .bold))
-                Spacer()
+            CatalogDetailHeader(title: kind == .exercises ? "Exercise catalog" : "Equipment catalog") {
+                EmptyView()
             }
-            .overlay(alignment: .trailing) {
-                Button("Done") { dismiss() }
-                    .font(.system(.footnote, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary)
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 14)
 
             Text("Toggles curate your library — removing never touches workouts or logged history.")
                 .font(.system(.caption))
@@ -345,7 +320,7 @@ struct AddFromCatalogSheet: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 6)
 
-            SearchField(prompt: "Search the catalog", text: Bindable(filterState).searchText, fill: Theme.background)
+            SearchField(prompt: "Search the catalog", text: Bindable(filterState).searchText)
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
 
@@ -444,8 +419,14 @@ struct AddFromCatalogSheet: View {
             .scrollContentBackground(.hidden)
             .padding(.top, 2)
         }
-        .presentationBackground(Theme.surface)
-        .presentationDetents([.fraction(0.8), .large])
+        .background(Theme.background)
+        .toolbar(.hidden, for: .navigationBar)
+        .sheet(isPresented: Binding(
+            get: { customPrefill != nil },
+            set: { if !$0 { customPrefill = nil } }
+        )) {
+            ExerciseEditorView(prefillName: customPrefill ?? "")
+        }
         .sheet(isPresented: $showingMuscleFilter) {
             MuscleGroupFilterSheet(filterState: filterState)
                 .presentationDetents([.medium])
@@ -532,6 +513,8 @@ struct AddFromCatalogSheet: View {
     private func createCustom() {
         let trimmed = query.trimmingCharacters(in: .whitespaces)
         if kind == .equipment {
+            // Creating custom gear pops back to the library, where the
+            // new item is actually visible (customs aren't catalog rows).
             guard !trimmed.isEmpty else { return }
             let existing = allEquipment.first { $0.name.lowercased() == trimmed.lowercased() }
             if let existing {
@@ -541,8 +524,7 @@ struct AddFromCatalogSheet: View {
             }
             dismiss()
         } else {
-            dismiss()
-            onCreateCustom(trimmed)
+            customPrefill = trimmed
         }
     }
 }
