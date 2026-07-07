@@ -537,7 +537,7 @@ struct WorkoutDetailView: View {
                     Image(systemName: "play.fill").font(.system(.footnote))
                     Text("Start workout").font(.system(.body, weight: .bold))
                 }
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onAccent)
                 .frame(maxWidth: .infinity)
                 .frame(height: 54)
                 .background(Theme.accentButton, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
