@@ -18,6 +18,7 @@ struct LibraryView: View {
 
     @State private var tab: Tab = .exercises
     @State private var search = ""
+    @State private var openSwipeRow: PersistentIdentifier?
     @State private var sheet: LibrarySheet?
 
     enum LibrarySheet: Identifiable {
@@ -153,8 +154,13 @@ struct LibraryView: View {
     @ViewBuilder
     private var exerciseRows: some View {
         ForEach(libraryExercises) { exercise in
+            SwipeRevealRow(id: exercise.persistentModelID, openRow: $openSwipeRow, actionsWidth: 58) {
             Button {
-                sheet = exercise.isBuiltIn ? .builtInInfo(exercise) : .editCustom(exercise)
+                if openSwipeRow != nil {
+                    openSwipeRow = nil
+                } else {
+                    sheet = exercise.isBuiltIn ? .builtInInfo(exercise) : .editCustom(exercise)
+                }
             } label: {
                 HStack(spacing: 10) {
                     VStack(alignment: .leading, spacing: 1) {
@@ -183,22 +189,21 @@ struct LibraryView: View {
                 .padding(.vertical, 10)
             }
             .buttonStyle(.plain)
+            } actions: {
+                SwipeActionButton(label: "REMOVE", color: Theme.destructive) {
+                    openSwipeRow = nil
+                    remove(exercise)
+                }
+            }
             .listRowBackground(Color.clear)
             .listRowSeparatorTint(Theme.border)
-            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                Button(role: exercise.isBuiltIn ? nil : .destructive) {
-                    remove(exercise)
-                } label: {
-                    Label("Remove", systemImage: "xmark")
-                }
-                .tint(Theme.destructiveFill)
-            }
         }
     }
 
     @ViewBuilder
     private var equipmentRows: some View {
         ForEach(libraryEquipment) { equipment in
+            SwipeRevealRow(id: equipment.persistentModelID, openRow: $openSwipeRow, actionsWidth: 58) {
             HStack {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(equipment.name)
@@ -210,16 +215,14 @@ struct LibraryView: View {
                 Spacer()
             }
             .padding(.vertical, 10)
+            } actions: {
+                SwipeActionButton(label: "REMOVE", color: Theme.destructive) {
+                    openSwipeRow = nil
+                    remove(equipment)
+                }
+            }
             .listRowBackground(Color.clear)
             .listRowSeparatorTint(Theme.border)
-            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                Button {
-                    remove(equipment)
-                } label: {
-                    Label("Remove", systemImage: "xmark")
-                }
-                .tint(Theme.destructiveFill)
-            }
         }
     }
 
