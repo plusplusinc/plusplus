@@ -138,11 +138,11 @@ struct WorkoutListView: View {
         } label: {
             Text("+")
                 .font(.system(.title3, design: .monospaced, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
                 .offset(y: -1)
                 .frame(width: 56, height: 56)
                 .background(.ultraThinMaterial, in: Circle())
-                .overlay(Circle().strokeBorder(.white.opacity(0.16)))
+                .overlay(Circle().strokeBorder(Theme.textPrimary.opacity(0.16)))
                 .shadow(color: .black.opacity(0.45), radius: 12, y: 8)
         }
         .accessibilityIdentifier("newWorkoutButton")

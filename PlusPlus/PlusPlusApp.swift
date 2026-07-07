@@ -6,6 +6,10 @@ import UIKit
 struct PlusPlusApp: App {
     let modelContainer: ModelContainer
 
+    /// Appearance (#97): system by default; the setting lives in the
+    /// Settings sheet.
+    @AppStorage(AppAppearance.storageKey) private var appearanceRaw: String = AppAppearance.system.rawValue
+
     init() {
         let schema = Schema([Workout.self, Exercise.self, Equipment.self, WorkoutSession.self, SetLog.self])
         // UI tests pass --uitest-reset so every launch starts from a clean,
@@ -31,7 +35,7 @@ struct PlusPlusApp: App {
     var body: some Scene {
         WindowGroup {
             WorkoutListView()
-                .preferredColorScheme(.dark) // v2 is dark-only (#59)
+                .preferredColorScheme((AppAppearance(rawValue: appearanceRaw) ?? .system).colorScheme)
                 // Dynamic Type everywhere (#82), capped where the dense
                 // layouts stop coping — full a11y sizes are future work.
                 .dynamicTypeSize(...DynamicTypeSize.xxLarge)

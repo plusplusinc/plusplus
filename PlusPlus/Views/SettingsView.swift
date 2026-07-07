@@ -9,6 +9,7 @@ import PlusPlusKit
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
+    @AppStorage(AppAppearance.storageKey) private var appearanceRaw: String = AppAppearance.system.rawValue
     @Environment(\.modelContext) private var modelContext
 
     @State private var showingExporter = false
@@ -56,6 +57,18 @@ struct SettingsView: View {
                         .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
                         .padding(.top, 6)
+
+                    SheetSectionLabel("APPEARANCE")
+                        .padding(.top, 16)
+                    SegmentedTabs(
+                        options: AppAppearance.allCases.map(\.label),
+                        selectedIndex: Binding(
+                            get: {
+                                AppAppearance.allCases.firstIndex(of: AppAppearance(rawValue: appearanceRaw) ?? .system) ?? 0
+                            },
+                            set: { appearanceRaw = AppAppearance.allCases[$0].rawValue }
+                        )
+                    )
 
                     SheetSectionLabel("UNITS")
                         .padding(.top, 16)

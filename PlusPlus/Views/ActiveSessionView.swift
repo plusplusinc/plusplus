@@ -231,7 +231,7 @@ struct ActiveSessionView: View {
             } label: {
                 Text("Done")
                     .font(.system(.subheadline, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onAccent)
                     .padding(.horizontal, 36)
                     .frame(height: 48)
                     .background(Theme.accentButton, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
@@ -422,7 +422,7 @@ private struct SetLoggingView: View {
                             Text("+").font(.system(.title3, design: .monospaced, weight: .semibold))
                             Text("Log set").font(.system(.body, weight: .bold))
                         }
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onAccent)
                         .frame(maxWidth: .infinity)
                         .frame(height: 58)
                         .background(Theme.accentButton, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
@@ -765,7 +765,7 @@ private struct RestView: View {
                     Button(action: onEnd) {
                         Text("Skip rest")
                             .font(.system(.subheadline, weight: .bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.onAccent)
                             .padding(.horizontal, 26)
                             .frame(height: 48)
                             .background(Theme.accentButton, in: RoundedRectangle(cornerRadius: Theme.cardRadius))

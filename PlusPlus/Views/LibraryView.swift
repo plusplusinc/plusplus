@@ -275,7 +275,7 @@ struct SegmentedTabs: View {
                 } label: {
                     Text(option)
                         .font(.system(.footnote, weight: .semibold))
-                        .foregroundStyle(selectedIndex == index ? .white : Theme.textSecondary)
+                        .foregroundStyle(selectedIndex == index ? Theme.onAccent : Theme.textSecondary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 32)
                         .background(

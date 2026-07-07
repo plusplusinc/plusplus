@@ -76,7 +76,7 @@ struct SessionOverviewSheet: View {
             } label: {
                 Text("↩ Back to now · \(backLabel)")
                     .font(.system(.subheadline, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onAccent)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
@@ -265,7 +265,7 @@ struct SessionExerciseSheet: View {
                     } label: {
                         Text("⤳ Skip to this exercise")
                             .font(.system(.subheadline, weight: .bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.onAccent)
                             .frame(maxWidth: .infinity)
                             .frame(height: 48)
                             .background(Theme.accentButton, in: RoundedRectangle(cornerRadius: 12))

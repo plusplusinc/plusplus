@@ -322,7 +322,7 @@ private struct SelectableChip: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
                 .background(isSelected ? Theme.accentButton : Color.clear)
-                .foregroundStyle(isSelected ? .white : Theme.textPrimary)
+                .foregroundStyle(isSelected ? Theme.onAccent : Theme.textPrimary)
                 .clipShape(Capsule())
                 .overlay(Capsule().strokeBorder(isSelected ? Theme.accentButton : Theme.borderStrong))
         }
