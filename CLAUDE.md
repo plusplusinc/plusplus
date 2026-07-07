@@ -124,7 +124,7 @@ PlusPlus/                # iOS app target
                               #   SectionLabel/ActionButton/MetricStepperRow), SegmentedTabs
     RootTabView.swift         # v3 root: four tabs, custom bar + Canvas icons, onboarding cover
     TodayView.swift           # Unified timeline: pending diffs + committed cards + swap-in
-    OnboardingView.swift      # Two-beat first run: equipment access + starter split
+    OnboardingView.swift      # SetupState + EquipmentAccessSheet + StarterSeedSheet (setup-as-timeline)
     RailGestureRecognizer.swift # UIKit long-press layer for the rail (scroll-safe)
     WorkoutListView.swift     # Workouts tab — cards w/ schedule pills, create/reorder/delete
     WorkoutDetailView.swift   # Workout detail — groups, inputs, superset actions, Start Workout
