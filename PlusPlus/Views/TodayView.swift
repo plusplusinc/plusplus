@@ -347,12 +347,17 @@ struct TodayView: View {
                     expandedDiffs.insert(workout.persistentModelID)
                 }
             } label: {
-                HStack(spacing: 0) {
+                HStack(spacing: 5) {
                     diffSummaryText(segments)
                         .lineLimit(1)
-                    Text("  details \(expanded ? "▴" : "▾")")
+                    Text(" details")
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(Theme.textFaint)
+                    Image(systemName: "chevron.down")
+                        .font(.system(.caption2, weight: .semibold))
+                        .foregroundStyle(Theme.textFaint)
+                        .rotationEffect(.degrees(expanded ? 180 : 0))
+                        .animation(.easeOut(duration: 0.15), value: expanded)
                 }
             }
             .buttonStyle(.plain)
@@ -601,12 +606,16 @@ struct TodayView: View {
                 Button {
                     showingSwapIn = true
                 } label: {
-                    Text("⇄ Swap in a workout")
-                        .font(.system(.footnote, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 40)
-                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.borderStrong))
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.left.arrow.right")
+                            .font(.system(.caption, weight: .semibold))
+                        Text("Swap in a workout")
+                            .font(.system(.footnote, weight: .semibold))
+                    }
+                    .foregroundStyle(Theme.textPrimary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 40)
+                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.borderStrong))
                 }
                 .accessibilityIdentifier("swapInButton")
             }
@@ -751,9 +760,13 @@ private struct SetupRow: View {
                             .foregroundStyle(Theme.textSecondary)
                     }
                     Spacer(minLength: 8)
-                    Text("edit ›")
-                        .font(.system(.footnote, design: .monospaced))
-                        .foregroundStyle(Theme.textFaint)
+                    HStack(spacing: 3) {
+                        Text("edit")
+                            .font(.system(.footnote, design: .monospaced))
+                        Image(systemName: "chevron.right")
+                            .font(.system(.caption2, weight: .bold))
+                    }
+                    .foregroundStyle(Theme.textFaint)
                 }
                 .padding(.vertical, 13)
                 .padding(.horizontal, 12)

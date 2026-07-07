@@ -91,14 +91,17 @@ public enum WorkoutMetric: Sendable {
     }
 
     /// Stepping from nil lands on `defaultValue` rather than stepping from zero.
-    public func incremented(_ value: Double?, weightUnit: WeightUnit = .lb) -> Double {
+    /// `stepOverride` replaces the unit step when set — per-equipment
+    /// increments (a microplate barbell steps 2.5, a pin stack 10)
+    /// without touching wheel granularity or defaults.
+    public func incremented(_ value: Double?, weightUnit: WeightUnit = .lb, stepOverride: Double? = nil) -> Double {
         guard let value else { return defaultValue(weightUnit: weightUnit) }
-        return clamped(value + step(weightUnit: weightUnit))
+        return clamped(value + (stepOverride ?? step(weightUnit: weightUnit)))
     }
 
-    public func decremented(_ value: Double?, weightUnit: WeightUnit = .lb) -> Double {
+    public func decremented(_ value: Double?, weightUnit: WeightUnit = .lb, stepOverride: Double? = nil) -> Double {
         guard let value else { return defaultValue(weightUnit: weightUnit) }
-        return clamped(value - step(weightUnit: weightUnit))
+        return clamped(value - (stepOverride ?? step(weightUnit: weightUnit)))
     }
 
     /// Duration covers a full hour, so its wheel coarsens as values grow:

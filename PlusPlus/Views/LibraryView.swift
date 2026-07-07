@@ -48,7 +48,7 @@ struct ExercisesTabView: View {
 
             List {
                 exerciseRows
-                Text("swipe ← to remove from your library · + browses the full catalog")
+                Text("swipe left to remove from your library · + browses the full catalog")
                     .font(.system(.caption))
                     .foregroundStyle(Theme.textFaint)
                     .listRowSeparator(.hidden)
@@ -158,6 +158,7 @@ struct EquipmentTabView: View {
     @State private var search = ""
     @State private var openSwipeRow: PersistentIdentifier?
     @State private var showingAdd = false
+    @State private var selectedEquipment: Equipment?
 
     private var libraryEquipment: [Equipment] {
         allEquipment
@@ -177,7 +178,7 @@ struct EquipmentTabView: View {
 
             List {
                 equipmentRows
-                Text("swipe ← to remove from your library · + browses the catalog or creates custom gear")
+                Text("swipe left to remove from your library · + browses the catalog or creates custom gear")
                     .font(.system(.caption))
                     .foregroundStyle(Theme.textFaint)
                     .listRowSeparator(.hidden)
@@ -191,23 +192,42 @@ struct EquipmentTabView: View {
         .sheet(isPresented: $showingAdd) {
             AddFromCatalogSheet(kind: .equipment) { _ in }
         }
+        .sheet(item: $selectedEquipment) { equipment in
+            EquipmentDetailSheet(equipment: equipment) {
+                selectedEquipment = nil
+                remove(equipment)
+            }
+        }
     }
 
     @ViewBuilder
     private var equipmentRows: some View {
         ForEach(libraryEquipment) { equipment in
             SwipeRevealRow(id: equipment.persistentModelID, openRow: $openSwipeRow, actionsWidth: 58) {
-            HStack {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(equipment.name)
-                        .font(.system(.subheadline, weight: .semibold))
-                    Text(equipmentSubtitle(for: equipment))
-                        .font(.system(.caption2, design: .monospaced))
+            Button {
+                if openSwipeRow != nil {
+                    openSwipeRow = nil
+                } else {
+                    selectedEquipment = equipment
+                }
+            } label: {
+                HStack {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(equipment.name)
+                            .font(.system(.subheadline, weight: .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                        Text(equipmentSubtitle(for: equipment))
+                            .font(.system(.caption2, design: .monospaced))
+                            .foregroundStyle(Theme.textFaint)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(.caption, weight: .bold))
                         .foregroundStyle(Theme.textFaint)
                 }
-                Spacer()
+                .padding(.vertical, 10)
             }
-            .padding(.vertical, 10)
+            .buttonStyle(.plain)
             } actions: {
                 SwipeActionButton(label: "REMOVE", color: Theme.destructive) {
                     openSwipeRow = nil
@@ -437,6 +457,158 @@ struct AddFromCatalogSheet: View {
             dismiss()
             onCreateCustom(trimmed)
         }
+    }
+}
+
+// MARK: - Equipment detail
+
+/// Tapping a piece of gear opens this (Dave, build 12): the weight
+/// step it implies, the exercises that need it, and the workouts it
+/// appears in. Removal lives here too, mirroring the swipe action.
+struct EquipmentDetailSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Query(sort: \Exercise.name) private var allExercises: [Exercise]
+    @Query(sort: [SortDescriptor(\Workout.order), SortDescriptor(\Workout.createdAt, order: .reverse)])
+    private var allWorkouts: [Workout]
+
+    @Bindable var equipment: Equipment
+    /// Parent-owned removal (built-in → leaves library; custom →
+    /// strips references and deletes). The sheet is dismissed first.
+    let onRemove: () -> Void
+
+    /// nil = the unit default (5 lb / 2.5 kg).
+    private static let stepChoices: [Double?] = [nil, 1, 2.5, 5, 10]
+
+    private var usedByExercises: [Exercise] {
+        allExercises.filter { exercise in
+            exercise.equipment.contains { $0 === equipment }
+        }
+    }
+
+    private var usedInWorkouts: [Workout] {
+        allWorkouts.filter { $0.equipmentNames.contains(equipment.name) }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Text(equipment.name)
+                    .font(.system(.title3, weight: .bold))
+                Spacer()
+                Text(equipment.isBuiltIn ? "BUILT-IN" : "CUSTOM")
+                    .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                    .foregroundStyle(equipment.isBuiltIn ? Theme.textSecondary : Theme.accent)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .overlay(Capsule().strokeBorder(equipment.isBuiltIn ? Theme.borderStrong : Theme.accent.opacity(0.4)))
+            }
+            .padding(.top, 24)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    SheetSectionLabel("WEIGHT STEP")
+                        .padding(.top, 18)
+                    HStack(spacing: 7) {
+                        ForEach(Self.stepChoices, id: \.self) { choice in
+                            stepChip(choice)
+                        }
+                    }
+                    Text("per-tap increment for weight exercises using this gear · the wheel stays fine-grained")
+                        .font(.system(.caption))
+                        .foregroundStyle(Theme.textFaint)
+                        .padding(.top, 6)
+
+                    SheetSectionLabel("EXERCISES (\(usedByExercises.count))")
+                        .padding(.top, 18)
+                    if usedByExercises.isEmpty {
+                        Text("nothing in the catalog needs this")
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(Theme.textFaint)
+                    } else {
+                        listBlock(usedByExercises.map { exercise in
+                            (exercise.name, exercise.inLibrary || !exercise.isBuiltIn
+                                ? exercise.muscleGroup.displayName
+                                : "\(exercise.muscleGroup.displayName) · not in library")
+                        })
+                    }
+
+                    SheetSectionLabel("WORKOUTS (\(usedInWorkouts.count))")
+                        .padding(.top, 18)
+                    if usedInWorkouts.isEmpty {
+                        Text("not used in any workout yet")
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(Theme.textFaint)
+                    } else {
+                        listBlock(usedInWorkouts.map { workout in
+                            (workout.name, workout.schedule.shortLabel)
+                        })
+                    }
+
+                    SheetActionButton(
+                        equipment.isBuiltIn ? "Remove from my library" : "Delete custom equipment",
+                        destructive: true
+                    ) {
+                        dismiss()
+                        onRemove()
+                    }
+                    .padding(.top, 22)
+
+                    if !equipment.isBuiltIn {
+                        Text("removes it from every exercise that references it")
+                            .font(.system(.caption))
+                            .foregroundStyle(Theme.textFaint)
+                            .padding(.top, 6)
+                    }
+                }
+                .padding(.bottom, 30)
+            }
+        }
+        .padding(.horizontal, 18)
+        .presentationBackground(Theme.surface)
+        .presentationDetents([.medium, .large])
+    }
+
+    private func stepChip(_ choice: Double?) -> some View {
+        let active = equipment.weightStep == choice
+        // Accent-tinted when active: the step is training data (what
+        // your plates allow), not chrome.
+        return Button {
+            equipment.weightStep = choice
+        } label: {
+            Text(choice.map { WorkoutMetric.weight.formatted($0) } ?? "default")
+                .font(.system(.footnote, design: .monospaced, weight: .semibold))
+                .foregroundStyle(active ? Theme.accent : Theme.textSecondary)
+                .frame(maxWidth: .infinity)
+                .frame(height: 38)
+                .background(active ? Theme.accent.opacity(0.16) : Theme.background, in: RoundedRectangle(cornerRadius: 9))
+                .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(active ? Theme.accent.opacity(0.55) : Theme.border))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func listBlock(_ rows: [(String, String)]) -> some View {
+        VStack(spacing: 0) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
+                HStack(spacing: 8) {
+                    Text(row.0)
+                        .font(.system(.footnote, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(1)
+                    Spacer()
+                    Text(row.1)
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(Theme.textFaint)
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                if index < rows.count - 1 {
+                    Divider().overlay(Theme.border)
+                }
+            }
+        }
+        .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+        .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
     }
 }
 

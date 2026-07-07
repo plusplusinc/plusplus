@@ -142,7 +142,7 @@ struct WorkoutDetailView: View {
             showingWorkoutSettings = true
         } label: {
             (Text(text).font(.system(.footnote, design: .monospaced, weight: .semibold)).foregroundStyle(Theme.textPrimary)
-                + Text(" ▾").font(.system(.caption2)).foregroundStyle(Theme.textSecondary))
+                + Text(" ") + Text(Image(systemName: "chevron.down")).font(.system(.caption2, weight: .semibold)).foregroundStyle(Theme.textSecondary))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
                 .background(Theme.surface, in: RoundedRectangle(cornerRadius: 8))

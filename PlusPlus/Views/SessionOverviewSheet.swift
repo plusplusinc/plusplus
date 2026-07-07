@@ -74,13 +74,17 @@ struct SessionOverviewSheet: View {
             Button {
                 dismiss()
             } label: {
-                Text("↩ Back to now · \(backLabel)")
-                    .font(.system(.subheadline, weight: .bold))
-                    .foregroundStyle(Theme.onPrimary)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-                    .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 13))
+                HStack(spacing: 7) {
+                    Image(systemName: "arrow.uturn.backward")
+                        .font(.system(.footnote, weight: .bold))
+                    Text("Back to now · \(backLabel)")
+                        .font(.system(.subheadline, weight: .bold))
+                        .lineLimit(1)
+                }
+                .foregroundStyle(Theme.onPrimary)
+                .frame(maxWidth: .infinity)
+                .frame(height: 50)
+                .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 13))
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
@@ -263,12 +267,16 @@ struct SessionExerciseSheet: View {
                         onJumped()
                         dismiss()
                     } label: {
-                        Text("⤳ Skip to this exercise")
-                            .font(.system(.subheadline, weight: .bold))
-                            .foregroundStyle(Theme.onPrimary)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 48)
-                            .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
+                        HStack(spacing: 7) {
+                            Image(systemName: "arrow.right.to.line")
+                                .font(.system(.footnote, weight: .bold))
+                            Text("Skip to this exercise")
+                                .font(.system(.subheadline, weight: .bold))
+                        }
+                        .foregroundStyle(Theme.onPrimary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 48)
+                        .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
                     }
                 }
                 Button {
@@ -312,8 +320,8 @@ struct SessionExerciseSheet: View {
                     label: "Weight",
                     value: WorkoutMetric.weight.displayText(reference?.targetWeight, weightUnit: weightUnit),
                     identifier: "sxWeight",
-                    onDecrement: { editPending { $0.targetWeight = WorkoutMetric.weight.decremented($0.targetWeight, weightUnit: weightUnit) } },
-                    onIncrement: { editPending { $0.targetWeight = WorkoutMetric.weight.incremented($0.targetWeight, weightUnit: weightUnit) } }
+                    onDecrement: { editPending { $0.targetWeight = WorkoutMetric.weight.decremented($0.targetWeight, weightUnit: weightUnit, stepOverride: $0.exercise?.weightStepOverride) } },
+                    onIncrement: { editPending { $0.targetWeight = WorkoutMetric.weight.incremented($0.targetWeight, weightUnit: weightUnit, stepOverride: $0.exercise?.weightStepOverride) } }
                 )
                 MetricStepperRow(
                     label: "Reps",
@@ -385,7 +393,7 @@ struct SessionExerciseSheet: View {
 
     private func setResult(_ log: SetLog, isCurrent: Bool) -> String {
         if log.isCompleted { return log.resultSummary(weightUnit: weightUnit) }
-        if isCurrent { return "● current set" }
+        if isCurrent { return "current set" }
         return "pending"
     }
 
