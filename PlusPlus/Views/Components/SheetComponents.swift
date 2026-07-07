@@ -47,7 +47,7 @@ struct SheetHeader: View {
         .overlay(alignment: .trailing) {
             Button(actionLabel, action: action)
                 .font(.system(.footnote, weight: .bold))
-                .foregroundStyle(actionEnabled ? Theme.accent : Theme.textFaint)
+                .foregroundStyle(actionEnabled ? Theme.textPrimary : Theme.textFaint)
                 .disabled(!actionEnabled)
                 .accessibilityIdentifier(actionIdentifier ?? "")
         }

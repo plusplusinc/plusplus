@@ -76,11 +76,11 @@ struct SessionOverviewSheet: View {
             } label: {
                 Text("↩ Back to now · \(backLabel)")
                     .font(.system(.subheadline, weight: .bold))
-                    .foregroundStyle(Theme.onAccent)
+                    .foregroundStyle(Theme.onPrimary)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
-                    .background(Theme.accentButton, in: RoundedRectangle(cornerRadius: 13))
+                    .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 13))
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
@@ -265,10 +265,10 @@ struct SessionExerciseSheet: View {
                     } label: {
                         Text("⤳ Skip to this exercise")
                             .font(.system(.subheadline, weight: .bold))
-                            .foregroundStyle(Theme.onAccent)
+                            .foregroundStyle(Theme.onPrimary)
                             .frame(maxWidth: .infinity)
                             .frame(height: 48)
-                            .background(Theme.accentButton, in: RoundedRectangle(cornerRadius: 12))
+                            .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
                     }
                 }
                 Button {
