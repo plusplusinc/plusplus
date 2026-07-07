@@ -32,7 +32,26 @@ struct PlusPlusApp: App {
         do {
             modelContainer = try ModelContainer(for: schema, configurations: [config])
         } catch {
-            fatalError("Failed to create ModelContainer: \(error)")
+            // An unopenable store must not be a crash loop (build 15:
+            // the #144 entity renames made pre-15 stores unreadable and
+            // this fatalError'd on every launch). During beta the call
+            // is destroy-and-recreate — data is explicitly throwaway
+            // until sync ships; a real migration policy is the 1.0 bar.
+            guard !inMemory else { fatalError("Failed to create in-memory ModelContainer: \(error)") }
+            let storeURL = config.url
+            let fm = FileManager.default
+            for suffix in ["", "-shm", "-wal"] {
+                try? fm.removeItem(at: URL(fileURLWithPath: storeURL.path + suffix))
+            }
+            do {
+                modelContainer = try ModelContainer(for: schema, configurations: [config])
+            } catch {
+                fatalError("Failed to create ModelContainer even after store reset: \(error)")
+            }
+            // The store was rebuilt, so the stored setup flag describing
+            // the old data is stale too; the rest of the setup timeline
+            // self-heals from live data.
+            UserDefaults.standard.removeObject(forKey: SetupState.equipmentDoneKey)
         }
         SeedData.loadIfNeeded(context: modelContainer.mainContext)
         // A routine tall enough to overflow every simulator screen, for
