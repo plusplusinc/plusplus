@@ -19,12 +19,17 @@ struct SwipeRevealRow<Content: View, Actions: View>: View {
     /// half-swiped (bug hunt finding 3).
     @GestureState private var dragX: CGFloat = 0
 
+    /// The row's resting offset captured at the FIRST drag event, so the
+    /// open/closed decision can commit mid-gesture (below) without the
+    /// row jumping to the new resting point under the finger.
+    @GestureState private var dragBase: CGFloat?
+
     private var restingOffset: CGFloat {
         openRow == id ? -actionsWidth : 0
     }
 
     private var offset: CGFloat {
-        min(0, max(restingOffset + dragX, -actionsWidth - 24))
+        min(0, max((dragBase ?? restingOffset) + dragX, -actionsWidth - 24))
     }
 
     var body: some View {
@@ -44,17 +49,45 @@ struct SwipeRevealRow<Content: View, Actions: View>: View {
                 .offset(x: offset)
                 .simultaneousGesture(
                     DragGesture(minimumDistance: 16)
+                        .updating($dragBase) { _, state, _ in
+                            if state == nil { state = restingOffset }
+                        }
                         .updating($dragX) { value, state, _ in
                             guard enabled,
                                   abs(value.translation.width) > abs(value.translation.height)
                             else { return }
                             state = value.translation.width
                         }
+                        // The open/closed decision commits HERE, live at
+                        // the halfway threshold — not only in onEnded.
+                        // Inside a List the scroll pan can steal the touch
+                        // at finger-lift, which CANCELS this gesture:
+                        // @GestureState resets, onEnded never runs, and a
+                        // decided-at-end-only row snapped shut under the
+                        // finger (Dave, build 17: "letting go hides it
+                        // again"). A cancelled gesture now keeps whatever
+                        // the drag last crossed.
+                        .onChanged { value in
+                            guard enabled,
+                                  abs(value.translation.width) > abs(value.translation.height),
+                                  let base = dragBase
+                            else { return }
+                            let dragged = base + value.translation.width
+                            if dragged < -actionsWidth / 2 {
+                                if openRow != id { openRow = id }
+                            } else if openRow == id {
+                                openRow = nil
+                            }
+                        }
+                        // onEnded only adds the flick: momentum past the
+                        // current position can open (or close) a row the
+                        // finger itself didn't carry across the threshold.
                         .onEnded { value in
                             guard enabled,
                                   abs(value.translation.width) > abs(value.translation.height)
                             else { return }
-                            let projected = restingOffset + value.predictedEndTranslation.width
+                            let momentum = value.predictedEndTranslation.width - value.translation.width
+                            let projected = (openRow == id ? -actionsWidth : 0) + momentum
                             openRow = projected < -actionsWidth / 2 ? id : (openRow == id ? nil : openRow)
                         }
                 )
