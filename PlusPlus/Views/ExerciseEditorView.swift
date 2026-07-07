@@ -2,10 +2,11 @@ import SwiftUI
 import SwiftData
 import PlusPlusKit
 
-/// Create or edit a custom exercise, in the v2 sheet language (#86):
-/// terse sections, chips for muscle group, and equipment presented as
-/// explicit "requires all of these" chips. Built-ins are never passed
-/// here — they stay read-only.
+/// Create or edit an exercise, in the v2 sheet language (#86): terse
+/// sections, chips for muscle group, and equipment presented as
+/// explicit "requires all of these" chips. Built-ins are editable too
+/// (#136) — everything but the name, which history and sync key on —
+/// and revert to their canonical catalog definition.
 struct ExerciseEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -27,6 +28,29 @@ struct ExerciseEditorView: View {
         let draft = ExerciseDraft()
         draft.name = prefillName
         _draft = State(initialValue: draft)
+    }
+
+    /// New custom exercise with gear pre-attached — the equipment
+    /// screen's "add an exercise with this" path (#137).
+    init(prefillEquipment: Equipment) {
+        editingExercise = nil
+        let draft = ExerciseDraft()
+        draft.selectedEquipment = [prefillEquipment]
+        _draft = State(initialValue: draft)
+    }
+
+    private var isBuiltIn: Bool { editingExercise?.isBuiltIn == true }
+
+    /// Anything off the canonical definition counts as customized —
+    /// built-ins ship with no notes or video, so their presence alone
+    /// is a customization.
+    private var differsFromDefault: Bool {
+        guard isBuiltIn, let def = SeedData.builtInDefinition(named: editingExercise?.name ?? "") else { return false }
+        return draft.muscleGroup != def.muscleGroup
+            || draft.exerciseType != def.exerciseType
+            || Set(draft.selectedEquipment.map(\.name)) != Set(def.equipmentNames)
+            || !draft.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !draft.videoURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private var existingNames: [String] {
@@ -62,11 +86,19 @@ struct ExerciseEditorView: View {
                         .padding(.top, 16)
                     TextField("Exercise name", text: $draft.name)
                         .font(.system(.body))
+                        .foregroundStyle(isBuiltIn ? Theme.textSecondary : Theme.textPrimary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 11)
                         .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                         .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
+                        .disabled(isBuiltIn)
                         .accessibilityIdentifier("exerciseNameField")
+                    if isBuiltIn {
+                        Text("Built-in names are fixed — history and sync key on them. Create a custom exercise for a different name.")
+                            .font(.system(.caption))
+                            .foregroundStyle(Theme.textFaint)
+                            .padding(.top, 6)
+                    }
                     if draft.isDuplicate(among: existingNames, excluding: editingExercise?.name) {
                         Text("An exercise with this name already exists.")
                             .font(.system(.caption))
@@ -139,6 +171,17 @@ struct ExerciseEditorView: View {
                             .foregroundStyle(Theme.destructive)
                             .padding(.top, 6)
                     }
+
+                    if differsFromDefault {
+                        SheetActionButton("Revert to default", systemImage: "arrow.counterclockwise") {
+                            revertToDefault()
+                        }
+                        .padding(.top, 20)
+                        Text("Restores the catalog definition — equipment, muscle group, type — and clears notes and video.")
+                            .font(.system(.caption))
+                            .foregroundStyle(Theme.textFaint)
+                            .padding(.top, 6)
+                    }
                 }
                 .padding(.bottom, 30)
             }
@@ -204,6 +247,15 @@ struct ExerciseEditorView: View {
             .overlay(Capsule().strokeBorder(Theme.borderStrong, style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
         }
         .disabled(unselectedEquipment.isEmpty)
+    }
+
+    private func revertToDefault() {
+        guard let def = SeedData.builtInDefinition(named: editingExercise?.name ?? "") else { return }
+        draft.muscleGroup = def.muscleGroup
+        draft.exerciseType = def.exerciseType
+        draft.selectedEquipment = Set(allEquipment.filter { def.equipmentNames.contains($0.name) })
+        draft.notes = ""
+        draft.videoURL = ""
     }
 
     private func save() {

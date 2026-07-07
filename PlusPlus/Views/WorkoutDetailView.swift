@@ -74,7 +74,10 @@ struct WorkoutDetailView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "chevron.left")
                         .font(.system(.footnote, weight: .bold))
-                    Text("Workouts")
+                    // "Back", not "Workouts": with #137 this screen is
+                    // reachable from Today, the catalog tabs, and other
+                    // pushed screens — the origin varies.
+                    Text("Back")
                         .font(.system(.footnote, weight: .semibold))
                 }
                 .foregroundStyle(Theme.textSecondary)

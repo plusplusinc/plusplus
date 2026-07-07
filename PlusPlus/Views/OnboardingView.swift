@@ -67,7 +67,7 @@ struct EquipmentAccessSheet: View {
         VStack(alignment: .leading, spacing: 0) {
             SheetHeader(title: "What do you have access to?", actionLabel: "Cancel", action: { dismiss() })
 
-            Text("filters the exercise catalog everywhere · never touches logged history")
+            Text("Filters the exercise catalog everywhere · never touches logged history")
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
                 .padding(.top, 6)
@@ -159,7 +159,7 @@ struct StarterSeedSheet: View {
         VStack(alignment: .leading, spacing: 0) {
             SheetHeader(title: "Build your first workout", actionLabel: "Cancel", action: { dismiss() })
 
-            Text("you can change everything later — it's just a starting point")
+            Text("You can change everything later — it's just a starting point")
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
                 .padding(.top, 6)
@@ -167,7 +167,7 @@ struct StarterSeedSheet: View {
             VStack(spacing: 8) {
                 option(
                     title: "Starter push/pull split",
-                    caption: "two workouts from the catalog, matched to your equipment"
+                    caption: "Two workouts from the catalog, matched to your equipment"
                 ) {
                     seedStarterSplit()
                     dismiss()
@@ -176,7 +176,7 @@ struct StarterSeedSheet: View {
 
                 option(
                     title: "One empty workout",
-                    caption: "a blank \"Workout A\" to build yourself"
+                    caption: "A blank \"Workout A\" to build yourself"
                 ) {
                     modelContext.insert(Workout(name: "Workout A", order: 0))
                     dismiss()
