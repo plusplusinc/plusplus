@@ -45,13 +45,26 @@ targets:
         # Placeholder ++ mark (issue #39) so TestFlight upload validation
         # passes; Dave designs the real one later.
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        SWIFT_EMIT_LOC_STRINGS: YES
+    # Explicit Info.plist (was GENERATE_INFOPLIST_FILE) because
+    # CFBundleURLTypes can't be expressed as INFOPLIST_KEY_* settings.
+    # CFBundleVersion must stay wired to CURRENT_PROJECT_VERSION — the
+    # TestFlight workflow injects the run number through it (#55).
+    info:
+      path: PlusPlus/Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
         # No non-exempt encryption: skips the compliance question on every
         # TestFlight upload (#55).
-        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
-        SWIFT_EMIT_LOC_STRINGS: YES
+        ITSAppUsesNonExemptEncryption: false
+        # plusplus://r#… share-link imports (#145). Universal links
+        # (https viewer URLs opening the app) come later with the
+        # associated-domains entitlement + real team ID in the AASA.
+        CFBundleURLTypes:
+          - CFBundleURLName: com.davidcole.plusplus.share
+            CFBundleURLSchemes: [plusplus]
     dependencies:
       - target: PlusPlusWatch
       - package: PlusPlusKit

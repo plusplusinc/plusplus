@@ -1,4 +1,5 @@
 import SwiftUI
+import PlusPlusKit
 
 /// v3 navigation root (#109): four bottom tabs — Today · Routines ·
 /// Exercises · Equipment. Creation is contextual (each tab's header +
@@ -13,6 +14,8 @@ struct RootTabView: View {
 
     @State private var tab: AppTab = .today
     @State private var showingSplash: Bool
+    /// A share link the app was opened with, awaiting import (#145).
+    @State private var shareImport: ShareImport?
 
     init() {
         // The launch beat: the ++ mark centered, then the app. Skipped
@@ -54,6 +57,19 @@ struct RootTabView: View {
             withAnimation(.easeOut(duration: 0.35)) {
                 showingSplash = false
             }
+        }
+        // plusplus://r#… (and, once universal links land, the https
+        // viewer URL) opens the import preview. A bad payload is
+        // ignored — the viewer webpage is the place that explains.
+        .onOpenURL { url in
+            guard RoutineShareLink.isShareLink(url),
+                  let payload = try? RoutineShareLink.payload(from: url)
+            else { return }
+            shareImport = ShareImport(payload: payload)
+        }
+        .sheet(item: $shareImport) { item in
+            ShareImportSheet(payload: item.payload)
+                .presentationDetents([.large])
         }
     }
 

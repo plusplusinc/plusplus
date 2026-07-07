@@ -64,6 +64,22 @@ struct RoutineDetailView: View {
         }
     }
 
+    /// The share link for this routine — built fresh on each render so
+    /// edits are always reflected. Sorted-keys JSON keeps it stable.
+    private var shareURL: URL? {
+        let dto = InterchangeMapping.makeDTO(routine)
+        let exercises = routine.sortedGroups
+            .flatMap(\.sortedExercises)
+            .compactMap(\.exercise)
+        var seen = Set<String>()
+        let exerciseDTOs = exercises
+            .filter { seen.insert($0.name.lowercased()).inserted }
+            .map { InterchangeMapping.makeDTO($0) }
+        let unit = WeightUnit(rawValue: UserDefaults.standard.string(forKey: WeightUnitSetting.key) ?? "") ?? .lb
+        let payload = RoutineShareLink.Payload(routine: dto, exercises: exerciseDTOs, units: unit)
+        return try? RoutineShareLink.url(for: payload)
+    }
+
     // MARK: - Header
 
     private var header: some View {
@@ -90,6 +106,19 @@ struct RoutineDetailView: View {
                     .font(.system(.title, weight: .bold))
                     .lineLimit(1)
                 Spacer()
+                // Share the routine as a link (#145): the payload rides
+                // the URL itself — nothing is uploaded anywhere.
+                if !routine.groups.isEmpty, let url = shareURL {
+                    ShareLink(item: url, subject: Text(routine.name), message: Text("My \(routine.name) routine on PlusPlus")) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(.body, weight: .medium))
+                            .foregroundStyle(Theme.textSecondary)
+                            .frame(width: 44, height: 44)
+                            .background(Theme.surface, in: Circle())
+                            .overlay(Circle().strokeBorder(Theme.border))
+                    }
+                    .accessibilityIdentifier("shareRoutineButton")
+                }
                 HeaderIconButton(systemImage: "slider.horizontal.3", identifier: "routineSettingsButton") {
                     showingRoutineSettings = true
                 }
