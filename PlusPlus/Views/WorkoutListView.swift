@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import PlusPlusKit
 
 /// The Workouts tab, v3 (#109): workout cards with equipment pills and
 /// a contextual header + (new workout). Library/History/Settings left
@@ -163,6 +164,15 @@ private struct WorkoutCard: View {
                     .lineLimit(1)
                 Spacer(minLength: 8)
                 HStack(spacing: 5) {
+                    // Schedule pill first (#112): the cadence at a glance,
+                    // faint when the workout is unscheduled.
+                    Text(workout.schedule.shortLabel)
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(workout.schedule.normalized == .unscheduled ? Theme.textFaint : Theme.textSecondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2.5)
+                        .overlay(Capsule().strokeBorder(Theme.border))
+                        .lineLimit(1)
                     ForEach(pills, id: \.self) { pill in
                         Text(pill)
                             .font(.system(.caption2, design: .monospaced))
