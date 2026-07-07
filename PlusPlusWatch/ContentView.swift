@@ -10,7 +10,10 @@ struct ContentView: View {
         NavigationStack {
             Group {
                 if let plan = store.plan, !plan.workouts.isEmpty {
-                    List(plan.workouts) { workout in
+                    // Positional identity, not name-keyed: workout names
+                    // aren't unique, and duplicate Identifiable IDs make
+                    // ForEach misbehave (bug hunt A6).
+                    List(Array(plan.workouts.enumerated()), id: \.offset) { _, workout in
                         NavigationLink {
                             WorkoutRunView(workout: workout)
                         } label: {

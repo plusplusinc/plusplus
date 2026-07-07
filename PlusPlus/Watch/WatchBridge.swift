@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import SwiftData
 import WatchConnectivity
 import PlusPlusKit
@@ -42,8 +43,16 @@ final class WatchBridge: NSObject, WCSessionDelegate {
                 generatedAt: Date(),
                 workouts: workouts.map(Self.planWorkout)
             )
-            guard let data = try? WatchSync.encode(plan) else { return }
-            try? session.updateApplicationContext(["plan": data])
+            do {
+                let data = try WatchSync.encode(plan)
+                try session.updateApplicationContext(["plan": data])
+            } catch {
+                // Most likely payloadTooLarge on a huge program (~65 KB
+                // cap): the watch silently staying stale is the failure
+                // mode to make visible (bug hunt A5).
+                Logger(subsystem: "com.davidcole.plusplus", category: "watch")
+                    .error("plan push failed: \(error.localizedDescription)")
+            }
         }
     }
 
@@ -72,23 +81,30 @@ final class WatchBridge: NSObject, WCSessionDelegate {
 
     // MARK: - Receiving results
 
+    /// IMPORTANT: WCSession marks the transfer delivered when this
+    /// method RETURNS — anything deferred past that point can drop a
+    /// once-delivered workout forever (bug hunt A4). So the import runs
+    /// synchronously, on this queue, in a context created here (a
+    /// ModelContext is usable on its creating thread).
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
-        guard let data = userInfo["sessionResult"] as? Data,
-              let result = try? WatchSync.decode(WatchSync.SessionResult.self, from: data)
-        else { return }
-        Task { @MainActor in
-            self.importResult(result)
+        guard let data = userInfo["sessionResult"] as? Data else { return }
+        guard let container else {
+            Logger(subsystem: "com.davidcole.plusplus", category: "watch")
+                .fault("session result arrived before activate(container:) — dropped")
+            return
         }
+        guard let result = try? WatchSync.decode(WatchSync.SessionResult.self, from: data) else {
+            Logger(subsystem: "com.davidcole.plusplus", category: "watch")
+                .error("undecodable session result (version skew?) — dropped")
+            return
+        }
+        importResult(result, into: ModelContext(container))
     }
 
     /// Appends the wrist session as ordinary history. Idempotent:
     /// transferUserInfo retries across launches, so an already-imported
     /// (name, startedAt) pair is skipped.
-    @MainActor
-    private func importResult(_ result: WatchSync.SessionResult) {
-        guard let container else { return }
-        let context = container.mainContext
-
+    private func importResult(_ result: WatchSync.SessionResult, into context: ModelContext) {
         let existing = (try? context.fetch(FetchDescriptor<WorkoutSession>())) ?? []
         let alreadyImported = existing.contains {
             $0.workoutName == result.workoutName
@@ -122,7 +138,12 @@ final class WatchBridge: NSObject, WCSessionDelegate {
             context.insert(log)
         }
         session.finish(at: result.endedAt)
-        try? context.save()
+        do {
+            try context.save()
+        } catch {
+            Logger(subsystem: "com.davidcole.plusplus", category: "watch")
+                .fault("wrist session save failed: \(error.localizedDescription)")
+        }
     }
 
     // MARK: - WCSessionDelegate plumbing
