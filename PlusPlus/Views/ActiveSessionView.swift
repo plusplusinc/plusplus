@@ -114,8 +114,8 @@ struct ActiveSessionView: View {
                 showingExitDialog = true
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "xmark").font(.system(size: 11, weight: .semibold))
-                    Text("End").font(.system(size: 12, weight: .semibold))
+                    Image(systemName: "xmark").font(.system(.caption, weight: .semibold))
+                    Text("End").font(.system(.footnote, weight: .semibold))
                 }
                 .foregroundStyle(Theme.textPrimary)
                 .padding(.horizontal, 12)
@@ -133,11 +133,11 @@ struct ActiveSessionView: View {
                 HStack(spacing: 7) {
                     TimelineView(.periodic(from: .now, by: 1)) { context in
                         Text("set \(min(completedSets + 1, max(totalSets, 1)))/\(totalSets) · \(elapsedText(at: context.date))")
-                            .font(.system(size: 11, design: .monospaced))
+                            .font(.system(.caption, design: .monospaced))
                             .foregroundStyle(Theme.textPrimary)
                     }
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.system(.caption2, weight: .semibold))
                         .foregroundStyle(Theme.textSecondary)
                 }
                 .padding(.horizontal, 12)
@@ -219,18 +219,18 @@ struct ActiveSessionView: View {
                 .font(.system(size: 64))
                 .foregroundStyle(Theme.accentButton)
             Text("Workout Complete")
-                .font(.system(size: 21, weight: .bold))
+                .font(.system(.title3, weight: .bold))
             Text("\(completedSets) \(completedSets == 1 ? "set" : "sets") · \(finalElapsedText)")
-                .font(.system(size: 13, design: .monospaced))
+                .font(.system(.footnote, design: .monospaced))
                 .foregroundStyle(Theme.textSecondary)
             Text("→ \(historyPathText)")
-                .font(.system(size: 10.5, design: .monospaced))
+                .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
             Button {
                 dismiss()
             } label: {
                 Text("Done")
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.system(.subheadline, weight: .bold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 36)
                     .frame(height: 48)
@@ -324,12 +324,12 @@ private struct SetLoggingView: View {
                         .foregroundStyle(Theme.accent)
                         + Text(supersetNames.isEmpty ? "" : " · ⧉ SUPERSET")
                         .foregroundStyle(Theme.superset))
-                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                        .font(.system(.footnote, design: .monospaced, weight: .semibold))
                         .kerning(0.7)
                         .padding(.top, 20)
 
                     Text(log.exerciseName)
-                        .font(.system(size: 27, weight: .bold))
+                        .font(.system(.title, weight: .bold))
                         .padding(.top, 6)
 
                     if !supersetNames.isEmpty {
@@ -338,22 +338,22 @@ private struct SetLoggingView: View {
                     }
 
                     Text(targetDescription)
-                        .font(.system(size: 14.5))
+                        .font(.system(.subheadline))
                         .foregroundStyle(Theme.textSecondary)
                         .padding(.top, 8)
 
                     if let lastTime {
                         (Text("last time ").foregroundStyle(Theme.textSecondary)
                             + Text(lastTime.resultSummary(weightUnit: weightUnit))
-                            .font(.system(size: 14.5, design: .monospaced))
+                            .font(.system(.subheadline, design: .monospaced))
                             .foregroundStyle(Theme.textPrimary))
-                            .font(.system(size: 14.5))
+                            .font(.system(.subheadline))
                             .padding(.top, 3)
                     }
 
                     if let workoutNotes {
                         Text(workoutNotes)
-                            .font(.system(size: 13.5))
+                            .font(.system(.footnote))
                             .foregroundStyle(Theme.textSecondary)
                             .padding(11)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -407,9 +407,9 @@ private struct SetLoggingView: View {
                 if session.weightCarriesForward(from: log) {
                     HStack(spacing: 7) {
                         Text("→")
-                            .font(.system(size: 11, design: .monospaced))
+                            .font(.system(.caption, design: .monospaced))
                         Text("new weight carries to your remaining \(log.exerciseName) sets")
-                            .font(.system(size: 12.5))
+                            .font(.system(.footnote))
                     }
                     .foregroundStyle(Theme.accent)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -419,8 +419,8 @@ private struct SetLoggingView: View {
                 ZStack {
                     Button(action: onComplete) {
                         HStack(spacing: 9) {
-                            Text("+").font(.system(size: 18, weight: .semibold, design: .monospaced))
-                            Text("Log set").font(.system(size: 16, weight: .bold))
+                            Text("+").font(.system(.title3, design: .monospaced, weight: .semibold))
+                            Text("Log set").font(.system(.body, weight: .bold))
                         }
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
@@ -471,7 +471,7 @@ private struct SetLoggingView: View {
         VStack(spacing: 0) {
             VStack(spacing: 1) {
                 Text(label)
-                    .font(.system(size: 10.5, weight: .semibold))
+                    .font(.system(.caption, weight: .semibold))
                     .foregroundStyle(Theme.textSecondary)
                     .kerning(0.6)
                 Button(action: onTap) {
@@ -479,7 +479,7 @@ private struct SetLoggingView: View {
                         .font(.system(size: 32, weight: .bold, design: .monospaced))
                         .foregroundStyle(Theme.textPrimary)
                         + Text(unit.map { " \($0)" } ?? "")
-                        .font(.system(size: 12.5))
+                        .font(.system(.footnote))
                         .foregroundStyle(Theme.textSecondary))
                 }
             }
@@ -491,7 +491,7 @@ private struct SetLoggingView: View {
             HStack(spacing: 0) {
                 Button(action: onDec) {
                     Text("−")
-                        .font(.system(size: 23))
+                        .font(.system(.title3))
                         .foregroundStyle(Theme.textSecondary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 48)
@@ -500,7 +500,7 @@ private struct SetLoggingView: View {
                 Divider().frame(height: 48).overlay(Theme.border)
                 Button(action: onInc) {
                     Text("+")
-                        .font(.system(size: 23))
+                        .font(.system(.title3))
                         .foregroundStyle(Theme.textSecondary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 48)
@@ -538,11 +538,11 @@ private struct SupersetChips: View {
             ForEach(Array(names.enumerated()), id: \.offset) { index, name in
                 if index > 0 {
                     Text("→")
-                        .font(.system(size: 11))
+                        .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
                 }
                 Text(name)
-                    .font(.system(size: 11.5, weight: .semibold))
+                    .font(.system(.caption, weight: .semibold))
                     .foregroundStyle(name == current ? Theme.superset : Theme.textSecondary)
                     .lineLimit(1)
                     .padding(.horizontal, 10)
@@ -577,7 +577,7 @@ private struct MitosisBurst: View {
 
     private var glyph: some View {
         Text("+")
-            .font(.system(size: 22, weight: .bold, design: .monospaced))
+            .font(.system(.title3, design: .monospaced, weight: .bold))
             .foregroundStyle(Theme.accent)
             .shadow(color: Theme.accent.opacity(0.5), radius: 12)
     }
@@ -606,7 +606,7 @@ private struct DurationTimerCard: View {
                     let remaining = remainingSeconds(at: context.date)
                     VStack(spacing: 2) {
                         Text("AUTO TIMER")
-                            .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                            .font(.system(.caption2, design: .monospaced, weight: .semibold))
                             .foregroundStyle(Theme.accent)
                             .kerning(0.8)
                         Text(String(format: "%d:%02d", remaining / 60, remaining % 60))
@@ -629,7 +629,7 @@ private struct DurationTimerCard: View {
                 HStack(spacing: 0) {
                     Button(action: togglePause) {
                         Text(pausedRemaining != nil ? "▶ Resume" : "‖ Pause")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.system(.footnote, weight: .bold))
                             .foregroundStyle(Theme.textPrimary)
                             .frame(maxWidth: .infinity)
                             .frame(height: 46)
@@ -637,7 +637,7 @@ private struct DurationTimerCard: View {
                     Divider().frame(height: 46).overlay(Theme.border)
                     Button(action: reset) {
                         Text("↺ Reset")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.system(.footnote, weight: .bold))
                             .foregroundStyle(Theme.textSecondary)
                             .frame(maxWidth: .infinity)
                             .frame(height: 46)
@@ -649,11 +649,11 @@ private struct DurationTimerCard: View {
 
             HStack(spacing: 8) {
                 Text("logs automatically at 0:00")
-                    .font(.system(size: 11.5))
+                    .font(.system(.caption))
                     .foregroundStyle(Theme.textFaint)
                 Text("·").foregroundStyle(Theme.borderStrong)
                 Button("log now") { logNow() }
-                    .font(.system(size: 11.5, weight: .semibold, design: .monospaced))
+                    .font(.system(.caption, design: .monospaced, weight: .semibold))
                     .foregroundStyle(Theme.accent)
                     .accessibilityIdentifier("completeSetButton")
             }
@@ -736,7 +736,7 @@ private struct RestView: View {
 
             VStack(spacing: 24) {
                 Text("REST")
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .font(.system(.caption, design: .monospaced, weight: .semibold))
                     .foregroundStyle(Theme.textSecondary)
                     .kerning(1)
 
@@ -746,17 +746,17 @@ private struct RestView: View {
 
                 VStack(spacing: 4) {
                     Text("UP NEXT")
-                        .font(.system(size: 11))
+                        .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
                         .kerning(0.5)
                     Text("\(upNext.exerciseName) — set \(upNext.setNumber)")
-                        .font(.system(size: 17.5, weight: .semibold))
+                        .font(.system(.body, weight: .semibold))
                 }
 
                 HStack(spacing: 10) {
                     Button(action: onAddTime) {
                         Text("+15s")
-                            .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                            .font(.system(.subheadline, design: .monospaced, weight: .semibold))
                             .foregroundStyle(Theme.textPrimary)
                             .padding(.horizontal, 24)
                             .frame(height: 48)
@@ -764,7 +764,7 @@ private struct RestView: View {
                     }
                     Button(action: onEnd) {
                         Text("Skip rest")
-                            .font(.system(size: 14.5, weight: .bold))
+                            .font(.system(.subheadline, weight: .bold))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 26)
                             .frame(height: 48)

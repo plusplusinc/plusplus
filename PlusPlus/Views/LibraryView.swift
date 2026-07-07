@@ -67,7 +67,7 @@ struct LibraryView: View {
                 Text(tab == .exercises
                      ? "swipe ← to remove from your library · + Add browses the full catalog"
                      : "swipe ← to remove from your library · + Add browses the catalog or creates custom gear")
-                    .font(.system(size: 10.5))
+                    .font(.system(.caption))
                     .foregroundStyle(Theme.textFaint)
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
@@ -103,8 +103,8 @@ struct LibraryView: View {
                 dismiss()
             } label: {
                 HStack(spacing: 4) {
-                    Image(systemName: "chevron.left").font(.system(size: 12, weight: .bold))
-                    Text("Workouts").font(.system(size: 12.5, weight: .semibold))
+                    Image(systemName: "chevron.left").font(.system(.footnote, weight: .bold))
+                    Text("Workouts").font(.system(.footnote, weight: .semibold))
                 }
                 .foregroundStyle(Theme.textSecondary)
                 .padding(.vertical, 6)
@@ -112,7 +112,7 @@ struct LibraryView: View {
             .accessibilityIdentifier("backButton")
 
             Text("Library")
-                .font(.system(size: 26, weight: .bold))
+                .font(.system(.title, weight: .bold))
                 .padding(.top, 2)
 
             SegmentedTabs(
@@ -132,10 +132,10 @@ struct LibraryView: View {
         HStack(spacing: 8) {
             HStack(spacing: 7) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 13))
+                    .font(.system(.footnote))
                     .foregroundStyle(Theme.textFaint)
                 TextField("Search", text: $search)
-                    .font(.system(size: 14))
+                    .font(.system(.subheadline))
             }
             .padding(.horizontal, 10)
             .frame(height: 36)
@@ -146,8 +146,8 @@ struct LibraryView: View {
                 sheet = tab == .exercises ? .addExercises : .addEquipment
             } label: {
                 HStack(spacing: 5) {
-                    Text("+").font(.system(size: 14, design: .monospaced))
-                    Text("Add").font(.system(size: 12.5, weight: .semibold))
+                    Text("+").font(.system(.subheadline, design: .monospaced))
+                    Text("Add").font(.system(.footnote, weight: .semibold))
                 }
                 .foregroundStyle(Theme.accent)
                 .padding(.horizontal, 13)
@@ -169,25 +169,25 @@ struct LibraryView: View {
                 HStack(spacing: 10) {
                     VStack(alignment: .leading, spacing: 1) {
                         Text(exercise.name)
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.system(.subheadline, weight: .semibold))
                             .foregroundStyle(Theme.textPrimary)
                             .lineLimit(1)
                         Text(subtitle(for: exercise))
-                            .font(.system(size: 11))
+                            .font(.system(.caption))
                             .foregroundStyle(Theme.textSecondary)
                             .lineLimit(1)
                     }
                     Spacer()
                     if !exercise.isBuiltIn {
                         Text("CUSTOM")
-                            .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                            .font(.system(.caption2, design: .monospaced, weight: .semibold))
                             .foregroundStyle(Theme.accent)
                             .padding(.horizontal, 7)
                             .padding(.vertical, 2)
                             .overlay(Capsule().strokeBorder(Theme.accent.opacity(0.4)))
                     }
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.system(.caption, weight: .bold))
                         .foregroundStyle(Theme.textFaint)
                 }
                 .padding(.vertical, 10)
@@ -212,9 +212,9 @@ struct LibraryView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(equipment.name)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(.subheadline, weight: .semibold))
                     Text(equipmentSubtitle(for: equipment))
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(.system(.caption2, design: .monospaced))
                         .foregroundStyle(Theme.textFaint)
                 }
                 Spacer()
@@ -274,7 +274,7 @@ struct SegmentedTabs: View {
                     selectedIndex = index
                 } label: {
                     Text(option)
-                        .font(.system(size: 12.5, weight: .semibold))
+                        .font(.system(.footnote, weight: .semibold))
                         .foregroundStyle(selectedIndex == index ? .white : Theme.textSecondary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 32)
@@ -320,12 +320,12 @@ struct AddFromCatalogSheet: View {
             HStack {
                 Spacer()
                 Text(kind == .exercises ? "Add exercises" : "Add equipment")
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.system(.subheadline, weight: .bold))
                 Spacer()
             }
             .overlay(alignment: .trailing) {
                 Button("Done") { dismiss() }
-                    .font(.system(size: 13.5, weight: .bold))
+                    .font(.system(.footnote, weight: .bold))
                     .foregroundStyle(Theme.accent)
             }
             .padding(.horizontal, 16)
@@ -333,10 +333,10 @@ struct AddFromCatalogSheet: View {
 
             HStack(spacing: 7) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 13))
+                    .font(.system(.footnote))
                     .foregroundStyle(Theme.textFaint)
                 TextField("Search the catalog", text: $query)
-                    .font(.system(size: 14))
+                    .font(.system(.subheadline))
             }
             .padding(.horizontal, 10)
             .frame(height: 36)
@@ -349,8 +349,8 @@ struct AddFromCatalogSheet: View {
                 createCustom()
             } label: {
                 HStack(spacing: 8) {
-                    Text("+").font(.system(size: 14, design: .monospaced))
-                    Text(createLabel).font(.system(size: 13, weight: .semibold))
+                    Text("+").font(.system(.subheadline, design: .monospaced))
+                    Text(createLabel).font(.system(.footnote, weight: .semibold))
                 }
                 .foregroundStyle(Theme.accent)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -416,13 +416,13 @@ struct AddFromCatalogSheet: View {
     private func catalogRow(name: String, sub: String, onAdd: @escaping () -> Void) -> some View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 1) {
-                Text(name).font(.system(size: 14, weight: .semibold)).lineLimit(1)
-                Text(sub).font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                Text(name).font(.system(.subheadline, weight: .semibold)).lineLimit(1)
+                Text(sub).font(.system(.caption)).foregroundStyle(Theme.textSecondary).lineLimit(1)
             }
             Spacer()
             Button(action: onAdd) {
                 Text("+ Add")
-                    .font(.system(size: 11.5, weight: .bold))
+                    .font(.system(.caption, weight: .bold))
                     .foregroundStyle(Theme.accent)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 5)
@@ -469,10 +469,10 @@ struct BuiltInInfoSheet: View {
 
             HStack(spacing: 8) {
                 Text(exercise.name)
-                    .font(.system(size: 19, weight: .bold))
+                    .font(.system(.title3, weight: .bold))
                 Spacer()
                 Text("BUILT-IN")
-                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                    .font(.system(.caption2, design: .monospaced, weight: .semibold))
                     .foregroundStyle(Theme.textSecondary)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 2)
@@ -494,7 +494,7 @@ struct BuiltInInfoSheet: View {
             }
 
             Text("Catalog exercises can't be edited — create a custom one to tweak.")
-                .font(.system(size: 10.5))
+                .font(.system(.caption))
                 .foregroundStyle(Theme.textFaint)
                 .padding(.top, 14)
 

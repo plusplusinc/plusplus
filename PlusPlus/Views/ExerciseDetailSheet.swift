@@ -47,7 +47,7 @@ struct ExerciseDetailSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     Text(exercise?.name ?? "Unknown")
-                        .font(.system(size: 19, weight: .bold))
+                        .font(.system(.title3, weight: .bold))
                         .padding(.top, 10)
 
                     HStack(spacing: 6) {
@@ -62,10 +62,10 @@ struct ExerciseDetailSheet: View {
                     if group?.isSuperset == true {
                         HStack(spacing: 6) {
                             Text("⧉")
-                                .font(.system(size: 11, design: .monospaced))
+                                .font(.system(.caption, design: .monospaced))
                                 .foregroundStyle(Theme.superset)
                             Text("Sets count applies to the whole superset — one round runs every exercise once.")
-                                .font(.system(size: 11))
+                                .font(.system(.caption))
                                 .foregroundStyle(Theme.textSecondary)
                         }
                         .padding(.top, 6)
@@ -83,11 +83,11 @@ struct ExerciseDetailSheet: View {
                             ForEach(recentLines, id: \.date) { line in
                                 HStack {
                                     Text(line.date)
-                                        .font(.system(size: 11.5))
+                                        .font(.system(.caption))
                                         .foregroundStyle(Theme.textSecondary)
                                     Spacer()
                                     Text(line.result)
-                                        .font(.system(size: 11, design: .monospaced))
+                                        .font(.system(.caption, design: .monospaced))
                                 }
                                 .padding(.vertical, 6)
                                 .overlay(alignment: .bottom) { Divider().overlay(Theme.border) }
@@ -105,7 +105,7 @@ struct ExerciseDetailSheet: View {
                 dismiss()
             } label: {
                 Text("Close")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(.subheadline, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 46)
@@ -324,7 +324,7 @@ struct ChipLabel: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 10))
+            .font(.system(.caption2))
             .foregroundStyle(Theme.textSecondary)
             .padding(.horizontal, 8)
             .padding(.vertical, 2.5)
@@ -346,7 +346,7 @@ struct NotesBlock: View {
                 .fill(Theme.notes)
                 .frame(width: 2)
             Text(text)
-                .font(.system(size: 12))
+                .font(.system(.footnote))
                 .foregroundStyle(Theme.notes)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -368,14 +368,14 @@ struct MetricStepperRow: View {
     var body: some View {
         HStack(spacing: 10) {
             Text(label)
-                .font(.system(size: 13))
+                .font(.system(.footnote))
                 .foregroundStyle(Theme.textSecondary)
             Spacer()
             Button {
                 onTapValue?()
             } label: {
                 Text(value)
-                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                    .font(.system(.subheadline, design: .monospaced, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
@@ -386,7 +386,7 @@ struct MetricStepperRow: View {
             HStack(spacing: 0) {
                 Button(action: onDecrement) {
                     Text("−")
-                        .font(.system(size: 15))
+                        .font(.system(.subheadline))
                         .foregroundStyle(Theme.textSecondary)
                         .frame(width: 42, height: 28)
                 }
@@ -394,7 +394,7 @@ struct MetricStepperRow: View {
                 Divider().frame(height: 28).overlay(Theme.border)
                 Button(action: onIncrement) {
                     Text("+")
-                        .font(.system(size: 15))
+                        .font(.system(.subheadline))
                         .foregroundStyle(Theme.textSecondary)
                         .frame(width: 42, height: 28)
                 }
@@ -425,7 +425,7 @@ struct SheetActionButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(.footnote, weight: .semibold))
                 .foregroundStyle(destructive ? Theme.destructive : Theme.textPrimary)
                 .frame(maxWidth: .infinity)
                 .frame(height: 42)
@@ -454,7 +454,7 @@ struct MetricWheelSheet: View {
             )) {
                 ForEach(metric.wheelValues(weightUnit: weightUnit), id: \.self) { candidate in
                     Text(metric.displayText(candidate, weightUnit: weightUnit))
-                        .font(.system(size: 17, design: .monospaced))
+                        .font(.system(.body, design: .monospaced))
                         .tag(candidate)
                 }
             }
@@ -464,7 +464,7 @@ struct MetricWheelSheet: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
-                        .font(.system(size: 13.5, weight: .bold))
+                        .font(.system(.footnote, weight: .bold))
                         .foregroundStyle(Theme.accent)
                 }
             }

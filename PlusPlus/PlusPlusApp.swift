@@ -32,6 +32,9 @@ struct PlusPlusApp: App {
         WindowGroup {
             WorkoutListView()
                 .preferredColorScheme(.dark) // v2 is dark-only (#59)
+                // Dynamic Type everywhere (#82), capped where the dense
+                // layouts stop coping — full a11y sizes are future work.
+                .dynamicTypeSize(...DynamicTypeSize.xxLarge)
         }
         .modelContainer(modelContainer)
     }

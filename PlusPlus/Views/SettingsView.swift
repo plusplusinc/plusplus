@@ -22,12 +22,12 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Spacer()
-                Text("Settings").font(.system(size: 15, weight: .bold))
+                Text("Settings").font(.system(.subheadline, weight: .bold))
                 Spacer()
             }
             .overlay(alignment: .trailing) {
                 Button("Done") { dismiss() }
-                    .font(.system(size: 13.5, weight: .bold))
+                    .font(.system(.footnote, weight: .bold))
                     .foregroundStyle(Theme.accent)
             }
             .padding(.top, 14)
@@ -42,9 +42,9 @@ struct SettingsView: View {
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "arrow.triangle.2.circlepath")
-                                .font(.system(size: 13))
+                                .font(.system(.footnote))
                             Text("Connect GitHub")
-                                .font(.system(size: 14, weight: .bold))
+                                .font(.system(.subheadline, weight: .bold))
                         }
                         .foregroundStyle(Theme.textPrimary)
                         .frame(maxWidth: .infinity)
@@ -53,7 +53,7 @@ struct SettingsView: View {
                         .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.borderStrong))
                     }
                     Text("Your program and history live as JSON in a repo you own.")
-                        .font(.system(size: 10.5))
+                        .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
                         .padding(.top, 6)
 
@@ -67,7 +67,7 @@ struct SettingsView: View {
                         )
                     )
                     Text("Changes labels and stepping only — logged numbers are never converted.")
-                        .font(.system(size: 10.5))
+                        .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
                         .padding(.top, 6)
 
@@ -78,7 +78,7 @@ struct SettingsView: View {
                             prepareExport()
                         } label: {
                             Text("Export data…")
-                                .font(.system(size: 13.5))
+                                .font(.system(.footnote))
                                 .foregroundStyle(Theme.textPrimary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.horizontal, 14)
@@ -89,7 +89,7 @@ struct SettingsView: View {
                             showingImporter = true
                         } label: {
                             Text("Import data…")
-                                .font(.system(size: 13.5))
+                                .font(.system(.footnote))
                                 .foregroundStyle(Theme.textPrimary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.horizontal, 14)
@@ -100,7 +100,7 @@ struct SettingsView: View {
                     .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
 
                     Text("Interchange schema v\(Interchange.schemaVersion) — exercises + workouts + history as JSON, ready for the workouts repo.")
-                        .font(.system(size: 10.5))
+                        .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
                         .padding(.top, 6)
                 }
