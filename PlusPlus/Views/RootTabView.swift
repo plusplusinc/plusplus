@@ -62,10 +62,20 @@ struct RootTabView: View {
         // viewer URL) opens the import preview. A bad payload is
         // ignored — the viewer webpage is the place that explains.
         .onOpenURL { url in
+            // Widget taps land on Today (#147).
+            if url.scheme == RoutineShareLink.appScheme, url.host == "today" {
+                tab = .today
+                return
+            }
             guard RoutineShareLink.isShareLink(url),
                   let payload = try? RoutineShareLink.payload(from: url)
             else { return }
             shareImport = ShareImport(payload: payload)
+        }
+        // Siri/Shortcuts "Start Routine" (#147): the intent posts, the
+        // root switches to Today, and Today starts the session.
+        .onReceive(NotificationCenter.default.publisher(for: .plusplusStartRoutine)) { _ in
+            tab = .today
         }
         .sheet(item: $shareImport) { item in
             ShareImportSheet(payload: item.payload)

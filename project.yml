@@ -33,9 +33,17 @@ targets:
     platform: iOS
     sources:
       - PlusPlus
+      # Shared with the widget extension (#147): activity attributes +
+      # the App Group snapshot types.
+      - PlusPlusShared
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.davidcole.plusplus
+        # Extensions refuse to install with an EMPTY CFBundleVersion
+        # (simulator: "bundleVersion must be set in placeholder
+        # attributes"), so the project carries a default; the TestFlight
+        # workflow's command-line setting overrides it with run_number.
+        CURRENT_PROJECT_VERSION: 1
         # App Store validation rejects an empty CFBundleShortVersionString;
         # the build number (CFBundleVersion) comes from the TestFlight
         # workflow's run number.
@@ -65,9 +73,46 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLName: com.davidcole.plusplus.share
             CFBundleURLSchemes: [plusplus]
+        # Rest countdown in the Dynamic Island / Lock Screen (#147).
+        NSSupportsLiveActivities: true
+    # App Group shared with the widget extension — the snapshot channel.
+    entitlements:
+      path: PlusPlus/PlusPlus.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.davidcole.plusplus
     dependencies:
       - target: PlusPlusWatch
+      - target: PlusPlusWidgets
       - package: PlusPlusKit
+
+  PlusPlusWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - PlusPlusWidgets
+      - PlusPlusShared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.davidcole.plusplus.widgets
+        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: 0.1.0
+        TARGETED_DEVICE_FAMILY: 1
+        SWIFT_EMIT_LOC_STRINGS: YES
+        SKIP_INSTALL: YES
+    info:
+      path: PlusPlusWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: PlusPlus Widgets
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: PlusPlusWidgets/PlusPlusWidgets.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.davidcole.plusplus
 
   PlusPlusTests:
     type: bundle.unit-test

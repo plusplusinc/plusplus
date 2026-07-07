@@ -106,6 +106,7 @@ struct ActiveSessionView: View {
         .task {
             // First routine start is when the permission makes sense.
             RestNotifier.shared.requestAuthorizationIfNeeded()
+            RestActivityController.shared.beginSession(routineName: session.routineName)
         }
     }
 

@@ -35,3 +35,6 @@ Pods/
 # Worktrees
 .worktrees
 PlusPlus/Info.plist
+PlusPlusWidgets/Info.plist
+PlusPlus/PlusPlus.entitlements
+PlusPlusWidgets/PlusPlusWidgets.entitlements
