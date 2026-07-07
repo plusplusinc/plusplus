@@ -310,7 +310,7 @@ struct TodayView: View {
             .buttonStyle(.plain)
 
             Text(metaLine(for: workout))
-                .font(.system(.caption, design: .monospaced))
+                .font(.system(.footnote, design: .monospaced))
                 .foregroundStyle(Theme.textSecondary)
                 .padding(.top, 5)
 
@@ -325,7 +325,7 @@ struct TodayView: View {
                     diffSummaryText(segments)
                         .lineLimit(1)
                     Text("  details \(expanded ? "▴" : "▾")")
-                        .font(.system(.caption2, design: .monospaced))
+                        .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(Theme.textFaint)
                 }
             }
@@ -343,7 +343,7 @@ struct TodayView: View {
                                 .lineLimit(1)
                             Spacer()
                             Text(line.target)
-                                .font(.system(.caption2, design: .monospaced))
+                                .font(.system(.caption, design: .monospaced))
                                 .foregroundStyle(Theme.textSecondary)
                             deltaText(line.delta)
                                 .frame(minWidth: 52, alignment: .trailing)
@@ -392,10 +392,10 @@ struct TodayView: View {
         var result = Text("")
         for (index, segment) in segments.enumerated() {
             if index > 0 {
-                result = result + Text(" · ").font(.system(.caption2, design: .monospaced)).foregroundStyle(Theme.textFaint)
+                result = result + Text(" · ").font(.system(.caption, design: .monospaced)).foregroundStyle(Theme.textFaint)
             }
             result = result + Text(segment.text)
-                .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                .font(.system(.caption, design: .monospaced, weight: .semibold))
                 .foregroundStyle(color(for: segment.kind))
         }
         return result
@@ -419,7 +419,7 @@ struct TodayView: View {
         default: text = segment.text
         }
         return Text(text)
-            .font(.system(.caption2, design: .monospaced, weight: .semibold))
+            .font(.system(.caption, design: .monospaced, weight: .semibold))
             .foregroundStyle(delta == .unchanged ? Theme.textFaint : color(for: segment.kind))
     }
 
@@ -433,7 +433,7 @@ struct TodayView: View {
                         .font(.system(.subheadline, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                     Text(committedSubtitle(session))
-                        .font(.system(.caption, design: .monospaced))
+                        .font(.system(.footnote, design: .monospaced))
                         .foregroundStyle(Theme.textSecondary)
                 }
                 Spacer(minLength: 8)

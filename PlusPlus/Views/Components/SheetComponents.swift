@@ -40,18 +40,18 @@ struct SheetHeader: View {
         .overlay(alignment: .leading) {
             if let onCancel {
                 Button("Cancel", action: onCancel)
-                    .font(.system(.footnote))
+                    .font(.system(.subheadline))
                     .foregroundStyle(Theme.textSecondary)
             }
         }
         .overlay(alignment: .trailing) {
             Button(actionLabel, action: action)
-                .font(.system(.footnote, weight: .bold))
+                .font(.system(.subheadline, weight: .bold))
                 .foregroundStyle(actionEnabled ? Theme.textPrimary : Theme.textFaint)
                 .disabled(!actionEnabled)
                 .accessibilityIdentifier(actionIdentifier ?? "")
         }
-        .padding(.top, 14)
+        .padding(.top, 24)
     }
 }
 
@@ -65,7 +65,7 @@ struct SheetSectionLabel: View {
 
     var body: some View {
         Text(text)
-            .font(.system(.caption2, design: .monospaced, weight: .semibold))
+            .font(.system(.caption, design: .monospaced, weight: .semibold))
             .foregroundStyle(Theme.textSecondary)
             .kerning(0.7)
             .padding(.bottom, 6)

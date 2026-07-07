@@ -910,7 +910,7 @@ struct WorkoutSettingsSheet: View {
     private static let dayLabels = ["S", "M", "T", "W", "T", "F", "S"]
 
     private var dayChips: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
             ForEach(Self.mondayFirstWeekdays, id: \.self) { weekday in
                 let selected = scheduleDays.contains(weekday)
                 VStack(spacing: 4) {
@@ -925,9 +925,9 @@ struct WorkoutSettingsSheet: View {
                         // Accent-tinted, not primaryFill: a selected day
                         // is data (it drives due-ness).
                         Text(Self.dayLabels[weekday - 1])
-                            .font(.system(.footnote, design: .monospaced, weight: .semibold))
+                            .font(.system(.subheadline, design: .monospaced, weight: .semibold))
                             .foregroundStyle(selected ? Theme.accent : Theme.textSecondary)
-                            .frame(width: 38, height: 38)
+                            .frame(width: 44, height: 44)
                             .background(
                                 selected ? Theme.accent.opacity(0.16) : Theme.background,
                                 in: Circle()

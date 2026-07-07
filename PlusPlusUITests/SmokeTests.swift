@@ -103,7 +103,7 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(back.waitForExistence(timeout: 5))
         back.tap()
 
-        let today = app.buttons["tab-today"]
+        let today = app.tabBars.buttons["today"]
         XCTAssertTrue(today.waitForExistence(timeout: 5))
         today.tap()
 
@@ -127,7 +127,7 @@ final class SmokeTests: XCTestCase {
         app.launchArguments += ["--uitest-bigworkout"]
         app.launch()
 
-        let workoutsTab = app.buttons["tab-workouts"]
+        let workoutsTab = app.tabBars.buttons["workouts"]
         XCTAssertTrue(workoutsTab.waitForExistence(timeout: 10))
         workoutsTab.tap()
 
@@ -171,7 +171,7 @@ final class SmokeTests: XCTestCase {
     private func createWorkout(named name: String) {
         // v3 nav (#109): the app lands on Today; workout creation is the
         // contextual + in the Workouts tab header.
-        let workoutsTab = app.buttons["tab-workouts"]
+        let workoutsTab = app.tabBars.buttons["workouts"]
         XCTAssertTrue(workoutsTab.waitForExistence(timeout: 10))
         workoutsTab.tap()
 
