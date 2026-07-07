@@ -230,6 +230,12 @@ struct EquipmentTabView: View {
         if equipment.isBuiltIn {
             equipment.inLibrary = false
         } else {
+            // Exercise→Equipment has no inverse, so SwiftData can't
+            // nullify referencing exercises on deletion — strip the
+            // references first or they dangle (bug hunt B1).
+            for exercise in allExercises {
+                exercise.equipment.removeAll { $0 === equipment }
+            }
             modelContext.delete(equipment)
         }
     }

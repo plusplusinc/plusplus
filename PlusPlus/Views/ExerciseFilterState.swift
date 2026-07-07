@@ -23,7 +23,10 @@ final class ExerciseFilterState {
     /// Equipment the exercise needs but the user doesn't own — drives
     /// both the hide and the "needs squat rack" cue when shown anyway.
     static func missingEquipment(for exercise: Exercise) -> [String] {
-        exercise.equipment.filter { !$0.inLibrary }.map(\.name).sorted()
+        // isDeleted: a just-deleted custom equipment lingers in the
+        // relationship until save and must not count as owned or
+        // missing (bug hunt B1).
+        exercise.equipment.filter { !$0.isDeleted && !$0.inLibrary }.map(\.name).sorted()
     }
 
     private func matchesOwnership(_ exercise: Exercise) -> Bool {
