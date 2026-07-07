@@ -183,7 +183,18 @@ struct WorkoutDetailView: View {
                 }
                 addExerciseRow
             }
-            .coordinateSpace(name: Self.railSpace)
+            .overlay(alignment: .topLeading) {
+                // The long-press layer for both #78 gestures. UIKit, not
+                // SwiftUI — see RailGestureRecognizer for the why.
+                RailGestureRecognizer(
+                    shouldReceive: { exerciseRowExists(at: $0.y) },
+                    began: { beginRailGesture(at: $0) },
+                    moved: { moveRailGesture(to: $0) },
+                    ended: { location, cancelled in endRailGesture(at: location, cancelled: cancelled) }
+                )
+                .frame(width: 1, height: 1)
+                .allowsHitTesting(false)
+            }
             .overlay(alignment: .topLeading) { ringHighlight(layout: layout, sizes: sizes) }
             .overlay(alignment: .topLeading) { floatingDragPreview(layout: layout, groups: groups) }
             .animation(.easeOut(duration: 0.16), value: offsets)
@@ -239,8 +250,6 @@ struct WorkoutDetailView: View {
         .accessibilityIdentifier("addExerciseButton")
     }
 
-    private static let railSpace = "railSpace"
-
     /// One row: swipe-revealable content with the two long-press zones —
     /// the rail column grabs the ring, the body drags the row.
     private func railRow(_ workoutExercise: WorkoutExercise, group: ExerciseGroup, groupIndex g: Int, index i: Int, hideLoop: Bool) -> some View {
@@ -267,20 +276,14 @@ struct WorkoutDetailView: View {
                 if openSwipeRow != nil { openSwipeRow = nil } else { selectedExercise = workoutExercise }
             }
             .overlay(alignment: .leading) {
-                // The dot zone: ring gesture lives on the rail column.
+                // The dot zone still taps through to the sheet; its ring
+                // gesture lives in the UIKit long-press layer, routed by
+                // the touch's x position.
                 Color.clear
-                    .frame(width: 37)
+                    .frame(width: Self.dotZoneWidth)
                     .contentShape(Rectangle())
                     .onTapGesture { selectedExercise = workoutExercise }
-                    // simultaneousGesture, not gesture: a sequenced
-                    // long-press claims touches while it waits, which
-                    // blocks the ScrollView from scrolling at all when
-                    // the drag starts on a row (every drag does). The
-                    // 0.35 s stationary hold still gates activation —
-                    // scrolling movement cancels the long press.
-                    .simultaneousGesture(ringGesture(groupIndex: g, index: i))
             }
-            .simultaneousGesture(dragGesture(groupIndex: g, index: i, rowHeight: height))
         } actions: {
             HStack(spacing: 0) {
                 SwipeActionButton(label: "SUPER", color: Theme.supersetLine) {
@@ -309,68 +312,71 @@ struct WorkoutDetailView: View {
         return .supersetMiddle
     }
 
-    // MARK: Gesture plumbing
+    // MARK: Gesture plumbing (UIKit long-press layer — RailGestureRecognizer)
 
-    private func dragGesture(groupIndex g: Int, index i: Int, rowHeight: Double) -> some Gesture {
-        LongPressGesture(minimumDuration: 0.35)
-            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .named(Self.railSpace)))
-            .onChanged { value in
-                guard case .second(true, let drag) = value else { return }
-                let layout = RailLayout.build(groupSizes: groupSizes, metrics: railMetrics)
-                let rowY = layout.row(for: .exercise(group: g, index: i))?.y ?? 0
-                if let drag {
-                    let grabOffset: Double
-                    if case .dragging(_, _, _, let existing) = railGesture {
-                        grabOffset = existing
-                    } else {
-                        grabOffset = drag.startLocation.y - rowY
-                    }
-                    railGesture = .dragging(group: g, index: i, fingerY: drag.location.y, grabOffset: grabOffset)
-                } else if railGesture == .idle {
-                    // Long press satisfied, finger not yet moved.
-                    railGesture = .dragging(group: g, index: i, fingerY: rowY + rowHeight / 2, grabOffset: rowHeight / 2)
-                }
-            }
-            .onEnded { _ in
-                if case .dragging(let dg, let di, let fingerY, let grabOffset) = railGesture {
-                    commitDrag(group: dg, index: di, fingerY: fingerY, grabOffset: grabOffset)
-                }
-                railGesture = .idle
-            }
+    /// Width of the rail column at each row's leading edge: a press that
+    /// starts here is the ring gesture; anywhere else on the row drags it.
+    private static let dotZoneWidth: Double = 37
+
+    private func exerciseRowExists(at y: Double) -> Bool {
+        RailLayout.build(groupSizes: groupSizes, metrics: railMetrics).exercise(at: y) != nil
     }
 
-    private func ringGesture(groupIndex g: Int, index i: Int) -> some Gesture {
-        LongPressGesture(minimumDuration: 0.35)
-            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .named(Self.railSpace)))
-            .onChanged { value in
-                guard case .second(true, let drag) = value else { return }
-                let sizes = groupSizes
-                let layout = RailLayout.build(groupSizes: sizes, metrics: railMetrics)
-                let rowMid = layout.row(for: .exercise(group: g, index: i))?.midY ?? 0
-                let y = drag.map { Double($0.location.y) } ?? rowMid
+    private func beginRailGesture(at location: CGPoint) {
+        let x = Double(location.x)
+        let y = Double(location.y)
+        guard railGesture == .idle else { return }
+        // A press with a swipe open just closes the swipe.
+        guard openSwipeRow == nil else {
+            openSwipeRow = nil
+            return
+        }
+        let sizes = groupSizes
+        let layout = RailLayout.build(groupSizes: sizes, metrics: railMetrics)
+        guard let (g, i) = layout.exercise(at: y) else { return }
 
-                if case .ring(let held, let heldEdge, let pressY, _) = railGesture, held == g {
-                    var edge = heldEdge
-                    if edge == nil, abs(y - pressY) > 10 {
-                        edge = y < pressY ? .top : .bottom
-                    }
-                    railGesture = .ring(group: g, edge: edge, pressY: pressY, fingerY: y)
-                } else {
-                    // Superset rows grab their nearest edge immediately; a
-                    // solo waits for the first movement so dragging UP can
-                    // extend the ring upward too (#87).
-                    let edge: RingEdge? = sizes[g] > 1
-                        ? RailRing.grabbedEdge(groupSizes: sizes, group: g, pressedIndex: i)
-                        : nil
-                    railGesture = .ring(group: g, edge: edge, pressY: y, fingerY: y)
-                }
+        if x < Self.dotZoneWidth {
+            // Superset rows grab their nearest ring edge immediately; a
+            // solo waits for the first movement so dragging UP can extend
+            // the ring upward too (#87).
+            let edge: RingEdge? = sizes[g] > 1
+                ? RailRing.grabbedEdge(groupSizes: sizes, group: g, pressedIndex: i)
+                : nil
+            railGesture = .ring(group: g, edge: edge, pressY: y, fingerY: y)
+        } else {
+            let rowY = layout.row(for: .exercise(group: g, index: i))?.y ?? 0
+            railGesture = .dragging(group: g, index: i, fingerY: y, grabOffset: y - rowY)
+        }
+    }
+
+    private func moveRailGesture(to location: CGPoint) {
+        let y = Double(location.y)
+        switch railGesture {
+        case .idle:
+            break
+        case .dragging(let g, let i, _, let grabOffset):
+            railGesture = .dragging(group: g, index: i, fingerY: y, grabOffset: grabOffset)
+        case .ring(let g, let heldEdge, let pressY, _):
+            var edge = heldEdge
+            if edge == nil, abs(y - pressY) > 10 {
+                edge = y < pressY ? .top : .bottom
             }
-            .onEnded { _ in
-                if case .ring(let rg, let edge?, _, let fingerY) = railGesture {
-                    commitRing(group: rg, edge: edge, fingerY: fingerY)
-                }
-                railGesture = .idle
-            }
+            railGesture = .ring(group: g, edge: edge, pressY: pressY, fingerY: y)
+        }
+    }
+
+    private func endRailGesture(at location: CGPoint, cancelled: Bool) {
+        let y = Double(location.y)
+        defer { railGesture = .idle }
+        guard !cancelled else { return }
+        switch railGesture {
+        case .idle:
+            break
+        case .dragging(let g, let i, _, let grabOffset):
+            commitDrag(group: g, index: i, fingerY: y, grabOffset: grabOffset)
+        case .ring(let g, let edge, _, _):
+            if let edge { commitRing(group: g, edge: edge, fingerY: y) }
+        }
     }
 
     /// The dragged row's tentative drop target, from the floating row's

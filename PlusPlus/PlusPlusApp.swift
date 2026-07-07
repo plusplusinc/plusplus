@@ -29,7 +29,24 @@ struct PlusPlusApp: App {
             fatalError("Failed to create ModelContainer: \(error)")
         }
         SeedData.loadIfNeeded(context: modelContainer.mainContext)
+        // A workout tall enough to overflow every simulator screen, for
+        // the scroll regression test. Only meaningful with --uitest-reset.
+        if inMemory && CommandLine.arguments.contains("--uitest-bigworkout") {
+            Self.seedBigWorkout(context: modelContainer.mainContext)
+        }
         RestNotifier.shared.activate()
+    }
+
+    /// 16 rows guarantees the rail overflows the viewport at every
+    /// supported Dynamic Type size on every simulator device.
+    private static func seedBigWorkout(context: ModelContext) {
+        let exercises = (try? context.fetch(FetchDescriptor<Exercise>(sortBy: [SortDescriptor(\.name)]))) ?? []
+        guard !exercises.isEmpty else { return }
+        let workout = Workout(name: "Big Day", order: 0)
+        context.insert(workout)
+        for n in 0..<16 {
+            workout.addExerciseInNewGroup(exercises[n % exercises.count], context: context)
+        }
     }
 
     var body: some Scene {

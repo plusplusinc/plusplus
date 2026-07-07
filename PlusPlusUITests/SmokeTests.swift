@@ -118,6 +118,32 @@ final class SmokeTests: XCTestCase {
         snap("history-detail")
     }
 
+    /// Regression for the third-strike scroll bug: with enough exercises
+    /// to overflow the screen, the detail list must actually scroll (the
+    /// long-press rail gestures used to starve the scroll pan).
+    func testDetailListScrollsWhenOverflowing() throws {
+        app.terminate()
+        app.launchArguments += ["--uitest-bigworkout"]
+        app.launch()
+
+        let card = app.staticTexts["Big Day"]
+        XCTAssertTrue(card.waitForExistence(timeout: 10))
+        card.tap()
+
+        let addRow = app.buttons["addExerciseButton"]
+        XCTAssertTrue(addRow.waitForExistence(timeout: 5), "add row is in the hierarchy even while offscreen")
+        XCTAssertFalse(addRow.isHittable, "16 rows must overflow — otherwise this test can't prove scrolling")
+        snap("overflow-top")
+
+        // Swipe on the rows themselves, where a thumb naturally lands.
+        for _ in 0..<4 where !addRow.isHittable {
+            app.swipeUp()
+        }
+
+        snap("overflow-after-scroll")
+        XCTAssertTrue(addRow.isHittable, "the add-exercise row at the bottom of the rail must be reachable by scrolling")
+    }
+
     // MARK: - Helpers
 
     /// Waits for an element's label to become `label` — for values that
