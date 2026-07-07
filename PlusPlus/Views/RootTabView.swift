@@ -17,7 +17,7 @@ struct RootTabView: View {
         VStack(spacing: 0) {
             Group {
                 switch tab {
-                case .today: TodayView()
+                case .today: TodayView(onGoToWorkouts: { tab = .workouts })
                 case .workouts: WorkoutListView()
                 case .exercises: ExercisesTabView()
                 case .equipment: EquipmentTabView()

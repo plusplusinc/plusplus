@@ -55,9 +55,18 @@ public enum WorkoutSchedule: Equatable, Sendable {
             return .unscheduled
 
         case .weekdays(let days):
-            let completedToday = lastCompleted.map { calendar.isDate($0, inSameDayAs: today) } ?? false
-            if days.contains(calendar.component(.weekday, from: today)) && !completedToday {
-                return .due
+            // Due when any scheduled day since the last completion has
+            // arrived and gone unmet — a missed Thursday keeps the
+            // workout due through Friday (§3's "due since thu"), and
+            // completing it then satisfies that occurrence. Occurrences
+            // never stack: one due-ness, however many days were missed.
+            let completedDay = lastCompleted.map { calendar.startOfDay(for: $0) }
+            for offset in 0...6 {
+                guard let candidate = calendar.date(byAdding: .day, value: -offset, to: todayStart) else { continue }
+                if let completedDay, candidate <= completedDay { break }
+                if days.contains(calendar.component(.weekday, from: candidate)) {
+                    return .due
+                }
             }
             for offset in 1...7 {
                 guard let candidate = calendar.date(byAdding: .day, value: offset, to: todayStart) else { continue }
@@ -79,6 +88,52 @@ public enum WorkoutSchedule: Equatable, Sendable {
             let interval = (perDays + times - 1) / times
             let next = calendar.date(byAdding: .day, value: interval, to: lastStart) ?? todayStart
             return .notDue(nextDue: next)
+        }
+    }
+}
+
+extension WorkoutSchedule {
+    /// The day the current due-ness began — today for an on-time
+    /// workout, the missed day for an overdue one ("due since thu").
+    /// Nil when the workout isn't due at all.
+    public func dueSince(lastCompleted: Date?, today: Date, calendar: Calendar) -> Date? {
+        guard case .due = dueState(lastCompleted: lastCompleted, today: today, calendar: calendar) else { return nil }
+        let todayStart = calendar.startOfDay(for: today)
+        switch normalized {
+        case .unscheduled:
+            return nil
+        case .weekdays(let days):
+            let completedDay = lastCompleted.map { calendar.startOfDay(for: $0) }
+            var oldest = todayStart
+            for offset in 0...6 {
+                guard let candidate = calendar.date(byAdding: .day, value: -offset, to: todayStart) else { continue }
+                if let completedDay, candidate <= completedDay { break }
+                if days.contains(calendar.component(.weekday, from: candidate)) {
+                    oldest = candidate
+                }
+            }
+            return oldest
+        case .frequency(let times, let perDays):
+            guard let last = lastCompleted else { return todayStart }
+            let interval = (perDays + times - 1) / times
+            let since = calendar.date(byAdding: .day, value: interval, to: calendar.startOfDay(for: last)) ?? todayStart
+            return min(since, todayStart)
+        }
+    }
+
+    /// Terse display label: "mon/thu" (Monday-first), "2×/7d", or
+    /// "no schedule" — the chip/pill vocabulary shared by the workout
+    /// detail header, workout cards, and the Today meta line.
+    public var shortLabel: String {
+        switch normalized {
+        case .unscheduled:
+            return "no schedule"
+        case .weekdays(let days):
+            let names = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
+            let mondayFirst = days.sorted { (($0 + 5) % 7) < (($1 + 5) % 7) }
+            return mondayFirst.map { names[$0 - 1] }.joined(separator: "/")
+        case .frequency(let times, let perDays):
+            return "\(times)×/\(perDays)d"
         }
     }
 }

@@ -28,8 +28,51 @@ struct WorkoutScheduleTests {
     @Test func weekdaysNotDueOnARestDayPointsAtNextScheduledDay() {
         let schedule = WorkoutSchedule.weekdays([2, 4, 6])
         let tuesday = date(2026, 7, 7)
-        let state = schedule.dueState(lastCompleted: nil, today: tuesday, calendar: calendar)
+        // Monday was completed, so Tuesday is a clean rest day.
+        let state = schedule.dueState(lastCompleted: date(2026, 7, 6), today: tuesday, calendar: calendar)
         #expect(state == .notDue(nextDue: calendar.startOfDay(for: date(2026, 7, 8))))
+    }
+
+    @Test func weekdaysMissedDayCarriesOverAsDue() {
+        // Mon/Thu schedule, completed Monday, Thursday missed: still due
+        // on Saturday, and dueSince points at Thursday.
+        let schedule = WorkoutSchedule.weekdays([2, 5])
+        let saturday = date(2026, 7, 11)
+        let monday = date(2026, 7, 6)
+        #expect(schedule.dueState(lastCompleted: monday, today: saturday, calendar: calendar) == .due)
+        #expect(schedule.dueSince(lastCompleted: monday, today: saturday, calendar: calendar)
+                == calendar.startOfDay(for: date(2026, 7, 9)))
+    }
+
+    @Test func weekdaysCarriedOverDueIsSatisfiedByLateCompletion() {
+        // Completing the missed Thursday on Saturday satisfies that
+        // occurrence: Sunday is a rest day pointing at Monday.
+        let schedule = WorkoutSchedule.weekdays([2, 5])
+        let sunday = date(2026, 7, 12)
+        let state = schedule.dueState(lastCompleted: date(2026, 7, 11), today: sunday, calendar: calendar)
+        #expect(state == .notDue(nextDue: calendar.startOfDay(for: date(2026, 7, 13))))
+    }
+
+    @Test func dueTodayHasTodayAsDueSince() {
+        let schedule = WorkoutSchedule.weekdays([2]) // Mondays
+        let monday = date(2026, 7, 6)
+        #expect(schedule.dueSince(lastCompleted: date(2026, 6, 29), today: monday, calendar: calendar)
+                == calendar.startOfDay(for: monday))
+    }
+
+    @Test func overdueFrequencyDueSinceIsTheSlotBoundary() {
+        let schedule = WorkoutSchedule.frequency(times: 1, perDays: 7)
+        let completed = date(2026, 6, 22)
+        // Slot ended jun 29; on jul 6 it has been due since jun 29.
+        #expect(schedule.dueSince(lastCompleted: completed, today: date(2026, 7, 6), calendar: calendar)
+                == calendar.startOfDay(for: date(2026, 6, 29)))
+    }
+
+    @Test func shortLabelsForAllModes() {
+        #expect(WorkoutSchedule.weekdays([5, 2]).shortLabel == "mon/thu")
+        #expect(WorkoutSchedule.weekdays([1, 2]).shortLabel == "mon/sun")
+        #expect(WorkoutSchedule.frequency(times: 2, perDays: 7).shortLabel == "2×/7d")
+        #expect(WorkoutSchedule.unscheduled.shortLabel == "no schedule")
     }
 
     @Test func weekdaysCompletedTodaySatisfiesTheDay() {
