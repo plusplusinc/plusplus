@@ -2,28 +2,20 @@ import SwiftUI
 import SwiftData
 import PlusPlusKit
 
-/// The personal library, v2 (#63): the curated set of exercises and
-/// equipment the picker draws from. Built-ins removed here leave the
-/// library but stay in the catalog; customs are edited or deleted here.
-struct LibraryView: View {
-    @Environment(\.dismiss) private var dismiss
+/// The personal catalog, v3 (#109): LibraryView split into two tabs —
+/// Exercises and Equipment — each with its own search and contextual
+/// header +. Built-ins removed here leave the library but stay in the
+/// catalog; customs are edited or deleted here.
+struct ExercisesTabView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Exercise.name) private var allExercises: [Exercise]
-    @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
 
-    private enum Tab: String, CaseIterable {
-        case exercises = "Exercises"
-        case equipment = "Equipment"
-    }
-
-    @State private var tab: Tab = .exercises
     @State private var search = ""
     @State private var openSwipeRow: PersistentIdentifier?
     @State private var sheet: LibrarySheet?
 
     enum LibrarySheet: Identifiable {
         case addExercises
-        case addEquipment
         case editCustom(Exercise)
         case builtInInfo(Exercise)
         case newCustom(prefill: String)
@@ -31,7 +23,6 @@ struct LibraryView: View {
         var id: String {
             switch self {
             case .addExercises: "addExercises"
-            case .addEquipment: "addEquipment"
             case .editCustom(let exercise): "edit-\(exercise.name)"
             case .builtInInfo(let exercise): "info-\(exercise.name)"
             case .newCustom(let prefill): "new-\(prefill)"
@@ -45,29 +36,19 @@ struct LibraryView: View {
             .filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }
     }
 
-    private var libraryEquipment: [Equipment] {
-        allEquipment
-            .filter { $0.inLibrary || !$0.isBuiltIn }
-            .filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }
-    }
-
     var body: some View {
         VStack(spacing: 0) {
-            header
+            CatalogTabHeader(title: "Exercises", addIdentifier: "addExercisesButton") {
+                sheet = .addExercises
+            }
 
-            searchRow
+            SearchField(prompt: "Search", text: $search)
                 .padding(.horizontal, 20)
-                .padding(.top, 12)
+                .padding(.top, 2)
 
             List {
-                if tab == .exercises {
-                    exerciseRows
-                } else {
-                    equipmentRows
-                }
-                Text(tab == .exercises
-                     ? "swipe ← to remove from your library · + Add browses the full catalog"
-                     : "swipe ← to remove from your library · + Add browses the catalog or creates custom gear")
+                exerciseRows
+                Text("swipe ← to remove from your library · + browses the full catalog")
                     .font(.system(.caption))
                     .foregroundStyle(Theme.textFaint)
                     .listRowSeparator(.hidden)
@@ -78,15 +59,12 @@ struct LibraryView: View {
             .scrollContentBackground(.hidden)
         }
         .background(Theme.background)
-        .toolbar(.hidden, for: .navigationBar)
         .sheet(item: $sheet) { destination in
             switch destination {
             case .addExercises:
                 AddFromCatalogSheet(kind: .exercises) { prefill in
                     sheet = .newCustom(prefill: prefill)
                 }
-            case .addEquipment:
-                AddFromCatalogSheet(kind: .equipment) { _ in }
             case .editCustom(let exercise):
                 ExerciseEditorView(editing: exercise)
             case .builtInInfo(let exercise):
@@ -95,57 +73,6 @@ struct LibraryView: View {
             case .newCustom(let prefill):
                 ExerciseEditorView(prefillName: prefill)
             }
-        }
-    }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Button {
-                dismiss()
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "chevron.left").font(.system(.footnote, weight: .bold))
-                    Text("Workouts").font(.system(.footnote, weight: .semibold))
-                }
-                .foregroundStyle(Theme.textSecondary)
-                .padding(.vertical, 6)
-            }
-            .accessibilityIdentifier("backButton")
-
-            Text("Library")
-                .font(.system(.title, weight: .bold))
-                .padding(.top, 2)
-
-            SegmentedTabs(
-                options: Tab.allCases.map(\.rawValue),
-                selectedIndex: Binding(
-                    get: { tab == .exercises ? 0 : 1 },
-                    set: { tab = $0 == 0 ? .exercises : .equipment; search = "" }
-                )
-            )
-            .padding(.top, 12)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 20)
-    }
-
-    private var searchRow: some View {
-        HStack(spacing: 8) {
-            SearchField(prompt: "Search", text: $search)
-
-            Button {
-                sheet = tab == .exercises ? .addExercises : .addEquipment
-            } label: {
-                HStack(spacing: 5) {
-                    Text("+").font(.system(.subheadline, design: .monospaced))
-                    Text("Add").font(.system(.footnote, weight: .semibold))
-                }
-                .foregroundStyle(Theme.accent)
-                .padding(.horizontal, 13)
-                .frame(height: 38)
-                .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.borderStrong))
-            }
-            .accessibilityIdentifier("libraryAddButton")
         }
     }
 
@@ -200,6 +127,65 @@ struct LibraryView: View {
         }
     }
 
+    private func subtitle(for exercise: Exercise) -> String {
+        let equipment = exercise.equipment.map(\.name).sorted().joined(separator: ", ")
+        return "\(exercise.muscleGroup.displayName) · \(equipment.isEmpty ? "Bodyweight" : equipment)"
+    }
+
+    private func remove(_ exercise: Exercise) {
+        if exercise.isBuiltIn {
+            exercise.inLibrary = false
+        } else {
+            modelContext.delete(exercise)
+        }
+    }
+}
+
+/// The Equipment tab (#109): what you own. Feeds exercise filtering;
+/// the v3 onboarding preset picker (#113) writes this same list.
+struct EquipmentTabView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \Exercise.name) private var allExercises: [Exercise]
+    @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
+
+    @State private var search = ""
+    @State private var openSwipeRow: PersistentIdentifier?
+    @State private var showingAdd = false
+
+    private var libraryEquipment: [Equipment] {
+        allEquipment
+            .filter { $0.inLibrary || !$0.isBuiltIn }
+            .filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            CatalogTabHeader(title: "Equipment", addIdentifier: "addEquipmentButton") {
+                showingAdd = true
+            }
+
+            SearchField(prompt: "Search", text: $search)
+                .padding(.horizontal, 20)
+                .padding(.top, 2)
+
+            List {
+                equipmentRows
+                Text("swipe ← to remove from your library · + browses the catalog or creates custom gear")
+                    .font(.system(.caption))
+                    .foregroundStyle(Theme.textFaint)
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                    .padding(.top, 4)
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+        }
+        .background(Theme.background)
+        .sheet(isPresented: $showingAdd) {
+            AddFromCatalogSheet(kind: .equipment) { _ in }
+        }
+    }
+
     @ViewBuilder
     private var equipmentRows: some View {
         ForEach(libraryEquipment) { equipment in
@@ -226,24 +212,11 @@ struct LibraryView: View {
         }
     }
 
-    private func subtitle(for exercise: Exercise) -> String {
-        let equipment = exercise.equipment.map(\.name).sorted().joined(separator: ", ")
-        return "\(exercise.muscleGroup.displayName) · \(equipment.isEmpty ? "Bodyweight" : equipment)"
-    }
-
     private func equipmentSubtitle(for equipment: Equipment) -> String {
         let used = allExercises.filter { $0.equipment.contains(where: { $0 === equipment }) }.count
         var text = used == 0 ? "unused" : (used == 1 ? "1 exercise" : "\(used) exercises")
         if !equipment.isBuiltIn { text += " · custom" }
         return text
-    }
-
-    private func remove(_ exercise: Exercise) {
-        if exercise.isBuiltIn {
-            exercise.inLibrary = false
-        } else {
-            modelContext.delete(exercise)
-        }
     }
 
     private func remove(_ equipment: Equipment) {
@@ -252,6 +225,32 @@ struct LibraryView: View {
         } else {
             modelContext.delete(equipment)
         }
+    }
+}
+
+/// Shared header for the two catalog tabs: ++ glyph, title, and the
+/// contextual + button.
+struct CatalogTabHeader: View {
+    let title: String
+    var addIdentifier: String?
+    let onAdd: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                HeaderGlyph()
+                Spacer()
+                HeaderIconButton(systemImage: "plus", identifier: addIdentifier) {
+                    onAdd()
+                }
+            }
+            Text(title)
+                .font(.system(.title, weight: .bold))
+                .padding(.top, 10)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 10)
     }
 }
 
@@ -290,7 +289,7 @@ struct AddFromCatalogSheet: View {
             .overlay(alignment: .trailing) {
                 Button("Done") { dismiss() }
                     .font(.system(.footnote, weight: .bold))
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Theme.textPrimary)
             }
             .padding(.horizontal, 16)
             .padding(.top, 14)
@@ -466,11 +465,4 @@ struct BuiltInInfoSheet: View {
         .padding(.horizontal, 18)
         .presentationBackground(Theme.surface)
     }
-}
-
-
-/// Identifiable wrapper so a prefilled editor can present via sheet(item:).
-struct CustomExercisePrefill: Identifiable {
-    let name: String
-    var id: String { name }
 }

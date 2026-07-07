@@ -51,7 +51,7 @@ struct PlusPlusApp: App {
 
     var body: some Scene {
         WindowGroup {
-            WorkoutListView()
+            RootTabView()
                 .preferredColorScheme((AppAppearance(rawValue: appearanceRaw) ?? .system).colorScheme)
                 // Dynamic Type everywhere (#82), capped where the dense
                 // layouts stop coping — full a11y sizes are future work.

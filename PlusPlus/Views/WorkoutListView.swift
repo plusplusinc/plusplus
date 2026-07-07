@@ -1,30 +1,19 @@
 import SwiftUI
 import SwiftData
 
-/// Home screen, v2 (#60): custom header with the ++ glyph and round icon
-/// buttons, workout cards with equipment pills, and a glass FAB. The
-/// Library button joins the header when #63 lands.
+/// The Workouts tab, v3 (#109): workout cards with equipment pills and
+/// a contextual header + (new workout). Library/History/Settings left
+/// this header with the nav restructure — Exercises and Equipment are
+/// tabs, history lives on Today, settings opens from Today's header.
 struct WorkoutListView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: [SortDescriptor(\Workout.order), SortDescriptor(\Workout.createdAt, order: .reverse)])
     private var workouts: [Workout]
 
-    /// Non-workout pushes from the home screen. Everything the stack can
-    /// show must flow through the one path binding: mixing a typed path
-    /// with navigationDestination(isPresented:) leaves SwiftUI with two
-    /// sources of truth it can't reconcile, which livelocks the push.
-    private enum HomeDestination: Hashable {
-        case history
-        case library
-    }
-
     @State private var path = NavigationPath()
     @State private var showingNewWorkout = false
     @State private var newWorkoutName = ""
-    @State private var showingSettings = false
-    @State private var catalogSheet: AddFromCatalogSheet.Kind?
     @State private var openSwipeRow: PersistentIdentifier?
-    @State private var newCustomPrefill: CustomExercisePrefill?
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -57,24 +46,6 @@ struct WorkoutListView: View {
             .navigationDestination(for: Workout.self) { workout in
                 WorkoutDetailView(workout: workout)
             }
-            .navigationDestination(for: HomeDestination.self) { destination in
-                switch destination {
-                case .history: HistoryView()
-                case .library: LibraryView()
-                }
-            }
-            .sheet(item: $catalogSheet) { kind in
-                AddFromCatalogSheet(kind: kind) { prefill in
-                    newCustomPrefill = CustomExercisePrefill(name: prefill)
-                }
-            }
-            .sheet(item: $newCustomPrefill) { prefill in
-                ExerciseEditorView(prefillName: prefill.name)
-            }
-            .sheet(isPresented: $showingSettings) {
-                SettingsView()
-                    .presentationDetents([.medium, .large])
-            }
             .overlay {
                 if workouts.isEmpty {
                     ContentUnavailableView(
@@ -83,9 +54,6 @@ struct WorkoutListView: View {
                         description: Text("Create your first workout to get started.")
                     )
                 }
-            }
-            .overlay(alignment: .bottomTrailing) {
-                fab
             }
             .alert("New Workout", isPresented: $showingNewWorkout) {
                 TextField("Name", text: $newWorkoutName)
@@ -98,20 +66,10 @@ struct WorkoutListView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("++")
-                    .font(.system(.subheadline, design: .monospaced, weight: .bold))
-                    .foregroundStyle(Theme.accent)
+                HeaderGlyph()
                 Spacer()
-                HStack(spacing: 8) {
-                    HeaderIconButton(systemImage: "dumbbell", identifier: "libraryButton") {
-                        path.append(HomeDestination.library)
-                    }
-                    HeaderIconButton(systemImage: "clock", identifier: "historyButton") {
-                        path.append(HomeDestination.history)
-                    }
-                    HeaderIconButton(systemImage: "slider.horizontal.3", identifier: "settingsButton") {
-                        showingSettings = true
-                    }
+                HeaderIconButton(systemImage: "plus", identifier: "newWorkoutButton") {
+                    showingNewWorkout = true
                 }
             }
             Text("Workouts")
@@ -125,29 +83,6 @@ struct WorkoutListView: View {
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 12)
-    }
-
-    private var fab: some View {
-        Menu {
-            Button("New workout", systemImage: "plus") { showingNewWorkout = true }
-            Button("Add exercise", systemImage: "figure.strengthtraining.traditional") {
-                catalogSheet = .exercises
-            }
-            Button("Add equipment", systemImage: "dumbbell") {
-                catalogSheet = .equipment
-            }
-        } label: {
-            Text("+")
-                .font(.system(.title3, design: .monospaced, weight: .semibold))
-                .foregroundStyle(Theme.textPrimary)
-                .offset(y: -1)
-                .frame(width: 56, height: 56)
-                .background(.ultraThinMaterial, in: Circle())
-                .overlay(Circle().strokeBorder(Theme.textPrimary.opacity(0.16)))
-                .shadow(color: .black.opacity(0.45), radius: 12, y: 8)
-        }
-        .accessibilityIdentifier("newWorkoutButton")
-        .padding(24)
     }
 
     private func createWorkout() {
@@ -186,7 +121,7 @@ struct WorkoutListView: View {
     }
 }
 
-/// 38 pt round icon button used in the home header.
+/// 38 pt round icon button used in tab headers.
 struct HeaderIconButton: View {
     let systemImage: String
     var identifier: String?

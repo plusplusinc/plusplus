@@ -94,18 +94,17 @@ struct WorkoutDetailView: View {
             .padding(.top, 2)
 
             if !workout.groups.isEmpty {
-                HStack(spacing: 14) {
+                // Schedule + rest as chips under the title (#109); both
+                // open the workout-settings sheet. The ~time estimate
+                // rides along as plain meta.
+                HStack(spacing: 7) {
+                    detailChip(scheduleChipText, identifier: "scheduleChip")
+                    detailChip("rest \(restText)", identifier: "restChip")
                     (Text(estimatedTimeText).font(.system(.footnote, design: .monospaced)).bold().foregroundStyle(Theme.textPrimary)
                         + Text(" est").font(.system(.footnote)).foregroundStyle(Theme.textSecondary))
-                    Button {
-                        showingWorkoutSettings = true
-                    } label: {
-                        (Text("rest ").font(.system(.footnote)).foregroundStyle(Theme.textSecondary)
-                            + Text(restText).font(.system(.footnote, design: .monospaced)).bold().foregroundStyle(Theme.textPrimary)
-                            + Text(" ▾").font(.system(.caption2)).foregroundStyle(Theme.textSecondary))
-                    }
+                        .padding(.leading, 5)
                 }
-                .padding(.top, 6)
+                .padding(.top, 8)
 
                 Button {
                     showingWorkoutSettings = true
@@ -132,6 +131,35 @@ struct WorkoutDetailView: View {
     private var restText: String {
         WorkoutMetric.duration.formatted(Double(workout.restSeconds))
             + (workout.restSeconds < 60 ? "s" : "")
+    }
+
+    /// Chip text for the workout's cadence: "mon/thu", "2×/7d", or
+    /// "no schedule". Monday-first, matching the v3 editor.
+    private var scheduleChipText: String {
+        switch workout.schedule.normalized {
+        case .unscheduled:
+            return "no schedule"
+        case .weekdays(let days):
+            let names = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
+            let mondayFirst = days.sorted { (($0 + 5) % 7) < (($1 + 5) % 7) }
+            return mondayFirst.map { names[$0 - 1] }.joined(separator: "/")
+        case .frequency(let times, let perDays):
+            return "\(times)×/\(perDays)d"
+        }
+    }
+
+    private func detailChip(_ text: String, identifier: String) -> some View {
+        Button {
+            showingWorkoutSettings = true
+        } label: {
+            (Text(text).font(.system(.footnote, design: .monospaced, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                + Text(" ▾").font(.system(.caption2)).foregroundStyle(Theme.textSecondary))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Theme.surface, in: RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.border))
+        }
+        .accessibilityIdentifier(identifier)
     }
 
     private var emptyHint: some View {

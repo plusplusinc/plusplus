@@ -2,75 +2,12 @@ import SwiftUI
 import SwiftData
 import PlusPlusKit
 
-/// Completed sessions, newest first — v2 (#67): cards under a mono
-/// "append-only" caption. No delete affordance: history is the record.
-struct HistoryView: View {
-    @Environment(\.dismiss) private var dismiss
-    @Query(
-        filter: #Predicate<WorkoutSession> { $0.endedAt != nil },
-        sort: [SortDescriptor(\WorkoutSession.startedAt, order: .reverse)]
-    )
-    private var sessions: [WorkoutSession]
+// The standalone History screen died with the v3 nav restructure
+// (#109): Today's timeline is the record now. The session card and the
+// per-set session record live on, rendered from the Today tab.
 
-    var body: some View {
-        VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 0) {
-                Button {
-                    dismiss()
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "chevron.left").font(.system(.footnote, weight: .bold))
-                        Text("Workouts").font(.system(.footnote, weight: .semibold))
-                    }
-                    .foregroundStyle(Theme.textSecondary)
-                    .padding(.vertical, 6)
-                }
-                .accessibilityIdentifier("backButton")
-
-                Text("History")
-                    .font(.system(.title, weight: .bold))
-                    .padding(.top, 2)
-                Text("history/\(yearText) · append-only")
-                    .font(.system(.caption2, design: .monospaced))
-                    .foregroundStyle(Theme.textFaint)
-                    .padding(.top, 3)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 20)
-            .padding(.bottom, 12)
-
-            List {
-                ForEach(sessions) { session in
-                    NavigationLink {
-                        SessionDetailView(session: session)
-                    } label: {
-                        SessionRow(session: session)
-                    }
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                }
-            }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-        }
-        .background(Theme.background)
-        .toolbar(.hidden, for: .navigationBar)
-        .overlay {
-            if sessions.isEmpty {
-                Text("Finished workouts show up here.")
-                    .font(.system(.footnote))
-                    .foregroundStyle(Theme.textSecondary)
-            }
-        }
-    }
-
-    private var yearText: String {
-        FileLayout.utcDateParts(of: sessions.first?.startedAt ?? Date()).year
-    }
-}
-
-private struct SessionRow: View {
+/// Completed-session card: name + mono "jul 3 · 18 sets · 42 min".
+struct SessionRow: View {
     let session: WorkoutSession
 
     var body: some View {
@@ -139,7 +76,7 @@ struct SessionDetailView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "chevron.left").font(.system(.footnote, weight: .bold))
-                        Text("History").font(.system(.footnote, weight: .semibold))
+                        Text("Today").font(.system(.footnote, weight: .semibold))
                     }
                     .foregroundStyle(Theme.textSecondary)
                     .padding(.vertical, 6)

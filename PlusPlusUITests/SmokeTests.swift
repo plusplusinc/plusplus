@@ -97,14 +97,15 @@ final class SmokeTests: XCTestCase {
         snap("workout-complete")
         app.buttons["sessionDoneButton"].tap()
 
-        // Back out to the list, then into history.
+        // Back out to the list, then into the record via the Today tab
+        // (the standalone History screen died with #109).
         let back = app.buttons["backButton"]
         XCTAssertTrue(back.waitForExistence(timeout: 5))
         back.tap()
 
-        let history = app.buttons["historyButton"]
-        XCTAssertTrue(history.waitForExistence(timeout: 5))
-        history.tap()
+        let today = app.buttons["tab-today"]
+        XCTAssertTrue(today.waitForExistence(timeout: 5))
+        today.tap()
 
         // Snapshot the list before asserting, so a failure here leaves
         // visual evidence of what history actually showed.
@@ -125,6 +126,10 @@ final class SmokeTests: XCTestCase {
         app.terminate()
         app.launchArguments += ["--uitest-bigworkout"]
         app.launch()
+
+        let workoutsTab = app.buttons["tab-workouts"]
+        XCTAssertTrue(workoutsTab.waitForExistence(timeout: 10))
+        workoutsTab.tap()
 
         let card = app.staticTexts["Big Day"]
         XCTAssertTrue(card.waitForExistence(timeout: 10))
@@ -164,14 +169,15 @@ final class SmokeTests: XCTestCase {
     }
 
     private func createWorkout(named name: String) {
-        let fab = app.buttons["newWorkoutButton"]
-        XCTAssertTrue(fab.waitForExistence(timeout: 10))
-        fab.tap()
+        // v3 nav (#109): the app lands on Today; workout creation is the
+        // contextual + in the Workouts tab header.
+        let workoutsTab = app.buttons["tab-workouts"]
+        XCTAssertTrue(workoutsTab.waitForExistence(timeout: 10))
+        workoutsTab.tap()
 
-        // The FAB opens a menu (v2); pick "New workout" from it.
-        let menuItem = app.buttons["New workout"]
-        XCTAssertTrue(menuItem.waitForExistence(timeout: 5))
-        menuItem.tap()
+        let plus = app.buttons["newWorkoutButton"]
+        XCTAssertTrue(plus.waitForExistence(timeout: 5))
+        plus.tap()
 
         let alert = app.alerts["New Workout"]
         XCTAssertTrue(alert.waitForExistence(timeout: 5))
