@@ -58,27 +58,27 @@ The Simulator validation step in every task should use these tools in sequence: 
 
 > Update this section at the end of every session that changes the codebase.
 
-**Last updated:** 2026-07-07 (late-night v3 session)
+**Last updated:** 2026-07-07 (daytime: build-11 feedback pass + setup-as-timeline onboarding)
 **Last known good build:** 2026-02-20 (Xcode 26.2, iPhone 17 Pro / iOS 26.2 Simulator)
 
 ⚠️ **Needs Mac validation:** All 2026-07 sessions ran in a remote Linux environment (no Xcode). Everything compiles, passes unit tests and the UI smoke suite in CI, and TestFlight puts real builds on Dave's iPhone. The #1 Mac checklist now covers: v3 gesture feel (rail drag/ring under the UIKit recognizer), onboarding on a fresh install, the watch app on real hardware (paired-simulator or device), accessibility settings, and store migration over real data (#31 — FIRST).
 
 **CI flake note:** the ui-test job's `app.launch()` can wedge indefinitely on a runner simulator (DebuggerLLDB errors in the log, 45-min timeout kills it). Seen once 2026-07-07; the identical commit passed in 7 min on re-dispatch. Cancel + re-dispatch once before suspecting code.
 
-**TestFlight:** `.github/workflows/testflight.yml` (manual dispatch, any ref) archives unsigned, cloud-signs at export with an Admin-role ASC API key, and uploads; build number = run number. **Build 10** is the v3 build: everything below, including the watch app.
+**TestFlight:** `.github/workflows/testflight.yml` (manual dispatch, any ref) archives unsigned, cloud-signs at export with an Admin-role ASC API key, and uploads; build number = run number. **Build 12** is current: v3 end to end, the build-11 HIG/feedback pass (#129–#131), and the setup-as-timeline onboarding (#132).
 
 **Work tracking:** The v1 backlog lives in GitHub issues on `mrdavidjcole/plusplus`, feeding the user's GitHub Project board via its auto-add workflow. Changes land via PRs (self-merged once CI is green) with `Closes #N` linking; issues close on merge except where validation is explicitly pending (#1).
 
-**What works (as of 2026-07-07 late-night, design-v3 end to end):** the Claude Design v3 handoff shipped in one overnight arc — #114 palette, #115 nav, #124 Today+diffs, #125 schedule+onboarding, #126 watch v1, plus the #107 scroll root-cause fix and #127 gesture hardening. The app is four bottom tabs on a custom quiet-terminal bar (Canvas-drawn icons): **Today** — the unified timeline: pending (due) workouts as dashed cards with per-exercise diff summaries (`+5 lb · +2 reps · 1 new · 2 =`), expandable rows, due captions ("due today" / "due since thu"), full-width Start; committed sessions below with net chips (green, up-only); rest-day/first-run timeline items and a swap-in sheet for off-schedule sessions; settings opens here. **Workouts** — cards with schedule + equipment pills, header + creates; detail keeps the v2 rail (drag/ring gestures now on a UIKit recognizer so the list actually scrolls) with schedule/rest chips under the title. **Exercises / Equipment** — the old Library split in two, each with search and contextual +; exercises needing unowned equipment hide behind a "show all" escape hatch with "needs X" cues. **Onboarding** — two skippable beats (equipment access presets writing the Equipment-tab list; starter push/pull split composed equipment-aware from built-ins), re-runnable from Settings → EQUIPMENT ACCESS. **Watch** — WatchConnectivity companion: plan pushed on launch/backgrounding, wrist execution (frozen step list, log/rest/haptics, watch-local rest-over notification, early exit), finished sessions sync back as append-only history with a synchronous acked import. Session records show block-level Δ vs the previous same-workout session. Execution screen unchanged this round per the handoff.
+**What works (as of 2026-07-07 late-night, design-v3 end to end):** the Claude Design v3 handoff shipped in one overnight arc — #114 palette, #115 nav, #124 Today+diffs, #125 schedule+onboarding, #126 watch v1, plus the #107 scroll root-cause fix and #127 gesture hardening. The app is four bottom tabs on the native iOS 26 Liquid Glass TabView (#130 swapped out the custom bar): **Today** — the unified timeline: pending (due) workouts as dashed cards with per-exercise diff summaries (`+5 lb · +2 reps · 1 new · 2 =`), expandable rows, due captions ("due today" / "due since thu"), full-width Start; committed sessions below with net chips (green, up-only); rest-day/first-run timeline items and a swap-in sheet for off-schedule sessions; settings opens here. **Workouts** — cards with schedule + equipment pills, header + creates; detail keeps the v2 rail (drag/ring gestures now on a UIKit recognizer so the list actually scrolls) with schedule/rest chips under the title. **Exercises / Equipment** — the old Library split in two, each with search and contextual +; exercises needing unowned equipment hide behind a "show all" escape hatch with "needs X" cues. **Onboarding** — setup-as-timeline (#132): no cover screen; a fresh install's Today shows three setup steps as gated timeline entries (equipment → first workout → schedule, bottom-up like commits) that become committed-style cards when done and yield to real history at the first logged session; equipment access re-runnable from Settings → EQUIPMENT ACCESS. **Watch** — WatchConnectivity companion: plan pushed on launch/backgrounding, wrist execution (frozen step list, log/rest/haptics, watch-local rest-over notification, early exit), finished sessions sync back as append-only history with a synchronous acked import. Session records show block-level Δ vs the previous same-workout session. Execution screen unchanged this round per the handoff.
 
-**Remote validation layer:** 3 XCUITest smoke tests (`PlusPlusUITests`) run on the CI simulator via the `ui-test` job (workflow_dispatch + pushes to main) and upload a `ui-screenshots` artifact — list, detail, editor, set logging, rest, complete, history are all reviewable from a browser. The app supports `--uitest-reset` (in-memory store) for clean test launches. This narrows, but does not replace, the hands-on #1 checklist.
+**Remote validation layer:** 5 XCUITest smoke tests (`PlusPlusUITests`) run on the CI simulator via the `ui-test` job (workflow_dispatch + pushes to main) and upload a `ui-screenshots` artifact — list, detail, editor, set logging, rest, complete, history, the overflow-scroll regression, and the full setup-timeline onboarding flow are all reviewable from a browser. The app supports `--uitest-reset` (in-memory store) for clean test launches. This narrows, but does not replace, the hands-on #1 checklist.
 
 **Targets:**
 - **PlusPlus** — iOS app (deployment target iOS 26.0)
 - **PlusPlusWatch** — watchOS companion (WatchConnectivity, no SwiftData/HealthKit; depends on PlusPlusKit)
 - **PlusPlusKit** — pure SwiftPM package shared with the CLI and future MCP (tested on Linux in CI)
 - **PlusPlusTests** — unit test target (72 tests; 109 more live in PlusPlusKit, 23 in PlusPlusCLI)
-- **PlusPlusUITests** — UI smoke test target (3 flows, `PlusPlusUI` scheme, CI-only by convention)
+- **PlusPlusUITests** — UI smoke test target (5 flows, `PlusPlusUI` scheme, CI-only by convention)
 
 **Project structure:**
 ```
@@ -122,8 +122,9 @@ PlusPlus/                # iOS app target
     Components/               # Shared controls: SearchField, SwipeRevealRow +
                               #   SwipeActionButton, SheetComponents (SheetHeader/
                               #   SectionLabel/ActionButton/MetricStepperRow), SegmentedTabs
-    RootTabView.swift         # v3 root: four tabs, custom bar + Canvas icons, onboarding cover
+    RootTabView.swift         # Root: native Liquid Glass TabView (4 tabs), ++ splash beat
     TodayView.swift           # Unified timeline: pending diffs + committed cards + swap-in
+                              #   + setup-as-timeline scaffold (3 gated steps, fresh installs)
     OnboardingView.swift      # SetupState + EquipmentAccessSheet + StarterSeedSheet (setup-as-timeline)
     RailGestureRecognizer.swift # UIKit long-press layer for the rail (scroll-safe)
     WorkoutListView.swift     # Workouts tab — cards w/ schedule pills, create/reorder/delete
@@ -152,7 +153,7 @@ PlusPlusTests/
   LastPerformanceTests.swift # "Last time" lookup (6)
   InterchangeMappingTests.swift # Export/import round-trip + policies (5) = 72 app + 109 Kit + 23 CLI
 PlusPlusUITests/
-  SmokeTests.swift           # 3 end-to-end flows w/ screenshot attachments
+  SmokeTests.swift           # 5 end-to-end flows w/ screenshot attachments
 .github/workflows/ci.yml # macOS CI: xcodegen + xcodebuild test (+ release.yml on v* tags,
                          #   testflight.yml manual-dispatch TestFlight upload)
 .xcodebuildmcp/          # XcodeBuildMCP session config
@@ -270,6 +271,12 @@ PlusPlusUITests/
 **2026-07-07 (night) — Rail gestures live on a UIKit UILongPressGestureRecognizer** — Third strike on the detail scroll bug: SwiftUI's LongPressGesture starves UIScrollView's pan in ANY composition (sequenced, simultaneous, either order). A zero-size probe attaches one UIKit recognizer to the enclosing UIScrollView — the primitive system drag-to-reorder uses — reporting rail-content coordinates; geometry routes ring (x < 37) vs drag, bounded to actual row extents (RailLayout.exercise(at:) clamps to nearest BY DESIGN, so callers must bound y). Regression-tested by a 16-row seeded workout in the UI suite.
 
 **2026-07-07 (night) — Overnight adversarial bug hunt: 3 agents, ~20 verified findings, fixed same night** — Highest-severity: staging an empty-but-scheduled workout committed a permanent 0-set session and satisfied the schedule; the diff prior described nonexistent sets; watch results could be dropped after the WCSession ack; a hold anywhere in the detail viewport hijacked the nearest row. Pattern worth keeping: hunt on fresh code with parallel reviewers told to VERIFY against the actual code before reporting, then fix in the same PRs that introduced the surface.
+
+**2026-07-07 (day) — Native Liquid Glass TabView replaces the custom bar; HIG type/contrast/target pass (#130)** — Dave's build-10/11 feedback: the v3 custom bottom bar died in favor of the system `TabView` (`Tab(_:systemImage:value:)`) — system hit targets, accessibility, and scroll-edge treatment for free; the quiet-terminal identity lives in the content, not the chrome. Same pass bumped small text a tier toward HIG minimums, fixed `textFaint` contrast, standardized 44 pt targets (header +, day circles), and added tray headroom.
+
+**2026-07-07 (day) — Set screen redesigned around the values (#131)** — The active-exercise screen felt empty and Log set sat dangerously close to the steppers. Weight/reps are now two big card columns center-stage (44 pt mono values opening the wheel, 56 pt −/+ buttons); Log set stands alone in a bottom dock with 28 pt of clearance.
+
+**2026-07-07 (day) — Onboarding is the timeline: setup steps as gated commits (#132, supersedes the #125 cover and #129's land-on-Workouts)** — The Claude Design setup-as-timeline handoff: no onboarding screen at all. A fresh install lands on Today, where three setup steps render as timeline entries stacked bottom-up like commits — equipment (1 of 3), first workout (2 of 3, gated), schedule (3 of 3, gated) — ready steps as dashed pending cards with a CTA, gated steps dimmed with "needs X first", done steps as committed-style cards (green node, `date · summary`, edit ›). The scaffold yields to real history at the first logged session. Only equipment stores a flag (`SetupState`, UserDefaults) — its done-ness can't be derived; workouts and schedules are derived live, so the steps self-heal (delete your last workout and the step reopens). The equipment picker and starter-split seeder are standalone sheets shared with Settings.
 
 ---
 
