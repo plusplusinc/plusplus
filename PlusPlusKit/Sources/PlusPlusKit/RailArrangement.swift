@@ -8,27 +8,21 @@ import Foundation
 /// without SwiftUI or SwiftData. The view layer translates gestures into
 /// these calls and commits results through the Workout mutations.
 public struct RailMetrics: Equatable, Sendable {
-    /// Height of a superset member row.
-    public var memberRowHeight: Double
-    /// Height of a solo row (member height plus the 6 pt breathing room
-    /// the v2 design gives standalone rows).
-    public var soloRowHeight: Double
-    /// Height of the SUPERSET caption row above each loop.
-    public var captionHeight: Double
+    /// Every exercise row is the same height regardless of superset
+    /// membership (device feedback on #87: rows must not shift when
+    /// joining/leaving a ring).
+    public var rowHeight: Double
 
-    public init(memberRowHeight: Double = 48, soloRowHeight: Double = 54, captionHeight: Double = 30) {
-        self.memberRowHeight = memberRowHeight
-        self.soloRowHeight = soloRowHeight
-        self.captionHeight = captionHeight
+    public init(rowHeight: Double = 48) {
+        self.rowHeight = rowHeight
     }
 
-    /// The v2 design's row heights.
+    /// The v2 design's row height.
     public static let v2 = RailMetrics()
 }
 
 /// One visual row of the rail list.
 public enum RailRowKind: Hashable, Sendable {
-    case caption(group: Int)
     case exercise(group: Int, index: Int)
 }
 
@@ -41,8 +35,9 @@ public struct RailRow: Equatable, Sendable {
     public var maxY: Double { y + height }
 }
 
-/// Deterministic row layout for a group structure: supersets get a
-/// caption row followed by member rows; solo groups are a single row.
+/// Deterministic row layout for a group structure: one uniform row per
+/// exercise, packed in order. Supersets are marked by the loop drawing,
+/// not by structure — no caption rows, no per-membership heights.
 public struct RailLayout: Equatable, Sendable {
     public let rows: [RailRow]
     public let totalHeight: Double
@@ -51,16 +46,9 @@ public struct RailLayout: Equatable, Sendable {
         var rows: [RailRow] = []
         var y = 0.0
         for (group, size) in groupSizes.enumerated() {
-            if size > 1 {
-                rows.append(RailRow(kind: .caption(group: group), y: y, height: metrics.captionHeight))
-                y += metrics.captionHeight
-                for index in 0..<size {
-                    rows.append(RailRow(kind: .exercise(group: group, index: index), y: y, height: metrics.memberRowHeight))
-                    y += metrics.memberRowHeight
-                }
-            } else {
-                rows.append(RailRow(kind: .exercise(group: group, index: 0), y: y, height: metrics.soloRowHeight))
-                y += metrics.soloRowHeight
+            for index in 0..<size {
+                rows.append(RailRow(kind: .exercise(group: group, index: index), y: y, height: metrics.rowHeight))
+                y += metrics.rowHeight
             }
         }
         return RailLayout(rows: rows, totalHeight: y)
@@ -70,8 +58,8 @@ public struct RailLayout: Equatable, Sendable {
         rows.first { $0.kind == kind }
     }
 
-    /// The exercise row nearest to `y` (captions are transparent to hit
-    /// testing; positions beyond either end clamp to the closest row).
+    /// The exercise row nearest to `y` (positions beyond either end
+    /// clamp to the closest row).
     public func exercise(at y: Double) -> (group: Int, index: Int)? {
         var best: (group: Int, index: Int)?
         var bestDistance = Double.infinity
@@ -118,8 +106,7 @@ public enum RailDrag {
 
         // Gaps: boundary above each group, plus the very end.
         for group in 0..<groupSizes.count {
-            let firstKind: RailRowKind = groupSizes[group] > 1 ? .caption(group: group) : .exercise(group: group, index: 0)
-            if let row = layout.row(for: firstKind) {
+            if let row = layout.row(for: .exercise(group: group, index: 0)) {
                 result.append((.gap(group), row.y))
             }
         }
@@ -160,7 +147,7 @@ public enum RailDrag {
     ) -> [RailRowKind: Double] {
         let layout = RailLayout.build(groupSizes: groupSizes, metrics: metrics)
         let draggedKind = RailRowKind.exercise(group: dragging.group, index: dragging.index)
-        let draggedHeight = layout.row(for: draggedKind)?.height ?? metrics.memberRowHeight
+        let draggedHeight = layout.row(for: draggedKind)?.height ?? metrics.rowHeight
 
         let remaining = layout.rows.filter { $0.kind != draggedKind }
 
@@ -173,7 +160,7 @@ public enum RailDrag {
                 // First remaining row belonging to a group >= gap.
                 return remaining.first { row in
                     switch row.kind {
-                    case .caption(let g), .exercise(let g, _): return g >= gap
+                    case .exercise(let g, _): return g >= gap
                     }
                 }?.kind
             case .within(let group, let index):
