@@ -49,7 +49,7 @@ struct WorkoutDetailView: View {
         }
         .sheet(isPresented: $showingWorkoutSettings) {
             WorkoutSettingsSheet(workout: workout)
-                .presentationDetents([.height(320)])
+                .presentationDetents([.medium, .large])
         }
         .sheet(item: $selectedExercise) { workoutExercise in
             ExerciseDetailSheet(
@@ -760,44 +760,171 @@ struct WorkoutSettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Bindable var workout: Workout
 
+    @State private var scheduleMode: Int
+    @State private var scheduleDays: Set<Int>
+    @State private var scheduleTimes: Int
+    @State private var schedulePerDays: Int
+
+    init(workout: Workout) {
+        self.workout = workout
+        // Seed the editor state from the stored schedule; edits write
+        // back through persistSchedule() on every change.
+        switch workout.schedule {
+        case .unscheduled:
+            _scheduleMode = State(initialValue: 0)
+            _scheduleDays = State(initialValue: [])
+            _scheduleTimes = State(initialValue: 3)
+            _schedulePerDays = State(initialValue: 7)
+        case .weekdays(let days):
+            _scheduleMode = State(initialValue: 1)
+            _scheduleDays = State(initialValue: days)
+            _scheduleTimes = State(initialValue: 3)
+            _schedulePerDays = State(initialValue: 7)
+        case .frequency(let times, let perDays):
+            _scheduleMode = State(initialValue: 2)
+            _scheduleDays = State(initialValue: [])
+            _scheduleTimes = State(initialValue: times)
+            _schedulePerDays = State(initialValue: perDays)
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             SheetHeader(title: "Workout settings", action: { dismiss() })
 
-            SheetSectionLabel("BETWEEN SETS")
-                .padding(.top, 16)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    SheetSectionLabel("SCHEDULE")
+                        .padding(.top, 16)
 
-            MetricStepperRow(
-                label: "Rest",
-                value: WorkoutMetric.rest.displayText(Double(workout.restSeconds)),
-                identifier: "rest",
-                onDecrement: { workout.restSeconds = Int(WorkoutMetric.rest.decremented(Double(workout.restSeconds))) },
-                onIncrement: { workout.restSeconds = Int(WorkoutMetric.rest.incremented(Double(workout.restSeconds))) }
-            )
-            .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
-            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+                    SegmentedTabs(options: ["None", "Days", "Frequency"], selectedIndex: Binding(
+                        get: { scheduleMode },
+                        set: { scheduleMode = $0; persistSchedule() }
+                    ))
 
-            SheetSectionLabel("NOTES")
-                .padding(.top, 16)
+                    if scheduleMode == 1 {
+                        dayChips
+                            .padding(.top, 8)
+                    } else if scheduleMode == 2 {
+                        frequencySteppers
+                            .padding(.top, 8)
+                    }
 
-            TextField("Intent for this workout — shown when you start it", text: notesBinding, axis: .vertical)
-                .font(.system(.footnote))
-                .lineLimit(1...4)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 11)
-                .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
-                .accessibilityIdentifier("workoutNotesField")
+                    Text(scheduleCaption)
+                        .font(.system(.caption))
+                        .foregroundStyle(Theme.textFaint)
+                        .padding(.top, 6)
 
-            Text("Shown once, when you start the workout.")
-                .font(.system(.caption))
-                .foregroundStyle(Theme.textFaint)
-                .padding(.top, 6)
+                    SheetSectionLabel("BETWEEN SETS")
+                        .padding(.top, 16)
 
-            Spacer()
+                    MetricStepperRow(
+                        label: "Rest",
+                        value: WorkoutMetric.rest.displayText(Double(workout.restSeconds)),
+                        identifier: "rest",
+                        onDecrement: { workout.restSeconds = Int(WorkoutMetric.rest.decremented(Double(workout.restSeconds))) },
+                        onIncrement: { workout.restSeconds = Int(WorkoutMetric.rest.incremented(Double(workout.restSeconds))) }
+                    )
+                    .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+
+                    SheetSectionLabel("NOTES")
+                        .padding(.top, 16)
+
+                    TextField("Intent for this workout — shown when you start it", text: notesBinding, axis: .vertical)
+                        .font(.system(.footnote))
+                        .lineLimit(1...4)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 11)
+                        .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
+                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+                        .accessibilityIdentifier("workoutNotesField")
+
+                    Text("Shown once, when you start the workout.")
+                        .font(.system(.caption))
+                        .foregroundStyle(Theme.textFaint)
+                        .padding(.top, 6)
+                }
+                .padding(.bottom, 30)
+            }
         }
         .padding(.horizontal, 18)
         .presentationBackground(Theme.surface)
+    }
+
+    // MARK: - Schedule (#83)
+
+    /// Fixed Sunday-first row matching Calendar weekday numbers 1…7.
+    private static let dayLabels = ["S", "M", "T", "W", "T", "F", "S"]
+
+    private var dayChips: some View {
+        HStack(spacing: 6) {
+            ForEach(1...7, id: \.self) { weekday in
+                let selected = scheduleDays.contains(weekday)
+                Button {
+                    if selected {
+                        scheduleDays.remove(weekday)
+                    } else {
+                        scheduleDays.insert(weekday)
+                    }
+                    persistSchedule()
+                } label: {
+                    Text(Self.dayLabels[weekday - 1])
+                        .font(.system(.footnote, design: .monospaced, weight: .semibold))
+                        .foregroundStyle(selected ? Theme.onAccent : Theme.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 34)
+                        .background(
+                            selected ? Theme.accentButton : Theme.background,
+                            in: RoundedRectangle(cornerRadius: 8)
+                        )
+                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(selected ? Color.clear : Theme.border))
+                }
+                .accessibilityIdentifier("scheduleDay\(weekday)")
+            }
+        }
+    }
+
+    private var frequencySteppers: some View {
+        VStack(spacing: 0) {
+            MetricStepperRow(
+                label: "Sessions",
+                value: "\(scheduleTimes)×",
+                identifier: "scheduleTimes",
+                onDecrement: { scheduleTimes = max(1, scheduleTimes - 1); persistSchedule() },
+                onIncrement: { scheduleTimes = min(14, scheduleTimes + 1); persistSchedule() }
+            )
+            MetricStepperRow(
+                label: "Every",
+                value: "\(schedulePerDays) days",
+                identifier: "schedulePerDays",
+                onDecrement: { schedulePerDays = max(1, schedulePerDays - 1); persistSchedule() },
+                onIncrement: { schedulePerDays = min(30, schedulePerDays + 1); persistSchedule() }
+            )
+        }
+        .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+    }
+
+    private var scheduleCaption: String {
+        switch scheduleMode {
+        case 1:
+            return scheduleDays.isEmpty
+                ? "Pick the days this workout should happen."
+                : "Due on the marked days."
+        case 2:
+            return "Due \(scheduleTimes)× every \(schedulePerDays) days, counted from your last session — not the calendar week."
+        default:
+            return "No schedule — do it whenever."
+        }
+    }
+
+    private func persistSchedule() {
+        switch scheduleMode {
+        case 1: workout.schedule = .weekdays(scheduleDays)
+        case 2: workout.schedule = .frequency(times: scheduleTimes, perDays: schedulePerDays)
+        default: workout.schedule = .unscheduled
+        }
     }
 
     private var notesBinding: Binding<String> {
