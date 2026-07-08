@@ -165,7 +165,9 @@ struct SessionOverviewSheet: View {
     }
 
     private func pipColor(for log: SetLog) -> Color {
-        if log.isCompleted { return Theme.accent }
+        // Landed sets are purple (#201); the live set stays green —
+        // green is motion, purple is done.
+        if log.isCompleted { return Theme.done }
         if let current = session.currentLog, current.order == log.order {
             return Theme.accent.opacity(0.45)
         }

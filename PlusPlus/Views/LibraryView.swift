@@ -250,7 +250,7 @@ struct CatalogTabHeader: View {
             HStack {
                 HeaderGlyph()
                 Spacer()
-                HeaderIconButton(systemImage: "plus", identifier: addIdentifier) {
+                HeaderIconButton(systemImage: "plus", identifier: addIdentifier, tint: Theme.accent) {
                     onAdd()
                 }
             }
@@ -303,14 +303,15 @@ struct CatalogBrowseScreen: View {
     @State private var newEquipmentName = ""
 
     /// §F: onboarding + the Settings re-run ride the REAL catalog with
-    /// a preset strip and a pinned confirm bar — the limited tray died.
+    /// a pinned confirm bar — the limited tray (and the preset strip,
+    /// #203) died.
     var setupMode = false
-    /// Any toggle/preset touch counts as engagement: plain back then
-    /// still marks setup done (never trap the user in a step).
+    /// Only Today's onboarding step offers population on Done (#204) —
+    /// Settings/Library re-runs are curation, not setup.
+    var offersPopulateOnDone = false
+    /// Any toggle touch counts as engagement: plain back then still
+    /// marks setup done (never trap the user in a step).
     @State private var touchedSetup = false
-    /// #185: the optional populate offer, shown once on Done when the
-    /// owned equipment supports exercises that aren't in the library.
-    @State private var offeringPopulate = false
 
     private var query: String { filterState.searchText }
 
@@ -318,12 +319,6 @@ struct CatalogBrowseScreen: View {
         VStack(spacing: 0) {
             CatalogDetailHeader(title: kind == .exercises ? "Exercise catalog" : "Equipment catalog") {
                 EmptyView()
-            }
-
-            if setupMode && kind == .equipment {
-                presetStrip
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
             }
 
             SearchField(prompt: "Search the catalog", text: Bindable(filterState).searchText)
@@ -361,7 +356,9 @@ struct CatalogBrowseScreen: View {
                         .font(.system(.caption, weight: .semibold))
                     Text(createLabel).font(.system(.footnote, weight: .semibold))
                 }
-                .foregroundStyle(Theme.textPrimary)
+                // Creation is green (#202) — a future increment, same
+                // voice as the catalog dead-end create rows.
+                .foregroundStyle(Theme.accent)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 12)
                 .frame(height: 44)
@@ -442,13 +439,13 @@ struct CatalogBrowseScreen: View {
                 Button {
                     touchedSetup = true
                     SetupState.markEquipmentDone()
-                    // Population is the user's call, never automatic
-                    // (#185): offer it only when there's something to add.
-                    if kind == .equipment && populateCandidateCount > 0 {
-                        offeringPopulate = true
-                    } else {
-                        dismiss()
+                    // Population stays the user's call (#185), but the
+                    // ask moved to Today (#204) — a popover here floated
+                    // anchored to nothing while the screen was leaving.
+                    if kind == .equipment && offersPopulateOnDone {
+                        SetupState.requestPopulateOffer()
                     }
+                    dismiss()
                 } label: {
                     Text(ownedNames.isEmpty ? "Done — bodyweight only" : "Done — \(ownedNames.count) item\(ownedNames.count == 1 ? "" : "s")")
                         .font(.system(.subheadline, weight: .bold))
@@ -462,21 +459,6 @@ struct CatalogBrowseScreen: View {
                 .padding(.vertical, 8)
                 .background(.bar)
             }
-        }
-        .confirmationDialog(
-            "Add \(populateCandidateCount) exercise\(populateCandidateCount == 1 ? "" : "s") your equipment supports?",
-            isPresented: $offeringPopulate,
-            titleVisibility: .visible
-        ) {
-            Button("Add them") {
-                SeedData.populateLibraryFromEquipment(context: modelContext)
-                dismiss()
-            }
-            Button("Start empty", role: .cancel) {
-                dismiss()
-            }
-        } message: {
-            Text("Skipping is fine — the catalog stays a tap away, and anything you use joins your library on its own.")
         }
         .onDisappear {
             // Plain back after engaging still counts as done — never
@@ -528,6 +510,7 @@ struct CatalogBrowseScreen: View {
             }
         }
         .tint(Theme.selected)
+        .accessibilityIdentifier("toggle-\(name)")
         .padding(.vertical, 4)
         .listRowBackground(Color.clear)
         .listRowSeparatorTint(Theme.border)
@@ -559,67 +542,14 @@ struct CatalogBrowseScreen: View {
             .filter { matchesLibraryFilter($0.inLibrary) }
     }
 
-    /// §F preset strip: three bulk shortcuts, wearing the §D selected
-    /// treatment while the live toggles still match — edit any toggle
-    /// and the card deselects (it's a shortcut, not a mode).
-    private var presetStrip: some View {
-        HStack(spacing: 8) {
-            ForEach(Self.presets, id: \.name) { preset in
-                let items = preset.resolve(from: allEquipment)
-                let active = ownedNames == items
-                Button {
-                    touchedSetup = true
-                    for equipment in allEquipment.filter(\.isBuiltIn) {
-                        equipment.inLibrary = items.contains(equipment.name)
-                    }
-                } label: {
-                    VStack(spacing: 2) {
-                        Text(preset.name)
-                            .font(.system(.caption, weight: .semibold))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                        Text(items.isEmpty ? "just you" : "\(items.count) items")
-                            .font(.system(.caption2, design: .monospaced))
-                            .opacity(0.75)
-                    }
-                    .foregroundStyle(active ? Theme.selected : Theme.textSecondary)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44)
-                    .background(active ? AnyShapeStyle(Theme.selectedTint) : AnyShapeStyle(Theme.surface), in: RoundedRectangle(cornerRadius: 10))
-                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(active ? Theme.selectedRing : Theme.border, lineWidth: 1))
-                }
-            }
-        }
-        .animation(.easeOut(duration: 0.15), value: ownedNames)
-    }
-
-    private struct SetupPreset {
-        let name: String
-        /// nil = everything built-in.
-        let items: Set<String>?
-
-        func resolve(from equipment: [Equipment]) -> Set<String> {
-            items ?? Set(equipment.filter(\.isBuiltIn).map(\.name))
-        }
-    }
-
-    private static let presets: [SetupPreset] = [
-        SetupPreset(name: "Commercial gym", items: nil),
-        SetupPreset(name: "Home basics", items: ["Dumbbells", "Bench", "Kettlebell", "Resistance Band", "Pull-Up Bar"]),
-        SetupPreset(name: "Bodyweight only", items: []),
-    ]
+    // The §F preset strip died here (#203): three bulk buttons that
+    // could silently overwrite a curated equipment set in one tap, and
+    // they crammed the top. Search + per-row toggles are the tool; a
+    // bulk affordance returns only if real setup friction demands one,
+    // and additive-only when it does.
 
     private var ownedNames: Set<String> {
         Set(allEquipment.filter { $0.isBuiltIn && $0.inLibrary }.map(\.name))
-    }
-
-    /// Built-ins the owned equipment supports that aren't in the
-    /// library yet — the populate offer's count (#185).
-    private var populateCandidateCount: Int {
-        allExercises.filter { exercise in
-            exercise.isBuiltIn && !exercise.inLibrary
-                && !exercise.equipment.contains { !$0.isDeleted && !$0.inLibrary }
-        }.count
     }
 
     /// Exercises the ownership filter is currently hiding (§H escape

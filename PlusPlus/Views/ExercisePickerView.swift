@@ -52,6 +52,8 @@ struct ExercisePickerView: View {
                     Button("New Exercise", systemImage: "plus") {
                         showingCreateSheet = true
                     }
+                    // Creation is green (#202).
+                    .tint(Theme.accent)
                     .accessibilityIdentifier("newExerciseButton")
                 }
             }

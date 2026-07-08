@@ -69,7 +69,7 @@ struct RoutineListView: View {
             HStack {
                 HeaderGlyph()
                 Spacer()
-                HeaderIconButton(systemImage: "plus", identifier: "newRoutineButton") {
+                HeaderIconButton(systemImage: "plus", identifier: "newRoutineButton", tint: Theme.accent) {
                     showingNewRoutine = true
                 }
             }
@@ -121,13 +121,15 @@ struct RoutineListView: View {
 struct HeaderIconButton: View {
     let systemImage: String
     var identifier: String?
+    /// Glyph color — creation buttons pass the data green (#202).
+    var tint: Color = Theme.textSecondary
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.system(.body, weight: .medium))
-                .foregroundStyle(Theme.textSecondary)
+                .foregroundStyle(tint)
                 .frame(width: 44, height: 44)
                 .background(Theme.surface, in: Circle())
                 .overlay(Circle().strokeBorder(Theme.border))

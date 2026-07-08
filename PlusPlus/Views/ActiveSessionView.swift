@@ -243,7 +243,8 @@ struct ActiveSessionView: View {
         VStack(spacing: 14) {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 64))
-                .foregroundStyle(Theme.primaryFill)
+                // Completion purple (#201) — the workout just merged.
+                .foregroundStyle(Theme.done)
                 .symbolEffect(.bounce, options: .nonRepeating, value: completeBounce)
                 .onAppear { completeBounce = true }
             Text("Workout Complete")
