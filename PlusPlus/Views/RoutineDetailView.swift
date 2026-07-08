@@ -278,21 +278,23 @@ struct RoutineDetailView: View {
                 Canvas { context, size in
                     let mid = size.height / 2
                     var spine = Path()
-                    spine.move(to: CGPoint(x: 11, y: 0))
-                    spine.addLine(to: CGPoint(x: 11, y: mid - 11))
+                    spine.move(to: CGPoint(x: 15, y: 0))
+                    spine.addLine(to: CGPoint(x: 15, y: mid - 11))
                     context.stroke(spine, with: .color(Theme.border), style: StrokeStyle(lineWidth: 2))
-                    let dotRect = CGRect(x: 11 - 8, y: mid - 8, width: 16, height: 16)
+                    let dotRect = CGRect(x: 15 - 8, y: mid - 8, width: 16, height: 16)
                     context.stroke(
                         Path(ellipseIn: dotRect),
                         with: .color(Theme.borderStrong),
                         style: StrokeStyle(lineWidth: 2, dash: [2.5, 3])
                     )
+                    // The + stays green ONLY here — it marks a future
+                    // node on the rail (§H).
                     context.draw(
                         Text("+").font(.system(.footnote, design: .monospaced, weight: .semibold)).foregroundStyle(Theme.accent),
-                        at: CGPoint(x: 11, y: mid - 0.5)
+                        at: CGPoint(x: 15, y: mid - 0.5)
                     )
                 }
-                .frame(width: 24, height: railRowHeight)
+                .frame(width: 28, height: railRowHeight)
 
                 Text("Add exercise")
                     .font(.system(.subheadline, weight: .semibold))
@@ -318,7 +320,7 @@ struct RoutineDetailView: View {
             id: routineExercise.persistentModelID,
             openRow: $openSwipeRow,
             enabled: railGesture == .idle,
-            actionsWidth: 174
+            actionsWidth: 116
         ) {
             ExerciseRailRow(
                 routineExercise: routineExercise,
@@ -347,10 +349,6 @@ struct RoutineDetailView: View {
             }
         } actions: {
             HStack(spacing: 0) {
-                SwipeActionButton(label: "SUPER", color: Theme.supersetLine) {
-                    openSwipeRow = nil
-                    pickerDestination = .group(group)
-                }
                 SwipeActionButton(label: "DUPE", color: Theme.textSecondary) {
                     openSwipeRow = nil
                     duplicateExercise(routineExercise, in: group)
@@ -377,7 +375,7 @@ struct RoutineDetailView: View {
 
     /// Width of the rail column at each row's leading edge: a press that
     /// starts here is the ring gesture; anywhere else on the row drags it.
-    private static let dotZoneWidth: Double = 37
+    private static let dotZoneWidth: Double = 41
 
     /// True only for a y actually INSIDE an exercise row's extent.
     /// RailLayout.exercise(at:) clamps to the nearest row by design
@@ -505,15 +503,30 @@ struct RoutineDetailView: View {
                 // all sides; the list's 10 pt top inset keeps the stroke
                 // visible even when the span starts at the first row.
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Theme.supersetLine.opacity(0.08))
+                    .fill(Theme.selected.opacity(0.10))
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
-                            .strokeBorder(Theme.supersetLine, lineWidth: 2)
+                            .strokeBorder(Theme.selected, lineWidth: 2)
                     )
+                    // Mid-gesture this IS selection (§1a), so it speaks
+                    // the selection grammar; the legend is the one place
+                    // the word SUPERSET survives, punched through the
+                    // stroke on the top edge.
+                    .overlay(alignment: .topTrailing) {
+                        Text("SUPERSET")
+                            .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                            .kerning(0.7)
+                            .foregroundStyle(Theme.selected)
+                            .padding(.horizontal, 6)
+                            .background(Theme.background)
+                            .offset(y: -6)
+                            .padding(.trailing, 12)
+                    }
                     .frame(height: last.maxY - first.y + 12)
                     .padding(.horizontal, -8)
                     .offset(y: first.y - 6)
                     .allowsHitTesting(false)
+                    .transition(.opacity.animation(.easeOut(duration: 0.15)))
             }
         }
     }
@@ -725,7 +738,7 @@ private struct ExerciseRailRow: View {
     var body: some View {
         HStack(spacing: 13) {
             RailGlyph(role: hideLoop ? .solo : role, height: rowHeight, dotY: rowHeight / 2)
-                .frame(width: 24, height: rowHeight)
+                .frame(width: 28, height: rowHeight)
 
             Text(routineExercise.exercise?.name ?? "Unknown")
                 .font(.system(.body, weight: .semibold))
@@ -747,79 +760,96 @@ private struct ExerciseRailRow: View {
     }
 }
 
-/// The rail drawing beside each exercise row: a spine for solo rows, and
-/// a stadium loop (blue) with flow arrows around superset members. The
-/// geometry mirrors the prototype: dot center x=11, loop sides x=3/x=19,
-/// cap radius 8, 2 pt strokes.
+/// The rail drawing beside each exercise row, redrawn in v4 §1a: the
+/// spine runs SOLID through members (dash means "pending", and only on
+/// Today), grouping is a return loop on the rail side at x=3, and at
+/// rest the whole glyph draws in the rail's own ink — border for the
+/// loop, borderStrong for node strokes — because collapsed it's just a
+/// map of the routine's order. Blue appears on the rail only while the
+/// ring gesture is live (the highlight in ringHighlight), and in that
+/// moment it IS selection. Reading: sets run down the spine; the loop
+/// returns you to the top — the A1 B1 A2 B2 rotation made literal.
+///
+/// Geometry: 28 pt column, spine x=15, loop x=3 (12 pt off the spine,
+/// ~7 pt clear of the 10 pt node), quarter curves r≈10 into each node.
+/// One up-pointing chevron (5×4.5, round caps) per inter-member gap,
+/// centered on the row boundary; the line runs continuously from behind
+/// the chevron through its tip, and the 4 pt break sits in FRONT of the
+/// tip only — in the direction of travel, never behind.
 struct RailGlyph: View {
     let role: RailRole
     let height: CGFloat
     let dotY: CGFloat
 
+    private static let spineX: CGFloat = 15
+    private static let loopX: CGFloat = 3
+
     var body: some View {
         Canvas { context, _ in
-            let spine = Theme.border
-            let loop = Theme.supersetLine
-            let solid = StrokeStyle(lineWidth: 2)
-            let dashed = StrokeStyle(lineWidth: 2, dash: [3.5, 4.5])
+            let ink = Theme.border
             let loopStyle = StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round)
+            let spineX = Self.spineX
+            let loopX = Self.loopX
 
-            func vline(_ x: CGFloat, _ y0: CGFloat, _ y1: CGFloat, style: StrokeStyle, color: Color) {
+            func vline(_ x: CGFloat, _ y0: CGFloat, _ y1: CGFloat) {
+                guard y1 > y0 else { return }
                 var path = Path()
                 path.move(to: CGPoint(x: x, y: y0))
                 path.addLine(to: CGPoint(x: x, y: y1))
-                context.stroke(path, with: .color(color), style: style)
+                context.stroke(path, with: .color(ink), style: loopStyle)
             }
 
-            /// Half-stadium cap through the dot row: (3,dotY) → (19,dotY),
-            /// bulging up (top cap) or down (bottom cap).
-            func cap(up: Bool) {
+            /// Quarter curve joining the loop line to a node row: the
+            /// control point sits at the corner, reading as r≈10.
+            func corner(from: CGPoint, to: CGPoint, control: CGPoint) {
                 var path = Path()
-                let bulge: CGFloat = up ? dotY - 10.7 : dotY + 10.7
-                path.move(to: CGPoint(x: 3, y: dotY))
-                path.addCurve(
-                    to: CGPoint(x: 19, y: dotY),
-                    control1: CGPoint(x: 3, y: bulge),
-                    control2: CGPoint(x: 19, y: bulge)
-                )
-                context.stroke(path, with: .color(loop), style: loopStyle)
+                path.move(to: from)
+                path.addQuadCurve(to: to, control: control)
+                context.stroke(path, with: .color(ink), style: loopStyle)
             }
 
-            func arrow(x: CGFloat, tipY: CGFloat, pointingDown: Bool) {
+            /// Up-pointing chevron at this row's TOP boundary; the 4 pt
+            /// break above the tip is the previous row's job (it stops
+            /// its loop line 3.5 pt short of its bottom edge).
+            func chevron() {
                 var path = Path()
-                let backY = pointingDown ? tipY - 4 : tipY + 4
-                path.move(to: CGPoint(x: x - 2.5, y: backY))
-                path.addLine(to: CGPoint(x: x, y: tipY))
-                path.addLine(to: CGPoint(x: x + 2.5, y: backY))
-                context.stroke(path, with: .color(loop), style: loopStyle)
+                path.move(to: CGPoint(x: loopX - 2.5, y: 5))
+                path.addLine(to: CGPoint(x: loopX, y: 0.5))
+                path.addLine(to: CGPoint(x: loopX + 2.5, y: 5))
+                context.stroke(path, with: .color(ink), style: loopStyle)
             }
+
+            // The spine is solid through everything (§1a) — role only
+            // decides the loop's slice.
+            vline(spineX, 0, height)
 
             switch role {
             case .solo:
-                vline(11, 0, height, style: solid, color: spine)
+                break
             case .supersetFirst:
-                vline(11, 0, dotY - 8, style: solid, color: spine)
-                vline(11, dotY, height, style: dashed, color: spine)
-                cap(up: true)
-                vline(3, dotY, height, style: loopStyle, color: loop)
-                vline(19, dotY, height, style: loopStyle, color: loop)
-                arrow(x: 3, tipY: dotY + 8, pointingDown: false)
+                // Loop rejoins the first member's node from below.
+                corner(
+                    from: CGPoint(x: loopX, y: dotY + 10),
+                    to: CGPoint(x: spineX, y: dotY),
+                    control: CGPoint(x: loopX, y: dotY)
+                )
+                vline(loopX, dotY + 10, height - 3.5)
             case .supersetMiddle:
-                vline(11, 0, height, style: dashed, color: spine)
-                vline(3, 0, height, style: loopStyle, color: loop)
-                vline(19, 0, height, style: loopStyle, color: loop)
+                chevron()
+                vline(loopX, 0.5, height - 3.5)
             case .supersetLast:
-                vline(11, 0, dotY, style: dashed, color: spine)
-                vline(11, dotY + 8, height, style: solid, color: spine)
-                cap(up: false)
-                vline(3, 0, dotY, style: loopStyle, color: loop)
-                vline(19, 0, dotY - 10, style: loopStyle, color: loop)
-                vline(19, dotY - 6.5, dotY, style: loopStyle, color: loop)
-                arrow(x: 19, tipY: dotY - 10, pointingDown: true)
+                // Loop leaves the last member's node and runs up.
+                chevron()
+                vline(loopX, 0.5, dotY - 10)
+                corner(
+                    from: CGPoint(x: spineX, y: dotY),
+                    to: CGPoint(x: loopX, y: dotY - 10),
+                    control: CGPoint(x: loopX, y: dotY)
+                )
             }
 
             // The member dot, drawn last so it sits on the lines.
-            let dotRect = CGRect(x: 11 - 5, y: dotY - 5, width: 10, height: 10)
+            let dotRect = CGRect(x: spineX - 5, y: dotY - 5, width: 10, height: 10)
             context.fill(Path(ellipseIn: dotRect), with: .color(Theme.background))
             context.stroke(
                 Path(ellipseIn: dotRect.insetBy(dx: 1, dy: 1)),

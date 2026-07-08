@@ -54,11 +54,6 @@ enum Theme {
     /// Text and glyphs sitting on primaryFill.
     static let onPrimary = Color(light: 0xFFFFFF, dark: 0x161616)
 
-    /// Retiring with the §1a rail redraw (v4): at rest the rail glyph
-    /// draws in border/borderStrong; the live ring gesture speaks the
-    /// selection treatment. Only the pre-redraw rail still reads these.
-    static let supersetLine = Color(light: 0x3B6FB0, dark: 0x7FA3D0)
-
     /// Exercise/routine notes ("form cues" amber).
     static let notes = Color(light: 0x9A6700, dark: 0xCFA14A)
 
