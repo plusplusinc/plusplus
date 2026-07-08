@@ -829,14 +829,8 @@ struct RailGlyph: View {
 struct RoutineSettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Bindable var routine: Routine
-    /// Other routines' schedules feed the day-occupancy dots (#112);
-    /// finished sessions anchor the next-due line.
+    /// Other routines' schedules feed the day-occupancy dots (#112).
     @Query(sort: \Routine.order) private var allRoutines: [Routine]
-    @Query(
-        filter: #Predicate<WorkoutSession> { $0.endedAt != nil },
-        sort: [SortDescriptor(\WorkoutSession.startedAt, order: .reverse)]
-    )
-    private var finishedSessions: [WorkoutSession]
 
     @State private var scheduleMode: Int
     @State private var scheduleDays: Set<Int>
@@ -893,12 +887,6 @@ struct RoutineSettingsSheet: View {
                         .foregroundStyle(Theme.textFaint)
                         .padding(.top, 6)
 
-                    if let nextDue = nextDueText {
-                        (Text("next due ").font(.system(.caption, design: .monospaced)).foregroundStyle(Theme.textSecondary)
-                            + Text(nextDue).font(.system(.caption, design: .monospaced, weight: .semibold)).foregroundStyle(Theme.accent))
-                            .padding(.top, 8)
-                    }
-
                     SheetSectionLabel("BETWEEN SETS")
                         .padding(.top, 16)
 
@@ -915,7 +903,7 @@ struct RoutineSettingsSheet: View {
                     SheetSectionLabel("NOTES")
                         .padding(.top, 16)
 
-                    TextField("Intent for this routine — shown when you start it", text: notesBinding, axis: .vertical)
+                    TextField("", text: notesBinding, axis: .vertical)
                         .font(.system(.footnote))
                         .lineLimit(1...4)
                         .padding(.horizontal, 14)
@@ -923,11 +911,6 @@ struct RoutineSettingsSheet: View {
                         .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
                         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
                         .accessibilityIdentifier("routineNotesField")
-
-                    Text("Shown once, when you start the routine.")
-                        .font(.system(.caption))
-                        .foregroundStyle(Theme.textFaint)
-                        .padding(.top, 6)
                 }
                 .padding(.bottom, 30)
             }
@@ -1042,25 +1025,6 @@ struct RoutineSettingsSheet: View {
             }
         }
         return nil
-    }
-
-    /// "today" / "thu" under the mode UI, in the data green.
-    private var nextDueText: String? {
-        guard scheduleMode != 0 else { return nil }
-        let schedule: RoutineSchedule = scheduleMode == 1
-            ? .weekdays(scheduleDays)
-            : .frequency(times: scheduleTimes, perDays: schedulePerDays)
-        let lastCompleted = finishedSessions
-            .first { $0.routine === routine || $0.routineName == routine.name }?
-            .endedAt
-        switch schedule.dueState(lastCompleted: lastCompleted, today: Date(), calendar: .current) {
-        case .due:
-            return "today"
-        case .notDue(let next):
-            return next.formatted(.dateTime.weekday(.abbreviated)).lowercased()
-        case .unscheduled:
-            return nil
-        }
     }
 
     private func persistSchedule() {
