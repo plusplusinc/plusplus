@@ -3,10 +3,12 @@ import SwiftData
 import UniformTypeIdentifiers
 import PlusPlusKit
 
-/// Settings, v2 (#67): sync first, then units and data. The SYNC section
-/// is the #23 shape with the wiring pending — the connect button explains
-/// itself instead of doing nothing silently.
-struct SettingsView: View {
+/// Settings, v4 §B: a pushed page off Today, ordered by daily use —
+/// APPEARANCE · UNITS · EQUIPMENT · DATA · SYNC. Sync dropped from first
+/// position: it's aspirational until #23 ships, and it shouldn't
+/// headline the page you open to flip dark mode. One footer caption per
+/// section max, only where semantics surprise (§G).
+struct SettingsScreen: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
     @AppStorage(AppAppearance.storageKey) private var appearanceRaw: String = AppAppearance.system.rawValue
@@ -23,36 +25,12 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "Settings", action: { dismiss() })
-                .padding(.horizontal, 18)
+            pageHeader
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    SheetSectionLabel("SYNC")
-                        .padding(.top, 16)
-
-                    Button {
-                        showingSyncExplainer = true
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "arrow.triangle.2.circlepath")
-                                .font(.system(.footnote))
-                            Text("Connect GitHub")
-                                .font(.system(.subheadline, weight: .bold))
-                        }
-                        .foregroundStyle(Theme.textPrimary)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 46)
-                        .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
-                        .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.borderStrong))
-                    }
-                    Text("Your program and history live as JSON in a repo you own.")
-                        .font(.system(.caption))
-                        .foregroundStyle(Theme.textFaint)
-                        .padding(.top, 6)
-
                     SheetSectionLabel("APPEARANCE")
-                        .padding(.top, 16)
+                        .padding(.top, 24)
                     SegmentedTabs(
                         options: AppAppearance.allCases.map(\.label),
                         selectedIndex: Binding(
@@ -64,7 +42,7 @@ struct SettingsView: View {
                     )
 
                     SheetSectionLabel("UNITS")
-                        .padding(.top, 16)
+                        .padding(.top, 24)
                     SegmentedTabs(
                         options: ["lb", "kg"],
                         selectedIndex: Binding(
@@ -77,33 +55,37 @@ struct SettingsView: View {
                         .foregroundStyle(Theme.textFaint)
                         .padding(.top, 6)
 
-                    SheetSectionLabel("EQUIPMENT ACCESS")
-                        .padding(.top, 16)
+                    SheetSectionLabel("EQUIPMENT")
+                        .padding(.top, 24)
                     Button {
                         showingEquipmentSetup = true
                     } label: {
                         HStack {
-                            Text("Re-run setup")
+                            Text("Your equipment")
                                 .font(.system(.footnote))
                                 .foregroundStyle(Theme.textPrimary)
                             Spacer()
                             Text(equipmentSummary)
                                 .font(.system(.caption, design: .monospaced))
                                 .foregroundStyle(Theme.textSecondary)
+                            Image(systemName: "chevron.right")
+                                .font(.system(.caption, weight: .bold))
+                                .foregroundStyle(Theme.textFaint)
                         }
                         .padding(.horizontal, 14)
-                        .padding(.vertical, 11)
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
                     }
-                    .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                     .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
                     .accessibilityIdentifier("equipmentSetupButton")
-                    Text("Filters the exercise catalog everywhere · never touches logged history")
+                    Text("Never touches logged history.")
                         .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
                         .padding(.top, 6)
 
                     SheetSectionLabel("DATA")
-                        .padding(.top, 16)
+                        .padding(.top, 24)
                     VStack(spacing: 0) {
                         Button {
                             prepareExport()
@@ -127,19 +109,49 @@ struct SettingsView: View {
                                 .padding(.vertical, 11)
                         }
                     }
-                    .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                     .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
 
-                    Text("Interchange schema v\(Interchange.schemaVersion) — exercises + routines + history as JSON, ready for the routines repo.")
+                    Text("Interchange schema v\(Interchange.schemaVersion) — exercises + routines + history as JSON.")
                         .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
                         .padding(.top, 6)
+
+                    SheetSectionLabel("SYNC")
+                        .padding(.top, 24)
+                    Button {
+                        showingSyncExplainer = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .font(.system(.footnote))
+                            Text("Connect GitHub")
+                                .font(.system(.subheadline, weight: .bold))
+                        }
+                        .foregroundStyle(Theme.textPrimary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 46)
+                        .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.borderStrong))
+                    }
+                    Text("Your program and history live as JSON in a repo you own.")
+                        .font(.system(.caption))
+                        .foregroundStyle(Theme.textFaint)
+                        .padding(.top, 6)
+
+                    // Quiet version info, no section (SSB).
+                    Text("++ build \(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "dev")")
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(Theme.textFaint)
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 32)
                 }
-                .padding(.horizontal, 18)
                 .padding(.bottom, 30)
             }
         }
-        .presentationBackground(Theme.surface)
+        .padding(.horizontal, 16)
+        .background(Theme.background)
+        .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $showingEquipmentSetup) {
             EquipmentAccessSheet()
         }
@@ -180,6 +192,29 @@ struct SettingsView: View {
         } message: {
             Text(dataError ?? "")
         }
+    }
+
+    private var pageHeader: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                dismiss()
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(.footnote, weight: .bold))
+                    Text("Back")
+                        .font(.system(.footnote, weight: .semibold))
+                }
+                .foregroundStyle(Theme.textSecondary)
+                .padding(.vertical, 6)
+            }
+            .accessibilityIdentifier("backButton")
+
+            Text("Settings")
+                .font(.system(.title, weight: .bold))
+                .padding(.top, 2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var equipmentSummary: String {

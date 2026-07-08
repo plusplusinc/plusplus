@@ -194,7 +194,8 @@ final class SmokeTests: XCTestCase {
         let dayChip = app.buttons["scheduleDay\(weekday)"]
         XCTAssertTrue(dayChip.waitForExistence(timeout: 5))
         dayChip.tap()
-        app.buttons["Done"].tap()
+        // Routine settings is a pushed page now (v4 SSA) — back, not Done.
+        app.buttons["backButton"].tap()
 
         // Scaffold fully committed; the real thing appears above it —
         // Push Day staged and startable.

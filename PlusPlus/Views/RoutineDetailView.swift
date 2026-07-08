@@ -48,9 +48,17 @@ struct RoutineDetailView: View {
                 addExercise(exercise, to: destination)
             }
         }
-        .sheet(isPresented: $showingRoutineSettings) {
-            RoutineSettingsSheet(routine: routine)
-                .presentationDetents([.medium, .large])
+        .navigationDestination(isPresented: $showingRoutineSettings) {
+            RoutineSettingsScreen(routine: routine) {
+                // Delete pops both settings and detail before the model
+                // dies — a rendered @Bindable to a deleted routine is a
+                // crash waiting on the next body pass.
+                showingRoutineSettings = false
+                dismiss()
+                Task { @MainActor in
+                    modelContext.delete(routine)
+                }
+            }
         }
         .sheet(item: $selectedExercise) { routineExercise in
             ExerciseDetailSheet(
@@ -138,28 +146,24 @@ struct RoutineDetailView: View {
             .padding(.top, 2)
 
             if !routine.groups.isEmpty {
-                // Schedule + rest as chips under the title (#109); both
-                // open the routine-settings sheet. The ~time estimate
-                // rides along as plain meta.
-                HStack(spacing: 7) {
-                    detailChip(scheduleChipText, identifier: "scheduleChip")
-                    detailChip("rest \(restText)", identifier: "restChip")
-                    (Text(estimatedTimeText).font(.system(.footnote, design: .monospaced)).bold().foregroundStyle(Theme.textPrimary)
-                        + Text(" est").font(.system(.footnote)).foregroundStyle(Theme.textSecondary))
-                        .padding(.leading, 5)
-                }
-                .padding(.top, 8)
+                // Facts, not inputs (v4 §A): schedule value first (ink,
+                // semibold), then rest + estimate as secondary meta.
+                // Nothing here is tappable — the settings button is the
+                // single edit entry.
+                (scheduleFactText
+                    + Text("  ·  rest \(restText)  ·  \(estimatedTimeText)")
+                    .font(.system(.footnote, design: .monospaced))
+                    .foregroundStyle(Theme.textSecondary))
+                    .padding(.top, 8)
 
-                Button {
-                    showingRoutineSettings = true
-                } label: {
-                    Text(routine.notes ?? "add notes…")
+                if let notes = routine.notes {
+                    Text(notes)
                         .font(.system(.footnote))
-                        .foregroundStyle(routine.notes == nil ? Theme.textFaint : Theme.textSecondary)
+                        .foregroundStyle(Theme.textSecondary)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
+                        .padding(.top, 7)
                 }
-                .padding(.top, 7)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -177,22 +181,12 @@ struct RoutineDetailView: View {
             + (routine.restSeconds < 60 ? "s" : "")
     }
 
-    private var scheduleChipText: String {
-        routine.schedule.shortLabel
-    }
-
-    private func detailChip(_ text: String, identifier: String) -> some View {
-        Button {
-            showingRoutineSettings = true
-        } label: {
-            (Text(text).font(.system(.footnote, design: .monospaced, weight: .semibold)).foregroundStyle(Theme.textPrimary)
-                + Text(" ") + Text(Image(systemName: "chevron.down")).font(.system(.caption2, weight: .semibold)).foregroundStyle(Theme.textSecondary))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(Theme.surface, in: RoundedRectangle(cornerRadius: 8))
-                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.border))
-        }
-        .accessibilityIdentifier(identifier)
+    /// Schedule value in ink semibold; "unscheduled" recedes to faint.
+    private var scheduleFactText: Text {
+        let unscheduled = routine.schedule.normalized == .unscheduled
+        return Text(unscheduled ? "unscheduled" : routine.schedule.shortLabel)
+            .font(.system(.footnote, design: .monospaced, weight: unscheduled ? .regular : .semibold))
+            .foregroundStyle(unscheduled ? Theme.textFaint : Theme.textPrimary)
     }
 
     private var emptyHint: some View {
@@ -836,11 +830,13 @@ struct RailGlyph: View {
     }
 }
 
-// MARK: - Routine settings sheet (rest + notes)
+// MARK: - Routine settings screen (v4 §A: pushed page, facts edited in place)
 
-struct RoutineSettingsSheet: View {
+struct RoutineSettingsScreen: View {
     @Environment(\.dismiss) private var dismiss
     @Bindable var routine: Routine
+    /// Pops the enclosing navigation before the model dies.
+    var onDelete: () -> Void
     /// Other routines' schedules feed the day-occupancy dots (#112).
     @Query(sort: \Routine.order) private var allRoutines: [Routine]
 
@@ -848,9 +844,13 @@ struct RoutineSettingsSheet: View {
     @State private var scheduleDays: Set<Int>
     @State private var scheduleTimes: Int
     @State private var schedulePerDays: Int
+    @State private var showingRename = false
+    @State private var showingNotes = false
+    @State private var confirmingDelete = false
 
-    init(routine: Routine) {
+    init(routine: Routine, onDelete: @escaping () -> Void) {
         self.routine = routine
+        self.onDelete = onDelete
         // Seed the editor state from the stored schedule; edits write
         // back through persistSchedule() on every change.
         switch routine.schedule {
@@ -874,12 +874,35 @@ struct RoutineSettingsSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "Routine settings", action: { dismiss() })
+            pageHeader
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
+                    SheetSectionLabel("NAME")
+                        .padding(.top, 24)
+                    Button {
+                        showingRename = true
+                    } label: {
+                        HStack {
+                            Text(routine.name)
+                                .font(.system(.footnote))
+                                .foregroundStyle(Theme.textPrimary)
+                                .lineLimit(1)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(.caption, weight: .bold))
+                                .foregroundStyle(Theme.textFaint)
+                        }
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                    }
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+                    .accessibilityIdentifier("renameRoutineRow")
+
                     SheetSectionLabel("SCHEDULE")
-                        .padding(.top, 16)
+                        .padding(.top, 24)
 
                     SegmentedTabs(options: ["Off", "Days", "Pace"], selectedIndex: Binding(
                         get: { scheduleMode },
@@ -894,13 +917,15 @@ struct RoutineSettingsSheet: View {
                             .padding(.top, 8)
                     }
 
-                    Text(scheduleCaption)
-                        .font(.system(.caption))
-                        .foregroundStyle(Theme.textFaint)
-                        .padding(.top, 6)
+                    if let caption = scheduleCaption {
+                        Text(caption)
+                            .font(.system(.caption))
+                            .foregroundStyle(Theme.textFaint)
+                            .padding(.top, 6)
+                    }
 
                     SheetSectionLabel("BETWEEN SETS")
-                        .padding(.top, 16)
+                        .padding(.top, 24)
 
                     MetricStepperRow(
                         label: "Rest",
@@ -909,26 +934,116 @@ struct RoutineSettingsSheet: View {
                         onDecrement: { routine.restSeconds = Int(WorkoutMetric.rest.decremented(Double(routine.restSeconds))) },
                         onIncrement: { routine.restSeconds = Int(WorkoutMetric.rest.incremented(Double(routine.restSeconds))) }
                     )
-                    .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
                     .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
 
                     SheetSectionLabel("NOTES")
-                        .padding(.top, 16)
+                        .padding(.top, 24)
 
-                    TextField("", text: notesBinding, axis: .vertical)
-                        .font(.system(.footnote))
-                        .lineLimit(1...4)
+                    // Text entry is a form, so it opens a tray (§A);
+                    // the trailing › says "opens a surface", not
+                    // "dropdown".
+                    Button {
+                        showingNotes = true
+                    } label: {
+                        HStack(alignment: .top) {
+                            Text(routine.notes ?? "Add notes")
+                                .font(.system(.footnote))
+                                .foregroundStyle(routine.notes == nil ? Theme.textFaint : Theme.textSecondary)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(.caption, weight: .bold))
+                                .foregroundStyle(Theme.textFaint)
+                        }
                         .padding(.horizontal, 14)
-                        .padding(.vertical, 11)
-                        .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
-                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
-                        .accessibilityIdentifier("routineNotesField")
+                        .padding(.vertical, 12)
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                    }
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+                    .accessibilityIdentifier("routineNotesRow")
+
+                    // Dave, this round: delete lives here too, behind a
+                    // confirmation. History is never touched.
+                    Button {
+                        confirmingDelete = true
+                    } label: {
+                        Text("Delete routine")
+                            .font(.system(.footnote, weight: .semibold))
+                            .foregroundStyle(Theme.destructive)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
+                            .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.destructive.opacity(0.4)))
+                    }
+                    .accessibilityIdentifier("deleteRoutineButton")
+                    .padding(.top, 28)
                 }
                 .padding(.bottom, 30)
             }
         }
-        .padding(.horizontal, 18)
-        .presentationBackground(Theme.surface)
+        .padding(.horizontal, 16)
+        .background(Theme.background)
+        .toolbar(.hidden, for: .navigationBar)
+        .sheet(isPresented: $showingRename) {
+            RenameRoutineTray(routine: routine, takenNames: takenNames)
+                .presentationDetents([.height(220)])
+        }
+        .sheet(isPresented: $showingNotes) {
+            RoutineNotesTray(routine: routine)
+                .presentationDetents([.medium])
+        }
+        .confirmationDialog(
+            "Delete \u{201C}\(routine.name)\u{201D}?",
+            isPresented: $confirmingDelete,
+            titleVisibility: .visible
+        ) {
+            Button("Delete routine", role: .destructive) { onDelete() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Logged history is untouched.")
+        }
+    }
+
+    /// ‹ Back / routine name / "routine settings" — the page title is
+    /// the routine, which is exactly what makes onboarding step 3
+    /// unambiguous about what it's configuring (§A).
+    private var pageHeader: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                dismiss()
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(.footnote, weight: .bold))
+                    Text("Back")
+                        .font(.system(.footnote, weight: .semibold))
+                }
+                .foregroundStyle(Theme.textSecondary)
+                .padding(.vertical, 6)
+            }
+            .accessibilityIdentifier("backButton")
+
+            Text(routine.name)
+                .font(.system(.title, weight: .bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .padding(.top, 2)
+            Text("routine settings")
+                .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(Theme.textFaint)
+                .padding(.top, 3)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Lowercased names of every OTHER routine — renaming to one of
+    /// these is blocked because duplicate names defeat the schedule
+    /// matching protections (#189).
+    private var takenNames: Set<String> {
+        Set(allRoutines.filter { $0 !== routine }.map { $0.name.lowercased() })
     }
 
     // MARK: - Schedule (#83)
@@ -1013,15 +1128,18 @@ struct RoutineSettingsSheet: View {
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
     }
 
-    private var scheduleCaption: String {
+    /// §G: only genuinely informative captions survive — the empty-days
+    /// prompt died (seven circles under SCHEDULE self-describe), and the
+    /// occupancy line renders only while a dot is showing.
+    private var scheduleCaption: String? {
         switch scheduleMode {
         case 1:
             if scheduleDays.isEmpty {
-                return "Pick the days this routine should happen."
+                return nil
             }
             if let (day, name) = occupiedExample {
                 let names = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
-                return "· = another routine lives on that day — \(name) on \(names[day - 1])"
+                return "· = \(name) lives on \(names[day - 1])"
             }
             return "On the marked days; a missed day carries over until you do it."
         case 2:
@@ -1050,13 +1168,103 @@ struct RoutineSettingsSheet: View {
         }
     }
 
-    private var notesBinding: Binding<String> {
-        Binding(
-            get: { routine.notes ?? "" },
-            set: { newValue in
-                let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                routine.notes = trimmed.isEmpty ? nil : newValue
+}
+
+/// Rename tray (#189): true in-place rename — routine identity is the
+/// SwiftData reference, so history and schedule anchoring survive.
+/// Blocked when the name belongs to another routine.
+private struct RenameRoutineTray: View {
+    @Environment(\.dismiss) private var dismiss
+    @Bindable var routine: Routine
+    let takenNames: Set<String>
+    @State private var draft: String
+
+    init(routine: Routine, takenNames: Set<String>) {
+        self.routine = routine
+        self.takenNames = takenNames
+        _draft = State(initialValue: routine.name)
+    }
+
+    private var trimmed: String { draft.trimmingCharacters(in: .whitespaces) }
+    private var isTaken: Bool { takenNames.contains(trimmed.lowercased()) }
+    private var canSave: Bool { !trimmed.isEmpty && !isTaken }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SheetHeader(
+                title: "Rename",
+                subtitle: routine.name,
+                actionLabel: "Save",
+                actionEnabled: canSave,
+                actionIdentifier: "saveRoutineNameButton",
+                onCancel: { dismiss() },
+                action: {
+                    routine.name = trimmed
+                    dismiss()
+                }
+            )
+
+            TextField("Routine name", text: $draft)
+                .font(.system(.body))
+                .padding(.horizontal, 14)
+                .frame(height: 48)
+                .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+                .padding(.top, 16)
+                .accessibilityIdentifier("routineNameField")
+
+            if isTaken {
+                Text("You already have a routine with this name.")
+                    .font(.system(.caption))
+                    .foregroundStyle(Theme.notes)
+                    .padding(.top, 6)
             }
-        )
+
+            Spacer()
+        }
+        .padding(.horizontal, 18)
+        .presentationBackground(Theme.surface)
+    }
+}
+
+/// Notes tray (§A/§C): text entry is a form; Done commits, Cancel
+/// leaves the routine untouched.
+private struct RoutineNotesTray: View {
+    @Environment(\.dismiss) private var dismiss
+    let routine: Routine
+    @State private var draft: String
+
+    init(routine: Routine) {
+        self.routine = routine
+        _draft = State(initialValue: routine.notes ?? "")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SheetHeader(
+                title: "Notes",
+                subtitle: routine.name,
+                onCancel: { dismiss() },
+                action: {
+                    let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+                    routine.notes = trimmed.isEmpty ? nil : trimmed
+                    dismiss()
+                }
+            )
+
+            TextField("", text: $draft, axis: .vertical)
+                .font(.system(.footnote))
+                .lineLimit(3...8)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+                .padding(.top, 16)
+                .accessibilityIdentifier("routineNotesField")
+
+            Spacer()
+        }
+        .padding(.horizontal, 18)
+        .presentationBackground(Theme.surface)
     }
 }

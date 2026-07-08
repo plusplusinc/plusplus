@@ -34,12 +34,6 @@ struct ExercisesTabView: View {
 
                 List {
                     exerciseRows
-                    Text("Swipe left to remove from your library · + browses the full catalog")
-                        .font(.system(.caption))
-                        .foregroundStyle(Theme.textFaint)
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
-                        .padding(.top, 4)
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
@@ -162,12 +156,6 @@ struct EquipmentTabView: View {
 
                 List {
                     equipmentRows
-                    Text("Swipe left to remove from your library · + browses the catalog or creates custom gear")
-                        .font(.system(.caption))
-                        .foregroundStyle(Theme.textFaint)
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
-                        .padding(.top, 4)
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
@@ -316,13 +304,6 @@ struct CatalogBrowseScreen: View {
             CatalogDetailHeader(title: kind == .exercises ? "Exercise catalog" : "Equipment catalog") {
                 EmptyView()
             }
-
-            Text("Toggles curate your library — removing never touches routines or logged history.")
-                .font(.system(.caption))
-                .foregroundStyle(Theme.textFaint)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.top, 6)
 
             SearchField(prompt: "Search the catalog", text: Bindable(filterState).searchText)
                 .padding(.horizontal, 16)

@@ -76,11 +76,6 @@ struct RoutineListView: View {
             Text("Routines")
                 .font(.system(.title, weight: .bold))
                 .padding(.top, 10)
-            // Sync caption goes live with #23; until then it points at the plan.
-            Text("Sync off — connect GitHub in settings")
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(Theme.textFaint)
-                .padding(.top, 3)
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 12)
@@ -145,6 +140,11 @@ private struct RoutineCard: View {
     let routine: Routine
     let onOpen: () -> Void
 
+    private var estimateText: String {
+        let minutes = max(5, Int((Double(routine.estimatedSeconds) / 300).rounded()) * 5)
+        return "~\(minutes) min"
+    }
+
     /// Up to two equipment pills plus a "+N" overflow, per the design.
     private var pills: [String] {
         let names = routine.equipmentNames
@@ -157,11 +157,14 @@ private struct RoutineCard: View {
 
     var body: some View {
         Button(action: onOpen) {
-            HStack(spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(routine.name)
                     .font(.system(.body, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
+                Text(estimateText)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(Theme.textFaint)
                 Spacer(minLength: 8)
                 HStack(spacing: 5) {
                     // Schedule pill first (#112): the cadence at a glance,
