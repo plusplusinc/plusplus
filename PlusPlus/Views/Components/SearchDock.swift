@@ -26,7 +26,10 @@ struct SearchDock: View {
                     .font(.system(.subheadline))
                     .autocorrectionDisabled()
                     .focused($focused)
-                    .accessibilityIdentifier("searchField")
+                    // Not "searchField": CatalogBrowseScreen pushes its
+                    // own SearchField over this tab, and two live copies
+                    // of one identifier is a firstMatch coin flip.
+                    .accessibilityIdentifier("librarySearchField")
                 if !text.isEmpty {
                     Button {
                         text = ""
@@ -39,6 +42,10 @@ struct SearchDock: View {
             }
             .padding(.horizontal, 14)
             .frame(height: 48)
+            // The whole capsule focuses, like Messages — not just the
+            // text glyphs (controls inside still win hit-testing).
+            .contentShape(Capsule())
+            .onTapGesture { focused = true }
             .glassEffect(.regular, in: Capsule())
 
             Button {
@@ -64,5 +71,10 @@ struct SearchDock: View {
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
+        // Pushing a detail screen must not carry the keyboard along —
+        // the root (and this dock) stay alive under the push, so the
+        // focused field would keep first responder with no visible
+        // field and no way off (reviewer catch).
+        .onDisappear { focused = false }
     }
 }

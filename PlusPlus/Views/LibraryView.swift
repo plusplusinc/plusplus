@@ -33,6 +33,9 @@ struct ExercisesTabView: View {
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
                 .scrollDismissesKeyboard(.immediately)
+                // Rows feather out under the glass instead of
+                // hard-clipping at the dock (#216 rides along).
+                .scrollEdgeEffectStyle(.soft, for: .bottom)
                 // Search floats at the bottom, Messages-style (#214);
                 // rows scroll under the glass.
                 .safeAreaInset(edge: .bottom) {
@@ -159,6 +162,9 @@ struct EquipmentTabView: View {
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
                 .scrollDismissesKeyboard(.immediately)
+                // Rows feather out under the glass instead of
+                // hard-clipping at the dock (#216 rides along).
+                .scrollEdgeEffectStyle(.soft, for: .bottom)
                 .safeAreaInset(edge: .bottom) {
                     SearchDock(prompt: "Search", text: $search, addIdentifier: "addEquipmentButton") {
                         showingCatalog = true
@@ -229,9 +235,9 @@ struct EquipmentTabView: View {
         if equipment.isBuiltIn {
             equipment.inLibrary = false
         } else {
-            // Exercise→Equipment has no inverse, so SwiftData can't
-            // nullify referencing exercises on deletion — strip the
-            // references first or they dangle (bug hunt B1).
+            // Belt-and-braces since #196 gave the relationship an
+            // explicit inverse: stripping references first keeps
+            // deletion order-independent (bug hunt B1).
             for exercise in allExercises {
                 exercise.equipment.removeAll { $0 === equipment }
             }
@@ -260,6 +266,10 @@ struct CatalogTabHeader: View {
                     }
                 }
             }
+            // The button slot is 44 pt on the other tabs' headers —
+            // hold the height with it empty so tab-switching doesn't
+            // bounce the title row.
+            .frame(minHeight: 44)
             Text(title)
                 .font(.system(.title, weight: .bold))
                 .padding(.top, 10)
