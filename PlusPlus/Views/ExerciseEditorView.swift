@@ -91,7 +91,7 @@ struct ExerciseEditorView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     SheetSectionLabel("NAME")
-                        .padding(.top, 16)
+                        .padding(.top, 24)
                     TextField("Exercise name", text: $draft.name)
                         .font(.system(.body))
                         .foregroundStyle(isBuiltIn ? Theme.textSecondary : Theme.textPrimary)
@@ -120,7 +120,7 @@ struct ExerciseEditorView: View {
                     }
 
                     SheetSectionLabel("TYPE")
-                        .padding(.top, 16)
+                        .padding(.top, 24)
                     SegmentedTabs(
                         options: ["Weight & reps", "Duration"],
                         selectedIndex: Binding(
@@ -130,7 +130,7 @@ struct ExerciseEditorView: View {
                     )
 
                     SheetSectionLabel("DEFAULTS")
-                        .padding(.top, 16)
+                        .padding(.top, 24)
                     defaultsCard
                     HStack {
                         Text("Optional — new routine entries start from these. Routine edits keep them current.")
@@ -149,7 +149,7 @@ struct ExerciseEditorView: View {
                     .padding(.top, 6)
 
                     SheetSectionLabel("MUSCLE GROUP")
-                        .padding(.top, 16)
+                        .padding(.top, 24)
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 7)], spacing: 7) {
                         ForEach(MuscleGroup.allCases) { group in
                             muscleChip(group)
@@ -157,7 +157,7 @@ struct ExerciseEditorView: View {
                     }
 
                     SheetSectionLabel("REQUIRES")
-                        .padding(.top, 16)
+                        .padding(.top, 24)
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 118), spacing: 7)], spacing: 7) {
                         ForEach(selectedEquipmentSorted) { equipment in
                             equipmentChip(equipment)
@@ -172,7 +172,7 @@ struct ExerciseEditorView: View {
                         .padding(.top, 6)
 
                     SheetSectionLabel("NOTES")
-                        .padding(.top, 16)
+                        .padding(.top, 24)
                     TextField("Form cues, tempo…", text: $draft.notes, axis: .vertical)
                         .font(.system(.footnote))
                         .lineLimit(3...8)
@@ -182,7 +182,7 @@ struct ExerciseEditorView: View {
                         .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
 
                     SheetSectionLabel("VIDEO")
-                        .padding(.top, 16)
+                        .padding(.top, 24)
                     TextField("Link (optional)", text: $draft.videoURL)
                         .font(.system(.footnote))
                         .keyboardType(.URL)
@@ -316,15 +316,18 @@ struct ExerciseEditorView: View {
         return Button {
             draft.muscleGroup = group
         } label: {
+            // Solid selection blue (#210) — this was the stray CREAM
+            // on-state; ink fills are for actions, blue is selection.
             Text(group.displayName)
                 .font(.system(.footnote, weight: .semibold))
-                .foregroundStyle(selected ? Theme.onPrimary : Theme.textSecondary)
+                .foregroundStyle(selected ? Theme.onSelected : Theme.textSecondary)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 7)
-                .background(selected ? Theme.primaryFill : Theme.background, in: Capsule())
+                .background(selected ? Theme.selected : Theme.background, in: Capsule())
                 .overlay(Capsule().strokeBorder(selected ? Color.clear : Theme.border))
         }
+        .animation(.easeOut(duration: 0.15), value: selected)
     }
 
     private func equipmentChip(_ equipment: Equipment) -> some View {

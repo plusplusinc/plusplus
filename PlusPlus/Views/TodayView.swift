@@ -33,6 +33,12 @@ struct TodayView: View {
     @State private var showingSettings = false
     @State private var showingSwapIn = false
     @State private var swapInPick: Routine?
+    /// Programmatic pushes (#208: land in a routine created from the
+    /// swap-in tray).
+    @State private var todayPath = NavigationPath()
+    @State private var showingNewRoutine = false
+    @State private var pendingCreateFromSwapIn = false
+    @State private var newRoutineName = ""
     @State private var showingEquipmentSetup = false
     /// Nonzero presents the populate-offer alert (#204); computed at
     /// present time from the store, never carried stale.
@@ -48,8 +54,29 @@ struct TodayView: View {
     private var weightUnit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .lb }
     private var calendar: Calendar { Calendar.current }
 
+    /// Startable routines for the swap-in tray (#208): empty routines
+    /// can't stage (the 0-set-session bug class), so they don't appear —
+    /// and with no candidates the tray isn't offered at all.
+    private var swapInCandidates: [Routine] {
+        routines.filter { !$0.groups.isEmpty }
+    }
+
+    /// Mirrors RoutineListView's create flow, then lands in the new
+    /// routine so exercises can be added immediately (#208).
+    private func createRoutine() {
+        let name = newRoutineName.trimmingCharacters(in: .whitespacesAndNewlines)
+        newRoutineName = ""
+        guard !name.isEmpty else { return }
+        let routine = Routine(name: Routine.uniqueName(name, among: routines), order: 0)
+        modelContext.insert(routine)
+        for existing in routines where existing !== routine {
+            existing.order += 1
+        }
+        todayPath.append(routine)
+    }
+
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $todayPath) {
             VStack(spacing: 0) {
                 header
 
@@ -102,12 +129,20 @@ struct TodayView: View {
                 if let routine = swapInPick {
                     swapInPick = nil
                     start(routine)
+                } else if pendingCreateFromSwapIn {
+                    pendingCreateFromSwapIn = false
+                    showingNewRoutine = true
                 }
             }) {
-                SwapInSheet(routines: routines.filter { !$0.groups.isEmpty }) { routine in
+                SwapInSheet(routines: swapInCandidates, onPick: { routine in
                     swapInPick = routine
                     showingSwapIn = false
-                }
+                }, onCreate: {
+                    // Same drop class as swapInPick above: the alert
+                    // waits for the sheet to finish dismissing.
+                    pendingCreateFromSwapIn = true
+                    showingSwapIn = false
+                })
             }
             .fullScreenCover(item: $activeSession) { session in
                 ActiveSessionView(session: session)
@@ -146,6 +181,11 @@ struct TodayView: View {
             }
             .sheet(isPresented: $showingStarterSeed) {
                 StarterSeedSheet()
+            }
+            .alert("New Routine", isPresented: $showingNewRoutine) {
+                TextField("Name", text: $newRoutineName)
+                Button("Cancel", role: .cancel) { newRoutineName = "" }
+                Button("Create") { createRoutine() }
             }
             .navigationDestination(item: $scheduleEditTarget) { routine in
                 RoutineSettingsScreen(routine: routine) {
@@ -618,21 +658,41 @@ struct TodayView: View {
                 Text(restDayCaption)
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(Theme.textSecondary)
-                Button {
-                    showingSwapIn = true
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "arrow.left.arrow.right")
-                            .font(.system(.caption, weight: .semibold))
-                        Text("Swap in a routine")
-                            .font(.system(.footnote, weight: .semibold))
+                // No candidates → no dead tray (#208): offer creation
+                // directly instead.
+                if swapInCandidates.isEmpty {
+                    Button {
+                        showingNewRoutine = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "plus")
+                                .font(.system(.caption, weight: .semibold))
+                            Text("New routine")
+                                .font(.system(.footnote, weight: .semibold))
+                        }
+                        .foregroundStyle(Theme.accent)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 40)
+                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.borderStrong, style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
                     }
-                    .foregroundStyle(Theme.textPrimary)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 40)
-                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.borderStrong))
+                    .accessibilityIdentifier("restDayNewRoutineButton")
+                } else {
+                    Button {
+                        showingSwapIn = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.left.arrow.right")
+                                .font(.system(.caption, weight: .semibold))
+                            Text("Swap in a routine")
+                                .font(.system(.footnote, weight: .semibold))
+                        }
+                        .foregroundStyle(Theme.textPrimary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 40)
+                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.borderStrong))
+                    }
+                    .accessibilityIdentifier("swapInButton")
                 }
-                .accessibilityIdentifier("swapInButton")
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -857,14 +917,11 @@ private struct SwapInSheet: View {
     @Environment(\.dismiss) private var dismiss
     let routines: [Routine]
     let onPick: (Routine) -> Void
+    let onCreate: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             SheetHeader(title: "Swap in a routine", closeOnly: true, action: { dismiss() })
-
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(Theme.textFaint)
-                .padding(.top, 8)
 
             ScrollView {
                 VStack(spacing: 7) {
@@ -887,6 +944,29 @@ private struct SwapInSheet: View {
                             .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
                         }
                     }
+
+                    // Creation from the tray (#208) — green, like every
+                    // other birth-of-something affordance.
+                    Button {
+                        onCreate()
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "plus")
+                                .font(.system(.caption, weight: .semibold))
+                            Text("New routine")
+                                .font(.system(.footnote, weight: .semibold))
+                        }
+                        .foregroundStyle(Theme.accent)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 14)
+                        .frame(height: 44)
+                        .contentShape(Rectangle())
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Theme.controlRadius)
+                                .strokeBorder(Theme.borderStrong, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                        )
+                    }
+                    .accessibilityIdentifier("swapInCreateRoutine")
                 }
                 .padding(.top, 12)
                 .padding(.bottom, 24)

@@ -86,7 +86,7 @@ struct RoutineListView: View {
         newRoutineName = ""
         guard !name.isEmpty else { return }
 
-        let routine = Routine(name: name, order: 0)
+        let routine = Routine(name: Routine.uniqueName(name, among: routines), order: 0)
         modelContext.insert(routine)
 
         // Push existing routines down

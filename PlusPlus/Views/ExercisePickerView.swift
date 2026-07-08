@@ -357,16 +357,16 @@ private struct SelectableChip: View {
 
     var body: some View {
         Button(action: action) {
-            // v4 selection grammar (§D): tint + selected text + ring —
-            // ink fills are for actions, not selection.
+            // Solid selected blue (#210): one prominent toggled-on look
+            // everywhere; ink fills stay reserved for actions.
             Text(label)
                 .font(.system(.footnote, weight: .semibold))
                 .padding(.horizontal, 14)
                 .frame(height: 36)
-                .background(isSelected ? Theme.selectedTint : Color.clear)
-                .foregroundStyle(isSelected ? Theme.selected : Theme.textPrimary)
+                .background(isSelected ? Theme.selected : Color.clear)
+                .foregroundStyle(isSelected ? Theme.onSelected : Theme.textPrimary)
                 .clipShape(Capsule())
-                .overlay(Capsule().strokeBorder(isSelected ? Theme.selectedRing : Theme.borderStrong, lineWidth: 1))
+                .overlay(Capsule().strokeBorder(isSelected ? Color.clear : Theme.borderStrong, lineWidth: 1))
                 .padding(4)
                 .contentShape(Rectangle())
         }

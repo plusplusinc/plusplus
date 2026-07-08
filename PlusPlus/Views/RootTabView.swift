@@ -32,16 +32,16 @@ struct RootTabView: View {
         // The quiet-terminal identity lives in the content; the chrome
         // is the platform's (Dave, build 10 feedback).
         TabView(selection: $tab) {
-            Tab("today", systemImage: "smallcircle.filled.circle", value: AppTab.today) {
+            Tab("Today", systemImage: "smallcircle.filled.circle", value: AppTab.today) {
                 TodayView(onGoToRoutines: { tab = .routines })
             }
-            Tab("routines", systemImage: "square.stack", value: AppTab.routines) {
+            Tab("Routines", systemImage: "square.stack", value: AppTab.routines) {
                 RoutineListView()
             }
-            Tab("exercises", systemImage: "list.bullet", value: AppTab.exercises) {
+            Tab("Exercises", systemImage: "list.bullet", value: AppTab.exercises) {
                 ExercisesTabView()
             }
-            Tab("equipment", systemImage: "dumbbell", value: AppTab.equipment) {
+            Tab("Equipment", systemImage: "dumbbell", value: AppTab.equipment) {
                 EquipmentTabView()
             }
         }

@@ -1,10 +1,11 @@
 import SwiftUI
 
-/// Segmented control in the v4 selection grammar (§D): the active tab
-/// speaks blue — selectedTint fill, selected text, 1 pt selectedRing —
-/// because choosing a tab changes what you're looking at; ink fills are
-/// reserved for actions. 40 pt segments (46 with container padding, §H)
-/// and the one motion rule (§2): 0.15 s ease-out, selection haptic.
+/// Segmented control in the selection grammar: the active tab is a
+/// SOLID selected-blue fill with onSelected text (#210 — the tint+ring
+/// treatment read too muted in the field; one prominent look for every
+/// toggled-on state). Ink fills stay reserved for actions. 40 pt
+/// segments (46 with container padding, §H) and the one motion rule
+/// (§2): 0.15 s ease-out, selection haptic.
 struct SegmentedTabs: View {
     let options: [String]
     @Binding var selectedIndex: Int
@@ -17,16 +18,12 @@ struct SegmentedTabs: View {
                 } label: {
                     Text(option)
                         .font(.system(.footnote, weight: .semibold))
-                        .foregroundStyle(selectedIndex == index ? Theme.selected : Theme.textSecondary)
+                        .foregroundStyle(selectedIndex == index ? Theme.onSelected : Theme.textSecondary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 40)
                         .background(
-                            selectedIndex == index ? Theme.selectedTint : .clear,
+                            selectedIndex == index ? Theme.selected : .clear,
                             in: RoundedRectangle(cornerRadius: 9)
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 9)
-                                .strokeBorder(selectedIndex == index ? Theme.selectedRing : .clear, lineWidth: 1)
                         )
                 }
             }
