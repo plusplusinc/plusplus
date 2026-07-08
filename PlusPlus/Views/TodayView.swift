@@ -88,9 +88,8 @@ struct TodayView: View {
             .navigationDestination(for: SessionRecordDestination.self) { destination in
                 SessionDetailView(session: destination.session)
             }
-            .sheet(isPresented: $showingSettings) {
-                SettingsView()
-                    .presentationDetents([.medium, .large])
+            .navigationDestination(isPresented: $showingSettings) {
+                SettingsScreen()
             }
             .sheet(isPresented: $showingSwapIn, onDismiss: {
                 // Start only once the sheet is fully gone: dismissing a
@@ -116,9 +115,13 @@ struct TodayView: View {
             .sheet(isPresented: $showingStarterSeed) {
                 StarterSeedSheet()
             }
-            .sheet(item: $scheduleEditTarget) { routine in
-                RoutineSettingsSheet(routine: routine)
-                    .presentationDetents([.medium, .large])
+            .navigationDestination(item: $scheduleEditTarget) { routine in
+                RoutineSettingsScreen(routine: routine) {
+                    scheduleEditTarget = nil
+                    Task { @MainActor in
+                        modelContext.delete(routine)
+                    }
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
                 dayToken += 1
@@ -306,41 +309,63 @@ struct TodayView: View {
     private func pendingCard(_ routine: Routine) -> some View {
         let lines = diffLines(for: routine)
         let segments = RoutineDiff.summary(deltas: lines.map(\.delta), weightUnit: weightUnit)
+            .filter { $0.kind != .unchanged }
 
         return VStack(alignment: .leading, spacing: 0) {
-            // The card's two actions (Dave, #173): start it, or configure
-            // it — the header row IS the configure affordance, and says so.
-            NavigationLink(value: routine) {
-                HStack(spacing: 8) {
-                    Text(routine.name)
-                        .font(.system(.body, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
-                        .lineLimit(1)
-                    Spacer(minLength: 8)
-                    Text("configure")
-                        .font(.system(.caption, design: .monospaced))
-                        .foregroundStyle(Theme.textSecondary)
-                    Image(systemName: "chevron.right")
-                        .font(.system(.footnote, weight: .bold))
-                        .foregroundStyle(Theme.textFaint)
+            // SSE tiers: name (+ the one go/no-go fact, the estimate)
+            // with Configure as a real-but-subordinate bordered capsule —
+            // Start stays the card's only filled element.
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(routine.name)
+                    .font(.system(.body, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                Text(estimateText(for: routine))
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(Theme.textFaint)
+                Spacer(minLength: 8)
+                NavigationLink(value: routine) {
+                    HStack(spacing: 4) {
+                        Text("Configure")
+                            .font(.system(.caption, weight: .semibold))
+                        Image(systemName: "chevron.right")
+                            .font(.system(.caption2, weight: .semibold))
+                    }
+                    .foregroundStyle(Theme.textSecondary)
+                    .padding(.horizontal, 11)
+                    .frame(height: 30)
+                    .overlay(Capsule().strokeBorder(Theme.borderStrong, lineWidth: 1))
+                    .padding(.vertical, 7)
+                    .contentShape(Rectangle())
                 }
-                .contentShape(Rectangle())
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("configureRoutineButton")
             }
-            .buttonStyle(.plain)
 
-            Text(metaLine(for: routine))
-                .font(.system(.footnote, design: .monospaced))
-                .foregroundStyle(Theme.textSecondary)
-                .lineLimit(2)
-                .padding(.top, 5)
-
-            // The diff summary stands on its own — the expander died
-            // with #173; per-exercise detail lives one tap away in the
-            // routine itself.
-            diffSummaryText(segments)
+            // Two meta rows: what it hits, what to have nearby. The
+            // schedule label is gone — the card's presence on Today IS
+            // the schedule statement.
+            if let muscles = cappedList(musclesFor(routine)) {
+                Text(muscles)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(Theme.textFaint)
+                    .lineLimit(1)
+                    .padding(.top, 9)
+            }
+            Text(cappedList(gearFor(routine)) ?? "bodyweight")
+                .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(Theme.textFaint)
                 .lineLimit(1)
-                .padding(.top, 6)
-                .accessibilityIdentifier("diffSummary")
+                .padding(.top, 3)
+
+            // The diff is the identity moment — it outranks the meta
+            // above it (footnote semibold; unchanged tallies aren't news).
+            if !segments.isEmpty {
+                diffSummaryText(segments)
+                    .lineLimit(1)
+                    .padding(.top, 8)
+                    .accessibilityIdentifier("diffSummary")
+            }
 
             Button {
                 start(routine)
@@ -353,7 +378,7 @@ struct TodayView: View {
                     .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 11))
             }
             .accessibilityIdentifier("startStagedButton")
-            .padding(.top, 10)
+            .padding(.top, 12)
         }
         .padding(12)
         .background(Theme.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
@@ -365,22 +390,26 @@ struct TodayView: View {
 
     /// Muscles and gear beat a bare exercise count (Dave, #173): what
     /// the workout hits and what to have nearby is decision-relevant;
-    /// "6 exercises" isn't. Both lists cap at 3 + overflow.
-    private func metaLine(for routine: Routine) -> String {
+    /// "6 exercises" isn't. Both lists cap at 3 + overflow (SSE).
+    private func musclesFor(_ routine: Routine) -> [String] {
         let exercises = routine.sortedGroups.flatMap(\.sortedExercises).compactMap(\.exercise)
-        let muscles = Array(Set(exercises.map { $0.muscleGroup.displayName.lowercased() })).sorted()
-        let gear = Array(Set(exercises.flatMap { $0.equipment.map { $0.name.lowercased() } })).sorted()
-        func capped(_ list: [String]) -> String? {
-            guard !list.isEmpty else { return nil }
-            let shown = list.prefix(3).joined(separator: ", ")
-            return list.count > 3 ? "\(shown) +\(list.count - 3)" : shown
-        }
+        return Array(Set(exercises.map { $0.muscleGroup.displayName.lowercased() })).sorted()
+    }
+
+    private func gearFor(_ routine: Routine) -> [String] {
+        let exercises = routine.sortedGroups.flatMap(\.sortedExercises).compactMap(\.exercise)
+        return Array(Set(exercises.flatMap { $0.equipment.map { $0.name.lowercased() } })).sorted()
+    }
+
+    private func cappedList(_ list: [String]) -> String? {
+        guard !list.isEmpty else { return nil }
+        let shown = list.prefix(3).joined(separator: ", ")
+        return list.count > 3 ? "\(shown) +\(list.count - 3)" : shown
+    }
+
+    private func estimateText(for routine: Routine) -> String {
         let minutes = max(5, Int((Double(routine.estimatedSeconds) / 300).rounded()) * 5)
-        var parts = [capped(muscles), capped(gear), "~\(minutes) min"].compactMap { $0 }
-        if routine.schedule.normalized != .unscheduled {
-            parts.append(routine.schedule.shortLabel)
-        }
-        return parts.joined(separator: " · ")
+        return "~\(minutes) min"
     }
 
     /// The colored summary line, composed as one Text so it truncates
@@ -390,10 +419,10 @@ struct TodayView: View {
         var result = Text("")
         for (index, segment) in segments.enumerated() {
             if index > 0 {
-                result = result + Text(" · ").font(.system(.caption, design: .monospaced)).foregroundStyle(Theme.textFaint)
+                result = result + Text(" · ").font(.system(.footnote, design: .monospaced)).foregroundStyle(Theme.textFaint)
             }
             result = result + Text(segment.text)
-                .font(.system(.caption, design: .monospaced, weight: .semibold))
+                .font(.system(.footnote, design: .monospaced, weight: .semibold))
                 .foregroundStyle(color(for: segment.kind))
         }
         return result
@@ -801,7 +830,6 @@ private struct SwapInSheet: View {
         VStack(alignment: .leading, spacing: 0) {
             SheetHeader(title: "Swap in a routine", closeOnly: true, action: { dismiss() })
 
-            Text("Off-schedule session — it commits to the timeline like any other")
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
                 .padding(.top, 8)

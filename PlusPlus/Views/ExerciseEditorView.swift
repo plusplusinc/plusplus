@@ -140,7 +140,7 @@ struct ExerciseEditorView: View {
                     }
                     Text(draft.selectedEquipment.isEmpty
                          ? "Bodyweight — no equipment required."
-                         : "This exercise needs all of these; filtering by what you own uses it.")
+                         : "Needs all of these.")
                         .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
                         .padding(.top, 6)
