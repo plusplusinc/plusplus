@@ -90,6 +90,36 @@ struct RoutineCatalogTests {
         }
     }
 
+    @Test func instantiateHandlesSupersetsAndSetOverrides() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        SeedData.loadIfNeeded(context: context)
+
+        // A template with a superset block (reviewer catch: the
+        // multi-member path and the sets override were untested).
+        let template = try #require(RoutineCatalog.all.first { template in
+            template.blocks.contains { $0.entries.count > 1 }
+        })
+        let routine = template.instantiate(in: context, among: [])
+
+        #expect(routine.sortedGroups.count == template.blocks.count)
+        for (group, block) in zip(routine.sortedGroups, template.blocks) {
+            #expect(group.sets == block.sets)
+            #expect(group.sortedExercises.count == block.entries.count)
+            #expect(group.isSuperset == (block.entries.count > 1))
+            for (routineExercise, entry) in zip(group.sortedExercises, block.entries) {
+                #expect(routineExercise.exercise?.name == entry.exercise)
+                if let reps = entry.reps {
+                    #expect(routineExercise.reps == reps)
+                    #expect(routineExercise.repsUpper == entry.repsUpper)
+                }
+                if let seconds = entry.durationSeconds {
+                    #expect(routineExercise.durationSeconds == seconds)
+                }
+            }
+        }
+    }
+
     @Test func reAddingSuffixesTheName() throws {
         let container = try makeContainer()
         let context = ModelContext(container)

@@ -85,6 +85,13 @@ struct RoutineTemplate: Identifiable, Hashable {
         blocks.reduce(0) { $0 + $1.sets * $1.entries.count }
     }
 
+    /// Same 5-minute bucketing as RoutineCard, so the number doesn't
+    /// visibly change the moment a template becomes a routine.
+    var estimatedMinutesText: String {
+        let minutes = max(5, Int((Double(estimatedSeconds) / 300).rounded()) * 5)
+        return "~\(minutes) min"
+    }
+
     var exerciseCount: Int {
         blocks.reduce(0) { $0 + $1.entries.count }
     }
@@ -139,12 +146,15 @@ struct RoutineTemplate: Identifiable, Hashable {
             for entry in block.entries {
                 guard let exercise = byName[entry.exercise.lowercased()] else { continue }
                 exercise.inLibrary = true
+                let routineExercise: RoutineExercise?
                 if let existing = group {
-                    routine.addExercise(exercise, to: existing, context: context)
+                    routineExercise = routine.addExercise(exercise, to: existing, context: context)
                 } else {
-                    group = routine.addExerciseInNewGroup(exercise, context: context)
+                    let newGroup = routine.addExerciseInNewGroup(exercise, context: context)
+                    group = newGroup
+                    routineExercise = newGroup.sortedExercises.first
                 }
-                if let routineExercise = group?.sortedExercises.last {
+                if let routineExercise {
                     if let seconds = entry.durationSeconds {
                         routineExercise.durationSeconds = seconds
                     }
@@ -277,7 +287,7 @@ enum RoutineCatalog {
         ),
         .init(
             name: "Leg Day A",
-            summary: "The full quad-hinge-press stack. Bring lunch money.",
+            summary: "The full quad-hinge-press stack. Pack a snack.",
             focus: .lower, effort: .intense, style: .build, restSeconds: 120,
             blocks: [
                 b(4, r("Squat", 6, 8)),
@@ -471,7 +481,7 @@ enum RoutineCatalog {
         ),
         .init(
             name: "Hotel Room Circuit",
-            summary: "Zero equipment, twenty minutes, no excuses left behind.",
+            summary: "Zero equipment, twenty minutes, anywhere with a floor.",
             focus: .fullBody, effort: .moderate, style: .conditioning, restSeconds: 45,
             blocks: [
                 b(3, r("Burpee", 12)),

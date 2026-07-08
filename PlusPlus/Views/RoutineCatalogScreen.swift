@@ -94,12 +94,17 @@ struct RoutineCatalogScreen: View {
         VStack(spacing: 0) {
             header
 
-            SearchField(prompt: "Search routines", text: $search)
+            SearchField(prompt: "Search routines", text: $search, identifier: "routineCatalogSearchField")
                 .padding(.horizontal, 16)
 
-            chipRow
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
+            // Horizontal scroll: four ACTIVE values plus the ✕ can
+            // outgrow a compact row, and truncated values defeat the
+            // whole glanceable-state point (reviewer catch).
+            ScrollView(.horizontal, showsIndicators: false) {
+                chipRow
+                    .padding(.horizontal, 16)
+            }
+            .padding(.top, 8)
 
             List {
                 createRow
@@ -121,6 +126,7 @@ struct RoutineCatalogScreen: View {
                             .foregroundStyle(Theme.textFaint)
                         if anyFilterActive {
                             Button("Clear filters") { clearFilters() }
+                                .buttonStyle(.plain)
                                 .font(.system(.footnote, weight: .semibold))
                                 .foregroundStyle(Theme.selected)
                         }
@@ -188,9 +194,11 @@ struct RoutineCatalogScreen: View {
                     Image(systemName: "xmark")
                         .font(.system(.caption2, weight: .bold))
                         .foregroundStyle(Theme.textSecondary)
-                        .frame(width: 30, height: 30)
+                        .frame(width: 36, height: 36)
                         .background(Theme.surface, in: Circle())
                         .overlay(Circle().strokeBorder(Theme.border))
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .accessibilityIdentifier("clearCatalogFilters")
                 .transition(.opacity)
@@ -289,7 +297,7 @@ struct RoutineCatalogScreen: View {
         var parts = [
             template.focus.rawValue.uppercased(),
             template.effort.rawValue.uppercased(),
-            "~\(template.estimatedSeconds / 60) MIN",
+            template.estimatedMinutesText.uppercased(),
         ]
         let gear = template.equipmentNames
         if gear.isEmpty {
@@ -355,8 +363,10 @@ private struct FacetChip<Value: Hashable>: View {
                 .kerning(0.5)
                 .lineLimit(1)
                 .foregroundStyle(selection == nil ? Theme.textSecondary : Theme.onSelected)
-                .padding(.horizontal, 10)
-                .frame(height: 30)
+                .padding(.horizontal, 13)
+                // 44 pt, the #130 target standard — same height as the
+                // picker's filter dropdowns doing the same job.
+                .frame(height: 44)
                 .background(
                     selection == nil ? Theme.surface : Theme.selected,
                     in: Capsule()
@@ -391,6 +401,10 @@ struct RoutineTemplateDetailScreen: View {
 
     let template: RoutineTemplate
     @Binding var path: NavigationPath
+    /// Add fires exactly once: a fast double-tap could otherwise
+    /// instantiate twice against a stale routines query and mint the
+    /// duplicate-name state #189 forbids (reviewer catch).
+    @State private var added = false
 
     private var ownedEquipmentNames: Set<String> {
         Set(allEquipment.filter { $0.inLibrary || !$0.isBuiltIn }.map(\.name))
@@ -404,7 +418,7 @@ struct RoutineTemplateDetailScreen: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                     .padding(.top, 2)
-                Text("\(template.focus.rawValue.lowercased()) · \(template.effort.rawValue.lowercased()) · \(template.style.rawValue.lowercased()) · ~\(template.estimatedSeconds / 60) min")
+                Text("\(template.focus.rawValue.lowercased()) · \(template.effort.rawValue.lowercased()) · \(template.style.rawValue.lowercased()) · \(template.estimatedMinutesText)")
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(Theme.textFaint)
                     .padding(.top, 3)
@@ -465,17 +479,21 @@ struct RoutineTemplateDetailScreen: View {
 
             // Add is the page's one action — bottom-docked like Start.
             Button {
+                guard !added else { return }
+                added = true
                 let routine = template.instantiate(in: modelContext, among: routines)
                 path.append(routine)
             } label: {
-                Text("Add to routines")
+                Text(added ? "Added" : "Add to routines")
                     .font(.system(.body, weight: .bold))
-                    .foregroundStyle(Theme.onPrimary)
+                    .foregroundStyle(added ? Theme.textFaint : Theme.onPrimary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
-                    .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+                    .background(added ? Theme.surface : Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(added ? Theme.borderStrong : Color.clear))
             }
             .accessibilityIdentifier("addTemplateButton")
+            .disabled(added)
             .padding(.horizontal, 16)
             .padding(.top, 8)
             .padding(.bottom, 12)

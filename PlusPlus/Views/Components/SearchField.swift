@@ -10,6 +10,10 @@ struct SearchField: View {
     /// Screens sitting on Theme.background use the surface fill; sheets
     /// sitting on Theme.surface invert to the background fill.
     var fill: Color = Theme.surface
+    /// Screens that can coexist in one nav stack pass distinct
+    /// identifiers — two live "searchField"s make firstMatch a coin
+    /// flip (the #214 lesson).
+    var identifier: String = "searchField"
 
     var body: some View {
         HStack(spacing: 7) {
@@ -19,7 +23,7 @@ struct SearchField: View {
             TextField(prompt, text: $text)
                 .font(.system(.subheadline))
                 .autocorrectionDisabled()
-                .accessibilityIdentifier("searchField")
+                .accessibilityIdentifier(identifier)
             if !text.isEmpty {
                 Button {
                     text = ""
