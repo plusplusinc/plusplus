@@ -126,13 +126,15 @@ extension WidgetSnapshot {
     static let placeholder = WidgetSnapshot(
         generatedAt: .now,
         routineNames: ["Push Day"],
-        due: [.init(name: "Push Day", caption: "due today", exerciseCount: 6)],
+        due: [.init(name: "Push Day", caption: "mon/thu", exerciseCount: 6)],
         streakWeeks: 4,
         weeklyCounts: [0, 1, 2, 1, 3, 2, 2, 1, 3, 2, 3, 1]
     )
 }
 
-// MARK: - Due Today widget
+// MARK: - Today widget
+// Struct + kind keep the old names — changing `kind` orphans installed
+// widgets. Only the display strings dropped the "due" vocabulary (#172).
 
 struct DueTodayWidget: Widget {
     var body: some WidgetConfiguration {
@@ -140,8 +142,8 @@ struct DueTodayWidget: Widget {
             DueTodayView(snapshot: entry.snapshot)
                 .containerBackground(.fill.tertiary, for: .widget)
         }
-        .configurationDisplayName("Due today")
-        .description("What the schedule says you owe.")
+        .configurationDisplayName("Today")
+        .description("Today's workout, straight from your schedule.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
@@ -167,7 +169,7 @@ struct DueTodayView: View {
                     .font(.system(.caption2, design: .monospaced))
                     .foregroundStyle(.secondary)
                 if due.count > 1 {
-                    Text("+ \(due.count - 1) more due")
+                    Text("+ \(due.count - 1) more")
                         .font(.system(.caption2, design: .monospaced))
                         .foregroundStyle(.secondary)
                 }
@@ -175,7 +177,7 @@ struct DueTodayView: View {
                 Text("Rest day")
                     .font(.system(.headline, weight: .semibold))
                     .foregroundStyle(.secondary)
-                Text("nothing due")
+                Text("nothing scheduled")
                     .font(.system(.caption2, design: .monospaced))
                     .foregroundStyle(.tertiary)
             }

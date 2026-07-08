@@ -37,19 +37,11 @@ enum WidgetSnapshotWriter {
                 calendar: calendar
             )
             guard state == .due else { continue }
-            let caption: String
-            if let since = routine.schedule.dueSince(
-                lastCompleted: lastCompleted(of: routine),
-                today: today,
-                calendar: calendar
-            ), !calendar.isDateInToday(since) {
-                caption = "due since " + since.formatted(.dateTime.weekday(.abbreviated)).lowercased()
-            } else {
-                caption = "due today"
-            }
+            // No "due" vocabulary anywhere (#172): a routine's presence
+            // IS the statement. The caption is the schedule's own label.
             due.append(.init(
                 name: routine.name,
-                caption: caption,
+                caption: routine.schedule.shortLabel,
                 exerciseCount: routine.sortedGroups.reduce(0) { $0 + $1.sortedExercises.count }
             ))
         }
