@@ -779,7 +779,9 @@ private struct DurationTimerCard: View {
     private func expire() {
         endDate = nil
         if log.actualDuration == nil { log.actualDuration = log.targetDuration }
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        // No haptic here: completeCurrentSet owns set-completion
+        // feedback now (impact mid-workout, .success only at the
+        // finish) — a second buzz doubled every timed set.
         onComplete()
     }
 

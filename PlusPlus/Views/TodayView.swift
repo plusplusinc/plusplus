@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import SwiftData
 import PlusPlusKit
@@ -152,7 +153,7 @@ struct TodayView: View {
                     showingSwapIn = false
                 })
             }
-            .fullScreenCover(item: $activeSession) { session in
+            .fullScreenCover(item: $activeSession, onDismiss: resolveOrphanedSessions) { session in
                 ActiveSessionView(session: session)
                     .navigationTransition(.zoom(
                         sourceID: session.routine?.persistentModelID ?? session.persistentModelID,
@@ -210,6 +211,10 @@ struct TodayView: View {
             .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
                 dayToken += 1
             }
+            // Crash-orphans from a previous launch get salvaged here;
+            // in-flight dismissal paths are covered by the cover's
+            // onDismiss.
+            .onAppear(perform: resolveOrphanedSessions)
             .onReceive(NotificationCenter.default.publisher(for: .plusplusStartRoutine)) { note in
                 guard activeSession == nil,
                       let name = note.object as? String,
@@ -224,6 +229,26 @@ struct TodayView: View {
     private var today: Date {
         _ = dayToken
         return Date()
+    }
+
+    /// A session that never reached Finish/Discard (a dismissal path
+    /// that skipped the exit dialog — e.g. an interactive zoom
+    /// dismiss — or a mid-workout crash on a previous launch) has
+    /// endedAt == nil, which every timeline/history query filters
+    /// out: an invisible orphan with no resume path. Salvage instead
+    /// of losing it — keep what was logged, drop what wasn't.
+    private func resolveOrphanedSessions() {
+        guard activeSession == nil else { return }
+        let descriptor = FetchDescriptor<WorkoutSession>(
+            predicate: #Predicate { $0.endedAt == nil }
+        )
+        for session in (try? modelContext.fetch(descriptor)) ?? [] where !session.isDeleted {
+            if session.completedSetLogs.isEmpty {
+                modelContext.delete(session)
+            } else {
+                session.finish()
+            }
+        }
     }
 
     // MARK: - Data assembly
