@@ -304,6 +304,10 @@ struct CatalogBrowseScreen: View {
     /// Prefill for the custom-exercise editor sheet (create/edit forms
     /// are the one thing that stays modal here).
     @State private var customPrefill: String?
+    /// Custom gear is just a name, so an empty-query create prompts for
+    /// one here instead of silently doing nothing (#170).
+    @State private var promptingEquipmentName = false
+    @State private var newEquipmentName = ""
 
     private var query: String { filterState.searchText }
 
@@ -427,6 +431,14 @@ struct CatalogBrowseScreen: View {
         )) {
             ExerciseEditorView(prefillName: customPrefill ?? "")
         }
+        .alert("New equipment", isPresented: $promptingEquipmentName) {
+            TextField("Name", text: $newEquipmentName)
+            Button("Create") {
+                let name = newEquipmentName.trimmingCharacters(in: .whitespaces)
+                if !name.isEmpty { createEquipment(named: name) }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
         .sheet(isPresented: $showingMuscleFilter) {
             MuscleGroupFilterSheet(filterState: filterState)
                 .presentationDetents([.medium])
@@ -513,18 +525,28 @@ struct CatalogBrowseScreen: View {
     private func createCustom() {
         let trimmed = query.trimmingCharacters(in: .whitespaces)
         if kind == .equipment {
-            // Creating custom gear pops back to the library, where the
-            // new item is actually visible (customs aren't catalog rows).
-            guard !trimmed.isEmpty else { return }
-            let existing = allEquipment.first { $0.name.lowercased() == trimmed.lowercased() }
-            if let existing {
-                existing.inLibrary = true
-            } else {
-                modelContext.insert(Equipment(name: trimmed, isBuiltIn: false))
+            // Custom gear is just a name; with an empty query, ask for
+            // one — the row used to silently do nothing here (#170).
+            guard !trimmed.isEmpty else {
+                newEquipmentName = ""
+                promptingEquipmentName = true
+                return
             }
-            dismiss()
+            createEquipment(named: trimmed)
         } else {
             customPrefill = trimmed
         }
+    }
+
+    /// Creating custom gear pops back to the library, where the new
+    /// item is actually visible (customs aren't catalog rows).
+    private func createEquipment(named name: String) {
+        let existing = allEquipment.first { $0.name.lowercased() == name.lowercased() }
+        if let existing {
+            existing.inLibrary = true
+        } else {
+            modelContext.insert(Equipment(name: name, isBuiltIn: false))
+        }
+        dismiss()
     }
 }
