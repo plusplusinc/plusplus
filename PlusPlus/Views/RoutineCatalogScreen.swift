@@ -45,9 +45,11 @@ struct RoutineCatalogScreen: View {
         }
     }
 
+    // Not `case none`: inside a switch over GearFit?, `.none` resolves
+    // to Optional.none and the compiler loses the case (CI catch).
     enum GearFit: String, CaseIterable, Hashable {
         case mine = "My equipment"
-        case none = "No equipment"
+        case bodyweightOnly = "No equipment"
     }
 
     enum CatalogSort: String, CaseIterable {
@@ -73,7 +75,7 @@ struct RoutineCatalogScreen: View {
             switch gearFilter {
             case .mine:
                 if !template.equipmentNames.allSatisfy(owned.contains) { return false }
-            case .none:
+            case .bodyweightOnly:
                 if !template.equipmentNames.isEmpty { return false }
             case nil:
                 break
