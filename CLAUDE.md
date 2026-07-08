@@ -337,10 +337,10 @@ PlusPlusUITests/
 
 > Add established patterns here as they emerge to avoid re-litigating decisions.
 
-**SwiftData in-memory testing:**
+**SwiftData in-memory testing:** ⚠️ UNNAMED in-memory configurations share ONE backing store per process — Swift Testing's parallel tests will mutate each other's "isolated" fixtures (bit us 2026-07-08: a repair test emptied Bench Press's equipment underneath a seeding test). Always name the configuration uniquely:
 ```swift
-let schema = Schema([Exercise.self, Equipment.self, Workout.self, ExerciseGroup.self, WorkoutExercise.self])
-let config = ModelConfiguration(isStoredInMemoryOnly: true)
+let schema = Schema([Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self, RoutineExercise.self])
+let config = ModelConfiguration("test-\(UUID().uuidString)", schema: schema, isStoredInMemoryOnly: true)
 let container = try ModelContainer(for: schema, configurations: [config])
 let context = ModelContext(container)
 ```
