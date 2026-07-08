@@ -82,11 +82,11 @@ private struct CreateRow: View {
             .foregroundStyle(Theme.accent)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 12)
-            .frame(height: 42)
+            .frame(height: 48)
             .contentShape(Rectangle())
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.controlRadius)
-                    .strokeBorder(Theme.borderStrong, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                    .strokeBorder(Theme.borderStrong)
             )
         }
         .buttonStyle(.plain)

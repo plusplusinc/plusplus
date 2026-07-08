@@ -709,8 +709,8 @@ struct TodayView: View {
                         }
                         .foregroundStyle(Theme.accent)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 40)
-                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.borderStrong, style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
+                        .frame(height: 46)
+                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.borderStrong))
                     }
                     .accessibilityIdentifier("restDayNewRoutineButton")
                 } else {
@@ -1008,11 +1008,11 @@ private struct SwapInSheet: View {
                         .foregroundStyle(Theme.accent)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 14)
-                        .frame(height: 44)
+                        .frame(height: 48)
                         .contentShape(Rectangle())
                         .overlay(
                             RoundedRectangle(cornerRadius: Theme.controlRadius)
-                                .strokeBorder(Theme.borderStrong, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                                .strokeBorder(Theme.borderStrong)
                         )
                     }
                     .accessibilityIdentifier("swapInCreateRoutine")

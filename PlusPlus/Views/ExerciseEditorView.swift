@@ -367,8 +367,8 @@ struct ExerciseEditorView: View {
                     .foregroundStyle(Theme.textSecondary)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 7)
-            .overlay(Capsule().strokeBorder(Theme.borderStrong, style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
+            .padding(.vertical, 9)
+            .overlay(Capsule().strokeBorder(Theme.borderStrong))
         }
         .disabled(unselectedEquipment.isEmpty)
     }

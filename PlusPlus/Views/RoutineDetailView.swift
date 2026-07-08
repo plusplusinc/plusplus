@@ -272,16 +272,16 @@ struct RoutineDetailView: View {
                 .frame(width: 28, height: railRowHeight)
 
                 // A button, not a passive row (#209): green creation
-                // grammar in a dashed capsule, so the empty state has a
-                // single obvious action.
+                // grammar in a solid capsule (#224 — dashes belong to
+                // pending state, not buttons).
                 Text("Add exercise")
                     .font(.system(.subheadline, weight: .semibold))
                     .foregroundStyle(Theme.accent)
-                    .padding(.horizontal, 16)
-                    .frame(height: 38)
+                    .padding(.horizontal, 18)
+                    .frame(height: 44)
                     .overlay(
                         RoundedRectangle(cornerRadius: Theme.controlRadius)
-                            .strokeBorder(Theme.borderStrong, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                            .strokeBorder(Theme.borderStrong)
                     )
                 Spacer(minLength: 0)
             }

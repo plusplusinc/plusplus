@@ -58,9 +58,10 @@ struct SearchDock: View {
             } label: {
                 Image(systemName: focused ? "xmark" : "plus")
                     .font(.system(.body, weight: .semibold))
-                    // Green only while it creates (#202); the escape
-                    // hatch is neutral chrome.
-                    .foregroundStyle(focused ? Theme.textPrimary : Theme.accent)
+                    // Same chrome as the glass back chevron (#224,
+                    // Dave) — glass circles speak one color; green
+                    // stays on in-content creation affordances.
+                    .foregroundStyle(Theme.textPrimary)
                     .frame(width: 48, height: 48)
                     .contentShape(Circle())
                     .contentTransition(.symbolEffect(.replace))
