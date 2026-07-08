@@ -334,7 +334,7 @@ private struct SetLoggingView: View {
                         + (supersetNames.isEmpty
                             ? Text("")
                             : (Text(" · ") + Text(Image(systemName: "square.on.square")) + Text(" SUPERSET"))
-                                .foregroundStyle(Theme.superset)))
+                                .foregroundStyle(Theme.textSecondary)))
                         .font(.system(.footnote, design: .monospaced, weight: .semibold))
                         .kerning(0.7)
                         .padding(.top, 20)
@@ -583,11 +583,11 @@ private struct SupersetChips: View {
                 }
                 Text(name)
                     .font(.system(.caption, weight: .semibold))
-                    .foregroundStyle(name == current ? Theme.superset : Theme.textSecondary)
+                    .foregroundStyle(name == current ? Theme.selected : Theme.textSecondary)
                     .lineLimit(1)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 3)
-                    .overlay(Capsule().strokeBorder(name == current ? Theme.supersetLine : Theme.borderStrong))
+                    .overlay(Capsule().strokeBorder(name == current ? Theme.selectedRing : Theme.borderStrong, lineWidth: 1))
             }
         }
     }

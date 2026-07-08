@@ -4,54 +4,93 @@ import SwiftUI
 /// typographic/control pieces every sheet composes. One place to change
 /// the sheet language (#91).
 
-/// Sheet title bar: centered title, optional Cancel on the left, and a
-/// bold accent action (Done/Save) on the right. Pass `action:` with its
-/// label — an unlabeled trailing closure would bind to `onCancel`.
+/// Sheet title bar (v4 §C): title upper-left with an optional context
+/// subtitle; on the right, auxiliary text (Cancel/Clear) beside the
+/// tray's single commit — a primaryFill capsule, because committing a
+/// form is an ACTION, not a selection (ink, never blue). The ✕ variant
+/// exists only for pickers where tapping a row IS the action.
 struct SheetHeader: View {
     let title: String
-    var actionLabel: String
+    var subtitle: String?
+    var actionLabel: String?
     var actionEnabled: Bool
     var actionIdentifier: String?
     var onCancel: (() -> Void)?
+    var cancelLabel: String
+    var closeOnly: Bool
     let action: () -> Void
 
     init(
         title: String,
-        actionLabel: String = "Done",
+        subtitle: String? = nil,
+        actionLabel: String? = "Done",
         actionEnabled: Bool = true,
         actionIdentifier: String? = nil,
         onCancel: (() -> Void)? = nil,
+        cancelLabel: String = "Cancel",
+        closeOnly: Bool = false,
         action: @escaping () -> Void
     ) {
         self.title = title
+        self.subtitle = subtitle
         self.actionLabel = actionLabel
         self.actionEnabled = actionEnabled
         self.actionIdentifier = actionIdentifier
         self.onCancel = onCancel
+        self.cancelLabel = cancelLabel
+        self.closeOnly = closeOnly
         self.action = action
     }
 
     var body: some View {
-        HStack {
-            Spacer()
-            Text(title).font(.system(.subheadline, weight: .bold))
-            Spacer()
-        }
-        .overlay(alignment: .leading) {
-            if let onCancel {
-                Button("Cancel", action: onCancel)
-                    .font(.system(.subheadline))
-                    .foregroundStyle(Theme.textSecondary)
+        HStack(alignment: .center, spacing: 14) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(.title3, weight: .bold))
+                    .foregroundStyle(Theme.textPrimary)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(Theme.textFaint)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 12)
+            if closeOnly {
+                Button(action: action) {
+                    Image(systemName: "xmark")
+                        .font(.system(.footnote, weight: .bold))
+                        .foregroundStyle(Theme.textSecondary)
+                        .frame(width: 32, height: 32)
+                        .background(Theme.surface, in: Circle())
+                        .overlay(Circle().strokeBorder(Theme.border))
+                        .padding(6)
+                        .contentShape(Circle())
+                }
+                .accessibilityIdentifier(actionIdentifier ?? "")
+            } else {
+                if let onCancel {
+                    Button(cancelLabel, action: onCancel)
+                        .font(.system(.subheadline))
+                        .foregroundStyle(Theme.textSecondary)
+                        .frame(minHeight: 44)
+                }
+                if let actionLabel {
+                    Button(action: action) {
+                        Text(actionLabel)
+                            .font(.system(.subheadline, weight: .bold))
+                            .foregroundStyle(actionEnabled ? Theme.onPrimary : Theme.textFaint)
+                            .padding(.horizontal, 16)
+                            .frame(height: 36)
+                            .background(actionEnabled ? Theme.primaryFill : Theme.surface, in: Capsule())
+                            .overlay(Capsule().strokeBorder(actionEnabled ? Color.clear : Theme.borderStrong, lineWidth: 1))
+                    }
+                    .disabled(!actionEnabled)
+                    .accessibilityIdentifier(actionIdentifier ?? "")
+                }
             }
         }
-        .overlay(alignment: .trailing) {
-            Button(actionLabel, action: action)
-                .font(.system(.subheadline, weight: .bold))
-                .foregroundStyle(actionEnabled ? Theme.textPrimary : Theme.textFaint)
-                .disabled(!actionEnabled)
-                .accessibilityIdentifier(actionIdentifier ?? "")
-        }
-        .padding(.top, 24)
+        .padding(.top, 14)
     }
 }
 
@@ -140,27 +179,31 @@ struct MetricStepperRow: View {
             .disabled(onTapValue == nil)
             .accessibilityIdentifier("\(identifier)Value")
 
+            // 44-wide targets with the hit carried to 44 pt tall by the
+            // row (§H: 44×36 visual, 44×44 hit, 52 pt row).
             HStack(spacing: 0) {
                 Button(action: onDecrement) {
                     Image(systemName: "minus")
                         .font(.system(.caption, weight: .medium))
                         .foregroundStyle(Theme.textSecondary)
-                        .frame(width: 42, height: 28)
+                        .frame(width: 44, height: 36)
+                        .contentShape(Rectangle().inset(by: -4))
                 }
                 .accessibilityIdentifier("\(identifier)Decrement")
-                Divider().frame(height: 28).overlay(Theme.border)
+                Divider().frame(height: 36).overlay(Theme.border)
                 Button(action: onIncrement) {
                     Image(systemName: "plus")
                         .font(.system(.caption, weight: .medium))
                         .foregroundStyle(Theme.textSecondary)
-                        .frame(width: 42, height: 28)
+                        .frame(width: 44, height: 36)
+                        .contentShape(Rectangle().inset(by: -4))
                 }
                 .accessibilityIdentifier("\(identifier)Increment")
             }
             .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.border))
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 9)
+        .frame(minHeight: 52)
         .overlay(alignment: .bottom) { Divider().overlay(Theme.border) }
     }
 }

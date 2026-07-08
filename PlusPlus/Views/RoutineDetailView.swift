@@ -949,17 +949,18 @@ struct RoutineSettingsSheet: View {
                         }
                         persistSchedule()
                     } label: {
-                        // Accent-tinted, not primaryFill: a selected day
-                        // is data (it drives due-ness).
+                        // Selection blue, not green (§D): scheduling a
+                        // day is choosing an option; the due OUTPUT on
+                        // Today stays green.
                         Text(Self.dayLabels[weekday - 1])
                             .font(.system(.subheadline, design: .monospaced, weight: .semibold))
-                            .foregroundStyle(selected ? Theme.accent : Theme.textSecondary)
+                            .foregroundStyle(selected ? Theme.selected : Theme.textSecondary)
                             .frame(width: 44, height: 44)
                             .background(
-                                selected ? Theme.accent.opacity(0.16) : Theme.background,
+                                selected ? AnyShapeStyle(Theme.selectedTint) : AnyShapeStyle(Theme.background),
                                 in: Circle()
                             )
-                            .overlay(Circle().strokeBorder(selected ? Theme.accent.opacity(0.5) : Theme.border))
+                            .overlay(Circle().strokeBorder(selected ? Theme.selectedRing : Theme.border, lineWidth: 1))
                     }
                     .accessibilityIdentifier("scheduleDay\(weekday)")
 
@@ -971,6 +972,8 @@ struct RoutineSettingsSheet: View {
                 .frame(maxWidth: .infinity)
             }
         }
+        .animation(.easeOut(duration: 0.15), value: scheduleDays)
+        .sensoryFeedback(.selection, trigger: scheduleDays)
     }
 
     /// Monday-first calendar weekday numbers, matching the prototype.

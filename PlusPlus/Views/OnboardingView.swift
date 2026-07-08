@@ -65,7 +65,7 @@ struct EquipmentAccessSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "What do you have access to?", actionLabel: "Cancel", action: { dismiss() })
+            SheetHeader(title: "Your equipment", action: { dismiss() })
 
             Text("Filters the exercise catalog everywhere · never touches logged history")
                 .font(.system(.caption, design: .monospaced))
@@ -157,7 +157,7 @@ struct StarterSeedSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "Build your first routine", actionLabel: "Cancel", action: { dismiss() })
+            SheetHeader(title: "Starter routines", closeOnly: true, action: { dismiss() })
 
             Text("You can change everything later — it's just a starting point")
                 .font(.system(.caption, design: .monospaced))
