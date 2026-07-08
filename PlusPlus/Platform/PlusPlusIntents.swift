@@ -50,20 +50,22 @@ struct StartRoutineIntent: AppIntent {
     }
 }
 
+// Struct name stays — renaming an AppIntent breaks existing shortcuts.
+// Display strings dropped the "due" vocabulary (#172).
 struct DueTodayIntent: AppIntent {
-    static let title: LocalizedStringResource = "What's Due Today"
-    static let description = IntentDescription("Tells you which routines are due today.")
+    static let title: LocalizedStringResource = "Today's Workout"
+    static let description = IntentDescription("Tells you what's on your schedule today.")
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let due = WidgetSnapshot.load()?.due ?? []
         let dialog: IntentDialog
         switch due.count {
         case 0:
-            dialog = "Rest day — nothing due."
+            dialog = "Rest day — nothing scheduled."
         case 1:
-            dialog = "\(due[0].name) is due — \(due[0].exerciseCount) exercises."
+            dialog = "Today: \(due[0].name) — \(due[0].exerciseCount) exercises."
         default:
-            dialog = "\(due.count) routines are due: \(due.map(\.name).joined(separator: ", "))."
+            dialog = "Today: \(due.map(\.name).joined(separator: ", "))."
         }
         return .result(dialog: dialog)
     }
@@ -93,10 +95,10 @@ struct PlusPlusShortcuts: AppShortcutsProvider {
         AppShortcut(
             intent: DueTodayIntent(),
             phrases: [
-                "What's due in \(.applicationName)",
+                "What's today in \(.applicationName)",
                 "What's my workout today in \(.applicationName)",
             ],
-            shortTitle: "Due Today",
+            shortTitle: "Today's Workout",
             systemImageName: "smallcircle.filled.circle"
         )
     }

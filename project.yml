@@ -86,9 +86,14 @@ targets:
       properties:
         com.apple.security.application-groups:
           - group.com.davidcole.plusplus
-        # Health writes (#90) — same cloud-signing story as the App
-        # Group: the capability provisioned itself at export for build 17.
+        # Health writes (#90).
         com.apple.developer.healthkit: true
+        # Universal links (#156): https share links open the app when
+        # installed. Needs Associated Domains enabled on the App ID in
+        # the portal, like every capability (see the 2026-07-08
+        # entitlements decision).
+        com.apple.developer.associated-domains:
+          - applinks:plusplus.fit
     dependencies:
       - target: PlusPlusWatch
       - target: PlusPlusWidgets

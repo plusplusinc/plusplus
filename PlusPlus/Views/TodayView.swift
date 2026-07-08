@@ -37,7 +37,6 @@ struct TodayView: View {
     @State private var showingStarterSeed = false
     @State private var scheduleEditTarget: Routine?
     @State private var activeSession: WorkoutSession?
-    @State private var expandedDiffs: Set<PersistentIdentifier> = []
     /// Bumped on day change so every Date()-based computed re-evaluates
     /// — without it, an app resident overnight keeps rendering
     /// yesterday's due list (bug hunt).
@@ -165,21 +164,6 @@ struct TodayView: View {
             ? sessions.filter { $0.routineName == routine.name }
             : identityMatches
         return pool.compactMap(\.endedAt).max()
-    }
-
-    private func dueCaption(for routine: Routine) -> String {
-        guard let since = routine.schedule.dueSince(
-            lastCompleted: lastCompleted(of: routine),
-            today: today,
-            calendar: calendar
-        ) else { return "due today" }
-        if calendar.isDateInToday(since) { return "due today" }
-        // Within the week a weekday reads naturally; older than that,
-        // "due since thu" would lie about how long it's been.
-        if let days = calendar.dateComponents([.day], from: since, to: calendar.startOfDay(for: today)).day, days <= 6 {
-            return "due since " + since.formatted(.dateTime.weekday(.abbreviated)).lowercased()
-        }
-        return "due since " + since.formatted(.dateTime.month(.abbreviated).day()).lowercased()
     }
 
     /// The last time each staged exercise was actually performed —
@@ -313,8 +297,8 @@ struct TodayView: View {
         if setupActive && !allSetupDone {
             return "\(date) · setup \(setupDoneCount) of 3"
         }
-        let due = dueRoutines.count
-        return due == 0 ? date : "\(date) · \(due) due"
+        // No "N due" tally (#172): the staged cards below ARE the tally.
+        return date
     }
 
     // MARK: - Pending card
@@ -322,9 +306,10 @@ struct TodayView: View {
     private func pendingCard(_ routine: Routine) -> some View {
         let lines = diffLines(for: routine)
         let segments = RoutineDiff.summary(deltas: lines.map(\.delta), weightUnit: weightUnit)
-        let expanded = expandedDiffs.contains(routine.persistentModelID)
 
         return VStack(alignment: .leading, spacing: 0) {
+            // The card's two actions (Dave, #173): start it, or configure
+            // it — the header row IS the configure affordance, and says so.
             NavigationLink(value: routine) {
                 HStack(spacing: 8) {
                     Text(routine.name)
@@ -332,65 +317,30 @@ struct TodayView: View {
                         .foregroundStyle(Theme.textPrimary)
                         .lineLimit(1)
                     Spacer(minLength: 8)
-                    Text(dueCaption(for: routine))
+                    Text("configure")
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(Theme.textSecondary)
                     Image(systemName: "chevron.right")
                         .font(.system(.footnote, weight: .bold))
                         .foregroundStyle(Theme.textFaint)
                 }
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
             Text(metaLine(for: routine))
                 .font(.system(.footnote, design: .monospaced))
                 .foregroundStyle(Theme.textSecondary)
+                .lineLimit(2)
                 .padding(.top, 5)
 
-            Button {
-                if expanded {
-                    expandedDiffs.remove(routine.persistentModelID)
-                } else {
-                    expandedDiffs.insert(routine.persistentModelID)
-                }
-            } label: {
-                HStack(spacing: 5) {
-                    diffSummaryText(segments)
-                        .lineLimit(1)
-                    Text(" details")
-                        .font(.system(.caption, design: .monospaced))
-                        .foregroundStyle(Theme.textFaint)
-                    Image(systemName: "chevron.down")
-                        .font(.system(.caption2, weight: .semibold))
-                        .foregroundStyle(Theme.textFaint)
-                        .rotationEffect(.degrees(expanded ? 180 : 0))
-                        .animation(.easeOut(duration: 0.15), value: expanded)
-                }
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 6)
-            .accessibilityIdentifier("diffSummary")
-
-            if expanded {
-                VStack(spacing: 0) {
-                    ForEach(lines) { line in
-                        HStack(spacing: 8) {
-                            Text(line.name)
-                                .font(.system(.caption))
-                                .foregroundStyle(Theme.textPrimary)
-                                .lineLimit(1)
-                            Spacer()
-                            Text(line.target)
-                                .font(.system(.caption, design: .monospaced))
-                                .foregroundStyle(Theme.textSecondary)
-                            deltaText(line.delta)
-                                .frame(minWidth: 52, alignment: .trailing)
-                        }
-                        .padding(.vertical, 4)
-                    }
-                }
+            // The diff summary stands on its own — the expander died
+            // with #173; per-exercise detail lives one tap away in the
+            // routine itself.
+            diffSummaryText(segments)
+                .lineLimit(1)
                 .padding(.top, 6)
-            }
+                .accessibilityIdentifier("diffSummary")
 
             Button {
                 start(routine)
@@ -413,10 +363,20 @@ struct TodayView: View {
         )
     }
 
+    /// Muscles and gear beat a bare exercise count (Dave, #173): what
+    /// the workout hits and what to have nearby is decision-relevant;
+    /// "6 exercises" isn't. Both lists cap at 3 + overflow.
     private func metaLine(for routine: Routine) -> String {
-        let count = routine.sortedGroups.reduce(0) { $0 + $1.sortedExercises.count }
+        let exercises = routine.sortedGroups.flatMap(\.sortedExercises).compactMap(\.exercise)
+        let muscles = Array(Set(exercises.map(\.muscleGroup.displayName.lowercased()))).sorted()
+        let gear = Array(Set(exercises.flatMap { $0.equipment.map(\.name.lowercased) })).sorted()
+        func capped(_ list: [String]) -> String? {
+            guard !list.isEmpty else { return nil }
+            let shown = list.prefix(3).joined(separator: ", ")
+            return list.count > 3 ? "\(shown) +\(list.count - 3)" : shown
+        }
         let minutes = max(5, Int((Double(routine.estimatedSeconds) / 300).rounded()) * 5)
-        var parts = ["\(count) exercise\(count == 1 ? "" : "s")", "~\(minutes) min"]
+        var parts = [capped(muscles), capped(gear), "~\(minutes) min"].compactMap { $0 }
         if routine.schedule.normalized != .unscheduled {
             parts.append(routine.schedule.shortLabel)
         }
@@ -446,19 +406,6 @@ struct TodayView: View {
         case .new: Theme.info
         case .unchanged: Theme.textFaint
         }
-    }
-
-    private func deltaText(_ delta: RoutineDiff.Delta) -> some View {
-        let segment = RoutineDiff.summary(deltas: [delta], weightUnit: weightUnit)[0]
-        let text: String
-        switch delta {
-        case .unchanged: text = "="
-        case .new: text = "new"
-        default: text = segment.text
-        }
-        return Text(text)
-            .font(.system(.caption, design: .monospaced, weight: .semibold))
-            .foregroundStyle(delta == .unchanged ? Theme.textFaint : color(for: segment.kind))
     }
 
     // MARK: - Committed card
@@ -534,7 +481,7 @@ struct TodayView: View {
                 badge: "3 of 3",
                 title: "Schedule it",
                 doneTitle: "Schedule set",
-                sub: scheduleStepDone ? scheduleDoneSub : "Days or a pace — due routines stage here",
+                sub: scheduleStepDone ? scheduleDoneSub : "Days or a pace — routines appear here on their day",
                 gatedSub: "Needs a routine first",
                 cta: "Choose days or pace",
                 identifier: "setupScheduleStep",
@@ -653,7 +600,7 @@ struct TodayView: View {
         }
         guard let best else { return "Nothing scheduled — swap one in whenever" }
         let day = best.date.formatted(.dateTime.weekday(.abbreviated)).lowercased()
-        return "on pace · next due \(day) — \(best.name)"
+        return "on pace · next \(day) — \(best.name)"
     }
 }
 

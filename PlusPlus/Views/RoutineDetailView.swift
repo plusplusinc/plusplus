@@ -15,6 +15,7 @@ struct RoutineDetailView: View {
     @State private var pickerDestination: PickerDestination?
     @State private var activeSession: WorkoutSession?
     @State private var showingRoutineSettings = false
+    @State private var showingShareSheet = false
     @State private var selectedExercise: RoutineExercise?
     @State private var railGesture: RailGestureState = .idle
     @State private var openSwipeRow: PersistentIdentifier?
@@ -107,9 +108,13 @@ struct RoutineDetailView: View {
                     .lineLimit(1)
                 Spacer()
                 // Share the routine as a link (#145): the payload rides
-                // the URL itself — nothing is uploaded anywhere.
+                // the URL itself — nothing is uploaded anywhere. UIKit
+                // sheet instead of ShareLink so Copy takes JUST the URL
+                // while Messages still gets the sentence (#178).
                 if !routine.groups.isEmpty, let url = shareURL {
-                    ShareLink(item: url, subject: Text(routine.name), message: Text("My \(routine.name) routine on PlusPlus")) {
+                    Button {
+                        showingShareSheet = true
+                    } label: {
                         Image(systemName: "square.and.arrow.up")
                             .font(.system(.body, weight: .medium))
                             .foregroundStyle(Theme.textSecondary)
@@ -118,6 +123,13 @@ struct RoutineDetailView: View {
                             .overlay(Circle().strokeBorder(Theme.border))
                     }
                     .accessibilityIdentifier("shareRoutineButton")
+                    .sheet(isPresented: $showingShareSheet) {
+                        ActivitySheet(items: [
+                            url,
+                            ShareMessageItem(text: "My \(routine.name) routine on PlusPlus", subject: routine.name),
+                        ])
+                        .presentationDetents([.medium, .large])
+                    }
                 }
                 HeaderIconButton(systemImage: "slider.horizontal.3", identifier: "routineSettingsButton") {
                     showingRoutineSettings = true
@@ -1008,10 +1020,10 @@ struct RoutineSettingsSheet: View {
                 let names = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
                 return "· = another routine lives on that day — \(name) on \(names[day - 1])"
             }
-            return "Due on the marked days; a missed day carries over until you do it."
+            return "On the marked days; a missed day carries over until you do it."
         case 2:
             let interval = (schedulePerDays + scheduleTimes - 1) / scheduleTimes
-            return "Anchored to your last completion, not the calendar week — \(scheduleTimes)×/\(schedulePerDays)d comes due every ~\(interval) day\(interval == 1 ? "" : "s")."
+            return "Anchored to your last completion, not the calendar week — \(scheduleTimes)×/\(schedulePerDays)d comes around every ~\(interval) day\(interval == 1 ? "" : "s")."
         default:
             return "No schedule — this routine never appears on Today by itself. Swap it in whenever."
         }
