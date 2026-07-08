@@ -106,6 +106,20 @@ The app's single-file export (backup / manual transport) is a bundle:
       "name": "Band Pulses",
       "notes": "Elbows bent, shoulder flexed to 90°.",
       "videoURL": "https://youtu.be/ykZHbcGNfII"
+    },
+    {
+      "equipment": ["Bench", "Dumbbells"],
+      "exerciseType": "weightReps",
+      "isBuiltIn": false,
+      "muscleGroup": "shoulders",
+      "name": "T Raise"
+    },
+    {
+      "equipment": ["Bench", "Dumbbells"],
+      "exerciseType": "weightReps",
+      "isBuiltIn": false,
+      "muscleGroup": "shoulders",
+      "name": "Y Raise"
     }
   ],
   "routines": [
