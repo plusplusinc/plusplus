@@ -67,24 +67,39 @@ struct SeedDataTests {
         let exercises = try context.fetch(FetchDescriptor<Exercise>())
         #expect(exercises.allSatisfy { !$0.inLibrary })
 
+        // Diagnostics for the CI-only corruption: bracket the equipment
+        // mutation loop so a failure names its mechanism. Point A failing
+        // means the seed itself lost the relationship; A passing and B
+        // failing means mutating Equipment.inLibrary (a relationship
+        // target with no declared inverse) clears the Exercise side.
+        let bench = try #require(exercises.first { $0.name == "Bench Press" })
+        #expect(!bench.equipment.isEmpty, "A: corrupted at seed time — \(diagnostics(context: context))")
+
         // Own only a pull-up bar: bodyweight + pull-up work populates,
         // barbell work doesn't.
         let equipment = try context.fetch(FetchDescriptor<Equipment>())
         for item in equipment {
             item.inLibrary = item.name == "Pull-Up Bar"
         }
-        // Precondition, not the behavior under test: if Bench Press's
-        // requirements are gone HERE, the fixture was corrupted before
-        // populate ran — that's the CI mystery's smoking gun, distinct
-        // from a populate-logic bug.
-        let bench = try #require(exercises.first { $0.name == "Bench Press" })
-        #expect(!bench.equipment.isEmpty, "fixture corrupted: Bench Press lost its equipment before populate ran")
+        #expect(!bench.equipment.isEmpty, "B: corrupted by the inLibrary mutation loop — \(diagnostics(context: context))")
         let added = SeedData.populateLibraryFromEquipment(context: context)
         #expect(added > 0)
         let byName = Dictionary(uniqueKeysWithValues: exercises.map { ($0.name, $0) })
         #expect(byName["Pull-Up"]?.inLibrary == true)
         #expect(byName["Push-Up"]?.inLibrary == true)
         #expect(byName["Bench Press"]?.inLibrary == false)
+    }
+
+    /// What the store actually holds vs what this context's graph says —
+    /// read through a FRESH context so faulting starts clean.
+    private func diagnostics(context: ModelContext) -> String {
+        let fresh = ModelContext(context.container)
+        let benches = (try? fresh.fetch(
+            FetchDescriptor<Exercise>(predicate: #Predicate { $0.name == "Bench Press" })
+        )) ?? []
+        let equipmentCount = (try? fresh.fetchCount(FetchDescriptor<Equipment>())) ?? -1
+        let described = benches.map { "equip=\($0.equipment.map(\.name).sorted()) inLibrary=\($0.inLibrary)" }
+        return "freshContext: benchCount=\(benches.count) \(described.joined(separator: " | ")) equipmentRows=\(equipmentCount)"
     }
 
     @Test func repairRestoresEmptyBuiltInEquipment() throws {
