@@ -117,25 +117,63 @@ enum SeedData {
 
     // MARK: - Equipment
 
+    // Generic types only, no brand names (#222 — compiled from a sweep
+    // of Rogue/Rep/Titan home-gym catalogs and Hammer Strength /
+    // Life Fitness / Precor-class commercial lines). Inclusion rule: an
+    // item qualifies only if some exercise can genuinely REQUIRE it;
+    // pure accessories (straps, chalk, collars, bracing belts) stay
+    // out. Near-synonyms map to one type (functional trainer → Cable
+    // Machine, prowler → Sled, power tower → its stations, buffalo bar
+    // → Cambered Squat Bar). The top-up seeder delivers newcomers to
+    // existing stores catalog-only and un-owned (#95).
     static var builtInEquipment: [Equipment] {
         [
             // Free weights + bars
             "Barbell", "EZ Bar", "Trap Bar", "Dumbbells", "Kettlebell",
             "Weight Plate", "Sandbag",
+            // Specialty bars
+            "Safety Squat Bar", "Swiss Bar", "Cambered Squat Bar",
+            "Axle Bar",
             // Racks, benches, stations
-            "Squat Rack", "Bench", "Incline Bench", "Preacher Bench",
-            "Dip Station", "Pull-Up Bar", "Back Extension Bench",
-            "Plyo Box", "Landmine",
-            // Machines
-            "Smith Machine", "Cable Machine", "Leg Press Machine",
+            "Squat Rack", "Bench", "Incline Bench", "Decline Bench",
+            "Preacher Bench", "Dip Station", "Pull-Up Bar",
+            "Back Extension Bench", "Glute-Ham Developer",
+            "Reverse Hyper Machine", "Nordic Bench", "Sissy Squat Bench",
+            "Captain's Chair", "Plyo Box", "Landmine",
+            // Machines — plate-loaded
+            "Smith Machine", "T-Bar Row Machine", "Belt Squat Machine",
+            "Pendulum Squat Machine", "Pullover Machine",
+            // Machines — cable + selectorized
+            "Cable Machine", "Leg Press Machine",
             "Lat Pulldown Machine", "Leg Extension Machine",
             "Leg Curl Machine", "Calf Raise Machine", "Hack Squat Machine",
             "Hip Thrust Machine", "Pec Deck Machine", "Chest Press Machine",
             "Shoulder Press Machine", "Seated Row Machine",
-            // Conditioning + accessories
-            "Rowing Machine", "Stationary Bike", "Treadmill", "Sled",
-            "Battle Ropes", "Jump Rope", "Medicine Ball", "Ab Wheel",
-            "Resistance Band", "Suspension Trainer", "Gymnastic Rings",
+            "Hip Abduction Machine", "Hip Adduction Machine",
+            "Assisted Pull-Up Machine", "Ab Crunch Machine",
+            "Torso Rotation Machine", "Lateral Raise Machine",
+            "Bicep Curl Machine", "Tricep Extension Machine",
+            "Low Back Extension Machine", "Multi-Hip Machine",
+            "Glute Kickback Machine",
+            // Cardio
+            "Rowing Machine", "Stationary Bike", "Treadmill", "Air Bike",
+            "Ski Erg", "Elliptical", "Stair Climber", "Vertical Climber",
+            "Upper Body Ergometer",
+            // Strongman
+            "Sled", "Yoke", "Farmers Walk Handles", "Log Bar",
+            "Atlas Stone", "Circus Dumbbell", "Husafell Stone", "Tire",
+            "Sledgehammer",
+            // Gymnastics + calisthenics
+            "Suspension Trainer", "Gymnastic Rings", "Parallettes",
+            "Climbing Rope", "Peg Board", "Stall Bars",
+            // Small equipment
+            "Battle Ropes", "Jump Rope", "Medicine Ball", "Slam Ball",
+            "Stability Ball", "Balance Trainer", "Ab Wheel",
+            "Resistance Band", "Weightlifting Chains", "Dip Belt",
+            "Weight Vest", "Sliders", "Macebell", "Steel Club",
+            "Bulgarian Bag", "Wrist Roller", "Neck Harness",
+            "Hand Gripper", "Heavy Bag", "Agility Ladder",
+            "Tibialis Bar", "Slant Board",
         ].map { Equipment(name: $0, isBuiltIn: true) }
     }
 
