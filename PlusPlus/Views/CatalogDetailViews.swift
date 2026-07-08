@@ -144,6 +144,8 @@ struct ExerciseDetailScreen: View {
                 }
             }
 
+            // Arriving from a focused library search must not strand
+            // the keyboard here (#213) — scrolling shakes it off.
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(spacing: 6) {
@@ -234,6 +236,7 @@ struct ExerciseDetailScreen: View {
             }
         }
         .background(Theme.background)
+        .scrollDismissesKeyboard(.immediately)
         .pushedScreenChrome(onBack: { dismiss() })
         .navigationDestination(item: $path) { target in
             switch target {
@@ -443,6 +446,7 @@ struct EquipmentDetailScreen: View {
             }
         }
         .background(Theme.background)
+        .scrollDismissesKeyboard(.immediately)
         .pushedScreenChrome(onBack: { dismiss() })
         .navigationDestination(item: $path) { target in
             switch target {

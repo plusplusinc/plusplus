@@ -25,19 +25,24 @@ struct ExercisesTabView: View {
     var body: some View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
-                CatalogTabHeader(title: "Exercises", addIdentifier: "addExercisesButton") {
-                    showingCatalog = true
-                }
-
-                SearchField(prompt: "Search", text: $search)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 2)
+                CatalogTabHeader(title: "Exercises")
 
                 List {
                     exerciseRows
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
+                .scrollDismissesKeyboard(.immediately)
+                // Rows feather out under the glass instead of
+                // hard-clipping at the dock (#216 rides along).
+                .scrollEdgeEffectStyle(.soft, for: .bottom)
+                // Search floats at the bottom, Messages-style (#214);
+                // rows scroll under the glass.
+                .safeAreaInset(edge: .bottom) {
+                    SearchDock(prompt: "Search", text: $search, addIdentifier: "addExercisesButton") {
+                        showingCatalog = true
+                    }
+                }
                 .popoverTip(SwipeActionsTip())
             }
             .background(Theme.background)
@@ -149,19 +154,22 @@ struct EquipmentTabView: View {
     var body: some View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
-                CatalogTabHeader(title: "Equipment", addIdentifier: "addEquipmentButton") {
-                    showingCatalog = true
-                }
-
-                SearchField(prompt: "Search", text: $search)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 2)
+                CatalogTabHeader(title: "Equipment")
 
                 List {
                     equipmentRows
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
+                .scrollDismissesKeyboard(.immediately)
+                // Rows feather out under the glass instead of
+                // hard-clipping at the dock (#216 rides along).
+                .scrollEdgeEffectStyle(.soft, for: .bottom)
+                .safeAreaInset(edge: .bottom) {
+                    SearchDock(prompt: "Search", text: $search, addIdentifier: "addEquipmentButton") {
+                        showingCatalog = true
+                    }
+                }
                 .popoverTip(SwipeActionsTip())
             }
             .background(Theme.background)
@@ -227,9 +235,9 @@ struct EquipmentTabView: View {
         if equipment.isBuiltIn {
             equipment.inLibrary = false
         } else {
-            // Exercise→Equipment has no inverse, so SwiftData can't
-            // nullify referencing exercises on deletion — strip the
-            // references first or they dangle (bug hunt B1).
+            // Belt-and-braces since #196 gave the relationship an
+            // explicit inverse: stripping references first keeps
+            // deletion order-independent (bug hunt B1).
             for exercise in allExercises {
                 exercise.equipment.removeAll { $0 === equipment }
             }
@@ -242,18 +250,26 @@ struct EquipmentTabView: View {
 /// contextual + button.
 struct CatalogTabHeader: View {
     let title: String
+    // Creation moved into the SearchDock's glass circle (#214); the
+    // slot stays for headers that still need a trailing action.
     var addIdentifier: String?
-    let onAdd: () -> Void
+    var onAdd: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 HeaderGlyph()
                 Spacer()
-                HeaderIconButton(systemImage: "plus", identifier: addIdentifier, tint: Theme.accent) {
-                    onAdd()
+                if let onAdd {
+                    HeaderIconButton(systemImage: "plus", identifier: addIdentifier, tint: Theme.accent) {
+                        onAdd()
+                    }
                 }
             }
+            // The button slot is 44 pt on the other tabs' headers —
+            // hold the height with it empty so tab-switching doesn't
+            // bounce the title row.
+            .frame(minHeight: 44)
             Text(title)
                 .font(.system(.title, weight: .bold))
                 .padding(.top, 10)
@@ -430,6 +446,7 @@ struct CatalogBrowseScreen: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
+            .scrollDismissesKeyboard(.immediately)
             .padding(.top, 2)
         }
         .background(Theme.background)
