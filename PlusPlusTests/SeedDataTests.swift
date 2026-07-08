@@ -48,9 +48,11 @@ struct SeedDataTests {
         requires("Face Pull", ["Cable Machine"])
         requires("Lat Pulldown", ["Lat Pulldown Machine"])
         requires("Pull-Up", ["Pull-Up Bar"])
-        requires("Incline Dumbbell Press", ["Dumbbells", "Bench"])
+        requires("Incline Dumbbell Press", ["Dumbbells", "Incline Bench"])
         requires("Hip Thrust", ["Barbell", "Bench"])
         requires("Kettlebell Swing", ["Kettlebell"])
+        requires("Hack Squat", ["Hack Squat Machine"])
+        requires("Skull Crusher", ["EZ Bar", "Bench"])
         // Genuinely bodyweight stays bodyweight.
         requires("Push-Up", [])
         requires("Plank", [])
@@ -151,8 +153,8 @@ struct SeedDataTests {
 
         let exerciseCount = try context.fetchCount(FetchDescriptor<Exercise>())
         let equipmentCount = try context.fetchCount(FetchDescriptor<Equipment>())
-        #expect(exerciseCount == 27)
-        #expect(equipmentCount == 13)
+        #expect(exerciseCount == SeedData.builtInExerciseCount)
+        #expect(equipmentCount == SeedData.builtInEquipment.count)
     }
 
     @Test func loadIfNeededDoesNotDuplicateOnSecondRun() throws {
@@ -164,8 +166,42 @@ struct SeedDataTests {
 
         let exerciseCount = try context.fetchCount(FetchDescriptor<Exercise>())
         let equipmentCount = try context.fetchCount(FetchDescriptor<Equipment>())
-        #expect(exerciseCount == 27)
-        #expect(equipmentCount == 13)
+        #expect(exerciseCount == SeedData.builtInExerciseCount)
+        #expect(equipmentCount == SeedData.builtInEquipment.count)
+    }
+
+    /// #95: catalog growth reaches EXISTING stores as a top-up — new
+    /// definitions arrive out-of-library, new equipment arrives
+    /// un-owned, and the user's curation is untouched.
+    @Test func topUpAddsNewDefinitionsWithoutTouchingCuration() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+
+        // An "old" store: one built-in the user curated into the
+        // library, with its gear owned.
+        let bench = Equipment(name: "Bench", isBuiltIn: true)
+        context.insert(bench)
+        let barbell = Equipment(name: "Barbell", isBuiltIn: true)
+        context.insert(barbell)
+        let press = Exercise(name: "Bench Press", muscleGroup: .chest, isBuiltIn: true)
+        press.inLibrary = true
+        context.insert(press)
+        press.equipment = [barbell, bench]
+
+        SeedData.loadIfNeeded(context: context)
+
+        let exercises = try context.fetch(FetchDescriptor<Exercise>())
+        let equipment = try context.fetch(FetchDescriptor<Equipment>())
+        #expect(exercises.count == SeedData.builtInExerciseCount)
+        #expect(equipment.count == SeedData.builtInEquipment.count)
+        // Curation untouched; arrivals join catalog-only and un-owned.
+        let byName = Dictionary(uniqueKeysWithValues: exercises.map { ($0.name, $0) })
+        #expect(byName["Bench Press"]?.inLibrary == true)
+        #expect(byName["Squat"]?.inLibrary == false)
+        #expect(equipment.first { $0.name == "Bench" }?.inLibrary == true)
+        #expect(equipment.first { $0.name == "Hack Squat Machine" }?.inLibrary == false)
+        // And the newcomers carry their requirements.
+        #expect(byName["Squat"]?.equipment.isEmpty == false)
     }
 
     @Test func allSeededExercisesAreBuiltIn() throws {
