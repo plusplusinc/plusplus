@@ -688,7 +688,7 @@ struct TodayView: View {
     /// A timeline ITEM, not a floating empty state: rest days are part
     /// of the record too.
     private var restDayItem: some View {
-        TimelineItem(node: .pending) {
+        TimelineItem(node: .inert) {
             VStack(alignment: .leading, spacing: 8) {
                 Text(scheduledRoutinesExist ? "Rest day" : "Nothing scheduled")
                     .font(.system(.body, weight: .semibold))
@@ -774,7 +774,13 @@ struct SessionRecordDestination: Hashable {
 /// with a SOLID border (dashes are not rail vocabulary); committed =
 /// filled green 10 pt.
 private enum TimelineNode {
+    /// Ready to do — a green RING (hollow: filled is done's shape;
+    /// GitHub's open-vs-merged iconography). Green marks the next
+    /// increment, per Dave's rail grammar: green = actionable now,
+    /// grey = inert or not yet, purple = done.
     case pending
+    /// Nothing actionable here (rest day) — neutral grey ring.
+    case inert
     case committed
     /// A setup step whose prerequisite isn't met yet — hollow like
     /// pending, but border-faint so the rail reads "not yet yours".
@@ -794,6 +800,12 @@ private struct TimelineItem<Content: View>: View {
                     .frame(maxHeight: .infinity)
                 switch node {
                 case .pending:
+                    Circle()
+                        .strokeBorder(Theme.accent, lineWidth: 2)
+                        .frame(width: 10, height: 10)
+                        .background(Circle().fill(Theme.background))
+                        .padding(.top, 18)
+                case .inert:
                     Circle()
                         .strokeBorder(Theme.textFaint, lineWidth: 2)
                         .frame(width: 10, height: 10)
