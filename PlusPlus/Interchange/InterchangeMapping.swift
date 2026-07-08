@@ -142,7 +142,6 @@ enum InterchangeMapping {
                 let exercise = Exercise(
                     name: dto.name,
                     muscleGroup: dto.muscleGroup,
-                    equipment: dto.equipment.map { resolveEquipment($0, in: &equipmentByName, context: context) },
                     exerciseType: dto.exerciseType,
                     isBuiltIn: false,
                     notes: dto.notes,
@@ -153,6 +152,9 @@ enum InterchangeMapping {
                 exercise.defaultRepsUpper = dto.defaultRepsUpper
                 exercise.defaultDurationSeconds = dto.defaultDurationSeconds
                 context.insert(exercise)
+                // Post-insert, like the seeder: pre-insert relationship
+                // assignment loses nondeterministically.
+                exercise.equipment = dto.equipment.map { resolveEquipment($0, in: &equipmentByName, context: context) }
                 exercisesByName[key] = exercise
                 summary.exercisesCreated += 1
             }

@@ -22,15 +22,21 @@ struct ExerciseFilterTests {
         context.insert(dumbbells)
         context.insert(cable)
 
-        let benchPress = Exercise(name: "Probe Press", muscleGroup: .chest, equipment: [barbell])
-        let curl = Exercise(name: "Dumbbell Curl", muscleGroup: .biceps, equipment: [dumbbells])
-        let cableFly = Exercise(name: "Cable Fly", muscleGroup: .chest, equipment: [cable])
+        let benchPress = Exercise(name: "Probe Press", muscleGroup: .chest)
+        let curl = Exercise(name: "Probe Curl", muscleGroup: .biceps)
+        let cableFly = Exercise(name: "Probe Fly", muscleGroup: .chest)
         let pushUp = Exercise(name: "Probe Push", muscleGroup: .chest)
-        let squat = Exercise(name: "Probe Squat", muscleGroup: .quads, equipment: [barbell])
+        let squat = Exercise(name: "Probe Squat", muscleGroup: .quads)
         let plank = Exercise(name: "Probe Hold", muscleGroup: .core, exerciseType: .duration)
 
         let exercises = [benchPress, curl, cableFly, pushUp, squat, plank]
         for e in exercises { context.insert(e) }
+        // Post-insert relationship assignment — pre-insert loses
+        // nondeterministically (the #186/CI seeder bug).
+        benchPress.equipment = [barbell]
+        curl.equipment = [dumbbells]
+        cableFly.equipment = [cable]
+        squat.equipment = [barbell]
         return (barbell, dumbbells, cable, exercises)
     }
 
@@ -43,7 +49,7 @@ struct ExerciseFilterTests {
         let result = filter.filteredExercises(from: exercises)
 
         #expect(result.count == 6)
-        #expect(result.first?.name == "Probe Press")
+        #expect(result.first?.name == "Probe Curl")
         #expect(result.last?.name == "Probe Squat")
     }
 
@@ -57,7 +63,7 @@ struct ExerciseFilterTests {
         let result = filter.filteredExercises(from: exercises)
 
         #expect(result.count == 1)
-        #expect(result.first?.name == "Dumbbell Curl")
+        #expect(result.first?.name == "Probe Curl")
     }
 
     @Test func singleMuscleGroupFilter() throws {

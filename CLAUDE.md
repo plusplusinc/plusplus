@@ -357,7 +357,7 @@ PlusPlusUITests/
 
 > Add established patterns here as they emerge to avoid re-litigating decisions.
 
-**SwiftData test containers:** ⚠️ in-memory configurations (`isStoredInMemoryOnly: true`) share state across containers in one process — **even uniquely named ones** (proved twice on CI 2026-07-08: a repair test's `bench.equipment = []` surfaced inside a different test's "fresh" container, before AND after a unique-name fix; Swift Testing runs suites and tests in parallel, so the corruption is scheduling-dependent ~50% flake). The only real isolation is a throwaway on-disk store per container — and even THAT didn't stop it: with unique on-disk stores AND a serialized SeedData suite, the seeded Bench Press still lost its equipment while OTHER suites' containers held an empty-equipment exercise of the same name (4-for-4 correlation across CI failures). Mechanism unidentified (suspected SwiftData cross-container aliasing by entity+name); the working rule is **built-in catalog names are radioactive in test fixtures** — every suite except SeedDataTests uses "Probe …" names. The store pattern:
+**SwiftData test containers:** ⚠️ in-memory configurations (`isStoredInMemoryOnly: true`) share state across containers in one process — **even uniquely named ones** (proved twice on CI 2026-07-08: a repair test's `bench.equipment = []` surfaced inside a different test's "fresh" container, before AND after a unique-name fix; Swift Testing runs suites and tests in parallel, so the corruption is scheduling-dependent ~50% flake). The only real isolation is a throwaway on-disk store per container:
 ```swift
 let schema = Schema([Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self, RoutineExercise.self])
 let url = FileManager.default.temporaryDirectory
@@ -366,6 +366,8 @@ let config = ModelConfiguration(schema: schema, url: url, allowsSave: true, clou
 let container = try ModelContainer(for: schema, configurations: [config])
 let context = ModelContext(container)
 ```
+
+**SwiftData pre-insert relationship loss:** ⚠️ assigning a relationship on a model BEFORE `context.insert(model)` — including via an init parameter — when the targets are already inserted loses the assignment **nondeterministically**. This was the seeder's Bench-Press-as-bodyweight loss: #186's unreproducible field bug AND a night of ~50% CI red chased through three wrong theories (shared in-memory stores, cross-container aliasing, fixture-name collisions) before the fixture-precondition assert pinned it. Rule: **insert first, assign relationships after.** `Exercise.init(equipment:)` is only safe for containerless graphs (the SeedData definition tests). Test fixtures also use "Probe …" names instead of catalog names, so a corrupted seed can never masquerade as a fixture collision again. A repo-wide audit of remaining pre-insert assignments (RoutineExercise/ExerciseGroup mutations, session factory) is queued as a follow-up issue.
 
 **Seed data access for testing:** `SeedData.makeBuiltInExercisesForTesting(equipment:)` exposes internal exercise creation. Production code uses `SeedData.loadIfNeeded(context:)`.
 
