@@ -368,8 +368,8 @@ struct TodayView: View {
     /// "6 exercises" isn't. Both lists cap at 3 + overflow.
     private func metaLine(for routine: Routine) -> String {
         let exercises = routine.sortedGroups.flatMap(\.sortedExercises).compactMap(\.exercise)
-        let muscles = Array(Set(exercises.map(\.muscleGroup.displayName.lowercased()))).sorted()
-        let gear = Array(Set(exercises.flatMap { $0.equipment.map(\.name.lowercased) })).sorted()
+        let muscles = Array(Set(exercises.map { $0.muscleGroup.displayName.lowercased() })).sorted()
+        let gear = Array(Set(exercises.flatMap { $0.equipment.map { $0.name.lowercased() } })).sorted()
         func capped(_ list: [String]) -> String? {
             guard !list.isEmpty else { return nil }
             let shown = list.prefix(3).joined(separator: ", ")
