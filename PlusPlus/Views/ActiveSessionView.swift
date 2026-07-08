@@ -203,7 +203,13 @@ struct ActiveSessionView: View {
     private func completeCurrentSet(_ log: SetLog) {
         session.complete(log)
         burstCount += 1
-        haptic()
+        // Mid-workout sets thud; .success is saved for the finish so
+        // the purple screen has its own physical beat (#216).
+        if session.nextPendingLog != nil {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        } else {
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        }
 
         if session.nextPendingLog != nil {
             let endDate = Date().addingTimeInterval(TimeInterval(session.restSeconds))
@@ -421,6 +427,7 @@ private struct SetLoggingView: View {
             valueColumn(
                 label: "WEIGHT",
                 value: WorkoutMetric.weight.formatted(log.actualWeight ?? log.targetWeight),
+                numeric: log.actualWeight ?? log.targetWeight,
                 unit: weightUnit.symbol,
                 identifier: "logWeight",
                 onTap: { wheel = .weight },
@@ -430,6 +437,7 @@ private struct SetLoggingView: View {
             valueColumn(
                 label: "REPS",
                 value: (log.actualReps ?? log.targetRepsLower).map(String.init) ?? "—",
+                numeric: (log.actualReps ?? log.targetRepsLower).map(Double.init),
                 unit: nil,
                 identifier: "logReps",
                 onTap: { wheel = .reps },
@@ -463,6 +471,7 @@ private struct SetLoggingView: View {
     private func valueColumn(
         label: String,
         value: String,
+        numeric: Double?,
         unit: String?,
         identifier: String,
         onTap: @escaping () -> Void,
@@ -484,6 +493,10 @@ private struct SetLoggingView: View {
                     .foregroundStyle(Theme.textSecondary))
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
+                    // Digits roll like an odometer, directional with
+                    // the raw value (#216) — increments read as ++.
+                    .contentTransition(.numericText(value: numeric ?? 0))
+                    .animation(.easeOut(duration: 0.15), value: numeric)
             }
             .accessibilityIdentifier("\(identifier)Value")
             .padding(.top, 2)
