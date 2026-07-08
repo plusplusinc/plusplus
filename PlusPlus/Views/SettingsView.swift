@@ -151,7 +151,7 @@ struct SettingsScreen: View {
         }
         .padding(.horizontal, 16)
         .background(Theme.background)
-        .toolbar(.hidden, for: .navigationBar)
+        .pushedScreenChrome(onBack: { dismiss() })
         .navigationDestination(isPresented: $showingEquipmentSetup) {
             CatalogBrowseScreen(kind: .equipment, setupMode: true)
         }
@@ -195,26 +195,11 @@ struct SettingsScreen: View {
     }
 
     private var pageHeader: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Button {
-                dismiss()
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(.footnote, weight: .bold))
-                    Text("Back")
-                        .font(.system(.footnote, weight: .semibold))
-                }
-                .foregroundStyle(Theme.textSecondary)
-                .padding(.vertical, 6)
-            }
-            .accessibilityIdentifier("backButton")
-
-            Text("Settings")
-                .font(.system(.title, weight: .bold))
-                .padding(.top, 2)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        // Back lives in the system toolbar now (#198, glass circle);
+        // the header keeps only the title.
+        Text("Settings")
+            .font(.system(.title, weight: .bold))
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var equipmentSummary: String {

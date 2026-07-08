@@ -436,7 +436,7 @@ struct CatalogBrowseScreen: View {
             .padding(.top, 2)
         }
         .background(Theme.background)
-        .toolbar(.hidden, for: .navigationBar)
+        .pushedScreenChrome(onBack: { dismiss() })
         .safeAreaInset(edge: .bottom) {
             if setupMode {
                 Button {

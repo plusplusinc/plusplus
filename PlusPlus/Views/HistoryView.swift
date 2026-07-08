@@ -120,17 +120,7 @@ struct SessionDetailView: View {
     var body: some View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
-                Button {
-                    dismiss()
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "chevron.left").font(.system(.footnote, weight: .bold))
-                        Text("Today").font(.system(.footnote, weight: .semibold))
-                    }
-                    .foregroundStyle(Theme.textSecondary)
-                    .padding(.vertical, 6)
-                }
-
+                // Back is the toolbar's glass chevron (#198).
                 Text(session.routineName)
                     .font(.system(.title3, weight: .bold))
                     .padding(.top, 2)
@@ -183,7 +173,7 @@ struct SessionDetailView: View {
             }
         }
         .background(Theme.background)
-        .toolbar(.hidden, for: .navigationBar)
+        .pushedScreenChrome(onBack: { dismiss() })
     }
 
     private var subtitle: String {

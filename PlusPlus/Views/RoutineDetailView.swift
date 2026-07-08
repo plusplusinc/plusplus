@@ -42,7 +42,38 @@ struct RoutineDetailView: View {
             railList
         }
         .background(Theme.background)
-        .toolbar(.hidden, for: .navigationBar)
+        .pushedScreenChrome(onBack: { dismiss() })
+        .toolbar {
+            // Trailing actions as glass circles (#198), same treatment
+            // as the back chevron. Share keeps its UIKit sheet (#178).
+            if !routine.groups.isEmpty, shareURL != nil {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showingShareSheet = true
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .accessibilityIdentifier("shareRoutineButton")
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showingRoutineSettings = true
+                } label: {
+                    Image(systemName: "slider.horizontal.3")
+                }
+                .accessibilityIdentifier("routineSettingsButton")
+            }
+        }
+        .sheet(isPresented: $showingShareSheet) {
+            if let url = shareURL {
+                ActivitySheet(items: [
+                    url,
+                    ShareMessageItem(text: "My \(routine.name) routine on PlusPlus", subject: routine.name),
+                ])
+                .presentationDetents([.medium, .large])
+            }
+        }
         .safeAreaInset(edge: .bottom) { bottomBar }
         .sheet(item: $pickerDestination) { destination in
             ExercisePickerView(filterState: filterState) { exercise in
@@ -94,57 +125,13 @@ struct RoutineDetailView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Button {
-                dismiss()
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(.footnote, weight: .bold))
-                    // "Back", not "Routines": with #137 this screen is
-                    // reachable from Today, the catalog tabs, and other
-                    // pushed screens — the origin varies.
-                    Text("Back")
-                        .font(.system(.footnote, weight: .semibold))
-                }
-                .foregroundStyle(Theme.textSecondary)
-                .padding(.vertical, 6)
-            }
-            .accessibilityIdentifier("backButton")
-
-            HStack(alignment: .center) {
-                Text(routine.name)
-                    .font(.system(.title, weight: .bold))
-                    .lineLimit(1)
-                Spacer()
-                // Share the routine as a link (#145): the payload rides
-                // the URL itself — nothing is uploaded anywhere. UIKit
-                // sheet instead of ShareLink so Copy takes JUST the URL
-                // while Messages still gets the sentence (#178).
-                if !routine.groups.isEmpty, let url = shareURL {
-                    Button {
-                        showingShareSheet = true
-                    } label: {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.system(.body, weight: .medium))
-                            .foregroundStyle(Theme.textSecondary)
-                            .frame(width: 44, height: 44)
-                            .background(Theme.surface, in: Circle())
-                            .overlay(Circle().strokeBorder(Theme.border))
-                    }
-                    .accessibilityIdentifier("shareRoutineButton")
-                    .sheet(isPresented: $showingShareSheet) {
-                        ActivitySheet(items: [
-                            url,
-                            ShareMessageItem(text: "My \(routine.name) routine on PlusPlus", subject: routine.name),
-                        ])
-                        .presentationDetents([.medium, .large])
-                    }
-                }
-                HeaderIconButton(systemImage: "slider.horizontal.3", identifier: "routineSettingsButton") {
-                    showingRoutineSettings = true
-                }
-            }
-            .padding(.top, 2)
+            // Back + share + settings live in the system toolbar (#198,
+            // glass circles); the header keeps name and facts only.
+            Text(routine.name)
+                .font(.system(.title, weight: .bold))
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 2)
 
             if !routine.groups.isEmpty {
                 // Facts, not inputs (v4 §A): schedule value first (ink,
@@ -1018,7 +1005,7 @@ struct RoutineSettingsScreen: View {
         }
         .padding(.horizontal, 16)
         .background(Theme.background)
-        .toolbar(.hidden, for: .navigationBar)
+        .pushedScreenChrome(onBack: { dismiss() })
         .sheet(isPresented: $showingRename) {
             RenameRoutineTray(routine: routine, takenNames: takenNames)
                 .presentationDetents([.height(220)])
@@ -1039,25 +1026,12 @@ struct RoutineSettingsScreen: View {
         }
     }
 
-    /// ‹ Back / routine name / "routine settings" — the page title is
-    /// the routine, which is exactly what makes onboarding step 3
-    /// unambiguous about what it's configuring (§A).
+    /// Routine name / "routine settings" — the page title is the
+    /// routine, which is exactly what makes onboarding step 3
+    /// unambiguous about what it's configuring (§A). Back is the
+    /// system toolbar's glass chevron (#198).
     private var pageHeader: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Button {
-                dismiss()
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(.footnote, weight: .bold))
-                    Text("Back")
-                        .font(.system(.footnote, weight: .semibold))
-                }
-                .foregroundStyle(Theme.textSecondary)
-                .padding(.vertical, 6)
-            }
-            .accessibilityIdentifier("backButton")
-
             Text(routine.name)
                 .font(.system(.title, weight: .bold))
                 .lineLimit(1)
