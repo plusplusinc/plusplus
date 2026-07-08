@@ -105,7 +105,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run PlusPlusKit tests
-        run: swift test --package-path PlusPlusKit
+        run: |
+          set -o pipefail
+          swift test --package-path PlusPlusKit 2>&1 | tee kit-test.log
+      - name: Surface failures as annotations
+        if: failure()
+        run: |
+          [ -f kit-test.log ] || exit 0
+          grep -E "✘|error:|Fatal error" kit-test.log | sort -u | head -10 | while IFS= read -r line; do
+            echo "::error title=kit-test failure::$(echo "$line" | tr -d '\r' | cut -c1-400)"
+          done
+          exit 0
 
   # The plusplus CLI builds and tests on Linux (issue #24); same 1x-minute
   # economics as kit-test.
@@ -118,9 +128,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run CLI tests
-        run: swift test --package-path PlusPlusCLI
+        run: |
+          set -o pipefail
+          swift test --package-path PlusPlusCLI 2>&1 | tee cli-test.log
       - name: Build release binary
         run: swift build -c release --package-path PlusPlusCLI
+      - name: Surface failures as annotations
+        if: failure()
+        run: |
+          [ -f cli-test.log ] || exit 0
+          grep -E "✘|error:|Fatal error" cli-test.log | sort -u | head -10 | while IFS= read -r line; do
+            echo "::error title=cli-test failure::$(echo "$line" | tr -d '\r' | cut -c1-400)"
+          done
+          exit 0
 
   # UI smoke tests + screenshots. Slower and more minute-hungry than the
   # unit job, so gated to manual dispatch and pushes to main.

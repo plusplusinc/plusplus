@@ -4,7 +4,15 @@ import SwiftData
 import PlusPlusKit
 @testable import PlusPlus
 
-@Suite("SeedData")
+/// `.serialized`: the populate test failed three separate CI runs with
+/// Bench Press's equipment mysteriously empty — through a unique-name fix
+/// AND a unique-on-disk-store fix, so plain store sharing is ruled out.
+/// Only this suite both mutates that relationship (the repair test) and
+/// builds containerless model graphs (the definition tests); running its
+/// tests one at a time closes every intra-suite channel while the
+/// precondition assert below pins down the corruption point if it
+/// somehow survives.
+@Suite("SeedData", .serialized)
 struct SeedDataTests {
     private func makeContainer() throws -> ModelContainer {
         let schema = Schema([Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self, RoutineExercise.self])
@@ -65,6 +73,12 @@ struct SeedDataTests {
         for item in equipment {
             item.inLibrary = item.name == "Pull-Up Bar"
         }
+        // Precondition, not the behavior under test: if Bench Press's
+        // requirements are gone HERE, the fixture was corrupted before
+        // populate ran — that's the CI mystery's smoking gun, distinct
+        // from a populate-logic bug.
+        let bench = try #require(exercises.first { $0.name == "Bench Press" })
+        #expect(!bench.equipment.isEmpty, "fixture corrupted: Bench Press lost its equipment before populate ran")
         let added = SeedData.populateLibraryFromEquipment(context: context)
         #expect(added > 0)
         let byName = Dictionary(uniqueKeysWithValues: exercises.map { ($0.name, $0) })

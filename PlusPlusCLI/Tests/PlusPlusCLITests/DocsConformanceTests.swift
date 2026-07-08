@@ -8,14 +8,19 @@ import PlusPlusKit
 /// schema without updating PLATFORM.md and this test fails on Linux CI.
 @Suite("PLATFORM.md examples")
 struct DocsConformanceTests {
-    /// Repo root derived from this file's compile-time path — the tests
-    /// run from the package directory, but the docs live at the root.
-    private var platformDocURL: URL {
-        URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent() // PlusPlusCLITests
-            .deletingLastPathComponent() // Tests
-            .deletingLastPathComponent() // PlusPlusCLI
-            .appendingPathComponent("docs/PLATFORM.md")
+    /// Repo root found by walking up from this file's compile-time path —
+    /// robust to #filePath being absolute (xcodebuild) or relative to
+    /// either the package dir or the repo root (SwiftPM on Linux).
+    private var platformDocURL: URL? {
+        var dir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        for _ in 0..<8 {
+            let candidate = dir.appendingPathComponent("docs/PLATFORM.md")
+            if FileManager.default.fileExists(atPath: candidate.path) {
+                return candidate
+            }
+            dir.deleteLastPathComponent()
+        }
+        return nil
     }
 
     private func fencedJSONBlocks(in text: String) -> [String] {
@@ -40,7 +45,8 @@ struct DocsConformanceTests {
 
     @Test("Every complete bundle example decodes and validates clean")
     func bundleExamplesAreLive() throws {
-        let text = try String(contentsOf: platformDocURL, encoding: .utf8)
+        let url = try #require(platformDocURL, "docs/PLATFORM.md not found above \(#filePath)")
+        let text = try String(contentsOf: url, encoding: .utf8)
         let bundles = fencedJSONBlocks(in: text)
             // Prose fragments use ellipses; only whole-bundle examples
             // (they declare the exercises key) are decodable contracts.
@@ -57,7 +63,8 @@ struct DocsConformanceTests {
 
     @Test("Documented field names exist on the DTOs they describe")
     func documentedFieldsExist() throws {
-        let text = try String(contentsOf: platformDocURL, encoding: .utf8)
+        let url = try #require(platformDocURL, "docs/PLATFORM.md not found above \(#filePath)")
+        let text = try String(contentsOf: url, encoding: .utf8)
 
         // Spot-check contract vocabulary the doc leans on. Encoding a
         // fully-populated DTO and checking its keys ties the doc's words
