@@ -94,6 +94,18 @@ struct SwipeRevealRow<Content: View, Actions: View>: View {
         }
         .clipped()
         .animation(.easeOut(duration: 0.18), value: offset)
+        // While THIS row is open, the full-width swipe-back stands down:
+        // closing a row is a rightward horizontal drag the pop gesture
+        // can't distinguish from a back-swipe (#198 review). Balanced on
+        // disappear so a pop with a row open can't leak suppression.
+        .onChange(of: openRow == id) { _, isOpen in
+            PopGestureGate.suppressionCount = max(0, PopGestureGate.suppressionCount + (isOpen ? 1 : -1))
+        }
+        .onDisappear {
+            if openRow == id {
+                PopGestureGate.suppressionCount = max(0, PopGestureGate.suppressionCount - 1)
+            }
+        }
     }
 }
 

@@ -10,8 +10,10 @@ import UIKit
 /// the enclosing UINavigationController and adds a UIPanGestureRecognizer
 /// re-targeted at the system interactivePopGestureRecognizer's action
 /// targets. Reading those targets uses a private KVC key — the
-/// industry-standard trick; if the key ever vanishes the whole feature
-/// degrades to a no-op and the edge swipe still works.
+/// industry-standard trick; if the key ever vanishes the feature
+/// degrades to a no-op and pushed screens fall back to the glass back
+/// button (tap-only — the hidden system back also disables the edge
+/// swipe, which is pre-#198 parity, not a regression).
 struct NavigationPopGestureProbe: UIViewRepresentable {
     func makeUIView(context: Context) -> PopGestureProbeView {
         PopGestureProbeView()
@@ -21,8 +23,6 @@ struct NavigationPopGestureProbe: UIViewRepresentable {
 }
 
 final class PopGestureProbeView: UIView {
-    private static let attachedTag = 0x504F50 // "POP" — one recognizer per nav controller
-
     override func didMoveToWindow() {
         super.didMoveToWindow()
         guard window != nil, let navigationController = findNavigationController() else { return }
@@ -75,8 +75,15 @@ final class PopGestureGate: NSObject, UIGestureRecognizerDelegate {
         controllers.setObject(navigationController, forKey: pan)
     }
 
+    /// Raised while any SwipeRevealRow is open: closing a row is by
+    /// design a rightward horizontal drag, indistinguishable from a
+    /// back-swipe — the row wins, the pop stands down (#198 review).
+    /// Clamped non-negative at every mutation site; main-thread only.
+    static var suppressionCount = 0
+
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        guard let pan = gestureRecognizer as? UIPanGestureRecognizer,
+        guard Self.suppressionCount == 0,
+              let pan = gestureRecognizer as? UIPanGestureRecognizer,
               let navigationController = controllers.object(forKey: pan),
               navigationController.viewControllers.count > 1,
               navigationController.transitionCoordinator == nil

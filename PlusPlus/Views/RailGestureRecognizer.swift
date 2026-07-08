@@ -127,7 +127,12 @@ struct RailGestureRecognizer: UIViewRepresentable {
             _ gestureRecognizer: UIGestureRecognizer,
             shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
         ) -> Bool {
-            true
+            // Coexist with the scroll pan (the point of this method) but
+            // never with the full-width pop: UIKit grants simultaneity
+            // if EITHER delegate agrees, and a pop starting mid-rail-
+            // drag would slide the screen away while a lift committed a
+            // reorder the user never saw (#198 review).
+            otherGestureRecognizer.name != "plusplus.fullWidthPop"
         }
     }
 }
