@@ -169,10 +169,12 @@ final class SmokeTests: XCTestCase {
         // strip died (#203). A fresh store owns everything until the
         // user curates, so curate the way users do: toggle OFF gear you
         // don't have. First-screen rows only (lazy List rows below the
-        // fold aren't realized), and assert each flip actually landed.
+        // fold aren't realized) — use the two alphabetically-FIRST
+        // catalog names so catalog growth can't push them under the
+        // fold again (#222 moved Battle Ropes to row 11 and broke this).
         let setEquipment = app.buttons["setEquipmentButton"]
         XCTAssertTrue(setEquipment.waitForExistence(timeout: 5))
-        for name in ["Ab Wheel", "Battle Ropes"] {
+        for name in ["Ab Crunch Machine", "Ab Wheel"] {
             let row = app.switches["toggle-\(name)"]
             XCTAssertTrue(row.waitForExistence(timeout: 5), "missing equipment toggle for \(name)")
             XCTAssertEqual(row.value as? String, "1", "\(name) should start owned on a fresh store")
