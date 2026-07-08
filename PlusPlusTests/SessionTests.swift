@@ -162,7 +162,7 @@ struct SessionTests {
 
         let routine = Routine(name: "Core")
         context.insert(routine)
-        let plank = Exercise(name: "Plank", muscleGroup: .core, exerciseType: .duration)
+        let plank = Exercise(name: "Probe Hold", muscleGroup: .core, exerciseType: .duration)
         context.insert(plank)
         let group = routine.addExerciseInNewGroup(plank, context: context)
         group.sets = 2

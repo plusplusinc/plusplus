@@ -19,8 +19,8 @@ struct SessionNavigationTests {
 
     /// Bench 3 sets @ 100 lb target, then Plank 1×45s.
     private func makeSession(context: ModelContext) -> WorkoutSession {
-        let bench = Exercise(name: "Bench Press", muscleGroup: .chest)
-        let plank = Exercise(name: "Plank", muscleGroup: .core, exerciseType: .duration)
+        let bench = Exercise(name: "Probe Press", muscleGroup: .chest)
+        let plank = Exercise(name: "Probe Hold", muscleGroup: .core, exerciseType: .duration)
         context.insert(bench)
         context.insert(plank)
 
@@ -76,7 +76,7 @@ struct SessionNavigationTests {
 
         session.complete(plankLog)
         let back = try #require(session.currentLog)
-        #expect(back.exerciseName == "Bench Press", "Wraps to the first pending log")
+        #expect(back.exerciseName == "Probe Press", "Wraps to the first pending log")
         #expect(back.setNumber == 1)
     }
 

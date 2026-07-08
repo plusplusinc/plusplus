@@ -20,8 +20,8 @@ struct RoutineEstimateTests {
         let routine = Routine(name: "W", restSeconds: 60)
         context.insert(routine)
 
-        let bench = Exercise(name: "Bench Press", muscleGroup: .chest)
-        let plank = Exercise(name: "Plank", muscleGroup: .core, exerciseType: .duration)
+        let bench = Exercise(name: "Probe Press", muscleGroup: .chest)
+        let plank = Exercise(name: "Probe Hold", muscleGroup: .core, exerciseType: .duration)
         context.insert(bench)
         context.insert(plank)
 

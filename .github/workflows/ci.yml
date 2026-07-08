@@ -105,11 +105,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run PlusPlusKit tests
+        # Explicit bash: the swift container's default step shell can be
+        # dash, where `set -o pipefail` itself exits 2 before swift runs.
+        shell: bash
         run: |
           set -o pipefail
           swift test --package-path PlusPlusKit 2>&1 | tee kit-test.log
       - name: Surface failures as annotations
         if: failure()
+        shell: bash
         run: |
           [ -f kit-test.log ] || exit 0
           grep -E "✘|error:|Fatal error" kit-test.log | sort -u | head -10 | while IFS= read -r line; do
@@ -128,6 +132,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run CLI tests
+        # Explicit bash — see kit-test.
+        shell: bash
         run: |
           set -o pipefail
           swift test --package-path PlusPlusCLI 2>&1 | tee cli-test.log
@@ -135,6 +141,7 @@ jobs:
         run: swift build -c release --package-path PlusPlusCLI
       - name: Surface failures as annotations
         if: failure()
+        shell: bash
         run: |
           [ -f cli-test.log ] || exit 0
           grep -E "✘|error:|Fatal error" cli-test.log | sort -u | head -10 | while IFS= read -r line; do

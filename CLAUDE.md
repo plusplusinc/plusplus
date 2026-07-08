@@ -357,7 +357,7 @@ PlusPlusUITests/
 
 > Add established patterns here as they emerge to avoid re-litigating decisions.
 
-**SwiftData test containers:** ⚠️ in-memory configurations (`isStoredInMemoryOnly: true`) share state across containers in one process — **even uniquely named ones** (proved twice on CI 2026-07-08: a repair test's `bench.equipment = []` surfaced inside a different test's "fresh" container, before AND after a unique-name fix; Swift Testing runs suites and tests in parallel, so the corruption is scheduling-dependent ~50% flake). The only real isolation is a throwaway on-disk store per container:
+**SwiftData test containers:** ⚠️ in-memory configurations (`isStoredInMemoryOnly: true`) share state across containers in one process — **even uniquely named ones** (proved twice on CI 2026-07-08: a repair test's `bench.equipment = []` surfaced inside a different test's "fresh" container, before AND after a unique-name fix; Swift Testing runs suites and tests in parallel, so the corruption is scheduling-dependent ~50% flake). The only real isolation is a throwaway on-disk store per container — and even THAT didn't stop it: with unique on-disk stores AND a serialized SeedData suite, the seeded Bench Press still lost its equipment while OTHER suites' containers held an empty-equipment exercise of the same name (4-for-4 correlation across CI failures). Mechanism unidentified (suspected SwiftData cross-container aliasing by entity+name); the working rule is **built-in catalog names are radioactive in test fixtures** — every suite except SeedDataTests uses "Probe …" names. The store pattern:
 ```swift
 let schema = Schema([Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self, RoutineExercise.self])
 let url = FileManager.default.temporaryDirectory

@@ -23,7 +23,7 @@ struct DefaultTargetsTests {
         let container = try makeContainer()
         let context = ModelContext(container)
 
-        let press = Exercise(name: "Bench Press", muscleGroup: .chest)
+        let press = Exercise(name: "Probe Press", muscleGroup: .chest)
         press.defaultWeight = 135
         press.defaultReps = 5
         context.insert(press)
@@ -42,9 +42,9 @@ struct DefaultTargetsTests {
         let container = try makeContainer()
         let context = ModelContext(container)
 
-        let press = Exercise(name: "Bench Press", muscleGroup: .chest)
+        let press = Exercise(name: "Probe Press", muscleGroup: .chest)
         context.insert(press)
-        let plank = Exercise(name: "Plank", muscleGroup: .core, exerciseType: .duration)
+        let plank = Exercise(name: "Probe Hold", muscleGroup: .core, exerciseType: .duration)
         context.insert(plank)
 
         let routine = Routine(name: "Mixed")
@@ -61,7 +61,7 @@ struct DefaultTargetsTests {
         let container = try makeContainer()
         let context = ModelContext(container)
 
-        let plank = Exercise(name: "Plank", muscleGroup: .core, exerciseType: .duration)
+        let plank = Exercise(name: "Probe Hold", muscleGroup: .core, exerciseType: .duration)
         plank.defaultDurationSeconds = 90
         context.insert(plank)
 
@@ -75,7 +75,7 @@ struct DefaultTargetsTests {
         let container = try makeContainer()
         let context = ModelContext(container)
 
-        let press = Exercise(name: "Bench Press", muscleGroup: .chest)
+        let press = Exercise(name: "Probe Press", muscleGroup: .chest)
         press.defaultWeight = 135
         press.defaultReps = 5
         context.insert(press)
@@ -94,7 +94,7 @@ struct DefaultTargetsTests {
         #expect(press.defaultRepsUpper == 10)
 
         // The duration path leaves rep-family defaults alone.
-        let plank = Exercise(name: "Plank", muscleGroup: .core, exerciseType: .duration)
+        let plank = Exercise(name: "Probe Hold", muscleGroup: .core, exerciseType: .duration)
         context.insert(plank)
         let plankEntry = try #require(routine.addExerciseInNewGroup(plank, context: context).sortedExercises.first)
         plankEntry.durationSeconds = 120
@@ -107,7 +107,7 @@ struct DefaultTargetsTests {
         let container = try makeContainer()
         let context = ModelContext(container)
 
-        let press = Exercise(name: "Bench Press", muscleGroup: .chest)
+        let press = Exercise(name: "Probe Press", muscleGroup: .chest)
         press.defaultWeight = 135
         press.defaultReps = 5
         context.insert(press)
@@ -127,12 +127,12 @@ struct DefaultTargetsTests {
         let source = try makeContainer()
         let sourceContext = ModelContext(source)
 
-        let press = Exercise(name: "Bench Press", muscleGroup: .chest)
+        let press = Exercise(name: "Probe Press", muscleGroup: .chest)
         press.defaultWeight = 135
         press.defaultReps = 5
         press.defaultRepsUpper = 8
         sourceContext.insert(press)
-        let plank = Exercise(name: "Plank", muscleGroup: .core, exerciseType: .duration)
+        let plank = Exercise(name: "Probe Hold", muscleGroup: .core, exerciseType: .duration)
         plank.defaultDurationSeconds = 90
         sourceContext.insert(plank)
 
@@ -146,9 +146,9 @@ struct DefaultTargetsTests {
 
         let imported = try targetContext.fetch(FetchDescriptor<Exercise>())
         let byName = Dictionary(uniqueKeysWithValues: imported.map { ($0.name, $0) })
-        #expect(byName["Bench Press"]?.defaultWeight == 135)
-        #expect(byName["Bench Press"]?.defaultReps == 5)
-        #expect(byName["Bench Press"]?.defaultRepsUpper == 8)
-        #expect(byName["Plank"]?.defaultDurationSeconds == 90)
+        #expect(byName["Probe Press"]?.defaultWeight == 135)
+        #expect(byName["Probe Press"]?.defaultReps == 5)
+        #expect(byName["Probe Press"]?.defaultRepsUpper == 8)
+        #expect(byName["Probe Hold"]?.defaultDurationSeconds == 90)
     }
 }
