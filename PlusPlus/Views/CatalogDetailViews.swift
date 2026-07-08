@@ -9,30 +9,16 @@ import PlusPlusKit
 /// place with standard back navigation. Sheets survive only for
 /// create/edit forms.
 
-/// Back-button + title header shared by the pushed catalog screens,
-/// mirroring RoutineDetailView's pattern (custom quiet-terminal header,
-/// system navigation bar hidden).
+/// Title header shared by the pushed catalog screens. Back navigation
+/// is the system toolbar's glass chevron + full-width swipe (#198);
+/// this keeps only the quiet-terminal title row.
 struct CatalogDetailHeader<Trailing: View>: View {
-    @Environment(\.dismiss) private var dismiss
     let title: String
     @ViewBuilder let trailing: () -> Trailing
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Button {
-                dismiss()
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(.footnote, weight: .bold))
-                    Text("Back")
-                        .font(.system(.footnote, weight: .semibold))
-                }
-                .foregroundStyle(Theme.textSecondary)
-                .padding(.vertical, 6)
-            }
-            .accessibilityIdentifier("backButton")
-
+            // Back is the toolbar's glass chevron (#198).
             HStack(alignment: .center) {
                 Text(title)
                     .font(.system(.title, weight: .bold))
@@ -248,7 +234,7 @@ struct ExerciseDetailScreen: View {
             }
         }
         .background(Theme.background)
-        .toolbar(.hidden, for: .navigationBar)
+        .pushedScreenChrome(onBack: { dismiss() })
         .navigationDestination(item: $path) { target in
             switch target {
             case .equipment(let equipment): EquipmentDetailScreen(equipment: equipment)
@@ -457,7 +443,7 @@ struct EquipmentDetailScreen: View {
             }
         }
         .background(Theme.background)
-        .toolbar(.hidden, for: .navigationBar)
+        .pushedScreenChrome(onBack: { dismiss() })
         .navigationDestination(item: $path) { target in
             switch target {
             case .exercise(let exercise): ExerciseDetailScreen(exercise: exercise)
