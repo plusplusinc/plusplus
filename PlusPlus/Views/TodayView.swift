@@ -34,6 +34,9 @@ struct TodayView: View {
     @State private var showingSwapIn = false
     @State private var swapInPick: Routine?
     @State private var showingEquipmentSetup = false
+    /// Nonzero presents the populate-offer alert (#204); computed at
+    /// present time from the store, never carried stale.
+    @State private var populateOfferCount = 0
     @State private var showingStarterSeed = false
     @State private var scheduleEditTarget: Routine?
     @State private var activeSession: WorkoutSession?
@@ -110,7 +113,31 @@ struct TodayView: View {
                 ActiveSessionView(session: session)
             }
             .navigationDestination(isPresented: $showingEquipmentSetup) {
-                CatalogBrowseScreen(kind: .equipment, setupMode: true)
+                CatalogBrowseScreen(kind: .equipment, setupMode: true, offersPopulateOnDone: true)
+            }
+            // The populate offer, asked from home ground (#204): the
+            // catalog's Done raises a one-shot flag and dismisses; the
+            // question waits here, anchored, with a live count.
+            .onChange(of: showingEquipmentSetup) { _, showing in
+                guard !showing, SetupState.consumePopulateOffer() else { return }
+                populateOfferCount = SeedData.populateCandidateCount(context: modelContext)
+            }
+            .alert(
+                "Add \(populateOfferCount) exercise\(populateOfferCount == 1 ? "" : "s") your equipment supports?",
+                isPresented: Binding(
+                    get: { populateOfferCount > 0 },
+                    set: { if !$0 { populateOfferCount = 0 } }
+                )
+            ) {
+                Button("Add them") {
+                    SeedData.populateLibraryFromEquipment(context: modelContext)
+                    populateOfferCount = 0
+                }
+                Button("Start empty", role: .cancel) {
+                    populateOfferCount = 0
+                }
+            } message: {
+                Text("Skipping is fine — the catalog stays a tap away, and anything you use joins your library on its own.")
             }
             .sheet(isPresented: $showingStarterSeed) {
                 StarterSeedSheet()

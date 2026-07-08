@@ -40,6 +40,18 @@ enum SeedData {
         try? context.save()
     }
 
+    /// What the populate offer would add — computed at ask time (#204),
+    /// so a stale flag can never overstate.
+    static func populateCandidateCount(context: ModelContext) -> Int {
+        let exercises = (try? context.fetch(
+            FetchDescriptor<Exercise>(predicate: #Predicate { $0.isBuiltIn == true })
+        )) ?? []
+        return exercises.filter { exercise in
+            !exercise.inLibrary
+                && !exercise.equipment.contains { !$0.isDeleted && !$0.inLibrary }
+        }.count
+    }
+
     /// The optional population step (#185): everything the owned
     /// equipment supports joins the library. Returns the count added.
     @discardableResult

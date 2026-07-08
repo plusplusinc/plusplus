@@ -27,10 +27,16 @@ enum Theme {
     static let textFaint = Color(light: 0x767370, dark: 0x8A8781)
 
     /// The data green. Green is data, never chrome: deltas, net chips,
-    /// "new" markers, next-due values, live progress, and the ++ glyph.
+    /// "new" markers, next-due values, live progress, creation
+    /// affordances (a future increment), and the ++ glyph.
     static let accent = Color(light: 0x17914B, dark: 0x46D17C)
-    /// Committed timeline nodes on the Today rail.
-    static let committedFill = Color(light: 0x1E9E54, dark: 0x46D17C)
+
+    /// Completion purple (#201, Dave: "akin to a merged PR") — the
+    /// third hue job: green is data in motion, blue is selection,
+    /// purple is what's landed. GitHub's merged pair, familiar on sight.
+    static let done = Color(light: 0x8250DF, dark: 0xA371F7)
+    /// Committed timeline nodes on the Today rail — finished, so purple.
+    static let committedFill = done
 
     /// Interactive/selected state (v4 §1): blue is UI state — which
     /// option is active. Never a data color, never an action fill.

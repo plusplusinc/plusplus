@@ -165,16 +165,20 @@ final class SmokeTests: XCTestCase {
         snap("setup-fresh")
         equipCTA.tap()
 
-        // Step 1: the real catalog in setup mode (v4 SSF) — pick
-        // everything via the Commercial gym preset, confirm on the bar.
+        // Step 1: the real catalog in setup mode (v4 SSF) — the preset
+        // strip died (#203), so own gear the way users do: row toggles.
         let setEquipment = app.buttons["setEquipmentButton"]
         XCTAssertTrue(setEquipment.waitForExistence(timeout: 5))
-        app.staticTexts["Commercial gym"].tap()
+        for name in ["Barbell", "Bench", "Dumbbells", "Pull-Up Bar", "Squat Rack"] {
+            let row = app.switches["toggle-\(name)"]
+            XCTAssertTrue(row.waitForExistence(timeout: 5), "missing equipment toggle for \(name)")
+            row.tap()
+        }
         setEquipment.tap()
-        // The optional populate offer (#185): take it, so the picker
-        // and library flows downstream have content.
-        let populate = app.buttons["Add them"]
-        XCTAssertTrue(populate.waitForExistence(timeout: 5))
+        // The optional populate offer now asks from Today (#204): take
+        // it, so the picker and library flows downstream have content.
+        let populate = app.alerts.buttons["Add them"]
+        XCTAssertTrue(populate.waitForExistence(timeout: 10))
         populate.tap()
 
         // Step 2 unlocks: seed the starter split.
