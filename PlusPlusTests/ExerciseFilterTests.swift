@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 import SwiftData
 import PlusPlusKit
@@ -7,7 +8,7 @@ import PlusPlusKit
 struct ExerciseFilterTests {
     private func makeContainer() throws -> ModelContainer {
         let schema = Schema([Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self, RoutineExercise.self])
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let config = ModelConfiguration("exercisefilter-\(UUID().uuidString)", schema: schema, isStoredInMemoryOnly: true)
         return try ModelContainer(for: schema, configurations: [config])
     }
 

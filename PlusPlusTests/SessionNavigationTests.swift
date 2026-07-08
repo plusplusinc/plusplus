@@ -11,7 +11,7 @@ struct SessionNavigationTests {
             Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self,
             RoutineExercise.self, WorkoutSession.self, SetLog.self,
         ])
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let config = ModelConfiguration("sessionnavigation-\(UUID().uuidString)", schema: schema, isStoredInMemoryOnly: true)
         return try ModelContainer(for: schema, configurations: [config])
     }
 

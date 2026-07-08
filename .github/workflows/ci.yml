@@ -74,6 +74,19 @@ jobs:
           path: xcodebuild.log
           if-no-files-found: ignore
 
+      # Job logs and artifacts live on Azure blob storage, which the remote
+      # agent sandbox can't reach; annotations ride the Checks API and are
+      # readable from anywhere. Surface the failure lines there.
+      - name: Surface failures as annotations
+        if: failure()
+        run: |
+          [ -f xcodebuild.log ] || exit 0
+          grep -E "Test Case '.*' failed|✘ Test|recorded an issue|Fatal error|TEST FAILED|Restarting after unexpected exit|error:" xcodebuild.log \
+            | sort -u | head -10 | while IFS= read -r line; do
+            echo "::error title=CI failure detail::$(echo "$line" | tr -d '\r' | cut -c1-400)"
+          done
+          exit 0
+
   # PlusPlusKit is platform-pure by design (docs/PLATFORM.md); its tests run
   # on Linux at 1x minutes, and this job failing means someone leaked an
   # Apple-only dependency into the shared core.
