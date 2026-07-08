@@ -12,8 +12,7 @@ struct RoutineListView: View {
     private var routines: [Routine]
 
     @State private var path = NavigationPath()
-    @State private var showingNewRoutine = false
-    @State private var newRoutineName = ""
+    @State private var showingCatalog = false
     @State private var openSwipeRow: PersistentIdentifier?
     /// Hero zoom (#216): the card IS the detail screen, so opening one
     /// grows it in place instead of sliding a stranger in.
@@ -61,10 +60,11 @@ struct RoutineListView: View {
                     )
                 }
             }
-            .alert("New Routine", isPresented: $showingNewRoutine) {
-                TextField("Name", text: $newRoutineName)
-                Button("Cancel", role: .cancel) { newRoutineName = "" }
-                Button("Create") { createRoutine() }
+            // The + pushes the routine catalog (#223) — the same
+            // grammar as the library tabs: adding starts from a
+            // browsable catalog, with blank creation as its first row.
+            .navigationDestination(isPresented: $showingCatalog) {
+                RoutineCatalogScreen(path: $path)
             }
         }
     }
@@ -75,7 +75,7 @@ struct RoutineListView: View {
                 HeaderGlyph()
                 Spacer()
                 HeaderIconButton(systemImage: "plus", identifier: "newRoutineButton", tint: Theme.accent) {
-                    showingNewRoutine = true
+                    showingCatalog = true
                 }
             }
             Text("Routines")
@@ -84,22 +84,6 @@ struct RoutineListView: View {
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 12)
-    }
-
-    private func createRoutine() {
-        let name = newRoutineName.trimmingCharacters(in: .whitespacesAndNewlines)
-        newRoutineName = ""
-        guard !name.isEmpty else { return }
-
-        let routine = Routine(name: Routine.uniqueName(name, among: routines), order: 0)
-        modelContext.insert(routine)
-
-        // Push existing routines down
-        for existing in routines where existing !== routine {
-            existing.order += 1
-        }
-
-        path.append(routine)
     }
 
     private func deleteRoutine(_ routine: Routine) {

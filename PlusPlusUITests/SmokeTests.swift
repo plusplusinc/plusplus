@@ -239,8 +239,9 @@ final class SmokeTests: XCTestCase {
     }
 
     private func createRoutine(named name: String) {
-        // v3 nav (#109): the app lands on Today; routine creation is the
-        // contextual + in the Routines tab header.
+        // v3 nav (#109): the app lands on Today; the Routines header +
+        // pushes the routine catalog (#223), whose first row creates a
+        // blank routine.
         let routinesTab = app.tabBars.buttons["Routines"]
         XCTAssertTrue(routinesTab.waitForExistence(timeout: 10))
         routinesTab.tap()
@@ -248,6 +249,10 @@ final class SmokeTests: XCTestCase {
         let plus = app.buttons["newRoutineButton"]
         XCTAssertTrue(plus.waitForExistence(timeout: 5))
         plus.tap()
+
+        let createRow = app.buttons["createBlankRoutine"]
+        XCTAssertTrue(createRow.waitForExistence(timeout: 5))
+        createRow.tap()
 
         let alert = app.alerts["New Routine"]
         XCTAssertTrue(alert.waitForExistence(timeout: 5))

@@ -127,13 +127,17 @@ final class Routine {
         }
     }
 
-    /// Adds an exercise to an existing group, making (or extending) a superset.
-    func addExercise(_ exercise: Exercise, to group: ExerciseGroup, context: ModelContext) {
+    /// Adds an exercise to an existing group, making (or extending) a
+    /// superset. Returns the new entry so callers can apply their own
+    /// targets without a fragile sortedExercises readback.
+    @discardableResult
+    func addExercise(_ exercise: Exercise, to group: ExerciseGroup, context: ModelContext) -> RoutineExercise {
         let routineExercise = RoutineExercise(exercise: exercise, order: group.exercises.count)
         applyDefaultTargets(to: routineExercise, for: exercise)
         routineExercise.group = group
         context.insert(routineExercise)
         group.reindexExercises()
+        return routineExercise
     }
 
     /// Merges a solo group's exercise into the adjacent group (direction
