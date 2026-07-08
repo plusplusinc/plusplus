@@ -8,7 +8,11 @@ import PlusPlusKit
 struct SeedDataTests {
     private func makeContainer() throws -> ModelContainer {
         let schema = Schema([Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self, RoutineExercise.self])
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        // Unnamed in-memory configurations SHARE one backing store per
+        // process — parallel tests were mutating each other's "isolated"
+        // fixtures (the repair test emptied Bench Press's equipment
+        // under the populate test). A unique name isolates each.
+        let config = ModelConfiguration("seed-tests-\(UUID().uuidString)", schema: schema, isStoredInMemoryOnly: true)
         return try ModelContainer(for: schema, configurations: [config])
     }
 
