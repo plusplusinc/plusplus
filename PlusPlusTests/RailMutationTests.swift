@@ -10,7 +10,9 @@ import PlusPlusKit
 struct RailMutationTests {
     private func makeContainer() throws -> ModelContainer {
         let schema = Schema([Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self, RoutineExercise.self])
-        let config = ModelConfiguration("railmutation-\(UUID().uuidString)", schema: schema, isStoredInMemoryOnly: true)
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("railmutation-\(UUID().uuidString).store")
+        let config = ModelConfiguration(schema: schema, url: url, allowsSave: true, groupContainer: .none, cloudKitDatabase: .none)
         return try ModelContainer(for: schema, configurations: [config])
     }
 

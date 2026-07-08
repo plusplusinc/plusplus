@@ -8,11 +8,14 @@ import PlusPlusKit
 struct SeedDataTests {
     private func makeContainer() throws -> ModelContainer {
         let schema = Schema([Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self, RoutineExercise.self])
-        // Unnamed in-memory configurations SHARE one backing store per
-        // process — parallel tests were mutating each other's "isolated"
-        // fixtures (the repair test emptied Bench Press's equipment
-        // under the populate test). A unique name isolates each.
-        let config = ModelConfiguration("seed-tests-\(UUID().uuidString)", schema: schema, isStoredInMemoryOnly: true)
+        // In-memory configurations SHARE state across containers in one
+        // process — even uniquely NAMED ones (proved twice on CI
+        // 2026-07-08: the repair test emptied Bench Press's equipment
+        // under the populate test both before and after a naming fix).
+        // A throwaway on-disk store per container is the real isolation.
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("seed-tests-\(UUID().uuidString).store")
+        let config = ModelConfiguration(schema: schema, url: url, allowsSave: true, groupContainer: .none, cloudKitDatabase: .none)
         return try ModelContainer(for: schema, configurations: [config])
     }
 
