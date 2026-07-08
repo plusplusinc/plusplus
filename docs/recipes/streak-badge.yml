@@ -1,0 +1,88 @@
+# Streak badge for a workout repo — copy to
+# .github/workflows/streak-badge.yml there. Maintains a shields.io
+# endpoint JSON in the repo so your README can wear your training streak:
+#
+#   ![streak](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/YOUR/REPO/main/.github/badges/streak.json)
+#
+# Streak semantics match the app's widget: consecutive calendar weeks
+# (newest backward) with at least one finished session; the current week
+# doesn't break the streak just because it isn't over yet.
+name: Streak badge
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "history/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  badge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute streak
+        id: streak
+        run: |
+          python3 - <<'EOF' >> "$GITHUB_OUTPUT"
+          import json, glob, datetime
+
+          # ISO week key for every finished session in history/**.json
+          weeks = set()
+          for path in glob.glob("history/**/*.json", recursive=True):
+              try:
+                  with open(path) as f:
+                      doc = json.load(f)
+              except (json.JSONDecodeError, OSError):
+                  continue
+              session = doc.get("session") or doc
+              started = session.get("startedAt")
+              if not started:
+                  continue
+              day = datetime.date.fromisoformat(started[:10])
+              weeks.add(day.isocalendar()[:2])
+
+          today = datetime.date.today()
+          year, week, _ = today.isocalendar()
+          cursor = datetime.date.fromisocalendar(year, week, 1)
+
+          streak = 0
+          # An empty current week doesn't break the streak — start counting
+          # at the newest week that has a session.
+          if (cursor.isocalendar()[:2]) not in weeks:
+              cursor -= datetime.timedelta(weeks=1)
+          while cursor.isocalendar()[:2] in weeks:
+              streak += 1
+              cursor -= datetime.timedelta(weeks=1)
+
+          print(f"streak={streak}")
+          EOF
+
+      - name: Write badge JSON
+        run: |
+          mkdir -p .github/badges
+          STREAK=${{ steps.streak.outputs.streak }}
+          if [ "$STREAK" -gt 0 ]; then COLOR=brightgreen; else COLOR=lightgrey; fi
+          cat > .github/badges/streak.json <<EOF
+          {
+            "schemaVersion": 1,
+            "label": "streak",
+            "message": "$STREAK wk",
+            "color": "$COLOR"
+          }
+          EOF
+
+      - name: Commit if changed
+        run: |
+          git add .github/badges/streak.json
+          if git diff --cached --quiet; then
+            echo "streak unchanged"
+            exit 0
+          fi
+          git -c user.name="streak-badge" -c user.email="actions@github.com" \
+            commit -m "Streak: ${{ steps.streak.outputs.streak }} wk"
+          git push

@@ -10,6 +10,10 @@ on:
     branches:
       - main
       - "claude/**"
+  # Fork PRs get zero checks from push triggers, which leaves them
+  # permanently unmergeable under the ruleset (#160). Same-repo PRs skip
+  # the pull_request runs (their push runs already carry the checks).
+  pull_request:
   workflow_dispatch:
 
 # A superseded push on the same branch cancels the older run; runs on main
@@ -20,6 +24,8 @@ concurrency:
 
 jobs:
   test:
+    # Same-repo PRs already ran on push; only fork PRs need this event.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
     runs-on: macos-26
     timeout-minutes: 45
     steps:
@@ -91,6 +97,8 @@ jobs:
   # on Linux at 1x minutes, and this job failing means someone leaked an
   # Apple-only dependency into the shared core.
   kit-test:
+    # Same-repo PRs already ran on push; only fork PRs need this event.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
     runs-on: ubuntu-latest
     container: swift:latest
     timeout-minutes: 15
@@ -102,6 +110,8 @@ jobs:
   # The plusplus CLI builds and tests on Linux (issue #24); same 1x-minute
   # economics as kit-test.
   cli-test:
+    # Same-repo PRs already ran on push; only fork PRs need this event.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
     runs-on: ubuntu-latest
     container: swift:latest
     timeout-minutes: 20

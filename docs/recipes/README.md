@@ -13,6 +13,7 @@ the build steps collapse to a download.
 |---|---|---|
 | `lint.yml` | PRs touching `program/**` + pushes to main | Fails the run if the program doesn't validate against the interchange schema |
 | `weekly-report.yml` | Mondays + manual | Opens an issue with your per-exercise training stats |
+| `streak-badge.yml` | Pushes touching `history/**` + manual | Maintains a shields.io endpoint JSON so your README shows your week streak (same semantics as the app's Streak widget) |
 
 These run on `ubuntu-latest` at 1x minutes — the CLI is Linux-native by
 design.
