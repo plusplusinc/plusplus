@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import SwiftData
 import PlusPlusKit
@@ -39,6 +40,11 @@ struct TodayView: View {
     @State private var showingNewRoutine = false
     @State private var pendingCreateFromSwapIn = false
     @State private var newRoutineName = ""
+    /// Hero zooms (#216): starting a workout grows the pending card
+    /// into the session screen; a committed card grows into its
+    /// record. Off-card starts (swap-in, Siri) have no source and fall
+    /// back to the system transition on their own.
+    @Namespace private var zoomNamespace
     @State private var showingEquipmentSetup = false
     /// Nonzero presents the populate-offer alert (#204); computed at
     /// present time from the store, never carried stale.
@@ -95,6 +101,7 @@ struct TodayView: View {
                         ForEach(dueRoutines) { routine in
                             TimelineItem(node: .pending) {
                                 pendingCard(routine)
+                                    .matchedTransitionSource(id: routine.persistentModelID, in: zoomNamespace)
                             }
                         }
                         if setupActive {
@@ -103,6 +110,7 @@ struct TodayView: View {
                         ForEach(sessions) { session in
                             TimelineItem(node: .committed) {
                                 committedCard(session)
+                                    .matchedTransitionSource(id: session.persistentModelID, in: zoomNamespace)
                             }
                         }
                     }
@@ -117,6 +125,7 @@ struct TodayView: View {
             }
             .navigationDestination(for: SessionRecordDestination.self) { destination in
                 SessionDetailView(session: destination.session)
+                    .navigationTransition(.zoom(sourceID: destination.session.persistentModelID, in: zoomNamespace))
             }
             .navigationDestination(isPresented: $showingSettings) {
                 SettingsScreen()
@@ -144,8 +153,12 @@ struct TodayView: View {
                     showingSwapIn = false
                 })
             }
-            .fullScreenCover(item: $activeSession) { session in
+            .fullScreenCover(item: $activeSession, onDismiss: resolveOrphanedSessions) { session in
                 ActiveSessionView(session: session)
+                    .navigationTransition(.zoom(
+                        sourceID: session.routine?.persistentModelID ?? session.persistentModelID,
+                        in: zoomNamespace
+                    ))
             }
             .navigationDestination(isPresented: $showingEquipmentSetup) {
                 CatalogBrowseScreen(kind: .equipment, setupMode: true, offersPopulateOnDone: true)
@@ -198,6 +211,10 @@ struct TodayView: View {
             .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
                 dayToken += 1
             }
+            // Crash-orphans from a previous launch get salvaged here;
+            // in-flight dismissal paths are covered by the cover's
+            // onDismiss.
+            .onAppear(perform: resolveOrphanedSessions)
             .onReceive(NotificationCenter.default.publisher(for: .plusplusStartRoutine)) { note in
                 guard activeSession == nil,
                       let name = note.object as? String,
@@ -212,6 +229,26 @@ struct TodayView: View {
     private var today: Date {
         _ = dayToken
         return Date()
+    }
+
+    /// A session that never reached Finish/Discard (a dismissal path
+    /// that skipped the exit dialog — e.g. an interactive zoom
+    /// dismiss — or a mid-workout crash on a previous launch) has
+    /// endedAt == nil, which every timeline/history query filters
+    /// out: an invisible orphan with no resume path. Salvage instead
+    /// of losing it — keep what was logged, drop what wasn't.
+    private func resolveOrphanedSessions() {
+        guard activeSession == nil else { return }
+        let descriptor = FetchDescriptor<WorkoutSession>(
+            predicate: #Predicate { $0.endedAt == nil }
+        )
+        for session in (try? modelContext.fetch(descriptor)) ?? [] where !session.isDeleted {
+            if session.completedSetLogs.isEmpty {
+                modelContext.delete(session)
+            } else {
+                session.finish()
+            }
+        }
     }
 
     // MARK: - Data assembly
@@ -651,7 +688,7 @@ struct TodayView: View {
     /// A timeline ITEM, not a floating empty state: rest days are part
     /// of the record too.
     private var restDayItem: some View {
-        TimelineItem(node: .pending) {
+        TimelineItem(node: .inert) {
             VStack(alignment: .leading, spacing: 8) {
                 Text(scheduledRoutinesExist ? "Rest day" : "Nothing scheduled")
                     .font(.system(.body, weight: .semibold))
@@ -737,7 +774,13 @@ struct SessionRecordDestination: Hashable {
 /// with a SOLID border (dashes are not rail vocabulary); committed =
 /// filled green 10 pt.
 private enum TimelineNode {
+    /// Ready to do — a green RING (hollow: filled is done's shape;
+    /// GitHub's open-vs-merged iconography). Green marks the next
+    /// increment, per Dave's rail grammar: green = actionable now,
+    /// grey = inert or not yet, purple = done.
     case pending
+    /// Nothing actionable here (rest day) — neutral grey ring.
+    case inert
     case committed
     /// A setup step whose prerequisite isn't met yet — hollow like
     /// pending, but border-faint so the rail reads "not yet yours".
@@ -757,6 +800,12 @@ private struct TimelineItem<Content: View>: View {
                     .frame(maxHeight: .infinity)
                 switch node {
                 case .pending:
+                    Circle()
+                        .strokeBorder(Theme.accent, lineWidth: 2)
+                        .frame(width: 10, height: 10)
+                        .background(Circle().fill(Theme.background))
+                        .padding(.top, 18)
+                case .inert:
                     Circle()
                         .strokeBorder(Theme.textFaint, lineWidth: 2)
                         .frame(width: 10, height: 10)

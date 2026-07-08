@@ -184,6 +184,9 @@ struct MetricStepperRow: View {
                     .foregroundStyle(Theme.textPrimary)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
+                    // Rolling digits on step (#216).
+                    .contentTransition(.numericText())
+                    .animation(.easeOut(duration: 0.15), value: value)
             }
             .disabled(onTapValue == nil)
             .accessibilityIdentifier("\(identifier)Value")

@@ -9,6 +9,9 @@ import SwiftUI
 struct SegmentedTabs: View {
     let options: [String]
     @Binding var selectedIndex: Int
+    /// The fill is ONE object that slides between segments (#216) —
+    /// selection is a thing you move, not a pair of crossfades.
+    @Namespace private var pillNamespace
 
     var body: some View {
         HStack(spacing: 3) {
@@ -21,10 +24,13 @@ struct SegmentedTabs: View {
                         .foregroundStyle(selectedIndex == index ? Theme.onSelected : Theme.textSecondary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 40)
-                        .background(
-                            selectedIndex == index ? Theme.selected : .clear,
-                            in: RoundedRectangle(cornerRadius: 9)
-                        )
+                        .background {
+                            if selectedIndex == index {
+                                RoundedRectangle(cornerRadius: 9)
+                                    .fill(Theme.selected)
+                                    .matchedGeometryEffect(id: "pill", in: pillNamespace)
+                            }
+                        }
                 }
             }
         }

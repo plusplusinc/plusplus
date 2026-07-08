@@ -15,6 +15,9 @@ struct RoutineListView: View {
     @State private var showingNewRoutine = false
     @State private var newRoutineName = ""
     @State private var openSwipeRow: PersistentIdentifier?
+    /// Hero zoom (#216): the card IS the detail screen, so opening one
+    /// grows it in place instead of sliding a stranger in.
+    @Namespace private var zoomNamespace
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -27,6 +30,7 @@ struct RoutineListView: View {
                         RoutineCard(routine: routine) {
                             if openSwipeRow != nil { openSwipeRow = nil } else { path.append(routine) }
                         }
+                        .matchedTransitionSource(id: routine.persistentModelID, in: zoomNamespace)
                     } actions: {
                         SwipeActionButton(label: "DELETE", color: Theme.destructive) {
                             openSwipeRow = nil
@@ -46,6 +50,7 @@ struct RoutineListView: View {
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: Routine.self) { routine in
                 RoutineDetailView(routine: routine)
+                    .navigationTransition(.zoom(sourceID: routine.persistentModelID, in: zoomNamespace))
             }
             .overlay {
                 if routines.isEmpty {
