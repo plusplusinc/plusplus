@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import TipKit
 import PlusPlusKit
 
 /// Routine detail, v2 (#61): a compact program view — meta line with
@@ -944,6 +945,7 @@ struct RoutineSettingsScreen: View {
                             .padding(.top, 8)
                     } else if scheduleMode == 2 {
                         frequencySteppers
+                            .popoverTip(PaceAnchorTip())
                             .padding(.top, 8)
                     }
 
@@ -1173,8 +1175,10 @@ struct RoutineSettingsScreen: View {
             }
             return "On the marked days; a missed day carries over until you do it."
         case 2:
+            // The anchor concept moved to a one-time tip (§G); only the
+            // computed interval survives as ambient data.
             let interval = (schedulePerDays + scheduleTimes - 1) / scheduleTimes
-            return "Anchored to your last completion, not the calendar week — \(scheduleTimes)×/\(schedulePerDays)d comes around every ~\(interval) day\(interval == 1 ? "" : "s")."
+            return "\(scheduleTimes)×/\(schedulePerDays)d comes around every ~\(interval) day\(interval == 1 ? "" : "s")."
         default:
             return "No schedule — this routine never appears on Today by itself. Swap it in whenever."
         }

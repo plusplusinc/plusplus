@@ -109,8 +109,8 @@ struct TodayView: View {
             .fullScreenCover(item: $activeSession) { session in
                 ActiveSessionView(session: session)
             }
-            .sheet(isPresented: $showingEquipmentSetup) {
-                EquipmentAccessSheet()
+            .navigationDestination(isPresented: $showingEquipmentSetup) {
+                CatalogBrowseScreen(kind: .equipment, setupMode: true)
             }
             .sheet(isPresented: $showingStarterSeed) {
                 StarterSeedSheet()

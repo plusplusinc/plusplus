@@ -12,10 +12,13 @@ final class ExerciseFilterState {
     /// what's missing).
     var showUnowned = false
 
-    func filteredExercises(from allExercises: [Exercise]) -> [Exercise] {
+    /// `overridingShowUnowned` lets a caller count what the ownership
+    /// filter is hiding (the §H escape hatch) without mutating state.
+    func filteredExercises(from allExercises: [Exercise], overridingShowUnowned: Bool? = nil) -> [Exercise] {
         allExercises.filter { exercise in
             matchesSearch(exercise) && matchesMuscleGroup(exercise)
-                && matchesEquipment(exercise) && matchesOwnership(exercise)
+                && matchesEquipment(exercise)
+                && ((overridingShowUnowned ?? showUnowned) || Self.missingEquipment(for: exercise).isEmpty)
         }
         .sorted { $0.name < $1.name }
     }

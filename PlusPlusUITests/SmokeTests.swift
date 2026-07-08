@@ -165,10 +165,11 @@ final class SmokeTests: XCTestCase {
         snap("setup-fresh")
         equipCTA.tap()
 
-        // Step 1: pick everything via the Full gym preset.
+        // Step 1: the real catalog in setup mode (v4 SSF) — pick
+        // everything via the Commercial gym preset, confirm on the bar.
         let setEquipment = app.buttons["setEquipmentButton"]
         XCTAssertTrue(setEquipment.waitForExistence(timeout: 5))
-        app.staticTexts["Full gym"].tap()
+        app.staticTexts["Commercial gym"].tap()
         setEquipment.tap()
 
         // Step 2 unlocks: seed the starter split.

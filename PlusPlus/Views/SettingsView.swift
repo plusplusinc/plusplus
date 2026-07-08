@@ -152,8 +152,8 @@ struct SettingsScreen: View {
         .padding(.horizontal, 16)
         .background(Theme.background)
         .toolbar(.hidden, for: .navigationBar)
-        .sheet(isPresented: $showingEquipmentSetup) {
-            EquipmentAccessSheet()
+        .navigationDestination(isPresented: $showingEquipmentSetup) {
+            CatalogBrowseScreen(kind: .equipment, setupMode: true)
         }
         .fileExporter(
             isPresented: $showingExporter,
