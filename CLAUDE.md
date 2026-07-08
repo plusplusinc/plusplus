@@ -45,6 +45,26 @@ The Simulator validation step in every task should use these tools in sequence: 
 
 ---
 
+## Claude Code Setup (committed in `.claude/`)
+
+- **Skills** — `/ci-status` (check/diagnose/rerun CI from a sandbox that can't
+  reach job logs), `/pr-flow` (the serialized single-branch PR workflow),
+  `/testflight` (shipping a build + the entitlement mechanism and its failure
+  modes). Read the matching skill BEFORE re-deriving any of that from scratch.
+- **Agents** — `swift-reviewer` (adversarial review tuned to this repo's proven
+  bug classes; run it on any non-trivial diff before pushing) and
+  `doc-verifier` (claim-by-claim docs audit; fan out one per doc).
+- **Hooks** — `docs-drift` (PostToolUse): editing interchange/CLI/workflow/
+  project.yml files injects a reminder naming the doc that owns the claim.
+- **Docs stay true by construction where possible**: PLATFORM.md's JSON
+  examples are executable — `DocsConformanceTests` (CLI test target, runs on
+  Linux CI) decodes and validates them, and fails if the schema gains fields
+  the doc never mentions. For everything a test can't see, the rule is: a PR
+  that changes an interface (format, CLI, targets, CI) touches the doc that
+  describes it, or the PR description says why not.
+
+---
+
 ## Architecture Principles
 
 - Effective complexity management above all else — code should be easy to understand and easy to adapt
