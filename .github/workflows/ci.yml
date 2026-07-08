@@ -223,3 +223,17 @@ jobs:
           name: ui-xcodebuild-log
           path: ui-xcodebuild.log
           if-no-files-found: ignore
+
+      # Same rationale as the unit job: the sandbox can't reach job
+      # logs or artifacts, so the failing test names must ride the
+      # Checks API. This job lacked it and its first real failure
+      # (2026-07-08) was undiagnosable remotely.
+      - name: Surface failures as annotations
+        if: failure()
+        run: |
+          [ -f ui-xcodebuild.log ] || exit 0
+          grep -E "Test Case '.*' failed|Assertion Failure|recorded an issue|Fatal error|TEST FAILED|Restarting after unexpected exit|error:" ui-xcodebuild.log \
+            | sort -u | head -12 | while IFS= read -r line; do
+            echo "::error title=ui-test failure detail::$(echo "$line" | tr -d '\r' | cut -c1-400)"
+          done
+          exit 0
