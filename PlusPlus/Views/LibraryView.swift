@@ -25,19 +25,21 @@ struct ExercisesTabView: View {
     var body: some View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
-                CatalogTabHeader(title: "Exercises", addIdentifier: "addExercisesButton") {
-                    showingCatalog = true
-                }
-
-                SearchField(prompt: "Search", text: $search)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 2)
+                CatalogTabHeader(title: "Exercises")
 
                 List {
                     exerciseRows
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
+                .scrollDismissesKeyboard(.immediately)
+                // Search floats at the bottom, Messages-style (#214);
+                // rows scroll under the glass.
+                .safeAreaInset(edge: .bottom) {
+                    SearchDock(prompt: "Search", text: $search, addIdentifier: "addExercisesButton") {
+                        showingCatalog = true
+                    }
+                }
                 .popoverTip(SwipeActionsTip())
             }
             .background(Theme.background)
@@ -149,19 +151,19 @@ struct EquipmentTabView: View {
     var body: some View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
-                CatalogTabHeader(title: "Equipment", addIdentifier: "addEquipmentButton") {
-                    showingCatalog = true
-                }
-
-                SearchField(prompt: "Search", text: $search)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 2)
+                CatalogTabHeader(title: "Equipment")
 
                 List {
                     equipmentRows
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
+                .scrollDismissesKeyboard(.immediately)
+                .safeAreaInset(edge: .bottom) {
+                    SearchDock(prompt: "Search", text: $search, addIdentifier: "addEquipmentButton") {
+                        showingCatalog = true
+                    }
+                }
                 .popoverTip(SwipeActionsTip())
             }
             .background(Theme.background)
@@ -242,16 +244,20 @@ struct EquipmentTabView: View {
 /// contextual + button.
 struct CatalogTabHeader: View {
     let title: String
+    // Creation moved into the SearchDock's glass circle (#214); the
+    // slot stays for headers that still need a trailing action.
     var addIdentifier: String?
-    let onAdd: () -> Void
+    var onAdd: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 HeaderGlyph()
                 Spacer()
-                HeaderIconButton(systemImage: "plus", identifier: addIdentifier, tint: Theme.accent) {
-                    onAdd()
+                if let onAdd {
+                    HeaderIconButton(systemImage: "plus", identifier: addIdentifier, tint: Theme.accent) {
+                        onAdd()
+                    }
                 }
             }
             Text(title)
@@ -430,6 +436,7 @@ struct CatalogBrowseScreen: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
+            .scrollDismissesKeyboard(.immediately)
             .padding(.top, 2)
         }
         .background(Theme.background)

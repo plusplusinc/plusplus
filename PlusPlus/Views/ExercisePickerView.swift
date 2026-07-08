@@ -44,6 +44,7 @@ struct ExercisePickerView: View {
             }
             .navigationTitle("Add Exercise")
             .navigationBarTitleDisplayMode(.inline)
+            .scrollDismissesKeyboard(.immediately)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
