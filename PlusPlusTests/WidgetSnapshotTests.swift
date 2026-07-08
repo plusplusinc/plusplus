@@ -8,12 +8,18 @@ import PlusPlusKit
 /// list frozen at the last app launch.
 @Suite("Widget snapshot freshness")
 struct WidgetSnapshotTests {
-    private let calendar = Calendar(identifier: .gregorian)
+    /// UTC-pinned like RoutineScheduleTests, so results don't depend on
+    /// the machine's timezone.
+    private var calendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        return calendar
+    }
 
     /// A fixed Monday noon; RoutineSchedule weekday numbers are
     /// Calendar's (1 = Sunday), so Monday is 2.
     private var monday: Date {
-        calendar.date(from: DateComponents(year: 2026, month: 7, day: 6, hour: 12))!
+        calendar.date(from: DateComponents(timeZone: TimeZone(identifier: "UTC"), year: 2026, month: 7, day: 6, hour: 12))!
     }
 
     private func snapshot(scheduled: [WidgetSnapshot.ScheduledRoutine]?,
@@ -40,18 +46,18 @@ struct WidgetSnapshotTests {
     }
 
     @Test func dueListRollsForwardWithoutTheApp() throws {
-        // Push on Mondays, Pull on Wednesdays; snapshot written Monday.
+        // Push on Mondays (never done → due, carried over, every day);
+        // Pull on Wednesdays, last done the previous Wednesday (Jul 1) —
+        // satisfied on Monday, on again when its day comes back around.
+        let previousWednesday = calendar.date(byAdding: .day, value: -5, to: monday)!
         let snap = snapshot(
             scheduled: [
                 routine("Push Day", schedule: .weekdays([2])),
-                routine("Pull Day", schedule: .weekdays([4])),
+                routine("Pull Day", schedule: .weekdays([4]), lastCompleted: previousWednesday),
             ],
             generatedAt: monday
         )
 
-        // Monday: Push is on (never completed → due), Pull is not yet.
-        // Push STAYS on through Wednesday (carried-over due-ness), which
-        // is exactly what Today shows in-app.
         let mondayList = snap.dueList(at: monday, calendar: calendar)
         #expect(mondayList.map(\.name) == ["Push Day"])
 

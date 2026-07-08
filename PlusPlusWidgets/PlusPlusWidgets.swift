@@ -18,6 +18,16 @@ enum WTheme {
                 : UIColor(red: 0x17 / 255.0, green: 0x91 / 255.0, blue: 0x4B / 255.0, alpha: 1)
         })
     }
+
+    /// v4 selection blue (#176): green is data, blue is interactive.
+    /// Mirrors Theme.selected.
+    static var selected: Color {
+        Color(uiColor: UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0x62 / 255.0, green: 0xB6 / 255.0, blue: 0xDE / 255.0, alpha: 1)
+                : UIColor(red: 0x1A / 255.0, green: 0x7F / 255.0, blue: 0xA8 / 255.0, alpha: 1)
+        })
+    }
 }
 
 @main
@@ -118,7 +128,8 @@ struct RestControlButtons: View {
                     .frame(height: 34)
             }
             .buttonStyle(.bordered)
-            .tint(WTheme.green)
+            // Blue, not green: interactive state, not data (#176).
+            .tint(WTheme.selected)
 
             Button(intent: SkipRestIntent()) {
                 Text("Skip")
@@ -156,8 +167,13 @@ struct SnapshotProvider: TimelineProvider {
         // reloads on real changes.
         let calendar = Calendar.current
         var entries = [SnapshotEntry(date: .now, snapshot: snapshot)]
+        // Calendar day-adds, not 86 400-second hops: DST days are 23 or
+        // 25 hours, and a fixed-interval midnight either skips the
+        // transition day or hands WidgetKit a non-monotonic timeline.
+        let todayStart = calendar.startOfDay(for: .now)
         for day in 1...7 {
-            let midnight = calendar.startOfDay(for: .now.addingTimeInterval(TimeInterval(day) * 86400))
+            guard let midnight = calendar.date(byAdding: .day, value: day, to: todayStart),
+                  midnight > entries[0].date else { continue }
             entries.append(SnapshotEntry(date: midnight, snapshot: snapshot))
         }
         completion(Timeline(entries: entries, policy: .after(entries.last!.date)))
