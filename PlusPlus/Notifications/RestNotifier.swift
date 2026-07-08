@@ -58,7 +58,13 @@ final class RestNotifier: NSObject, UNUserNotificationCenterDelegate {
 
     func scheduleRestEnd(at endDate: Date, exerciseName: String, setNumber: Int) {
         guard !disabled else { return }
-        cancelPending()
+        // Only the notification requests — NOT the Live Activity. +15s
+        // reschedules through here, and ActivityKit permits update from
+        // the background but request only in the foreground: ending the
+        // activity first would make the island's own +15s button destroy
+        // the island (swift-reviewer finding, 2026-07-08). restStarted
+        // updates an existing activity in place.
+        cancelNotificationRequests()
 
         let interval = endDate.timeIntervalSinceNow
         guard interval > 1 else { return }
@@ -81,13 +87,19 @@ final class RestNotifier: NSObject, UNUserNotificationCenterDelegate {
         )
     }
 
-    /// Skip, +15 s (before rescheduling), finish, discard, and natural
-    /// expiry all funnel through here.
+    /// Skip, finish, discard, and natural expiry all funnel through
+    /// here — full teardown: notifications AND the island. (+15 s does
+    /// NOT: it reschedules via scheduleRestEnd, which updates the
+    /// activity in place.)
     func cancelPending() {
         guard !disabled else { return }
+        cancelNotificationRequests()
+        RestActivityController.shared.restEnded()
+    }
+
+    private func cancelNotificationRequests() {
         UNUserNotificationCenter.current()
             .removePendingNotificationRequests(withIdentifiers: [RestNotification.identifier, TimerNotification.identifier])
-        RestActivityController.shared.restEnded()
     }
 
     /// Arms the duration auto-timer's expiry notification; pause/reset/

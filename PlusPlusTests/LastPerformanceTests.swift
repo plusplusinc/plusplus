@@ -11,7 +11,9 @@ struct LastPerformanceTests {
             Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self,
             RoutineExercise.self, WorkoutSession.self, SetLog.self,
         ])
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("lastperformance-\(UUID().uuidString).store")
+        let config = ModelConfiguration(schema: schema, url: url, allowsSave: true, cloudKitDatabase: .none)
         return try ModelContainer(for: schema, configurations: [config])
     }
 
@@ -53,15 +55,15 @@ struct LastPerformanceTests {
     func newestSessionSameSet() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let bench = Exercise(name: "Bench Press", muscleGroup: .chest)
+        let bench = Exercise(name: "Probe Press", muscleGroup: .chest)
         context.insert(bench)
 
-        let old = makeFinishedSession(exercise: bench, exerciseName: "Bench Press", sets: 3, reps: 8,
+        let old = makeFinishedSession(exercise: bench, exerciseName: "Probe Press", sets: 3, reps: 8,
                                       endedAt: Date(timeIntervalSince1970: 1_000), context: context)
-        let recent = makeFinishedSession(exercise: bench, exerciseName: "Bench Press", sets: 3, reps: 10,
+        let recent = makeFinishedSession(exercise: bench, exerciseName: "Probe Press", sets: 3, reps: 10,
                                          endedAt: Date(timeIntervalSince1970: 2_000), context: context)
 
-        let current = pendingLog(for: bench, named: "Bench Press", setNumber: 2, context: context)
+        let current = pendingLog(for: bench, named: "Probe Press", setNumber: 2, context: context)
         let match = WorkoutSession.lastPerformance(matching: current, in: [old, recent])
 
         #expect(match?.session === recent)
@@ -73,13 +75,13 @@ struct LastPerformanceTests {
     func setNumberFallback() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let bench = Exercise(name: "Bench Press", muscleGroup: .chest)
+        let bench = Exercise(name: "Probe Press", muscleGroup: .chest)
         context.insert(bench)
 
-        let prior = makeFinishedSession(exercise: bench, exerciseName: "Bench Press", sets: 2, reps: 8,
+        let prior = makeFinishedSession(exercise: bench, exerciseName: "Probe Press", sets: 2, reps: 8,
                                         endedAt: Date(timeIntervalSince1970: 1_000), context: context)
 
-        let current = pendingLog(for: bench, named: "Bench Press", setNumber: 5, context: context)
+        let current = pendingLog(for: bench, named: "Probe Press", setNumber: 5, context: context)
         let match = WorkoutSession.lastPerformance(matching: current, in: [prior])
 
         #expect(match?.setNumber == 2)
@@ -104,14 +106,14 @@ struct LastPerformanceTests {
     func ignoresCurrentSession() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let bench = Exercise(name: "Bench Press", muscleGroup: .chest)
+        let bench = Exercise(name: "Probe Press", muscleGroup: .chest)
         context.insert(bench)
 
         // A finished-looking session that IS the current one: its earlier
         // sets must not surface as "last time".
-        let current = makeFinishedSession(exercise: bench, exerciseName: "Bench Press", sets: 2, reps: 8,
+        let current = makeFinishedSession(exercise: bench, exerciseName: "Probe Press", sets: 2, reps: 8,
                                           endedAt: Date(timeIntervalSince1970: 1_000), context: context)
-        let log = SetLog(order: 2, groupIndex: 0, setNumber: 3, exercise: bench, exerciseName: "Bench Press")
+        let log = SetLog(order: 2, groupIndex: 0, setNumber: 3, exercise: bench, exerciseName: "Probe Press")
         log.session = current
         context.insert(log)
 
@@ -122,13 +124,13 @@ struct LastPerformanceTests {
     func noHistory() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let squat = Exercise(name: "Squat", muscleGroup: .quads)
+        let squat = Exercise(name: "Probe Squat", muscleGroup: .quads)
         context.insert(squat)
 
-        let other = makeFinishedSession(exercise: nil, exerciseName: "Bench Press", sets: 2, reps: 8,
+        let other = makeFinishedSession(exercise: nil, exerciseName: "Probe Press", sets: 2, reps: 8,
                                         endedAt: Date(timeIntervalSince1970: 1_000), context: context)
 
-        let current = pendingLog(for: squat, named: "Squat", setNumber: 1, context: context)
+        let current = pendingLog(for: squat, named: "Probe Squat", setNumber: 1, context: context)
         #expect(WorkoutSession.lastPerformance(matching: current, in: [other]) == nil)
         #expect(WorkoutSession.lastPerformance(matching: current, in: []) == nil)
     }
@@ -137,14 +139,14 @@ struct LastPerformanceTests {
     func excludesUnfinished() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
-        let bench = Exercise(name: "Bench Press", muscleGroup: .chest)
+        let bench = Exercise(name: "Probe Press", muscleGroup: .chest)
         context.insert(bench)
 
-        let unfinished = makeFinishedSession(exercise: bench, exerciseName: "Bench Press", sets: 1, reps: 12,
+        let unfinished = makeFinishedSession(exercise: bench, exerciseName: "Probe Press", sets: 1, reps: 12,
                                              endedAt: Date(timeIntervalSince1970: 1_000), context: context)
         unfinished.endedAt = nil
 
-        let current = pendingLog(for: bench, named: "Bench Press", setNumber: 1, context: context)
+        let current = pendingLog(for: bench, named: "Probe Press", setNumber: 1, context: context)
         #expect(WorkoutSession.lastPerformance(matching: current, in: [unfinished]) == nil)
     }
 }

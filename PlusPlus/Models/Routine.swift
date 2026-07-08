@@ -98,13 +98,16 @@ final class Routine {
         return group
     }
 
-    /// Fresh entries start with the design's defaults (10 reps / 45 s)
-    /// instead of blank targets.
+    /// Fresh entries start from the exercise's own defaults (#187) and
+    /// fall back to the design's global ones (10 reps / 45 s) instead of
+    /// blank targets.
     private func applyDefaultTargets(to entry: RoutineExercise, for exercise: Exercise) {
         if exercise.exerciseType == .duration {
-            entry.durationSeconds = 45
+            entry.durationSeconds = exercise.defaultDurationSeconds ?? 45
         } else {
-            entry.reps = 10
+            entry.weight = exercise.defaultWeight
+            entry.reps = exercise.defaultReps ?? 10
+            entry.repsUpper = exercise.defaultRepsUpper
         }
     }
 

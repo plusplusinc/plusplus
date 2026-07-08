@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 import SwiftData
 import PlusPlusKit
@@ -7,7 +8,9 @@ import PlusPlusKit
 struct ExerciseFilterTests {
     private func makeContainer() throws -> ModelContainer {
         let schema = Schema([Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self, RoutineExercise.self])
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("exercisefilter-\(UUID().uuidString).store")
+        let config = ModelConfiguration(schema: schema, url: url, allowsSave: true, cloudKitDatabase: .none)
         return try ModelContainer(for: schema, configurations: [config])
     }
 
@@ -19,15 +22,21 @@ struct ExerciseFilterTests {
         context.insert(dumbbells)
         context.insert(cable)
 
-        let benchPress = Exercise(name: "Bench Press", muscleGroup: .chest, equipment: [barbell])
-        let curl = Exercise(name: "Dumbbell Curl", muscleGroup: .biceps, equipment: [dumbbells])
-        let cableFly = Exercise(name: "Cable Fly", muscleGroup: .chest, equipment: [cable])
-        let pushUp = Exercise(name: "Push-Up", muscleGroup: .chest)
-        let squat = Exercise(name: "Squat", muscleGroup: .quads, equipment: [barbell])
-        let plank = Exercise(name: "Plank", muscleGroup: .core, exerciseType: .duration)
+        let benchPress = Exercise(name: "Probe Press", muscleGroup: .chest)
+        let curl = Exercise(name: "Probe Curl", muscleGroup: .biceps)
+        let cableFly = Exercise(name: "Probe Fly", muscleGroup: .chest)
+        let pushUp = Exercise(name: "Probe Push", muscleGroup: .chest)
+        let squat = Exercise(name: "Probe Squat", muscleGroup: .quads)
+        let plank = Exercise(name: "Probe Hold", muscleGroup: .core, exerciseType: .duration)
 
         let exercises = [benchPress, curl, cableFly, pushUp, squat, plank]
         for e in exercises { context.insert(e) }
+        // Post-insert relationship assignment — pre-insert loses
+        // nondeterministically (the #186/CI seeder bug).
+        benchPress.equipment = [barbell]
+        curl.equipment = [dumbbells]
+        cableFly.equipment = [cable]
+        squat.equipment = [barbell]
         return (barbell, dumbbells, cable, exercises)
     }
 
@@ -40,8 +49,8 @@ struct ExerciseFilterTests {
         let result = filter.filteredExercises(from: exercises)
 
         #expect(result.count == 6)
-        #expect(result.first?.name == "Bench Press")
-        #expect(result.last?.name == "Squat")
+        #expect(result.first?.name == "Probe Curl")
+        #expect(result.last?.name == "Probe Squat")
     }
 
     @Test func searchByNameCaseInsensitive() throws {
@@ -54,7 +63,7 @@ struct ExerciseFilterTests {
         let result = filter.filteredExercises(from: exercises)
 
         #expect(result.count == 1)
-        #expect(result.first?.name == "Dumbbell Curl")
+        #expect(result.first?.name == "Probe Curl")
     }
 
     @Test func singleMuscleGroupFilter() throws {
@@ -91,7 +100,7 @@ struct ExerciseFilterTests {
         filter.selectedEquipment = [barbell]
         let result = filter.filteredExercises(from: exercises)
 
-        // Bench Press (barbell) + Squat (barbell)
+        // Probe Press (barbell) + Squat (barbell)
         #expect(result.count == 2)
         #expect(result.allSatisfy { $0.equipment.contains(barbell) })
     }
@@ -106,8 +115,8 @@ struct ExerciseFilterTests {
         let result = filter.filteredExercises(from: exercises)
 
         // Push-Up and Plank have no equipment — should be excluded
-        #expect(!result.contains { $0.name == "Push-Up" })
-        #expect(!result.contains { $0.name == "Plank" })
+        #expect(!result.contains { $0.name == "Probe Push" })
+        #expect(!result.contains { $0.name == "Probe Hold" })
     }
 
     @Test func bodyweightIncludedWhenNoEquipmentFilter() throws {
@@ -118,8 +127,8 @@ struct ExerciseFilterTests {
         let filter = ExerciseFilterState()
         let result = filter.filteredExercises(from: exercises)
 
-        #expect(result.contains { $0.name == "Push-Up" })
-        #expect(result.contains { $0.name == "Plank" })
+        #expect(result.contains { $0.name == "Probe Push" })
+        #expect(result.contains { $0.name == "Probe Hold" })
     }
 
     @Test func crossFilterIntersection() throws {
@@ -132,9 +141,9 @@ struct ExerciseFilterTests {
         filter.selectedEquipment = [barbell]
         let result = filter.filteredExercises(from: exercises)
 
-        // Only Bench Press matches both chest + barbell
+        // Only Probe Press matches both chest + barbell
         #expect(result.count == 1)
-        #expect(result.first?.name == "Bench Press")
+        #expect(result.first?.name == "Probe Press")
     }
 
     @Test func searchPlusFilterCombined() throws {
@@ -148,7 +157,7 @@ struct ExerciseFilterTests {
         let result = filter.filteredExercises(from: exercises)
 
         #expect(result.count == 1)
-        #expect(result.first?.name == "Bench Press")
+        #expect(result.first?.name == "Probe Press")
     }
 
     @Test func emptySearchMatchesAll() throws {

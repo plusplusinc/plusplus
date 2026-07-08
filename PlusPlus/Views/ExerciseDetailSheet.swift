@@ -116,6 +116,12 @@ struct ExerciseDetailSheet: View {
             .padding(.vertical, 12)
         }
         .presentationBackground(Theme.surface)
+        // Editing here bumps the exercise's defaults (#187) — every
+        // mutation path (steppers and wheels) flows through these values.
+        .onChange(of: routineExercise.weight) { _, _ in routineExercise.bumpExerciseDefaults() }
+        .onChange(of: routineExercise.reps) { _, _ in routineExercise.bumpExerciseDefaults() }
+        .onChange(of: routineExercise.repsUpper) { _, _ in routineExercise.bumpExerciseDefaults() }
+        .onChange(of: routineExercise.durationSeconds) { _, _ in routineExercise.bumpExerciseDefaults() }
         .sheet(item: $wheel) { target in
             switch target {
             case .weight:

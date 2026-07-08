@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 import SwiftData
 import PlusPlusKit
@@ -7,7 +8,9 @@ import PlusPlusKit
 struct ReindexTests {
     private func makeContainer() throws -> ModelContainer {
         let schema = Schema([Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self, RoutineExercise.self])
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("reindex-\(UUID().uuidString).store")
+        let config = ModelConfiguration(schema: schema, url: url, allowsSave: true, cloudKitDatabase: .none)
         return try ModelContainer(for: schema, configurations: [config])
     }
 

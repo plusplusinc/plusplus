@@ -30,9 +30,20 @@ enum WidgetSnapshotWriter {
         }
 
         var due: [WidgetSnapshot.DueRoutine] = []
+        var scheduled: [WidgetSnapshot.ScheduledRoutine] = []
         for routine in routines where !routine.groups.isEmpty {
+            let completed = lastCompleted(of: routine)
+            // Everything schedulable ships with its schedule so the
+            // widget can compute due-ness at ANY date (#159) — the
+            // frozen `due` list below stays as the old-snapshot fallback.
+            scheduled.append(.init(
+                name: routine.name,
+                exerciseCount: routine.sortedGroups.reduce(0) { $0 + $1.sortedExercises.count },
+                scheduleData: routine.scheduleData,
+                lastCompleted: completed
+            ))
             let state = routine.schedule.dueState(
-                lastCompleted: lastCompleted(of: routine),
+                lastCompleted: completed,
                 today: today,
                 calendar: calendar
             )
@@ -60,24 +71,16 @@ enum WidgetSnapshotWriter {
                 weeklyCounts[11 - weeksAgo] += 1
             }
         }
-        var streak = 0
-        for count in weeklyCounts.reversed() {
-            if count > 0 { streak += 1 } else if streak > 0 || count == 0 { break }
-        }
-        // The current week shouldn't break a streak just because it's
-        // Monday morning: an empty current week defers to last week.
-        if streak == 0, weeklyCounts.count >= 2, weeklyCounts[11] == 0 {
-            for count in weeklyCounts.dropLast().reversed() {
-                if count > 0 { streak += 1 } else { break }
-            }
-        }
+        // One streak rule for writer and widget roll-forward (#159).
+        let streak = WidgetSnapshot.streak(fromWeeklyCounts: weeklyCounts)
 
         WidgetSnapshot(
             generatedAt: today,
             routineNames: routines.map(\.name),
             due: due,
             streakWeeks: streak,
-            weeklyCounts: weeklyCounts
+            weeklyCounts: weeklyCounts,
+            scheduled: scheduled
         ).save()
 
         WidgetCenter.shared.reloadAllTimelines()

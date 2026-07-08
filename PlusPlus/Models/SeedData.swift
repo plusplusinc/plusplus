@@ -18,11 +18,23 @@ enum SeedData {
         for item in equipment {
             context.insert(item)
         }
+        let byName = Dictionary(uniqueKeysWithValues: equipment.map { ($0.name, $0) })
 
-        let exercises = makeBuiltInExercises(equipment: equipment)
-        for exercise in exercises {
+        // Relationships are assigned AFTER context.insert: assigning
+        // them in init, pre-insert, against already-inserted targets
+        // loses them nondeterministically — the CI repro (found
+        // 2026-07-08 after three wrong theories) and almost certainly
+        // #186's unreproducible field loss (Bench Press as bodyweight).
+        for def in builtInExerciseDefinitions {
+            let exercise = Exercise(
+                name: def.name,
+                muscleGroup: def.muscleGroup,
+                exerciseType: def.exerciseType,
+                isBuiltIn: true
+            )
             exercise.inLibrary = populateLibrary
             context.insert(exercise)
+            exercise.equipment = def.equipmentNames.compactMap { byName[$0] }
         }
 
         try? context.save()

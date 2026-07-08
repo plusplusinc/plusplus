@@ -5,8 +5,9 @@ The `++` mark is the increment operator — squint and it's a dumbbell.
 
 ## What it does
 
-- **Build routines** from a built-in exercise library or your own custom
-  exercises (muscle group, equipment, form notes, reference video)
+- **Build routines** from a built-in exercise catalog or your own custom
+  exercises (muscle group, equipment, form notes, reference video) — your
+  personal library grows by choice, not by default
 - **Supersets** as a first-class structure — groups rotate strictly
   (A1 B1 A2 B2 …) during execution
 - **Keyboard-free logging**: steppers + wheel pickers for weight, reps,
@@ -56,10 +57,11 @@ Architecture and format contract: [`docs/PLATFORM.md`](docs/PLATFORM.md).
 | Directory | What it is |
 |---|---|
 | `PlusPlus/` | iOS app (SwiftUI + SwiftData, iOS 26) |
-| `PlusPlusWatch/` | watchOS companion (stub — #6) |
+| `PlusPlusWatch/` | watchOS companion: wrist execution over WatchConnectivity, HealthKit workout sessions, append-only sync-back |
+| `PlusPlusWidgets/` · `PlusPlusShared/` | Widget extension (rest Live Activity, Today/Streak widgets, App Intents) + the sources it shares with the app |
 | `PlusPlusKit/` | Platform-pure SwiftPM package: taxonomy, metrics, interchange codec/validator, sync engine. No SwiftUI/SwiftData — tested on Linux in CI to keep it that way |
 | `PlusPlusCLI/` | The `plusplus` CLI + MCP server (SwiftPM executable, Linux-native) |
-| `PlusPlusTests/` · `PlusPlusKit/Tests/` · `PlusPlusCLI/Tests/` | ~130 unit tests across the three layers |
+| `PlusPlusTests/` · `PlusPlusKit/Tests/` · `PlusPlusCLI/Tests/` | Unit suites for all three layers — every push runs them in CI |
 | `PlusPlusUITests/` | Smoke flows that run on the CI simulator and upload screenshots |
 
 ## Development

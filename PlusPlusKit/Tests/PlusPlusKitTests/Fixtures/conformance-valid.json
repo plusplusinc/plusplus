@@ -1,6 +1,8 @@
 {
   "exercises" : [
     {
+      "defaultReps" : 15,
+      "defaultRepsUpper" : 20,
       "equipment" : [
         "Resistance Band"
       ],
@@ -12,6 +14,7 @@
       "videoURL" : "https://youtu.be/ykZHbcGNfII"
     },
     {
+      "defaultDurationSeconds" : 60,
       "equipment" : [],
       "exerciseType" : "duration",
       "isBuiltIn" : false,

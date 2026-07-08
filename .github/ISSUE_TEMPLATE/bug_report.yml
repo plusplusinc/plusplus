@@ -1,0 +1,37 @@
+name: Bug report
+description: Something behaves wrong in the app, Kit, or CLI
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What did you do, what did you expect, what happened instead?
+      placeholder: |
+        1. Open a routine with a superset
+        2. Drag the second row's ring edge
+        3. Expected …, got …
+    validations:
+      required: true
+  - type: input
+    id: build
+    attributes:
+      label: Build
+      description: TestFlight build number (Settings footer shows it), or commit SHA for Kit/CLI issues
+      placeholder: build 24
+    validations:
+      required: false
+  - type: input
+    id: device
+    attributes:
+      label: Device / OS
+      placeholder: iPhone 17 Pro, iOS 26.2
+    validations:
+      required: false
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Screenshots, exported JSON, crash logs — whatever helps reproduce it.
+    validations:
+      required: false

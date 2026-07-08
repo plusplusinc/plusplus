@@ -11,7 +11,9 @@ struct InterchangeMappingTests {
             Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self,
             RoutineExercise.self, WorkoutSession.self, SetLog.self,
         ])
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("interchangemapping-\(UUID().uuidString).store")
+        let config = ModelConfiguration(schema: schema, url: url, allowsSave: true, cloudKitDatabase: .none)
         return try ModelContainer(for: schema, configurations: [config])
     }
 

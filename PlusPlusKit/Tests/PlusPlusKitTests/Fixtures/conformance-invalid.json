@@ -1,6 +1,7 @@
 {
   "exercises" : [
     {
+      "defaultReps" : 0,
       "equipment" : [],
       "exerciseType" : "weightReps",
       "isBuiltIn" : false,
@@ -8,6 +9,7 @@
       "name" : "Curl"
     },
     {
+      "defaultRepsUpper" : 12,
       "equipment" : [],
       "exerciseType" : "weightReps",
       "isBuiltIn" : false,

@@ -57,7 +57,9 @@ struct DueTodayIntent: AppIntent {
     static let description = IntentDescription("Tells you what's on your schedule today.")
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let due = WidgetSnapshot.load()?.due ?? []
+        // Computed at ask time from the snapshot's schedules (#159), so
+        // Siri stays right even when the app hasn't run for days.
+        let due = WidgetSnapshot.load()?.dueList(at: Date()) ?? []
         let dialog: IntentDialog
         switch due.count {
         case 0:

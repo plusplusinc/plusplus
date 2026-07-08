@@ -7,6 +7,17 @@ import UIKit
 struct PlusPlusApp: App {
     let modelContainer: ModelContainer
 
+    /// True when this process hosts the unit-test bundle. The host must
+    /// stay inert: tests build their own containers, and launch-time side
+    /// effects (TipKit's datastore, WCSession activation, the notification
+    /// center, the App Group snapshot) are process-global state racing the
+    /// tests. UI tests are unaffected — the app under XCUITest runs in a
+    /// separate process with no test bundle injected.
+    private static let isUnitTestHost =
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+            || ProcessInfo.processInfo.environment["XCTestSessionIdentifier"] != nil
+            || NSClassFromString("XCTestCase") != nil
+
     /// Appearance (#97): system by default; the setting lives in the
     /// Settings sheet.
     @AppStorage(AppAppearance.storageKey) private var appearanceRaw: String = AppAppearance.system.rawValue
@@ -54,6 +65,7 @@ struct PlusPlusApp: App {
             // self-heals from live data.
             UserDefaults.standard.removeObject(forKey: SetupState.equipmentDoneKey)
         }
+        guard !Self.isUnitTestHost else { return }
         // Smoke tests assume a usable library; the onboarding test and
         // real fresh installs start with the catalog only (#185).
         let onboardingTest = CommandLine.arguments.contains("--uitest-onboarding")
@@ -95,11 +107,15 @@ struct PlusPlusApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootTabView()
-                .preferredColorScheme((AppAppearance(rawValue: appearanceRaw) ?? .system).colorScheme)
-                // Dynamic Type everywhere (#82), capped where the dense
-                // layouts stop coping — full a11y sizes are future work.
-                .dynamicTypeSize(...DynamicTypeSize.xxLarge)
+            if Self.isUnitTestHost {
+                Text("unit-test host")
+            } else {
+                RootTabView()
+                    .preferredColorScheme((AppAppearance(rawValue: appearanceRaw) ?? .system).colorScheme)
+                    // Dynamic Type everywhere (#82), capped where the dense
+                    // layouts stop coping — full a11y sizes are future work.
+                    .dynamicTypeSize(...DynamicTypeSize.xxLarge)
+            }
         }
         .modelContainer(modelContainer)
         // Any edits made this foreground stint reach the wrist before

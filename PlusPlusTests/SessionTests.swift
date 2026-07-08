@@ -11,7 +11,9 @@ struct SessionTests {
             Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self,
             RoutineExercise.self, WorkoutSession.self, SetLog.self,
         ])
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("session-\(UUID().uuidString).store")
+        let config = ModelConfiguration(schema: schema, url: url, allowsSave: true, cloudKitDatabase: .none)
         return try ModelContainer(for: schema, configurations: [config])
     }
 
@@ -160,7 +162,7 @@ struct SessionTests {
 
         let routine = Routine(name: "Core")
         context.insert(routine)
-        let plank = Exercise(name: "Plank", muscleGroup: .core, exerciseType: .duration)
+        let plank = Exercise(name: "Probe Hold", muscleGroup: .core, exerciseType: .duration)
         context.insert(plank)
         let group = routine.addExerciseInNewGroup(plank, context: context)
         group.sets = 2

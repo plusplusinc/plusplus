@@ -45,6 +45,26 @@ The Simulator validation step in every task should use these tools in sequence: 
 
 ---
 
+## Claude Code Setup (committed in `.claude/`)
+
+- **Skills** — `/ci-status` (check/diagnose/rerun CI from a sandbox that can't
+  reach job logs), `/pr-flow` (the serialized single-branch PR workflow),
+  `/testflight` (shipping a build + the entitlement mechanism and its failure
+  modes). Read the matching skill BEFORE re-deriving any of that from scratch.
+- **Agents** — `swift-reviewer` (adversarial review tuned to this repo's proven
+  bug classes; run it on any non-trivial diff before pushing) and
+  `doc-verifier` (claim-by-claim docs audit; fan out one per doc).
+- **Hooks** — `docs-drift` (PostToolUse): editing interchange/CLI/workflow/
+  project.yml files injects a reminder naming the doc that owns the claim.
+- **Docs stay true by construction where possible**: PLATFORM.md's JSON
+  examples are executable — `DocsConformanceTests` (CLI test target, runs on
+  Linux CI) decodes and validates them, and fails if the schema gains fields
+  the doc never mentions. For everything a test can't see, the rule is: a PR
+  that changes an interface (format, CLI, targets, CI) touches the doc that
+  describes it, or the PR description says why not.
+
+---
+
 ## Architecture Principles
 
 - Effective complexity management above all else — code should be easy to understand and easy to adapt
@@ -58,7 +78,7 @@ The Simulator validation step in every task should use these tools in sequence: 
 
 > Update this section at the end of every session that changes the codebase.
 
-**Last updated:** 2026-07-08 (overnight: Design v4 end to end, no-due sweep, universal links, entitlement pipeline fix, builds 22–24)
+**Last updated:** 2026-07-08 (late overnight: #187 default targets, #159 widget freshness, #157 island rest controls, docs truth sweep + docs-as-tests, committed .claude/ dev setup, contribution infra, the CI red-main chase ending at the pre-insert relationship-loss rule — all on PR #194, unmerged: the GitHub MCP token expired mid-session and merges/issue writes are queued in the session scratchpad)
 **Last known good build:** 2026-02-20 (Xcode 26.2, iPhone 17 Pro / iOS 26.2 Simulator)
 
 ⚠️ **Needs Mac validation:** All 2026-07 sessions ran in a remote Linux environment (no Xcode). Everything compiles, passes unit tests and the UI smoke suite in CI, and TestFlight puts real builds on Dave's iPhone. The #1 Mac checklist now covers: v3 gesture feel (rail drag/ring under the UIKit recognizer), onboarding on a fresh install, the watch app on real hardware (paired-simulator or device), accessibility settings, store migration over real data (#31 — FIRST), Dynamic Island / Live Activity feel, the widget gallery pass, and the v4 surfaces: the redrawn superset rail (return-loop feel in crowded lists, border-contrast legibility in bright light), the blue selection grammar, and Dynamic Type on the new settings pages.
@@ -67,7 +87,7 @@ The Simulator validation step in every task should use these tools in sequence: 
 
 **Branch protection is active** (repository ruleset): merges to main require `test`, `kit-test`, and `cli-test` to PASS on the head SHA (squash is the only allowed merge method). A cancelled required check blocks merge until re-run. ci.yml's docs-only `paths-ignore` was removed for exactly this reason — a push that skips CI leaves its PR permanently unmergeable (a green `workflow_dispatch` run on the same SHA did NOT satisfy the ruleset in practice; push-triggered runs do).
 
-**CI flake note:** the ui-test job's `app.launch()` can wedge indefinitely on a runner simulator (DebuggerLLDB errors in the log, 45-min timeout kills it). Seen once 2026-07-07; the identical commit passed in 7 min on re-dispatch. Cancel + re-dispatch once before suspecting code.
+**CI flake note:** the ui-test job's `app.launch()` can wedge indefinitely on a runner simulator (DebuggerLLDB errors in the log, 45-min timeout kills it). Seen once 2026-07-07; the identical commit passed in 7 min on re-dispatch. Cancel + re-dispatch once before suspecting code. The unit `test` job went ~50% red 2026-07-08 (same tree passing as a PR head and failing on main); three mechanisms were eliminated — in-memory ModelConfigurations sharing state across containers even when uniquely named (see Patterns; test stores are on-disk temp files now), and the test HOST app running its full launch stack (TipKit datastore, WCSession, notifications) under every unit run; the host is now inert when it detects the unit-test bundle. The `test` job also emits failing-test annotations on failure (`::error::` lines from xcodebuild.log) because remote agent sessions can't reach job logs or artifacts on Azure blob storage — read them via the check-runs API.
 
 **TestFlight:** `.github/workflows/testflight.yml` (manual dispatch, any ref) archives unsigned, cloud-signs at export with an Admin-role ASC API key, and uploads; build number = run number. **Build 24** is current: the entire Design v4 handoff (PRs #188/#190/#191/#192), the no-"due" sweep + Today card actions (#183), universal links (#156), the swipe stick-open fix, HealthKit batch (#90/#40), Claude batch (#148), catalog seeding policy + equipment self-heal (#185/#186). Build 23 = first associated-domains build; build 22 = the entitlement pipeline fix. Builds 18–21 never reached TestFlight (see the 2026-07-08 entitlements decision). Build 16 = store-recovery fix (#153: build 15 crash-looped on update-in-place installs because the #144 entity renames made old stores unreadable; the app now destroys-and-recreates on open failure — beta stopgap, 1.0 policy is #155). Build 15 = routines rename (#144) + share links (#145). ⚠️ Update-in-place is safe from build 16 onward; 15 needed a fresh install. ⚠️ Builds 17–20 shipped **without any capability entitlements** — an unsigned archive carries no `.xcent`, so the export's cloud signing had nothing to request (17's widgets couldn't read the App Group; 18/20 failed upload validation once the watch demanded healthkit). Fixed in build 22: the archive's bundles are re-signed with a throwaway **self-signed identity** to embed real entitlements before export (see the 2026-07-08 decision), and the App IDs carry HealthKit/App Groups (Dave, portal). Org Actions secrets survived the transfer.
 
@@ -331,19 +351,33 @@ PlusPlusUITests/
 
 **2026-07-08 — Fresh installs seed the catalog, not the library (#185); built-in equipment self-heals (#186)** — Built-in exercises seed `inLibrary = false`; population is the user's optional call at the end of equipment setup ("Add N exercises your equipment supports?" / "Start empty"), and anything used joins the library on its own (starter seeder already did). Existing stores untouched. Separately, Dave's store surfaced Bench Press as bodyweight though the seeder is provably correct — the loss path couldn't be reproduced (seeder, name-matched import, identity-scoped deletion, editor draft all ruled out), so a one-shot UserDefaults-keyed repair restores empty-equipment built-ins from the canonical definitions table, with regression tests locking the requirements. If it recurs post-repair, there's a live repro to chase.
 
+**2026-07-08 (late) — Exercise defaults bump from routine edits (#187)** — Exercise carries optional defaultWeight/defaultReps/defaultRepsUpper/defaultDurationSeconds; fresh routine entries prefill from them; editing targets in the planning sheet writes back (the latest prescription anywhere IS the default — Dave's call). Editor gains a DEFAULTS stepper card with Clear. Interchange fields are additive; schema stays v1.
+
+**2026-07-08 (late) — Widgets compute, snapshots don't assert (#159)** — WidgetSnapshot carries every schedulable routine's encoded RoutineSchedule + lastCompleted; the widget extension links PlusPlusKit and computes due-ness per timeline entry (now + 7 calendar midnights), the streak rolls forward to the entry date (stale snapshots can't overstate), Siri computes at ask time. Frozen `due` list retained solely as the pre-#159 fallback.
+
+**2026-07-08 (late) — Island rest controls run in the app's process (#157)** — +15s/Skip are LiveActivityIntents in PlusPlusShared (both targets see the type; the system executes in the app process) posting .plusplusAdjustRest; ActiveSessionView routes to the same extendRest/endRest as the on-screen buttons. Critical pairing: scheduleRestEnd no longer tears down the activity (update is background-legal, request is foreground-only — the swift-reviewer agent caught +15s destroying its own island pre-merge).
+
+**2026-07-08 (late) — Docs are verified claims, not prose (Dave's ask)** — three parallel doc audits fixed every stale claim (watch "stub", test counts, private-repo PAT instructions, PLATFORM.md phase status and commit-message examples); PLATFORM.md's JSON examples are now EXECUTABLE (DocsConformanceTests in the CLI target decodes + validates them on Linux CI — it caught its first drift within an hour); a docs-drift PostToolUse hook names the owning doc when contract files change; the standing rule lives in CONTRIBUTING.md.
+
+**2026-07-08 (late) — Committed .claude/ dev setup (Dave's ask)** — skills (ci-status / pr-flow / testflight), agents (swift-reviewer with the repo's proven bug classes — paid for itself on its first run; doc-verifier), the docs-drift hook. .gitignore keeps only settings.local.json out.
+
 ---
 
 ## Patterns Reference
 
 > Add established patterns here as they emerge to avoid re-litigating decisions.
 
-**SwiftData in-memory testing:**
+**SwiftData test containers:** ⚠️ in-memory configurations (`isStoredInMemoryOnly: true`) share state across containers in one process — **even uniquely named ones** (proved twice on CI 2026-07-08: a repair test's `bench.equipment = []` surfaced inside a different test's "fresh" container, before AND after a unique-name fix; Swift Testing runs suites and tests in parallel, so the corruption is scheduling-dependent ~50% flake). The only real isolation is a throwaway on-disk store per container:
 ```swift
-let schema = Schema([Exercise.self, Equipment.self, Workout.self, ExerciseGroup.self, WorkoutExercise.self])
-let config = ModelConfiguration(isStoredInMemoryOnly: true)
+let schema = Schema([Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self, RoutineExercise.self])
+let url = FileManager.default.temporaryDirectory
+    .appendingPathComponent("mytests-\(UUID().uuidString).store")
+let config = ModelConfiguration(schema: schema, url: url, allowsSave: true, cloudKitDatabase: .none)
 let container = try ModelContainer(for: schema, configurations: [config])
 let context = ModelContext(container)
 ```
+
+**SwiftData pre-insert relationship loss:** ⚠️ assigning a relationship on a model BEFORE `context.insert(model)` — including via an init parameter — when the targets are already inserted loses the assignment **nondeterministically**. This was the seeder's Bench-Press-as-bodyweight loss: #186's unreproducible field bug AND a night of ~50% CI red chased through three wrong theories (shared in-memory stores, cross-container aliasing, fixture-name collisions) before the fixture-precondition assert pinned it. Rule: **insert first, assign relationships after.** `Exercise.init(equipment:)` is only safe for containerless graphs (the SeedData definition tests). Test fixtures also use "Probe …" names instead of catalog names, so a corrupted seed can never masquerade as a fixture collision again. A repo-wide audit of remaining pre-insert assignments (RoutineExercise/ExerciseGroup mutations, session factory) is queued as a follow-up issue.
 
 **Seed data access for testing:** `SeedData.makeBuiltInExercisesForTesting(equipment:)` exposes internal exercise creation. Production code uses `SeedData.loadIfNeeded(context:)`.
 

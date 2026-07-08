@@ -17,4 +17,19 @@ final class RoutineExercise {
         self.exercise = exercise
         self.order = order
     }
+
+    /// A routine edit is the freshest statement of intent for this
+    /// exercise, so it becomes the default for future adds (#187).
+    /// Copies the whole target state for the exercise's type — including
+    /// nil — so the default always mirrors the last-edited entry.
+    func bumpExerciseDefaults() {
+        guard let exercise else { return }
+        if exercise.exerciseType == .duration {
+            exercise.defaultDurationSeconds = durationSeconds
+        } else {
+            exercise.defaultWeight = weight
+            exercise.defaultReps = reps
+            exercise.defaultRepsUpper = repsUpper
+        }
+    }
 }

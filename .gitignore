@@ -29,8 +29,9 @@ Pods/
 # OS
 .DS_Store
 
-# Local Claude config
-.claude
+# Project Claude Code config (.claude/ skills, agents, hooks) IS committed;
+# only personal local overrides stay out.
+.claude/settings.local.json
 
 # Worktrees
 .worktrees

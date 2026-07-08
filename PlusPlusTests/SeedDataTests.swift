@@ -4,15 +4,26 @@ import SwiftData
 import PlusPlusKit
 @testable import PlusPlus
 
-@Suite("SeedData")
+/// `.serialized`: the populate test failed three separate CI runs with
+/// Bench Press's equipment mysteriously empty — through a unique-name fix
+/// AND a unique-on-disk-store fix, so plain store sharing is ruled out.
+/// Only this suite both mutates that relationship (the repair test) and
+/// builds containerless model graphs (the definition tests); running its
+/// tests one at a time closes every intra-suite channel while the
+/// precondition assert below pins down the corruption point if it
+/// somehow survives.
+@Suite("SeedData", .serialized)
 struct SeedDataTests {
     private func makeContainer() throws -> ModelContainer {
         let schema = Schema([Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self, RoutineExercise.self])
-        // Unnamed in-memory configurations SHARE one backing store per
-        // process — parallel tests were mutating each other's "isolated"
-        // fixtures (the repair test emptied Bench Press's equipment
-        // under the populate test). A unique name isolates each.
-        let config = ModelConfiguration("seed-tests-\(UUID().uuidString)", schema: schema, isStoredInMemoryOnly: true)
+        // In-memory configurations SHARE state across containers in one
+        // process — even uniquely NAMED ones (proved twice on CI
+        // 2026-07-08: the repair test emptied Bench Press's equipment
+        // under the populate test both before and after a naming fix).
+        // A throwaway on-disk store per container is the real isolation.
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("seed-tests-\(UUID().uuidString).store")
+        let config = ModelConfiguration(schema: schema, url: url, allowsSave: true, cloudKitDatabase: .none)
         return try ModelContainer(for: schema, configurations: [config])
     }
 
@@ -56,18 +67,39 @@ struct SeedDataTests {
         let exercises = try context.fetch(FetchDescriptor<Exercise>())
         #expect(exercises.allSatisfy { !$0.inLibrary })
 
+        // Diagnostics for the CI-only corruption: bracket the equipment
+        // mutation loop so a failure names its mechanism. Point A failing
+        // means the seed itself lost the relationship; A passing and B
+        // failing means mutating Equipment.inLibrary (a relationship
+        // target with no declared inverse) clears the Exercise side.
+        let bench = try #require(exercises.first { $0.name == "Bench Press" })
+        #expect(!bench.equipment.isEmpty, "A: corrupted at seed time — \(diagnostics(context: context))")
+
         // Own only a pull-up bar: bodyweight + pull-up work populates,
         // barbell work doesn't.
         let equipment = try context.fetch(FetchDescriptor<Equipment>())
         for item in equipment {
             item.inLibrary = item.name == "Pull-Up Bar"
         }
+        #expect(!bench.equipment.isEmpty, "B: corrupted by the inLibrary mutation loop — \(diagnostics(context: context))")
         let added = SeedData.populateLibraryFromEquipment(context: context)
         #expect(added > 0)
         let byName = Dictionary(uniqueKeysWithValues: exercises.map { ($0.name, $0) })
         #expect(byName["Pull-Up"]?.inLibrary == true)
         #expect(byName["Push-Up"]?.inLibrary == true)
         #expect(byName["Bench Press"]?.inLibrary == false)
+    }
+
+    /// What the store actually holds vs what this context's graph says —
+    /// read through a FRESH context so faulting starts clean.
+    private func diagnostics(context: ModelContext) -> String {
+        let fresh = ModelContext(context.container)
+        let benches = (try? fresh.fetch(
+            FetchDescriptor<Exercise>(predicate: #Predicate { $0.name == "Bench Press" })
+        )) ?? []
+        let equipmentCount = (try? fresh.fetchCount(FetchDescriptor<Equipment>())) ?? -1
+        let described = benches.map { "equip=\($0.equipment.map(\.name).sorted()) inLibrary=\($0.inLibrary)" }
+        return "freshContext: benchCount=\(benches.count) \(described.joined(separator: " | ")) equipmentRows=\(equipmentCount)"
     }
 
     @Test func repairRestoresEmptyBuiltInEquipment() throws {

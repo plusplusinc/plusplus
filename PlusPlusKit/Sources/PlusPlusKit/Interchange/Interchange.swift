@@ -18,6 +18,13 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
     public var notes: String?
     public var videoURL: String?
     public var isBuiltIn: Bool
+    /// Default targets (#187) — what a fresh routine entry starts from.
+    /// All optional and additive: absent fields keep schema v1 bundles
+    /// byte-identical, and older readers ignore them.
+    public var defaultWeight: Double?
+    public var defaultReps: Int?
+    public var defaultRepsUpper: Int?
+    public var defaultDurationSeconds: Int?
 
     public init(
         name: String,
@@ -26,7 +33,11 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
         equipment: [String],
         notes: String? = nil,
         videoURL: String? = nil,
-        isBuiltIn: Bool = false
+        isBuiltIn: Bool = false,
+        defaultWeight: Double? = nil,
+        defaultReps: Int? = nil,
+        defaultRepsUpper: Int? = nil,
+        defaultDurationSeconds: Int? = nil
     ) {
         self.name = name
         self.muscleGroup = muscleGroup
@@ -35,6 +46,10 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
         self.notes = notes
         self.videoURL = videoURL
         self.isBuiltIn = isBuiltIn
+        self.defaultWeight = defaultWeight
+        self.defaultReps = defaultReps
+        self.defaultRepsUpper = defaultRepsUpper
+        self.defaultDurationSeconds = defaultDurationSeconds
     }
 }
 
