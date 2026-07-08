@@ -226,10 +226,6 @@ struct ActiveSessionView: View {
         }
     }
 
-    private func haptic() {
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
-    }
-
     private func finishSession(dismissAfter: Bool = true) {
         RestNotifier.shared.cancelPending()
         if !session.isFinished {
