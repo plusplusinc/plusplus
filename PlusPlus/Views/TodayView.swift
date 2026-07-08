@@ -39,6 +39,11 @@ struct TodayView: View {
     @State private var showingNewRoutine = false
     @State private var pendingCreateFromSwapIn = false
     @State private var newRoutineName = ""
+    /// Hero zooms (#216): starting a workout grows the pending card
+    /// into the session screen; a committed card grows into its
+    /// record. Off-card starts (swap-in, Siri) have no source and fall
+    /// back to the system transition on their own.
+    @Namespace private var zoomNamespace
     @State private var showingEquipmentSetup = false
     /// Nonzero presents the populate-offer alert (#204); computed at
     /// present time from the store, never carried stale.
@@ -95,6 +100,7 @@ struct TodayView: View {
                         ForEach(dueRoutines) { routine in
                             TimelineItem(node: .pending) {
                                 pendingCard(routine)
+                                    .matchedTransitionSource(id: routine.persistentModelID, in: zoomNamespace)
                             }
                         }
                         if setupActive {
@@ -103,6 +109,7 @@ struct TodayView: View {
                         ForEach(sessions) { session in
                             TimelineItem(node: .committed) {
                                 committedCard(session)
+                                    .matchedTransitionSource(id: session.persistentModelID, in: zoomNamespace)
                             }
                         }
                     }
@@ -117,6 +124,7 @@ struct TodayView: View {
             }
             .navigationDestination(for: SessionRecordDestination.self) { destination in
                 SessionDetailView(session: destination.session)
+                    .navigationTransition(.zoom(sourceID: destination.session.persistentModelID, in: zoomNamespace))
             }
             .navigationDestination(isPresented: $showingSettings) {
                 SettingsScreen()
@@ -146,6 +154,10 @@ struct TodayView: View {
             }
             .fullScreenCover(item: $activeSession) { session in
                 ActiveSessionView(session: session)
+                    .navigationTransition(.zoom(
+                        sourceID: session.routine?.persistentModelID ?? session.persistentModelID,
+                        in: zoomNamespace
+                    ))
             }
             .navigationDestination(isPresented: $showingEquipmentSetup) {
                 CatalogBrowseScreen(kind: .equipment, setupMode: true, offersPopulateOnDone: true)
