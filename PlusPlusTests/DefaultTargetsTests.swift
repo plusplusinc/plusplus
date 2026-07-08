@@ -15,7 +15,7 @@ struct DefaultTargetsTests {
         ])
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("default-targets-\(UUID().uuidString).store")
-        let config = ModelConfiguration(schema: schema, url: url, allowsSave: true, groupContainer: .none, cloudKitDatabase: .none)
+        let config = ModelConfiguration(schema: schema, url: url, allowsSave: true, cloudKitDatabase: .none)
         return try ModelContainer(for: schema, configurations: [config])
     }
 

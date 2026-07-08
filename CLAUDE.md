@@ -342,7 +342,7 @@ PlusPlusUITests/
 let schema = Schema([Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self, RoutineExercise.self])
 let url = FileManager.default.temporaryDirectory
     .appendingPathComponent("mytests-\(UUID().uuidString).store")
-let config = ModelConfiguration(schema: schema, url: url, allowsSave: true, groupContainer: .none, cloudKitDatabase: .none)
+let config = ModelConfiguration(schema: schema, url: url, allowsSave: true, cloudKitDatabase: .none)
 let container = try ModelContainer(for: schema, configurations: [config])
 let context = ModelContext(container)
 ```
