@@ -983,21 +983,10 @@ struct RoutineSettingsScreen: View {
             if !routine.isDeleted { commitName() }
         }
         .toolbar {
-            // Save is the page's primary action (#207): autosave is
-            // real, but the affirmative exit commits the name (the one
-            // field with a validity gate) and reads as "done here".
-            // Disabled while the draft is invalid — the caption under
-            // the field says why — so it can never silently revert.
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Save") {
-                    commitName()
-                    dismiss()
-                }
-                .fontWeight(.bold)
-                .disabled(nameDraft.trimmingCharacters(in: .whitespaces).isEmpty || nameIsTaken)
-                .accessibilityIdentifier("saveRoutineSettingsButton")
-            }
-            // Delete nests behind "…" (#207) — present, not primary.
+            // No Save (#219, killed same day #207 added it): every
+            // field commits live and the name commits on any exit, so
+            // the page is simply always saved. Delete nests behind
+            // "…" — present, not primary.
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button("Delete routine", role: .destructive) {
