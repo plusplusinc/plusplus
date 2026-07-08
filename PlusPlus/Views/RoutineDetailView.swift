@@ -177,18 +177,8 @@ struct RoutineDetailView: View {
             .foregroundStyle(unscheduled ? Theme.textFaint : Theme.textPrimary)
     }
 
-    private var emptyHint: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "dumbbell")
-                .font(.system(size: 32))
-                .foregroundStyle(Theme.borderStrong)
-            Text("No exercises yet")
-                .font(.system(.subheadline, weight: .semibold))
-                .foregroundStyle(Theme.textSecondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 26)
-    }
+    // The "No exercises yet" empty hint died (#209): the rail's
+    // Add-exercise button IS the empty state.
 
     // MARK: - Rail list (custom gesture surface, #78)
     // ScrollView + absolutely-positioned rows instead of List: we own the
@@ -215,9 +205,6 @@ struct RoutineDetailView: View {
         // now carry only the drag-preview deltas.
         return ScrollView {
             VStack(spacing: 0) {
-                if groups.isEmpty {
-                    emptyHint
-                }
                 ForEach(Array(groups.enumerated()), id: \.element.persistentModelID) { g, group in
                     ForEach(Array(group.sortedExercises.enumerated()), id: \.element.persistentModelID) { i, routineExercise in
                         railRow(routineExercise, group: group, groupIndex: g, index: i, hideLoop: ringGroup == g)
@@ -284,9 +271,18 @@ struct RoutineDetailView: View {
                 }
                 .frame(width: 28, height: railRowHeight)
 
+                // A button, not a passive row (#209): green creation
+                // grammar in a dashed capsule, so the empty state has a
+                // single obvious action.
                 Text("Add exercise")
                     .font(.system(.subheadline, weight: .semibold))
-                    .foregroundStyle(Theme.textSecondary)
+                    .foregroundStyle(Theme.accent)
+                    .padding(.horizontal, 16)
+                    .frame(height: 38)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Theme.controlRadius)
+                            .strokeBorder(Theme.borderStrong, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                    )
                 Spacer(minLength: 0)
             }
             .frame(height: railRowHeight)
@@ -862,13 +858,18 @@ struct RoutineSettingsScreen: View {
     @State private var scheduleDays: Set<Int>
     @State private var scheduleTimes: Int
     @State private var schedulePerDays: Int
-    @State private var showingRename = false
-    @State private var showingNotes = false
     @State private var confirmingDelete = false
+    /// Inline drafts (#207 — the rename/notes trays died). Name commits
+    /// through Save/submit so #189's duplicate guard can veto; notes
+    /// write live like every other field on this autosaving page.
+    @State private var nameDraft: String
+    @State private var notesDraft: String
 
     init(routine: Routine, onDelete: @escaping () -> Void) {
         self.routine = routine
         self.onDelete = onDelete
+        _nameDraft = State(initialValue: routine.name)
+        _notesDraft = State(initialValue: routine.notes ?? "")
         // Seed the editor state from the stored schedule; edits write
         // back through persistSchedule() on every change.
         switch routine.schedule {
@@ -898,26 +899,21 @@ struct RoutineSettingsScreen: View {
                 VStack(alignment: .leading, spacing: 0) {
                     SheetSectionLabel("NAME")
                         .padding(.top, 24)
-                    Button {
-                        showingRename = true
-                    } label: {
-                        HStack {
-                            Text(routine.name)
-                                .font(.system(.footnote))
-                                .foregroundStyle(Theme.textPrimary)
-                                .lineLimit(1)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.system(.caption, weight: .bold))
-                                .foregroundStyle(Theme.textFaint)
-                        }
+                    TextField("Routine name", text: $nameDraft)
+                        .font(.system(.footnote))
                         .padding(.horizontal, 14)
                         .frame(minHeight: 44)
-                        .contentShape(Rectangle())
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
+                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+                        .submitLabel(.done)
+                        .onSubmit { commitName() }
+                        .accessibilityIdentifier("routineNameField")
+                    if nameIsTaken {
+                        Text("You already have a routine with this name.")
+                            .font(.system(.caption))
+                            .foregroundStyle(Theme.notes)
+                            .padding(.top, 6)
                     }
-                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
-                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
-                    .accessibilityIdentifier("renameRoutineRow")
 
                     SheetSectionLabel("SCHEDULE")
                         .padding(.top, 24)
@@ -959,60 +955,49 @@ struct RoutineSettingsScreen: View {
                     SheetSectionLabel("NOTES")
                         .padding(.top, 24)
 
-                    // Text entry is a form, so it opens a tray (§A);
-                    // the trailing › says "opens a surface", not
-                    // "dropdown".
-                    Button {
-                        showingNotes = true
-                    } label: {
-                        HStack(alignment: .top) {
-                            Text(routine.notes ?? "Add notes")
-                                .font(.system(.footnote))
-                                .foregroundStyle(routine.notes == nil ? Theme.textFaint : Theme.textSecondary)
-                                .lineLimit(2)
-                                .multilineTextAlignment(.leading)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.system(.caption, weight: .bold))
-                                .foregroundStyle(Theme.textFaint)
-                        }
+                    // Inline (#207) — the tray was ceremony.
+                    TextField("Add notes", text: $notesDraft, axis: .vertical)
+                        .font(.system(.footnote))
+                        .lineLimit(3...8)
                         .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                        .frame(minHeight: 44)
-                        .contentShape(Rectangle())
-                    }
-                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
-                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
-                    .accessibilityIdentifier("routineNotesRow")
-
-                    // Dave, this round: delete lives here too, behind a
-                    // confirmation. History is never touched.
-                    Button {
-                        confirmingDelete = true
-                    } label: {
-                        Text("Delete routine")
-                            .font(.system(.footnote, weight: .semibold))
-                            .foregroundStyle(Theme.destructive)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 44)
-                            .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.destructive.opacity(0.4)))
-                    }
-                    .accessibilityIdentifier("deleteRoutineButton")
-                    .padding(.top, 28)
+                        .padding(.vertical, 11)
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
+                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+                        .onChange(of: notesDraft) { _, text in
+                            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                            routine.notes = trimmed.isEmpty ? nil : trimmed
+                        }
+                        .accessibilityIdentifier("routineNotesField")
                 }
                 .padding(.bottom, 30)
             }
         }
         .padding(.horizontal, 16)
         .background(Theme.background)
-        .pushedScreenChrome(onBack: { dismiss() })
-        .sheet(isPresented: $showingRename) {
-            RenameRoutineTray(routine: routine, takenNames: takenNames)
-                .presentationDetents([.height(220)])
-        }
-        .sheet(isPresented: $showingNotes) {
-            RoutineNotesTray(routine: routine)
-                .presentationDetents([.medium])
+        .pushedScreenChrome(onBack: { commitName(); dismiss() })
+        .toolbar {
+            // Save is the page's primary action (#207): autosave is
+            // real, but the affirmative exit commits the name (the one
+            // field with a validity gate) and reads as "done here".
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Save") {
+                    commitName()
+                    dismiss()
+                }
+                .fontWeight(.bold)
+                .accessibilityIdentifier("saveRoutineSettingsButton")
+            }
+            // Delete nests behind "…" (#207) — present, not primary.
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button("Delete routine", role: .destructive) {
+                        confirmingDelete = true
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                }
+                .accessibilityIdentifier("routineSettingsMenu")
+            }
         }
         .confirmationDialog(
             "Delete \u{201C}\(routine.name)\u{201D}?",
@@ -1052,6 +1037,21 @@ struct RoutineSettingsScreen: View {
         Set(allRoutines.filter { $0 !== routine }.map { $0.name.lowercased() })
     }
 
+    private var nameIsTaken: Bool {
+        takenNames.contains(nameDraft.trimmingCharacters(in: .whitespaces).lowercased())
+    }
+
+    /// #189 semantics inline: a valid draft renames in place; an empty
+    /// or taken one quietly reverts to the stored name.
+    private func commitName() {
+        let trimmed = nameDraft.trimmingCharacters(in: .whitespaces)
+        if !trimmed.isEmpty && !nameIsTaken {
+            routine.name = trimmed
+        } else {
+            nameDraft = routine.name
+        }
+    }
+
     // MARK: - Schedule (#83)
 
     /// Fixed Sunday-first row matching Calendar weekday numbers 1…7.
@@ -1070,18 +1070,18 @@ struct RoutineSettingsScreen: View {
                         }
                         persistSchedule()
                     } label: {
-                        // Selection blue, not green (§D): scheduling a
-                        // day is choosing an option; the due OUTPUT on
-                        // Today stays green.
+                        // Solid selection blue (#210), not green:
+                        // scheduling a day is choosing an option; the
+                        // due OUTPUT on Today stays green.
                         Text(Self.dayLabels[weekday - 1])
                             .font(.system(.subheadline, design: .monospaced, weight: .semibold))
-                            .foregroundStyle(selected ? Theme.selected : Theme.textSecondary)
+                            .foregroundStyle(selected ? Theme.onSelected : Theme.textSecondary)
                             .frame(width: 44, height: 44)
                             .background(
-                                selected ? AnyShapeStyle(Theme.selectedTint) : AnyShapeStyle(Theme.background),
+                                selected ? AnyShapeStyle(Theme.selected) : AnyShapeStyle(Theme.background),
                                 in: Circle()
                             )
-                            .overlay(Circle().strokeBorder(selected ? Theme.selectedRing : Theme.border, lineWidth: 1))
+                            .overlay(Circle().strokeBorder(selected ? Color.clear : Theme.border, lineWidth: 1))
                     }
                     .accessibilityIdentifier("scheduleDay\(weekday)")
 
@@ -1178,101 +1178,3 @@ struct RoutineSettingsScreen: View {
 
 }
 
-/// Rename tray (#189): true in-place rename — routine identity is the
-/// SwiftData reference, so history and schedule anchoring survive.
-/// Blocked when the name belongs to another routine.
-private struct RenameRoutineTray: View {
-    @Environment(\.dismiss) private var dismiss
-    @Bindable var routine: Routine
-    let takenNames: Set<String>
-    @State private var draft: String
-
-    init(routine: Routine, takenNames: Set<String>) {
-        self.routine = routine
-        self.takenNames = takenNames
-        _draft = State(initialValue: routine.name)
-    }
-
-    private var trimmed: String { draft.trimmingCharacters(in: .whitespaces) }
-    private var isTaken: Bool { takenNames.contains(trimmed.lowercased()) }
-    private var canSave: Bool { !trimmed.isEmpty && !isTaken }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(
-                title: "Rename",
-                subtitle: routine.name,
-                actionLabel: "Save",
-                actionEnabled: canSave,
-                actionIdentifier: "saveRoutineNameButton",
-                onCancel: { dismiss() },
-                action: {
-                    routine.name = trimmed
-                    dismiss()
-                }
-            )
-
-            TextField("Routine name", text: $draft)
-                .font(.system(.body))
-                .padding(.horizontal, 14)
-                .frame(height: 48)
-                .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
-                .padding(.top, 16)
-                .accessibilityIdentifier("routineNameField")
-
-            if isTaken {
-                Text("You already have a routine with this name.")
-                    .font(.system(.caption))
-                    .foregroundStyle(Theme.notes)
-                    .padding(.top, 6)
-            }
-
-            Spacer()
-        }
-        .padding(.horizontal, 18)
-        .presentationBackground(Theme.surface)
-    }
-}
-
-/// Notes tray (§A/§C): text entry is a form; Done commits, Cancel
-/// leaves the routine untouched.
-private struct RoutineNotesTray: View {
-    @Environment(\.dismiss) private var dismiss
-    let routine: Routine
-    @State private var draft: String
-
-    init(routine: Routine) {
-        self.routine = routine
-        _draft = State(initialValue: routine.notes ?? "")
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(
-                title: "Notes",
-                subtitle: routine.name,
-                onCancel: { dismiss() },
-                action: {
-                    let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-                    routine.notes = trimmed.isEmpty ? nil : trimmed
-                    dismiss()
-                }
-            )
-
-            TextField("", text: $draft, axis: .vertical)
-                .font(.system(.footnote))
-                .lineLimit(3...8)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 11)
-                .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
-                .padding(.top, 16)
-                .accessibilityIdentifier("routineNotesField")
-
-            Spacer()
-        }
-        .padding(.horizontal, 18)
-        .presentationBackground(Theme.surface)
-    }
-}

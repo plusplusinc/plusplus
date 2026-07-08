@@ -158,7 +158,7 @@ struct ExerciseDetailScreen: View {
                     }
 
                     SheetSectionLabel("EQUIPMENT")
-                        .padding(.top, 18)
+                        .padding(.top, 24)
                     if exercise.equipment.isEmpty {
                         Text("Bodyweight — no equipment needed.")
                             .font(.system(.caption))
@@ -182,13 +182,13 @@ struct ExerciseDetailScreen: View {
 
                     if let notes = exercise.notes {
                         SheetSectionLabel("NOTES")
-                            .padding(.top, 18)
+                            .padding(.top, 24)
                         NotesBlock(notes)
                     }
 
                     if let videoURL = exercise.videoURL, let url = URL(string: videoURL) {
                         SheetSectionLabel("VIDEO")
-                            .padding(.top, 18)
+                            .padding(.top, 24)
                         Link(destination: url) {
                             HStack(spacing: 7) {
                                 Image(systemName: "play.rectangle")
@@ -202,7 +202,7 @@ struct ExerciseDetailScreen: View {
                     }
 
                     SheetSectionLabel("ROUTINES (\(usedInRoutines.count))")
-                        .padding(.top, 18)
+                        .padding(.top, 24)
                     if usedInRoutines.isEmpty {
                         Text("Not in any routine yet.")
                             .font(.system(.caption))
@@ -370,7 +370,7 @@ struct EquipmentDetailScreen: View {
                     }
 
                     SheetSectionLabel("WEIGHT STEP")
-                        .padding(.top, 18)
+                        .padding(.top, 24)
                     HStack(spacing: 7) {
                         ForEach(Self.stepChoices, id: \.self) { choice in
                             stepChip(choice)
@@ -382,7 +382,7 @@ struct EquipmentDetailScreen: View {
                         .padding(.top, 6)
 
                     SheetSectionLabel("EXERCISES (\(usedByExercises.count))")
-                        .padding(.top, 18)
+                        .padding(.top, 24)
                     if usedByExercises.isEmpty {
                         Text("No exercise needs this yet.")
                             .font(.system(.caption))
@@ -411,7 +411,7 @@ struct EquipmentDetailScreen: View {
                     }
 
                     SheetSectionLabel("ROUTINES (\(usedInRoutines.count))")
-                        .padding(.top, 18)
+                        .padding(.top, 24)
                     if usedInRoutines.isEmpty {
                         Text("Not used in any routine yet.")
                             .font(.system(.caption))

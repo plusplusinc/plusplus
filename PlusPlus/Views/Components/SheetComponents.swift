@@ -43,19 +43,29 @@ struct SheetHeader: View {
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 14) {
-            VStack(alignment: .leading, spacing: 2) {
+        // The title centers against the buttons row (#211 — with a
+        // subtitle it used to ride high); the subtitle hangs beneath.
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .center, spacing: 14) {
                 Text(title)
                     .font(.system(.title3, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
-                if let subtitle {
-                    Text(subtitle)
-                        .font(.system(.caption, design: .monospaced))
-                        .foregroundStyle(Theme.textFaint)
-                        .lineLimit(1)
-                }
+                Spacer(minLength: 12)
+                headerButtons
             }
-            Spacer(minLength: 12)
+            if let subtitle {
+                Text(subtitle)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(Theme.textFaint)
+                    .lineLimit(1)
+            }
+        }
+        .padding(.top, 14)
+    }
+
+    @ViewBuilder
+    private var headerButtons: some View {
+        Group {
             if closeOnly {
                 Button(action: action) {
                     Image(systemName: "xmark")
@@ -90,7 +100,6 @@ struct SheetHeader: View {
                 }
             }
         }
-        .padding(.top, 14)
     }
 }
 
