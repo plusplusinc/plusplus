@@ -26,6 +26,22 @@ final class Routine {
         self.notes = notes
     }
 
+    /// #189's invariant applied at creation: routine names are unique
+    /// case-insensitively (Siri entities, the broken-reference session
+    /// fallback, and the settings rename guard all key on the name — a
+    /// duplicate pair jams renaming for both). Collisions get a numeric
+    /// suffix instead of a block: creation happens inside an alert,
+    /// which has nowhere to surface validation.
+    static func uniqueName(_ proposed: String, among existing: [Routine]) -> String {
+        let taken = Set(existing.map { $0.name.lowercased() })
+        guard taken.contains(proposed.lowercased()) else { return proposed }
+        var counter = 2
+        while taken.contains("\(proposed) \(counter)".lowercased()) {
+            counter += 1
+        }
+        return "\(proposed) \(counter)"
+    }
+
     /// Typed view over `scheduleData`. Unscheduled round-trips as nil so
     /// a routine that has never been scheduled stays byte-identical.
     var schedule: RoutineSchedule {

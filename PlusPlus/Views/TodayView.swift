@@ -37,6 +37,7 @@ struct TodayView: View {
     /// swap-in tray).
     @State private var todayPath = NavigationPath()
     @State private var showingNewRoutine = false
+    @State private var pendingCreateFromSwapIn = false
     @State private var newRoutineName = ""
     @State private var showingEquipmentSetup = false
     /// Nonzero presents the populate-offer alert (#204); computed at
@@ -66,7 +67,7 @@ struct TodayView: View {
         let name = newRoutineName.trimmingCharacters(in: .whitespacesAndNewlines)
         newRoutineName = ""
         guard !name.isEmpty else { return }
-        let routine = Routine(name: name, order: 0)
+        let routine = Routine(name: Routine.uniqueName(name, among: routines), order: 0)
         modelContext.insert(routine)
         for existing in routines where existing !== routine {
             existing.order += 1
@@ -128,14 +129,19 @@ struct TodayView: View {
                 if let routine = swapInPick {
                     swapInPick = nil
                     start(routine)
+                } else if pendingCreateFromSwapIn {
+                    pendingCreateFromSwapIn = false
+                    showingNewRoutine = true
                 }
             }) {
                 SwapInSheet(routines: swapInCandidates, onPick: { routine in
                     swapInPick = routine
                     showingSwapIn = false
                 }, onCreate: {
+                    // Same drop class as swapInPick above: the alert
+                    // waits for the sheet to finish dismissing.
+                    pendingCreateFromSwapIn = true
                     showingSwapIn = false
-                    showingNewRoutine = true
                 })
             }
             .fullScreenCover(item: $activeSession) { session in
@@ -669,7 +675,7 @@ struct TodayView: View {
                         .frame(height: 40)
                         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.borderStrong, style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
                     }
-                    .accessibilityIdentifier("swapInButton")
+                    .accessibilityIdentifier("restDayNewRoutineButton")
                 } else {
                     Button {
                         showingSwapIn = true
