@@ -163,9 +163,9 @@ private struct FilterBar: View {
     @Binding var showingEquipmentFilter: Bool
 
     var body: some View {
-        VStack(spacing: 6) {
+        HStack(spacing: 8) {
             FilterDropdownButton(
-                label: "Muscle Group",
+                label: "Muscle",
                 selections: muscleGroupSelections,
                 action: { showingMuscleGroupFilter = true }
             )
@@ -175,23 +175,6 @@ private struct FilterBar: View {
                 selections: equipmentSelections,
                 action: { showingEquipmentFilter = true }
             )
-
-            // #113: the catalog hides what your equipment can't do;
-            // this is the escape hatch.
-            Button {
-                filterState.showUnowned.toggle()
-            } label: {
-                HStack(spacing: 5) {
-                    Image(systemName: filterState.showUnowned ? "checkmark.square" : "square")
-                        .font(.system(.caption))
-                        .foregroundStyle(filterState.showUnowned ? Theme.selected : Theme.textSecondary)
-                    Text("Show exercises needing equipment I don't have")
-                        .font(.system(.caption))
-                }
-                .foregroundStyle(filterState.showUnowned ? Theme.textPrimary : Theme.textSecondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .accessibilityIdentifier("showUnownedToggle")
         }
         .padding(.horizontal)
         .padding(.vertical, 10)
@@ -220,22 +203,22 @@ struct FilterDropdownButton: View {
     private var isActive: Bool { !selections.isEmpty }
 
     var body: some View {
+        // One-line 44 pt row (§H): label + live value + ▾ — the field
+        // family shared with SearchField and the create row (§179).
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 4) {
-                    Text(label)
-                        .font(.subheadline.weight(.medium))
-                    Spacer()
-                    Image(systemName: "chevron.down")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
-
+            HStack(spacing: 6) {
+                Text(label)
+                    .font(.subheadline.weight(.medium))
+                    .lineLimit(1)
+                Spacer(minLength: 4)
                 summaryPills
+                Image(systemName: "chevron.down")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
             }
             .padding(.horizontal, 11)
-            .padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: 44)
             .background(Theme.background, in: RoundedRectangle(cornerRadius: 10))
             // Active filter = UI state (§D): selection ring + selected
             // value text. Green here was a data-color violation.
@@ -329,17 +312,33 @@ struct EquipmentFilterSheet: View {
                 action: { dismiss() }
             )
             ScrollView {
-                FlowLayout(spacing: 8) {
-                    ForEach(allEquipment) { equipment in
-                        SelectableChip(
-                            label: equipment.name,
-                            isSelected: filterState.selectedEquipment.contains(equipment)
-                        ) {
-                            filterState.selectedEquipment.toggle(equipment)
+                VStack(alignment: .leading, spacing: 0) {
+                    FlowLayout(spacing: 8) {
+                        ForEach(allEquipment) { equipment in
+                            SelectableChip(
+                                label: equipment.name,
+                                isSelected: filterState.selectedEquipment.contains(equipment)
+                            ) {
+                                filterState.selectedEquipment.toggle(equipment)
+                            }
                         }
                     }
+                    .padding(.vertical)
+
+                    // The ownership escape hatch lives here now (§H) —
+                    // it left the crowded catalog top area.
+                    Toggle(isOn: Bindable(filterState).showUnowned) {
+                        Text("Include gear I don't own")
+                            .font(.system(.footnote))
+                            .foregroundStyle(Theme.textPrimary)
+                    }
+                    .tint(Theme.selected)
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 52)
+                    .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+                    .accessibilityIdentifier("showUnownedToggle")
                 }
-                .padding(.vertical)
             }
         }
         .padding(.horizontal, 18)

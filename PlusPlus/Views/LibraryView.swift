@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import TipKit
 import PlusPlusKit
 
 /// The personal catalog, v3 (#109): LibraryView split into two tabs —
@@ -37,6 +38,7 @@ struct ExercisesTabView: View {
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
+                .popoverTip(SwipeActionsTip())
             }
             .background(Theme.background)
             .toolbar(.hidden, for: .navigationBar)
@@ -95,6 +97,7 @@ struct ExercisesTabView: View {
             .buttonStyle(.plain)
             } actions: {
                 SwipeActionButton(label: "REMOVE", color: Theme.destructive) {
+                    SwipeActionsTip().invalidate(reason: .actionPerformed)
                     openSwipeRow = nil
                     remove(exercise)
                 }
@@ -159,6 +162,7 @@ struct EquipmentTabView: View {
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
+                .popoverTip(SwipeActionsTip())
             }
             .background(Theme.background)
             .toolbar(.hidden, for: .navigationBar)
@@ -202,6 +206,7 @@ struct EquipmentTabView: View {
             .buttonStyle(.plain)
             } actions: {
                 SwipeActionButton(label: "REMOVE", color: Theme.destructive) {
+                    SwipeActionsTip().invalidate(reason: .actionPerformed)
                     openSwipeRow = nil
                     remove(equipment)
                 }
@@ -297,6 +302,13 @@ struct CatalogBrowseScreen: View {
     @State private var promptingEquipmentName = false
     @State private var newEquipmentName = ""
 
+    /// §F: onboarding + the Settings re-run ride the REAL catalog with
+    /// a preset strip and a pinned confirm bar — the limited tray died.
+    var setupMode = false
+    /// Any toggle/preset touch counts as engagement: plain back then
+    /// still marks setup done (never trap the user in a step).
+    @State private var touchedSetup = false
+
     private var query: String { filterState.searchText }
 
     var body: some View {
@@ -305,11 +317,18 @@ struct CatalogBrowseScreen: View {
                 EmptyView()
             }
 
+            if setupMode && kind == .equipment {
+                presetStrip
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+            }
+
             SearchField(prompt: "Search the catalog", text: Bindable(filterState).searchText)
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
 
             SegmentedTabs(options: ["All", "In library", "Not in library"], selectedIndex: $libraryFilter)
+                .popoverTip(CatalogCurationTip())
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
 
@@ -329,22 +348,6 @@ struct CatalogBrowseScreen: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
 
-                Button {
-                    filterState.showUnowned.toggle()
-                } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: filterState.showUnowned ? "checkmark.square" : "square")
-                            .font(.system(.caption))
-                            .foregroundStyle(filterState.showUnowned ? Theme.selected : Theme.textSecondary)
-                        Text("Show exercises needing equipment I don't have")
-                            .font(.system(.caption))
-                    }
-                    .foregroundStyle(filterState.showUnowned ? Theme.textPrimary : Theme.textSecondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .accessibilityIdentifier("showUnownedToggle")
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
             }
 
             Button {
@@ -355,10 +358,10 @@ struct CatalogBrowseScreen: View {
                         .font(.system(.caption, weight: .semibold))
                     Text(createLabel).font(.system(.footnote, weight: .semibold))
                 }
-                .foregroundStyle(Theme.accent)
+                .foregroundStyle(Theme.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 12)
-                .frame(height: 40)
+                .frame(height: 44)
                 .contentShape(Rectangle())
                 .overlay(
                     RoundedRectangle(cornerRadius: Theme.controlRadius)
@@ -377,7 +380,11 @@ struct CatalogBrowseScreen: View {
                             sub: exerciseSubtitle(exercise),
                             isOn: Binding(
                                 get: { exercise.inLibrary },
-                                set: { exercise.inLibrary = $0 }
+                                set: {
+                                    exercise.inLibrary = $0
+                                    touchedSetup = true
+                                    CatalogCurationTip().invalidate(reason: .actionPerformed)
+                                }
                             )
                         )
                     }
@@ -388,7 +395,11 @@ struct CatalogBrowseScreen: View {
                             sub: equipmentSubtitle(equipment),
                             isOn: Binding(
                                 get: { equipment.inLibrary },
-                                set: { equipment.inLibrary = $0 }
+                                set: {
+                                    equipment.inLibrary = $0
+                                    touchedSetup = true
+                                    CatalogCurationTip().invalidate(reason: .actionPerformed)
+                                }
                             )
                         )
                     }
@@ -400,6 +411,22 @@ struct CatalogBrowseScreen: View {
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                 }
+                if kind == .exercises, !filterState.showUnowned, hiddenByOwnership > 0 {
+                    Button {
+                        filterState.showUnowned = true
+                    } label: {
+                        Text("\(hiddenByOwnership) more need equipment you don't have — show")
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(Theme.selected)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .frame(minHeight: 48)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("showUnownedToggle")
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                }
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
@@ -407,6 +434,33 @@ struct CatalogBrowseScreen: View {
         }
         .background(Theme.background)
         .toolbar(.hidden, for: .navigationBar)
+        .safeAreaInset(edge: .bottom) {
+            if setupMode {
+                Button {
+                    touchedSetup = true
+                    SetupState.markEquipmentDone()
+                    dismiss()
+                } label: {
+                    Text(ownedNames.isEmpty ? "Done — bodyweight only" : "Done — \(ownedNames.count) item\(ownedNames.count == 1 ? "" : "s")")
+                        .font(.system(.subheadline, weight: .bold))
+                        .foregroundStyle(Theme.onPrimary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 54)
+                        .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
+                }
+                .accessibilityIdentifier("setEquipmentButton")
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(.bar)
+            }
+        }
+        .onDisappear {
+            // Plain back after engaging still counts as done — never
+            // trap the user in a setup step (§F).
+            if setupMode && touchedSetup && !SetupState.equipmentDone {
+                SetupState.markEquipmentDone()
+            }
+        }
         .sheet(isPresented: Binding(
             get: { customPrefill != nil },
             set: { if !$0 { customPrefill = nil } }
@@ -479,6 +533,71 @@ struct CatalogBrowseScreen: View {
             .filter(\.isBuiltIn)
             .filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) }
             .filter { matchesLibraryFilter($0.inLibrary) }
+    }
+
+    /// §F preset strip: three bulk shortcuts, wearing the §D selected
+    /// treatment while the live toggles still match — edit any toggle
+    /// and the card deselects (it's a shortcut, not a mode).
+    private var presetStrip: some View {
+        HStack(spacing: 8) {
+            ForEach(Self.presets, id: \.name) { preset in
+                let items = preset.resolve(from: allEquipment)
+                let active = ownedNames == items
+                Button {
+                    touchedSetup = true
+                    for equipment in allEquipment.filter(\.isBuiltIn) {
+                        equipment.inLibrary = items.contains(equipment.name)
+                    }
+                } label: {
+                    VStack(spacing: 2) {
+                        Text(preset.name)
+                            .font(.system(.caption, weight: .semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                        Text(items.isEmpty ? "just you" : "\(items.count) items")
+                            .font(.system(.caption2, design: .monospaced))
+                            .opacity(0.75)
+                    }
+                    .foregroundStyle(active ? Theme.selected : Theme.textSecondary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(active ? AnyShapeStyle(Theme.selectedTint) : AnyShapeStyle(Theme.surface), in: RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(active ? Theme.selectedRing : Theme.border, lineWidth: 1))
+                }
+            }
+        }
+        .animation(.easeOut(duration: 0.15), value: ownedNames)
+    }
+
+    private struct SetupPreset {
+        let name: String
+        /// nil = everything built-in.
+        let items: Set<String>?
+
+        func resolve(from equipment: [Equipment]) -> Set<String> {
+            items ?? Set(equipment.filter(\.isBuiltIn).map(\.name))
+        }
+    }
+
+    private static let presets: [SetupPreset] = [
+        SetupPreset(name: "Commercial gym", items: nil),
+        SetupPreset(name: "Home basics", items: ["Dumbbells", "Bench", "Kettlebell", "Resistance Band", "Pull-Up Bar"]),
+        SetupPreset(name: "Bodyweight only", items: []),
+    ]
+
+    private var ownedNames: Set<String> {
+        Set(allEquipment.filter { $0.isBuiltIn && $0.inLibrary }.map(\.name))
+    }
+
+    /// Exercises the ownership filter is currently hiding (§H escape
+    /// hatch) — matches every OTHER active filter first.
+    private var hiddenByOwnership: Int {
+        let shown = candidateExercises.count
+        let all = filterState.filteredExercises(
+            from: allExercises.filter(\.isBuiltIn),
+            overridingShowUnowned: true
+        ).filter { matchesLibraryFilter($0.inLibrary) }.count
+        return max(0, all - shown)
     }
 
     private var createLabel: String {

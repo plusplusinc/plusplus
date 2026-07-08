@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import TipKit
 import UIKit
 
 @main
@@ -60,6 +61,11 @@ struct PlusPlusApp: App {
             Self.seedBigRoutine(context: modelContainer.mainContext)
         }
         RestNotifier.shared.activate()
+        // One-time education tips (v4 §G). Not under UI test: a system
+        // popover would eat a smoke test's tap.
+        if !inMemory {
+            try? Tips.configure()
+        }
         WatchBridge.shared.activate(container: modelContainer)
         WidgetSnapshotWriter.write(container: modelContainer)
     }
