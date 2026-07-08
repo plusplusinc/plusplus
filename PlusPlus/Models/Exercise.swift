@@ -6,7 +6,7 @@ import PlusPlusKit
 final class Exercise {
     var name: String
     var muscleGroup: MuscleGroup
-    @Relationship var equipment: [Equipment] = []
+    @Relationship(inverse: \Equipment.exercises) var equipment: [Equipment] = []
     var exerciseType: ExerciseType
     var isBuiltIn: Bool
     /// Personal-library membership (v2 Library, #63). Built-ins default
