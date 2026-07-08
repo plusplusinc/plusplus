@@ -105,6 +105,10 @@ targets:
     sources:
       - PlusPlusWidgets
       - PlusPlusShared
+    dependencies:
+      # Kit is platform-pure (no SwiftData), so the extension can compute
+      # due-ness from the snapshot's carried schedules (#159).
+      - package: PlusPlusKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.davidcole.plusplus.widgets

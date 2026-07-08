@@ -45,19 +45,8 @@ struct ActiveSessionView: View {
                     RestView(
                         endDate: restEndDate,
                         upNext: currentLog,
-                        onAddTime: {
-                            let extended = restEndDate.addingTimeInterval(15)
-                            self.restEndDate = extended
-                            RestNotifier.shared.scheduleRestEnd(
-                                at: extended,
-                                exerciseName: currentLog.exerciseName,
-                                setNumber: currentLog.setNumber
-                            )
-                        },
-                        onEnd: {
-                            self.restEndDate = nil
-                            RestNotifier.shared.cancelPending()
-                        }
+                        onAddTime: { extendRest(by: 15) },
+                        onEnd: { endRest() }
                     )
                 } else {
                     SetLoggingView(
@@ -108,6 +97,36 @@ struct ActiveSessionView: View {
             RestNotifier.shared.requestAuthorizationIfNeeded()
             RestActivityController.shared.beginSession(routineName: session.routineName)
         }
+        // Island / Lock Screen rest controls (#157): LiveActivityIntents
+        // run in this process and post here — same mutations as the
+        // on-screen buttons.
+        .onReceive(NotificationCenter.default.publisher(for: .plusplusAdjustRest)) { note in
+            guard let raw = note.object as? String,
+                  let adjustment = RestAdjustment(rawValue: raw) else { return }
+            switch adjustment {
+            case .addFifteen: extendRest(by: 15)
+            case .skip: endRest()
+            }
+        }
+    }
+
+    // MARK: - Rest controls (shared by RestView buttons and the island)
+
+    private func extendRest(by seconds: TimeInterval) {
+        guard let current = restEndDate, let currentLog = session.currentLog else { return }
+        let extended = current.addingTimeInterval(seconds)
+        restEndDate = extended
+        RestNotifier.shared.scheduleRestEnd(
+            at: extended,
+            exerciseName: currentLog.exerciseName,
+            setNumber: currentLog.setNumber
+        )
+    }
+
+    private func endRest() {
+        guard restEndDate != nil else { return }
+        restEndDate = nil
+        RestNotifier.shared.cancelPending()
     }
 
     // MARK: - Header
