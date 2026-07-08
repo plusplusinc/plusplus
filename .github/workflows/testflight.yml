@@ -110,8 +110,11 @@ jobs:
             -subj "/CN=PlusPlus CI Signing" \
             -addext "keyUsage=digitalSignature" \
             -addext "extendedKeyUsage=codeSigning"
+          # macOS's keychain importer can't read OpenSSL 3's default
+          # PKCS12 encryption — pin the legacy algorithms it understands.
           openssl pkcs12 -export -out "$RUNNER_TEMP/cert.p12" \
             -inkey "$RUNNER_TEMP/key.pem" -in "$RUNNER_TEMP/cert.pem" \
+            -macalg sha1 -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES \
             -passout pass:ci-temp
           security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P ci-temp \
             -T /usr/bin/codesign
