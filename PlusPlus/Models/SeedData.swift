@@ -3,7 +3,12 @@ import SwiftData
 import PlusPlusKit
 
 enum SeedData {
-    static func loadIfNeeded(context: ModelContext) {
+    /// `populateLibrary: false` (#185) seeds built-in exercises OUT of
+    /// the library: a fresh install's Exercises tab is empty, not a
+    /// pre-curation chore — the catalog stays fully browsable and the
+    /// optional populate step (or plain usage) grows the library.
+    /// Equipment still seeds in-library; the setup step curates it.
+    static func loadIfNeeded(context: ModelContext, populateLibrary: Bool = false) {
         let predicate = #Predicate<Exercise> { $0.isBuiltIn == true }
         let descriptor = FetchDescriptor<Exercise>(predicate: predicate)
         let count = (try? context.fetchCount(descriptor)) ?? 0
@@ -16,9 +21,55 @@ enum SeedData {
 
         let exercises = makeBuiltInExercises(equipment: equipment)
         for exercise in exercises {
+            exercise.inLibrary = populateLibrary
             context.insert(exercise)
         }
 
+        try? context.save()
+    }
+
+    /// The optional population step (#185): everything the owned
+    /// equipment supports joins the library. Returns the count added.
+    @discardableResult
+    static func populateLibraryFromEquipment(context: ModelContext) -> Int {
+        let exercises = (try? context.fetch(
+            FetchDescriptor<Exercise>(predicate: #Predicate { $0.isBuiltIn == true })
+        )) ?? []
+        var added = 0
+        for exercise in exercises where !exercise.inLibrary {
+            let missing = exercise.equipment.contains { !$0.isDeleted && !$0.inLibrary }
+            if !missing {
+                exercise.inLibrary = true
+                added += 1
+            }
+        }
+        return added
+    }
+
+    /// One-shot repair (#186): Dave's store surfaced built-ins with
+    /// EMPTY equipment (Bench Press listed as bodyweight) even though
+    /// the seeder's definitions are correct — the loss path predates
+    /// build 22 and couldn't be reproduced from code. Built-ins whose
+    /// equipment is empty but whose canonical definition requires gear
+    /// get their requirements restored from the definitions table.
+    /// Runs once (UserDefaults-keyed) so it can't fight a user who
+    /// later strips equipment deliberately in the editor.
+    static let equipmentRepairKey = "builtInEquipmentRepair1"
+
+    static func repairBuiltInEquipmentIfNeeded(context: ModelContext) {
+        guard !UserDefaults.standard.bool(forKey: equipmentRepairKey) else { return }
+        UserDefaults.standard.set(true, forKey: equipmentRepairKey)
+
+        let exercises = (try? context.fetch(
+            FetchDescriptor<Exercise>(predicate: #Predicate { $0.isBuiltIn == true })
+        )) ?? []
+        let equipment = (try? context.fetch(FetchDescriptor<Equipment>())) ?? []
+        let byName = Dictionary(equipment.map { ($0.name.lowercased(), $0) }, uniquingKeysWith: { a, _ in a })
+
+        for exercise in exercises where exercise.equipment.isEmpty {
+            guard let def = builtInDefinition(named: exercise.name), !def.equipmentNames.isEmpty else { continue }
+            exercise.equipment = def.equipmentNames.compactMap { byName[$0.lowercased()] }
+        }
         try? context.save()
     }
 

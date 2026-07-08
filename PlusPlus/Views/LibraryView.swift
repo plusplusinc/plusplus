@@ -308,6 +308,9 @@ struct CatalogBrowseScreen: View {
     /// Any toggle/preset touch counts as engagement: plain back then
     /// still marks setup done (never trap the user in a step).
     @State private var touchedSetup = false
+    /// #185: the optional populate offer, shown once on Done when the
+    /// owned equipment supports exercises that aren't in the library.
+    @State private var offeringPopulate = false
 
     private var query: String { filterState.searchText }
 
@@ -439,7 +442,13 @@ struct CatalogBrowseScreen: View {
                 Button {
                     touchedSetup = true
                     SetupState.markEquipmentDone()
-                    dismiss()
+                    // Population is the user's call, never automatic
+                    // (#185): offer it only when there's something to add.
+                    if kind == .equipment && populateCandidateCount > 0 {
+                        offeringPopulate = true
+                    } else {
+                        dismiss()
+                    }
                 } label: {
                     Text(ownedNames.isEmpty ? "Done — bodyweight only" : "Done — \(ownedNames.count) item\(ownedNames.count == 1 ? "" : "s")")
                         .font(.system(.subheadline, weight: .bold))
@@ -453,6 +462,21 @@ struct CatalogBrowseScreen: View {
                 .padding(.vertical, 8)
                 .background(.bar)
             }
+        }
+        .confirmationDialog(
+            "Add \(populateCandidateCount) exercise\(populateCandidateCount == 1 ? "" : "s") your equipment supports?",
+            isPresented: $offeringPopulate,
+            titleVisibility: .visible
+        ) {
+            Button("Add them") {
+                SeedData.populateLibraryFromEquipment(context: modelContext)
+                dismiss()
+            }
+            Button("Start empty", role: .cancel) {
+                dismiss()
+            }
+        } message: {
+            Text("Skipping is fine — the catalog stays a tap away, and anything you use joins your library on its own.")
         }
         .onDisappear {
             // Plain back after engaging still counts as done — never
@@ -587,6 +611,15 @@ struct CatalogBrowseScreen: View {
 
     private var ownedNames: Set<String> {
         Set(allEquipment.filter { $0.isBuiltIn && $0.inLibrary }.map(\.name))
+    }
+
+    /// Built-ins the owned equipment supports that aren't in the
+    /// library yet — the populate offer's count (#185).
+    private var populateCandidateCount: Int {
+        allExercises.filter { exercise in
+            exercise.isBuiltIn && !exercise.inLibrary
+                && !exercise.equipment.contains { !$0.isDeleted && !$0.inLibrary }
+        }.count
     }
 
     /// Exercises the ownership filter is currently hiding (§H escape
