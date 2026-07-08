@@ -16,11 +16,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # See README.md in this directory re: PLUSPLUS_REPO_TOKEN.
+      # The PlusPlus repo is public — no token needed.
       - uses: actions/checkout@v4
         with:
           repository: plusplusinc/plusplus # ← your fork if you have one
-          token: ${{ secrets.PLUSPLUS_REPO_TOKEN }}
           path: .plusplus-src
 
       - name: Build plusplus CLI

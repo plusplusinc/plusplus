@@ -1,8 +1,10 @@
 # PlusPlus Developer Platform
 
-> Status: phase 1 in progress. Tracking issues: #20 (format), #21 (core package),
-> #22 (app export/import), #23 (GitHub sync), #24 (CLI), #25 (agents).
-> Owner-action TODOs at the bottom.
+> Status: phases 1, 2, 4, and 5 shipped (format, app export/import, CLI + MCP
+> server, agent scaffolding/plugin); phase 3 (GitHub sync in the app) has its
+> engine shipped in the Kit with the GitHub adapter + auth remaining. Tracking
+> issues: #20 (format), #21 (core package), #22 (app export/import), #23
+> (GitHub sync), #24 (CLI), #25 (agents). Owner-action TODOs at the bottom.
 
 ## Vision
 
@@ -93,7 +95,6 @@ The app's single-file export (backup / manual transport) is a bundle:
 
 ```json
 {
-  "schemaVersion": 1,
   "exercises": [
     {
       "defaultReps": 15,
@@ -128,10 +129,12 @@ The app's single-file export (backup / manual transport) is a bundle:
       "restSeconds": 60
     }
   ],
+  "schemaVersion": 1,
   "sessions": [
     {
       "endedAt": "2026-07-05T15:04:11Z",
       "restSeconds": 60,
+      "routineName": "Shoulder PT",
       "sets": [
         {
           "actualReps": 10, "actualWeight": 5,
@@ -141,15 +144,17 @@ The app's single-file export (backup / manual transport) is a bundle:
           "targetRepsLower": 10, "targetWeight": 5
         }
       ],
-      "startedAt": "2026-07-05T14:31:00Z",
-      "routineName": "Shoulder PT"
+      "startedAt": "2026-07-05T14:31:00Z"
     }
   ]
 }
 ```
 
+(Key order above is the codec's literal `.sortedKeys` output — the examples
+are byte-representative, and CI decodes them to keep this document honest.)
+
 In the repo layout, the same DTOs are stored one entity per file, wrapped in a
-document envelope: `{ "schemaVersion": 1, "exercise": { … } }` (likewise
+document envelope: `{ "exercise": { … }, "schemaVersion": 1 }` (likewise
 `"routine"` / `"session"` — see `InterchangeDocuments.swift`). A group with >1 exercise is a superset —
 same uniform model as the app.
 
@@ -183,6 +188,10 @@ Semantics worth writing down:
   don't count (same slug, same match). No stable IDs, no rename manifest, by
   choice: cheapest model, and it matches how lifters think ("front squat" and
   "squat" are different lifts, not one lift renamed). Revisit only if it chafes.
+  **Routines are different** (#189, 2026-07-08): in the app a routine renames in
+  place (identity is the object reference; history keeps its snapshot names) —
+  but at the file layer both kinds are still keyed by name-slug, so a routine
+  rename produces a new file next to the old one in sync.
 
 ## Sync semantics (phase: #23)
 
@@ -191,8 +200,10 @@ Semantics worth writing down:
 | Sessions | app → repo, on finish (queued offline) | none possible (new file, append-only) |
 | Routines / exercises | bidirectional, on app foreground + manual pull | per-file SHA compare; only both-sides-changed prompts keep-mine/take-theirs |
 
-Commit messages are human-readable: `Log: Shoulder PT — 8 sets`,
-`Edit: Push Day (from iPhone)`.
+Commit messages are composed by the sync engine: sessions get
+`Log: Shoulder PT — 8 sets (2026-07-05)` and template pushes get
+`Sync: push-day, band-pulses (+3 more)` (slugged file names — see
+`SyncEngine.commitMessage`).
 
 Auth is a **GitHub App with device flow** (fine-grained, installed on exactly the
 one routine repo), token in the Keychain. Not classic OAuth `repo` scope.
@@ -205,17 +216,22 @@ one routine repo), token in the Keychain. Not classic OAuth `repo` scope.
    version of everything above; also the backup story. *Remote-buildable except
    hands-on UI validation.*
 3. **GitHub sync in the app** (#23) — device flow, `RepoStore`, repo bootstrap,
-   sync engine. *Groundwork shipped remotely: `FileLayout` (paths + append-only
-   session placement) and `SyncPlanner` (pure per-file three-way merge:
-   writes/pulls/conflicts, deletions deferred) live in PlusPlusKit with tests.
-   Remaining — device-flow auth, the GitHub `RepoStore`, and wiring — needs
-   Mac + GitHub App registration.*
-4. **CLI** (#24) — v0 shipped: `plusplus lint / stats / import / export` in
-   `PlusPlusCLI/` (Swift + swift-argument-parser; decisions recorded on the
-   issue: Swift over Go, no GitHub auth — git is transport and auth).
+   sync engine. *Engine shipped remotely: `FileLayout` (paths + append-only
+   session placement), `SyncPlanner` (pure per-file three-way merge:
+   writes/pulls/conflicts, deletions deferred), and `SyncEngine` (full sync
+   pass — conflict resolution keep-mine/take-theirs/postpone, base
+   convergence, idempotent `pushSession`) live in PlusPlusKit with tests
+   against the `RepoStore`/`SyncBaseStore` protocols. Remaining — device-flow
+   auth, the GitHub `RepoStore` adapter, and UI wiring — needs Mac + GitHub
+   App registration.*
+4. **CLI** (#24) — shipped: `plusplus init / lint / stats / import / export /
+   mcp` in `PlusPlusCLI/` (Swift + swift-argument-parser; decisions recorded
+   on the issue: Swift over Go, no GitHub auth — git is transport and auth).
    Conformance fixtures live in `PlusPlusKit/Tests/.../Fixtures/`. Remaining:
    `program` editing subcommands, Homebrew tap.
-5. **Agents** (#25) — MCP server + showcase Actions. *Remote-buildable.*
+5. **Agents** (#25) — shipped: the `plusplus mcp` server, `plusplus init`'s
+   CLAUDE.md + skills scaffold, the Claude Code plugin marketplace, and the
+   Actions recipes in `docs/recipes/`.
 
 Sequencing note: all platform work stays behind v1 validation (#1) in priority —
 the phone loop must be confirmed working in hand first.

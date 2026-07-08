@@ -19,13 +19,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Build the CLI from source. Needs PLUSPLUS_REPO_TOKEN (fine-grained
-      # PAT, read-only) while the PlusPlus repo is private — see README.md
-      # in this directory.
+      # Build the CLI from source — the PlusPlus repo is public, no token
+      # needed. See README.md in this directory.
       - uses: actions/checkout@v4
         with:
           repository: plusplusinc/plusplus # ← your fork if you have one
-          token: ${{ secrets.PLUSPLUS_REPO_TOKEN }}
           path: .plusplus-src
 
       - name: Build plusplus CLI
