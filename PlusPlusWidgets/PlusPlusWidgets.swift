@@ -28,6 +28,16 @@ enum WTheme {
                 : UIColor(red: 0x1A / 255.0, green: 0x7F / 255.0, blue: 0xA8 / 255.0, alpha: 1)
         })
     }
+
+    /// Completion purple (#201): committed workouts are what landed.
+    /// Mirrors Theme.done.
+    static var done: Color {
+        Color(uiColor: UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0xA3 / 255.0, green: 0x71 / 255.0, blue: 0xF7 / 255.0, alpha: 1)
+                : UIColor(red: 0x82 / 255.0, green: 0x50 / 255.0, blue: 0xDF / 255.0, alpha: 1)
+        })
+    }
 }
 
 @main
@@ -291,7 +301,9 @@ struct StreakView: View {
             HStack(alignment: .bottom, spacing: 3) {
                 ForEach(Array(counts.enumerated()), id: \.offset) { _, count in
                     RoundedRectangle(cornerRadius: 1.5)
-                        .fill(count > 0 ? WTheme.accent : Color.secondary.opacity(0.25))
+                        // Committed weeks are purple (#201), matching
+                        // the app's committed rail nodes.
+                        .fill(count > 0 ? WTheme.done : Color.secondary.opacity(0.25))
                         .frame(height: 4 + 14 * CGFloat(count) / CGFloat(maxCount))
                 }
             }

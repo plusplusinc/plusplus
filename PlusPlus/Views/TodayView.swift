@@ -120,7 +120,12 @@ struct TodayView: View {
             // question waits here, anchored, with a live count.
             .onChange(of: showingEquipmentSetup) { _, showing in
                 guard !showing, SetupState.consumePopulateOffer() else { return }
-                populateOfferCount = SeedData.populateCandidateCount(context: modelContext)
+                // Next runloop, not mid-pop-transition: presenting in
+                // the same transaction as a navigation change is the
+                // documented drop class (see the swap-in sheet note).
+                Task { @MainActor in
+                    populateOfferCount = SeedData.populateCandidateCount(context: modelContext)
+                }
             }
             .alert(
                 "Add \(populateOfferCount) exercise\(populateOfferCount == 1 ? "" : "s") your equipment supports?",
