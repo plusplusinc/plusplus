@@ -13,7 +13,9 @@ struct InterchangeTests {
                     exerciseType: .weightReps,
                     equipment: ["Resistance Band"],
                     notes: "Elbows bent, shoulder flexed to 90°.",
-                    videoURL: "https://youtu.be/ykZHbcGNfII"
+                    videoURL: "https://youtu.be/ykZHbcGNfII",
+                    defaultReps: 15,
+                    defaultRepsUpper: 20
                 ),
                 ExerciseDTO(name: "Y Raise", muscleGroup: .shoulders, exerciseType: .weightReps, equipment: ["Dumbbells", "Bench"]),
                 ExerciseDTO(name: "T Raise", muscleGroup: .shoulders, exerciseType: .weightReps, equipment: ["Bench", "Dumbbells"]),
@@ -131,6 +133,30 @@ struct InterchangeTests {
         #expect(messages.contains("unresolved exercise reference"))
         #expect(messages.contains("repsUpper 15 must exceed reps 20"))
         #expect(messages.contains("group has no exercises"))
+    }
+
+    @Test("Validator bounds exercise default targets (#187)")
+    func validatorChecksDefaultTargets() {
+        let bundle = ExportBundle(
+            exercises: [
+                ExerciseDTO(name: "Curl", muscleGroup: .biceps, exerciseType: .weightReps, equipment: [],
+                            defaultWeight: -5, defaultReps: 0),
+                ExerciseDTO(name: "Row", muscleGroup: .back, exerciseType: .weightReps, equipment: [],
+                            defaultRepsUpper: 12),
+                ExerciseDTO(name: "Plank", muscleGroup: .core, exerciseType: .duration, equipment: [],
+                            defaultDurationSeconds: 0),
+                ExerciseDTO(name: "Press", muscleGroup: .shoulders, exerciseType: .weightReps, equipment: [],
+                            defaultReps: 12, defaultRepsUpper: 10),
+            ],
+            routines: [],
+            sessions: []
+        )
+        let messages = InterchangeValidator.validate(bundle).map(\.message).joined(separator: "; ")
+        #expect(messages.contains("defaultReps 0 outside 1...100"))
+        #expect(messages.contains("negative defaultWeight"))
+        #expect(messages.contains("defaultRepsUpper without defaultReps"))
+        #expect(messages.contains("non-positive defaultDurationSeconds"))
+        #expect(messages.contains("defaultRepsUpper 10 must exceed defaultReps 12"))
     }
 
     @Test("Slugs: lowercase, dashes, apostrophes folded")

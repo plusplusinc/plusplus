@@ -13,6 +13,12 @@ final class ExerciseDraft {
     var selectedEquipment: Set<Equipment> = []
     var notes = ""
     var videoURL = ""
+    /// Default targets (#187). Optional — nil rows show "—" and fall back
+    /// to the metric's global default when the exercise joins a routine.
+    var defaultWeight: Double?
+    var defaultReps: Int?
+    var defaultRepsUpper: Int?
+    var defaultDurationSeconds: Int?
 
     init() {}
 
@@ -23,6 +29,22 @@ final class ExerciseDraft {
         selectedEquipment = Set(exercise.equipment)
         notes = exercise.notes ?? ""
         videoURL = exercise.videoURL ?? ""
+        defaultWeight = exercise.defaultWeight
+        defaultReps = exercise.defaultReps
+        defaultRepsUpper = exercise.defaultRepsUpper
+        defaultDurationSeconds = exercise.defaultDurationSeconds
+    }
+
+    var hasDefaultTargets: Bool {
+        defaultWeight != nil || defaultReps != nil
+            || defaultRepsUpper != nil || defaultDurationSeconds != nil
+    }
+
+    func clearDefaultTargets() {
+        defaultWeight = nil
+        defaultReps = nil
+        defaultRepsUpper = nil
+        defaultDurationSeconds = nil
     }
 
     var trimmedName: String {
@@ -96,6 +118,19 @@ final class ExerciseDraft {
             exercise.videoURL = url
         } else {
             exercise.videoURL = nil
+        }
+        // Defaults only make sense for the saved type — switching type
+        // drops the other family's stale values (#187).
+        if exerciseType == .duration {
+            exercise.defaultWeight = nil
+            exercise.defaultReps = nil
+            exercise.defaultRepsUpper = nil
+            exercise.defaultDurationSeconds = defaultDurationSeconds
+        } else {
+            exercise.defaultWeight = defaultWeight
+            exercise.defaultReps = defaultReps
+            exercise.defaultRepsUpper = defaultRepsUpper
+            exercise.defaultDurationSeconds = nil
         }
     }
 }

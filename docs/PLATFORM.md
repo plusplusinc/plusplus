@@ -96,6 +96,8 @@ The app's single-file export (backup / manual transport) is a bundle:
   "schemaVersion": 1,
   "exercises": [
     {
+      "defaultReps": 15,
+      "defaultRepsUpper": 20,
       "equipment": ["Resistance Band"],
       "exerciseType": "weightReps",
       "isBuiltIn": false,
@@ -157,6 +159,11 @@ Semantics worth writing down:
   names slug to file names (`Band Pulses` → `band-pulses.json`).
 - **Rep ranges**: `reps` is the target (or range lower bound); `repsUpper`, when
   present, must exceed `reps`. `"15–20"` ⇒ `reps: 15, repsUpper: 20`.
+- **Exercise default targets** (#187, additive to schema v1): optional
+  `defaultWeight` / `defaultReps` / `defaultRepsUpper` / `defaultDurationSeconds`
+  on an exercise are what a fresh routine entry starts from. Same bounds as
+  routine entries; absent fields mean "use the app's global defaults", and
+  pre-existing files stay valid (and byte-identical) without them.
 - **Sessions snapshot everything** (names, types, targets) exactly like the app's
   data model, so history files stand alone even if templates change.
 - **Import policy** (app side): exercises upsert by case-insensitive name;

@@ -16,6 +16,19 @@ final class Exercise {
     var inLibrary: Bool = true
     var notes: String?
     var videoURL: String?
+    /// Default targets (#187): what a fresh routine entry starts from.
+    /// nil falls back to the metric's global default (10 reps / 45 s).
+    /// Routine edits bump these — the latest prescription anywhere IS
+    /// the new default — and the editor exposes them directly.
+    var defaultWeight: Double?
+    var defaultReps: Int?
+    var defaultRepsUpper: Int?
+    var defaultDurationSeconds: Int?
+
+    var hasDefaultTargets: Bool {
+        defaultWeight != nil || defaultReps != nil
+            || defaultRepsUpper != nil || defaultDurationSeconds != nil
+    }
 
     /// The per-tap weight increment this exercise's gear implies: the
     /// smallest override among its equipment (microplates win over a

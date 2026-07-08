@@ -29,6 +29,25 @@ public enum InterchangeValidator {
             if !exerciseNames.insert(key).inserted {
                 issues.append(.init(path: path, message: "duplicate exercise name"))
             }
+            // Default targets (#187) — same bounds as routine entries.
+            if let reps = exercise.defaultReps, !(1...100).contains(reps) {
+                issues.append(.init(path: path, message: "defaultReps \(reps) outside 1...100"))
+            }
+            if let upper = exercise.defaultRepsUpper {
+                if let reps = exercise.defaultReps {
+                    if upper <= reps {
+                        issues.append(.init(path: path, message: "defaultRepsUpper \(upper) must exceed defaultReps \(reps)"))
+                    }
+                } else {
+                    issues.append(.init(path: path, message: "defaultRepsUpper without defaultReps"))
+                }
+            }
+            if let weight = exercise.defaultWeight, weight < 0 {
+                issues.append(.init(path: path, message: "negative defaultWeight"))
+            }
+            if let duration = exercise.defaultDurationSeconds, duration <= 0 {
+                issues.append(.init(path: path, message: "non-positive defaultDurationSeconds"))
+            }
         }
 
         for routine in bundle.routines {

@@ -10,11 +10,18 @@ import PlusPlusKit
 struct ExerciseEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
     @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
     @Query private var allExercises: [Exercise]
 
     private let editingExercise: Exercise?
     @State private var draft: ExerciseDraft
+    @State private var defaultsWheel: DefaultsWheelTarget?
+
+    private enum DefaultsWheelTarget: String, Identifiable {
+        case weight, reps, duration
+        var id: String { rawValue }
+    }
 
     init(editing exercise: Exercise? = nil) {
         editingExercise = exercise
@@ -122,6 +129,25 @@ struct ExerciseEditorView: View {
                         )
                     )
 
+                    SheetSectionLabel("DEFAULTS")
+                        .padding(.top, 16)
+                    defaultsCard
+                    HStack {
+                        Text("Optional — new routine entries start from these. Routine edits keep them current.")
+                            .font(.system(.caption))
+                            .foregroundStyle(Theme.textFaint)
+                        if draft.hasDefaultTargets {
+                            Spacer()
+                            Button("Clear") {
+                                draft.clearDefaultTargets()
+                            }
+                            .font(.system(.caption, weight: .semibold))
+                            .foregroundStyle(Theme.textSecondary)
+                            .accessibilityIdentifier("clearDefaultsButton")
+                        }
+                    }
+                    .padding(.top, 6)
+
                     SheetSectionLabel("MUSCLE GROUP")
                         .padding(.top, 16)
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 7)], spacing: 7) {
@@ -189,6 +215,100 @@ struct ExerciseEditorView: View {
         }
         .padding(.horizontal, 18)
         .presentationBackground(Theme.surface)
+        .sheet(item: $defaultsWheel) { target in
+            switch target {
+            case .weight:
+                MetricWheelSheet(
+                    metric: .weight,
+                    weightUnit: weightUnit,
+                    value: Binding(
+                        get: { draft.defaultWeight },
+                        set: { draft.defaultWeight = $0 }
+                    )
+                )
+            case .duration:
+                MetricWheelSheet(
+                    metric: .duration,
+                    weightUnit: weightUnit,
+                    value: intMetricBinding(Binding(
+                        get: { draft.defaultDurationSeconds },
+                        set: { draft.defaultDurationSeconds = $0 }
+                    ))
+                )
+            case .reps:
+                RepTargetWheelSheet(
+                    target: RepTarget(lower: draft.defaultReps, upper: draft.defaultRepsUpper)
+                ) { newTarget in
+                    draft.defaultReps = newTarget.lower
+                    draft.defaultRepsUpper = newTarget.upper
+                }
+            }
+        }
+    }
+
+    // MARK: - Defaults (#187)
+
+    private var weightUnit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .lb }
+
+    /// The same stepper card the routine planning sheet uses, writing to
+    /// the draft. Rows track the TYPE selection live.
+    private var defaultsCard: some View {
+        VStack(spacing: 0) {
+            if draft.exerciseType == .duration {
+                MetricStepperRow(
+                    label: "Duration",
+                    value: defaultDurationText,
+                    identifier: "defaultDuration",
+                    onTapValue: { defaultsWheel = .duration },
+                    onDecrement: { draft.defaultDurationSeconds = stepDuration(draft.defaultDurationSeconds, -1) },
+                    onIncrement: { draft.defaultDurationSeconds = stepDuration(draft.defaultDurationSeconds, 1) }
+                )
+            } else {
+                MetricStepperRow(
+                    label: "Weight",
+                    value: WorkoutMetric.weight.displayText(draft.defaultWeight, weightUnit: weightUnit),
+                    identifier: "defaultWeight",
+                    onTapValue: { defaultsWheel = .weight },
+                    onDecrement: { draft.defaultWeight = WorkoutMetric.weight.decremented(draft.defaultWeight, weightUnit: weightUnit, stepOverride: draftWeightStep) },
+                    onIncrement: { draft.defaultWeight = WorkoutMetric.weight.incremented(draft.defaultWeight, weightUnit: weightUnit, stepOverride: draftWeightStep) }
+                )
+                MetricStepperRow(
+                    label: "Reps",
+                    value: RepTarget(lower: draft.defaultReps, upper: draft.defaultRepsUpper).display,
+                    identifier: "defaultReps",
+                    onTapValue: { defaultsWheel = .reps },
+                    onDecrement: { applyDefaultReps(RepTarget(lower: draft.defaultReps, upper: draft.defaultRepsUpper).decremented()) },
+                    onIncrement: { applyDefaultReps(RepTarget(lower: draft.defaultReps, upper: draft.defaultRepsUpper).incremented()) }
+                )
+            }
+        }
+        .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+    }
+
+    /// Smallest weight-step override among the DRAFT's selected gear, so
+    /// stepping reflects the equipment being edited, not the saved state.
+    private var draftWeightStep: Double? {
+        draft.selectedEquipment.compactMap(\.weightStep).min()
+    }
+
+    private var defaultDurationText: String {
+        guard let seconds = draft.defaultDurationSeconds else { return "—" }
+        return seconds >= 60
+            ? WorkoutMetric.duration.formatted(Double(seconds))
+            : "\(seconds)s"
+    }
+
+    private func stepDuration(_ value: Int?, _ direction: Double) -> Int {
+        let stepped = direction > 0
+            ? WorkoutMetric.duration.incremented(value.map(Double.init))
+            : WorkoutMetric.duration.decremented(value.map(Double.init))
+        return Int(stepped.rounded())
+    }
+
+    private func applyDefaultReps(_ target: RepTarget) {
+        draft.defaultReps = target.lower
+        draft.defaultRepsUpper = target.upper
     }
 
     private func muscleChip(_ group: MuscleGroup) -> some View {

@@ -31,7 +31,7 @@ enum InterchangeMapping {
             // Built-ins ship with every install; only export ones the user
             // has annotated so imports stay meaningful.
             exercises: exercises
-                .filter { !$0.isBuiltIn || $0.notes != nil || $0.videoURL != nil }
+                .filter { !$0.isBuiltIn || $0.notes != nil || $0.videoURL != nil || $0.hasDefaultTargets }
                 .map(makeDTO),
             routines: routines.map(makeDTO),
             sessions: sessions.map(makeDTO)
@@ -46,7 +46,11 @@ enum InterchangeMapping {
             equipment: exercise.equipment.map(\.name),
             notes: exercise.notes,
             videoURL: exercise.videoURL,
-            isBuiltIn: exercise.isBuiltIn
+            isBuiltIn: exercise.isBuiltIn,
+            defaultWeight: exercise.defaultWeight,
+            defaultReps: exercise.defaultReps,
+            defaultRepsUpper: exercise.defaultRepsUpper,
+            defaultDurationSeconds: exercise.defaultDurationSeconds
         )
     }
 
@@ -129,6 +133,10 @@ enum InterchangeMapping {
                 existing.notes = dto.notes
                 existing.videoURL = dto.videoURL
                 existing.equipment = dto.equipment.map { resolveEquipment($0, in: &equipmentByName, context: context) }
+                existing.defaultWeight = dto.defaultWeight
+                existing.defaultReps = dto.defaultReps
+                existing.defaultRepsUpper = dto.defaultRepsUpper
+                existing.defaultDurationSeconds = dto.defaultDurationSeconds
                 summary.exercisesUpdated += 1
             } else {
                 let exercise = Exercise(
@@ -140,6 +148,10 @@ enum InterchangeMapping {
                     notes: dto.notes,
                     videoURL: dto.videoURL
                 )
+                exercise.defaultWeight = dto.defaultWeight
+                exercise.defaultReps = dto.defaultReps
+                exercise.defaultRepsUpper = dto.defaultRepsUpper
+                exercise.defaultDurationSeconds = dto.defaultDurationSeconds
                 context.insert(exercise)
                 exercisesByName[key] = exercise
                 summary.exercisesCreated += 1

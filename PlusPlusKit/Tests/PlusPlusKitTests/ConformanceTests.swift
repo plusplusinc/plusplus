@@ -21,6 +21,9 @@ struct ConformanceTests {
 
         #expect(bundle.schemaVersion == 1)
         #expect(bundle.exercises.map(\.name) == ["Band Pulses", "Plank Hold"])
+        #expect(bundle.exercises.first?.defaultReps == 15)
+        #expect(bundle.exercises.first?.defaultRepsUpper == 20)
+        #expect(bundle.exercises.last?.defaultDurationSeconds == 60)
         #expect(bundle.routines.first?.groups.count == 2)
         #expect(bundle.sessions.first?.sets.count == 2)
         #expect(InterchangeValidator.validate(bundle).isEmpty)
@@ -47,6 +50,8 @@ struct ConformanceTests {
         #expect(messages.contains("sets 0 outside 1...20"))
         #expect(messages.contains("unresolved exercise reference"))
         #expect(messages.contains("repsUpper 15 must exceed reps 20"))
+        #expect(messages.contains("defaultReps 0 outside 1...100"))
+        #expect(messages.contains("defaultRepsUpper without defaultReps"))
     }
 
     @Test("Future-version fixture is rejected before field-level decoding")
