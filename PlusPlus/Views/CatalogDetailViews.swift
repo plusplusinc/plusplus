@@ -211,7 +211,7 @@ struct ExerciseDetailScreen: View {
                                     .font(.system(.footnote, weight: .semibold))
                                     .lineLimit(1)
                             }
-                            .foregroundStyle(Theme.info)
+                            .foregroundStyle(Theme.selected)
                         }
                     }
 

@@ -354,6 +354,7 @@ struct CatalogBrowseScreen: View {
                     HStack(spacing: 5) {
                         Image(systemName: filterState.showUnowned ? "checkmark.square" : "square")
                             .font(.system(.caption))
+                            .foregroundStyle(filterState.showUnowned ? Theme.selected : Theme.textSecondary)
                         Text("Show exercises needing equipment I don't have")
                             .font(.system(.caption))
                     }
@@ -467,7 +468,7 @@ struct CatalogBrowseScreen: View {
                     .lineLimit(1)
             }
         }
-        .tint(Theme.accent)
+        .tint(Theme.selected)
         .padding(.vertical, 4)
         .listRowBackground(Color.clear)
         .listRowSeparatorTint(Theme.border)

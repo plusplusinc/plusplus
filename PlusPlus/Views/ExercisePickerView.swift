@@ -184,6 +184,7 @@ private struct FilterBar: View {
                 HStack(spacing: 5) {
                     Image(systemName: filterState.showUnowned ? "checkmark.square" : "square")
                         .font(.system(.caption))
+                        .foregroundStyle(filterState.showUnowned ? Theme.selected : Theme.textSecondary)
                     Text("Show exercises needing equipment I don't have")
                         .font(.system(.caption))
                 }
@@ -236,15 +237,18 @@ struct FilterDropdownButton: View {
             .padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Theme.background, in: RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(isActive ? Theme.primaryFill : Theme.border))
+            // Active filter = UI state (§D): selection ring + selected
+            // value text. Green here was a data-color violation.
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(isActive ? Theme.selectedRing : Theme.border, lineWidth: 1))
         }
         .tint(.primary)
+        .animation(.easeOut(duration: 0.15), value: isActive)
     }
 
     private var summaryPills: some View {
         Text(selections.isEmpty ? "all" : selections.joined(separator: ", "))
             .font(.system(.caption2, design: .monospaced))
-            .foregroundStyle(selections.isEmpty ? Theme.textFaint : Theme.accent)
+            .foregroundStyle(selections.isEmpty ? Theme.textFaint : Theme.selected)
             .lineLimit(1)
     }
 }
@@ -256,8 +260,21 @@ struct MuscleGroupFilterSheet: View {
     @Environment(\.dismiss) private var dismiss
     var filterState: ExerciseFilterState
 
+    /// Clear appears only while a selection exists (v4 §C table).
+    private var clearAction: (() -> Void)? {
+        filterState.selectedMuscleGroups.isEmpty
+            ? nil
+            : { filterState.selectedMuscleGroups.removeAll() }
+    }
+
     var body: some View {
-        NavigationStack {
+        VStack(alignment: .leading, spacing: 0) {
+            SheetHeader(
+                title: "Muscle group",
+                onCancel: clearAction,
+                cancelLabel: "Clear",
+                action: { dismiss() }
+            )
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     ForEach(MuscleGroup.grouped, id: \.region) { region, groups in
@@ -280,23 +297,11 @@ struct MuscleGroupFilterSheet: View {
                         }
                     }
                 }
-                .padding()
-            }
-            .navigationTitle("Muscle Group")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    if !filterState.selectedMuscleGroups.isEmpty {
-                        Button("Clear") {
-                            filterState.selectedMuscleGroups.removeAll()
-                        }
-                    }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
+                .padding(.vertical)
             }
         }
+        .padding(.horizontal, 18)
+        .presentationBackground(Theme.surface)
     }
 }
 
@@ -308,8 +313,21 @@ struct EquipmentFilterSheet: View {
     var filterState: ExerciseFilterState
     let allEquipment: [Equipment]
 
+    /// Clear appears only while a selection exists (v4 §C table).
+    private var clearAction: (() -> Void)? {
+        filterState.selectedEquipment.isEmpty
+            ? nil
+            : { filterState.selectedEquipment.removeAll() }
+    }
+
     var body: some View {
-        NavigationStack {
+        VStack(alignment: .leading, spacing: 0) {
+            SheetHeader(
+                title: "Equipment",
+                onCancel: clearAction,
+                cancelLabel: "Clear",
+                action: { dismiss() }
+            )
             ScrollView {
                 FlowLayout(spacing: 8) {
                     ForEach(allEquipment) { equipment in
@@ -321,23 +339,11 @@ struct EquipmentFilterSheet: View {
                         }
                     }
                 }
-                .padding()
-            }
-            .navigationTitle("Equipment")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    if !filterState.selectedEquipment.isEmpty {
-                        Button("Clear") {
-                            filterState.selectedEquipment.removeAll()
-                        }
-                    }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
+                .padding(.vertical)
             }
         }
+        .padding(.horizontal, 18)
+        .presentationBackground(Theme.surface)
     }
 }
 
@@ -350,15 +356,21 @@ private struct SelectableChip: View {
 
     var body: some View {
         Button(action: action) {
+            // v4 selection grammar (§D): tint + selected text + ring —
+            // ink fills are for actions, not selection.
             Text(label)
                 .font(.system(.footnote, weight: .semibold))
                 .padding(.horizontal, 14)
-                .padding(.vertical, 9)
-                .background(isSelected ? Theme.primaryFill : Color.clear)
-                .foregroundStyle(isSelected ? Theme.onPrimary : Theme.textPrimary)
+                .frame(height: 36)
+                .background(isSelected ? Theme.selectedTint : Color.clear)
+                .foregroundStyle(isSelected ? Theme.selected : Theme.textPrimary)
                 .clipShape(Capsule())
-                .overlay(Capsule().strokeBorder(isSelected ? Theme.primaryFill : Theme.borderStrong))
+                .overlay(Capsule().strokeBorder(isSelected ? Theme.selectedRing : Theme.borderStrong, lineWidth: 1))
+                .padding(4)
+                .contentShape(Rectangle())
         }
+        .animation(.easeOut(duration: 0.15), value: isSelected)
+        .sensoryFeedback(.selection, trigger: isSelected)
     }
 }
 

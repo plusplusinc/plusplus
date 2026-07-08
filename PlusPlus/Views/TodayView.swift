@@ -403,7 +403,7 @@ struct TodayView: View {
         switch kind {
         case .up: Theme.accent
         case .down: Theme.textSecondary
-        case .new: Theme.info
+        case .new: Theme.accent
         case .unchanged: Theme.textFaint
         }
     }
@@ -799,7 +799,7 @@ private struct SwapInSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "Swap in a routine", action: { dismiss() })
+            SheetHeader(title: "Swap in a routine", closeOnly: true, action: { dismiss() })
 
             Text("Off-schedule session — it commits to the timeline like any other")
                 .font(.system(.caption, design: .monospaced))

@@ -63,7 +63,7 @@ struct ExerciseDetailSheet: View {
                         HStack(spacing: 6) {
                             Image(systemName: "square.on.square")
                                 .font(.system(.caption))
-                                .foregroundStyle(Theme.superset)
+                                .foregroundStyle(Theme.textSecondary)
                             Text("Sets count applies to the whole superset — one round runs every exercise once.")
                                 .font(.system(.caption))
                                 .foregroundStyle(Theme.textSecondary)

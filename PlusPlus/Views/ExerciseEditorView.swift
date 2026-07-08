@@ -73,6 +73,7 @@ struct ExerciseEditorView: View {
         VStack(alignment: .leading, spacing: 0) {
             SheetHeader(
                 title: editingExercise == nil ? "New exercise" : "Edit exercise",
+                subtitle: editingExercise?.name,
                 actionLabel: "Save",
                 actionEnabled: canSave,
                 actionIdentifier: "saveExerciseButton",

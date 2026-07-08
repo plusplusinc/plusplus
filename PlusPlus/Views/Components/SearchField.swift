@@ -31,7 +31,7 @@ struct SearchField: View {
             }
         }
         .padding(.horizontal, 10)
-        .frame(height: 36)
+        .frame(height: 44)
         .background(fill, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
         .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
     }

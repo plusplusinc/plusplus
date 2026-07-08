@@ -41,7 +41,14 @@ struct ShareImportSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "Shared routine", actionLabel: "Cancel", action: { dismiss() })
+            SheetHeader(
+                title: "Add routine",
+                subtitle: routine.name,
+                actionLabel: replacesExisting ? "Replace" : "Add",
+                actionIdentifier: "importSharedRoutineButton",
+                onCancel: { dismiss() },
+                action: { importRoutine() }
+            )
 
             Text("Someone sent you this — it came inside the link itself, nothing was uploaded.")
                 .font(.system(.caption))
@@ -74,7 +81,7 @@ struct ShareImportSheet: View {
                     if !newExerciseNames.isEmpty {
                         Text("Adds \(newExerciseNames.count) exercise\(newExerciseNames.count == 1 ? "" : "s") you don't have yet: \(newExerciseNames.joined(separator: ", "))")
                             .font(.system(.caption))
-                            .foregroundStyle(Theme.info)
+                            .foregroundStyle(Theme.accent)
                             .padding(.top, 12)
                     }
                     if replacesExisting {
@@ -93,19 +100,6 @@ struct ShareImportSheet: View {
                 .padding(.bottom, 16)
             }
 
-            Button {
-                importRoutine()
-            } label: {
-                Text(replacesExisting ? "Replace my \(routine.name)" : "Add to my routines")
-                    .font(.system(.subheadline, weight: .bold))
-                    .foregroundStyle(Theme.onPrimary)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 46)
-                    .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
-            }
-            .accessibilityIdentifier("importSharedRoutineButton")
-            .padding(.top, 8)
-            .padding(.bottom, 14)
         }
         .padding(.horizontal, 18)
         .presentationBackground(Theme.background)
@@ -124,7 +118,7 @@ struct ShareImportSheet: View {
             (Text("\(group.sets) SET\(group.sets == 1 ? "" : "S")")
                 + Text(group.exercises.count > 1 ? " · " : "")
                 + (group.exercises.count > 1
-                    ? (Text(Image(systemName: "square.on.square")) + Text(" SUPERSET")).foregroundStyle(Theme.superset)
+                    ? (Text(Image(systemName: "square.on.square")) + Text(" SUPERSET")).foregroundStyle(Theme.textSecondary)
                     : Text("")))
                 .font(.system(.caption2, design: .monospaced, weight: .semibold))
                 .foregroundStyle(Theme.textSecondary)
