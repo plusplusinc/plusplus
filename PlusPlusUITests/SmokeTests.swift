@@ -171,6 +171,11 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(setEquipment.waitForExistence(timeout: 5))
         app.staticTexts["Commercial gym"].tap()
         setEquipment.tap()
+        // The optional populate offer (#185): take it, so the picker
+        // and library flows downstream have content.
+        let populate = app.buttons["Add them"]
+        XCTAssertTrue(populate.waitForExistence(timeout: 5))
+        populate.tap()
 
         // Step 2 unlocks: seed the starter split.
         let routineCTA = app.buttons["setupRoutineStep"]

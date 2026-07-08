@@ -54,7 +54,16 @@ struct PlusPlusApp: App {
             // self-heals from live data.
             UserDefaults.standard.removeObject(forKey: SetupState.equipmentDoneKey)
         }
-        SeedData.loadIfNeeded(context: modelContainer.mainContext)
+        // Smoke tests assume a usable library; the onboarding test and
+        // real fresh installs start with the catalog only (#185).
+        let onboardingTest = CommandLine.arguments.contains("--uitest-onboarding")
+        SeedData.loadIfNeeded(
+            context: modelContainer.mainContext,
+            populateLibrary: inMemory && !onboardingTest
+        )
+        if !inMemory {
+            SeedData.repairBuiltInEquipmentIfNeeded(context: modelContainer.mainContext)
+        }
         // A routine tall enough to overflow every simulator screen, for
         // the scroll regression test. Only meaningful with --uitest-reset.
         if inMemory && CommandLine.arguments.contains("--uitest-bigworkout") {
