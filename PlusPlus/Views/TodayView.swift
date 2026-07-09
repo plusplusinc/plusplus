@@ -31,7 +31,7 @@ struct TodayView: View {
     )
     private var sessions: [WorkoutSession]
 
-    @State private var showingSettings = false
+    @State private var showingAppMenu = false
     @State private var showingSwapIn = false
     @State private var swapInPick: Routine?
     /// Programmatic pushes (#208: land in a routine created from the
@@ -148,8 +148,8 @@ struct TodayView: View {
             .navigationDestination(for: RoutineTemplate.self) { template in
                 RoutineTemplateDetailScreen(template: template, path: $todayPath)
             }
-            .navigationDestination(isPresented: $showingSettings) {
-                SettingsScreen()
+            .navigationDestination(isPresented: $showingAppMenu) {
+                AppMenuScreen()
             }
             .sheet(isPresented: $showingSwapIn, onDismiss: {
                 // Start only once the sheet is fully gone: dismissing a
@@ -445,10 +445,25 @@ struct TodayView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                HeaderGlyph()
+                // The ++ is a button now (#266): the app-level page —
+                // Settings, About, What's new, links, feedback.
+                Button {
+                    showingAppMenu = true
+                } label: {
+                    HeaderGlyph()
+                        .frame(width: 44, height: 44)
+                        .background(Theme.surface, in: Circle())
+                        .overlay(Circle().strokeBorder(Theme.border))
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("appMenuButton")
                 Spacer()
-                HeaderIconButton(systemImage: "slider.horizontal.3", identifier: "settingsButton") {
-                    showingSettings = true
+                // Settings' old seat starts workouts instead (#266,
+                // Dave's call): the one action that should never be
+                // more than a tap away, via the existing start tray.
+                HeaderIconButton(systemImage: "play", identifier: "startTrayButton", tint: Theme.accent) {
+                    showingSwapIn = true
                 }
             }
             Text("Today")
@@ -1141,7 +1156,10 @@ private struct SwapInSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "Swap in a routine", closeOnly: true, action: { dismiss() })
+            // "Start a workout", not "Swap in": the header's start
+            // button opens this same tray (#266), and starting is what
+            // every path in it does.
+            SheetHeader(title: "Start a workout", closeOnly: true, action: { dismiss() })
 
             ScrollView {
                 VStack(spacing: 7) {
