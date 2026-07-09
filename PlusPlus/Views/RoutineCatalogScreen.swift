@@ -136,7 +136,12 @@ struct RoutineCatalogScreen: View {
                         .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                 }
 
-                if gearFilter != nil, hiddenByGear > 0 {
+                // Only under the MY-EQUIPMENT fit: "gear you don't
+                // own" is false under No-equipment, where hiding gear-
+                // users is the filter's whole job (swift-reviewer).
+                // And only alongside visible rows — the empty state
+                // below carries the count itself.
+                if gearFilter == .mine, hiddenByGear > 0, !filteredTemplates.isEmpty {
                     Button {
                         gearFilter = nil
                     } label: {
@@ -159,6 +164,14 @@ struct RoutineCatalogScreen: View {
                         Text("Nothing matches.")
                             .font(.system(.footnote))
                             .foregroundStyle(Theme.textFaint)
+                        if gearFilter == .mine, hiddenByGear > 0 {
+                            Button("\(hiddenByGear) match\(hiddenByGear == 1 ? "es" : "") need gear you don't own — show") {
+                                gearFilter = nil
+                            }
+                            .buttonStyle(.plain)
+                            .font(.system(.footnote, weight: .semibold))
+                            .foregroundStyle(Theme.selected)
+                        }
                         if anyFilterActive {
                             Button("Clear filters") { clearFilters() }
                                 .buttonStyle(.plain)
@@ -520,12 +533,18 @@ struct GearCheckTray: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
 
-    /// Captured at present time: rows must not vanish as they're
-    /// toggled on (membership is visible state, not a disappearing
-    /// act — the #139 rule).
-    let names: [String]
+    /// FROZEN at first presentation via @State's initialValue — a
+    /// plain stored property re-derives when the presenting view
+    /// invalidates (toggling ownership does exactly that), and rows
+    /// would vanish as they're toggled on: the #139 disappearing-act
+    /// this tray exists to avoid (swift-reviewer catch).
+    @State private var frozenNames: [String]
 
     @State private var showingCatalog = false
+
+    init(names: [String]) {
+        _frozenNames = State(initialValue: names)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -536,6 +555,7 @@ struct GearCheckTray: View {
                 .foregroundStyle(Theme.textFaint)
                 .padding(.top, 6)
 
+            ScrollView {
             VStack(spacing: 0) {
                 ForEach(Array(rows.enumerated()), id: \.element.persistentModelID) { index, equipment in
                     Toggle(isOn: Binding(
@@ -571,6 +591,7 @@ struct GearCheckTray: View {
             .buttonStyle(.plain)
             .accessibilityIdentifier("gearCheckCatalogButton")
             .padding(.top, 4)
+            }
 
             Spacer(minLength: 0)
         }
@@ -585,6 +606,6 @@ struct GearCheckTray: View {
     }
 
     private var rows: [Equipment] {
-        names.compactMap { name in allEquipment.first { $0.name == name } }
+        frozenNames.compactMap { name in allEquipment.first { $0.name == name } }
     }
 }
