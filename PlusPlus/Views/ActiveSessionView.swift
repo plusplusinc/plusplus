@@ -17,6 +17,16 @@ struct ActiveSessionView: View {
     /// Finished sessions, for "last time" lookups on the set screen.
     @Query(filter: #Predicate<WorkoutSession> { $0.endedAt != nil })
     private var finishedSessions: [WorkoutSession]
+    /// For Save-as-routine's unique-name check (#239).
+    @Query(sort: \Routine.order) private var allRoutines: [Routine]
+
+    // Ad-hoc sessions (#239): the empty stage adds the first exercise;
+    // the finish screen offers to keep the whole thing as a routine.
+    @State private var showingAddExercise = false
+    @State private var pickerFilterState = ExerciseFilterState()
+    @State private var showingSaveAsRoutine = false
+    @State private var routineNameDraft = ""
+    @State private var savedRoutineName: String?
 
     /// When set, we're resting until this instant (date-based; backgrounding
     /// can't drift it).
@@ -59,6 +69,11 @@ struct ActiveSessionView: View {
                     )
                     .id(currentLog.order)
                 }
+            } else if totalSets == 0 {
+                // A scratch session before its first exercise: no logs
+                // exist, but auto-finishing here would commit a 0-set
+                // session (the empty-staging bug class, hunt round 1).
+                emptyStage
             } else {
                 finishedView
                     .onAppear { finishSession(dismissAfter: false) }
@@ -90,6 +105,26 @@ struct ActiveSessionView: View {
                 RestNotifier.shared.cancelPending()
             }
             .presentationDetents([.fraction(0.88)])
+        }
+        .sheet(isPresented: $showingAddExercise) {
+            ExercisePickerView(filterState: pickerFilterState) { exercise in
+                session.appendExercise(exercise, context: modelContext)
+            }
+        }
+        .alert("Save as routine", isPresented: $showingSaveAsRoutine) {
+            TextField("Name", text: $routineNameDraft)
+            Button("Save") {
+                if let routine = session.saveAsRoutine(
+                    named: routineNameDraft,
+                    among: allRoutines,
+                    context: modelContext
+                ) {
+                    savedRoutineName = routine.name
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Today's exercises, sets, and weights become the template.")
         }
         .interactiveDismissDisabled()
         .task {
@@ -155,7 +190,11 @@ struct ActiveSessionView: View {
             } label: {
                 HStack(spacing: 7) {
                     TimelineView(.periodic(from: .now, by: 1)) { context in
-                        Text("set \(min(completedSets + 1, max(totalSets, 1)))/\(totalSets) · \(elapsedText(at: context.date))")
+                        // "set 1/0" is nonsense on an empty scratch
+                        // session — elapsed alone carries that state.
+                        Text(totalSets == 0
+                            ? elapsedText(at: context.date)
+                            : "set \(min(completedSets + 1, max(totalSets, 1)))/\(totalSets) · \(elapsedText(at: context.date))")
                             .font(.system(.caption, design: .monospaced))
                             .foregroundStyle(Theme.textPrimary)
                     }
@@ -183,7 +222,9 @@ struct ActiveSessionView: View {
     private var progressBar: some View {
         GeometryReader { proxy in
             let done = CGFloat(completedSets) / CGFloat(max(totalSets, 1))
-            let current = session.isFinished ? 0 : 1 / CGFloat(max(totalSets, 1))
+            // No pulsing sliver when finished — or before the first
+            // exercise exists (1/max(0,1) would fill the whole bar).
+            let current = (session.isFinished || totalSets == 0) ? 0 : 1 / CGFloat(totalSets)
             HStack(spacing: 0) {
                 Rectangle().fill(Theme.accent)
                     .frame(width: proxy.size.width * done)
@@ -239,6 +280,49 @@ struct ActiveSessionView: View {
         }
     }
 
+    // MARK: - Empty stage (#239)
+
+    /// A scratch session before its first exercise. The picker appends
+    /// solo blocks; from the first log onward the normal set screen owns
+    /// the flow (its overview sheet carries the same add affordance).
+    private var emptyStage: some View {
+        VStack(spacing: 14) {
+            Text("SCRATCH WORKOUT")
+                .font(.system(.footnote, design: .monospaced, weight: .semibold))
+                .kerning(0.7)
+                .foregroundStyle(Theme.textSecondary)
+            Text("Nothing on the bar yet")
+                .font(.system(.title3, weight: .bold))
+            Text("Add exercises as you go — when you finish, the whole thing can become a routine.")
+                .font(.system(.footnote))
+                .foregroundStyle(Theme.textSecondary)
+                .multilineTextAlignment(.center)
+            Button {
+                showingAddExercise = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "plus")
+                        .font(.system(.caption, weight: .semibold))
+                    Text("Add exercise")
+                        .font(.system(.footnote, weight: .semibold))
+                }
+                // Creation is green (#202).
+                .foregroundStyle(Theme.accent)
+                .padding(.horizontal, 22)
+                .frame(height: 48)
+                .contentShape(Rectangle())
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.controlRadius)
+                        .strokeBorder(Theme.borderStrong)
+                )
+            }
+            .accessibilityIdentifier("addExerciseToSessionButton")
+            .padding(.top, 8)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, 32)
+    }
+
     // MARK: - Done
 
     private var finishedView: some View {
@@ -257,6 +341,42 @@ struct ActiveSessionView: View {
             Text("\(Image(systemName: "arrow.right")) \(historyPathText)")
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
+            // A scratch session that produced real work can graduate to
+            // a template (#239). Sessions started from a routine never
+            // see this — their template already exists. The saved
+            // confirmation is checked FIRST: a successful save sets
+            // session.routine, which would otherwise hide the very
+            // feedback naming the routine (swift-reviewer catch — the
+            // unique-name suffix makes the name worth showing).
+            if let savedRoutineName {
+                Text("Saved to Routines · \(savedRoutineName)")
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(Theme.accent)
+                    .padding(.top, 4)
+            } else if session.routine == nil && completedSets > 0 {
+                    Button {
+                        routineNameDraft = ""
+                        showingSaveAsRoutine = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "plus")
+                                .font(.system(.caption, weight: .semibold))
+                            Text("Save as routine")
+                                .font(.system(.footnote, weight: .semibold))
+                        }
+                        // Creation is green (#202).
+                        .foregroundStyle(Theme.accent)
+                        .padding(.horizontal, 18)
+                        .frame(height: 44)
+                        .contentShape(Rectangle())
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Theme.controlRadius)
+                                .strokeBorder(Theme.borderStrong)
+                        )
+                    }
+                    .accessibilityIdentifier("saveAsRoutineButton")
+                    .padding(.top, 4)
+            }
             Button {
                 dismiss()
             } label: {
