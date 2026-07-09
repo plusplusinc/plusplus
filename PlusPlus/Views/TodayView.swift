@@ -189,6 +189,17 @@ struct TodayView: View {
                             proxy.scrollTo(Self.todayAnchorID, anchor: .top)
                         }
                     }
+                    .onChange(of: showsFutureSection) { _, shows in
+                        // The week ahead can pop in mid-lifetime (the
+                        // last setup step completing, the first
+                        // schedule being created) — content inserted
+                        // above the viewport shoves today's cards
+                        // down-screen. Re-anchor so today stays on top.
+                        guard shows else { return }
+                        Task { @MainActor in
+                            proxy.scrollTo(Self.todayAnchorID, anchor: .top)
+                        }
+                    }
                 }
             }
             .background(Theme.background)
@@ -354,8 +365,11 @@ struct TodayView: View {
         // routine would instantly commit a bogus 0-set session AND mark
         // the schedule satisfied (bug hunt, highest severity).
         routines.filter { routine in
-            !routine.groups.isEmpty && routine.schedule.dueState(
-                lastCompleted: lastCompleted(of: routine),
+            guard !routine.groups.isEmpty else { return false }
+            let completions = recentCompletions(of: routine)
+            return routine.schedule.dueState(
+                lastCompleted: completions.last,
+                previousCompleted: completions.previous,
                 today: today,
                 calendar: calendar
             ) == .due
@@ -368,8 +382,11 @@ struct TodayView: View {
     /// timeline names the state and points at the fix instead.
     private var dueButEmptyRoutines: [Routine] {
         routines.filter { routine in
-            routine.groups.isEmpty && routine.schedule.dueState(
-                lastCompleted: lastCompleted(of: routine),
+            guard routine.groups.isEmpty else { return false }
+            let completions = recentCompletions(of: routine)
+            return routine.schedule.dueState(
+                lastCompleted: completions.last,
+                previousCompleted: completions.previous,
                 today: today,
                 calendar: calendar
             ) == .due
@@ -413,8 +430,10 @@ struct TodayView: View {
     private var upcomingEntries: [UpcomingEntry] {
         var entries: [(entry: UpcomingEntry, order: Int)] = []
         for (index, routine) in routines.enumerated() where !routine.groups.isEmpty {
+            let completions = recentCompletions(of: routine)
             let days = routine.schedule.upcomingScheduledDays(
-                lastCompleted: lastCompleted(of: routine),
+                lastCompleted: completions.last,
+                previousCompleted: completions.previous,
                 today: today,
                 calendar: calendar
             )
@@ -502,13 +521,22 @@ struct TodayView: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityIdentifier("startUpcomingButton")
+            // Day-suffixed so multiple future cards stay individually
+            // addressable to XCUITest ("startUpcoming-2026-07-11").
+            .accessibilityIdentifier("startUpcoming-\(dayStamp(entry.day))")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
         .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
+    }
+
+    /// Stable "2026-07-11" stamp for identifiers — calendar components,
+    /// not a formatter, so locale/timezone settings can't vary it.
+    private func dayStamp(_ day: Date) -> String {
+        let parts = calendar.dateComponents([.year, .month, .day], from: day)
+        return String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
     }
 
     /// "fri · jul 11 · ~40 min" — plain calendar facts, lowercase like
@@ -519,16 +547,21 @@ struct TodayView: View {
         return "\(weekday) · \(date) · \(estimateText(for: entry.routine))"
     }
 
-    /// Identity match wins; the name fallback only applies when no
-    /// session references this routine — two routines sharing a name
-    /// must not satisfy each other's schedules (bug hunt). "Latest" is
-    /// by endedAt, matching the comparison the schedule engine makes.
-    private func lastCompleted(of routine: Routine) -> Date? {
+    /// The two most recent completions of a routine: `.last` drives
+    /// due-ness, `.previous` tells the Kit's banking rule whether that
+    /// last session was an extra or a make-up (#267 — one workout, one
+    /// occurrence). Identity match wins; the name fallback only applies
+    /// when no session references this routine — two routines sharing a
+    /// name must not satisfy each other's schedules (bug hunt).
+    /// "Latest" is by endedAt, matching the comparison the schedule
+    /// engine makes.
+    private func recentCompletions(of routine: Routine) -> (last: Date?, previous: Date?) {
         let identityMatches = sessions.filter { $0.routine === routine }
         let pool = identityMatches.isEmpty
             ? sessions.filter { $0.routineName == routine.name }
             : identityMatches
-        return pool.compactMap(\.endedAt).max()
+        let dates = pool.compactMap(\.endedAt).sorted(by: >)
+        return (dates.first, dates.count > 1 ? dates[1] : nil)
     }
 
     /// The last time each staged exercise was actually performed —
@@ -1131,8 +1164,10 @@ struct TodayView: View {
     private var restDayCaption: String {
         var best: (date: Date, name: String)?
         for routine in routines {
+            let completions = recentCompletions(of: routine)
             let state = routine.schedule.dueState(
-                lastCompleted: lastCompleted(of: routine),
+                lastCompleted: completions.last,
+                previousCompleted: completions.previous,
                 today: today,
                 calendar: calendar
             )
@@ -1152,6 +1187,14 @@ struct TodayView: View {
                 : "No routine on the calendar — start one whenever"
         }
         let day = best.date.formatted(.dateTime.weekday(.abbreviated)).lowercased()
+        // Within the week "next thu" is unambiguous; further out the
+        // bare weekday would lie by omission — add the plain date
+        // (#267: a banked occurrence can push "next" past the week).
+        if let weekBoundary = calendar.date(byAdding: .day, value: 7, to: calendar.startOfDay(for: today)),
+           best.date > weekBoundary {
+            let monthDay = best.date.formatted(.dateTime.month(.abbreviated).day()).lowercased()
+            return "on pace · next \(day) · \(monthDay) — \(best.name)"
+        }
         return "on pace · next \(day) — \(best.name)"
     }
 }
