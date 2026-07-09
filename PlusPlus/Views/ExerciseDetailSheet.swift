@@ -268,8 +268,10 @@ struct ExerciseDetailSheet: View {
                 if index > 0 {
                     SheetActionButton("Superset with exercise above", systemImage: "square.on.square") {
                         routine.mergeSoloGroup(group, direction: -1, context: modelContext)
-                        // Found unprompted — the how-to tip never shows.
+                        // Found unprompted — hand-creation retires the
+                        // how-to AND the loop introduction.
                         SupersetCreationTip().invalidate(reason: .actionPerformed)
+                        SupersetLoopTip().invalidate(reason: .actionPerformed)
                         dismiss()
                     }
                 }
@@ -277,6 +279,7 @@ struct ExerciseDetailSheet: View {
                     SheetActionButton("Superset with exercise below", systemImage: "square.on.square") {
                         routine.mergeSoloGroup(group, direction: 1, context: modelContext)
                         SupersetCreationTip().invalidate(reason: .actionPerformed)
+                        SupersetLoopTip().invalidate(reason: .actionPerformed)
                         dismiss()
                     }
                 }

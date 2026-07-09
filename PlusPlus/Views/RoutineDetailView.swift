@@ -40,13 +40,27 @@ struct RoutineDetailView: View {
             header
 
             railList
-                // Anchored on the rail's enclosing scroll view — a
-                // stable frame; the rows inside move during drags and
-                // swipe reveals, so they can't hold a popover.
-                .modifier(SupersetTipAnchor(
-                    exerciseCount: routine.sortedGroups.reduce(0) { $0 + $1.sortedExercises.count },
-                    hasSuperset: routine.sortedGroups.contains(where: \.isSuperset)
-                ))
+                // The tip anchor is a stable overlay CHILD, never a
+                // wrapper around the rail: SupersetTipAnchor's if/else
+                // produces distinct _ConditionalContent branches, and
+                // its inputs flip while this screen is live (the first
+                // ring absorb) — branching around the ScrollView would
+                // swap its identity mid-gesture, resetting scroll
+                // offset, swipe-row state, and the commit animation.
+                // Here only this strip is conditional; the rail's
+                // identity never changes. 1 pt tall rather than zero
+                // because TipKit popovers anchor the view's frame and
+                // a zero-size frame is a degenerate anchor; it sits at
+                // the rail's top edge, which no gesture moves.
+                .overlay(alignment: .top) {
+                    Color.clear
+                        .frame(height: 1)
+                        .allowsHitTesting(false)
+                        .modifier(SupersetTipAnchor(
+                            exerciseCount: routine.sortedGroups.reduce(0) { $0 + $1.sortedExercises.count },
+                            hasSuperset: routine.sortedGroups.contains(where: \.isSuperset)
+                        ))
+                }
         }
         .background(Theme.background)
         .navigationTitle(routine.name)
@@ -588,8 +602,15 @@ struct RoutineDetailView: View {
         }
 
         // Absorbing a neighbor formed (or grew) a superset by hand —
-        // whoever did that never needs the how-to tip.
+        // whoever did that needs neither the how-to nor an
+        // introduction to the loop they just drew.
         if span.absorbAfter > 0 || span.absorbBefore > 0 {
+            SupersetCreationTip().invalidate(reason: .actionPerformed)
+            SupersetLoopTip().invalidate(reason: .actionPerformed)
+        }
+        // An eject is the same dot-drag mechanic in reverse — the
+        // how-to is proven found.
+        if span.ejectFirst > 0 || span.ejectLast > 0 {
             SupersetCreationTip().invalidate(reason: .actionPerformed)
         }
     }
@@ -626,8 +647,10 @@ struct RoutineDetailView: View {
         case .group(let group):
             routine.addExercise(exercise, to: group, context: modelContext)
             // Picking into an existing group is superset creation by
-            // another door — same rule as the ring and sheet paths.
+            // another door — same rule as the ring and sheet paths:
+            // hand-creation retires both tips.
             SupersetCreationTip().invalidate(reason: .actionPerformed)
+            SupersetLoopTip().invalidate(reason: .actionPerformed)
         }
     }
 
@@ -665,11 +688,17 @@ struct RoutineDetailView: View {
 }
 
 /// Structural gate for the superset tips (`popoverTip` takes a concrete
-/// Tip, not an Optional, so eligibility branches the view — the same
-/// shape the old curation-tip gate used). One branch renders at a time,
-/// which keeps the two tips contextually exclusive by construction: a
-/// loop on the rail explains itself; no loop but material to pair
-/// teaches the making of one; a single exercise gets neither.
+/// Tip, not an Optional, so eligibility branches the view). One branch
+/// renders at a time, which keeps the two tips contextually exclusive
+/// by construction: a loop on the rail explains itself; no loop but
+/// material to pair teaches the making of one; a single exercise gets
+/// neither.
+///
+/// ⚠️ Identity constraint: this modifier's inputs change while routine
+/// detail is on screen, and each branch is a distinct
+/// _ConditionalContent — whatever it wraps is TORN DOWN on every flip.
+/// It must only ever wrap the dedicated 1 pt anchor strip overlaid on
+/// the rail, never the rail (or any stateful view) itself.
 private struct SupersetTipAnchor: ViewModifier {
     let exerciseCount: Int
     let hasSuperset: Bool
@@ -963,9 +992,12 @@ struct RoutineSettingsScreen: View {
                     // Pace's anchor semantics are permanent copy (the
                     // one-time tip died in the TipKit rework): the
                     // concept is load-bearing every time the mode is
-                    // chosen, not a first-encounter surprise.
+                    // chosen, not a first-encounter surprise. Generic
+                    // wording — the caption above already interpolates
+                    // the user's live pace, and a hardcoded example
+                    // would mismatch it.
                     if scheduleMode == 2 {
-                        Text("3×/7d counts from your last completion, not the calendar week — miss a day and nothing stacks up.")
+                        Text("Pace counts from your last completion, not the calendar week — miss a day and nothing stacks up.")
                             .font(.system(.caption))
                             .foregroundStyle(Theme.textFaint)
                             .padding(.top, 4)
