@@ -92,6 +92,16 @@ final class SmokeTests: XCTestCase {
             "a tap while open must close, not navigate into the routine"
         )
 
+        // Discriminator for the step-3 CI failures (2 runs, retry
+        // included): if step 2's tap actually NAVIGATED (a zoom push
+        // slower than the 3 s negative window), we're on the detail
+        // screen — whose title also matches `card` — and no drag can
+        // ever reveal. Pin the surface before dragging again.
+        XCTAssertTrue(
+            app.buttons["newRoutineButton"].exists,
+            "must still be on the routine list before the re-reveal"
+        )
+
         // 3. Re-reveal and run the action: the routine is deleted.
         // One retry: the contract under test here is the ACTION running
         // (step 1 already proved reveal-survives-release); a synthesized
