@@ -51,6 +51,14 @@ struct RoutineListView: View {
                 RoutineDetailView(routine: routine)
                     .navigationTransition(.zoom(sourceID: routine.persistentModelID, in: zoomNamespace))
             }
+            // Registered at the stack root, NOT inside RoutineCatalogScreen:
+            // a value destination declared on a screen that is itself pushed
+            // (the catalog rides navigationDestination(isPresented:)) failed
+            // to resolve in production — template taps hit SwiftUI's
+            // missing-destination placeholder (build 33).
+            .navigationDestination(for: RoutineTemplate.self) { template in
+                RoutineTemplateDetailScreen(template: template, path: $path)
+            }
             .overlay {
                 if routines.isEmpty {
                     ContentUnavailableView(

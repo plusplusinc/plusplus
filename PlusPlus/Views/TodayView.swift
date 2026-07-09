@@ -140,6 +140,14 @@ struct TodayView: View {
                 SessionDetailView(session: destination.session)
                     .navigationTransition(.zoom(sourceID: destination.session.persistentModelID, in: zoomNamespace))
             }
+            // Registered at the stack root, NOT inside RoutineCatalogScreen
+            // (pushed below for setup step 2): a value destination declared
+            // on a screen that is itself pushed failed to resolve in
+            // production — template taps hit SwiftUI's missing-destination
+            // placeholder (build 33).
+            .navigationDestination(for: RoutineTemplate.self) { template in
+                RoutineTemplateDetailScreen(template: template, path: $todayPath)
+            }
             .navigationDestination(isPresented: $showingSettings) {
                 SettingsScreen()
             }
