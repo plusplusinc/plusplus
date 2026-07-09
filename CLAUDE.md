@@ -159,7 +159,7 @@ PlusPlus/                # iOS app target
                               #   onOpenURL share-link handler (#145)
     TodayView.swift           # Unified timeline: pending diffs + committed cards + swap-in
                               #   + setup-as-timeline scaffold (3 gated steps, fresh installs)
-    OnboardingView.swift      # SetupState + StarterSeedSheet (equipment setup rides CatalogBrowseScreen setupMode, v4 §F)
+    OnboardingView.swift      # SetupState only (the seeder sheet died in #246; equipment setup rides CatalogBrowseScreen setupMode, routine setup rides RoutineCatalogScreen)
     CatalogDetailViews.swift  # Pushed ExerciseDetailScreen + EquipmentDetailScreen (#137)
     ShareImportSheet.swift    # Shared-routine import preview (#145)
     RailGestureRecognizer.swift # UIKit long-press layer for the rail (scroll-safe)

@@ -50,8 +50,7 @@ struct TodayView: View {
     /// Nonzero presents the populate-offer alert (#204); computed at
     /// present time from the store, never carried stale.
     @State private var populateOfferCount = 0
-    @State private var showingStarterSeed = false
-    @State private var pendingEmptyRoutinePush: Routine?
+    @State private var showingSetupCatalog = false
     @State private var scheduleEditTarget: Routine?
     @State private var activeSession: WorkoutSession?
     /// Bumped on day change so every Date()-based computed re-evaluates
@@ -216,18 +215,13 @@ struct TodayView: View {
             } message: {
                 Text("Skipping is fine — the catalog stays a tap away, and anything you use joins your library on its own.")
             }
-            .sheet(isPresented: $showingStarterSeed, onDismiss: {
-                // Land IN the new routine like every sibling creation
-                // path (#246) — pushed after the sheet is fully gone
-                // (the documented presentation-drop class).
-                if let routine = pendingEmptyRoutinePush {
-                    pendingEmptyRoutinePush = nil
-                    todayPath.append(routine)
-                }
-            }) {
-                StarterSeedSheet(onCreatedEmpty: { routine in
-                    pendingEmptyRoutinePush = routine
-                })
+            // Step 2 IS the routine catalog (#246): search, facets,
+            // honest gear checks, blank creation as its first row, and
+            // Add lands in the new routine — the two-option seeder
+            // sheet (whose starter split degraded to one exercise per
+            // routine at zero gear) died in its favor.
+            .navigationDestination(isPresented: $showingSetupCatalog) {
+                RoutineCatalogScreen(path: $todayPath)
             }
             .alert("New Routine", isPresented: $showingNewRoutine) {
                 TextField("Name", text: $newRoutineName)
@@ -702,11 +696,11 @@ struct TodayView: View {
                 badge: "2 of 3",
                 title: "Create your first routine",
                 doneTitle: routines.count == 1 ? "Routine created" : "Routines created",
-                sub: routineStepDone ? routineDoneSub : "A starter split from the catalog, or a blank slate",
+                sub: routineStepDone ? routineDoneSub : "Browse the catalog, or start from a blank slate",
                 gatedSub: "Needs your equipment first",
-                cta: "Seed or start empty",
+                cta: "Pick a routine",
                 identifier: "setupRoutineStep",
-                action: { showingStarterSeed = true },
+                action: { showingSetupCatalog = true },
                 edit: { onGoToRoutines() }
             )
             SetupRow(

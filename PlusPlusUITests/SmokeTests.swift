@@ -188,17 +188,40 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(populate.waitForExistence(timeout: 10))
         populate.tap()
 
-        // Step 2 unlocks: seed the starter split.
+        // Step 2 unlocks: pick a routine from the catalog (#246 — the
+        // two-option seeder sheet died; the catalog is THE creation
+        // surface, and this exercises its search + Add end to end).
         let routineCTA = app.buttons["setupRoutineStep"]
         XCTAssertTrue(routineCTA.waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Equipment set"].waitForExistence(timeout: 5))
         snap("setup-step2")
         routineCTA.tap()
-        let split = app.buttons["starterSplitButton"]
-        XCTAssertTrue(split.waitForExistence(timeout: 5))
-        split.tap()
 
-        // Step 3 unlocks: schedule Push Day for today so it stages.
+        // Search pins the template regardless of sort order or catalog
+        // growth (the lazy-List rule: only realized rows exist).
+        let searchToggle = app.buttons["routineCatalogSearchFieldToggle"]
+        XCTAssertTrue(searchToggle.waitForExistence(timeout: 5))
+        searchToggle.tap()
+        let field = app.textFields["routineCatalogSearchField"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("Bodyweight Basics")
+        let templateRow = app.staticTexts["Bodyweight Basics"]
+        XCTAssertTrue(templateRow.waitForExistence(timeout: 5))
+        templateRow.tap()
+        let add = app.buttons["addTemplateButton"]
+        XCTAssertTrue(add.waitForExistence(timeout: 5))
+        add.tap()
+        snap("setup-step2-added")
+
+        // Add lands in the new routine; pop back to Today for step 3.
+        for _ in 0..<4 where !app.buttons["setupScheduleStep"].exists {
+            let back = app.buttons["backButton"]
+            guard back.waitForExistence(timeout: 5) else { break }
+            back.tap()
+        }
+
+        // Step 3 unlocks: schedule Bodyweight Basics for today so it stages.
         let scheduleCTA = app.buttons["setupScheduleStep"]
         XCTAssertTrue(scheduleCTA.waitForExistence(timeout: 10))
         snap("setup-step3")
@@ -215,7 +238,7 @@ final class SmokeTests: XCTestCase {
         app.buttons["backButton"].tap()
 
         // Scaffold fully committed; the real thing appears above it —
-        // Push Day staged and startable.
+        // Bodyweight Basics staged and startable.
         XCTAssertTrue(app.staticTexts["Schedule set"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["startStagedButton"].waitForExistence(timeout: 10))
         snap("setup-complete")
