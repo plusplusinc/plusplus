@@ -21,6 +21,10 @@ struct FacetChip<Value: Hashable>: View {
     let facet: String
     @Binding var selection: Value?
     let options: [(Value, String)]
+    /// Optional footer row in the menu for fixing the filter's BASIS in
+    /// place (#260: "Edit my equipment…" on GEAR) — the no-dead-ends
+    /// law applied to ownership.
+    var footer: (label: String, action: () -> Void)? = nil
 
     var body: some View {
         Menu {
@@ -43,6 +47,10 @@ struct FacetChip<Value: Hashable>: View {
                         Text(label)
                     }
                 }
+            }
+            if let footer {
+                Divider()
+                Button(footer.label, action: footer.action)
             }
         } label: {
             Text(activeLabel)
@@ -68,6 +76,74 @@ struct FacetChip<Value: Hashable>: View {
             return facet
         }
         return match.1.uppercased()
+    }
+}
+
+/// A multi-select facet in an anchored menu: UNION within the facet
+/// (each item carries exactly one value, so intersection would always
+/// be empty), AND across facets — standard faceted search (#260). The
+/// label SPEAKS the union so the semantics read at a glance: "PUSH",
+/// "PUSH OR PULL", "PUSH +2". Menu items toggle with checkmarks;
+/// "Any" clears the facet.
+struct MultiFacetChip<Value: Hashable>: View {
+    let facet: String
+    @Binding var selection: Set<Value>
+    let options: [(Value, String)]
+
+    var body: some View {
+        Menu {
+            Button {
+                selection = []
+            } label: {
+                if selection.isEmpty {
+                    Label("Any", systemImage: "checkmark")
+                } else {
+                    Text("Any")
+                }
+            }
+            ForEach(options, id: \.0) { value, label in
+                Button {
+                    if selection.contains(value) {
+                        selection.remove(value)
+                    } else {
+                        selection.insert(value)
+                    }
+                } label: {
+                    if selection.contains(value) {
+                        Label(label, systemImage: "checkmark")
+                    } else {
+                        Text(label)
+                    }
+                }
+            }
+        } label: {
+            Text(activeLabel)
+                .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                .kerning(0.5)
+                .lineLimit(1)
+                .foregroundStyle(selection.isEmpty ? Theme.textSecondary : Theme.onSelected)
+                .padding(.horizontal, 13)
+                .frame(height: 44)
+                .background(
+                    selection.isEmpty ? Theme.surface : Theme.selected,
+                    in: Capsule()
+                )
+                .overlay(Capsule().strokeBorder(selection.isEmpty ? Theme.border : Color.clear))
+        }
+        .animation(.easeOut(duration: 0.15), value: selection.isEmpty)
+        .sensoryFeedback(.selection, trigger: selection)
+        .accessibilityIdentifier("facet\(facet.capitalized)")
+    }
+
+    /// Picked values in option order (stable, not Set order).
+    private var activeLabel: String {
+        let picked = options.filter { selection.contains($0.0) }.map(\.1)
+        switch picked.count {
+        case 0: return facet
+        case 1: return picked[0].uppercased()
+        case 2: return "\(picked[0]) or \(picked[1])".uppercased()
+        default: return "\(picked[0]) +\(picked.count - 1)".uppercased()
+        }
     }
 }
 

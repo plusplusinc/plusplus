@@ -350,6 +350,8 @@ struct EquipmentFilterSheet: View {
     /// nothing reads as broken).
     var showsOwnershipToggle = true
 
+    @State private var showingEquipmentEditor = false
+
     /// Clear appears only while a selection exists (v4 §C table).
     private var clearAction: (() -> Void)? {
         filterState.selectedEquipment.isEmpty
@@ -404,6 +406,27 @@ struct EquipmentFilterSheet: View {
                         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
                         .accessibilityIdentifier("showUnownedToggle")
                     }
+
+                    // Fix the filter's basis in place (#260): the
+                    // options above ARE your equipment — edit it here
+                    // instead of backing out to the Equipment tab.
+                    Button {
+                        showingEquipmentEditor = true
+                    } label: {
+                        Text("Edit my equipment…")
+                            .font(.system(.footnote, weight: .semibold))
+                            .foregroundStyle(Theme.selected)
+                            .frame(minHeight: 44, alignment: .leading)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("editEquipmentFromFilter")
+                    .padding(.top, 4)
+                }
+            }
+            .sheet(isPresented: $showingEquipmentEditor) {
+                NavigationStack {
+                    CatalogBrowseScreen(kind: .equipment)
                 }
             }
         }
