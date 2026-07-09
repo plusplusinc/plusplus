@@ -13,6 +13,7 @@ struct ExercisesTabView: View {
 
     @State private var search = ""
     @State private var showingCatalog = false
+    @State private var openSwipeRow: PersistentIdentifier?
     @State private var path = NavigationPath()
 
     private var libraryExercises: [Exercise] {
@@ -62,10 +63,12 @@ struct ExercisesTabView: View {
     @ViewBuilder
     private var exerciseRows: some View {
         ForEach(libraryExercises) { exercise in
-            // Native swipe actions (#231): the custom reveal failed on
-            // device twice; List rows get the system affordance.
+            // Custom reveal everywhere (Dave reversed the native call:
+            // no mixed affordances) — the snap-back is fixed in the
+            // component (momentum floor + live commit).
+            SwipeRevealRow(id: exercise.persistentModelID, openRow: $openSwipeRow, actionsWidth: 58) {
             Button {
-                path.append(exercise)
+                if openSwipeRow != nil { openSwipeRow = nil } else { path.append(exercise) }
             } label: {
                 HStack(spacing: 10) {
                     VStack(alignment: .leading, spacing: 1) {
@@ -95,16 +98,12 @@ struct ExercisesTabView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            // Full swipe only where the action is reversible: a
-            // built-in "removed" here stays in the catalog; a custom
-            // is deleted permanently and gets no flick path (reviewer
-            // catch — the routine list's own rule, applied).
-            .swipeActions(edge: .trailing, allowsFullSwipe: exercise.isBuiltIn) {
-                Button(role: .destructive) {
+            } actions: {
+                // Reveal-then-tap always; the label says what it does
+                // (a custom's removal is a permanent DELETE).
+                SwipeActionButton(label: exercise.isBuiltIn ? "REMOVE" : "DELETE", color: Theme.destructive) {
+                    openSwipeRow = nil
                     remove(exercise)
-                } label: {
-                    Label(exercise.isBuiltIn ? "Remove" : "Delete",
-                          systemImage: exercise.isBuiltIn ? "minus.circle" : "trash")
                 }
             }
             .listRowBackground(Color.clear)
@@ -142,6 +141,7 @@ struct EquipmentTabView: View {
 
     @State private var search = ""
     @State private var showingCatalog = false
+    @State private var openSwipeRow: PersistentIdentifier?
     @State private var path = NavigationPath()
 
     private var libraryEquipment: [Equipment] {
@@ -184,8 +184,9 @@ struct EquipmentTabView: View {
     @ViewBuilder
     private var equipmentRows: some View {
         ForEach(libraryEquipment) { equipment in
+            SwipeRevealRow(id: equipment.persistentModelID, openRow: $openSwipeRow, actionsWidth: 58) {
             Button {
-                path.append(equipment)
+                if openSwipeRow != nil { openSwipeRow = nil } else { path.append(equipment) }
             } label: {
                 HStack {
                     VStack(alignment: .leading, spacing: 1) {
@@ -205,12 +206,10 @@ struct EquipmentTabView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .swipeActions(edge: .trailing, allowsFullSwipe: equipment.isBuiltIn) {
-                Button(role: .destructive) {
+            } actions: {
+                SwipeActionButton(label: equipment.isBuiltIn ? "REMOVE" : "DELETE", color: Theme.destructive) {
+                    openSwipeRow = nil
                     remove(equipment)
-                } label: {
-                    Label(equipment.isBuiltIn ? "Remove" : "Delete",
-                          systemImage: equipment.isBuiltIn ? "minus.circle" : "trash")
                 }
             }
             .listRowBackground(Color.clear)

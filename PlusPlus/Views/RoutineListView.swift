@@ -13,6 +13,7 @@ struct RoutineListView: View {
 
     @State private var path = NavigationPath()
     @State private var showingCatalog = false
+    @State private var openSwipeRow: PersistentIdentifier?
     /// Hero zoom (#216): the card IS the detail screen, so opening one
     /// grows it in place instead of sliding a stranger in.
     @Namespace private var zoomNamespace
@@ -24,17 +25,15 @@ struct RoutineListView: View {
 
                 List {
                 ForEach(routines) { routine in
-                    RoutineCard(routine: routine) {
-                        path.append(routine)
-                    }
-                    .matchedTransitionSource(id: routine.persistentModelID, in: zoomNamespace)
-                    // Native swipe (#231); no full swipe — deleting a
-                    // routine is a real decision, not a flick.
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button(role: .destructive) {
+                    SwipeRevealRow(id: routine.persistentModelID, openRow: $openSwipeRow, actionsWidth: 58) {
+                        RoutineCard(routine: routine) {
+                            if openSwipeRow != nil { openSwipeRow = nil } else { path.append(routine) }
+                        }
+                        .matchedTransitionSource(id: routine.persistentModelID, in: zoomNamespace)
+                    } actions: {
+                        SwipeActionButton(label: "DELETE", color: Theme.destructive) {
+                            openSwipeRow = nil
                             deleteRoutine(routine)
-                        } label: {
-                            Label("Delete", systemImage: "trash")
                         }
                     }
                     .listRowSeparator(.hidden)
