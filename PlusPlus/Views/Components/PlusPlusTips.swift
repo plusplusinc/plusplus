@@ -13,13 +13,6 @@ struct CatalogCurationTip: Tip {
     var message: Text? { Text("Removing never touches routines or logged history.") }
 }
 
-/// Library lists: the swipe affordance (replaces the deleted list
-/// footers).
-struct SwipeActionsTip: Tip {
-    var title: Text { Text("Swipe left for actions") }
-    var message: Text? { Text("Remove from your library anytime — the catalog keeps everything.") }
-}
-
 /// Schedule editor: the Pace anchor concept (replaces the ambient
 /// caption; a real concept, not decoration).
 struct PaceAnchorTip: Tip {

@@ -13,7 +13,6 @@ struct RoutineListView: View {
 
     @State private var path = NavigationPath()
     @State private var showingCatalog = false
-    @State private var openSwipeRow: PersistentIdentifier?
     /// Hero zoom (#216): the card IS the detail screen, so opening one
     /// grows it in place instead of sliding a stranger in.
     @Namespace private var zoomNamespace
@@ -25,15 +24,17 @@ struct RoutineListView: View {
 
                 List {
                 ForEach(routines) { routine in
-                    SwipeRevealRow(id: routine.persistentModelID, openRow: $openSwipeRow, actionsWidth: 58) {
-                        RoutineCard(routine: routine) {
-                            if openSwipeRow != nil { openSwipeRow = nil } else { path.append(routine) }
-                        }
-                        .matchedTransitionSource(id: routine.persistentModelID, in: zoomNamespace)
-                    } actions: {
-                        SwipeActionButton(label: "DELETE", color: Theme.destructive) {
-                            openSwipeRow = nil
+                    RoutineCard(routine: routine) {
+                        path.append(routine)
+                    }
+                    .matchedTransitionSource(id: routine.persistentModelID, in: zoomNamespace)
+                    // Native swipe (#231); no full swipe — deleting a
+                    // routine is a real decision, not a flick.
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button(role: .destructive) {
                             deleteRoutine(routine)
+                        } label: {
+                            Label("Delete", systemImage: "trash")
                         }
                     }
                     .listRowSeparator(.hidden)
@@ -136,27 +137,56 @@ private struct RoutineCard: View {
         return "~\(minutes) min"
     }
 
-    /// Up to two equipment pills plus a "+N" overflow, per the design.
+    /// Up to three equipment pills plus a "+N" overflow — the taller
+    /// card (#238) affords more than the old single row did.
     private var pills: [String] {
         let names = routine.equipmentNames
         guard !names.isEmpty else { return ["bodyweight"] }
-        if names.count > 2 {
-            return Array(names.prefix(2)) + ["+\(names.count - 2)"]
+        if names.count > 3 {
+            return Array(names.prefix(3)) + ["+\(names.count - 3)"]
         }
         return names
     }
 
+    private var musclesLine: String {
+        let present = Set(
+            routine.sortedGroups.flatMap(\.sortedExercises).compactMap { $0.exercise?.muscleGroup }
+        )
+        let ordered = MuscleGroup.allCases.filter { present.contains($0) }
+        guard !ordered.isEmpty else { return "no exercises yet" }
+        return ordered.map { $0.displayName.lowercased() }.joined(separator: " · ")
+    }
+
+    private var setsSummary: String {
+        let exercises = routine.sortedGroups.flatMap(\.sortedExercises).count
+        let sets = routine.sortedGroups.reduce(0) { $0 + $1.sets * $1.sortedExercises.count }
+        return "\(exercises) exercise\(exercises == 1 ? "" : "s") · \(sets) sets"
+    }
+
     var body: some View {
         Button(action: onOpen) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(routine.name)
-                    .font(.system(.body, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
+            // Three lines (#238 — the single row was cramped): identity,
+            // what it hits, what it needs.
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(routine.name)
+                        .font(.system(.body, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(1)
+                    Spacer(minLength: 8)
+                    Text("\(estimateText) · \(setsSummary)")
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(Theme.textFaint)
+                        .lineLimit(1)
+                        .layoutPriority(-1)
+                    Image(systemName: "chevron.right")
+                        .font(.system(.footnote, weight: .bold))
+                        .foregroundStyle(Theme.textFaint)
+                }
+                Text(musclesLine)
+                    .font(.system(.caption))
+                    .foregroundStyle(Theme.textSecondary)
                     .lineLimit(1)
-                Text(estimateText)
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(Theme.textFaint)
-                Spacer(minLength: 8)
                 HStack(spacing: 5) {
                     // Schedule pill first (#112): the cadence at a glance,
                     // faint when the routine is unscheduled.
@@ -176,14 +206,12 @@ private struct RoutineCard: View {
                             .overlay(Capsule().strokeBorder(Theme.borderStrong))
                             .lineLimit(1)
                     }
+                    Spacer(minLength: 0)
                 }
-                .layoutPriority(-1)
-                Image(systemName: "chevron.right")
-                    .font(.system(.footnote, weight: .bold))
-                    .foregroundStyle(Theme.textFaint)
             }
-            .padding(.vertical, 16)
+            .padding(.vertical, 14)
             .padding(.horizontal, 14)
+            .contentShape(Rectangle())
             .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
             .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
         }

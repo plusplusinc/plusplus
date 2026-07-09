@@ -228,8 +228,6 @@ struct ExerciseDetailScreen: View {
                         showingNewRoutine = true
                     }
 
-                    libraryActions
-                        .padding(.top, 22)
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 30)
@@ -238,6 +236,33 @@ struct ExerciseDetailScreen: View {
         .background(Theme.background)
         .scrollDismissesKeyboard(.immediately)
         .pushedScreenChrome(onBack: { dismiss() })
+        .toolbar {
+            // Membership + deletion live behind "…" (#231) — present,
+            // not primary, and named for what they touch.
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    if exercise.isBuiltIn {
+                        if exercise.inLibrary {
+                            Button("Remove from my exercises", role: .destructive) {
+                                exercise.inLibrary = false
+                                dismiss()
+                            }
+                        } else {
+                            Button("Add to my exercises") {
+                                exercise.inLibrary = true
+                            }
+                        }
+                    } else {
+                        Button("Delete custom exercise", role: .destructive) {
+                            showingDeleteConfirm = true
+                        }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                }
+                .accessibilityIdentifier("exerciseDetailMenu")
+            }
+        }
         .navigationDestination(item: $path) { target in
             switch target {
             case .equipment(let equipment): EquipmentDetailScreen(equipment: equipment)
@@ -269,25 +294,6 @@ struct ExerciseDetailScreen: View {
         }
     }
 
-    @ViewBuilder
-    private var libraryActions: some View {
-        if exercise.isBuiltIn {
-            if exercise.inLibrary {
-                SheetActionButton("Remove from my library", destructive: true) {
-                    exercise.inLibrary = false
-                    dismiss()
-                }
-            } else {
-                SheetActionButton("Add to my library") {
-                    exercise.inLibrary = true
-                }
-            }
-        } else {
-            SheetActionButton("Delete custom exercise", destructive: true) {
-                showingDeleteConfirm = true
-            }
-        }
-    }
 
     private func createRoutine() {
         let name = newRoutineName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -432,14 +438,6 @@ struct EquipmentDetailScreen: View {
                         }
                     }
 
-                    libraryActions
-                        .padding(.top, 22)
-                    if !equipment.isBuiltIn {
-                        Text("Deleting removes it from every exercise that references it.")
-                            .font(.system(.caption))
-                            .foregroundStyle(Theme.textFaint)
-                            .padding(.top, 6)
-                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 30)
@@ -448,6 +446,38 @@ struct EquipmentDetailScreen: View {
         .background(Theme.background)
         .scrollDismissesKeyboard(.immediately)
         .pushedScreenChrome(onBack: { dismiss() })
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    if equipment.isBuiltIn {
+                        if equipment.inLibrary {
+                            Button("Remove from my equipment", role: .destructive) {
+                                equipment.inLibrary = false
+                                dismiss()
+                            }
+                        } else {
+                            Button("Add to my equipment") {
+                                equipment.inLibrary = true
+                            }
+                        }
+                    } else {
+                        Button("Delete custom equipment", role: .destructive) {
+                            // Belt-and-braces since #196's explicit
+                            // inverse: strip references first so
+                            // deletion stays order-independent.
+                            for exercise in allExercises {
+                                exercise.equipment.removeAll { $0 === equipment }
+                            }
+                            modelContext.delete(equipment)
+                            dismiss()
+                        }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                }
+                .accessibilityIdentifier("equipmentDetailMenu")
+            }
+        }
         .navigationDestination(item: $path) { target in
             switch target {
             case .exercise(let exercise): ExerciseDetailScreen(exercise: exercise)
@@ -483,32 +513,6 @@ struct EquipmentDetailScreen: View {
         .buttonStyle(.plain)
     }
 
-    @ViewBuilder
-    private var libraryActions: some View {
-        if equipment.isBuiltIn {
-            if equipment.inLibrary {
-                SheetActionButton("Remove from my library", destructive: true) {
-                    equipment.inLibrary = false
-                    dismiss()
-                }
-            } else {
-                SheetActionButton("Add to my library") {
-                    equipment.inLibrary = true
-                }
-            }
-        } else {
-            SheetActionButton("Delete custom equipment", destructive: true) {
-                // Exercise→Equipment has no inverse, so SwiftData can't
-                // nullify referencing exercises on deletion — strip the
-                // references first or they dangle (bug hunt B1).
-                for exercise in allExercises {
-                    exercise.equipment.removeAll { $0 === equipment }
-                }
-                modelContext.delete(equipment)
-                dismiss()
-            }
-        }
-    }
 
     private func rename() {
         let trimmed = renameText.trimmingCharacters(in: .whitespacesAndNewlines)

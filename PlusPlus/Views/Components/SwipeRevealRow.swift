@@ -1,10 +1,12 @@
 import SwiftUI
 import SwiftData
 
-/// The one slide-to-reveal quick-actions affordance (#88): trailing
-/// mono-label buttons behind the row. Horizontal-dominant drags reveal;
-/// vertical movement stays with the surrounding scroll. One row open at
-/// a time via the shared `openRow` binding.
+/// Slide-to-reveal quick actions for rows OUTSIDE a List — today that
+/// means the routine-detail rail, where native .swipeActions can't go.
+/// List-based rows use the native affordance instead (#231 superseded
+/// #88's everywhere-custom rule after two device failures). Horizontal-
+/// dominant drags reveal; vertical movement stays with the surrounding
+/// scroll. One row open at a time via the shared `openRow` binding.
 struct SwipeRevealRow<Content: View, Actions: View>: View {
     let id: PersistentIdentifier
     @Binding var openRow: PersistentIdentifier?
@@ -79,16 +81,21 @@ struct SwipeRevealRow<Content: View, Actions: View>: View {
                                 openRow = nil
                             }
                         }
-                        // onEnded only adds the flick: momentum past the
-                        // current position can open (or close) a row the
-                        // finger itself didn't carry across the threshold.
+                        // onEnded only adds the flick — and only a REAL
+                        // flick. A relaxing finger drifts a few points
+                        // rightward at lift; treating that as momentum
+                        // closed rows the drag had committed open (Dave,
+                        // build 31: "on release the item snaps back").
+                        // Below the floor, the live-committed state from
+                        // onChanged stands.
                         .onEnded { value in
                             guard enabled,
                                   abs(value.translation.width) > abs(value.translation.height)
                             else { return }
                             let momentum = value.predictedEndTranslation.width - value.translation.width
+                            guard abs(momentum) > 36 else { return }
                             let projected = (openRow == id ? -actionsWidth : 0) + momentum
-                            openRow = projected < -actionsWidth / 2 ? id : (openRow == id ? nil : openRow)
+                            openRow = projected < -actionsWidth / 2 ? id : nil
                         }
                 )
         }
