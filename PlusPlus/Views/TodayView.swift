@@ -51,6 +51,7 @@ struct TodayView: View {
     /// present time from the store, never carried stale.
     @State private var populateOfferCount = 0
     @State private var showingStarterSeed = false
+    @State private var pendingEmptyRoutinePush: Routine?
     @State private var scheduleEditTarget: Routine?
     @State private var activeSession: WorkoutSession?
     /// Bumped on day change so every Date()-based computed re-evaluates
@@ -93,11 +94,23 @@ struct TodayView: View {
                     // hunt perf finding).
                     LazyVStack(spacing: 0) {
                         // The rest-day item yields to the setup scaffold
-                        // until every step is done — "nothing scheduled"
-                        // and "schedule it (3 of 3)" saying the same
-                        // thing twice reads broken.
-                        if dueRoutines.isEmpty && (!setupActive || allSetupDone) {
+                        // until a startable routine exists — "nothing
+                        // scheduled" and "schedule it (3 of 3)" saying
+                        // the same thing twice reads broken. Once a
+                        // routine CAN start, the item returns (#246):
+                        // scheduling is optional and must not read as
+                        // the only path to working out.
+                        if dueRoutines.isEmpty
+                            && (!setupActive || allSetupDone || !swapInCandidates.isEmpty) {
                             restDayItem
+                        }
+                        ForEach(dueButEmptyRoutines) { routine in
+                            // Inert grey by intent: the ROUTINE isn't
+                            // startable — the card's CTA repairs, it
+                            // doesn't perform (rail grammar call).
+                            TimelineItem(node: .inert) {
+                                emptyRoutineCard(routine)
+                            }
                         }
                         ForEach(dueRoutines) { routine in
                             TimelineItem(node: .pending) {
@@ -203,8 +216,18 @@ struct TodayView: View {
             } message: {
                 Text("Skipping is fine — the catalog stays a tap away, and anything you use joins your library on its own.")
             }
-            .sheet(isPresented: $showingStarterSeed) {
-                StarterSeedSheet()
+            .sheet(isPresented: $showingStarterSeed, onDismiss: {
+                // Land IN the new routine like every sibling creation
+                // path (#246) — pushed after the sheet is fully gone
+                // (the documented presentation-drop class).
+                if let routine = pendingEmptyRoutinePush {
+                    pendingEmptyRoutinePush = nil
+                    todayPath.append(routine)
+                }
+            }) {
+                StarterSeedSheet(onCreatedEmpty: { routine in
+                    pendingEmptyRoutinePush = routine
+                })
             }
             .alert("New Routine", isPresented: $showingNewRoutine) {
                 TextField("Name", text: $newRoutineName)
@@ -270,6 +293,20 @@ struct TodayView: View {
         // the schedule satisfied (bug hunt, highest severity).
         routines.filter { routine in
             !routine.groups.isEmpty && routine.schedule.dueState(
+                lastCompleted: lastCompleted(of: routine),
+                today: today,
+                calendar: calendar
+            ) == .due
+        }
+    }
+
+    /// Scheduled-but-empty routines whose day this is (#246): they
+    /// can't stage (the 0-set bug class), but silently rendering "Rest
+    /// day" while the user's scheduled routine exists gaslights — the
+    /// timeline names the state and points at the fix instead.
+    private var dueButEmptyRoutines: [Routine] {
+        routines.filter { routine in
+            routine.groups.isEmpty && routine.schedule.dueState(
                 lastCompleted: lastCompleted(of: routine),
                 today: today,
                 calendar: calendar
@@ -710,11 +747,30 @@ struct TodayView: View {
     private var restDayItem: some View {
         TimelineItem(node: .inert) {
             VStack(alignment: .leading, spacing: 8) {
-                Text(scheduledRoutinesExist ? "Rest day" : "Nothing scheduled")
+                Text(restDayTitle)
                     .font(.system(.body, weight: .semibold))
-                Text(restDayCaption)
+                Text(restDayItemCaption)
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(Theme.textSecondary)
+                // The schedule offer (#246): routines exist, none
+                // scheduled, and nothing on Today ever said scheduling
+                // exists — one offer-shaped line, gone the moment any
+                // schedule does. During setup the scaffold's own step
+                // is the offer.
+                if !setupActive, !scheduledRoutinesExist,
+                   let target = swapInCandidates.first {
+                    Button {
+                        scheduleEditTarget = target
+                    } label: {
+                        Text("schedule a routine — it appears here on its day")
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(Theme.selected)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("scheduleOfferButton")
+                }
                 // No candidates → no dead tray (#208): offer creation
                 // directly instead.
                 if swapInCandidates.isEmpty {
@@ -777,8 +833,59 @@ struct TodayView: View {
         }
     }
 
+    /// A scheduled routine with nothing in it, on its day (#246): name
+    /// the state and point at the fix — the only prior rendering was a
+    /// "Rest day" card denying the routine existed.
+    private func emptyRoutineCard(_ routine: Routine) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(routine.name)
+                .font(.system(.body, weight: .semibold))
+            Text("no exercises yet — it can start once it has some")
+                .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(Theme.textSecondary)
+            Button {
+                todayPath.append(routine)
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "plus")
+                        .font(.system(.caption, weight: .semibold))
+                    Text("Add exercises")
+                        .font(.system(.footnote, weight: .semibold))
+                }
+                .foregroundStyle(Theme.accent)
+                .frame(maxWidth: .infinity)
+                .frame(height: 40)
+                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.borderStrong))
+            }
+            .accessibilityIdentifier("emptyRoutineAddButton")
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+        .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
+    }
+
     private var scheduledRoutinesExist: Bool {
         routines.contains { $0.schedule.normalized != .unscheduled }
+    }
+
+    /// "Rest day" is a claim — don't make it while an empty scheduled
+    /// routine is due (the card above names that state) or mid-setup.
+    private var restDayTitle: String {
+        if (setupActive && !allSetupDone) || !dueButEmptyRoutines.isEmpty {
+            return "Work out now"
+        }
+        return scheduledRoutinesExist ? "Rest day" : "Nothing scheduled"
+    }
+
+    /// The "optional" reassurance belongs only before ANY schedule
+    /// exists (swift-reviewer: it contradicted a visible "Schedule
+    /// set" step); everyone else gets the calendar facts.
+    private var restDayItemCaption: String {
+        if setupActive && !allSetupDone && !scheduledRoutinesExist {
+            return "Scheduling is optional — start whenever you like"
+        }
+        return restDayCaption
     }
 
     private var restDayCaption: String {
@@ -797,7 +904,13 @@ struct TodayView: View {
         }
         // Not "Nothing scheduled" — the title already says that, and
         // saying it twice reads broken (the header comment's own rule).
-        guard let best else { return "No routine on the calendar — start one whenever" }
+        // With a schedule that exists but can't stage (the empty card
+        // above), calendar-denial would be false too.
+        guard let best else {
+            return scheduledRoutinesExist
+                ? "start whenever you like"
+                : "No routine on the calendar — start one whenever"
+        }
         let day = best.date.formatted(.dateTime.weekday(.abbreviated)).lowercased()
         return "on pace · next \(day) — \(best.name)"
     }
