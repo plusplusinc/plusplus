@@ -218,7 +218,8 @@ struct SessionTests {
         let context = ModelContext(container)
 
         // Forces the unique-name suffix path for the blank-name default.
-        context.insert(Routine(name: "Scratch workout"))
+        let sibling = Routine(name: "Scratch workout")
+        context.insert(sibling)
 
         let session = WorkoutSession.startEmpty(context: context)
         let press = Exercise(name: "Probe Press", muscleGroup: .chest)
@@ -250,6 +251,27 @@ struct SessionTests {
         #expect(press.inLibrary, "referenced exercises join the library")
         #expect(session.routine === routine)
         #expect(session.routineName == "Scratch workout 2")
+        #expect(sibling.order == 1, "siblings shift down like every other creation path")
+        #expect(routine.order == 0)
+    }
+
+    @Test("Appending to a finished session is a refused no-op")
+    func appendExerciseRefusesFinishedSessions() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+
+        let session = WorkoutSession.startEmpty(context: context)
+        let curl = Exercise(name: "Probe Curl", muscleGroup: .biceps)
+        context.insert(curl)
+        let logs = session.appendExercise(curl, sets: 1, context: context)
+        session.complete(logs[0])
+        session.finish()
+
+        // The auto-timer can finish the session while the picker is
+        // still up — a late pick must not plant pending sets in history.
+        let late = session.appendExercise(curl, context: context)
+        #expect(late.isEmpty)
+        #expect(session.sortedSetLogs.count == 1)
     }
 
     @Test("Save as routine needs completed work")

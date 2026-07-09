@@ -194,6 +194,12 @@ extension WorkoutSession {
     /// additions only ever add pending work.
     @discardableResult
     func appendExercise(_ exercise: Exercise, sets: Int = 3, context: ModelContext) -> [SetLog] {
+        // A finished session is a record, not a plan. The duration
+        // auto-timer can finish the session while the picker is still
+        // presented over the overview sheet — a pick landing here after
+        // that must not plant invisible pending sets in history
+        // (swift-reviewer catch).
+        guard !isFinished else { return [] }
         let existing = sortedSetLogs
         let groupIndex = (existing.map(\.groupIndex).max() ?? -1) + 1
         var order = (existing.map(\.order).max() ?? -1) + 1
@@ -266,6 +272,13 @@ extension WorkoutSession {
         guard !routine.sortedGroups.isEmpty else {
             context.delete(routine)
             return nil
+        }
+
+        // The new routine deliberately lands at the top; siblings shift
+        // down like every other creation path — duplicate orders would
+        // make the watch's plan push (no tiebreak) nondeterministic.
+        for other in existing {
+            other.order += 1
         }
 
         self.routine = routine

@@ -343,14 +343,17 @@ struct ActiveSessionView: View {
                 .foregroundStyle(Theme.textFaint)
             // A scratch session that produced real work can graduate to
             // a template (#239). Sessions started from a routine never
-            // see this — their template already exists.
-            if session.routine == nil && completedSets > 0 {
-                if let savedRoutineName {
-                    Text("Saved to Routines · \(savedRoutineName)")
-                        .font(.system(.caption, design: .monospaced))
-                        .foregroundStyle(Theme.accent)
-                        .padding(.top, 4)
-                } else {
+            // see this — their template already exists. The saved
+            // confirmation is checked FIRST: a successful save sets
+            // session.routine, which would otherwise hide the very
+            // feedback naming the routine (swift-reviewer catch — the
+            // unique-name suffix makes the name worth showing).
+            if let savedRoutineName {
+                Text("Saved to Routines · \(savedRoutineName)")
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(Theme.accent)
+                    .padding(.top, 4)
+            } else if session.routine == nil && completedSets > 0 {
                     Button {
                         routineNameDraft = ""
                         showingSaveAsRoutine = true
@@ -373,7 +376,6 @@ struct ActiveSessionView: View {
                     }
                     .accessibilityIdentifier("saveAsRoutineButton")
                     .padding(.top, 4)
-                }
             }
             Button {
                 dismiss()

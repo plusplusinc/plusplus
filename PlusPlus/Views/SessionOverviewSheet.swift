@@ -142,6 +142,12 @@ struct SessionOverviewSheet: View {
                 session.appendExercise(exercise, context: modelContext)
             }
         }
+        // The duration auto-timer can finish the session under a
+        // presented picker (the model guard makes a late pick a no-op;
+        // this makes it visibly moot instead of silently swallowed).
+        .onChange(of: session.isFinished) { _, finished in
+            if finished { showingAddExercise = false }
+        }
     }
 
     private var selectedBlockBinding: Binding<Block?> {
@@ -158,7 +164,11 @@ struct SessionOverviewSheet: View {
     }
 
     private var backLabel: String {
-        guard let current = session.currentLog else { return "done" }
+        guard let current = session.currentLog else {
+            // nil currentLog is also the empty scratch stage — "done"
+            // is completion vocabulary and this session hasn't started.
+            return session.sortedSetLogs.isEmpty ? "nothing added yet" : "done"
+        }
         return "\(current.exerciseName) · set \(current.setNumber)"
     }
 
