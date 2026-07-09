@@ -27,6 +27,10 @@ struct ActiveSessionView: View {
     @State private var showingSaveAsRoutine = false
     @State private var routineNameDraft = ""
     @State private var savedRoutineName: String?
+    @State private var restAlertsDenied = false
+    /// Latched when THIS session finishes (a live @Query count could
+    /// render a frame stale — swift-reviewer).
+    @State private var isFirstEverFinish = false
 
     /// When set, we're resting until this instant (date-based; backgrounding
     /// can't drift it).
@@ -52,12 +56,26 @@ struct ActiveSessionView: View {
                 finishedView
             } else if let currentLog = session.currentLog {
                 if let restEndDate {
-                    RestView(
-                        endDate: restEndDate,
-                        upNext: currentLog,
-                        onAddTime: { extendRest(by: 15) },
-                        onEnd: { endRest() }
-                    )
+                    VStack(spacing: 0) {
+                        RestView(
+                            endDate: restEndDate,
+                            upNext: currentLog,
+                            onAddTime: { extendRest(by: 15) },
+                            onEnd: { endRest() }
+                        )
+                        // A decline used to be silent — at the gym it
+                        // read as a broken timer (#246). Facts only.
+                        if restAlertsDenied {
+                            Text("rest-over alerts are off — notifications for PlusPlus are disabled in iOS Settings")
+                                .transition(.opacity)
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundStyle(Theme.textFaint)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 24)
+                                .padding(.bottom, 10)
+                        }
+                    }
+                    .animation(.easeOut(duration: 0.15), value: restAlertsDenied)
                 } else {
                     SetLoggingView(
                         session: session,
@@ -128,9 +146,10 @@ struct ActiveSessionView: View {
         }
         .interactiveDismissDisabled()
         .task {
-            // First routine start is when the permission makes sense.
-            RestNotifier.shared.requestAuthorizationIfNeeded()
             RestActivityController.shared.beginSession(routineName: session.routineName)
+            // Prefetch so the denied caption is already placed when the
+            // first rest renders instead of nudging the countdown.
+            RestNotifier.shared.notificationsDenied { restAlertsDenied = $0 }
         }
         // Island / Lock Screen rest controls (#157): LiveActivityIntents
         // run in this process and post here — same mutations as the
@@ -168,20 +187,26 @@ struct ActiveSessionView: View {
 
     private var header: some View {
         HStack {
-            Button {
-                showingExitDialog = true
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "xmark").font(.system(.caption, weight: .semibold))
-                    Text("End").font(.system(.footnote, weight: .semibold))
+            // No End once finished (#246): its dialog there offered
+            // ONLY destructive Discard — a stray delete affordance on
+            // an append-only record, one mistap from erasing a first
+            // workout. Done is the exit.
+            if !session.isFinished {
+                Button {
+                    showingExitDialog = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "xmark").font(.system(.caption, weight: .semibold))
+                        Text("End").font(.system(.footnote, weight: .semibold))
+                    }
+                    .foregroundStyle(Theme.textPrimary)
+                    .padding(.horizontal, 12)
+                    .frame(height: 34)
+                    .background(Theme.surface, in: Capsule())
+                    .overlay(Capsule().strokeBorder(Theme.border))
                 }
-                .foregroundStyle(Theme.textPrimary)
-                .padding(.horizontal, 12)
-                .frame(height: 34)
-                .background(Theme.surface, in: Capsule())
-                .overlay(Capsule().strokeBorder(Theme.border))
+                .accessibilityIdentifier("exitSessionButton")
             }
-            .accessibilityIdentifier("exitSessionButton")
 
             Spacer()
 
@@ -253,6 +278,10 @@ struct ActiveSessionView: View {
         }
 
         if session.nextPendingLog != nil {
+            // The permission ask lives in the notifier now — the first
+            // ARMED notification asks and arms on grant (#246). This
+            // refresh keeps the denied caption honest per rest.
+            RestNotifier.shared.notificationsDenied { restAlertsDenied = $0 }
             let endDate = Date().addingTimeInterval(TimeInterval(session.restSeconds))
             restEndDate = endDate
             if let upNext = session.currentLog {
@@ -270,6 +299,7 @@ struct ActiveSessionView: View {
     private func finishSession(dismissAfter: Bool = true) {
         RestNotifier.shared.cancelPending()
         if !session.isFinished {
+            isFirstEverFinish = finishedSessions.isEmpty
             session.finish()
             // Phone-logged sessions reach Health here; watch imports are
             // recorded by the wrist's own live session (#90).
@@ -338,9 +368,26 @@ struct ActiveSessionView: View {
             Text("\(completedSets) \(completedSets == 1 ? "set" : "sets") · \(finalElapsedText)")
                 .font(.system(.footnote, design: .monospaced))
                 .foregroundStyle(Theme.textSecondary)
-            Text("\(Image(systemName: "arrow.right")) \(historyPathText)")
+            // Where the record actually lives (#246): the repo path
+            // described a file that exists nowhere until sync (#23)
+            // ships — restore it as provenance once a repo is real.
+            Text("\(Image(systemName: "arrow.right")) saved to your Today timeline")
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
+            // The one forward-looking line the moment can carry (#246):
+            // the calendar fact, no button, no exclamation.
+            if let next = nextOccurrenceText {
+                Text(next)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(Theme.textFaint)
+            }
+            if isFirstEverFinish {
+                Text("widgets can show your schedule without opening the app — long-press the home screen to add one")
+                    .font(.system(.caption))
+                    .foregroundStyle(Theme.textFaint)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+            }
             // A scratch session that produced real work can graduate to
             // a template (#239). Sessions started from a routine never
             // see this — their template already exists. The saved
@@ -398,11 +445,39 @@ struct ActiveSessionView: View {
         return String(format: "%d:%02d", elapsed / 60, elapsed % 60)
     }
 
-    /// Where this session will land in the routines repo — the same naming
-    /// FileLayout uses, shown as provenance on the done screen.
-    private var historyPathText: String {
-        let (year, stamp) = FileLayout.utcDateParts(of: session.startedAt)
-        return "\(FileLayout.historyDirectory)/\(year)/\(stamp)-\(Slug.make(session.routineName)).json"
+    /// The soonest next occurrence across every scheduled routine —
+    /// the same fact the rest-day caption speaks ("next wed — Push
+    /// Day"), computed here with THIS session already counted.
+    private var nextOccurrenceText: String? {
+        let calendar = Calendar.current
+        let today = Date()
+        var best: (date: Date, name: String)?
+        for routine in allRoutines {
+            let state = routine.schedule.dueState(
+                lastCompleted: lastCompleted(of: routine),
+                today: today,
+                calendar: calendar
+            )
+            if case .notDue(let next) = state {
+                if best == nil || next < best!.date {
+                    best = (next, routine.name)
+                }
+            }
+        }
+        guard let best else { return nil }
+        let day = best.date.formatted(.dateTime.weekday(.abbreviated)).lowercased()
+        return "next \(day) — \(best.name)"
+    }
+
+    /// Identity match wins; the name fallback applies ONLY when no
+    /// reference survives — the same rule as TodayView's lastCompleted,
+    /// so this screen and Today can't disagree about "next".
+    private func lastCompleted(of routine: Routine) -> Date? {
+        let identityMatches = finishedSessions.filter { $0.routine === routine }
+        let pool = identityMatches.isEmpty
+            ? finishedSessions.filter { $0.routine == nil && $0.routineName == routine.name }
+            : identityMatches
+        return pool.compactMap(\.endedAt).max()
     }
 }
 
@@ -575,8 +650,11 @@ private struct SetLoggingView: View {
                     )
                 )
             case .reps:
+                // Logging is a scalar — the range editor's "Up to"
+                // wheel was a dead control here (#246).
                 RepTargetWheelSheet(
-                    target: RepTarget(lower: log.actualReps ?? log.targetRepsLower, upper: nil)
+                    target: RepTarget(lower: log.actualReps ?? log.targetRepsLower, upper: nil),
+                    showsUpperWheel: false
                 ) { newTarget in
                     log.actualReps = newTarget.lower
                 }

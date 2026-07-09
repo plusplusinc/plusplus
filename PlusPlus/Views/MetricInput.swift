@@ -141,12 +141,17 @@ struct RepTargetWheelSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     let onSave: (RepTarget) -> Void
+    /// Logging contexts pass false (#246): an actual rep count is a
+    /// scalar, and the range editor's "Up to" wheel was silently
+    /// discarded there — a dead control during the user's first log.
+    var showsUpperWheel = true
 
     @State private var wheelLower: Int
     @State private var wheelUpper: Int?
 
-    init(target: RepTarget, onSave: @escaping (RepTarget) -> Void) {
+    init(target: RepTarget, showsUpperWheel: Bool = true, onSave: @escaping (RepTarget) -> Void) {
         self.onSave = onSave
+        self.showsUpperWheel = showsUpperWheel
         _wheelLower = State(initialValue: target.lower ?? RepTarget.defaultReps)
         _wheelUpper = State(initialValue: target.upper)
     }
@@ -166,17 +171,19 @@ struct RepTargetWheelSheet: View {
                     .pickerStyle(.wheel)
                 }
 
-                VStack {
-                    Text("Up to")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Picker("Up to", selection: $wheelUpper) {
-                        Text("—").tag(Int?.none)
-                        ForEach(RepTarget.allowedReps, id: \.self) { value in
-                            Text("\(value)").tag(Int?.some(value))
+                if showsUpperWheel {
+                    VStack {
+                        Text("Up to")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Picker("Up to", selection: $wheelUpper) {
+                            Text("—").tag(Int?.none)
+                            ForEach(RepTarget.allowedReps, id: \.self) { value in
+                                Text("\(value)").tag(Int?.some(value))
+                            }
                         }
+                        .pickerStyle(.wheel)
                     }
-                    .pickerStyle(.wheel)
                 }
             }
             .padding(.horizontal)
