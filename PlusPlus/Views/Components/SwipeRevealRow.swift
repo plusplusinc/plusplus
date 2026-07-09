@@ -74,8 +74,12 @@ struct SwipeRevealRow<Content: View, Actions: View>: View {
                 .simultaneousGesture(
                     ExclusiveGesture(revealDrag, TapGesture().onEnded { handleTap() })
                 )
-                .accessibilityAddTraits(onTap != nil ? .isButton : [])
-                .accessibilityAction { handleTap() }
+                // No .accessibilityAddTraits/.accessibilityAction here:
+                // both flatten the content into ONE accessibility
+                // element, hiding child static texts from the
+                // accessibility tree (CI-proven — four smoke tests lost
+                // their row lookups). VoiceOver row activation for
+                // swipe rows is #164's remit.
         }
         .clipped()
         .animation(.easeOut(duration: 0.18), value: offset)
