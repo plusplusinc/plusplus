@@ -33,6 +33,16 @@ struct ExercisePickerView: View {
         )
     }
 
+    private var libraryCount: Int {
+        allExercises.count { $0.inLibrary || !$0.isBuiltIn }
+    }
+
+    private var anyNarrowingActive: Bool {
+        !filterState.searchText.isEmpty
+            || !filterState.selectedMuscleGroups.isEmpty
+            || !filterState.selectedEquipment.isEmpty
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -43,7 +53,11 @@ struct ExercisePickerView: View {
                 // action authors a custom from scratch.
                 if candidates.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(filterState.searchText.isEmpty ? "Your library is empty" : "Nothing in your library matches")
+                        // "Empty" only when it truly is — filters and
+                        // search zeroing the list get their own words
+                        // (swift-reviewer catch: a muscle chip could
+                        // make a 150-exercise library claim emptiness).
+                        Text(anyNarrowingActive ? "Nothing in your library matches" : "Your library is empty")
                             .font(.system(.subheadline, weight: .semibold))
                             .foregroundStyle(Theme.textPrimary)
                         Text("Pick from the catalog — anything you use joins your library on its own.")
@@ -73,10 +87,12 @@ struct ExercisePickerView: View {
                     }
                 }
                 // The catalog escape (#246): persistent while the
-                // library is thin, gone once it can stand alone — the
-                // picker's library contract holds (catalog rows never
-                // mix in; browsing happens on the catalog surface).
-                if candidates.count < 5 {
+                // LIBRARY is thin (unfiltered — the contract is about
+                // the library, not the current search), and on any
+                // zero state (a searched-for exercise may live in the
+                // catalog un-added). The picker's library contract
+                // holds: catalog rows never mix in.
+                if libraryCount < 5 || candidates.isEmpty {
                     Button {
                         showingCatalog = true
                     } label: {
