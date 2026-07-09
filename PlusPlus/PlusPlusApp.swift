@@ -83,10 +83,12 @@ struct PlusPlusApp: App {
             Self.seedBigRoutine(context: modelContainer.mainContext)
         }
         RestNotifier.shared.activate()
-        // One-time education tips (v4 §G). Not under UI test: a system
-        // popover would eat a smoke test's tap.
+        // The superset-introduction tips (the only TipKit surface).
+        // Daily cadence: with two tips in the pool, HIG wants a
+        // frequency so consecutive screens can't stack popovers. Not
+        // under UI test: a system popover would eat a smoke test's tap.
         if !inMemory {
-            try? Tips.configure()
+            try? Tips.configure([.displayFrequency(.daily)])
         }
         WatchBridge.shared.activate(container: modelContainer)
         WidgetSnapshotWriter.write(container: modelContainer)
