@@ -21,18 +21,22 @@ enum WidgetSnapshotWriter {
         let calendar = Calendar.current
         let today = Date()
 
-        func lastCompleted(of routine: Routine) -> Date? {
+        // The two most recent completions (#267): `.previous` feeds the
+        // Kit's banking rule — same identity-wins-else-name pool as
+        // TodayView's recentCompletions.
+        func recentCompletions(of routine: Routine) -> (last: Date?, previous: Date?) {
             let identity = finished.filter { $0.routine === routine }
             let pool = identity.isEmpty
                 ? finished.filter { $0.routineName == routine.name }
                 : identity
-            return pool.compactMap(\.endedAt).max()
+            let dates = pool.compactMap(\.endedAt).sorted(by: >)
+            return (dates.first, dates.count > 1 ? dates[1] : nil)
         }
 
         var due: [WidgetSnapshot.DueRoutine] = []
         var scheduled: [WidgetSnapshot.ScheduledRoutine] = []
         for routine in routines where !routine.groups.isEmpty {
-            let completed = lastCompleted(of: routine)
+            let completions = recentCompletions(of: routine)
             // Everything schedulable ships with its schedule so the
             // widget can compute due-ness at ANY date (#159) — the
             // frozen `due` list below stays as the old-snapshot fallback.
@@ -40,10 +44,12 @@ enum WidgetSnapshotWriter {
                 name: routine.name,
                 exerciseCount: routine.sortedGroups.reduce(0) { $0 + $1.sortedExercises.count },
                 scheduleData: routine.scheduleData,
-                lastCompleted: completed
+                lastCompleted: completions.last,
+                previousCompleted: completions.previous
             ))
             let state = routine.schedule.dueState(
-                lastCompleted: completed,
+                lastCompleted: completions.last,
+                previousCompleted: completions.previous,
                 today: today,
                 calendar: calendar
             )

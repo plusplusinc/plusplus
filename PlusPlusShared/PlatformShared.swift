@@ -53,6 +53,12 @@ struct WidgetSnapshot: Codable {
         /// Encoded `RoutineSchedule` (same JSON as `Routine.scheduleData`).
         var scheduleData: Data?
         var lastCompleted: Date?
+        /// The completion before `lastCompleted` (#267): the Kit's
+        /// banking rule needs it to tell an extra session from a
+        /// make-up. Additive and optional — snapshots written before
+        /// #267 decode nil, which just turns banking conservatively
+        /// off until the app writes a fresh snapshot.
+        var previousCompleted: Date? = nil
 
         var schedule: RoutineSchedule {
             guard let scheduleData,
@@ -88,6 +94,7 @@ struct WidgetSnapshot: Codable {
             let schedule = routine.schedule
             guard case .due = schedule.dueState(
                 lastCompleted: routine.lastCompleted,
+                previousCompleted: routine.previousCompleted,
                 today: date,
                 calendar: calendar
             ) else { return nil }

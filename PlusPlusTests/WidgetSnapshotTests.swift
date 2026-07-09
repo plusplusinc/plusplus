@@ -36,12 +36,13 @@ struct WidgetSnapshotTests {
         )
     }
 
-    private func routine(_ name: String, schedule: RoutineSchedule, lastCompleted: Date? = nil) -> WidgetSnapshot.ScheduledRoutine {
+    private func routine(_ name: String, schedule: RoutineSchedule, lastCompleted: Date? = nil, previousCompleted: Date? = nil) -> WidgetSnapshot.ScheduledRoutine {
         .init(
             name: name,
             exerciseCount: 5,
             scheduleData: try? JSONEncoder().encode(schedule),
-            lastCompleted: lastCompleted
+            lastCompleted: lastCompleted,
+            previousCompleted: previousCompleted
         )
     }
 
@@ -73,6 +74,27 @@ struct WidgetSnapshotTests {
         #expect(done.dueList(at: wednesday, calendar: calendar).isEmpty)
         let nextMonday = calendar.date(byAdding: .day, value: 7, to: monday)!
         #expect(done.dueList(at: nextMonday, calendar: calendar).map(\.name) == ["Push Day"])
+    }
+
+    @Test func extraSessionBanksTheNextOccurrenceInTheWidgetToo() {
+        // #267: an extra Wednesday session (the previous Monday done on
+        // time) banks next Monday — the widget's roll-forward agrees
+        // with the app because previousCompleted rides the snapshot.
+        let wednesday = calendar.date(byAdding: .day, value: 2, to: monday)!
+        let nextMonday = calendar.date(byAdding: .day, value: 7, to: monday)!
+        let banked = snapshot(
+            scheduled: [routine("Push Day", schedule: .weekdays([2]), lastCompleted: wednesday, previousCompleted: monday)],
+            generatedAt: wednesday
+        )
+        #expect(banked.dueList(at: nextMonday, calendar: calendar).isEmpty)
+
+        // A snapshot without previousCompleted (written pre-#267)
+        // stays conservative: the day still shows.
+        let legacy = snapshot(
+            scheduled: [routine("Push Day", schedule: .weekdays([2]), lastCompleted: wednesday)],
+            generatedAt: wednesday
+        )
+        #expect(legacy.dueList(at: nextMonday, calendar: calendar).map(\.name) == ["Push Day"])
     }
 
     @Test func oldSnapshotsFallBackToTheFrozenList() {

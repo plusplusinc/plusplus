@@ -453,8 +453,10 @@ struct ActiveSessionView: View {
         let today = Date()
         var best: (date: Date, name: String)?
         for routine in allRoutines {
+            let completions = recentCompletions(of: routine)
             let state = routine.schedule.dueState(
-                lastCompleted: lastCompleted(of: routine),
+                lastCompleted: completions.last,
+                previousCompleted: completions.previous,
                 today: today,
                 calendar: calendar
             )
@@ -466,18 +468,29 @@ struct ActiveSessionView: View {
         }
         guard let best else { return nil }
         let day = best.date.formatted(.dateTime.weekday(.abbreviated)).lowercased()
+        // Beyond the coming week the bare weekday would lie by
+        // omission — add the plain date (mirrors Today's rest-day
+        // caption, #267).
+        if let weekBoundary = calendar.date(byAdding: .day, value: 7, to: calendar.startOfDay(for: today)),
+           best.date > weekBoundary {
+            let monthDay = best.date.formatted(.dateTime.month(.abbreviated).day()).lowercased()
+            return "next \(day) · \(monthDay) — \(best.name)"
+        }
         return "next \(day) — \(best.name)"
     }
 
-    /// Identity match wins; the name fallback applies ONLY when no
-    /// reference survives — the same rule as TodayView's lastCompleted,
-    /// so this screen and Today can't disagree about "next".
-    private func lastCompleted(of routine: Routine) -> Date? {
+    /// The two most recent completions (#267: `.previous` feeds the
+    /// Kit's banking rule). Identity match wins; the name fallback
+    /// applies ONLY when no reference survives — the same rule as
+    /// TodayView's recentCompletions, so this screen and Today can't
+    /// disagree about "next".
+    private func recentCompletions(of routine: Routine) -> (last: Date?, previous: Date?) {
         let identityMatches = finishedSessions.filter { $0.routine === routine }
         let pool = identityMatches.isEmpty
             ? finishedSessions.filter { $0.routine == nil && $0.routineName == routine.name }
             : identityMatches
-        return pool.compactMap(\.endedAt).max()
+        let dates = pool.compactMap(\.endedAt).sorted(by: >)
+        return (dates.first, dates.count > 1 ? dates[1] : nil)
     }
 }
 
