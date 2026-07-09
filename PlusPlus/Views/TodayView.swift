@@ -940,21 +940,31 @@ struct SessionRecordDestination: Hashable {
 }
 
 /// One row of the Today rail: node in a fixed-width gutter with a
-/// continuous 2 px spine, card alongside. Pending = hollow 8 pt node
-/// with a SOLID border (dashes are not rail vocabulary); committed =
-/// filled green 10 pt.
+/// continuous 2 px spine, card alongside. Every node is a RING —
+/// stroke only, never filled (Dave's build-33 call, superseding
+/// #201's filled-purple done dot). State lives entirely in the
+/// stroke's color: green = actionable now, grey = inert, faint =
+/// gated, purple = done.
 private enum TimelineNode {
-    /// Ready to do — a green RING (hollow: filled is done's shape;
-    /// GitHub's open-vs-merged iconography). Green marks the next
-    /// increment, per Dave's rail grammar: green = actionable now,
-    /// grey = inert or not yet, purple = done.
+    /// Ready to do — a green ring. Green marks the next increment.
     case pending
     /// Nothing actionable here (rest day) — neutral grey ring.
     case inert
+    /// Done — a purple ring (GitHub's merged hue carries the meaning;
+    /// the fill no longer does).
     case committed
-    /// A setup step whose prerequisite isn't met yet — hollow like
-    /// pending, but border-faint so the rail reads "not yet yours".
+    /// A setup step whose prerequisite isn't met yet — border-faint,
+    /// so the rail reads "not yet yours".
     case gated
+
+    var strokeColor: Color {
+        switch self {
+        case .pending: Theme.accent
+        case .inert: Theme.textFaint
+        case .gated: Theme.borderStrong
+        case .committed: Theme.committedFill
+        }
+    }
 }
 
 private struct TimelineItem<Content: View>: View {
@@ -968,32 +978,11 @@ private struct TimelineItem<Content: View>: View {
                     .fill(Theme.border)
                     .frame(width: 2)
                     .frame(maxHeight: .infinity)
-                switch node {
-                case .pending:
-                    Circle()
-                        .strokeBorder(Theme.accent, lineWidth: 2)
-                        .frame(width: 10, height: 10)
-                        .background(Circle().fill(Theme.background))
-                        .padding(.top, 18)
-                case .inert:
-                    Circle()
-                        .strokeBorder(Theme.textFaint, lineWidth: 2)
-                        .frame(width: 10, height: 10)
-                        .background(Circle().fill(Theme.background))
-                        .padding(.top, 18)
-                case .gated:
-                    Circle()
-                        .strokeBorder(Theme.borderStrong, lineWidth: 2)
-                        .frame(width: 10, height: 10)
-                        .background(Circle().fill(Theme.background))
-                        .padding(.top, 18)
-                case .committed:
-                    Circle()
-                        .fill(Theme.committedFill)
-                        .frame(width: 10, height: 10)
-                        .background(Circle().fill(Theme.background).frame(width: 14, height: 14))
-                        .padding(.top, 18)
-                }
+                Circle()
+                    .strokeBorder(node.strokeColor, lineWidth: 2)
+                    .frame(width: 10, height: 10)
+                    .background(Circle().fill(Theme.background))
+                    .padding(.top, 18)
             }
             .frame(width: 20)
 
