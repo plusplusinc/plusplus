@@ -451,7 +451,7 @@ struct CatalogBrowseScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                ExpandingSearchButton(prompt: "Search the catalog", text: Bindable(filterState).searchText)
+                ExpandingSearchButton(prompt: "Search the catalog", text: Bindable(filterState).searchText, identifier: "catalogSearchField")
             }
         }
         .pushedScreenChrome(onBack: { dismiss() })

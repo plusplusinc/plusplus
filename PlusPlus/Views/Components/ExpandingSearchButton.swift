@@ -12,6 +12,11 @@ struct ExpandingSearchButton: View {
     var identifier: String = "searchField"
 
     @State private var expanded = false
+    /// One-shot focus intent: consumed by the field's onAppear so the
+    /// INITIAL expansion focuses, but a pop-back to a screen left with
+    /// an expanded search doesn't re-summon the keyboard unasked
+    /// (reviewer catch — toolbar content remounts on pop).
+    @State private var wantsFocus = false
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -31,7 +36,12 @@ struct ExpandingSearchButton: View {
                 // Focus is requested from the field's own appearance —
                 // requesting it in the button action targets a view not
                 // yet installed and is silently dropped (reviewer catch).
-                .onAppear { focused = true }
+                .onAppear {
+                    if wantsFocus {
+                        wantsFocus = false
+                        focused = true
+                    }
+                }
                 Button {
                     text = ""
                     focused = false
@@ -46,6 +56,7 @@ struct ExpandingSearchButton: View {
                 .accessibilityIdentifier("dismissSearchButton")
             } else {
                 Button {
+                    wantsFocus = true
                     withAnimation(.easeOut(duration: 0.15)) { expanded = true }
                 } label: {
                     Image(systemName: "magnifyingglass")
