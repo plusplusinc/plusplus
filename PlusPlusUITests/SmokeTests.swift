@@ -221,7 +221,7 @@ final class SmokeTests: XCTestCase {
             back.tap()
         }
 
-        // Step 3 unlocks: schedule Push Day for today so it stages.
+        // Step 3 unlocks: schedule Bodyweight Basics for today so it stages.
         let scheduleCTA = app.buttons["setupScheduleStep"]
         XCTAssertTrue(scheduleCTA.waitForExistence(timeout: 10))
         snap("setup-step3")
@@ -238,7 +238,7 @@ final class SmokeTests: XCTestCase {
         app.buttons["backButton"].tap()
 
         // Scaffold fully committed; the real thing appears above it —
-        // Push Day staged and startable.
+        // Bodyweight Basics staged and startable.
         XCTAssertTrue(app.staticTexts["Schedule set"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["startStagedButton"].waitForExistence(timeout: 10))
         snap("setup-complete")
