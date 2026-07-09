@@ -58,9 +58,12 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(plus.waitForExistence(timeout: 5))
         plus.tap()
 
-        // Search pins the template (lazy-List rule), and a bodyweight
-        // one stays visible under the default My-equipment gear filter
-        // on a virgin store (zero owned gear).
+        // Search pins the template (lazy-List rule). Under plain
+        // --uitest-reset all built-in gear is owned (populateLibrary),
+        // so the default My-equipment filter hides nothing here; a
+        // bodyweight template ADDITIONALLY survives zero-owned stores
+        // (the --uitest-onboarding world) — don't swap in a
+        // gear-requiring template and trust this test to cover both.
         let searchToggle = app.buttons["routineCatalogSearchFieldToggle"]
         XCTAssertTrue(searchToggle.waitForExistence(timeout: 5))
         searchToggle.tap()
