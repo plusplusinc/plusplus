@@ -151,11 +151,16 @@ struct SeedDataTests {
         custom.inLibrary = true
 
         UserDefaults.standard.removeObject(forKey: SeedData.equipmentOwnershipResetKey)
-        defer { UserDefaults.standard.removeObject(forKey: SeedData.equipmentOwnershipResetKey) }
+        UserDefaults.standard.set(true, forKey: SetupState.equipmentDoneKey)
+        defer {
+            UserDefaults.standard.removeObject(forKey: SeedData.equipmentOwnershipResetKey)
+            UserDefaults.standard.removeObject(forKey: SetupState.equipmentDoneKey)
+        }
         SeedData.resetEquipmentOwnershipIfNeeded(context: context)
 
         #expect(!bench.inLibrary)
         #expect(custom.inLibrary, "custom gear is deliberate — the reset never touches it")
+        #expect(!SetupState.equipmentDone, "the reset erased the curation the setup flag described")
 
         bench.inLibrary = true
         SeedData.resetEquipmentOwnershipIfNeeded(context: context)

@@ -106,6 +106,11 @@ enum SeedData {
         for item in equipment where item.isBuiltIn && item.inLibrary {
             item.inLibrary = false
         }
+        // The setup flag described the curation this just erased — clear
+        // it too, so a no-history user gets the setup step back as the
+        // re-pick affordance (users with history never see the scaffold;
+        // for them the Equipment tab's empty state is the pointer).
+        UserDefaults.standard.removeObject(forKey: SetupState.equipmentDoneKey)
         try? context.save()
     }
 
