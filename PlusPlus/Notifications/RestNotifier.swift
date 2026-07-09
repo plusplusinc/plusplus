@@ -48,12 +48,25 @@ final class RestNotifier: NSObject, UNUserNotificationCenterDelegate {
         UNUserNotificationCenter.current().delegate = self
     }
 
-    /// Asked at first routine start — the moment the permission makes
-    /// sense to a user — not at app launch.
-    func requestAuthorizationIfNeeded() {
-        guard !disabled, !hasRequestedAuthorization else { return }
+    /// The first-ever ARMING of a notification asks for permission and
+    /// arms on grant (#246): asking at cover-appear ambushed the hero
+    /// zoom, and asking-then-adding in one pass scheduled against a
+    /// still-undetermined status — the add was silently rejected and
+    /// nothing re-armed on grant, so every fresh install's first rest
+    /// alert was dead (swift-reviewer HIGH). Routing rest AND duration
+    /// arms through here also covers duration-first workouts, which
+    /// never rested before their first timer.
+    private func withAuthorization(_ arm: @escaping () -> Void) {
+        guard !disabled else { return }
+        guard !hasRequestedAuthorization else {
+            arm()
+            return
+        }
         hasRequestedAuthorization = true
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, _ in
+            guard granted else { return }
+            DispatchQueue.main.async { arm() }
+        }
     }
 
     /// One async check so the rest screen can say why no alert will
@@ -87,7 +100,12 @@ final class RestNotifier: NSObject, UNUserNotificationCenterDelegate {
         let request = UNNotificationRequest(
             identifier: RestNotification.identifier, content: content, trigger: trigger
         )
-        UNUserNotificationCenter.current().add(request)
+        // First-ever arm asks and adds on grant; the rest is still
+        // ticking then, so the deferred add lands mid-rest correctly
+        // (the trigger interval is computed above, before the dialog).
+        withAuthorization {
+            UNUserNotificationCenter.current().add(request)
+        }
 
         // The Dynamic Island countdown lives and dies with the
         // notification schedule — one source of truth for "resting".
@@ -126,9 +144,11 @@ final class RestNotifier: NSObject, UNUserNotificationCenterDelegate {
         content.sound = .default
 
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)
-        UNUserNotificationCenter.current().add(
-            UNNotificationRequest(identifier: TimerNotification.identifier, content: content, trigger: trigger)
-        )
+        withAuthorization {
+            UNUserNotificationCenter.current().add(
+                UNNotificationRequest(identifier: TimerNotification.identifier, content: content, trigger: trigger)
+            )
+        }
     }
 
     // MARK: - UNUserNotificationCenterDelegate

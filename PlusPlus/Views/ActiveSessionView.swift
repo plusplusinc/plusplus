@@ -28,6 +28,9 @@ struct ActiveSessionView: View {
     @State private var routineNameDraft = ""
     @State private var savedRoutineName: String?
     @State private var restAlertsDenied = false
+    /// Latched when THIS session finishes (a live @Query count could
+    /// render a frame stale — swift-reviewer).
+    @State private var isFirstEverFinish = false
 
     /// When set, we're resting until this instant (date-based; backgrounding
     /// can't drift it).
@@ -64,6 +67,7 @@ struct ActiveSessionView: View {
                         // read as a broken timer (#246). Facts only.
                         if restAlertsDenied {
                             Text("rest-over alerts are off — notifications for PlusPlus are disabled in iOS Settings")
+                                .transition(.opacity)
                                 .font(.system(.caption, design: .monospaced))
                                 .foregroundStyle(Theme.textFaint)
                                 .multilineTextAlignment(.center)
@@ -71,6 +75,7 @@ struct ActiveSessionView: View {
                                 .padding(.bottom, 10)
                         }
                     }
+                    .animation(.easeOut(duration: 0.15), value: restAlertsDenied)
                 } else {
                     SetLoggingView(
                         session: session,
@@ -142,6 +147,9 @@ struct ActiveSessionView: View {
         .interactiveDismissDisabled()
         .task {
             RestActivityController.shared.beginSession(routineName: session.routineName)
+            // Prefetch so the denied caption is already placed when the
+            // first rest renders instead of nudging the countdown.
+            RestNotifier.shared.notificationsDenied { restAlertsDenied = $0 }
         }
         // Island / Lock Screen rest controls (#157): LiveActivityIntents
         // run in this process and post here — same mutations as the
@@ -270,11 +278,9 @@ struct ActiveSessionView: View {
         }
 
         if session.nextPendingLog != nil {
-            // FIRST REST is when the permission explains itself (#246):
-            // the ticking screen behind the dialog is the context.
-            // Asking at cover-appear ambushed the hero zoom with a
-            // context-free system prompt.
-            RestNotifier.shared.requestAuthorizationIfNeeded()
+            // The permission ask lives in the notifier now — the first
+            // ARMED notification asks and arms on grant (#246). This
+            // refresh keeps the denied caption honest per rest.
             RestNotifier.shared.notificationsDenied { restAlertsDenied = $0 }
             let endDate = Date().addingTimeInterval(TimeInterval(session.restSeconds))
             restEndDate = endDate
@@ -293,6 +299,7 @@ struct ActiveSessionView: View {
     private func finishSession(dismissAfter: Bool = true) {
         RestNotifier.shared.cancelPending()
         if !session.isFinished {
+            isFirstEverFinish = finishedSessions.isEmpty
             session.finish()
             // Phone-logged sessions reach Health here; watch imports are
             // recorded by the wrist's own live session (#90).
@@ -374,8 +381,8 @@ struct ActiveSessionView: View {
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(Theme.textFaint)
             }
-            if finishedSessions.count == 1 {
-                Text("widgets can show your schedule without opening the app — Settings names them")
+            if isFirstEverFinish {
+                Text("widgets can show your schedule without opening the app — long-press the home screen to add one")
                     .font(.system(.caption))
                     .foregroundStyle(Theme.textFaint)
                     .multilineTextAlignment(.center)
@@ -462,13 +469,15 @@ struct ActiveSessionView: View {
         return "next \(day) — \(best.name)"
     }
 
-    /// Identity match wins; the name fallback covers broken references
-    /// (the TodayView rule).
+    /// Identity match wins; the name fallback applies ONLY when no
+    /// reference survives — the same rule as TodayView's lastCompleted,
+    /// so this screen and Today can't disagree about "next".
     private func lastCompleted(of routine: Routine) -> Date? {
-        finishedSessions
-            .filter { $0.routine === routine || ($0.routine == nil && $0.routineName == routine.name) }
-            .compactMap(\.endedAt)
-            .max()
+        let identityMatches = finishedSessions.filter { $0.routine === routine }
+        let pool = identityMatches.isEmpty
+            ? finishedSessions.filter { $0.routine == nil && $0.routineName == routine.name }
+            : identityMatches
+        return pool.compactMap(\.endedAt).max()
     }
 }
 
