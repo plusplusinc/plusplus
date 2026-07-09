@@ -101,7 +101,10 @@ struct ExercisesTabView: View {
                 .padding(.vertical, 10)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            // Tap-triggered, NOT .plain: a plain Button fires on the
+            // finger-lift ending a reveal drag and the tap-close branch
+            // shut the row the drag just opened (build 33).
+            .buttonStyle(TapTriggerButtonStyle())
             } actions: {
                 // Reveal-then-tap always; the label says what it does
                 // (a custom's removal is a permanent DELETE).
@@ -208,7 +211,8 @@ struct EquipmentTabView: View {
                 .padding(.vertical, 10)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            // Tap-triggered, NOT .plain — see the exercise row above.
+            .buttonStyle(TapTriggerButtonStyle())
             } actions: {
                 SwipeActionButton(label: equipment.isBuiltIn ? "REMOVE" : "DELETE", color: Theme.destructive) {
                     openSwipeRow = nil

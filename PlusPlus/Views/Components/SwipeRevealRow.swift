@@ -8,6 +8,17 @@ import SwiftData
 /// cancellation-safe live commit. Horizontal-dominant drags reveal;
 /// vertical movement stays with the surrounding scroll. One row open
 /// at a time via the shared `openRow` binding.
+///
+/// ⚠️ CONTRACT for content: the row body must NOT activate on
+/// touch-up-inside — use `TapTriggerButtonStyle` (below), never
+/// `.plain`/default Button styles. The drag rides `simultaneousGesture`
+/// (deliberately non-cancelling, so the List pan can coexist), which
+/// means a plain Button under it still fires at finger-lift after a
+/// FULL reveal drag — and every consumer's tap handler treats "tap
+/// while open" as close, so the release closed the row the drag had
+/// just opened (Dave, build 33: "snaps back on release, impossible to
+/// tap any action" — third report; the two prior fixes hardened real
+/// but secondary paths inside the drag itself).
 struct SwipeRevealRow<Content: View, Actions: View>: View {
     let id: PersistentIdentifier
     @Binding var openRow: PersistentIdentifier?
@@ -140,5 +151,19 @@ struct SwipeActionButton: View {
         // buttons anywhere in the row — the second half of the
         // disappearing-rows bug.
         .buttonStyle(.plain)
+    }
+}
+
+/// Button style for content INSIDE a SwipeRevealRow: activates via
+/// `TapGesture` — which FAILS once the touch moves past system slop —
+/// instead of Button's touch-up-inside, which fires even after a
+/// full reveal drag (the card moves with the finger, so the touch
+/// never exits bounds). Keeps Button semantics for VoiceOver:
+/// accessibility activation calls `trigger()` directly.
+struct TapTriggerButtonStyle: PrimitiveButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .contentShape(Rectangle())
+            .onTapGesture { configuration.trigger() }
     }
 }

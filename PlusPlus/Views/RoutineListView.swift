@@ -225,6 +225,11 @@ private struct RoutineCard: View {
             .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
             .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
         }
-        .buttonStyle(.plain)
+        // Tap-triggered, NOT .plain: inside a SwipeRevealRow a plain
+        // Button fires on the finger-lift that ends a reveal drag, and
+        // onOpen's tap-close branch shut the row the drag just opened
+        // (build 33). TapGesture fails on movement, so only real taps
+        // activate.
+        .buttonStyle(TapTriggerButtonStyle())
     }
 }
