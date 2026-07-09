@@ -16,23 +16,44 @@ struct ExercisePickerView: View {
     @State private var showingMuscleGroupFilter = false
     @State private var showingEquipmentFilter = false
     @State private var showingCreateSheet = false
+    @State private var showingCatalog = false
     @State private var editingExercise: Exercise?
     @State private var deletionCandidate: Exercise?
+
+    /// Every row here is a library/custom row, and curated rows are
+    /// never hidden, only flagged (#113) — so the ownership hide does
+    /// NOT apply in the picker. Before #232 this was dormant (fresh
+    /// stores owned everything); with opt-in ownership it would have
+    /// hidden the user's own exercises behind gear they hadn't picked
+    /// yet (swift-reviewer catch on the #232 diff).
+    private var candidates: [Exercise] {
+        filterState.filteredExercises(
+            from: allExercises.filter { $0.inLibrary || !$0.isBuiltIn },
+            overridingShowUnowned: true
+        )
+    }
 
     var body: some View {
         NavigationStack {
             List {
-                // Every row here is a library/custom row, and curated
-                // rows are never hidden, only flagged (#113) — so the
-                // ownership hide does NOT apply in the picker. Before
-                // #232 this was dormant (fresh stores owned everything);
-                // with opt-in ownership it would have hidden the user's
-                // own exercises behind gear they hadn't picked yet
-                // (swift-reviewer catch on the #232 diff).
-                ForEach(filterState.filteredExercises(
-                    from: allExercises.filter { $0.inLibrary || !$0.isBuiltIn },
-                    overridingShowUnowned: true
-                )) { exercise in
+                // Post-#232 an empty library is the fresh-install
+                // default, and this sheet was its dead end (#246 —
+                // both audits' top finding): say where exercises come
+                // from instead of rendering a blank list whose only
+                // action authors a custom from scratch.
+                if candidates.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(filterState.searchText.isEmpty ? "Your library is empty" : "Nothing in your library matches")
+                            .font(.system(.subheadline, weight: .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                        Text("Pick from the catalog — anything you use joins your library on its own.")
+                            .font(.system(.footnote))
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                    .padding(.vertical, 8)
+                    .listRowSeparator(.hidden)
+                }
+                ForEach(candidates) { exercise in
                     Button {
                         onSelect(exercise)
                         dismiss()
@@ -50,6 +71,35 @@ struct ExercisePickerView: View {
                             }
                         }
                     }
+                }
+                // The catalog escape (#246): persistent while the
+                // library is thin, gone once it can stand alone — the
+                // picker's library contract holds (catalog rows never
+                // mix in; browsing happens on the catalog surface).
+                if candidates.count < 5 {
+                    Button {
+                        showingCatalog = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "plus")
+                                .font(.system(.caption, weight: .semibold))
+                            Text("From the catalog…")
+                                .font(.system(.footnote, weight: .semibold))
+                        }
+                        // Creation is green (#202).
+                        .foregroundStyle(Theme.accent)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 12)
+                        .frame(height: 48)
+                        .contentShape(Rectangle())
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Theme.controlRadius)
+                                .strokeBorder(Theme.borderStrong)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("pickerCatalogButton")
+                    .listRowSeparator(.hidden)
                 }
             }
             .navigationTitle("Add Exercise")
@@ -70,6 +120,14 @@ struct ExercisePickerView: View {
             }
             .sheet(isPresented: $showingCreateSheet) {
                 ExerciseEditorView()
+            }
+            // The catalog browser is a pushed page by design; inside
+            // this sheet it gets its own stack. Toggling membership
+            // there updates the @Query-driven list live on return.
+            .sheet(isPresented: $showingCatalog) {
+                NavigationStack {
+                    CatalogBrowseScreen(kind: .exercises)
+                }
             }
             .sheet(item: $editingExercise) { exercise in
                 ExerciseEditorView(editing: exercise)
