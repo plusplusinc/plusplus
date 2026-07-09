@@ -9,30 +9,6 @@ import PlusPlusKit
 /// place with standard back navigation. Sheets survive only for
 /// create/edit forms.
 
-/// Title header shared by the pushed catalog screens. Back navigation
-/// is the system toolbar's glass chevron + full-width swipe (#198);
-/// this keeps only the quiet-terminal title row.
-struct CatalogDetailHeader<Trailing: View>: View {
-    let title: String
-    @ViewBuilder let trailing: () -> Trailing
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Back is the toolbar's glass chevron (#198).
-            HStack(alignment: .center) {
-                Text(title)
-                    .font(.system(.title, weight: .bold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                Spacer()
-                trailing()
-            }
-            .padding(.top, 2)
-        }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 10)
-    }
-}
 
 /// One tappable row in a catalog cross-reference block: title, mono
 /// meta, chevron. Full rectangle is the hit target.
@@ -138,12 +114,6 @@ struct ExerciseDetailScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            CatalogDetailHeader(title: exercise.name) {
-                HeaderIconButton(systemImage: "pencil", identifier: "editExerciseButton") {
-                    showingEditor = true
-                }
-            }
-
             // Arriving from a focused library search must not strand
             // the keyboard here (#213) — scrolling shakes it off.
             ScrollView {
@@ -236,10 +206,21 @@ struct ExerciseDetailScreen: View {
         .background(Theme.background)
         .scrollDismissesKeyboard(.immediately)
         .pushedScreenChrome(onBack: { dismiss() })
+        // Inline title (#234): drilled-in pages read smaller than
+        // roots, centered with the back chevron.
+        .navigationTitle(exercise.name)
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             // Membership + deletion live behind "…" (#231) — present,
-            // not primary, and named for what they touch.
-            ToolbarItem(placement: .topBarTrailing) {
+            // not primary, and named for what they touch. Edit rides
+            // beside it as its own glass circle.
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button {
+                    showingEditor = true
+                } label: {
+                    Image(systemName: "pencil")
+                }
+                .accessibilityIdentifier("editExerciseButton")
                 Menu {
                     if exercise.isBuiltIn {
                         if exercise.inLibrary {
@@ -359,15 +340,6 @@ struct EquipmentDetailScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            CatalogDetailHeader(title: equipment.name) {
-                if !equipment.isBuiltIn {
-                    HeaderIconButton(systemImage: "pencil", identifier: "renameEquipmentButton") {
-                        renameText = equipment.name
-                        showingRename = true
-                    }
-                }
-            }
-
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(spacing: 6) {
@@ -447,8 +419,19 @@ struct EquipmentDetailScreen: View {
         .background(Theme.background)
         .scrollDismissesKeyboard(.immediately)
         .pushedScreenChrome(onBack: { dismiss() })
+        .navigationTitle(equipment.name)
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                if !equipment.isBuiltIn {
+                    Button {
+                        renameText = equipment.name
+                        showingRename = true
+                    } label: {
+                        Image(systemName: "pencil")
+                    }
+                    .accessibilityIdentifier("renameEquipmentButton")
+                }
                 Menu {
                     if equipment.isBuiltIn {
                         if equipment.inLibrary {

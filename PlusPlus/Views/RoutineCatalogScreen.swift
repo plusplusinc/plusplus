@@ -94,11 +94,6 @@ struct RoutineCatalogScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-
-            SearchField(prompt: "Search routines", text: $search, identifier: "routineCatalogSearchField")
-                .padding(.horizontal, 16)
-
             // Horizontal scroll: four ACTIVE values plus the ✕ can
             // outgrow a compact row, and truncated values defeat the
             // whole glanceable-state point (reviewer catch).
@@ -106,7 +101,7 @@ struct RoutineCatalogScreen: View {
                 chipRow
                     .padding(.horizontal, 16)
             }
-            .padding(.top, 8)
+            .padding(.top, 6)
 
             List {
                 createRow
@@ -145,9 +140,12 @@ struct RoutineCatalogScreen: View {
             .padding(.top, 4)
         }
         .background(Theme.background)
+        .navigationTitle("Catalog")
+        .navigationBarTitleDisplayMode(.inline)
         .pushedScreenChrome(onBack: { dismiss() })
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                ExpandingSearchButton(prompt: "Search routines", text: $search, identifier: "routineCatalogSearchField")
                 Menu {
                     Picker("Sort", selection: $sort) {
                         ForEach(CatalogSort.allCases, id: \.self) { option in
@@ -168,21 +166,6 @@ struct RoutineCatalogScreen: View {
             Button("Cancel", role: .cancel) { newRoutineName = "" }
             Button("Create") { createBlankRoutine() }
         }
-    }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("Catalog")
-                .font(.system(.title, weight: .bold))
-                .padding(.top, 2)
-            Text("\(RoutineCatalog.all.count) routines · add any, then make it yours")
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(Theme.textFaint)
-                .padding(.top, 3)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 16)
-        .padding(.bottom, 10)
     }
 
     // MARK: - Facet chips
@@ -414,23 +397,12 @@ struct RoutineTemplateDetailScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 0) {
-                Text(template.name)
-                    .font(.system(.title, weight: .bold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                    .padding(.top, 2)
-                Text("\(template.focus.rawValue.lowercased()) · \(template.effort.rawValue.lowercased()) · \(template.style.rawValue.lowercased()) · \(template.estimatedMinutesText)")
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(Theme.textFaint)
-                    .padding(.top, 3)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 10)
-
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
+                    Text("\(template.focus.rawValue.lowercased()) · \(template.effort.rawValue.lowercased()) · \(template.style.rawValue.lowercased()) · \(template.estimatedMinutesText)")
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(Theme.textFaint)
+                        .padding(.bottom, 8)
                     Text(template.summary)
                         .font(.system(.footnote))
                         .foregroundStyle(Theme.textSecondary)
@@ -501,6 +473,8 @@ struct RoutineTemplateDetailScreen: View {
             .padding(.bottom, 12)
         }
         .background(Theme.background)
+        .navigationTitle(template.name)
+        .navigationBarTitleDisplayMode(.inline)
         .pushedScreenChrome(onBack: { dismiss() })
     }
 

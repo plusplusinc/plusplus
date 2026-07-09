@@ -25,8 +25,6 @@ struct SettingsScreen: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            pageHeader
-
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     SheetSectionLabel("APPEARANCE")
@@ -151,6 +149,8 @@ struct SettingsScreen: View {
         }
         .padding(.horizontal, 16)
         .background(Theme.background)
+        .navigationTitle("Settings")
+        .navigationBarTitleDisplayMode(.inline)
         .pushedScreenChrome(onBack: { dismiss() })
         .navigationDestination(isPresented: $showingEquipmentSetup) {
             CatalogBrowseScreen(kind: .equipment, setupMode: true)
@@ -192,14 +192,6 @@ struct SettingsScreen: View {
         } message: {
             Text(dataError ?? "")
         }
-    }
-
-    private var pageHeader: some View {
-        // Back lives in the system toolbar now (#198, glass circle);
-        // the header keeps only the title.
-        Text("Settings")
-            .font(.system(.title, weight: .bold))
-            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var equipmentSummary: String {
