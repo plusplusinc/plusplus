@@ -88,7 +88,7 @@ final class SmokeTests: XCTestCase {
         let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == 0"), object: delete)
         XCTAssertEqual(XCTWaiter().wait(for: [closed], timeout: 3), .completed, "a tap while open must close the row")
         XCTAssertFalse(
-            app.buttons["addExerciseButton"].waitForExistence(timeout: 2),
+            app.buttons["addExerciseButton"].waitForExistence(timeout: 3),
             "a tap while open must close, not navigate into the routine"
         )
 
