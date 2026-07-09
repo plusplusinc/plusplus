@@ -1,6 +1,6 @@
 ---
 name: pr-flow
-description: Land a change on plusplus main — the serialized single-branch PR workflow remote sessions must follow (branch protection, squash-only, branch reset after merge).
+description: Land a change on plusplus main — the parallel feature-branch PR workflow (branch protection, squash-only, one branch per unit of work, concurrent PRs).
 ---
 
 # Landing changes on main
@@ -10,33 +10,53 @@ and `cli-test` to PASS on the head SHA, squash is the only merge method,
 and direct pushes to main are blocked. The Claude GitHub App merges via
 the MCP (`merge_pull_request`, method squash).
 
-## The loop (remote sessions run everything on ONE designated branch)
+Work is PARALLEL by default (Dave, 2026-07-09: "I authorize you to make
+however many branches you need, and parallelize work"). One branch per
+unit of work; PRs open and run CI concurrently; nothing queues behind an
+open PR's checks.
 
-1. Develop on the session's designated `claude/...` branch. Commit with
-   clear messages; push with `git push -u origin <branch>`.
-2. Open a PR (GitHub MCP `create_pull_request`) with `Closes #N` links.
-   Check for a PR template first.
-3. Wait for required checks on the HEAD SHA (see the ci-status skill).
+## The loop (per unit of work)
+
+1. Branch off fresh main: `git fetch origin main && git checkout -b
+   claude/<slug> origin/main`. Pick a slug that names the change
+   (`claude/equipment-exercises`), not the session. ci.yml triggers on
+   every `claude/**` push.
+2. Develop, commit, push with `git push -u origin claude/<slug>`. Run the
+   swift-reviewer agent on any non-trivial diff before pushing.
+3. Open a PR (GitHub MCP `create_pull_request`) with `Closes #N` links;
+   check for a PR template first. Subscribe with `subscribe_pr_activity`
+   — comments and CI *failures* arrive as events, but CI success, new
+   pushes, and merge conflicts never do, so poll status before merging.
+4. Wait for required checks on the HEAD SHA (see the ci-status skill).
    Push-triggered runs only; a green dispatch run does not count.
-4. Squash-merge via MCP once green.
-5. **Reset the branch onto the new main before the next unit of work:**
-   ```bash
-   git fetch origin main
-   git checkout -B <branch> origin/main
-   git push --force-with-lease origin <branch>
-   ```
-   Force-with-lease is safe here only because the branch contains
-   exclusively already-merged history.
+5. Squash-merge via MCP once green; unsubscribe. The remote branch can be
+   deleted after merge.
+
+## Parallel rules
+
+- **One unit of work per branch, always.** Never stack a second feature
+  on a branch whose PR is open — new commits join that PR. Start the next
+  branch from `origin/main`, not from another feature branch.
+- **Same-file overlap is allowed but ordered.** If two in-flight branches
+  touch the same file, the second to merge rebases mechanically:
+  `git fetch origin main && git rebase origin/main` then
+  `git push --force-with-lease`. Force-with-lease is safe only on
+  `claude/*` branches you created this session.
+- **One local working tree.** Commit (or stash) before switching
+  branches; never let one branch's edits bleed into another's commit. For
+  genuinely simultaneous edits, `git worktree add` a second checkout.
+- Pushes to the SAME branch supersede its in-flight CI run (concurrency
+  cancellation) — batch pushes when a run's verdict matters. Different
+  branches run CI independently; fan out freely.
+- A merged PR is finished. Follow-up work = new branch off new main,
+  new PR; never reuse merged history.
 
 ## Rules that bite
 
-- While a PR is open, do NOT edit files it touches for unrelated work —
-  new commits join the open PR. Either finish/merge first or hold changes
-  uncommitted (stash) until it lands.
-- Pushes to the branch supersede its in-flight CI run (concurrency
-  cancellation) — batch pushes when a run's verdict matters.
 - If the GitHub MCP is down (token expired), you can still push commits;
   queue merges/comments/issue closes in a scratch file and fire them when
   the connector returns. Never extract git credentials for API calls.
 - Issues close via `Closes #N` on merge; use `issue_write` with a
   `state_reason` for manual closes.
+- The ui-test job is not required by the ruleset but IS the smoke layer —
+  dispatch it on a branch when a PR touches flows it covers.
