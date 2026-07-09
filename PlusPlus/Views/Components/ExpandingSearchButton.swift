@@ -12,6 +12,11 @@ struct ExpandingSearchButton: View {
     var identifier: String = "searchField"
 
     @State private var expanded = false
+    /// One-shot focus intent: consumed by the field's onAppear so the
+    /// INITIAL expansion focuses, but a pop-back to a screen left with
+    /// an expanded search doesn't re-summon the keyboard unasked
+    /// (reviewer catch — toolbar content remounts on pop).
+    @State private var wantsFocus = false
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -28,6 +33,15 @@ struct ExpandingSearchButton: View {
                         .frame(minWidth: 130, maxWidth: 200)
                         .accessibilityIdentifier(identifier)
                 }
+                // Focus is requested from the field's own appearance —
+                // requesting it in the button action targets a view not
+                // yet installed and is silently dropped (reviewer catch).
+                .onAppear {
+                    if wantsFocus {
+                        wantsFocus = false
+                        focused = true
+                    }
+                }
                 Button {
                     text = ""
                     focused = false
@@ -36,13 +50,14 @@ struct ExpandingSearchButton: View {
                     Image(systemName: "xmark")
                         .font(.system(.footnote, weight: .semibold))
                         .frame(width: 30, height: 30)
-                        .contentShape(Circle())
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .accessibilityIdentifier("dismissSearchButton")
             } else {
                 Button {
+                    wantsFocus = true
                     withAnimation(.easeOut(duration: 0.15)) { expanded = true }
-                    focused = true
                 } label: {
                     Image(systemName: "magnifyingglass")
                         .font(.system(.body, weight: .semibold))

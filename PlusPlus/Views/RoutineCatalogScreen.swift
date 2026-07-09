@@ -144,18 +144,8 @@ struct RoutineCatalogScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .pushedScreenChrome(onBack: { dismiss() })
         .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
+            ToolbarItem(placement: .topBarTrailing) {
                 ExpandingSearchButton(prompt: "Search routines", text: $search, identifier: "routineCatalogSearchField")
-                Menu {
-                    Picker("Sort", selection: $sort) {
-                        ForEach(CatalogSort.allCases, id: \.self) { option in
-                            Text(option.rawValue).tag(option)
-                        }
-                    }
-                } label: {
-                    Image(systemName: "arrow.up.arrow.down")
-                }
-                .accessibilityIdentifier("catalogSortMenu")
             }
         }
         .navigationDestination(for: RoutineTemplate.self) { template in
@@ -173,20 +163,7 @@ struct RoutineCatalogScreen: View {
     private var chipRow: some View {
         HStack(spacing: 7) {
             if anyFilterActive {
-                Button {
-                    clearFilters()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(.caption2, weight: .bold))
-                        .foregroundStyle(Theme.textSecondary)
-                        .frame(width: 36, height: 36)
-                        .background(Theme.surface, in: Circle())
-                        .overlay(Circle().strokeBorder(Theme.border))
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .accessibilityIdentifier("clearCatalogFilters")
-                .transition(.opacity)
+                ClearAllChip { clearFilters() }
             }
             FacetChip(
                 facet: "FOCUS",
@@ -208,6 +185,9 @@ struct RoutineCatalogScreen: View {
                 selection: $gearFilter,
                 options: GearFit.allCases.map { ($0, $0.rawValue) }
             )
+            // Sort rides the same row (#237) but stays neutral — see
+            // FilterChips: ordering is not filter state.
+            SortChip(selection: $sort, options: CatalogSort.allCases.map { ($0, $0.rawValue) })
             Spacer(minLength: 0)
         }
         .animation(.easeOut(duration: 0.15), value: anyFilterActive)
@@ -306,68 +286,6 @@ struct RoutineCatalogScreen: View {
             existing.order += 1
         }
         path.append(routine)
-    }
-}
-
-/// One facet, single-select: at rest the chip shows its facet name in
-/// quiet-terminal neutral; with a value picked it shows the VALUE in
-/// solid selection blue (#210 — one glance reads the filter state).
-/// Tapping anchors a native Menu with a checkmark on the current value
-/// and "Any" to clear — never value-cycling, which is undiscoverable
-/// and punishes overshoot.
-private struct FacetChip<Value: Hashable>: View {
-    let facet: String
-    @Binding var selection: Value?
-    let options: [(Value, String)]
-
-    var body: some View {
-        Menu {
-            Button {
-                selection = nil
-            } label: {
-                if selection == nil {
-                    Label("Any", systemImage: "checkmark")
-                } else {
-                    Text("Any")
-                }
-            }
-            ForEach(options, id: \.0) { value, label in
-                Button {
-                    selection = value
-                } label: {
-                    if selection == value {
-                        Label(label, systemImage: "checkmark")
-                    } else {
-                        Text(label)
-                    }
-                }
-            }
-        } label: {
-            Text(activeLabel)
-                .font(.system(.caption2, design: .monospaced, weight: .semibold))
-                .kerning(0.5)
-                .lineLimit(1)
-                .foregroundStyle(selection == nil ? Theme.textSecondary : Theme.onSelected)
-                .padding(.horizontal, 13)
-                // 44 pt, the #130 target standard — same height as the
-                // picker's filter dropdowns doing the same job.
-                .frame(height: 44)
-                .background(
-                    selection == nil ? Theme.surface : Theme.selected,
-                    in: Capsule()
-                )
-                .overlay(Capsule().strokeBorder(selection == nil ? Theme.border : Color.clear))
-        }
-        .animation(.easeOut(duration: 0.15), value: selection == nil)
-        .sensoryFeedback(.selection, trigger: selection)
-        .accessibilityIdentifier("facet\(facet.capitalized)")
-    }
-
-    private var activeLabel: String {
-        guard let selection, let match = options.first(where: { $0.0 == selection }) else {
-            return facet
-        }
-        return match.1.uppercased()
     }
 }
 
@@ -472,6 +390,7 @@ struct RoutineTemplateDetailScreen: View {
             .padding(.top, 8)
             .padding(.bottom, 12)
         }
+        .scrollDismissesKeyboard(.immediately)
         .background(Theme.background)
         .navigationTitle(template.name)
         .navigationBarTitleDisplayMode(.inline)

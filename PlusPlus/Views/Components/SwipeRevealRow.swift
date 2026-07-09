@@ -1,12 +1,13 @@
 import SwiftUI
 import SwiftData
 
-/// Slide-to-reveal quick actions for rows OUTSIDE a List — today that
-/// means the routine-detail rail, where native .swipeActions can't go.
-/// List-based rows use the native affordance instead (#231 superseded
-/// #88's everywhere-custom rule after two device failures). Horizontal-
-/// dominant drags reveal; vertical movement stays with the surrounding
-/// scroll. One row open at a time via the shared `openRow` binding.
+/// The one slide-to-reveal affordance, everywhere (#88; Dave reversed
+/// #231's brief native experiment — no mixed affordances). The
+/// build-31 snap-back is fixed here: a momentum floor keeps a relaxing
+/// finger's lift-drift from reading as close-intent, on top of the
+/// cancellation-safe live commit. Horizontal-dominant drags reveal;
+/// vertical movement stays with the surrounding scroll. One row open
+/// at a time via the shared `openRow` binding.
 struct SwipeRevealRow<Content: View, Actions: View>: View {
     let id: PersistentIdentifier
     @Binding var openRow: PersistentIdentifier?
