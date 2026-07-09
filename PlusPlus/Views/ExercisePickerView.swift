@@ -88,7 +88,6 @@ struct ExercisePickerView: View {
                         .padding(.horizontal, 16)
                     FilterBar(
                         filterState: filterState,
-                        allEquipment: allEquipment,
                         showingMuscleGroupFilter: $showingMuscleGroupFilter,
                         showingEquipmentFilter: $showingEquipmentFilter
                     )
@@ -161,83 +160,40 @@ private struct ExerciseRow: View {
 
 private struct FilterBar: View {
     var filterState: ExerciseFilterState
-    let allEquipment: [Equipment]
     @Binding var showingMuscleGroupFilter: Bool
     @Binding var showingEquipmentFilter: Bool
 
-    var body: some View {
-        HStack(spacing: 8) {
-            FilterDropdownButton(
-                label: "Muscle",
-                selections: muscleGroupSelections,
-                action: { showingMuscleGroupFilter = true }
-            )
+    private var anyFilterActive: Bool {
+        !filterState.selectedMuscleGroups.isEmpty || !filterState.selectedEquipment.isEmpty
+    }
 
-            FilterDropdownButton(
-                label: "Equipment",
-                selections: equipmentSelections,
-                action: { showingEquipmentFilter = true }
-            )
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 7) {
+                if anyFilterActive {
+                    ClearAllChip {
+                        filterState.selectedMuscleGroups = []
+                        filterState.selectedEquipment = []
+                    }
+                }
+                TrayFilterChip(
+                    facet: "MUSCLE",
+                    count: filterState.selectedMuscleGroups.count
+                ) { showingMuscleGroupFilter = true }
+                TrayFilterChip(
+                    facet: "EQUIPMENT",
+                    count: filterState.selectedEquipment.count
+                ) { showingEquipmentFilter = true }
+                Spacer(minLength: 0)
+            }
+            .animation(.easeOut(duration: 0.15), value: anyFilterActive)
+            .padding(.horizontal)
         }
-        .padding(.horizontal)
-        .padding(.vertical, 10)
+        .padding(.vertical, 8)
         .background(.bar)
     }
-
-    private var muscleGroupSelections: [String] {
-        filterState.selectedMuscleGroups
-            .sorted { $0.rawValue < $1.rawValue }
-            .map(\.displayName)
-    }
-
-    private var equipmentSelections: [String] {
-        filterState.selectedEquipment
-            .sorted { $0.name < $1.name }
-            .map(\.name)
-    }
 }
 
-/// Internal (not private): the catalog tray (#139) reuses it.
-struct FilterDropdownButton: View {
-    let label: String
-    let selections: [String]
-    let action: () -> Void
-
-    private var isActive: Bool { !selections.isEmpty }
-
-    var body: some View {
-        // One-line 44 pt row (§H): label + live value + ▾ — the field
-        // family shared with SearchField and the create row (§179).
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Text(label)
-                    .font(.subheadline.weight(.medium))
-                    .lineLimit(1)
-                Spacer(minLength: 4)
-                summaryPills
-                Image(systemName: "chevron.down")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(.horizontal, 11)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: 44)
-            .background(Theme.background, in: RoundedRectangle(cornerRadius: 10))
-            // Active filter = UI state (§D): selection ring + selected
-            // value text. Green here was a data-color violation.
-            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(isActive ? Theme.selectedRing : Theme.border, lineWidth: 1))
-        }
-        .tint(.primary)
-        .animation(.easeOut(duration: 0.15), value: isActive)
-    }
-
-    private var summaryPills: some View {
-        Text(selections.isEmpty ? "all" : selections.joined(separator: ", "))
-            .font(.system(.caption2, design: .monospaced))
-            .foregroundStyle(selections.isEmpty ? Theme.textFaint : Theme.selected)
-            .lineLimit(1)
-    }
-}
 
 // MARK: - Muscle Group Filter Sheet
 

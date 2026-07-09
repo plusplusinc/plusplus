@@ -4,9 +4,10 @@ import TipKit
 import PlusPlusKit
 
 /// The personal catalog, v3 (#109): LibraryView split into two tabs —
-/// Exercises and Equipment — each with its own search and contextual
-/// header +. Built-ins removed here leave the library but stay in the
-/// catalog; customs are edited or deleted here.
+/// Exercises and Equipment — curated lists with a contextual header +
+/// (no search here, #233: search lives on the catalogs). Built-ins
+/// removed here leave the library but stay in the catalog; customs
+/// are edited or deleted here.
 struct ExercisesTabView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Exercise.name) private var allExercises: [Exercise]
@@ -304,30 +305,59 @@ struct CatalogBrowseScreen: View {
 
     private var query: String { filterState.searchText }
 
+    /// LIBRARY chip binding over the legacy 0/1/2 segmented value:
+    /// nil = All.
+    private var membershipBinding: Binding<Int?> {
+        Binding(
+            get: { libraryFilter == 0 ? nil : libraryFilter },
+            set: { libraryFilter = $0 ?? 0 }
+        )
+    }
+
+    private var anyFilterActive: Bool {
+        libraryFilter != 0
+            || !filterState.selectedMuscleGroups.isEmpty
+            || !filterState.selectedEquipment.isEmpty
+    }
+
+    private func clearAllFilters() {
+        libraryFilter = 0
+        filterState.selectedMuscleGroups = []
+        filterState.selectedEquipment = []
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            SegmentedTabs(options: ["All", "In library", "Not in library"], selectedIndex: $libraryFilter)
-                .popoverTip(CatalogCurationTip())
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-
-            if kind == .exercises {
+            // One row for all narrowing (#237): membership as a
+            // single-select chip, muscle/equipment as tray chips with
+            // count pills, leading ✕ to clear.
+            ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 7) {
-                    FilterDropdownButton(
-                        label: "Muscle group",
-                        selections: filterState.selectedMuscleGroups.sorted { $0.rawValue < $1.rawValue }.map(\.displayName),
-                        action: { showingMuscleFilter = true }
+                    if anyFilterActive {
+                        ClearAllChip { clearAllFilters() }
+                    }
+                    FacetChip(
+                        facet: "LIBRARY",
+                        selection: membershipBinding,
+                        options: [(1, "In library"), (2, "Not in library")]
                     )
-                    FilterDropdownButton(
-                        label: "Equipment",
-                        selections: filterState.selectedEquipment.sorted { $0.name < $1.name }.map(\.name),
-                        action: { showingEquipmentFilter = true }
-                    )
+                    if kind == .exercises {
+                        TrayFilterChip(
+                            facet: "MUSCLE",
+                            count: filterState.selectedMuscleGroups.count
+                        ) { showingMuscleFilter = true }
+                        TrayFilterChip(
+                            facet: "EQUIPMENT",
+                            count: filterState.selectedEquipment.count
+                        ) { showingEquipmentFilter = true }
+                    }
+                    Spacer(minLength: 0)
                 }
+                .animation(.easeOut(duration: 0.15), value: anyFilterActive)
                 .padding(.horizontal, 16)
-                .padding(.top, 8)
-
             }
+            .popoverTip(CatalogCurationTip())
+            .padding(.top, 6)
 
             Button {
                 createCustom()

@@ -28,6 +28,10 @@ struct ExpandingSearchButton: View {
                         .frame(minWidth: 130, maxWidth: 200)
                         .accessibilityIdentifier(identifier)
                 }
+                // Focus is requested from the field's own appearance —
+                // requesting it in the button action targets a view not
+                // yet installed and is silently dropped (reviewer catch).
+                .onAppear { focused = true }
                 Button {
                     text = ""
                     focused = false
@@ -36,13 +40,13 @@ struct ExpandingSearchButton: View {
                     Image(systemName: "xmark")
                         .font(.system(.footnote, weight: .semibold))
                         .frame(width: 30, height: 30)
-                        .contentShape(Circle())
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .accessibilityIdentifier("dismissSearchButton")
             } else {
                 Button {
                     withAnimation(.easeOut(duration: 0.15)) { expanded = true }
-                    focused = true
                 } label: {
                     Image(systemName: "magnifyingglass")
                         .font(.system(.body, weight: .semibold))

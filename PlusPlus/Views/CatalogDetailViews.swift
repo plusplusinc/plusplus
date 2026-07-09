@@ -114,8 +114,6 @@ struct ExerciseDetailScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Arriving from a focused library search must not strand
-            // the keyboard here (#213) — scrolling shakes it off.
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(spacing: 6) {

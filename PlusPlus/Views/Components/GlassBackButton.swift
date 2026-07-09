@@ -3,7 +3,7 @@ import SwiftUI
 /// The pushed-screen chrome (#198): a bare chevron in the leading
 /// toolbar slot — iOS 26 renders toolbar buttons as Liquid Glass
 /// circles natively — plus the full-width swipe-back surface. Replaces
-/// the v4 flat-header chevron row; titles stay in content.
+/// the v4 flat-header chevron row; titles ride the toolbar inline (#234).
 struct GlassBackButton: ToolbarContent {
     let action: () -> Void
 
