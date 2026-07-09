@@ -173,6 +173,25 @@ struct SeedDataTests {
     /// #95: catalog growth reaches EXISTING stores as a top-up — new
     /// definitions arrive out-of-library, new equipment arrives
     /// un-owned, and the user's curation is untouched.
+    /// #235: every equipment type must gate at least one exercise —
+    /// gear with nothing to do is catalog noise.
+    @Test func everyEquipmentGatesAnExercise() {
+        let gated = Set(SeedData.makeBuiltInExercisesForTesting(equipment: SeedData.builtInEquipment)
+            .flatMap { $0.equipment.map(\.name) })
+        for item in SeedData.builtInEquipment {
+            #expect(gated.contains(item.name), "\(item.name) gates no exercise")
+        }
+    }
+
+    /// #236: the loadable classification references real catalog names
+    /// only (a typo would silently strip a machine's weight step).
+    @Test func loadableNamesExistInCatalog() {
+        let catalog = Set(SeedData.builtInEquipment.map(\.name))
+        for name in SeedData.loadableEquipmentNames {
+            #expect(catalog.contains(name), "\(name) is not a catalog equipment name")
+        }
+    }
+
     @Test func topUpAddsNewDefinitionsWithoutTouchingCuration() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
