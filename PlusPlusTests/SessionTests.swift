@@ -176,4 +176,94 @@ struct SessionTests {
         #expect(logs[0].targetDuration == 60)
         #expect(logs[0].targetWeight == nil)
     }
+
+    // MARK: - Ad-hoc sessions (#239)
+
+    @Test("Appending builds pending solo blocks from exercise defaults")
+    func appendExerciseAddsPendingSoloBlocks() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+
+        let session = WorkoutSession.startEmpty(context: context)
+        #expect(session.routine == nil)
+        #expect(session.routineName == WorkoutSession.scratchName)
+        #expect(session.currentLog == nil)
+
+        let curl = Exercise(name: "Probe Curl", muscleGroup: .biceps)
+        context.insert(curl)
+        curl.defaultWeight = 25
+        curl.defaultReps = 8
+        let plank = Exercise(name: "Probe Plank", muscleGroup: .core, exerciseType: .duration)
+        context.insert(plank)
+
+        let curls = session.appendExercise(curl, context: context)
+        #expect(curls.count == 3)
+        #expect(curls.map(\.setNumber) == [1, 2, 3])
+        let allInFirstGroup = curls.allSatisfy { $0.groupIndex == 0 }
+        #expect(allInFirstGroup)
+        #expect(curls.first?.targetWeight == 25)
+        #expect(curls.first?.targetRepsLower == 8)
+
+        let planks = session.appendExercise(plank, sets: 2, context: context)
+        #expect(planks.count == 2)
+        #expect(planks.first?.groupIndex == 1)
+        #expect(planks.first?.targetDuration == 45)
+        #expect(session.sortedSetLogs.map(\.order) == [0, 1, 2, 3, 4])
+        #expect(session.currentLog?.exerciseName == "Probe Curl")
+    }
+
+    @Test("Save as routine materializes what was performed")
+    func saveAsRoutineMaterializesPerformedWork() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+
+        // Forces the unique-name suffix path for the blank-name default.
+        context.insert(Routine(name: "Scratch workout"))
+
+        let session = WorkoutSession.startEmpty(context: context)
+        let press = Exercise(name: "Probe Press", muscleGroup: .chest)
+        context.insert(press)
+        let logs = session.appendExercise(press, sets: 3, context: context)
+
+        // Two sets done (the second with an edited weight); the third
+        // abandoned — the routine records what happened, not the plan.
+        logs[0].actualWeight = 95
+        logs[0].actualReps = 10
+        session.complete(logs[0])
+        logs[1].actualWeight = 100
+        logs[1].actualReps = 8
+        session.complete(logs[1])
+        session.finish()
+
+        let routines = try context.fetch(FetchDescriptor<Routine>())
+        let routine = try #require(session.saveAsRoutine(named: "  ", among: routines, context: context))
+
+        #expect(routine.name == "Scratch workout 2")
+        #expect(routine.sortedGroups.count == 1)
+        let group = try #require(routine.sortedGroups.first)
+        #expect(group.sets == 2)
+        let entry = try #require(group.sortedExercises.first)
+        #expect(entry.exercise === press)
+        #expect(entry.weight == 100)
+        #expect(entry.reps == 8)
+        #expect(entry.repsUpper == nil)
+        #expect(press.inLibrary, "referenced exercises join the library")
+        #expect(session.routine === routine)
+        #expect(session.routineName == "Scratch workout 2")
+    }
+
+    @Test("Save as routine needs completed work")
+    func saveAsRoutineRequiresCompletedWork() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+
+        let session = WorkoutSession.startEmpty(context: context)
+        let row = Exercise(name: "Probe Row", muscleGroup: .back)
+        context.insert(row)
+        session.appendExercise(row, context: context)
+
+        #expect(session.saveAsRoutine(named: "Nope", among: [], context: context) == nil)
+        let routineCount = try context.fetchCount(FetchDescriptor<Routine>())
+        #expect(routineCount == 0)
+    }
 }

@@ -39,6 +39,7 @@ struct TodayView: View {
     @State private var todayPath = NavigationPath()
     @State private var showingNewRoutine = false
     @State private var pendingCreateFromSwapIn = false
+    @State private var pendingStartEmpty = false
     @State private var newRoutineName = ""
     /// Hero zooms (#216): starting a workout grows the pending card
     /// into the session screen; a committed card grows into its
@@ -141,6 +142,9 @@ struct TodayView: View {
                 } else if pendingCreateFromSwapIn {
                     pendingCreateFromSwapIn = false
                     showingNewRoutine = true
+                } else if pendingStartEmpty {
+                    pendingStartEmpty = false
+                    startEmptySession()
                 }
             }) {
                 SwapInSheet(routines: swapInCandidates, onPick: { routine in
@@ -150,6 +154,9 @@ struct TodayView: View {
                     // Same drop class as swapInPick above: the alert
                     // waits for the sheet to finish dismissing.
                     pendingCreateFromSwapIn = true
+                    showingSwapIn = false
+                }, onStartEmpty: {
+                    pendingStartEmpty = true
                     showingSwapIn = false
                 })
             }
@@ -379,6 +386,15 @@ struct TodayView: View {
         guard !routine.groups.isEmpty else { return }
         // ActiveSessionView requests notification permission on appear.
         activeSession = WorkoutSession.start(from: routine, context: modelContext)
+    }
+
+    /// The no-plan session (#239): starts empty, gets filled on the
+    /// gym floor. An empty scratch session is safe to abandon — the
+    /// orphan salvage deletes 0-set sessions, and the empty stage never
+    /// auto-finishes, so nothing 0-set can commit.
+    private func startEmptySession() {
+        guard activeSession == nil else { return }
+        activeSession = WorkoutSession.startEmpty(context: modelContext)
     }
 
     // MARK: - Header
@@ -730,6 +746,25 @@ struct TodayView: View {
                     }
                     .accessibilityIdentifier("swapInButton")
                 }
+                // The no-plan path (#239): walk in, start logging, keep
+                // the result as a routine at the finish if it earned it.
+                Button {
+                    startEmptySession()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus")
+                            .font(.system(.caption, weight: .semibold))
+                        Text("Start empty workout")
+                            .font(.system(.footnote, weight: .semibold))
+                    }
+                    // Creation is green (#202) — this births a session
+                    // (and maybe a routine) from nothing.
+                    .foregroundStyle(Theme.accent)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 40)
+                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.borderStrong))
+                }
+                .accessibilityIdentifier("startEmptyWorkoutButton")
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -967,6 +1002,7 @@ private struct SwapInSheet: View {
     let routines: [Routine]
     let onPick: (Routine) -> Void
     let onCreate: () -> Void
+    let onStartEmpty: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -1016,6 +1052,30 @@ private struct SwapInSheet: View {
                         )
                     }
                     .accessibilityIdentifier("swapInCreateRoutine")
+
+                    // The third path (#239): no template at all — log
+                    // what happens and decide at the end if it's worth
+                    // keeping as a routine.
+                    Button {
+                        onStartEmpty()
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "plus")
+                                .font(.system(.caption, weight: .semibold))
+                            Text("Start empty workout")
+                                .font(.system(.footnote, weight: .semibold))
+                        }
+                        .foregroundStyle(Theme.accent)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 14)
+                        .frame(height: 48)
+                        .contentShape(Rectangle())
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Theme.controlRadius)
+                                .strokeBorder(Theme.borderStrong)
+                        )
+                    }
+                    .accessibilityIdentifier("swapInStartEmpty")
                 }
                 .padding(.top, 12)
                 .padding(.bottom, 24)

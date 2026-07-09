@@ -167,6 +167,113 @@ final class WorkoutSession {
     }
 }
 
+// MARK: - Ad-hoc sessions (#239)
+
+extension WorkoutSession {
+    /// The snapshot name for sessions started without a routine — the
+    /// scratch buffer of workouts. Renamed if the user saves the session
+    /// as a routine at the finish.
+    static let scratchName = "Scratch workout"
+
+    /// An empty session with no routine: built on the gym floor one
+    /// exercise at a time via `appendExercise`. Ordinary in every other
+    /// way — history, diffs, and salvage all key on snapshots, and a
+    /// nil routine satisfies no schedule.
+    static func startEmpty(context: ModelContext, at date: Date = Date()) -> WorkoutSession {
+        let session = WorkoutSession(routineName: scratchName, startedAt: date)
+        context.insert(session)
+        // Same identity rule as start(from:): fullScreenCover(item:)
+        // keys on persistentModelID, which changes at first save.
+        try? context.save()
+        return session
+    }
+
+    /// Appends `sets` pending logs of `exercise` as a new solo block at
+    /// the end of the session, targets prefilled from the exercise's own
+    /// defaults (#187). Logged sets are never touched — mid-session
+    /// additions only ever add pending work.
+    @discardableResult
+    func appendExercise(_ exercise: Exercise, sets: Int = 3, context: ModelContext) -> [SetLog] {
+        let existing = sortedSetLogs
+        let groupIndex = (existing.map(\.groupIndex).max() ?? -1) + 1
+        var order = (existing.map(\.order).max() ?? -1) + 1
+        let isDuration = exercise.exerciseType == .duration
+        var appended: [SetLog] = []
+        for setNumber in 1...max(sets, 1) {
+            let log = SetLog(
+                order: order,
+                groupIndex: groupIndex,
+                setNumber: setNumber,
+                exerciseName: exercise.name,
+                exerciseType: exercise.exerciseType,
+                targetWeight: isDuration ? nil : exercise.defaultWeight,
+                targetRepsLower: isDuration ? nil : (exercise.defaultReps ?? 10),
+                targetRepsUpper: isDuration ? nil : exercise.defaultRepsUpper,
+                targetDuration: isDuration ? (exercise.defaultDurationSeconds ?? 45) : nil
+            )
+            // Insert first, relationships after (the seeder's hard-won
+            // rule) — start(from:) predates it and is #195's audit.
+            context.insert(log)
+            log.session = self
+            log.exercise = exercise
+            appended.append(log)
+            order += 1
+        }
+        return appended
+    }
+
+    /// Materializes a routine from what was actually performed: blocks
+    /// in session order, set counts as done, targets from each block's
+    /// last completed log (weight carry-forward makes that the latest
+    /// prescription). Referenced exercises join the library; the session
+    /// relinks and renames so this run becomes the routine's first
+    /// performance for future diffs. Returns nil when nothing completed
+    /// survives (no completed sets, or their exercises were deleted).
+    @discardableResult
+    func saveAsRoutine(named proposed: String, among existing: [Routine], context: ModelContext) -> Routine? {
+        var blockOrder: [String] = []
+        var blocks: [String: [SetLog]] = [:]
+        for log in completedSetLogs {
+            let key = "\(log.groupIndex)|\(log.exerciseName)"
+            if blocks[key] == nil { blockOrder.append(key) }
+            blocks[key, default: []].append(log)
+        }
+        guard !blockOrder.isEmpty else { return nil }
+
+        let trimmed = proposed.trimmingCharacters(in: .whitespaces)
+        let name = Routine.uniqueName(trimmed.isEmpty ? Self.scratchName : trimmed, among: existing)
+        let routine = Routine(name: name, order: 0, restSeconds: restSeconds)
+        context.insert(routine)
+
+        for key in blockOrder {
+            // A deleted exercise can't join a template; its logged sets
+            // stay in this session's history either way.
+            guard let logs = blocks[key], let exercise = logs.first?.exercise else { continue }
+            exercise.inLibrary = true
+            let group = routine.addExerciseInNewGroup(exercise, context: context)
+            group.sets = logs.count
+            guard let last = logs.last, let entry = group.sortedExercises.first else { continue }
+            if last.exerciseType == .duration {
+                entry.durationSeconds = last.actualDuration ?? last.targetDuration
+            } else {
+                entry.weight = last.actualWeight ?? last.targetWeight
+                // A performed rep count is a scalar; the target range
+                // survives only when no actual was recorded.
+                entry.reps = last.actualReps ?? last.targetRepsLower
+                entry.repsUpper = last.actualReps == nil ? last.targetRepsUpper : nil
+            }
+        }
+        guard !routine.sortedGroups.isEmpty else {
+            context.delete(routine)
+            return nil
+        }
+
+        self.routine = routine
+        self.routineName = routine.name
+        return routine
+    }
+}
+
 /// One planned/performed set of one exercise within a session. Targets are
 /// copied from the plan; actuals are what happened. Exercise name and type
 /// are snapshotted so history survives library edits.

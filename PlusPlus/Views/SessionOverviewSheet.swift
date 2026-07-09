@@ -7,11 +7,17 @@ import PlusPlusKit
 /// sheet for target edits and jump/redo navigation.
 struct SessionOverviewSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @Bindable var session: WorkoutSession
     /// Called after any jump so the presenter can clear a running rest.
     let onJumped: () -> Void
 
     @State private var selectedBlockKey: String?
+    // Mid-session additions (#239): the picker stacks on this sheet so
+    // the new block appears right here when it closes — no dismiss-
+    // then-present handoff (the documented presentation-drop class).
+    @State private var showingAddExercise = false
+    @State private var pickerFilterState = ExerciseFilterState()
 
     /// One row per exercise-within-group, in rotation order.
     struct Block: Identifiable {
@@ -61,6 +67,39 @@ struct SessionOverviewSheet: View {
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 14))
                 }
+                // Adding mid-workout appends a pending solo block at the
+                // end (#239) — logged sets are never touched. Finished
+                // sessions are records, not plans: no additions (the
+                // header keeps this sheet reachable from the done
+                // screen, where a new pending set would be invisible).
+                if !session.isFinished {
+                Button {
+                    showingAddExercise = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "plus")
+                            .font(.system(.caption, weight: .semibold))
+                        Text("Add exercise")
+                            .font(.system(.footnote, weight: .semibold))
+                    }
+                    // Creation is green (#202).
+                    .foregroundStyle(Theme.accent)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12)
+                    .frame(height: 44)
+                    .contentShape(Rectangle())
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Theme.controlRadius)
+                            .strokeBorder(Theme.borderStrong)
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("overviewAddExerciseButton")
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 4, trailing: 14))
+                }
+
                 Text("Tap any row for detail · jump from there")
                     .font(.system(.caption2))
                     .foregroundStyle(Theme.textFaint)
@@ -97,6 +136,11 @@ struct SessionOverviewSheet: View {
                 dismiss()
             }
             .presentationDetents([.fraction(0.84)])
+        }
+        .sheet(isPresented: $showingAddExercise) {
+            ExercisePickerView(filterState: pickerFilterState) { exercise in
+                session.appendExercise(exercise, context: modelContext)
+            }
         }
     }
 
