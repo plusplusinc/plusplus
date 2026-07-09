@@ -3,11 +3,13 @@ import SwiftData
 import PlusPlusKit
 
 enum SeedData {
-    /// `populateLibrary: false` (#185) seeds built-in exercises OUT of
-    /// the library: a fresh install's Exercises tab is empty, not a
-    /// pre-curation chore — the catalog stays fully browsable and the
-    /// optional populate step (or plain usage) grows the library.
-    /// Equipment still seeds in-library; the setup step curates it.
+    /// `populateLibrary: false` (#185, extended to equipment in #232)
+    /// seeds the whole catalog OUT of the library: a fresh install's
+    /// Exercises AND Equipment tabs are empty — ownership is an opt-in
+    /// statement (owning everything means the filter says nothing), and
+    /// the catalog stays fully browsable either way. `populateLibrary`
+    /// is the smoke tests' shortcut to a usable pre-filled store and
+    /// only meaningful on a fresh one.
     /// Top-up seeder (#95): inserts whatever the definitions table has
     /// that the store doesn't, so catalog growth reaches existing
     /// installs — user edits and curation are never touched (matching
@@ -27,10 +29,10 @@ enum SeedData {
             uniquingKeysWith: { a, _ in a }
         )
         for item in builtInEquipment where equipmentByName[item.name.lowercased()] == nil {
-            // Fresh stores own everything until the setup step curates;
-            // a store that already curated ownership doesn't suddenly
-            // "own" a hack squat machine because the catalog grew.
-            item.inLibrary = isFreshStore
+            // Un-owned like the exercises (#232): the setup step and the
+            // Equipment tab's empty state are the opt-in. Catalog growth
+            // never grants ownership to an existing store either.
+            item.inLibrary = isFreshStore && populateLibrary
             context.insert(item)
             equipmentByName[item.name.lowercased()] = item
         }
@@ -86,6 +88,30 @@ enum SeedData {
             }
         }
         return added
+    }
+
+    /// One-shot ownership reset (#232): equipment seeded fully-owned on
+    /// fresh stores until build 32 — backwards, since an all-owned list
+    /// filters nothing — and Dave chose to reset existing stores rather
+    /// than grandfather the old default. Built-in equipment goes
+    /// un-owned once; custom gear (created deliberately) stays. Keyed
+    /// so a later re-pick is never fought.
+    static let equipmentOwnershipResetKey = "equipmentOwnershipReset1"
+
+    static func resetEquipmentOwnershipIfNeeded(context: ModelContext) {
+        guard !UserDefaults.standard.bool(forKey: equipmentOwnershipResetKey) else { return }
+        UserDefaults.standard.set(true, forKey: equipmentOwnershipResetKey)
+
+        let equipment = (try? context.fetch(FetchDescriptor<Equipment>())) ?? []
+        for item in equipment where item.isBuiltIn && item.inLibrary {
+            item.inLibrary = false
+        }
+        // The setup flag described the curation this just erased — clear
+        // it too, so a no-history user gets the setup step back as the
+        // re-pick affordance (users with history never see the scaffold;
+        // for them the Equipment tab's empty state is the pointer).
+        UserDefaults.standard.removeObject(forKey: SetupState.equipmentDoneKey)
+        try? context.save()
     }
 
     /// One-shot repair (#186): Dave's store surfaced built-ins with

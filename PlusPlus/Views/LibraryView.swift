@@ -30,11 +30,23 @@ struct ExercisesTabView: View {
                     showingCatalog = true
                 }
 
-                List {
-                    exerciseRows
+                if libraryExercises.isEmpty {
+                    // Empty is the fresh-install default (#185/#232) —
+                    // say what the library is FOR, then point at the
+                    // catalog (same voice as the Routines empty state).
+                    LibraryEmptyState(
+                        title: "No Exercises",
+                        systemImage: "list.bullet",
+                        message: "Your library is the short list you actually do. Pick from the catalog — anything you use in a routine joins on its own.",
+                        ctaIdentifier: "emptyExercisesCatalogButton"
+                    ) { showingCatalog = true }
+                } else {
+                    List {
+                        exerciseRows
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
                 }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
             }
             .background(Theme.background)
             .toolbar(.hidden, for: .navigationBar)
@@ -146,11 +158,20 @@ struct EquipmentTabView: View {
                     showingCatalog = true
                 }
 
-                List {
-                    equipmentRows
+                if libraryEquipment.isEmpty {
+                    LibraryEmptyState(
+                        title: "No Equipment",
+                        systemImage: "dumbbell",
+                        message: "Pick what you own — exercises and routines can then be matched to gear you actually have.",
+                        ctaIdentifier: "emptyEquipmentCatalogButton"
+                    ) { showingCatalog = true }
+                } else {
+                    List {
+                        equipmentRows
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
                 }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
             }
             .background(Theme.background)
             .toolbar(.hidden, for: .navigationBar)
@@ -218,6 +239,46 @@ struct EquipmentTabView: View {
             }
             modelContext.delete(equipment)
         }
+    }
+}
+
+/// Empty state for the two library tabs (#232): fresh installs seed
+/// NOTHING into the library, so this is the first thing a new user
+/// sees here — it explains what the list is for and points at the
+/// catalog. The CTA is green: it leads to adding (#202).
+struct LibraryEmptyState: View {
+    let title: String
+    let systemImage: String
+    let message: String
+    let ctaIdentifier: String
+    let onBrowse: () -> Void
+
+    var body: some View {
+        ContentUnavailableView {
+            Label(title, systemImage: systemImage)
+        } description: {
+            Text(message)
+        } actions: {
+            Button(action: onBrowse) {
+                HStack(spacing: 8) {
+                    Image(systemName: "plus")
+                        .font(.system(.caption, weight: .semibold))
+                    Text("Browse the catalog")
+                        .font(.system(.footnote, weight: .semibold))
+                }
+                .foregroundStyle(Theme.accent)
+                .padding(.horizontal, 16)
+                .frame(height: 48)
+                .contentShape(Rectangle())
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.controlRadius)
+                        .strokeBorder(Theme.borderStrong)
+                )
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier(ctaIdentifier)
+        }
+        .frame(maxHeight: .infinity)
     }
 }
 

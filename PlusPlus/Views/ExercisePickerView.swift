@@ -22,7 +22,17 @@ struct ExercisePickerView: View {
     var body: some View {
         NavigationStack {
             List {
-                ForEach(filterState.filteredExercises(from: allExercises.filter { $0.inLibrary || !$0.isBuiltIn })) { exercise in
+                // Every row here is a library/custom row, and curated
+                // rows are never hidden, only flagged (#113) — so the
+                // ownership hide does NOT apply in the picker. Before
+                // #232 this was dormant (fresh stores owned everything);
+                // with opt-in ownership it would have hidden the user's
+                // own exercises behind gear they hadn't picked yet
+                // (swift-reviewer catch on the #232 diff).
+                ForEach(filterState.filteredExercises(
+                    from: allExercises.filter { $0.inLibrary || !$0.isBuiltIn },
+                    overridingShowUnowned: true
+                )) { exercise in
                     Button {
                         onSelect(exercise)
                         dismiss()
@@ -98,8 +108,15 @@ struct ExercisePickerView: View {
                     .presentationDetents([.medium])
             }
             .sheet(isPresented: $showingEquipmentFilter) {
-                EquipmentFilterSheet(filterState: filterState, allEquipment: allEquipment.filter { $0.inLibrary || !$0.isBuiltIn })
-                    .presentationDetents([.medium, .large])
+                // No ownership toggle here: the picker never
+                // ownership-hides (see the list comment above), so the
+                // escape hatch would be a dead switch.
+                EquipmentFilterSheet(
+                    filterState: filterState,
+                    allEquipment: allEquipment.filter { $0.inLibrary || !$0.isBuiltIn },
+                    showsOwnershipToggle: false
+                )
+                .presentationDetents([.medium, .large])
             }
         }
     }
@@ -134,8 +151,8 @@ private struct ExerciseRow: View {
             Text(subtitle)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            // Visible only under "show all" (#113): owned exercises
-            // never reach this row with missing equipment.
+            // The flag half of #113's "flagged, never hidden": library
+            // rows always list; this line carries the gear gap.
             if !missing.isEmpty {
                 Text("needs \(missing.joined(separator: ", "))")
                     .font(.system(.caption2, design: .monospaced))
@@ -254,6 +271,10 @@ struct EquipmentFilterSheet: View {
     @Environment(\.dismiss) private var dismiss
     var filterState: ExerciseFilterState
     let allEquipment: [Equipment]
+    /// The catalog browser ownership-hides and needs the escape hatch;
+    /// the picker doesn't hide, so it passes false (a toggle that does
+    /// nothing reads as broken).
+    var showsOwnershipToggle = true
 
     /// Clear appears only while a selection exists (v4 §C table).
     private var clearAction: (() -> Void)? {
@@ -272,31 +293,43 @@ struct EquipmentFilterSheet: View {
             )
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    FlowLayout(spacing: 8) {
-                        ForEach(allEquipment) { equipment in
-                            SelectableChip(
-                                label: equipment.name,
-                                isSelected: filterState.selectedEquipment.contains(equipment)
-                            ) {
-                                filterState.selectedEquipment.toggle(equipment)
+                    if allEquipment.isEmpty {
+                        // Zero ownership is the fresh-install default
+                        // (#232) — say why the tray is empty instead of
+                        // rendering a bare toggle under nothing.
+                        Text("This filters by equipment you've picked — choose what you own on the Equipment tab and it shows up here.")
+                            .font(.system(.footnote))
+                            .foregroundStyle(Theme.textSecondary)
+                            .padding(.vertical, 14)
+                    } else {
+                        FlowLayout(spacing: 8) {
+                            ForEach(allEquipment) { equipment in
+                                SelectableChip(
+                                    label: equipment.name,
+                                    isSelected: filterState.selectedEquipment.contains(equipment)
+                                ) {
+                                    filterState.selectedEquipment.toggle(equipment)
+                                }
                             }
                         }
+                        .padding(.vertical)
                     }
-                    .padding(.vertical)
 
                     // The ownership escape hatch lives here now (§H) —
                     // it left the crowded catalog top area.
-                    Toggle(isOn: Bindable(filterState).showUnowned) {
-                        Text("Include gear I don't own")
-                            .font(.system(.footnote))
-                            .foregroundStyle(Theme.textPrimary)
+                    if showsOwnershipToggle {
+                        Toggle(isOn: Bindable(filterState).showUnowned) {
+                            Text("Include gear I don't own")
+                                .font(.system(.footnote))
+                                .foregroundStyle(Theme.textPrimary)
+                        }
+                        .tint(Theme.selected)
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 52)
+                        .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
+                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+                        .accessibilityIdentifier("showUnownedToggle")
                     }
-                    .tint(Theme.selected)
-                    .padding(.horizontal, 14)
-                    .frame(minHeight: 52)
-                    .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
-                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
-                    .accessibilityIdentifier("showUnownedToggle")
                 }
             }
         }

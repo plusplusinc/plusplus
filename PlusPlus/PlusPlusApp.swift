@@ -75,6 +75,7 @@ struct PlusPlusApp: App {
         )
         if !inMemory {
             SeedData.repairBuiltInEquipmentIfNeeded(context: modelContainer.mainContext)
+            SeedData.resetEquipmentOwnershipIfNeeded(context: modelContainer.mainContext)
         }
         // A routine tall enough to overflow every simulator screen, for
         // the scroll regression test. Only meaningful with --uitest-reset.

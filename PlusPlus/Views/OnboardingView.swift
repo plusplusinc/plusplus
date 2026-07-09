@@ -6,8 +6,8 @@ import PlusPlusKit
 /// "setup-as-timeline"): there is no onboarding flow anymore — a fresh
 /// install's Today shows three setup steps as timeline entries, gated
 /// bottom-up like commits. Equipment is the only step needing a stored
-/// flag (its "done" can't be derived — the catalog defaults to
-/// everything owned); routines and schedules are derived live.
+/// flag (its "done" can't be derived — owning nothing is a valid
+/// choice, #232); routines and schedules are derived live.
 enum SetupState {
     static let equipmentDoneKey = "setupEquipmentDone"
     static let equipmentDoneDateKey = "setupEquipmentDoneDate"

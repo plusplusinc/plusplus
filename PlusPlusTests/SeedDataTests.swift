@@ -123,6 +123,50 @@ struct SeedDataTests {
         #expect(pushUp.equipment.isEmpty)
     }
 
+    /// #232: equipment ownership is opt-in — a fresh seed owns nothing.
+    @Test func freshSeedLeavesEquipmentUnowned() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        SeedData.loadIfNeeded(context: context)
+
+        let equipment = try context.fetch(FetchDescriptor<Equipment>())
+        #expect(!equipment.isEmpty)
+        let allUnowned = equipment.allSatisfy { !$0.inLibrary }
+        #expect(allUnowned)
+    }
+
+    /// #232: the one-shot reset un-owns built-ins on stores that predate
+    /// the opt-in flip, never touches custom gear, and never re-runs —
+    /// a re-pick after the reset must not be fought.
+    @Test func ownershipResetUnownsBuiltInsOnce() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        SeedData.loadIfNeeded(context: context)
+
+        let equipment = try context.fetch(FetchDescriptor<Equipment>())
+        let bench = try #require(equipment.first { $0.name == "Bench" })
+        bench.inLibrary = true
+        let custom = Equipment(name: "Probe Custom Rig", isBuiltIn: false)
+        context.insert(custom)
+        custom.inLibrary = true
+
+        UserDefaults.standard.removeObject(forKey: SeedData.equipmentOwnershipResetKey)
+        UserDefaults.standard.set(true, forKey: SetupState.equipmentDoneKey)
+        defer {
+            UserDefaults.standard.removeObject(forKey: SeedData.equipmentOwnershipResetKey)
+            UserDefaults.standard.removeObject(forKey: SetupState.equipmentDoneKey)
+        }
+        SeedData.resetEquipmentOwnershipIfNeeded(context: context)
+
+        #expect(!bench.inLibrary)
+        #expect(custom.inLibrary, "custom gear is deliberate — the reset never touches it")
+        #expect(!SetupState.equipmentDone, "the reset erased the curation the setup flag described")
+
+        bench.inLibrary = true
+        SeedData.resetEquipmentOwnershipIfNeeded(context: context)
+        #expect(bench.inLibrary, "the reset is keyed; a later re-pick stands")
+    }
+
     @Test func allBuiltInExercisesHaveUniqueNames() {
         let equipment = SeedData.builtInEquipment
         let exercises = SeedData.makeBuiltInExercisesForTesting(equipment: equipment)
