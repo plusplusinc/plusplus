@@ -40,6 +40,13 @@ struct RoutineDetailView: View {
             header
 
             railList
+                // Anchored on the rail's enclosing scroll view — a
+                // stable frame; the rows inside move during drags and
+                // swipe reveals, so they can't hold a popover.
+                .modifier(SupersetTipAnchor(
+                    exerciseCount: routine.sortedGroups.reduce(0) { $0 + $1.sortedExercises.count },
+                    hasSuperset: routine.sortedGroups.contains(where: \.isSuperset)
+                ))
         }
         .background(Theme.background)
         .navigationTitle(routine.name)
@@ -579,6 +586,12 @@ struct RoutineDetailView: View {
             guard group.isSuperset, let first = group.sortedExercises.first else { break }
             routine.splitExercise(first, placeAbove: true, context: modelContext)
         }
+
+        // Absorbing a neighbor formed (or grew) a superset by hand —
+        // whoever did that never needs the how-to tip.
+        if span.absorbAfter > 0 || span.absorbBefore > 0 {
+            SupersetCreationTip().invalidate(reason: .actionPerformed)
+        }
     }
 
     @ViewBuilder
@@ -612,6 +625,9 @@ struct RoutineDetailView: View {
             routine.addExerciseInNewGroup(exercise, context: modelContext)
         case .group(let group):
             routine.addExercise(exercise, to: group, context: modelContext)
+            // Picking into an existing group is superset creation by
+            // another door — same rule as the ring and sheet paths.
+            SupersetCreationTip().invalidate(reason: .actionPerformed)
         }
     }
 
@@ -646,6 +662,27 @@ struct RoutineDetailView: View {
         routine.reindexGroups()
     }
 
+}
+
+/// Structural gate for the superset tips (`popoverTip` takes a concrete
+/// Tip, not an Optional, so eligibility branches the view — the same
+/// shape the old curation-tip gate used). One branch renders at a time,
+/// which keeps the two tips contextually exclusive by construction: a
+/// loop on the rail explains itself; no loop but material to pair
+/// teaches the making of one; a single exercise gets neither.
+private struct SupersetTipAnchor: ViewModifier {
+    let exerciseCount: Int
+    let hasSuperset: Bool
+
+    func body(content: Content) -> some View {
+        if hasSuperset {
+            content.popoverTip(SupersetLoopTip())
+        } else if exerciseCount >= 2 {
+            content.popoverTip(SupersetCreationTip())
+        } else {
+            content
+        }
+    }
 }
 
 /// Where a picked exercise should land: a fresh group at the end, or an
@@ -913,7 +950,6 @@ struct RoutineSettingsScreen: View {
                             .padding(.top, 8)
                     } else if scheduleMode == 2 {
                         frequencySteppers
-                            .popoverTip(PaceAnchorTip())
                             .padding(.top, 8)
                     }
 
@@ -922,6 +958,17 @@ struct RoutineSettingsScreen: View {
                             .font(.system(.caption))
                             .foregroundStyle(Theme.textFaint)
                             .padding(.top, 6)
+                    }
+
+                    // Pace's anchor semantics are permanent copy (the
+                    // one-time tip died in the TipKit rework): the
+                    // concept is load-bearing every time the mode is
+                    // chosen, not a first-encounter surprise.
+                    if scheduleMode == 2 {
+                        Text("3×/7d counts from your last completion, not the calendar week — miss a day and nothing stacks up.")
+                            .font(.system(.caption))
+                            .foregroundStyle(Theme.textFaint)
+                            .padding(.top, 4)
                     }
 
                     SheetSectionLabel("BETWEEN SETS")
@@ -1118,8 +1165,8 @@ struct RoutineSettingsScreen: View {
             }
             return "On the marked days; a missed day carries over until you do it."
         case 2:
-            // The anchor concept moved to a one-time tip (§G); only the
-            // computed interval survives as ambient data.
+            // The computed interval as ambient data; the anchor
+            // semantics live in the permanent footnote below this.
             let interval = (schedulePerDays + scheduleTimes - 1) / scheduleTimes
             return "\(scheduleTimes)×/\(schedulePerDays)d comes around every ~\(interval) day\(interval == 1 ? "" : "s")."
         default:

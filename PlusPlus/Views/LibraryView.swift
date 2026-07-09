@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import TipKit
 import PlusPlusKit
 
 /// The personal catalog, v3 (#109): LibraryView split into two tabs —
@@ -422,11 +421,6 @@ struct CatalogBrowseScreen: View {
                 .animation(.easeOut(duration: 0.15), value: anyFilterActive)
                 .padding(.horizontal, 16)
             }
-            // Not in setup (FTUE audit): the tip's library-curation
-            // copy contradicts the step's ownership framing, and it
-            // pops at the flow's highest-anxiety moment. popoverTip
-            // takes a concrete Tip, so the gate is structural.
-            .modifier(CurationTipUnlessSetup(setupMode: setupMode))
             .padding(.top, 6)
 
             Button {
@@ -464,7 +458,6 @@ struct CatalogBrowseScreen: View {
                                 set: {
                                     exercise.inLibrary = $0
                                     touchedSetup = true
-                                    CatalogCurationTip().invalidate(reason: .actionPerformed)
                                 }
                             )
                         )
@@ -479,7 +472,6 @@ struct CatalogBrowseScreen: View {
                                 set: {
                                     equipment.inLibrary = $0
                                     touchedSetup = true
-                                    CatalogCurationTip().invalidate(reason: .actionPerformed)
                                 }
                             )
                         )
@@ -709,19 +701,5 @@ struct CatalogBrowseScreen: View {
             modelContext.insert(Equipment(name: name, isBuiltIn: false))
         }
         dismiss()
-    }
-}
-
-/// Structural gate for the curation tip: `popoverTip` takes `some Tip`
-/// (no Optional), so setup mode branches around it entirely.
-private struct CurationTipUnlessSetup: ViewModifier {
-    let setupMode: Bool
-
-    func body(content: Content) -> some View {
-        if setupMode {
-            content
-        } else {
-            content.popoverTip(CatalogCurationTip())
-        }
     }
 }

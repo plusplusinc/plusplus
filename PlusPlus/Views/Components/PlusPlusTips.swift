@@ -1,21 +1,26 @@
 import SwiftUI
 import TipKit
 
-/// One-time education (v4 §G): the ambient captions died; what survives
-/// as TIPS is shown once with the system's own appearance — tips are
-/// scaffolding, not brand surface — and invalidated the moment the user
-/// does the thing unprompted.
+/// TipKit is reserved for exactly one concept: introducing supersets
+/// (the 2026-07-09 audit's call — everything else the UI now says in
+/// place, or nowhere). Tips render with the system's own appearance —
+/// they're scaffolding, not brand surface — and the creation tip is
+/// invalidated the moment the user builds a superset unprompted.
 
-/// Catalog browse: what membership toggles do (replaces the deleted
-/// "Toggles curate your library…" caption).
-struct CatalogCurationTip: Tip {
-    var title: Text { Text("Toggles curate your library") }
-    var message: Text? { Text("Removing never touches routines or logged history.") }
+/// Routine detail, when the rail already shows a loop the user may not
+/// have drawn themselves (an instantiated template, a shared import):
+/// what the glyph means.
+struct SupersetLoopTip: Tip {
+    var title: Text { Text("The loop is a superset") }
+    var message: Text? { Text("One round runs each exercise once, alternating.") }
+    var image: Image? { Image(systemName: "square.fill.on.square.fill") }
 }
 
-/// Schedule editor: the Pace anchor concept (replaces the ambient
-/// caption; a real concept, not decoration).
-struct PaceAnchorTip: Tip {
-    var title: Text { Text("Pace is anchored to you") }
-    var message: Text? { Text("3×/7d counts from your last completion, not the calendar week — miss a day and nothing stacks up.") }
+/// Routine detail, when there's material to pair (≥2 exercises) but no
+/// superset yet: how to make one. Structurally exclusive with the loop
+/// tip — see SupersetTipAnchor in RoutineDetailView.
+struct SupersetCreationTip: Tip {
+    var title: Text { Text("Pair exercises into a superset") }
+    var message: Text? { Text("Open an exercise and choose Superset with… — or hold its rail dot and drag over a neighbor.") }
+    var image: Image? { Image(systemName: "square.fill.on.square.fill") }
 }

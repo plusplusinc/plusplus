@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import TipKit
 import PlusPlusKit
 
 /// Per-exercise planning sheet, v2 (#62): metric rows with steppers and
@@ -267,12 +268,15 @@ struct ExerciseDetailSheet: View {
                 if index > 0 {
                     SheetActionButton("Superset with exercise above", systemImage: "square.on.square") {
                         routine.mergeSoloGroup(group, direction: -1, context: modelContext)
+                        // Found unprompted — the how-to tip never shows.
+                        SupersetCreationTip().invalidate(reason: .actionPerformed)
                         dismiss()
                     }
                 }
                 if index < routine.sortedGroups.count - 1 {
                     SheetActionButton("Superset with exercise below", systemImage: "square.on.square") {
                         routine.mergeSoloGroup(group, direction: 1, context: modelContext)
+                        SupersetCreationTip().invalidate(reason: .actionPerformed)
                         dismiss()
                     }
                 }
