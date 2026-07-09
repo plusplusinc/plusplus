@@ -38,8 +38,8 @@ public enum RoutineDiff {
     }
 
     /// The single delta an exercise contributes to the summary line.
-    /// When both weight and reps changed, weight wins (§4); the expanded
-    /// row may show both.
+    /// Increases only (#246): a silenced weight decrease falls through
+    /// to a reps increase — see `delta(target:prior:)` for the why.
     public enum Delta: Equatable, Sendable {
         case new
         case unchanged

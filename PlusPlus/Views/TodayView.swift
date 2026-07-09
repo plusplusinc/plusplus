@@ -486,7 +486,9 @@ struct TodayView: View {
         } else if summary.contains(where: { $0.kind != .unchanged }) {
             segments = summary.filter { $0.kind != .unchanged }
         } else {
-            segments = summary
+            // Zero comparable lines (every entry dangling) must not
+            // claim "=" — there is nothing to be equal to.
+            segments = lines.isEmpty ? [] : summary
         }
 
         return VStack(alignment: .leading, spacing: 0) {
