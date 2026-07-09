@@ -100,11 +100,14 @@ struct TodayView: View {
                         // routine CAN start, the item returns (#246):
                         // scheduling is optional and must not read as
                         // the only path to working out.
-                        if dueRoutines.isEmpty && dueButEmptyRoutines.isEmpty
+                        if dueRoutines.isEmpty
                             && (!setupActive || allSetupDone || !swapInCandidates.isEmpty) {
                             restDayItem
                         }
                         ForEach(dueButEmptyRoutines) { routine in
+                            // Inert grey by intent: the ROUTINE isn't
+                            // startable — the card's CTA repairs, it
+                            // doesn't perform (rail grammar call).
                             TimelineItem(node: .inert) {
                                 emptyRoutineCard(routine)
                             }
@@ -744,13 +747,9 @@ struct TodayView: View {
     private var restDayItem: some View {
         TimelineItem(node: .inert) {
             VStack(alignment: .leading, spacing: 8) {
-                Text(setupActive && !allSetupDone
-                    ? "Work out now"
-                    : (scheduledRoutinesExist ? "Rest day" : "Nothing scheduled"))
+                Text(restDayTitle)
                     .font(.system(.body, weight: .semibold))
-                Text(setupActive && !allSetupDone
-                    ? "Scheduling is optional — start whenever you like"
-                    : restDayCaption)
+                Text(restDayItemCaption)
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(Theme.textSecondary)
                 // The schedule offer (#246): routines exist, none
@@ -758,8 +757,8 @@ struct TodayView: View {
                 // exists — one offer-shaped line, gone the moment any
                 // schedule does. During setup the scaffold's own step
                 // is the offer.
-                if !setupActive, !scheduledRoutinesExist, !swapInCandidates.isEmpty,
-                   let target = scheduleEditRoutine {
+                if !setupActive, !scheduledRoutinesExist,
+                   let target = swapInCandidates.first {
                     Button {
                         scheduleEditTarget = target
                     } label: {
@@ -870,6 +869,25 @@ struct TodayView: View {
         routines.contains { $0.schedule.normalized != .unscheduled }
     }
 
+    /// "Rest day" is a claim — don't make it while an empty scheduled
+    /// routine is due (the card above names that state) or mid-setup.
+    private var restDayTitle: String {
+        if (setupActive && !allSetupDone) || !dueButEmptyRoutines.isEmpty {
+            return "Work out now"
+        }
+        return scheduledRoutinesExist ? "Rest day" : "Nothing scheduled"
+    }
+
+    /// The "optional" reassurance belongs only before ANY schedule
+    /// exists (swift-reviewer: it contradicted a visible "Schedule
+    /// set" step); everyone else gets the calendar facts.
+    private var restDayItemCaption: String {
+        if setupActive && !allSetupDone && !scheduledRoutinesExist {
+            return "Scheduling is optional — start whenever you like"
+        }
+        return restDayCaption
+    }
+
     private var restDayCaption: String {
         var best: (date: Date, name: String)?
         for routine in routines {
@@ -886,7 +904,13 @@ struct TodayView: View {
         }
         // Not "Nothing scheduled" — the title already says that, and
         // saying it twice reads broken (the header comment's own rule).
-        guard let best else { return "No routine on the calendar — start one whenever" }
+        // With a schedule that exists but can't stage (the empty card
+        // above), calendar-denial would be false too.
+        guard let best else {
+            return scheduledRoutinesExist
+                ? "start whenever you like"
+                : "No routine on the calendar — start one whenever"
+        }
         let day = best.date.formatted(.dateTime.weekday(.abbreviated)).lowercased()
         return "on pace · next \(day) — \(best.name)"
     }
