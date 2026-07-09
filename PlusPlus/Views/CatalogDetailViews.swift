@@ -191,6 +191,20 @@ struct ExerciseDetailScreen: View {
                         }
                         .padding(.bottom, 7)
                     }
+                    // Membership as a visible primary action (#265):
+                    // buried in the … menu, adding a catalog exercise
+                    // read as impossible. Adjacent to — not replacing —
+                    // the create row (different intents, and routine
+                    // use auto-joins the library anyway); the row
+                    // disappearing on tap IS the confirmation. Removal
+                    // stays in the … menu: destructive actions live
+                    // there (#241).
+                    if exercise.isBuiltIn && !exercise.inLibrary {
+                        CreateRow(label: "Add to my exercises", identifier: "addToMyExercises") {
+                            exercise.inLibrary = true
+                        }
+                        .padding(.bottom, 7)
+                    }
                     CreateRow(label: "New routine with \(exercise.name)", identifier: "newRoutineWithExercise") {
                         newRoutineName = ""
                         showingNewRoutine = true
@@ -219,27 +233,27 @@ struct ExerciseDetailScreen: View {
                     Image(systemName: "pencil")
                 }
                 .accessibilityIdentifier("editExerciseButton")
-                Menu {
-                    if exercise.isBuiltIn {
-                        if exercise.inLibrary {
+                // Destructive-only since #265 (Add is a visible row
+                // below): a built-in that isn't in the library leaves
+                // nothing for the menu, so it hides instead of
+                // rendering empty.
+                if !exercise.isBuiltIn || exercise.inLibrary {
+                    Menu {
+                        if exercise.isBuiltIn {
                             Button("Remove from my exercises", role: .destructive) {
                                 exercise.inLibrary = false
                                 dismiss()
                             }
                         } else {
-                            Button("Add to my exercises") {
-                                exercise.inLibrary = true
+                            Button("Delete custom exercise", role: .destructive) {
+                                showingDeleteConfirm = true
                             }
                         }
-                    } else {
-                        Button("Delete custom exercise", role: .destructive) {
-                            showingDeleteConfirm = true
-                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
                     }
-                } label: {
-                    Image(systemName: "ellipsis")
+                    .accessibilityIdentifier("exerciseDetailMenu")
                 }
-                .accessibilityIdentifier("exerciseDetailMenu")
             }
         }
         .navigationDestination(item: $path) { target in
@@ -392,6 +406,16 @@ struct EquipmentDetailScreen: View {
                         }
                         .padding(.bottom, 7)
                     }
+                    // Same shape as the exercise screen (#265): owning
+                    // gear is the primary act on an un-owned type —
+                    // especially now that ownership gates the catalogs
+                    // (#260) — so it doesn't hide in the … menu.
+                    if equipment.isBuiltIn && !equipment.inLibrary {
+                        CreateRow(label: "Add to my equipment", identifier: "addToMyEquipment") {
+                            equipment.inLibrary = true
+                        }
+                        .padding(.bottom, 7)
+                    }
                     CreateRow(label: "New exercise with \(equipment.name)", identifier: "newExerciseWithEquipment") {
                         showingAddExercise = true
                     }
@@ -436,27 +460,24 @@ struct EquipmentDetailScreen: View {
                     }
                     .accessibilityIdentifier("renameEquipmentButton")
                 }
-                Menu {
-                    if equipment.isBuiltIn {
-                        if equipment.inLibrary {
+                // Destructive-only since #265 — see the exercise menu.
+                if !equipment.isBuiltIn || equipment.inLibrary {
+                    Menu {
+                        if equipment.isBuiltIn {
                             Button("Remove from my equipment", role: .destructive) {
                                 equipment.inLibrary = false
                                 dismiss()
                             }
                         } else {
-                            Button("Add to my equipment") {
-                                equipment.inLibrary = true
+                            Button("Delete custom equipment", role: .destructive) {
+                                confirmingDelete = true
                             }
                         }
-                    } else {
-                        Button("Delete custom equipment", role: .destructive) {
-                            confirmingDelete = true
-                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
                     }
-                } label: {
-                    Image(systemName: "ellipsis")
+                    .accessibilityIdentifier("equipmentDetailMenu")
                 }
-                .accessibilityIdentifier("equipmentDetailMenu")
             }
         }
         // Every other delete in the app confirms; this one was the
