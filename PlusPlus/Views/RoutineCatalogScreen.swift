@@ -23,11 +23,20 @@ struct RoutineCatalogScreen: View {
     @Binding var path: NavigationPath
 
     @State private var search = ""
-    @State private var focusFilter: RoutineTemplate.Focus?
-    @State private var effortFilter: RoutineTemplate.Effort?
-    @State private var timeFilter: TimeBand?
-    @State private var gearFilter: GearFit?
+    // FOCUS/EFFORT/TIME are multi-select — UNION within a facet, AND
+    // across (#260, Dave's call; each template has one value per facet,
+    // so intersection would always be empty). GEAR stays single-select:
+    // its options are modes, not attributes ("My equipment" already
+    // contains every bodyweight template).
+    @State private var focusFilter: Set<RoutineTemplate.Focus> = []
+    @State private var effortFilter: Set<RoutineTemplate.Effort> = []
+    @State private var timeFilter: Set<TimeBand> = []
+    /// Defaults to YOUR gear (#260): browsing opens on what you can
+    /// actually do today — the lit chip, the ✕, and the escape line
+    /// below the list all make the narrowing visible and reversible.
+    @State private var gearFilter: GearFit? = .mine
     @State private var sort: CatalogSort = .featured
+    @State private var showingEquipmentEditor = false
     @State private var showingNewRoutine = false
     @State private var newRoutineName = ""
 
@@ -63,16 +72,27 @@ struct RoutineCatalogScreen: View {
     }
 
     private var anyFilterActive: Bool {
-        focusFilter != nil || effortFilter != nil || timeFilter != nil || gearFilter != nil
+        !focusFilter.isEmpty || !effortFilter.isEmpty || !timeFilter.isEmpty || gearFilter != nil
     }
 
     private var filteredTemplates: [RoutineTemplate] {
+        filtered(gearOverride: gearFilter)
+    }
+
+    /// How many templates ONLY the gear filter is hiding — the escape
+    /// line's count (mirrors the exercise catalog's ownership hatch).
+    private var hiddenByGear: Int {
+        guard gearFilter != nil else { return 0 }
+        return max(0, filtered(gearOverride: nil).count - filteredTemplates.count)
+    }
+
+    private func filtered(gearOverride: GearFit?) -> [RoutineTemplate] {
         let owned = ownedEquipmentNames
         var result = RoutineCatalog.all.filter { template in
-            if let focusFilter, template.focus != focusFilter { return false }
-            if let effortFilter, template.effort != effortFilter { return false }
-            if let timeFilter, !timeFilter.contains(template.estimatedSeconds) { return false }
-            switch gearFilter {
+            if !focusFilter.isEmpty, !focusFilter.contains(template.focus) { return false }
+            if !effortFilter.isEmpty, !effortFilter.contains(template.effort) { return false }
+            if !timeFilter.isEmpty, !timeFilter.contains(where: { $0.contains(template.estimatedSeconds) }) { return false }
+            switch gearOverride {
             case .mine:
                 if !template.equipmentNames.allSatisfy(owned.contains) { return false }
             case .bodyweightOnly:
@@ -116,11 +136,42 @@ struct RoutineCatalogScreen: View {
                         .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                 }
 
+                // Only under the MY-EQUIPMENT fit: "gear you don't
+                // own" is false under No-equipment, where hiding gear-
+                // users is the filter's whole job (swift-reviewer).
+                // And only alongside visible rows — the empty state
+                // below carries the count itself.
+                if gearFilter == .mine, hiddenByGear > 0, !filteredTemplates.isEmpty {
+                    Button {
+                        gearFilter = nil
+                    } label: {
+                        Text("\(hiddenByGear) more need gear you don't own — show")
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(Theme.selected)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .frame(minHeight: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("showUnownedTemplates")
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 4, trailing: 16))
+                }
+
                 if filteredTemplates.isEmpty {
                     VStack(spacing: 10) {
                         Text("Nothing matches.")
                             .font(.system(.footnote))
                             .foregroundStyle(Theme.textFaint)
+                        if gearFilter == .mine, hiddenByGear > 0 {
+                            Button("\(hiddenByGear) match\(hiddenByGear == 1 ? "es" : "") need gear you don't own — show") {
+                                gearFilter = nil
+                            }
+                            .buttonStyle(.plain)
+                            .font(.system(.footnote, weight: .semibold))
+                            .foregroundStyle(Theme.selected)
+                        }
                         if anyFilterActive {
                             Button("Clear filters") { clearFilters() }
                                 .buttonStyle(.plain)
@@ -151,6 +202,13 @@ struct RoutineCatalogScreen: View {
         .navigationDestination(for: RoutineTemplate.self) { template in
             RoutineTemplateDetailScreen(template: template, path: $path)
         }
+        // The equipment catalog as a stacked sheet (the #254 pattern):
+        // ownership edits reflect in the filter live on return.
+        .sheet(isPresented: $showingEquipmentEditor) {
+            NavigationStack {
+                CatalogBrowseScreen(kind: .equipment)
+            }
+        }
         .alert("New Routine", isPresented: $showingNewRoutine) {
             TextField("Name", text: $newRoutineName)
             Button("Cancel", role: .cancel) { newRoutineName = "" }
@@ -165,17 +223,17 @@ struct RoutineCatalogScreen: View {
             if anyFilterActive {
                 ClearAllChip { clearFilters() }
             }
-            FacetChip(
+            MultiFacetChip(
                 facet: "FOCUS",
                 selection: $focusFilter,
                 options: RoutineTemplate.Focus.allCases.map { ($0, $0.rawValue) }
             )
-            FacetChip(
+            MultiFacetChip(
                 facet: "EFFORT",
                 selection: $effortFilter,
                 options: RoutineTemplate.Effort.allCases.map { ($0, $0.rawValue) }
             )
-            FacetChip(
+            MultiFacetChip(
                 facet: "TIME",
                 selection: $timeFilter,
                 options: TimeBand.allCases.map { ($0, $0.rawValue) }
@@ -183,7 +241,10 @@ struct RoutineCatalogScreen: View {
             FacetChip(
                 facet: "GEAR",
                 selection: $gearFilter,
-                options: GearFit.allCases.map { ($0, $0.rawValue) }
+                options: GearFit.allCases.map { ($0, $0.rawValue) },
+                // Fix the filter's basis without leaving (#260): the
+                // ownership version of create-at-every-dead-end.
+                footer: ("Edit my equipment…", { showingEquipmentEditor = true })
             )
             // Sort rides the same row (#237) but stays neutral — see
             // FilterChips: ordering is not filter state.
@@ -194,9 +255,9 @@ struct RoutineCatalogScreen: View {
     }
 
     private func clearFilters() {
-        focusFilter = nil
-        effortFilter = nil
-        timeFilter = nil
+        focusFilter = []
+        effortFilter = []
+        timeFilter = []
         gearFilter = nil
     }
 
@@ -308,9 +369,14 @@ struct RoutineTemplateDetailScreen: View {
     /// instantiate twice against a stale routines query and mint the
     /// duplicate-name state #189 forbids (reviewer catch).
     @State private var added = false
+    @State private var showingGearCheck = false
 
     private var ownedEquipmentNames: Set<String> {
         Set(allEquipment.filter { $0.inLibrary || !$0.isBuiltIn }.map(\.name))
+    }
+
+    private var missingNames: [String] {
+        template.equipmentNames.filter { !ownedEquipmentNames.contains($0) }
     }
 
     var body: some View {
@@ -357,6 +423,22 @@ struct RoutineTemplateDetailScreen: View {
                                 }
                             }
                         }
+                        // The unowned circles are fixable HERE (#260):
+                        // "turns out I do have a bench" is two taps,
+                        // not a tab-switch expedition.
+                        if !missingNames.isEmpty {
+                            Button {
+                                showingGearCheck = true
+                            } label: {
+                                Text("Gear check — mark what you own")
+                                    .font(.system(.footnote, weight: .semibold))
+                                    .foregroundStyle(Theme.selected)
+                                    .frame(minHeight: 44, alignment: .leading)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("gearCheckButton")
+                        }
                     }
 
                     SheetSectionLabel("MUSCLES")
@@ -395,6 +477,9 @@ struct RoutineTemplateDetailScreen: View {
         .navigationTitle(template.name)
         .navigationBarTitleDisplayMode(.inline)
         .pushedScreenChrome(onBack: { dismiss() })
+        .sheet(isPresented: $showingGearCheck) {
+            GearCheckTray(names: missingNames)
+        }
     }
 
     private func blockRow(_ block: RoutineTemplate.Block) -> some View {
@@ -434,5 +519,93 @@ struct RoutineTemplateDetailScreen: View {
             return "\(block.sets)×\(reps)"
         }
         return "\(block.sets) sets"
+    }
+}
+
+// MARK: - Gear check
+
+/// A focused ownership fix-up (#260): exactly the gear a template
+/// needs and you don't own, as toggles — the direct path from "NEEDS
+/// Bench" to owning one, without leaving the template. Ownership here
+/// is the same Equipment.inLibrary every other surface reads, so the
+/// filter, meta lines, and check circles all update live.
+struct GearCheckTray: View {
+    @Environment(\.dismiss) private var dismiss
+    @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
+
+    /// FROZEN at first presentation via @State's initialValue — a
+    /// plain stored property re-derives when the presenting view
+    /// invalidates (toggling ownership does exactly that), and rows
+    /// would vanish as they're toggled on: the #139 disappearing-act
+    /// this tray exists to avoid (swift-reviewer catch).
+    @State private var frozenNames: [String]
+
+    @State private var showingCatalog = false
+
+    init(names: [String]) {
+        _frozenNames = State(initialValue: names)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SheetHeader(title: "Gear check", closeOnly: true, action: { dismiss() })
+
+            Text("Mark what you own — it counts toward YOUR GEAR ✓ and the My-equipment filter everywhere.")
+                .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(Theme.textFaint)
+                .padding(.top, 6)
+
+            ScrollView {
+            VStack(spacing: 0) {
+                ForEach(Array(rows.enumerated()), id: \.element.persistentModelID) { index, equipment in
+                    Toggle(isOn: Binding(
+                        get: { equipment.inLibrary },
+                        set: { equipment.inLibrary = $0 }
+                    )) {
+                        Text(equipment.name)
+                            .font(.system(.subheadline, weight: .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                    }
+                    .tint(Theme.selected)
+                    .accessibilityIdentifier("gearCheck-\(equipment.name)")
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 48)
+                    if index < rows.count - 1 {
+                        Divider().overlay(Theme.border)
+                    }
+                }
+            }
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+            .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
+            .padding(.top, 14)
+
+            Button {
+                showingCatalog = true
+            } label: {
+                Text("Full equipment catalog")
+                    .font(.system(.footnote, weight: .semibold))
+                    .foregroundStyle(Theme.selected)
+                    .frame(minHeight: 44, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("gearCheckCatalogButton")
+            .padding(.top, 4)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 18)
+        .presentationBackground(Theme.background)
+        .presentationDetents([.medium, .large])
+        .sheet(isPresented: $showingCatalog) {
+            NavigationStack {
+                CatalogBrowseScreen(kind: .equipment)
+            }
+        }
+    }
+
+    private var rows: [Equipment] {
+        frozenNames.compactMap { name in allEquipment.first { $0.name == name } }
     }
 }
