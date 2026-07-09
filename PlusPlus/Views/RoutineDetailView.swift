@@ -42,6 +42,8 @@ struct RoutineDetailView: View {
             railList
         }
         .background(Theme.background)
+        .navigationTitle(routine.name)
+        .navigationBarTitleDisplayMode(.inline)
         .pushedScreenChrome(onBack: { dismiss() })
         .toolbar {
             // Trailing actions as glass circles (#198), same treatment
@@ -125,14 +127,8 @@ struct RoutineDetailView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Back + share + settings live in the system toolbar (#198,
-            // glass circles); the header keeps name and facts only.
-            Text(routine.name)
-                .font(.system(.title, weight: .bold))
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, 2)
-
+            // The name is the inline toolbar title now (#234); the
+            // header keeps facts only.
             if !routine.groups.isEmpty {
                 // Facts, not inputs (v4 §A): schedule value first (ink,
                 // semibold), then rest + estimate as secondary meta.
@@ -893,8 +889,6 @@ struct RoutineSettingsScreen: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            pageHeader
-
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     SheetSectionLabel("NAME")
@@ -974,6 +968,10 @@ struct RoutineSettingsScreen: View {
         }
         .padding(.horizontal, 16)
         .background(Theme.background)
+        // The title stays the ROUTINE's name inline (#234, §A intact:
+        // onboarding step 3 still says what it configures).
+        .navigationTitle(routine.name)
+        .navigationBarTitleDisplayMode(.inline)
         .pushedScreenChrome(onBack: { commitName(); dismiss() })
         // The full-width swipe-back pops in UIKit and never reaches
         // onBack — without this, a swipe exit silently dropped an
@@ -1008,25 +1006,6 @@ struct RoutineSettingsScreen: View {
         } message: {
             Text("Logged history is untouched.")
         }
-    }
-
-    /// Routine name / "routine settings" — the page title is the
-    /// routine, which is exactly what makes onboarding step 3
-    /// unambiguous about what it's configuring (§A). Back is the
-    /// system toolbar's glass chevron (#198).
-    private var pageHeader: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(routine.name)
-                .font(.system(.title, weight: .bold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .padding(.top, 2)
-            Text("routine settings")
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(Theme.textFaint)
-                .padding(.top, 3)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// Lowercased names of every OTHER routine — renaming to one of

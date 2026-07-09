@@ -119,18 +119,13 @@ struct SessionDetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 0) {
-                // Back is the toolbar's glass chevron (#198).
-                Text(session.routineName)
-                    .font(.system(.title3, weight: .bold))
-                    .padding(.top, 2)
-                Text(subtitle)
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(Theme.textSecondary)
-                    .padding(.top, 4)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 20)
+            // Inline title (#234); the date/summary line leads content.
+            Text(subtitle)
+                .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(Theme.textSecondary)
+                .padding(.top, 4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
 
             ScrollView {
                 VStack(spacing: 0) {
@@ -173,6 +168,8 @@ struct SessionDetailView: View {
             }
         }
         .background(Theme.background)
+        .navigationTitle(session.routineName)
+        .navigationBarTitleDisplayMode(.inline)
         .pushedScreenChrome(onBack: { dismiss() })
     }
 

@@ -11,38 +11,29 @@ struct ExercisesTabView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Exercise.name) private var allExercises: [Exercise]
 
-    @State private var search = ""
     @State private var showingCatalog = false
     @State private var openSwipeRow: PersistentIdentifier?
     @State private var path = NavigationPath()
 
     private var libraryExercises: [Exercise] {
-        allExercises
-            .filter { $0.inLibrary || !$0.isBuiltIn }
-            .filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }
+        allExercises.filter { $0.inLibrary || !$0.isBuiltIn }
     }
 
     var body: some View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
-                CatalogTabHeader(title: "Exercises")
+                // No search here (#233): the curated list is short by
+                // definition; search lives on the catalogs. The + is
+                // back in the header.
+                CatalogTabHeader(title: "Exercises", addIdentifier: "addExercisesButton") {
+                    showingCatalog = true
+                }
 
                 List {
                     exerciseRows
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
-                .scrollDismissesKeyboard(.immediately)
-                // Rows feather out under the glass instead of
-                // hard-clipping at the dock (#216 rides along).
-                .scrollEdgeEffectStyle(.soft, for: .bottom)
-                // Search floats at the bottom, Messages-style (#214);
-                // rows scroll under the glass.
-                .safeAreaInset(edge: .bottom) {
-                    SearchDock(prompt: "Search", text: $search, addIdentifier: "addExercisesButton") {
-                        showingCatalog = true
-                    }
-                }
             }
             .background(Theme.background)
             .toolbar(.hidden, for: .navigationBar)
@@ -139,36 +130,26 @@ struct EquipmentTabView: View {
     @Query(sort: \Exercise.name) private var allExercises: [Exercise]
     @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
 
-    @State private var search = ""
     @State private var showingCatalog = false
     @State private var openSwipeRow: PersistentIdentifier?
     @State private var path = NavigationPath()
 
     private var libraryEquipment: [Equipment] {
-        allEquipment
-            .filter { $0.inLibrary || !$0.isBuiltIn }
-            .filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }
+        allEquipment.filter { $0.inLibrary || !$0.isBuiltIn }
     }
 
     var body: some View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
-                CatalogTabHeader(title: "Equipment")
+                CatalogTabHeader(title: "Equipment", addIdentifier: "addEquipmentButton") {
+                    showingCatalog = true
+                }
 
                 List {
                     equipmentRows
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
-                .scrollDismissesKeyboard(.immediately)
-                // Rows feather out under the glass instead of
-                // hard-clipping at the dock (#216 rides along).
-                .scrollEdgeEffectStyle(.soft, for: .bottom)
-                .safeAreaInset(edge: .bottom) {
-                    SearchDock(prompt: "Search", text: $search, addIdentifier: "addEquipmentButton") {
-                        showingCatalog = true
-                    }
-                }
             }
             .background(Theme.background)
             .toolbar(.hidden, for: .navigationBar)
@@ -243,8 +224,7 @@ struct EquipmentTabView: View {
 /// contextual + button.
 struct CatalogTabHeader: View {
     let title: String
-    // Creation moved into the SearchDock's glass circle (#214); the
-    // slot stays for headers that still need a trailing action.
+    // The tab's create action; optional so title-only headers work.
     var addIdentifier: String?
     var onAdd: (() -> Void)?
 
@@ -326,14 +306,6 @@ struct CatalogBrowseScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            CatalogDetailHeader(title: kind == .exercises ? "Exercise catalog" : "Equipment catalog") {
-                EmptyView()
-            }
-
-            SearchField(prompt: "Search the catalog", text: Bindable(filterState).searchText)
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-
             SegmentedTabs(options: ["All", "In library", "Not in library"], selectedIndex: $libraryFilter)
                 .popoverTip(CatalogCurationTip())
                 .padding(.horizontal, 16)
@@ -443,6 +415,15 @@ struct CatalogBrowseScreen: View {
             .padding(.top, 2)
         }
         .background(Theme.background)
+        // Drilled-in pages carry inline titles (#234) — smaller than
+        // roots, centered with the back chevron.
+        .navigationTitle(kind == .exercises ? "Exercise catalog" : "Equipment catalog")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                ExpandingSearchButton(prompt: "Search the catalog", text: Bindable(filterState).searchText)
+            }
+        }
         .pushedScreenChrome(onBack: { dismiss() })
         .safeAreaInset(edge: .bottom) {
             if setupMode {
