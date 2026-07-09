@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 import PlusPlusKit
 
 /// Settings, v4 §B: a pushed page off Today, ordered by daily use —
-/// APPEARANCE · UNITS · EQUIPMENT · DATA · SYNC. Sync dropped from first
+/// APPEARANCE · UNITS · EQUIPMENT · DATA · HOME SCREEN & SIRI · SYNC. Sync dropped from first
 /// position: it's aspirational until #23 ships, and it shouldn't
 /// headline the page you open to flip dark mode. One footer caption per
 /// section max, only where semantics surprise (§G).
@@ -114,6 +114,27 @@ struct SettingsScreen: View {
                         .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
                         .padding(.top, 6)
+
+                    // The one place widgets/Siri can be discovered
+                    // (#246): they're the app's only pull-back-in
+                    // surface, and nothing else ever names them — a
+                    // widget can't communicate by presence before it's
+                    // installed. Facts in captions, nothing tappable:
+                    // installation lives on the home screen.
+                    SheetSectionLabel("HOME SCREEN & SIRI")
+                        .padding(.top, 24)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Two widgets ship with the app: Today (your schedule at a glance) and Streak (a 12-week row). Long-press the home screen \u{2192} Edit \u{2192} Add Widget \u{2192} PlusPlus.")
+                            .font(.system(.footnote))
+                            .foregroundStyle(Theme.textPrimary)
+                        Text("Siri knows \u{201C}Start a routine in PlusPlus\u{201D} and \u{201C}What's today in PlusPlus\u{201D}.")
+                            .font(.system(.footnote))
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(14)
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
 
                     SheetSectionLabel("SYNC")
                         .padding(.top, 24)
