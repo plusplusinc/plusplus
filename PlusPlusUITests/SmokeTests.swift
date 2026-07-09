@@ -93,12 +93,24 @@ final class SmokeTests: XCTestCase {
         )
 
         // 3. Re-reveal and run the action: the routine is deleted.
+        // One retry: the contract under test here is the ACTION running
+        // (step 1 already proved reveal-survives-release); a synthesized
+        // drag dropped by a loaded runner is the documented ui-test
+        // flake, and it cost this exact assertion a run once.
         start.press(
             forDuration: 0.05,
             thenDragTo: start.withOffset(CGVector(dx: -120, dy: 0)),
             withVelocity: .slow,
             thenHoldForDuration: 0.4
         )
+        if !delete.waitForExistence(timeout: 3) {
+            start.press(
+                forDuration: 0.05,
+                thenDragTo: start.withOffset(CGVector(dx: -120, dy: 0)),
+                withVelocity: .slow,
+                thenHoldForDuration: 0.4
+            )
+        }
         XCTAssertTrue(delete.waitForExistence(timeout: 3))
         XCTAssertTrue(delete.isHittable)
         delete.tap()
