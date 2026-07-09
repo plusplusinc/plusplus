@@ -61,9 +61,11 @@ struct TodayView: View {
     private var weightUnit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .lb }
     private var calendar: Calendar { Calendar.current }
 
-    /// Startable routines for the swap-in tray (#208): empty routines
-    /// can't stage (the 0-set-session bug class), so they don't appear —
-    /// and with no candidates the tray isn't offered at all.
+    /// Startable routines for the start tray (#208): empty routines
+    /// can't stage (the 0-set-session bug class), so they don't appear.
+    /// The rest-day card still gates on candidates existing; the header
+    /// start button (#266) opens the tray unconditionally — its create
+    /// and empty-workout rows carry the no-candidates case.
     private var swapInCandidates: [Routine] {
         routines.filter { !$0.groups.isEmpty }
     }
@@ -462,6 +464,10 @@ struct TodayView: View {
                 // Settings' old seat starts workouts instead (#266,
                 // Dave's call): the one action that should never be
                 // more than a tap away, via the existing start tray.
+                // Green deliberately: starting MINTS a session — a
+                // pending history entry being created (the v3 framing) —
+                // so it rides the creation grammar like the other
+                // header-circle buttons, not selection blue.
                 HeaderIconButton(systemImage: "play", identifier: "startTrayButton", tint: Theme.accent) {
                     showingSwapIn = true
                 }
@@ -827,7 +833,9 @@ struct TodayView: View {
                         HStack(spacing: 6) {
                             Image(systemName: "arrow.left.arrow.right")
                                 .font(.system(.caption, weight: .semibold))
-                            Text("Swap in a routine")
+                            // Shares the tray's vocabulary ("Start a
+                            // workout") since #266 retitled it.
+                            Text("Start a routine")
                                 .font(.system(.footnote, weight: .semibold))
                         }
                         .foregroundStyle(Theme.textPrimary)
