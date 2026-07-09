@@ -48,7 +48,7 @@ The Simulator validation step in every task should use these tools in sequence: 
 ## Claude Code Setup (committed in `.claude/`)
 
 - **Skills** — `/ci-status` (check/diagnose/rerun CI from a sandbox that can't
-  reach job logs), `/pr-flow` (the serialized single-branch PR workflow),
+  reach job logs), `/pr-flow` (the parallel feature-branch PR workflow),
   `/testflight` (shipping a build + the entitlement mechanism and its failure
   modes). Read the matching skill BEFORE re-deriving any of that from scratch.
 - **Agents** — `swift-reviewer` (adversarial review tuned to this repo's proven
@@ -381,6 +381,7 @@ PlusPlusUITests/
 
 **2026-07-08 (evening) — Routine catalog: static templates, three authored attributes, facet chips (#223)** — 40 browsable templates behind the Routines tab + (the library-tab grammar: adding starts from a catalog; blank creation is its first row — the New Routine alert moved there from the header). Templates are static `RoutineTemplate` definitions, NOT seeded Routine rows (those would pollute the user's list and schedule queries); Add instantiates through the existing structure mutations + `Routine.uniqueName`, applies template targets over exercise defaults, joins referenced exercises to the library, and pushes into the new routine. Only Focus (split vocabulary), Effort (Light/Moderate/Intense — names the session, never the user), and Style (Strength/Build/Conditioning/Recovery) are authored; time, equipment, and muscles DERIVE from content so they can't lie. Filtering is four single-select chips with anchored Menus, live AND filtering, active values in solid selection blue, leading ✕ to clear — deliberately no Filters-sheet-with-Apply (at ~40 in-memory items that's the Save button of filtering); GEAR filters by ownership fit (My equipment / No equipment), not gear lists; sort (Featured/Name/Time) rides the toolbar. Full research + tradeoffs recorded on #223. Schedule is deliberately NOT auto-applied on add — a suggestion may render as copy, but obligations never appear on Today unchosen. `RoutineCatalogTests` pins every exercise reference to SeedData so content can't drift.
 
+**2026-07-09 — Parallel feature branches replace the serialized single-branch flow (Dave's authorization)** — The one-designated-branch rule was a session-harness default, never a repo decision, and it serialized every unit of work behind the previous PR's CI (held commits, stashed diffs, "wait for merge before starting"). Dave, on learning this: "That sounds terrible. I authorize you to make however many branches you need, and parallelize work." New shape (pr-flow skill rewritten): one `claude/<slug>` branch per unit of work off fresh main, PRs open and run CI concurrently, the later-merging branch rebases mechanically on same-file overlap, force-with-lease only on own branches, `subscribe_pr_activity` per PR. ci.yml already triggered on `claude/**`, so nothing CI-side changed.
 
 ---
 
