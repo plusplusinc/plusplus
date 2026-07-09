@@ -203,7 +203,7 @@ struct ExerciseDetailScreen: View {
                         CreateRow(label: "Add to my exercises", identifier: "addToMyExercises") {
                             exercise.inLibrary = true
                         }
-                        .padding(.bottom, 8)
+                        .padding(.bottom, 7)
                     }
                     CreateRow(label: "New routine with \(exercise.name)", identifier: "newRoutineWithExercise") {
                         newRoutineName = ""
@@ -414,7 +414,7 @@ struct EquipmentDetailScreen: View {
                         CreateRow(label: "Add to my equipment", identifier: "addToMyEquipment") {
                             equipment.inLibrary = true
                         }
-                        .padding(.bottom, 8)
+                        .padding(.bottom, 7)
                     }
                     CreateRow(label: "New exercise with \(equipment.name)", identifier: "newExerciseWithEquipment") {
                         showingAddExercise = true
