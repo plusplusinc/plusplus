@@ -41,3 +41,6 @@ PlusPlus/PlusPlus.entitlements
 PlusPlusWidgets/PlusPlusWidgets.entitlements
 PlusPlusWatch/Info.plist
 PlusPlusWatch/PlusPlusWatch.entitlements
+
+# Harness-generated agent worktrees
+.claude/worktrees/
