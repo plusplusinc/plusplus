@@ -68,12 +68,14 @@ struct ExercisesTabView: View {
     private var exerciseRows: some View {
         ForEach(libraryExercises) { exercise in
             // Custom reveal everywhere (Dave reversed the native call:
-            // no mixed affordances) — the snap-back is fixed in the
-            // component (momentum floor + live commit).
-            SwipeRevealRow(id: exercise.persistentModelID, openRow: $openSwipeRow, actionsWidth: 58) {
-            Button {
-                if openSwipeRow != nil { openSwipeRow = nil } else { path.append(exercise) }
-            } label: {
+            // no mixed affordances). Activation is the component's
+            // onTap — no Button in content (see the component contract).
+            SwipeRevealRow(
+                id: exercise.persistentModelID,
+                openRow: $openSwipeRow,
+                actionsWidth: 58,
+                onTap: { path.append(exercise) }
+            ) {
                 HStack(spacing: 10) {
                     VStack(alignment: .leading, spacing: 1) {
                         Text(exercise.name)
@@ -100,8 +102,6 @@ struct ExercisesTabView: View {
                 }
                 .padding(.vertical, 10)
                 .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
             } actions: {
                 // Reveal-then-tap always; the label says what it does
                 // (a custom's removal is a permanent DELETE).
@@ -187,10 +187,12 @@ struct EquipmentTabView: View {
     @ViewBuilder
     private var equipmentRows: some View {
         ForEach(libraryEquipment) { equipment in
-            SwipeRevealRow(id: equipment.persistentModelID, openRow: $openSwipeRow, actionsWidth: 58) {
-            Button {
-                if openSwipeRow != nil { openSwipeRow = nil } else { path.append(equipment) }
-            } label: {
+            SwipeRevealRow(
+                id: equipment.persistentModelID,
+                openRow: $openSwipeRow,
+                actionsWidth: 58,
+                onTap: { path.append(equipment) }
+            ) {
                 HStack {
                     VStack(alignment: .leading, spacing: 1) {
                         Text(equipment.name)
@@ -207,8 +209,6 @@ struct EquipmentTabView: View {
                 }
                 .padding(.vertical, 10)
                 .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
             } actions: {
                 SwipeActionButton(label: equipment.isBuiltIn ? "REMOVE" : "DELETE", color: Theme.destructive) {
                     openSwipeRow = nil

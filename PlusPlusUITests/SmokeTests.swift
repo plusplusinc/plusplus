@@ -44,6 +44,80 @@ final class SmokeTests: XCTestCase {
         snap("routine-detail")
     }
 
+    /// The swipe-reveal contract, on CI at last (builds 17/31/33 all
+    /// reported "snaps back on release" and no test exercised it):
+    /// a slow pull with a momentum-free lift must leave the actions
+    /// revealed and TAPPABLE; a tap while open must CLOSE the row (not
+    /// navigate); the tapped action must actually run. Pre-fix, row
+    /// content activated on touch-up-inside, so the reveal drag's own
+    /// finger-lift ran the tap-close branch and shut the row — this
+    /// test rejected the first, slop-based fix attempt (movement
+    /// relative to a row that chases the finger is ~zero), which is
+    /// why activation is now composed exclusively with the drag.
+    func testSwipeRevealActionSurvivesRelease() throws {
+        createRoutine(named: "Swipe Target")
+
+        // Back to the list — the swipe surface under test.
+        let back = app.buttons["backButton"]
+        XCTAssertTrue(back.waitForExistence(timeout: 5))
+        back.tap()
+
+        let card = app.staticTexts["Swipe Target"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        let start = card.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5))
+        let delete = app.buttons["DELETE"]
+
+        // 1. The reveal the device keeps reporting broken: slow pull
+        // well past halfway, hold so lift momentum is ~0 — the exact
+        // gentle release that snapped shut — then lift.
+        start.press(
+            forDuration: 0.05,
+            thenDragTo: start.withOffset(CGVector(dx: -120, dy: 0)),
+            withVelocity: .slow,
+            thenHoldForDuration: 0.4
+        )
+        XCTAssertTrue(delete.waitForExistence(timeout: 3), "actions must stay revealed after a gentle release")
+        XCTAssertTrue(delete.isHittable, "the revealed action must be tappable")
+        snap("swipe-revealed-after-release")
+
+        // 2. A tap while open closes the row — and must NOT navigate
+        // (isHittable is documented false for nonexistent elements, so
+        // the predicate is safe whether the closed action is pruned
+        // from the tree or merely unhittable).
+        card.tap()
+        let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == 0"), object: delete)
+        XCTAssertEqual(XCTWaiter().wait(for: [closed], timeout: 3), .completed, "a tap while open must close the row")
+        XCTAssertFalse(
+            app.buttons["addExerciseButton"].waitForExistence(timeout: 3),
+            "a tap while open must close, not navigate into the routine"
+        )
+
+        // 3. Re-reveal and run the action: the routine is deleted.
+        // One retry: the contract under test here is the ACTION running
+        // (step 1 already proved reveal-survives-release); a synthesized
+        // drag dropped by a loaded runner is the documented ui-test
+        // flake, and it cost this exact assertion a run once.
+        start.press(
+            forDuration: 0.05,
+            thenDragTo: start.withOffset(CGVector(dx: -120, dy: 0)),
+            withVelocity: .slow,
+            thenHoldForDuration: 0.4
+        )
+        if !delete.waitForExistence(timeout: 3) {
+            start.press(
+                forDuration: 0.05,
+                thenDragTo: start.withOffset(CGVector(dx: -120, dy: 0)),
+                withVelocity: .slow,
+                thenHoldForDuration: 0.4
+            )
+        }
+        XCTAssertTrue(delete.waitForExistence(timeout: 3))
+        XCTAssertTrue(delete.isHittable)
+        delete.tap()
+        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == 0"), object: card)
+        XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 5), .completed, "DELETE must remove the routine")
+    }
+
     /// The Routines-tab catalog path specifically: template detail must
     /// open from THIS stack, not just Today's setup step. Build 33
     /// shipped with the RoutineTemplate destination registered inside

@@ -296,11 +296,20 @@ struct RoutineDetailView: View {
             return false
         }()
 
+        // Activation is the component's onTap (see the SwipeRevealRow
+        // contract): the old row-body and dot-zone onTapGestures were
+        // the same latent bug class as the list rows' Buttons — a tap
+        // gesture INSIDE content can fire on a reveal drag's release.
+        // One component tap now covers the whole row including the dot
+        // zone (whose ring gesture stays in the UIKit long-press layer);
+        // `enabled: railGesture == .idle` keeps a second finger from
+        // opening sheets or closing rows while a rail gesture is live.
         return SwipeRevealRow(
             id: routineExercise.persistentModelID,
             openRow: $openSwipeRow,
             enabled: railGesture == .idle,
-            actionsWidth: 116
+            actionsWidth: 116,
+            onTap: { selectedExercise = routineExercise }
         ) {
             ExerciseRailRow(
                 routineExercise: routineExercise,
@@ -309,24 +318,6 @@ struct RoutineDetailView: View {
                 hideLoop: hideLoop
             )
             .contentShape(Rectangle())
-            .onTapGesture {
-                // A second finger must not open sheets (and mutate the
-                // model) while a rail gesture is live.
-                guard railGesture == .idle else { return }
-                if openSwipeRow != nil { openSwipeRow = nil } else { selectedExercise = routineExercise }
-            }
-            .overlay(alignment: .leading) {
-                // The dot zone still taps through to the sheet; its ring
-                // gesture lives in the UIKit long-press layer, routed by
-                // the touch's x position.
-                Color.clear
-                    .frame(width: Self.dotZoneWidth)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        guard railGesture == .idle else { return }
-                        selectedExercise = routineExercise
-                    }
-            }
         } actions: {
             HStack(spacing: 0) {
                 SwipeActionButton(label: "DUPE", color: Theme.textSecondary) {
