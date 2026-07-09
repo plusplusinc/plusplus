@@ -50,6 +50,11 @@ struct StarterSeedSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Exercise.name) private var allExercises: [Exercise]
+    @Query(sort: \Routine.order) private var allRoutines: [Routine]
+    /// Hands the created blank back so the presenter can land in it
+    /// once this sheet is gone (#246 — every sibling creation path
+    /// pushes into the new routine; this one stranded the user).
+    var onCreatedEmpty: ((Routine) -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -74,7 +79,15 @@ struct StarterSeedSheet: View {
                     title: "One empty routine",
                     caption: "A blank \"Routine A\" to build yourself"
                 ) {
-                    modelContext.insert(Routine(name: "Routine A", order: 0))
+                    let routine = Routine(
+                        name: Routine.uniqueName("Routine A", among: allRoutines),
+                        order: 0
+                    )
+                    modelContext.insert(routine)
+                    for existing in allRoutines where existing !== routine {
+                        existing.order += 1
+                    }
+                    onCreatedEmpty?(routine)
                     dismiss()
                 }
             }
