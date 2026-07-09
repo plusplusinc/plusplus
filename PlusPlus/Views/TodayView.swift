@@ -474,8 +474,22 @@ struct TodayView: View {
 
     private func pendingCard(_ routine: Routine) -> some View {
         let lines = diffLines(for: routine)
-        let segments = RoutineDiff.summary(deltas: lines.map(\.delta), weightUnit: weightUnit)
-            .filter { $0.kind != .unchanged }
+        let summary = RoutineDiff.summary(deltas: lines.map(\.delta), weightUnit: weightUnit)
+        // The identity moment must read on day one and on plan-held
+        // days (#246): never-performed gets words with stakes instead
+        // of a bare inventory count, and an all-unchanged day keeps
+        // the Kit's single faint "=" — hiding the line entirely made
+        // the diff grammar unlearnable exactly when it was legible.
+        let segments: [RoutineDiff.Segment]
+        if !lines.isEmpty && lines.allSatisfy({ $0.delta == .new }) {
+            segments = [RoutineDiff.Segment(kind: .new, text: "first time — sets the baseline")]
+        } else if summary.contains(where: { $0.kind != .unchanged }) {
+            segments = summary.filter { $0.kind != .unchanged }
+        } else {
+            // Zero comparable lines (every entry dangling) must not
+            // claim "=" — there is nothing to be equal to.
+            segments = lines.isEmpty ? [] : summary
+        }
 
         return VStack(alignment: .leading, spacing: 0) {
             // SSE tiers: name (+ the one go/no-go fact, the estimate)

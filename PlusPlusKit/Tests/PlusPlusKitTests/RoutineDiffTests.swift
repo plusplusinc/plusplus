@@ -30,12 +30,31 @@ struct RoutineDiffTests {
         #expect(delta == .reps(2))
     }
 
-    @Test func regressionIsAWeightDeltaDownNotSpecialCased() {
+    /// #246: the prior is the last ACTUAL — a plan below it is the
+    /// normal state after out-lifting the plan, not a regression.
+    @Test func planBelowPriorIsNotAChange() {
         let delta = RoutineDiff.delta(
             target: target(weight: 130),
             prior: RoutineDiff.Prior(weight: 135)
         )
-        #expect(delta == .weight(-5))
+        #expect(delta == .unchanged)
+    }
+
+    @Test func silencedWeightDecreaseFallsThroughToRepsIncrease() {
+        let delta = RoutineDiff.delta(
+            target: target(weight: 130, reps: 12),
+            prior: RoutineDiff.Prior(weight: 135, reps: 10)
+        )
+        #expect(delta == .reps(2))
+    }
+
+    @Test func decreasesAreSilencedForRepsAndDuration() {
+        #expect(RoutineDiff.delta(
+            target: target(reps: 8),
+            prior: RoutineDiff.Prior(reps: 10)
+        ) == .unchanged)
+        let staged = RoutineDiff.Target(name: "Plank", isDuration: true, durationSeconds: 45)
+        #expect(RoutineDiff.delta(target: staged, prior: RoutineDiff.Prior(durationSeconds: 60)) == .unchanged)
     }
 
     @Test func identicalTargetsAreUnchanged() {
@@ -77,7 +96,7 @@ struct RoutineDiffTests {
 
     @Test func summaryWithNoChangesCollapses() {
         let segments = RoutineDiff.summary(deltas: [.unchanged, .unchanged])
-        #expect(segments == [RoutineDiff.Segment(kind: .unchanged, text: "no changes")])
+        #expect(segments == [RoutineDiff.Segment(kind: .unchanged, text: "=")])
     }
 
     @Test func summaryHonorsWeightUnit() {
@@ -91,7 +110,7 @@ struct RoutineDiffTests {
     }
 
     @Test func emptyRoutineSummarizesAsNoChanges() {
-        #expect(RoutineDiff.summary(deltas: []) == [RoutineDiff.Segment(kind: .unchanged, text: "no changes")])
+        #expect(RoutineDiff.summary(deltas: []) == [RoutineDiff.Segment(kind: .unchanged, text: "=")])
     }
 
     // MARK: - Net chip

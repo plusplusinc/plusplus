@@ -38,8 +38,8 @@ public enum RoutineDiff {
     }
 
     /// The single delta an exercise contributes to the summary line.
-    /// When both weight and reps changed, weight wins (§4); the expanded
-    /// row may show both.
+    /// Increases only (#246): a silenced weight decrease falls through
+    /// to a reps increase — see `delta(target:prior:)` for the why.
     public enum Delta: Equatable, Sendable {
         case new
         case unchanged
@@ -55,18 +55,27 @@ public enum RoutineDiff {
         }
     }
 
+    /// Deltas report INCREASES only (#246): the prior is the last
+    /// ACTUAL performance, so a plan sitting below it is the normal
+    /// morning-after state when the user out-lifted the plan (weight
+    /// carry-forward raises actuals, not routine targets) — rendering
+    /// that as a minus made beating the plan read as a planned
+    /// regression. Deliberate deloads are known to their author; the
+    /// diff celebrates up and stays quiet otherwise (anti-shame).
+    /// A silenced weight decrease falls through to a reps increase, so
+    /// the up that exists still shows.
     public static func delta(target: Target, prior: Prior?) -> Delta {
         guard let prior else { return .new }
         if target.isDuration {
-            if let staged = target.durationSeconds, let last = prior.durationSeconds, staged != last {
+            if let staged = target.durationSeconds, let last = prior.durationSeconds, staged > last {
                 return .duration(staged - last)
             }
             return .unchanged
         }
-        if let staged = target.weight, let last = prior.weight, staged != last {
+        if let staged = target.weight, let last = prior.weight, staged > last {
             return .weight(staged - last)
         }
-        if let staged = target.reps, let last = prior.reps, staged != last {
+        if let staged = target.reps, let last = prior.reps, staged > last {
             return .reps(staged - last)
         }
         return .unchanged
@@ -93,7 +102,8 @@ public enum RoutineDiff {
 
     /// Aggregates deltas (in routine order) into the collapsed summary:
     /// changed deltas first, then "n =" for the unchanged count; a diff
-    /// with no changes at all collapses to one faint "no changes".
+    /// with no changes at all collapses to one faint "=" (symbols only
+    /// — words there start sounding like judgment, #246).
     public static func summary(deltas: [Delta], weightUnit: WeightUnit = .lb) -> [Segment] {
         var segments: [Segment] = []
         var unchanged = 0
@@ -116,7 +126,7 @@ public enum RoutineDiff {
             segments.append(Segment(kind: .new, text: newCount == 1 ? "1 new" : "\(newCount) new"))
         }
         if segments.isEmpty {
-            return [Segment(kind: .unchanged, text: "no changes")]
+            return [Segment(kind: .unchanged, text: "=")]
         }
         if unchanged > 0 {
             segments.append(Segment(kind: .unchanged, text: "\(unchanged) ="))
