@@ -486,9 +486,11 @@ enum SeedData {
     // MARK: - Equipment configuration (#236)
 
     /// Which built-ins are incrementally LOADABLE — plates, pins,
-    /// bells, stacks — and therefore get a weight-step option. A bench
-    /// holds you; a barbell holds plates. Custom equipment always shows
-    /// the option (the user created it; we can't classify intent).
+    /// bells, stacks, or a stepped rating that IS the load (bands and
+    /// grippers are sold in lb ratings) — and therefore get a
+    /// weight-step option. A bench holds you; a barbell holds plates.
+    /// Custom equipment always shows the option (the user created it;
+    /// we can't classify intent).
     static let loadableEquipmentNames: Set<String> = [
         "Barbell", "EZ Bar", "Trap Bar", "Safety Squat Bar", "Swiss Bar",
         "Cambered Squat Bar", "Axle Bar", "Log Bar", "Dumbbells",
@@ -497,7 +499,7 @@ enum SeedData {
         "Bulgarian Bag", "Slam Ball", "Medicine Ball", "Weight Vest",
         "Dip Belt", "Weightlifting Chains", "Wrist Roller", "Neck Harness",
         "Landmine", "Sled", "Yoke", "Farmers Walk Handles", "Tibialis Bar",
-        "Reverse Hyper Machine",
+        "Reverse Hyper Machine", "Resistance Band", "Hand Gripper",
         "Smith Machine", "Cable Machine", "Leg Press Machine",
         "Lat Pulldown Machine", "Leg Extension Machine", "Leg Curl Machine",
         "Calf Raise Machine", "Hack Squat Machine", "Hip Thrust Machine",

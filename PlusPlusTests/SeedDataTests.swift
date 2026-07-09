@@ -170,9 +170,6 @@ struct SeedDataTests {
         #expect(equipmentCount == SeedData.builtInEquipment.count)
     }
 
-    /// #95: catalog growth reaches EXISTING stores as a top-up — new
-    /// definitions arrive out-of-library, new equipment arrives
-    /// un-owned, and the user's curation is untouched.
     /// #235: every equipment type must gate at least one exercise —
     /// gear with nothing to do is catalog noise.
     @Test func everyEquipmentGatesAnExercise() {
@@ -192,6 +189,31 @@ struct SeedDataTests {
         }
     }
 
+    /// #236: a step stored on NON-loadable gear (possible on any
+    /// pre-build-32 store — every equipment screen offered the option
+    /// then) must not drive exercise stepping. The card is gated now,
+    /// so an honored stale value would be invisible and uncorrectable.
+    @Test func staleStepOnNonLoadableGearIsInert() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        SeedData.loadIfNeeded(context: context)
+
+        let exercises = try context.fetch(FetchDescriptor<Exercise>())
+        let bench = try #require(exercises.first { $0.name == "Bench Press" })
+        let equipment = try context.fetch(FetchDescriptor<Equipment>())
+
+        let benchGear = try #require(equipment.first { $0.name == "Bench" })
+        benchGear.weightStep = 1
+        #expect(bench.weightStepOverride == nil, "a bench holds you, not plates — a stale step on it stays inert")
+
+        let barbell = try #require(equipment.first { $0.name == "Barbell" })
+        barbell.weightStep = 2.5
+        #expect(bench.weightStepOverride == 2.5)
+    }
+
+    /// #95: catalog growth reaches EXISTING stores as a top-up — new
+    /// definitions arrive out-of-library, new equipment arrives
+    /// un-owned, and the user's curation is untouched.
     @Test func topUpAddsNewDefinitionsWithoutTouchingCuration() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
