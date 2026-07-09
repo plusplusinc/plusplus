@@ -45,12 +45,15 @@ final class SmokeTests: XCTestCase {
     }
 
     /// The swipe-reveal contract, on CI at last (builds 17/31/33 all
-    /// reported "snaps back on release" and no test exercised it): a
-    /// slow pull past the reveal threshold with a momentum-free lift
-    /// must leave the actions revealed and TAPPABLE, an aborted nudge
-    /// must not navigate (the row's plain Button used to fire on the
-    /// drag's finger-lift — the tap-close/navigate branch ran at the
-    /// end of every swipe), and the tapped action must actually run.
+    /// reported "snaps back on release" and no test exercised it):
+    /// a slow pull with a momentum-free lift must leave the actions
+    /// revealed and TAPPABLE; a tap while open must CLOSE the row (not
+    /// navigate); the tapped action must actually run. Pre-fix, row
+    /// content activated on touch-up-inside, so the reveal drag's own
+    /// finger-lift ran the tap-close branch and shut the row — this
+    /// test rejected the first, slop-based fix attempt (movement
+    /// relative to a row that chases the finger is ~zero), which is
+    /// why activation is now composed exclusively with the drag.
     func testSwipeRevealActionSurvivesRelease() throws {
         createRoutine(named: "Swipe Target")
 
@@ -62,37 +65,43 @@ final class SmokeTests: XCTestCase {
         let card = app.staticTexts["Swipe Target"]
         XCTAssertTrue(card.waitForExistence(timeout: 5))
         let start = card.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5))
+        let delete = app.buttons["DELETE"]
 
-        // 1. An aborted nudge (past DragGesture's 16 pt floor, short of
-        // the reveal threshold) must do NOTHING — with touch-up-inside
-        // activation it navigated into the row.
-        start.press(
-            forDuration: 0.05,
-            thenDragTo: start.withOffset(CGVector(dx: -20, dy: 0)),
-            withVelocity: .slow,
-            thenHoldForDuration: 0.3
-        )
-        XCTAssertTrue(
-            app.buttons["newRoutineButton"].waitForExistence(timeout: 3),
-            "an aborted pull must stay on the list, not navigate into the row"
-        )
-
-        // 2. The real reveal: slow pull well past halfway, hold so lift
-        // momentum is ~0 — the exact gentle release that snapped shut on
-        // device — then lift.
+        // 1. The reveal the device keeps reporting broken: slow pull
+        // well past halfway, hold so lift momentum is ~0 — the exact
+        // gentle release that snapped shut — then lift.
         start.press(
             forDuration: 0.05,
             thenDragTo: start.withOffset(CGVector(dx: -120, dy: 0)),
             withVelocity: .slow,
             thenHoldForDuration: 0.4
         )
-        let delete = app.buttons["DELETE"]
         XCTAssertTrue(delete.waitForExistence(timeout: 3), "actions must stay revealed after a gentle release")
         XCTAssertTrue(delete.isHittable, "the revealed action must be tappable")
         snap("swipe-revealed-after-release")
-        delete.tap()
 
-        // 3. The action ran: the routine is gone.
+        // 2. A tap while open closes the row — and must NOT navigate
+        // (isHittable is documented false for nonexistent elements, so
+        // the predicate is safe whether the closed action is pruned
+        // from the tree or merely unhittable).
+        card.tap()
+        let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == 0"), object: delete)
+        XCTAssertEqual(XCTWaiter().wait(for: [closed], timeout: 3), .completed, "a tap while open must close the row")
+        XCTAssertFalse(
+            app.buttons["addExerciseButton"].waitForExistence(timeout: 2),
+            "a tap while open must close, not navigate into the routine"
+        )
+
+        // 3. Re-reveal and run the action: the routine is deleted.
+        start.press(
+            forDuration: 0.05,
+            thenDragTo: start.withOffset(CGVector(dx: -120, dy: 0)),
+            withVelocity: .slow,
+            thenHoldForDuration: 0.4
+        )
+        XCTAssertTrue(delete.waitForExistence(timeout: 3))
+        XCTAssertTrue(delete.isHittable)
+        delete.tap()
         let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == 0"), object: card)
         XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 5), .completed, "DELETE must remove the routine")
     }

@@ -107,7 +107,7 @@ The Simulator validation step in every task should use these tools in sequence: 
 - **PlusPlusWidgets** — iOS widget extension (#147): Live Activity + home-screen widgets; shares `PlusPlusShared/` sources and the App Group with the app
 - **PlusPlusKit** — pure SwiftPM package shared with the CLI and future MCP (tested on Linux in CI)
 - **PlusPlusTests** — unit test target (79 tests; 109 more live in PlusPlusKit, 23 in PlusPlusCLI)
-- **PlusPlusUITests** — UI smoke test target (6 flows, `PlusPlusUI` scheme, CI-only by convention)
+- **PlusPlusUITests** — UI smoke test target (7 flows, `PlusPlusUI` scheme, CI-only by convention)
 
 **Project structure:**
 ```
@@ -198,7 +198,7 @@ PlusPlusTests/
   InterchangeMappingTests.swift # Export/import round-trip + policies (5)
   RoutineCatalogTests.swift  # Template content contract + instantiate (7) = 79 app + 109 Kit + 23 CLI
 PlusPlusUITests/
-  SmokeTests.swift           # 6 end-to-end flows w/ screenshot attachments
+  SmokeTests.swift           # 7 end-to-end flows w/ screenshot attachments
 .github/workflows/ci.yml # macOS CI: xcodegen + xcodebuild test (+ release.yml on v* tags,
                          #   testflight.yml manual-dispatch TestFlight upload)
 .xcodebuildmcp/          # XcodeBuildMCP session config

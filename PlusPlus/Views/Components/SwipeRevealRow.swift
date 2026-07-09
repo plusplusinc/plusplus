@@ -9,21 +9,27 @@ import SwiftData
 /// vertical movement stays with the surrounding scroll. One row open
 /// at a time via the shared `openRow` binding.
 ///
-/// ⚠️ CONTRACT for content: the row body must NOT activate on
-/// touch-up-inside — use `TapTriggerButtonStyle` (below), never
-/// `.plain`/default Button styles. The drag rides `simultaneousGesture`
-/// (deliberately non-cancelling, so the List pan can coexist), which
-/// means a plain Button under it still fires at finger-lift after a
-/// FULL reveal drag — and every consumer's tap handler treats "tap
-/// while open" as close, so the release closed the row the drag had
-/// just opened (Dave, build 33: "snaps back on release, impossible to
-/// tap any action" — third report; the two prior fixes hardened real
-/// but secondary paths inside the drag itself).
+/// ⚠️ CONTRACT for content: the row body carries NO tap affordance of
+/// its own — no Button, no `onTapGesture`. Build 33's snap-back was a
+/// plain Button firing on the finger-lift that ENDED a reveal drag
+/// (the card moves with the finger, so the touch never leaves the
+/// button's bounds), and its tap-close branch shut the row the drag
+/// had just opened. A slop-based tap style failed the same way,
+/// CI-proven — the offset chases the finger, so movement relative to
+/// the row is ~zero and no slop heuristic can engage. Row activation
+/// is `onTap`, which the component composes with the reveal drag in
+/// an ExclusiveGesture: once the drag activates (16 pt), the tap is
+/// structurally impossible — arbitration, not heuristics.
 struct SwipeRevealRow<Content: View, Actions: View>: View {
     let id: PersistentIdentifier
     @Binding var openRow: PersistentIdentifier?
     var enabled: Bool = true
     let actionsWidth: CGFloat
+    /// Row activation for a genuine tap (navigate, open a sheet).
+    /// While ANY row is open, a tap closes it instead — the one shared
+    /// close affordance, owned here rather than copy-pasted into every
+    /// consumer's tap handler.
+    var onTap: (() -> Void)? = nil
     @ViewBuilder let content: () -> Content
     @ViewBuilder let actions: () -> Actions
 
@@ -61,58 +67,15 @@ struct SwipeRevealRow<Content: View, Actions: View>: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Theme.background)
                 .offset(x: offset)
+                .contentShape(Rectangle())
+                // simultaneous with the OUTSIDE world (the List pan must
+                // coexist — .gesture starves scrolling, #99); exclusive
+                // WITHIN: the drag activating makes the tap impossible.
                 .simultaneousGesture(
-                    DragGesture(minimumDistance: 16)
-                        .updating($dragBase) { _, state, _ in
-                            if state == nil { state = restingOffset }
-                        }
-                        .updating($dragX) { value, state, _ in
-                            guard enabled,
-                                  abs(value.translation.width) > abs(value.translation.height)
-                            else { return }
-                            state = value.translation.width
-                        }
-                        // The open/closed decision commits HERE, live at
-                        // the halfway threshold — not only in onEnded.
-                        // Inside a List the scroll pan can steal the touch
-                        // at finger-lift, which CANCELS this gesture:
-                        // @GestureState resets, onEnded never runs, and a
-                        // decided-at-end-only row snapped shut under the
-                        // finger (Dave, build 17: "letting go hides it
-                        // again"). A cancelled gesture now keeps whatever
-                        // the drag last crossed.
-                        .onChanged { value in
-                            guard enabled,
-                                  abs(value.translation.width) > abs(value.translation.height),
-                                  let base = dragBase
-                            else { return }
-                            let dragged = base + value.translation.width
-                            if dragged < -actionsWidth / 2 {
-                                if openRow != id { openRow = id }
-                            } else if openRow == id {
-                                openRow = nil
-                            }
-                        }
-                        // onEnded only adds the flick — and only a REAL
-                        // flick. A relaxing finger drifts a few points
-                        // rightward at lift; treating that as momentum
-                        // closed rows the drag had committed open (Dave,
-                        // build 31: "on release the item snaps back").
-                        // Below the floor, the live-committed state from
-                        // onChanged stands. A genuine rightward flick
-                        // closes WHATEVER row is open — deliberate: a
-                        // dismissive flick means "close it" regardless
-                        // of which row it lands on.
-                        .onEnded { value in
-                            guard enabled,
-                                  abs(value.translation.width) > abs(value.translation.height)
-                            else { return }
-                            let momentum = value.predictedEndTranslation.width - value.translation.width
-                            guard abs(momentum) > 36 else { return }
-                            let projected = (openRow == id ? -actionsWidth : 0) + momentum
-                            openRow = projected < -actionsWidth / 2 ? id : nil
-                        }
+                    ExclusiveGesture(revealDrag, TapGesture().onEnded { handleTap() })
                 )
+                .accessibilityAddTraits(onTap != nil ? .isButton : [])
+                .accessibilityAction { handleTap() }
         }
         .clipped()
         .animation(.easeOut(duration: 0.18), value: offset)
@@ -128,6 +91,71 @@ struct SwipeRevealRow<Content: View, Actions: View>: View {
                 PopGestureGate.suppressionCount = max(0, PopGestureGate.suppressionCount - 1)
             }
         }
+    }
+
+    /// `enabled` gates activation too, mirroring the reveal drag: while
+    /// a rail gesture is live, a second finger must neither open sheets
+    /// nor close rows.
+    private func handleTap() {
+        guard enabled else { return }
+        if openRow != nil {
+            openRow = nil
+        } else {
+            onTap?()
+        }
+    }
+
+    private var revealDrag: some Gesture {
+        DragGesture(minimumDistance: 16)
+            .updating($dragBase) { _, state, _ in
+                if state == nil { state = restingOffset }
+            }
+            .updating($dragX) { value, state, _ in
+                guard enabled,
+                      abs(value.translation.width) > abs(value.translation.height)
+                else { return }
+                state = value.translation.width
+            }
+            // The open/closed decision commits HERE, live at
+            // the halfway threshold — not only in onEnded.
+            // Inside a List the scroll pan can steal the touch
+            // at finger-lift, which CANCELS this gesture:
+            // @GestureState resets, onEnded never runs, and a
+            // decided-at-end-only row snapped shut under the
+            // finger (Dave, build 17: "letting go hides it
+            // again"). A cancelled gesture now keeps whatever
+            // the drag last crossed.
+            .onChanged { value in
+                guard enabled,
+                      abs(value.translation.width) > abs(value.translation.height),
+                      let base = dragBase
+                else { return }
+                let dragged = base + value.translation.width
+                if dragged < -actionsWidth / 2 {
+                    if openRow != id { openRow = id }
+                } else if openRow == id {
+                    openRow = nil
+                }
+            }
+            // onEnded only adds the flick — and only a REAL
+            // flick. A relaxing finger drifts a few points
+            // rightward at lift; treating that as momentum
+            // closed rows the drag had committed open (Dave,
+            // build 31: "on release the item snaps back").
+            // Below the floor, the live-committed state from
+            // onChanged stands. A genuine rightward flick
+            // closes WHATEVER row is open — deliberate: a
+            // dismissive flick means "close it" regardless
+            // of which row it lands on.
+            .onEnded { value in
+                guard enabled,
+                      abs(value.translation.width) > abs(value.translation.height)
+                else { return }
+                let momentum = value.predictedEndTranslation.width - value.translation.width
+                guard abs(momentum) > 36 else { return }
+                let projected = (openRow == id ? -actionsWidth : 0) + momentum
+                openRow = projected < -actionsWidth / 2 ? id : nil
+            }
     }
 }
 
@@ -149,21 +177,9 @@ struct SwipeActionButton: View {
         }
         // Plain, not default: List routes row taps into default-styled
         // buttons anywhere in the row — the second half of the
-        // disappearing-rows bug.
+        // disappearing-rows bug. Safe from the content contract above:
+        // this lives in the ACTIONS slot, outside the content gesture,
+        // and only receives touches that begin on it while revealed.
         .buttonStyle(.plain)
-    }
-}
-
-/// Button style for content INSIDE a SwipeRevealRow: activates via
-/// `TapGesture` — which FAILS once the touch moves past system slop —
-/// instead of Button's touch-up-inside, which fires even after a
-/// full reveal drag (the card moves with the finger, so the touch
-/// never exits bounds). Keeps Button semantics for VoiceOver:
-/// accessibility activation calls `trigger()` directly.
-struct TapTriggerButtonStyle: PrimitiveButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .contentShape(Rectangle())
-            .onTapGesture { configuration.trigger() }
     }
 }

@@ -25,11 +25,14 @@ struct RoutineListView: View {
 
                 List {
                 ForEach(routines) { routine in
-                    SwipeRevealRow(id: routine.persistentModelID, openRow: $openSwipeRow, actionsWidth: 58) {
-                        RoutineCard(routine: routine) {
-                            if openSwipeRow != nil { openSwipeRow = nil } else { path.append(routine) }
-                        }
-                        .matchedTransitionSource(id: routine.persistentModelID, in: zoomNamespace)
+                    SwipeRevealRow(
+                        id: routine.persistentModelID,
+                        openRow: $openSwipeRow,
+                        actionsWidth: 58,
+                        onTap: { path.append(routine) }
+                    ) {
+                        RoutineCard(routine: routine)
+                            .matchedTransitionSource(id: routine.persistentModelID, in: zoomNamespace)
                     } actions: {
                         SwipeActionButton(label: "DELETE", color: Theme.destructive) {
                             openSwipeRow = nil
@@ -135,9 +138,11 @@ struct HeaderIconButton: View {
     }
 }
 
+/// Plain content, deliberately NOT a Button: activation belongs to
+/// SwipeRevealRow's onTap (see the component contract — a Button here
+/// fired on reveal-drag release and closed the row it opened).
 private struct RoutineCard: View {
     let routine: Routine
-    let onOpen: () -> Void
 
     private var estimateText: String {
         let minutes = max(5, Int((Double(routine.estimatedSeconds) / 300).rounded()) * 5)
@@ -174,62 +179,54 @@ private struct RoutineCard: View {
     }
 
     var body: some View {
-        Button(action: onOpen) {
-            // Three lines (#238 — the single row was cramped): identity,
-            // what it hits, what it needs.
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(routine.name)
-                        .font(.system(.body, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
-                        .lineLimit(1)
-                    Spacer(minLength: 8)
-                    Text(headerMeta)
-                        .font(.system(.caption, design: .monospaced))
-                        .foregroundStyle(Theme.textFaint)
-                        .lineLimit(1)
-                        .layoutPriority(-1)
-                    Image(systemName: "chevron.right")
-                        .font(.system(.footnote, weight: .bold))
-                        .foregroundStyle(Theme.textFaint)
-                }
-                Text(musclesLine)
-                    .font(.system(.caption))
-                    .foregroundStyle(Theme.textSecondary)
+        // Three lines (#238 — the single row was cramped): identity,
+        // what it hits, what it needs.
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(routine.name)
+                    .font(.system(.body, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
-                HStack(spacing: 5) {
-                    // Schedule pill first (#112): the cadence at a glance,
-                    // faint when the routine is unscheduled.
-                    Text(routine.schedule.shortLabel)
+                Spacer(minLength: 8)
+                Text(headerMeta)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(Theme.textFaint)
+                    .lineLimit(1)
+                    .layoutPriority(-1)
+                Image(systemName: "chevron.right")
+                    .font(.system(.footnote, weight: .bold))
+                    .foregroundStyle(Theme.textFaint)
+            }
+            Text(musclesLine)
+                .font(.system(.caption))
+                .foregroundStyle(Theme.textSecondary)
+                .lineLimit(1)
+            HStack(spacing: 5) {
+                // Schedule pill first (#112): the cadence at a glance,
+                // faint when the routine is unscheduled.
+                Text(routine.schedule.shortLabel)
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(routine.schedule.normalized == .unscheduled ? Theme.textFaint : Theme.textSecondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2.5)
+                    .overlay(Capsule().strokeBorder(Theme.border))
+                    .lineLimit(1)
+                ForEach(pills, id: \.self) { pill in
+                    Text(pill)
                         .font(.system(.caption2, design: .monospaced))
-                        .foregroundStyle(routine.schedule.normalized == .unscheduled ? Theme.textFaint : Theme.textSecondary)
+                        .foregroundStyle(Theme.textSecondary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 2.5)
-                        .overlay(Capsule().strokeBorder(Theme.border))
+                        .overlay(Capsule().strokeBorder(Theme.borderStrong))
                         .lineLimit(1)
-                    ForEach(pills, id: \.self) { pill in
-                        Text(pill)
-                            .font(.system(.caption2, design: .monospaced))
-                            .foregroundStyle(Theme.textSecondary)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2.5)
-                            .overlay(Capsule().strokeBorder(Theme.borderStrong))
-                            .lineLimit(1)
-                    }
-                    Spacer(minLength: 0)
                 }
+                Spacer(minLength: 0)
             }
-            .padding(.vertical, 14)
-            .padding(.horizontal, 14)
-            .contentShape(Rectangle())
-            .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
-            .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
         }
-        // Tap-triggered, NOT .plain: inside a SwipeRevealRow a plain
-        // Button fires on the finger-lift that ends a reveal drag, and
-        // onOpen's tap-close branch shut the row the drag just opened
-        // (build 33). TapGesture fails on movement, so only real taps
-        // activate.
-        .buttonStyle(TapTriggerButtonStyle())
+        .padding(.vertical, 14)
+        .padding(.horizontal, 14)
+        .contentShape(Rectangle())
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+        .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
     }
 }
