@@ -87,7 +87,10 @@ struct SwipeRevealRow<Content: View, Actions: View>: View {
                         // closed rows the drag had committed open (Dave,
                         // build 31: "on release the item snaps back").
                         // Below the floor, the live-committed state from
-                        // onChanged stands.
+                        // onChanged stands. A genuine rightward flick
+                        // closes WHATEVER row is open — deliberate: a
+                        // dismissive flick means "close it" regardless
+                        // of which row it lands on.
                         .onEnded { value in
                             guard enabled,
                                   abs(value.translation.width) > abs(value.translation.height)

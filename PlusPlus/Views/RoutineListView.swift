@@ -157,10 +157,13 @@ private struct RoutineCard: View {
         return ordered.map { $0.displayName.lowercased() }.joined(separator: " · ")
     }
 
-    private var setsSummary: String {
+    /// Empty routines show nothing here — a "~5 min · 0 sets" claim
+    /// above "no exercises yet" described a workout that doesn't exist.
+    private var headerMeta: String {
         let exercises = routine.sortedGroups.flatMap(\.sortedExercises).count
+        guard exercises > 0 else { return "" }
         let sets = routine.sortedGroups.reduce(0) { $0 + $1.sets * $1.sortedExercises.count }
-        return "\(exercises) exercise\(exercises == 1 ? "" : "s") · \(sets) sets"
+        return "\(estimateText) · \(exercises) exercise\(exercises == 1 ? "" : "s") · \(sets) set\(sets == 1 ? "" : "s")"
     }
 
     var body: some View {
@@ -174,7 +177,7 @@ private struct RoutineCard: View {
                         .foregroundStyle(Theme.textPrimary)
                         .lineLimit(1)
                     Spacer(minLength: 8)
-                    Text("\(estimateText) · \(setsSummary)")
+                    Text(headerMeta)
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(Theme.textFaint)
                         .lineLimit(1)

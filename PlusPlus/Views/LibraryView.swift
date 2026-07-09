@@ -95,11 +95,16 @@ struct ExercisesTabView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            // Full swipe only where the action is reversible: a
+            // built-in "removed" here stays in the catalog; a custom
+            // is deleted permanently and gets no flick path (reviewer
+            // catch — the routine list's own rule, applied).
+            .swipeActions(edge: .trailing, allowsFullSwipe: exercise.isBuiltIn) {
                 Button(role: .destructive) {
                     remove(exercise)
                 } label: {
-                    Label("Remove", systemImage: "minus.circle")
+                    Label(exercise.isBuiltIn ? "Remove" : "Delete",
+                          systemImage: exercise.isBuiltIn ? "minus.circle" : "trash")
                 }
             }
             .listRowBackground(Color.clear)
@@ -200,11 +205,12 @@ struct EquipmentTabView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            .swipeActions(edge: .trailing, allowsFullSwipe: equipment.isBuiltIn) {
                 Button(role: .destructive) {
                     remove(equipment)
                 } label: {
-                    Label("Remove", systemImage: "minus.circle")
+                    Label(equipment.isBuiltIn ? "Remove" : "Delete",
+                          systemImage: equipment.isBuiltIn ? "minus.circle" : "trash")
                 }
             }
             .listRowBackground(Color.clear)

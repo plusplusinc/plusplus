@@ -329,6 +329,7 @@ struct EquipmentDetailScreen: View {
     @State private var path: PushTarget?
     @State private var showingAddExercise = false
     @State private var showingRename = false
+    @State private var confirmingDelete = false
     @State private var renameText = ""
 
     private enum PushTarget: Hashable {
@@ -462,14 +463,7 @@ struct EquipmentDetailScreen: View {
                         }
                     } else {
                         Button("Delete custom equipment", role: .destructive) {
-                            // Belt-and-braces since #196's explicit
-                            // inverse: strip references first so
-                            // deletion stays order-independent.
-                            for exercise in allExercises {
-                                exercise.equipment.removeAll { $0 === equipment }
-                            }
-                            modelContext.delete(equipment)
-                            dismiss()
+                            confirmingDelete = true
                         }
                     }
                 } label: {
@@ -477,6 +471,27 @@ struct EquipmentDetailScreen: View {
                 }
                 .accessibilityIdentifier("equipmentDetailMenu")
             }
+        }
+        // Every other delete in the app confirms; this one was the
+        // odd silent one out (reviewer catch), and the dialog carries
+        // the reference-stripping consequence the old caption explained.
+        .confirmationDialog(
+            "Delete \u{201C}\(equipment.name)\u{201D}?",
+            isPresented: $confirmingDelete,
+            titleVisibility: .visible
+        ) {
+            Button("Delete equipment", role: .destructive) {
+                // Belt-and-braces since #196's explicit inverse: strip
+                // references first so deletion stays order-independent.
+                for exercise in allExercises {
+                    exercise.equipment.removeAll { $0 === equipment }
+                }
+                modelContext.delete(equipment)
+                dismiss()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("It will be removed from every exercise that references it.")
         }
         .navigationDestination(item: $path) { target in
             switch target {
