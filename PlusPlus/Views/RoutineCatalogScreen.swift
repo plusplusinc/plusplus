@@ -199,9 +199,12 @@ struct RoutineCatalogScreen: View {
                 ExpandingSearchButton(prompt: "Search routines", text: $search, identifier: "routineCatalogSearchField")
             }
         }
-        .navigationDestination(for: RoutineTemplate.self) { template in
-            RoutineTemplateDetailScreen(template: template, path: $path)
-        }
+        // ⚠️ No .navigationDestination(for: RoutineTemplate.self) here:
+        // this screen is itself pushed via navigationDestination(isPresented:),
+        // and a value destination declared on a pushed screen failed to
+        // resolve in production (build 33: template taps hit SwiftUI's
+        // missing-destination placeholder). The registration lives at each
+        // owning stack's root — RoutineListView and TodayView.
         // The equipment catalog as a stacked sheet (the #254 pattern):
         // ownership edits reflect in the filter live on return.
         .sheet(isPresented: $showingEquipmentEditor) {
