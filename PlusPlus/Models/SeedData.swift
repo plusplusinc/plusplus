@@ -395,9 +395,127 @@ enum SeedData {
             e("Box Jump", .fullBody, ["Plyo Box"]),
             e("Jump Rope", .fullBody, ["Jump Rope"], .duration),
             e("Rowing", .fullBody, ["Rowing Machine"], .duration),
-            e("Assault Bike", .fullBody, ["Stationary Bike"], .duration),
+            e("Assault Bike", .fullBody, ["Air Bike"], .duration),
+            e("Stationary Bike", .fullBody, ["Stationary Bike"], .duration),
             e("Treadmill Run", .fullBody, ["Treadmill"], .duration),
             e("Sandbag Carry", .fullBody, ["Sandbag"], .duration),
+
+            // #235: every equipment type gates at least one exercise —
+            // the 60 types the #222 sweep added get their movements.
+            // Specialty bars
+            e("Safety Bar Squat", .quads, ["Safety Squat Bar", "Squat Rack"]),
+            e("Safety Bar Good Morning", .hamstrings, ["Safety Squat Bar", "Squat Rack"]),
+            e("Swiss Bar Bench Press", .chest, ["Swiss Bar", "Bench"]),
+            e("Swiss Bar Overhead Press", .shoulders, ["Swiss Bar"]),
+            e("Cambered Bar Squat", .quads, ["Cambered Squat Bar", "Squat Rack"]),
+            e("Axle Deadlift", .back, ["Axle Bar"]),
+            e("Axle Clean and Press", .fullBody, ["Axle Bar"]),
+            // Benches + stations
+            e("Decline Bench Press", .chest, ["Barbell", "Decline Bench"]),
+            e("Decline Sit-Up", .core, ["Decline Bench"]),
+            e("GHD Raise", .hamstrings, ["Glute-Ham Developer"]),
+            e("GHD Sit-Up", .core, ["Glute-Ham Developer"]),
+            e("Reverse Hyperextension", .glutes, ["Reverse Hyper Machine"]),
+            e("Nordic Bench Curl", .hamstrings, ["Nordic Bench"]),
+            e("Weighted Sissy Squat", .quads, ["Sissy Squat Bench", "Weight Plate"]),
+            e("Captain's Chair Leg Raise", .core, ["Captain's Chair"]),
+            // Plate-loaded machines
+            e("T-Bar Row", .back, ["T-Bar Row Machine"]),
+            e("Belt Squat", .quads, ["Belt Squat Machine"]),
+            e("Pendulum Squat", .quads, ["Pendulum Squat Machine"]),
+            e("Machine Pullover", .back, ["Pullover Machine"]),
+            // Selectorized machines
+            e("Hip Abduction", .glutes, ["Hip Abduction Machine"]),
+            e("Hip Adduction", .quads, ["Hip Adduction Machine"]),
+            e("Assisted Pull-Up", .back, ["Assisted Pull-Up Machine"]),
+            e("Assisted Dip", .triceps, ["Assisted Pull-Up Machine"]),
+            e("Machine Crunch", .core, ["Ab Crunch Machine"]),
+            e("Torso Rotation", .core, ["Torso Rotation Machine"]),
+            e("Machine Lateral Raise", .shoulders, ["Lateral Raise Machine"]),
+            e("Machine Bicep Curl", .biceps, ["Bicep Curl Machine"]),
+            e("Machine Tricep Extension", .triceps, ["Tricep Extension Machine"]),
+            e("Machine Back Extension", .back, ["Low Back Extension Machine"]),
+            e("Multi-Hip Kickback", .glutes, ["Multi-Hip Machine"]),
+            e("Machine Glute Kickback", .glutes, ["Glute Kickback Machine"]),
+            // Cardio
+            e("Ski Erg", .fullBody, ["Ski Erg"], .duration),
+            e("Elliptical", .fullBody, ["Elliptical"], .duration),
+            e("Stair Climber", .fullBody, ["Stair Climber"], .duration),
+            e("Vertical Climber", .fullBody, ["Vertical Climber"], .duration),
+            e("Upper Body Ergometer", .fullBody, ["Upper Body Ergometer"], .duration),
+            // Strongman
+            e("Yoke Carry", .fullBody, ["Yoke"], .duration),
+            e("Farmers Handle Carry", .fullBody, ["Farmers Walk Handles"], .duration),
+            e("Log Clean and Press", .fullBody, ["Log Bar"]),
+            e("Atlas Stone Load", .fullBody, ["Atlas Stone"]),
+            e("Circus Dumbbell Press", .shoulders, ["Circus Dumbbell"]),
+            e("Husafell Carry", .fullBody, ["Husafell Stone"], .duration),
+            e("Tire Flip", .fullBody, ["Tire"]),
+            e("Sledgehammer Slam", .fullBody, ["Sledgehammer", "Tire"]),
+            // Gymnastics + calisthenics
+            e("Parallette L-Sit", .core, ["Parallettes"], .duration),
+            e("Parallette Push-Up", .chest, ["Parallettes"]),
+            e("Rope Climb", .back, ["Climbing Rope"]),
+            e("Peg Board Ascent", .back, ["Peg Board"]),
+            e("Stall Bar Leg Raise", .core, ["Stall Bars"]),
+            // Small equipment
+            e("Slam Ball Slam", .fullBody, ["Slam Ball"]),
+            e("Stability Ball Leg Curl", .hamstrings, ["Stability Ball"]),
+            e("Stability Ball Rollout", .core, ["Stability Ball"]),
+            e("Balance Trainer Squat", .quads, ["Balance Trainer"]),
+            e("Slider Lunge", .quads, ["Sliders"]),
+            e("Body Saw", .core, ["Sliders"], .duration),
+            e("Chain Bench Press", .chest, ["Barbell", "Bench", "Weightlifting Chains"]),
+            e("Weighted Dip", .chest, ["Dip Station", "Dip Belt"]),
+            e("Weighted Pull-Up", .back, ["Pull-Up Bar", "Dip Belt"]),
+            e("Weighted Push-Up", .chest, ["Weight Vest"]),
+            e("Ruck", .fullBody, ["Weight Vest"], .duration),
+            e("Mace 360", .shoulders, ["Macebell"]),
+            e("Steel Club Mill", .shoulders, ["Steel Club"]),
+            e("Bulgarian Bag Spin", .fullBody, ["Bulgarian Bag"]),
+            e("Wrist Roller Roll-Up", .biceps, ["Wrist Roller"]),
+            e("Neck Harness Extension", .shoulders, ["Neck Harness"]),
+            e("Gripper Close", .biceps, ["Hand Gripper"]),
+            e("Heavy Bag Rounds", .fullBody, ["Heavy Bag"], .duration),
+            e("Agility Ladder Drills", .fullBody, ["Agility Ladder"], .duration),
+            e("Tibialis Raise", .calves, ["Tibialis Bar"]),
+            e("Slant Board Squat", .quads, ["Slant Board"]),
         ]
     }()
+
+    // MARK: - Equipment configuration (#236)
+
+    /// Which built-ins are incrementally LOADABLE — plates, pins,
+    /// bells, stacks, or a stepped rating that IS the load (bands and
+    /// grippers are sold in lb ratings) — and therefore get a
+    /// weight-step option. A bench holds you; a barbell holds plates.
+    /// Custom equipment always shows the option (the user created it;
+    /// we can't classify intent).
+    static let loadableEquipmentNames: Set<String> = [
+        "Barbell", "EZ Bar", "Trap Bar", "Safety Squat Bar", "Swiss Bar",
+        "Cambered Squat Bar", "Axle Bar", "Log Bar", "Dumbbells",
+        "Kettlebell", "Weight Plate", "Sandbag", "Circus Dumbbell",
+        "Atlas Stone", "Husafell Stone", "Macebell", "Steel Club",
+        "Bulgarian Bag", "Slam Ball", "Medicine Ball", "Weight Vest",
+        "Dip Belt", "Weightlifting Chains", "Wrist Roller", "Neck Harness",
+        "Landmine", "Sled", "Yoke", "Farmers Walk Handles", "Tibialis Bar",
+        "Reverse Hyper Machine", "Resistance Band", "Hand Gripper",
+        "Smith Machine", "Cable Machine", "Leg Press Machine",
+        "Lat Pulldown Machine", "Leg Extension Machine", "Leg Curl Machine",
+        "Calf Raise Machine", "Hack Squat Machine", "Hip Thrust Machine",
+        "Pec Deck Machine", "Chest Press Machine", "Shoulder Press Machine",
+        "Seated Row Machine", "T-Bar Row Machine", "Belt Squat Machine",
+        "Pendulum Squat Machine", "Pullover Machine", "Hip Abduction Machine",
+        "Hip Adduction Machine", "Assisted Pull-Up Machine",
+        "Ab Crunch Machine", "Torso Rotation Machine", "Lateral Raise Machine",
+        "Bicep Curl Machine", "Tricep Extension Machine",
+        "Low Back Extension Machine", "Multi-Hip Machine",
+        "Glute Kickback Machine",
+    ]
+
+    /// Whether the given equipment's detail screen offers weight-step
+    /// configuration (#236: config adapts to the equipment).
+    static func isLoadable(_ equipment: Equipment) -> Bool {
+        !equipment.isBuiltIn || loadableEquipmentNames.contains(equipment.name)
+    }
 }

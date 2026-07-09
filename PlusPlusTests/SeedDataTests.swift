@@ -170,6 +170,47 @@ struct SeedDataTests {
         #expect(equipmentCount == SeedData.builtInEquipment.count)
     }
 
+    /// #235: every equipment type must gate at least one exercise —
+    /// gear with nothing to do is catalog noise.
+    @Test func everyEquipmentGatesAnExercise() {
+        let gated = Set(SeedData.makeBuiltInExercisesForTesting(equipment: SeedData.builtInEquipment)
+            .flatMap { $0.equipment.map(\.name) })
+        for item in SeedData.builtInEquipment {
+            #expect(gated.contains(item.name), "\(item.name) gates no exercise")
+        }
+    }
+
+    /// #236: the loadable classification references real catalog names
+    /// only (a typo would silently strip a machine's weight step).
+    @Test func loadableNamesExistInCatalog() {
+        let catalog = Set(SeedData.builtInEquipment.map(\.name))
+        for name in SeedData.loadableEquipmentNames {
+            #expect(catalog.contains(name), "\(name) is not a catalog equipment name")
+        }
+    }
+
+    /// #236: a step stored on NON-loadable gear (possible on any
+    /// pre-build-32 store — every equipment screen offered the option
+    /// then) must not drive exercise stepping. The card is gated now,
+    /// so an honored stale value would be invisible and uncorrectable.
+    @Test func staleStepOnNonLoadableGearIsInert() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        SeedData.loadIfNeeded(context: context)
+
+        let exercises = try context.fetch(FetchDescriptor<Exercise>())
+        let bench = try #require(exercises.first { $0.name == "Bench Press" })
+        let equipment = try context.fetch(FetchDescriptor<Equipment>())
+
+        let benchGear = try #require(equipment.first { $0.name == "Bench" })
+        benchGear.weightStep = 1
+        #expect(bench.weightStepOverride == nil, "a bench holds you, not plates — a stale step on it stays inert")
+
+        let barbell = try #require(equipment.first { $0.name == "Barbell" })
+        barbell.weightStep = 2.5
+        #expect(bench.weightStepOverride == 2.5)
+    }
+
     /// #95: catalog growth reaches EXISTING stores as a top-up — new
     /// definitions arrive out-of-library, new equipment arrives
     /// un-owned, and the user's curation is untouched.

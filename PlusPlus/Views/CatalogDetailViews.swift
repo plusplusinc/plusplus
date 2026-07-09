@@ -349,17 +349,23 @@ struct EquipmentDetailScreen: View {
                             .overlay(Capsule().strokeBorder(equipment.isBuiltIn ? Theme.borderStrong : Theme.accent.opacity(0.4)))
                     }
 
-                    SheetSectionLabel("WEIGHT STEP")
-                        .padding(.top, 24)
-                    HStack(spacing: 7) {
-                        ForEach(Self.stepChoices, id: \.self) { choice in
-                            stepChip(choice)
+                    // Config adapts to the gear (#236): a bench holds
+                    // you, a barbell holds plates — only loadables get
+                    // a weight step. Customs always do (can't classify
+                    // the user's intent).
+                    if SeedData.isLoadable(equipment) {
+                        SheetSectionLabel("WEIGHT STEP")
+                            .padding(.top, 24)
+                        HStack(spacing: 7) {
+                            ForEach(Self.stepChoices, id: \.self) { choice in
+                                stepChip(choice)
+                            }
                         }
+                        Text("Per-tap increment for weight exercises using this gear. The wheel picker stays fine-grained.")
+                            .font(.system(.caption))
+                            .foregroundStyle(Theme.textFaint)
+                            .padding(.top, 6)
                     }
-                    Text("Per-tap increment for weight exercises using this gear. The wheel picker stays fine-grained.")
-                        .font(.system(.caption))
-                        .foregroundStyle(Theme.textFaint)
-                        .padding(.top, 6)
 
                     SheetSectionLabel("EXERCISES (\(usedByExercises.count))")
                         .padding(.top, 24)
