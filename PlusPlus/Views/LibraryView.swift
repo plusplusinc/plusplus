@@ -397,10 +397,15 @@ struct CatalogBrowseScreen: View {
                     if anyFilterActive {
                         ClearAllChip { clearAllFilters() }
                     }
+                    // Equipment membership is OWNERSHIP — half the UI
+                    // said "library" for it (FTUE audit): one concept,
+                    // one name per kind.
                     FacetChip(
-                        facet: "LIBRARY",
+                        facet: kind == .equipment ? "OWNED" : "LIBRARY",
                         selection: membershipBinding,
-                        options: [(1, "In library"), (2, "Not in library")]
+                        options: kind == .equipment
+                            ? [(1, "Owned"), (2, "Not owned")]
+                            : [(1, "In library"), (2, "Not in library")]
                     )
                     if kind == .exercises {
                         TrayFilterChip(
@@ -417,7 +422,11 @@ struct CatalogBrowseScreen: View {
                 .animation(.easeOut(duration: 0.15), value: anyFilterActive)
                 .padding(.horizontal, 16)
             }
-            .popoverTip(CatalogCurationTip())
+            // Not in setup (FTUE audit): the tip's library-curation
+            // copy contradicts the step's ownership framing, and it
+            // pops at the flow's highest-anxiety moment. popoverTip
+            // takes a concrete Tip, so the gate is structural.
+            .modifier(CurationTipUnlessSetup(setupMode: setupMode))
             .padding(.top, 6)
 
             Button {
@@ -544,9 +553,15 @@ struct CatalogBrowseScreen: View {
         }
         .onDisappear {
             // Plain back after engaging still counts as done — never
-            // trap the user in a setup step (§F).
+            // trap the user in a setup step (§F). And the exits must be
+            // EQUIVALENT: the swipe-back that marks done also carries
+            // the populate offer the Done button would have (FTUE
+            // audit — the offer had no re-ask anywhere).
             if setupMode && touchedSetup && !SetupState.equipmentDone {
                 SetupState.markEquipmentDone()
+                if kind == .equipment && offersPopulateOnDone {
+                    SetupState.requestPopulateOffer()
+                }
             }
         }
         .sheet(isPresented: Binding(
@@ -694,5 +709,19 @@ struct CatalogBrowseScreen: View {
             modelContext.insert(Equipment(name: name, isBuiltIn: false))
         }
         dismiss()
+    }
+}
+
+/// Structural gate for the curation tip: `popoverTip` takes `some Tip`
+/// (no Optional), so setup mode branches around it entirely.
+private struct CurationTipUnlessSetup: ViewModifier {
+    let setupMode: Bool
+
+    func body(content: Content) -> some View {
+        if setupMode {
+            content
+        } else {
+            content.popoverTip(CatalogCurationTip())
+        }
     }
 }

@@ -183,7 +183,11 @@ struct TodayView: View {
                 }
             }
             .alert(
-                "Add \(populateOfferCount) exercise\(populateOfferCount == 1 ? "" : "s") your equipment supports?",
+                // "your equipment supports" right after "Done —
+                // bodyweight only" reads as a mistake (FTUE audit).
+                equipment.contains(where: { $0.inLibrary && !$0.isDeleted })
+                    ? "Add \(populateOfferCount) exercise\(populateOfferCount == 1 ? "" : "s") your equipment supports?"
+                    : "Add \(populateOfferCount) exercise\(populateOfferCount == 1 ? " that needs" : "s that need") no equipment?",
                 isPresented: Binding(
                     get: { populateOfferCount > 0 },
                     set: { if !$0 { populateOfferCount = 0 } }
@@ -791,7 +795,9 @@ struct TodayView: View {
                 }
             }
         }
-        guard let best else { return "Nothing scheduled — swap one in whenever" }
+        // Not "Nothing scheduled" — the title already says that, and
+        // saying it twice reads broken (the header comment's own rule).
+        guard let best else { return "No routine on the calendar — start one whenever" }
         let day = best.date.formatted(.dateTime.weekday(.abbreviated)).lowercased()
         return "on pace · next \(day) — \(best.name)"
     }
