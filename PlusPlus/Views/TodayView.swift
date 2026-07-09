@@ -57,6 +57,15 @@ struct TodayView: View {
     /// — without it, an app resident overnight keeps rendering
     /// yesterday's due list (bug hunt).
     @State private var dayToken = 0
+    /// One-shot: the timeline anchors to today's content on FIRST
+    /// appearance only (#267) — re-appearances mid-session (returning
+    /// from a workout cover, tab hops) must not yank the scroll
+    /// position. Day changes re-anchor separately via dayToken.
+    @State private var hasAnchoredToday = false
+
+    /// The zero-height marker the opening scroll anchors to — today's
+    /// content top-aligns here, with the week ahead above it (#267).
+    private static let todayAnchorID = "todayAnchor"
 
     private var weightUnit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .lb }
     private var calendar: Calendar { Calendar.current }
@@ -89,48 +98,97 @@ struct TodayView: View {
             VStack(spacing: 0) {
                 header
 
-                ScrollView {
-                    // Lazy: the committed section is the whole history —
-                    // eager building made every render O(sessions) (bug
-                    // hunt perf finding).
-                    LazyVStack(spacing: 0) {
-                        // The rest-day item yields to the setup scaffold
-                        // until a startable routine exists — "nothing
-                        // scheduled" and "schedule it (3 of 3)" saying
-                        // the same thing twice reads broken. Once a
-                        // routine CAN start, the item returns (#246):
-                        // scheduling is optional and must not read as
-                        // the only path to working out.
-                        if dueRoutines.isEmpty
-                            && (!setupActive || allSetupDone || !swapInCandidates.isEmpty) {
-                            restDayItem
-                        }
-                        ForEach(dueButEmptyRoutines) { routine in
-                            // Inert grey by intent: the ROUTINE isn't
-                            // startable — the card's CTA repairs, it
-                            // doesn't perform (rail grammar call).
-                            TimelineItem(node: .inert) {
-                                emptyRoutineCard(routine)
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        // The week ahead rides ABOVE today (#267) in a
+                        // plain VStack: laziness above the anchor would
+                        // give the opening scrollTo estimated heights to
+                        // aim at (a LazyVStack sizes unrealized content
+                        // approximately, so an anchor below lazy rows
+                        // can land off by their estimation error). The
+                        // future section is small by construction — at
+                        // most a summary block plus 7 days of occurrence
+                        // cards — so eager layout is cheap; the
+                        // committed history below the anchor stays lazy.
+                        VStack(spacing: 0) {
+                            if showsFutureSection {
+                                futureSection
+                            }
+                            // The opening anchor: today's content
+                            // top-aligns here; the week above is
+                            // reachable by scrolling up.
+                            Color.clear
+                                .frame(height: 0)
+                                .id(Self.todayAnchorID)
+                            // Lazy: the committed section is the whole
+                            // history — eager building made every render
+                            // O(sessions) (bug hunt perf finding).
+                            LazyVStack(spacing: 0) {
+                                // The rest-day item yields to the setup scaffold
+                                // until a startable routine exists — "nothing
+                                // scheduled" and "schedule it (3 of 3)" saying
+                                // the same thing twice reads broken. Once a
+                                // routine CAN start, the item returns (#246):
+                                // scheduling is optional and must not read as
+                                // the only path to working out.
+                                if dueRoutines.isEmpty
+                                    && (!setupActive || allSetupDone || !swapInCandidates.isEmpty) {
+                                    restDayItem
+                                }
+                                ForEach(dueButEmptyRoutines) { routine in
+                                    // Inert grey by intent: the ROUTINE isn't
+                                    // startable — the card's CTA repairs, it
+                                    // doesn't perform (rail grammar call).
+                                    TimelineItem(node: .inert) {
+                                        emptyRoutineCard(routine)
+                                    }
+                                }
+                                ForEach(dueRoutines) { routine in
+                                    TimelineItem(node: .pending) {
+                                        pendingCard(routine)
+                                            .matchedTransitionSource(id: routine.persistentModelID, in: zoomNamespace)
+                                    }
+                                }
+                                if setupActive {
+                                    setupSection
+                                }
+                                ForEach(sessions) { session in
+                                    TimelineItem(node: .committed) {
+                                        committedCard(session)
+                                            .matchedTransitionSource(id: session.persistentModelID, in: zoomNamespace)
+                                    }
+                                }
                             }
                         }
-                        ForEach(dueRoutines) { routine in
-                            TimelineItem(node: .pending) {
-                                pendingCard(routine)
-                                    .matchedTransitionSource(id: routine.persistentModelID, in: zoomNamespace)
-                            }
-                        }
-                        if setupActive {
-                            setupSection
-                        }
-                        ForEach(sessions) { session in
-                            TimelineItem(node: .committed) {
-                                committedCard(session)
-                                    .matchedTransitionSource(id: session.persistentModelID, in: zoomNamespace)
-                            }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 24)
+                    }
+                    .refreshable {
+                        // Honest refresh (#267): due-ness is pure local
+                        // computation keyed on the clock, so bumping the
+                        // token re-derives everything instantly — no
+                        // fake delay. Sync state joins this gesture when
+                        // #23 ships.
+                        dayToken += 1
+                    }
+                    .onAppear {
+                        guard !hasAnchoredToday else { return }
+                        hasAnchoredToday = true
+                        // Unanimated: Today OPENS at today; the week
+                        // above is something you go looking for.
+                        proxy.scrollTo(Self.todayAnchorID, anchor: .top)
+                    }
+                    .onChange(of: dayToken) {
+                        // A new day moves "today" — re-anchor. (This
+                        // also runs after pull-to-refresh: the gesture
+                        // asks for a fresh Today, and Today opens at
+                        // today.) Next runloop, not mid-update: the new
+                        // day's content must lay out before the anchor
+                        // frame it scrolls to is real.
+                        Task { @MainActor in
+                            proxy.scrollTo(Self.todayAnchorID, anchor: .top)
                         }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 24)
                 }
             }
             .background(Theme.background)
@@ -316,6 +374,149 @@ struct TodayView: View {
                 calendar: calendar
             ) == .due
         }
+    }
+
+    // MARK: - The week ahead (#267)
+
+    /// One future occurrence of one routine — a routine can appear on
+    /// two days of the same week, so identity is the (routine, day)
+    /// pair.
+    private struct UpcomingEntry: Identifiable {
+        struct ID: Hashable {
+            let routine: PersistentIdentifier
+            let day: Date
+        }
+
+        let routine: Routine
+        let day: Date
+        var id: ID { ID(routine: routine.persistentModelID, day: day) }
+    }
+
+    /// The week ahead renders only once Today is its own surface — a
+    /// fresh install's setup scaffold keeps the focus — and only when a
+    /// schedule exists to preview; with nothing scheduled the whole
+    /// section (summary + cards) collapses away.
+    private var showsFutureSection: Bool {
+        (!setupActive || allSetupDone) && scheduledRoutinesExist
+    }
+
+    private var scheduledRoutines: [Routine] {
+        routines.filter { $0.schedule.normalized != .unscheduled }
+    }
+
+    /// Occurrence days over the next 7 (tomorrow through today + 7),
+    /// one entry per routine per day, sorted furthest-future FIRST —
+    /// the timeline reads top-down: beyond → this week → today →
+    /// history. Same-day ties keep the user's routine order. Empty
+    /// routines never appear: they can't start (the 0-set bug class),
+    /// and today's due-but-empty card owns the repair path.
+    private var upcomingEntries: [UpcomingEntry] {
+        var entries: [(entry: UpcomingEntry, order: Int)] = []
+        for (index, routine) in routines.enumerated() where !routine.groups.isEmpty {
+            let days = routine.schedule.upcomingScheduledDays(
+                lastCompleted: lastCompleted(of: routine),
+                today: today,
+                calendar: calendar
+            )
+            entries.append(contentsOf: days.map { (entry: UpcomingEntry(routine: routine, day: $0), order: index) })
+        }
+        return entries.sorted { a, b in
+            if a.entry.day != b.entry.day { return a.entry.day > b.entry.day }
+            return a.order < b.order
+        }.map { $0.entry }
+    }
+
+    @ViewBuilder
+    private var futureSection: some View {
+        beyondThisWeekBlock
+        ForEach(upcomingEntries) { entry in
+            // Inert grey: green rings stay exclusive to today's
+            // actionable cards (rail grammar) — a future day is a
+            // calendar fact, not a call to action.
+            TimelineItem(node: .inert) {
+                futureCard(entry)
+            }
+        }
+    }
+
+    /// The cadence summary — the timeline's far end: one faint line of
+    /// plain calendar facts per scheduled routine ("mon/thu — Push
+    /// Day"). No obligation words (#172); presence and position
+    /// communicate. Empty scheduled routines still appear here — the
+    /// schedule is a fact even while the routine can't start (its
+    /// due-day card names that state). Spine only, no node: nothing
+    /// here is an entry.
+    private var beyondThisWeekBlock: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Rectangle()
+                .fill(Theme.border)
+                .frame(width: 2)
+                .frame(maxHeight: .infinity)
+                .frame(width: 20)
+            VStack(alignment: .leading, spacing: 3) {
+                SheetSectionLabel("BEYOND THIS WEEK")
+                ForEach(scheduledRoutines) { routine in
+                    Text("\(routine.schedule.shortLabel) — \(routine.name)")
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(Theme.textFaint)
+                        .lineLimit(1)
+                }
+            }
+            .padding(.vertical, 10)
+            Spacer(minLength: 0)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// A condensed pending card, deliberately SECONDARY to today's
+    /// (Dave's #267 call): name + date + estimate, a compact bordered
+    /// Start instead of the full-width fill, no promoted diff, no
+    /// muscles/gear rows. Start is the same path as today's Start; the
+    /// early completion satisfies the upcoming occurrence (Kit #267),
+    /// so the day's card retires itself. No matchedTransitionSource:
+    /// the same routine's pending card may be on screen with that id —
+    /// off-card starts fall back to the standard transition (#216).
+    private func futureCard(_ entry: UpcomingEntry) -> some View {
+        HStack(alignment: .center, spacing: 8) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(entry.routine.name)
+                    .font(.system(.body, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                Text(futureCaption(for: entry))
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(Theme.textFaint)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            Button {
+                start(entry.routine)
+            } label: {
+                Text("Start")
+                    .font(.system(.caption, weight: .semibold))
+                    .foregroundStyle(Theme.textSecondary)
+                    .padding(.horizontal, 11)
+                    .frame(height: 30)
+                    .overlay(Capsule().strokeBorder(Theme.borderStrong, lineWidth: 1))
+                    .padding(.vertical, 7)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("startUpcomingButton")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+        .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
+    }
+
+    /// "fri · jul 11 · ~40 min" — plain calendar facts, lowercase like
+    /// every caption on the rail.
+    private func futureCaption(for entry: UpcomingEntry) -> String {
+        let weekday = entry.day.formatted(.dateTime.weekday(.abbreviated)).lowercased()
+        let date = entry.day.formatted(.dateTime.month(.abbreviated).day()).lowercased()
+        return "\(weekday) · \(date) · \(estimateText(for: entry.routine))"
     }
 
     /// Identity match wins; the name fallback only applies when no
@@ -905,7 +1106,7 @@ struct TodayView: View {
     }
 
     private var scheduledRoutinesExist: Bool {
-        routines.contains { $0.schedule.normalized != .unscheduled }
+        !scheduledRoutines.isEmpty
     }
 
     /// "Rest day" is a claim — don't make it while an empty scheduled

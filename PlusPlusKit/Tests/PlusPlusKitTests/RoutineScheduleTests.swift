@@ -46,11 +46,15 @@ struct RoutineScheduleTests {
 
     @Test func weekdaysCarriedOverDueIsSatisfiedByLateCompletion() {
         // Completing the missed Thursday on Saturday satisfies that
-        // occurrence: Sunday is a rest day pointing at Monday.
+        // occurrence: Sunday is a rest day. Since #267 the Saturday
+        // session also banks Monday's occurrence — it falls in Monday's
+        // (thu, mon] window, and with a single lastCompleted a late
+        // make-up and an early session are the same fact — so next
+        // points past Monday at the Thursday after.
         let schedule = RoutineSchedule.weekdays([2, 5])
         let sunday = date(2026, 7, 12)
         let state = schedule.dueState(lastCompleted: date(2026, 7, 11), today: sunday, calendar: calendar)
-        #expect(state == .notDue(nextDue: calendar.startOfDay(for: date(2026, 7, 13))))
+        #expect(state == .notDue(nextDue: calendar.startOfDay(for: date(2026, 7, 16))))
     }
 
     @Test func dueTodayHasTodayAsDueSince() {
@@ -89,6 +93,144 @@ struct RoutineScheduleTests {
         let tuesday = date(2026, 7, 7)
         let monday = date(2026, 7, 6)
         #expect(schedule.dueState(lastCompleted: monday, today: tuesday, calendar: calendar) == .due)
+    }
+
+    // MARK: - Early completion (#267)
+
+    @Test func weekdaysEarlyCompletionSatisfiesTheNextOccurrence() {
+        // Mondays only, completed off-schedule on Wednesday: the
+        // session banks the upcoming Monday — not due that day, and
+        // next points a further week out.
+        let schedule = RoutineSchedule.weekdays([2])
+        let wednesday = date(2026, 7, 8)
+        let state = schedule.dueState(lastCompleted: wednesday, today: date(2026, 7, 13), calendar: calendar)
+        #expect(state == .notDue(nextDue: calendar.startOfDay(for: date(2026, 7, 20))))
+    }
+
+    @Test func weekdaysEarlyCompletionSatisfiesOnlyOneOccurrence() {
+        // Mon/Thu, completed Tuesday: Thursday is banked, the Monday
+        // after is not — one satisfaction per inter-occurrence window.
+        let schedule = RoutineSchedule.weekdays([2, 5])
+        let tuesday = date(2026, 7, 7)
+        #expect(schedule.dueState(lastCompleted: tuesday, today: date(2026, 7, 9), calendar: calendar)
+                == .notDue(nextDue: calendar.startOfDay(for: date(2026, 7, 13))))
+        #expect(schedule.dueState(lastCompleted: tuesday, today: date(2026, 7, 13), calendar: calendar) == .due)
+    }
+
+    @Test func weekdaysCompletionOnAScheduledDayDoesNotBankTheNext() {
+        // The window's lower bound is exclusive: Monday's on-schedule
+        // session satisfies Monday only, and Thursday still arrives due.
+        let schedule = RoutineSchedule.weekdays([2, 5])
+        let monday = date(2026, 7, 6)
+        #expect(schedule.dueState(lastCompleted: monday, today: date(2026, 7, 9), calendar: calendar) == .due)
+    }
+
+    @Test func dueSinceSkipsAnOccurrenceSatisfiedEarly() {
+        // Mon/Thu, completed Wednesday (banking Thursday), today the
+        // next Monday: due-ness began Monday, not the banked Thursday.
+        let schedule = RoutineSchedule.weekdays([2, 5])
+        let wednesday = date(2026, 7, 8)
+        let monday = date(2026, 7, 13)
+        #expect(schedule.dueState(lastCompleted: wednesday, today: monday, calendar: calendar) == .due)
+        #expect(schedule.dueSince(lastCompleted: wednesday, today: monday, calendar: calendar)
+                == calendar.startOfDay(for: monday))
+    }
+
+    // MARK: - Upcoming scheduled days (#267)
+
+    @Test func upcomingDaysListAWeekOfWeekdayOccurrences() {
+        // Mon/Wed/Fri, completed on Monday: the next 7 days hold Wed,
+        // Fri, and the following Monday (today + 7, the inclusive
+        // horizon edge).
+        let schedule = RoutineSchedule.weekdays([2, 4, 6])
+        let monday = date(2026, 7, 6)
+        let days = schedule.upcomingScheduledDays(lastCompleted: monday, today: monday, calendar: calendar)
+        #expect(days == [
+            calendar.startOfDay(for: date(2026, 7, 8)),
+            calendar.startOfDay(for: date(2026, 7, 10)),
+            calendar.startOfDay(for: date(2026, 7, 13)),
+        ])
+    }
+
+    @Test func upcomingDaysOmitAnOccurrenceSatisfiedEarly() {
+        // Mondays only, completed Wednesday: the banked Monday is not
+        // an upcoming day — within 7 days nothing remains, and a wider
+        // horizon shows the Monday after.
+        let schedule = RoutineSchedule.weekdays([2])
+        let wednesday = date(2026, 7, 8)
+        let thursday = date(2026, 7, 9)
+        #expect(schedule.upcomingScheduledDays(lastCompleted: wednesday, today: thursday, calendar: calendar).isEmpty)
+        #expect(schedule.upcomingScheduledDays(lastCompleted: wednesday, today: thursday, horizon: 14, calendar: calendar)
+                == [calendar.startOfDay(for: date(2026, 7, 20))])
+    }
+
+    @Test func upcomingDaysNeverRepeatACarriedOverDay() {
+        // Thursdays only, last done ON a Thursday, the next one missed:
+        // Friday's carried due-ness is today's business — upcoming
+        // holds ONLY the next real occurrence, no phantom Friday or
+        // Saturday entries from the carried tail.
+        let schedule = RoutineSchedule.weekdays([5])
+        let completedThursday = date(2026, 7, 2)
+        let friday = date(2026, 7, 10)
+        #expect(schedule.dueState(lastCompleted: completedThursday, today: friday, calendar: calendar) == .due)
+        let days = schedule.upcomingScheduledDays(lastCompleted: completedThursday, today: friday, calendar: calendar)
+        #expect(days == [calendar.startOfDay(for: date(2026, 7, 16))])
+    }
+
+    @Test func upcomingDaysRespectTheHorizon() {
+        // Mon/Thu from Saturday (carried-due, which never blocks the
+        // preview): the full week shows Monday and Thursday, a 2-day
+        // horizon clips to Monday, a zero horizon holds nothing.
+        let schedule = RoutineSchedule.weekdays([2, 5])
+        let completedMonday = date(2026, 7, 6)
+        let saturday = date(2026, 7, 11)
+        #expect(schedule.upcomingScheduledDays(lastCompleted: completedMonday, today: saturday, calendar: calendar)
+                == [calendar.startOfDay(for: date(2026, 7, 13)), calendar.startOfDay(for: date(2026, 7, 16))])
+        #expect(schedule.upcomingScheduledDays(lastCompleted: completedMonday, today: saturday, horizon: 2, calendar: calendar)
+                == [calendar.startOfDay(for: date(2026, 7, 13))])
+        #expect(schedule.upcomingScheduledDays(lastCompleted: completedMonday, today: saturday, horizon: 0, calendar: calendar).isEmpty)
+    }
+
+    @Test func upcomingDaysForFrequencyPredictTheSingleNextDay() {
+        // 1× per 7 days, completed Monday: one predicted day, a week
+        // out from the anchor.
+        let schedule = RoutineSchedule.frequency(times: 1, perDays: 7)
+        let monday = date(2026, 7, 6)
+        let days = schedule.upcomingScheduledDays(lastCompleted: monday, today: date(2026, 7, 8), calendar: calendar)
+        #expect(days == [calendar.startOfDay(for: date(2026, 7, 13))])
+    }
+
+    @Test func upcomingDaysForFrequencyClipAtTheHorizon() {
+        // A predicted day beyond the horizon stays out — the cadence
+        // summary line covers "beyond this week".
+        let schedule = RoutineSchedule.frequency(times: 1, perDays: 10)
+        let monday = date(2026, 7, 6)
+        #expect(schedule.upcomingScheduledDays(lastCompleted: monday, today: date(2026, 7, 7), calendar: calendar).isEmpty)
+    }
+
+    @Test func upcomingDaysForFrequencyDueTodayAreEmpty() {
+        // Due now (never done, or overdue) is today's business — the
+        // carried tail never previews as future days.
+        let schedule = RoutineSchedule.frequency(times: 1, perDays: 7)
+        #expect(schedule.upcomingScheduledDays(lastCompleted: nil, today: date(2026, 7, 6), calendar: calendar).isEmpty)
+        #expect(schedule.upcomingScheduledDays(lastCompleted: date(2026, 6, 1), today: date(2026, 7, 6), calendar: calendar).isEmpty)
+    }
+
+    @Test func upcomingDaysForUnscheduledAreEmpty() {
+        let days = RoutineSchedule.unscheduled.upcomingScheduledDays(lastCompleted: nil, today: date(2026, 7, 6), calendar: calendar)
+        #expect(days.isEmpty)
+    }
+
+    @Test func frequencyEarlyCompletionPushesTheNextDueDate() {
+        // Frequency anchors to the last completion, so an early session
+        // re-anchors the slot on its own — no weekday-style window
+        // needed. On pace (completed Jul 6), the next slot opens Jul 13…
+        let schedule = RoutineSchedule.frequency(times: 1, perDays: 7)
+        #expect(schedule.dueState(lastCompleted: date(2026, 7, 6), today: date(2026, 7, 8), calendar: calendar)
+                == .notDue(nextDue: calendar.startOfDay(for: date(2026, 7, 13))))
+        // …an early make-up on Jul 8 pushes it to Jul 15.
+        #expect(schedule.dueState(lastCompleted: date(2026, 7, 8), today: date(2026, 7, 9), calendar: calendar)
+                == .notDue(nextDue: calendar.startOfDay(for: date(2026, 7, 15))))
     }
 
     // MARK: - Frequency
