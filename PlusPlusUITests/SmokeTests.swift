@@ -166,9 +166,9 @@ final class SmokeTests: XCTestCase {
         equipCTA.tap()
 
         // Step 1: the real catalog in setup mode (v4 SSF) — the preset
-        // strip died (#203). A fresh store owns everything until the
-        // user curates, so curate the way users do: toggle OFF gear you
-        // don't have. First-screen rows only (lazy List rows below the
+        // strip died (#203). A fresh store owns NOTHING (#232) —
+        // ownership is opt-in, so pick the way users do: toggle ON gear
+        // you have. First-screen rows only (lazy List rows below the
         // fold aren't realized) — use the two alphabetically-FIRST
         // catalog names so catalog growth can't push them under the
         // fold again (#222 moved Battle Ropes to row 11 and broke this).
@@ -177,9 +177,9 @@ final class SmokeTests: XCTestCase {
         for name in ["Ab Crunch Machine", "Ab Wheel"] {
             let row = app.switches["toggle-\(name)"]
             XCTAssertTrue(row.waitForExistence(timeout: 5), "missing equipment toggle for \(name)")
-            XCTAssertEqual(row.value as? String, "1", "\(name) should start owned on a fresh store")
+            XCTAssertEqual(row.value as? String, "0", "\(name) should start un-owned on a fresh store")
             row.switches.firstMatch.tap()
-            XCTAssertEqual(row.value as? String, "0", "tapping \(name) should disown it")
+            XCTAssertEqual(row.value as? String, "1", "tapping \(name) should own it")
         }
         setEquipment.tap()
         // The optional populate offer now asks from Today (#204): take
