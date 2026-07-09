@@ -56,6 +56,15 @@ final class RestNotifier: NSObject, UNUserNotificationCenterDelegate {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
+    /// One async check so the rest screen can say why no alert will
+    /// come (#246: a decline was silent and looked like a broken timer).
+    func notificationsDenied(_ completion: @escaping (Bool) -> Void) {
+        guard !disabled else { completion(false); return }
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            DispatchQueue.main.async { completion(settings.authorizationStatus == .denied) }
+        }
+    }
+
     func scheduleRestEnd(at endDate: Date, exerciseName: String, setNumber: Int) {
         guard !disabled else { return }
         // Only the notification requests — NOT the Live Activity. +15s
