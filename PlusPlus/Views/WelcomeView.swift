@@ -69,7 +69,7 @@ struct WelcomeView: View {
                 .font(.system(.subheadline))
                 .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
-            Text("Your training is a timeline. Every workout you finish is a commit — progress is the diff.")
+            Text("Every workout builds on the last.")
                 .font(.system(.footnote, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
                 .multilineTextAlignment(.center)
@@ -78,7 +78,7 @@ struct WelcomeView: View {
         .padding(.horizontal, 36)
     }
 
-    /// How it works: three rows, one line each — routines, Today, diffs.
+    /// How it works: three rows, one line each — routines, Today, progress.
     private var mechanicsPage: some View {
         VStack(alignment: .leading, spacing: 0) {
             Spacer()
@@ -88,18 +88,18 @@ struct WelcomeView: View {
                 .foregroundStyle(Theme.textSecondary)
                 .padding(.bottom, 18)
             mechanicsRow(
-                glyph: "+",
+                symbol: "dumbbell.fill",
                 title: "Build routines from your gear",
                 caption: "the catalog adapts to the equipment you actually own"
             )
             mechanicsRow(
-                glyph: "▸",
-                title: "Today stages what's ready",
-                caption: "your schedule is a timeline — pending on top, history below"
+                symbol: "calendar",
+                title: "Today shows what's ready",
+                caption: "what's next on top, history below"
             )
             mechanicsRow(
-                glyph: "Δ",
-                title: "Every set diffs against last time",
+                symbol: "chart.line.uptrend.xyaxis",
+                title: "Every set compares to last time",
                 caption: "green means up; the point is the increment"
             )
             Spacer()
@@ -107,12 +107,12 @@ struct WelcomeView: View {
         .padding(.horizontal, 32)
     }
 
-    private func mechanicsRow(glyph: String, title: String, caption: String) -> some View {
+    private func mechanicsRow(symbol: String, title: String, caption: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 14) {
-            Text(glyph)
-                .font(.system(.title3, design: .monospaced, weight: .bold))
+            Image(systemName: symbol)
+                .font(.system(.body, weight: .semibold))
                 .foregroundStyle(Theme.accent)
-                .frame(width: 26, alignment: .center)
+                .frame(width: 30, alignment: .center)
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.system(.subheadline, weight: .semibold))
@@ -134,7 +134,7 @@ struct WelcomeView: View {
                 .foregroundStyle(Theme.accent)
             Text("Heart rate, live")
                 .font(.system(.title3, weight: .bold))
-            Text("Connect Apple Health and workouts show your heart rate as you train — with the average and peak kept on every record.")
+            Text("Connect Apple Health to see your heart rate while you train. Every record keeps the average and peak.")
                 .font(.system(.subheadline))
                 .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
@@ -160,27 +160,19 @@ struct WelcomeView: View {
         .animation(.easeOut(duration: 0.15), value: page)
     }
 
-    @ViewBuilder
+    /// Every page reserves the two-key height — primary cap 50 + 4 travel,
+    /// 10 gap, quiet cap 44 + 3 travel — so the dots and the primary key
+    /// sit at identical positions on all three screens; pages 1–2 leave
+    /// the "Not now" slot empty.
+    private static let controlsHeight: CGFloat = 111
+
     private var controls: some View {
-        if page < 2 {
-            Button {
-                withAnimation(.easeOut(duration: 0.2)) { page += 1 }
-            } label: {
-                Text("Continue")
-                    .font(.system(.body, weight: .bold))
-                    .foregroundStyle(Theme.onPrimary)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-                    .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
-            }
-            .buttonStyle(.raisedPrimaryKey(cornerRadius: 12))
-            .accessibilityIdentifier("welcomeContinueButton")
-        } else {
-            VStack(spacing: 10) {
+        Group {
+            if page < 2 {
                 Button {
-                    connectHealth()
+                    withAnimation(.easeOut(duration: 0.2)) { page += 1 }
                 } label: {
-                    Text(connecting ? "Connecting…" : "Connect Apple Health")
+                    Text("Continue")
                         .font(.system(.body, weight: .bold))
                         .foregroundStyle(Theme.onPrimary)
                         .frame(maxWidth: .infinity)
@@ -188,24 +180,40 @@ struct WelcomeView: View {
                         .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.raisedPrimaryKey(cornerRadius: 12))
-                .disabled(connecting)
-                .accessibilityIdentifier("welcomeConnectHealthButton")
+                .accessibilityIdentifier("welcomeContinueButton")
+            } else {
+                VStack(spacing: 10) {
+                    Button {
+                        connectHealth()
+                    } label: {
+                        Text(connecting ? "Connecting…" : "Connect Apple Health")
+                            .font(.system(.body, weight: .bold))
+                            .foregroundStyle(Theme.onPrimary)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 50)
+                            .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.raisedPrimaryKey(cornerRadius: 12))
+                    .disabled(connecting)
+                    .accessibilityIdentifier("welcomeConnectHealthButton")
 
-                Button {
-                    finish()
-                } label: {
-                    Text("Not now")
-                        .font(.system(.footnote, weight: .semibold))
-                        .foregroundStyle(Theme.textSecondary)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 44)
-                        .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
-                        .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.border))
+                    Button {
+                        finish()
+                    } label: {
+                        Text("Not now")
+                            .font(.system(.footnote, weight: .semibold))
+                            .foregroundStyle(Theme.textSecondary)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
+                            .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
+                            .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.border))
+                    }
+                    .buttonStyle(.quietKey)
+                    .accessibilityIdentifier("welcomeSkipHealthButton")
                 }
-                .buttonStyle(.quietKey)
-                .accessibilityIdentifier("welcomeSkipHealthButton")
             }
         }
+        .frame(height: Self.controlsHeight, alignment: .top)
     }
 
     /// The system sheet does the real asking; whatever the user decides

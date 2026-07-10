@@ -29,6 +29,9 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
 - **No obligation vocabulary** ("due" is banned) and **anti-shame**:
   regressions render neutral, diffs sum positive movement only, no
   out-of-band warnings.
+- **No em dashes in user-facing copy** (Dave, 2026-07-10): rewrite the
+  sentence (split it, or use "·" separators) instead. A bare "—" standing
+  in for a missing value is a placeholder glyph, not prose, and stays.
 - Warm charcoal dark (`#201F1D` family); the watch keeps system black.
 - Draw every color from `Theme` — never ad-hoc literals.
 
