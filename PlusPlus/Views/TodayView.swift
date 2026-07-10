@@ -966,7 +966,9 @@ struct TodayView: View {
                 gatedSub: "Needs your equipment first",
                 cta: "Pick a routine",
                 identifier: "setupRoutineStep",
-                action: { todayPath.append(RoutineCatalogDestination()) },
+                // Root-only affordance: emptiness doubles as the
+                // double-tap guard (see RoutineListView's +).
+                action: { if todayPath.isEmpty { todayPath.append(RoutineCatalogDestination()) } },
                 edit: { onGoToRoutines() }
             )
             SetupRow(

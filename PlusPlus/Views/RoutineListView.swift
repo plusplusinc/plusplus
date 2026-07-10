@@ -92,6 +92,11 @@ struct RoutineListView: View {
                 AppMenuKey { showingAppMenu = true }
                 Spacer()
                 HeaderIconButton(systemImage: "plus", identifier: "newRoutineButton") {
+                    // Root-only affordance, so emptiness doubles as the
+                    // double-tap guard (the addTemplateButton class): a
+                    // second tap during the push must not stack a
+                    // second catalog.
+                    guard path.isEmpty else { return }
                     path.append(RoutineCatalogDestination())
                 }
             }
