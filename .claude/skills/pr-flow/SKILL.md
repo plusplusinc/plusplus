@@ -26,11 +26,30 @@ open PR's checks.
 3. Open a PR (GitHub MCP `create_pull_request`) with `Closes #N` links;
    check for a PR template first. Subscribe with `subscribe_pr_activity`
    — comments and CI *failures* arrive as events, but CI success, new
-   pushes, and merge conflicts never do, so poll status before merging.
-4. Wait for required checks on the HEAD SHA (see the ci-status skill).
-   Push-triggered runs only; a green dispatch run does not count.
-5. Squash-merge via MCP once green; unsubscribe. The remote branch can be
-   deleted after merge.
+   pushes, and merge conflicts never do.
+4. **Arm a merge watcher immediately** (Dave, 2026-07-09: "merge as soon
+   as they're ready"; auto-merge is deliberately OFF — he wants the agent
+   in the loop on every merge). Background Bash (`run_in_background`)
+   that polls the head SHA's check-runs every ~30 s and EXITS when
+   `test`+`kit-test`+`cli-test` are all terminal — the exit notification
+   is your merge signal; merge in that same turn. Watcher hygiene, both
+   learned the hard way: keep the script dead simple (a heredoc-fed
+   `python3 -` combined with a `<<<` herestring silently feeds python the
+   wrong stdin — one watcher hung forever on this), and emit on EVERY
+   terminal state, never just success. Keep a long fallback wakeup
+   (~30 min) armed while any watcher runs; a buggy watcher is silent.
+5. Wait for required checks on the HEAD SHA (see the ci-status skill).
+   Push-triggered runs only; a green dispatch run does not count — and
+   **dispatching ci.yml on a branch CANCELS its in-flight push run** via
+   the concurrency group (so does any push), leaving the ruleset staring
+   at cancelled required checks. Never dispatch or push on a branch whose
+   push run you're waiting on; if it happens, `rerun_workflow_run` the
+   cancelled PUSH run (the MCP tool — the raw REST rerun is
+   proxy-blocked) rather than dispatching a duplicate.
+6. Squash-merge via MCP the moment the watcher reports green;
+   unsubscribe. The remote branch can be deleted after merge (note: ref
+   deletion via git push is proxy-blocked; leave cleanup to the branch
+   sweep, #52).
 
 ## Parallel rules
 
