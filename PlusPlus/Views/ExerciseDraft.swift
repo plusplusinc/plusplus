@@ -19,6 +19,12 @@ final class ExerciseDraft {
     var defaultReps: Int?
     var defaultRepsUpper: Int?
     var defaultDurationSeconds: Int?
+    /// The heart-rate default rides the draft opaquely (no editor row
+    /// yet — the planning sheet is its editing surface) so Clear and
+    /// the type switch can actually drop it. Left untracked it became a
+    /// ghost: "cleared" defaults kept resurrecting a stale prescription
+    /// on every future add (swift-reviewer catch).
+    var defaultHeartRateTargetData: Data?
 
     init() {}
 
@@ -33,11 +39,13 @@ final class ExerciseDraft {
         defaultReps = exercise.defaultReps
         defaultRepsUpper = exercise.defaultRepsUpper
         defaultDurationSeconds = exercise.defaultDurationSeconds
+        defaultHeartRateTargetData = exercise.defaultHeartRateTargetData
     }
 
     var hasDefaultTargets: Bool {
         defaultWeight != nil || defaultReps != nil
             || defaultRepsUpper != nil || defaultDurationSeconds != nil
+            || defaultHeartRateTargetData != nil
     }
 
     func clearDefaultTargets() {
@@ -45,6 +53,7 @@ final class ExerciseDraft {
         defaultReps = nil
         defaultRepsUpper = nil
         defaultDurationSeconds = nil
+        defaultHeartRateTargetData = nil
     }
 
     var trimmedName: String {
@@ -126,11 +135,13 @@ final class ExerciseDraft {
             exercise.defaultReps = nil
             exercise.defaultRepsUpper = nil
             exercise.defaultDurationSeconds = defaultDurationSeconds
+            exercise.defaultHeartRateTargetData = defaultHeartRateTargetData
         } else {
             exercise.defaultWeight = defaultWeight
             exercise.defaultReps = defaultReps
             exercise.defaultRepsUpper = defaultRepsUpper
             exercise.defaultDurationSeconds = nil
+            exercise.defaultHeartRateTargetData = nil
         }
     }
 }

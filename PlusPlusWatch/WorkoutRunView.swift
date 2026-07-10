@@ -25,8 +25,9 @@ struct WorkoutRunView: View {
     @State private var restEndsAt: Date?
     @State private var finished = false
 
-    /// One HealthKit workout session per run view (#90). Plain class in
-    /// @State: stable storage across re-renders, no observation needed.
+    /// One HealthKit workout session per run view (#90). @Observable in
+    /// @State: stable storage across re-renders, and the live bpm
+    /// readings re-render the step/rest views as they arrive.
     @State private var health = WatchWorkoutController()
 
     private var stepIndex: Int { results.count }

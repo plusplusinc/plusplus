@@ -41,9 +41,14 @@ enum HealthAccess {
 
     /// Read-side ask at workout start — shows the sheet only while
     /// undecided (installs that skipped the welcome ask), otherwise
-    /// completes silently.
+    /// completes silently. The completion fires on EVERY path,
+    /// unavailable included — a swallowed continuation is a hang for
+    /// the next caller.
     static func requestRead(completion: @escaping () -> Void) {
-        guard isAvailable else { return }
+        guard isAvailable else {
+            completion()
+            return
+        }
         store.requestAuthorization(toShare: [], read: readTypes) { _, _ in
             DispatchQueue.main.async { completion() }
         }
@@ -83,12 +88,18 @@ final class HeartRateMonitor {
 
     private var query: HKAnchoredObjectQuery?
     private var starting = false
+    /// Bumped by every start AND stop, so a stale requestRead callback
+    /// (its start superseded by a stop, or a stop/start pair) can never
+    /// arm a query against an old start date.
+    private var generation = 0
 
     func start(from startDate: Date) {
         guard HealthAccess.isAvailable, query == nil, !starting else { return }
         starting = true
+        generation += 1
+        let expected = generation
         HealthAccess.requestRead { [weak self] in
-            guard let self, self.starting, self.query == nil else { return }
+            guard let self, self.starting, self.generation == expected, self.query == nil else { return }
             self.starting = false
             self.maxHeartRate = HealthAccess.resolvedMaxHeartRate()
 
@@ -112,6 +123,7 @@ final class HeartRateMonitor {
 
     func stop() {
         starting = false
+        generation += 1
         if let query {
             HealthAccess.store.stop(query)
         }

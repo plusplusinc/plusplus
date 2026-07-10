@@ -24,8 +24,11 @@ struct HeartRateTargetTests {
         let context = try makeContext()
         let exercise = Exercise(name: "Probe Bike", muscleGroup: .fullBody, exerciseType: .duration)
         context.insert(exercise)
+        // Insert first, assign relationships after (the seeder's rule —
+        // a pre-insert assignment drops nondeterministically).
         let entry = RoutineExercise(exercise: exercise)
         context.insert(entry)
+        entry.exercise = exercise
 
         entry.heartRateTarget = .zone(.zone2)
         #expect(entry.heartRateTarget == .zone(.zone2))
@@ -39,8 +42,12 @@ struct HeartRateTargetTests {
         let context = try makeContext()
         let exercise = Exercise(name: "Probe Row Machine", muscleGroup: .fullBody, exerciseType: .duration)
         context.insert(exercise)
+        // Insert first, assign after — bumpExerciseDefaults guards on
+        // the relationship, so a dropped pre-insert assignment would
+        // no-op silently and flake this test.
         let entry = RoutineExercise(exercise: exercise)
         context.insert(entry)
+        entry.exercise = exercise
 
         entry.heartRateTarget = .zone(.zone3)
         entry.bumpExerciseDefaults()

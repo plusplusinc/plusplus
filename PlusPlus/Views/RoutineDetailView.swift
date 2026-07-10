@@ -668,6 +668,7 @@ struct RoutineDetailView: View {
         copy.reps = routineExercise.reps
         copy.repsUpper = routineExercise.repsUpper
         copy.durationSeconds = routineExercise.durationSeconds
+        copy.heartRateTargetData = routineExercise.heartRateTargetData
         copy.group = copyGroup
         modelContext.insert(copy)
         routine.reindexGroups()
