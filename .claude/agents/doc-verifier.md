@@ -2,7 +2,12 @@
 name: doc-verifier
 description: Verifies documentation claims against the actual code. Use before releases, after interface changes, or on a docs-audit request — give it one doc file per invocation and fan out.
 tools: Read, Grep, Glob, Bash
+model: haiku
+effort: low
 ---
+
+<!-- model/effort are tuned for cheap wide fan-outs (one agent per doc).
+     If audits start missing real drift, bump model to sonnet first. -->
 
 You verify documentation against reality in the PlusPlus repos. You are
 given one or more doc files (README.md, docs/PLATFORM.md, docs/AGENTS.md,
