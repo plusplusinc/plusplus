@@ -207,10 +207,12 @@ struct TodayView: View {
                 RoutineDetailView(routine: routine)
             }
             .navigationDestination(for: SessionRecordDestination.self) { destination in
-                // "Do it again" routes through the same start() as
-                // every other path — the cover presents over the
-                // pushed record, and start()'s fire-time guards hold.
-                SessionDetailView(session: destination.session, onRepeat: { start($0) })
+                // "Do it again" starts from INSIDE the record, state
+                // local to that screen — routing it through this
+                // view's start() parked the deferred fire's state on
+                // a surviving screen, where a mid-pop drop would have
+                // wedged the cover for good (swift-reviewer catch).
+                SessionDetailView(session: destination.session)
                     .navigationTransition(.zoom(sourceID: destination.session.persistentModelID, in: zoomNamespace))
             }
             // Registered at the stack root, NOT inside RoutineCatalogScreen
@@ -532,8 +534,11 @@ struct TodayView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                // Day-suffixed so multiple future cards stay individually
-                // addressable to XCUITest ("startUpcoming-2026-07-11").
+                // Day-suffixed for individual addressability
+                // ("startUpcoming-2026-07-11") — though no test leans
+                // on it yet, and a Button nested in a NavigationLink
+                // label is untested XCUITest territory here: verify on
+                // CI before writing one against it.
                 .accessibilityIdentifier("startUpcoming-\(dayStamp(entry.day))")
                 Image(systemName: "chevron.right")
                     .font(.system(.caption2, weight: .bold))
@@ -1501,6 +1506,9 @@ private struct SwapInSheet: View {
                         .frame(width: 32, height: 32)
                         .background(Theme.surface, in: Circle())
                         .overlay(Circle().strokeBorder(Theme.border))
+                        // 32 pt visual, 44 pt hit — the ✕'s own
+                        // treatment (#130 target floor).
+                        .padding(6)
                         .contentShape(Circle())
                 }
                 .accessibilityIdentifier("trayBackButton")
