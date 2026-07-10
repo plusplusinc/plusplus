@@ -50,6 +50,7 @@ struct SessionRow: View {
 /// a mono weight delta against the previous session of the same routine
 /// (#110 §3) — neutral gray both directions; deloads are intentional.
 struct SessionDetailView: View {
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
     @Query(
@@ -57,10 +58,34 @@ struct SessionDetailView: View {
         sort: [SortDescriptor(\WorkoutSession.startedAt, order: .reverse)]
     )
     private var allFinished: [WorkoutSession]
+    @Query private var routines: [Routine]
     let session: WorkoutSession
+    /// "Do it again" (Dave, build-45) presents from HERE, state local
+    /// to this screen — the routine-detail Start pattern, and load-
+    /// bearing: the flash defers ~0.85 s, so a fire can land while a
+    /// pop transition is in flight (back tapped mid-flash, or a held
+    /// swipe-back). Parked on a SURVIVING screen that state would
+    /// wedge its cover forever if the presentation dropped; local
+    /// state dies with the pop and the started session rides Today's
+    /// orphan salvage instead (swift-reviewer catch).
+    @State private var activeSession: WorkoutSession?
 
     private var weightUnit: WeightUnit {
         WeightUnit(rawValue: weightUnitRaw) ?? .lb
+    }
+
+    /// The routine "Do it again" would start: the session's own
+    /// routine when it survives, else a name match (the record's join
+    /// key everywhere identity is gone). Empty routines can't stage
+    /// (the 0-set bug class), so a hollowed-out routine hides the key
+    /// rather than presenting one that no-ops.
+    private var repeatCandidate: Routine? {
+        if let routine = session.routine, !routine.isDeleted, !routine.groups.isEmpty {
+            return routine
+        }
+        return routines.first {
+            $0.name.lowercased() == session.routineName.lowercased() && !$0.groups.isEmpty
+        }
     }
 
     /// Blocks keyed by (group, exercise) in rotation order.
@@ -175,6 +200,25 @@ struct SessionDetailView: View {
         // Title + the record's facts in the chrome (mock 11:
         // "jul 7 · 18 sets · 42 min" under the name).
         .pushedScreenChrome(title: session.routineName, subtitle: subtitle.lowercased(), onBack: { dismiss() })
+        // The record's one action (Dave, build-45): run this workout
+        // again, in the same dock grammar as routine detail's Start.
+        .safeAreaInset(edge: .bottom) {
+            if let routine = repeatCandidate {
+                StartFlashButton(label: "Do it again", height: 52, identifier: "repeatWorkoutButton") {
+                    // Fire-time re-check (the flash defers ~0.85 s;
+                    // see TodayView.start for the failure class).
+                    guard activeSession == nil, !routine.isDeleted, !routine.groups.isEmpty else { return }
+                    activeSession = WorkoutSession.start(from: routine, context: modelContext)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
+                .background(.bar)
+            }
+        }
+        .fullScreenCover(item: $activeSession) { started in
+            ActiveSessionView(session: started)
+        }
         // Heart-rate backfill: a session finished before its samples
         // reached Health (watch sync lag, or access granted later)
         // fills in when the record is opened. Idempotent — only runs

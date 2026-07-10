@@ -16,17 +16,21 @@ import TipKit
 /// the glyph means.
 struct SupersetLoopTip: Tip {
     var title: Text { Text("The loop is a superset") }
-    var message: Text? { Text("One round runs each exercise once, alternating.") }
-    var image: Image? { Image(systemName: "square.fill.on.square.fill") }
+    var message: Text? { Text("Its exercises alternate — each round runs them all once.") }
+    var image: Image? { Image(systemName: "repeat") }
     var options: [any TipOption] { [Tips.MaxDisplayCount(1)] }
 }
 
 /// Routine detail, when there's material to pair (≥2 exercises) but no
-/// superset yet: how to make one. Structurally exclusive with the loop
-/// tip — see SupersetTipAnchor in RoutineDetailView.
+/// superset yet: how to make one. One describable path only (the HIG
+/// call from #270, taken all the way in build 45: cramming the drag
+/// gesture in as a second clause read clunky — the ring gesture stays
+/// a discovered mechanic, and using it retires this tip anyway).
+/// Structurally exclusive with the loop tip — see SupersetTipInline
+/// in RoutineDetailView.
 struct SupersetCreationTip: Tip {
     var title: Text { Text("Pair exercises into a superset") }
-    var message: Text? { Text("Open an exercise and choose Superset with… — or hold its rail dot and drag over a neighbor.") }
-    var image: Image? { Image(systemName: "square.fill.on.square.fill") }
+    var message: Text? { Text("Tap an exercise and choose Superset with the one above or below.") }
+    var image: Image? { Image(systemName: "repeat") }
     var options: [any TipOption] { [Tips.MaxDisplayCount(1)] }
 }

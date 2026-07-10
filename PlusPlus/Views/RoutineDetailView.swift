@@ -39,28 +39,19 @@ struct RoutineDetailView: View {
         VStack(spacing: 0) {
             header
 
+            // Inline in the flow, not a popover (Dave, build-45: the
+            // balloon anchored to the rail's top edge read as randomly
+            // placed and floated over the first rows). An inline card
+            // sits between the facts and the list it explains, and
+            // displaces content instead of covering it. Still a
+            // SIBLING gate — conditional content must never wrap the
+            // rail ScrollView (identity churn mid-gesture, #270).
+            SupersetTipInline(
+                exerciseCount: routine.sortedGroups.reduce(0) { $0 + $1.sortedExercises.count },
+                hasSuperset: routine.sortedGroups.contains(where: \.isSuperset)
+            )
+
             railList
-                // The tip anchor is a stable overlay CHILD, never a
-                // wrapper around the rail: SupersetTipAnchor's if/else
-                // produces distinct _ConditionalContent branches, and
-                // its inputs flip while this screen is live (the first
-                // ring absorb) — branching around the ScrollView would
-                // swap its identity mid-gesture, resetting scroll
-                // offset, swipe-row state, and the commit animation.
-                // Here only this strip is conditional; the rail's
-                // identity never changes. 1 pt tall rather than zero
-                // because TipKit popovers anchor the view's frame and
-                // a zero-size frame is a degenerate anchor; it sits at
-                // the rail's top edge, which no gesture moves.
-                .overlay(alignment: .top) {
-                    Color.clear
-                        .frame(height: 1)
-                        .allowsHitTesting(false)
-                        .modifier(SupersetTipAnchor(
-                            exerciseCount: routine.sortedGroups.reduce(0) { $0 + $1.sortedExercises.count },
-                            hasSuperset: routine.sortedGroups.contains(where: \.isSuperset)
-                        ))
-                }
         }
         .background(Theme.background)
         // Custom key chrome (build-42 call): title + the counts
@@ -676,29 +667,32 @@ struct RoutineDetailView: View {
 
 }
 
-/// Structural gate for the superset tips (`popoverTip` takes a concrete
-/// Tip, not an Optional, so eligibility branches the view). One branch
-/// renders at a time, which keeps the two tips contextually exclusive
-/// by construction: a loop on the rail explains itself; no loop but
+/// Structural gate for the superset tips. One branch renders at a
+/// time, which keeps the two tips contextually exclusive by
+/// construction: a loop on the rail explains itself; no loop but
 /// material to pair teaches the making of one; a single exercise gets
-/// neither.
+/// neither. TipView renders nothing while TipKit rules its tip out
+/// (already shown, invalidated, or not yet due), so most of the time
+/// this whole view is empty.
 ///
-/// ⚠️ Identity constraint: this modifier's inputs change while routine
-/// detail is on screen, and each branch is a distinct
-/// _ConditionalContent — whatever it wraps is TORN DOWN on every flip.
-/// It must only ever wrap the dedicated 1 pt anchor strip overlaid on
-/// the rail, never the rail (or any stateful view) itself.
-private struct SupersetTipAnchor: ViewModifier {
+/// ⚠️ Identity constraint (#270, still binding): this view's inputs
+/// change while routine detail is on screen (the first ring absorb),
+/// and each branch is a distinct _ConditionalContent — whatever sits
+/// inside is TORN DOWN on every flip. It must stay a SIBLING of the
+/// rail ScrollView, never a wrapper around it.
+private struct SupersetTipInline: View {
     let exerciseCount: Int
     let hasSuperset: Bool
 
-    func body(content: Content) -> some View {
+    var body: some View {
         if hasSuperset {
-            content.popoverTip(SupersetLoopTip())
+            TipView(SupersetLoopTip())
+                .padding(.horizontal, 20)
+                .padding(.vertical, 6)
         } else if exerciseCount >= 2 {
-            content.popoverTip(SupersetCreationTip())
-        } else {
-            content
+            TipView(SupersetCreationTip())
+                .padding(.horizontal, 20)
+                .padding(.vertical, 6)
         }
     }
 }
