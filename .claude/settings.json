@@ -1,4 +1,15 @@
 {
+  "extraKnownMarketplaces": {
+    "axiom-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "CharlesWiltgen/Axiom"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "axiom@axiom-marketplace": true
+  },
   "hooks": {
     "PostToolUse": [
       {
