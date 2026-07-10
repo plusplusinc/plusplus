@@ -105,7 +105,7 @@ The Simulator validation step in every task should use these tools in sequence: 
 - **PlusPlusWatch** — watchOS companion (WatchConnectivity, no SwiftData/HealthKit; depends on PlusPlusKit)
 - **PlusPlusWidgets** — iOS widget extension (#147): Live Activity + home-screen widgets; shares `PlusPlusShared/` sources and the App Group with the app
 - **PlusPlusKit** — pure SwiftPM package shared with the CLI and future MCP (tested on Linux in CI)
-- **PlusPlusTests** — unit test target (~105 tests; ~150 more live in PlusPlusKit, 23 in PlusPlusCLI)
+- **PlusPlusTests** — unit test target (~105 tests; 182 more live in PlusPlusKit, 26 in PlusPlusCLI — Kit/CLI counts verified locally 2026-07-10)
 - **PlusPlusUITests** — UI smoke test target (8 flows, `PlusPlusUI` scheme, CI-only by convention)
 
 **Project structure:**
@@ -260,7 +260,7 @@ PlusPlusUITests/
 
 **2026-07-05 — Work tracked as GitHub issues, board synced via auto-add** — Remote Claude sessions can create/close issues but cannot touch the GitHub Projects board directly (no Projects v2 API in the toolset). The project board's "Auto-add to project" workflow ingests repo issues automatically; issue state drives board state.
 
-**2026-07-05 — GitHub Actions macOS CI as the remote-session verification path** — Remote Claude sessions run on Linux: no Xcode, no Simulator, and the sandbox network policy blocks installing a Swift toolchain (download.swift.org and Docker Hub's CDN are unreachable). `.github/workflows/ci.yml` runs `xcodegen generate` + `xcodebuild test` on a `macos-26` runner for pushes to `main` and `claude/**` (plus manual dispatch). This verifies compilation and the unit test suite; it does NOT replace interactive Simulator validation (UI automation + screenshots), which still requires a local Mac session. Note: macOS runner minutes bill at 10x on private repos — keep triggers narrow. A shared `PlusPlus` scheme is defined in `project.yml` because `xcodebuild test` requires one.
+**2026-07-05 — GitHub Actions macOS CI as the remote-session verification path** — Remote Claude sessions run on Linux: no Xcode, no Simulator, and ~~the sandbox network policy blocks installing a Swift toolchain (download.swift.org and Docker Hub's CDN are unreachable)~~ **2026-07-10 update: no longer true** — download.swift.org is reachable from cloud sessions; `scripts/install-swift.sh` installs Swift 6.1 in ~2–3 min and the PlusPlusKit + PlusPlusCLI suites (incl. DocsConformanceTests) run locally. Run them before pushing Kit/CLI changes; CI remains the only verifier for the app targets. Dave can also add the script to the cloud environment's setup script (results are cached across sessions). `.github/workflows/ci.yml` runs `xcodegen generate` + `xcodebuild test` on a `macos-26` runner for pushes to `main` and `claude/**` (plus manual dispatch). This verifies compilation and the unit test suite; it does NOT replace interactive Simulator validation (UI automation + screenshots), which still requires a local Mac session. Note: macOS runner minutes bill at 10x on private repos — keep triggers narrow. A shared `PlusPlus` scheme is defined in `project.yml` because `xcodebuild test` requires one.
 
 **2026-07-05 — PT program as v1 acceptance scenario** — The user's shoulder-PT prescription (band work, external rotations, rep ranges like 3×15–20, form notes, a reference video link) is the concrete bar for v1: issues #7 (custom exercises + notes/video) and #8 (rep/set ranges) exist because the current model can't represent it.
 
@@ -524,6 +524,8 @@ Done when: [specific, testable completion criteria]
 3. **Validate in Simulator** — use XcodeBuildMCP to launch the app, use UI automation tools to navigate to the affected screen and interact with what you built, then capture a screenshot confirming the result. Complete flows end-to-end. Capture runtime logs if anything looks off.
 
 If any step fails, fix it before reporting completion.
+
+**Remote (Linux) sessions:** XcodeBuildMCP and the Simulator are unavailable — CI is the verifier for app targets (see the ci-status skill). But Kit/CLI changes MUST run locally first: `./scripts/install-swift.sh`, add `$HOME/.swift/usr/bin` to PATH, then `swift test` in `PlusPlusKit/` and/or `PlusPlusCLI/` before pushing. A CI round-trip costs ~10 min; the local run costs seconds.
 
 ### End-of-Session Summary
 
