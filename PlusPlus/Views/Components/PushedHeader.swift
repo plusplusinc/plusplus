@@ -35,8 +35,10 @@ private struct PushedScreenChrome<Trailing: View>: ViewModifier {
     private var header: some View {
         ZStack {
             // The title centers on the SCREEN, not between whatever
-            // keys happen to flank it — side padding keeps long names
-            // clear of a two-key trailing group.
+            // keys happen to flank it. Side padding must clear the
+            // WIDEST flanking group — two trailing keys are 98 pt —
+            // or a long name truncates with its ellipsis hidden UNDER
+            // a key cap (swift-reviewer math check).
             if !searchExpanded {
                 VStack(spacing: 1) {
                     Text(title)
@@ -50,7 +52,7 @@ private struct PushedScreenChrome<Trailing: View>: ViewModifier {
                             .lineLimit(1)
                     }
                 }
-                .padding(.horizontal, 56)
+                .padding(.horizontal, 100)
             }
 
             HStack(spacing: 10) {

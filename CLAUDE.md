@@ -150,8 +150,12 @@ PlusPlus/                # iOS app target
     SeedData.swift       # Built-in exercises/equipment seeder
     RoutineCatalog.swift # RoutineTemplate definitions + the 40-template catalog (#223)
   Views/
-    Components/               # Shared controls: SearchField, ExpandingSearchButton
-                              #   (toolbar search, #233), FilterChips (#237),
+    Components/               # Shared controls: SearchField, FilterChips (#237),
+                              #   RaisedKey (RaisedKeyStyle/QuietKey/
+                              #   StartFlashButton/BlockBar — the Quiet Arcade
+                              #   press grammar), PushedHeader (custom pushed-
+                              #   screen chrome + in-header search; replaced
+                              #   GlassBackButton + ExpandingSearchButton),
                               #   SwipeRevealRow + SwipeActionButton, SheetComponents
                               #   (SheetHeader/SectionLabel/ActionButton/
                               #   MetricStepperRow), SegmentedTabs

@@ -97,6 +97,12 @@ struct ActiveSessionView: View {
                         onComplete: { completeCurrentSet(displayLog) }
                     )
                     .id(displayLog.order)
+                    // The lingering screen is a FREEZE FRAME: steppers
+                    // mutating an already-committed set would bypass
+                    // carry-forward, and a wheel opened mid-beat gets
+                    // torn down when rest takes the view
+                    // (swift-reviewer).
+                    .allowsHitTesting(lingeringLog == nil)
                 }
             } else if totalSets == 0 {
                 // A scratch session before its first exercise: no logs
@@ -326,9 +332,13 @@ struct ActiveSessionView: View {
             // class the delete paths pop screens to avoid).
             guard !session.isDeleted else { return }
             // The finish stamp waits out the beat too — endedAt lands
-            // when the screen changes, and the elapsed pill never
-            // freezes mid-beat.
-            if !hasNext { finishSession(dismissAfter: false) }
+            // when the screen changes. Preconditions RE-CHECKED at
+            // fire time, not trusted from log time (the StartFlash
+            // rule): a redo reopening a set mid-beat must not get
+            // stamped into a finished record.
+            if session.nextPendingLog == nil && !session.isFinished {
+                finishSession(dismissAfter: false)
+            }
         }
     }
 
@@ -851,16 +861,21 @@ private struct SetLoggingView: View {
     }
 
     /// "last 130 · +5" — the previous top set's weight and the live
-    /// delta against it (mock 08, in the weight card's corner). Data
-    /// green: this is the increment itself. Nil without a prior.
-    private var weightDeltaAnnotation: String? {
+    /// delta against it (mock 08, in the weight card's corner). Green
+    /// only while it's an increment: a deload renders neutral
+    /// (anti-shame, the RoutineDiff rule — the mock's always-green
+    /// annotation predates it). Nil without a prior.
+    private var weightDeltaAnnotation: (text: String, color: Color)? {
         guard let last = lastTime?.actualWeight, last > 0 else { return nil }
         let current = log.actualWeight ?? log.targetWeight ?? last
         let delta = current - last
         let deltaText = delta == 0
             ? "="
             : (delta > 0 ? "+" : "−") + WorkoutMetric.weight.formatted(abs(delta))
-        return "last \(WorkoutMetric.weight.formatted(last)) · \(deltaText)"
+        return (
+            "last \(WorkoutMetric.weight.formatted(last)) · \(deltaText)",
+            delta > 0 ? Theme.accent : Theme.textFaint
+        )
     }
 
     private var stage: some View {
@@ -926,13 +941,13 @@ private struct SetLoggingView: View {
                 .accessibilityIdentifier("logWeightValue")
                 Spacer(minLength: 8)
                 if let annotation = weightDeltaAnnotation {
-                    Text(annotation)
+                    Text(annotation.text)
                         .font(.system(.caption, design: .monospaced))
-                        .foregroundStyle(Theme.accent)
+                        .foregroundStyle(annotation.color)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                         .contentTransition(.numericText())
-                        .animation(.easeOut(duration: 0.15), value: annotation)
+                        .animation(.easeOut(duration: 0.15), value: annotation.text)
                 }
             }
             HStack(spacing: 10) {
