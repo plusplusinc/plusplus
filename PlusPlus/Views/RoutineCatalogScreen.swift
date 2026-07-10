@@ -48,6 +48,11 @@ struct RoutineCatalogScreen: View {
     @State private var showingEquipmentEditor = false
     @State private var showingNewRoutine = false
     @State private var newRoutineName = ""
+    /// One-shot per appearance: path.append isn't idempotent the way
+    /// the old isPresented boolean was, so a fast double-tap on a
+    /// template row would stack two detail screens. Reset on pop-back
+    /// via onAppear (fires on return — the #233 lesson proves it).
+    @State private var pushedTemplate = false
 
     enum TimeBand: String, CaseIterable, Hashable {
         case short = "Under 20 min"
@@ -195,6 +200,7 @@ struct RoutineCatalogScreen: View {
             .padding(.top, 4)
         }
         .background(Theme.background)
+        .onAppear { pushedTemplate = false }
         .pushedScreenChrome(
             title: "Catalog",
             search: HeaderSearchConfig(text: $search, prompt: "Search routines", identifier: "routineCatalogSearchField"),
@@ -293,6 +299,8 @@ struct RoutineCatalogScreen: View {
 
     private func templateRow(_ template: RoutineTemplate) -> some View {
         Button {
+            guard !pushedTemplate else { return }
+            pushedTemplate = true
             path.append(template)
         } label: {
             VStack(alignment: .leading, spacing: 5) {

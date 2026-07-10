@@ -57,9 +57,14 @@ final class SmokeTests: XCTestCase {
     func testSwipeRevealActionSurvivesRelease() throws {
         createRoutine(named: "Swipe Target")
 
-        // Back to the list — the swipe surface under test.
+        // Back to the list — the swipe surface under test. TWO pops
+        // since build 45: blank creation lands routine detail ON TOP
+        // of the catalog (the nav fix — back steps one screen at a
+        // time; the old single-pop relied on the replace bug).
         let back = app.buttons["backButton"]
         XCTAssertTrue(back.waitForExistence(timeout: 5))
+        back.tap()
+        XCTAssertTrue(app.buttons["createBlankRoutine"].waitForExistence(timeout: 5))
         back.tap()
 
         let card = app.staticTexts["Swipe Target"]

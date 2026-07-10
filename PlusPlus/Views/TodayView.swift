@@ -1109,7 +1109,9 @@ struct TodayView: View {
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textSecondary)
             Button {
-                todayPath.append(routine)
+                // Root-only affordance: emptiness doubles as the
+                // double-tap guard (see the setup step's catalog push).
+                if todayPath.isEmpty { todayPath.append(routine) }
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "plus")
