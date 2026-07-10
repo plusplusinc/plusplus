@@ -12,7 +12,7 @@ struct RoutineListView: View {
     private var routines: [Routine]
 
     @State private var path = NavigationPath()
-    @State private var showingCatalog = false
+    @State private var showingAppMenu = false
     @State private var openSwipeRow: PersistentIdentifier?
 
     var body: some View {
@@ -73,8 +73,15 @@ struct RoutineListView: View {
             // The + pushes the routine catalog (#223) — the same
             // grammar as the library tabs: adding starts from a
             // browsable catalog, with blank creation as its first row.
-            .navigationDestination(isPresented: $showingCatalog) {
+            // A PATH entry, not isPresented (Dave, build 44): the
+            // catalog appends templates/routines to this same path,
+            // and a value appended beneath a boolean-presented screen
+            // replaces it transition-less and double-pops on back.
+            .navigationDestination(for: RoutineCatalogDestination.self) { _ in
                 RoutineCatalogScreen(path: $path)
+            }
+            .navigationDestination(isPresented: $showingAppMenu) {
+                AppMenuScreen()
             }
         }
     }
@@ -82,10 +89,15 @@ struct RoutineListView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                HeaderGlyph()
+                AppMenuKey { showingAppMenu = true }
                 Spacer()
                 HeaderIconButton(systemImage: "plus", identifier: "newRoutineButton") {
-                    showingCatalog = true
+                    // Root-only affordance, so emptiness doubles as the
+                    // double-tap guard (the addTemplateButton class): a
+                    // second tap during the push must not stack a
+                    // second catalog.
+                    guard path.isEmpty else { return }
+                    path.append(RoutineCatalogDestination())
                 }
             }
             Text("Routines")

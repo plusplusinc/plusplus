@@ -57,9 +57,14 @@ final class SmokeTests: XCTestCase {
     func testSwipeRevealActionSurvivesRelease() throws {
         createRoutine(named: "Swipe Target")
 
-        // Back to the list — the swipe surface under test.
+        // Back to the list — the swipe surface under test. TWO pops
+        // since build 45: blank creation lands routine detail ON TOP
+        // of the catalog (the nav fix — back steps one screen at a
+        // time; the old single-pop relied on the replace bug).
         let back = app.buttons["backButton"]
         XCTAssertTrue(back.waitForExistence(timeout: 5))
+        back.tap()
+        XCTAssertTrue(app.buttons["createBlankRoutine"].waitForExistence(timeout: 5))
         back.tap()
 
         let card = app.staticTexts["Swipe Target"]
@@ -162,6 +167,15 @@ final class SmokeTests: XCTestCase {
         // The detail screen, not the triangle: Add is its primary action.
         XCTAssertTrue(app.buttons["addTemplateButton"].waitForExistence(timeout: 5))
         snap("routines-tab-template-detail")
+
+        // Back must land on the CATALOG, one level up — not double-pop
+        // to the list (build 44: the catalog rode isPresented while
+        // template taps appended to the path, so the template screen
+        // replaced the catalog and back skipped it).
+        app.buttons["backButton"].tap()
+        XCTAssertTrue(app.buttons["createBlankRoutine"].waitForExistence(timeout: 5))
+        app.buttons["backButton"].tap()
+        XCTAssertTrue(plus.waitForExistence(timeout: 5))
     }
 
     func testCreateCustomExerciseWithNotes() throws {

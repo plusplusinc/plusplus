@@ -2,6 +2,15 @@ import SwiftUI
 import SwiftData
 import PlusPlusKit
 
+/// Path marker for pushing the routine catalog. The catalog MUST ride
+/// the value path, never navigationDestination(isPresented:): its
+/// template taps and blank creation append to the same path, and a
+/// value appended while a boolean-presented screen is on top replaces
+/// it without a transition and double-pops on back (Dave, build 44).
+/// Rule of thumb: a pushed screen that itself appends to the path must
+/// itself be a path entry.
+struct RoutineCatalogDestination: Hashable {}
+
 /// The routine catalog (#223): a pushed browse surface off the
 /// Routines tab, mirroring CatalogBrowseScreen's shape — top search,
 /// then the facet chips, then the list. Filtering is four single-
@@ -39,6 +48,11 @@ struct RoutineCatalogScreen: View {
     @State private var showingEquipmentEditor = false
     @State private var showingNewRoutine = false
     @State private var newRoutineName = ""
+    /// One-shot per appearance: path.append isn't idempotent the way
+    /// the old isPresented boolean was, so a fast double-tap on a
+    /// template row would stack two detail screens. Reset on pop-back
+    /// via onAppear (fires on return — the #233 lesson proves it).
+    @State private var pushedTemplate = false
 
     enum TimeBand: String, CaseIterable, Hashable {
         case short = "Under 20 min"
@@ -186,13 +200,14 @@ struct RoutineCatalogScreen: View {
             .padding(.top, 4)
         }
         .background(Theme.background)
+        .onAppear { pushedTemplate = false }
         .pushedScreenChrome(
             title: "Catalog",
             search: HeaderSearchConfig(text: $search, prompt: "Search routines", identifier: "routineCatalogSearchField"),
             onBack: { dismiss() }
         )
         // ⚠️ No .navigationDestination(for: RoutineTemplate.self) here:
-        // this screen is itself pushed via navigationDestination(isPresented:),
+        // this screen is itself pushed (via RoutineCatalogDestination),
         // and a value destination declared on a pushed screen failed to
         // resolve in production (build 33: template taps hit SwiftUI's
         // missing-destination placeholder). The registration lives at each
@@ -284,6 +299,8 @@ struct RoutineCatalogScreen: View {
 
     private func templateRow(_ template: RoutineTemplate) -> some View {
         Button {
+            guard !pushedTemplate else { return }
+            pushedTemplate = true
             path.append(template)
         } label: {
             VStack(alignment: .leading, spacing: 5) {
