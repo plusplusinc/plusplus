@@ -8,6 +8,9 @@ import SwiftUI
 /// filter chips, toggles, checkboxes, segmented tabs, the tab bar,
 /// list rows and cards — stay flat: their state flip is the feedback.
 ///
+/// Travel is 4 pt standard / 3 pt quiet — a point over the mock's
+/// 3/2 (Dave, build-42 feedback: "a bit more travel").
+///
 /// The style owns only the mechanics (plate, travel, press motion);
 /// the label is the cap and the caller styles it. Caps MUST be
 /// opaque (`Theme.background` / `Theme.surface` / `Theme.primaryFill`
@@ -19,8 +22,8 @@ struct RaisedKeyStyle: ButtonStyle {
     /// Must match the cap's corner radius so the plate reads as the
     /// same key's underside.
     var cornerRadius: CGFloat = 11
-    /// 3 pt standard, 2 pt quiet.
-    var travel: CGFloat = 3
+    /// 4 pt standard, 3 pt quiet.
+    var travel: CGFloat = 4
 
     @Environment(\.isEnabled) private var isEnabled
 
@@ -53,9 +56,9 @@ extension ButtonStyle where Self == RaisedKeyStyle {
         RaisedKeyStyle(plate: Theme.borderStrong, cornerRadius: cornerRadius)
     }
 
-    /// Quiet key: the escape-hatch variant — lower cap, 2 pt travel.
+    /// Quiet key: the escape-hatch variant — lower cap, shorter travel.
     static var quietKey: RaisedKeyStyle {
-        RaisedKeyStyle(plate: Theme.border, cornerRadius: 10, travel: 2)
+        RaisedKeyStyle(plate: Theme.border, cornerRadius: 10, travel: 3)
     }
 }
 

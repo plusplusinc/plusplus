@@ -186,14 +186,11 @@ struct RoutineCatalogScreen: View {
             .padding(.top, 4)
         }
         .background(Theme.background)
-        .navigationTitle("Catalog")
-        .navigationBarTitleDisplayMode(.inline)
-        .pushedScreenChrome(onBack: { dismiss() })
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                ExpandingSearchButton(prompt: "Search routines", text: $search, identifier: "routineCatalogSearchField")
-            }
-        }
+        .pushedScreenChrome(
+            title: "Catalog",
+            search: HeaderSearchConfig(text: $search, prompt: "Search routines", identifier: "routineCatalogSearchField"),
+            onBack: { dismiss() }
+        )
         // ⚠️ No .navigationDestination(for: RoutineTemplate.self) here:
         // this screen is itself pushed via navigationDestination(isPresented:),
         // and a value destination declared on a pushed screen failed to
@@ -472,9 +469,7 @@ struct RoutineTemplateDetailScreen: View {
         }
         .scrollDismissesKeyboard(.immediately)
         .background(Theme.background)
-        .navigationTitle(template.name)
-        .navigationBarTitleDisplayMode(.inline)
-        .pushedScreenChrome(onBack: { dismiss() })
+        .pushedScreenChrome(title: template.name, onBack: { dismiss() })
         .sheet(isPresented: $showingGearCheck) {
             GearCheckTray(names: missingNames)
         }

@@ -22,20 +22,20 @@ enum WatchTheme {
     static let surfaceRaised = Color(red: 0x34 / 255.0, green: 0x32 / 255.0, blue: 0x2D / 255.0)
 }
 
-/// The press grammar at 40 mm: an opaque cap sinks 2 pt onto a fixed
-/// base plate, 0.06 s ease-out — the phone's raised key, quiet-key
-/// travel (3 pt reads clunky at watch sizes).
+/// The press grammar at 40 mm: an opaque cap sinks 3 pt onto a fixed
+/// base plate, 0.06 s ease-out — the phone's raised key at quiet-key
+/// travel (the phone's full 4 pt reads clunky at watch sizes).
 struct WatchRaisedKeyStyle: ButtonStyle {
     var cornerRadius: CGFloat = 10
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .offset(y: configuration.isPressed ? 2 : 0)
-            .padding(.bottom, 2)
+            .offset(y: configuration.isPressed ? 3 : 0)
+            .padding(.bottom, 3)
             .background {
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .fill(WatchTheme.plate)
-                    .padding(.top, 2)
+                    .padding(.top, 3)
             }
             .animation(.easeOut(duration: 0.06), value: configuration.isPressed)
     }

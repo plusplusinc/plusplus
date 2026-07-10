@@ -172,21 +172,27 @@ struct SwipeRevealRow<Content: View, Actions: View>: View {
     }
 }
 
-/// One action inside a SwipeRevealRow: 58 pt, mono uppercase label.
+/// One action inside a SwipeRevealRow: 58 pt, mono uppercase label on
+/// a SOLID full-height fill (Quiet Arcade mock 02 — the revealed
+/// action is a color block, not tinted text on surface). DELETE is
+/// white on destructive per the mock; neutral actions pass
+/// primaryFill/onPrimary, which holds contrast in both schemes.
 struct SwipeActionButton: View {
     let label: String
+    /// The block's fill.
     let color: Color
+    var labelColor: Color = .white
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Text(label)
-                .font(.system(.caption, design: .monospaced, weight: .semibold))
-                .foregroundStyle(color)
+                .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                .kerning(0.7)
+                .foregroundStyle(labelColor)
                 .frame(width: 58)
                 .frame(maxHeight: .infinity)
-                .background(Theme.surface)
-                .overlay(Rectangle().frame(width: 1).foregroundStyle(Theme.border), alignment: .leading)
+                .background(color)
         }
         // Plain, not default: List routes row taps into default-styled
         // buttons anywhere in the row — the second half of the

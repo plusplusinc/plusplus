@@ -112,9 +112,7 @@ struct AppMenuScreen: View {
             .padding(.bottom, 30)
         }
         .background(Theme.background)
-        .pushedScreenChrome(onBack: { dismiss() })
-        .navigationTitle("PlusPlus")
-        .navigationBarTitleDisplayMode(.inline)
+        .pushedScreenChrome(title: "PlusPlus", onBack: { dismiss() })
         // isPresented, not a value destination: value registrations on
         // pushed screens are the build-33 missing-destination class.
         .navigationDestination(isPresented: $showingSettings) {
@@ -144,6 +142,7 @@ struct AppMenuScreen: View {
 /// TestFlight dispatch (keep it to one line, no obligation words).
 private enum WhatsNew {
     static let entries: [(build: String, notes: String)] = [
+        ("43", "Keys travel deeper · the +1 gets its moment · swipe actions in full color · our own chrome, corner to corner"),
         ("42", "Quiet Arcade: buttons press like real keys · your week as blocks on Today · Log set pops a +1 · rest gains +30s"),
         ("35", "Swipe actions stay put when you let go · this page · start any workout from Today's header"),
         ("34", "Catalogs open on your gear, fixable in place · pick several filters at once"),

@@ -1,0 +1,175 @@
+import SwiftUI
+
+/// The pushed-screen chrome, Quiet Arcade edition (Dave's build-42
+/// call: our own keys over Liquid Glass, for the toolbar and search
+/// both). The system bar hides entirely; a custom header rides
+/// `safeAreaInset` — a 44 pt raised back key, the title (+ optional
+/// mono subtitle) truly centered, trailing raised keys, and on catalog
+/// surfaces a search key that expands into a field replacing the title
+/// (mock 06). Supersedes #198's glass chevron and #233's toolbar
+/// search button; the full-width swipe-back is untouched — the #198
+/// pan drives the navigation controller directly and never depended
+/// on the bar being visible.
+private struct PushedScreenChrome<Trailing: View>: ViewModifier {
+    let title: String
+    var subtitle: String?
+    var search: HeaderSearchConfig?
+    let onBack: () -> Void
+    let trailing: Trailing
+
+    @State private var searchExpanded = false
+    /// One-shot focus intent, consumed by the field's onAppear — a
+    /// focus request made before the view exists is silently dropped,
+    /// and an unconditional onAppear re-summons the keyboard on
+    /// pop-back (both #233 lessons, inherited).
+    @State private var wantsFocus = false
+    @FocusState private var searchFocused: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .toolbar(.hidden, for: .navigationBar)
+            .safeAreaInset(edge: .top, spacing: 0) { header }
+            .fullWidthSwipeBack()
+    }
+
+    private var header: some View {
+        ZStack {
+            // The title centers on the SCREEN, not between whatever
+            // keys happen to flank it. Side padding must clear the
+            // WIDEST flanking group — two trailing keys are 98 pt —
+            // or a long name truncates with its ellipsis hidden UNDER
+            // a key cap (swift-reviewer math check).
+            if !searchExpanded {
+                VStack(spacing: 1) {
+                    Text(title)
+                        .font(.system(.subheadline, weight: .bold))
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(1)
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(.system(.caption2, design: .monospaced))
+                            .foregroundStyle(Theme.textFaint)
+                            .lineLimit(1)
+                    }
+                }
+                .padding(.horizontal, 100)
+            }
+
+            HStack(spacing: 10) {
+                HeaderIconButton(systemImage: "chevron.left", identifier: "backButton") {
+                    onBack()
+                }
+                if searchExpanded, let search {
+                    searchField(search)
+                } else {
+                    Spacer(minLength: 0)
+                    if let search {
+                        HeaderIconButton(systemImage: "magnifyingglass", identifier: "\(search.identifier)Toggle") {
+                            wantsFocus = true
+                            withAnimation(.easeOut(duration: 0.15)) { searchExpanded = true }
+                        }
+                    }
+                    trailing
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 4)
+        .padding(.bottom, 8)
+        .background(Theme.background)
+    }
+
+    /// Mock 06: a 44 pt field where the title was — magnifier, mono
+    /// text, ✕ inside the field (clears, unfocuses, collapses).
+    private func searchField(_ search: HeaderSearchConfig) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(.footnote))
+                .foregroundStyle(Theme.textFaint)
+            TextField(search.prompt, text: search.text)
+                .font(.system(.footnote, design: .monospaced))
+                .autocorrectionDisabled()
+                .focused($searchFocused)
+                .accessibilityIdentifier(search.identifier)
+                .onAppear {
+                    if wantsFocus {
+                        wantsFocus = false
+                        searchFocused = true
+                    }
+                }
+                // A push while focused must not strand the keyboard
+                // (the #213 lesson, inherited through two components).
+                .onDisappear { searchFocused = false }
+            Button {
+                search.text.wrappedValue = ""
+                searchFocused = false
+                withAnimation(.easeOut(duration: 0.15)) { searchExpanded = false }
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(.caption, weight: .semibold))
+                    .foregroundStyle(Theme.textFaint)
+                    .frame(width: 32, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityIdentifier("dismissSearchButton")
+        }
+        .padding(.leading, 13)
+        .frame(height: 44)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 11))
+        .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
+    }
+}
+
+/// The in-header search slot: binding + prompt + the field's
+/// accessibility identifier (the collapsed key gets "\(id)Toggle").
+struct HeaderSearchConfig {
+    let text: Binding<String>
+    let prompt: String
+    let identifier: String
+}
+
+/// A trailing header key wrapping a Menu — `.menuStyle(.button)` routes
+/// the label through the raised-key ButtonStyle so menus press like
+/// every other key.
+struct HeaderMenuKey<Items: View>: View {
+    let systemImage: String
+    var identifier: String?
+    @ViewBuilder let items: () -> Items
+
+    var body: some View {
+        Menu {
+            items()
+        } label: {
+            Image(systemName: systemImage)
+                .font(.system(.body, weight: .medium))
+                .foregroundStyle(Theme.textSecondary)
+                .frame(width: 44, height: 44)
+                .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
+                .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
+        }
+        .menuStyle(.button)
+        .buttonStyle(.raisedKey())
+        .accessibilityIdentifier(identifier ?? systemImage)
+    }
+}
+
+extension View {
+    /// One call per pushed screen: hidden system bar, the custom key
+    /// header (back + centered title + optional search/trailing keys),
+    /// whole-surface swipe-back.
+    func pushedScreenChrome<Trailing: View>(
+        title: String,
+        subtitle: String? = nil,
+        search: HeaderSearchConfig? = nil,
+        onBack: @escaping () -> Void,
+        @ViewBuilder trailing: () -> Trailing = { EmptyView() }
+    ) -> some View {
+        modifier(PushedScreenChrome(
+            title: title,
+            subtitle: subtitle,
+            search: search,
+            onBack: onBack,
+            trailing: trailing()
+        ))
+    }
+}

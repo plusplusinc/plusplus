@@ -227,42 +227,27 @@ struct ExerciseDetailScreen: View {
         }
         .background(Theme.background)
         .scrollDismissesKeyboard(.immediately)
-        .pushedScreenChrome(onBack: { dismiss() })
-        // Inline title (#234): drilled-in pages read smaller than
-        // roots, centered with the back chevron.
-        .navigationTitle(exercise.name)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            // Membership + deletion live behind "…" (#231) — present,
-            // not primary, and named for what they touch. Edit rides
-            // beside it as its own glass circle.
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                Button {
-                    showingEditor = true
-                } label: {
-                    Image(systemName: "pencil")
-                }
-                .accessibilityIdentifier("editExerciseButton")
-                // Destructive-only since #265 (Add is a visible row
-                // below): a built-in that isn't in the library leaves
-                // nothing for the menu, so it hides instead of
-                // rendering empty.
-                if !exercise.isBuiltIn || exercise.inLibrary {
-                    Menu {
-                        if exercise.isBuiltIn {
-                            Button("Remove from my exercises", role: .destructive) {
-                                exercise.inLibrary = false
-                                dismiss()
-                            }
-                        } else {
-                            Button("Delete custom exercise", role: .destructive) {
-                                showingDeleteConfirm = true
-                            }
+        // Custom key chrome (build-42 call). Membership + deletion
+        // live behind "…" (#231) — present, not primary, and named for
+        // what they touch; edit rides beside it as its own key. A
+        // built-in outside the library leaves nothing for the menu, so
+        // it hides instead of rendering empty (#265).
+        .pushedScreenChrome(title: exercise.name, onBack: { dismiss() }) {
+            HeaderIconButton(systemImage: "pencil", identifier: "editExerciseButton") {
+                showingEditor = true
+            }
+            if !exercise.isBuiltIn || exercise.inLibrary {
+                HeaderMenuKey(systemImage: "ellipsis", identifier: "exerciseDetailMenu") {
+                    if exercise.isBuiltIn {
+                        Button("Remove from my exercises", role: .destructive) {
+                            exercise.inLibrary = false
+                            dismiss()
                         }
-                    } label: {
-                        Image(systemName: "ellipsis")
+                    } else {
+                        Button("Delete custom exercise", role: .destructive) {
+                            showingDeleteConfirm = true
+                        }
                     }
-                    .accessibilityIdentifier("exerciseDetailMenu")
                 }
             }
         }
@@ -456,37 +441,26 @@ struct EquipmentDetailScreen: View {
         }
         .background(Theme.background)
         .scrollDismissesKeyboard(.immediately)
-        .pushedScreenChrome(onBack: { dismiss() })
-        .navigationTitle(equipment.name)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                if !equipment.isBuiltIn {
-                    Button {
-                        renameText = equipment.name
-                        showingRename = true
-                    } label: {
-                        Image(systemName: "pencil")
-                    }
-                    .accessibilityIdentifier("renameEquipmentButton")
+        .pushedScreenChrome(title: equipment.name, onBack: { dismiss() }) {
+            if !equipment.isBuiltIn {
+                HeaderIconButton(systemImage: "pencil", identifier: "renameEquipmentButton") {
+                    renameText = equipment.name
+                    showingRename = true
                 }
-                // Destructive-only since #265 — see the exercise menu.
-                if !equipment.isBuiltIn || equipment.inLibrary {
-                    Menu {
-                        if equipment.isBuiltIn {
-                            Button("Remove from my equipment", role: .destructive) {
-                                equipment.inLibrary = false
-                                dismiss()
-                            }
-                        } else {
-                            Button("Delete custom equipment", role: .destructive) {
-                                confirmingDelete = true
-                            }
+            }
+            // Destructive-only since #265 — see the exercise menu.
+            if !equipment.isBuiltIn || equipment.inLibrary {
+                HeaderMenuKey(systemImage: "ellipsis", identifier: "equipmentDetailMenu") {
+                    if equipment.isBuiltIn {
+                        Button("Remove from my equipment", role: .destructive) {
+                            equipment.inLibrary = false
+                            dismiss()
                         }
-                    } label: {
-                        Image(systemName: "ellipsis")
+                    } else {
+                        Button("Delete custom equipment", role: .destructive) {
+                            confirmingDelete = true
+                        }
                     }
-                    .accessibilityIdentifier("equipmentDetailMenu")
                 }
             }
         }

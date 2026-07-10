@@ -36,6 +36,11 @@ struct ActiveSessionView: View {
     /// When set, we're resting until this instant (date-based; backgrounding
     /// can't drift it).
     @State private var restEndDate: Date?
+    /// The just-logged set, held on screen ~0.75 s so the "+1" beat has
+    /// time to play before rest/finish takes the view (Dave, build-42:
+    /// the instant swap ate the flourish). Data commits immediately —
+    /// only the VIEW lingers. Nil outside the beat.
+    @State private var lingeringLog: SetLog?
     @State private var showingExitDialog = false
     @State private var showingOverview = false
     @State private var burstCount = 0
@@ -55,13 +60,17 @@ struct ActiveSessionView: View {
 
             if session.isFinished {
                 finishedView
-            } else if let currentLog = session.currentLog {
-                if let restEndDate {
+            } else if let displayLog = lingeringLog ?? session.currentLog {
+                // While `lingeringLog` holds, the just-completed set's
+                // screen stays up for the +1 beat — SAME structural
+                // branch and .id as before the log, so the burst view
+                // survives and animates instead of being remounted.
+                if let restEndDate, lingeringLog == nil {
                     VStack(spacing: 0) {
                         RestView(
                             endDate: restEndDate,
                             totalSeconds: session.restSeconds,
-                            upNext: currentLog,
+                            upNext: displayLog,
                             onAddTime: { extendRest(by: 30) },
                             onEnd: { endRest() }
                         )
@@ -81,13 +90,19 @@ struct ActiveSessionView: View {
                 } else {
                     SetLoggingView(
                         session: session,
-                        log: currentLog,
-                        lastTime: WorkoutSession.lastPerformance(matching: currentLog, in: finishedSessions),
+                        log: displayLog,
+                        lastTime: WorkoutSession.lastPerformance(matching: displayLog, in: finishedSessions),
                         routineNotes: completedSets == 0 ? session.routine?.notes : nil,
                         burstCount: burstCount,
-                        onComplete: { completeCurrentSet(currentLog) }
+                        onComplete: { completeCurrentSet(displayLog) }
                     )
-                    .id(currentLog.order)
+                    .id(displayLog.order)
+                    // The lingering screen is a FREEZE FRAME: steppers
+                    // mutating an already-committed set would bypass
+                    // carry-forward, and a wheel opened mid-beat gets
+                    // torn down when rest takes the view
+                    // (swift-reviewer).
+                    .allowsHitTesting(lingeringLog == nil)
                 }
             } else if totalSets == 0 {
                 // A scratch session before its first exercise: no logs
@@ -246,32 +261,48 @@ struct ActiveSessionView: View {
         return String(format: "%d:%02d", elapsed / 60, elapsed % 60)
     }
 
-    /// Block-style set progress (Quiet Arcade): one block per set in
-    /// the session, filled green as they land — the continuous bar and
-    /// its pulsing sliver died with it. Hidden before a scratch
-    /// session's first exercise (zero blocks is a meaningless bar).
+    /// Block-style set progress (Quiet Arcade, mock 08): one block per
+    /// set of the CURRENT exercise's block, synced with the "SET N OF
+    /// M" kicker — session-wide position lives in the header pill.
+    /// Hidden when finished (the purple screen has its own bars) and
+    /// before a scratch session's first exercise.
     @ViewBuilder
     private var progressBar: some View {
-        if totalSets > 0 {
-            BlockBar(total: totalSets, filled: completedSets, fill: Theme.accent)
+        if !session.isFinished, let log = lingeringLog ?? session.currentLog {
+            let block = session.sortedSetLogs.filter {
+                $0.groupIndex == log.groupIndex && $0.exerciseName == log.exerciseName
+            }
+            BlockBar(total: block.count, filled: block.filter(\.isCompleted).count, fill: Theme.accent)
         }
     }
 
     // MARK: - Actions
 
+    /// The +1 beat plays only where a human is watching — under UI test
+    /// the transition is immediate (the delay would slow every logging
+    /// flow and quiescence-block nothing observable).
+    private static let playsLogBeat = !CommandLine.arguments.contains("--uitest-reset")
+
     private func completeCurrentSet(_ log: SetLog) {
+        // Taps during the beat are the double-log class — the button is
+        // still on screen while the view lingers.
+        guard lingeringLog == nil else { return }
         session.complete(log)
         burstCount += 1
         // Mid-workout sets thud; .success is saved for the finish so
         // the purple screen has its own physical beat (#216).
-        if session.nextPendingLog != nil {
+        let hasNext = session.nextPendingLog != nil
+        if hasNext {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         } else {
             UINotificationFeedbackGenerator().notificationOccurred(.success)
         }
 
-        if session.nextPendingLog != nil {
-            // The permission ask lives in the notifier now — the first
+        if hasNext {
+            // Rest STARTS now (endDate anchored at log time, the
+            // notification scheduled now) even though its screen waits
+            // out the beat — the countdown stays honest.
+            // The permission ask lives in the notifier — the first
             // ARMED notification asks and arms on grant (#246). This
             // refresh keeps the denied caption honest per rest.
             RestNotifier.shared.notificationsDenied { restAlertsDenied = $0 }
@@ -284,8 +315,30 @@ struct ActiveSessionView: View {
                     setNumber: upNext.setNumber
                 )
             }
-        } else {
-            finishSession(dismissAfter: false)
+        }
+
+        // Duration sets have no +1 (their dock is the auto-timer; the
+        // timer reaching zero IS the flourish) — no beat to wait for.
+        guard Self.playsLogBeat, log.exerciseType != .duration else {
+            if !hasNext { finishSession(dismissAfter: false) }
+            return
+        }
+        lingeringLog = log
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(0.75))
+            lingeringLog = nil
+            // A discard during the beat deletes the session — nothing
+            // left to finish (touching a deleted @Model is the crash
+            // class the delete paths pop screens to avoid).
+            guard !session.isDeleted else { return }
+            // The finish stamp waits out the beat too — endedAt lands
+            // when the screen changes. Preconditions RE-CHECKED at
+            // fire time, not trusted from log time (the StartFlash
+            // rule): a redo reopening a set mid-beat must not get
+            // stamped into a finished record.
+            if session.nextPendingLog == nil && !session.isFinished {
+                finishSession(dismissAfter: false)
+            }
         }
     }
 
@@ -400,11 +453,10 @@ struct ActiveSessionView: View {
                         .foregroundStyle(Theme.textFaint)
                     // The one forward-looking line the moment can carry
                     // (#246): the calendar fact, no button, no
-                    // exclamation.
-                    if let next = nextOccurrenceText {
-                        Text(next)
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundStyle(Theme.textFaint)
+                    // exclamation. "next up · Pull Day — thu" with the
+                    // fact in ink (mock 10).
+                    if let next = nextOccurrenceLine {
+                        next.font(.system(.caption, design: .monospaced))
                     }
                     if isFirstEverFinish {
                         Text("widgets can show your schedule without opening the app — long-press the home screen to add one")
@@ -640,9 +692,10 @@ struct ActiveSessionView: View {
     }
 
     /// The soonest next occurrence across every scheduled routine —
-    /// the same fact the rest-day caption speaks ("next wed — Push
-    /// Day"), computed here with THIS session already counted.
-    private var nextOccurrenceText: String? {
+    /// the same fact the rest-day caption speaks, computed here with
+    /// THIS session already counted. "next up · " faint, the routine
+    /// and day in ink (mock 10).
+    private var nextOccurrenceLine: Text? {
         let calendar = Calendar.current
         let today = Date()
         var best: (date: Date, name: String)?
@@ -665,12 +718,13 @@ struct ActiveSessionView: View {
         // Beyond the coming week the bare weekday would lie by
         // omission — add the plain date (mirrors Today's rest-day
         // caption, #267).
+        var fact = "\(best.name) — \(day)"
         if let weekBoundary = calendar.date(byAdding: .day, value: 7, to: calendar.startOfDay(for: today)),
            best.date > weekBoundary {
-            let monthDay = best.date.formatted(.dateTime.month(.abbreviated).day()).lowercased()
-            return "next \(day) · \(monthDay) — \(best.name)"
+            fact += " · " + best.date.formatted(.dateTime.month(.abbreviated).day()).lowercased()
         }
-        return "next \(day) — \(best.name)"
+        return Text("next up · ").foregroundStyle(Theme.textFaint)
+            + Text(fact).foregroundStyle(Theme.textPrimary)
     }
 
     /// The two most recent completions (#267: `.previous` feeds the
@@ -731,12 +785,10 @@ private struct SetLoggingView: View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    (Text("SET \(log.setNumber) OF \(setsTotal)")
+                    // SUPERSET moved onto the chips row (mock 08) —
+                    // the kicker keeps the set count alone.
+                    Text("SET \(log.setNumber) OF \(setsTotal)")
                         .foregroundStyle(Theme.accent)
-                        + (supersetNames.isEmpty
-                            ? Text("")
-                            : (Text(" · ") + Text(Image(systemName: "square.on.square")) + Text(" SUPERSET"))
-                                .foregroundStyle(Theme.textSecondary)))
                         .font(.system(.footnote, design: .monospaced, weight: .semibold))
                         .kerning(0.7)
                         .padding(.top, 20)
@@ -750,18 +802,23 @@ private struct SetLoggingView: View {
                             .padding(.top, 10)
                     }
 
-                    HStack(spacing: 12) {
-                        Text(targetDescription)
-                        if let lastTime {
-                            (Text("last ").foregroundStyle(Theme.textSecondary)
-                                + Text(lastTime.resultSummary(weightUnit: weightUnit))
-                                .font(.system(.subheadline, design: .monospaced))
-                                .foregroundStyle(Theme.textPrimary))
+                    // Weight/reps sets carry target + last INSIDE the
+                    // value cards now (mock 08); this line survives
+                    // only for duration sets, which have no cards.
+                    if log.exerciseType == .duration {
+                        HStack(spacing: 12) {
+                            Text(targetDescription)
+                            if let lastTime {
+                                (Text("last ").foregroundStyle(Theme.textSecondary)
+                                    + Text(lastTime.resultSummary(weightUnit: weightUnit))
+                                    .font(.system(.subheadline, design: .monospaced))
+                                    .foregroundStyle(Theme.textPrimary))
+                            }
                         }
+                        .font(.system(.subheadline))
+                        .foregroundStyle(Theme.textSecondary)
+                        .padding(.top, 8)
                     }
-                    .font(.system(.subheadline))
-                    .foregroundStyle(Theme.textSecondary)
-                    .padding(.top, 8)
 
                     if let routineNotes {
                         Text(routineNotes)
@@ -791,12 +848,11 @@ private struct SetLoggingView: View {
         }
     }
 
-    // MARK: - Stage
-    // The set's adjustable values ARE the screen: two big columns —
-    // value up top, its −/+ pair directly beneath — occupying the
-    // middle so the thumb tweaks mid-screen and logs at the bottom,
-    // with enough air between the two that neither is ever an
-    // accident.
+    // MARK: - Stage (mock 08)
+    // The WEIGHT card dominates — big value with the live delta, two
+    // full-width stepper keys, the carry-forward note inside — and
+    // REPS rides beneath as a compact row with square ±1 keys. The
+    // thumb tweaks mid-screen and logs at the bottom.
 
     /// The effective weight step, for the stepper key labels ("−5" /
     /// "+5"): per-equipment override first, then the unit's step.
@@ -804,32 +860,28 @@ private struct SetLoggingView: View {
         log.exercise?.weightStepOverride ?? weightUnit.step
     }
 
+    /// "last 130 · +5" — the previous top set's weight and the live
+    /// delta against it (mock 08, in the weight card's corner). Green
+    /// only while it's an increment: a deload renders neutral
+    /// (anti-shame, the RoutineDiff rule — the mock's always-green
+    /// annotation predates it). Nil without a prior.
+    private var weightDeltaAnnotation: (text: String, color: Color)? {
+        guard let last = lastTime?.actualWeight, last > 0 else { return nil }
+        let current = log.actualWeight ?? log.targetWeight ?? last
+        let delta = current - last
+        let deltaText = delta == 0
+            ? "="
+            : (delta > 0 ? "+" : "−") + WorkoutMetric.weight.formatted(abs(delta))
+        return (
+            "last \(WorkoutMetric.weight.formatted(last)) · \(deltaText)",
+            delta > 0 ? Theme.accent : Theme.textFaint
+        )
+    }
+
     private var stage: some View {
-        HStack(alignment: .top, spacing: 12) {
-            valueColumn(
-                label: "WEIGHT",
-                value: WorkoutMetric.weight.formatted(log.actualWeight ?? log.targetWeight),
-                numeric: log.actualWeight ?? log.targetWeight,
-                unit: weightUnit.symbol,
-                stepLabel: WorkoutMetric.weight.formatted(weightStep),
-                stepperHeight: 56,
-                identifier: "logWeight",
-                onTap: { wheel = .weight },
-                onDec: { log.actualWeight = WorkoutMetric.weight.decremented(log.actualWeight ?? log.targetWeight, weightUnit: weightUnit, stepOverride: log.exercise?.weightStepOverride) },
-                onInc: { log.actualWeight = WorkoutMetric.weight.incremented(log.actualWeight ?? log.targetWeight, weightUnit: weightUnit, stepOverride: log.exercise?.weightStepOverride) }
-            )
-            valueColumn(
-                label: "REPS",
-                value: (log.actualReps ?? log.targetRepsLower).map(String.init) ?? "—",
-                numeric: (log.actualReps ?? log.targetRepsLower).map(Double.init),
-                unit: nil,
-                stepLabel: "1",
-                stepperHeight: 48,
-                identifier: "logReps",
-                onTap: { wheel = .reps },
-                onDec: { log.actualReps = max(1, (log.actualReps ?? log.targetRepsLower ?? 11) - 1) },
-                onInc: { log.actualReps = (log.actualReps ?? log.targetRepsLower ?? 9) + 1 }
-            )
+        VStack(spacing: 12) {
+            weightCard
+            repsRow
         }
         .padding(.horizontal, 16)
         .padding(.top, 6)
@@ -857,79 +909,120 @@ private struct SetLoggingView: View {
         }
     }
 
-    private func valueColumn(
-        label: String,
-        value: String,
-        numeric: Double?,
-        unit: String?,
-        stepLabel: String,
-        stepperHeight: CGFloat,
-        identifier: String,
-        onTap: @escaping () -> Void,
-        onDec: @escaping () -> Void,
-        onInc: @escaping () -> Void
-    ) -> some View {
-        VStack(spacing: 0) {
-            Text(label)
-                .font(.system(.footnote, weight: .semibold))
-                .foregroundStyle(Theme.textSecondary)
+    /// Mock 08's dominant WEIGHT card: mono label, big value opening
+    /// the wheel, the live "last · Δ" in data green at the value's
+    /// side, two full-width 56 pt stepper keys, and the carry-forward
+    /// note inside the card (faint — a mechanic note, not a delta;
+    /// rendered only while it's true, honesty over the mock's
+    /// always-on copy).
+    private var weightCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("WEIGHT")
+                .font(.system(.footnote, design: .monospaced, weight: .semibold))
+                .foregroundStyle(Theme.textFaint)
                 .kerning(0.7)
-                .padding(.top, 14)
-            Button(action: onTap) {
-                (Text(value)
-                    .font(.system(size: 44, weight: .bold, design: .monospaced))
-                    .foregroundStyle(Theme.textPrimary)
-                    + Text(unit.map { " \($0)" } ?? "")
-                    .font(.system(.subheadline))
-                    .foregroundStyle(Theme.textSecondary))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                    // Digits roll like an odometer, directional with
-                    // the raw value (#216) — increments read as ++.
-                    .contentTransition(.numericText(value: numeric ?? 0))
-                    .animation(.easeOut(duration: 0.15), value: numeric)
-            }
-            .accessibilityIdentifier("\(identifier)Value")
-            .padding(.top, 2)
-            .padding(.horizontal, 8)
-
-            // Raised stepper keys with mono step labels (Quiet Arcade:
-            // "−5"/"+5" say what one press buys — the ± icons didn't).
-            HStack(spacing: 8) {
-                Button(action: onDec) {
-                    Text("−\(stepLabel)")
-                        .font(.system(.body, design: .monospaced, weight: .bold))
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Button {
+                    wheel = .weight
+                } label: {
+                    (Text(WorkoutMetric.weight.formatted(log.actualWeight ?? log.targetWeight))
+                        .font(.system(size: 40, weight: .bold, design: .monospaced))
                         .foregroundStyle(Theme.textPrimary)
+                        + Text(" \(weightUnit.symbol)")
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(Theme.textFaint))
                         .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: stepperHeight)
-                        .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
-                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.borderStrong))
+                        .minimumScaleFactor(0.6)
+                        // Digits roll like an odometer, directional
+                        // with the raw value (#216).
+                        .contentTransition(.numericText(value: log.actualWeight ?? log.targetWeight ?? 0))
+                        .animation(.easeOut(duration: 0.15), value: log.actualWeight ?? log.targetWeight)
                 }
-                .buttonStyle(.raisedKey(cornerRadius: 12))
-                .accessibilityIdentifier("\(identifier)Decrement")
-                Button(action: onInc) {
-                    Text("+\(stepLabel)")
-                        .font(.system(.body, design: .monospaced, weight: .bold))
-                        .foregroundStyle(Theme.textPrimary)
+                .accessibilityIdentifier("logWeightValue")
+                Spacer(minLength: 8)
+                if let annotation = weightDeltaAnnotation {
+                    Text(annotation.text)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(annotation.color)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: stepperHeight)
-                        .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
-                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.borderStrong))
+                        .minimumScaleFactor(0.8)
+                        .contentTransition(.numericText())
+                        .animation(.easeOut(duration: 0.15), value: annotation.text)
                 }
-                .buttonStyle(.raisedKey(cornerRadius: 12))
-                .accessibilityIdentifier("\(identifier)Increment")
             }
-            .padding(.horizontal, 12)
-            .padding(.top, 10)
-            .padding(.bottom, 14)
+            HStack(spacing: 10) {
+                stepperKey("−\(WorkoutMetric.weight.formatted(weightStep))", height: 56, identifier: "logWeightDecrement") {
+                    log.actualWeight = WorkoutMetric.weight.decremented(log.actualWeight ?? log.targetWeight, weightUnit: weightUnit, stepOverride: log.exercise?.weightStepOverride)
+                }
+                stepperKey("+\(WorkoutMetric.weight.formatted(weightStep))", height: 56, identifier: "logWeightIncrement") {
+                    log.actualWeight = WorkoutMetric.weight.incremented(log.actualWeight ?? log.targetWeight, weightUnit: weightUnit, stepOverride: log.exercise?.weightStepOverride)
+                }
+            }
+            if session.weightCarriesForward(from: log) {
+                Text("new weight carries to your remaining sets")
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(Theme.textFaint)
+            }
         }
-        .frame(maxWidth: .infinity)
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
         .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
+    }
+
+    /// Mock 08's compact REPS row: label · value · plain-ink target
+    /// (green never colors a prescription), square ±1 keys trailing.
+    /// No card — the weight owns the stage.
+    private var repsRow: some View {
+        HStack(spacing: 12) {
+            Text("REPS")
+                .font(.system(.footnote, design: .monospaced, weight: .semibold))
+                .foregroundStyle(Theme.textFaint)
+                .kerning(0.7)
+            Button {
+                wheel = .reps
+            } label: {
+                Text((log.actualReps ?? log.targetRepsLower).map(String.init) ?? "—")
+                    .font(.system(.title3, design: .monospaced, weight: .bold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .contentTransition(.numericText(value: Double(log.actualReps ?? log.targetRepsLower ?? 0)))
+                    .animation(.easeOut(duration: 0.15), value: log.actualReps ?? log.targetRepsLower)
+            }
+            .accessibilityIdentifier("logRepsValue")
+            if log.targetReps.lower != nil {
+                Text("target \(log.targetReps.display)")
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(Theme.textFaint)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            stepperKey("−1", height: 48, width: 48, identifier: "logRepsDecrement") {
+                log.actualReps = max(1, (log.actualReps ?? log.targetRepsLower ?? 11) - 1)
+            }
+            stepperKey("+1", height: 48, width: 48, identifier: "logRepsIncrement") {
+                log.actualReps = (log.actualReps ?? log.targetRepsLower ?? 9) + 1
+            }
+        }
+        .padding(.horizontal, 2)
+    }
+
+    /// One raised stepper key with a mono step label ("−5"/"+5" say
+    /// what one press buys — the ± icons didn't). Full-width when no
+    /// width is given.
+    private func stepperKey(_ label: String, height: CGFloat, width: CGFloat? = nil, identifier: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(.system(.body, design: .monospaced, weight: .bold))
+                .foregroundStyle(Theme.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .frame(maxWidth: width == nil ? .infinity : nil)
+                .frame(width: width, height: height)
+                .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.borderStrong))
+        }
+        .buttonStyle(.raisedKey(cornerRadius: 12))
+        .accessibilityIdentifier(identifier)
     }
 
     // MARK: - Log dock
@@ -938,19 +1031,6 @@ private struct SetLoggingView: View {
 
     private var logDock: some View {
         VStack(spacing: 0) {
-            if session.weightCarriesForward(from: log) {
-                HStack(spacing: 7) {
-                    Image(systemName: "arrow.right")
-                        .font(.system(.caption, weight: .semibold))
-                    Text("new weight carries to your remaining \(log.exerciseName) sets")
-                        .font(.system(.footnote))
-                }
-                .foregroundStyle(Theme.accent)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
-            }
-
             ZStack {
                 Button(action: onComplete) {
                     Text("Log set")
@@ -967,9 +1047,71 @@ private struct SetLoggingView: View {
                     .offset(y: -40)
             }
             .padding(.horizontal, 16)
-            .padding(.top, 28)
-            .padding(.bottom, 12)
+            .padding(.top, 24)
+
+            // "1 of 3 logged · rest 90s auto" (mock 08): the block's
+            // tally plus what happens at the log — plain facts.
+            Text("\(loggedLine) · rest \(WorkoutMetric.rest.displayText(Double(session.restSeconds))) auto")
+                .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(Theme.textFaint)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 8)
+
+            // UP NEXT (mock 08): where the rotation goes after this
+            // block — the same fact the rest screen carries, visible
+            // before the finger commits.
+            if let upNext = upNextLine {
+                VStack(alignment: .leading, spacing: 3) {
+                    Divider().overlay(Theme.border)
+                    Text("UP NEXT")
+                        .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                        .foregroundStyle(Theme.textFaint)
+                        .kerning(0.8)
+                        .padding(.top, 8)
+                    upNext
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 10)
+            }
         }
+        .padding(.bottom, 12)
+    }
+
+    /// "no sets logged yet" / "1 of 3 logged" — this block's tally.
+    private var loggedLine: String {
+        let logged = session.sortedSetLogs.filter {
+            $0.groupIndex == log.groupIndex && $0.exerciseName == log.exerciseName && $0.isCompleted
+        }.count
+        return logged == 0 ? "no sets logged yet" : "\(logged) of \(setsTotal) logged"
+    }
+
+    /// The next pending log after this one: a superset partner gets
+    /// its name + prescription, a plain next set just its number.
+    private var upNextLine: Text? {
+        guard let next = session.sortedSetLogs.first(where: { !$0.isCompleted && $0.order != log.order }) else {
+            return nil
+        }
+        if next.exerciseName == log.exerciseName {
+            return Text("\(next.exerciseName) — set \(next.setNumber)")
+                .font(.system(.footnote, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+        }
+        let detail: String
+        if next.exerciseType == .duration {
+            detail = WorkoutMetric.duration.displayText(next.targetDuration.map(Double.init))
+        } else {
+            var parts = "\(next.targetReps.display) reps"
+            if let weight = next.targetWeight {
+                parts += " @ \(WorkoutMetric.weight.displayText(weight, weightUnit: weightUnit))"
+            }
+            detail = parts
+        }
+        return Text("\(next.exerciseName) — ")
+            .font(.system(.footnote, weight: .semibold))
+            .foregroundStyle(Theme.textPrimary)
+            + Text(detail)
+            .font(.system(.footnote, design: .monospaced))
+            .foregroundStyle(Theme.textPrimary)
     }
 
     private var durationDock: some View {
@@ -999,32 +1141,43 @@ private struct SetLoggingView: View {
     }
 }
 
-/// "Band Pulses → Y's and T's" rotation chips. The current member is
-/// an INVERSE INK capsule, not blue (Quiet Arcade): mid-action it's
+/// "A · BENCH → B · ROW" rotation chips (mock 08): lettered mono
+/// capsules, the current member an INVERSE INK fill — mid-action it's
 /// "where you are", a position in the rotation, not a selection being
-/// made. The next member stays outlined.
+/// made — the next member outlined, and the SUPERSET legend riding
+/// the row's trailing edge.
 private struct SupersetChips: View {
     let names: [String]
     let current: String
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 7) {
             ForEach(Array(names.enumerated()), id: \.offset) { index, name in
                 if index > 0 {
                     Text("→")
                         .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
                 }
-                Text(name)
-                    .font(.system(.caption, weight: .semibold))
+                Text("\(letter(index)) · \(name.uppercased())")
+                    .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                    .kerning(0.5)
                     .foregroundStyle(name == current ? Theme.onPrimary : Theme.textSecondary)
                     .lineLimit(1)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 3)
+                    .padding(.horizontal, 11)
+                    .frame(height: 34)
                     .background(name == current ? Theme.primaryFill : Color.clear, in: Capsule())
                     .overlay(Capsule().strokeBorder(name == current ? Color.clear : Theme.borderStrong, lineWidth: 1))
             }
+            Spacer(minLength: 6)
+            Text("SUPERSET")
+                .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                .kerning(0.6)
+                .foregroundStyle(Theme.textFaint)
         }
+    }
+
+    private func letter(_ index: Int) -> String {
+        String(UnicodeScalar(UInt8(65 + index % 26)))
     }
 }
 
@@ -1262,29 +1415,35 @@ private struct RestView: View {
                 .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
                 .padding(.horizontal, 20)
 
-                HStack(spacing: 10) {
-                    Button(action: onAddTime) {
-                        Text("+30s")
-                            .font(.system(.subheadline, design: .monospaced, weight: .bold))
-                            .foregroundStyle(Theme.textPrimary)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 52)
-                            .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
-                            .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
+                // Skip gets the wider share (the mock's 1 : 1.4 = 5:7
+                // of the row): ending rest is the primary intent,
+                // extending is the hedge.
+                GeometryReader { proxy in
+                    HStack(spacing: 10) {
+                        Button(action: onAddTime) {
+                            Text("+30s")
+                                .font(.system(.subheadline, design: .monospaced, weight: .bold))
+                                .foregroundStyle(Theme.textPrimary)
+                                .frame(width: (proxy.size.width - 10) * 5 / 12)
+                                .frame(height: 52)
+                                .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
+                                .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
+                        }
+                        .buttonStyle(.raisedKey())
+                        .accessibilityIdentifier("extendRestButton")
+                        Button(action: onEnd) {
+                            Text("Skip rest")
+                                .font(.system(.subheadline, weight: .bold))
+                                .foregroundStyle(Theme.onPrimary)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 52)
+                                .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 11))
+                        }
+                        .buttonStyle(.raisedPrimaryKey())
+                        .accessibilityIdentifier("skipRestButton")
                     }
-                    .buttonStyle(.raisedKey())
-                    .accessibilityIdentifier("extendRestButton")
-                    Button(action: onEnd) {
-                        Text("Skip rest")
-                            .font(.system(.subheadline, weight: .bold))
-                            .foregroundStyle(Theme.onPrimary)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 52)
-                            .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 11))
-                    }
-                    .buttonStyle(.raisedPrimaryKey())
-                    .accessibilityIdentifier("skipRestButton")
                 }
+                .frame(height: 56)
                 .padding(.horizontal, 20)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
