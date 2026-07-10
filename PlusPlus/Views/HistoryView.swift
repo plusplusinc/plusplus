@@ -57,10 +57,29 @@ struct SessionDetailView: View {
         sort: [SortDescriptor(\WorkoutSession.startedAt, order: .reverse)]
     )
     private var allFinished: [WorkoutSession]
+    @Query private var routines: [Routine]
     let session: WorkoutSession
+    /// "Do it again" (Dave, build-45): a past workout's record offers
+    /// to run it again. The caller owns session start (TodayView's
+    /// start() with its fire-time guards); nil hides the key.
+    var onRepeat: ((Routine) -> Void)?
 
     private var weightUnit: WeightUnit {
         WeightUnit(rawValue: weightUnitRaw) ?? .lb
+    }
+
+    /// The routine "Do it again" would start: the session's own
+    /// routine when it survives, else a name match (the record's join
+    /// key everywhere identity is gone). Empty routines can't stage
+    /// (the 0-set bug class), so a hollowed-out routine hides the key
+    /// rather than presenting one that no-ops.
+    private var repeatCandidate: Routine? {
+        if let routine = session.routine, !routine.isDeleted, !routine.groups.isEmpty {
+            return routine
+        }
+        return routines.first {
+            $0.name.lowercased() == session.routineName.lowercased() && !$0.groups.isEmpty
+        }
     }
 
     /// Blocks keyed by (group, exercise) in rotation order.
@@ -175,6 +194,21 @@ struct SessionDetailView: View {
         // Title + the record's facts in the chrome (mock 11:
         // "jul 7 · 18 sets · 42 min" under the name).
         .pushedScreenChrome(title: session.routineName, subtitle: subtitle.lowercased(), onBack: { dismiss() })
+        // The record's one action (Dave, build-45): run this workout
+        // again, in the same dock grammar as routine detail's Start.
+        .safeAreaInset(edge: .bottom) {
+            if let routine = repeatCandidate, let onRepeat {
+                StartFlashButton(label: "Do it again", height: 52, identifier: "repeatWorkoutButton") {
+                    // Fire-time state lives with the caller (the flash
+                    // defers ~0.85 s; see TodayView.start).
+                    onRepeat(routine)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
+                .background(.bar)
+            }
+        }
         // Heart-rate backfill: a session finished before its samples
         // reached Health (watch sync lag, or access granted later)
         // fills in when the record is opened. Idempotent — only runs
