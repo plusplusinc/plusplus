@@ -36,6 +36,11 @@ struct ActiveSessionView: View {
     /// When set, we're resting until this instant (date-based; backgrounding
     /// can't drift it).
     @State private var restEndDate: Date?
+    /// The just-logged set, held on screen ~0.75 s so the "+1" beat has
+    /// time to play before rest/finish takes the view (Dave, build-42:
+    /// the instant swap ate the flourish). Data commits immediately —
+    /// only the VIEW lingers. Nil outside the beat.
+    @State private var lingeringLog: SetLog?
     @State private var showingExitDialog = false
     @State private var showingOverview = false
     @State private var burstCount = 0
@@ -55,13 +60,17 @@ struct ActiveSessionView: View {
 
             if session.isFinished {
                 finishedView
-            } else if let currentLog = session.currentLog {
-                if let restEndDate {
+            } else if let displayLog = lingeringLog ?? session.currentLog {
+                // While `lingeringLog` holds, the just-completed set's
+                // screen stays up for the +1 beat — SAME structural
+                // branch and .id as before the log, so the burst view
+                // survives and animates instead of being remounted.
+                if let restEndDate, lingeringLog == nil {
                     VStack(spacing: 0) {
                         RestView(
                             endDate: restEndDate,
                             totalSeconds: session.restSeconds,
-                            upNext: currentLog,
+                            upNext: displayLog,
                             onAddTime: { extendRest(by: 30) },
                             onEnd: { endRest() }
                         )
@@ -81,13 +90,13 @@ struct ActiveSessionView: View {
                 } else {
                     SetLoggingView(
                         session: session,
-                        log: currentLog,
-                        lastTime: WorkoutSession.lastPerformance(matching: currentLog, in: finishedSessions),
+                        log: displayLog,
+                        lastTime: WorkoutSession.lastPerformance(matching: displayLog, in: finishedSessions),
                         routineNotes: completedSets == 0 ? session.routine?.notes : nil,
                         burstCount: burstCount,
-                        onComplete: { completeCurrentSet(currentLog) }
+                        onComplete: { completeCurrentSet(displayLog) }
                     )
-                    .id(currentLog.order)
+                    .id(displayLog.order)
                 }
             } else if totalSets == 0 {
                 // A scratch session before its first exercise: no logs
@@ -259,19 +268,31 @@ struct ActiveSessionView: View {
 
     // MARK: - Actions
 
+    /// The +1 beat plays only where a human is watching — under UI test
+    /// the transition is immediate (the delay would slow every logging
+    /// flow and quiescence-block nothing observable).
+    private static let playsLogBeat = !CommandLine.arguments.contains("--uitest-reset")
+
     private func completeCurrentSet(_ log: SetLog) {
+        // Taps during the beat are the double-log class — the button is
+        // still on screen while the view lingers.
+        guard lingeringLog == nil else { return }
         session.complete(log)
         burstCount += 1
         // Mid-workout sets thud; .success is saved for the finish so
         // the purple screen has its own physical beat (#216).
-        if session.nextPendingLog != nil {
+        let hasNext = session.nextPendingLog != nil
+        if hasNext {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         } else {
             UINotificationFeedbackGenerator().notificationOccurred(.success)
         }
 
-        if session.nextPendingLog != nil {
-            // The permission ask lives in the notifier now — the first
+        if hasNext {
+            // Rest STARTS now (endDate anchored at log time, the
+            // notification scheduled now) even though its screen waits
+            // out the beat — the countdown stays honest.
+            // The permission ask lives in the notifier — the first
             // ARMED notification asks and arms on grant (#246). This
             // refresh keeps the denied caption honest per rest.
             RestNotifier.shared.notificationsDenied { restAlertsDenied = $0 }
@@ -284,8 +305,26 @@ struct ActiveSessionView: View {
                     setNumber: upNext.setNumber
                 )
             }
-        } else {
-            finishSession(dismissAfter: false)
+        }
+
+        // Duration sets have no +1 (their dock is the auto-timer; the
+        // timer reaching zero IS the flourish) — no beat to wait for.
+        guard Self.playsLogBeat, log.exerciseType != .duration else {
+            if !hasNext { finishSession(dismissAfter: false) }
+            return
+        }
+        lingeringLog = log
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(0.75))
+            lingeringLog = nil
+            // A discard during the beat deletes the session — nothing
+            // left to finish (touching a deleted @Model is the crash
+            // class the delete paths pop screens to avoid).
+            guard !session.isDeleted else { return }
+            // The finish stamp waits out the beat too — endedAt lands
+            // when the screen changes, and the elapsed pill never
+            // freezes mid-beat.
+            if !hasNext { finishSession(dismissAfter: false) }
         }
     }
 
@@ -750,18 +789,23 @@ private struct SetLoggingView: View {
                             .padding(.top, 10)
                     }
 
-                    HStack(spacing: 12) {
-                        Text(targetDescription)
-                        if let lastTime {
-                            (Text("last ").foregroundStyle(Theme.textSecondary)
-                                + Text(lastTime.resultSummary(weightUnit: weightUnit))
-                                .font(.system(.subheadline, design: .monospaced))
-                                .foregroundStyle(Theme.textPrimary))
+                    // Weight/reps sets carry target + last INSIDE the
+                    // value cards now (mock 08); this line survives
+                    // only for duration sets, which have no cards.
+                    if log.exerciseType == .duration {
+                        HStack(spacing: 12) {
+                            Text(targetDescription)
+                            if let lastTime {
+                                (Text("last ").foregroundStyle(Theme.textSecondary)
+                                    + Text(lastTime.resultSummary(weightUnit: weightUnit))
+                                    .font(.system(.subheadline, design: .monospaced))
+                                    .foregroundStyle(Theme.textPrimary))
+                            }
                         }
+                        .font(.system(.subheadline))
+                        .foregroundStyle(Theme.textSecondary)
+                        .padding(.top, 8)
                     }
-                    .font(.system(.subheadline))
-                    .foregroundStyle(Theme.textSecondary)
-                    .padding(.top, 8)
 
                     if let routineNotes {
                         Text(routineNotes)
@@ -804,6 +848,19 @@ private struct SetLoggingView: View {
         log.exercise?.weightStepOverride ?? weightUnit.step
     }
 
+    /// "last 130 · +5" — the previous top set's weight and the live
+    /// delta against it (mock 08, in the weight card's corner). Data
+    /// green: this is the increment itself. Nil without a prior.
+    private var weightDeltaAnnotation: String? {
+        guard let last = lastTime?.actualWeight, last > 0 else { return nil }
+        let current = log.actualWeight ?? log.targetWeight ?? last
+        let delta = current - last
+        let deltaText = delta == 0
+            ? "="
+            : (delta > 0 ? "+" : "−") + WorkoutMetric.weight.formatted(abs(delta))
+        return "last \(WorkoutMetric.weight.formatted(last)) · \(deltaText)"
+    }
+
     private var stage: some View {
         HStack(alignment: .top, spacing: 12) {
             valueColumn(
@@ -811,6 +868,7 @@ private struct SetLoggingView: View {
                 value: WorkoutMetric.weight.formatted(log.actualWeight ?? log.targetWeight),
                 numeric: log.actualWeight ?? log.targetWeight,
                 unit: weightUnit.symbol,
+                annotation: weightDeltaAnnotation.map { ($0, Theme.accent) },
                 stepLabel: WorkoutMetric.weight.formatted(weightStep),
                 stepperHeight: 56,
                 identifier: "logWeight",
@@ -823,6 +881,11 @@ private struct SetLoggingView: View {
                 value: (log.actualReps ?? log.targetRepsLower).map(String.init) ?? "—",
                 numeric: (log.actualReps ?? log.targetRepsLower).map(Double.init),
                 unit: nil,
+                // The prescription in plain ink (the handoff's rule:
+                // green never colors a target, only movement).
+                annotation: log.targetReps.lower != nil
+                    ? ("target \(log.targetReps.display)", Theme.textFaint)
+                    : nil,
                 stepLabel: "1",
                 stepperHeight: 48,
                 identifier: "logReps",
@@ -862,6 +925,7 @@ private struct SetLoggingView: View {
         value: String,
         numeric: Double?,
         unit: String?,
+        annotation: (text: String, color: Color)?,
         stepLabel: String,
         stepperHeight: CGFloat,
         identifier: String,
@@ -875,6 +939,16 @@ private struct SetLoggingView: View {
                 .foregroundStyle(Theme.textSecondary)
                 .kerning(0.7)
                 .padding(.top, 14)
+            if let annotation {
+                Text(annotation.text)
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(annotation.color)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .padding(.top, 3)
+                    .contentTransition(.numericText())
+                    .animation(.easeOut(duration: 0.15), value: annotation.text)
+            }
             Button(action: onTap) {
                 (Text(value)
                     .font(.system(size: 44, weight: .bold, design: .monospaced))
@@ -1263,11 +1337,14 @@ private struct RestView: View {
                 .padding(.horizontal, 20)
 
                 HStack(spacing: 10) {
+                    // Skip gets the wider share (the mock's 1 : 1.4):
+                    // ending rest is the primary intent, extending is
+                    // the hedge.
                     Button(action: onAddTime) {
                         Text("+30s")
                             .font(.system(.subheadline, design: .monospaced, weight: .bold))
                             .foregroundStyle(Theme.textPrimary)
-                            .frame(maxWidth: .infinity)
+                            .frame(width: 116)
                             .frame(height: 52)
                             .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
                             .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))

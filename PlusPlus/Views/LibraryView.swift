@@ -81,9 +81,8 @@ struct ExercisesTabView: View {
                             .font(.system(.subheadline, weight: .semibold))
                             .foregroundStyle(Theme.textPrimary)
                             .lineLimit(1)
-                        Text(subtitle(for: exercise))
+                        subtitleText(for: exercise)
                             .font(.system(.caption))
-                            .foregroundStyle(Theme.textSecondary)
                             .lineLimit(1)
                     }
                     Spacer()
@@ -114,16 +113,19 @@ struct ExercisesTabView: View {
         }
     }
 
-    private func subtitle(for exercise: Exercise) -> String {
+    /// Curated items are never hidden by ownership (#113) — your
+    /// library is yours — but the gap is flagged, in notes amber
+    /// (mock 03: "needs Bench" is attention, not chrome).
+    private func subtitleText(for exercise: Exercise) -> Text {
         let equipment = exercise.equipment.map(\.name).sorted().joined(separator: ", ")
-        var subtitle = "\(exercise.muscleGroup.displayName) · \(equipment.isEmpty ? "Bodyweight" : equipment)"
-        // Curated items are never hidden by ownership (#113) — your
-        // library is yours — but the gap is flagged.
+        var text = Text("\(exercise.muscleGroup.displayName) · \(equipment.isEmpty ? "Bodyweight" : equipment)")
+            .foregroundStyle(Theme.textSecondary)
         let missing = ExerciseFilterState.missingEquipment(for: exercise)
         if !missing.isEmpty {
-            subtitle += " · needs \(missing.joined(separator: ", "))"
+            text = text + Text(" · ").foregroundStyle(Theme.textSecondary)
+                + Text("needs \(missing.joined(separator: ", "))").foregroundStyle(Theme.notes)
         }
-        return subtitle
+        return text
     }
 
     private func remove(_ exercise: Exercise) {
@@ -454,7 +456,7 @@ struct CatalogBrowseScreen: View {
                     ForEach(candidateExercises) { exercise in
                         toggleRow(
                             name: exercise.name,
-                            sub: exerciseSubtitle(exercise),
+                            sub: exerciseSubtitleText(exercise),
                             isOn: Binding(
                                 get: { exercise.inLibrary },
                                 set: {
@@ -468,7 +470,7 @@ struct CatalogBrowseScreen: View {
                     ForEach(candidateEquipment) { equipment in
                         toggleRow(
                             name: equipment.name,
-                            sub: equipmentSubtitle(equipment),
+                            sub: Text(equipmentSubtitle(equipment)).foregroundStyle(Theme.textSecondary),
                             isOn: Binding(
                                 get: { equipment.inLibrary },
                                 set: {
@@ -505,16 +507,17 @@ struct CatalogBrowseScreen: View {
             .padding(.top, 2)
         }
         .background(Theme.background)
-        // Drilled-in pages carry inline titles (#234) — smaller than
-        // roots, centered with the back chevron.
-        .navigationTitle(kind == .exercises ? "Exercise catalog" : "Equipment catalog")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                ExpandingSearchButton(prompt: "Search the catalog", text: Bindable(filterState).searchText, identifier: "catalogSearchField")
-            }
-        }
-        .pushedScreenChrome(onBack: { dismiss() })
+        // Custom key chrome (build-42 call): centered title, in-header
+        // expanding search.
+        .pushedScreenChrome(
+            title: kind == .exercises ? "Exercise catalog" : "Equipment catalog",
+            search: HeaderSearchConfig(
+                text: Bindable(filterState).searchText,
+                prompt: "Search the catalog",
+                identifier: "catalogSearchField"
+            ),
+            onBack: { dismiss() }
+        )
         .safeAreaInset(edge: .bottom) {
             if setupMode {
                 Button {
@@ -581,7 +584,7 @@ struct CatalogBrowseScreen: View {
 
     // MARK: - Rows
 
-    private func toggleRow(name: String, sub: String, isOn: Binding<Bool>) -> some View {
+    private func toggleRow(name: String, sub: Text, isOn: Binding<Bool>) -> some View {
         // Toggle wraps the whole label: the full row flips it, and the
         // row stays put either way — membership is visible state, not a
         // disappearing act (#139).
@@ -591,9 +594,8 @@ struct CatalogBrowseScreen: View {
                     .font(.system(.subheadline, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
-                Text(sub)
+                sub
                     .font(.system(.caption))
-                    .foregroundStyle(Theme.textSecondary)
                     .lineLimit(1)
             }
         }
@@ -657,14 +659,17 @@ struct CatalogBrowseScreen: View {
         return kind == .exercises ? "Create custom exercise…" : "Create custom equipment…"
     }
 
-    private func exerciseSubtitle(_ exercise: Exercise) -> String {
+    /// The gear gap in notes amber (mock 03), same as the library rows.
+    private func exerciseSubtitleText(_ exercise: Exercise) -> Text {
         let equipment = exercise.equipment.map(\.name).sorted().joined(separator: ", ")
-        var subtitle = "\(exercise.muscleGroup.displayName) · \(equipment.isEmpty ? "Bodyweight" : equipment)"
+        var text = Text("\(exercise.muscleGroup.displayName) · \(equipment.isEmpty ? "Bodyweight" : equipment)")
+            .foregroundStyle(Theme.textSecondary)
         let missing = ExerciseFilterState.missingEquipment(for: exercise)
         if !missing.isEmpty {
-            subtitle += " · needs \(missing.joined(separator: ", "))"
+            text = text + Text(" · ").foregroundStyle(Theme.textSecondary)
+                + Text("needs \(missing.joined(separator: ", "))").foregroundStyle(Theme.notes)
         }
-        return subtitle
+        return text
     }
 
     private func equipmentSubtitle(_ equipment: Equipment) -> String {

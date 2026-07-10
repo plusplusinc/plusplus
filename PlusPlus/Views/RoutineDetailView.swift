@@ -63,29 +63,17 @@ struct RoutineDetailView: View {
                 }
         }
         .background(Theme.background)
-        .navigationTitle(routine.name)
-        .navigationBarTitleDisplayMode(.inline)
-        .pushedScreenChrome(onBack: { dismiss() })
-        .toolbar {
-            // Trailing actions as glass circles (#198), same treatment
-            // as the back chevron. Share keeps its UIKit sheet (#178).
+        // Custom key chrome (build-42 call): title + the counts
+        // subtitle (mock 07), share/settings as trailing keys. Share
+        // keeps its UIKit sheet (#178).
+        .pushedScreenChrome(title: routine.name, subtitle: headerSubtitle, onBack: { dismiss() }) {
             if !routine.groups.isEmpty, shareURL != nil {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showingShareSheet = true
-                    } label: {
-                        Image(systemName: "square.and.arrow.up")
-                    }
-                    .accessibilityIdentifier("shareRoutineButton")
+                HeaderIconButton(systemImage: "square.and.arrow.up", identifier: "shareRoutineButton") {
+                    showingShareSheet = true
                 }
             }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showingRoutineSettings = true
-                } label: {
-                    Image(systemName: "slider.horizontal.3")
-                }
-                .accessibilityIdentifier("routineSettingsButton")
+            HeaderIconButton(systemImage: "slider.horizontal.3", identifier: "routineSettingsButton") {
+                showingRoutineSettings = true
             }
         }
         .sheet(isPresented: $showingShareSheet) {
@@ -146,17 +134,26 @@ struct RoutineDetailView: View {
 
     // MARK: - Header
 
+    /// "~40 min · 6 exercises · 18 sets" — the chrome subtitle
+    /// (mock 07).
+    private var headerSubtitle: String? {
+        let exercises = routine.sortedGroups.reduce(0) { $0 + $1.sortedExercises.count }
+        guard exercises > 0 else { return nil }
+        let sets = routine.sortedGroups.reduce(0) { $0 + $1.sets * $1.sortedExercises.count }
+        return "\(routine.estimateText) · \(exercises) exercise\(exercises == 1 ? "" : "s") · \(sets) set\(sets == 1 ? "" : "s")"
+    }
+
     private var header: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // The name is the inline toolbar title now (#234); the
-            // header keeps facts only.
+            // The name and counts live in the chrome now; the header
+            // keeps the schedule facts only.
             if !routine.groups.isEmpty {
                 // Facts, not inputs (v4 §A): schedule value first (ink,
-                // semibold), then rest + estimate as secondary meta.
-                // Nothing here is tappable — the settings button is the
-                // single edit entry.
+                // semibold), then rest as secondary meta (the estimate
+                // moved to the chrome subtitle). Nothing here is
+                // tappable — the settings key is the single edit entry.
                 (scheduleFactText
-                    + Text("  ·  rest \(restText)  ·  \(estimatedTimeText)")
+                    + Text("  ·  rest \(restText)")
                     .font(.system(.footnote, design: .monospaced))
                     .foregroundStyle(Theme.textSecondary))
                     .padding(.top, 8)
@@ -174,11 +171,6 @@ struct RoutineDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 20)
         .padding(.bottom, 4)
-    }
-
-    private var estimatedTimeText: String {
-        let minutes = max(5, Int((Double(routine.estimatedSeconds) / 300).rounded()) * 5)
-        return "~\(minutes) min"
     }
 
     private var restText: String {
@@ -344,7 +336,7 @@ struct RoutineDetailView: View {
             .contentShape(Rectangle())
         } actions: {
             HStack(spacing: 0) {
-                SwipeActionButton(label: "DUPE", color: Theme.textSecondary) {
+                SwipeActionButton(label: "DUPE", color: Theme.primaryFill, labelColor: Theme.onPrimary) {
                     openSwipeRow = nil
                     duplicateExercise(routineExercise, in: group)
                 }
@@ -1034,33 +1026,24 @@ struct RoutineSettingsScreen: View {
         }
         .padding(.horizontal, 16)
         .background(Theme.background)
-        // The title stays the ROUTINE's name inline (#234, §A intact:
-        // onboarding step 3 still says what it configures).
-        .navigationTitle(routine.name)
-        .navigationBarTitleDisplayMode(.inline)
-        .pushedScreenChrome(onBack: { commitName(); dismiss() })
+        // The title stays the ROUTINE's name (§A intact: onboarding
+        // step 3 still says what it configures). No Save (#219): every
+        // field commits live and the name commits on any exit, so the
+        // page is simply always saved. Delete nests behind "…" —
+        // present, not primary.
+        .pushedScreenChrome(title: routine.name, onBack: { commitName(); dismiss() }) {
+            HeaderMenuKey(systemImage: "ellipsis", identifier: "routineSettingsMenu") {
+                Button("Delete routine", role: .destructive) {
+                    confirmingDelete = true
+                }
+            }
+        }
         // The full-width swipe-back pops in UIKit and never reaches
         // onBack — without this, a swipe exit silently dropped an
         // uncommitted rename. Idempotent; guarded so the delete path
         // can't race a write onto a deleted model.
         .onDisappear {
             if !routine.isDeleted { commitName() }
-        }
-        .toolbar {
-            // No Save (#219, killed same day #207 added it): every
-            // field commits live and the name commits on any exit, so
-            // the page is simply always saved. Delete nests behind
-            // "…" — present, not primary.
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button("Delete routine", role: .destructive) {
-                        confirmingDelete = true
-                    }
-                } label: {
-                    Image(systemName: "ellipsis")
-                }
-                .accessibilityIdentifier("routineSettingsMenu")
-            }
         }
         .confirmationDialog(
             "Delete \u{201C}\(routine.name)\u{201D}?",

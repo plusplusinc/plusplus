@@ -119,14 +119,6 @@ struct SessionDetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Inline title (#234); the date/summary line leads content.
-            Text(subtitle)
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(Theme.textSecondary)
-                .padding(.top, 4)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 20)
-
             ScrollView {
                 VStack(spacing: 0) {
                     if previousSession != nil {
@@ -168,9 +160,9 @@ struct SessionDetailView: View {
             }
         }
         .background(Theme.background)
-        .navigationTitle(session.routineName)
-        .navigationBarTitleDisplayMode(.inline)
-        .pushedScreenChrome(onBack: { dismiss() })
+        // Title + the record's facts in the chrome (mock 11:
+        // "jul 7 · 18 sets · 42 min" under the name).
+        .pushedScreenChrome(title: session.routineName, subtitle: subtitle.lowercased(), onBack: { dismiss() })
     }
 
     private var subtitle: String {

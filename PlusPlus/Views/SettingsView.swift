@@ -191,9 +191,7 @@ struct SettingsScreen: View {
         }
         .padding(.horizontal, 16)
         .background(Theme.background)
-        .navigationTitle("Settings")
-        .navigationBarTitleDisplayMode(.inline)
-        .pushedScreenChrome(onBack: { dismiss() })
+        .pushedScreenChrome(title: "Settings", onBack: { dismiss() })
         .navigationDestination(isPresented: $showingEquipmentSetup) {
             CatalogBrowseScreen(kind: .equipment, setupMode: true)
         }
