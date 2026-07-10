@@ -585,7 +585,8 @@ struct TodayView: View {
             return RoutineDiff.Prior(
                 weight: top.actualWeight,
                 reps: top.actualReps ?? last.actualReps,
-                durationSeconds: last.actualDuration
+                durationSeconds: last.actualDuration,
+                extras: last.extraActuals
             )
         }
         return nil
@@ -603,12 +604,15 @@ struct TodayView: View {
         for group in routine.sortedGroups {
             for entry in group.sortedExercises {
                 guard let exercise = entry.exercise else { continue }
+                let profile = exercise.metricProfile
                 let target = RoutineDiff.Target(
                     name: exercise.name,
-                    isDuration: exercise.exerciseType == .duration,
+                    isDuration: profile.legacyType == .duration,
                     weight: entry.weight,
                     reps: entry.reps,
-                    durationSeconds: entry.durationSeconds
+                    durationSeconds: entry.durationSeconds,
+                    extras: entry.extraTargets.filter { profile.contains($0.key) },
+                    distanceUnit: profile.distanceUnit
                 )
                 lines.append(DiffLine(
                     id: entry.persistentModelID,
@@ -623,14 +627,21 @@ struct TodayView: View {
     }
 
     private func targetText(_ entry: RoutineExercise, exercise: Exercise, sets: Int) -> String {
-        if exercise.exerciseType == .duration {
-            return "\(sets)× " + WorkoutMetric.duration.displayText(entry.durationSeconds.map(Double.init))
+        let profile = exercise.metricProfile
+        if profile.tracksReps {
+            var text = "\(sets)×\(RepTarget(lower: entry.reps, upper: entry.repsUpper).display)"
+            if let weight = entry.weight, weight > 0 {
+                text += " @ " + WorkoutMetric.weight.displayText(weight, weightUnit: weightUnit)
+            }
+            return text
         }
-        var text = "\(sets)×\(RepTarget(lower: entry.reps, upper: entry.repsUpper).display)"
-        if let weight = entry.weight, weight > 0 {
-            text += " @ " + WorkoutMetric.weight.displayText(weight, weightUnit: weightUnit)
-        }
-        return text
+        // Cardio blocks: rounds × the work target ("4× 500 m", "3× 20:00").
+        let driver = profile.driver { entry.target($0) }
+        return "\(sets)× " + driver.displayText(
+            entry.target(driver),
+            weightUnit: weightUnit,
+            distanceUnit: profile.distanceUnit
+        )
     }
 
     /// Top completed weight per exercise — the input to the net chip.

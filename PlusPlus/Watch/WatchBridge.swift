@@ -68,17 +68,22 @@ final class WatchBridge: NSObject, WCSessionDelegate {
                 for entry in group.sortedExercises {
                     guard let exercise = entry.exercise else { continue }
                     let heartBand = entry.heartRateTarget.map { $0.bpmRange(maxHeartRate: maxHeartRate) }
+                    let profile = exercise.metricProfile
+                    let extras = entry.extraTargets.filter { profile.contains($0.key) }
                     steps.append(WatchSync.Step(
                         exerciseName: exercise.name,
                         groupIndex: groupIndex,
                         setNumber: setNumber,
-                        isDuration: exercise.exerciseType == .duration,
+                        isDuration: profile.legacyType == .duration,
                         targetWeight: entry.weight,
                         targetRepsLower: entry.reps,
                         targetRepsUpper: entry.repsUpper,
                         targetDuration: entry.durationSeconds,
                         targetHeartRateLowerBPM: heartBand?.lowerBound,
-                        targetHeartRateUpperBPM: heartBand?.upperBound
+                        targetHeartRateUpperBPM: heartBand?.upperBound,
+                        extraTargets: MetricValues.toRaw(extras),
+                        distanceUnit: extras.isEmpty ? nil : profile.distanceUnit,
+                        restSecondsOverride: group.restSecondsOverride
                     ))
                 }
             }
@@ -155,6 +160,25 @@ final class WatchBridge: NSObject, WCSessionDelegate {
             log.actualReps = stepResult.actualReps
             log.actualDuration = stepResult.actualDuration
             log.completedAt = stepResult.completedAt
+            let extras = MetricValues.fromRaw(stepResult.step.extraTargets)
+            if !extras.isEmpty {
+                log.extraTargets = extras
+                // The wrist logs targets as performed (same rule as its
+                // weight/reps handling) — extras editing is a phone
+                // affordance.
+                if stepResult.completedAt != nil {
+                    log.extraActuals = extras
+                }
+                var metrics = Array(extras.keys)
+                if stepResult.step.targetWeight != nil { metrics.append(.weight) }
+                if stepResult.step.targetRepsLower != nil { metrics.append(.reps) }
+                if stepResult.step.targetDuration != nil { metrics.append(.duration) }
+                log.metricsData = MetricProfile(
+                    metrics,
+                    distanceUnit: stepResult.step.distanceUnit ?? .meters
+                ).encoded()
+            }
+            log.restSecondsOverride = stepResult.step.restSecondsOverride
             log.session = session
             context.insert(log)
         }

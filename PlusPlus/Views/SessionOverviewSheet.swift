@@ -231,26 +231,41 @@ struct SessionOverviewSheet: View {
     private func subText(for block: Block, isLive: Bool) -> String {
         let done = block.logs.filter(\.isCompleted)
         if isLive, let current = session.currentLog {
-            return "live · set \(current.setNumber)/\(block.logs.count)"
+            return "live · \(current.driver == .reps ? "set" : "round") \(current.setNumber)/\(block.logs.count)"
         }
         if !done.isEmpty {
             return done.map { resultFragment($0) }.joined(separator: " · ")
         }
         guard let template = block.logs.first else { return "" }
-        if template.exerciseType == .duration {
+        switch template.driver {
+        case .reps:
+            var text = "\(block.logs.count)×\(template.targetReps.display)"
+            if let weight = template.targetWeight {
+                text += " \(WorkoutMetric.weight.formatted(weight))"
+            }
+            return text
+        case .duration:
             return "\(block.logs.count)×\(WorkoutMetric.duration.formatted(template.targetDuration.map(Double.init)))"
+        default:
+            let target = template.driver.displayText(
+                template.target(template.driver),
+                distanceUnit: template.metricProfile.distanceUnit
+            )
+            return "\(block.logs.count)×\(target)"
         }
-        var text = "\(block.logs.count)×\(template.targetReps.display)"
-        if let weight = template.targetWeight {
-            text += " \(WorkoutMetric.weight.formatted(weight))"
-        }
-        return text
     }
 
+    /// One completed set's work value: rep counts stay bare, durations
+    /// stay clock values, distance/calories carry their unit.
     private func resultFragment(_ log: SetLog) -> String {
-        log.exerciseType == .duration
-            ? WorkoutMetric.duration.formatted(log.actualDuration.map(Double.init))
-            : (log.actualReps.map(String.init) ?? "—")
+        switch log.driver {
+        case .reps:
+            log.actualReps.map(String.init) ?? "—"
+        case .duration:
+            WorkoutMetric.duration.formatted(log.actualDuration.map(Double.init))
+        default:
+            log.driver.displayText(log.actual(log.driver), distanceUnit: log.metricProfile.distanceUnit)
+        }
     }
 }
 
@@ -354,42 +369,54 @@ struct SessionExerciseSheet: View {
 
     private var statusText: String {
         if isLive, let current = session.currentLog {
-            return "LIVE · SET \(current.setNumber) OF \(logs.count)"
+            return "LIVE · \(current.driver == .reps ? "SET" : "ROUND") \(current.setNumber) OF \(logs.count)"
         }
         return logs.allSatisfy(\.isCompleted) ? "DONE" : "UPCOMING"
     }
 
     // MARK: - Target editing (remaining sets)
 
+    /// One row per tracked metric (the block's snapshot profile) — the
+    /// same generalization as the planning sheet, editing the remaining
+    /// pending sets wholesale.
     private var targetEditor: some View {
         VStack(spacing: 0) {
-            if logs.first?.exerciseType == .duration {
-                MetricStepperRow(
-                    label: "Duration",
-                    value: WorkoutMetric.duration.displayText(reference?.targetDuration.map(Double.init)),
-                    identifier: "sxDuration",
-                    onDecrement: { editPending { $0.targetDuration = stepDuration($0.targetDuration, -1) } },
-                    onIncrement: { editPending { $0.targetDuration = stepDuration($0.targetDuration, 1) } }
-                )
-            } else {
-                MetricStepperRow(
-                    label: "Weight",
-                    value: WorkoutMetric.weight.displayText(reference?.targetWeight, weightUnit: weightUnit),
-                    identifier: "sxWeight",
-                    onDecrement: { editPending { $0.targetWeight = WorkoutMetric.weight.decremented($0.targetWeight, weightUnit: weightUnit, stepOverride: $0.exercise?.weightStepOverride) } },
-                    onIncrement: { editPending { $0.targetWeight = WorkoutMetric.weight.incremented($0.targetWeight, weightUnit: weightUnit, stepOverride: $0.exercise?.weightStepOverride) } }
-                )
-                MetricStepperRow(
-                    label: "Reps",
-                    value: reference.map { RepTarget(lower: $0.targetRepsLower, upper: $0.targetRepsUpper).display } ?? "—",
-                    identifier: "sxReps",
-                    onDecrement: { editPending { apply(RepTarget(lower: $0.targetRepsLower, upper: $0.targetRepsUpper).decremented(), to: $0) } },
-                    onIncrement: { editPending { apply(RepTarget(lower: $0.targetRepsLower, upper: $0.targetRepsUpper).incremented(), to: $0) } }
-                )
+            ForEach(reference?.metricProfile.metrics ?? []) { metric in
+                if metric == .reps {
+                    MetricStepperRow(
+                        label: "Reps",
+                        value: reference.map { RepTarget(lower: $0.targetRepsLower, upper: $0.targetRepsUpper).display } ?? "—",
+                        identifier: "sxReps",
+                        onDecrement: { editPending { apply(RepTarget(lower: $0.targetRepsLower, upper: $0.targetRepsUpper).decremented(), to: $0) } },
+                        onIncrement: { editPending { apply(RepTarget(lower: $0.targetRepsLower, upper: $0.targetRepsUpper).incremented(), to: $0) } }
+                    )
+                } else {
+                    MetricStepperRow(
+                        label: metric.label,
+                        value: metric.displayText(
+                            reference?.target(metric),
+                            weightUnit: weightUnit,
+                            distanceUnit: reference?.metricProfile.distanceUnit ?? .meters
+                        ),
+                        identifier: metric == .weight ? "sxWeight" : (metric == .duration ? "sxDuration" : "sx-\(metric.rawValue)"),
+                        onDecrement: { editPending { step(metric, on: $0, direction: -1) } },
+                        onIncrement: { editPending { step(metric, on: $0, direction: 1) } }
+                    )
+                }
             }
         }
         .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+    }
+
+    private func step(_ metric: WorkoutMetric, on log: SetLog, direction: Double) {
+        let override = (metric == .weight || metric == .assistance) ? log.exercise?.weightStepOverride : nil
+        let unit = log.metricProfile.distanceUnit
+        let current = log.target(metric)
+        let stepped = direction > 0
+            ? metric.incremented(current, weightUnit: weightUnit, distanceUnit: unit, stepOverride: override)
+            : metric.decremented(current, weightUnit: weightUnit, distanceUnit: unit, stepOverride: override)
+        log.setTarget(metric, to: stepped)
     }
 
     private var reference: SetLog? { pending.first ?? logs.first }
@@ -401,13 +428,6 @@ struct SessionExerciseSheet: View {
     private func apply(_ target: RepTarget, to log: SetLog) {
         log.targetRepsLower = target.lower
         log.targetRepsUpper = target.upper
-    }
-
-    private func stepDuration(_ value: Int?, _ direction: Double) -> Int {
-        let stepped = direction > 0
-            ? WorkoutMetric.duration.incremented(value.map(Double.init))
-            : WorkoutMetric.duration.decremented(value.map(Double.init))
-        return Int(stepped.rounded())
     }
 
     // MARK: - Set rows

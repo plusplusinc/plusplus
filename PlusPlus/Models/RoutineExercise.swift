@@ -17,6 +17,10 @@ final class RoutineExercise {
     /// ("zone 2", "130–150 bpm"). Stored as JSON Data (nil = none) so
     /// the SwiftData migration is additive, like Routine.scheduleData.
     var heartRateTargetData: Data?
+    /// Targets for metrics beyond the columns above (distance, pace,
+    /// resistance, …) — one Kit-encoded [metric: value] bag. Additive;
+    /// nil for every pre-profile row.
+    var extraTargetsData: Data?
 
     init(exercise: Exercise, order: Int = 0) {
         self.exercise = exercise
@@ -33,19 +37,60 @@ final class RoutineExercise {
         }
     }
 
+    var extraTargets: [WorkoutMetric: Double] {
+        get { MetricValues.decode(extraTargetsData) }
+        set { extraTargetsData = MetricValues.encode(newValue) }
+    }
+
+    /// One lookup/store for any metric's target, columns and bag alike.
+    /// Reps stays Int-backed (plus its range column); callers that need
+    /// the range keep using `reps`/`repsUpper` directly.
+    func target(_ metric: WorkoutMetric) -> Double? {
+        switch metric {
+        case .weight: weight
+        case .reps: reps.map(Double.init)
+        case .duration: durationSeconds.map(Double.init)
+        default: extraTargets[metric]
+        }
+    }
+
+    func setTarget(_ metric: WorkoutMetric, to value: Double?) {
+        switch metric {
+        case .weight: weight = value
+        case .reps: reps = value.map { Int($0.rounded()) }
+        case .duration: durationSeconds = value.map { Int($0.rounded()) }
+        default:
+            var extras = extraTargets
+            extras[metric] = value
+            extraTargets = extras
+        }
+    }
+
     /// A routine edit is the freshest statement of intent for this
     /// exercise, so it becomes the default for future adds (#187).
-    /// Copies the whole target state for the exercise's type — including
-    /// nil — so the default always mirrors the last-edited entry.
+    /// Copies the whole target state for each TRACKED metric — including
+    /// nil — so the default always mirrors the last-edited entry. The
+    /// heart-rate prescription rides the same rule on cardio entries.
     func bumpExerciseDefaults() {
         guard let exercise else { return }
-        if exercise.exerciseType == .duration {
-            exercise.defaultDurationSeconds = durationSeconds
+        let profile = exercise.metricProfile
+        var extras: [WorkoutMetric: Double] = [:]
+        for metric in profile.metrics {
+            switch metric {
+            case .weight:
+                exercise.defaultWeight = weight
+            case .reps:
+                exercise.defaultReps = reps
+                exercise.defaultRepsUpper = repsUpper
+            case .duration:
+                exercise.defaultDurationSeconds = durationSeconds
+            default:
+                extras[metric] = extraTargets[metric]
+            }
+        }
+        exercise.extraDefaults = extras
+        if profile.legacyType == .duration {
             exercise.defaultHeartRateTargetData = heartRateTargetData
-        } else {
-            exercise.defaultWeight = weight
-            exercise.defaultReps = reps
-            exercise.defaultRepsUpper = repsUpper
         }
     }
 }

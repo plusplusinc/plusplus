@@ -36,7 +36,8 @@ public enum WatchSync {
     /// rotated). Targets mirror SetLog's. Heart-rate targets arrive
     /// RESOLVED to bpm bounds — the phone knows the user's max HR (date
     /// of birth lives in its Health store); the wrist just compares.
-    /// Additive optionals, so payloads from older phones still decode.
+    /// Every post-v1 field rides an additive optional, so a stale watch
+    /// build ignores them and a stale phone plan reads as nil.
     public struct Step: Codable, Equatable, Sendable {
         public var exerciseName: String
         public var groupIndex: Int
@@ -48,6 +49,15 @@ public enum WatchSync {
         public var targetDuration: Int?
         public var targetHeartRateLowerBPM: Int?
         public var targetHeartRateUpperBPM: Int?
+        /// Targets beyond the dedicated fields, keyed by metric raw value
+        /// (flexible metrics). Includes what the wrist needs to DISPLAY
+        /// ("2000 m · lvl 5"); logging extras stays a phone affordance.
+        public var extraTargets: [String: Double]?
+        /// The exercise's distance/pace denomination, for display.
+        public var distanceUnit: DistanceUnit?
+        /// The block's rest override (interval blocks) — the wrist rests
+        /// this long after the step instead of the routine default.
+        public var restSecondsOverride: Int?
 
         public init(
             exerciseName: String,
@@ -59,7 +69,10 @@ public enum WatchSync {
             targetRepsUpper: Int? = nil,
             targetDuration: Int? = nil,
             targetHeartRateLowerBPM: Int? = nil,
-            targetHeartRateUpperBPM: Int? = nil
+            targetHeartRateUpperBPM: Int? = nil,
+            extraTargets: [String: Double]? = nil,
+            distanceUnit: DistanceUnit? = nil,
+            restSecondsOverride: Int? = nil
         ) {
             self.exerciseName = exerciseName
             self.groupIndex = groupIndex
@@ -71,6 +84,9 @@ public enum WatchSync {
             self.targetDuration = targetDuration
             self.targetHeartRateLowerBPM = targetHeartRateLowerBPM
             self.targetHeartRateUpperBPM = targetHeartRateUpperBPM
+            self.extraTargets = extraTargets
+            self.distanceUnit = distanceUnit
+            self.restSecondsOverride = restSecondsOverride
         }
     }
 

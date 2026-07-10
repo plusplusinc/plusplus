@@ -64,21 +64,30 @@ final class WorkoutSession {
         cursorOrder = log.order
     }
 
-    /// Marks the current log complete, prefilling actuals from targets,
-    /// and carries a changed weight forward to the remaining pending sets
-    /// of the same exercise (v2, #65). Advances the cursor to the next
-    /// pending log after this one (wrapping to the first pending).
+    /// Load and machine-setting metrics whose mid-session edits carry to
+    /// the remaining pending sets of the same exercise: you re-racked the
+    /// bar or re-dialed the machine — round N+1 starts where you left it.
+    /// Work metrics (reps, distance, duration…) never carry: an extra rep
+    /// on set 2 is not a new prescription for set 3.
+    private static let carryForwardMetrics: [WorkoutMetric] = [
+        .weight, .assistance, .resistance, .incline, .speed, .height,
+    ]
+
+    /// Marks the current log complete, prefilling every tracked metric's
+    /// actual from its target, and carries changed load/setting values
+    /// forward to the remaining pending sets of the same exercise (v2,
+    /// #65). Advances the cursor to the next pending log after this one
+    /// (wrapping to the first pending).
     func complete(_ log: SetLog, at date: Date = Date()) {
-        if log.exerciseType == .duration {
-            if log.actualDuration == nil { log.actualDuration = log.targetDuration }
-        } else {
-            if log.actualWeight == nil { log.actualWeight = log.targetWeight }
-            if log.actualReps == nil { log.actualReps = log.targetRepsLower }
-            if let newWeight = log.actualWeight, newWeight != log.targetWeight {
-                for other in sortedSetLogs
-                where !other.isCompleted && other !== log && other.exerciseName == log.exerciseName {
-                    other.targetWeight = newWeight
-                }
+        let profile = log.metricProfile
+        for metric in profile.metrics where log.actual(metric) == nil {
+            log.setActual(metric, to: log.target(metric))
+        }
+        for metric in Self.carryForwardMetrics where profile.contains(metric) {
+            guard let newValue = log.actual(metric), newValue != log.target(metric) else { continue }
+            for other in sortedSetLogs
+            where !other.isCompleted && other !== log && other.exerciseName == log.exerciseName {
+                other.setTarget(metric, to: newValue)
             }
         }
         log.completedAt = date
@@ -87,13 +96,23 @@ final class WorkoutSession {
     }
 
     /// True when a different pending set of the same exercise will pick up
-    /// this log's edited weight on completion — drives the carry-forward
-    /// hint line.
+    /// this log's edited load on completion — drives the carry-forward
+    /// hint line (loads only; machine settings carry silently).
     func weightCarriesForward(from log: SetLog) -> Bool {
-        guard log.exerciseType != .duration,
-              let actual = log.actualWeight, actual != log.targetWeight
-        else { return false }
+        let profile = log.metricProfile
+        let loadChanged = [WorkoutMetric.weight, .assistance].contains { metric in
+            profile.contains(metric)
+                && log.actual(metric) != nil
+                && log.actual(metric) != log.target(metric)
+        }
+        guard loadChanged else { return false }
         return sortedSetLogs.contains { !$0.isCompleted && $0 !== log && $0.exerciseName == log.exerciseName }
+    }
+
+    /// The rest that follows a just-completed set: its block's override
+    /// when one exists (interval blocks), else the session default.
+    func restSeconds(after log: SetLog) -> Int {
+        log.restSecondsOverride ?? restSeconds
     }
 
     var isFinished: Bool { endedAt != nil }
@@ -146,6 +165,7 @@ final class WorkoutSession {
             for setNumber in 1...max(group.sets, 1) {
                 for routineExercise in group.sortedExercises {
                     guard let exercise = routineExercise.exercise else { continue }
+                    let profile = exercise.metricProfile
                     let log = SetLog(
                         order: order,
                         groupIndex: groupIndex,
@@ -159,6 +179,11 @@ final class WorkoutSession {
                         targetDuration: routineExercise.durationSeconds,
                         targetHeartRateData: routineExercise.heartRateTargetData
                     )
+                    // Snapshots like name and type: the profile the set
+                    // runs under must survive later library edits.
+                    log.metricProfile = profile
+                    log.extraTargets = routineExercise.extraTargets.filter { profile.contains($0.key) }
+                    log.restSecondsOverride = group.restSecondsOverride
                     log.session = session
                     context.insert(log)
                     order += 1
@@ -211,7 +236,7 @@ extension WorkoutSession {
         let existing = sortedSetLogs
         let groupIndex = (existing.map(\.groupIndex).max() ?? -1) + 1
         var order = (existing.map(\.order).max() ?? -1) + 1
-        let isDuration = exercise.exerciseType == .duration
+        let profile = exercise.metricProfile
         var appended: [SetLog] = []
         for setNumber in 1...max(sets, 1) {
             let log = SetLog(
@@ -220,12 +245,21 @@ extension WorkoutSession {
                 setNumber: setNumber,
                 exerciseName: exercise.name,
                 exerciseType: exercise.exerciseType,
-                targetWeight: isDuration ? nil : exercise.defaultWeight,
-                targetRepsLower: isDuration ? nil : (exercise.defaultReps ?? 10),
-                targetRepsUpper: isDuration ? nil : exercise.defaultRepsUpper,
-                targetDuration: isDuration ? (exercise.defaultDurationSeconds ?? 45) : nil,
-                targetHeartRateData: isDuration ? exercise.defaultHeartRateTargetData : nil
+                targetWeight: profile.contains(.weight) ? exercise.defaultWeight : nil,
+                // The classic profiles keep their floor prescriptions (a
+                // 10-rep / 45 s block is startable as-is); richer cardio
+                // profiles start from the exercise's own defaults only —
+                // a fabricated 45 s target on a 2000 m rower would
+                // hijack the driver into a timer.
+                targetRepsLower: profile.tracksReps ? (exercise.defaultReps ?? 10) : nil,
+                targetRepsUpper: profile.tracksReps ? exercise.defaultRepsUpper : nil,
+                targetDuration: profile.contains(.duration)
+                    ? (exercise.defaultDurationSeconds ?? (profile.metrics == [.duration] ? 45 : nil))
+                    : nil,
+                targetHeartRateData: profile.legacyType == .duration ? exercise.defaultHeartRateTargetData : nil
             )
+            log.metricProfile = profile
+            log.extraTargets = exercise.extraDefaults.filter { profile.contains($0.key) }
             // Insert first, relationships after (the seeder's hard-won
             // rule) — start(from:) predates it and is #195's audit.
             context.insert(log)
@@ -268,16 +302,27 @@ extension WorkoutSession {
             let group = routine.addExerciseInNewGroup(exercise, context: context)
             group.sets = logs.count
             guard let last = logs.last, let entry = group.sortedExercises.first else { continue }
-            if last.exerciseType == .duration {
-                entry.durationSeconds = last.actualDuration ?? last.targetDuration
-                entry.heartRateTargetData = last.targetHeartRateData
-            } else {
-                entry.weight = last.actualWeight ?? last.targetWeight
-                // A performed rep count is a scalar; the target range
-                // survives only when no actual was recorded.
-                entry.reps = last.actualReps ?? last.targetRepsLower
-                entry.repsUpper = last.actualReps == nil ? last.targetRepsUpper : nil
+            group.restSecondsOverride = last.restSecondsOverride
+            var extras: [WorkoutMetric: Double] = [:]
+            for metric in last.metricProfile.metrics {
+                switch metric {
+                case .weight:
+                    entry.weight = last.actualWeight ?? last.targetWeight
+                case .reps:
+                    // A performed rep count is a scalar; the target range
+                    // survives only when no actual was recorded.
+                    entry.reps = last.actualReps ?? last.targetRepsLower
+                    entry.repsUpper = last.actualReps == nil ? last.targetRepsUpper : nil
+                case .duration:
+                    entry.durationSeconds = last.actualDuration ?? last.targetDuration
+                    // The heart-rate band the block ran under carries
+                    // into the template with its duration.
+                    entry.heartRateTargetData = last.targetHeartRateData
+                default:
+                    extras[metric] = last.actual(metric) ?? last.target(metric)
+                }
             }
+            entry.extraTargets = extras
         }
         guard !routine.sortedGroups.isEmpty else {
             context.delete(routine)
@@ -310,6 +355,14 @@ final class SetLog {
     var exercise: Exercise?
     var exerciseName: String
     var exerciseType: ExerciseType
+    /// Tracked-metric profile snapshot (flexible metrics), Kit-encoded —
+    /// history must survive library edits, so the profile the set was
+    /// performed under travels with it. nil (pre-profile rows) derives
+    /// from the snapshotted exerciseType.
+    var metricsData: Data?
+    /// The block's rest override at start time; nil rides the session's
+    /// restSeconds.
+    var restSecondsOverride: Int?
 
     var targetWeight: Double?
     var targetRepsLower: Int?
@@ -319,10 +372,14 @@ final class SetLog {
     /// guidance shown during execution, never an actual. Snapshotted
     /// like every other target so history survives template edits.
     var targetHeartRateData: Data?
+    /// Targets/actuals beyond the columns — Kit-encoded [metric: value]
+    /// bags (see MetricValues).
+    var extraTargetsData: Data?
 
     var actualWeight: Double?
     var actualReps: Int?
     var actualDuration: Int?
+    var extraActualsData: Data?
     var completedAt: Date?
 
     init(
@@ -362,21 +419,87 @@ final class SetLog {
         RepTarget(lower: targetRepsLower, upper: targetRepsUpper)
     }
 
-    /// "10 reps @ 135 lb", "45 sec", "25:00", or "—" — how this set went.
-    /// Weight numbers are unit-agnostic; the caller supplies the current
-    /// unit setting (issue #33).
+    /// The profile this set was performed under.
+    var metricProfile: MetricProfile {
+        get { MetricProfile.decode(from: metricsData) ?? .derived(from: exerciseType) }
+        set {
+            metricsData = newValue.encoded()
+            exerciseType = newValue.legacyType
+        }
+    }
+
+    var extraTargets: [WorkoutMetric: Double] {
+        get { MetricValues.decode(extraTargetsData) }
+        set { extraTargetsData = MetricValues.encode(newValue) }
+    }
+
+    var extraActuals: [WorkoutMetric: Double] {
+        get { MetricValues.decode(extraActualsData) }
+        set { extraActualsData = MetricValues.encode(newValue) }
+    }
+
+    /// The metric driving this set's execution — decides the set-screen
+    /// mode (reps → log flow, duration → auto-timer, distance/calories →
+    /// target card + manual log).
+    var driver: WorkoutMetric {
+        metricProfile.driver { target($0) }
+    }
+
+    /// One lookup for any metric's target/actual, columns and bags alike.
+    func target(_ metric: WorkoutMetric) -> Double? {
+        switch metric {
+        case .weight: targetWeight
+        case .reps: targetRepsLower.map(Double.init)
+        case .duration: targetDuration.map(Double.init)
+        default: extraTargets[metric]
+        }
+    }
+
+    func actual(_ metric: WorkoutMetric) -> Double? {
+        switch metric {
+        case .weight: actualWeight
+        case .reps: actualReps.map(Double.init)
+        case .duration: actualDuration.map(Double.init)
+        // Assistance predates its own metric on assisted machines —
+        // pre-profile logs stored the stack value in the weight column,
+        // so "last time" still resolves there.
+        case .assistance: extraActuals[.assistance] ?? actualWeight
+        default: extraActuals[metric]
+        }
+    }
+
+    func setActual(_ metric: WorkoutMetric, to value: Double?) {
+        switch metric {
+        case .weight: actualWeight = value
+        case .reps: actualReps = value.map { Int($0.rounded()) }
+        case .duration: actualDuration = value.map { Int($0.rounded()) }
+        default:
+            var extras = extraActuals
+            extras[metric] = value
+            extraActuals = extras
+        }
+    }
+
+    func setTarget(_ metric: WorkoutMetric, to value: Double?) {
+        switch metric {
+        case .weight: targetWeight = value
+        case .reps: targetRepsLower = value.map { Int($0.rounded()) }
+        case .duration: targetDuration = value.map { Int($0.rounded()) }
+        default:
+            var extras = extraTargets
+            extras[metric] = value
+            extraTargets = extras
+        }
+    }
+
+    /// "10 reps @ 135 lb", "45 sec", "25:00", "2000 m · 7:52 · lvl 5",
+    /// or "—" — how this set went. Weight numbers are unit-agnostic; the
+    /// caller supplies the current unit setting (issue #33).
     func resultSummary(weightUnit: WeightUnit) -> String {
-        if exerciseType == .duration {
-            guard let seconds = actualDuration else { return "—" }
-            return WorkoutMetric.duration.displayText(Double(seconds))
-        }
-        var parts: [String] = []
-        if let reps = actualReps {
-            parts.append("\(reps) reps")
-        }
-        if let weight = actualWeight, weight > 0 {
-            parts.append("@ \(WorkoutMetric.weight.displayText(weight, weightUnit: weightUnit))")
-        }
-        return parts.isEmpty ? "—" : parts.joined(separator: " ")
+        MetricSummary.line(
+            profile: metricProfile,
+            weightUnit: weightUnit,
+            value: { actual($0) }
+        ) ?? "—"
     }
 }

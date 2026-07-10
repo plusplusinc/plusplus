@@ -36,6 +36,11 @@ struct ActiveSessionView: View {
     /// When set, we're resting until this instant (date-based; backgrounding
     /// can't drift it).
     @State private var restEndDate: Date?
+    /// The configured length of the CURRENT rest — the just-completed
+    /// block's override when it has one (interval blocks), else the
+    /// session default. Captured at log time with the end date so the
+    /// recharge blocks' denominator matches the countdown they drain.
+    @State private var restTotalSeconds = 90
     /// The just-logged set, held on screen ~0.75 s so the "+1" beat has
     /// time to play before rest/finish takes the view (Dave, build-42:
     /// the instant swap ate the flourish). Data commits immediately —
@@ -73,7 +78,7 @@ struct ActiveSessionView: View {
                     VStack(spacing: 0) {
                         RestView(
                             endDate: restEndDate,
-                            totalSeconds: session.restSeconds,
+                            totalSeconds: restTotalSeconds,
                             upNext: displayLog,
                             onAddTime: { extendRest(by: 30) },
                             onEnd: { endRest() }
@@ -325,7 +330,9 @@ struct ActiveSessionView: View {
             // ARMED notification asks and arms on grant (#246). This
             // refresh keeps the denied caption honest per rest.
             RestNotifier.shared.notificationsDenied { restAlertsDenied = $0 }
-            let endDate = Date().addingTimeInterval(TimeInterval(session.restSeconds))
+            let restLength = session.restSeconds(after: log)
+            restTotalSeconds = restLength
+            let endDate = Date().addingTimeInterval(TimeInterval(restLength))
             restEndDate = endDate
             if let upNext = session.currentLog {
                 RestNotifier.shared.scheduleRestEnd(
@@ -336,9 +343,9 @@ struct ActiveSessionView: View {
             }
         }
 
-        // Duration sets have no +1 (their dock is the auto-timer; the
-        // timer reaching zero IS the flourish) — no beat to wait for.
-        guard Self.playsLogBeat, log.exerciseType != .duration else {
+        // Duration-driven sets have no +1 (their dock is the auto-timer;
+        // the timer reaching zero IS the flourish) — no beat to wait for.
+        guard Self.playsLogBeat, log.driver != .duration else {
             if !hasNext { finishSession(dismissAfter: false) }
             return
         }
@@ -622,7 +629,9 @@ struct ActiveSessionView: View {
                 isDuration: last.exerciseType == .duration,
                 weight: top.actualWeight,
                 reps: top.actualReps ?? last.actualReps,
-                durationSeconds: last.actualDuration
+                durationSeconds: last.actualDuration,
+                extras: last.extraActuals,
+                distanceUnit: last.metricProfile.distanceUnit
             )
             return TallyLine(name: name, delta: RoutineDiff.delta(target: target, prior: prior(for: name)))
         }
@@ -641,7 +650,8 @@ struct ActiveSessionView: View {
             return RoutineDiff.Prior(
                 weight: top.actualWeight,
                 reps: top.actualReps ?? last.actualReps,
-                durationSeconds: last.actualDuration
+                durationSeconds: last.actualDuration,
+                extras: last.extraActuals
             )
         }
         return nil
@@ -807,15 +817,34 @@ private struct SetLoggingView: View {
     let onComplete: () -> Void
 
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
-    @State private var wheel: LogWheel?
-
-    private enum LogWheel: String, Identifiable {
-        case weight, reps
-        var id: String { rawValue }
-    }
+    @State private var wheel: WorkoutMetric?
+    @State private var showingRepsWheel = false
 
     private var weightUnit: WeightUnit {
         WeightUnit(rawValue: weightUnitRaw) ?? .lb
+    }
+
+    /// The profile this set was snapshotted under and the metric driving
+    /// its execution: reps → the classic log flow, duration → the
+    /// auto-timer, distance/calories → a target card logged by hand.
+    private var profile: MetricProfile { log.metricProfile }
+    private var driver: WorkoutMetric { log.driver }
+
+    /// The load metric sharing the stage with reps (weight, or the
+    /// assistance stack on assisted machines). nil for pure bodyweight.
+    private var loadMetric: WorkoutMetric? {
+        if profile.contains(.weight) { return .weight }
+        if profile.contains(.assistance) { return .assistance }
+        return nil
+    }
+
+    /// What the stage's cards already show — everything else tracked
+    /// renders as a compact secondary row.
+    private var secondaryMetricsList: [WorkoutMetric] {
+        let shown: [WorkoutMetric] = driver == .reps
+            ? (loadMetric.map { [$0, .reps] } ?? [.reps])
+            : [driver]
+        return profile.metrics.filter { !shown.contains($0) }
     }
 
     /// Sets in this exercise's block (same group + name).
@@ -840,8 +869,10 @@ private struct SetLoggingView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     // SUPERSET moved onto the chips row (mock 08) —
-                    // the kicker keeps the set count alone.
-                    Text("SET \(log.setNumber) OF \(setsTotal)")
+                    // the kicker keeps the set count alone. Cardio work
+                    // (a timed piece, a distance repeat) counts ROUNDS:
+                    // "round 3 of 8" is the honest name for an interval.
+                    Text("\(driver == .reps ? "SET" : "ROUND") \(log.setNumber) OF \(setsTotal)")
                         .foregroundStyle(Theme.accent)
                         .font(.system(.footnote, design: .monospaced, weight: .semibold))
                         .kerning(0.7)
@@ -858,8 +889,8 @@ private struct SetLoggingView: View {
 
                     // Weight/reps sets carry target + last INSIDE the
                     // value cards now (mock 08); this line survives
-                    // only for duration sets, which have no cards.
-                    if log.exerciseType == .duration {
+                    // only for duration-driven sets, which have no cards.
+                    if driver == .duration {
                         HStack(spacing: 12) {
                             Text(targetDescription)
                             if let lastTime {
@@ -872,22 +903,23 @@ private struct SetLoggingView: View {
                         .font(.system(.subheadline))
                         .foregroundStyle(Theme.textSecondary)
                         .padding(.top, 8)
+                    }
 
-                        // The cardio prescription: target zone or range
-                        // in plain ink (a prescription is a fact), the
-                        // live reading beside it going accent while
-                        // it's inside the band.
-                        if let target = log.targetHeartRate {
-                            HStack(spacing: 10) {
-                                (Text("target hr ").foregroundStyle(Theme.textSecondary)
-                                    + Text(target.label(maxHeartRate: heartRate.maxHeartRate))
-                                    .font(.system(.subheadline, design: .monospaced))
-                                    .foregroundStyle(Theme.textPrimary))
-                                LiveHeartRateLabel(monitor: heartRate, target: target)
-                            }
-                            .font(.system(.subheadline))
-                            .padding(.top, 6)
+                    // The cardio prescription: target zone or range in
+                    // plain ink (a prescription is a fact), the live
+                    // reading beside it going accent while it's inside
+                    // the band. Outside the duration branch — a
+                    // distance-driven interval carries a band too.
+                    if let target = log.targetHeartRate {
+                        HStack(spacing: 10) {
+                            (Text("target hr ").foregroundStyle(Theme.textSecondary)
+                                + Text(target.label(maxHeartRate: heartRate.maxHeartRate))
+                                .font(.system(.subheadline, design: .monospaced))
+                                .foregroundStyle(Theme.textPrimary))
+                            LiveHeartRateLabel(monitor: heartRate, target: target)
                         }
+                        .font(.system(.subheadline))
+                        .padding(.top, 6)
                     }
 
                     if let routineNotes {
@@ -909,108 +941,139 @@ private struct SetLoggingView: View {
                 .padding(.horizontal, 20)
             }
 
-            if log.exerciseType == .duration {
+            if driver == .duration {
+                if !secondaryMetricsList.isEmpty {
+                    VStack(spacing: 10) {
+                        ForEach(secondaryMetricsList) { metric in
+                            secondaryRow(metric)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 6)
+                }
                 durationDock
             } else {
                 stage
                 logDock
             }
         }
-    }
-
-    // MARK: - Stage (mock 08)
-    // The WEIGHT card dominates — big value with the live delta, two
-    // full-width stepper keys, the carry-forward note inside — and
-    // REPS rides beneath as a compact row with square ±1 keys. The
-    // thumb tweaks mid-screen and logs at the bottom.
-
-    /// The effective weight step, for the stepper key labels ("−5" /
-    /// "+5"): per-equipment override first, then the unit's step.
-    private var weightStep: Double {
-        log.exercise?.weightStepOverride ?? weightUnit.step
-    }
-
-    /// "last 130 · +5" — the previous top set's weight and the live
-    /// delta against it (mock 08, in the weight card's corner). Green
-    /// only while it's an increment: a deload renders neutral
-    /// (anti-shame, the RoutineDiff rule — the mock's always-green
-    /// annotation predates it). Nil without a prior.
-    private var weightDeltaAnnotation: (text: String, color: Color)? {
-        guard let last = lastTime?.actualWeight, last > 0 else { return nil }
-        let current = log.actualWeight ?? log.targetWeight ?? last
-        let delta = current - last
-        let deltaText = delta == 0
-            ? "="
-            : (delta > 0 ? "+" : "−") + WorkoutMetric.weight.formatted(abs(delta))
-        return (
-            "last \(WorkoutMetric.weight.formatted(last)) · \(deltaText)",
-            delta > 0 ? Theme.accent : Theme.textFaint
-        )
-    }
-
-    private var stage: some View {
-        VStack(spacing: 12) {
-            weightCard
-            repsRow
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 6)
-        .sheet(item: $wheel) { which in
-            switch which {
-            case .weight:
-                MetricWheelSheet(
-                    metric: .weight,
-                    weightUnit: weightUnit,
-                    value: Binding(
-                        get: { log.actualWeight ?? log.targetWeight },
-                        set: { log.actualWeight = $0 }
-                    )
+        .sheet(item: $wheel) { metric in
+            MetricWheelSheet(
+                metric: metric,
+                weightUnit: weightUnit,
+                distanceUnit: profile.distanceUnit,
+                value: Binding(
+                    get: { log.actual(metric) ?? log.target(metric) },
+                    set: { log.setActual(metric, to: $0) }
                 )
-            case .reps:
-                // Logging is a scalar — the range editor's "Up to"
-                // wheel was a dead control here (#246).
-                RepTargetWheelSheet(
-                    target: RepTarget(lower: log.actualReps ?? log.targetRepsLower, upper: nil),
-                    showsUpperWheel: false
-                ) { newTarget in
-                    log.actualReps = newTarget.lower
-                }
+            )
+        }
+        .sheet(isPresented: $showingRepsWheel) {
+            // Logging is a scalar — the range editor's "Up to"
+            // wheel was a dead control here (#246).
+            RepTargetWheelSheet(
+                target: RepTarget(lower: log.actualReps ?? log.targetRepsLower, upper: nil),
+                showsUpperWheel: false
+            ) { newTarget in
+                log.actualReps = newTarget.lower
             }
         }
     }
 
-    /// Mock 08's dominant WEIGHT card: mono label, big value opening
-    /// the wheel, the live "last · Δ" in data green at the value's
-    /// side, two full-width 56 pt stepper keys, and the carry-forward
-    /// note inside the card (faint — a mechanic note, not a delta;
-    /// rendered only while it's true, honesty over the mock's
-    /// always-on copy).
-    private var weightCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("WEIGHT")
+    // MARK: - Stage (mock 08)
+    // One dominant card owns the stage — the load for rep work (WEIGHT,
+    // or ASSIST on an assisted machine), the work target for cardio
+    // (DISTANCE, CALORIES), bare REPS for bodyweight — with big value,
+    // live delta, and two full-width stepper keys. Everything else the
+    // profile tracks rides beneath as compact rows with square ± keys.
+
+    /// The effective stepper increment for a metric, for the key labels
+    /// ("−5" / "+5"): per-equipment override first (loads only), then
+    /// the metric's own step.
+    private func stepValue(_ metric: WorkoutMetric) -> Double {
+        if metric == .weight || metric == .assistance {
+            return log.exercise?.weightStepOverride ?? weightUnit.step
+        }
+        return metric.step(weightUnit: weightUnit, distanceUnit: profile.distanceUnit)
+    }
+
+    /// "last 130 · +5" — the previous set's value and the live delta
+    /// against it (mock 08, in the big card's corner). Green only while
+    /// it's an IMPROVEMENT in the metric's own direction: +5 lb of
+    /// weight, but −10 lb of assistance (anti-shame, the RoutineDiff
+    /// rule — regressions render neutral). Nil without a prior.
+    private func deltaAnnotation(_ metric: WorkoutMetric) -> (text: String, color: Color)? {
+        guard let last = lastTime?.actual(metric), last > 0 else { return nil }
+        let current = log.actual(metric) ?? log.target(metric) ?? last
+        let delta = current - last
+        let deltaText = delta == 0
+            ? "="
+            : (delta > 0 ? "+" : "−") + metric.formatted(abs(delta))
+        let improved = switch metric.improvementDirection {
+        case .up: delta > 0
+        case .down: delta < 0
+        case .neutral: false
+        }
+        return (
+            "last \(metric.formatted(last)) · \(deltaText)",
+            improved ? Theme.accent : Theme.textFaint
+        )
+    }
+
+    @ViewBuilder
+    private var stage: some View {
+        VStack(spacing: 12) {
+            if driver == .reps {
+                if let loadMetric {
+                    bigMetricCard(loadMetric)
+                    repsRow
+                } else {
+                    bigMetricCard(.reps)
+                }
+            } else {
+                bigMetricCard(driver)
+            }
+            ForEach(secondaryMetricsList) { metric in
+                secondaryRow(metric)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 6)
+    }
+
+    /// Mock 08's dominant card, generalized to any metric: mono label,
+    /// big value opening the wheel, the live "last · Δ" in data green
+    /// at the value's side, two full-width 56 pt stepper keys, and the
+    /// carry-forward note inside the card (faint — a mechanic note, not
+    /// a delta; rendered only while it's true).
+    private func bigMetricCard(_ metric: WorkoutMetric) -> some View {
+        let current = log.actual(metric) ?? log.target(metric)
+        let unitText = metric.unit(for: current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit)
+        return VStack(alignment: .leading, spacing: 12) {
+            Text(metric.label.uppercased())
                 .font(.system(.footnote, design: .monospaced, weight: .semibold))
                 .foregroundStyle(Theme.textFaint)
                 .kerning(0.7)
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Button {
-                    wheel = .weight
+                    wheel = metric
                 } label: {
-                    (Text(WorkoutMetric.weight.formatted(log.actualWeight ?? log.targetWeight))
+                    (Text(metric.formatted(current))
                         .font(.system(size: 40, weight: .bold, design: .monospaced))
                         .foregroundStyle(Theme.textPrimary)
-                        + Text(" \(weightUnit.symbol)")
+                        + Text(unitText.isEmpty ? "" : " \(unitText)")
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(Theme.textFaint))
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
                         // Digits roll like an odometer, directional
                         // with the raw value (#216).
-                        .contentTransition(.numericText(value: log.actualWeight ?? log.targetWeight ?? 0))
-                        .animation(.easeOut(duration: 0.15), value: log.actualWeight ?? log.targetWeight)
+                        .contentTransition(.numericText(value: current ?? 0))
+                        .animation(.easeOut(duration: 0.15), value: current)
                 }
-                .accessibilityIdentifier("logWeightValue")
+                .accessibilityIdentifier(metric == .weight ? "logWeightValue" : "log-\(metric.rawValue)-value")
                 Spacer(minLength: 8)
-                if let annotation = weightDeltaAnnotation {
+                if let annotation = deltaAnnotation(metric) {
                     Text(annotation.text)
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(annotation.color)
@@ -1021,15 +1084,23 @@ private struct SetLoggingView: View {
                 }
             }
             HStack(spacing: 10) {
-                stepperKey("−\(WorkoutMetric.weight.formatted(weightStep))", height: 56, identifier: "logWeightDecrement") {
-                    log.actualWeight = WorkoutMetric.weight.decremented(log.actualWeight ?? log.targetWeight, weightUnit: weightUnit, stepOverride: log.exercise?.weightStepOverride)
+                stepperKey(
+                    "−\(metric.formatted(stepValue(metric)))",
+                    height: 56,
+                    identifier: metric == .weight ? "logWeightDecrement" : "log-\(metric.rawValue)-decrement"
+                ) {
+                    stepActual(metric, -1)
                 }
-                stepperKey("+\(WorkoutMetric.weight.formatted(weightStep))", height: 56, identifier: "logWeightIncrement") {
-                    log.actualWeight = WorkoutMetric.weight.incremented(log.actualWeight ?? log.targetWeight, weightUnit: weightUnit, stepOverride: log.exercise?.weightStepOverride)
+                stepperKey(
+                    "+\(metric.formatted(stepValue(metric)))",
+                    height: 56,
+                    identifier: metric == .weight ? "logWeightIncrement" : "log-\(metric.rawValue)-increment"
+                ) {
+                    stepActual(metric, 1)
                 }
             }
-            if session.weightCarriesForward(from: log) {
-                Text("new weight carries to your remaining sets")
+            if (metric == .weight || metric == .assistance), session.weightCarriesForward(from: log) {
+                Text("new \(metric == .weight ? "weight" : "assist") carries to your remaining sets")
                     .font(.system(.caption2, design: .monospaced))
                     .foregroundStyle(Theme.textFaint)
             }
@@ -1040,9 +1111,25 @@ private struct SetLoggingView: View {
         .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
     }
 
+    private func stepActual(_ metric: WorkoutMetric, _ direction: Double) {
+        if metric == .reps {
+            // Reps keep their bare-number semantics (no unit clamping
+            // surprises at 1).
+            let current = log.actualReps ?? log.targetRepsLower
+            log.actualReps = direction > 0 ? (current ?? 9) + 1 : max(1, (current ?? 11) - 1)
+            return
+        }
+        let override = (metric == .weight || metric == .assistance) ? log.exercise?.weightStepOverride : nil
+        let current = log.actual(metric) ?? log.target(metric)
+        let stepped = direction > 0
+            ? metric.incremented(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, stepOverride: override)
+            : metric.decremented(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, stepOverride: override)
+        log.setActual(metric, to: stepped)
+    }
+
     /// Mock 08's compact REPS row: label · value · plain-ink target
     /// (green never colors a prescription), square ±1 keys trailing.
-    /// No card — the weight owns the stage.
+    /// No card — the load owns the stage.
     private var repsRow: some View {
         HStack(spacing: 12) {
             Text("REPS")
@@ -1050,7 +1137,7 @@ private struct SetLoggingView: View {
                 .foregroundStyle(Theme.textFaint)
                 .kerning(0.7)
             Button {
-                wheel = .reps
+                showingRepsWheel = true
             } label: {
                 Text((log.actualReps ?? log.targetRepsLower).map(String.init) ?? "—")
                     .font(.system(.title3, design: .monospaced, weight: .bold))
@@ -1071,6 +1158,38 @@ private struct SetLoggingView: View {
             }
             stepperKey("+1", height: 48, width: 48, identifier: "logRepsIncrement") {
                 log.actualReps = (log.actualReps ?? log.targetRepsLower ?? 9) + 1
+            }
+        }
+        .padding(.horizontal, 2)
+    }
+
+    /// A compact row for any other tracked metric (the rower's damper,
+    /// the treadmill's incline, the row's finish time): label · value
+    /// (tap for wheel) · square ± keys. Edits the ACTUAL, prefilled
+    /// from the target — the plan lives in the planning sheet.
+    private func secondaryRow(_ metric: WorkoutMetric) -> some View {
+        let current = log.actual(metric) ?? log.target(metric)
+        return HStack(spacing: 12) {
+            Text(metric.label.uppercased())
+                .font(.system(.footnote, design: .monospaced, weight: .semibold))
+                .foregroundStyle(Theme.textFaint)
+                .kerning(0.7)
+            Button {
+                wheel = metric
+            } label: {
+                Text(metric.displayText(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit))
+                    .font(.system(.title3, design: .monospaced, weight: .bold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .contentTransition(.numericText(value: current ?? 0))
+                    .animation(.easeOut(duration: 0.15), value: current)
+            }
+            .accessibilityIdentifier("log-\(metric.rawValue)-value")
+            Spacer(minLength: 8)
+            stepperKey("−", height: 48, width: 48, identifier: "log-\(metric.rawValue)-decrement") {
+                stepActual(metric, -1)
+            }
+            stepperKey("+", height: 48, width: 48, identifier: "log-\(metric.rawValue)-increment") {
+                stepActual(metric, 1)
             }
         }
         .padding(.horizontal, 2)
@@ -1121,7 +1240,7 @@ private struct SetLoggingView: View {
 
             // "1 of 3 logged · rest 90s auto" (mock 08): the block's
             // tally plus what happens at the log — plain facts.
-            Text("\(loggedLine) · rest \(WorkoutMetric.rest.displayText(Double(session.restSeconds))) auto")
+            Text("\(loggedLine) · rest \(WorkoutMetric.rest.displayText(Double(session.restSeconds(after: log)))) auto")
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
                 .frame(maxWidth: .infinity)
@@ -1162,20 +1281,16 @@ private struct SetLoggingView: View {
             return nil
         }
         if next.exerciseName == log.exerciseName {
-            return Text("\(next.exerciseName) — set \(next.setNumber)")
+            return Text("\(next.exerciseName) — \(next.driver == .reps ? "set" : "round") \(next.setNumber)")
                 .font(.system(.footnote, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
         }
-        let detail: String
-        if next.exerciseType == .duration {
-            detail = WorkoutMetric.duration.displayText(next.targetDuration.map(Double.init))
-        } else {
-            var parts = "\(next.targetReps.display) reps"
-            if let weight = next.targetWeight {
-                parts += " @ \(WorkoutMetric.weight.displayText(weight, weightUnit: weightUnit))"
-            }
-            detail = parts
-        }
+        let detail = MetricSummary.line(
+            profile: next.metricProfile,
+            weightUnit: weightUnit,
+            repsText: next.targetReps.lower != nil ? next.targetReps.display : nil,
+            value: { next.target($0) }
+        ) ?? "\(next.driver == .reps ? "set" : "round") \(next.setNumber)"
         return Text("\(next.exerciseName) — ")
             .font(.system(.footnote, weight: .semibold))
             .foregroundStyle(Theme.textPrimary)
@@ -1196,18 +1311,15 @@ private struct SetLoggingView: View {
     }
 
     private var targetDescription: String {
-        if log.exerciseType == .duration {
-            guard let seconds = log.targetDuration else { return "set \(log.setNumber)" }
-            return "target \(WorkoutMetric.duration.displayText(Double(seconds)))"
+        guard let line = MetricSummary.line(
+            profile: profile,
+            weightUnit: weightUnit,
+            repsText: log.targetReps.lower != nil ? log.targetReps.display : nil,
+            value: { log.target($0) }
+        ) else {
+            return "\(driver == .reps ? "set" : "round") \(log.setNumber)"
         }
-        var parts: [String] = []
-        if log.targetReps.lower != nil {
-            parts.append("\(log.targetReps.display) reps")
-        }
-        if let weight = log.targetWeight {
-            parts.append("@ \(WorkoutMetric.weight.displayText(weight, weightUnit: weightUnit))")
-        }
-        return parts.isEmpty ? "set \(log.setNumber)" : "target " + parts.joined(separator: " ")
+        return "target \(line)"
     }
 }
 
@@ -1511,7 +1623,7 @@ private struct RestView: View {
                         .font(.system(.caption2, design: .monospaced, weight: .semibold))
                         .foregroundStyle(Theme.textFaint)
                         .kerning(0.8)
-                    Text("\(upNext.exerciseName) — set \(upNext.setNumber)")
+                    Text("\(upNext.exerciseName) — \(upNext.driver == .reps ? "set" : "round") \(upNext.setNumber)")
                         .font(.system(.body, weight: .semibold))
                     // Values in plain ink (the handoff's rule): the next
                     // prescription is a fact, not a delta — green stays
@@ -1581,26 +1693,33 @@ private struct RestView: View {
         .animation(.easeOut(duration: 0.15), value: filled)
     }
 
-    /// "10 reps @ 135 lb" — weight value in ink, the rest faint.
+    /// "10 reps @ 135 lb" — weight value in ink, the rest faint. Classic
+    /// rep work keeps its two-tone treatment; richer profiles (a rower's
+    /// distance/pace line) render whole in ink via the shared summary.
     private var upNextTarget: Text? {
-        if upNext.exerciseType == .duration {
-            guard let seconds = upNext.targetDuration else { return nil }
-            return Text(WorkoutMetric.duration.displayText(Double(seconds)))
-                .foregroundStyle(Theme.textPrimary)
-        }
-        var result: Text?
-        if upNext.targetReps.lower != nil {
-            result = Text("\(upNext.targetReps.display) reps").foregroundStyle(Theme.textFaint)
-        }
-        if let weight = upNext.targetWeight {
-            let weightValue = Text(WorkoutMetric.weight.displayText(weight, weightUnit: weightUnit))
-                .foregroundStyle(Theme.textPrimary)
-            if let existing = result {
-                result = existing + Text(" @ ").foregroundStyle(Theme.textFaint) + weightValue
-            } else {
-                result = weightValue
+        let profile = upNext.metricProfile
+        if profile == .weightReps || profile == .repsOnly {
+            var result: Text?
+            if upNext.targetReps.lower != nil {
+                result = Text("\(upNext.targetReps.display) reps").foregroundStyle(Theme.textFaint)
             }
+            if let weight = upNext.targetWeight {
+                let weightValue = Text(WorkoutMetric.weight.displayText(weight, weightUnit: weightUnit))
+                    .foregroundStyle(Theme.textPrimary)
+                if let existing = result {
+                    result = existing + Text(" @ ").foregroundStyle(Theme.textFaint) + weightValue
+                } else {
+                    result = weightValue
+                }
+            }
+            return result
         }
-        return result
+        guard let line = MetricSummary.line(
+            profile: profile,
+            weightUnit: weightUnit,
+            repsText: upNext.targetReps.lower != nil ? upNext.targetReps.display : nil,
+            value: { upNext.target($0) }
+        ) else { return nil }
+        return Text(line).foregroundStyle(Theme.textPrimary)
     }
 }

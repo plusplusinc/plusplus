@@ -9,7 +9,14 @@ import PlusPlusKit
 final class ExerciseDraft {
     var name = ""
     var muscleGroup: MuscleGroup = .chest
-    var exerciseType: ExerciseType = .weightReps
+    /// Which metrics this exercise tracks (flexible metrics) — the
+    /// editor's TRACKED VALUES chips. Normalized through MetricProfile
+    /// on read, so order and duplicates never matter here.
+    var trackedMetrics: [WorkoutMetric] = MetricProfile.weightReps.metrics
+    var distanceUnit: DistanceUnit = .meters
+    /// Latched once the user touches the metric chips: an explicit
+    /// choice must never be clobbered by the equipment-based prefill.
+    var metricsTouched = false
     var selectedEquipment: Set<Equipment> = []
     var notes = ""
     var videoURL = ""
@@ -21,17 +28,23 @@ final class ExerciseDraft {
     var defaultDurationSeconds: Int?
     /// The heart-rate default rides the draft opaquely (no editor row
     /// yet — the planning sheet is its editing surface) so Clear and
-    /// the type switch can actually drop it. Left untracked it became a
+    /// the retrack can actually drop it. Left untracked it became a
     /// ghost: "cleared" defaults kept resurrecting a stale prescription
     /// on every future add (swift-reviewer catch).
     var defaultHeartRateTargetData: Data?
+    var extraDefaults: [WorkoutMetric: Double] = [:]
 
     init() {}
 
     init(from exercise: Exercise) {
         name = exercise.name
         muscleGroup = exercise.muscleGroup
-        exerciseType = exercise.exerciseType
+        let profile = exercise.metricProfile
+        trackedMetrics = profile.metrics
+        distanceUnit = profile.distanceUnit
+        // Editing an existing exercise: its profile is a fact, not a
+        // suggestion — equipment changes must not rewrite it.
+        metricsTouched = true
         selectedEquipment = Set(exercise.equipment)
         notes = exercise.notes ?? ""
         videoURL = exercise.videoURL ?? ""
@@ -40,12 +53,63 @@ final class ExerciseDraft {
         defaultRepsUpper = exercise.defaultRepsUpper
         defaultDurationSeconds = exercise.defaultDurationSeconds
         defaultHeartRateTargetData = exercise.defaultHeartRateTargetData
+        extraDefaults = exercise.extraDefaults
     }
+
+    // MARK: - Tracked metrics
+
+    var metricProfile: MetricProfile {
+        MetricProfile(trackedMetrics, distanceUnit: distanceUnit)
+    }
+
+    /// The legacy type the profile maps onto (kept for old readers).
+    var exerciseType: ExerciseType {
+        metricProfile.legacyType
+    }
+
+    func isTracked(_ metric: WorkoutMetric) -> Bool {
+        trackedMetrics.contains(metric)
+    }
+
+    /// Chip toggle. Latches `metricsTouched`.
+    func toggleMetric(_ metric: WorkoutMetric) {
+        metricsTouched = true
+        if let index = trackedMetrics.firstIndex(of: metric) {
+            trackedMetrics.remove(at: index)
+        } else {
+            trackedMetrics.append(metric)
+        }
+        trackedMetrics = MetricProfile(trackedMetrics, distanceUnit: distanceUnit).metrics
+    }
+
+    /// Whether the distance-unit choice means anything right now.
+    var usesDistanceUnit: Bool {
+        trackedMetrics.contains { [.distance, .pace, .speed].contains($0) }
+    }
+
+    /// Equipment-based prefill (a new exercise on a rower starts with
+    /// the rower's profile). No-op once the user has spoken.
+    func adoptSuggestedProfile(_ profile: MetricProfile) {
+        guard !metricsTouched else { return }
+        trackedMetrics = profile.metrics
+        distanceUnit = profile.distanceUnit
+    }
+
+    /// Adopt a canonical definition wholesale (revert-to-default) —
+    /// an explicit act, so it counts as touched.
+    func setProfile(_ profile: MetricProfile) {
+        trackedMetrics = profile.metrics
+        distanceUnit = profile.distanceUnit
+        metricsTouched = true
+    }
+
+    // MARK: - Defaults
 
     var hasDefaultTargets: Bool {
         defaultWeight != nil || defaultReps != nil
             || defaultRepsUpper != nil || defaultDurationSeconds != nil
             || defaultHeartRateTargetData != nil
+            || !extraDefaults.isEmpty
     }
 
     func clearDefaultTargets() {
@@ -54,6 +118,25 @@ final class ExerciseDraft {
         defaultRepsUpper = nil
         defaultDurationSeconds = nil
         defaultHeartRateTargetData = nil
+        extraDefaults = [:]
+    }
+
+    func defaultTarget(_ metric: WorkoutMetric) -> Double? {
+        switch metric {
+        case .weight: defaultWeight
+        case .reps: defaultReps.map(Double.init)
+        case .duration: defaultDurationSeconds.map(Double.init)
+        default: extraDefaults[metric]
+        }
+    }
+
+    func setDefaultTarget(_ metric: WorkoutMetric, to value: Double?) {
+        switch metric {
+        case .weight: defaultWeight = value
+        case .reps: defaultReps = value.map { Int($0.rounded()) }
+        case .duration: defaultDurationSeconds = value.map { Int($0.rounded()) }
+        default: extraDefaults[metric] = value
+        }
     }
 
     var trimmedName: String {
@@ -113,13 +196,13 @@ final class ExerciseDraft {
         !trimmedName.isEmpty
             && normalizedVideoURL != .invalid
             && !isDuplicate(among: existingNames, excluding: editedName)
+            && metricProfile.isValid
     }
 
     /// Writes the draft onto a model object (new or existing).
     func apply(to exercise: Exercise) {
         exercise.name = trimmedName
         exercise.muscleGroup = muscleGroup
-        exercise.exerciseType = exerciseType
         exercise.equipment = selectedEquipment.sorted { $0.name < $1.name }
         let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
         exercise.notes = trimmedNotes.isEmpty ? nil : trimmedNotes
@@ -128,20 +211,25 @@ final class ExerciseDraft {
         } else {
             exercise.videoURL = nil
         }
-        // Defaults only make sense for the saved type — switching type
-        // drops the other family's stale values (#187).
-        if exerciseType == .duration {
-            exercise.defaultWeight = nil
-            exercise.defaultReps = nil
-            exercise.defaultRepsUpper = nil
-            exercise.defaultDurationSeconds = defaultDurationSeconds
-            exercise.defaultHeartRateTargetData = defaultHeartRateTargetData
-        } else {
-            exercise.defaultWeight = defaultWeight
-            exercise.defaultReps = defaultReps
-            exercise.defaultRepsUpper = defaultRepsUpper
-            exercise.defaultDurationSeconds = nil
-            exercise.defaultHeartRateTargetData = nil
-        }
+        // A profile matching what the exercise would derive anyway
+        // (catalog table for built-ins, legacy type for customs) stays
+        // UNSTORED, so catalog improvements keep flowing to untouched
+        // exercises and exports stay lean.
+        let profile = metricProfile
+        let fallback = exercise.isBuiltIn
+            ? (SeedData.builtInProfile(named: exercise.name) ?? .derived(from: profile.legacyType))
+            : .derived(from: profile.legacyType)
+        exercise.metricsData = profile == fallback ? nil : profile.encoded()
+        exercise.exerciseType = profile.legacyType
+        // Defaults only make sense for tracked metrics — dropping a
+        // metric drops its stale default (#187's type-switch rule,
+        // generalized). The heart-rate default is cardio guidance — it
+        // rides the duration family, like its planning-sheet surface.
+        exercise.defaultWeight = profile.contains(.weight) ? defaultWeight : nil
+        exercise.defaultReps = profile.tracksReps ? defaultReps : nil
+        exercise.defaultRepsUpper = profile.tracksReps ? defaultRepsUpper : nil
+        exercise.defaultDurationSeconds = profile.contains(.duration) ? defaultDurationSeconds : nil
+        exercise.defaultHeartRateTargetData = profile.legacyType == .duration ? defaultHeartRateTargetData : nil
+        exercise.extraDefaults = extraDefaults.filter { profile.contains($0.key) }
     }
 }

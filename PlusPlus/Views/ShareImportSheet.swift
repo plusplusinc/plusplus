@@ -143,14 +143,37 @@ struct ShareImportSheet: View {
 
     private func targetText(_ entry: RoutineDTO.EntryDTO, sets: Int) -> String {
         let def = payload.exercises.first { $0.name.lowercased() == entry.exercise.lowercased() }
-        if def?.exerciseType == .duration {
-            return "\(sets)× " + WorkoutMetric.duration.displayText(entry.durationSeconds.map(Double.init))
+        let profile: MetricProfile = {
+            guard let def else { return .weightReps }
+            guard let metrics = def.metrics else { return .derived(from: def.exerciseType) }
+            return MetricProfile(
+                metrics.compactMap(WorkoutMetric.init(rawValue:)),
+                distanceUnit: def.distanceUnit ?? .meters
+            )
+        }()
+        if profile.tracksReps {
+            var text = "\(sets)×\(RepTarget(lower: entry.reps, upper: entry.repsUpper).display)"
+            if let weight = entry.weight, weight > 0 {
+                text += " @ " + WorkoutMetric.weight.displayText(weight, weightUnit: senderUnit)
+            }
+            return text
         }
-        var text = "\(sets)×\(RepTarget(lower: entry.reps, upper: entry.repsUpper).display)"
-        if let weight = entry.weight, weight > 0 {
-            text += " @ " + WorkoutMetric.weight.displayText(weight, weightUnit: senderUnit)
+        // Cardio blocks preview as rounds × the work target ("4× 500 m").
+        let extras = MetricValues.fromRaw(entry.extraTargets)
+        let value: (WorkoutMetric) -> Double? = { metric in
+            switch metric {
+            case .weight: entry.weight
+            case .reps: entry.reps.map(Double.init)
+            case .duration: entry.durationSeconds.map(Double.init)
+            default: extras[metric]
+            }
         }
-        return text
+        let driver = profile.driver(targets: value)
+        return "\(sets)× " + driver.displayText(
+            value(driver),
+            weightUnit: senderUnit,
+            distanceUnit: profile.distanceUnit
+        )
     }
 
     private func importRoutine() {

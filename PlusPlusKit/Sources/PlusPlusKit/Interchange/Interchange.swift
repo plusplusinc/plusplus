@@ -25,6 +25,20 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
     public var defaultReps: Int?
     public var defaultRepsUpper: Int?
     public var defaultDurationSeconds: Int?
+    /// Tracked-metric profile (flexible metrics): metric identifiers from
+    /// the curated vocabulary, sorted for deterministic output. Absent
+    /// means the legacy profile `exerciseType` implies (weightReps →
+    /// weight+reps, duration → duration), so every existing file keeps
+    /// its exact meaning. `exerciseType` stays authoritative for old
+    /// readers; writers keep the two consistent.
+    public var metrics: [String]?
+    /// What this exercise's distance/pace/speed numbers are denominated
+    /// in. Absent means meters. Never converts values — a declaration,
+    /// like the bundle's `units`.
+    public var distanceUnit: DistanceUnit?
+    /// Default targets for metrics beyond the three dedicated fields
+    /// above, keyed by metric identifier.
+    public var extraDefaults: [String: Double]?
 
     public init(
         name: String,
@@ -37,7 +51,10 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
         defaultWeight: Double? = nil,
         defaultReps: Int? = nil,
         defaultRepsUpper: Int? = nil,
-        defaultDurationSeconds: Int? = nil
+        defaultDurationSeconds: Int? = nil,
+        metrics: [String]? = nil,
+        distanceUnit: DistanceUnit? = nil,
+        extraDefaults: [String: Double]? = nil
     ) {
         self.name = name
         self.muscleGroup = muscleGroup
@@ -50,6 +67,9 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
         self.defaultReps = defaultReps
         self.defaultRepsUpper = defaultRepsUpper
         self.defaultDurationSeconds = defaultDurationSeconds
+        self.metrics = metrics?.sorted()
+        self.distanceUnit = distanceUnit
+        self.extraDefaults = extraDefaults
     }
 }
 
@@ -70,10 +90,15 @@ public struct RoutineDTO: Codable, Equatable, Sendable {
     public struct GroupDTO: Codable, Equatable, Sendable {
         public var sets: Int
         public var exercises: [EntryDTO]
+        /// Per-block rest override in seconds — what interval blocks use
+        /// (2-minute rests between rows while the routine default stays
+        /// 90 s). Absent means the routine's `restSeconds`.
+        public var restSeconds: Int?
 
-        public init(sets: Int, exercises: [EntryDTO]) {
+        public init(sets: Int, exercises: [EntryDTO], restSeconds: Int? = nil) {
             self.sets = sets
             self.exercises = exercises
+            self.restSeconds = restSeconds
         }
     }
 
@@ -84,19 +109,24 @@ public struct RoutineDTO: Codable, Equatable, Sendable {
         public var reps: Int?
         public var repsUpper: Int?
         public var durationSeconds: Int?
+        /// Targets for metrics beyond the three dedicated fields, keyed
+        /// by metric identifier ("distance", "pace", "resistance", …).
+        public var extraTargets: [String: Double]?
 
         public init(
             exercise: String,
             weight: Double? = nil,
             reps: Int? = nil,
             repsUpper: Int? = nil,
-            durationSeconds: Int? = nil
+            durationSeconds: Int? = nil,
+            extraTargets: [String: Double]? = nil
         ) {
             self.exercise = exercise
             self.weight = weight
             self.reps = reps
             self.repsUpper = repsUpper
             self.durationSeconds = durationSeconds
+            self.extraTargets = extraTargets
         }
     }
 }
@@ -136,6 +166,13 @@ public struct SessionDTO: Codable, Equatable, Sendable {
         public var actualReps: Int?
         public var actualDuration: Int?
         public var completedAt: Date?
+        /// Targets/actuals for metrics beyond the dedicated fields, keyed
+        /// by metric identifier. Sessions snapshot everything, so these
+        /// stand alone like the rest of the set.
+        public var extraTargets: [String: Double]?
+        public var extraActuals: [String: Double]?
+        /// The block's rest override at session time, if it had one.
+        public var restSecondsOverride: Int?
 
         public init(
             order: Int,
@@ -150,7 +187,10 @@ public struct SessionDTO: Codable, Equatable, Sendable {
             actualWeight: Double? = nil,
             actualReps: Int? = nil,
             actualDuration: Int? = nil,
-            completedAt: Date? = nil
+            completedAt: Date? = nil,
+            extraTargets: [String: Double]? = nil,
+            extraActuals: [String: Double]? = nil,
+            restSecondsOverride: Int? = nil
         ) {
             self.order = order
             self.groupIndex = groupIndex
@@ -165,6 +205,9 @@ public struct SessionDTO: Codable, Equatable, Sendable {
             self.actualReps = actualReps
             self.actualDuration = actualDuration
             self.completedAt = completedAt
+            self.extraTargets = extraTargets
+            self.extraActuals = extraActuals
+            self.restSecondsOverride = restSecondsOverride
         }
     }
 }

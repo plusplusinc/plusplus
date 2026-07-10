@@ -737,15 +737,22 @@ private struct ExerciseRailRow: View {
     /// loop drawing while the highlight is up.
     var hideLoop = false
 
-    private var isDuration: Bool {
-        routineExercise.exercise?.exerciseType == .duration
-    }
-
-    /// "3×15", "3×10 · 5lb", "2×45s" — the condensed target summary.
+    /// "3×15", "3×10 · 5lb", "2×45s", "4×500 m" — the condensed target
+    /// summary, speaking each block's WORK metric (flexible metrics).
     private var summary: String {
         let sets = routineExercise.group?.sets ?? 1
         let unit = WeightUnit(rawValue: weightUnitRaw) ?? .lb
-        if isDuration {
+        let profile = routineExercise.exercise?.metricProfile ?? .weightReps
+        if profile.tracksReps {
+            let reps = RepTarget(lower: routineExercise.reps, upper: routineExercise.repsUpper).display
+            var text = "\(sets)×\(reps)"
+            if let weight = routineExercise.weight {
+                text += " · \(WorkoutMetric.weight.formatted(weight))\(unit.symbol)"
+            }
+            return text
+        }
+        let driver = profile.driver { routineExercise.target($0) }
+        if driver == .duration {
             let dur = routineExercise.durationSeconds.map { seconds in
                 seconds >= 60
                     ? WorkoutMetric.duration.formatted(Double(seconds))
@@ -753,12 +760,11 @@ private struct ExerciseRailRow: View {
             } ?? "—"
             return "\(sets)×\(dur)"
         }
-        let reps = RepTarget(lower: routineExercise.reps, upper: routineExercise.repsUpper).display
-        var text = "\(sets)×\(reps)"
-        if let weight = routineExercise.weight {
-            text += " · \(WorkoutMetric.weight.formatted(weight))\(unit.symbol)"
-        }
-        return text
+        return "\(sets)×" + driver.displayText(
+            routineExercise.target(driver),
+            weightUnit: unit,
+            distanceUnit: profile.distanceUnit
+        )
     }
 
     var body: some View {
@@ -773,7 +779,10 @@ private struct ExerciseRailRow: View {
 
             Spacer(minLength: 6)
 
-            if isDuration {
+            // The clock marks time-driven blocks (a plank, a 20:00
+            // piece) — distance/calorie work speaks its unit already.
+            if routineExercise.exercise?.metricProfile.contains(.duration) == true,
+               !(routineExercise.exercise?.metricProfile.tracksReps ?? false) {
                 Image(systemName: "clock")
                     .font(.system(.caption))
                     .foregroundStyle(Theme.textFaint)

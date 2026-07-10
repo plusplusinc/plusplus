@@ -27,6 +27,15 @@ final class Exercise {
     /// Encoded HeartRateTarget default for cardio exercises — rides the
     /// same #187 bump rule as the other defaults.
     var defaultHeartRateTargetData: Data?
+    /// Tracked-metric profile (flexible metrics), Kit-encoded JSON —
+    /// additive, so no store migration. nil resolves through
+    /// `metricProfile`: built-ins fall back to the seed catalog's
+    /// assignment (existing stores get rich cardio profiles with zero
+    /// writes), customs to the legacy exerciseType's profile.
+    var metricsData: Data?
+    /// Default targets for metrics beyond the three columns above —
+    /// one Kit-encoded [metric: value] bag (see MetricValues).
+    var extraDefaultsData: Data?
 
     /// Deliberately excludes the heart-rate default: this only feeds
     /// the interchange export filter, and HR targets stay out of the
@@ -34,6 +43,40 @@ final class Exercise {
     var hasDefaultTargets: Bool {
         defaultWeight != nil || defaultReps != nil
             || defaultRepsUpper != nil || defaultDurationSeconds != nil
+            || extraDefaultsData != nil
+    }
+
+    /// The resolved profile — what the planning sheet and set screen
+    /// expose for this exercise. Setting it keeps the legacy
+    /// `exerciseType` consistent for old readers (interchange, watch).
+    var metricProfile: MetricProfile {
+        get {
+            if let stored = MetricProfile.decode(from: metricsData) { return stored }
+            if isBuiltIn, let seeded = SeedData.builtInProfile(named: name) { return seeded }
+            return .derived(from: exerciseType)
+        }
+        set {
+            metricsData = newValue.encoded()
+            exerciseType = newValue.legacyType
+        }
+    }
+
+    /// Extra-metric defaults, decoded. Setter drops entries for metrics
+    /// the profile doesn't track — stale values must not resurface if a
+    /// metric is re-added later with different intent.
+    var extraDefaults: [WorkoutMetric: Double] {
+        get { MetricValues.decode(extraDefaultsData) }
+        set { extraDefaultsData = MetricValues.encode(newValue) }
+    }
+
+    /// One lookup for any metric's default target, columns and bag alike.
+    func defaultTarget(_ metric: WorkoutMetric) -> Double? {
+        switch metric {
+        case .weight: defaultWeight
+        case .reps: defaultReps.map(Double.init)
+        case .duration: defaultDurationSeconds.map(Double.init)
+        default: extraDefaults[metric]
+        }
     }
 
     /// The per-tap weight increment this exercise's gear implies: the

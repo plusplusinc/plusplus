@@ -217,6 +217,11 @@ enum SeedData {
         let muscleGroup: MuscleGroup
         let equipmentNames: [String]
         let exerciseType: ExerciseType
+        /// Explicit metric-profile override. nil derives from the
+        /// equipment table + type (`suggestedProfile`) — only exercises
+        /// whose tracking the rules can't express carry one (Ruck's
+        /// mileage on plain strength gear, the no-equipment cardio).
+        let metrics: MetricProfile?
     }
 
     static func builtInDefinition(named name: String) -> BuiltInExerciseDefinition? {
@@ -241,8 +246,8 @@ enum SeedData {
     }
 
     private static let builtInExerciseDefinitions: [BuiltInExerciseDefinition] = {
-        func e(_ name: String, _ muscle: MuscleGroup, _ eqNames: [String], _ type: ExerciseType = .weightReps) -> BuiltInExerciseDefinition {
-            BuiltInExerciseDefinition(name: name, muscleGroup: muscle, equipmentNames: eqNames, exerciseType: type)
+        func e(_ name: String, _ muscle: MuscleGroup, _ eqNames: [String], _ type: ExerciseType = .weightReps, metrics: MetricProfile? = nil) -> BuiltInExerciseDefinition {
+            BuiltInExerciseDefinition(name: name, muscleGroup: muscle, equipmentNames: eqNames, exerciseType: type, metrics: metrics)
         }
 
         return [
@@ -425,6 +430,15 @@ enum SeedData {
             e("Stationary Bike", .fullBody, ["Stationary Bike"], .duration),
             e("Treadmill Run", .fullBody, ["Treadmill"], .duration),
             e("Sandbag Carry", .fullBody, ["Sandbag"], .duration),
+            // Cardio, no equipment (flexible metrics): the road is not
+            // gear, but running is training — these make distance
+            // intervals (6×400 m) and steady pieces first-class.
+            e("Running", .fullBody, [], .duration,
+              metrics: MetricProfile([.distance, .duration, .pace], distanceUnit: .miles)),
+            e("Walking", .fullBody, [], .duration,
+              metrics: MetricProfile([.distance, .duration, .pace], distanceUnit: .miles)),
+            e("Cycling", .fullBody, [], .duration,
+              metrics: MetricProfile([.distance, .duration, .speed], distanceUnit: .miles)),
 
             // #235: every equipment type gates at least one exercise —
             // the 60 types the #222 sweep added get their movements.
@@ -495,7 +509,8 @@ enum SeedData {
             e("Weighted Dip", .chest, ["Dip Station", "Dip Belt"]),
             e("Weighted Pull-Up", .back, ["Pull-Up Bar", "Dip Belt"]),
             e("Weighted Push-Up", .chest, ["Weight Vest"]),
-            e("Ruck", .fullBody, ["Weight Vest"], .duration),
+            e("Ruck", .fullBody, ["Weight Vest"], .duration,
+              metrics: MetricProfile([.weight, .distance, .duration], distanceUnit: .miles)),
             e("Mace 360", .shoulders, ["Macebell"]),
             e("Steel Club Mill", .shoulders, ["Steel Club"]),
             e("Bulgarian Bag Spin", .fullBody, ["Bulgarian Bag"]),
@@ -540,8 +555,118 @@ enum SeedData {
     ]
 
     /// Whether the given equipment's detail screen offers weight-step
-    /// configuration (#236: config adapts to the equipment).
+    /// configuration (#236: config adapts to the equipment). Custom gear
+    /// with a declared exercise-config profile is loadable only when
+    /// that profile tracks load — a custom spin bike whose exercises
+    /// track duration/resistance has no plates to step. Undeclared
+    /// customs keep the old always-loadable default (we can't classify
+    /// the user's intent).
     static func isLoadable(_ equipment: Equipment) -> Bool {
-        !equipment.isBuiltIn || loadableEquipmentNames.contains(equipment.name)
+        if equipment.isBuiltIn { return loadableEquipmentNames.contains(equipment.name) }
+        guard let profile = equipment.suggestedProfile else { return true }
+        return profile.tracksLoad
+    }
+
+    // MARK: - Metric profiles (flexible metrics)
+
+    /// Suggested profiles for gear whose exercises track more than the
+    /// classic weight×reps pair — cardio machines (the console's real
+    /// dials), assisted machines (a stack that helps instead of loads),
+    /// carry implements (load over ground), the plyo box (height). The
+    /// evaluation that produced these lives in the feature's design
+    /// notes; every entry answers "what does a lifter actually set and
+    /// read on this thing".
+    static let equipmentProfiles: [String: MetricProfile] = [
+        // Ergs: pieces are distance-first (2000 m), splits per 500 m,
+        // damper as the setting.
+        "Rowing Machine": MetricProfile([.distance, .duration, .pace, .resistance]),
+        "Ski Erg": MetricProfile([.distance, .duration, .pace, .resistance]),
+        // The air bike prescribes in calories and punishes in watts.
+        "Air Bike": MetricProfile([.duration, .calories, .power]),
+        "Stationary Bike": MetricProfile([.duration, .distance, .resistance, .power], distanceUnit: .miles),
+        "Treadmill": MetricProfile([.distance, .duration, .speed, .incline], distanceUnit: .miles),
+        "Elliptical": MetricProfile([.duration, .resistance, .incline]),
+        "Stair Climber": MetricProfile([.duration, .resistance]),
+        "Vertical Climber": MetricProfile([.duration]),
+        "Upper Body Ergometer": MetricProfile([.duration, .resistance]),
+        // The stack subtracts: less assistance IS the progression.
+        "Assisted Pull-Up Machine": MetricProfile([.assistance, .reps]),
+        "Plyo Box": MetricProfile([.height, .reps]),
+        // Carries: load over ground — meters, like the strongman events.
+        "Sled": MetricProfile([.weight, .distance, .duration]),
+        "Yoke": MetricProfile([.weight, .distance, .duration]),
+        "Farmers Walk Handles": MetricProfile([.weight, .distance, .duration]),
+        "Husafell Stone": MetricProfile([.weight, .distance, .duration]),
+        "Jump Rope": MetricProfile([.duration]),
+        "Battle Ropes": MetricProfile([.duration]),
+        "Heavy Bag": MetricProfile([.duration]),
+        "Agility Ladder": MetricProfile([.duration]),
+    ]
+
+    static func equipmentProfile(named name: String) -> MetricProfile? {
+        equipmentProfiles[name]
+    }
+
+    /// What a new exercise on this gear should track — the shared
+    /// derivation for the built-in catalog AND the editor's prefill:
+    /// union the gear's declared profiles, add weight when anything is
+    /// loadable (unless assistance already speaks for the load), and
+    /// guarantee a work metric from the legacy type when the union
+    /// doesn't provide one.
+    static func mergeSuggestedProfiles(_ matched: [MetricProfile], hasLoadable: Bool, type: ExerciseType) -> MetricProfile {
+        guard !matched.isEmpty else {
+            if type == .duration {
+                return hasLoadable ? MetricProfile([.weight, .duration]) : .durationOnly
+            }
+            return hasLoadable ? .weightReps : .repsOnly
+        }
+        var metrics = matched.flatMap(\.metrics)
+        let distanceUnit = matched.first {
+            $0.metrics.contains(where: [.distance, .pace, .speed].contains)
+        }?.distanceUnit ?? .meters
+        if hasLoadable, !metrics.contains(.assistance) {
+            metrics.append(.weight)
+        }
+        var profile = MetricProfile(metrics, distanceUnit: distanceUnit)
+        if !profile.isValid {
+            profile = MetricProfile(
+                profile.metrics + [type == .duration ? .duration : .reps],
+                distanceUnit: distanceUnit
+            )
+        }
+        return profile
+    }
+
+    /// Table-backed derivation for built-in definitions (names only).
+    static func suggestedProfile(type: ExerciseType, equipmentNames: [String]) -> MetricProfile {
+        mergeSuggestedProfiles(
+            equipmentNames.compactMap { equipmentProfiles[$0] },
+            hasLoadable: equipmentNames.contains(where: loadableEquipmentNames.contains),
+            type: type
+        )
+    }
+
+    /// Live-model derivation for the editor's prefill — custom gear's
+    /// declared profiles participate alongside the built-in table.
+    static func suggestedProfile(type: ExerciseType, equipment: [Equipment]) -> MetricProfile {
+        mergeSuggestedProfiles(
+            equipment.compactMap(\.suggestedProfile),
+            hasLoadable: equipment.contains(where: isLoadable),
+            type: type
+        )
+    }
+
+    /// The catalog's profile for a built-in exercise — the fallback
+    /// `Exercise.metricProfile` resolves through when no per-store
+    /// customization exists, so existing stores pick up rich profiles
+    /// with zero migration writes.
+    private static let builtInProfilesByName: [String: MetricProfile] = {
+        Dictionary(uniqueKeysWithValues: builtInExerciseDefinitions.map { def in
+            (def.name, def.metrics ?? suggestedProfile(type: def.exerciseType, equipmentNames: def.equipmentNames))
+        })
+    }()
+
+    static func builtInProfile(named name: String) -> MetricProfile? {
+        builtInProfilesByName[name]
     }
 }

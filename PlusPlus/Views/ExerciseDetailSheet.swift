@@ -20,22 +20,18 @@ struct ExerciseDetailSheet: View {
            sort: [SortDescriptor(\WorkoutSession.startedAt, order: .reverse)])
     private var finishedSessions: [WorkoutSession]
 
-    @State private var wheel: WheelTarget?
+    @State private var wheel: WorkoutMetric?
     @State private var showingRepsWheel = false
     @State private var showingHeartRateSheet = false
     /// Resolved once per sheet: zones drawn against Health's date of
     /// birth when readable, the fallback otherwise.
     @State private var maxHeartRate = HealthAccess.resolvedMaxHeartRate()
 
-    private enum WheelTarget: String, Identifiable {
-        case weight, duration
-        var id: String { rawValue }
-    }
-
     private var weightUnit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .lb }
     private var exercise: Exercise? { routineExercise.exercise }
     private var group: ExerciseGroup? { routineExercise.group }
-    private var isDuration: Bool { exercise?.exerciseType == .duration }
+    /// What this exercise tracks — drives which metric rows render.
+    private var profile: MetricProfile { exercise?.metricProfile ?? .weightReps }
 
     private var groupIndex: Int? {
         guard let group else { return nil }
@@ -63,6 +59,24 @@ struct ExerciseDetailSheet: View {
 
                     metricsCard
                         .padding(.top, 12)
+
+                    // The rest row edits a BLOCK override (what interval
+                    // blocks need); the escape hatch back to the workout
+                    // default appears only while one exists.
+                    if group?.restSecondsOverride != nil {
+                        HStack(spacing: 6) {
+                            Text("Rest is set for this block only.")
+                                .font(.system(.caption))
+                                .foregroundStyle(Theme.textFaint)
+                            Button("Use workout default (\(WorkoutMetric.rest.displayText(Double(routine.restSeconds))))") {
+                                group?.restSecondsOverride = nil
+                            }
+                            .font(.system(.caption, weight: .semibold))
+                            .foregroundStyle(Theme.textSecondary)
+                            .accessibilityIdentifier("clearRestOverrideButton")
+                        }
+                        .padding(.top, 6)
+                    }
 
                     if group?.isSuperset == true {
                         HStack(spacing: 6) {
@@ -128,25 +142,26 @@ struct ExerciseDetailSheet: View {
         .onChange(of: routineExercise.repsUpper) { _, _ in routineExercise.bumpExerciseDefaults() }
         .onChange(of: routineExercise.durationSeconds) { _, _ in routineExercise.bumpExerciseDefaults() }
         .onChange(of: routineExercise.heartRateTargetData) { _, _ in routineExercise.bumpExerciseDefaults() }
-        .sheet(item: $wheel) { target in
-            switch target {
-            case .weight:
+        .onChange(of: routineExercise.extraTargetsData) { _, _ in routineExercise.bumpExerciseDefaults() }
+        .sheet(item: $wheel) { metric in
+            if metric == .rest {
                 MetricWheelSheet(
-                    metric: .weight,
+                    metric: .rest,
                     weightUnit: weightUnit,
                     value: Binding(
-                        get: { routineExercise.weight },
-                        set: { routineExercise.weight = $0 }
+                        get: { Double(group?.restSecondsOverride ?? routine.restSeconds) },
+                        set: { group?.restSecondsOverride = $0.map { Int($0.rounded()) } }
                     )
                 )
-            case .duration:
+            } else {
                 MetricWheelSheet(
-                    metric: .duration,
+                    metric: metric,
                     weightUnit: weightUnit,
-                    value: intMetricBinding(Binding(
-                        get: { routineExercise.durationSeconds },
-                        set: { routineExercise.durationSeconds = $0 }
-                    ))
+                    distanceUnit: profile.distanceUnit,
+                    value: Binding(
+                        get: { routineExercise.target(metric) },
+                        set: { routineExercise.setTarget(metric, to: $0) }
+                    )
                 )
             }
         }
@@ -203,35 +218,37 @@ struct ExerciseDetailSheet: View {
 
     // MARK: - Metrics
 
+    /// One row per tracked metric (the exercise's profile decides), then
+    /// the block facts: sets and rest. A rower shows distance/duration/
+    /// pace/resistance where a curl shows weight/reps — same card, same
+    /// grammar.
     private var metricsCard: some View {
         VStack(spacing: 0) {
-            if isDuration {
-                MetricStepperRow(
-                    label: "Duration",
-                    value: durationText,
-                    identifier: "duration",
-                    onTapValue: { wheel = .duration },
-                    onDecrement: { routineExercise.durationSeconds = step(.duration, routineExercise.durationSeconds, -1) },
-                    onIncrement: { routineExercise.durationSeconds = step(.duration, routineExercise.durationSeconds, 1) }
-                )
+            ForEach(profile.metrics) { metric in
+                if metric == .reps {
+                    MetricStepperRow(
+                        label: "Reps",
+                        value: RepTarget(lower: routineExercise.reps, upper: routineExercise.repsUpper).display,
+                        identifier: "reps",
+                        onTapValue: { showingRepsWheel = true },
+                        onDecrement: { applyReps(RepTarget(lower: routineExercise.reps, upper: routineExercise.repsUpper).decremented()) },
+                        onIncrement: { applyReps(RepTarget(lower: routineExercise.reps, upper: routineExercise.repsUpper).incremented()) }
+                    )
+                } else {
+                    MetricStepperRow(
+                        label: metric.label,
+                        value: rowText(metric),
+                        identifier: metric.rawValue,
+                        onTapValue: { wheel = metric },
+                        onDecrement: { stepTarget(metric, -1) },
+                        onIncrement: { stepTarget(metric, 1) }
+                    )
+                }
+            }
+            // The cardio prescription rides with the cardio profiles —
+            // same placement the duration branch gave it.
+            if profile.legacyType == .duration {
                 heartRateTargetRow
-            } else {
-                MetricStepperRow(
-                    label: "Weight",
-                    value: WorkoutMetric.weight.displayText(routineExercise.weight, weightUnit: weightUnit),
-                    identifier: "weight",
-                    onTapValue: { wheel = .weight },
-                    onDecrement: { routineExercise.weight = WorkoutMetric.weight.decremented(routineExercise.weight, weightUnit: weightUnit, stepOverride: routineExercise.exercise?.weightStepOverride) },
-                    onIncrement: { routineExercise.weight = WorkoutMetric.weight.incremented(routineExercise.weight, weightUnit: weightUnit, stepOverride: routineExercise.exercise?.weightStepOverride) }
-                )
-                MetricStepperRow(
-                    label: "Reps",
-                    value: RepTarget(lower: routineExercise.reps, upper: routineExercise.repsUpper).display,
-                    identifier: "reps",
-                    onTapValue: { showingRepsWheel = true },
-                    onDecrement: { applyReps(RepTarget(lower: routineExercise.reps, upper: routineExercise.repsUpper).decremented()) },
-                    onIncrement: { applyReps(RepTarget(lower: routineExercise.reps, upper: routineExercise.repsUpper).incremented()) }
-                )
             }
             MetricStepperRow(
                 label: "Sets",
@@ -241,9 +258,43 @@ struct ExerciseDetailSheet: View {
                 onDecrement: { group?.sets = max(1, (group?.sets ?? 1) - 1) },
                 onIncrement: { group?.sets = min(20, (group?.sets ?? 1) + 1) }
             )
+            MetricStepperRow(
+                label: "Rest",
+                value: WorkoutMetric.rest.displayText(Double(effectiveRest)),
+                identifier: "rest",
+                onTapValue: { wheel = .rest },
+                onDecrement: { group?.restSecondsOverride = Int(WorkoutMetric.rest.decremented(Double(effectiveRest)).rounded()) },
+                onIncrement: { group?.restSecondsOverride = Int(WorkoutMetric.rest.incremented(Double(effectiveRest)).rounded()) }
+            )
         }
         .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+    }
+
+    /// This block's rest between sets: its own override, else the
+    /// workout default.
+    private var effectiveRest: Int {
+        group?.restSecondsOverride ?? routine.restSeconds
+    }
+
+    private func rowText(_ metric: WorkoutMetric) -> String {
+        if metric == .duration {
+            return durationText
+        }
+        return metric.displayText(
+            routineExercise.target(metric),
+            weightUnit: weightUnit,
+            distanceUnit: profile.distanceUnit
+        )
+    }
+
+    private func stepTarget(_ metric: WorkoutMetric, _ direction: Double) {
+        let stepOverride = metric == .weight ? routineExercise.exercise?.weightStepOverride : nil
+        let current = routineExercise.target(metric)
+        let stepped = direction > 0
+            ? metric.incremented(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, stepOverride: stepOverride)
+            : metric.decremented(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, stepOverride: stepOverride)
+        routineExercise.setTarget(metric, to: stepped)
     }
 
     private var durationText: String {
@@ -251,13 +302,6 @@ struct ExerciseDetailSheet: View {
         return seconds >= 60
             ? WorkoutMetric.duration.formatted(Double(seconds))
             : "\(seconds)s"
-    }
-
-    private func step(_ metric: WorkoutMetric, _ value: Int?, _ direction: Double) -> Int {
-        let stepped = direction > 0
-            ? metric.incremented(value.map(Double.init))
-            : metric.decremented(value.map(Double.init))
-        return Int(stepped.rounded())
     }
 
     private func applyReps(_ target: RepTarget) {
@@ -278,14 +322,29 @@ struct ExerciseDetailSheet: View {
         for session in finishedSessions.prefix(6) {
             let matches = session.sortedSetLogs.filter { $0.exerciseName == name && $0.completedAt != nil }
             guard !matches.isEmpty else { continue }
-            let reps = matches.map { log in
-                log.exerciseType == .duration
-                    ? WorkoutMetric.duration.formatted(log.actualDuration.map(Double.init))
-                    : "\(log.actualReps.map(String.init) ?? "—")"
+            // One entry per set, speaking each set's WORK metric: rep
+            // counts stay bare numbers, durations stay clock values,
+            // distance and calories carry their unit.
+            let perSet = matches.map { log in
+                switch log.driver {
+                case .reps:
+                    log.actualReps.map(String.init) ?? "—"
+                case .duration:
+                    WorkoutMetric.duration.formatted(log.actual(.duration))
+                default:
+                    log.driver.displayText(
+                        log.actual(log.driver),
+                        weightUnit: weightUnit,
+                        distanceUnit: log.metricProfile.distanceUnit
+                    )
+                }
             }.joined(separator: " · ")
-            var result = reps
+            var result = perSet
             if let weight = matches.first?.actualWeight, weight > 0 {
                 result += " @ \(WorkoutMetric.weight.formatted(weight))\(weightUnit.symbol)"
+            } else if matches.first?.metricProfile.contains(.assistance) == true,
+                      let assist = matches.first?.actual(.assistance), assist > 0 {
+                result += " @ \(WorkoutMetric.assistance.formatted(assist))\(weightUnit.symbol) assist"
             }
             lines.append(RecentLine(
                 date: session.startedAt.formatted(.dateTime.month(.abbreviated).day()),
@@ -543,21 +602,22 @@ struct HeartRateTargetSheet: View {
     }
 }
 
-/// Single-wheel picker sheet for weight/duration/rest, v2 styling.
+/// Single-wheel picker sheet for any stepped metric, v2 styling.
 struct MetricWheelSheet: View {
     @Environment(\.dismiss) private var dismiss
     let metric: WorkoutMetric
     var weightUnit: WeightUnit = .lb
+    var distanceUnit: DistanceUnit = .meters
     @Binding var value: Double?
 
     var body: some View {
         NavigationStack {
             Picker(metric.label, selection: Binding(
-                get: { metric.nearestWheelValue(to: value, weightUnit: weightUnit) },
+                get: { metric.nearestWheelValue(to: value, weightUnit: weightUnit, distanceUnit: distanceUnit) },
                 set: { value = $0 }
             )) {
-                ForEach(metric.wheelValues(weightUnit: weightUnit), id: \.self) { candidate in
-                    Text(metric.displayText(candidate, weightUnit: weightUnit))
+                ForEach(metric.wheelValues(weightUnit: weightUnit, distanceUnit: distanceUnit), id: \.self) { candidate in
+                    Text(metric.displayText(candidate, weightUnit: weightUnit, distanceUnit: distanceUnit))
                         .font(.system(.body, design: .monospaced))
                         .tag(candidate)
                 }
