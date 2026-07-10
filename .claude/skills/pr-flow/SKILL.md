@@ -21,8 +21,14 @@ open PR's checks.
    claude/<slug> origin/main`. Pick a slug that names the change
    (`claude/equipment-exercises`), not the session. ci.yml triggers on
    every `claude/**` push.
-2. Develop, commit, push with `git push -u origin claude/<slug>`. Run the
-   swift-reviewer agent on any non-trivial diff before pushing.
+2. Develop, commit, push with `git push -u origin claude/<slug>`. Review
+   any non-trivial diff before pushing, composed from two layers: the
+   swift-reviewer agent (this repo's proven bug classes) plus the built-in
+   `/code-review` at high effort (general correctness, wider net). Neither
+   subsumes the other. For repo-wide audits or overnight bug hunts, prefer
+   a dynamic workflow ("use a workflow to … and adversarially verify each
+   finding") over hand-spawned parallel agents — the orchestration is
+   deterministic and the session stays responsive.
 3. Open a PR (GitHub MCP `create_pull_request`) with `Closes #N` links;
    check for a PR template first. Subscribe with `subscribe_pr_activity`
    — comments and CI *failures* arrive as events, but CI success, new
