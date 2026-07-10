@@ -410,18 +410,10 @@ struct EquipmentFilterSheet: View {
                     // Fix the filter's basis in place (#260): the
                     // options above ARE your equipment — edit it here
                     // instead of backing out to the Equipment tab.
-                    Button {
+                    QuietKey(label: "Edit my equipment…", identifier: "editEquipmentFromFilter") {
                         showingEquipmentEditor = true
-                    } label: {
-                        Text("Edit my equipment…")
-                            .font(.system(.footnote, weight: .semibold))
-                            .foregroundStyle(Theme.selected)
-                            .frame(minHeight: 44, alignment: .leading)
-                            .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("editEquipmentFromFilter")
-                    .padding(.top, 4)
+                    .padding(.top, 8)
                 }
             }
             .sheet(isPresented: $showingEquipmentEditor) {

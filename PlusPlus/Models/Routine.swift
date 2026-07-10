@@ -88,6 +88,14 @@ final class Routine {
         return work + max(0, totalSets - 1) * restSeconds
     }
 
+    /// "~40 min" — the shared rendering of `estimatedSeconds` (Today
+    /// cards, detail meta, the start tray), rounded to 5-minute steps
+    /// so it never pretends to precision the estimate doesn't have.
+    var estimateText: String {
+        let minutes = max(5, Int((Double(estimatedSeconds) / 300).rounded()) * 5)
+        return "~\(minutes) min"
+    }
+
     func reindexGroups() {
         for (index, group) in sortedGroups.filter({ !$0.isDeleted }).enumerated() {
             group.order = index

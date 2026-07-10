@@ -55,12 +55,15 @@ struct SettingsScreen: View {
 
                     SheetSectionLabel("EQUIPMENT")
                         .padding(.top, 24)
+                    // Nav rows are secondary raised keys (Quiet Arcade:
+                    // navigation is a press). "My equipment" — the one
+                    // ownership word (#232 vocabulary).
                     Button {
                         showingEquipmentSetup = true
                     } label: {
                         HStack {
-                            Text("Your equipment")
-                                .font(.system(.footnote))
+                            Text("My equipment")
+                                .font(.system(.footnote, weight: .semibold))
                                 .foregroundStyle(Theme.textPrimary)
                             Spacer()
                             Text(equipmentSummary)
@@ -71,11 +74,11 @@ struct SettingsScreen: View {
                                 .foregroundStyle(Theme.textFaint)
                         }
                         .padding(.horizontal, 14)
-                        .frame(minHeight: 44)
-                        .contentShape(Rectangle())
+                        .frame(minHeight: 48)
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.borderStrong))
                     }
-                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
-                    .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
+                    .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
                     .accessibilityIdentifier("equipmentSetupButton")
                     Text("Never touches logged history.")
                         .font(.system(.caption))
@@ -84,31 +87,48 @@ struct SettingsScreen: View {
 
                     SheetSectionLabel("DATA")
                         .padding(.top, 24)
-                    VStack(spacing: 0) {
-                        Button {
-                            prepareExport()
-                        } label: {
+                    // Two separate keys, not one container: each is its
+                    // own commit.
+                    Button {
+                        prepareExport()
+                    } label: {
+                        HStack {
                             Text("Export data…")
-                                .font(.system(.footnote))
+                                .font(.system(.footnote, weight: .semibold))
                                 .foregroundStyle(Theme.textPrimary)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 11)
+                            Spacer()
+                            Text("json")
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundStyle(Theme.textFaint)
+                            Image(systemName: "arrow.up.right")
+                                .font(.system(.caption, weight: .bold))
+                                .foregroundStyle(Theme.textFaint)
                         }
-                        Divider().overlay(Theme.border)
-                        Button {
-                            showingImporter = true
-                        } label: {
-                            Text("Import data…")
-                                .font(.system(.footnote))
-                                .foregroundStyle(Theme.textPrimary)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 11)
-                        }
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 48)
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.borderStrong))
                     }
-                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
-                    .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
+                    .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
+                    Button {
+                        showingImporter = true
+                    } label: {
+                        HStack {
+                            Text("Import data…")
+                                .font(.system(.footnote, weight: .semibold))
+                                .foregroundStyle(Theme.textPrimary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(.caption, weight: .bold))
+                                .foregroundStyle(Theme.textFaint)
+                        }
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 48)
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.borderStrong))
+                    }
+                    .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
+                    .padding(.top, 8)
 
                     Text("Interchange schema v\(Interchange.schemaVersion) — exercises + routines + history as JSON.")
                         .font(.system(.caption))
@@ -149,10 +169,11 @@ struct SettingsScreen: View {
                         }
                         .foregroundStyle(Theme.textPrimary)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 46)
-                        .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                        .frame(height: 48)
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                         .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.borderStrong))
                     }
+                    .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
                     Text("Your program and history live as JSON in a repo you own.")
                         .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)

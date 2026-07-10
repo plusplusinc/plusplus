@@ -260,52 +260,55 @@ struct RoutineDetailView: View {
         return nil
     }
 
-    /// The + row terminating the rail (#84): full-width tap target at the
-    /// bottom of the list, where the thumb already is.
+    /// The + row terminating the rail (#84), at the bottom of the list
+    /// where the thumb already is. The KEY is the button (Quiet Arcade:
+    /// its plate belongs under the cap alone, not under the rail
+    /// glyph), so the glyph sits beside it.
     private var addExerciseRow: some View {
-        Button {
-            pickerDestination = .newGroup
-        } label: {
-            HStack(spacing: 13) {
-                Canvas { context, size in
-                    let mid = size.height / 2
-                    var spine = Path()
-                    spine.move(to: CGPoint(x: 15, y: 0))
-                    spine.addLine(to: CGPoint(x: 15, y: mid - 11))
-                    context.stroke(spine, with: .color(Theme.border), style: StrokeStyle(lineWidth: 2))
-                    let dotRect = CGRect(x: 15 - 8, y: mid - 8, width: 16, height: 16)
-                    context.stroke(
-                        Path(ellipseIn: dotRect),
-                        with: .color(Theme.borderStrong),
-                        style: StrokeStyle(lineWidth: 2, dash: [2.5, 3])
-                    )
-                    // The + stays green ONLY here — it marks a future
-                    // node on the rail (§H).
-                    context.draw(
-                        Text("+").font(.system(.footnote, design: .monospaced, weight: .semibold)).foregroundStyle(Theme.accent),
-                        at: CGPoint(x: 15, y: mid - 0.5)
-                    )
-                }
-                .frame(width: 28, height: railRowHeight)
+        HStack(spacing: 13) {
+            Canvas { context, size in
+                let mid = size.height / 2
+                var spine = Path()
+                spine.move(to: CGPoint(x: 15, y: 0))
+                spine.addLine(to: CGPoint(x: 15, y: mid - 11))
+                context.stroke(spine, with: .color(Theme.border), style: StrokeStyle(lineWidth: 2))
+                let dotRect = CGRect(x: 15 - 8, y: mid - 8, width: 16, height: 16)
+                context.stroke(
+                    Path(ellipseIn: dotRect),
+                    with: .color(Theme.borderStrong),
+                    style: StrokeStyle(lineWidth: 2, dash: [2.5, 3])
+                )
+                // The + stays green ONLY here — it marks a future
+                // node on the rail (§H).
+                context.draw(
+                    Text("+").font(.system(.footnote, design: .monospaced, weight: .semibold)).foregroundStyle(Theme.accent),
+                    at: CGPoint(x: 15, y: mid - 0.5)
+                )
+            }
+            .frame(width: 28, height: railRowHeight)
 
-                // A button, not a passive row (#209): green creation
-                // grammar in a solid capsule (#224 — dashes belong to
-                // pending state, not buttons).
+            // A button, not a passive row (#209): green creation
+            // grammar on a raised key (#224 — dashes belong to
+            // pending state, not buttons).
+            Button {
+                pickerDestination = .newGroup
+            } label: {
                 Text("Add exercise")
                     .font(.system(.subheadline, weight: .semibold))
                     .foregroundStyle(Theme.accent)
                     .padding(.horizontal, 18)
                     .frame(height: 44)
+                    .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                     .overlay(
                         RoundedRectangle(cornerRadius: Theme.controlRadius)
                             .strokeBorder(Theme.borderStrong)
                     )
-                Spacer(minLength: 0)
             }
-            .frame(height: railRowHeight)
-            .contentShape(Rectangle())
+            .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
+            .accessibilityIdentifier("addExerciseButton")
+            Spacer(minLength: 0)
         }
-        .accessibilityIdentifier("addExerciseButton")
+        .frame(height: railRowHeight)
     }
 
     /// One row: swipe-revealable content with the two long-press zones —
@@ -618,19 +621,12 @@ struct RoutineDetailView: View {
     @ViewBuilder
     private var bottomBar: some View {
         if !routine.groups.isEmpty {
-            Button {
+            StartFlashButton(label: "Start workout", height: 52, identifier: "startWorkoutButton") {
+                // Fire-time re-check (the flash defers ~0.85 s; see
+                // TodayView.start for the failure class).
+                guard activeSession == nil, !routine.isDeleted else { return }
                 activeSession = WorkoutSession.start(from: routine, context: modelContext)
-            } label: {
-                HStack(spacing: 9) {
-                    Image(systemName: "play.fill").font(.system(.footnote))
-                    Text("Start workout").font(.system(.body, weight: .bold))
-                }
-                .foregroundStyle(Theme.onPrimary)
-                .frame(maxWidth: .infinity)
-                .frame(height: 54)
-                .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
             }
-            .accessibilityIdentifier("startWorkoutButton")
             .padding(.horizontal, 16)
             .padding(.top, 12)
             .padding(.bottom, 8)
@@ -1120,16 +1116,19 @@ struct RoutineSettingsScreen: View {
                     } label: {
                         // Solid selection blue (#210), not green:
                         // scheduling a day is choosing an option; the
-                        // due OUTPUT on Today stays green.
+                        // due OUTPUT on Today stays green. 34 pt visual
+                        // (Quiet Arcade) inside the 44 pt hit target.
                         Text(Self.dayLabels[weekday - 1])
-                            .font(.system(.subheadline, design: .monospaced, weight: .semibold))
+                            .font(.system(.caption, design: .monospaced, weight: .semibold))
                             .foregroundStyle(selected ? Theme.onSelected : Theme.textSecondary)
-                            .frame(width: 44, height: 44)
+                            .frame(width: 34, height: 34)
                             .background(
                                 selected ? AnyShapeStyle(Theme.selected) : AnyShapeStyle(Theme.background),
                                 in: Circle()
                             )
                             .overlay(Circle().strokeBorder(selected ? Color.clear : Theme.border, lineWidth: 1))
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
                     .accessibilityIdentifier("scheduleDay\(weekday)")
 

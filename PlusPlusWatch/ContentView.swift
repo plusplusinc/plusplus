@@ -30,7 +30,7 @@ struct ContentView: View {
                     VStack(spacing: 6) {
                         Text("++")
                             .font(.system(.title3, design: .monospaced, weight: .bold))
-                            .foregroundStyle(.green)
+                            .foregroundStyle(WatchTheme.accent)
                         Text("Open PlusPlus on your iPhone to sync routines.")
                             .font(.footnote)
                             .multilineTextAlignment(.center)

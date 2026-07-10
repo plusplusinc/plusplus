@@ -365,6 +365,22 @@ struct RoutineScheduleTests {
                 == .frequency(times: 1, perDays: 1))
     }
 
+    // MARK: - Weekly expectation (the week block bar)
+
+    @Test func expectedSessionsPerWeekCountsWeekdays() {
+        #expect(RoutineSchedule.unscheduled.expectedSessionsPerWeek == 0)
+        #expect(RoutineSchedule.weekdays([]).expectedSessionsPerWeek == 0)
+        #expect(RoutineSchedule.weekdays([2, 4, 6]).expectedSessionsPerWeek == 3)
+    }
+
+    @Test func expectedSessionsPerWeekNormalizesFrequencyToSevenDays() {
+        #expect(RoutineSchedule.frequency(times: 3, perDays: 7).expectedSessionsPerWeek == 3)
+        #expect(RoutineSchedule.frequency(times: 1, perDays: 2).expectedSessionsPerWeek == 4)
+        // A schedule that exists never rounds to zero.
+        #expect(RoutineSchedule.frequency(times: 1, perDays: 10).expectedSessionsPerWeek == 1)
+        #expect(RoutineSchedule.frequency(times: 2, perDays: 7).expectedSessionsPerWeek == 2)
+    }
+
     // MARK: - Codable
 
     @Test func codableRoundTripsAllModes() throws {

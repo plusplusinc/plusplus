@@ -238,7 +238,7 @@ struct TodayView: View {
                     startEmptySession()
                 }
             }) {
-                SwapInSheet(routines: swapInCandidates, onPick: { routine in
+                SwapInSheet(routines: swapInCandidates, dueIDs: Set(dueRoutines.map(\.persistentModelID)), onPick: { routine in
                     swapInPick = routine
                     showingSwapIn = false
                 }, onCreate: {
@@ -544,7 +544,7 @@ struct TodayView: View {
     private func futureCaption(for entry: UpcomingEntry) -> String {
         let weekday = entry.day.formatted(.dateTime.weekday(.abbreviated)).lowercased()
         let date = entry.day.formatted(.dateTime.month(.abbreviated).day()).lowercased()
-        return "\(weekday) · \(date) · \(estimateText(for: entry.routine))"
+        return "\(weekday) · \(date) · \(entry.routine.estimateText)"
     }
 
     /// The two most recent completions of a routine: `.last` drives
@@ -663,6 +663,14 @@ struct TodayView: View {
         // Belt and braces with the dueRoutines/swap-in filters: an empty
         // routine must never become a committed 0-set session.
         guard !routine.groups.isEmpty else { return }
+        // Re-checked at FIRE time, not just tap time: StartFlashButton
+        // defers ~0.85 s, long enough for a second Start to flash
+        // (double-start orphan) or the start tray to present — setting
+        // activeSession under a live sheet is the documented
+        // presentation-drop class, and a dropped cover with a non-nil
+        // activeSession would wedge every future start and salvage
+        // (swift-reviewer). A tap that raced the tray simply loses.
+        guard activeSession == nil, !showingSwapIn else { return }
         // ActiveSessionView requests notification permission on appear.
         activeSession = WorkoutSession.start(from: routine, context: modelContext)
     }
@@ -679,52 +687,66 @@ struct TodayView: View {
     // MARK: - Header
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        let plan = weekPlan
+        return VStack(alignment: .leading, spacing: 0) {
             HStack {
                 // The ++ is a button now (#266): the app-level page —
-                // Settings, About, What's new, links, feedback.
+                // Settings, About, What's new, links, feedback. Bare
+                // glyph, no circle chrome (Quiet Arcade): the brand
+                // mark shouldn't dress like a key.
                 Button {
                     showingAppMenu = true
                 } label: {
                     HeaderGlyph()
-                        .frame(width: 44, height: 44)
-                        .background(Theme.surface, in: Circle())
-                        .overlay(Circle().strokeBorder(Theme.border))
-                        .contentShape(Circle())
+                        .frame(width: 44, height: 44, alignment: .leading)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("appMenuButton")
                 Spacer()
-                // Settings' old seat starts workouts instead (#266,
-                // Dave's call): the one action that should never be
-                // more than a tap away, via the existing start tray.
-                // Green deliberately: starting MINTS a session — a
-                // pending history entry being created (the v3 framing) —
-                // so it rides the creation grammar like the other
-                // header-circle buttons, not selection blue.
-                HeaderIconButton(systemImage: "play", identifier: "startTrayButton", tint: Theme.accent) {
+                // Settings' old seat starts workouts instead (#266):
+                // the one action that should never be more than a tap
+                // away, via the existing start tray. Neutral like every
+                // header key (Quiet Arcade tightened green's scope to
+                // true data; the flourish moved into Start's flash).
+                HeaderIconButton(systemImage: "play.fill", identifier: "startTrayButton") {
                     showingSwapIn = true
                 }
             }
             Text("Today")
                 .font(.system(.title, weight: .bold))
                 .padding(.top, 10)
-            Text(caption)
+            Text(caption(plan: plan))
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
                 .padding(.top, 3)
+            // The week block bar: one block per scheduled session this
+            // week, filled purple as sessions land. Purple, not green —
+            // it counts what's committed, and it hides entirely when
+            // nothing is scheduled (no plan, no empty scorecard).
+            if !(setupActive && !allSetupDone), plan.planned > 0 {
+                BlockBar(total: plan.planned, filled: plan.completed)
+                    .padding(.top, 8)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 12)
     }
 
-    private var caption: String {
+    private var weekPlan: (completed: Int, planned: Int) {
+        WeekPlan.counts(routines: routines, sessions: sessions, today: today, calendar: calendar)
+    }
+
+    private func caption(plan: (completed: Int, planned: Int)) -> String {
         let date = today.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()).lowercased()
         if setupActive && !allSetupDone {
             return "\(date) · setup \(setupDoneCount) of 3"
         }
-        // No "N due" tally (#172): the staged cards below ARE the tally.
-        return date
+        // The week tally is calendar fact, not obligation (#172-safe:
+        // it never says what's LEFT, only what the plan holds and what
+        // has landed). No "N due" tally — the staged cards ARE that.
+        guard plan.planned > 0 else { return date }
+        return "\(date) · \(plan.completed) of \(plan.planned) session\(plan.planned == 1 ? "" : "s") this week"
     }
 
     // MARK: - Pending card
@@ -757,7 +779,7 @@ struct TodayView: View {
                     .font(.system(.body, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
-                Text(estimateText(for: routine))
+                Text(routine.estimateText)
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(Theme.textFaint)
                 Spacer(minLength: 8)
@@ -804,17 +826,9 @@ struct TodayView: View {
                     .accessibilityIdentifier("diffSummary")
             }
 
-            Button {
+            StartFlashButton(label: "Start", identifier: "startStagedButton") {
                 start(routine)
-            } label: {
-                Text("Start")
-                    .font(.system(.subheadline, weight: .bold))
-                    .foregroundStyle(Theme.onPrimary)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44)
-                    .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 11))
             }
-            .accessibilityIdentifier("startStagedButton")
             .padding(.top, 12)
         }
         .padding(12)
@@ -842,11 +856,6 @@ struct TodayView: View {
         guard !list.isEmpty else { return nil }
         let shown = list.prefix(3).joined(separator: ", ")
         return list.count > 3 ? "\(shown) +\(list.count - 3)" : shown
-    }
-
-    private func estimateText(for routine: Routine) -> String {
-        let minutes = max(5, Int((Double(routine.estimatedSeconds) / 300).rounded()) * 5)
-        return "~\(minutes) min"
     }
 
     /// The colored summary line, composed as one Text so it truncates
@@ -1030,17 +1039,12 @@ struct TodayView: View {
                 // is the offer.
                 if !setupActive, !scheduledRoutinesExist,
                    let target = swapInCandidates.first {
-                    Button {
+                    QuietKey(
+                        label: "schedule a routine — it appears here on its day",
+                        identifier: "scheduleOfferButton"
+                    ) {
                         scheduleEditTarget = target
-                    } label: {
-                        Text("schedule a routine — it appears here on its day")
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundStyle(Theme.selected)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("scheduleOfferButton")
                 }
                 // No candidates → no dead tray (#208): offer creation
                 // directly instead.
@@ -1057,8 +1061,10 @@ struct TodayView: View {
                         .foregroundStyle(Theme.accent)
                         .frame(maxWidth: .infinity)
                         .frame(height: 46)
+                        .background(Theme.background, in: RoundedRectangle(cornerRadius: 10))
                         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.borderStrong))
                     }
+                    .buttonStyle(.raisedKey(cornerRadius: 10))
                     .accessibilityIdentifier("restDayNewRoutineButton")
                 } else {
                     Button {
@@ -1074,30 +1080,20 @@ struct TodayView: View {
                         }
                         .foregroundStyle(Theme.textPrimary)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 40)
+                        .frame(height: 44)
+                        .background(Theme.background, in: RoundedRectangle(cornerRadius: 10))
                         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.borderStrong))
                     }
+                    .buttonStyle(.raisedKey(cornerRadius: 10))
                     .accessibilityIdentifier("swapInButton")
                 }
                 // The no-plan path (#239): walk in, start logging, keep
                 // the result as a routine at the finish if it earned it.
-                Button {
+                // A quiet key (Quiet Arcade names it explicitly): the
+                // escape hatch, not the headline.
+                QuietKey(label: "start empty workout", identifier: "startEmptyWorkoutButton") {
                     startEmptySession()
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "plus")
-                            .font(.system(.caption, weight: .semibold))
-                        Text("Start empty workout")
-                            .font(.system(.footnote, weight: .semibold))
-                    }
-                    // Creation is green (#202) — this births a session
-                    // (and maybe a routine) from nothing.
-                    .foregroundStyle(Theme.accent)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 40)
-                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.borderStrong))
                 }
-                .accessibilityIdentifier("startEmptyWorkoutButton")
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1127,9 +1123,11 @@ struct TodayView: View {
                 }
                 .foregroundStyle(Theme.accent)
                 .frame(maxWidth: .infinity)
-                .frame(height: 40)
+                .frame(height: 44)
+                .background(Theme.background, in: RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.borderStrong))
             }
+            .buttonStyle(.raisedKey(cornerRadius: 10))
             .accessibilityIdentifier("emptyRoutineAddButton")
         }
         .padding(12)
@@ -1349,6 +1347,7 @@ private struct SetupRow: View {
                         .frame(height: 44)
                         .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 11))
                 }
+                .buttonStyle(.raisedPrimaryKey())
                 .accessibilityIdentifier(identifier)
                 .padding(.top, 10)
             }
@@ -1387,10 +1386,16 @@ private struct SetupRow: View {
 }
 
 /// Off-schedule session picker (§3): choosing a routine starts it —
-/// it commits to the timeline like any other session.
+/// it commits to the timeline like any other session. Quiet Arcade
+/// layout: hairline rows with a green "today" pill on the scheduled
+/// one (picking a different routine IS the swap), creation as a
+/// green key, and "start empty workout" as the quiet-key escape.
 private struct SwapInSheet: View {
     @Environment(\.dismiss) private var dismiss
     let routines: [Routine]
+    /// Routines due today — they wear the pill, everyone else shows
+    /// their cadence.
+    let dueIDs: Set<PersistentIdentifier>
     let onPick: (Routine) -> Void
     let onCreate: () -> Void
     let onStartEmpty: () -> Void
@@ -1403,29 +1408,48 @@ private struct SwapInSheet: View {
             SheetHeader(title: "Start a workout", closeOnly: true, action: { dismiss() })
 
             ScrollView {
-                VStack(spacing: 7) {
+                VStack(alignment: .leading, spacing: 0) {
                     ForEach(routines) { routine in
                         Button {
                             onPick(routine)
                         } label: {
-                            HStack {
-                                Text(routine.name)
-                                    .font(.system(.subheadline, weight: .semibold))
-                                    .foregroundStyle(Theme.textPrimary)
-                                Spacer()
-                                Text(routine.schedule.shortLabel)
-                                    .font(.system(.caption2, design: .monospaced))
-                                    .foregroundStyle(Theme.textFaint)
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(routine.name)
+                                        .font(.system(.subheadline, weight: .semibold))
+                                        .foregroundStyle(Theme.textPrimary)
+                                        .lineLimit(1)
+                                    Text(rowCaption(for: routine))
+                                        .font(.system(.caption2, design: .monospaced))
+                                        .foregroundStyle(Theme.textFaint)
+                                        .lineLimit(1)
+                                }
+                                Spacer(minLength: 8)
+                                if dueIDs.contains(routine.persistentModelID) {
+                                    // Green pill: today's occurrence is
+                                    // data (the next increment), not
+                                    // selection.
+                                    Text("today")
+                                        .font(.system(.caption2, design: .monospaced))
+                                        .foregroundStyle(Theme.accent)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 2.5)
+                                        .overlay(Capsule().strokeBorder(Theme.accent.opacity(0.4)))
+                                } else {
+                                    Text(routine.schedule.shortLabel)
+                                        .font(.system(.caption2, design: .monospaced))
+                                        .foregroundStyle(Theme.textFaint)
+                                }
                             }
-                            .padding(.horizontal, 14)
-                            .frame(height: 48)
-                            .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
-                            .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
+                            .frame(minHeight: 52)
+                            .contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
+                        .overlay(alignment: .bottom) { Divider().overlay(Theme.border) }
                     }
 
-                    // Creation from the tray (#208) — green, like every
-                    // other birth-of-something affordance.
+                    // Creation from the tray (#208) — green content on a
+                    // raised key, like every in-list creation row.
                     Button {
                         onCreate()
                     } label: {
@@ -1439,44 +1463,42 @@ private struct SwapInSheet: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 14)
                         .frame(height: 48)
-                        .contentShape(Rectangle())
+                        .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                         .overlay(
                             RoundedRectangle(cornerRadius: Theme.controlRadius)
                                 .strokeBorder(Theme.borderStrong)
                         )
                     }
+                    .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
                     .accessibilityIdentifier("swapInCreateRoutine")
+                    .padding(.top, 14)
 
                     // The third path (#239): no template at all — log
                     // what happens and decide at the end if it's worth
-                    // keeping as a routine.
-                    Button {
+                    // keeping as a routine. The tray's escape hatch, so
+                    // it speaks quietly.
+                    QuietKey(label: "start empty workout", identifier: "swapInStartEmpty") {
                         onStartEmpty()
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "plus")
-                                .font(.system(.caption, weight: .semibold))
-                            Text("Start empty workout")
-                                .font(.system(.footnote, weight: .semibold))
-                        }
-                        .foregroundStyle(Theme.accent)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 14)
-                        .frame(height: 48)
-                        .contentShape(Rectangle())
-                        .overlay(
-                            RoundedRectangle(cornerRadius: Theme.controlRadius)
-                                .strokeBorder(Theme.borderStrong)
-                        )
                     }
-                    .accessibilityIdentifier("swapInStartEmpty")
+                    .padding(.top, 8)
+
+                    Text("picking a different routine here IS the swap — it runs today without rescheduling")
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(Theme.textFaint)
+                        .padding(.top, 10)
                 }
-                .padding(.top, 12)
+                .padding(.top, 4)
                 .padding(.bottom, 24)
             }
         }
         .padding(.horizontal, 18)
-        .presentationBackground(Theme.surface)
+        .presentationBackground(Theme.background)
         .presentationDetents([.medium, .large])
+    }
+
+    /// "6 exercises · ~40 min" — the go/no-go facts for picking.
+    private func rowCaption(for routine: Routine) -> String {
+        let count = routine.sortedGroups.reduce(0) { $0 + $1.sortedExercises.count }
+        return "\(count) exercise\(count == 1 ? "" : "s") · \(routine.estimateText)"
     }
 }
