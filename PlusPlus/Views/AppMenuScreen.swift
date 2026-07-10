@@ -142,6 +142,7 @@ struct AppMenuScreen: View {
 /// TestFlight dispatch (keep it to one line, no obligation words).
 private enum WhatsNew {
     static let entries: [(build: String, notes: String)] = [
+        ("46", "Cardio speaks its own numbers — splits, watts, damper, incline · intervals: rounds with their own rest · choose what any exercise tracks · heart rate on screen"),
         ("45", "The ++ key on every tab · catalog pages push and pop one step at a time"),
         ("44", "The ++ wears its key"),
         ("43", "Keys travel deeper · the +1 gets its moment · swipe actions in full color · our own chrome, corner to corner"),

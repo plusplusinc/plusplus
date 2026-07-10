@@ -114,7 +114,9 @@ struct DefaultTargetsTests {
 
         let draft = ExerciseDraft(from: press)
         #expect(draft.defaultWeight == 135)
-        draft.exerciseType = .duration
+        // Retracking to duration-only is the old "switch type" —
+        // untracked metrics drop their stale defaults.
+        draft.trackedMetrics = [.duration]
         draft.defaultDurationSeconds = 60
         draft.apply(to: press)
 

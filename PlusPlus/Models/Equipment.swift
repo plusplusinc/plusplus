@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import PlusPlusKit
 
 @Model
 final class Equipment {
@@ -11,6 +12,12 @@ final class Equipment {
     /// the unit default, 5 lb / 2.5 kg). Unit-agnostic like every
     /// stored number: the value is whatever the user's plates say.
     var weightStep: Double?
+    /// Suggested tracked-metric profile for exercises on this gear
+    /// (flexible metrics), Kit-encoded JSON. nil resolves through
+    /// `suggestedProfile`: built-ins fall back to the seed table (a
+    /// rower suggests distance/pace/resistance), customs to nil — the
+    /// user hasn't said, so new exercises keep the classic default.
+    var metricsData: Data?
     /// Explicit inverse of Exercise.equipment. The relationship ran
     /// inverse-less for months and the store dropped exercise→equipment
     /// rows nondeterministically (#186's field loss; CI's populate-test
@@ -22,5 +29,16 @@ final class Equipment {
     init(name: String, isBuiltIn: Bool = false) {
         self.name = name
         self.isBuiltIn = isBuiltIn
+    }
+
+    /// What exercises on this gear typically track — the prefill for new
+    /// custom exercises and (for customs) the gate on weight-step config.
+    /// nil means "nothing special": plain strength gear.
+    var suggestedProfile: MetricProfile? {
+        get {
+            if let stored = MetricProfile.decode(from: metricsData) { return stored }
+            return isBuiltIn ? SeedData.equipmentProfile(named: name) : nil
+        }
+        set { metricsData = newValue?.encoded() }
     }
 }

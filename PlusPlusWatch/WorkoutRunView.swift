@@ -23,6 +23,9 @@ struct WorkoutRunView: View {
     @State private var startedAt: Date?
     @State private var results: [WatchSync.StepResult] = []
     @State private var restEndsAt: Date?
+    /// The current rest's configured length — the recharge blocks'
+    /// denominator (per-block overrides make it vary between sets).
+    @State private var currentRestTotal = 90
     @State private var finished = false
 
     /// One HealthKit workout session per run view (#90). @Observable in
@@ -124,6 +127,31 @@ struct WorkoutRunView: View {
     }
 
     private func targetText(_ step: WatchSync.Step) -> String {
+        // Flexible-metric steps (a rower's distance/damper) carry their
+        // targets in extraTargets — the shared Kit line renders them
+        // exactly like the phone's up-next card.
+        if let extras = step.extraTargets, !extras.isEmpty {
+            let values = MetricValues.fromRaw(extras)
+            var metrics = Array(values.keys)
+            if step.targetWeight != nil { metrics.append(.weight) }
+            if step.targetRepsLower != nil { metrics.append(.reps) }
+            if step.targetDuration != nil { metrics.append(.duration) }
+            let profile = MetricProfile(metrics, distanceUnit: step.distanceUnit ?? .meters)
+            let line = MetricSummary.line(
+                profile: profile,
+                repsText: step.targetRepsLower != nil
+                    ? RepTarget(lower: step.targetRepsLower, upper: step.targetRepsUpper).display
+                    : nil
+            ) { metric in
+                switch metric {
+                case .weight: step.targetWeight
+                case .reps: step.targetRepsLower.map(Double.init)
+                case .duration: step.targetDuration.map(Double.init)
+                default: values[metric]
+                }
+            }
+            if let line { return line }
+        }
         if step.isDuration {
             return WorkoutMetric.duration.displayText(step.targetDuration.map(Double.init))
         }
@@ -170,7 +198,11 @@ struct WorkoutRunView: View {
             completedAt: Date()
         ))
         if results.count < routine.steps.count {
-            let end = Date().addingTimeInterval(TimeInterval(routine.restSeconds))
+            // The just-logged block's rest override (interval blocks)
+            // wins over the routine default — same rule as the phone.
+            let restLength = step.restSecondsOverride ?? routine.restSeconds
+            currentRestTotal = restLength
+            let end = Date().addingTimeInterval(TimeInterval(restLength))
             restEndsAt = end
             // The in-app haptic only fires while the app is frontmost;
             // with the wrist down the app suspends, so a local
@@ -229,7 +261,7 @@ struct WorkoutRunView: View {
     /// denominator, so a long rest and a short one both read as one
     /// full recharge.
     private func rechargeBlocks(remaining: TimeInterval) -> some View {
-        let total = max(routine.restSeconds, 1)
+        let total = max(currentRestTotal, 1)
         let filled = min(12, Int((remaining / Double(total) * 12).rounded(.up)))
         return HStack(spacing: 2) {
             ForEach(0..<12, id: \.self) { index in

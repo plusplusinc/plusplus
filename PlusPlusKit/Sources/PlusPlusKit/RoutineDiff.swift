@@ -13,13 +13,21 @@ public enum RoutineDiff {
         public var weight: Double?
         public var reps: Int?
         public var durationSeconds: Int?
+        /// Tracked metrics beyond the classic three (distance, pace,
+        /// power, calories…). Only the diffable ones participate; the
+        /// rest are machine settings the diff ignores.
+        public var extras: [WorkoutMetric: Double]
+        /// What the extras' distance/pace numbers are denominated in.
+        public var distanceUnit: DistanceUnit
 
-        public init(name: String, isDuration: Bool = false, weight: Double? = nil, reps: Int? = nil, durationSeconds: Int? = nil) {
+        public init(name: String, isDuration: Bool = false, weight: Double? = nil, reps: Int? = nil, durationSeconds: Int? = nil, extras: [WorkoutMetric: Double] = [:], distanceUnit: DistanceUnit = .meters) {
             self.name = name
             self.isDuration = isDuration
             self.weight = weight
             self.reps = reps
             self.durationSeconds = durationSeconds
+            self.extras = extras
+            self.distanceUnit = distanceUnit
         }
     }
 
@@ -29,23 +37,35 @@ public enum RoutineDiff {
         public var weight: Double?
         public var reps: Int?
         public var durationSeconds: Int?
+        public var extras: [WorkoutMetric: Double]
 
-        public init(weight: Double? = nil, reps: Int? = nil, durationSeconds: Int? = nil) {
+        public init(weight: Double? = nil, reps: Int? = nil, durationSeconds: Int? = nil, extras: [WorkoutMetric: Double] = [:]) {
             self.weight = weight
             self.reps = reps
             self.durationSeconds = durationSeconds
+            self.extras = extras
         }
     }
 
     /// The single delta an exercise contributes to the summary line.
-    /// Increases only (#246): a silenced weight decrease falls through
+    /// Improvements only (#246): a silenced weight decrease falls through
     /// to a reps increase — see `delta(target:prior:)` for the why.
+    /// Pace improvements carry a NEGATIVE value (faster = smaller) but
+    /// render as up-kind — the direction that means progress is the
+    /// metric's, not the number's.
     public enum Delta: Equatable, Sendable {
         case new
         case unchanged
         case weight(Double)
         case reps(Int)
         case duration(Int)
+        case distance(Double, DistanceUnit)
+        case pace(Double, DistanceUnit)
+        case calories(Double)
+        case power(Double)
+        /// Negative value = less assistance = the improvement.
+        case assistance(Double)
+        case height(Double)
 
         public var isChange: Bool {
             switch self {
@@ -55,28 +75,65 @@ public enum RoutineDiff {
         }
     }
 
-    /// Deltas report INCREASES only (#246): the prior is the last
+    /// The order improvements are looked for — the first that moved is
+    /// the exercise's one delta. Load beats reps (the v3 rule; a lighter
+    /// assistance stack IS the load moving), then the plyo box, then for
+    /// cardio a faster pace is the sexiest increment, then more
+    /// distance/calories/watts, then longer duration.
+    static let diffPriority: [WorkoutMetric] = [
+        .weight, .assistance, .reps, .height, .pace, .distance, .calories, .power, .duration,
+    ]
+
+    /// Deltas report IMPROVEMENTS only (#246): the prior is the last
     /// ACTUAL performance, so a plan sitting below it is the normal
     /// morning-after state when the user out-lifted the plan (weight
     /// carry-forward raises actuals, not routine targets) — rendering
     /// that as a minus made beating the plan read as a planned
     /// regression. Deliberate deloads are known to their author; the
-    /// diff celebrates up and stays quiet otherwise (anti-shame).
-    /// A silenced weight decrease falls through to a reps increase, so
-    /// the up that exists still shows.
+    /// diff celebrates the direction that means progress (up for
+    /// weight/reps/distance, DOWN for pace) and stays quiet otherwise
+    /// (anti-shame). A silenced weight decrease falls through to a reps
+    /// increase, so the up that exists still shows. Neutral-direction
+    /// metrics (resistance, incline, speed…) are settings, not progress —
+    /// they never produce a delta.
     public static func delta(target: Target, prior: Prior?) -> Delta {
         guard let prior else { return .new }
-        if target.isDuration {
-            if let staged = target.durationSeconds, let last = prior.durationSeconds, staged > last {
-                return .duration(staged - last)
+        for metric in diffPriority {
+            let staged: Double?
+            let last: Double?
+            switch metric {
+            case .weight:
+                staged = target.weight
+                last = prior.weight
+            case .reps:
+                staged = target.reps.map(Double.init)
+                last = prior.reps.map(Double.init)
+            case .duration:
+                staged = target.durationSeconds.map(Double.init)
+                last = prior.durationSeconds.map(Double.init)
+            default:
+                staged = target.extras[metric]
+                last = prior.extras[metric]
             }
-            return .unchanged
-        }
-        if let staged = target.weight, let last = prior.weight, staged > last {
-            return .weight(staged - last)
-        }
-        if let staged = target.reps, let last = prior.reps, staged > last {
-            return .reps(staged - last)
+            guard let staged, let last else { continue }
+            let improved = switch metric.improvementDirection {
+            case .up: staged > last
+            case .down: staged < last
+            case .neutral: false
+            }
+            guard improved else { continue }
+            switch metric {
+            case .weight: return .weight(staged - last)
+            case .reps: return .reps(Int(staged - last))
+            case .duration: return .duration(Int(staged - last))
+            case .distance: return .distance(staged - last, target.distanceUnit)
+            case .pace: return .pace(staged - last, target.distanceUnit)
+            case .calories: return .calories(staged - last)
+            case .power: return .power(staged - last)
+            case .assistance: return .assistance(staged - last)
+            case .height: return .height(staged - last)
+            default: continue
+            }
         }
         return .unchanged
     }
@@ -120,6 +177,25 @@ public enum RoutineDiff {
                 segments.append(Segment(kind: by > 0 ? .up : .down, text: signed(Double(by), unit: by == 1 || by == -1 ? "rep" : "reps")))
             case .duration(let by):
                 segments.append(Segment(kind: by > 0 ? .up : .down, text: signed(Double(by), unit: "sec")))
+            case .distance(let by, let unit):
+                segments.append(Segment(kind: by > 0 ? .up : .down, text: signed(by, unit: unit.symbol)))
+            case .pace(let by, let unit):
+                // A negative pace delta IS the improvement — faster.
+                // "−0:05 /500m" in up-green: kind speaks progress, the
+                // sign speaks arithmetic.
+                segments.append(Segment(kind: by < 0 ? .up : .down, text: signedPace(by, unit: unit)))
+            case .calories(let by):
+                segments.append(Segment(kind: by > 0 ? .up : .down, text: signed(by, unit: "cal")))
+            case .power(let by):
+                segments.append(Segment(kind: by > 0 ? .up : .down, text: signed(by, unit: "W")))
+            case .assistance(let by):
+                // Less assistance is the improvement: "−10 lb assist"
+                // in up-green — kind speaks progress, the sign speaks
+                // arithmetic (the pace rule).
+                segments.append(Segment(kind: by < 0 ? .up : .down, text: signed(by, unit: "\(weightUnit.symbol) assist")))
+            case .height(let by):
+                // Height rides the weight unit (in/cm), like the metric.
+                segments.append(Segment(kind: by > 0 ? .up : .down, text: signed(by, unit: weightUnit == .kg ? "cm" : "in")))
             }
         }
         if newCount > 0 {
@@ -141,6 +217,13 @@ public enum RoutineDiff {
             ? String(Int(magnitude))
             : String(magnitude)
         return (value > 0 ? "+" : "−") + text + " " + unit
+    }
+
+    /// "−0:05 /500m" — pace deltas read as clock time like pace itself.
+    static func signedPace(_ value: Double, unit: DistanceUnit) -> String {
+        let total = Int(abs(value).rounded())
+        let clock = String(format: "%d:%02d", total / 60, total % 60)
+        return (value > 0 ? "+" : "−") + clock + " " + unit.paceLabel
     }
 
     // MARK: - Net chip (committed entries)

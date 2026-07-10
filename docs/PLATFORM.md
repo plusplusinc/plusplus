@@ -108,6 +108,16 @@ The app's single-file export (backup / manual transport) is a bundle:
       "videoURL": "https://youtu.be/ykZHbcGNfII"
     },
     {
+      "distanceUnit": "m",
+      "equipment": ["Rowing Machine"],
+      "exerciseType": "duration",
+      "extraDefaults": { "distance": 2000, "resistance": 5 },
+      "isBuiltIn": false,
+      "metrics": ["distance", "duration", "pace", "resistance"],
+      "muscleGroup": "fullBody",
+      "name": "Erg Row"
+    },
+    {
       "equipment": ["Bench", "Dumbbells"],
       "exerciseType": "weightReps",
       "isBuiltIn": false,
@@ -123,6 +133,19 @@ The app's single-file export (backup / manual transport) is a bundle:
     }
   ],
   "routines": [
+    {
+      "groups": [
+        {
+          "exercises": [
+            { "exercise": "Erg Row", "extraTargets": { "distance": 500, "pace": 118 } }
+          ],
+          "restSeconds": 120,
+          "sets": 4
+        }
+      ],
+      "name": "Erg Intervals",
+      "restSeconds": 90
+    },
     {
       "groups": [
         {
@@ -159,6 +182,22 @@ The app's single-file export (backup / manual transport) is a bundle:
         }
       ],
       "startedAt": "2026-07-05T14:31:00Z"
+    },
+    {
+      "endedAt": "2026-07-06T10:24:00Z",
+      "restSeconds": 90,
+      "routineName": "Erg Intervals",
+      "sets": [
+        {
+          "actualDuration": 112,
+          "completedAt": "2026-07-06T10:02:11Z",
+          "exerciseName": "Erg Row", "exerciseType": "duration",
+          "extraActuals": { "distance": 500, "pace": 116 },
+          "extraTargets": { "distance": 500, "pace": 118 },
+          "groupIndex": 0, "order": 0, "restSecondsOverride": 120, "setNumber": 1
+        }
+      ],
+      "startedAt": "2026-07-06T10:00:00Z"
     }
   ]
 }
@@ -183,6 +222,26 @@ Semantics worth writing down:
   on an exercise are what a fresh routine entry starts from. Same bounds as
   routine entries; absent fields mean "use the app's global defaults", and
   pre-existing files stay valid (and byte-identical) without them.
+- **Flexible metrics** (additive to schema v1): an exercise may declare
+  `metrics` — which of the curated identifiers it tracks: `weight`,
+  `assistance`, `reps`, `height`, `distance`, `calories`, `duration`, `pace`,
+  `speed`, `incline`, `resistance`, `power`, `cadence`, `rpe`. The vocabulary
+  is fixed (validators reject unknown identifiers — this is what `plusplus
+  lint` is for); a profile must include at least one *work* metric (`reps`,
+  `distance`, `calories`, or `duration`). `exerciseType` stays authoritative
+  for old readers and must agree: profiles tracking `reps` are `weightReps`,
+  everything else is `duration`. Absent `metrics` means exactly what
+  `exerciseType` always meant. `distanceUnit` (`m` / `km` / `mi`, absent =
+  meters) declares what distance/pace/speed numbers mean — a declaration,
+  never a conversion, like `units`; pace values are plain seconds against the
+  unit's reference (`/500m` for meters, else per km/mi). Values for metrics
+  beyond the dedicated weight/reps/duration fields ride string-keyed maps:
+  `extraDefaults` (exercises), `extraTargets` (routine entries and session
+  sets), `extraActuals` (session sets). Keys must come from the vocabulary and
+  must not shadow a dedicated field. A group's optional `restSeconds`
+  (15–600) overrides the routine's rest for that block — how interval blocks
+  (4×500 m with 2:00 rests) are written — and session sets snapshot it as
+  `restSecondsOverride`.
 - **Sessions snapshot everything** (names, types, targets) exactly like the app's
   data model, so history files stand alone even if templates change.
 - **Import policy** (app side): exercises upsert by case-insensitive name;

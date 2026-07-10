@@ -31,7 +31,7 @@ enum InterchangeMapping {
             // Built-ins ship with every install; only export ones the user
             // has annotated so imports stay meaningful.
             exercises: exercises
-                .filter { !$0.isBuiltIn || $0.notes != nil || $0.videoURL != nil || $0.hasDefaultTargets }
+                .filter { !$0.isBuiltIn || $0.notes != nil || $0.videoURL != nil || $0.hasDefaultTargets || $0.metricsData != nil }
                 .map(makeDTO),
             routines: routines.map(makeDTO),
             sessions: sessions.map(makeDTO)
@@ -39,7 +39,12 @@ enum InterchangeMapping {
     }
 
     static func makeDTO(_ exercise: Exercise) -> ExerciseDTO {
-        ExerciseDTO(
+        // The profile travels only when it's an explicit per-store state
+        // (metricsData set): built-ins' table profiles and legacy
+        // customs' type-derived profiles resolve identically on the
+        // importing side, and absent fields keep old bundles byte-stable.
+        let explicitProfile = MetricProfile.decode(from: exercise.metricsData)
+        return ExerciseDTO(
             name: exercise.name,
             muscleGroup: exercise.muscleGroup,
             exerciseType: exercise.exerciseType,
@@ -50,7 +55,10 @@ enum InterchangeMapping {
             defaultWeight: exercise.defaultWeight,
             defaultReps: exercise.defaultReps,
             defaultRepsUpper: exercise.defaultRepsUpper,
-            defaultDurationSeconds: exercise.defaultDurationSeconds
+            defaultDurationSeconds: exercise.defaultDurationSeconds,
+            metrics: explicitProfile.map { $0.metrics.map(\.rawValue) },
+            distanceUnit: explicitProfile?.distanceUnit,
+            extraDefaults: MetricValues.toRaw(exercise.extraDefaults)
         )
     }
 
@@ -69,9 +77,11 @@ enum InterchangeMapping {
                             weight: entry.weight,
                             reps: entry.reps,
                             repsUpper: entry.repsUpper,
-                            durationSeconds: entry.durationSeconds
+                            durationSeconds: entry.durationSeconds,
+                            extraTargets: MetricValues.toRaw(entry.extraTargets)
                         )
-                    }
+                    },
+                    restSeconds: group.restSecondsOverride
                 )
             }
         )
@@ -97,7 +107,10 @@ enum InterchangeMapping {
                     actualWeight: log.actualWeight,
                     actualReps: log.actualReps,
                     actualDuration: log.actualDuration,
-                    completedAt: log.completedAt
+                    completedAt: log.completedAt,
+                    extraTargets: MetricValues.toRaw(log.extraTargets),
+                    extraActuals: MetricValues.toRaw(log.extraActuals),
+                    restSecondsOverride: log.restSecondsOverride
                 )
             }
         )
@@ -137,6 +150,10 @@ enum InterchangeMapping {
                 existing.defaultReps = dto.defaultReps
                 existing.defaultRepsUpper = dto.defaultRepsUpper
                 existing.defaultDurationSeconds = dto.defaultDurationSeconds
+                // Wholesale like every field here: an absent profile
+                // means "derive" (table/type), not "keep mine".
+                existing.metricsData = profileData(from: dto)
+                existing.extraDefaults = MetricValues.fromRaw(dto.extraDefaults)
                 summary.exercisesUpdated += 1
             } else {
                 let exercise = Exercise(
@@ -151,6 +168,8 @@ enum InterchangeMapping {
                 exercise.defaultReps = dto.defaultReps
                 exercise.defaultRepsUpper = dto.defaultRepsUpper
                 exercise.defaultDurationSeconds = dto.defaultDurationSeconds
+                exercise.metricsData = profileData(from: dto)
+                exercise.extraDefaults = MetricValues.fromRaw(dto.extraDefaults)
                 context.insert(exercise)
                 // Post-insert, like the seeder: pre-insert relationship
                 // assignment loses nondeterministically.
@@ -195,6 +214,7 @@ enum InterchangeMapping {
                     } else {
                         containing = target.addExerciseInNewGroup(exercise, context: context)
                         containing.sets = groupDTO.sets
+                        containing.restSecondsOverride = groupDTO.restSeconds
                         group = containing
                     }
                     if let entry = containing.sortedExercises.last {
@@ -202,6 +222,7 @@ enum InterchangeMapping {
                         entry.reps = entryDTO.reps
                         entry.repsUpper = entryDTO.repsUpper
                         entry.durationSeconds = entryDTO.durationSeconds
+                        entry.extraTargets = MetricValues.fromRaw(entryDTO.extraTargets)
                     }
                 }
             }
@@ -226,11 +247,12 @@ enum InterchangeMapping {
             context.insert(session)
 
             for setDTO in dto.sets {
+                let exercise = exercisesByName[setDTO.exerciseName.lowercased()]
                 let log = SetLog(
                     order: setDTO.order,
                     groupIndex: setDTO.groupIndex,
                     setNumber: setDTO.setNumber,
-                    exercise: exercisesByName[setDTO.exerciseName.lowercased()],
+                    exercise: exercise,
                     exerciseName: setDTO.exerciseName,
                     exerciseType: setDTO.exerciseType,
                     targetWeight: setDTO.targetWeight,
@@ -242,6 +264,10 @@ enum InterchangeMapping {
                 log.actualReps = setDTO.actualReps
                 log.actualDuration = setDTO.actualDuration
                 log.completedAt = setDTO.completedAt
+                log.extraTargets = MetricValues.fromRaw(setDTO.extraTargets)
+                log.extraActuals = MetricValues.fromRaw(setDTO.extraActuals)
+                log.restSecondsOverride = setDTO.restSecondsOverride
+                log.metricsData = reconstructedProfileData(setDTO, exercise: exercise)
                 log.session = session
                 context.insert(log)
             }
@@ -252,6 +278,38 @@ enum InterchangeMapping {
     }
 
     // MARK: - Helpers
+
+    /// The stored profile a DTO's metrics imply — nil when absent, so
+    /// the exercise derives (table for built-in names, legacy type
+    /// otherwise) exactly like a never-exported one.
+    private static func profileData(from dto: ExerciseDTO) -> Data? {
+        guard let metrics = dto.metrics else { return nil }
+        return MetricProfile(
+            metrics.compactMap(WorkoutMetric.init(rawValue:)),
+            distanceUnit: dto.distanceUnit ?? .meters
+        ).encoded()
+    }
+
+    /// SetDTOs carry values, not profiles — the tracked set is implied
+    /// by which fields are present. Classic-only sets stay nil (derive
+    /// from the snapshotted exerciseType, byte-identical to old
+    /// imports); sets with extras get a reconstructed snapshot so
+    /// history renders every logged value. Distance denomination comes
+    /// from the exercise when its reference resolves; meters otherwise —
+    /// a display fallback, never a conversion.
+    private static func reconstructedProfileData(_ setDTO: SessionDTO.SetDTO, exercise: Exercise?) -> Data? {
+        let extras = Set(MetricValues.fromRaw(setDTO.extraTargets).keys)
+            .union(MetricValues.fromRaw(setDTO.extraActuals).keys)
+        guard !extras.isEmpty else { return nil }
+        var metrics = Array(extras)
+        if setDTO.targetWeight != nil || setDTO.actualWeight != nil { metrics.append(.weight) }
+        if setDTO.targetRepsLower != nil || setDTO.actualReps != nil { metrics.append(.reps) }
+        if setDTO.targetDuration != nil || setDTO.actualDuration != nil { metrics.append(.duration) }
+        return MetricProfile(
+            metrics,
+            distanceUnit: exercise?.metricProfile.distanceUnit ?? .meters
+        ).encoded()
+    }
 
     private static func sessionKey(_ name: String, _ startedAt: Date) -> String {
         "\(name.lowercased())|\(startedAt.timeIntervalSince1970)"

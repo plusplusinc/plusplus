@@ -111,8 +111,11 @@ struct ExerciseDetailScreen: View {
         }
     }
 
+    /// What this exercise tracks — "Weight · Reps", "Distance · Duration
+    /// · Pace · Resistance" (flexible metrics; the editor's TRACKED
+    /// VALUES chips decide).
     private var typeLabel: String {
-        exercise.exerciseType == .duration ? "Duration" : "Weight & reps"
+        exercise.metricProfile.metrics.map(\.label).joined(separator: " · ")
     }
 
     var body: some View {
@@ -360,8 +363,9 @@ struct EquipmentDetailScreen: View {
 
                     // Config adapts to the gear (#236): a bench holds
                     // you, a barbell holds plates — only loadables get
-                    // a weight step. Customs always do (can't classify
-                    // the user's intent).
+                    // a weight step. For customs, the declared exercise
+                    // config decides (undeclared customs keep the old
+                    // always-loadable default).
                     if SeedData.isLoadable(equipment) {
                         SheetSectionLabel("WEIGHT STEP")
                             .padding(.top, 24)
@@ -371,6 +375,38 @@ struct EquipmentDetailScreen: View {
                             }
                         }
                         Text("Per-tap increment for weight exercises using this gear. The wheel picker stays fine-grained.")
+                            .font(.system(.caption))
+                            .foregroundStyle(Theme.textFaint)
+                            .padding(.top, 6)
+                    }
+
+                    // What exercises on this gear track (flexible
+                    // metrics): built-in cardio machines carry curated
+                    // profiles (shown as facts); custom gear is the
+                    // user's to declare — it prefills new exercises and
+                    // decides whether the weight step above applies.
+                    if equipment.isBuiltIn {
+                        if let profile = equipment.suggestedProfile {
+                            SheetSectionLabel("EXERCISE CONFIG")
+                                .padding(.top, 24)
+                            Text(profile.metrics.map(\.label).joined(separator: " · "))
+                                .font(.system(.footnote, design: .monospaced))
+                                .foregroundStyle(Theme.textSecondary)
+                                .padding(.top, 2)
+                            Text("New exercises with this gear start tracking these. Each exercise can change its own set in the editor.")
+                                .font(.system(.caption))
+                                .foregroundStyle(Theme.textFaint)
+                                .padding(.top, 6)
+                        }
+                    } else {
+                        SheetSectionLabel("EXERCISE CONFIG")
+                            .padding(.top, 24)
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 7)], spacing: 7) {
+                            ForEach(WorkoutMetric.allCases.filter { $0 != .rest }) { metric in
+                                configMetricChip(metric)
+                            }
+                        }
+                        Text("What exercises on this gear typically track — new exercises with it start from this set. Leave everything off for plain strength gear.")
                             .font(.system(.caption))
                             .foregroundStyle(Theme.textFaint)
                             .padding(.top, 6)
@@ -520,6 +556,37 @@ struct EquipmentDetailScreen: View {
         .buttonStyle(.plain)
     }
 
+    /// EXERCISE CONFIG chip (custom gear): toggles a metric in the
+    /// equipment's suggested profile. Selection blue like every
+    /// selected state (#210). An emptied set clears the declaration —
+    /// back to "plain strength gear, we can't classify intent".
+    private func configMetricChip(_ metric: WorkoutMetric) -> some View {
+        let profile = equipment.suggestedProfile
+        let selected = profile?.contains(metric) == true
+        return Button {
+            var metrics = profile?.metrics ?? []
+            if let index = metrics.firstIndex(of: metric) {
+                metrics.remove(at: index)
+            } else {
+                metrics.append(metric)
+            }
+            equipment.suggestedProfile = metrics.isEmpty
+                ? nil
+                : MetricProfile(metrics, distanceUnit: profile?.distanceUnit ?? .meters)
+        } label: {
+            Text(metric.label)
+                .font(.system(.footnote, weight: .semibold))
+                .foregroundStyle(selected ? Theme.onSelected : Theme.textSecondary)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 7)
+                .background(selected ? Theme.selected : Theme.background, in: Capsule())
+                .overlay(Capsule().strokeBorder(selected ? Color.clear : Theme.border))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("equipmentMetricChip-\(metric.rawValue)")
+        .animation(.easeOut(duration: 0.15), value: selected)
+    }
 
     private func rename() {
         let trimmed = renameText.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -6,6 +6,12 @@ final class ExerciseGroup {
     var routine: Routine?
     var order: Int
     var sets: Int
+    /// Per-block rest override in seconds; nil rides the routine's
+    /// restSeconds. This is what interval blocks need — 2-minute rests
+    /// between 500 m rows while the workout default stays 90 s. (Amends
+    /// the "per-workout rest only" decision: intervals are the proof it
+    /// was deferred against.)
+    var restSecondsOverride: Int?
     @Relationship(deleteRule: .cascade, inverse: \RoutineExercise.group)
     var exercises: [RoutineExercise] = []
 

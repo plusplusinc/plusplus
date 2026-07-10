@@ -72,20 +72,28 @@ final class Routine {
 
     /// Rough all-in seconds for the detail meta line: ~45 s of work per
     /// weight set, the actual target for timed sets, plus rest between
-    /// sets (matches the v2 prototype's estimate).
+    /// sets (matches the v2 prototype's estimate). Blocks with a rest
+    /// override (interval blocks) count their own rest.
     var estimatedSeconds: Int {
         var work = 0
-        var totalSets = 0
+        var rest = 0
+        var lastRest = restSeconds
         for group in sortedGroups {
+            let groupRest = group.restSecondsOverride ?? restSeconds
             for entry in group.sortedExercises {
                 let perSet = entry.exercise?.exerciseType == .duration
                     ? (entry.durationSeconds ?? 45)
                     : 45
                 work += perSet * group.sets
-                totalSets += group.sets
+                rest += groupRest * group.sets
+            }
+            if !group.sortedExercises.isEmpty {
+                lastRest = groupRest
             }
         }
-        return work + max(0, totalSets - 1) * restSeconds
+        // Rest follows every set except the very last — whose length is
+        // the FINAL block's, not the routine default's.
+        return work + max(0, rest - lastRest)
     }
 
     /// "~40 min" — the shared rendering of `estimatedSeconds` (Today
@@ -124,16 +132,28 @@ final class Routine {
 
     /// Fresh entries start from the exercise's own defaults (#187) and
     /// fall back to the design's global ones (10 reps / 45 s) instead of
-    /// blank targets.
+    /// blank targets. Richer cardio profiles take defaults only — a
+    /// fabricated duration target would hijack the set's driver (the
+    /// appendExercise rule).
     private func applyDefaultTargets(to entry: RoutineExercise, for exercise: Exercise) {
-        if exercise.exerciseType == .duration {
-            entry.durationSeconds = exercise.defaultDurationSeconds ?? 45
-            entry.heartRateTargetData = exercise.defaultHeartRateTargetData
-        } else {
+        let profile = exercise.metricProfile
+        if profile.contains(.weight) {
             entry.weight = exercise.defaultWeight
+        }
+        if profile.tracksReps {
             entry.reps = exercise.defaultReps ?? 10
             entry.repsUpper = exercise.defaultRepsUpper
         }
+        if profile.contains(.duration) {
+            entry.durationSeconds = exercise.defaultDurationSeconds
+                ?? (profile.metrics == [.duration] ? 45 : nil)
+        }
+        // The heart-rate prescription prefills on cardio entries, same
+        // as the other defaults (#187).
+        if profile.legacyType == .duration {
+            entry.heartRateTargetData = exercise.defaultHeartRateTargetData
+        }
+        entry.extraTargets = exercise.extraDefaults.filter { profile.contains($0.key) }
     }
 
     /// Adds an exercise to an existing group, making (or extending) a

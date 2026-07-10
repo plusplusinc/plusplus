@@ -16,12 +16,8 @@ struct ExerciseEditorView: View {
 
     private let editingExercise: Exercise?
     @State private var draft: ExerciseDraft
-    @State private var defaultsWheel: DefaultsWheelTarget?
-
-    private enum DefaultsWheelTarget: String, Identifiable {
-        case weight, reps, duration
-        var id: String { rawValue }
-    }
+    @State private var defaultsWheel: WorkoutMetric?
+    @State private var showingDefaultRepsWheel = false
 
     init(editing exercise: Exercise? = nil) {
         editingExercise = exercise
@@ -38,15 +34,26 @@ struct ExerciseEditorView: View {
     }
 
     /// New custom exercise with gear pre-attached — the equipment
-    /// screen's "add an exercise with this" path (#137).
+    /// screen's "add an exercise with this" path (#137). The gear's
+    /// suggested profile arrives with it (a rower exercise starts with
+    /// the rower's metrics).
     init(prefillEquipment: Equipment) {
         editingExercise = nil
         let draft = ExerciseDraft()
         draft.selectedEquipment = [prefillEquipment]
+        draft.adoptSuggestedProfile(
+            SeedData.suggestedProfile(type: .weightReps, equipment: [prefillEquipment])
+        )
         _draft = State(initialValue: draft)
     }
 
     private var isBuiltIn: Bool { editingExercise?.isBuiltIn == true }
+
+    /// The catalog's profile for the built-in being edited.
+    private var builtInDefaultProfile: MetricProfile? {
+        guard isBuiltIn else { return nil }
+        return SeedData.builtInProfile(named: editingExercise?.name ?? "")
+    }
 
     /// Anything off the canonical definition counts as customized —
     /// built-ins ship with no notes or video, so their presence alone
@@ -54,7 +61,7 @@ struct ExerciseEditorView: View {
     private var differsFromDefault: Bool {
         guard isBuiltIn, let def = SeedData.builtInDefinition(named: editingExercise?.name ?? "") else { return false }
         return draft.muscleGroup != def.muscleGroup
-            || draft.exerciseType != def.exerciseType
+            || draft.metricProfile != (builtInDefaultProfile ?? .derived(from: def.exerciseType))
             || Set(draft.selectedEquipment.map(\.name)) != Set(def.equipmentNames)
             || !draft.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             || !draft.videoURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -119,15 +126,40 @@ struct ExerciseEditorView: View {
                             .padding(.top, 6)
                     }
 
-                    SheetSectionLabel("TYPE")
+                    SheetSectionLabel("TRACKED VALUES")
                         .padding(.top, 24)
-                    SegmentedTabs(
-                        options: ["Weight & reps", "Duration"],
-                        selectedIndex: Binding(
-                            get: { draft.exerciseType == .duration ? 1 : 0 },
-                            set: { draft.exerciseType = $0 == 1 ? .duration : .weightReps }
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 7)], spacing: 7) {
+                        ForEach(WorkoutMetric.allCases.filter { $0 != .rest }) { metric in
+                            metricChip(metric)
+                        }
+                    }
+                    if !draft.metricProfile.isValid {
+                        Text("Track at least one of reps, duration, distance, or calories — something has to say what a set is.")
+                            .font(.system(.caption))
+                            .foregroundStyle(Theme.destructive)
+                            .padding(.top, 6)
+                    } else {
+                        Text("What the planning sheet and set screen show for this exercise.")
+                            .font(.system(.caption))
+                            .foregroundStyle(Theme.textFaint)
+                            .padding(.top, 6)
+                    }
+
+                    if draft.usesDistanceUnit {
+                        SheetSectionLabel("DISTANCE UNIT")
+                            .padding(.top, 24)
+                        SegmentedTabs(
+                            options: DistanceUnit.allCases.map(\.symbol),
+                            selectedIndex: Binding(
+                                get: { DistanceUnit.allCases.firstIndex(of: draft.distanceUnit) ?? 0 },
+                                set: { draft.distanceUnit = DistanceUnit.allCases[$0] }
+                            )
                         )
-                    )
+                        Text("A declaration, not a conversion — numbers keep their value if you change it. Pace follows: \(draft.distanceUnit.paceLabel).")
+                            .font(.system(.caption))
+                            .foregroundStyle(Theme.textFaint)
+                            .padding(.top, 6)
+                    }
 
                     SheetSectionLabel("DEFAULTS")
                         .padding(.top, 24)
@@ -204,7 +236,7 @@ struct ExerciseEditorView: View {
                             revertToDefault()
                         }
                         .padding(.top, 20)
-                        Text("Restores the catalog definition — equipment, muscle group, type — and clears notes and video.")
+                        Text("Restores the catalog definition — equipment, muscle group, tracked values — and clears notes and video.")
                             .font(.system(.caption))
                             .foregroundStyle(Theme.textFaint)
                             .padding(.top, 6)
@@ -215,33 +247,32 @@ struct ExerciseEditorView: View {
         }
         .padding(.horizontal, 18)
         .presentationBackground(Theme.surface)
-        .sheet(item: $defaultsWheel) { target in
-            switch target {
-            case .weight:
-                MetricWheelSheet(
-                    metric: .weight,
-                    weightUnit: weightUnit,
-                    value: Binding(
-                        get: { draft.defaultWeight },
-                        set: { draft.defaultWeight = $0 }
-                    )
+        // A new exercise adopts its gear's suggested profile as the gear
+        // changes — until the user touches the chips, which latches
+        // their choice (ExerciseDraft.metricsTouched).
+        .onChange(of: draft.selectedEquipment) { _, newEquipment in
+            guard editingExercise == nil else { return }
+            draft.adoptSuggestedProfile(
+                SeedData.suggestedProfile(type: .weightReps, equipment: Array(newEquipment))
+            )
+        }
+        .sheet(item: $defaultsWheel) { metric in
+            MetricWheelSheet(
+                metric: metric,
+                weightUnit: weightUnit,
+                distanceUnit: draft.distanceUnit,
+                value: Binding(
+                    get: { draft.defaultTarget(metric) },
+                    set: { draft.setDefaultTarget(metric, to: $0) }
                 )
-            case .duration:
-                MetricWheelSheet(
-                    metric: .duration,
-                    weightUnit: weightUnit,
-                    value: intMetricBinding(Binding(
-                        get: { draft.defaultDurationSeconds },
-                        set: { draft.defaultDurationSeconds = $0 }
-                    ))
-                )
-            case .reps:
-                RepTargetWheelSheet(
-                    target: RepTarget(lower: draft.defaultReps, upper: draft.defaultRepsUpper)
-                ) { newTarget in
-                    draft.defaultReps = newTarget.lower
-                    draft.defaultRepsUpper = newTarget.upper
-                }
+            )
+        }
+        .sheet(isPresented: $showingDefaultRepsWheel) {
+            RepTargetWheelSheet(
+                target: RepTarget(lower: draft.defaultReps, upper: draft.defaultRepsUpper)
+            ) { newTarget in
+                draft.defaultReps = newTarget.lower
+                draft.defaultRepsUpper = newTarget.upper
             }
         }
     }
@@ -251,35 +282,31 @@ struct ExerciseEditorView: View {
     private var weightUnit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .lb }
 
     /// The same stepper card the routine planning sheet uses, writing to
-    /// the draft. Rows track the TYPE selection live.
+    /// the draft. One row per TRACKED metric — the chips above decide.
     private var defaultsCard: some View {
         VStack(spacing: 0) {
-            if draft.exerciseType == .duration {
-                MetricStepperRow(
-                    label: "Duration",
-                    value: defaultDurationText,
-                    identifier: "defaultDuration",
-                    onTapValue: { defaultsWheel = .duration },
-                    onDecrement: { draft.defaultDurationSeconds = stepDuration(draft.defaultDurationSeconds, -1) },
-                    onIncrement: { draft.defaultDurationSeconds = stepDuration(draft.defaultDurationSeconds, 1) }
-                )
-            } else {
-                MetricStepperRow(
-                    label: "Weight",
-                    value: WorkoutMetric.weight.displayText(draft.defaultWeight, weightUnit: weightUnit),
-                    identifier: "defaultWeight",
-                    onTapValue: { defaultsWheel = .weight },
-                    onDecrement: { draft.defaultWeight = WorkoutMetric.weight.decremented(draft.defaultWeight, weightUnit: weightUnit, stepOverride: draftWeightStep) },
-                    onIncrement: { draft.defaultWeight = WorkoutMetric.weight.incremented(draft.defaultWeight, weightUnit: weightUnit, stepOverride: draftWeightStep) }
-                )
-                MetricStepperRow(
-                    label: "Reps",
-                    value: RepTarget(lower: draft.defaultReps, upper: draft.defaultRepsUpper).display,
-                    identifier: "defaultReps",
-                    onTapValue: { defaultsWheel = .reps },
-                    onDecrement: { applyDefaultReps(RepTarget(lower: draft.defaultReps, upper: draft.defaultRepsUpper).decremented()) },
-                    onIncrement: { applyDefaultReps(RepTarget(lower: draft.defaultReps, upper: draft.defaultRepsUpper).incremented()) }
-                )
+            ForEach(draft.metricProfile.metrics) { metric in
+                if metric == .reps {
+                    MetricStepperRow(
+                        label: "Reps",
+                        value: RepTarget(lower: draft.defaultReps, upper: draft.defaultRepsUpper).display,
+                        identifier: "defaultReps",
+                        onTapValue: { showingDefaultRepsWheel = true },
+                        onDecrement: { applyDefaultReps(RepTarget(lower: draft.defaultReps, upper: draft.defaultRepsUpper).decremented()) },
+                        onIncrement: { applyDefaultReps(RepTarget(lower: draft.defaultReps, upper: draft.defaultRepsUpper).incremented()) }
+                    )
+                } else {
+                    MetricStepperRow(
+                        label: metric.label,
+                        value: metric == .duration
+                            ? defaultDurationText
+                            : metric.displayText(draft.defaultTarget(metric), weightUnit: weightUnit, distanceUnit: draft.distanceUnit),
+                        identifier: "default-\(metric.rawValue)",
+                        onTapValue: { defaultsWheel = metric },
+                        onDecrement: { stepDefault(metric, -1) },
+                        onIncrement: { stepDefault(metric, 1) }
+                    )
+                }
             }
         }
         .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
@@ -299,16 +326,38 @@ struct ExerciseEditorView: View {
             : "\(seconds)s"
     }
 
-    private func stepDuration(_ value: Int?, _ direction: Double) -> Int {
+    private func stepDefault(_ metric: WorkoutMetric, _ direction: Double) {
+        let stepOverride = metric == .weight ? draftWeightStep : nil
+        let current = draft.defaultTarget(metric)
         let stepped = direction > 0
-            ? WorkoutMetric.duration.incremented(value.map(Double.init))
-            : WorkoutMetric.duration.decremented(value.map(Double.init))
-        return Int(stepped.rounded())
+            ? metric.incremented(current, weightUnit: weightUnit, distanceUnit: draft.distanceUnit, stepOverride: stepOverride)
+            : metric.decremented(current, weightUnit: weightUnit, distanceUnit: draft.distanceUnit, stepOverride: stepOverride)
+        draft.setDefaultTarget(metric, to: stepped)
     }
 
     private func applyDefaultReps(_ target: RepTarget) {
         draft.defaultReps = target.lower
         draft.defaultRepsUpper = target.upper
+    }
+
+    /// TRACKED VALUES chip — multi-select over the curated vocabulary,
+    /// solid selection blue like every selected state (#210).
+    private func metricChip(_ metric: WorkoutMetric) -> some View {
+        let selected = draft.isTracked(metric)
+        return Button {
+            draft.toggleMetric(metric)
+        } label: {
+            Text(metric.label)
+                .font(.system(.footnote, weight: .semibold))
+                .foregroundStyle(selected ? Theme.onSelected : Theme.textSecondary)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 7)
+                .background(selected ? Theme.selected : Theme.background, in: Capsule())
+                .overlay(Capsule().strokeBorder(selected ? Color.clear : Theme.border))
+        }
+        .accessibilityIdentifier("metricChip-\(metric.rawValue)")
+        .animation(.easeOut(duration: 0.15), value: selected)
     }
 
     private func muscleChip(_ group: MuscleGroup) -> some View {
@@ -376,7 +425,7 @@ struct ExerciseEditorView: View {
     private func revertToDefault() {
         guard let def = SeedData.builtInDefinition(named: editingExercise?.name ?? "") else { return }
         draft.muscleGroup = def.muscleGroup
-        draft.exerciseType = def.exerciseType
+        draft.setProfile(builtInDefaultProfile ?? .derived(from: def.exerciseType))
         draft.selectedEquipment = Set(allEquipment.filter { def.equipmentNames.contains($0.name) })
         draft.notes = ""
         draft.videoURL = ""
