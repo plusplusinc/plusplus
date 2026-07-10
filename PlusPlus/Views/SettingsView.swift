@@ -156,6 +156,35 @@ struct SettingsScreen: View {
                     .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                     .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
 
+                    // Health access, re-runnable like equipment setup:
+                    // the welcome flow asks once, this row is for
+                    // everyone who said "not now" (the sheet only
+                    // appears while something is still undecided —
+                    // afterwards access lives in iOS Settings).
+                    SheetSectionLabel("APPLE HEALTH")
+                        .padding(.top, 24)
+                    Button {
+                        HealthAccess.requestEverything()
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "heart.fill")
+                                .font(.system(.footnote))
+                            Text("Connect Apple Health")
+                                .font(.system(.subheadline, weight: .bold))
+                        }
+                        .foregroundStyle(Theme.textPrimary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 48)
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.borderStrong))
+                    }
+                    .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
+                    .accessibilityIdentifier("connectHealthButton")
+                    Text("Heart rate shows live during workouts and on every record; finished workouts save to Health. Manage access anytime in iOS Settings \u{2192} Privacy \u{2192} Health.")
+                        .font(.system(.caption))
+                        .foregroundStyle(Theme.textFaint)
+                        .padding(.top, 6)
+
                     SheetSectionLabel("SYNC")
                         .padding(.top, 24)
                     Button {

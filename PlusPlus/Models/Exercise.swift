@@ -24,7 +24,13 @@ final class Exercise {
     var defaultReps: Int?
     var defaultRepsUpper: Int?
     var defaultDurationSeconds: Int?
+    /// Encoded HeartRateTarget default for cardio exercises — rides the
+    /// same #187 bump rule as the other defaults.
+    var defaultHeartRateTargetData: Data?
 
+    /// Deliberately excludes the heart-rate default: this only feeds
+    /// the interchange export filter, and HR targets stay out of the
+    /// format until something consumes them (the scheduleData rule).
     var hasDefaultTargets: Bool {
         defaultWeight != nil || defaultReps != nil
             || defaultRepsUpper != nil || defaultDurationSeconds != nil

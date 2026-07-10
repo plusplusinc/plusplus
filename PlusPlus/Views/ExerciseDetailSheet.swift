@@ -22,6 +22,10 @@ struct ExerciseDetailSheet: View {
 
     @State private var wheel: WheelTarget?
     @State private var showingRepsWheel = false
+    @State private var showingHeartRateSheet = false
+    /// Resolved once per sheet: zones drawn against Health's date of
+    /// birth when readable, the fallback otherwise.
+    @State private var maxHeartRate = HealthAccess.resolvedMaxHeartRate()
 
     private enum WheelTarget: String, Identifiable {
         case weight, duration
@@ -123,6 +127,7 @@ struct ExerciseDetailSheet: View {
         .onChange(of: routineExercise.reps) { _, _ in routineExercise.bumpExerciseDefaults() }
         .onChange(of: routineExercise.repsUpper) { _, _ in routineExercise.bumpExerciseDefaults() }
         .onChange(of: routineExercise.durationSeconds) { _, _ in routineExercise.bumpExerciseDefaults() }
+        .onChange(of: routineExercise.heartRateTargetData) { _, _ in routineExercise.bumpExerciseDefaults() }
         .sheet(item: $wheel) { target in
             switch target {
             case .weight:
@@ -153,6 +158,42 @@ struct ExerciseDetailSheet: View {
                 routineExercise.repsUpper = newTarget.upper
             }
         }
+        .sheet(isPresented: $showingHeartRateSheet) {
+            HeartRateTargetSheet(
+                maxHeartRate: maxHeartRate,
+                target: Binding(
+                    get: { routineExercise.heartRateTarget },
+                    set: { routineExercise.heartRateTarget = $0 }
+                )
+            )
+        }
+    }
+
+    /// The cardio prescription (duration exercises only): opens the
+    /// zone/range picker. "Off" is a valid state — heart-rate targets
+    /// are guidance, never required.
+    private var heartRateTargetRow: some View {
+        Button {
+            showingHeartRateSheet = true
+        } label: {
+            HStack(spacing: 10) {
+                Text("Target HR")
+                    .font(.system(.footnote))
+                    .foregroundStyle(Theme.textSecondary)
+                Spacer()
+                Text(routineExercise.heartRateTarget?.label(maxHeartRate: maxHeartRate) ?? "Off")
+                    .font(.system(.subheadline, design: .monospaced, weight: .semibold))
+                    .foregroundStyle(routineExercise.heartRateTarget == nil ? Theme.textFaint : Theme.textPrimary)
+                Image(systemName: "chevron.right")
+                    .font(.system(.caption, weight: .bold))
+                    .foregroundStyle(Theme.textFaint)
+            }
+            .padding(.horizontal, 14)
+            .frame(minHeight: 52)
+            .contentShape(Rectangle())
+            .overlay(alignment: .bottom) { Divider().overlay(Theme.border) }
+        }
+        .accessibilityIdentifier("heartRateTargetRow")
     }
 
     private var equipmentText: String {
@@ -173,6 +214,7 @@ struct ExerciseDetailSheet: View {
                     onDecrement: { routineExercise.durationSeconds = step(.duration, routineExercise.durationSeconds, -1) },
                     onIncrement: { routineExercise.durationSeconds = step(.duration, routineExercise.durationSeconds, 1) }
                 )
+                heartRateTargetRow
             } else {
                 MetricStepperRow(
                     label: "Weight",
@@ -364,6 +406,140 @@ struct NotesBlock: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// Zone/range picker for a cardio heart-rate target. A picker tray
+/// (✕ close variant): tapping Off or a zone IS the action and closes;
+/// Custom range stays open for its steppers. Selection speaks the blue
+/// grammar — tint + ring + haptic, flat rows (state flip is the
+/// feedback, so no raised keys here).
+struct HeartRateTargetSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let maxHeartRate: Int
+    @Binding var target: HeartRateTarget?
+
+    private var customRange: (lower: Int, upper: Int)? {
+        if case .range(let lower, let upper) = target {
+            return (min(lower, upper), max(lower, upper))
+        }
+        return nil
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            SheetHeader(
+                title: "Target heart rate",
+                subtitle: "zones use your max hr · \(maxHeartRate) bpm",
+                actionIdentifier: "closeHeartRateTargetSheet",
+                closeOnly: true
+            ) {
+                dismiss()
+            }
+            .padding(.horizontal, 18)
+
+            ScrollView {
+                VStack(spacing: 7) {
+                    optionRow(label: "Off", caption: nil, detail: nil, isSelected: target == nil) {
+                        target = nil
+                        dismiss()
+                    }
+                    ForEach(HeartRateZone.allCases) { zone in
+                        let range = zone.bpmRange(maxHeartRate: maxHeartRate)
+                        optionRow(
+                            label: zone.label,
+                            caption: zone.descriptor,
+                            detail: "\(range.lowerBound)–\(range.upperBound)",
+                            isSelected: target == .zone(zone)
+                        ) {
+                            target = .zone(zone)
+                            dismiss()
+                        }
+                    }
+                    optionRow(
+                        label: "Custom range",
+                        caption: nil,
+                        detail: customRange.map { "\($0.lower)–\($0.upper)" },
+                        isSelected: customRange != nil
+                    ) {
+                        guard customRange == nil else { return }
+                        let seed = HeartRateZone.zone2.bpmRange(maxHeartRate: maxHeartRate)
+                        target = .range(lowerBPM: seed.lowerBound, upperBPM: seed.upperBound)
+                    }
+                    if let range = customRange {
+                        VStack(spacing: 0) {
+                            MetricStepperRow(
+                                label: "Low",
+                                value: "\(range.lower)",
+                                identifier: "hrTargetLow",
+                                onTapValue: nil,
+                                onDecrement: { setCustom(lower: range.lower - 5, upper: range.upper) },
+                                onIncrement: { setCustom(lower: range.lower + 5, upper: range.upper) }
+                            )
+                            MetricStepperRow(
+                                label: "High",
+                                value: "\(range.upper)",
+                                identifier: "hrTargetHigh",
+                                onTapValue: nil,
+                                onDecrement: { setCustom(lower: range.lower, upper: range.upper - 5) },
+                                onIncrement: { setCustom(lower: range.lower, upper: range.upper + 5) }
+                            )
+                        }
+                        .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
+                    }
+                }
+                .padding(.horizontal, 18)
+                .padding(.top, 12)
+                .padding(.bottom, 20)
+            }
+        }
+        .presentationBackground(Theme.surface)
+        .presentationDetents([.fraction(0.85)])
+    }
+
+    /// Clamped so the band always spans at least 5 bpm inside 60–220 —
+    /// steppers can't invert or escape it.
+    private func setCustom(lower: Int, upper: Int) {
+        let clampedUpper = min(220, max(70, upper))
+        let clampedLower = min(clampedUpper - 5, max(60, lower))
+        target = .range(lowerBPM: clampedLower, upperBPM: clampedUpper)
+    }
+
+    private func optionRow(label: String, caption: String?, detail: String?, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            UISelectionFeedbackGenerator().selectionChanged()
+            action()
+        } label: {
+            HStack(spacing: 8) {
+                Text(label)
+                    .font(.system(.footnote, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                if let caption {
+                    Text(caption)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(Theme.textFaint)
+                }
+                Spacer(minLength: 8)
+                if let detail {
+                    Text(detail)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(.caption, weight: .bold))
+                        .foregroundStyle(Theme.selected)
+                }
+            }
+            .padding(.horizontal, 13)
+            .frame(minHeight: 46)
+            .contentShape(Rectangle())
+            .background(isSelected ? Theme.selectedTint : Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+            .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(isSelected ? Theme.selectedRing : Theme.border))
+            .animation(.easeOut(duration: 0.15), value: isSelected)
+        }
+        .accessibilityIdentifier("hrTarget\(label.replacingOccurrences(of: " ", with: ""))")
     }
 }
 

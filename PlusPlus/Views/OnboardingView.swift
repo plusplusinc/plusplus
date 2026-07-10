@@ -26,6 +26,22 @@ enum SetupState {
         return stamp > 0 ? Date(timeIntervalSince1970: stamp) : nil
     }
 
+    // The welcome flow (three screens before the tabs — the one
+    // exception to "the timeline IS the onboarding": a first launch
+    // gets the idea and the Health ask before the setup steps take
+    // over). Shown once per install; the flag is deliberately NOT tied
+    // to store contents, so existing installs see the intro once after
+    // the update too (and get the Health ask that ships with it).
+    static let welcomeSeenKey = "welcomeSeen"
+
+    static var welcomeSeen: Bool {
+        UserDefaults.standard.bool(forKey: welcomeSeenKey)
+    }
+
+    static func markWelcomeSeen() {
+        UserDefaults.standard.set(true, forKey: welcomeSeenKey)
+    }
+
     // The populate offer rides Today, not the catalog (#204): Done just
     // raises this flag and dismisses; Today consumes it and asks from an
     // anchored alert. One-shot; the count is computed at ask time.

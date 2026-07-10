@@ -39,6 +39,10 @@ struct PlusPlusApp: App {
             // setup-flow test.
             let onboarding = CommandLine.arguments.contains("--uitest-onboarding")
             UserDefaults.standard.set(!onboarding, forKey: SetupState.equipmentDoneKey)
+            // Same rule for the welcome flow: every other test expects
+            // the tabs immediately; --uitest-welcome opts one test in.
+            let welcome = CommandLine.arguments.contains("--uitest-welcome")
+            UserDefaults.standard.set(!welcome, forKey: SetupState.welcomeSeenKey)
         }
         let config = ModelConfiguration(isStoredInMemoryOnly: inMemory)
         do {

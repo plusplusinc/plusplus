@@ -33,7 +33,10 @@ public enum WatchSync {
     }
 
     /// One set of one exercise, in execution order (supersets already
-    /// rotated). Targets mirror SetLog's.
+    /// rotated). Targets mirror SetLog's. Heart-rate targets arrive
+    /// RESOLVED to bpm bounds — the phone knows the user's max HR (date
+    /// of birth lives in its Health store); the wrist just compares.
+    /// Additive optionals, so payloads from older phones still decode.
     public struct Step: Codable, Equatable, Sendable {
         public var exerciseName: String
         public var groupIndex: Int
@@ -43,6 +46,8 @@ public enum WatchSync {
         public var targetRepsLower: Int?
         public var targetRepsUpper: Int?
         public var targetDuration: Int?
+        public var targetHeartRateLowerBPM: Int?
+        public var targetHeartRateUpperBPM: Int?
 
         public init(
             exerciseName: String,
@@ -52,7 +57,9 @@ public enum WatchSync {
             targetWeight: Double? = nil,
             targetRepsLower: Int? = nil,
             targetRepsUpper: Int? = nil,
-            targetDuration: Int? = nil
+            targetDuration: Int? = nil,
+            targetHeartRateLowerBPM: Int? = nil,
+            targetHeartRateUpperBPM: Int? = nil
         ) {
             self.exerciseName = exerciseName
             self.groupIndex = groupIndex
@@ -62,6 +69,8 @@ public enum WatchSync {
             self.targetRepsLower = targetRepsLower
             self.targetRepsUpper = targetRepsUpper
             self.targetDuration = targetDuration
+            self.targetHeartRateLowerBPM = targetHeartRateLowerBPM
+            self.targetHeartRateUpperBPM = targetHeartRateUpperBPM
         }
     }
 
@@ -71,13 +80,28 @@ public enum WatchSync {
         public var endedAt: Date
         public var restSeconds: Int
         public var steps: [StepResult]
+        /// Session heart-rate summary from the wrist's live workout
+        /// builder. Additive optionals: results from older watch builds
+        /// (or runs where Health was declined) decode with nil.
+        public var averageHeartRate: Int?
+        public var maxHeartRate: Int?
 
-        public init(routineName: String, startedAt: Date, endedAt: Date, restSeconds: Int, steps: [StepResult]) {
+        public init(
+            routineName: String,
+            startedAt: Date,
+            endedAt: Date,
+            restSeconds: Int,
+            steps: [StepResult],
+            averageHeartRate: Int? = nil,
+            maxHeartRate: Int? = nil
+        ) {
             self.routineName = routineName
             self.startedAt = startedAt
             self.endedAt = endedAt
             self.restSeconds = restSeconds
             self.steps = steps
+            self.averageHeartRate = averageHeartRate
+            self.maxHeartRate = maxHeartRate
         }
     }
 
