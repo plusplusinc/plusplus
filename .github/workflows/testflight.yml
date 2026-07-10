@@ -164,6 +164,22 @@ jobs:
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             2>&1 | tee export.log
 
+      # Remote agent sessions cannot reach job logs or artifacts, so on
+      # failure the export error must surface as check-run annotations —
+      # the same pattern ci.yml uses for failing tests. It echoes the
+      # last error lines from export.log.
+      - name: Surface export errors as annotations
+        if: failure()
+        run: |
+          if [ -f export.log ]; then
+            grep -E "error:|Error Domain|IDEDistribution|Cloud signing|Communication error|ITMS-" export.log | tail -20 | while IFS= read -r line; do
+              echo "::error::${line}"
+            done
+            tail -5 export.log | while IFS= read -r line; do
+              echo "::error::tail: ${line}"
+            done
+          fi
+
       - name: Upload logs
         if: always()
         uses: actions/upload-artifact@v4
