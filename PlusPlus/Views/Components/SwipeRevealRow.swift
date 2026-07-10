@@ -66,7 +66,6 @@ struct SwipeRevealRow<Content: View, Actions: View>: View {
             content()
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Theme.background)
-                .offset(x: offset)
                 .contentShape(Rectangle())
                 // simultaneous with the OUTSIDE world (the List pan must
                 // coexist — .gesture starves scrolling, #99); exclusive
@@ -74,6 +73,16 @@ struct SwipeRevealRow<Content: View, Actions: View>: View {
                 .simultaneousGesture(
                     ExclusiveGesture(revealDrag, TapGesture().onEnded { handleTap() })
                 )
+                // ⚠️ .offset comes AFTER the shape + gesture so the tap
+                // target rides the translation. Attached the other way
+                // around, the hit region stays at the UNSHIFTED frame:
+                // with the row open, an invisible full-width tap area
+                // covered the revealed actions, so a finger on DELETE
+                // hit the row's tap-close instead — actions "did
+                // nothing but hide" (Dave, build 36). XCUITest taps
+                // dispatch via accessibility and bypass the overlay,
+                // which is why CI never saw it.
+                .offset(x: offset)
                 // No .accessibilityAddTraits/.accessibilityAction here:
                 // both flatten the content into ONE accessibility
                 // element, hiding child static texts from the
