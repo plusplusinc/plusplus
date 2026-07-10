@@ -73,13 +73,39 @@ struct DocsConformanceTests {
             name: "Probe", muscleGroup: .chest, exerciseType: .weightReps,
             equipment: [], notes: "n", videoURL: "https://example.com",
             defaultWeight: 1, defaultReps: 2, defaultRepsUpper: 3,
-            defaultDurationSeconds: 4
+            defaultDurationSeconds: 4,
+            metrics: ["weight", "reps"], distanceUnit: .meters,
+            extraDefaults: ["rpe": 8]
+        )
+        let routine = RoutineDTO(
+            name: "Probe", restSeconds: 90,
+            groups: [.init(
+                sets: 4,
+                exercises: [.init(exercise: "Probe", extraTargets: ["distance": 500])],
+                restSeconds: 120
+            )]
+        )
+        let session = SessionDTO(
+            routineName: "Probe",
+            startedAt: Date(timeIntervalSince1970: 0),
+            endedAt: nil, restSeconds: 90,
+            sets: [.init(
+                order: 0, groupIndex: 0, setNumber: 1,
+                exerciseName: "Probe", exerciseType: .weightReps,
+                extraTargets: ["distance": 500],
+                extraActuals: ["distance": 500],
+                restSecondsOverride: 120
+            )]
         )
         let encoded = String(decoding: try InterchangeCodec.encode(
-            ExportBundle(exercises: [exercise], routines: [], sessions: [])
+            ExportBundle(exercises: [exercise], routines: [routine], sessions: [session])
         ), as: UTF8.self)
 
-        for field in ["defaultWeight", "defaultReps", "defaultRepsUpper", "defaultDurationSeconds"] {
+        for field in [
+            "defaultWeight", "defaultReps", "defaultRepsUpper", "defaultDurationSeconds",
+            "metrics", "distanceUnit", "extraDefaults", "extraTargets", "extraActuals",
+            "restSecondsOverride",
+        ] {
             #expect(encoded.contains("\"\(field)\""), "\(field) missing from encoded DTO")
             #expect(text.contains(field), "PLATFORM.md never mentions \(field) but the schema carries it")
         }
