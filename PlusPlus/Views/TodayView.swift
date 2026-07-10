@@ -663,6 +663,14 @@ struct TodayView: View {
         // Belt and braces with the dueRoutines/swap-in filters: an empty
         // routine must never become a committed 0-set session.
         guard !routine.groups.isEmpty else { return }
+        // Re-checked at FIRE time, not just tap time: StartFlashButton
+        // defers ~0.85 s, long enough for a second Start to flash
+        // (double-start orphan) or the start tray to present — setting
+        // activeSession under a live sheet is the documented
+        // presentation-drop class, and a dropped cover with a non-nil
+        // activeSession would wedge every future start and salvage
+        // (swift-reviewer). A tap that raced the tray simply loses.
+        guard activeSession == nil, !showingSwapIn else { return }
         // ActiveSessionView requests notification permission on appear.
         activeSession = WorkoutSession.start(from: routine, context: modelContext)
     }

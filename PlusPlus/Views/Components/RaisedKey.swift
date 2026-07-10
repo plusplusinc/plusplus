@@ -90,6 +90,13 @@ struct QuietKey: View {
 /// action runs (Start is the app's biggest commit; this is its
 /// one-shot beat). The flash is skipped under UI test, where the
 /// delay would slow every start-tapping flow for no observable gain.
+///
+/// ⚠️ The deferred fire is CANCELLED if this button disappears
+/// mid-flash (a swipe-back popping routine detail must not start a
+/// session against a dead screen), and callers must still re-check
+/// their own preconditions in `action` — 0.85 s is long enough for a
+/// second Start to flash or a sheet to present (swift-reviewer catch
+/// on this component's first cut).
 struct StartFlashButton: View {
     let label: String
     var height: CGFloat = 48
@@ -99,6 +106,7 @@ struct StartFlashButton: View {
     private static let flashes = !CommandLine.arguments.contains("--uitest-reset")
 
     @State private var flashing = false
+    @State private var pendingFire: Task<Void, Never>?
 
     var body: some View {
         Button {
@@ -109,8 +117,9 @@ struct StartFlashButton: View {
             }
             flashing = true
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            Task { @MainActor in
+            pendingFire = Task { @MainActor in
                 try? await Task.sleep(for: .seconds(0.85))
+                guard !Task.isCancelled else { return }
                 flashing = false
                 action()
             }
@@ -127,6 +136,10 @@ struct StartFlashButton: View {
         }
         .buttonStyle(.raisedPrimaryKey())
         .accessibilityIdentifier(identifier ?? label)
+        .onDisappear {
+            pendingFire?.cancel()
+            flashing = false
+        }
     }
 }
 

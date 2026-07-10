@@ -622,6 +622,9 @@ struct RoutineDetailView: View {
     private var bottomBar: some View {
         if !routine.groups.isEmpty {
             StartFlashButton(label: "Start workout", height: 52, identifier: "startWorkoutButton") {
+                // Fire-time re-check (the flash defers ~0.85 s; see
+                // TodayView.start for the failure class).
+                guard activeSession == nil, !routine.isDeleted else { return }
                 activeSession = WorkoutSession.start(from: routine, context: modelContext)
             }
             .padding(.horizontal, 16)
