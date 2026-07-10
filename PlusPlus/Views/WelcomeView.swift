@@ -69,7 +69,7 @@ struct WelcomeView: View {
                 .font(.system(.subheadline))
                 .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
-            Text("Every workout builds on the last.")
+            Text("Privacy-first and customizable to the core. Own your data, and your results.")
                 .font(.system(.footnote, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
                 .multilineTextAlignment(.center)
@@ -90,7 +90,7 @@ struct WelcomeView: View {
             mechanicsRow(
                 symbol: "dumbbell.fill",
                 title: "Build routines from your gear",
-                caption: "the catalog adapts to the equipment you actually own"
+                caption: "the catalog adapts to the equipment you own"
             )
             mechanicsRow(
                 symbol: "calendar",
@@ -99,8 +99,8 @@ struct WelcomeView: View {
             )
             mechanicsRow(
                 symbol: "chart.line.uptrend.xyaxis",
-                title: "Every set compares to last time",
-                caption: "green means up; the point is the increment"
+                title: "See your progress on every set",
+                caption: "last time's numbers are right there; green means you went up"
             )
             Spacer()
         }
