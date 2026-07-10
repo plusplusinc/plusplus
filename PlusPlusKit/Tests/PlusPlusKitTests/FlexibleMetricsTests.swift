@@ -251,6 +251,33 @@ struct FlexibleDiffTests {
         #expect(RoutineDiff.delta(target: .init(name: "New"), prior: nil) == .new)
     }
 
+    @Test("Less assistance is an improvement; more stays quiet")
+    func assistanceImprovement() {
+        let delta = RoutineDiff.delta(
+            target: .init(name: "Assisted Pull-Up", reps: 8, extras: [.assistance: 50]),
+            prior: .init(reps: 8, extras: [.assistance: 60])
+        )
+        #expect(delta == .assistance(-10))
+        #expect(RoutineDiff.summary(deltas: [delta]) == [.init(kind: .up, text: "−10 lb assist")])
+        // More assistance is a regression — silent (anti-shame).
+        let worse = RoutineDiff.delta(
+            target: .init(name: "Assisted Pull-Up", extras: [.assistance: 70]),
+            prior: .init(extras: [.assistance: 60])
+        )
+        #expect(worse == .unchanged)
+    }
+
+    @Test("A taller box is an improvement in the weight unit's length")
+    func heightImprovement() {
+        let delta = RoutineDiff.delta(
+            target: .init(name: "Box Jump", extras: [.height: 24]),
+            prior: .init(extras: [.height: 20])
+        )
+        #expect(delta == .height(4))
+        #expect(RoutineDiff.summary(deltas: [delta]) == [.init(kind: .up, text: "+4 in")])
+        #expect(RoutineDiff.summary(deltas: [delta], weightUnit: .kg) == [.init(kind: .up, text: "+4 cm")])
+    }
+
     @Test("Calories and power gains render with their units")
     func caloriesAndPower() {
         let cal = RoutineDiff.delta(

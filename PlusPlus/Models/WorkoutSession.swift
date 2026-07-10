@@ -451,6 +451,10 @@ final class SetLog {
         case .weight: targetWeight
         case .reps: targetRepsLower.map(Double.init)
         case .duration: targetDuration.map(Double.init)
+        // Same bridge as actual(_:): pre-profile assisted prescriptions
+        // lived in the weight column — a stranded 60 lb stack must stay
+        // visible and steppable, not reset to the unit default.
+        case .assistance: extraTargets[.assistance] ?? targetWeight
         default: extraTargets[metric]
         }
     }

@@ -50,6 +50,10 @@ final class RoutineExercise {
         case .weight: weight
         case .reps: reps.map(Double.init)
         case .duration: durationSeconds.map(Double.init)
+        // Pre-profile assisted prescriptions lived in the weight
+        // column; the seed-table flip to [assistance, reps] must not
+        // strand them (mirrors SetLog's actual/target bridge).
+        case .assistance: extraTargets[.assistance] ?? weight
         default: extraTargets[metric]
         }
     }

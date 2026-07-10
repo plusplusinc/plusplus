@@ -63,6 +63,9 @@ public enum RoutineDiff {
         case pace(Double, DistanceUnit)
         case calories(Double)
         case power(Double)
+        /// Negative value = less assistance = the improvement.
+        case assistance(Double)
+        case height(Double)
 
         public var isChange: Bool {
             switch self {
@@ -73,10 +76,13 @@ public enum RoutineDiff {
     }
 
     /// The order improvements are looked for — the first that moved is
-    /// the exercise's one delta. Weight beats reps (the v3 rule); for
-    /// cardio, a faster pace is the sexiest increment, then more
+    /// the exercise's one delta. Load beats reps (the v3 rule; a lighter
+    /// assistance stack IS the load moving), then the plyo box, then for
+    /// cardio a faster pace is the sexiest increment, then more
     /// distance/calories/watts, then longer duration.
-    static let diffPriority: [WorkoutMetric] = [.weight, .reps, .pace, .distance, .calories, .power, .duration]
+    static let diffPriority: [WorkoutMetric] = [
+        .weight, .assistance, .reps, .height, .pace, .distance, .calories, .power, .duration,
+    ]
 
     /// Deltas report IMPROVEMENTS only (#246): the prior is the last
     /// ACTUAL performance, so a plan sitting below it is the normal
@@ -124,6 +130,8 @@ public enum RoutineDiff {
             case .pace: return .pace(staged - last, target.distanceUnit)
             case .calories: return .calories(staged - last)
             case .power: return .power(staged - last)
+            case .assistance: return .assistance(staged - last)
+            case .height: return .height(staged - last)
             default: continue
             }
         }
@@ -180,6 +188,14 @@ public enum RoutineDiff {
                 segments.append(Segment(kind: by > 0 ? .up : .down, text: signed(by, unit: "cal")))
             case .power(let by):
                 segments.append(Segment(kind: by > 0 ? .up : .down, text: signed(by, unit: "W")))
+            case .assistance(let by):
+                // Less assistance is the improvement: "−10 lb assist"
+                // in up-green — kind speaks progress, the sign speaks
+                // arithmetic (the pace rule).
+                segments.append(Segment(kind: by < 0 ? .up : .down, text: signed(by, unit: "\(weightUnit.symbol) assist")))
+            case .height(let by):
+                // Height rides the weight unit (in/cm), like the metric.
+                segments.append(Segment(kind: by > 0 ? .up : .down, text: signed(by, unit: weightUnit == .kg ? "cm" : "in")))
             }
         }
         if newCount > 0 {

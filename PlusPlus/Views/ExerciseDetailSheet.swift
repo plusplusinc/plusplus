@@ -62,18 +62,14 @@ struct ExerciseDetailSheet: View {
 
                     // The rest row edits a BLOCK override (what interval
                     // blocks need); the escape hatch back to the workout
-                    // default appears only while one exists.
+                    // default appears only while one exists — and it's a
+                    // quiet key, like every escape hatch (build-43 rule).
                     if group?.restSecondsOverride != nil {
-                        HStack(spacing: 6) {
-                            Text("Rest is set for this block only.")
-                                .font(.system(.caption))
-                                .foregroundStyle(Theme.textFaint)
-                            Button("Use workout default (\(WorkoutMetric.rest.displayText(Double(routine.restSeconds))))") {
-                                group?.restSecondsOverride = nil
-                            }
-                            .font(.system(.caption, weight: .semibold))
-                            .foregroundStyle(Theme.textSecondary)
-                            .accessibilityIdentifier("clearRestOverrideButton")
+                        QuietKey(
+                            label: "rest is set for this block — use the workout default (\(WorkoutMetric.rest.displayText(Double(routine.restSeconds))))",
+                            identifier: "clearRestOverrideButton"
+                        ) {
+                            group?.restSecondsOverride = nil
                         }
                         .padding(.top, 6)
                     }
@@ -149,8 +145,8 @@ struct ExerciseDetailSheet: View {
                     metric: .rest,
                     weightUnit: weightUnit,
                     value: Binding(
-                        get: { Double(group?.restSecondsOverride ?? routine.restSeconds) },
-                        set: { group?.restSecondsOverride = $0.map { Int($0.rounded()) } }
+                        get: { Double(effectiveRest) },
+                        set: { setRestOverride($0.map { Int($0.rounded()) }) }
                     )
                 )
             } else {
@@ -218,13 +214,33 @@ struct ExerciseDetailSheet: View {
 
     // MARK: - Metrics
 
+    /// The profile's metrics, plus any CLASSIC metric that still carries
+    /// a stored prescription the profile no longer tracks (a weighted
+    /// pull-up planned before the bodyweight flip): stored values stay
+    /// visible and editable, and fresh entries — which never have them —
+    /// never resurrect the row. Weight defers to the assistance bridge
+    /// when assistance is tracked (one value, one row).
+    private var displayMetrics: [WorkoutMetric] {
+        var metrics = profile.metrics
+        if routineExercise.weight != nil, !profile.contains(.weight), !profile.contains(.assistance) {
+            metrics.append(.weight)
+        }
+        if routineExercise.reps != nil, !profile.tracksReps {
+            metrics.append(.reps)
+        }
+        if routineExercise.durationSeconds != nil, !profile.contains(.duration) {
+            metrics.append(.duration)
+        }
+        return MetricProfile(metrics, distanceUnit: profile.distanceUnit).metrics
+    }
+
     /// One row per tracked metric (the exercise's profile decides), then
     /// the block facts: sets and rest. A rower shows distance/duration/
     /// pace/resistance where a curl shows weight/reps — same card, same
     /// grammar.
     private var metricsCard: some View {
         VStack(spacing: 0) {
-            ForEach(profile.metrics) { metric in
+            ForEach(displayMetrics) { metric in
                 if metric == .reps {
                     MetricStepperRow(
                         label: "Reps",
@@ -263,8 +279,8 @@ struct ExerciseDetailSheet: View {
                 value: WorkoutMetric.rest.displayText(Double(effectiveRest)),
                 identifier: "rest",
                 onTapValue: { wheel = .rest },
-                onDecrement: { group?.restSecondsOverride = Int(WorkoutMetric.rest.decremented(Double(effectiveRest)).rounded()) },
-                onIncrement: { group?.restSecondsOverride = Int(WorkoutMetric.rest.incremented(Double(effectiveRest)).rounded()) }
+                onDecrement: { setRestOverride(Int(WorkoutMetric.rest.decremented(Double(effectiveRest)).rounded())) },
+                onIncrement: { setRestOverride(Int(WorkoutMetric.rest.incremented(Double(effectiveRest)).rounded())) }
             )
         }
         .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
@@ -275,6 +291,14 @@ struct ExerciseDetailSheet: View {
     /// workout default.
     private var effectiveRest: Int {
         group?.restSecondsOverride ?? routine.restSeconds
+    }
+
+    /// An override exists only while it DIFFERS from the workout
+    /// default — stepping back onto the default un-pins the block, so
+    /// later routine-level rest edits aren't silently ignored by blocks
+    /// that never meant to diverge.
+    private func setRestOverride(_ seconds: Int?) {
+        group?.restSecondsOverride = seconds == routine.restSeconds ? nil : seconds
     }
 
     private func rowText(_ metric: WorkoutMetric) -> String {

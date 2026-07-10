@@ -77,19 +77,23 @@ final class Routine {
     var estimatedSeconds: Int {
         var work = 0
         var rest = 0
-        var totalSets = 0
+        var lastRest = restSeconds
         for group in sortedGroups {
+            let groupRest = group.restSecondsOverride ?? restSeconds
             for entry in group.sortedExercises {
                 let perSet = entry.exercise?.exerciseType == .duration
                     ? (entry.durationSeconds ?? 45)
                     : 45
                 work += perSet * group.sets
-                totalSets += group.sets
-                rest += (group.restSecondsOverride ?? restSeconds) * group.sets
+                rest += groupRest * group.sets
+            }
+            if !group.sortedExercises.isEmpty {
+                lastRest = groupRest
             }
         }
-        // The estimate counts rest AFTER each set except the last.
-        return work + max(0, rest - restSeconds)
+        // Rest follows every set except the very last — whose length is
+        // the FINAL block's, not the routine default's.
+        return work + max(0, rest - lastRest)
     }
 
     /// "~40 min" — the shared rendering of `estimatedSeconds` (Today

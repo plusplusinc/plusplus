@@ -322,9 +322,34 @@ struct ModelProfileTests {
         let log = SetLog(order: 0, groupIndex: 0, setNumber: 1, exerciseName: "Assisted Pull-Up")
         context.insert(log)
         log.actualWeight = 60
+        log.targetWeight = 60
         #expect(log.actual(.assistance) == 60)
+        #expect(log.target(.assistance) == 60)
         log.setActual(.assistance, to: 50)
         #expect(log.actual(.assistance) == 50)
+        log.setTarget(.assistance, to: 55)
+        #expect(log.target(.assistance) == 55)
+    }
+
+    @Test("A pre-profile assisted prescription survives the seed-table flip")
+    func assistanceTargetBridge() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        // A pre-flip store: the stack value lives in the weight column,
+        // and the built-in now resolves [assistance, reps] with no
+        // migration write.
+        let assisted = Exercise(name: "Assisted Pull-Up", muscleGroup: .back, isBuiltIn: true)
+        context.insert(assisted)
+        #expect(assisted.metricProfile == MetricProfile([.assistance, .reps]))
+        let routine = Routine(name: "Pull Day")
+        context.insert(routine)
+        let entry = try #require(routine.addExerciseInNewGroup(assisted, context: context).sortedExercises.first)
+        entry.weight = 60
+        // The planning sheet's assist row reads the bridged value; a new
+        // session's ASSIST card starts from 60, not the unit default.
+        #expect(entry.target(.assistance) == 60)
+        let session = WorkoutSession.start(from: routine, context: context)
+        #expect(session.sortedSetLogs.first?.target(.assistance) == 60)
     }
 }
 

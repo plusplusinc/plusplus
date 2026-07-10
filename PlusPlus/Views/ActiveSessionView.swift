@@ -839,12 +839,26 @@ private struct SetLoggingView: View {
     }
 
     /// What the stage's cards already show — everything else tracked
-    /// renders as a compact secondary row.
+    /// renders as a compact secondary row. Classic metrics with a stored
+    /// target the profile no longer tracks (pre-flip prescriptions) join
+    /// the rows so nothing planned goes invisible mid-workout; weight
+    /// defers to the assistance bridge when assistance is tracked.
     private var secondaryMetricsList: [WorkoutMetric] {
         let shown: [WorkoutMetric] = driver == .reps
             ? (loadMetric.map { [$0, .reps] } ?? [.reps])
             : [driver]
-        return profile.metrics.filter { !shown.contains($0) }
+        var metrics = profile.metrics
+        if log.targetWeight != nil, !profile.contains(.weight), !profile.contains(.assistance) {
+            metrics.append(.weight)
+        }
+        if log.targetRepsLower != nil, !profile.tracksReps {
+            metrics.append(.reps)
+        }
+        if log.targetDuration != nil, !profile.contains(.duration) {
+            metrics.append(.duration)
+        }
+        return MetricProfile(metrics, distanceUnit: profile.distanceUnit).metrics
+            .filter { !shown.contains($0) }
     }
 
     /// Sets in this exercise's block (same group + name).
@@ -1698,7 +1712,10 @@ private struct RestView: View {
     /// distance/pace line) render whole in ink via the shared summary.
     private var upNextTarget: Text? {
         let profile = upNext.metricProfile
-        if profile == .weightReps || profile == .repsOnly {
+        // Metrics-only comparison: profile equality includes the
+        // distance unit, which is meaningless noise on a classic pair.
+        if profile.metrics == MetricProfile.weightReps.metrics
+            || profile.metrics == MetricProfile.repsOnly.metrics {
             var result: Text?
             if upNext.targetReps.lower != nil {
                 result = Text("\(upNext.targetReps.display) reps").foregroundStyle(Theme.textFaint)
