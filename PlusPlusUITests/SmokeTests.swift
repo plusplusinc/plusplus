@@ -162,6 +162,15 @@ final class SmokeTests: XCTestCase {
         // The detail screen, not the triangle: Add is its primary action.
         XCTAssertTrue(app.buttons["addTemplateButton"].waitForExistence(timeout: 5))
         snap("routines-tab-template-detail")
+
+        // Back must land on the CATALOG, one level up — not double-pop
+        // to the list (build 44: the catalog rode isPresented while
+        // template taps appended to the path, so the template screen
+        // replaced the catalog and back skipped it).
+        app.buttons["backButton"].tap()
+        XCTAssertTrue(app.buttons["createBlankRoutine"].waitForExistence(timeout: 5))
+        app.buttons["backButton"].tap()
+        XCTAssertTrue(plus.waitForExistence(timeout: 5))
     }
 
     func testCreateCustomExerciseWithNotes() throws {

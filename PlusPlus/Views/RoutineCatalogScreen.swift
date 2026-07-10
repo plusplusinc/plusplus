@@ -2,6 +2,15 @@ import SwiftUI
 import SwiftData
 import PlusPlusKit
 
+/// Path marker for pushing the routine catalog. The catalog MUST ride
+/// the value path, never navigationDestination(isPresented:): its
+/// template taps and blank creation append to the same path, and a
+/// value appended while a boolean-presented screen is on top replaces
+/// it without a transition and double-pops on back (Dave, build 44).
+/// Rule of thumb: a pushed screen that itself appends to the path must
+/// itself be a path entry.
+struct RoutineCatalogDestination: Hashable {}
+
 /// The routine catalog (#223): a pushed browse surface off the
 /// Routines tab, mirroring CatalogBrowseScreen's shape — top search,
 /// then the facet chips, then the list. Filtering is four single-
@@ -192,7 +201,7 @@ struct RoutineCatalogScreen: View {
             onBack: { dismiss() }
         )
         // ⚠️ No .navigationDestination(for: RoutineTemplate.self) here:
-        // this screen is itself pushed via navigationDestination(isPresented:),
+        // this screen is itself pushed (via RoutineCatalogDestination),
         // and a value destination declared on a pushed screen failed to
         // resolve in production (build 33: template taps hit SwiftUI's
         // missing-destination placeholder). The registration lives at each

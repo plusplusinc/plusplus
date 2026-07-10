@@ -104,3 +104,23 @@ struct HeaderGlyph: View {
             .foregroundStyle(Theme.accent)
     }
 }
+
+/// The ++ wearing its key — every root header's top-left opens the
+/// app page (Dave, build 44: "every root view, not just Today"). The
+/// glyph stays brand green — content is the brand, the key says
+/// "press me". Each tab presents its own AppMenuScreen so the push
+/// rides that tab's stack.
+struct AppMenuKey: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HeaderGlyph()
+                .frame(width: 44, height: 44)
+                .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
+                .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
+        }
+        .buttonStyle(.raisedKey())
+        .accessibilityIdentifier("appMenuButton")
+    }
+}

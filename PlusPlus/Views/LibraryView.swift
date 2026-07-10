@@ -12,6 +12,7 @@ struct ExercisesTabView: View {
     @Query(sort: \Exercise.name) private var allExercises: [Exercise]
 
     @State private var showingCatalog = false
+    @State private var showingAppMenu = false
     @State private var openSwipeRow: PersistentIdentifier?
     @State private var path = NavigationPath()
 
@@ -25,9 +26,12 @@ struct ExercisesTabView: View {
                 // No search here (#233): the curated list is short by
                 // definition; search lives on the catalogs. The + is
                 // back in the header.
-                CatalogTabHeader(title: "Exercises", addIdentifier: "addExercisesButton") {
-                    showingCatalog = true
-                }
+                CatalogTabHeader(
+                    title: "Exercises",
+                    addIdentifier: "addExercisesButton",
+                    onAdd: { showingCatalog = true },
+                    onMenu: { showingAppMenu = true }
+                )
 
                 if libraryExercises.isEmpty {
                     // Empty is the fresh-install default (#185/#232) —
@@ -55,8 +59,13 @@ struct ExercisesTabView: View {
             // Full-page push, not a tray (#139 follow-up): the catalog
             // browser is a browsing surface — search, filters, a long
             // toggle list. Sheets stay for create/edit forms only.
+            // isPresented is safe here (unlike the routine catalog):
+            // nothing appends to the path beneath these screens.
             .navigationDestination(isPresented: $showingCatalog) {
                 CatalogBrowseScreen(kind: .exercises)
+            }
+            .navigationDestination(isPresented: $showingAppMenu) {
+                AppMenuScreen()
             }
         }
     }
@@ -145,6 +154,7 @@ struct EquipmentTabView: View {
     @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
 
     @State private var showingCatalog = false
+    @State private var showingAppMenu = false
     @State private var openSwipeRow: PersistentIdentifier?
     @State private var path = NavigationPath()
 
@@ -155,9 +165,12 @@ struct EquipmentTabView: View {
     var body: some View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
-                CatalogTabHeader(title: "Equipment", addIdentifier: "addEquipmentButton") {
-                    showingCatalog = true
-                }
+                CatalogTabHeader(
+                    title: "Equipment",
+                    addIdentifier: "addEquipmentButton",
+                    onAdd: { showingCatalog = true },
+                    onMenu: { showingAppMenu = true }
+                )
 
                 if libraryEquipment.isEmpty {
                     LibraryEmptyState(
@@ -181,6 +194,9 @@ struct EquipmentTabView: View {
             }
             .navigationDestination(isPresented: $showingCatalog) {
                 CatalogBrowseScreen(kind: .equipment)
+            }
+            .navigationDestination(isPresented: $showingAppMenu) {
+                AppMenuScreen()
             }
         }
     }
@@ -283,18 +299,21 @@ struct LibraryEmptyState: View {
     }
 }
 
-/// Shared header for the two catalog tabs: ++ glyph, title, and the
+/// Shared header for the two catalog tabs: the ++ key, title, and the
 /// contextual + button.
 struct CatalogTabHeader: View {
     let title: String
     // The tab's create action; optional so title-only headers work.
     var addIdentifier: String?
     var onAdd: (() -> Void)?
+    /// Opens the app page — every root header wears the ++ key
+    /// (Dave, build 44).
+    let onMenu: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                HeaderGlyph()
+                AppMenuKey(action: onMenu)
                 Spacer()
                 if let onAdd {
                     HeaderIconButton(systemImage: "plus", identifier: addIdentifier) {
@@ -302,10 +321,6 @@ struct CatalogTabHeader: View {
                     }
                 }
             }
-            // The button slot is 44 pt on the other tabs' headers —
-            // hold the height with it empty so tab-switching doesn't
-            // bounce the title row.
-            .frame(minHeight: 44)
             Text(title)
                 .font(.system(.title, weight: .bold))
                 .padding(.top, 10)

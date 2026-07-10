@@ -50,7 +50,6 @@ struct TodayView: View {
     /// Nonzero presents the populate-offer alert (#204); computed at
     /// present time from the store, never carried stale.
     @State private var populateOfferCount = 0
-    @State private var showingSetupCatalog = false
     @State private var scheduleEditTarget: Routine?
     @State private var activeSession: WorkoutSession?
     /// Bumped on day change so every Date()-based computed re-evaluates
@@ -298,8 +297,12 @@ struct TodayView: View {
             // honest gear checks, blank creation as its first row, and
             // Add lands in the new routine — the two-option seeder
             // sheet (whose starter split degraded to one exercise per
-            // routine at zero gear) died in its favor.
-            .navigationDestination(isPresented: $showingSetupCatalog) {
+            // routine at zero gear) died in its favor. A PATH entry,
+            // not isPresented (Dave, build 44): the catalog appends
+            // templates/routines to this same path, and a value
+            // appended beneath a boolean-presented screen replaces it
+            // transition-less and double-pops on back.
+            .navigationDestination(for: RoutineCatalogDestination.self) { _ in
                 RoutineCatalogScreen(path: $todayPath)
             }
             .alert("New Routine", isPresented: $showingNewRoutine) {
@@ -691,22 +694,9 @@ struct TodayView: View {
         return VStack(alignment: .leading, spacing: 0) {
             HStack {
                 // The ++ is a button (#266): the app-level page —
-                // Settings, About, What's new, links, feedback. It
-                // wears the key anatomy (Dave, build 43: the bare
-                // glyph didn't read as pressable next to the play
-                // key); the glyph stays brand green — content is the
-                // brand, the key says "press me". The other tabs'
-                // plain ++ glyphs stay flat: they aren't buttons.
-                Button {
-                    showingAppMenu = true
-                } label: {
-                    HeaderGlyph()
-                        .frame(width: 44, height: 44)
-                        .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
-                        .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
-                }
-                .buttonStyle(.raisedKey())
-                .accessibilityIdentifier("appMenuButton")
+                // Settings, About, What's new, links, feedback. Since
+                // build 44 every root header wears it (AppMenuKey).
+                AppMenuKey { showingAppMenu = true }
                 Spacer()
                 // Settings' old seat starts workouts instead (#266):
                 // the one action that should never be more than a tap
@@ -976,7 +966,7 @@ struct TodayView: View {
                 gatedSub: "Needs your equipment first",
                 cta: "Pick a routine",
                 identifier: "setupRoutineStep",
-                action: { showingSetupCatalog = true },
+                action: { todayPath.append(RoutineCatalogDestination()) },
                 edit: { onGoToRoutines() }
             )
             SetupRow(
