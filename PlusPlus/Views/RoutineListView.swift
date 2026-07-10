@@ -14,9 +14,6 @@ struct RoutineListView: View {
     @State private var path = NavigationPath()
     @State private var showingCatalog = false
     @State private var openSwipeRow: PersistentIdentifier?
-    /// Hero zoom (#216): the card IS the detail screen, so opening one
-    /// grows it in place instead of sliding a stranger in.
-    @Namespace private var zoomNamespace
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -32,7 +29,6 @@ struct RoutineListView: View {
                         onTap: { path.append(routine) }
                     ) {
                         RoutineCard(routine: routine)
-                            .matchedTransitionSource(id: routine.persistentModelID, in: zoomNamespace)
                     } actions: {
                         SwipeActionButton(label: "DELETE", color: Theme.destructive) {
                             openSwipeRow = nil
@@ -50,9 +46,12 @@ struct RoutineListView: View {
             }
             .background(Theme.background)
             .toolbar(.hidden, for: .navigationBar)
+            // A plain push, no hero zoom (Dave, build 37): the #216 zoom
+            // made list -> detail read as a custom cover rather than a
+            // navigation push. Today's zooms (committed card -> record,
+            // pending card -> workout cover) are unchanged.
             .navigationDestination(for: Routine.self) { routine in
                 RoutineDetailView(routine: routine)
-                    .navigationTransition(.zoom(sourceID: routine.persistentModelID, in: zoomNamespace))
             }
             // Registered at the stack root, NOT inside RoutineCatalogScreen:
             // a value destination declared on a screen that is itself pushed
