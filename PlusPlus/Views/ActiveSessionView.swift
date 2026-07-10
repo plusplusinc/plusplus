@@ -47,6 +47,10 @@ struct ActiveSessionView: View {
     /// Flips on appear of the finished screen to fire the checkmark's
     /// one-shot bounce.
     @State private var completeBounce = false
+    /// Live heart rate from Health while the session runs (watch or
+    /// chest strap on; nothing otherwise). Plain @Observable class in
+    /// @State: stable across re-renders.
+    @State private var heartRate = HeartRateMonitor()
 
     private var totalSets: Int { session.sortedSetLogs.count }
     private var completedSets: Int { session.completedSetLogs.count }
@@ -94,6 +98,7 @@ struct ActiveSessionView: View {
                         lastTime: WorkoutSession.lastPerformance(matching: displayLog, in: finishedSessions),
                         routineNotes: completedSets == 0 ? session.routine?.notes : nil,
                         burstCount: burstCount,
+                        heartRate: heartRate,
                         onComplete: { completeCurrentSet(displayLog) }
                     )
                     .id(displayLog.order)
@@ -167,6 +172,12 @@ struct ActiveSessionView: View {
             // Prefetch so the denied caption is already placed when the
             // first rest renders instead of nudging the countdown.
             RestNotifier.shared.notificationsDenied { restAlertsDenied = $0 }
+            if !session.isFinished {
+                heartRate.start(from: session.startedAt)
+            }
+        }
+        .onDisappear {
+            heartRate.stop()
         }
         // Island / Lock Screen rest controls (#157): LiveActivityIntents
         // run in this process and post here — same mutations as the
@@ -223,6 +234,14 @@ struct ActiveSessionView: View {
                     .overlay(Capsule().strokeBorder(Theme.border))
                 }
                 .accessibilityIdentifier("exitSessionButton")
+
+                // Live heart rate, when Health has a fresh reading —
+                // accent while it satisfies the current set's target.
+                LiveHeartRateLabel(
+                    monitor: heartRate,
+                    target: (lingeringLog ?? session.currentLog)?.targetHeartRate,
+                    chrome: true
+                )
             }
 
             Spacer()
@@ -347,6 +366,20 @@ struct ActiveSessionView: View {
         if !session.isFinished {
             isFirstEverFinish = finishedSessions.isEmpty
             session.finish()
+            heartRate.stop()
+            // The session's heart-rate summary, from Health's samples
+            // over the window. Watch imports never pass through here —
+            // their summary rides the result payload. The completion
+            // lands on the main queue; the record backfill (session
+            // detail) catches samples that sync in later.
+            if let endedAt = session.endedAt {
+                let finished = session
+                HeartRateMonitor.summary(from: finished.startedAt, to: endedAt) { average, peak in
+                    guard !finished.isDeleted else { return }
+                    if let average { finished.averageHeartRate = average }
+                    if let peak { finished.maxHeartRate = peak }
+                }
+            }
             // Phone-logged sessions reach Health here; watch imports are
             // recorded by the wrist's own live session (#90).
             HealthRecorder.record(session)
@@ -423,6 +456,14 @@ struct ActiveSessionView: View {
                     Text("\(session.routineName.lowercased()) · \(completedSets) \(completedSets == 1 ? "set" : "sets") · \(finalElapsedText)")
                         .font(.system(.footnote, design: .monospaced))
                         .foregroundStyle(Theme.textSecondary)
+
+                    // The session's heart story, when Health had one.
+                    // Facts in ink — avg/max are a record, not a delta.
+                    if let heartLine = heartRateSummaryLine {
+                        heartLine
+                            .font(.system(.footnote, design: .monospaced))
+                            .foregroundStyle(Theme.textSecondary)
+                    }
 
                     if !diffTally.isEmpty {
                         tallyCard(diffTally)
@@ -528,6 +569,18 @@ struct ActiveSessionView: View {
     private var finalElapsedText: String {
         let elapsed = max(0, Int((session.endedAt ?? Date()).timeIntervalSince(session.startedAt)))
         return String(format: "%d:%02d", elapsed / 60, elapsed % 60)
+    }
+
+    /// "♥ 132 avg · 158 max" — appears a beat after the finish (the
+    /// summary query completes async and the @Bindable session
+    /// re-renders), or not at all when Health had nothing.
+    private var heartRateSummaryLine: Text? {
+        guard let average = session.averageHeartRate else { return nil }
+        var line = "\(average) avg"
+        if let peak = session.maxHeartRate {
+            line += " · \(peak) max"
+        }
+        return Text("\(Image(systemName: "heart.fill")) \(line)")
     }
 
     // MARK: - The diff tally
@@ -750,6 +803,7 @@ private struct SetLoggingView: View {
     let lastTime: SetLog?
     let routineNotes: String?
     let burstCount: Int
+    let heartRate: HeartRateMonitor
     let onComplete: () -> Void
 
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
@@ -818,6 +872,22 @@ private struct SetLoggingView: View {
                         .font(.system(.subheadline))
                         .foregroundStyle(Theme.textSecondary)
                         .padding(.top, 8)
+
+                        // The cardio prescription: target zone or range
+                        // in plain ink (a prescription is a fact), the
+                        // live reading beside it going accent while
+                        // it's inside the band.
+                        if let target = log.targetHeartRate {
+                            HStack(spacing: 10) {
+                                (Text("target hr ").foregroundStyle(Theme.textSecondary)
+                                    + Text(target.label(maxHeartRate: heartRate.maxHeartRate))
+                                    .font(.system(.subheadline, design: .monospaced))
+                                    .foregroundStyle(Theme.textPrimary))
+                                LiveHeartRateLabel(monitor: heartRate, target: target)
+                            }
+                            .font(.system(.subheadline))
+                            .padding(.top, 6)
+                        }
                     }
 
                     if let routineNotes {
@@ -1178,6 +1248,48 @@ private struct SupersetChips: View {
 
     private func letter(_ index: Int) -> String {
         String(UnicodeScalar(UInt8(65 + index % 26)))
+    }
+}
+
+/// "♥ 128" — the newest Health reading while it's fresh (a stale number
+/// at the gym is worse than none, so anything older than the fresh
+/// window renders NOTHING — including the chrome, when it wears any).
+/// The reading goes accent while it satisfies `target`; targetless it
+/// stays quiet ink, so green keeps meaning "where you're meant to be".
+private struct LiveHeartRateLabel: View {
+    let monitor: HeartRateMonitor
+    let target: HeartRateTarget?
+    var chrome = false
+
+    var body: some View {
+        // Ticks to EXPIRE a reading, not to display one — updates
+        // arrive through the monitor's observation.
+        TimelineView(.periodic(from: .now, by: 5)) { context in
+            if let bpm = monitor.latestBPM, let at = monitor.latestAt,
+               context.date.timeIntervalSince(at) < HeartRateMonitor.freshWindow {
+                let inTarget = target?.contains(bpm, maxHeartRate: monitor.maxHeartRate) ?? false
+                let label = (Text("\(Image(systemName: "heart.fill")) ")
+                    .foregroundStyle(inTarget ? Theme.accent : Theme.textSecondary)
+                    + Text("\(bpm)")
+                    .foregroundStyle(inTarget ? Theme.accent : Theme.textPrimary))
+                    .font(.system(.caption, design: .monospaced, weight: .semibold))
+                if chrome {
+                    label
+                        .contentTransition(.numericText())
+                        .animation(.easeOut(duration: 0.15), value: bpm)
+                        .padding(.horizontal, 10)
+                        .frame(height: 34)
+                        .background(Theme.surface, in: Capsule())
+                        .overlay(Capsule().strokeBorder(Theme.border))
+                        .accessibilityIdentifier("liveHeartRate")
+                } else {
+                    label
+                        .contentTransition(.numericText())
+                        .animation(.easeOut(duration: 0.15), value: bpm)
+                        .accessibilityIdentifier("liveHeartRate")
+                }
+            }
+        }
     }
 }
 

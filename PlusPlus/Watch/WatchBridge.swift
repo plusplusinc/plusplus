@@ -39,9 +39,13 @@ final class WatchBridge: NSObject, WCSessionDelegate {
             let routines = (try? context.fetch(
                 FetchDescriptor<Routine>(sortBy: [SortDescriptor(\.order)])
             )) ?? []
+            // Heart-rate targets ship RESOLVED to bpm: the phone holds
+            // the max HR (Health's date of birth); the wrist only
+            // compares numbers.
+            let maxHeartRate = HealthAccess.resolvedMaxHeartRate()
             let plan = WatchSync.Plan(
                 generatedAt: Date(),
-                routines: routines.map(Self.planRoutine)
+                routines: routines.map { Self.planRoutine($0, maxHeartRate: maxHeartRate) }
             )
             do {
                 let data = try WatchSync.encode(plan)
@@ -57,12 +61,13 @@ final class WatchBridge: NSObject, WCSessionDelegate {
     }
 
     @MainActor
-    private static func planRoutine(_ routine: Routine) -> WatchSync.PlanRoutine {
+    private static func planRoutine(_ routine: Routine, maxHeartRate: Int) -> WatchSync.PlanRoutine {
         var steps: [WatchSync.Step] = []
         for (groupIndex, group) in routine.sortedGroups.enumerated() {
             for setNumber in 1...max(group.sets, 1) {
                 for entry in group.sortedExercises {
                     guard let exercise = entry.exercise else { continue }
+                    let heartBand = entry.heartRateTarget.map { $0.bpmRange(maxHeartRate: maxHeartRate) }
                     steps.append(WatchSync.Step(
                         exerciseName: exercise.name,
                         groupIndex: groupIndex,
@@ -71,7 +76,9 @@ final class WatchBridge: NSObject, WCSessionDelegate {
                         targetWeight: entry.weight,
                         targetRepsLower: entry.reps,
                         targetRepsUpper: entry.repsUpper,
-                        targetDuration: entry.durationSeconds
+                        targetDuration: entry.durationSeconds,
+                        targetHeartRateLowerBPM: heartBand?.lowerBound,
+                        targetHeartRateUpperBPM: heartBand?.upperBound
                     ))
                 }
             }
@@ -118,7 +125,20 @@ final class WatchBridge: NSObject, WCSessionDelegate {
             restSeconds: result.restSeconds
         )
         context.insert(session)
+        // The wrist's live-builder summary; nil when Health said no
+        // there. The phone never re-derives it for watch sessions —
+        // the builder's numbers are the closest to the sensor.
+        session.averageHeartRate = result.averageHeartRate
+        session.maxHeartRate = result.maxHeartRate
         for (order, stepResult) in result.steps.enumerated() {
+            // The plan resolved any zone target to bpm before the push,
+            // so the snapshot here is the band the wrist actually
+            // showed — an explicit range, faithfully.
+            let heartTarget: HeartRateTarget? = {
+                guard let lower = stepResult.step.targetHeartRateLowerBPM,
+                      let upper = stepResult.step.targetHeartRateUpperBPM else { return nil }
+                return .range(lowerBPM: lower, upperBPM: upper)
+            }()
             let log = SetLog(
                 order: order,
                 groupIndex: stepResult.step.groupIndex,
@@ -128,7 +148,8 @@ final class WatchBridge: NSObject, WCSessionDelegate {
                 targetWeight: stepResult.step.targetWeight,
                 targetRepsLower: stepResult.step.targetRepsLower,
                 targetRepsUpper: stepResult.step.targetRepsUpper,
-                targetDuration: stepResult.step.targetDuration
+                targetDuration: stepResult.step.targetDuration,
+                targetHeartRateData: heartTarget.flatMap { try? JSONEncoder().encode($0) }
             )
             log.actualWeight = stepResult.actualWeight
             log.actualReps = stepResult.actualReps

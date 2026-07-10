@@ -14,6 +14,10 @@ struct RootTabView: View {
 
     @State private var tab: AppTab = .today
     @State private var showingSplash: Bool
+    /// The welcome beat (first launch only): three screens — the idea,
+    /// the mechanics, the Health ask — then Today's setup timeline
+    /// takes over as always.
+    @State private var showingWelcome: Bool
     /// A share link the app was opened with, awaiting import (#145).
     @State private var shareImport: ShareImport?
 
@@ -21,8 +25,11 @@ struct RootTabView: View {
         // The launch beat: the ++ mark centered, then the app. Skipped
         // under UI tests (speed + quiescence). Everyone lands on Today —
         // a fresh install's timeline IS the onboarding (setup steps
-        // render as gated entries there).
-        _showingSplash = State(initialValue: !CommandLine.arguments.contains("--uitest-reset"))
+        // render as gated entries there). The welcome flow replaces the
+        // splash the one time it shows — its first page IS the mark.
+        let welcome = !SetupState.welcomeSeen
+        _showingWelcome = State(initialValue: welcome)
+        _showingSplash = State(initialValue: !welcome && !CommandLine.arguments.contains("--uitest-reset"))
     }
 
     var body: some View {
@@ -47,7 +54,14 @@ struct RootTabView: View {
         }
         .tint(Theme.textPrimary)
         .overlay {
-            if showingSplash {
+            if showingWelcome {
+                WelcomeView {
+                    withAnimation(.easeOut(duration: 0.35)) {
+                        showingWelcome = false
+                    }
+                }
+                .transition(.opacity)
+            } else if showingSplash {
                 splash
             }
         }

@@ -17,6 +17,13 @@ final class WorkoutSession {
     /// log the user is doing now. `currentLog` falls back to the first
     /// pending log when the cursor's log is already done.
     var cursorOrder: Int = 0
+    /// Session heart-rate summary in bpm. Watch-run sessions carry it in
+    /// the result payload (the wrist's live builder); phone-run sessions
+    /// read it from Health at the finish, and the record backfills later
+    /// if the watch's samples hadn't synced yet. nil = no data (no
+    /// sensor, no Health access) — never zero.
+    var averageHeartRate: Int?
+    var maxHeartRate: Int?
     @Relationship(deleteRule: .cascade, inverse: \SetLog.session)
     var setLogs: [SetLog] = []
 
@@ -149,7 +156,8 @@ final class WorkoutSession {
                         targetWeight: routineExercise.weight,
                         targetRepsLower: routineExercise.reps,
                         targetRepsUpper: routineExercise.repsUpper,
-                        targetDuration: routineExercise.durationSeconds
+                        targetDuration: routineExercise.durationSeconds,
+                        targetHeartRateData: routineExercise.heartRateTargetData
                     )
                     log.session = session
                     context.insert(log)
@@ -215,7 +223,8 @@ extension WorkoutSession {
                 targetWeight: isDuration ? nil : exercise.defaultWeight,
                 targetRepsLower: isDuration ? nil : (exercise.defaultReps ?? 10),
                 targetRepsUpper: isDuration ? nil : exercise.defaultRepsUpper,
-                targetDuration: isDuration ? (exercise.defaultDurationSeconds ?? 45) : nil
+                targetDuration: isDuration ? (exercise.defaultDurationSeconds ?? 45) : nil,
+                targetHeartRateData: isDuration ? exercise.defaultHeartRateTargetData : nil
             )
             // Insert first, relationships after (the seeder's hard-won
             // rule) — start(from:) predates it and is #195's audit.
@@ -261,6 +270,7 @@ extension WorkoutSession {
             guard let last = logs.last, let entry = group.sortedExercises.first else { continue }
             if last.exerciseType == .duration {
                 entry.durationSeconds = last.actualDuration ?? last.targetDuration
+                entry.heartRateTargetData = last.targetHeartRateData
             } else {
                 entry.weight = last.actualWeight ?? last.targetWeight
                 // A performed rep count is a scalar; the target range
@@ -305,6 +315,10 @@ final class SetLog {
     var targetRepsLower: Int?
     var targetRepsUpper: Int?
     var targetDuration: Int?
+    /// Snapshot of the plan entry's HeartRateTarget (encoded JSON) —
+    /// guidance shown during execution, never an actual. Snapshotted
+    /// like every other target so history survives template edits.
+    var targetHeartRateData: Data?
 
     var actualWeight: Double?
     var actualReps: Int?
@@ -321,7 +335,8 @@ final class SetLog {
         targetWeight: Double? = nil,
         targetRepsLower: Int? = nil,
         targetRepsUpper: Int? = nil,
-        targetDuration: Int? = nil
+        targetDuration: Int? = nil,
+        targetHeartRateData: Data? = nil
     ) {
         self.order = order
         self.groupIndex = groupIndex
@@ -333,9 +348,15 @@ final class SetLog {
         self.targetRepsLower = targetRepsLower
         self.targetRepsUpper = targetRepsUpper
         self.targetDuration = targetDuration
+        self.targetHeartRateData = targetHeartRateData
     }
 
     var isCompleted: Bool { completedAt != nil }
+
+    /// Typed view over `targetHeartRateData`.
+    var targetHeartRate: HeartRateTarget? {
+        targetHeartRateData.flatMap { try? JSONDecoder().decode(HeartRateTarget.self, from: $0) }
+    }
 
     var targetReps: RepTarget {
         RepTarget(lower: targetRepsLower, upper: targetRepsUpper)

@@ -128,6 +128,7 @@ final class Routine {
     private func applyDefaultTargets(to entry: RoutineExercise, for exercise: Exercise) {
         if exercise.exerciseType == .duration {
             entry.durationSeconds = exercise.defaultDurationSeconds ?? 45
+            entry.heartRateTargetData = exercise.defaultHeartRateTargetData
         } else {
             entry.weight = exercise.defaultWeight
             entry.reps = exercise.defaultReps ?? 10

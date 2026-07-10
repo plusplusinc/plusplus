@@ -33,6 +33,9 @@ struct SessionRow: View {
         if let duration = session.duration {
             parts.append(Self.durationText(duration))
         }
+        if let average = session.averageHeartRate {
+            parts.append("\(average) bpm")
+        }
         return parts.joined(separator: " · ")
     }
 
@@ -121,6 +124,15 @@ struct SessionDetailView: View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(spacing: 0) {
+                    // The heart-rate summary, when Health had one —
+                    // facts in ink, like the rest of the record.
+                    if let average = session.averageHeartRate {
+                        Text("\(Image(systemName: "heart.fill")) \(average) avg\(session.maxHeartRate.map { " · \($0) max" } ?? "")")
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(Theme.textSecondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.top, 10)
+                    }
                     if previousSession != nil {
                         Text("Δ vs \(previousDateText) session")
                             .font(.system(.caption2, design: .monospaced))
@@ -163,6 +175,18 @@ struct SessionDetailView: View {
         // Title + the record's facts in the chrome (mock 11:
         // "jul 7 · 18 sets · 42 min" under the name).
         .pushedScreenChrome(title: session.routineName, subtitle: subtitle.lowercased(), onBack: { dismiss() })
+        // Heart-rate backfill: a session finished before its samples
+        // reached Health (watch sync lag, or access granted later)
+        // fills in when the record is opened. Idempotent — only runs
+        // while the summary is missing.
+        .task {
+            guard session.averageHeartRate == nil, let endedAt = session.endedAt else { return }
+            HeartRateMonitor.summary(from: session.startedAt, to: endedAt) { average, peak in
+                guard !session.isDeleted else { return }
+                if let average { session.averageHeartRate = average }
+                if let peak { session.maxHeartRate = peak }
+            }
+        }
     }
 
     private var subtitle: String {

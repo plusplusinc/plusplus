@@ -47,4 +47,49 @@ struct WatchSyncTests {
         // sortedKeys → byte-stable payloads, diffable in transit logs.
         #expect(try WatchSync.encode(plan) == WatchSync.encode(plan))
     }
+
+    @Test func heartRateFieldsRoundTrip() throws {
+        let step = WatchSync.Step(
+            exerciseName: "Spin Bike",
+            groupIndex: 0,
+            setNumber: 1,
+            isDuration: true,
+            targetDuration: 1200,
+            targetHeartRateLowerBPM: 114,
+            targetHeartRateUpperBPM: 132
+        )
+        let started = Date(timeIntervalSince1970: 1_780_000_100)
+        let result = WatchSync.SessionResult(
+            routineName: "Cardio",
+            startedAt: started,
+            endedAt: started.addingTimeInterval(1200),
+            restSeconds: 60,
+            steps: [WatchSync.StepResult(step: step, actualDuration: 1200, completedAt: started.addingTimeInterval(1200))],
+            averageHeartRate: 128,
+            maxHeartRate: 151
+        )
+        let decoded = try WatchSync.decode(WatchSync.SessionResult.self, from: WatchSync.encode(result))
+        #expect(decoded == result)
+        #expect(decoded.averageHeartRate == 128)
+        #expect(decoded.steps[0].step.targetHeartRateLowerBPM == 114)
+    }
+
+    @Test func payloadsWithoutHeartRateStillDecode() throws {
+        // Version skew both ways: an older watch's result (no HR keys)
+        // and an older phone's plan must decode on new builds — the HR
+        // fields are additive optionals, never requirements.
+        let resultJSON = """
+        {"endedAt":"2026-06-01T10:30:00Z","restSeconds":90,"routineName":"Push Day",\
+        "startedAt":"2026-06-01T10:00:00Z","steps":[]}
+        """
+        let result = try WatchSync.decode(WatchSync.SessionResult.self, from: Data(resultJSON.utf8))
+        #expect(result.averageHeartRate == nil)
+        #expect(result.maxHeartRate == nil)
+
+        let stepJSON = """
+        {"exerciseName":"Plank","groupIndex":0,"isDuration":true,"setNumber":1,"targetDuration":60}
+        """
+        let step = try WatchSync.decode(WatchSync.Step.self, from: Data(stepJSON.utf8))
+        #expect(step.targetHeartRateLowerBPM == nil)
+    }
 }

@@ -25,8 +25,9 @@ struct WorkoutRunView: View {
     @State private var restEndsAt: Date?
     @State private var finished = false
 
-    /// One HealthKit workout session per run view (#90). Plain class in
-    /// @State: stable storage across re-renders, no observation needed.
+    /// One HealthKit workout session per run view (#90). @Observable in
+    /// @State: stable storage across re-renders, and the live bpm
+    /// readings re-render the step/rest views as they arrive.
     @State private var health = WatchWorkoutController()
 
     private var stepIndex: Int { results.count }
@@ -81,6 +82,14 @@ struct WorkoutRunView: View {
             Text(targetText(step))
                 .font(.system(.body, design: .monospaced, weight: .semibold))
 
+            // Live heart rate from the workout session, accent while
+            // it sits inside the step's target band; the resolved
+            // band (phone-side zone math) rides along as a fact.
+            if let heart = heartLine(for: step) {
+                heart
+                    .font(.system(.caption2, design: .monospaced, weight: .semibold))
+            }
+
             // The wrist's one big commit, in the phone's grammar: a
             // cream raised key (actions are ink/cream — green stays on
             // data), sinking onto its plate.
@@ -125,6 +134,29 @@ struct WorkoutRunView: View {
         return text
     }
 
+    /// "♥ 128 · 114–132" — the live reading (accent while in the
+    /// step's band) plus the target band when the step carries one.
+    /// nil when there's neither a reading nor a target.
+    private func heartLine(for step: WatchSync.Step) -> Text? {
+        let band: ClosedRange<Int>? = {
+            guard let lower = step.targetHeartRateLowerBPM,
+                  let upper = step.targetHeartRateUpperBPM else { return nil }
+            return min(lower, upper)...max(lower, upper)
+        }()
+        var line: Text?
+        if let bpm = health.latestBPM {
+            let inBand = band.map { $0.contains(bpm) } ?? false
+            line = Text("\(Image(systemName: "heart.fill")) \(bpm)")
+                .foregroundStyle(inBand ? WatchTheme.accent : .secondary)
+        }
+        if let band {
+            let bandText = Text("\(band.lowerBound)–\(band.upperBound)")
+                .foregroundStyle(.secondary)
+            line = line.map { $0 + Text(" · ").foregroundStyle(.secondary) + bandText } ?? bandText
+        }
+        return line
+    }
+
     private func log(_ step: WatchSync.Step) {
         if startedAt == nil {
             startedAt = Date()
@@ -164,6 +196,12 @@ struct WorkoutRunView: View {
                 // The phone's recharge blocks at wrist scale: live
                 // progress, so accent green, draining with the clock.
                 rechargeBlocks(remaining: remaining)
+                // Recovery at a glance — no band judgment during rest.
+                if let bpm = health.latestBPM {
+                    Text("\(Image(systemName: "heart.fill")) \(bpm)")
+                        .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
                 Button {
                     WatchRestNotifier.cancel()
                     restEndsAt = nil
@@ -216,7 +254,11 @@ struct WorkoutRunView: View {
             startedAt: startedAt ?? now,
             endedAt: now,
             restSeconds: routine.restSeconds,
-            steps: results
+            steps: results,
+            // The wrist's own live-builder summary — the phone stamps
+            // it onto the imported session (nil when Health said no).
+            averageHeartRate: health.averageBPM,
+            maxHeartRate: health.maxBPM
         ))
         WKInterfaceDevice.current().play(.success)
         finished = true

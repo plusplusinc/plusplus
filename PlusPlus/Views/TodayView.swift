@@ -919,6 +919,10 @@ struct TodayView: View {
             let minutes = Int(duration / 60)
             parts.append(minutes < 1 ? "<1 min" : "\(minutes) min")
         }
+        // The session's average heart rate, when Health had one.
+        if let average = session.averageHeartRate {
+            parts.append("\(average) bpm")
+        }
         return parts.joined(separator: " · ")
     }
 

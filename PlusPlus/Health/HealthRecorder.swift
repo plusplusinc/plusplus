@@ -10,14 +10,13 @@ import HealthKit
 /// mean "skip silently". Disabled under --uitest-reset so the permission
 /// sheet can't eat a smoke test's tap (same rule as RestNotifier).
 enum HealthRecorder {
-    private static let store = HKHealthStore()
+    private static var store: HKHealthStore { HealthAccess.store }
 
     /// Call at the moment a session transitions to finished, on the main
     /// actor — model fields are read here and captured as plain values
     /// before any HealthKit callback hops threads.
     static func record(_ session: WorkoutSession) {
-        guard !CommandLine.arguments.contains("--uitest-reset"),
-              HKHealthStore.isHealthDataAvailable(),
+        guard HealthAccess.isAvailable,
               let endedAt = session.endedAt,
               !session.completedSetLogs.isEmpty
         else { return }
