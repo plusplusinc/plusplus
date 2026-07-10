@@ -690,18 +690,22 @@ struct TodayView: View {
         let plan = weekPlan
         return VStack(alignment: .leading, spacing: 0) {
             HStack {
-                // The ++ is a button now (#266): the app-level page —
-                // Settings, About, What's new, links, feedback. Bare
-                // glyph, no circle chrome (Quiet Arcade): the brand
-                // mark shouldn't dress like a key.
+                // The ++ is a button (#266): the app-level page —
+                // Settings, About, What's new, links, feedback. It
+                // wears the key anatomy (Dave, build 43: the bare
+                // glyph didn't read as pressable next to the play
+                // key); the glyph stays brand green — content is the
+                // brand, the key says "press me". The other tabs'
+                // plain ++ glyphs stay flat: they aren't buttons.
                 Button {
                     showingAppMenu = true
                 } label: {
                     HeaderGlyph()
-                        .frame(width: 44, height: 44, alignment: .leading)
-                        .contentShape(Rectangle())
+                        .frame(width: 44, height: 44)
+                        .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
+                        .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.raisedKey())
                 .accessibilityIdentifier("appMenuButton")
                 Spacer()
                 // Settings' old seat starts workouts instead (#266):
