@@ -13,6 +13,7 @@ struct ActiveSessionView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Bindable var session: WorkoutSession
+    @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
 
     /// Finished sessions, for "last time" lookups on the set screen.
     @Query(filter: #Predicate<WorkoutSession> { $0.endedAt != nil })
@@ -59,8 +60,9 @@ struct ActiveSessionView: View {
                     VStack(spacing: 0) {
                         RestView(
                             endDate: restEndDate,
+                            totalSeconds: session.restSeconds,
                             upNext: currentLog,
-                            onAddTime: { extendRest(by: 15) },
+                            onAddTime: { extendRest(by: 30) },
                             onEnd: { endRest() }
                         )
                         // A decline used to be silent — at the gym it
@@ -158,7 +160,7 @@ struct ActiveSessionView: View {
             guard let raw = note.object as? String,
                   let adjustment = RestAdjustment(rawValue: raw) else { return }
             switch adjustment {
-            case .addFifteen: extendRest(by: 15)
+            case .addThirty: extendRest(by: 30)
             case .skip: endRest()
             }
         }
@@ -244,24 +246,15 @@ struct ActiveSessionView: View {
         return String(format: "%d:%02d", elapsed / 60, elapsed % 60)
     }
 
+    /// Block-style set progress (Quiet Arcade): one block per set in
+    /// the session, filled green as they land — the continuous bar and
+    /// its pulsing sliver died with it. Hidden before a scratch
+    /// session's first exercise (zero blocks is a meaningless bar).
+    @ViewBuilder
     private var progressBar: some View {
-        GeometryReader { proxy in
-            let done = CGFloat(completedSets) / CGFloat(max(totalSets, 1))
-            // No pulsing sliver when finished — or before the first
-            // exercise exists (1/max(0,1) would fill the whole bar).
-            let current = (session.isFinished || totalSets == 0) ? 0 : 1 / CGFloat(totalSets)
-            HStack(spacing: 0) {
-                Rectangle().fill(Theme.accent)
-                    .frame(width: proxy.size.width * done)
-                PulsingSegment()
-                    .frame(width: proxy.size.width * current)
-                Spacer(minLength: 0)
-            }
-            .background(Theme.border)
-            .clipShape(Capsule())
+        if totalSets > 0 {
+            BlockBar(total: totalSets, filled: completedSets, fill: Theme.accent)
         }
-        .frame(height: 4)
-        .animation(.easeOut(duration: 0.4), value: completedSets)
     }
 
     // MARK: - Actions
@@ -340,12 +333,13 @@ struct ActiveSessionView: View {
                 .foregroundStyle(Theme.accent)
                 .padding(.horizontal, 22)
                 .frame(height: 48)
-                .contentShape(Rectangle())
+                .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                 .overlay(
                     RoundedRectangle(cornerRadius: Theme.controlRadius)
                         .strokeBorder(Theme.borderStrong)
                 )
             }
+            .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
             .accessibilityIdentifier("addExerciseToSessionButton")
             .padding(.top, 8)
         }
@@ -355,94 +349,294 @@ struct ActiveSessionView: View {
 
     // MARK: - Done
 
+    /// Workout Complete, Quiet Arcade: the diff tally is the
+    /// centerpiece — per-exercise movement against the previous
+    /// session in the hue jobs, with a bold net row — then the week
+    /// block bar and (when one is real) a ★ new-best line. All
+    /// numbers real; no XP, no levels.
     private var finishedView: some View {
-        VStack(spacing: 14) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 64))
-                // Completion purple (#201) — the workout just merged.
-                .foregroundStyle(Theme.done)
-                .symbolEffect(.bounce, options: .nonRepeating, value: completeBounce)
-                .onAppear { completeBounce = true }
-            Text("Workout Complete")
-                .font(.system(.title3, weight: .bold))
-            Text("\(completedSets) \(completedSets == 1 ? "set" : "sets") · \(finalElapsedText)")
-                .font(.system(.footnote, design: .monospaced))
-                .foregroundStyle(Theme.textSecondary)
-            // Where the record actually lives (#246): the repo path
-            // described a file that exists nowhere until sync (#23)
-            // ships — restore it as provenance once a repo is real.
-            Text("\(Image(systemName: "arrow.right")) saved to your Today timeline")
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(Theme.textFaint)
-            // The one forward-looking line the moment can carry (#246):
-            // the calendar fact, no button, no exclamation.
-            if let next = nextOccurrenceText {
-                Text(next)
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(Theme.textFaint)
-            }
-            if isFirstEverFinish {
-                Text("widgets can show your schedule without opening the app — long-press the home screen to add one")
-                    .font(.system(.caption))
-                    .foregroundStyle(Theme.textFaint)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-            }
-            // A scratch session that produced real work can graduate to
-            // a template (#239). Sessions started from a routine never
-            // see this — their template already exists. The saved
-            // confirmation is checked FIRST: a successful save sets
-            // session.routine, which would otherwise hide the very
-            // feedback naming the routine (swift-reviewer catch — the
-            // unique-name suffix makes the name worth showing).
-            if let savedRoutineName {
-                Text("Saved to Routines · \(savedRoutineName)")
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(Theme.accent)
-                    .padding(.top, 4)
-            } else if session.routine == nil && completedSets > 0 {
-                    Button {
-                        routineNameDraft = ""
-                        showingSaveAsRoutine = true
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "plus")
-                                .font(.system(.caption, weight: .semibold))
-                            Text("Save as routine")
-                                .font(.system(.footnote, weight: .semibold))
-                        }
-                        // Creation is green (#202).
-                        .foregroundStyle(Theme.accent)
-                        .padding(.horizontal, 18)
-                        .frame(height: 44)
-                        .contentShape(Rectangle())
-                        .overlay(
-                            RoundedRectangle(cornerRadius: Theme.controlRadius)
-                                .strokeBorder(Theme.borderStrong)
-                        )
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(spacing: 14) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 56))
+                        // Completion purple (#201) — the workout just merged.
+                        .foregroundStyle(Theme.done)
+                        .symbolEffect(.bounce, options: .nonRepeating, value: completeBounce)
+                        .onAppear { completeBounce = true }
+                        .padding(.top, 18)
+                    Text("Workout Complete")
+                        .font(.system(.title3, weight: .bold))
+                    Text("\(session.routineName.lowercased()) · \(completedSets) \(completedSets == 1 ? "set" : "sets") · \(finalElapsedText)")
+                        .font(.system(.footnote, design: .monospaced))
+                        .foregroundStyle(Theme.textSecondary)
+
+                    if !diffTally.isEmpty {
+                        tallyCard(diffTally)
+                            .padding(.horizontal, 20)
                     }
-                    .accessibilityIdentifier("saveAsRoutineButton")
-                    .padding(.top, 4)
+
+                    // The week bar with THIS session already counted;
+                    // the ★ line rides the caption when a lift beat its
+                    // own history (a real number or nothing at all).
+                    if weekPlanNow.planned > 0 {
+                        VStack(spacing: 8) {
+                            BlockBar(total: weekPlanNow.planned, filled: weekPlanNow.completed)
+                            weekCaptionText
+                                .font(.system(.caption, design: .monospaced))
+                        }
+                        .padding(.horizontal, 20)
+                    } else if let best = newBestLine {
+                        Text(best)
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(Theme.accent)
+                    }
+
+                    // Where the record actually lives (#246): the repo
+                    // path returns as provenance once sync (#23) makes
+                    // the file real.
+                    Text("\(Image(systemName: "arrow.right")) saved to your Today timeline")
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(Theme.textFaint)
+                    // The one forward-looking line the moment can carry
+                    // (#246): the calendar fact, no button, no
+                    // exclamation.
+                    if let next = nextOccurrenceText {
+                        Text(next)
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(Theme.textFaint)
+                    }
+                    if isFirstEverFinish {
+                        Text("widgets can show your schedule without opening the app — long-press the home screen to add one")
+                            .font(.system(.caption))
+                            .foregroundStyle(Theme.textFaint)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
+                    }
+                    // A scratch session that produced real work can
+                    // graduate to a template (#239). Sessions started
+                    // from a routine never see this — their template
+                    // already exists. The saved confirmation is checked
+                    // FIRST: a successful save sets session.routine,
+                    // which would otherwise hide the very feedback
+                    // naming the routine (swift-reviewer catch).
+                    if let savedRoutineName {
+                        Text("Saved to Routines · \(savedRoutineName)")
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(Theme.accent)
+                            .padding(.top, 4)
+                    } else if session.routine == nil && completedSets > 0 {
+                        Button {
+                            routineNameDraft = ""
+                            showingSaveAsRoutine = true
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "plus")
+                                    .font(.system(.caption, weight: .semibold))
+                                Text("Save as routine")
+                                    .font(.system(.footnote, weight: .semibold))
+                            }
+                            // Creation is green (#202).
+                            .foregroundStyle(Theme.accent)
+                            .padding(.horizontal, 18)
+                            .frame(height: 44)
+                            .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: Theme.controlRadius)
+                                    .strokeBorder(Theme.borderStrong)
+                            )
+                        }
+                        .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
+                        .accessibilityIdentifier("saveAsRoutineButton")
+                        .padding(.top, 4)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.bottom, 16)
             }
+
             Button {
                 dismiss()
             } label: {
-                Text("Done")
-                    .font(.system(.subheadline, weight: .bold))
+                Text("Continue")
+                    .font(.system(.body, weight: .bold))
                     .foregroundStyle(Theme.onPrimary)
-                    .padding(.horizontal, 36)
-                    .frame(height: 48)
-                    .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
             }
+            .buttonStyle(.raisedPrimaryKey(cornerRadius: 12))
             .accessibilityIdentifier("sessionDoneButton")
+            .padding(.horizontal, 20)
             .padding(.top, 8)
+            .padding(.bottom, 12)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var finalElapsedText: String {
         let elapsed = max(0, Int((session.endedAt ?? Date()).timeIntervalSince(session.startedAt)))
         return String(format: "%d:%02d", elapsed / 60, elapsed % 60)
+    }
+
+    // MARK: - The diff tally
+
+    private var weightUnit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .lb }
+
+    /// This week's counts with the just-finished session included —
+    /// the same WeekPlan math as Today's header, so the two bars agree.
+    private var weekPlanNow: (completed: Int, planned: Int) {
+        WeekPlan.counts(routines: allRoutines, sessions: finishedSessions, today: Date(), calendar: Calendar.current)
+    }
+
+    private struct TallyLine: Identifiable {
+        let name: String
+        let delta: RoutineDiff.Delta
+        var id: String { name }
+    }
+
+    /// Exercise names in this session, first-appearance order.
+    private var sessionExerciseNames: [String] {
+        var names: [String] = []
+        for log in session.completedSetLogs where !names.contains(log.exerciseName) {
+            names.append(log.exerciseName)
+        }
+        return names
+    }
+
+    /// Per-exercise movement vs the previous performance: this
+    /// session's top completed set (weight with THAT set's reps — the
+    /// Today-diff rule; mixed maxima describe sets that never
+    /// happened) against the newest OTHER session's top set.
+    private var diffTally: [TallyLine] {
+        sessionExerciseNames.compactMap { name in
+            let mine = session.completedSetLogs.filter { $0.exerciseName == name }
+            guard let last = mine.last else { return nil }
+            let top = mine.max { ($0.actualWeight ?? 0) < ($1.actualWeight ?? 0) } ?? last
+            let target = RoutineDiff.Target(
+                name: name,
+                isDuration: last.exerciseType == .duration,
+                weight: top.actualWeight,
+                reps: top.actualReps ?? last.actualReps,
+                durationSeconds: last.actualDuration
+            )
+            return TallyLine(name: name, delta: RoutineDiff.delta(target: target, prior: prior(for: name)))
+        }
+    }
+
+    /// The previous performance of an exercise — newest finished
+    /// session other than this one that completed it, as its top set.
+    private func prior(for name: String) -> RoutineDiff.Prior? {
+        let candidates = finishedSessions
+            .filter { $0 !== session }
+            .sorted { ($0.endedAt ?? .distantPast) > ($1.endedAt ?? .distantPast) }
+        for other in candidates {
+            let matches = other.completedSetLogs.filter { $0.exerciseName == name }
+            guard let last = matches.last else { continue }
+            let top = matches.max { ($0.actualWeight ?? 0) < ($1.actualWeight ?? 0) } ?? last
+            return RoutineDiff.Prior(
+                weight: top.actualWeight,
+                reps: top.actualReps ?? last.actualReps,
+                durationSeconds: last.actualDuration
+            )
+        }
+        return nil
+    }
+
+    private func tallyCard(_ lines: [TallyLine]) -> some View {
+        VStack(alignment: .leading, spacing: 9) {
+            ForEach(lines) { line in
+                HStack(spacing: 8) {
+                    Text(line.name.lowercased())
+                        .font(.system(.footnote, design: .monospaced))
+                        .foregroundStyle(Theme.textSecondary)
+                        .lineLimit(1)
+                    Spacer(minLength: 8)
+                    deltaText(line.delta)
+                        .font(.system(.footnote, design: .monospaced, weight: .semibold))
+                }
+            }
+            Divider().overlay(Theme.border)
+            HStack(spacing: 8) {
+                Text("net")
+                    .font(.system(.footnote, design: .monospaced, weight: .bold))
+                    .foregroundStyle(Theme.textPrimary)
+                Spacer(minLength: 8)
+                netText
+                    .font(.system(.footnote, design: .monospaced, weight: .bold))
+                    .lineLimit(1)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+        .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
+    }
+
+    private func deltaText(_ delta: RoutineDiff.Delta) -> Text {
+        switch delta {
+        case .new:
+            return Text("new").foregroundStyle(Theme.accent)
+        case .unchanged:
+            return Text("=").foregroundStyle(Theme.textFaint)
+        default:
+            let text = RoutineDiff.summary(deltas: [delta], weightUnit: weightUnit).first?.text ?? ""
+            return Text(text).foregroundStyle(Theme.accent)
+        }
+    }
+
+    /// The bold total — the same aggregation as Today's summary line.
+    private var netText: Text {
+        let segments = RoutineDiff.summary(deltas: diffTally.map(\.delta), weightUnit: weightUnit)
+        var result = Text("")
+        for (index, segment) in segments.enumerated() {
+            if index > 0 {
+                result = result + Text(" · ").foregroundStyle(Theme.textFaint)
+            }
+            let color: Color = switch segment.kind {
+            case .up, .new: Theme.accent
+            case .down: Theme.textSecondary
+            case .unchanged: Theme.textFaint
+            }
+            result = result + Text(segment.text).foregroundStyle(color)
+        }
+        return result
+    }
+
+    /// "3 of 4 sessions this week · ★ bench 135 lb — new best".
+    private var weekCaptionText: Text {
+        let plan = weekPlanNow
+        var text = Text("\(plan.completed) of \(plan.planned) session\(plan.planned == 1 ? "" : "s") this week")
+            .foregroundStyle(Theme.textFaint)
+        if let best = newBestLine {
+            text = text + Text(" · ").foregroundStyle(Theme.textFaint)
+                + Text(best).foregroundStyle(Theme.accent)
+        }
+        return text
+    }
+
+    /// The heaviest lift this session that beat that exercise's own
+    /// all-time top weight — only when there WAS a previous best to
+    /// beat (day one everything is "a best"; saying so is noise).
+    private var newBestLine: String? {
+        var best: (name: String, weight: Double)?
+        for name in sessionExerciseNames {
+            let mine = session.completedSetLogs
+                .filter { $0.exerciseName == name }
+                .compactMap(\.actualWeight)
+            guard let top = mine.max(), top > 0 else { continue }
+            let priorTop = finishedSessions
+                .filter { $0 !== session }
+                .flatMap(\.completedSetLogs)
+                .filter { $0.exerciseName == name }
+                .compactMap(\.actualWeight)
+                .max()
+            guard let priorTop, top > priorTop else { continue }
+            if best == nil || top > best!.weight {
+                best = (name, top)
+            }
+        }
+        guard let best else { return nil }
+        return "★ \(best.name.lowercased()) \(WorkoutMetric.weight.displayText(best.weight, weightUnit: weightUnit)) — new best"
     }
 
     /// The soonest next occurrence across every scheduled routine —
@@ -491,28 +685,6 @@ struct ActiveSessionView: View {
             : identityMatches
         let dates = pool.compactMap(\.endedAt).sorted(by: >)
         return (dates.first, dates.count > 1 ? dates[1] : nil)
-    }
-}
-
-/// The current-set sliver of the progress bar, pulsing.
-private struct PulsingSegment: View {
-    /// XCUITest waits for app quiescence before every event, and an
-    /// endless animation means quiescence never arrives — so the sliver
-    /// holds still under --uitest-reset.
-    private static let animated = !CommandLine.arguments.contains("--uitest-reset")
-
-    @State private var dim = false
-
-    var body: some View {
-        Rectangle()
-            .fill(Theme.accent)
-            .opacity(dim ? 0.45 : 1)
-            .onAppear {
-                guard Self.animated else { return }
-                withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
-                    dim = true
-                }
-            }
     }
 }
 
@@ -626,6 +798,12 @@ private struct SetLoggingView: View {
     // with enough air between the two that neither is ever an
     // accident.
 
+    /// The effective weight step, for the stepper key labels ("−5" /
+    /// "+5"): per-equipment override first, then the unit's step.
+    private var weightStep: Double {
+        log.exercise?.weightStepOverride ?? weightUnit.step
+    }
+
     private var stage: some View {
         HStack(alignment: .top, spacing: 12) {
             valueColumn(
@@ -633,6 +811,8 @@ private struct SetLoggingView: View {
                 value: WorkoutMetric.weight.formatted(log.actualWeight ?? log.targetWeight),
                 numeric: log.actualWeight ?? log.targetWeight,
                 unit: weightUnit.symbol,
+                stepLabel: WorkoutMetric.weight.formatted(weightStep),
+                stepperHeight: 56,
                 identifier: "logWeight",
                 onTap: { wheel = .weight },
                 onDec: { log.actualWeight = WorkoutMetric.weight.decremented(log.actualWeight ?? log.targetWeight, weightUnit: weightUnit, stepOverride: log.exercise?.weightStepOverride) },
@@ -643,6 +823,8 @@ private struct SetLoggingView: View {
                 value: (log.actualReps ?? log.targetRepsLower).map(String.init) ?? "—",
                 numeric: (log.actualReps ?? log.targetRepsLower).map(Double.init),
                 unit: nil,
+                stepLabel: "1",
+                stepperHeight: 48,
                 identifier: "logReps",
                 onTap: { wheel = .reps },
                 onDec: { log.actualReps = max(1, (log.actualReps ?? log.targetRepsLower ?? 11) - 1) },
@@ -680,6 +862,8 @@ private struct SetLoggingView: View {
         value: String,
         numeric: Double?,
         unit: String?,
+        stepLabel: String,
+        stepperHeight: CGFloat,
         identifier: String,
         onTap: @escaping () -> Void,
         onDec: @escaping () -> Void,
@@ -709,26 +893,34 @@ private struct SetLoggingView: View {
             .padding(.top, 2)
             .padding(.horizontal, 8)
 
+            // Raised stepper keys with mono step labels (Quiet Arcade:
+            // "−5"/"+5" say what one press buys — the ± icons didn't).
             HStack(spacing: 8) {
                 Button(action: onDec) {
-                    Image(systemName: "minus")
-                        .font(.system(.body, weight: .semibold))
+                    Text("−\(stepLabel)")
+                        .font(.system(.body, design: .monospaced, weight: .bold))
                         .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 56)
-                        .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: 12))
-                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+                        .frame(height: stepperHeight)
+                        .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
+                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.borderStrong))
                 }
+                .buttonStyle(.raisedKey(cornerRadius: 12))
                 .accessibilityIdentifier("\(identifier)Decrement")
                 Button(action: onInc) {
-                    Image(systemName: "plus")
-                        .font(.system(.body, weight: .semibold))
+                    Text("+\(stepLabel)")
+                        .font(.system(.body, design: .monospaced, weight: .bold))
                         .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 56)
-                        .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: 12))
-                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+                        .frame(height: stepperHeight)
+                        .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
+                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.borderStrong))
                 }
+                .buttonStyle(.raisedKey(cornerRadius: 12))
                 .accessibilityIdentifier("\(identifier)Increment")
             }
             .padding(.horizontal, 12)
@@ -761,19 +953,18 @@ private struct SetLoggingView: View {
 
             ZStack {
                 Button(action: onComplete) {
-                    HStack(spacing: 9) {
-                        Text("+").font(.system(.title3, design: .monospaced, weight: .semibold))
-                        Text("Log set").font(.system(.body, weight: .bold))
-                    }
-                    .foregroundStyle(Theme.onPrimary)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 58)
-                    .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+                    Text("Log set")
+                        .font(.system(.body, weight: .bold))
+                        .foregroundStyle(Theme.onPrimary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 54)
+                        .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
                 }
+                .buttonStyle(.raisedPrimaryKey(cornerRadius: 12))
                 .accessibilityIdentifier("completeSetButton")
 
-                MitosisBurst(trigger: burstCount)
-                    .offset(y: -44)
+                PlusOneBurst(trigger: burstCount)
+                    .offset(y: -40)
             }
             .padding(.horizontal, 16)
             .padding(.top, 28)
@@ -808,7 +999,10 @@ private struct SetLoggingView: View {
     }
 }
 
-/// "Band Pulses → Y's and T's" rotation chips, current one highlighted.
+/// "Band Pulses → Y's and T's" rotation chips. The current member is
+/// an INVERSE INK capsule, not blue (Quiet Arcade): mid-action it's
+/// "where you are", a position in the rotation, not a selection being
+/// made. The next member stays outlined.
 private struct SupersetChips: View {
     let names: [String]
     let current: String
@@ -823,43 +1017,41 @@ private struct SupersetChips: View {
                 }
                 Text(name)
                     .font(.system(.caption, weight: .semibold))
-                    .foregroundStyle(name == current ? Theme.selected : Theme.textSecondary)
+                    .foregroundStyle(name == current ? Theme.onPrimary : Theme.textSecondary)
                     .lineLimit(1)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 3)
-                    .overlay(Capsule().strokeBorder(name == current ? Theme.selectedRing : Theme.borderStrong, lineWidth: 1))
+                    .background(name == current ? Theme.primaryFill : Color.clear, in: Capsule())
+                    .overlay(Capsule().strokeBorder(name == current ? Color.clear : Theme.borderStrong, lineWidth: 1))
             }
         }
     }
 }
 
-/// The "+" mitosis rep played on each logged set: two glyphs split apart
-/// and fade, re-triggered by bumping `trigger`.
-private struct MitosisBurst: View {
+/// The "+1" popped on each logged set (Quiet Arcade, replacing the
+/// mitosis "+"): a mono green +1 rises ~30 pt from the key's top edge,
+/// scaling 0.7 → 1.25 while it fades, 0.7 s ease-out, one-shot per
+/// trigger bump. Real number, real increment — the whole brand in one
+/// flourish.
+private struct PlusOneBurst: View {
     let trigger: Int
     @State private var animating = false
 
     var body: some View {
-        ZStack {
-            glyph.offset(x: animating ? -9 : 0)
-            glyph.offset(x: animating ? 9 : 0)
-        }
-        .opacity(animating ? 0 : (trigger > 0 ? 1 : 0))
-        .animation(.easeOut(duration: 0.85), value: animating)
-        .onChange(of: trigger) { _, _ in
-            animating = false
-            withAnimation(.easeOut(duration: 0.85)) {
-                animating = true
-            }
-        }
-        .allowsHitTesting(false)
-    }
-
-    private var glyph: some View {
-        Text("+")
-            .font(.system(.title3, design: .monospaced, weight: .bold))
+        Text("+1")
+            .font(.system(.body, design: .monospaced, weight: .bold))
             .foregroundStyle(Theme.accent)
-            .shadow(color: Theme.accent.opacity(0.5), radius: 12)
+            .scaleEffect(animating ? 1.25 : 0.7)
+            .offset(y: animating ? -30 : 0)
+            .opacity(animating ? 0 : (trigger > 0 ? 1 : 0))
+            .animation(.easeOut(duration: 0.7), value: animating)
+            .onChange(of: trigger) { _, _ in
+                animating = false
+                withAnimation(.easeOut(duration: 0.7)) {
+                    animating = true
+                }
+            }
+            .allowsHitTesting(false)
     }
 }
 
@@ -1015,55 +1207,85 @@ private struct DurationTimerCard: View {
 // MARK: - Rest
 
 /// Renders the countdown and ends itself (via `onEnd`) when the clock
-/// runs out — the only ticking view on the rest screen.
+/// runs out — the only ticking view on the rest screen. Quiet Arcade:
+/// 52 pt mono countdown over 12 recharge blocks draining with the
+/// clock (live progress, so accent green), UP NEXT as a card with its
+/// target in plain ink, +30s as a secondary key and Skip rest as the
+/// primary one.
 private struct RestView: View {
     let endDate: Date
+    /// The configured rest length — the recharge blocks' denominator
+    /// (an extension can push `remaining` past it; the blocks cap full).
+    let totalSeconds: Int
     let upNext: SetLog
     let onAddTime: () -> Void
     let onEnd: () -> Void
+
+    @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
+
+    private var weightUnit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .lb }
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             let remaining = max(0, Int(endDate.timeIntervalSince(context.date).rounded(.up)))
 
-            VStack(spacing: 24) {
+            VStack(spacing: 20) {
                 Text("REST")
                     .font(.system(.caption, design: .monospaced, weight: .semibold))
                     .foregroundStyle(Theme.textSecondary)
                     .kerning(1)
 
                 Text(String(format: "%d:%02d", remaining / 60, remaining % 60))
-                    .font(.system(size: 64, weight: .semibold, design: .monospaced))
+                    .font(.system(size: 52, weight: .bold, design: .monospaced))
                     .contentTransition(.numericText(countsDown: true))
 
-                VStack(spacing: 4) {
+                rechargeBlocks(remaining: remaining)
+
+                VStack(alignment: .leading, spacing: 4) {
                     Text("UP NEXT")
-                        .font(.system(.caption))
+                        .font(.system(.caption2, design: .monospaced, weight: .semibold))
                         .foregroundStyle(Theme.textFaint)
-                        .kerning(0.5)
+                        .kerning(0.8)
                     Text("\(upNext.exerciseName) — set \(upNext.setNumber)")
                         .font(.system(.body, weight: .semibold))
+                    // Values in plain ink (the handoff's rule): the next
+                    // prescription is a fact, not a delta — green stays
+                    // on movement.
+                    if let target = upNextTarget {
+                        target
+                            .font(.system(.footnote, design: .monospaced))
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(14)
+                .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+                .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
+                .padding(.horizontal, 20)
 
                 HStack(spacing: 10) {
                     Button(action: onAddTime) {
-                        Text("+15s")
-                            .font(.system(.subheadline, design: .monospaced, weight: .semibold))
+                        Text("+30s")
+                            .font(.system(.subheadline, design: .monospaced, weight: .bold))
                             .foregroundStyle(Theme.textPrimary)
-                            .padding(.horizontal, 24)
-                            .frame(height: 48)
-                            .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.borderStrong))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                            .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
+                            .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
                     }
+                    .buttonStyle(.raisedKey())
+                    .accessibilityIdentifier("extendRestButton")
                     Button(action: onEnd) {
                         Text("Skip rest")
                             .font(.system(.subheadline, weight: .bold))
                             .foregroundStyle(Theme.onPrimary)
-                            .padding(.horizontal, 26)
-                            .frame(height: 48)
-                            .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                            .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 11))
                     }
+                    .buttonStyle(.raisedPrimaryKey())
                     .accessibilityIdentifier("skipRestButton")
                 }
+                .padding(.horizontal, 20)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onChange(of: remaining) { _, newValue in
@@ -1073,5 +1295,41 @@ private struct RestView: View {
                 if remaining <= 0 { onEnd() }
             }
         }
+    }
+
+    /// 12 blocks draining left-to-right as the rest runs out.
+    private func rechargeBlocks(remaining: Int) -> some View {
+        let filled = min(12, Int((Double(remaining) / Double(max(totalSeconds, 1)) * 12).rounded(.up)))
+        return HStack(spacing: 3) {
+            ForEach(0..<12, id: \.self) { index in
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(index < filled ? Theme.accent : Theme.surfaceRaised)
+                    .frame(width: 17, height: 17)
+            }
+        }
+        .animation(.easeOut(duration: 0.15), value: filled)
+    }
+
+    /// "10 reps @ 135 lb" — weight value in ink, the rest faint.
+    private var upNextTarget: Text? {
+        if upNext.exerciseType == .duration {
+            guard let seconds = upNext.targetDuration else { return nil }
+            return Text(WorkoutMetric.duration.displayText(Double(seconds)))
+                .foregroundStyle(Theme.textPrimary)
+        }
+        var result: Text?
+        if upNext.targetReps.lower != nil {
+            result = Text("\(upNext.targetReps.display) reps").foregroundStyle(Theme.textFaint)
+        }
+        if let weight = upNext.targetWeight {
+            let weightValue = Text(WorkoutMetric.weight.displayText(weight, weightUnit: weightUnit))
+                .foregroundStyle(Theme.textPrimary)
+            if let existing = result {
+                result = existing + Text(" @ ").foregroundStyle(Theme.textFaint) + weightValue
+            } else {
+                result = weightValue
+            }
+        }
+        return result
     }
 }

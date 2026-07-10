@@ -268,13 +268,13 @@ struct LibraryEmptyState: View {
                 .foregroundStyle(Theme.accent)
                 .padding(.horizontal, 16)
                 .frame(height: 48)
-                .contentShape(Rectangle())
+                .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                 .overlay(
                     RoundedRectangle(cornerRadius: Theme.controlRadius)
                         .strokeBorder(Theme.borderStrong)
                 )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
             .accessibilityIdentifier(ctaIdentifier)
         }
         .frame(maxHeight: .infinity)
@@ -295,7 +295,7 @@ struct CatalogTabHeader: View {
                 HeaderGlyph()
                 Spacer()
                 if let onAdd {
-                    HeaderIconButton(systemImage: "plus", identifier: addIdentifier, tint: Theme.accent) {
+                    HeaderIconButton(systemImage: "plus", identifier: addIdentifier) {
                         onAdd()
                     }
                 }
@@ -432,18 +432,20 @@ struct CatalogBrowseScreen: View {
                     Text(createLabel).font(.system(.footnote, weight: .semibold))
                 }
                 // Creation is green (#202) — a future increment, same
-                // voice as the catalog dead-end create rows.
+                // voice as the catalog dead-end create rows; the key
+                // anatomy says "this makes something happen" (Quiet
+                // Arcade: in-list creation rows are secondary keys).
                 .foregroundStyle(Theme.accent)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 12)
                 .frame(height: 48)
-                .contentShape(Rectangle())
+                .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                 .overlay(
                     RoundedRectangle(cornerRadius: Theme.controlRadius)
                         .strokeBorder(Theme.borderStrong)
                 )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
             .padding(.horizontal, 16)
             .padding(.top, 8)
 
@@ -485,18 +487,14 @@ struct CatalogBrowseScreen: View {
                         .listRowSeparator(.hidden)
                 }
                 if kind == .exercises, !filterState.showUnowned, hiddenByOwnership > 0 {
-                    Button {
+                    // The ownership escape hatch as a quiet key (Quiet
+                    // Arcade retired selection blue as a link color).
+                    QuietKey(
+                        label: "\(hiddenByOwnership) more need equipment you don't have — show",
+                        identifier: "showUnownedToggle"
+                    ) {
                         filterState.showUnowned = true
-                    } label: {
-                        Text("\(hiddenByOwnership) more need equipment you don't have — show")
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundStyle(Theme.selected)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .frame(minHeight: 48)
-                            .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("showUnownedToggle")
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                 }
@@ -534,9 +532,10 @@ struct CatalogBrowseScreen: View {
                         .font(.system(.subheadline, weight: .bold))
                         .foregroundStyle(Theme.onPrimary)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 54)
+                        .frame(height: 52)
                         .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
                 }
+                .buttonStyle(.raisedPrimaryKey(cornerRadius: 12))
                 .accessibilityIdentifier("setEquipmentButton")
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)

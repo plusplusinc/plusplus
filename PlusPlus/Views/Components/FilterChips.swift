@@ -1,8 +1,11 @@
 import SwiftUI
 
 /// The one filter-row vocabulary (#237): filters and sort share a
-/// horizontally-scrollable row; every control is a 44 pt chip. Three
-/// kinds compose it:
+/// horizontally-scrollable row; every control is a 36 pt chip inside
+/// a 44 pt hit target (Quiet Arcade — box-consistent, so filled and
+/// outlined chips are identical height). Chips stay FLAT: they're
+/// state togglers, and the state flip is the feedback. Three kinds
+/// compose it:
 /// - `FacetChip` — single-select, anchored Menu; the ACTIVE VALUE
 ///   becomes the label in solid selection blue (#223's grammar).
 /// - `TrayFilterChip` — multi-select facets that open a tray; active
@@ -59,12 +62,14 @@ struct FacetChip<Value: Hashable>: View {
                 .lineLimit(1)
                 .foregroundStyle(selection == nil ? Theme.textSecondary : Theme.onSelected)
                 .padding(.horizontal, 13)
-                .frame(height: 44)
+                .frame(height: 36)
                 .background(
                     selection == nil ? Theme.surface : Theme.selected,
                     in: Capsule()
                 )
                 .overlay(Capsule().strokeBorder(selection == nil ? Theme.border : Color.clear))
+                .frame(height: 44)
+                .contentShape(Rectangle())
         }
         .animation(.easeOut(duration: 0.15), value: selection == nil)
         .sensoryFeedback(.selection, trigger: selection)
@@ -123,12 +128,14 @@ struct MultiFacetChip<Value: Hashable>: View {
                 .lineLimit(1)
                 .foregroundStyle(selection.isEmpty ? Theme.textSecondary : Theme.onSelected)
                 .padding(.horizontal, 13)
-                .frame(height: 44)
+                .frame(height: 36)
                 .background(
                     selection.isEmpty ? Theme.surface : Theme.selected,
                     in: Capsule()
                 )
                 .overlay(Capsule().strokeBorder(selection.isEmpty ? Theme.border : Color.clear))
+                .frame(height: 44)
+                .contentShape(Rectangle())
         }
         .animation(.easeOut(duration: 0.15), value: selection.isEmpty)
         .sensoryFeedback(.selection, trigger: selection)
@@ -178,10 +185,11 @@ struct TrayFilterChip: View {
             }
             .foregroundStyle(active ? Theme.onSelected : Theme.textSecondary)
             .padding(.horizontal, 13)
-            .frame(height: 44)
+            .frame(height: 36)
             .background(active ? Theme.selected : Theme.surface, in: Capsule())
             .overlay(Capsule().strokeBorder(active ? Color.clear : Theme.border))
-            .contentShape(Capsule())
+            .frame(height: 44)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .animation(.easeOut(duration: 0.15), value: active)
@@ -235,9 +243,11 @@ struct SortChip<Value: Hashable>: View {
             }
             .foregroundStyle(Theme.textSecondary)
             .padding(.horizontal, 13)
-            .frame(height: 44)
+            .frame(height: 36)
             .background(Theme.surface, in: Capsule())
             .overlay(Capsule().strokeBorder(Theme.border))
+            .frame(height: 44)
+            .contentShape(Rectangle())
         }
         .accessibilityIdentifier("catalogSortMenu")
     }

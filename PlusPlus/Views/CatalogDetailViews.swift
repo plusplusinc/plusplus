@@ -55,17 +55,20 @@ private struct CreateRow: View {
                 Text(label)
                     .font(.system(.footnote, weight: .semibold))
             }
+            // Green content on a raised key (Quiet Arcade): creation
+            // stays in the data-green voice, the key anatomy carries
+            // "this commits".
             .foregroundStyle(Theme.accent)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 12)
             .frame(height: 48)
-            .contentShape(Rectangle())
+            .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.controlRadius)
                     .strokeBorder(Theme.borderStrong)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
         .accessibilityIdentifier(identifier ?? label)
     }
 }
@@ -159,16 +162,23 @@ struct ExerciseDetailScreen: View {
                     if let videoURL = exercise.videoURL, let url = URL(string: videoURL) {
                         SheetSectionLabel("VIDEO")
                             .padding(.top, 24)
+                        // A quiet key, not a blue link (Quiet Arcade:
+                        // Theme.selected is retired as a link color).
                         Link(destination: url) {
                             HStack(spacing: 7) {
                                 Image(systemName: "play.rectangle")
                                     .font(.system(.footnote))
                                 Text(url.host() ?? videoURL)
-                                    .font(.system(.footnote, weight: .semibold))
+                                    .font(.system(.caption, design: .monospaced))
                                     .lineLimit(1)
                             }
-                            .foregroundStyle(Theme.selected)
+                            .foregroundStyle(Theme.textSecondary)
+                            .padding(.horizontal, 13)
+                            .frame(minHeight: 42)
+                            .background(Theme.background, in: RoundedRectangle(cornerRadius: 10))
+                            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.border))
                         }
+                        .buttonStyle(.quietKey)
                     }
 
                     SheetSectionLabel("ROUTINES (\(usedInRoutines.count))")

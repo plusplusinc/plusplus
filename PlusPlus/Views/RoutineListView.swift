@@ -84,7 +84,7 @@ struct RoutineListView: View {
             HStack {
                 HeaderGlyph()
                 Spacer()
-                HeaderIconButton(systemImage: "plus", identifier: "newRoutineButton", tint: Theme.accent) {
+                HeaderIconButton(systemImage: "plus", identifier: "newRoutineButton") {
                     showingCatalog = true
                 }
             }
@@ -116,23 +116,25 @@ struct RoutineListView: View {
     }
 }
 
-/// 44 pt round icon button used in tab headers (HIG minimum target).
+/// 44 pt square raised icon key used in tab headers (Quiet Arcade:
+/// header icon buttons are neutral secondary keys — supersedes #202's
+/// green header +; green's scope tightened to true data and in-list
+/// creation rows).
 struct HeaderIconButton: View {
     let systemImage: String
     var identifier: String?
-    /// Glyph color — creation buttons pass the data green (#202).
-    var tint: Color = Theme.textSecondary
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.system(.body, weight: .medium))
-                .foregroundStyle(tint)
+                .foregroundStyle(Theme.textSecondary)
                 .frame(width: 44, height: 44)
-                .background(Theme.surface, in: Circle())
-                .overlay(Circle().strokeBorder(Theme.border))
+                .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
+                .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
         }
+        .buttonStyle(.raisedKey())
         .accessibilityIdentifier(identifier ?? systemImage)
     }
 }

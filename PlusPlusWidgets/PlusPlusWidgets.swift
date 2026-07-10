@@ -19,13 +19,13 @@ enum WTheme {
         })
     }
 
-    /// v4 selection blue (#176): green is data, blue is interactive.
-    /// Mirrors Theme.selected.
+    /// Selection blue (#176, rebalanced by Quiet Arcade): green is
+    /// data, blue is interactive. Mirrors Theme.selected.
     static var selected: Color {
         Color(uiColor: UIColor { trait in
             trait.userInterfaceStyle == .dark
-                ? UIColor(red: 0x62 / 255.0, green: 0xB6 / 255.0, blue: 0xDE / 255.0, alpha: 1)
-                : UIColor(red: 0x1A / 255.0, green: 0x7F / 255.0, blue: 0xA8 / 255.0, alpha: 1)
+                ? UIColor(red: 0x5C / 255.0, green: 0xA8 / 255.0, blue: 0xF5 / 255.0, alpha: 1)
+                : UIColor(red: 0x16 / 255.0, green: 0x68 / 255.0, blue: 0xD2 / 255.0, alpha: 1)
         })
     }
 
@@ -125,14 +125,15 @@ struct RestLiveActivity: Widget {
     }
 }
 
-/// +15s / Skip on the island and Lock Screen (#157). The intents run in
+/// +30s / Skip on the island and Lock Screen (#157; +30s since Quiet
+/// Arcade matched the in-app rest button). The intents run in
 /// the app's process and drive the same code path as the on-screen
 /// buttons, so island, notification, and app can't disagree.
 struct RestControlButtons: View {
     var body: some View {
         HStack(spacing: 10) {
             Button(intent: AddRestTimeIntent()) {
-                Text("+15s")
+                Text("+30s")
                     .font(.system(.footnote, design: .monospaced, weight: .semibold))
                     .frame(maxWidth: .infinity)
                     .frame(height: 34)

@@ -18,6 +18,8 @@ struct AppMenuScreen: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
+                // A raised key (Quiet Arcade): the page's one
+                // navigation press.
                 Button {
                     showingSettings = true
                 } label: {
@@ -36,11 +38,10 @@ struct AppMenuScreen: View {
                     }
                     .padding(.horizontal, 14)
                     .frame(minHeight: 48)
-                    .contentShape(Rectangle())
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.borderStrong))
                 }
-                .buttonStyle(.plain)
-                .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
-                .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
+                .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
                 .accessibilityIdentifier("appMenuSettings")
                 .padding(.top, 24)
 
@@ -143,6 +144,7 @@ struct AppMenuScreen: View {
 /// TestFlight dispatch (keep it to one line, no obligation words).
 private enum WhatsNew {
     static let entries: [(build: String, notes: String)] = [
+        ("38", "Quiet Arcade: buttons press like real keys · your week as blocks on Today · Log set pops a +1 · rest gains +30s"),
         ("35", "Swipe actions stay put when you let go · this page · start any workout from Today's header"),
         ("34", "Catalogs open on your gear, fixable in place · pick several filters at once"),
         ("33", "A finish screen that names your next session · Today always offers a path"),

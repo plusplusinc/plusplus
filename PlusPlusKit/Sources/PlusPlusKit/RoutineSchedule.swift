@@ -41,6 +41,22 @@ public enum RoutineSchedule: Equatable, Sendable {
         }
     }
 
+    /// Expected occurrences in one calendar week — the Quiet Arcade
+    /// week block bar's denominator. Weekday schedules occur once per
+    /// marked day; a pace normalizes to a 7-day window and rounds to
+    /// the nearest whole session ("3×/7d" → 3, "1×/2d" → 4, "1×/10d"
+    /// → 1 — a schedule that exists never rounds to zero).
+    public var expectedSessionsPerWeek: Int {
+        switch normalized {
+        case .unscheduled:
+            return 0
+        case .weekdays(let days):
+            return days.count
+        case .frequency(let times, let perDays):
+            return max(1, Int((Double(times) * 7 / Double(perDays)).rounded()))
+        }
+    }
+
     /// Pure due computation. `lastCompleted` is the most recent finished
     /// session of this routine (nil = never done); `previousCompleted`
     /// is the completion before THAT (nil if none) — the banking rule

@@ -80,10 +80,10 @@ final class RestNotifier: NSObject, UNUserNotificationCenterDelegate {
 
     func scheduleRestEnd(at endDate: Date, exerciseName: String, setNumber: Int) {
         guard !disabled else { return }
-        // Only the notification requests — NOT the Live Activity. +15s
+        // Only the notification requests — NOT the Live Activity. +30s
         // reschedules through here, and ActivityKit permits update from
         // the background but request only in the foreground: ending the
-        // activity first would make the island's own +15s button destroy
+        // activity first would make the island's own +30s button destroy
         // the island (swift-reviewer finding, 2026-07-08). restStarted
         // updates an existing activity in place.
         cancelNotificationRequests()
@@ -115,7 +115,7 @@ final class RestNotifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     /// Skip, finish, discard, and natural expiry all funnel through
-    /// here — full teardown: notifications AND the island. (+15 s does
+    /// here — full teardown: notifications AND the island. (+30 s does
     /// NOT: it reschedules via scheduleRestEnd, which updates the
     /// activity in place.)
     func cancelPending() {

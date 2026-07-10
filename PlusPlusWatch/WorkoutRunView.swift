@@ -81,14 +81,20 @@ struct WorkoutRunView: View {
             Text(targetText(step))
                 .font(.system(.body, design: .monospaced, weight: .semibold))
 
+            // The wrist's one big commit, in the phone's grammar: a
+            // cream raised key (actions are ink/cream — green stays on
+            // data), sinking onto its plate.
             Button {
                 log(step)
             } label: {
                 Text("Log set")
                     .font(.headline)
+                    .foregroundStyle(WatchTheme.onPrimary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 40)
+                    .background(WatchTheme.primaryFill, in: RoundedRectangle(cornerRadius: 10))
             }
-            .buttonStyle(.borderedProminent)
-            .tint(.green)
+            .buttonStyle(WatchRaisedKeyStyle())
 
             // The early exit: logged sets ship as a partial session
             // (append-only history keeps what happened); an untouched
@@ -155,10 +161,21 @@ struct WorkoutRunView: View {
                     .foregroundStyle(.secondary)
                 Text(String(format: "%d:%02d", Int(remaining) / 60, Int(remaining) % 60))
                     .font(.system(.title2, design: .monospaced, weight: .bold))
-                Button("Skip") {
+                // The phone's recharge blocks at wrist scale: live
+                // progress, so accent green, draining with the clock.
+                rechargeBlocks(remaining: remaining)
+                Button {
                     WatchRestNotifier.cancel()
                     restEndsAt = nil
+                } label: {
+                    Text("Skip")
+                        .font(.system(.footnote, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, 16)
+                        .frame(height: 32)
+                        .background(WatchTheme.surfaceRaised, in: RoundedRectangle(cornerRadius: 10))
                 }
+                .buttonStyle(WatchRaisedKeyStyle())
             }
             .onChange(of: remaining <= 0) { _, expired in
                 if expired {
@@ -168,6 +185,24 @@ struct WorkoutRunView: View {
                 }
             }
         }
+    }
+
+    /// 12 blocks draining left-to-right — the rest length is the
+    /// denominator, so a long rest and a short one both read as one
+    /// full recharge.
+    private func rechargeBlocks(remaining: TimeInterval) -> some View {
+        let total = max(routine.restSeconds, 1)
+        let filled = min(12, Int((remaining / Double(total) * 12).rounded(.up)))
+        return HStack(spacing: 2) {
+            ForEach(0..<12, id: \.self) { index in
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(index < filled ? WatchTheme.accent : WatchTheme.surfaceRaised)
+                    .frame(height: 8)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+        .padding(.horizontal, 6)
+        .animation(.easeOut(duration: 0.15), value: filled)
     }
 
     // MARK: - Done
@@ -189,16 +224,28 @@ struct WorkoutRunView: View {
 
     private var doneView: some View {
         VStack(spacing: 8) {
-            Text("++")
-                .font(.system(.title3, design: .monospaced, weight: .bold))
-                .foregroundStyle(.green)
+            // Completion is purple (#201) — the workout just merged;
+            // the ++ mark stays brand green.
+            Image(systemName: "checkmark.circle.fill")
+                .font(.title3)
+                .foregroundStyle(WatchTheme.done)
             Text("\(results.count) sets logged")
                 .font(.system(.footnote, design: .monospaced))
                 .foregroundStyle(.secondary)
             Text("Synced to your iPhone.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-            Button("Done") { dismiss() }
+            Button {
+                dismiss()
+            } label: {
+                Text("Done")
+                    .font(.system(.footnote, weight: .semibold))
+                    .foregroundStyle(WatchTheme.onPrimary)
+                    .padding(.horizontal, 20)
+                    .frame(height: 34)
+                    .background(WatchTheme.primaryFill, in: RoundedRectangle(cornerRadius: 10))
+            }
+            .buttonStyle(WatchRaisedKeyStyle())
         }
     }
 }

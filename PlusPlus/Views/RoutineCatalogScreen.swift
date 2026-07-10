@@ -142,18 +142,14 @@ struct RoutineCatalogScreen: View {
                 // And only alongside visible rows — the empty state
                 // below carries the count itself.
                 if gearFilter == .mine, hiddenByGear > 0, !filteredTemplates.isEmpty {
-                    Button {
+                    // Quiet key (Quiet Arcade): the escape hatch reads
+                    // as pressable without the retired link blue.
+                    QuietKey(
+                        label: "\(hiddenByGear) more need gear you don't own — show",
+                        identifier: "showUnownedTemplates"
+                    ) {
                         gearFilter = nil
-                    } label: {
-                        Text("\(hiddenByGear) more need gear you don't own — show")
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundStyle(Theme.selected)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .frame(minHeight: 44)
-                            .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("showUnownedTemplates")
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                     .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 4, trailing: 16))
@@ -165,18 +161,17 @@ struct RoutineCatalogScreen: View {
                             .font(.system(.footnote))
                             .foregroundStyle(Theme.textFaint)
                         if gearFilter == .mine, hiddenByGear > 0 {
-                            Button("\(hiddenByGear) match\(hiddenByGear == 1 ? "es" : "") need gear you don't own — show") {
+                            QuietKey(
+                                label: "\(hiddenByGear) match\(hiddenByGear == 1 ? "es" : "") need gear you don't own — show",
+                                identifier: "showUnownedTemplatesEmpty"
+                            ) {
                                 gearFilter = nil
                             }
-                            .buttonStyle(.plain)
-                            .font(.system(.footnote, weight: .semibold))
-                            .foregroundStyle(Theme.selected)
                         }
                         if anyFilterActive {
-                            Button("Clear filters") { clearFilters() }
-                                .buttonStyle(.plain)
-                                .font(.system(.footnote, weight: .semibold))
-                                .foregroundStyle(Theme.selected)
+                            QuietKey(label: "Clear filters", identifier: "clearCatalogFilters") {
+                                clearFilters()
+                            }
                         }
                     }
                     .frame(maxWidth: .infinity)
@@ -280,13 +275,13 @@ struct RoutineCatalogScreen: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 12)
             .frame(height: 48)
-            .contentShape(Rectangle())
+            .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.controlRadius)
                     .strokeBorder(Theme.borderStrong)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
         .accessibilityIdentifier("createBlankRoutine")
     }
 
@@ -309,9 +304,8 @@ struct RoutineCatalogScreen: View {
                     .font(.system(.caption))
                     .foregroundStyle(Theme.textSecondary)
                     .lineLimit(2)
-                Text(metaLine(for: template))
+                metaText(for: template)
                     .font(.system(.caption2, design: .monospaced))
-                    .foregroundStyle(Theme.textFaint)
                     .lineLimit(1)
             }
             .padding(12)
@@ -322,22 +316,27 @@ struct RoutineCatalogScreen: View {
         .buttonStyle(.plain)
     }
 
-    private func metaLine(for template: RoutineTemplate) -> String {
-        var parts = [
+    /// The meta line with the gear verdict colored: "NEEDS <gear>" in
+    /// notes amber (Quiet Arcade — attention, not selection), the rest
+    /// faint.
+    private func metaText(for template: RoutineTemplate) -> Text {
+        let prefix = [
             template.focus.rawValue.uppercased(),
             template.effort.rawValue.uppercased(),
             template.estimatedMinutesText.uppercased(),
-        ]
+        ].joined(separator: " · ")
         let gear = template.equipmentNames
+        let gearPart: Text
         if gear.isEmpty {
-            parts.append("NO GEAR")
+            gearPart = Text("NO GEAR").foregroundStyle(Theme.textFaint)
         } else if gear.allSatisfy(ownedEquipmentNames.contains) {
-            parts.append("YOUR GEAR ✓")
+            gearPart = Text("YOUR GEAR ✓").foregroundStyle(Theme.textFaint)
         } else {
             let missing = gear.filter { !ownedEquipmentNames.contains($0) }
-            parts.append("NEEDS \(missing.prefix(2).joined(separator: ", ").uppercased())\(missing.count > 2 ? "…" : "")")
+            gearPart = Text("NEEDS \(missing.prefix(2).joined(separator: ", ").uppercased())\(missing.count > 2 ? "…" : "")")
+                .foregroundStyle(Theme.notes)
         }
-        return parts.joined(separator: " · ")
+        return Text("\(prefix) · ").foregroundStyle(Theme.textFaint) + gearPart
     }
 
     private func createBlankRoutine() {
@@ -430,17 +429,10 @@ struct RoutineTemplateDetailScreen: View {
                         // "turns out I do have a bench" is two taps,
                         // not a tab-switch expedition.
                         if !missingNames.isEmpty {
-                            Button {
+                            QuietKey(label: "Gear check — mark what you own", identifier: "gearCheckButton") {
                                 showingGearCheck = true
-                            } label: {
-                                Text("Gear check — mark what you own")
-                                    .font(.system(.footnote, weight: .semibold))
-                                    .foregroundStyle(Theme.selected)
-                                    .frame(minHeight: 44, alignment: .leading)
-                                    .contentShape(Rectangle())
                             }
-                            .buttonStyle(.plain)
-                            .accessibilityIdentifier("gearCheckButton")
+                            .padding(.top, 8)
                         }
                     }
 
@@ -455,6 +447,8 @@ struct RoutineTemplateDetailScreen: View {
             }
 
             // Add is the page's one action — bottom-docked like Start.
+            // Once added it lies flat (the disabled key spec: no plate,
+            // border only, dimmed content).
             Button {
                 guard !added else { return }
                 added = true
@@ -466,9 +460,10 @@ struct RoutineTemplateDetailScreen: View {
                     .foregroundStyle(added ? Theme.textFaint : Theme.onPrimary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
-                    .background(added ? Theme.surface : Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
-                    .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(added ? Theme.borderStrong : Color.clear))
+                    .background(added ? Theme.surface : Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(added ? Theme.borderStrong : Color.clear))
             }
+            .buttonStyle(.raisedPrimaryKey(cornerRadius: 12))
             .accessibilityIdentifier("addTemplateButton")
             .disabled(added)
             .padding(.horizontal, 16)
@@ -582,18 +577,10 @@ struct GearCheckTray: View {
             .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
             .padding(.top, 14)
 
-            Button {
+            QuietKey(label: "Full equipment catalog", identifier: "gearCheckCatalogButton") {
                 showingCatalog = true
-            } label: {
-                Text("Full equipment catalog")
-                    .font(.system(.footnote, weight: .semibold))
-                    .foregroundStyle(Theme.selected)
-                    .frame(minHeight: 44, alignment: .leading)
-                    .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("gearCheckCatalogButton")
-            .padding(.top, 4)
+            .padding(.top, 10)
             }
 
             Spacer(minLength: 0)
