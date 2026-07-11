@@ -215,14 +215,21 @@ private struct RoutineCard: View {
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
                 Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.system(.footnote, weight: .bold))
+                    .foregroundStyle(Theme.textFaint)
+            }
+            // Workload facts on their own full-width line. Sharing line
+            // one with the name (even at layoutPriority(-1)) crushed
+            // "~30 min · 5 exercises · 6 sets" to "~30 min · 5 e…"
+            // whenever the name ran long — the same squeeze the detail
+            // chrome hit in build-48, fixed the same way: give the facts
+            // the full width instead of what's left beside the title.
+            if !headerMeta.isEmpty {
                 Text(headerMeta)
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(Theme.textFaint)
                     .lineLimit(1)
-                    .layoutPriority(-1)
-                Image(systemName: "chevron.right")
-                    .font(.system(.footnote, weight: .bold))
-                    .foregroundStyle(Theme.textFaint)
             }
             Text(musclesLine)
                 .font(.system(.caption))

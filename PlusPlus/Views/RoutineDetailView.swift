@@ -93,13 +93,19 @@ struct RoutineDetailView: View {
         }
         .navigationDestination(isPresented: $showingRoutineSettings) {
             RoutineSettingsScreen(routine: routine) {
-                // Delete pops both settings and detail before the model
-                // dies — a rendered @Bindable to a deleted routine is a
-                // crash waiting on the next body pass.
+                // Two stack levels to unwind: settings sits ON TOP of this
+                // detail. Popping both in one transaction (settings via the
+                // boolean, detail via dismiss) raced to a single pop and
+                // stranded the user on the just-deleted routine's detail.
+                // Pop settings now; pop detail on the next main-actor turn
+                // once that commits; delete last, after detail leaves the
+                // tree so its @Bindable never re-renders a dead model.
                 showingRoutineSettings = false
-                dismiss()
                 Task { @MainActor in
-                    modelContext.delete(routine)
+                    dismiss()
+                    Task { @MainActor in
+                        modelContext.delete(routine)
+                    }
                 }
             }
         }
@@ -1068,10 +1074,15 @@ struct RoutineSettingsScreen: View {
         .onDisappear {
             if !routine.isDeleted { commitName() }
         }
-        .confirmationDialog(
+        // A centered alert, not a confirmationDialog: triggered from the
+        // "…" menu on this pushed screen, the dialog adapted to a
+        // popover that floated anchored to nothing near the tab bar
+        // (same class as #204's floating catalog offer). An alert
+        // presents centered and predictably, matching the custom
+        // exercise delete confirm in CatalogDetailViews.
+        .alert(
             "Delete \u{201C}\(routine.name)\u{201D}?",
-            isPresented: $confirmingDelete,
-            titleVisibility: .visible
+            isPresented: $confirmingDelete
         ) {
             Button("Delete routine", role: .destructive) { onDelete() }
             Button("Cancel", role: .cancel) {}
