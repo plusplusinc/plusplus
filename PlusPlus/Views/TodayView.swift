@@ -571,13 +571,15 @@ struct TodayView: View {
         }
     }
 
-    /// The cadence summary — the timeline's far end: one faint line of
-    /// plain calendar facts per scheduled routine ("mon/thu — Push
-    /// Day"). No obligation words (#172); presence and position
-    /// communicate. Empty scheduled routines still appear here — the
-    /// schedule is a fact even while the routine can't start (its
-    /// due-day card names that state). Spine only, no node: nothing
-    /// here is an entry.
+    /// The cadence summary: the timeline's far end, one faint line of
+    /// the recurring rhythm per scheduled routine ("every mon/thu ·
+    /// Push Day", "3×/wk · Full Body"). Phrased as the ongoing pattern,
+    /// not a dated occurrence, so it doesn't read as a duplicate of the
+    /// concrete upcoming card beside it. No obligation words (#172);
+    /// presence and position communicate. Empty scheduled routines still
+    /// appear here: the schedule is a fact even while the routine can't
+    /// start (its due-day card names that state). Spine only, no node:
+    /// nothing here is an entry.
     private var beyondThisWeekBlock: some View {
         HStack(alignment: .top, spacing: 10) {
             Rectangle()
@@ -588,7 +590,7 @@ struct TodayView: View {
             VStack(alignment: .leading, spacing: 3) {
                 SheetSectionLabel("BEYOND THIS WEEK")
                 ForEach(scheduledRoutines) { routine in
-                    Text("\(routine.schedule.shortLabel) — \(routine.name)")
+                    Text("\(routine.schedule.recurrenceLabel) · \(routine.name)")
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(Theme.textFaint)
                         .lineLimit(1)
