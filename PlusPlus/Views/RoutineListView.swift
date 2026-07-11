@@ -206,8 +206,9 @@ private struct RoutineCard: View {
     }
 
     var body: some View {
-        // Three lines (#238 — the single row was cramped): identity,
-        // what it hits, what it needs.
+        // Up to four lines when populated (#238 gave the card room; the
+        // workload facts then earned their own line to stop truncating):
+        // identity, workload, what it hits, what it needs.
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(routine.name)
@@ -215,14 +216,21 @@ private struct RoutineCard: View {
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
                 Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.system(.footnote, weight: .bold))
+                    .foregroundStyle(Theme.textFaint)
+            }
+            // Workload facts on their own full-width line. Sharing line
+            // one with the name (even at layoutPriority(-1)) crushed
+            // "~30 min · 5 exercises · 6 sets" to "~30 min · 5 e…"
+            // whenever the name ran long — the same squeeze the detail
+            // chrome hit in build-48, fixed the same way: give the facts
+            // the full width instead of what's left beside the title.
+            if !headerMeta.isEmpty {
                 Text(headerMeta)
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(Theme.textFaint)
                     .lineLimit(1)
-                    .layoutPriority(-1)
-                Image(systemName: "chevron.right")
-                    .font(.system(.footnote, weight: .bold))
-                    .foregroundStyle(Theme.textFaint)
             }
             Text(musclesLine)
                 .font(.system(.caption))
