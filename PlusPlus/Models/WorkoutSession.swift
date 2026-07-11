@@ -12,6 +12,13 @@ final class WorkoutSession {
     var routineName: String
     var startedAt: Date
     var endedAt: Date?
+    /// Stable cross-device identity for live mirror (#322): the shared key
+    /// both the phone and the watch tag their ops with, so a session
+    /// STARTED on either device is the same session everywhere. Minted per
+    /// instance; a routine/scratch start gets a fresh one, a watch-born
+    /// session adopts the id its `.started` op carried. Old rows migrate
+    /// to a default (inert — finished history never mirrors).
+    var sessionId: UUID = UUID()
     /// Snapshot of the routine's rest setting at start time.
     var restSeconds: Int = 90
     /// When the workout TIMER first engaged — the first exercise being

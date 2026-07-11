@@ -28,7 +28,6 @@ struct ActiveSessionView: View {
     @State private var showingSaveAsRoutine = false
     @State private var routineNameDraft = ""
     @State private var savedRoutineName: String?
-    @State private var restAlertsDenied = false
     /// Latched when THIS session finishes (a live @Query count could
     /// render a frame stale — swift-reviewer).
     @State private var isFirstEverFinish = false
@@ -79,27 +78,16 @@ struct ActiveSessionView: View {
                 // branch and .id as before the log, so the burst view
                 // survives and animates instead of being remounted.
                 if let restEndDate, lingeringLog == nil {
-                    VStack(spacing: 0) {
-                        RestView(
-                            endDate: restEndDate,
-                            totalSeconds: restTotalSeconds,
-                            upNext: displayLog,
-                            onAddTime: { extendRest(by: 30) },
-                            onEnd: { endRest() }
-                        )
-                        // A decline used to be silent — at the gym it
-                        // read as a broken timer (#246). Facts only.
-                        if restAlertsDenied {
-                            Text("rest-over alerts are off — notifications for PlusPlus are disabled in iOS Settings")
-                                .transition(.opacity)
-                                .font(.system(.caption, design: .monospaced))
-                                .foregroundStyle(Theme.textFaint)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, 24)
-                                .padding(.bottom, 10)
-                        }
-                    }
-                    .animation(.easeOut(duration: 0.15), value: restAlertsDenied)
+                    // The rest-over cue is the wrist (watch haptics) and the
+                    // Live Activity countdown, not a phone notification
+                    // (#322) — so no "alerts are off" caption here anymore.
+                    RestView(
+                        endDate: restEndDate,
+                        totalSeconds: restTotalSeconds,
+                        upNext: displayLog,
+                        onAddTime: { extendRest(by: 30) },
+                        onEnd: { endRest() }
+                    )
                 } else {
                     SetLoggingView(
                         session: session,
@@ -141,7 +129,8 @@ struct ActiveSessionView: View {
                 }
             }
             Button("Discard workout", role: .destructive) {
-                RestNotifier.shared.cancelPending()
+                LiveMirror.shared.discarded(session)
+                WorkoutActivityController.shared.end()
                 modelContext.delete(session)
                 dismiss()
             }
@@ -155,8 +144,7 @@ struct ActiveSessionView: View {
         }
         .sheet(isPresented: $showingOverview) {
             SessionOverviewSheet(session: session) {
-                restEndDate = nil
-                RestNotifier.shared.cancelPending()
+                endRest()
             }
             .presentationDetents([.fraction(0.88)])
         }
@@ -182,10 +170,20 @@ struct ActiveSessionView: View {
         }
         .interactiveDismissDisabled()
         .task {
-            RestActivityController.shared.beginSession(routineName: session.routineName)
-            // Prefetch so the denied caption is already placed when the
-            // first rest renders instead of nudging the countdown.
-            RestNotifier.shared.notificationsDenied { restAlertsDenied = $0 }
+            // Start the whole-session Live Activity and the watch mirror
+            // (#322). Not for a finished record opened from history.
+            if !session.isFinished {
+                LiveMirror.shared.begin(session)
+                let log = session.currentLog
+                WorkoutActivityController.shared.begin(
+                    routineName: session.routineName,
+                    exerciseName: log?.exerciseName ?? session.routineName,
+                    setNumber: log?.setNumber ?? 1,
+                    setsCompleted: completedSets,
+                    totalSets: totalSets,
+                    startedAt: session.effectiveStart
+                )
+            }
             // HR monitoring rides the workout clock: a routine session
             // has already started, so it begins now; an ad-hoc session
             // waits for its first exercise (engageClockIfNeeded).
@@ -207,6 +205,16 @@ struct ActiveSessionView: View {
             case .skip: endRest()
             }
         }
+        // A WATCH-initiated rest (live mirror, #322) reflected onto the
+        // open phone view — the countdown appears/clears here too.
+        .onReceive(NotificationCenter.default.publisher(for: LiveMirror.restChanged)) { note in
+            if let endsAt = note.object as? Date {
+                restTotalSeconds = max(1, Int(endsAt.timeIntervalSinceNow.rounded()))
+                restEndDate = endsAt
+            } else {
+                restEndDate = nil
+            }
+        }
     }
 
     // MARK: - Rest controls (shared by RestView buttons and the island)
@@ -215,17 +223,38 @@ struct ActiveSessionView: View {
         guard let current = restEndDate, let currentLog = session.currentLog else { return }
         let extended = current.addingTimeInterval(seconds)
         restEndDate = extended
-        RestNotifier.shared.scheduleRestEnd(
-            at: extended,
-            exerciseName: currentLog.exerciseName,
-            setNumber: currentLog.setNumber
-        )
+        reflectRest(endDate: extended, upNext: currentLog)
     }
 
     private func endRest() {
         guard restEndDate != nil else { return }
         restEndDate = nil
-        RestNotifier.shared.cancelPending()
+        LiveMirror.shared.restEnded(in: session)
+        syncActivityWorking()
+    }
+
+    /// Reflects an active rest on the Live Activity + the watch mirror.
+    private func reflectRest(endDate: Date, upNext: SetLog) {
+        WorkoutActivityController.shared.resting(
+            upNextExercise: upNext.exerciseName,
+            upNextSet: upNext.setNumber,
+            setsCompleted: completedSets,
+            totalSets: totalSets,
+            restEnd: endDate
+        )
+        LiveMirror.shared.restStarted(endsAt: endDate, total: restTotalSeconds, in: session)
+    }
+
+    /// Pushes the current working state (exercise · set · progress) to the
+    /// Live Activity — on rest end and after each logged set.
+    private func syncActivityWorking() {
+        let log = session.currentLog
+        WorkoutActivityController.shared.working(
+            exerciseName: log?.exerciseName ?? session.routineName,
+            setNumber: log?.setNumber ?? 1,
+            setsCompleted: completedSets,
+            totalSets: totalSets
+        )
     }
 
     // MARK: - Header
@@ -405,6 +434,8 @@ struct ActiveSessionView: View {
         // still on screen while the view lingers.
         guard lingeringLog == nil else { return }
         session.complete(log)
+        // Mirror the logged set to the watch (#322).
+        LiveMirror.shared.logged(log, in: session)
         burstCount += 1
         // Mid-workout sets thud; .success is saved for the finish so
         // the purple screen has its own physical beat (#216).
@@ -416,24 +447,19 @@ struct ActiveSessionView: View {
         }
 
         if hasNext {
-            // Rest STARTS now (endDate anchored at log time, the
-            // notification scheduled now) even though its screen waits
-            // out the beat — the countdown stays honest.
-            // The permission ask lives in the notifier — the first
-            // ARMED notification asks and arms on grant (#246). This
-            // refresh keeps the denied caption honest per rest.
-            RestNotifier.shared.notificationsDenied { restAlertsDenied = $0 }
+            // Rest STARTS now (endDate anchored at log time) even though
+            // its screen waits out the beat — the countdown stays honest.
+            // The rest-over cue is watch haptics + the Live Activity
+            // countdown, not a phone notification (#322).
             let restLength = session.restSeconds(after: log)
             restTotalSeconds = restLength
             let endDate = Date().addingTimeInterval(TimeInterval(restLength))
             restEndDate = endDate
             if let upNext = session.currentLog {
-                RestNotifier.shared.scheduleRestEnd(
-                    at: endDate,
-                    exerciseName: upNext.exerciseName,
-                    setNumber: upNext.setNumber
-                )
+                reflectRest(endDate: endDate, upNext: upNext)
             }
+        } else {
+            syncActivityWorking()
         }
 
         // Duration-driven sets have no +1 (their dock is the auto-timer;
@@ -462,10 +488,13 @@ struct ActiveSessionView: View {
     }
 
     private func finishSession(dismissAfter: Bool = true) {
-        RestNotifier.shared.cancelPending()
+        WorkoutActivityController.shared.end()
         if !session.isFinished {
             isFirstEverFinish = finishedSessions.isEmpty
             session.finish()
+            // Tell the watch the session is done (#322) — after finish()
+            // so the endedAt stamp rides along.
+            LiveMirror.shared.finished(session, at: session.endedAt ?? Date())
             heartRate.stop()
             // The session's heart-rate summary, from Health's samples
             // over the window. Watch imports never pass through here —
@@ -1590,9 +1619,6 @@ private struct DurationTimerCard: View {
             .frame(height: 40)
         }
         .onAppear(perform: start)
-        .onDisappear {
-            RestNotifier.shared.cancelPending()
-        }
     }
 
     private func remainingSeconds(at date: Date) -> Int {
@@ -1607,7 +1633,6 @@ private struct DurationTimerCard: View {
         let end = Date().addingTimeInterval(TimeInterval(totalSeconds))
         endDate = end
         pausedRemaining = nil
-        RestNotifier.shared.scheduleTimerEnd(at: end, exerciseName: log.exerciseName)
     }
 
     private func togglePause() {
@@ -1615,11 +1640,9 @@ private struct DurationTimerCard: View {
             let end = Date().addingTimeInterval(remaining)
             endDate = end
             pausedRemaining = nil
-            RestNotifier.shared.scheduleTimerEnd(at: end, exerciseName: log.exerciseName)
         } else if let endDate {
             pausedRemaining = max(0, endDate.timeIntervalSinceNow)
             self.endDate = nil
-            RestNotifier.shared.cancelPending()
         }
     }
 
@@ -1646,7 +1669,6 @@ private struct DurationTimerCard: View {
             elapsed = totalSeconds
         }
         endDate = nil
-        RestNotifier.shared.cancelPending()
         log.actualDuration = max(1, elapsed)
         onComplete()
     }

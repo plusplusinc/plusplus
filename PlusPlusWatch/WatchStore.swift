@@ -13,6 +13,10 @@ final class WatchStore: NSObject, WCSessionDelegate {
 
     private(set) var plan: WatchSync.Plan?
 
+    /// The live-mirror working copy (#322): emits wrist ops to the phone,
+    /// folds in phone ops, and journals the in-progress session.
+    let live = WatchLiveSession()
+
     override init() {
         super.init()
         if let data = UserDefaults.standard.data(forKey: Self.planDefaultsKey),
@@ -53,5 +57,24 @@ final class WatchStore: NSObject, WCSessionDelegate {
         if let data = applicationContext["plan"] as? Data {
             adopt(planData: data)
         }
+    }
+
+    // MARK: - Live mirror (#322)
+
+    /// A phone op over the reachable channel — fold it into the wrist's
+    /// working copy on the main actor.
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        ingestLiveOp(message["liveOp"])
+    }
+
+    /// A phone op queued while the wrist was unreachable, or the plan.
+    func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
+        ingestLiveOp(userInfo["liveOp"])
+    }
+
+    private func ingestLiveOp(_ value: Any?) {
+        guard let data = value as? Data,
+              let op = try? WatchSync.decode(LiveSession.Op.self, from: data) else { return }
+        Task { @MainActor in self.live.ingest(op) }
     }
 }

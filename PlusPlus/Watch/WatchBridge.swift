@@ -91,14 +91,55 @@ final class WatchBridge: NSObject, WCSessionDelegate {
         return WatchSync.PlanRoutine(name: routine.name, restSeconds: routine.restSeconds, steps: steps)
     }
 
+    // MARK: - Live mirror (#322)
+
+    /// Sends one live-mirror op to the watch: `sendMessage` when the wrist
+    /// is reachable (sub-second), else the durable `transferUserInfo`
+    /// queue so an op made while the watch is in a tunnel/locker is never
+    /// lost — it just arrives when the watch next runs. The reachable path
+    /// falls back to the queue on failure for the same reason.
+    func sendLive(op: LiveSession.Op) {
+        guard WCSession.isSupported() else { return }
+        let session = WCSession.default
+        guard session.activationState == .activated, session.isPaired, session.isWatchAppInstalled,
+              let data = try? WatchSync.encode(op) else { return }
+        if session.isReachable {
+            session.sendMessage(["liveOp": data], replyHandler: nil) { _ in
+                session.transferUserInfo(["liveOp": data])
+            }
+        } else {
+            session.transferUserInfo(["liveOp": data])
+        }
+    }
+
+    /// Live op over the reachable channel: not durable, so no A4 concern —
+    /// hand it to the mirror on the main actor to project + nudge the UI.
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        guard let data = message["liveOp"] as? Data,
+              let op = try? WatchSync.decode(LiveSession.Op.self, from: data) else { return }
+        Task { @MainActor in LiveMirror.shared.ingestLive(op) }
+    }
+
     // MARK: - Receiving results
 
     /// IMPORTANT: WCSession marks the transfer delivered when this
     /// method RETURNS — anything deferred past that point can drop a
-    /// once-delivered routine forever (bug hunt A4). So the import runs
-    /// synchronously, on this queue, in a context created here (a
-    /// ModelContext is usable on its creating thread).
+    /// once-delivered routine forever (bug hunt A4). So both the durable
+    /// live op and the finished-session import run synchronously, on this
+    /// queue, in a context created here (a ModelContext is usable on its
+    /// creating thread).
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
+        // A durable live-mirror op (queued while the watch was unreachable).
+        if let opData = userInfo["liveOp"] as? Data,
+           let op = try? WatchSync.decode(LiveSession.Op.self, from: opData) {
+            guard let container else {
+                Logger(subsystem: "com.davidcole.plusplus", category: "watch")
+                    .fault("live op arrived before activate(container:) — dropped")
+                return
+            }
+            LiveMirror.project(op, into: ModelContext(container))
+            return
+        }
         guard let data = userInfo["sessionResult"] as? Data else { return }
         guard let container else {
             Logger(subsystem: "com.davidcole.plusplus", category: "watch")

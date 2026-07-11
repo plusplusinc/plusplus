@@ -186,28 +186,37 @@ struct WorkoutRunView: View {
     }
 
     private func log(_ step: WatchSync.Step) {
+        let now = Date()
         if startedAt == nil {
-            startedAt = Date()
+            startedAt = now
+            // Originate (or resume) the mirrored session on first log (#322).
+            store.live.beginIfNeeded(routine: routine, startedAt: now)
         }
         WKInterfaceDevice.current().play(.success)
+        let weight = step.isDuration ? nil : step.targetWeight
+        let reps = step.isDuration ? nil : step.targetRepsLower
+        let duration = step.isDuration ? step.targetDuration : nil
         results.append(WatchSync.StepResult(
             step: step,
-            actualWeight: step.isDuration ? nil : step.targetWeight,
-            actualReps: step.isDuration ? nil : step.targetRepsLower,
-            actualDuration: step.isDuration ? step.targetDuration : nil,
-            completedAt: Date()
+            actualWeight: weight,
+            actualReps: reps,
+            actualDuration: duration,
+            completedAt: now
         ))
+        // Mirror the logged set to the phone (its execution order is the
+        // step's index in the shared plan).
+        store.live.logged(index: results.count - 1, weight: weight, reps: reps, duration: duration, extras: step.extraTargets ?? [:], at: now)
         if results.count < routine.steps.count {
             // The just-logged block's rest override (interval blocks)
             // wins over the routine default — same rule as the phone.
             let restLength = step.restSecondsOverride ?? routine.restSeconds
             currentRestTotal = restLength
-            let end = Date().addingTimeInterval(TimeInterval(restLength))
+            let end = now.addingTimeInterval(TimeInterval(restLength))
             restEndsAt = end
+            store.live.restStarted(endsAt: end, total: restLength)
             // The in-app haptic only fires while the app is frontmost;
             // with the wrist down the app suspends, so a local
-            // notification carries the "rest over" signal (no
-            // HKWorkoutSession in v1 — Health is deferred, #90).
+            // notification carries the "rest over" signal.
             WatchRestNotifier.schedule(at: end, exerciseName: routine.steps[results.count].exerciseName)
         } else {
             finish()
@@ -237,6 +246,7 @@ struct WorkoutRunView: View {
                 Button {
                     WatchRestNotifier.cancel()
                     restEndsAt = nil
+                    store.live.restEnded()
                 } label: {
                     Text("Skip")
                         .font(.system(.footnote, weight: .semibold))
@@ -252,6 +262,7 @@ struct WorkoutRunView: View {
                     WKInterfaceDevice.current().play(.notification)
                     WatchRestNotifier.cancel()
                     restEndsAt = nil
+                    store.live.restEnded()
                 }
             }
         }
@@ -281,6 +292,10 @@ struct WorkoutRunView: View {
         WatchRestNotifier.cancel()
         health.finish()
         let now = Date()
+        // Tell the phone the mirrored session is done (#322). The full
+        // SessionResult below still ships as the durable history import;
+        // the op just closes the live session promptly.
+        store.live.finished(at: now)
         store.send(WatchSync.SessionResult(
             routineName: routine.name,
             startedAt: startedAt ?? now,
