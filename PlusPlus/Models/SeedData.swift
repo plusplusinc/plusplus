@@ -521,6 +521,47 @@ enum SeedData {
             e("Agility Ladder Drills", .fullBody, ["Agility Ladder"], .duration),
             e("Tibialis Raise", .calves, ["Tibialis Bar"]),
             e("Slant Board Squat", .quads, ["Slant Board"]),
+
+            // MARK: Stretches + mobility
+            // Warmup and cooldown work, first-class (Dave, 2026-07-11:
+            // "finish with stretching, sometimes at the start after a
+            // warmup"). No new primitives: a static stretch is a timed
+            // HOLD (.duration → .durationOnly, run as an auto-timer on the
+            // set screen); a dynamic drill is rep-based (default type →
+            // .repsOnly). Each carries its TARGET muscle so it lives in
+            // the same equipment⇢exercise⇢routine graph and surfaces in
+            // the library search — hip openers cluster under glutes, neck
+            // rides shoulders and forearm/biceps under biceps, matching
+            // how the catalog already files adduction/neck/grip work.
+            // All bodyweight, so they reach everyone and add no gear.
+            // Static holds (timed):
+            e("Standing Hamstring Stretch", .hamstrings, [], .duration),
+            e("Standing Quad Stretch", .quads, [], .duration),
+            e("Kneeling Hip Flexor Stretch", .quads, [], .duration),
+            e("Figure-Four Stretch", .glutes, [], .duration),
+            e("Pigeon Pose", .glutes, [], .duration),
+            e("Butterfly Stretch", .glutes, [], .duration),
+            e("Standing Calf Stretch", .calves, [], .duration),
+            e("Downward Dog", .fullBody, [], .duration),
+            e("Doorway Chest Stretch", .chest, [], .duration),
+            e("Cross-Body Shoulder Stretch", .shoulders, [], .duration),
+            e("Neck Stretch", .shoulders, [], .duration),
+            e("Overhead Triceps Stretch", .triceps, [], .duration),
+            e("Standing Biceps Stretch", .biceps, [], .duration),
+            e("Child's Pose", .back, [], .duration),
+            e("Seated Spinal Twist", .back, [], .duration),
+            e("Lat Stretch", .back, [], .duration),
+            e("Cobra Stretch", .core, [], .duration),
+            e("Standing Side Bend Stretch", .core, [], .duration),
+            // Dynamic mobility (rep-based warmup drills):
+            e("Arm Circles", .shoulders, []),
+            e("Leg Swings", .hamstrings, []),
+            e("Hip Circles", .glutes, []),
+            e("Walking Knee Hug", .glutes, []),
+            e("Standing Torso Twist", .core, []),
+            e("Cat-Cow", .back, []),
+            e("World's Greatest Stretch", .fullBody, []),
+            e("Inchworm", .fullBody, []),
         ]
     }()
 

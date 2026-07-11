@@ -666,5 +666,42 @@ enum RoutineCatalog {
                 b(2, r("Single-Leg Glute Bridge", 12)),
             ]
         ),
+
+        // MARK: Warm-up + stretch
+        // Bookends for a session (Dave, 2026-07-11): dynamic drills to
+        // open up before you lift, static holds to finish. One round
+        // through each (sets: 1) — mobility work is a sequence, not
+        // volume. Run standalone, or drop the blocks into any routine.
+        .init(
+            name: "Dynamic Warm-Up",
+            summary: "Joint circles and dynamic moves to open up before you lift.",
+            focus: .fullBody, effort: .light, style: .recovery, restSeconds: 30,
+            blocks: [
+                b(1, r("Arm Circles", 10)),
+                b(1, r("Leg Swings", 10)),
+                b(1, r("Hip Circles", 10)),
+                b(1, r("Walking Knee Hug", 10)),
+                b(1, r("Standing Torso Twist", 10)),
+                b(1, r("Cat-Cow", 10)),
+                b(1, r("World's Greatest Stretch", 5)),
+                b(1, r("Inchworm", 8)),
+            ]
+        ),
+        .init(
+            name: "Full Body Stretch",
+            summary: "Hold-and-breathe stretches head to toe. The way to finish a session.",
+            focus: .fullBody, effort: .light, style: .recovery, restSeconds: 20,
+            blocks: [
+                b(1, d("Standing Hamstring Stretch", 30)),
+                b(1, d("Standing Quad Stretch", 30)),
+                b(1, d("Kneeling Hip Flexor Stretch", 30)),
+                b(1, d("Figure-Four Stretch", 30)),
+                b(1, d("Standing Calf Stretch", 30)),
+                b(1, d("Doorway Chest Stretch", 30)),
+                b(1, d("Cross-Body Shoulder Stretch", 30)),
+                b(1, d("Child's Pose", 30)),
+                b(1, d("Seated Spinal Twist", 30)),
+            ]
+        ),
     ]
 }
