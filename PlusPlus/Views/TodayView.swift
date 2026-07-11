@@ -97,106 +97,124 @@ struct TodayView: View {
             VStack(spacing: 0) {
                 header
 
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        // The week ahead rides ABOVE today (#267) in a
-                        // plain VStack: laziness above the anchor would
-                        // give the opening scrollTo estimated heights to
-                        // aim at (a LazyVStack sizes unrealized content
-                        // approximately, so an anchor below lazy rows
-                        // can land off by their estimation error). The
-                        // future section is small by construction — at
-                        // most a summary block plus 7 days of occurrence
-                        // cards — so eager layout is cheap; the
-                        // committed history below the anchor stays lazy.
-                        VStack(spacing: 0) {
-                            if showsFutureSection {
-                                futureSection
+                // The viewport height feeds the below-anchor min height
+                // (#267 follow-up): bound synchronously through the
+                // GeometryReader so today's region is already a screen
+                // tall on the FIRST layout — the opening scrollTo then
+                // always has room to seat today at the very top, even on
+                // a short fresh-install timeline that couldn't otherwise
+                // scroll the week ahead off-screen.
+                GeometryReader { viewport in
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            // The week ahead rides ABOVE today (#267) in a
+                            // plain VStack: laziness above the anchor would
+                            // give the opening scrollTo estimated heights to
+                            // aim at (a LazyVStack sizes unrealized content
+                            // approximately, so an anchor below lazy rows
+                            // can land off by their estimation error). The
+                            // future section is small by construction — at
+                            // most a summary block plus 7 days of occurrence
+                            // cards — so eager layout is cheap; the
+                            // committed history below the anchor stays lazy.
+                            VStack(spacing: 0) {
+                                if showsFutureSection {
+                                    futureSection
+                                }
+                                // The opening anchor: today's content
+                                // top-aligns here; the week above is
+                                // reachable by scrolling up.
+                                Color.clear
+                                    .frame(height: 0)
+                                    .id(Self.todayAnchorID)
+                                // Lazy: the committed section is the whole
+                                // history — eager building made every render
+                                // O(sessions) (bug hunt perf finding).
+                                LazyVStack(spacing: 0) {
+                                    // The date lives here now (Dave's ask),
+                                    // on the item it names — and it's the
+                                    // line the opening scroll lands on.
+                                    todayMarker
+                                    // The rest-day item yields to the setup scaffold
+                                    // until a startable routine exists — "nothing
+                                    // scheduled" and "schedule it (3 of 3)" saying
+                                    // the same thing twice reads broken. Once a
+                                    // routine CAN start, the item returns (#246):
+                                    // scheduling is optional and must not read as
+                                    // the only path to working out.
+                                    if dueRoutines.isEmpty
+                                        && (!setupActive || allSetupDone || !swapInCandidates.isEmpty) {
+                                        restDayItem
+                                    }
+                                    ForEach(dueButEmptyRoutines) { routine in
+                                        // Inert grey by intent: the ROUTINE isn't
+                                        // startable — the card's CTA repairs, it
+                                        // doesn't perform (rail grammar call).
+                                        TimelineItem(node: .inert) {
+                                            emptyRoutineCard(routine)
+                                        }
+                                    }
+                                    ForEach(dueRoutines) { routine in
+                                        TimelineItem(node: .pending) {
+                                            pendingCard(routine)
+                                                .matchedTransitionSource(id: routine.persistentModelID, in: zoomNamespace)
+                                        }
+                                    }
+                                    if setupActive {
+                                        setupSection
+                                    }
+                                    ForEach(sessions) { session in
+                                        TimelineItem(node: .committed) {
+                                            committedCard(session)
+                                                .matchedTransitionSource(id: session.persistentModelID, in: zoomNamespace)
+                                        }
+                                    }
+                                }
+                                // Pad the below-anchor region to at least a
+                                // screen so today can always scroll to the
+                                // top (see the GeometryReader note); taller
+                                // timelines make this a no-op.
+                                .frame(minHeight: viewport.size.height, alignment: .top)
                             }
-                            // The opening anchor: today's content
-                            // top-aligns here; the week above is
-                            // reachable by scrolling up.
-                            Color.clear
-                                .frame(height: 0)
-                                .id(Self.todayAnchorID)
-                            // Lazy: the committed section is the whole
-                            // history — eager building made every render
-                            // O(sessions) (bug hunt perf finding).
-                            LazyVStack(spacing: 0) {
-                                // The rest-day item yields to the setup scaffold
-                                // until a startable routine exists — "nothing
-                                // scheduled" and "schedule it (3 of 3)" saying
-                                // the same thing twice reads broken. Once a
-                                // routine CAN start, the item returns (#246):
-                                // scheduling is optional and must not read as
-                                // the only path to working out.
-                                if dueRoutines.isEmpty
-                                    && (!setupActive || allSetupDone || !swapInCandidates.isEmpty) {
-                                    restDayItem
-                                }
-                                ForEach(dueButEmptyRoutines) { routine in
-                                    // Inert grey by intent: the ROUTINE isn't
-                                    // startable — the card's CTA repairs, it
-                                    // doesn't perform (rail grammar call).
-                                    TimelineItem(node: .inert) {
-                                        emptyRoutineCard(routine)
-                                    }
-                                }
-                                ForEach(dueRoutines) { routine in
-                                    TimelineItem(node: .pending) {
-                                        pendingCard(routine)
-                                            .matchedTransitionSource(id: routine.persistentModelID, in: zoomNamespace)
-                                    }
-                                }
-                                if setupActive {
-                                    setupSection
-                                }
-                                ForEach(sessions) { session in
-                                    TimelineItem(node: .committed) {
-                                        committedCard(session)
-                                            .matchedTransitionSource(id: session.persistentModelID, in: zoomNamespace)
-                                    }
-                                }
-                            }
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 24)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 24)
-                    }
-                    .refreshable {
-                        // Honest refresh (#267): due-ness is pure local
-                        // computation keyed on the clock, so bumping the
-                        // token re-derives everything instantly — no
-                        // fake delay. Sync state joins this gesture when
-                        // #23 ships.
-                        dayToken += 1
-                    }
-                    .onAppear {
-                        guard !hasAnchoredToday else { return }
-                        hasAnchoredToday = true
-                        // Unanimated: Today OPENS at today; the week
-                        // above is something you go looking for.
-                        proxy.scrollTo(Self.todayAnchorID, anchor: .top)
-                    }
-                    .onChange(of: dayToken) {
-                        // A new day moves "today" — re-anchor. (This
-                        // also runs after pull-to-refresh: the gesture
-                        // asks for a fresh Today, and Today opens at
-                        // today.) Next runloop, not mid-update: the new
-                        // day's content must lay out before the anchor
-                        // frame it scrolls to is real.
-                        Task { @MainActor in
+                        .refreshable {
+                            // Honest refresh (#267): due-ness is pure local
+                            // computation keyed on the clock, so bumping the
+                            // token re-derives everything instantly — no
+                            // fake delay. Sync state joins this gesture when
+                            // #23 ships.
+                            dayToken += 1
+                        }
+                        .onAppear {
+                            guard !hasAnchoredToday else { return }
+                            hasAnchoredToday = true
+                            // Unanimated: Today OPENS at today; the week
+                            // above is something you go looking for.
                             proxy.scrollTo(Self.todayAnchorID, anchor: .top)
                         }
-                    }
-                    .onChange(of: showsFutureSection) { _, shows in
-                        // The week ahead can pop in mid-lifetime (the
-                        // last setup step completing, the first
-                        // schedule being created) — content inserted
-                        // above the viewport shoves today's cards
-                        // down-screen. Re-anchor so today stays on top.
-                        guard shows else { return }
-                        Task { @MainActor in
-                            proxy.scrollTo(Self.todayAnchorID, anchor: .top)
+                        .onChange(of: dayToken) {
+                            // A new day moves "today" — re-anchor. (This
+                            // also runs after pull-to-refresh: the gesture
+                            // asks for a fresh Today, and Today opens at
+                            // today.) Next runloop, not mid-update: the new
+                            // day's content must lay out before the anchor
+                            // frame it scrolls to is real.
+                            Task { @MainActor in
+                                proxy.scrollTo(Self.todayAnchorID, anchor: .top)
+                            }
+                        }
+                        .onChange(of: showsFutureSection) { _, shows in
+                            // The week ahead can pop in mid-lifetime (the
+                            // last setup step completing, the first
+                            // schedule being created) — content inserted
+                            // above the viewport shoves today's cards
+                            // down-screen. Re-anchor so today stays on top.
+                            guard shows else { return }
+                            Task { @MainActor in
+                                proxy.scrollTo(Self.todayAnchorID, anchor: .top)
+                            }
                         }
                     }
                 }
@@ -495,6 +513,38 @@ struct TodayView: View {
         .fixedSize(horizontal: false, vertical: true)
     }
 
+    /// The rail's "now" line, sitting directly on today's first item:
+    /// the date left the header (Dave's ask) for the item it describes,
+    /// and this marker is what the opening scroll (#267) seats at the
+    /// top. A spine-only divider like the beyond-this-week block — no
+    /// node, because it names a moment, it isn't an entry.
+    private var todayMarker: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Rectangle()
+                .fill(Theme.border)
+                .frame(width: 2)
+                .frame(maxHeight: .infinity)
+                .frame(width: 20)
+            VStack(alignment: .leading, spacing: 3) {
+                SheetSectionLabel("TODAY")
+                Text(todayDateText)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(Theme.textFaint)
+            }
+            .padding(.vertical, 10)
+            Spacer(minLength: 0)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// "sat · jul 11" — the timeline's own weekday·date grammar (matches
+    /// the upcoming cards' caption), lowercased like every rail caption.
+    private var todayDateText: String {
+        let weekday = today.formatted(.dateTime.weekday(.abbreviated)).lowercased()
+        let date = today.formatted(.dateTime.month(.abbreviated).day()).lowercased()
+        return "\(weekday) · \(date)"
+    }
+
     /// A condensed pending card, deliberately SECONDARY to today's
     /// (Dave's #267 call): name + date + estimate, a compact bordered
     /// Start instead of the full-width fill, no promoted diff, no
@@ -741,10 +791,12 @@ struct TodayView: View {
             Text("Today")
                 .font(.system(.title, weight: .bold))
                 .padding(.top, 10)
-            Text(caption(plan: plan))
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(Theme.textFaint)
-                .padding(.top, 3)
+            if let caption = caption(plan: plan) {
+                Text(caption)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(Theme.textFaint)
+                    .padding(.top, 3)
+            }
             // The week block bar: one block per scheduled session this
             // week, filled purple as sessions land. Purple, not green —
             // it counts what's committed, and it hides entirely when
@@ -762,16 +814,19 @@ struct TodayView: View {
         WeekPlan.counts(routines: routines, sessions: sessions, today: today, calendar: calendar)
     }
 
-    private func caption(plan: (completed: Int, planned: Int)) -> String {
-        let date = today.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()).lowercased()
+    /// The header's status line — setup progress, or the week tally.
+    /// The DATE left the header (Dave's ask): it belongs on today's
+    /// item, and now rides the timeline's TODAY marker. Nil when there's
+    /// nothing to say (no plan, past setup) so the line drops entirely.
+    private func caption(plan: (completed: Int, planned: Int)) -> String? {
         if setupActive && !allSetupDone {
-            return "\(date) · setup \(setupDoneCount) of 3"
+            return "setup \(setupDoneCount) of 3"
         }
         // The week tally is calendar fact, not obligation (#172-safe:
         // it never says what's LEFT, only what the plan holds and what
         // has landed). No "N due" tally — the staged cards ARE that.
-        guard plan.planned > 0 else { return date }
-        return "\(date) · \(plan.completed) of \(plan.planned) session\(plan.planned == 1 ? "" : "s") this week"
+        guard plan.planned > 0 else { return nil }
+        return "\(plan.completed) of \(plan.planned) session\(plan.planned == 1 ? "" : "s") this week"
     }
 
     // MARK: - Pending card
@@ -796,17 +851,15 @@ struct TodayView: View {
         }
 
         return VStack(alignment: .leading, spacing: 0) {
-            // SSE tiers: name (+ the one go/no-go fact, the estimate)
-            // with Configure as a real-but-subordinate bordered capsule —
-            // Start stays the card's only filled element.
+            // SSE tiers: the name owns the top row (the estimate moved
+            // down to the go/no-go meta row — Dave's ask) with Configure
+            // as a real-but-subordinate bordered capsule — Start stays
+            // the card's only filled element.
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(routine.name)
                     .font(.system(.body, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
-                Text(routine.estimateText)
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(Theme.textFaint)
                 Spacer(minLength: 8)
                 NavigationLink(value: routine) {
                     HStack(spacing: 4) {
@@ -826,9 +879,9 @@ struct TodayView: View {
                 .accessibilityIdentifier("configureRoutineButton")
             }
 
-            // Two meta rows: what it hits, what to have nearby. The
-            // schedule label is gone — the card's presence on Today IS
-            // the schedule statement.
+            // Two meta rows: what it hits, then what to have nearby and
+            // how long it runs. The schedule label is gone — the card's
+            // presence on Today IS the schedule statement.
             if let muscles = cappedList(musclesFor(routine)) {
                 Text(muscles)
                     .font(.system(.caption, design: .monospaced))
@@ -836,11 +889,22 @@ struct TodayView: View {
                     .lineLimit(1)
                     .padding(.top, 9)
             }
-            Text(cappedList(gearFor(routine)) ?? "bodyweight")
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(Theme.textFaint)
-                .lineLimit(1)
-                .padding(.top, 3)
+            // Gear + estimate pair on the go/no-go row — what to have
+            // nearby and how long it takes, the two "can I do this now?"
+            // facts. The estimate keeps priority so a long gear list
+            // truncates before the time does.
+            HStack(spacing: 8) {
+                Text(cappedList(gearFor(routine)) ?? "bodyweight")
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(Theme.textFaint)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                Text(routine.estimateText)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(Theme.textFaint)
+                    .layoutPriority(1)
+            }
+            .padding(.top, 3)
 
             // The diff is the identity moment — it outranks the meta
             // above it (footnote semibold; unchanged tallies aren't news).
