@@ -19,7 +19,8 @@ struct SettingsScreen: View {
     @State private var showingImporter = false
     @State private var importResultMessage: String?
     @State private var dataError: String?
-    @State private var showingSyncExplainer = false
+    @State private var showingSync = false
+    @State private var sync = GitHubSyncCoordinator.shared
     @State private var showingEquipmentSetup = false
     @State private var showingLibraryTray = false
     @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
@@ -217,21 +218,30 @@ struct SettingsScreen: View {
                     SheetSectionLabel("SYNC")
                         .padding(.top, 24)
                     Button {
-                        showingSyncExplainer = true
+                        showingSync = true
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "arrow.triangle.2.circlepath")
                                 .font(.system(.footnote))
-                            Text("Connect GitHub")
+                            Text(syncRowTitle)
                                 .font(.system(.subheadline, weight: .bold))
+                            Spacer()
+                            if sync.isConnected {
+                                Circle().fill(Theme.done).frame(width: 8, height: 8)
+                            }
+                            Image(systemName: "chevron.right")
+                                .font(.system(.caption, weight: .bold))
+                                .foregroundStyle(Theme.textFaint)
                         }
                         .foregroundStyle(Theme.textPrimary)
+                        .padding(.horizontal, 14)
                         .frame(maxWidth: .infinity)
                         .frame(height: 48)
                         .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                         .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.borderStrong))
                     }
                     .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
+                    .accessibilityIdentifier("syncRow")
                     Text("Your program and history live as JSON in a repo you own.")
                         .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
@@ -256,6 +266,9 @@ struct SettingsScreen: View {
         .sheet(isPresented: $showingLibraryTray) {
             EquipmentLibraryTray()
         }
+        .navigationDestination(isPresented: $showingSync) {
+            GitHubConnectScreen()
+        }
         .fileExporter(
             isPresented: $showingExporter,
             document: exportDocument,
@@ -271,11 +284,6 @@ struct SettingsScreen: View {
             allowedContentTypes: [.json]
         ) { result in
             handleImport(result)
-        }
-        .alert("GitHub Sync", isPresented: $showingSyncExplainer) {
-            Button("OK") {}
-        } message: {
-            Text("Coming soon: the sync engine is built and tested; connecting your account lands with the GitHub App setup (issue #23). Until then, Export/Import moves data through the same format.")
         }
         .alert("Import Complete", isPresented: Binding(
             get: { importResultMessage != nil },
@@ -293,6 +301,10 @@ struct SettingsScreen: View {
         } message: {
             Text(dataError ?? "")
         }
+    }
+
+    private var syncRowTitle: String {
+        sync.isConnected ? "GitHub" : "Connect GitHub"
     }
 
     private var equipmentSummary: String {

@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import TipKit
 import UIKit
+import PlusPlusKit
 
 @main
 struct PlusPlusApp: App {
@@ -21,6 +22,7 @@ struct PlusPlusApp: App {
     /// Appearance (#97): system by default; the setting lives in the
     /// Settings sheet.
     @AppStorage(AppAppearance.storageKey) private var appearanceRaw: String = AppAppearance.system.rawValue
+    @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
 
     init() {
         let schema = Schema([Routine.self, Exercise.self, Equipment.self, EquipmentLibrary.self, WorkoutSession.self, SetLog.self])
@@ -134,6 +136,15 @@ struct PlusPlusApp: App {
             if phase == .background {
                 WatchBridge.shared.pushPlan()
                 WidgetSnapshotWriter.write(container: modelContainer)
+            } else if phase == .active, !Self.isUnitTestHost {
+                // Pull remote changes and push anything logged elsewhere, once
+                // per foreground. No-ops unless GitHub sync is connected (#23).
+                let units = WeightUnit(rawValue: weightUnitRaw) ?? .lb
+                Task { @MainActor in
+                    await GitHubSyncCoordinator.shared.sync(
+                        context: modelContainer.mainContext, units: units
+                    )
+                }
             }
         }
     }
