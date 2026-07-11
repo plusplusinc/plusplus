@@ -125,7 +125,9 @@ struct InterchangeTests {
             ],
             sessions: []
         )
-        let issues = InterchangeValidator.validate(bundle)
+        // Opt into reference checking (empty library = only bundle-declared
+        // exercises resolve) so the absent "Ghost Exercise" is flagged.
+        let issues = InterchangeValidator.validate(bundle, knownExerciseNames: [])
         let messages = issues.map(\.message).joined(separator: "; ")
         #expect(messages.contains("duplicate exercise name"))
         #expect(messages.contains("restSeconds 5 outside 15...600"))
@@ -133,6 +135,36 @@ struct InterchangeTests {
         #expect(messages.contains("unresolved exercise reference"))
         #expect(messages.contains("repsUpper 15 must exceed reps 20"))
         #expect(messages.contains("group has no exercises"))
+    }
+
+    @Test("A partial-exercise bundle referencing an omitted built-in validates clean")
+    func partialExerciseBundleDoesNotFalseFlag() {
+        // An export legitimately declares only annotated built-ins/customs
+        // (here one), while a routine references unannotated built-ins the
+        // export omits — exactly the app's export/import round-trip. Without a
+        // target library, that must NOT be flagged as unresolved.
+        let bundle = ExportBundle(
+            exercises: [
+                ExerciseDTO(name: "Running", muscleGroup: .fullBody, exerciseType: .duration, equipment: [])
+            ],
+            routines: [
+                RoutineDTO(name: "Dumbbell Full Body", restSeconds: 90, groups: [
+                    .init(sets: 3, exercises: [.init(exercise: "Goblet Squat", reps: 10)]),
+                    .init(sets: 3, exercises: [.init(exercise: "Dumbbell Row", reps: 10)]),
+                ])
+            ],
+            sessions: []
+        )
+        let issues = InterchangeValidator.validate(bundle)
+        #expect(issues.isEmpty, "Omitted built-in references must not false-flag without a library")
+
+        // With a library that knows the built-ins, still clean.
+        let known = InterchangeValidator.validate(bundle, knownExerciseNames: ["goblet squat", "dumbbell row"])
+        #expect(known.isEmpty)
+
+        // With an empty library (strict), the omitted references DO flag.
+        let strict = InterchangeValidator.validate(bundle, knownExerciseNames: [])
+        #expect(strict.contains { $0.message.contains("unresolved exercise reference") })
     }
 
     @Test("Validator bounds exercise default targets (#187)")

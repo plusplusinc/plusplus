@@ -55,3 +55,17 @@ ruleset even on the same SHA.
 Run an until-loop in a background Bash task (never foreground sleep):
 poll the check-runs endpoint every 60 s, break on completion, print a
 final DONE line with conclusions.
+
+## Did the TestFlight build actually make it?
+
+A green `testflight.yml` run only proves the binary was DELIVERED to App
+Store Connect. ASC then processes it asynchronously (→ appears in TestFlight,
+or gets rejected with an email to the Apple ID) — invisible to that run. To
+see the ASC side, dispatch the **`asc-status.yml`** workflow (GitHub MCP
+`actions_run_trigger`, `run_workflow`, `ref: main`): it mints a JWT from the
+ASC key and prints each recent build's `processingState` (PROCESSING / VALID /
+INVALID / FAILED), annotating INVALID/FAILED ones. Read it with
+`get_job_logs`. `manageAppVersionAndBuildNumber` is off, so the build number is
+whatever the Archive step stamped (`CURRENT_PROJECT_VERSION=run_number`) — a
+duplicate would be rejected at processing time, showing as a build that never
+appears despite a green run.

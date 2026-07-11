@@ -43,7 +43,9 @@ struct ConformanceTests {
     func invalidFixture() throws {
         let data = try fixtureData("conformance-invalid")
         let bundle = try InterchangeCodec.decode(ExportBundle.self, from: data)
-        let messages = InterchangeValidator.validate(bundle).map(\.message).joined(separator: "; ")
+        // Opt into reference checking so the fixture's absent reference flags.
+        let messages = InterchangeValidator.validate(bundle, knownExerciseNames: [])
+            .map(\.message).joined(separator: "; ")
 
         #expect(messages.contains("duplicate exercise name"))
         #expect(messages.contains("restSeconds 5 outside 15...600"))

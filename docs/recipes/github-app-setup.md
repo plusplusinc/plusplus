@@ -1,7 +1,8 @@
 # Registering the GitHub App for in-app sync (#23)
 
-The app syncs your program and history to a private repo in *your* GitHub
-account using a **GitHub App with device flow** — no PlusPlus server, no client
+The app syncs your program and history to a repo in *your* GitHub account
+(private or public, your choice) using a **GitHub App with device flow** — no
+PlusPlus server, no client
 secret in the binary. Everything on both sides is built and tested; the only
 thing missing is the App itself, which only the owner can register. This is the
 one-time setup.
@@ -59,7 +60,7 @@ device-flow UX, and a real repo, none of which a remote Linux session can do.
 
 1. **Create a repo + install the App first.** The App has Contents-only
    permission, which can read/write a repo but **cannot create one** — so make
-   a **private** repo (any name, e.g. `plusplus-data`; tick "Add a README" so it
+   a repo (any name, e.g. `plusplus-data`, private or public; tick "Add a README" so it
    has a default branch), then install PlusPlus Sync on it
    (`github.com/apps/plusplus-sync` → Install → Only select repositories → pick
    it). The app discovers whichever repo you installed it on — no fixed name.
@@ -68,8 +69,8 @@ device-flow UX, and a real repo, none of which a remote Linux session can do.
    `WDJB-MJHT`). Tap **Open GitHub**, enter the code, approve.
 4. Back in the app, the screen flips to **Connected** and shows the repo you
    installed it on (bootstrap *adopts* it at its real default branch). If you
-   skipped step 1 you'll see "Install PlusPlus Sync on a private repo, then
-   reconnect" instead — do that and reconnect.
+   skipped step 1 you'll see "Install PlusPlus Sync on a repo, then reconnect"
+   instead — do that and reconnect.
 5. Tap **Sync now.** In the repo on github.com you should see commits appear:
    `Sync: …` for templates, your finished sessions under `history/YYYY/`.
 6. **Round-trip:** edit a routine file on github.com (or from the CLI), reopen

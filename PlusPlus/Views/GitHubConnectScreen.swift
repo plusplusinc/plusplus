@@ -1,9 +1,10 @@
 import SwiftUI
+import UIKit
 import PlusPlusKit
 
 /// The SYNC destination (#23): connect a GitHub account by device flow, then
 /// see connection state and sync on demand. Your program and history live as
-/// JSON in a private repo you own — no PlusPlus server ever sees it.
+/// JSON in a repo you own — no PlusPlus server ever sees it.
 struct GitHubConnectScreen: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -12,6 +13,8 @@ struct GitHubConnectScreen: View {
 
     @State private var sync = GitHubSyncCoordinator.shared
     @State private var connectTask: Task<Void, Never>?
+    @State private var codeCopied = false
+    @State private var copyResetTask: Task<Void, Never>?
 
     private var units: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .lb }
 
@@ -34,6 +37,7 @@ struct GitHubConnectScreen: View {
                     case .disconnected:
                         intro
                         if let message = activityError { errorNote(message) }
+                        installButton
                         connectButton
                     case .connected:
                         connectedPanel
@@ -48,6 +52,7 @@ struct GitHubConnectScreen: View {
         .pushedScreenChrome(title: "GitHub Sync", onBack: { dismiss() })
         .onDisappear {
             connectTask?.cancel()
+            copyResetTask?.cancel()
             sync.authorizingAborted()
         }
     }
@@ -56,13 +61,13 @@ struct GitHubConnectScreen: View {
 
     private var intro: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Keep your routines and history in a private GitHub repo you own.")
+            Text("Keep your routines and history in a GitHub repo you own.")
                 .font(.system(.footnote, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
-            Text("Readable JSON with clean diffs. Point an agent at it, run Actions on your training data, or just have a durable backup. The app talks to GitHub directly · nothing runs on a PlusPlus server.")
+            Text("Point an agent at it, run Actions on your training data, or just have a durable backup. The app talks to GitHub directly · nothing runs on a PlusPlus server.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textSecondary)
-            Text("First time: create a private repo and install PlusPlus Sync on it, then connect. The app syncs to whichever repo you installed it on.")
+            Text("First time: create a repo and install PlusPlus Sync on it, then connect. The app syncs to whichever repo you installed it on.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textFaint)
         }
@@ -88,34 +93,75 @@ struct GitHubConnectScreen: View {
         .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
     }
 
-    private var connectButton: some View {
-        Button {
-            connectTask?.cancel()
-            connectTask = Task { await sync.connect() }
-        } label: {
-            keyLabel(icon: "arrow.triangle.2.circlepath", title: "Connect GitHub")
+    private var installButton: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                openURL(GitHubSyncSettings.installURL)
+            } label: {
+                keyLabel(icon: "arrow.up.right", title: "Install on GitHub")
+            }
+            .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
+            .accessibilityIdentifier("installGitHubButton")
+            Text("Step 1 · pick the repo to sync to. Skip if you've already installed it.")
+                .font(.system(.caption))
+                .foregroundStyle(Theme.textFaint)
         }
-        .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
-        .accessibilityIdentifier("connectGitHubButton")
+        .padding(.top, 12)
+    }
+
+    private var connectButton: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                connectTask?.cancel()
+                connectTask = Task { await sync.connect() }
+            } label: {
+                keyLabel(icon: "arrow.triangle.2.circlepath", title: "Connect GitHub")
+            }
+            .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
+            .accessibilityIdentifier("connectGitHubButton")
+            Text("Step 2 · authorize on GitHub with a short code.")
+                .font(.system(.caption))
+                .foregroundStyle(Theme.textFaint)
+        }
         .padding(.top, 12)
     }
 
     private func authorizing(code: String, url: URL) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Enter this code at github.com")
-                    .font(.system(.footnote, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-                Text(code)
-                    .font(.system(.largeTitle, design: .monospaced, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary)
-                    .textSelection(.enabled)
-                    .accessibilityIdentifier("deviceUserCode")
+            // Tap the card to copy the code, so it can be pasted at
+            // github.com/login/device rather than retyped. Flat control (a
+            // copy action, not a nav/commit key) — stays flat per the grammar.
+            Button {
+                copyCode(code)
+            } label: {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Enter this code at github.com")
+                        .font(.system(.footnote, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                    HStack(spacing: 12) {
+                        Text(code)
+                            .font(.system(.largeTitle, design: .monospaced, weight: .bold))
+                            .foregroundStyle(Theme.textPrimary)
+                            .accessibilityIdentifier("deviceUserCode")
+                        Spacer()
+                        Image(systemName: codeCopied ? "checkmark.circle.fill" : "doc.on.doc")
+                            .font(.system(.title3, weight: .semibold))
+                            .foregroundStyle(codeCopied ? Theme.accent : Theme.textFaint)
+                            .contentTransition(.symbolEffect(.replace))
+                    }
+                    Text(codeCopied ? "Copied" : "Tap to copy")
+                        .font(.system(.caption, weight: .semibold))
+                        .foregroundStyle(codeCopied ? Theme.accent : Theme.textFaint)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(14)
+                .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.borderStrong))
+                .contentShape(Rectangle())
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(14)
-            .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
-            .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.borderStrong))
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("copyCodeButton")
+            .accessibilityLabel(codeCopied ? "Code copied" : "Copy code \(code)")
 
             Button {
                 openURL(url)
@@ -210,6 +256,20 @@ struct GitHubConnectScreen: View {
     }
 
     // MARK: - Bits
+
+    private func copyCode(_ code: String) {
+        UIPasteboard.general.string = code
+        UISelectionFeedbackGenerator().selectionChanged()
+        withAnimation(.easeOut(duration: 0.15)) { codeCopied = true }
+        // Revert the affordance after a beat so it reads as momentary feedback,
+        // not a stuck state. One-shot, cancelled on re-tap and on disappear.
+        copyResetTask?.cancel()
+        copyResetTask = Task {
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: 0.15)) { codeCopied = false }
+        }
+    }
 
     private func keyLabel(icon: String, title: String) -> some View {
         HStack(spacing: 8) {
