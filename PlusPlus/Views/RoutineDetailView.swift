@@ -36,6 +36,28 @@ struct RoutineDetailView: View {
     }
 
     var body: some View {
+        // Detail renders against a LIVE routine only. Delete flows
+        // (RoutineSettingsScreen's onDelete, or a delete elsewhere) flip
+        // routine.isDeleted while this screen may still be mounted;
+        // collapse to nothing so Observation never re-renders body against
+        // a dead model (routine.groups / .sortedGroups would fault — the
+        // standing deleted-model-race law), and pop the screen off the
+        // stack when it happens. The guard, not any pop timing, is what
+        // prevents the crash; the onChange, not a second pop racing the
+        // settings pop, is what unwinds the stack.
+        Group {
+            if routine.isDeleted {
+                Color.clear
+            } else {
+                detailContent
+            }
+        }
+        .onChange(of: routine.isDeleted) { _, deleted in
+            if deleted { dismiss() }
+        }
+    }
+
+    private var detailContent: some View {
         VStack(spacing: 0) {
             header
 
@@ -93,19 +115,16 @@ struct RoutineDetailView: View {
         }
         .navigationDestination(isPresented: $showingRoutineSettings) {
             RoutineSettingsScreen(routine: routine) {
-                // Two stack levels to unwind: settings sits ON TOP of this
-                // detail. Popping both in one transaction (settings via the
-                // boolean, detail via dismiss) raced to a single pop and
-                // stranded the user on the just-deleted routine's detail.
-                // Pop settings now; pop detail on the next main-actor turn
-                // once that commits; delete last, after detail leaves the
-                // tree so its @Bindable never re-renders a dead model.
+                // Settings sits ON TOP of this detail, so a delete has two
+                // stack levels to unwind. Pop settings now; delete on the
+                // next main-actor turn so the settings pop commits first.
+                // Detail then pops ITSELF via body's onChange(isDeleted)
+                // reacting to the delete — not a second pop in this same
+                // transaction, which raced the settings pop into a single
+                // pop and stranded the user on the deleted routine's detail.
                 showingRoutineSettings = false
                 Task { @MainActor in
-                    dismiss()
-                    Task { @MainActor in
-                        modelContext.delete(routine)
-                    }
+                    modelContext.delete(routine)
                 }
             }
         }

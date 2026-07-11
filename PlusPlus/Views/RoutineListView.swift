@@ -206,8 +206,9 @@ private struct RoutineCard: View {
     }
 
     var body: some View {
-        // Three lines (#238 — the single row was cramped): identity,
-        // what it hits, what it needs.
+        // Up to four lines when populated (#238 gave the card room; the
+        // workload facts then earned their own line to stop truncating):
+        // identity, workload, what it hits, what it needs.
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(routine.name)

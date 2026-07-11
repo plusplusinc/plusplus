@@ -227,7 +227,7 @@ struct RoutineCatalogScreen: View {
         .background(Theme.background)
         .onAppear { pushedTemplate = false }
         .pushedScreenChrome(
-            title: "Catalog",
+            title: "Routine catalog",
             search: HeaderSearchConfig(text: $search, prompt: "Search routines", identifier: "routineCatalogSearchField"),
             onBack: { dismiss() }
         )
