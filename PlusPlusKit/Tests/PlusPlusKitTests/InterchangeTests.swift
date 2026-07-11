@@ -184,6 +184,43 @@ struct InterchangeTests {
         #expect(try InterchangeCodec.decode(ExerciseDocument.self, from: dataNil).exercise.inLibrary == nil)
     }
 
+    @Test("Schedule + heart-rate + session-HR fields round-trip through the codec")
+    func newFieldsRoundTrip() throws {
+        let bundle = ExportBundle(
+            exercises: [
+                ExerciseDTO(name: "Row", muscleGroup: .fullBody, exerciseType: .duration, equipment: [],
+                            defaultHeartRateTarget: .zone(.zone3))
+            ],
+            routines: [
+                RoutineDTO(name: "Cardio", restSeconds: 60,
+                           schedule: .weekdays([2, 4]),
+                           groups: [.init(sets: 1, exercises: [
+                               .init(exercise: "Row", durationSeconds: 1200,
+                                     heartRateTarget: .range(lowerBPM: 130, upperBPM: 150))
+                           ])])
+            ],
+            sessions: [
+                SessionDTO(routineName: "Cardio", startedAt: Date(timeIntervalSince1970: 1_700_000_000),
+                           endedAt: Date(timeIntervalSince1970: 1_700_001_200), restSeconds: 60,
+                           activeSeconds: 1140,
+                           averageHeartRate: 142, maxHeartRate: 168,
+                           sets: [.init(order: 0, groupIndex: 0, setNumber: 1, exerciseName: "Row",
+                                        exerciseType: .duration, targetDuration: 1200, actualDuration: 1200,
+                                        targetHeartRate: .zone(.zone3), metrics: ["distance", "pace"])])
+            ]
+        )
+        let decoded = try InterchangeCodec.decode(ExportBundle.self, from: try InterchangeCodec.encode(bundle))
+        #expect(decoded.routines.first?.schedule == .weekdays([2, 4]))
+        #expect(decoded.exercises.first?.defaultHeartRateTarget == .zone(.zone3))
+        #expect(decoded.routines.first?.groups.first?.exercises.first?.heartRateTarget == .range(lowerBPM: 130, upperBPM: 150))
+        #expect(decoded.sessions.first?.activeSeconds == 1140)
+        #expect(decoded.sessions.first?.averageHeartRate == 142)
+        #expect(decoded.sessions.first?.maxHeartRate == 168)
+        #expect(decoded.sessions.first?.sets.first?.targetHeartRate == .zone(.zone3))
+        #expect(decoded.sessions.first?.sets.first?.metrics == ["distance", "pace"])
+        #expect(decoded == bundle, "Full bundle survives the round trip")
+    }
+
     @Test("Validator bounds exercise default targets (#187)")
     func validatorChecksDefaultTargets() {
         let bundle = ExportBundle(

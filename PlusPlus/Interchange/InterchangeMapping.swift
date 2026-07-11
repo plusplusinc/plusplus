@@ -4,6 +4,49 @@ import PlusPlusKit
 
 /// Bridges SwiftData models and the interchange DTOs (PlusPlusKit). Lives in
 /// the app because it needs the models; the format itself is app-agnostic.
+///
+/// ── INTERCHANGE FIELD CENSUS ──────────────────────────────────────────
+/// Every stored property of a synced model has exactly one disposition:
+/// EXPORTED (round-trips through a DTO) or EXCLUDED (with a reason). When
+/// you add a stored property to any model below, you MUST either map it
+/// here + assert it in `fullGraphRoundTripPreservesEveryContentField`
+/// (PlusPlusTests) or add it to this census as EXCLUDED. The completeness
+/// test is the enforcement point; the docs-drift hook nudges on model edits.
+/// Computed properties (no storage) are never listed — they carry nothing.
+///
+/// Exercise           name·muscleGroup·equipment·exerciseType·isBuiltIn·
+///                    inLibrary·notes·videoURL·defaultWeight·defaultReps·
+///                    defaultRepsUpper·defaultDurationSeconds·
+///                    defaultHeartRateTargetData·metricsData·extraDefaultsData  → all EXPORTED
+/// Equipment          name·isBuiltIn·weightStep·metricsData → EXPORTED
+///                    inLibrary → EXCLUDED (dead legacy field, folded into the default library)
+///                    libraries → EXPORTED via EquipmentLibraryDTO membership
+///                    exercises → EXCLUDED (inverse of Exercise.equipment, derived)
+/// EquipmentLibrary   name·equipment(members) → EXPORTED
+///                    order → EXCLUDED (device ordering; import appends)
+///                    uuid → EXCLUDED (active-pointer identity, device state)
+/// Routine            name·restSeconds·notes·scheduleData·groups → EXPORTED
+///                    createdAt → EXCLUDED (device metadata)
+///                    order → EXCLUDED (device ordering; import appends)
+/// ExerciseGroup      sets·restSecondsOverride·exercises → EXPORTED
+///                    order → EXCLUDED (structural: DTO array position)
+/// RoutineExercise    exercise·weight·reps·repsUpper·durationSeconds·
+///                    heartRateTargetData·extraTargetsData → EXPORTED
+///                    group → EXCLUDED (structural); order → EXCLUDED (array position)
+/// WorkoutSession     routineName·startedAt·endedAt·restSeconds·
+///                    accumulatedSeconds(activeSeconds)·averageHeartRate·
+///                    maxHeartRate·setLogs → EXPORTED
+///                    routine → EXCLUDED (snapshot by name; reference is a convenience)
+///                    sessionId → EXCLUDED (live-mirror cross-device id, inert once finished)
+///                    runStartedAt·segmentStartedAt → EXCLUDED (live-clock state, nil when finished)
+///                    cursorOrder → EXCLUDED (live session position)
+/// SetLog             order·groupIndex·setNumber·exerciseName·exerciseType·
+///                    metricsData·restSecondsOverride·targetWeight·
+///                    targetRepsLower·targetRepsUpper·targetDuration·
+///                    targetHeartRateData·extraTargetsData·actualWeight·
+///                    actualReps·actualDuration·extraActualsData·completedAt → EXPORTED
+///                    session → EXCLUDED (structural); exercise → EXPORTED (resolved by name)
+/// ──────────────────────────────────────────────────────────────────────
 enum InterchangeMapping {
     struct ImportSummary: Equatable {
         var exercisesCreated = 0
@@ -96,8 +139,19 @@ enum InterchangeMapping {
             // Carry library membership so it round-trips. Written only when
             // NOT in the library (the exception) — the common in-library case
             // stays absent, keeping files byte-clean.
-            inLibrary: exercise.inLibrary ? nil : false
+            inLibrary: exercise.inLibrary ? nil : false,
+            defaultHeartRateTarget: decodeHeartRate(exercise.defaultHeartRateTargetData)
         )
+    }
+
+    /// The HR target types have no model accessor on `Exercise`/`SetLog`, so
+    /// decode/encode their stored JSON blobs directly for the interchange.
+    static func decodeHeartRate(_ data: Data?) -> HeartRateTarget? {
+        data.flatMap { try? JSONDecoder().decode(HeartRateTarget.self, from: $0) }
+    }
+
+    static func encodeHeartRate(_ target: HeartRateTarget?) -> Data? {
+        target.flatMap { try? JSONEncoder().encode($0) }
     }
 
     static func makeDTO(_ routine: Routine) -> RoutineDTO {
@@ -105,6 +159,8 @@ enum InterchangeMapping {
             name: routine.name,
             restSeconds: routine.restSeconds,
             notes: routine.notes,
+            // Omit when unscheduled so pre-schedule files stay byte-identical.
+            schedule: routine.schedule == .unscheduled ? nil : routine.schedule,
             groups: routine.sortedGroups.map { group in
                 .init(
                     sets: group.sets,
@@ -116,7 +172,8 @@ enum InterchangeMapping {
                             reps: entry.reps,
                             repsUpper: entry.repsUpper,
                             durationSeconds: entry.durationSeconds,
-                            extraTargets: MetricValues.toRaw(entry.extraTargets)
+                            extraTargets: MetricValues.toRaw(entry.extraTargets),
+                            heartRateTarget: entry.heartRateTarget
                         )
                     },
                     restSeconds: group.restSecondsOverride
@@ -131,6 +188,12 @@ enum InterchangeMapping {
             startedAt: session.startedAt,
             endedAt: session.endedAt,
             restSeconds: session.restSeconds,
+            // Carry the running-clock duration only when it was tracked;
+            // legacy records (accumulatedSeconds == 0) omit it and resolve
+            // to the start→end span on import, byte-stable with old files.
+            activeSeconds: session.accumulatedSeconds > 0 ? session.accumulatedSeconds : nil,
+            averageHeartRate: session.averageHeartRate,
+            maxHeartRate: session.maxHeartRate,
             sets: session.sortedSetLogs.map { log in
                 .init(
                     order: log.order,
@@ -148,7 +211,9 @@ enum InterchangeMapping {
                     completedAt: log.completedAt,
                     extraTargets: MetricValues.toRaw(log.extraTargets),
                     extraActuals: MetricValues.toRaw(log.extraActuals),
-                    restSecondsOverride: log.restSecondsOverride
+                    restSecondsOverride: log.restSecondsOverride,
+                    targetHeartRate: decodeHeartRate(log.targetHeartRateData),
+                    metrics: MetricProfile.decode(from: log.metricsData).map { $0.metrics.map(\.rawValue) }
                 )
             }
         )
@@ -214,6 +279,7 @@ enum InterchangeMapping {
                 // Restore library membership (#328). Absent means in-library
                 // (the common case + every pre-inLibrary file).
                 existing.inLibrary = dto.inLibrary ?? true
+                existing.defaultHeartRateTargetData = encodeHeartRate(dto.defaultHeartRateTarget)
                 summary.exercisesUpdated += 1
             } else {
                 let exercise = Exercise(
@@ -231,6 +297,7 @@ enum InterchangeMapping {
                 exercise.metricsData = profileData(from: dto)
                 exercise.extraDefaults = MetricValues.fromRaw(dto.extraDefaults)
                 exercise.inLibrary = dto.inLibrary ?? true
+                exercise.defaultHeartRateTargetData = encodeHeartRate(dto.defaultHeartRateTarget)
                 context.insert(exercise)
                 // Post-insert, like the seeder: pre-insert relationship
                 // assignment loses nondeterministically.
@@ -296,6 +363,8 @@ enum InterchangeMapping {
             }
             target.restSeconds = dto.restSeconds
             target.notes = dto.notes
+            // Restore recurrence; absent means unscheduled (pre-schedule files).
+            target.schedule = dto.schedule ?? .unscheduled
 
             for groupDTO in dto.groups {
                 var group: ExerciseGroup?
@@ -322,6 +391,7 @@ enum InterchangeMapping {
                         entry.repsUpper = entryDTO.repsUpper
                         entry.durationSeconds = entryDTO.durationSeconds
                         entry.extraTargets = MetricValues.fromRaw(entryDTO.extraTargets)
+                        entry.heartRateTarget = entryDTO.heartRateTarget
                     }
                 }
             }
@@ -343,6 +413,12 @@ enum InterchangeMapping {
                 restSeconds: dto.restSeconds
             )
             session.endedAt = dto.endedAt
+            // Banked running time makes `duration` report active seconds;
+            // absent (legacy/pre-field files) leaves it 0 so duration falls
+            // back to the start→end span.
+            session.accumulatedSeconds = dto.activeSeconds ?? 0
+            session.averageHeartRate = dto.averageHeartRate
+            session.maxHeartRate = dto.maxHeartRate
             context.insert(session)
 
             for setDTO in dto.sets {
@@ -367,6 +443,7 @@ enum InterchangeMapping {
                 log.extraActuals = MetricValues.fromRaw(setDTO.extraActuals)
                 log.restSecondsOverride = setDTO.restSecondsOverride
                 log.metricsData = reconstructedProfileData(setDTO, exercise: exercise)
+                log.targetHeartRateData = encodeHeartRate(setDTO.targetHeartRate)
                 log.session = session
                 context.insert(log)
             }
@@ -397,6 +474,14 @@ enum InterchangeMapping {
     /// from the exercise when its reference resolves; meters otherwise —
     /// a display fallback, never a conversion.
     private static func reconstructedProfileData(_ setDTO: SessionDTO.SetDTO, exercise: Exercise?) -> Data? {
+        // Prefer the explicit profile snapshot when the file carries one;
+        // fall back to reconstructing from present values (pre-snapshot files).
+        if let explicit = setDTO.metrics {
+            return MetricProfile(
+                explicit.compactMap(WorkoutMetric.init(rawValue:)),
+                distanceUnit: exercise?.metricProfile.distanceUnit ?? .meters
+            ).encoded()
+        }
         let extras = Set(MetricValues.fromRaw(setDTO.extraTargets).keys)
             .union(MetricValues.fromRaw(setDTO.extraActuals).keys)
         guard !extras.isEmpty else { return nil }
