@@ -15,15 +15,28 @@ public struct GitHubDeviceFlow: Sendable {
         public let deviceCode: String
         public let userCode: String
         public let verificationURI: String
+        /// The verification URI with `userCode` already embedded
+        /// (`…/login/device?user_code=XXXX`) — open THIS so the user just taps
+        /// Authorize instead of typing the code. nil if GitHub omitted it;
+        /// callers fall back to `verificationURI` + showing the code.
+        public let verificationURIComplete: String?
         /// Seconds until `deviceCode` expires.
         public let expiresIn: Int
         /// Minimum seconds between token polls.
         public let interval: Int
 
-        public init(deviceCode: String, userCode: String, verificationURI: String, expiresIn: Int, interval: Int) {
+        public init(
+            deviceCode: String,
+            userCode: String,
+            verificationURI: String,
+            verificationURIComplete: String? = nil,
+            expiresIn: Int,
+            interval: Int
+        ) {
             self.deviceCode = deviceCode
             self.userCode = userCode
             self.verificationURI = verificationURI
+            self.verificationURIComplete = verificationURIComplete
             self.expiresIn = expiresIn
             self.interval = interval
         }
@@ -92,6 +105,7 @@ public struct GitHubDeviceFlow: Sendable {
             deviceCode: decoded.device_code,
             userCode: decoded.user_code,
             verificationURI: decoded.verification_uri,
+            verificationURIComplete: decoded.verification_uri_complete,
             expiresIn: decoded.expires_in,
             interval: decoded.interval
         )
@@ -181,6 +195,7 @@ public struct GitHubDeviceFlow: Sendable {
         let device_code: String
         let user_code: String
         let verification_uri: String
+        let verification_uri_complete: String?
         let expires_in: Int
         let interval: Int
     }

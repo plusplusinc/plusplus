@@ -18,6 +18,7 @@ struct GitHubDeviceFlowTests {
                 "device_code": "dc-123",
                 "user_code": "WDJB-MJHT",
                 "verification_uri": "https://github.com/login/device",
+                "verification_uri_complete": "https://github.com/login/device?user_code=WDJB-MJHT",
                 "expires_in": 900,
                 "interval": 5,
             ])
@@ -27,6 +28,8 @@ struct GitHubDeviceFlowTests {
         #expect(verification.deviceCode == "dc-123")
         #expect(verification.userCode == "WDJB-MJHT")
         #expect(verification.verificationURI == "https://github.com/login/device")
+        // The pre-filled URL is captured so the app can open it directly.
+        #expect(verification.verificationURIComplete == "https://github.com/login/device?user_code=WDJB-MJHT")
         #expect(verification.interval == 5)
         // Posts to the device-code endpoint with the client id.
         #expect(client.requests.first?.path.hasSuffix("login/device/code") == true)

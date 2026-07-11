@@ -96,7 +96,10 @@ final class GitHubSyncCoordinator {
         let flow = GitHubDeviceFlow(config: config, client: client)
         do {
             let verification = try await flow.requestVerification()
-            let url = URL(string: verification.verificationURI) ?? URL(string: "https://github.com/login/device")!
+            // Prefer the pre-filled URL (code already embedded) so the user
+            // just taps Authorize; fall back to the plain page + the code.
+            let urlString = verification.verificationURIComplete ?? verification.verificationURI
+            let url = URL(string: urlString) ?? URL(string: "https://github.com/login/device")!
             activity = .authorizing(userCode: verification.userCode, verificationURL: url)
 
             let token = try await flow.pollForToken(for: verification)
