@@ -23,7 +23,7 @@ struct PlusPlusApp: App {
     @AppStorage(AppAppearance.storageKey) private var appearanceRaw: String = AppAppearance.system.rawValue
 
     init() {
-        let schema = Schema([Routine.self, Exercise.self, Equipment.self, WorkoutSession.self, SetLog.self])
+        let schema = Schema([Routine.self, Exercise.self, Equipment.self, EquipmentLibrary.self, WorkoutSession.self, SetLog.self])
         // UI tests pass --uitest-reset so every launch starts from a clean,
         // throwaway store (seed data still loads).
         let inMemory = CommandLine.arguments.contains("--uitest-reset")
@@ -81,6 +81,9 @@ struct PlusPlusApp: App {
             SeedData.repairBuiltInEquipmentIfNeeded(context: modelContainer.mainContext)
             SeedData.resetEquipmentOwnershipIfNeeded(context: modelContainer.mainContext)
         }
+        // AFTER the legacy one-shots: the libraries migration snapshots
+        // the inLibrary flags the reset may have just rewritten.
+        SeedData.ensureEquipmentLibrary(context: modelContainer.mainContext)
         // A routine tall enough to overflow every simulator screen, for
         // the scroll regression test. Only meaningful with --uitest-reset.
         if inMemory && CommandLine.arguments.contains("--uitest-bigworkout") {

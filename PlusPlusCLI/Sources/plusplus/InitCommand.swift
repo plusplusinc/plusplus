@@ -65,6 +65,7 @@ struct InitCommand: ParsableCommand {
             (".gitattributes", Data("*.json text eol=lf\n".utf8)),
             ("\(FileLayout.exercisesDirectory)/.gitkeep", Data()),
             ("\(FileLayout.routinesDirectory)/.gitkeep", Data()),
+            ("\(FileLayout.equipmentLibrariesDirectory)/.gitkeep", Data()),
             ("\(FileLayout.historyDirectory)/.gitkeep", Data()),
         ]
         files.append(contentsOf: ClaudeScaffold.files)
@@ -101,9 +102,10 @@ struct InitCommand: ParsableCommand {
     ## Layout
 
     ```
-    program/exercises/   one exercise per file
-    program/routines/    one routine per file
-    history/YYYY/        finished sessions — append-only, never rewritten
+    program/exercises/           one exercise per file
+    program/routines/            one routine per file
+    program/equipment-libraries/ one gear list per training spot (Home, Hotel…)
+    history/YYYY/                finished sessions — append-only, never rewritten
     ```
 
     ## Working on it

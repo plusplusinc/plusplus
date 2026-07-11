@@ -3,9 +3,10 @@ import PlusPlusKit
 
 /// Reads and writes the per-entity repo layout (docs/PLATFORM.md):
 ///
-///     program/exercises/<slug>.json    ExerciseDocument
-///     program/routines/<slug>.json     RoutineDocument
-///     history/<YYYY>/<date>-<slug>.json SessionDocument (append-only)
+///     program/exercises/<slug>.json           ExerciseDocument
+///     program/routines/<slug>.json            RoutineDocument
+///     program/equipment-libraries/<slug>.json EquipmentLibraryDocument
+///     history/<YYYY>/<date>-<slug>.json       SessionDocument (append-only)
 struct RoutineRepo {
     enum RepoError: Error, CustomStringConvertible {
         case notARepo(String)
@@ -35,6 +36,9 @@ struct RoutineRepo {
     var routinesDirectory: URL {
         root.appendingPathComponent(FileLayout.routinesDirectory)
     }
+    var equipmentLibrariesDirectory: URL {
+        root.appendingPathComponent(FileLayout.equipmentLibrariesDirectory)
+    }
     var historyDirectory: URL {
         root.appendingPathComponent(FileLayout.historyDirectory)
     }
@@ -56,13 +60,24 @@ struct RoutineRepo {
         let routines: [RoutineDTO] = try loadDocuments(in: routinesDirectory) {
             (document: RoutineDocument) in document.routine
         }
+        let libraries: [EquipmentLibraryDTO] = try loadDocuments(in: equipmentLibrariesDirectory) {
+            (document: EquipmentLibraryDocument) in document.library
+        }
         var sessions: [SessionDTO] = []
         for yearDirectory in try subdirectories(of: historyDirectory) {
             sessions += try loadDocuments(in: yearDirectory) {
                 (document: SessionDocument) in document.session
             }
         }
-        return ExportBundle(exercises: exercises, routines: routines, sessions: sessions)
+        return ExportBundle(
+            exercises: exercises,
+            routines: routines,
+            sessions: sessions,
+            // nil when the directory is absent or empty: "no libraries
+            // declared" and "predates libraries" read the same to
+            // importers, which must leave device state alone either way.
+            equipmentLibraries: libraries.isEmpty ? nil : libraries
+        )
     }
 
     private func subdirectories(of url: URL) throws -> [URL] {

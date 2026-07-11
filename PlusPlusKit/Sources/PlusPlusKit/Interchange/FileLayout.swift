@@ -6,6 +6,7 @@ import Foundation
 public enum FileLayout {
     public static let exercisesDirectory = "program/exercises"
     public static let routinesDirectory = "program/routines"
+    public static let equipmentLibrariesDirectory = "program/equipment-libraries"
     public static let historyDirectory = "history"
 
     public static func exercisePath(for name: String) -> String {
@@ -14,6 +15,10 @@ public enum FileLayout {
 
     public static func routinePath(for name: String) -> String {
         "\(routinesDirectory)/\(Slug.make(name)).json"
+    }
+
+    public static func equipmentLibraryPath(for name: String) -> String {
+        "\(equipmentLibrariesDirectory)/\(Slug.make(name)).json"
     }
 
     /// Template files (exercises + routines) for a bundle: repo-relative
@@ -31,6 +36,12 @@ public enum FileLayout {
             files.append((
                 routinePath(for: routine.name),
                 try InterchangeCodec.encode(RoutineDocument(routine: routine))
+            ))
+        }
+        for library in bundle.equipmentLibraries ?? [] {
+            files.append((
+                equipmentLibraryPath(for: library.name),
+                try InterchangeCodec.encode(EquipmentLibraryDocument(library: library))
             ))
         }
         return files

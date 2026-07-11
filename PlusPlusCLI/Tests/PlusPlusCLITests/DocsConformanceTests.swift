@@ -98,13 +98,16 @@ struct DocsConformanceTests {
             )]
         )
         let encoded = String(decoding: try InterchangeCodec.encode(
-            ExportBundle(exercises: [exercise], routines: [routine], sessions: [session])
+            ExportBundle(
+                exercises: [exercise], routines: [routine], sessions: [session],
+                equipmentLibraries: [EquipmentLibraryDTO(name: "Probe Spot", equipment: ["Probe Bar"])]
+            )
         ), as: UTF8.self)
 
         for field in [
             "defaultWeight", "defaultReps", "defaultRepsUpper", "defaultDurationSeconds",
             "metrics", "distanceUnit", "extraDefaults", "extraTargets", "extraActuals",
-            "restSecondsOverride",
+            "restSecondsOverride", "equipmentLibraries",
         ] {
             #expect(encoded.contains("\"\(field)\""), "\(field) missing from encoded DTO")
             #expect(text.contains(field), "PLATFORM.md never mentions \(field) but the schema carries it")

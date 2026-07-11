@@ -212,6 +212,25 @@ public struct SessionDTO: Codable, Equatable, Sendable {
     }
 }
 
+/// A named equipment context (equipment libraries): the curated gear list
+/// for one training location — Home, Hotel, the office rack. `equipment`
+/// is names, like every gear reference in the contract; an importer
+/// resolves unknown names by creating custom equipment, so libraries
+/// round-trip even when they carry gear the catalog doesn't know.
+/// Which library is ACTIVE is deliberately NOT in the contract: it's
+/// device state ("what's with me right now"), not training data, and two
+/// devices syncing one repo may legitimately differ.
+public struct EquipmentLibraryDTO: Codable, Equatable, Sendable {
+    public var name: String
+    /// Equipment names, sorted for deterministic output.
+    public var equipment: [String]
+
+    public init(name: String, equipment: [String]) {
+        self.name = name
+        self.equipment = equipment.sorted()
+    }
+}
+
 /// The app's single-file export: the whole library plus history. The repo
 /// layout stores the same DTOs one entity per file instead.
 public struct ExportBundle: Codable, Equatable, Sendable {
@@ -222,12 +241,17 @@ public struct ExportBundle: Codable, Equatable, Sendable {
     public var exercises: [ExerciseDTO]
     public var routines: [RoutineDTO]
     public var sessions: [SessionDTO]
+    /// Equipment libraries. Optional and additive: absent means the file
+    /// predates them (readers treat it as "no libraries declared" and
+    /// leave device state alone), and pre-libraries readers ignore it.
+    public var equipmentLibraries: [EquipmentLibraryDTO]?
 
     public init(
         units: WeightUnit? = nil,
         exercises: [ExerciseDTO],
         routines: [RoutineDTO],
-        sessions: [SessionDTO]
+        sessions: [SessionDTO],
+        equipmentLibraries: [EquipmentLibraryDTO]? = nil
     ) {
         self.schemaVersion = Interchange.schemaVersion
         self.units = units
@@ -236,5 +260,6 @@ public struct ExportBundle: Codable, Equatable, Sendable {
         self.exercises = exercises.sorted { $0.name.lowercased() < $1.name.lowercased() }
         self.routines = routines.sorted { $0.name.lowercased() < $1.name.lowercased() }
         self.sessions = sessions.sorted { $0.startedAt < $1.startedAt }
+        self.equipmentLibraries = equipmentLibraries?.sorted { $0.name.lowercased() < $1.name.lowercased() }
     }
 }

@@ -167,4 +167,60 @@ struct InterchangeTests {
         #expect(Slug.make("  Odd   Spacing!  ") == "odd-spacing")
         #expect(Slug.make("1/2 Kneeling Trunk Rotation") == "1-2-kneeling-trunk-rotation")
     }
+
+    // MARK: - Equipment libraries (additive to schema v1)
+
+    @Test("Equipment libraries round-trip, sorted by name and gear")
+    func equipmentLibrariesRoundTrip() throws {
+        let bundle = ExportBundle(
+            exercises: [], routines: [], sessions: [],
+            equipmentLibraries: [
+                EquipmentLibraryDTO(name: "Hotel", equipment: []),
+                EquipmentLibraryDTO(name: "Home", equipment: ["Rowing Machine", "Dumbbells"]),
+            ]
+        )
+        #expect(bundle.equipmentLibraries?.map(\.name) == ["Home", "Hotel"])
+        #expect(bundle.equipmentLibraries?.first?.equipment == ["Dumbbells", "Rowing Machine"])
+        let decoded = try InterchangeCodec.decode(ExportBundle.self, from: InterchangeCodec.encode(bundle))
+        #expect(decoded == bundle)
+    }
+
+    @Test("Pre-libraries files stay valid, and absent stays absent on re-encode")
+    func equipmentLibrariesAreAdditive() throws {
+        let legacy = #"{"schemaVersion": 1, "exercises": [], "routines": [], "sessions": []}"#
+        let decoded = try InterchangeCodec.decode(ExportBundle.self, from: Data(legacy.utf8))
+        #expect(decoded.equipmentLibraries == nil)
+        let reEncoded = String(decoding: try InterchangeCodec.encode(decoded), as: UTF8.self)
+        #expect(!reEncoded.contains("equipmentLibraries"), "absent must not materialize — pre-libraries bundles stay byte-identical")
+    }
+
+    @Test("Validator flags duplicate and empty library names, empty gear entries")
+    func equipmentLibraryValidation() {
+        let bundle = ExportBundle(
+            exercises: [], routines: [], sessions: [],
+            equipmentLibraries: [
+                EquipmentLibraryDTO(name: "Home", equipment: ["Barbell", " "]),
+                EquipmentLibraryDTO(name: "home", equipment: []),
+                EquipmentLibraryDTO(name: "  ", equipment: []),
+            ]
+        )
+        let messages = InterchangeValidator.validate(bundle).map(\.message).joined(separator: "; ")
+        #expect(messages.contains("duplicate library name"))
+        #expect(messages.contains("library name is empty"))
+        #expect(messages.contains("equipment entry is empty"))
+    }
+
+    @Test("Repo layout: libraries get program/equipment-libraries/<slug>.json files")
+    func equipmentLibraryFileLayout() throws {
+        #expect(FileLayout.equipmentLibraryPath(for: "Hotel Gym") == "program/equipment-libraries/hotel-gym.json")
+        let bundle = ExportBundle(
+            exercises: [], routines: [], sessions: [],
+            equipmentLibraries: [EquipmentLibraryDTO(name: "Home", equipment: ["Dumbbells"])]
+        )
+        let files = try FileLayout.templateFiles(for: bundle)
+        let libraryFile = try #require(files.first { $0.path == "program/equipment-libraries/home.json" })
+        let document = try InterchangeCodec.decode(EquipmentLibraryDocument.self, from: libraryFile.data)
+        #expect(document.library.name == "Home")
+        #expect(document.library.equipment == ["Dumbbells"])
+    }
 }
