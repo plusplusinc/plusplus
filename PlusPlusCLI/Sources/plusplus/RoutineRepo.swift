@@ -5,6 +5,7 @@ import PlusPlusKit
 ///
 ///     program/exercises/<slug>.json           ExerciseDocument
 ///     program/routines/<slug>.json            RoutineDocument
+///     program/equipment/<slug>.json           EquipmentDocument
 ///     program/equipment-libraries/<slug>.json EquipmentLibraryDocument
 ///     history/<YYYY>/<date>-<slug>.json       SessionDocument (append-only)
 struct RoutineRepo {
@@ -36,6 +37,9 @@ struct RoutineRepo {
     var routinesDirectory: URL {
         root.appendingPathComponent(FileLayout.routinesDirectory)
     }
+    var equipmentDirectory: URL {
+        root.appendingPathComponent(FileLayout.equipmentDirectory)
+    }
     var equipmentLibrariesDirectory: URL {
         root.appendingPathComponent(FileLayout.equipmentLibrariesDirectory)
     }
@@ -60,6 +64,9 @@ struct RoutineRepo {
         let routines: [RoutineDTO] = try loadDocuments(in: routinesDirectory) {
             (document: RoutineDocument) in document.routine
         }
+        let equipment: [EquipmentDTO] = try loadDocuments(in: equipmentDirectory) {
+            (document: EquipmentDocument) in document.equipment
+        }
         let libraries: [EquipmentLibraryDTO] = try loadDocuments(in: equipmentLibrariesDirectory) {
             (document: EquipmentLibraryDocument) in document.library
         }
@@ -73,9 +80,10 @@ struct RoutineRepo {
             exercises: exercises,
             routines: routines,
             sessions: sessions,
-            // nil when the directory is absent or empty: "no libraries
-            // declared" and "predates libraries" read the same to
-            // importers, which must leave device state alone either way.
+            // nil when a directory is absent or empty: "none declared"
+            // and "predates the field" read the same to importers, which
+            // must leave existing state alone either way.
+            equipment: equipment.isEmpty ? nil : equipment,
             equipmentLibraries: libraries.isEmpty ? nil : libraries
         )
     }

@@ -212,6 +212,38 @@ public struct SessionDTO: Codable, Equatable, Sendable {
     }
 }
 
+/// Gear as a record, not just a name (additive to schema v1): carried only
+/// when it has something to say — custom gear (its existence is user data)
+/// or any gear with user config (a weight step, a declared metric
+/// profile). This is what makes a new-phone restore complete: without it,
+/// a repo brings back WHAT you have but not how it's set up. Membership
+/// in libraries lives in `equipmentLibraries`; this is the gear itself.
+public struct EquipmentDTO: Codable, Equatable, Sendable {
+    public var name: String
+    public var isBuiltIn: Bool
+    /// Per-tap weight increment for exercises on this gear. Absent means
+    /// the unit default; unit-agnostic like every stored number.
+    public var weightStep: Double?
+    /// Suggested tracked-metric profile for new exercises on this gear —
+    /// same curated identifiers as ExerciseDTO.metrics, sorted.
+    public var metrics: [String]?
+    public var distanceUnit: DistanceUnit?
+
+    public init(
+        name: String,
+        isBuiltIn: Bool = false,
+        weightStep: Double? = nil,
+        metrics: [String]? = nil,
+        distanceUnit: DistanceUnit? = nil
+    ) {
+        self.name = name
+        self.isBuiltIn = isBuiltIn
+        self.weightStep = weightStep
+        self.metrics = metrics?.sorted()
+        self.distanceUnit = distanceUnit
+    }
+}
+
 /// A named equipment context (equipment libraries): the curated gear list
 /// for one training location — Home, Hotel, the office rack. `equipment`
 /// is names, like every gear reference in the contract; an importer
@@ -241,6 +273,9 @@ public struct ExportBundle: Codable, Equatable, Sendable {
     public var exercises: [ExerciseDTO]
     public var routines: [RoutineDTO]
     public var sessions: [SessionDTO]
+    /// Gear records carrying user signal (customs, configured built-ins).
+    /// Optional and additive, like equipmentLibraries below.
+    public var equipment: [EquipmentDTO]?
     /// Equipment libraries. Optional and additive: absent means the file
     /// predates them (readers treat it as "no libraries declared" and
     /// leave device state alone), and pre-libraries readers ignore it.
@@ -251,6 +286,7 @@ public struct ExportBundle: Codable, Equatable, Sendable {
         exercises: [ExerciseDTO],
         routines: [RoutineDTO],
         sessions: [SessionDTO],
+        equipment: [EquipmentDTO]? = nil,
         equipmentLibraries: [EquipmentLibraryDTO]? = nil
     ) {
         self.schemaVersion = Interchange.schemaVersion
@@ -260,6 +296,7 @@ public struct ExportBundle: Codable, Equatable, Sendable {
         self.exercises = exercises.sorted { $0.name.lowercased() < $1.name.lowercased() }
         self.routines = routines.sorted { $0.name.lowercased() < $1.name.lowercased() }
         self.sessions = sessions.sorted { $0.startedAt < $1.startedAt }
+        self.equipment = equipment?.sorted { $0.name.lowercased() < $1.name.lowercased() }
         self.equipmentLibraries = equipmentLibraries?.sorted { $0.name.lowercased() < $1.name.lowercased() }
     }
 }

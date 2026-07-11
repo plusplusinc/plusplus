@@ -43,3 +43,13 @@ public struct EquipmentLibraryDocument: Codable, Equatable, Sendable {
         self.library = library
     }
 }
+
+public struct EquipmentDocument: Codable, Equatable, Sendable {
+    public var schemaVersion: Int
+    public var equipment: EquipmentDTO
+
+    public init(equipment: EquipmentDTO) {
+        self.schemaVersion = Interchange.schemaVersion
+        self.equipment = equipment
+    }
+}

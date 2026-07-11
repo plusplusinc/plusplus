@@ -6,7 +6,7 @@ import SwiftData
 @Suite("Routine time estimate")
 struct RoutineEstimateTests {
     private func makeContainer() throws -> ModelContainer {
-        let schema = Schema([Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self, RoutineExercise.self])
+        let schema = Schema([Exercise.self, Equipment.self, EquipmentLibrary.self, Routine.self, ExerciseGroup.self, RoutineExercise.self])
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("routineestimate-\(UUID().uuidString).store")
         let config = ModelConfiguration(schema: schema, url: url, allowsSave: true, cloudKitDatabase: .none)

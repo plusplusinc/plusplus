@@ -12,6 +12,9 @@ enum InterchangeMapping {
         var routinesReplaced = 0
         var sessionsAdded = 0
         var sessionsSkipped = 0
+        var equipmentConfigured = 0
+        var librariesCreated = 0
+        var librariesReplaced = 0
     }
 
     enum ImportError: Error {
@@ -26,6 +29,15 @@ enum InterchangeMapping {
         let sessions = try context.fetch(
             FetchDescriptor<WorkoutSession>(predicate: #Predicate { $0.endedAt != nil })
         )
+        let equipment = try context.fetch(FetchDescriptor<Equipment>())
+        let libraries = try context.fetch(FetchDescriptor<EquipmentLibrary>())
+        // Gear travels only when it says something: customs exist by
+        // choice, built-ins only with user config — same convention as
+        // exercises below. Unconfigured built-ins resolve from the seed
+        // catalog on the importing side.
+        let carryingGear = equipment.filter {
+            !$0.isBuiltIn || $0.weightStep != nil || $0.metricsData != nil
+        }
         return ExportBundle(
             units: units,
             // Built-ins ship with every install; only export ones the user
@@ -34,8 +46,28 @@ enum InterchangeMapping {
                 .filter { !$0.isBuiltIn || $0.notes != nil || $0.videoURL != nil || $0.hasDefaultTargets || $0.metricsData != nil }
                 .map(makeDTO),
             routines: routines.map(makeDTO),
-            sessions: sessions.map(makeDTO)
+            sessions: sessions.map(makeDTO),
+            equipment: carryingGear.isEmpty ? nil : carryingGear.map(makeDTO),
+            equipmentLibraries: libraries.isEmpty ? nil : libraries.sorted { $0.order < $1.order }.map(makeDTO)
         )
+    }
+
+    static func makeDTO(_ equipment: Equipment) -> EquipmentDTO {
+        // Explicit per-store profile only (mirrors the exercise rule):
+        // a built-in's seed-table suggestion resolves identically on the
+        // importing side, so exporting it would just add noise.
+        let explicitProfile = MetricProfile.decode(from: equipment.metricsData)
+        return EquipmentDTO(
+            name: equipment.name,
+            isBuiltIn: equipment.isBuiltIn,
+            weightStep: equipment.weightStep,
+            metrics: explicitProfile.map { $0.metrics.map(\.rawValue) },
+            distanceUnit: explicitProfile?.distanceUnit
+        )
+    }
+
+    static func makeDTO(_ library: EquipmentLibrary) -> EquipmentLibraryDTO {
+        EquipmentLibraryDTO(name: library.name, equipment: library.members.map(\.name))
     }
 
     static func makeDTO(_ exercise: Exercise) -> ExerciseDTO {
@@ -137,6 +169,25 @@ enum InterchangeMapping {
         var exercisesByName = try dictionaryByLowercasedName(
             context.fetch(FetchDescriptor<Exercise>()), name: \.name
         )
+        let preexistingEquipmentKeys = Set(equipmentByName.keys)
+
+        // Gear config first, so exercise- and library-created references
+        // resolve against configured records. The file is the source of
+        // truth for a mentioned record's config (absent step/metrics
+        // clear back to defaults); unmentioned gear is untouched.
+        for dto in bundle.equipment ?? [] {
+            let item = resolveEquipment(dto.name, in: &equipmentByName, context: context)
+            item.weightStep = dto.weightStep
+            if let metrics = dto.metrics, !metrics.isEmpty {
+                item.suggestedProfile = MetricProfile(
+                    metrics.compactMap(WorkoutMetric.init(rawValue:)),
+                    distanceUnit: dto.distanceUnit ?? .meters
+                )
+            } else {
+                item.metricsData = nil
+            }
+            summary.equipmentConfigured += 1
+        }
 
         for dto in bundle.exercises {
             let key = dto.name.lowercased()
@@ -176,6 +227,44 @@ enum InterchangeMapping {
                 exercise.equipment = dto.equipment.map { resolveEquipment($0, in: &equipmentByName, context: context) }
                 exercisesByName[key] = exercise
                 summary.exercisesCreated += 1
+            }
+        }
+
+        // Libraries replace-or-create by name; membership is exactly the
+        // file's list (unknown names become custom gear via the same
+        // resolver). Libraries the file doesn't mention are kept, and
+        // the device's active-library pointer is never touched.
+        let existingLibraries = try context.fetch(FetchDescriptor<EquipmentLibrary>())
+        var librariesByName = dictionaryByLowercasedName(existingLibraries, name: \.name)
+        var libraryOrder = (existingLibraries.map(\.order).max() ?? -1) + 1
+        for dto in bundle.equipmentLibraries ?? [] {
+            let members = dto.equipment.map { resolveEquipment($0, in: &equipmentByName, context: context) }
+            if let existing = librariesByName[dto.name.lowercased()] {
+                existing.equipment = members
+                summary.librariesReplaced += 1
+            } else {
+                let library = EquipmentLibrary(name: dto.name, order: libraryOrder)
+                libraryOrder += 1
+                context.insert(library)
+                // Post-insert, like every relationship here.
+                library.equipment = members
+                librariesByName[dto.name.lowercased()] = library
+                summary.librariesCreated += 1
+            }
+        }
+
+        // Pre-libraries bundles carry no membership statement, but gear
+        // they create was effectively available under the old model —
+        // join it to the active library so an old file imports with its
+        // old meaning. Files WITH libraries are authoritative instead.
+        if bundle.equipmentLibraries == nil {
+            let created = Set(equipmentByName.keys).subtracting(preexistingEquipmentKeys)
+            if !created.isEmpty, let active = EquipmentLibrary.active(context: context) {
+                for key in created.sorted() {
+                    if let item = equipmentByName[key] {
+                        active.setMembership(item, true)
+                    }
+                }
             }
         }
 

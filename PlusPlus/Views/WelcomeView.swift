@@ -90,7 +90,7 @@ struct WelcomeView: View {
             mechanicsRow(
                 symbol: "dumbbell.fill",
                 title: "Build routines from your gear",
-                caption: "the catalog adapts to the equipment you own"
+                caption: "the catalog adapts to the equipment you have"
             )
             mechanicsRow(
                 symbol: "calendar",

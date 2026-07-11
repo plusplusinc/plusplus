@@ -10,11 +10,17 @@ import PlusPlusKit
 struct ExercisesTabView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Exercise.name) private var allExercises: [Exercise]
+    @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
+    @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
     @State private var showingCatalog = false
     @State private var showingAppMenu = false
     @State private var openSwipeRow: PersistentIdentifier?
     @State private var path = NavigationPath()
+
+    private var availableEquipmentNames: Set<String> {
+        EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.memberNames ?? []
+    }
 
     private var libraryExercises: [Exercise] {
         allExercises.filter { $0.inLibrary || !$0.isBuiltIn }
@@ -122,14 +128,15 @@ struct ExercisesTabView: View {
         }
     }
 
-    /// Curated items are never hidden by ownership (#113) — your
+    /// Curated items are never hidden by availability (#113) — your
     /// library is yours — but the gap is flagged, in notes amber
-    /// (mock 03: "needs Bench" is attention, not chrome).
+    /// (mock 03: "needs Bench" is attention, not chrome). "Missing" is
+    /// relative to the ACTIVE equipment library.
     private func subtitleText(for exercise: Exercise) -> Text {
         let equipment = exercise.equipment.map(\.name).sorted().joined(separator: ", ")
         var text = Text("\(exercise.muscleGroup.displayName) · \(equipment.isEmpty ? "Bodyweight" : equipment)")
             .foregroundStyle(Theme.textSecondary)
-        let missing = ExerciseFilterState.missingEquipment(for: exercise)
+        let missing = ExerciseFilterState.missingEquipment(for: exercise, available: availableEquipmentNames)
         if !missing.isEmpty {
             text = text + Text(" · ").foregroundStyle(Theme.textSecondary)
                 + Text("needs \(missing.joined(separator: ", "))").foregroundStyle(Theme.notes)
@@ -146,20 +153,30 @@ struct ExercisesTabView: View {
     }
 }
 
-/// The Equipment tab (#109): what you own. Feeds exercise filtering;
-/// the v3 onboarding preset picker (#113) writes this same list.
+/// The Equipment tab (#109): the gear you have in the ACTIVE equipment
+/// library. Feeds exercise filtering; the onboarding picker (#113) and
+/// the tray switcher write this same list. Switching libraries here
+/// re-renders every availability-driven surface in the app.
 struct EquipmentTabView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Exercise.name) private var allExercises: [Exercise]
     @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
+    @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
+    @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
     @State private var showingCatalog = false
     @State private var showingAppMenu = false
+    @State private var showingLibraryTray = false
     @State private var openSwipeRow: PersistentIdentifier?
     @State private var path = NavigationPath()
 
+    private var activeLibrary: EquipmentLibrary? {
+        EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)
+    }
+
+    /// The active library's members, sorted for a stable list.
     private var libraryEquipment: [Equipment] {
-        allEquipment.filter { $0.inLibrary || !$0.isBuiltIn }
+        (activeLibrary?.members ?? []).sorted { $0.name < $1.name }
     }
 
     var body: some View {
@@ -170,13 +187,17 @@ struct EquipmentTabView: View {
                     addIdentifier: "addEquipmentButton",
                     onAdd: { showingCatalog = true },
                     onMenu: { showingAppMenu = true }
-                )
+                ) {
+                    LibrarySwitcherKey(name: activeLibrary?.name ?? EquipmentLibrary.defaultName) {
+                        showingLibraryTray = true
+                    }
+                }
 
                 if libraryEquipment.isEmpty {
                     LibraryEmptyState(
                         title: "No Equipment",
                         systemImage: "dumbbell",
-                        message: "Pick what you own — exercises and routines can then be matched to gear you actually have.",
+                        message: "Pick what you have access to. Exercises and routines then match to the gear in this library.",
                         ctaIdentifier: "emptyEquipmentCatalogButton"
                     ) { showingCatalog = true }
                 } else {
@@ -197,6 +218,9 @@ struct EquipmentTabView: View {
             }
             .navigationDestination(isPresented: $showingAppMenu) {
                 AppMenuScreen()
+            }
+            .sheet(isPresented: $showingLibraryTray) {
+                EquipmentLibraryTray()
             }
         }
     }
@@ -246,7 +270,9 @@ struct EquipmentTabView: View {
 
     private func remove(_ equipment: Equipment) {
         if equipment.isBuiltIn {
-            equipment.inLibrary = false
+            // "REMOVE" here is membership only: drop it from THIS library
+            // (the gear stays in the catalog and your other libraries).
+            activeLibrary?.setMembership(equipment, false)
         } else {
             // Belt-and-braces since #196 gave the relationship an
             // explicit inverse: stripping references first keeps
@@ -300,8 +326,9 @@ struct LibraryEmptyState: View {
 }
 
 /// Shared header for the two catalog tabs: the ++ key, title, and the
-/// contextual + button.
-struct CatalogTabHeader: View {
+/// contextual + button. An optional `accessory` rides just left of the +
+/// (the Equipment tab's library switcher).
+struct CatalogTabHeader<Accessory: View>: View {
     let title: String
     // The tab's create action; optional so title-only headers work.
     var addIdentifier: String?
@@ -309,12 +336,14 @@ struct CatalogTabHeader: View {
     /// Opens the app page — every root header wears the ++ key
     /// (Dave, build 44).
     let onMenu: () -> Void
+    @ViewBuilder var accessory: () -> Accessory
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
+            HStack(spacing: 8) {
                 AppMenuKey(action: onMenu)
-                Spacer()
+                Spacer(minLength: 0)
+                accessory()
                 if let onAdd {
                     HeaderIconButton(systemImage: "plus", identifier: addIdentifier) {
                         onAdd()
@@ -331,16 +360,51 @@ struct CatalogTabHeader: View {
     }
 }
 
+extension CatalogTabHeader where Accessory == EmptyView {
+    init(title: String, addIdentifier: String? = nil, onAdd: (() -> Void)? = nil, onMenu: @escaping () -> Void) {
+        self.init(title: title, addIdentifier: addIdentifier, onAdd: onAdd, onMenu: onMenu, accessory: { EmptyView() })
+    }
+}
+
+/// The Equipment tab's library switcher: a labeled key showing the
+/// active library name, opening the tray. Shows a chevron so it reads as
+/// "there's more than this here" even with one library (the concept is
+/// discoverable before a second library exists).
+struct LibrarySwitcherKey: View {
+    let name: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Text(name)
+                    .font(.system(.footnote, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(.caption2, weight: .bold))
+                    .foregroundStyle(Theme.textFaint)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 44)
+            .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
+            .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
+        }
+        .buttonStyle(.raisedKey())
+        .accessibilityIdentifier("librarySwitcherButton")
+    }
+}
+
 // MARK: - Add from catalog
 
 /// The catalog browser, rethought as a curation surface (#139): the
-/// whole built-in catalog stays listed, membership is a Toggle per row
-/// — nothing vanishes when you flip one. A full pushed page, not a
-/// tray (Dave): browsing surfaces push, sheets are for forms. Filters:
-/// library state (All / In library / Not in library), and for
-/// exercises the picker's muscle-group/equipment sheets plus the
-/// ownership escape hatch. Customs don't appear here — they live in
-/// the library list, where deletion is a deliberate act, not a toggle.
+/// whole catalog stays listed, membership is a Toggle per row — nothing
+/// vanishes when you flip one. A full pushed page, not a tray (Dave):
+/// browsing surfaces push, sheets are for forms. For EQUIPMENT the
+/// toggle is membership in the ACTIVE library, and customs list here too
+/// (they belong to specific libraries now, so this is where you add one
+/// to another). For EXERCISES the toggle is the personal exercise
+/// library, and customs live in the library list, not here (#113).
 struct CatalogBrowseScreen: View {
     enum Kind: String, Identifiable {
         case exercises
@@ -353,8 +417,18 @@ struct CatalogBrowseScreen: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Exercise.name) private var allExercises: [Exercise]
     @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
+    @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
+    @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
     let kind: Kind
+
+    private var activeLibrary: EquipmentLibrary? {
+        EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)
+    }
+
+    private var availableEquipmentNames: Set<String> {
+        activeLibrary?.memberNames ?? []
+    }
 
     @State private var filterState = ExerciseFilterState()
     /// 0 = All · 1 = In library · 2 = Not in library.
@@ -413,15 +487,13 @@ struct CatalogBrowseScreen: View {
                     if anyFilterActive {
                         ClearAllChip { clearAllFilters() }
                     }
-                    // Equipment membership is OWNERSHIP — half the UI
-                    // said "library" for it (FTUE audit): one concept,
-                    // one name per kind.
+                    // One name for membership across both kinds: gear is
+                    // "in library" (the active equipment library), same
+                    // word as exercises — availability, not ownership.
                     FacetChip(
-                        facet: kind == .equipment ? "OWNED" : "LIBRARY",
+                        facet: "LIBRARY",
                         selection: membershipBinding,
-                        options: kind == .equipment
-                            ? [(1, "Owned"), (2, "Not owned")]
-                            : [(1, "In library"), (2, "Not in library")]
+                        options: [(1, "In library"), (2, "Not in library")]
                     )
                     if kind == .exercises {
                         TrayFilterChip(
@@ -487,9 +559,9 @@ struct CatalogBrowseScreen: View {
                             name: equipment.name,
                             sub: Text(equipmentSubtitle(equipment)).foregroundStyle(Theme.textSecondary),
                             isOn: Binding(
-                                get: { equipment.inLibrary },
+                                get: { activeLibrary?.contains(equipment) ?? false },
                                 set: {
-                                    equipment.inLibrary = $0
+                                    activeLibrary?.setMembership(equipment, $0)
                                     touchedSetup = true
                                 }
                             )
@@ -503,14 +575,14 @@ struct CatalogBrowseScreen: View {
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                 }
-                if kind == .exercises, !filterState.showUnowned, hiddenByOwnership > 0 {
-                    // The ownership escape hatch as a quiet key (Quiet
+                if kind == .exercises, !filterState.showUnavailable, hiddenByAvailability > 0 {
+                    // The availability escape hatch as a quiet key (Quiet
                     // Arcade retired selection blue as a link color).
                     QuietKey(
-                        label: "\(hiddenByOwnership) more need equipment you don't have — show",
-                        identifier: "showUnownedToggle"
+                        label: "\(hiddenByAvailability) more need equipment you don't have — show",
+                        identifier: "showUnavailableToggle"
                     ) {
-                        filterState.showUnowned = true
+                        filterState.showUnavailable = true
                     }
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
@@ -546,7 +618,7 @@ struct CatalogBrowseScreen: View {
                     }
                     dismiss()
                 } label: {
-                    Text(ownedNames.isEmpty ? "Done — bodyweight only" : "Done — \(ownedNames.count) item\(ownedNames.count == 1 ? "" : "s")")
+                    Text(availableNames.isEmpty ? "Done · bodyweight only" : "Done · \(availableNames.count) item\(availableNames.count == 1 ? "" : "s")")
                         .font(.system(.subheadline, weight: .bold))
                         .foregroundStyle(Theme.onPrimary)
                         .frame(maxWidth: .infinity)
@@ -592,7 +664,7 @@ struct CatalogBrowseScreen: View {
                 .presentationDetents([.medium])
         }
         .sheet(isPresented: $showingEquipmentFilter) {
-            EquipmentFilterSheet(filterState: filterState, allEquipment: allEquipment.filter { $0.inLibrary || !$0.isBuiltIn })
+            EquipmentFilterSheet(filterState: filterState, allEquipment: activeLibrary?.members.sorted { $0.name < $1.name } ?? [])
                 .presentationDetents([.medium, .large])
         }
     }
@@ -636,15 +708,17 @@ struct CatalogBrowseScreen: View {
     }
 
     private var candidateExercises: [Exercise] {
-        filterState.filteredExercises(from: allExercises.filter(\.isBuiltIn))
+        filterState.filteredExercises(from: allExercises.filter(\.isBuiltIn), available: availableEquipmentNames)
             .filter { matchesLibraryFilter($0.inLibrary) }
     }
 
+    /// Built-ins AND customs: a custom belongs to specific libraries now,
+    /// so the catalog is where you add it to another one. Membership is
+    /// active-library membership.
     private var candidateEquipment: [Equipment] {
         allEquipment
-            .filter(\.isBuiltIn)
             .filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) }
-            .filter { matchesLibraryFilter($0.inLibrary) }
+            .filter { matchesLibraryFilter(activeLibrary?.contains($0) ?? false) }
     }
 
     // The §F preset strip died here (#203): three bulk buttons that
@@ -653,17 +727,18 @@ struct CatalogBrowseScreen: View {
     // bulk affordance returns only if real setup friction demands one,
     // and additive-only when it does.
 
-    private var ownedNames: Set<String> {
-        Set(allEquipment.filter { $0.isBuiltIn && $0.inLibrary }.map(\.name))
+    private var availableNames: Set<String> {
+        availableEquipmentNames
     }
 
-    /// Exercises the ownership filter is currently hiding (§H escape
+    /// Exercises the availability filter is currently hiding (§H escape
     /// hatch) — matches every OTHER active filter first.
-    private var hiddenByOwnership: Int {
+    private var hiddenByAvailability: Int {
         let shown = candidateExercises.count
         let all = filterState.filteredExercises(
             from: allExercises.filter(\.isBuiltIn),
-            overridingShowUnowned: true
+            available: availableEquipmentNames,
+            overridingShowUnavailable: true
         ).filter { matchesLibraryFilter($0.inLibrary) }.count
         return max(0, all - shown)
     }
@@ -679,7 +754,7 @@ struct CatalogBrowseScreen: View {
         let equipment = exercise.equipment.map(\.name).sorted().joined(separator: ", ")
         var text = Text("\(exercise.muscleGroup.displayName) · \(equipment.isEmpty ? "Bodyweight" : equipment)")
             .foregroundStyle(Theme.textSecondary)
-        let missing = ExerciseFilterState.missingEquipment(for: exercise)
+        let missing = ExerciseFilterState.missingEquipment(for: exercise, available: availableEquipmentNames)
         if !missing.isEmpty {
             text = text + Text(" · ").foregroundStyle(Theme.textSecondary)
                 + Text("needs \(missing.joined(separator: ", "))").foregroundStyle(Theme.notes)
@@ -710,15 +785,18 @@ struct CatalogBrowseScreen: View {
         }
     }
 
-    /// Creating custom gear pops back to the library, where the new
-    /// item is actually visible (customs aren't catalog rows).
+    /// Creating custom gear adds it to the active library and pops back
+    /// to the tab, where the new item is now visible.
     private func createEquipment(named name: String) {
-        let existing = allEquipment.first { $0.name.lowercased() == name.lowercased() }
-        if let existing {
-            existing.inLibrary = true
+        let item: Equipment
+        if let existing = allEquipment.first(where: { $0.name.lowercased() == name.lowercased() }) {
+            item = existing
         } else {
-            modelContext.insert(Equipment(name: name, isBuiltIn: false))
+            let created = Equipment(name: name, isBuiltIn: false)
+            modelContext.insert(created)
+            item = created
         }
+        activeLibrary?.setMembership(item, true)
         dismiss()
     }
 }

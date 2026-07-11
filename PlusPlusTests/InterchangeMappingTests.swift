@@ -8,7 +8,7 @@ import PlusPlusKit
 struct InterchangeMappingTests {
     private func makeContainer() throws -> ModelContainer {
         let schema = Schema([
-            Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self,
+            Exercise.self, Equipment.self, EquipmentLibrary.self, Routine.self, ExerciseGroup.self,
             RoutineExercise.self, WorkoutSession.self, SetLog.self,
         ])
         let url = FileManager.default.temporaryDirectory
@@ -93,6 +93,46 @@ struct InterchangeMappingTests {
         #expect(sessions.count == 1)
         #expect(sessions.first?.sortedSetLogs.count == 6)
         #expect(sessions.first?.sortedSetLogs.first?.actualReps == 10)
+    }
+
+    /// The new-phone story: a source store's equipment libraries and
+    /// gear config survive export → import into a fresh store, and the
+    /// libraries carry their exact membership (customs included).
+    @Test("Export → import reproduces equipment libraries and gear config")
+    func equipmentLibrariesRoundTripAcrossStores() throws {
+        let source = ModelContext(try makeContainer())
+        let barbell = Equipment(name: "Barbell", isBuiltIn: true)
+        barbell.weightStep = 2.5
+        let rig = Equipment(name: "Probe Garage Rig", isBuiltIn: false)
+        source.insert(barbell)
+        source.insert(rig)
+        let home = EquipmentLibrary(name: "Home", order: 0)
+        let hotel = EquipmentLibrary(name: "Hotel", order: 1)
+        source.insert(home)
+        source.insert(hotel)
+        home.equipment = [barbell, rig]
+        hotel.equipment = []   // bodyweight-only travel is a real library
+        try source.save()
+
+        let bundle = try InterchangeMapping.exportBundle(context: source)
+        #expect(bundle.equipmentLibraries?.map(\.name) == ["Home", "Hotel"])
+        #expect(bundle.equipment?.contains { $0.name == "Barbell" && $0.weightStep == 2.5 } == true)
+
+        let destination = ModelContext(try makeContainer())
+        let summary = try InterchangeMapping.importBundle(bundle, context: destination)
+        #expect(summary.librariesCreated == 2)
+        #expect(summary.equipmentConfigured >= 1)
+
+        let libraries = try destination.fetch(FetchDescriptor<EquipmentLibrary>())
+        let importedHome = try #require(libraries.first { $0.name == "Home" })
+        #expect(importedHome.memberNames == ["Barbell", "Probe Garage Rig"], "membership and the custom both land")
+        let importedHotel = try #require(libraries.first { $0.name == "Hotel" })
+        #expect(importedHotel.members.isEmpty, "an empty library round-trips as empty")
+
+        let importedBarbell = try #require(
+            (try destination.fetch(FetchDescriptor<Equipment>())).first { $0.name == "Barbell" }
+        )
+        #expect(importedBarbell.weightStep == 2.5, "gear config restores")
     }
 
     @Test("Re-importing the same bundle is idempotent for history")

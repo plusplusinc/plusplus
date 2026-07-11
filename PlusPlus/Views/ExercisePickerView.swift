@@ -9,9 +9,15 @@ struct ExercisePickerView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Exercise.name) private var allExercises: [Exercise]
     @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
+    @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
+    @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
     var filterState: ExerciseFilterState
     var onSelect: (Exercise) -> Void
+
+    private var availableEquipmentNames: Set<String> {
+        EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.memberNames ?? []
+    }
 
     @State private var showingMuscleGroupFilter = false
     @State private var showingEquipmentFilter = false
@@ -29,7 +35,8 @@ struct ExercisePickerView: View {
     private var candidates: [Exercise] {
         filterState.filteredExercises(
             from: allExercises.filter { $0.inLibrary || !$0.isBuiltIn },
-            overridingShowUnowned: true
+            available: availableEquipmentNames,
+            overridingShowUnavailable: true
         )
     }
 
@@ -72,7 +79,7 @@ struct ExercisePickerView: View {
                         onSelect(exercise)
                         dismiss()
                     } label: {
-                        ExerciseRow(exercise: exercise)
+                        ExerciseRow(exercise: exercise, available: availableEquipmentNames)
                     }
                     .tint(.primary)
                     .contextMenu {
@@ -187,8 +194,8 @@ struct ExercisePickerView: View {
                 // escape hatch would be a dead switch.
                 EquipmentFilterSheet(
                     filterState: filterState,
-                    allEquipment: allEquipment.filter { $0.inLibrary || !$0.isBuiltIn },
-                    showsOwnershipToggle: false
+                    allEquipment: EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.members.sorted { $0.name < $1.name } ?? [],
+                    showsAvailabilityToggle: false
                 )
                 .presentationDetents([.medium, .large])
             }
@@ -218,6 +225,7 @@ struct ExercisePickerView: View {
 
 private struct ExerciseRow: View {
     let exercise: Exercise
+    let available: Set<String>
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -226,7 +234,8 @@ private struct ExerciseRow: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             // The flag half of #113's "flagged, never hidden": library
-            // rows always list; this line carries the gear gap.
+            // rows always list; this line carries the gear gap relative
+            // to the active library.
             if !missing.isEmpty {
                 Text("needs \(missing.joined(separator: ", "))")
                     .font(.system(.caption2, design: .monospaced))
@@ -236,7 +245,7 @@ private struct ExerciseRow: View {
     }
 
     private var missing: [String] {
-        ExerciseFilterState.missingEquipment(for: exercise)
+        ExerciseFilterState.missingEquipment(for: exercise, available: available)
     }
 
     private var subtitle: String {
@@ -345,10 +354,10 @@ struct EquipmentFilterSheet: View {
     @Environment(\.dismiss) private var dismiss
     var filterState: ExerciseFilterState
     let allEquipment: [Equipment]
-    /// The catalog browser ownership-hides and needs the escape hatch;
-    /// the picker doesn't hide, so it passes false (a toggle that does
-    /// nothing reads as broken).
-    var showsOwnershipToggle = true
+    /// The catalog browser availability-hides and needs the escape
+    /// hatch; the picker doesn't hide, so it passes false (a toggle that
+    /// does nothing reads as broken).
+    var showsAvailabilityToggle = true
 
     @State private var showingEquipmentEditor = false
 
@@ -370,10 +379,10 @@ struct EquipmentFilterSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     if allEquipment.isEmpty {
-                        // Zero ownership is the fresh-install default
-                        // (#232) — say why the tray is empty instead of
-                        // rendering a bare toggle under nothing.
-                        Text("This filters by equipment you've picked — choose what you own on the Equipment tab and it shows up here.")
+                        // An empty active library is the fresh-install
+                        // default (#232) — say why the tray is empty
+                        // instead of rendering a bare toggle under nothing.
+                        Text("This filters by the gear in your library. Add what you have on the Equipment tab and it shows up here.")
                             .font(.system(.footnote))
                             .foregroundStyle(Theme.textSecondary)
                             .padding(.vertical, 14)
@@ -391,11 +400,11 @@ struct EquipmentFilterSheet: View {
                         .padding(.vertical)
                     }
 
-                    // The ownership escape hatch lives here now (§H) —
+                    // The availability escape hatch lives here now (§H) —
                     // it left the crowded catalog top area.
-                    if showsOwnershipToggle {
-                        Toggle(isOn: Bindable(filterState).showUnowned) {
-                            Text("Include gear I don't own")
+                    if showsAvailabilityToggle {
+                        Toggle(isOn: Bindable(filterState).showUnavailable) {
+                            Text("Include gear I don't have")
                                 .font(.system(.footnote))
                                 .foregroundStyle(Theme.textPrimary)
                         }
@@ -404,7 +413,7 @@ struct EquipmentFilterSheet: View {
                         .frame(minHeight: 52)
                         .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
                         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
-                        .accessibilityIdentifier("showUnownedToggle")
+                        .accessibilityIdentifier("showUnavailableToggle")
                     }
 
                     // Fix the filter's basis in place (#260): the

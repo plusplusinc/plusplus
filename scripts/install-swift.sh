@@ -13,7 +13,10 @@
 #   (cd PlusPlusKit && swift test) && (cd PlusPlusCLI && swift test)
 set -euo pipefail
 
-VERSION="${SWIFT_VERSION:-6.1}"
+# Not VERSION: sourcing /etc/os-release below defines VERSION itself
+# ("24.04.4 LTS (Noble Numbat)") and silently clobbers it — that shipped
+# a malformed download URL.
+SWIFT_RELEASE="${SWIFT_VERSION:-6.1}"
 DEST="${SWIFT_INSTALL_DIR:-$HOME/.swift}"
 
 if command -v swift >/dev/null 2>&1; then
@@ -26,9 +29,9 @@ if [ -x "$DEST/usr/bin/swift" ]; then
   exit 0
 fi
 
-. /etc/os-release   # provides VERSION_ID, e.g. 24.04
-TARBALL="swift-${VERSION}-RELEASE-ubuntu${VERSION_ID}.tar.gz"
-URL="https://download.swift.org/swift-${VERSION}-release/ubuntu${VERSION_ID//./}/swift-${VERSION}-RELEASE/${TARBALL}"
+UBUNTU_VERSION_ID="$(. /etc/os-release && echo "$VERSION_ID")"   # e.g. 24.04
+TARBALL="swift-${SWIFT_RELEASE}-RELEASE-ubuntu${UBUNTU_VERSION_ID}.tar.gz"
+URL="https://download.swift.org/swift-${SWIFT_RELEASE}-release/ubuntu${UBUNTU_VERSION_ID//./}/swift-${SWIFT_RELEASE}-RELEASE/${TARBALL}"
 
 # The session proxy MITMs TLS; trust its CA bundle when present.
 CURL_ARGS=(-fSL --retry 3)

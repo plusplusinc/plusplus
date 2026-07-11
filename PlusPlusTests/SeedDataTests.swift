@@ -15,7 +15,7 @@ import PlusPlusKit
 @Suite("SeedData", .serialized)
 struct SeedDataTests {
     private func makeContainer() throws -> ModelContainer {
-        let schema = Schema([Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self, RoutineExercise.self])
+        let schema = Schema([Exercise.self, Equipment.self, EquipmentLibrary.self, Routine.self, ExerciseGroup.self, RoutineExercise.self])
         // In-memory configurations SHARE state across containers in one
         // process — even uniquely NAMED ones (proved twice on CI
         // 2026-07-08: the repair test emptied Bench Press's equipment
@@ -60,8 +60,8 @@ struct SeedDataTests {
     }
 
     /// #185: fresh installs seed the catalog, not the library — and the
-    /// populate step adds exactly what the owned equipment supports.
-    @Test func freshSeedStartsOutOfLibraryAndPopulateRespectsOwnership() throws {
+    /// populate step adds exactly what the ACTIVE library's gear supports.
+    @Test func freshSeedStartsOutOfLibraryAndPopulateRespectsAvailability() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         SeedData.loadIfNeeded(context: context)
@@ -69,27 +69,59 @@ struct SeedDataTests {
         let exercises = try context.fetch(FetchDescriptor<Exercise>())
         #expect(exercises.allSatisfy { !$0.inLibrary })
 
-        // Diagnostics for the CI-only corruption: bracket the equipment
-        // mutation loop so a failure names its mechanism. Point A failing
-        // means the seed itself lost the relationship; A passing and B
-        // failing means mutating Equipment.inLibrary (a relationship
-        // target with no declared inverse) clears the Exercise side.
+        // Diagnostics for the CI-only corruption: point A failing means
+        // the seed itself lost the relationship.
         let bench = try #require(exercises.first { $0.name == "Bench Press" })
         #expect(!bench.equipment.isEmpty, "A: corrupted at seed time — \(diagnostics(context: context))")
 
-        // Own only a pull-up bar: bodyweight + pull-up work populates,
-        // barbell work doesn't.
+        // A library holding only a pull-up bar: bodyweight + pull-up
+        // work populates, barbell work doesn't.
         let equipment = try context.fetch(FetchDescriptor<Equipment>())
-        for item in equipment {
-            item.inLibrary = item.name == "Pull-Up Bar"
-        }
-        #expect(!bench.equipment.isEmpty, "B: corrupted by the inLibrary mutation loop — \(diagnostics(context: context))")
+        let pullUpBar = try #require(equipment.first { $0.name == "Pull-Up Bar" })
+        let library = EquipmentLibrary(name: "Home", order: 0)
+        context.insert(library)
+        library.equipment = [pullUpBar]
+        UserDefaults.standard.removeObject(forKey: EquipmentLibrary.activeIDKey)
+        defer { UserDefaults.standard.removeObject(forKey: EquipmentLibrary.activeIDKey) }
+
+        #expect(!bench.equipment.isEmpty, "B: corrupted by the membership mutation — \(diagnostics(context: context))")
         let added = SeedData.populateLibraryFromEquipment(context: context)
         #expect(added > 0)
         let byName = Dictionary(uniqueKeysWithValues: exercises.map { ($0.name, $0) })
         #expect(byName["Pull-Up"]?.inLibrary == true)
         #expect(byName["Push-Up"]?.inLibrary == true)
         #expect(byName["Bench Press"]?.inLibrary == false)
+    }
+
+    /// The equipment-libraries migration: a store with no library gets a
+    /// "Home" holding the legacy in-library built-ins plus every custom
+    /// (customs were always available before libraries). Content-keyed
+    /// (zero libraries), so it fires once and never re-clobbers.
+    @Test func ensureEquipmentLibraryFoldsLegacyState() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        SeedData.loadIfNeeded(context: context)
+
+        let equipment = try context.fetch(FetchDescriptor<Equipment>())
+        let bench = try #require(equipment.first { $0.name == "Bench" })
+        bench.inLibrary = true
+        let custom = Equipment(name: "Probe Home Rig", isBuiltIn: false)
+        context.insert(custom)
+        try context.save()
+
+        SeedData.ensureEquipmentLibrary(context: context)
+
+        let libraries = try context.fetch(FetchDescriptor<EquipmentLibrary>())
+        #expect(libraries.count == 1)
+        let home = try #require(libraries.first)
+        #expect(home.name == "Home")
+        #expect(home.memberNames.contains("Bench"), "in-library built-ins fold in")
+        #expect(home.memberNames.contains("Probe Home Rig"), "customs were always available")
+        #expect(!home.memberNames.contains("Barbell"), "un-owned built-ins stay out")
+
+        // Idempotent: a second run with a library present is a no-op.
+        SeedData.ensureEquipmentLibrary(context: context)
+        #expect((try context.fetch(FetchDescriptor<EquipmentLibrary>())).count == 1)
     }
 
     /// What the store actually holds vs what this context's graph says —

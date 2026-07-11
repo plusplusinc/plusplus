@@ -136,7 +136,7 @@ struct RoutineCatalogTests {
     /// On-disk temp store per container — the only real isolation
     /// (see CLAUDE.md Patterns).
     private func makeContainer() throws -> ModelContainer {
-        let schema = Schema([Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self, RoutineExercise.self, WorkoutSession.self, SetLog.self])
+        let schema = Schema([Exercise.self, Equipment.self, EquipmentLibrary.self, Routine.self, ExerciseGroup.self, RoutineExercise.self, WorkoutSession.self, SetLog.self])
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("routinecatalogtests-\(UUID().uuidString).store")
         let config = ModelConfiguration(schema: schema, url: url, allowsSave: true, cloudKitDatabase: .none)

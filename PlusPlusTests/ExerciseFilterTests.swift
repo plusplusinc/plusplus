@@ -6,8 +6,13 @@ import PlusPlusKit
 
 @Suite("ExerciseFilterState")
 struct ExerciseFilterTests {
+    /// Every fixture exercise's gear — passed as `available` so the
+    /// availability hide never fires in the filtering tests (they're
+    /// about search/muscle/equipment selection, not availability).
+    private let fixtureGear: Set<String> = ["Barbell", "Dumbbells", "Cable Machine"]
+
     private func makeContainer() throws -> ModelContainer {
-        let schema = Schema([Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self, RoutineExercise.self])
+        let schema = Schema([Exercise.self, Equipment.self, EquipmentLibrary.self, Routine.self, ExerciseGroup.self, RoutineExercise.self])
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("exercisefilter-\(UUID().uuidString).store")
         let config = ModelConfiguration(schema: schema, url: url, allowsSave: true, cloudKitDatabase: .none)
@@ -46,7 +51,7 @@ struct ExerciseFilterTests {
         let (_, _, _, exercises) = makeExercises(context: context)
 
         let filter = ExerciseFilterState()
-        let result = filter.filteredExercises(from: exercises)
+        let result = filter.filteredExercises(from: exercises, available: fixtureGear)
 
         #expect(result.count == 6)
         #expect(result.first?.name == "Probe Curl")
@@ -60,7 +65,7 @@ struct ExerciseFilterTests {
 
         let filter = ExerciseFilterState()
         filter.searchText = "curl"
-        let result = filter.filteredExercises(from: exercises)
+        let result = filter.filteredExercises(from: exercises, available: fixtureGear)
 
         #expect(result.count == 1)
         #expect(result.first?.name == "Probe Curl")
@@ -73,7 +78,7 @@ struct ExerciseFilterTests {
 
         let filter = ExerciseFilterState()
         filter.selectedMuscleGroups = [.chest]
-        let result = filter.filteredExercises(from: exercises)
+        let result = filter.filteredExercises(from: exercises, available: fixtureGear)
 
         #expect(result.count == 3)
         #expect(result.allSatisfy { $0.muscleGroup == .chest })
@@ -86,7 +91,7 @@ struct ExerciseFilterTests {
 
         let filter = ExerciseFilterState()
         filter.selectedMuscleGroups = [.chest, .biceps]
-        let result = filter.filteredExercises(from: exercises)
+        let result = filter.filteredExercises(from: exercises, available: fixtureGear)
 
         #expect(result.count == 4)
     }
@@ -98,7 +103,7 @@ struct ExerciseFilterTests {
 
         let filter = ExerciseFilterState()
         filter.selectedEquipment = [barbell]
-        let result = filter.filteredExercises(from: exercises)
+        let result = filter.filteredExercises(from: exercises, available: fixtureGear)
 
         // Probe Press (barbell) + Squat (barbell)
         #expect(result.count == 2)
@@ -112,7 +117,7 @@ struct ExerciseFilterTests {
 
         let filter = ExerciseFilterState()
         filter.selectedEquipment = [barbell]
-        let result = filter.filteredExercises(from: exercises)
+        let result = filter.filteredExercises(from: exercises, available: fixtureGear)
 
         // Push-Up and Plank have no equipment — should be excluded
         #expect(!result.contains { $0.name == "Probe Push" })
@@ -125,7 +130,7 @@ struct ExerciseFilterTests {
         let (_, _, _, exercises) = makeExercises(context: context)
 
         let filter = ExerciseFilterState()
-        let result = filter.filteredExercises(from: exercises)
+        let result = filter.filteredExercises(from: exercises, available: fixtureGear)
 
         #expect(result.contains { $0.name == "Probe Push" })
         #expect(result.contains { $0.name == "Probe Hold" })
@@ -139,7 +144,7 @@ struct ExerciseFilterTests {
         let filter = ExerciseFilterState()
         filter.selectedMuscleGroups = [.chest]
         filter.selectedEquipment = [barbell]
-        let result = filter.filteredExercises(from: exercises)
+        let result = filter.filteredExercises(from: exercises, available: fixtureGear)
 
         // Only Probe Press matches both chest + barbell
         #expect(result.count == 1)
@@ -154,7 +159,7 @@ struct ExerciseFilterTests {
         let filter = ExerciseFilterState()
         filter.searchText = "press"
         filter.selectedMuscleGroups = [.chest]
-        let result = filter.filteredExercises(from: exercises)
+        let result = filter.filteredExercises(from: exercises, available: fixtureGear)
 
         #expect(result.count == 1)
         #expect(result.first?.name == "Probe Press")
@@ -167,8 +172,33 @@ struct ExerciseFilterTests {
 
         let filter = ExerciseFilterState()
         filter.searchText = ""
-        let result = filter.filteredExercises(from: exercises)
+        let result = filter.filteredExercises(from: exercises, available: fixtureGear)
 
         #expect(result.count == 6)
+    }
+
+    /// Availability drives the default hide: an exercise needing gear the
+    /// active library lacks is hidden, listed with `showUnavailable`, and
+    /// reported by `missingEquipment`.
+    @Test func availabilityHidesAndFlagsMissingGear() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let (_, _, _, exercises) = makeExercises(context: context)
+
+        // Only dumbbells available: barbell/cable work is hidden.
+        let available: Set<String> = ["Dumbbells"]
+        let filter = ExerciseFilterState()
+
+        let hidden = filter.filteredExercises(from: exercises, available: available)
+        #expect(!hidden.contains { $0.name == "Probe Press" }, "barbell work hides when the library lacks a barbell")
+        #expect(hidden.contains { $0.name == "Probe Curl" }, "dumbbell work stays")
+        #expect(hidden.contains { $0.name == "Probe Push" }, "bodyweight always stays")
+
+        filter.showUnavailable = true
+        let shown = filter.filteredExercises(from: exercises, available: available)
+        #expect(shown.contains { $0.name == "Probe Press" }, "the escape hatch reveals it")
+
+        let press = try #require(exercises.first { $0.name == "Probe Press" })
+        #expect(ExerciseFilterState.missingEquipment(for: press, available: available) == ["Barbell"])
     }
 }

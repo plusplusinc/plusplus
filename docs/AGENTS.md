@@ -26,6 +26,10 @@ Any agent that can read a repo can coach from it today:
   equipment, notes, video link)
 - `program/routines/*.json` — templates; a group with more than one
   exercise is a superset
+- `program/equipment/*.json` — gear with config worth keeping (weight
+  steps, suggested metric profiles)
+- `program/equipment-libraries/*.json` — one curated gear list per
+  training spot (Home, Hotel…); which one is active stays on the device
 - `history/YYYY/*.json` — finished sessions, append-only, targets and
   actuals per set
 

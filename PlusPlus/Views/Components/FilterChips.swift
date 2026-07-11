@@ -24,10 +24,11 @@ struct FacetChip<Value: Hashable>: View {
     let facet: String
     @Binding var selection: Value?
     let options: [(Value, String)]
-    /// Optional footer row in the menu for fixing the filter's BASIS in
-    /// place (#260: "Edit my equipment…" on GEAR) — the no-dead-ends
-    /// law applied to ownership.
-    var footer: (label: String, action: () -> Void)? = nil
+    /// Optional footer rows in the menu for fixing the filter's BASIS in
+    /// place (#260: "Edit my equipment…" on GEAR; "Switch library…" once
+    /// equipment libraries exist) — the no-dead-ends law applied to
+    /// availability.
+    var footers: [(label: String, action: () -> Void)] = []
 
     var body: some View {
         Menu {
@@ -51,9 +52,11 @@ struct FacetChip<Value: Hashable>: View {
                     }
                 }
             }
-            if let footer {
+            if !footers.isEmpty {
                 Divider()
-                Button(footer.label, action: footer.action)
+                ForEach(footers.indices, id: \.self) { index in
+                    Button(footers[index].label, action: footers[index].action)
+                }
             }
         } label: {
             Text(activeLabel)

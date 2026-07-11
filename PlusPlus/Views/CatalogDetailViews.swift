@@ -90,6 +90,12 @@ struct ExerciseDetailScreen: View {
 
     @Query(sort: [SortDescriptor(\Routine.order), SortDescriptor(\Routine.createdAt, order: .reverse)])
     private var allRoutines: [Routine]
+    @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
+    @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
+
+    private var availableEquipmentNames: Set<String> {
+        EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.memberNames ?? []
+    }
 
     @State private var path: PushTarget?
     @State private var showingEditor = false
@@ -145,7 +151,7 @@ struct ExerciseDetailScreen: View {
                             ForEach(Array(items.enumerated()), id: \.element.persistentModelID) { index, equipment in
                                 CrossRefRow(
                                     title: equipment.name,
-                                    meta: equipment.inLibrary || !equipment.isBuiltIn ? "" : "not in library"
+                                    meta: availableEquipmentNames.contains(equipment.name) ? "" : "not in library"
                                 ) {
                                     path = .equipment(equipment)
                                 }
@@ -316,6 +322,8 @@ struct EquipmentDetailScreen: View {
     @Query(sort: \Exercise.name) private var allExercises: [Exercise]
     @Query(sort: [SortDescriptor(\Routine.order), SortDescriptor(\Routine.createdAt, order: .reverse)])
     private var allRoutines: [Routine]
+    @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
+    @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
     @State private var path: PushTarget?
     @State private var showingAddExercise = false
@@ -326,6 +334,15 @@ struct EquipmentDetailScreen: View {
     private enum PushTarget: Hashable {
         case exercise(Exercise)
         case routine(Routine)
+    }
+
+    private var activeLibrary: EquipmentLibrary? {
+        EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)
+    }
+
+    /// Membership in the ACTIVE library (customs included).
+    private var inActiveLibrary: Bool {
+        activeLibrary?.contains(equipment) ?? false
     }
 
     private var weightUnit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .lb }
@@ -437,13 +454,14 @@ struct EquipmentDetailScreen: View {
                         }
                         .padding(.bottom, 7)
                     }
-                    // Same shape as the exercise screen (#265): owning
-                    // gear is the primary act on an un-owned type —
-                    // especially now that ownership gates the catalogs
-                    // (#260) — so it doesn't hide in the … menu.
-                    if equipment.isBuiltIn && !equipment.inLibrary {
+                    // Same shape as the exercise screen (#265): adding
+                    // gear to this library is the primary act on a type
+                    // that isn't in it — especially now that the library
+                    // gates the catalogs (#260) — so it doesn't hide in
+                    // the … menu. Applies to customs too now.
+                    if !inActiveLibrary {
                         CreateRow(label: "Add to my equipment", identifier: "addToMyEquipment") {
-                            equipment.inLibrary = true
+                            activeLibrary?.setMembership(equipment, true)
                         }
                         .padding(.bottom, 7)
                     }
@@ -484,15 +502,17 @@ struct EquipmentDetailScreen: View {
                     showingRename = true
                 }
             }
-            // Destructive-only since #265 — see the exercise menu.
-            if !equipment.isBuiltIn || equipment.inLibrary {
+            // "Remove" is membership in the active library; "Delete" is
+            // the custom's full removal (#265 — destructive in the menu).
+            if inActiveLibrary || !equipment.isBuiltIn {
                 HeaderMenuKey(systemImage: "ellipsis", identifier: "equipmentDetailMenu") {
-                    if equipment.isBuiltIn {
+                    if inActiveLibrary {
                         Button("Remove from my equipment", role: .destructive) {
-                            equipment.inLibrary = false
+                            activeLibrary?.setMembership(equipment, false)
                             dismiss()
                         }
-                    } else {
+                    }
+                    if !equipment.isBuiltIn {
                         Button("Delete custom equipment", role: .destructive) {
                             confirmingDelete = true
                         }

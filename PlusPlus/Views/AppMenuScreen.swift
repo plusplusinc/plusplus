@@ -150,6 +150,6 @@ private enum WhatsNew {
         ("35", "Swipe actions stay put when you let go · this page · start any workout from Today's header"),
         ("34", "Catalogs open on your gear, fixable in place · pick several filters at once"),
         ("33", "A finish screen that names your next session · Today always offers a path"),
-        ("32", "Scratch workouts you can keep as routines · equipment you actually own"),
+        ("32", "Scratch workouts you can keep as routines · equipment you actually have"),
     ]
 }

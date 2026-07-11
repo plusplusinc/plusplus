@@ -112,7 +112,7 @@ struct CatalogProfileTests {
 struct ModelProfileTests {
     private func makeContainer() throws -> ModelContainer {
         let schema = Schema([
-            Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self,
+            Exercise.self, Equipment.self, EquipmentLibrary.self, Routine.self, ExerciseGroup.self,
             RoutineExercise.self, WorkoutSession.self, SetLog.self,
         ])
         let url = FileManager.default.temporaryDirectory
@@ -381,7 +381,7 @@ struct DraftProfileTests {
 
     @Test("apply prunes defaults for untracked metrics and stores only real customization")
     func applyPruning() throws {
-        let schema = Schema([Exercise.self, Equipment.self])
+        let schema = Schema([Exercise.self, Equipment.self, EquipmentLibrary.self])
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("draft-\(UUID().uuidString).store")
         let config = ModelConfiguration(schema: schema, url: url, allowsSave: true, cloudKitDatabase: .none)

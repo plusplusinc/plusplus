@@ -61,10 +61,6 @@ extension EquipmentLibrary {
         return active(in: all)
     }
 
-    static func makeActive(_ library: EquipmentLibrary) {
-        UserDefaults.standard.set(library.uuid.uuidString, forKey: activeIDKey)
-    }
-
     /// Members with just-deleted gear filtered out (the lingering-
     /// reference rule from ExerciseFilterState, bug hunt B1).
     var members: [Equipment] {
