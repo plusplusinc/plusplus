@@ -111,6 +111,36 @@ struct SyncEngineTests {
         #expect(second.postponed == [routinePath], "Unresolved conflict must surface again")
     }
 
+    @Test("Disjoint both-sides edits auto-merge instead of conflicting")
+    func autoMergeDisjointConflict() async throws {
+        func routine(rest: Int, notes: String) throws -> Data {
+            try InterchangeCodec.encode(RoutineDocument(routine: RoutineDTO(
+                name: "Push Day", restSeconds: rest, notes: notes,
+                groups: [.init(sets: 3, exercises: [.init(exercise: "Bench Press", reps: 5)])]
+            )))
+        }
+        let base = try routine(rest: 90, notes: "old")
+        let mine = try routine(rest: 120, notes: "old")     // I changed rest
+        let theirs = try routine(rest: 90, notes: "new")    // they changed notes
+
+        let repo = FakeRepoStore(files: [routinePath: theirs])
+        let baseStore = FakeBaseStore()
+        baseStore.base = [routinePath: base]
+        let engine = SyncEngine(store: repo, baseStore: baseStore)
+
+        // Default resolving is .postpone — proving the merge fired, not a fallback.
+        let outcome = try await engine.sync(local: [routinePath: mine])
+
+        #expect(outcome.postponed.isEmpty, "A disjoint conflict must auto-merge, not postpone")
+        #expect(outcome.pushed == [routinePath])   // merged result pushed
+        #expect(outcome.pulls.count == 1)           // and applied locally
+        let mergedDTO = try InterchangeCodec.decode(RoutineDocument.self, from: repo.files[routinePath]!).routine
+        #expect(mergedDTO.restSeconds == 120 && mergedDTO.notes == "new")
+        // Converged: base now holds the merged bytes, so a re-sync is a no-op.
+        let second = try await engine.sync(local: [routinePath: repo.files[routinePath]!])
+        #expect(second.pushed.isEmpty && second.pulls.isEmpty && second.postponed.isEmpty)
+    }
+
     // MARK: - Session pushes
 
     private func makeSession(startedAt: Date = Date(timeIntervalSince1970: 1_751_500_000)) -> SessionDTO {

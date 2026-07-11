@@ -71,22 +71,40 @@ public struct SyncEngine {
 
         var outcome = SyncOutcome()
         var writes = plan.writes
-        var pullPaths = plan.pulls
+        // Pulls carry the bytes the app must adopt — remote content for
+        // remote-authored files, merged content for auto-merged conflicts.
+        var pulls: [FileWrite] = plan.pulls.compactMap { path in
+            remote[path].map { FileWrite(path: path, data: $0) }
+        }
 
         for path in plan.conflicts {
+            // A both-sides change is a conflict only if the SAME fields
+            // collided. Try a field-level three-way merge first: disjoint
+            // edits converge automatically (local-wins on a true same-field
+            // collision), so almost nothing reaches the resolving closure.
+            if let localData = local[path], let remoteData = remote[path],
+               let merged = TemplateMerge.merge(base: base[path], local: localData, remote: remoteData, path: path) {
+                if remoteData != merged { writes.append(FileWrite(path: path, data: merged)) }
+                if localData != merged { pulls.append(FileWrite(path: path, data: merged)) }
+                continue
+            }
+            // Un-mergeable (unknown shape / undecodable): fall back to the
+            // caller's keep-mine/take-theirs/postpone decision.
             switch resolving(path) {
             case .keepMine:
                 if let data = local[path] {
                     writes.append(FileWrite(path: path, data: data))
                 }
             case .takeTheirs:
-                pullPaths.append(path)
+                if let data = remote[path] {
+                    pulls.append(FileWrite(path: path, data: data))
+                }
             case .postpone:
                 outcome.postponed.append(path)
             }
         }
         writes.sort { $0.path < $1.path }
-        pullPaths.sort()
+        pulls.sort { $0.path < $1.path }
 
         if !writes.isEmpty {
             let message = Self.commitMessage(pushing: writes.map(\.path))
@@ -94,15 +112,13 @@ public struct SyncEngine {
             outcome.commitMessage = message
         }
         outcome.pushed = writes.map(\.path)
-        outcome.pulls = pullPaths.compactMap { path in
-            remote[path].map { FileWrite(path: path, data: $0) }
-        }
+        outcome.pulls = pulls
 
         // The converged state becomes the next base. Postponed conflicts
         // keep their old base entry (or stay absent) so they re-conflict.
         var newBase: [String: Data] = [:]
         for write in writes { newBase[write.path] = write.data }
-        for pull in outcome.pulls { newBase[pull.path] = pull.data }
+        for pull in pulls { newBase[pull.path] = pull.data }
         for path in plan.unchanged { newBase[path] = local[path] }
         for path in outcome.postponed { newBase[path] = base[path] }
         try baseStore.saveBase(newBase)

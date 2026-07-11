@@ -71,15 +71,14 @@ device-flow UX, and a real repo, none of which a remote Linux session can do.
    commit shows up in the repo.
 6. **Second device (the real test):** connect a second Simulator/device to the
    same account. Confirm its history pulls down and both devices converge.
-   Make conflicting edits to the *same* routine on both and confirm the
-   conflicting file is left alone (postponed) rather than clobbered — the
-   interactive keep-mine/take-theirs prompt is a deliberate follow-up.
+   Edit *different* fields of the same routine on each side (rest on one, notes
+   on the other) and confirm both edits survive — that's the field-level
+   auto-merge. Then edit the *same* field on both offline and confirm the
+   device you synced last... no: confirm **local-wins** (the device doing the
+   sync keeps its value; the other's is still recoverable from git history).
 
 ## What's deliberately deferred (follow-ups, not blockers)
 
-- **Interactive conflict resolution.** True both-sides-changed conflicts
-  currently *postpone* (never clobber, never auto-pick). A keep-mine/
-  take-theirs sheet is the next increment.
 - **Commit-per-session at finish time.** Sessions today push as part of the
   foreground sync commit (append-only, idempotent). Wiring `pushSession` into
   the finish flow for the nice `Log: Push Day — 24 sets` per-session commit is a

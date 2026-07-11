@@ -42,7 +42,10 @@ What this unlocks, concretely:
    nothing.
 4. **History is append-only.** Finished sessions flow app → repo, one file each,
    and never conflict. Templates (exercises, routines) sync bidirectionally,
-   per-file, with a keep-mine/take-theirs prompt on the rare true conflict.
+   per-file; a both-sides change is merged **field by field** (disjoint edits
+   converge automatically), and only a genuine same-field collision needs a
+   tiebreak — which resolves **local-wins** (the phone is live truth; git
+   history keeps the overwritten value), so no interactive prompt is required.
 5. **Deterministic serialization.** Sorted keys, ISO-8601 dates, stable array
    ordering. Git diffs of these files must be readable, or the whole story falls
    apart.
@@ -321,7 +324,7 @@ Semantics worth writing down:
 | Data | Direction | Conflict handling |
 |---|---|---|
 | Sessions | app → repo, on finish (queued offline) | none possible (new file, append-only) |
-| Routines / exercises | bidirectional, on app foreground + manual pull | per-file SHA compare; only both-sides-changed prompts keep-mine/take-theirs |
+| Routines / exercises | bidirectional, on app foreground + manual pull | per-file SHA compare; a both-sides change is auto-merged field-by-field (`TemplateMerge`), same-field collisions resolve local-wins. `keep-mine/take-theirs/postpone` remains the fallback for an undecodable file |
 
 Commit messages are composed by the sync engine: sessions get
 `Log: Shoulder PT — 8 sets (2026-07-05)` and template pushes get
@@ -356,10 +359,11 @@ one routine repo), token in the Keychain. Not classic OAuth `repo` scope.
    foreground sync, surfaced by `GitHubConnectScreen` off Settings › SYNC —
    compiles in CI. Remaining is owner-gated: register the GitHub App and drop
    its client ID into `GITHUB_APP_CLIENT_ID` (project.yml), then a two-device
-   Mac validation pass. Deferred follow-ups: an interactive keep-mine/
-   take-theirs conflict prompt (conflicts currently postpone, never clobber),
-   and a commit-per-session `pushSession` at finish time (foreground sync
-   currently batches session pushes into the sync commit).*
+   Mac validation pass. Template conflicts auto-merge field-by-field
+   (`TemplateMerge`, local-wins on a true same-field collision), so no
+   interactive prompt is needed. Deferred follow-up: a commit-per-session
+   `pushSession` at finish time (foreground sync currently batches session
+   pushes into the sync commit).*
 4. **CLI** (#24) — shipped: `plusplus init / lint / stats / import / export /
    mcp` in `PlusPlusCLI/` (Swift + swift-argument-parser; decisions recorded
    on the issue: Swift over Go, no GitHub auth — git is transport and auth).
