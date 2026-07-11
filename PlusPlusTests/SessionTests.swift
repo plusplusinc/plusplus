@@ -362,6 +362,29 @@ struct SessionTests {
         #expect(session.currentLog != nil, "the live set survives the resize")
     }
 
+    @Test("Resizing keeps a jumped-to live set even as a high-order pending set")
+    func resizeKeepsJumpedLiveSet() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+
+        let session = WorkoutSession.startEmpty(context: context)
+        let dead = Exercise(name: "Probe Deadlift", muscleGroup: .back)
+        context.insert(dead)
+        let logs = session.appendExercise(dead, sets: 3, context: context)
+        session.complete(logs[0])   // set 1 done; cursor at set 2
+        session.jump(to: logs[2])   // jump the cursor to set 3
+        #expect(session.currentLog === logs[2])
+
+        // Trim: the live set (set 3) must survive; a lower pending set goes.
+        let resized = session.resizePendingBlock(groupIndex: 0, exerciseName: "Probe Deadlift", to: 2, context: context)
+        #expect(resized.count == 2)
+        let liveSurvives = resized.contains { $0 === logs[2] }
+        #expect(liveSurvives, "the jumped-to live set is never trimmed")
+        #expect(session.currentLog === logs[2])
+        // setNumbers stay contiguous after the reindex closes the gap.
+        #expect(resized.map(\.setNumber) == [1, 2])
+    }
+
     // MARK: - Workout clock (pause + staged start)
 
     @Test("An ad-hoc session's clock stays at zero until it starts")

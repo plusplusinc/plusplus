@@ -351,12 +351,15 @@ extension WorkoutSession {
     }
 
     /// Resizes a still-pending block to `count` sets — appends prefilled
-    /// pending sets (copied from the block's template) or trims trailing
-    /// pending ones. Completed sets and the live set are never removed:
-    /// the floor is the number already done (plus the live set when the
-    /// block is current), never below one. New sets slot in contiguously
-    /// after the block's last set, shifting later blocks down. Drives the
-    /// in-session exercise sheet's Sets stepper.
+    /// pending sets (copied from the block's template) or trims pending
+    /// ones. Completed sets and the LIVE set are never removed (the live
+    /// set may be any pending set once the cursor has been jumped, not
+    /// just the first): the floor is the number already done plus the
+    /// live set when the block is current, never below one. Ends by
+    /// reindexing — block `setNumber`s densified 1..n and session `order`
+    /// re-densified with the cursor re-pinned by reference — so the
+    /// reindex-after-every-mutation law holds and no gaps survive a trim.
+    /// Drives the in-session exercise sheet's Sets stepper.
     @discardableResult
     func resizePendingBlock(groupIndex: Int, exerciseName: String, to count: Int, context: ModelContext) -> [SetLog] {
         guard !isFinished else { return [] }
@@ -369,26 +372,34 @@ extension WorkoutSession {
         let target = max(count, floor)
         let current = blockLogs.count
         guard target != current else { return blockLogs }
+        // Re-pinned by reference after the reindex — the integer
+        // cursorOrder would otherwise go stale.
+        let cursor = currentLog
 
         if target < current {
-            // Trim from the pending tail only.
-            let removable = blockLogs.filter { !$0.isCompleted }.suffix(current - target)
+            // Trim the highest-order pending sets, but never the LIVE one
+            // (a jumped cursor can make the live set a high-order pending
+            // set — trimming the tail would delete it and silently move
+            // the cursor).
+            let removable = blockLogs
+                .filter { !$0.isCompleted && $0.order != liveOrder }
+                .suffix(current - target)
             for log in removable { context.delete(log) }
         } else {
-            // Keep the cursor pointed at the same log across the order
-            // shift (the integer cursorOrder would otherwise go stale).
-            let cursor = currentLog
+            // Append after the block's last set, shifting later blocks
+            // down so the new sets sort into place; the reindex below
+            // then densifies the whole session's order.
             let insertionOrder = blockLogs.map(\.order).max() ?? -1
             let shift = target - current
             for log in sortedSetLogs where log.order > insertionOrder {
                 log.order += shift
             }
             var order = insertionOrder + 1
-            for setNumber in (current + 1)...target {
+            for _ in (current + 1)...target {
                 let log = SetLog(
                     order: order,
                     groupIndex: groupIndex,
-                    setNumber: setNumber,
+                    setNumber: 0,   // reindexed below
                     exerciseName: template.exerciseName,
                     exerciseType: template.exerciseType,
                     targetWeight: template.targetWeight,
@@ -405,8 +416,15 @@ extension WorkoutSession {
                 log.exercise = template.exercise
                 order += 1
             }
-            if let cursor { cursorOrder = cursor.order }
         }
+
+        // Reindex-after-every-mutation: the block's surviving sets renumber
+        // 1..n by order (closing any gap a trim left), the session's order
+        // re-densifies, and the cursor re-pins to the same log object.
+        let survivors = sortedSetLogs.filter { $0.groupIndex == groupIndex && $0.exerciseName == exerciseName }
+        for (index, log) in survivors.enumerated() { log.setNumber = index + 1 }
+        for (index, log) in sortedSetLogs.enumerated() { log.order = index }
+        if let cursor, !cursor.isDeleted { cursorOrder = cursor.order }
         return sortedSetLogs.filter { $0.groupIndex == groupIndex && $0.exerciseName == exerciseName }
     }
 
