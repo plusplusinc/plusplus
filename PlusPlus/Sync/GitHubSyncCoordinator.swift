@@ -1,6 +1,9 @@
 import Foundation
 import SwiftData
+import OSLog
 import PlusPlusKit
+
+private let syncLog = Logger(subsystem: "com.davidcole.plusplus", category: "github-sync")
 
 /// Orchestrates GitHub sync for the app: device-flow connect, repo bootstrap,
 /// and the foreground sync pass. Everything transport/auth-shaped lives in
@@ -103,6 +106,7 @@ final class GitHubSyncCoordinator {
             // User backed out (Cancel / swipe-back); the UI already reset. Do
             // not stamp a spurious error over it.
         } catch {
+            syncLog.error("connect failed: \(String(reflecting: error), privacy: .public)")
             activity = .error(Self.describe(error))
         }
     }
@@ -179,6 +183,7 @@ final class GitHubSyncCoordinator {
                 connection = .disconnected
                 activity = .error("Your GitHub connection expired. Reconnect.")
             } else {
+                syncLog.error("sync failed: \(String(reflecting: error), privacy: .public)")
                 activity = .error(Self.describe(error))
             }
         }
@@ -244,16 +249,26 @@ final class GitHubSyncCoordinator {
             case .notAuthenticated: return "Your GitHub connection expired. Reconnect."
             case .conflict: return "The repo changed mid-sync. Try again."
             case .notFound: return "Couldn't find the repo. Reconnect to recreate it."
-            case .malformedResponse, .http: return "GitHub returned something unexpected. Try again."
+            case .malformedResponse: return "GitHub returned something unexpected. Try again."
+            case .http(let status, _): return "GitHub returned HTTP \(status). Try again."
             }
         }
         if let account = error as? GitHubAccount.AccountError {
             switch account {
             case .notAuthenticated: return "Your GitHub connection expired. Reconnect."
-            case .malformedResponse, .http: return "GitHub returned something unexpected. Try again."
+            case .malformedResponse: return "GitHub returned something unexpected. Try again."
+            case .http(let status, _): return "GitHub returned HTTP \(status). Try again."
             }
         }
-        return "Something went wrong. Try again."
+        if let urlError = error as? URLError {
+            return "Network error (\(urlError.code.rawValue)). Check your connection and try again."
+        }
+        if let keychain = error as? KeychainTokenStore.KeychainError, case .status(let code) = keychain {
+            return "Couldn't save the token (Keychain \(code)). Try again."
+        }
+        // Last resort: surface the concrete error so on-device testing can name
+        // the cause instead of guessing.
+        return "Couldn't connect: \(error)"
     }
 }
 

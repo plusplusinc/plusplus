@@ -34,6 +34,7 @@ struct GitHubConnectScreen: View {
                     case .disconnected:
                         intro
                         if let message = activityError { errorNote(message) }
+                        installButton
                         connectButton
                     case .connected:
                         connectedPanel
@@ -88,15 +89,36 @@ struct GitHubConnectScreen: View {
         .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
     }
 
-    private var connectButton: some View {
-        Button {
-            connectTask?.cancel()
-            connectTask = Task { await sync.connect() }
-        } label: {
-            keyLabel(icon: "arrow.triangle.2.circlepath", title: "Connect GitHub")
+    private var installButton: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                openURL(GitHubSyncSettings.installURL)
+            } label: {
+                keyLabel(icon: "arrow.up.right", title: "Install on GitHub")
+            }
+            .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
+            .accessibilityIdentifier("installGitHubButton")
+            Text("Step 1 · pick the private repo to sync to. Skip if you've already installed it.")
+                .font(.system(.caption))
+                .foregroundStyle(Theme.textFaint)
         }
-        .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
-        .accessibilityIdentifier("connectGitHubButton")
+        .padding(.top, 12)
+    }
+
+    private var connectButton: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                connectTask?.cancel()
+                connectTask = Task { await sync.connect() }
+            } label: {
+                keyLabel(icon: "arrow.triangle.2.circlepath", title: "Connect GitHub")
+            }
+            .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
+            .accessibilityIdentifier("connectGitHubButton")
+            Text("Step 2 · authorize on GitHub with a short code.")
+                .font(.system(.caption))
+                .foregroundStyle(Theme.textFaint)
+        }
         .padding(.top, 12)
     }
 

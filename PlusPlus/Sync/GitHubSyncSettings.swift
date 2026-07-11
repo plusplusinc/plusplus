@@ -15,6 +15,11 @@ enum GitHubSyncSettings {
     /// The default repo name created/adopted on the user's account.
     static let defaultRepoName = "workouts"
 
+    /// The App's install / repo-picker page — where a user installs PlusPlus
+    /// Sync on the repo they want to sync to (a prerequisite for connecting,
+    /// since sync targets whichever repo the App is installed on).
+    static let installURL = URL(string: "https://github.com/apps/plusplus-sync/installations/new")!
+
     private enum Key {
         static let owner = "github.sync.owner"
         static let repo = "github.sync.repo"
