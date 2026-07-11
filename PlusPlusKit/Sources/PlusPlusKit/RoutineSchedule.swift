@@ -309,6 +309,40 @@ extension RoutineSchedule {
             return "\(times)×/\(perDays)d"
         }
     }
+
+    /// The ongoing-pattern phrasing for a cadence summary that sits
+    /// beside concrete dated occurrences (the Today "beyond this week"
+    /// line): it must read as the recurring rhythm, not a single day, or
+    /// "sat" reads as a duplicate of the Saturday card right next to it.
+    ///
+    /// Fixed days lead with "every" so the recurrence is explicit
+    /// ("every sat", "every mon/thu"); a rolling frequency reads as a
+    /// rate that never names a weekday ("3×/wk", "weekly", "every 2d"),
+    /// which is exactly what tells the two scheduling styles apart at a
+    /// glance. Distinct from `shortLabel`, the terse chip/pill token.
+    public var recurrenceLabel: String {
+        switch normalized {
+        case .unscheduled:
+            return "anytime"
+        case .weekdays:
+            return "every \(shortLabel)"
+        case .frequency(let times, let perDays):
+            switch (times, perDays) {
+            case (1, 1):
+                return "daily"
+            case (1, 7):
+                return "weekly"
+            case (1, _):
+                return "every \(perDays)d"
+            case (_, 7):
+                return "\(times)×/wk"
+            case (_, 1):
+                return "\(times)×/day"
+            default:
+                return "\(times)×/\(perDays)d"
+            }
+        }
+    }
 }
 
 extension RoutineSchedule: Codable {
