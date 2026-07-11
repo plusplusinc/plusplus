@@ -2,9 +2,11 @@
 
 > Status: phases 1, 2, 4, and 5 shipped (format, app export/import, CLI + MCP
 > server, agent scaffolding/plugin); phase 3 (GitHub sync in the app) has its
-> engine shipped in the Kit with the GitHub adapter + auth remaining. Tracking
-> issues: #20 (format), #21 (core package), #22 (app export/import), #23
-> (GitHub sync), #24 (CLI), #25 (agents). Owner-action TODOs at the bottom.
+> engine AND its GitHub adapter + device-flow auth + app wiring shipped in code
+> — the only thing between it and end-to-end is registering the GitHub App
+> (owner action) and a two-device Mac validation pass. Tracking issues: #20
+> (format), #21 (core package), #22 (app export/import), #23 (GitHub sync), #24
+> (CLI), #25 (agents). Owner-action TODOs at the bottom.
 
 ## Vision
 
@@ -341,10 +343,23 @@ one routine repo), token in the Keychain. Not classic OAuth `repo` scope.
    session placement), `SyncPlanner` (pure per-file three-way merge:
    writes/pulls/conflicts, deletions deferred), and `SyncEngine` (full sync
    pass — conflict resolution keep-mine/take-theirs/postpone, base
-   convergence, idempotent `pushSession`) live in PlusPlusKit with tests
-   against the `RepoStore`/`SyncBaseStore` protocols. Remaining — device-flow
-   auth, the GitHub `RepoStore` adapter, and UI wiring — needs Mac + GitHub
-   App registration.*
+   convergence, idempotent `pushSession`). The adapter + auth + app wiring
+   then shipped too: `GitHubRepoStore` (RepoStore over the Git Data API —
+   fetchAll via trees+blobs, batched write as one commit blobs→tree→commit→ref
+   with the non-forced ref update as the optimistic-concurrency guard),
+   `GitHubDeviceFlow` (device-flow auth), `GitHubAccount` (whoami / repo-exists
+   / create-private-repo bootstrap), and `InterchangeFiles` (decode pulled
+   files back to a bundle) all live in PlusPlusKit behind an `HTTPClient`
+   protocol and are Linux-tested against a scripted fake. The app side —
+   `KeychainTokenStore`, `ApplicationSupportBaseStore`, and a
+   `GitHubSyncCoordinator` (@Observable) that runs connect → bootstrap →
+   foreground sync, surfaced by `GitHubConnectScreen` off Settings › SYNC —
+   compiles in CI. Remaining is owner-gated: register the GitHub App and drop
+   its client ID into `GITHUB_APP_CLIENT_ID` (project.yml), then a two-device
+   Mac validation pass. Deferred follow-ups: an interactive keep-mine/
+   take-theirs conflict prompt (conflicts currently postpone, never clobber),
+   and a commit-per-session `pushSession` at finish time (foreground sync
+   currently batches session pushes into the sync commit).*
 4. **CLI** (#24) — shipped: `plusplus init / lint / stats / import / export /
    mcp` in `PlusPlusCLI/` (Swift + swift-argument-parser; decisions recorded
    on the issue: Swift over Go, no GitHub auth — git is transport and auth).
@@ -363,9 +378,11 @@ the phone loop must be confirmed working in hand first.
       export/import UI once #22 lands).
 - [ ] **Register the GitHub App** for #23 (Settings → Developer settings → GitHub
       Apps): device flow enabled, Contents read/write as the only repo permission,
-      no webhooks needed initially. Put the app slug/client ID somewhere Claude
-      can reach (issue comment on #23 is fine — client IDs aren't secrets; the
-      device flow needs no client secret).
+      no webhooks needed initially. Then set its client ID (`Iv23…`) as
+      `GITHUB_APP_CLIENT_ID` in `project.yml` (the app reads it from Info.plist as
+      `GitHubAppClientID`; blank until then, and the connect screen says "not set
+      up"). Client IDs aren't secrets and device flow needs no client secret, so
+      it's fine committed. Full step-by-step: `docs/recipes/github-app-setup.md`.
 - [ ] **Decide the public repo template name** (e.g. `plusplus-routines-template`)
       when #23/#25 need it.
 - [ ] **Create a Homebrew tap repo** (`plusplusinc/homebrew-plusplus`) when #24
