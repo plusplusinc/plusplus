@@ -51,7 +51,7 @@ No third-party dependencies without discussion first.
 
 > Keep this section current and SHORT. Session-by-session history belongs in docs/DECISIONS.md entries; build genealogy in its appendix.
 
-**Last updated:** 2026-07-10. **Build 46** on TestFlight (flexible metrics #304 + heart rate #297, over build 45's catalog-navigation fix #293 and the Quiet Arcade rounds #283/#287). Merged after the 46 dispatch, riding the NEXT build: PR #306 (Today details UX — two-stage start tray, navigating week-ahead cards, "Do it again" on session records, one-action rest-day card, inline superset tip). Update-in-place is safe from build 16 onward. plusplus.fit LIVE; universal links ON.
+**Last updated:** 2026-07-11. **Build 46** on TestFlight (flexible metrics #304 + heart rate #297, over build 45's catalog-navigation fix #293 and the Quiet Arcade rounds #283/#287). Merged after the 46 dispatch, riding the NEXT build: PR #306 (Today details UX — two-stage start tray, navigating week-ahead cards, "Do it again" on session records, one-action rest-day card, inline superset tip) and PR #310 (welcome-screen refinement — de-gitted copy, SF Symbol rows, pinned dots/primary key; no-em-dashes copy rule in app-surfaces.md). Update-in-place is safe from build 16 onward. plusplus.fit LIVE; universal links ON.
 
 ⚠️ **Needs Mac validation** (#1 owns the checklist; all 2026-07 work shipped from remote Linux sessions — compiles, passes CI suites, runs on Dave's phone via TestFlight, but hands-on feel is unvalidated): newest first — the Today-details round's finger-only surfaces (upcoming card's inner Start vs card navigation — exactly one must fire per tap; start-tray stage slide + detent growth; inline superset tip layout shift), cardio/interval set screens + planning-sheet metric rows (flexible metrics), live HR surfaces + welcome flow on real hardware (simulators produce no HR samples), Quiet Arcade press feel/flourishes/warm-charcoal pass, v3/v4 gesture feel (rail drag/ring), watch on real hardware, store migration over real data (#31 — FIRST), Dynamic Island/Live Activity feel, widget gallery, accessibility settings, hero-zoom + swipe-back composition, search/dock affordances.
 
@@ -67,7 +67,7 @@ No third-party dependencies without discussion first.
 
 **plusplus.fit:** LIVE on Vercel, connected to `plusplusinc/plusplus.fit` — pushes to its main deploy production, PRs get previews. AASA serves the real Team ID; the app ships associated domains. Deploy by merging to the site repo's main (the Vercel MCP's file-upload path is broken from remote sessions). Tagline: "The hackable workout tracker for incrementing yourself".
 
-**Work tracking:** backlog = GitHub issues on `plusplusinc/plusplus` (auto-added to Dave's project board). Changes land via PRs, self-merged once required checks are green, `Closes #N` linking.
+**Work tracking:** backlog = GitHub issues on `plusplusinc/plusplus` (auto-added to Dave's project board). Changes land via PRs, self-merged once required checks are green, `Closes #N` linking. **The expected output of any implementation session is a PR — open it without being asked** (Dave, 2026-07-11); never leave finished work sitting on a branch.
 
 **Remote validation layer:** 8 XCUITest smoke flows (`ui-test` job: dispatch + main pushes) upload a `ui-screenshots` artifact reviewable from a browser — includes the onboarding timeline, welcome flow, template-detail open, and swipe-release regression contracts.
 
