@@ -59,7 +59,8 @@ targets:
         # the App is registered. Empty until then: the app reads it from
         # Info.plist (GitHubAppClientID) and shows "not set up" when blank.
         # Owner: set this to the App's client ID (Iv23…) after registering.
-        GITHUB_APP_CLIENT_ID: ""
+        # plusplus-sync (https://github.com/apps/plusplus-sync).
+        GITHUB_APP_CLIENT_ID: "Iv23liHj9WxBHXjrVYJM"
     # Explicit Info.plist (was GENERATE_INFOPLIST_FILE) because
     # CFBundleURLTypes can't be expressed as INFOPLIST_KEY_* settings.
     # CFBundleVersion must stay wired to CURRENT_PROJECT_VERSION — the

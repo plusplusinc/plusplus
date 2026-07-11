@@ -57,19 +57,25 @@ ID. Regenerate the project (`xcodegen`) / next CI build picks it up.
 This part needs a Mac + Simulator/device — it exercises the Keychain, the
 device-flow UX, and a real repo, none of which a remote Linux session can do.
 
-1. Build & run the app with the client ID set.
-2. **Today → ++ → Settings → SYNC → Connect GitHub.** A code appears (e.g.
-   `WDJB-MJHT`). Tap **Open GitHub**, enter the code, approve, and **install the
-   App on one repo** — pick or let it create `workouts`.
-3. Back in the app, the screen flips to **Connected** and shows `you/workouts`.
-   Bootstrap created the repo private + auto-init'd if it didn't exist.
-4. Tap **Sync now.** In the repo on github.com you should see commits appear:
+1. **Create the repo + install the App first.** The App has Contents-only
+   permission, which can read/write a repo but **cannot create one** — so make
+   a **private** repo named `workouts` (tick "Add a README" so it has a default
+   branch), then install PlusPlus Sync on it (`github.com/apps/plusplus-sync` →
+   Install → Only select repositories → `workouts`).
+2. Build & run the app with the client ID set.
+3. **Today → ++ → Settings → SYNC → Connect GitHub.** A code appears (e.g.
+   `WDJB-MJHT`). Tap **Open GitHub**, enter the code, approve.
+4. Back in the app, the screen flips to **Connected** and shows `you/workouts`
+   (bootstrap *adopts* it at its real default branch). If you skipped step 1
+   you'll see "Create a private repo named workouts and install PlusPlus Sync
+   on it, then reconnect" instead — do that and reconnect.
+5. Tap **Sync now.** In the repo on github.com you should see commits appear:
    `Sync: …` for templates, your finished sessions under `history/YYYY/`.
-5. **Round-trip:** edit a routine file on github.com (or from the CLI), reopen
+6. **Round-trip:** edit a routine file on github.com (or from the CLI), reopen
    the app (foreground triggers a sync), and confirm the change lands in the
    app. Then edit a routine in the app, background/foreground, and confirm the
    commit shows up in the repo.
-6. **Second device (the real test):** connect a second Simulator/device to the
+7. **Second device (the real test):** connect a second Simulator/device to the
    same account. Confirm its history pulls down and both devices converge.
    Edit *different* fields of the same routine on each side (rest on one, notes
    on the other) and confirm both edits survive — that's the field-level

@@ -114,18 +114,20 @@ final class GitHubSyncCoordinator {
         if case .authorizing = activity { activity = .idle }
     }
 
-    /// Finds the user's routine repo (adopting it, at its real default branch,
-    /// if it already exists) or creates it private, and remembers the coordinate.
+    enum BootstrapError: Error { case repositoryUnavailable }
+
+    /// Adopts the user's routine repo at its real default branch. The GitHub
+    /// App has Contents-only permission, which can't CREATE a repo — so the
+    /// user pre-creates one and installs the App on it. A 404 here means the
+    /// repo doesn't exist yet or the App isn't installed on it; surface an
+    /// actionable message rather than a confusing failure.
     private func bootstrap() async throws {
         let account = GitHubAccount(tokens: tokens, client: client)
         let login = try await account.currentLogin()
         let name = GitHubSyncSettings.defaultRepoName
 
-        let resolved: GitHubRepoCoordinate
-        if let existing = try await account.repository(owner: login, name: name) {
-            resolved = existing
-        } else {
-            resolved = try await account.createRoutineRepository(name: name)
+        guard let resolved = try await account.repository(owner: login, name: name) else {
+            throw BootstrapError.repositoryUnavailable
         }
         coordinate = resolved
         GitHubSyncSettings.save(resolved)
@@ -221,6 +223,9 @@ final class GitHubSyncCoordinator {
     }
 
     private static func describe(_ error: Error) -> String {
+        if error is BootstrapError {
+            return "Create a private repo named \"\(GitHubSyncSettings.defaultRepoName)\" and install PlusPlus Sync on it, then reconnect."
+        }
         if let flow = error as? GitHubDeviceFlow.FlowError {
             switch flow {
             case .accessDenied: return "Authorization was declined."
