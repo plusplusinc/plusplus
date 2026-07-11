@@ -1252,13 +1252,17 @@ private struct SetLoggingView: View {
             .padding(.horizontal, 16)
             .padding(.top, 24)
 
-            // "1 of 3 logged · rest 90s auto" (mock 08): the block's
-            // tally plus what happens at the log — plain facts.
-            Text("\(loggedLine) · rest \(WorkoutMetric.rest.displayText(Double(session.restSeconds(after: log)))) auto")
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(Theme.textFaint)
-                .frame(maxWidth: .infinity)
-                .padding(.top, 8)
+            // "1 of 3 logged": the block's tally once at least one set is
+            // in. The empty state stays silent ("SET n OF m" up top
+            // already says nothing's logged), and the rest length lives on
+            // the rest screen, not here (Dave, build-46).
+            if let loggedTally {
+                Text(loggedTally)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(Theme.textFaint)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 8)
+            }
 
             // UP NEXT (mock 08): where the rotation goes after this
             // block — the same fact the rest screen carries, visible
@@ -1280,12 +1284,14 @@ private struct SetLoggingView: View {
         .padding(.bottom, 12)
     }
 
-    /// "no sets logged yet" / "1 of 3 logged" — this block's tally.
-    private var loggedLine: String {
+    /// "1 of 3 logged" — this block's tally, or nil before the first set
+    /// lands (the empty "no sets logged yet" was redundant with the
+    /// "SET n OF m" kicker).
+    private var loggedTally: String? {
         let logged = session.sortedSetLogs.filter {
             $0.groupIndex == log.groupIndex && $0.exerciseName == log.exerciseName && $0.isCompleted
         }.count
-        return logged == 0 ? "no sets logged yet" : "\(logged) of \(setsTotal) logged"
+        return logged == 0 ? nil : "\(logged) of \(setsTotal) logged"
     }
 
     /// The next pending log after this one: a superset partner gets
@@ -1347,28 +1353,39 @@ private struct SupersetChips: View {
     let current: String
 
     var body: some View {
-        HStack(spacing: 7) {
-            ForEach(Array(names.enumerated()), id: \.offset) { index, name in
-                if index > 0 {
-                    Text("→")
-                        .font(.system(.caption))
-                        .foregroundStyle(Theme.textFaint)
+        // The chips SCROLL (mock 08 fit it on one line, but three
+        // full names + the legend overran the phone and truncated every
+        // capsule to "BO…"): each capsule sizes to its whole name, the
+        // row pans, and the SUPERSET legend stays pinned to the trailing
+        // edge where it always read.
+        HStack(spacing: 8) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 7) {
+                    ForEach(Array(names.enumerated()), id: \.offset) { index, name in
+                        if index > 0 {
+                            Text("→")
+                                .font(.system(.caption))
+                                .foregroundStyle(Theme.textFaint)
+                        }
+                        Text("\(letter(index)) · \(name.uppercased())")
+                            .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                            .kerning(0.5)
+                            .foregroundStyle(name == current ? Theme.onPrimary : Theme.textSecondary)
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
+                            .padding(.horizontal, 11)
+                            .frame(height: 34)
+                            .background(name == current ? Theme.primaryFill : Color.clear, in: Capsule())
+                            .overlay(Capsule().strokeBorder(name == current ? Color.clear : Theme.borderStrong, lineWidth: 1))
+                    }
                 }
-                Text("\(letter(index)) · \(name.uppercased())")
-                    .font(.system(.caption2, design: .monospaced, weight: .semibold))
-                    .kerning(0.5)
-                    .foregroundStyle(name == current ? Theme.onPrimary : Theme.textSecondary)
-                    .lineLimit(1)
-                    .padding(.horizontal, 11)
-                    .frame(height: 34)
-                    .background(name == current ? Theme.primaryFill : Color.clear, in: Capsule())
-                    .overlay(Capsule().strokeBorder(name == current ? Color.clear : Theme.borderStrong, lineWidth: 1))
+                .padding(.trailing, 2)
             }
-            Spacer(minLength: 6)
             Text("SUPERSET")
                 .font(.system(.caption2, design: .monospaced, weight: .semibold))
                 .kerning(0.6)
                 .foregroundStyle(Theme.textFaint)
+                .fixedSize()
         }
     }
 
@@ -1421,28 +1438,47 @@ private struct LiveHeartRateLabel: View {
 
 /// The "+1" popped on each logged set (Quiet Arcade, replacing the
 /// mitosis "+"): a mono green +1 rises ~30 pt from the key's top edge,
-/// scaling 0.7 → 1.25 while it fades, 0.7 s ease-out, one-shot per
-/// trigger bump. Real number, real increment — the whole brand in one
-/// flourish.
+/// scaling 0.7 → 1.25 while it fades, ~0.7 s, one-shot per trigger bump.
+/// Real number, real increment — the whole brand in one flourish.
+///
+/// Driven by `keyframeAnimator`, which plays ONLY when `trigger` changes
+/// and otherwise sits at `initialValue` (opacity 0). The old
+/// value-derived opacity left it FROZEN at full opacity on any set whose
+/// carried-in `trigger` was already > 0 — every set after the first
+/// showed a stuck +1 above Log set before you'd logged anything (Dave,
+/// build-46). A keyframe track can't get stranded like that: the resting
+/// state is defined, not inferred.
 private struct PlusOneBurst: View {
     let trigger: Int
-    @State private var animating = false
+
+    private struct Beat {
+        var opacity = 0.0
+        var scale = 0.7
+        var lift = 0.0
+    }
 
     var body: some View {
         Text("+1")
             .font(.system(.body, design: .monospaced, weight: .bold))
             .foregroundStyle(Theme.accent)
-            .scaleEffect(animating ? 1.25 : 0.7)
-            .offset(y: animating ? -30 : 0)
-            .opacity(animating ? 0 : (trigger > 0 ? 1 : 0))
-            .animation(.easeOut(duration: 0.7), value: animating)
-            .onChange(of: trigger) { _, _ in
-                animating = false
-                withAnimation(.easeOut(duration: 0.7)) {
-                    animating = true
+            .allowsHitTesting(false)
+            .keyframeAnimator(initialValue: Beat(), trigger: trigger) { view, beat in
+                view
+                    .opacity(beat.opacity)
+                    .scaleEffect(beat.scale)
+                    .offset(y: beat.lift)
+            } keyframes: { _ in
+                KeyframeTrack(\.opacity) {
+                    LinearKeyframe(1, duration: 0.05)
+                    LinearKeyframe(0, duration: 0.65)
+                }
+                KeyframeTrack(\.scale) {
+                    CubicKeyframe(1.25, duration: 0.7)
+                }
+                KeyframeTrack(\.lift) {
+                    CubicKeyframe(-30, duration: 0.7)
                 }
             }
-            .allowsHitTesting(false)
     }
 }
 
