@@ -84,6 +84,23 @@ struct RoutineScheduleTests {
         #expect(RoutineSchedule.unscheduled.shortLabel == "no schedule")
     }
 
+    @Test func recurrenceLabelReadsAsAnOngoingPattern() {
+        // Fixed days lead with "every" — the recurrence the "beyond this
+        // week" summary must convey so a single Saturday card beside it
+        // doesn't read as a duplicate.
+        #expect(RoutineSchedule.weekdays([7]).recurrenceLabel == "every sat")
+        #expect(RoutineSchedule.weekdays([5, 2]).recurrenceLabel == "every mon/thu")
+        // Frequency reads as a rate that never names a weekday — the cue
+        // that tells a rolling cadence apart from fixed days at a glance.
+        #expect(RoutineSchedule.frequency(times: 1, perDays: 1).recurrenceLabel == "daily")
+        #expect(RoutineSchedule.frequency(times: 1, perDays: 7).recurrenceLabel == "weekly")
+        #expect(RoutineSchedule.frequency(times: 1, perDays: 2).recurrenceLabel == "every 2d")
+        #expect(RoutineSchedule.frequency(times: 3, perDays: 7).recurrenceLabel == "3×/wk")
+        #expect(RoutineSchedule.frequency(times: 2, perDays: 1).recurrenceLabel == "2×/day")
+        #expect(RoutineSchedule.frequency(times: 3, perDays: 10).recurrenceLabel == "3×/10d")
+        #expect(RoutineSchedule.unscheduled.recurrenceLabel == "anytime")
+    }
+
     @Test func weekdaysCompletedTodaySatisfiesTheDay() {
         let schedule = RoutineSchedule.weekdays([2]) // Mondays only
         let monday = date(2026, 7, 6)
