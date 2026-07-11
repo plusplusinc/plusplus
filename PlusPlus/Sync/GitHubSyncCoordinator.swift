@@ -116,21 +116,26 @@ final class GitHubSyncCoordinator {
 
     enum BootstrapError: Error { case repositoryUnavailable }
 
-    /// Adopts the user's routine repo at its real default branch. The GitHub
-    /// App has Contents-only permission, which can't CREATE a repo — so the
-    /// user pre-creates one and installs the App on it. A 404 here means the
-    /// repo doesn't exist yet or the App isn't installed on it; surface an
-    /// actionable message rather than a confusing failure.
+    /// Adopts whichever repo the App is installed on (discovered from the
+    /// installation, so it can be named anything and we can only ever target a
+    /// repo the App actually has access to). The Contents-only App can't create
+    /// a repo, so the user pre-creates one and installs PlusPlus Sync on it; an
+    /// empty result means they haven't yet — surface an actionable message.
     private func bootstrap() async throws {
         let account = GitHubAccount(tokens: tokens, client: client)
-        let login = try await account.currentLogin()
-        let name = GitHubSyncSettings.defaultRepoName
+        let repos = try await account.installedRepositories()
+        guard !repos.isEmpty else { throw BootstrapError.repositoryUnavailable }
 
-        guard let resolved = try await account.repository(owner: login, name: name) else {
-            throw BootstrapError.repositoryUnavailable
+        // Keep syncing the same repo across reconnects if it's still installed;
+        // otherwise take the first (a personal install is a single repo).
+        let chosen: GitHubRepoCoordinate
+        if let saved = coordinate, repos.contains(saved) {
+            chosen = saved
+        } else {
+            chosen = repos[0]
         }
-        coordinate = resolved
-        GitHubSyncSettings.save(resolved)
+        coordinate = chosen
+        GitHubSyncSettings.save(chosen)
     }
 
     // MARK: - Sync
@@ -224,7 +229,7 @@ final class GitHubSyncCoordinator {
 
     private static func describe(_ error: Error) -> String {
         if error is BootstrapError {
-            return "Create a private repo named \"\(GitHubSyncSettings.defaultRepoName)\" and install PlusPlus Sync on it, then reconnect."
+            return "Install PlusPlus Sync on a private repo (GitHub → the app → Configure), then reconnect."
         }
         if let flow = error as? GitHubDeviceFlow.FlowError {
             switch flow {

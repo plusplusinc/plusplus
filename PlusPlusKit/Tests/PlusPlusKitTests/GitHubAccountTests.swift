@@ -59,6 +59,32 @@ struct GitHubAccountTests {
         #expect(body?["auto_init"] as? Bool == true)
     }
 
+    @Test("installedRepositories discovers repos from the App's installation")
+    func installedRepositories() async throws {
+        let client = ScriptedHTTPClient { request, _ in
+            if request.path.hasSuffix("/user/installations") {
+                return GHResponse.json(["installations": [["id": 42], ["id": 43]]])
+            }
+            if request.path.contains("installations/42/repositories") {
+                return GHResponse.json(["repositories": [
+                    ["name": "plusplus-data", "owner": ["login": "octocat"], "default_branch": "trunk"],
+                ]])
+            }
+            if request.path.contains("installations/43/repositories") {
+                return GHResponse.json(["repositories": [
+                    ["name": "extra", "owner": ["login": "octocat"], "default_branch": "main"],
+                ]])
+            }
+            return GHResponse.status(500, body: "unexpected \(request.path)")
+        }
+        let repos = try await account(client).installedRepositories()
+        // Both installations' repos, sorted deterministically, at real branches.
+        #expect(repos == [
+            GitHubRepoCoordinate(owner: "octocat", repo: "extra", branch: "main"),
+            GitHubRepoCoordinate(owner: "octocat", repo: "plusplus-data", branch: "trunk"),
+        ])
+    }
+
     @Test("An unauthenticated call throws before hitting the network")
     func unauthenticated() async throws {
         let client = ScriptedHTTPClient { _, _ in GHResponse.status(200) }

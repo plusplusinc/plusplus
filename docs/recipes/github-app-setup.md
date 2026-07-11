@@ -57,18 +57,19 @@ ID. Regenerate the project (`xcodegen`) / next CI build picks it up.
 This part needs a Mac + Simulator/device — it exercises the Keychain, the
 device-flow UX, and a real repo, none of which a remote Linux session can do.
 
-1. **Create the repo + install the App first.** The App has Contents-only
+1. **Create a repo + install the App first.** The App has Contents-only
    permission, which can read/write a repo but **cannot create one** — so make
-   a **private** repo named `workouts` (tick "Add a README" so it has a default
-   branch), then install PlusPlus Sync on it (`github.com/apps/plusplus-sync` →
-   Install → Only select repositories → `workouts`).
+   a **private** repo (any name, e.g. `plusplus-data`; tick "Add a README" so it
+   has a default branch), then install PlusPlus Sync on it
+   (`github.com/apps/plusplus-sync` → Install → Only select repositories → pick
+   it). The app discovers whichever repo you installed it on — no fixed name.
 2. Build & run the app with the client ID set.
 3. **Today → ++ → Settings → SYNC → Connect GitHub.** A code appears (e.g.
    `WDJB-MJHT`). Tap **Open GitHub**, enter the code, approve.
-4. Back in the app, the screen flips to **Connected** and shows `you/workouts`
-   (bootstrap *adopts* it at its real default branch). If you skipped step 1
-   you'll see "Create a private repo named workouts and install PlusPlus Sync
-   on it, then reconnect" instead — do that and reconnect.
+4. Back in the app, the screen flips to **Connected** and shows the repo you
+   installed it on (bootstrap *adopts* it at its real default branch). If you
+   skipped step 1 you'll see "Install PlusPlus Sync on a private repo, then
+   reconnect" instead — do that and reconnect.
 5. Tap **Sync now.** In the repo on github.com you should see commits appear:
    `Sync: …` for templates, your finished sessions under `history/YYYY/`.
 6. **Round-trip:** edit a routine file on github.com (or from the CLI), reopen

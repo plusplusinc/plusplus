@@ -63,6 +63,36 @@ public struct GitHubAccount: Sendable {
         )
     }
 
+    /// The repos this App's installation can reach for the user — i.e. the
+    /// repos you installed PlusPlus Sync on. The device-flow token is
+    /// app-scoped, so `/user/installations` lists only THIS App's
+    /// installation(s); we then list each one's repositories. No repo-name
+    /// guessing, and it can only ever return repos the App is actually
+    /// installed on. Sorted for determinism. (First page only — a personal
+    /// install is one repo; pagination is a future refinement.)
+    public func installedRepositories() async throws -> [GitHubRepoCoordinate] {
+        let installsResponse = try await send(.get, path: "user/installations")
+        try throwIfError(installsResponse)
+        guard let installs = try? JSONDecoder().decode(InstallationsBody.self, from: installsResponse.body) else {
+            throw AccountError.malformedResponse
+        }
+
+        var coordinates: [GitHubRepoCoordinate] = []
+        for installation in installs.installations {
+            let reposResponse = try await send(.get, path: "user/installations/\(installation.id)/repositories")
+            try throwIfError(reposResponse)
+            guard let repos = try? JSONDecoder().decode(InstallationReposBody.self, from: reposResponse.body) else {
+                throw AccountError.malformedResponse
+            }
+            for repo in repos.repositories {
+                coordinates.append(GitHubRepoCoordinate(
+                    owner: repo.owner.login, repo: repo.name, branch: repo.default_branch ?? "main"
+                ))
+            }
+        }
+        return coordinates.sorted { ($0.owner, $0.repo) < ($1.owner, $1.repo) }
+    }
+
     /// Creates a PRIVATE repo on the authenticated user's account, auto-init'd
     /// so it has a default branch (and thus a ref for the first sync to
     /// fast-forward). Returns the coordinate to sync against.
@@ -119,6 +149,10 @@ public struct GitHubAccount: Sendable {
     private struct Repository: Decodable { let name: String; let owner: Owner; let default_branch: String?
         struct Owner: Decodable { let login: String }
     }
+    private struct InstallationsBody: Decodable { let installations: [Installation]
+        struct Installation: Decodable { let id: Int }
+    }
+    private struct InstallationReposBody: Decodable { let repositories: [Repository] }
     private struct CreateRepoInput: Encodable {
         let name: String; let description: String; let isPrivate: Bool; let autoInit: Bool
         enum CodingKeys: String, CodingKey {

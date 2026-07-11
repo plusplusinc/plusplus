@@ -62,7 +62,7 @@ struct GitHubConnectScreen: View {
             Text("Readable JSON with clean diffs. Point an agent at it, run Actions on your training data, or just have a durable backup. The app talks to GitHub directly · nothing runs on a PlusPlus server.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textSecondary)
-            Text("First time: create a private \"\(GitHubSyncSettings.defaultRepoName)\" repo and install PlusPlus Sync on it, then connect.")
+            Text("First time: create a private repo and install PlusPlus Sync on it, then connect. The app syncs to whichever repo you installed it on.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textFaint)
         }
