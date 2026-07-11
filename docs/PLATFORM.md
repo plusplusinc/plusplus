@@ -293,9 +293,13 @@ Semantics worth writing down:
   also carries `activeSeconds` (running-clock duration, excluding pauses and
   staging — absent means the record was never clock-tracked, so a reader uses
   the `startedAt`→`endedAt` span) and, when recorded, `averageHeartRate` /
-  `maxHeartRate` (bpm). Each set snapshots its `metrics` profile (same curated
-  identifiers as `ExerciseDTO.metrics`; absent derives from `exerciseType`) so
-  history renders every logged value even after a library edit.
+  `maxHeartRate` (bpm). A set snapshots its
+  `metrics` profile and `distanceUnit` (same curated identifiers as
+  `ExerciseDTO.metrics`) **only when the profile says more than `exerciseType`
+  already implies** — a flexible-metrics set; classic weight/reps and duration
+  sets stay absent and derive from `exerciseType`, byte-stable with
+  pre-snapshot files. The snapshot lets history render every logged value even
+  after a library edit or the exercise's deletion.
 - **Schedules** (#83, additive to schema v1): a routine may carry a `schedule`
   declaring when it wants to happen. Two modes:
   `{ "mode": "weekdays", "weekdays": [1, 3, 5] }` (ISO weekdays, 1 = Monday …

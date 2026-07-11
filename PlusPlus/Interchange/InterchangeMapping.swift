@@ -188,14 +188,24 @@ enum InterchangeMapping {
             startedAt: session.startedAt,
             endedAt: session.endedAt,
             restSeconds: session.restSeconds,
-            // Carry the running-clock duration only when it was tracked;
-            // legacy records (accumulatedSeconds == 0) omit it and resolve
+            // Carry the running-clock duration only when the clock actually
+            // ran; legacy records (never clock-tracked) omit it and resolve
             // to the start→end span on import, byte-stable with old files.
-            activeSeconds: session.accumulatedSeconds > 0 ? session.accumulatedSeconds : nil,
+            // `duration` (not raw accumulatedSeconds) banks any unfinished
+            // segment for off-path finishers.
+            activeSeconds: (session.runStartedAt != nil || session.accumulatedSeconds > 0) ? session.duration : nil,
             averageHeartRate: session.averageHeartRate,
             maxHeartRate: session.maxHeartRate,
             sets: session.sortedSetLogs.map { log in
-                .init(
+                // The set profile snapshots ONLY when it says more than the
+                // snapshotted exerciseType implies (a flexible-metrics set) —
+                // classic weight/reps and duration sets stay absent, so files
+                // stay byte-stable with pre-snapshot exports (start(from:)
+                // always writes metricsData, so a naive dump would emit it
+                // on every set). `distanceUnit` rides the same gate.
+                let storedProfile = MetricProfile.decode(from: log.metricsData)
+                let carriesProfile = storedProfile.map { $0 != .derived(from: log.exerciseType) } ?? false
+                return .init(
                     order: log.order,
                     groupIndex: log.groupIndex,
                     setNumber: log.setNumber,
@@ -213,7 +223,8 @@ enum InterchangeMapping {
                     extraActuals: MetricValues.toRaw(log.extraActuals),
                     restSecondsOverride: log.restSecondsOverride,
                     targetHeartRate: decodeHeartRate(log.targetHeartRateData),
-                    metrics: MetricProfile.decode(from: log.metricsData).map { $0.metrics.map(\.rawValue) }
+                    metrics: carriesProfile ? storedProfile?.metrics.map(\.rawValue) : nil,
+                    distanceUnit: (carriesProfile && storedProfile?.distanceUnit != .meters) ? storedProfile?.distanceUnit : nil
                 )
             }
         )
@@ -479,7 +490,9 @@ enum InterchangeMapping {
         if let explicit = setDTO.metrics {
             return MetricProfile(
                 explicit.compactMap(WorkoutMetric.init(rawValue:)),
-                distanceUnit: exercise?.metricProfile.distanceUnit ?? .meters
+                // Prefer the set's own snapshot; fall back to the exercise
+                // only for pre-field files that carried metrics without a unit.
+                distanceUnit: setDTO.distanceUnit ?? exercise?.metricProfile.distanceUnit ?? .meters
             ).encoded()
         }
         let extras = Set(MetricValues.fromRaw(setDTO.extraTargets).keys)

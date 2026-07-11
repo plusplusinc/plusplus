@@ -206,7 +206,8 @@ struct InterchangeTests {
                            averageHeartRate: 142, maxHeartRate: 168,
                            sets: [.init(order: 0, groupIndex: 0, setNumber: 1, exerciseName: "Row",
                                         exerciseType: .duration, targetDuration: 1200, actualDuration: 1200,
-                                        targetHeartRate: .zone(.zone3), metrics: ["distance", "pace"])])
+                                        targetHeartRate: .zone(.zone3), metrics: ["distance", "pace"],
+                                        distanceUnit: .miles)])
             ]
         )
         let decoded = try InterchangeCodec.decode(ExportBundle.self, from: try InterchangeCodec.encode(bundle))
@@ -218,6 +219,7 @@ struct InterchangeTests {
         #expect(decoded.sessions.first?.maxHeartRate == 168)
         #expect(decoded.sessions.first?.sets.first?.targetHeartRate == .zone(.zone3))
         #expect(decoded.sessions.first?.sets.first?.metrics == ["distance", "pace"])
+        #expect(decoded.sessions.first?.sets.first?.distanceUnit == .miles)
         #expect(decoded == bundle, "Full bundle survives the round trip")
     }
 

@@ -391,6 +391,26 @@ struct InterchangeMappingTests {
         #expect(importedLog.extraActuals == [.distance: 512])
         #expect(importedLog.completedAt == Date(timeIntervalSince1970: 2_000_100))
         #expect(importedLog.metricProfile.metrics == [.weight, .reps, .distance, .duration])
+        #expect(importedLog.metricProfile.distanceUnit == .miles, "the set's own distance unit snapshots, not the exercise's")
+    }
+
+    /// Byte-stability guard: `WorkoutSession.start` writes `metricsData` on
+    /// every set, so a naive export would emit a `metrics` array on classic
+    /// weight/reps sets too — a determinism regression against pre-snapshot
+    /// files. A set whose profile is exactly what its `exerciseType` implies
+    /// must export WITHOUT `metrics`/`distanceUnit`.
+    @Test("A classic weight/reps set exports no redundant profile snapshot")
+    func classicSetOmitsDerivableProfile() throws {
+        let context = ModelContext(try makeContainer())
+        try populate(context)   // Y Raise / Band Pulses: plain weightReps sets
+
+        let bundle = try InterchangeMapping.exportBundle(context: context)
+        let sets = bundle.sessions.flatMap(\.sets)
+        #expect(!sets.isEmpty)
+        let metricsAllAbsent = sets.allSatisfy { $0.metrics == nil }
+        let unitAllAbsent = sets.allSatisfy { $0.distanceUnit == nil }
+        #expect(metricsAllAbsent, "derivable profiles stay absent")
+        #expect(unitAllAbsent)
     }
 
     @Test("Unknown equipment referenced by an imported exercise is created")

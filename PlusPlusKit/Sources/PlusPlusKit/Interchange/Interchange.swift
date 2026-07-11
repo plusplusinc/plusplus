@@ -210,9 +210,17 @@ public struct SessionDTO: Codable, Equatable, Sendable {
         public var restSecondsOverride: Int?
         /// Heart-rate target the set was performed under (snapshot). Additive.
         public var targetHeartRate: HeartRateTarget?
-        /// Tracked-metric profile snapshot (metric identifiers). Absent
-        /// derives from `exerciseType`, like `ExerciseDTO.metrics`. Additive.
+        /// Tracked-metric profile snapshot (metric identifiers), written
+        /// only when it says more than `exerciseType` already implies (a
+        /// flexible-metrics set). Absent derives from `exerciseType`, like
+        /// `ExerciseDTO.metrics` — so classic weight/reps and duration sets
+        /// stay absent and byte-stable with pre-snapshot files. Additive.
         public var metrics: [String]?
+        /// What this set's distance/pace/speed numbers are denominated in —
+        /// snapshotted with the profile so history stands alone even if the
+        /// exercise's unit later changes or the exercise is gone. Absent
+        /// means meters (or, for a pre-field file, resolve from the exercise).
+        public var distanceUnit: DistanceUnit?
 
         public init(
             order: Int,
@@ -232,7 +240,8 @@ public struct SessionDTO: Codable, Equatable, Sendable {
             extraActuals: [String: Double]? = nil,
             restSecondsOverride: Int? = nil,
             targetHeartRate: HeartRateTarget? = nil,
-            metrics: [String]? = nil
+            metrics: [String]? = nil,
+            distanceUnit: DistanceUnit? = nil
         ) {
             self.order = order
             self.groupIndex = groupIndex
@@ -252,6 +261,7 @@ public struct SessionDTO: Codable, Equatable, Sendable {
             self.restSecondsOverride = restSecondsOverride
             self.targetHeartRate = targetHeartRate
             self.metrics = metrics?.sorted()
+            self.distanceUnit = distanceUnit
         }
     }
 }
