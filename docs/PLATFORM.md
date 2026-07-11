@@ -2,9 +2,11 @@
 
 > Status: phases 1, 2, 4, and 5 shipped (format, app export/import, CLI + MCP
 > server, agent scaffolding/plugin); phase 3 (GitHub sync in the app) has its
-> engine shipped in the Kit with the GitHub adapter + auth remaining. Tracking
-> issues: #20 (format), #21 (core package), #22 (app export/import), #23
-> (GitHub sync), #24 (CLI), #25 (agents). Owner-action TODOs at the bottom.
+> engine AND its GitHub adapter + device-flow auth + app wiring shipped in code
+> — the only thing between it and end-to-end is registering the GitHub App
+> (owner action) and a two-device Mac validation pass. Tracking issues: #20
+> (format), #21 (core package), #22 (app export/import), #23 (GitHub sync), #24
+> (CLI), #25 (agents). Owner-action TODOs at the bottom.
 
 ## Vision
 
@@ -40,7 +42,10 @@ What this unlocks, concretely:
    nothing.
 4. **History is append-only.** Finished sessions flow app → repo, one file each,
    and never conflict. Templates (exercises, routines) sync bidirectionally,
-   per-file, with a keep-mine/take-theirs prompt on the rare true conflict.
+   per-file; a both-sides change is merged **field by field** (disjoint edits
+   converge automatically), and only a genuine same-field collision needs a
+   tiebreak — which resolves **local-wins** (the phone is live truth; git
+   history keeps the overwritten value), so no interactive prompt is required.
 5. **Deterministic serialization.** Sorted keys, ISO-8601 dates, stable array
    ordering. Git diffs of these files must be readable, or the whole story falls
    apart.
@@ -319,7 +324,7 @@ Semantics worth writing down:
 | Data | Direction | Conflict handling |
 |---|---|---|
 | Sessions | app → repo, on finish (queued offline) | none possible (new file, append-only) |
-| Routines / exercises | bidirectional, on app foreground + manual pull | per-file SHA compare; only both-sides-changed prompts keep-mine/take-theirs |
+| Routines / exercises | bidirectional, on app foreground + manual pull | per-file SHA compare; a both-sides change is auto-merged field-by-field (`TemplateMerge`), same-field collisions resolve local-wins. `keep-mine/take-theirs/postpone` remains the fallback for an undecodable file |
 
 Commit messages are composed by the sync engine: sessions get
 `Log: Shoulder PT — 8 sets (2026-07-05)` and template pushes get
@@ -341,10 +346,24 @@ one routine repo), token in the Keychain. Not classic OAuth `repo` scope.
    session placement), `SyncPlanner` (pure per-file three-way merge:
    writes/pulls/conflicts, deletions deferred), and `SyncEngine` (full sync
    pass — conflict resolution keep-mine/take-theirs/postpone, base
-   convergence, idempotent `pushSession`) live in PlusPlusKit with tests
-   against the `RepoStore`/`SyncBaseStore` protocols. Remaining — device-flow
-   auth, the GitHub `RepoStore` adapter, and UI wiring — needs Mac + GitHub
-   App registration.*
+   convergence, idempotent `pushSession`). The adapter + auth + app wiring
+   then shipped too: `GitHubRepoStore` (RepoStore over the Git Data API —
+   fetchAll via trees+blobs, batched write as one commit blobs→tree→commit→ref
+   with the non-forced ref update as the optimistic-concurrency guard),
+   `GitHubDeviceFlow` (device-flow auth), `GitHubAccount` (whoami / repo-exists
+   / create-private-repo bootstrap), and `InterchangeFiles` (decode pulled
+   files back to a bundle) all live in PlusPlusKit behind an `HTTPClient`
+   protocol and are Linux-tested against a scripted fake. The app side —
+   `KeychainTokenStore`, `ApplicationSupportBaseStore`, and a
+   `GitHubSyncCoordinator` (@Observable) that runs connect → bootstrap →
+   foreground sync, surfaced by `GitHubConnectScreen` off Settings › SYNC —
+   compiles in CI. Remaining is owner-gated: register the GitHub App and drop
+   its client ID into `GITHUB_APP_CLIENT_ID` (project.yml), then a two-device
+   Mac validation pass. Template conflicts auto-merge field-by-field
+   (`TemplateMerge`, local-wins on a true same-field collision), so no
+   interactive prompt is needed. Deferred follow-up: a commit-per-session
+   `pushSession` at finish time (foreground sync currently batches session
+   pushes into the sync commit).*
 4. **CLI** (#24) — shipped: `plusplus init / lint / stats / import / export /
    mcp` in `PlusPlusCLI/` (Swift + swift-argument-parser; decisions recorded
    on the issue: Swift over Go, no GitHub auth — git is transport and auth).
@@ -363,9 +382,11 @@ the phone loop must be confirmed working in hand first.
       export/import UI once #22 lands).
 - [ ] **Register the GitHub App** for #23 (Settings → Developer settings → GitHub
       Apps): device flow enabled, Contents read/write as the only repo permission,
-      no webhooks needed initially. Put the app slug/client ID somewhere Claude
-      can reach (issue comment on #23 is fine — client IDs aren't secrets; the
-      device flow needs no client secret).
+      no webhooks needed initially. Then set its client ID (`Iv23…`) as
+      `GITHUB_APP_CLIENT_ID` in `project.yml` (the app reads it from Info.plist as
+      `GitHubAppClientID`; blank until then, and the connect screen says "not set
+      up"). Client IDs aren't secrets and device flow needs no client secret, so
+      it's fine committed. Full step-by-step: `docs/recipes/github-app-setup.md`.
 - [ ] **Decide the public repo template name** (e.g. `plusplus-routines-template`)
       when #23/#25 need it.
 - [ ] **Create a Homebrew tap repo** (`plusplusinc/homebrew-plusplus`) when #24
