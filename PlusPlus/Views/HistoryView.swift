@@ -225,7 +225,9 @@ struct SessionDetailView: View {
         // while the summary is missing.
         .task {
             guard session.averageHeartRate == nil, let endedAt = session.endedAt else { return }
-            HeartRateMonitor.summary(from: session.startedAt, to: endedAt) { average, peak in
+            // effectiveStart, not startedAt: the HR window matches the
+            // workout clock (an ad-hoc session excludes its assembly time).
+            HeartRateMonitor.summary(from: session.effectiveStart, to: endedAt) { average, peak in
                 guard !session.isDeleted else { return }
                 if let average { session.averageHeartRate = average }
                 if let peak { session.maxHeartRate = peak }

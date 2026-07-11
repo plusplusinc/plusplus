@@ -288,4 +288,167 @@ struct SessionTests {
         let routineCount = try context.fetchCount(FetchDescriptor<Routine>())
         #expect(routineCount == 0)
     }
+
+    // MARK: - Configuring an exercise before adding it (ad-hoc config)
+
+    @Test("A configured append honors the chosen set count and targets")
+    func appendConfiguredExercise() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+
+        let session = WorkoutSession.startEmpty(context: context)
+        let curl = Exercise(name: "Probe Curl", muscleGroup: .biceps)
+        context.insert(curl)
+        curl.defaultWeight = 25
+        curl.defaultReps = 8
+
+        // Prefilled from defaults, then overridden in the sheet.
+        let config = SessionExerciseConfig(exercise: curl, sets: 3)
+        #expect(config.sets == 3)
+        #expect(config.weight == 25)
+        #expect(config.reps == 8)
+        config.sets = 5
+        config.setTarget(.weight, to: 40)
+        config.reps = 12
+
+        let logs = session.appendExercise(config: config, context: context)
+        #expect(logs.count == 5)
+        #expect(logs.map(\.setNumber) == [1, 2, 3, 4, 5])
+        let allWeighted = logs.allSatisfy { $0.targetWeight == 40 }
+        #expect(allWeighted)
+        let allTwelve = logs.allSatisfy { $0.targetRepsLower == 12 }
+        #expect(allTwelve)
+    }
+
+    @Test("Resizing a pending block adds and trims from the pending tail")
+    func resizePendingBlock() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+
+        let session = WorkoutSession.startEmpty(context: context)
+        let press = Exercise(name: "Probe Press", muscleGroup: .chest)
+        context.insert(press)
+        let logs = session.appendExercise(press, sets: 3, context: context)
+        logs[0].targetWeight = 95
+
+        // Grow to 5: new pending sets copy the block's template targets.
+        let grown = session.resizePendingBlock(groupIndex: 0, exerciseName: "Probe Press", to: 5, context: context)
+        #expect(grown.count == 5)
+        #expect(grown.map(\.setNumber) == [1, 2, 3, 4, 5])
+        let carried = grown[3].targetWeight == 95 && grown[4].targetWeight == 95
+        #expect(carried)
+
+        // Trim back to 2.
+        let trimmed = session.resizePendingBlock(groupIndex: 0, exerciseName: "Probe Press", to: 2, context: context)
+        #expect(trimmed.count == 2)
+    }
+
+    @Test("Resizing never removes completed or live sets")
+    func resizeKeepsCompletedAndLive() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+
+        let session = WorkoutSession.startEmpty(context: context)
+        let squat = Exercise(name: "Probe Squat", muscleGroup: .quads)
+        context.insert(squat)
+        let logs = session.appendExercise(squat, sets: 3, context: context)
+        session.complete(logs[0])   // set 1 done; set 2 is now live
+
+        // Floor is completed(1) + live(1) = 2, so a request for 1 clamps.
+        let resized = session.resizePendingBlock(groupIndex: 0, exerciseName: "Probe Squat", to: 1, context: context)
+        #expect(resized.count == 2)
+        let firstStillDone = resized.first?.isCompleted == true
+        #expect(firstStillDone)
+        #expect(session.currentLog != nil, "the live set survives the resize")
+    }
+
+    @Test("Resizing keeps a jumped-to live set even as a high-order pending set")
+    func resizeKeepsJumpedLiveSet() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+
+        let session = WorkoutSession.startEmpty(context: context)
+        let dead = Exercise(name: "Probe Deadlift", muscleGroup: .back)
+        context.insert(dead)
+        let logs = session.appendExercise(dead, sets: 3, context: context)
+        session.complete(logs[0])   // set 1 done; cursor at set 2
+        session.jump(to: logs[2])   // jump the cursor to set 3
+        #expect(session.currentLog === logs[2])
+
+        // Trim: the live set (set 3) must survive; a lower pending set goes.
+        let resized = session.resizePendingBlock(groupIndex: 0, exerciseName: "Probe Deadlift", to: 2, context: context)
+        #expect(resized.count == 2)
+        let liveSurvives = resized.contains { $0 === logs[2] }
+        #expect(liveSurvives, "the jumped-to live set is never trimmed")
+        #expect(session.currentLog === logs[2])
+        // setNumbers stay contiguous after the reindex closes the gap.
+        #expect(resized.map(\.setNumber) == [1, 2])
+    }
+
+    // MARK: - Workout clock (pause + staged start)
+
+    @Test("An ad-hoc session's clock stays at zero until it starts")
+    func adHocClockStagedStart() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        let session = WorkoutSession.startEmpty(context: context, at: start)
+        #expect(!session.isWorkoutStarted)
+        // Two minutes of assembling: the clock hasn't engaged, so zero.
+        #expect(session.elapsed(at: start.addingTimeInterval(120)) == 0)
+
+        session.startClock(at: start.addingTimeInterval(120))
+        #expect(session.isWorkoutStarted)
+        #expect(session.isRunning)
+        #expect(session.elapsed(at: start.addingTimeInterval(150)) == 30)
+    }
+
+    @Test("A routine session's clock engages at start")
+    func routineClockEngagesAtStart() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let routine = makePTRoutine(context: context)
+
+        let start = Date(timeIntervalSince1970: 2_000_000)
+        let session = WorkoutSession.start(from: routine, context: context, at: start)
+        #expect(session.isWorkoutStarted)
+        #expect(session.elapsed(at: start.addingTimeInterval(60)) == 60)
+    }
+
+    @Test("Pause freezes the clock and resume banks only active time")
+    func pauseAndResume() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+
+        let start = Date(timeIntervalSince1970: 3_000_000)
+        let session = WorkoutSession.startEmpty(context: context, at: start)
+        session.startClock(at: start)                       // t0
+        session.pauseClock(at: start.addingTimeInterval(60)) // ran 60s
+        #expect(session.isPaused)
+        #expect(!session.isRunning)
+        // Frozen: five minutes of hold add nothing.
+        #expect(session.elapsed(at: start.addingTimeInterval(360)) == 60)
+
+        session.startClock(at: start.addingTimeInterval(360)) // resume
+        #expect(session.isRunning)
+        #expect(!session.isPaused)
+        #expect(session.elapsed(at: start.addingTimeInterval(390)) == 90) // 60 + 30
+
+        session.finish(at: start.addingTimeInterval(420))
+        #expect(session.duration == 120) // 60 + 60, paused stretch excluded
+    }
+
+    @Test("A finished session's duration counts active time only")
+    func durationExcludesPausedTime() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+
+        let start = Date(timeIntervalSince1970: 4_000_000)
+        let session = WorkoutSession.startEmpty(context: context, at: start)
+        session.startClock(at: start)
+        session.finish(at: start.addingTimeInterval(300))
+        #expect(session.duration == 300)
+        #expect(!session.isRunning)
+    }
 }

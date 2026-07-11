@@ -82,9 +82,14 @@ struct RoutineDetailView: View {
         }
         .safeAreaInset(edge: .bottom) { bottomBar }
         .sheet(item: $pickerDestination) { destination in
-            ExercisePickerView(filterState: filterState) { exercise in
+            // Labeled onSelect: the picker gained an onConfigured: param,
+            // so an unlabeled trailing closure would backward-match (a
+            // deprecation warning, and would misbind to onConfigured under
+            // strict forward-scan). Routine building configures via its
+            // own detail sheet, so it takes the plain select path.
+            ExercisePickerView(filterState: filterState, onSelect: { exercise in
                 addExercise(exercise, to: destination)
-            }
+            })
         }
         .navigationDestination(isPresented: $showingRoutineSettings) {
             RoutineSettingsScreen(routine: routine) {

@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 import SwiftData
 import PlusPlusKit
 
@@ -13,6 +14,21 @@ final class WorkoutSession {
     var endedAt: Date?
     /// Snapshot of the routine's rest setting at start time.
     var restSeconds: Int = 90
+    /// When the workout TIMER first engaged — the first exercise being
+    /// started. nil while an ad-hoc session is still being assembled: no
+    /// clock runs during setup (Dave, 2026-07-11). Routine sessions
+    /// engage it at start; ad-hoc sessions engage it when the first
+    /// exercise's set screen appears. Also anchors the Health workout
+    /// window and the heart-rate summary.
+    var runStartedAt: Date?
+    /// Start of the current RUNNING segment; nil while paused, finished,
+    /// or not yet started. Elapsed running time is `accumulatedSeconds`
+    /// plus this segment's live length.
+    var segmentStartedAt: Date?
+    /// Running seconds banked from segments that have already ended —
+    /// every pause and the finish bank the live segment here, so the
+    /// clock counts active time only, never staging or paused stretches.
+    var accumulatedSeconds: Double = 0
     /// Where the session is pointed (v2 jump/redo, #66): the order of the
     /// log the user is doing now. `currentLog` falls back to the first
     /// pending log when the cursor's log is already done.
@@ -117,11 +133,65 @@ final class WorkoutSession {
 
     var isFinished: Bool { endedAt != nil }
 
+    // MARK: - Workout clock (pause + staged start)
+
+    /// True once the timer has engaged (the first exercise was started).
+    /// An ad-hoc session reads false while it's being assembled.
+    var isWorkoutStarted: Bool { runStartedAt != nil }
+
+    /// True while the timer is actively counting.
+    var isRunning: Bool { segmentStartedAt != nil }
+
+    /// True while the workout is paused mid-run (started, held, not yet
+    /// finished) — the state the Paused screen renders.
+    var isPaused: Bool { isWorkoutStarted && segmentStartedAt == nil && !isFinished }
+
+    /// The wall-clock anchor for the Health window and the heart-rate
+    /// summary: the timer's start, or the session's creation for a
+    /// legacy record that predates the clock.
+    var effectiveStart: Date { runStartedAt ?? startedAt }
+
+    /// Elapsed RUNNING time at `now` — banked segments plus the live
+    /// one, excluding staging and paused stretches. A legacy record
+    /// (finished before the clock existed) falls back to its span.
+    func elapsed(at now: Date = Date()) -> TimeInterval {
+        if let segmentStartedAt {
+            return accumulatedSeconds + max(0, now.timeIntervalSince(segmentStartedAt))
+        }
+        // Started then paused/finished: the live segment is already banked.
+        if isWorkoutStarted || accumulatedSeconds > 0 {
+            return accumulatedSeconds
+        }
+        // Clock never engaged: a legacy finished record rides its span;
+        // a fresh ad-hoc still being assembled reads zero.
+        if let endedAt { return max(0, endedAt.timeIntervalSince(startedAt)) }
+        return 0
+    }
+
+    /// Engages the timer, or resumes it after a pause. Idempotent while
+    /// running; a no-op once finished.
+    func startClock(at date: Date = Date()) {
+        guard !isFinished else { return }
+        if runStartedAt == nil { runStartedAt = date }
+        if segmentStartedAt == nil { segmentStartedAt = date }
+    }
+
+    /// Banks the running segment and holds the timer. A no-op when it
+    /// isn't running (never started, or already paused).
+    func pauseClock(at date: Date = Date()) {
+        guard let segmentStartedAt else { return }
+        accumulatedSeconds += max(0, date.timeIntervalSince(segmentStartedAt))
+        self.segmentStartedAt = nil
+    }
+
     var duration: TimeInterval? {
-        endedAt.map { $0.timeIntervalSince(startedAt) }
+        guard let endedAt else { return nil }
+        return elapsed(at: endedAt)
     }
 
     func finish(at date: Date = Date()) {
+        // Bank the final running segment so duration counts active time.
+        pauseClock(at: date)
         endedAt = date
     }
 
@@ -159,6 +229,10 @@ final class WorkoutSession {
             restSeconds: routine.restSeconds
         )
         context.insert(session)
+        // A routine session is started the moment it's presented — the
+        // user tapped Start — so its clock engages now. (Ad-hoc sessions
+        // stay unstarted until the first exercise begins.)
+        session.startClock(at: date)
 
         var order = 0
         for (groupIndex, group) in routine.sortedGroups.enumerated() {
@@ -223,43 +297,48 @@ extension WorkoutSession {
 
     /// Appends `sets` pending logs of `exercise` as a new solo block at
     /// the end of the session, targets prefilled from the exercise's own
-    /// defaults (#187). Logged sets are never touched — mid-session
-    /// additions only ever add pending work.
+    /// defaults (#187). The convenience overload; the configured path
+    /// (a set count and targets chosen in the add sheet) is
+    /// `appendExercise(config:context:)`.
     @discardableResult
     func appendExercise(_ exercise: Exercise, sets: Int = 3, context: ModelContext) -> [SetLog] {
+        appendExercise(config: SessionExerciseConfig(exercise: exercise, sets: sets), context: context)
+    }
+
+    /// Appends a configured block: `config.sets` pending logs of
+    /// `config.exercise`, each carrying the targets the user set in the
+    /// add sheet ("configure before you do it", Dave 2026-07-11). Logged
+    /// sets are never touched — mid-session additions only ever add
+    /// pending work.
+    @discardableResult
+    func appendExercise(config: SessionExerciseConfig, context: ModelContext) -> [SetLog] {
         // A finished session is a record, not a plan. The duration
         // auto-timer can finish the session while the picker is still
         // presented over the overview sheet — a pick landing here after
         // that must not plant invisible pending sets in history
         // (swift-reviewer catch).
         guard !isFinished else { return [] }
+        let exercise = config.exercise
+        let profile = config.profile
         let existing = sortedSetLogs
         let groupIndex = (existing.map(\.groupIndex).max() ?? -1) + 1
         var order = (existing.map(\.order).max() ?? -1) + 1
-        let profile = exercise.metricProfile
         var appended: [SetLog] = []
-        for setNumber in 1...max(sets, 1) {
+        for setNumber in 1...max(config.sets, 1) {
             let log = SetLog(
                 order: order,
                 groupIndex: groupIndex,
                 setNumber: setNumber,
                 exerciseName: exercise.name,
                 exerciseType: exercise.exerciseType,
-                targetWeight: profile.contains(.weight) ? exercise.defaultWeight : nil,
-                // The classic profiles keep their floor prescriptions (a
-                // 10-rep / 45 s block is startable as-is); richer cardio
-                // profiles start from the exercise's own defaults only —
-                // a fabricated 45 s target on a 2000 m rower would
-                // hijack the driver into a timer.
-                targetRepsLower: profile.tracksReps ? (exercise.defaultReps ?? 10) : nil,
-                targetRepsUpper: profile.tracksReps ? exercise.defaultRepsUpper : nil,
-                targetDuration: profile.contains(.duration)
-                    ? (exercise.defaultDurationSeconds ?? (profile.metrics == [.duration] ? 45 : nil))
-                    : nil,
-                targetHeartRateData: profile.legacyType == .duration ? exercise.defaultHeartRateTargetData : nil
+                targetWeight: profile.contains(.weight) ? config.weight : nil,
+                targetRepsLower: profile.tracksReps ? config.reps : nil,
+                targetRepsUpper: profile.tracksReps ? config.repsUpper : nil,
+                targetDuration: profile.contains(.duration) ? config.durationSeconds : nil,
+                targetHeartRateData: profile.legacyType == .duration ? config.heartRateTargetData : nil
             )
             log.metricProfile = profile
-            log.extraTargets = exercise.extraDefaults.filter { profile.contains($0.key) }
+            log.extraTargets = config.extraTargets.filter { profile.contains($0.key) }
             // Insert first, relationships after (the seeder's hard-won
             // rule) — start(from:) predates it and is #195's audit.
             context.insert(log)
@@ -269,6 +348,84 @@ extension WorkoutSession {
             order += 1
         }
         return appended
+    }
+
+    /// Resizes a still-pending block to `count` sets — appends prefilled
+    /// pending sets (copied from the block's template) or trims pending
+    /// ones. Completed sets and the LIVE set are never removed (the live
+    /// set may be any pending set once the cursor has been jumped, not
+    /// just the first): the floor is the number already done plus the
+    /// live set when the block is current, never below one. Ends by
+    /// reindexing — block `setNumber`s densified 1..n and session `order`
+    /// re-densified with the cursor re-pinned by reference — so the
+    /// reindex-after-every-mutation law holds and no gaps survive a trim.
+    /// Drives the in-session exercise sheet's Sets stepper.
+    @discardableResult
+    func resizePendingBlock(groupIndex: Int, exerciseName: String, to count: Int, context: ModelContext) -> [SetLog] {
+        guard !isFinished else { return [] }
+        let blockLogs = sortedSetLogs.filter { $0.groupIndex == groupIndex && $0.exerciseName == exerciseName }
+        guard let template = blockLogs.first else { return [] }
+        let completed = blockLogs.count { $0.isCompleted }
+        let liveOrder = currentLog?.order
+        let blockIsLive = liveOrder.map { order in blockLogs.contains { $0.order == order } } ?? false
+        let floor = max(1, completed + (blockIsLive ? 1 : 0))
+        let target = max(count, floor)
+        let current = blockLogs.count
+        guard target != current else { return blockLogs }
+        // Re-pinned by reference after the reindex — the integer
+        // cursorOrder would otherwise go stale.
+        let cursor = currentLog
+
+        if target < current {
+            // Trim the highest-order pending sets, but never the LIVE one
+            // (a jumped cursor can make the live set a high-order pending
+            // set — trimming the tail would delete it and silently move
+            // the cursor).
+            let removable = blockLogs
+                .filter { !$0.isCompleted && $0.order != liveOrder }
+                .suffix(current - target)
+            for log in removable { context.delete(log) }
+        } else {
+            // Append after the block's last set, shifting later blocks
+            // down so the new sets sort into place; the reindex below
+            // then densifies the whole session's order.
+            let insertionOrder = blockLogs.map(\.order).max() ?? -1
+            let shift = target - current
+            for log in sortedSetLogs where log.order > insertionOrder {
+                log.order += shift
+            }
+            var order = insertionOrder + 1
+            for _ in (current + 1)...target {
+                let log = SetLog(
+                    order: order,
+                    groupIndex: groupIndex,
+                    setNumber: 0,   // reindexed below
+                    exerciseName: template.exerciseName,
+                    exerciseType: template.exerciseType,
+                    targetWeight: template.targetWeight,
+                    targetRepsLower: template.targetRepsLower,
+                    targetRepsUpper: template.targetRepsUpper,
+                    targetDuration: template.targetDuration,
+                    targetHeartRateData: template.targetHeartRateData
+                )
+                log.metricProfile = template.metricProfile
+                log.extraTargets = template.extraTargets
+                log.restSecondsOverride = template.restSecondsOverride
+                context.insert(log)
+                log.session = self
+                log.exercise = template.exercise
+                order += 1
+            }
+        }
+
+        // Reindex-after-every-mutation: the block's surviving sets renumber
+        // 1..n by order (closing any gap a trim left), the session's order
+        // re-densifies, and the cursor re-pins to the same log object.
+        let survivors = sortedSetLogs.filter { $0.groupIndex == groupIndex && $0.exerciseName == exerciseName }
+        for (index, log) in survivors.enumerated() { log.setNumber = index + 1 }
+        for (index, log) in sortedSetLogs.enumerated() { log.order = index }
+        if let cursor, !cursor.isDeleted { cursorOrder = cursor.order }
+        return sortedSetLogs.filter { $0.groupIndex == groupIndex && $0.exerciseName == exerciseName }
     }
 
     /// Materializes a routine from what was actually performed: blocks
@@ -339,6 +496,80 @@ extension WorkoutSession {
         self.routine = routine
         self.routineName = routine.name
         return routine
+    }
+}
+
+// MARK: - Configuring an exercise before adding it
+
+/// Editable configuration for one exercise being added to a live
+/// session — a set count plus per-metric targets, prefilled from the
+/// exercise's own defaults (#187). SwiftUI-free so it stays unit
+/// testable, the same pattern as `ExerciseDraft` / `ExerciseFilterState`.
+/// "Configure before you do it" (Dave, 2026-07-11): the add sheet binds
+/// to this, then `appendExercise(config:context:)` builds the block. The
+/// target API mirrors `RoutineExercise` so both editing surfaces speak
+/// the same grammar.
+@Observable
+final class SessionExerciseConfig: Identifiable {
+    let exercise: Exercise
+    let profile: MetricProfile
+    var sets: Int
+    var weight: Double?
+    var reps: Int?
+    var repsUpper: Int?
+    var durationSeconds: Int?
+    var heartRateTargetData: Data?
+    var extraTargets: [WorkoutMetric: Double]
+
+    init(exercise: Exercise, sets: Int = 3) {
+        self.exercise = exercise
+        let profile = exercise.metricProfile
+        self.profile = profile
+        self.sets = sets
+        // The same prefill the old appendExercise and
+        // Routine.applyDefaultTargets use: the classic profiles keep
+        // their floor prescriptions (a 10-rep / 45 s block is startable
+        // as-is); richer cardio profiles take the exercise's own
+        // defaults only — a fabricated 45 s target on a 2000 m rower
+        // would hijack the driver into a timer.
+        self.weight = profile.contains(.weight) ? exercise.defaultWeight : nil
+        self.reps = profile.tracksReps ? (exercise.defaultReps ?? 10) : nil
+        self.repsUpper = profile.tracksReps ? exercise.defaultRepsUpper : nil
+        self.durationSeconds = profile.contains(.duration)
+            ? (exercise.defaultDurationSeconds ?? (profile.metrics == [.duration] ? 45 : nil))
+            : nil
+        self.heartRateTargetData = profile.legacyType == .duration ? exercise.defaultHeartRateTargetData : nil
+        self.extraTargets = exercise.extraDefaults.filter { profile.contains($0.key) }
+    }
+
+    /// Typed view over `heartRateTargetData`.
+    var heartRateTarget: HeartRateTarget? {
+        get { heartRateTargetData.flatMap { try? JSONDecoder().decode(HeartRateTarget.self, from: $0) } }
+        set { heartRateTargetData = newValue.flatMap { try? JSONEncoder().encode($0) } }
+    }
+
+    /// One lookup/store for any metric's target, columns and bag alike
+    /// (mirrors `RoutineExercise.target`/`setTarget`).
+    func target(_ metric: WorkoutMetric) -> Double? {
+        switch metric {
+        case .weight: weight
+        case .reps: reps.map(Double.init)
+        case .duration: durationSeconds.map(Double.init)
+        case .assistance: extraTargets[.assistance] ?? weight
+        default: extraTargets[metric]
+        }
+    }
+
+    func setTarget(_ metric: WorkoutMetric, to value: Double?) {
+        switch metric {
+        case .weight: weight = value
+        case .reps: reps = value.map { Int($0.rounded()) }
+        case .duration: durationSeconds = value.map { Int($0.rounded()) }
+        default:
+            var extras = extraTargets
+            extras[metric] = value
+            extraTargets = extras
+        }
     }
 }
 

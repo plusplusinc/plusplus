@@ -52,9 +52,13 @@ struct SessionOverviewSheet: View {
             HStack(alignment: .firstTextBaseline) {
                 Text("Session").font(.system(.body, weight: .bold))
                 Spacer()
-                Text("elapsed \(elapsedText)")
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(Theme.textSecondary)
+                // Live: the tray stays open across sets, so its clock
+                // ticks instead of freezing at open time (Dave).
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    Text(clockText(at: context.date))
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(Theme.textSecondary)
+                }
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
@@ -138,9 +142,9 @@ struct SessionOverviewSheet: View {
             .presentationDetents([.fraction(0.84)])
         }
         .sheet(isPresented: $showingAddExercise) {
-            ExercisePickerView(filterState: pickerFilterState) { exercise in
-                session.appendExercise(exercise, context: modelContext)
-            }
+            ExercisePickerView(filterState: pickerFilterState, onConfigured: { config in
+                session.appendExercise(config: config, context: modelContext)
+            })
         }
         // The duration auto-timer can finish the session under a
         // presented picker (the model guard makes a late pick a no-op;
@@ -157,10 +161,13 @@ struct SessionOverviewSheet: View {
         )
     }
 
-    private var elapsedText: String {
-        let reference = session.endedAt ?? Date()
-        let elapsed = max(0, Int(reference.timeIntervalSince(session.startedAt)))
-        return String(format: "%d:%02d", elapsed / 60, elapsed % 60)
+    /// "not started" before the first exercise begins, "elapsed 12:30"
+    /// while running, "· paused" while held — the pause-aware clock.
+    private func clockText(at date: Date) -> String {
+        guard session.isWorkoutStarted else { return "not started" }
+        let elapsed = max(0, Int(session.elapsed(at: date)))
+        let face = String(format: "%d:%02d", elapsed / 60, elapsed % 60)
+        return session.isPaused ? "elapsed \(face) · paused" : "elapsed \(face)"
     }
 
     private var backLabel: String {
@@ -276,6 +283,7 @@ struct SessionOverviewSheet: View {
 /// skip straight to the block.
 struct SessionExerciseSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
     @Bindable var session: WorkoutSession
     let block: SessionOverviewSheet.Block
@@ -381,6 +389,17 @@ struct SessionExerciseSheet: View {
     /// pending sets wholesale.
     private var targetEditor: some View {
         VStack(spacing: 0) {
+            // Configure the block's size before doing it: add or trim
+            // pending sets (completed sets and the live set are never
+            // removed). The set count is a structural fact, so it leads.
+            MetricStepperRow(
+                label: "Sets",
+                value: "\(logs.count)",
+                identifier: "sxSets",
+                onTapValue: nil,
+                onDecrement: { resizeBlock(to: logs.count - 1) },
+                onIncrement: { resizeBlock(to: logs.count + 1) }
+            )
             ForEach(reference?.metricProfile.metrics ?? []) { metric in
                 if metric == .reps {
                     MetricStepperRow(
@@ -407,6 +426,15 @@ struct SessionExerciseSheet: View {
         }
         .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+    }
+
+    private func resizeBlock(to count: Int) {
+        session.resizePendingBlock(
+            groupIndex: block.groupIndex,
+            exerciseName: block.name,
+            to: count,
+            context: modelContext
+        )
     }
 
     private func step(_ metric: WorkoutMetric, on log: SetLog, direction: Double) {
