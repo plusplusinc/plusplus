@@ -61,27 +61,30 @@ enum SeedData {
     }
 
     /// What the populate offer would add — computed at ask time (#204),
-    /// so a stale flag can never overstate.
+    /// so a stale flag can never overstate. Availability is the ACTIVE
+    /// equipment library's membership.
     static func populateCandidateCount(context: ModelContext) -> Int {
+        let available = EquipmentLibrary.active(context: context)?.memberNames ?? []
         let exercises = (try? context.fetch(
             FetchDescriptor<Exercise>(predicate: #Predicate { $0.isBuiltIn == true })
         )) ?? []
         return exercises.filter { exercise in
             !exercise.inLibrary
-                && !exercise.equipment.contains { !$0.isDeleted && !$0.inLibrary }
+                && !exercise.equipment.contains { !$0.isDeleted && !available.contains($0.name) }
         }.count
     }
 
-    /// The optional population step (#185): everything the owned
+    /// The optional population step (#185): everything the available
     /// equipment supports joins the library. Returns the count added.
     @discardableResult
     static func populateLibraryFromEquipment(context: ModelContext) -> Int {
+        let available = EquipmentLibrary.active(context: context)?.memberNames ?? []
         let exercises = (try? context.fetch(
             FetchDescriptor<Exercise>(predicate: #Predicate { $0.isBuiltIn == true })
         )) ?? []
         var added = 0
         for exercise in exercises where !exercise.inLibrary {
-            let missing = exercise.equipment.contains { !$0.isDeleted && !$0.inLibrary }
+            let missing = exercise.equipment.contains { !$0.isDeleted && !available.contains($0.name) }
             if !missing {
                 exercise.inLibrary = true
                 added += 1
@@ -90,12 +93,35 @@ enum SeedData {
         return added
     }
 
+    /// Equipment-libraries migration: a store that predates
+    /// EquipmentLibrary gets one, named "Home", holding the legacy
+    /// single-library state (in-library built-ins plus every custom —
+    /// customs were always-available before libraries). Content-keyed,
+    /// not UserDefaults-keyed: zero libraries IS the pre-migration
+    /// signature, and it must also fire for fresh and in-memory
+    /// UI-test stores. Runs AFTER the legacy one-shots (the #232
+    /// ownership reset rewrites inLibrary, and this snapshot must see
+    /// the result) — PlusPlusApp owns that ordering.
+    static func ensureEquipmentLibrary(context: ModelContext) {
+        let count = (try? context.fetchCount(FetchDescriptor<EquipmentLibrary>())) ?? 0
+        guard count == 0 else { return }
+        let equipment = (try? context.fetch(FetchDescriptor<Equipment>())) ?? []
+        let library = EquipmentLibrary(name: EquipmentLibrary.defaultName, order: 0)
+        // Insert first, assign the relationship after (the pre-insert
+        // loss law — this is exactly the seeder's #186 shape).
+        context.insert(library)
+        library.equipment = equipment.filter { $0.inLibrary || !$0.isBuiltIn }
+        try? context.save()
+    }
+
     /// One-shot ownership reset (#232): equipment seeded fully-owned on
     /// fresh stores until build 32 — backwards, since an all-owned list
     /// filters nothing — and Dave chose to reset existing stores rather
     /// than grandfather the old default. Built-in equipment goes
     /// un-owned once; custom gear (created deliberately) stays. Keyed
-    /// so a later re-pick is never fought.
+    /// so a later re-pick is never fought. PRE-LIBRARIES: it rewrites
+    /// the legacy inLibrary flags, so it must run before
+    /// ensureEquipmentLibrary snapshots them.
     static let equipmentOwnershipResetKey = "equipmentOwnershipReset1"
 
     static func resetEquipmentOwnershipIfNeeded(context: ModelContext) {

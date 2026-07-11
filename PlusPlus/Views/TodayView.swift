@@ -25,11 +25,17 @@ struct TodayView: View {
     @Query(sort: [SortDescriptor(\Routine.order), SortDescriptor(\Routine.createdAt, order: .reverse)])
     private var routines: [Routine]
     @Query(sort: \Equipment.name) private var equipment: [Equipment]
+    @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
+    @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
     @Query(
         filter: #Predicate<WorkoutSession> { $0.endedAt != nil },
         sort: [SortDescriptor(\WorkoutSession.startedAt, order: .reverse)]
     )
     private var sessions: [WorkoutSession]
+
+    private var activeLibrary: EquipmentLibrary? {
+        EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)
+    }
 
     @State private var showingAppMenu = false
     @State private var showingSwapIn = false
@@ -311,9 +317,9 @@ struct TodayView: View {
                 }
             }
             .alert(
-                // "your equipment supports" right after "Done —
+                // "your equipment supports" right after "Done ·
                 // bodyweight only" reads as a mistake (FTUE audit).
-                equipment.contains(where: { $0.inLibrary && !$0.isDeleted })
+                !(activeLibrary?.members.isEmpty ?? true)
                     ? "Add \(populateOfferCount) exercise\(populateOfferCount == 1 ? "" : "s") your equipment supports?"
                     : "Add \(populateOfferCount) exercise\(populateOfferCount == 1 ? " that needs" : "s that need") no equipment?",
                 isPresented: Binding(
@@ -1092,7 +1098,7 @@ struct TodayView: View {
                 badge: "1 of 3",
                 title: "What do you have access to?",
                 doneTitle: "Equipment set",
-                sub: equipmentStepDone ? equipmentDoneSub : "What you own filters the catalog everywhere",
+                sub: equipmentStepDone ? equipmentDoneSub : "Your equipment filters the catalog everywhere",
                 gatedSub: "",
                 cta: "Pick equipment",
                 identifier: "setupEquipmentStep",
@@ -1108,7 +1114,7 @@ struct TodayView: View {
     }
 
     private var equipmentDoneSub: String {
-        let count = equipment.filter(\.inLibrary).count
+        let count = activeLibrary?.members.count ?? 0
         let summary = count == 0 ? "bodyweight only" : "\(count) item\(count == 1 ? "" : "s")"
         return doneDatePrefix(SetupState.equipmentDoneDate) + summary
     }

@@ -156,6 +156,12 @@ struct HeaderIconButton: View {
 /// fired on reveal-drag release and closed the row it opened).
 private struct RoutineCard: View {
     let routine: Routine
+    @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
+    @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
+
+    private var availableEquipmentNames: Set<String> {
+        EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.memberNames ?? []
+    }
 
     private var estimateText: String {
         let minutes = max(5, Int((Double(routine.estimatedSeconds) / 300).rounded()) * 5)
@@ -171,6 +177,14 @@ private struct RoutineCard: View {
             return Array(names.prefix(3)) + ["+\(names.count - 3)"]
         }
         return names
+    }
+
+    /// A gear pill the active library doesn't have renders in notes
+    /// amber (flag-don't-hide): the card still shows, but a glance says
+    /// "not here". The synthetic "+N" and "bodyweight" pills are neutral.
+    private func pillUnavailable(_ pill: String) -> Bool {
+        guard pill != "bodyweight", !pill.hasPrefix("+") else { return false }
+        return !availableEquipmentNames.contains(pill)
     }
 
     private var musclesLine: String {
@@ -225,12 +239,13 @@ private struct RoutineCard: View {
                     .overlay(Capsule().strokeBorder(Theme.border))
                     .lineLimit(1)
                 ForEach(pills, id: \.self) { pill in
+                    let unavailable = pillUnavailable(pill)
                     Text(pill)
                         .font(.system(.caption2, design: .monospaced))
-                        .foregroundStyle(Theme.textSecondary)
+                        .foregroundStyle(unavailable ? Theme.notes : Theme.textSecondary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 2.5)
-                        .overlay(Capsule().strokeBorder(Theme.borderStrong))
+                        .overlay(Capsule().strokeBorder(unavailable ? Theme.notes.opacity(0.5) : Theme.borderStrong))
                         .lineLimit(1)
                 }
                 Spacer(minLength: 0)

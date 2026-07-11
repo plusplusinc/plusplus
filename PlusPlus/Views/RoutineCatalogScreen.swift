@@ -26,6 +26,8 @@ struct RoutineCatalogScreen: View {
     @Query(sort: [SortDescriptor(\Routine.order), SortDescriptor(\Routine.createdAt, order: .reverse)])
     private var routines: [Routine]
     @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
+    @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
+    @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
     /// The Routines tab's NavigationPath — Add pushes the freshly
     /// instantiated routine's detail on top of the catalog.
@@ -46,6 +48,7 @@ struct RoutineCatalogScreen: View {
     @State private var gearFilter: GearFit? = .mine
     @State private var sort: CatalogSort = .featured
     @State private var showingEquipmentEditor = false
+    @State private var showingLibraryTray = false
     @State private var showingNewRoutine = false
     @State private var newRoutineName = ""
     /// One-shot per appearance: path.append isn't idempotent the way
@@ -81,8 +84,30 @@ struct RoutineCatalogScreen: View {
         case time = "Time"
     }
 
+    private var activeLibrary: EquipmentLibrary? {
+        EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)
+    }
+
+    /// The active library's gear — what "my equipment" means everywhere.
     private var ownedEquipmentNames: Set<String> {
-        Set(allEquipment.filter { $0.inLibrary || !$0.isBuiltIn }.map(\.name))
+        activeLibrary?.memberNames ?? []
+    }
+
+    /// The GEAR facet's "mine" option reads as the library's name once
+    /// more than one exists, so a lit HOME / HOTEL chip IS the visible
+    /// library state (Dave). One library: the plain "My equipment".
+    private var mineLabel: String {
+        libraries.count > 1 ? (activeLibrary?.name ?? "My equipment") : "My equipment"
+    }
+
+    private var gearFooters: [(label: String, action: () -> Void)] {
+        var rows: [(label: String, action: () -> Void)] = [
+            ("Edit my equipment…", { showingEquipmentEditor = true })
+        ]
+        if libraries.count > 1 {
+            rows.append(("Switch library…", { showingLibraryTray = true }))
+        }
+        return rows
     }
 
     private var anyFilterActive: Bool {
@@ -159,8 +184,8 @@ struct RoutineCatalogScreen: View {
                     // Quiet key (Quiet Arcade): the escape hatch reads
                     // as pressable without the retired link blue.
                     QuietKey(
-                        label: "\(hiddenByGear) more need gear you don't own — show",
-                        identifier: "showUnownedTemplates"
+                        label: "\(hiddenByGear) more need gear you don't have — show",
+                        identifier: "showUnavailableTemplates"
                     ) {
                         gearFilter = nil
                     }
@@ -176,8 +201,8 @@ struct RoutineCatalogScreen: View {
                             .foregroundStyle(Theme.textFaint)
                         if gearFilter == .mine, hiddenByGear > 0 {
                             QuietKey(
-                                label: "\(hiddenByGear) match\(hiddenByGear == 1 ? "es" : "") need gear you don't own — show",
-                                identifier: "showUnownedTemplatesEmpty"
+                                label: "\(hiddenByGear) match\(hiddenByGear == 1 ? "es" : "") need gear you don't have — show",
+                                identifier: "showUnavailableTemplatesEmpty"
                             ) {
                                 gearFilter = nil
                             }
@@ -219,6 +244,9 @@ struct RoutineCatalogScreen: View {
                 CatalogBrowseScreen(kind: .equipment)
             }
         }
+        .sheet(isPresented: $showingLibraryTray) {
+            EquipmentLibraryTray()
+        }
         .alert("New Routine", isPresented: $showingNewRoutine) {
             TextField("Name", text: $newRoutineName)
             Button("Cancel", role: .cancel) { newRoutineName = "" }
@@ -251,10 +279,11 @@ struct RoutineCatalogScreen: View {
             FacetChip(
                 facet: "GEAR",
                 selection: $gearFilter,
-                options: GearFit.allCases.map { ($0, $0.rawValue) },
+                options: GearFit.allCases.map { ($0, $0 == .mine ? mineLabel : $0.rawValue) },
                 // Fix the filter's basis without leaving (#260): the
-                // ownership version of create-at-every-dead-end.
-                footer: ("Edit my equipment…", { showingEquipmentEditor = true })
+                // availability version of create-at-every-dead-end, plus
+                // a switch once more than one library exists.
+                footers: gearFooters
             )
             // Sort rides the same row (#237) but stays neutral — see
             // FilterChips: ordering is not filter state.
@@ -340,11 +369,14 @@ struct RoutineCatalogScreen: View {
             template.estimatedMinutesText.uppercased(),
         ].joined(separator: " · ")
         let gear = template.equipmentNames
+        // Once more than one library exists the ✓ names the active one
+        // ("HOME ✓"), so the verdict itself shows which library it judged.
+        let haveLabel = libraries.count > 1 ? "\(activeLibrary?.name.uppercased() ?? "MY GEAR") ✓" : "YOUR GEAR ✓"
         let gearPart: Text
         if gear.isEmpty {
             gearPart = Text("NO GEAR").foregroundStyle(Theme.textFaint)
         } else if gear.allSatisfy(ownedEquipmentNames.contains) {
-            gearPart = Text("YOUR GEAR ✓").foregroundStyle(Theme.textFaint)
+            gearPart = Text(haveLabel).foregroundStyle(Theme.textFaint)
         } else {
             let missing = gear.filter { !ownedEquipmentNames.contains($0) }
             gearPart = Text("NEEDS \(missing.prefix(2).joined(separator: ", ").uppercased())\(missing.count > 2 ? "…" : "")")
@@ -378,6 +410,8 @@ struct RoutineTemplateDetailScreen: View {
     @Query(sort: [SortDescriptor(\Routine.order), SortDescriptor(\Routine.createdAt, order: .reverse)])
     private var routines: [Routine]
     @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
+    @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
+    @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
     let template: RoutineTemplate
     @Binding var path: NavigationPath
@@ -388,7 +422,7 @@ struct RoutineTemplateDetailScreen: View {
     @State private var showingGearCheck = false
 
     private var ownedEquipmentNames: Set<String> {
-        Set(allEquipment.filter { $0.inLibrary || !$0.isBuiltIn }.map(\.name))
+        EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.memberNames ?? []
     }
 
     private var missingNames: [String] {
@@ -439,11 +473,11 @@ struct RoutineTemplateDetailScreen: View {
                                 }
                             }
                         }
-                        // The unowned circles are fixable HERE (#260):
+                        // The unchecked circles are fixable HERE (#260):
                         // "turns out I do have a bench" is two taps,
                         // not a tab-switch expedition.
                         if !missingNames.isEmpty {
-                            QuietKey(label: "Gear check — mark what you own", identifier: "gearCheckButton") {
+                            QuietKey(label: "Gear check · mark what you have", identifier: "gearCheckButton") {
                                 showingGearCheck = true
                             }
                             .padding(.top, 8)
@@ -534,18 +568,20 @@ struct RoutineTemplateDetailScreen: View {
 
 // MARK: - Gear check
 
-/// A focused ownership fix-up (#260): exactly the gear a template
-/// needs and you don't own, as toggles — the direct path from "NEEDS
-/// Bench" to owning one, without leaving the template. Ownership here
-/// is the same Equipment.inLibrary every other surface reads, so the
-/// filter, meta lines, and check circles all update live.
+/// A focused availability fix-up (#260): exactly the gear a template
+/// needs and you don't have, as toggles — the direct path from "NEEDS
+/// Bench" to having one here, without leaving the template. Toggling
+/// writes membership in the ACTIVE equipment library, so the filter,
+/// meta lines, and check circles all update live.
 struct GearCheckTray: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
+    @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
+    @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
     /// FROZEN at first presentation via @State's initialValue — a
     /// plain stored property re-derives when the presenting view
-    /// invalidates (toggling ownership does exactly that), and rows
+    /// invalidates (toggling membership does exactly that), and rows
     /// would vanish as they're toggled on: the #139 disappearing-act
     /// this tray exists to avoid (swift-reviewer catch).
     @State private var frozenNames: [String]
@@ -556,11 +592,15 @@ struct GearCheckTray: View {
         _frozenNames = State(initialValue: names)
     }
 
+    private var activeLibrary: EquipmentLibrary? {
+        EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             SheetHeader(title: "Gear check", closeOnly: true, action: { dismiss() })
 
-            Text("Mark what you own — it counts toward YOUR GEAR ✓ and the My-equipment filter everywhere.")
+            Text("Mark what you have. It counts toward the gear check and the library filter everywhere.")
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
                 .padding(.top, 6)
@@ -569,8 +609,8 @@ struct GearCheckTray: View {
             VStack(spacing: 0) {
                 ForEach(Array(rows.enumerated()), id: \.element.persistentModelID) { index, equipment in
                     Toggle(isOn: Binding(
-                        get: { equipment.inLibrary },
-                        set: { equipment.inLibrary = $0 }
+                        get: { activeLibrary?.contains(equipment) ?? false },
+                        set: { activeLibrary?.setMembership(equipment, $0) }
                     )) {
                         Text(equipment.name)
                             .font(.system(.subheadline, weight: .semibold))

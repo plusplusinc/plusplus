@@ -34,6 +34,17 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   in for a missing value is a placeholder glyph, not prose, and stays.
 - Warm charcoal dark (`#201F1D` family); the watch keeps system black.
 - Draw every color from `Theme` — never ad-hoc literals.
+- **Equipment is availability, not ownership** (2026-07-11): what gear you
+  "have" is membership in the ACTIVE `EquipmentLibrary` (Home, Hotel…),
+  switched from a tray off the Equipment-tab header (left of the +) and via
+  the catalog GEAR facet's "Switch library…" footer; the tab list re-renders
+  behind the tray, which is how the app-wide scope reads. Curated lists
+  flag-don't-hide (#113): the Routines/Exercises tabs list everything but
+  render unavailable gear in notes amber ("needs X", card pills); only the
+  CATALOGS filter by the active library. Copy says "have"/"in library", never
+  "own" (that word survives only for data ownership and "My equipment"/"YOUR
+  GEAR ✓" selection possessives). The GEAR facet + template verdict name the
+  active library once more than one exists (a lit HOME/HOTEL chip, "HOME ✓").
 
 ## What the app is, surface by surface
 

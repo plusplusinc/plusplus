@@ -12,7 +12,7 @@ struct HeartRateTargetTests {
     // On-disk throwaway store per container — in-memory configurations
     // share state across containers in one process (see CLAUDE.md).
     private func makeContext() throws -> ModelContext {
-        let schema = Schema([Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self, RoutineExercise.self, WorkoutSession.self, SetLog.self])
+        let schema = Schema([Exercise.self, Equipment.self, EquipmentLibrary.self, Routine.self, ExerciseGroup.self, RoutineExercise.self, WorkoutSession.self, SetLog.self])
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("hrtests-\(UUID().uuidString).store")
         let config = ModelConfiguration(schema: schema, url: url, allowsSave: true, cloudKitDatabase: .none)

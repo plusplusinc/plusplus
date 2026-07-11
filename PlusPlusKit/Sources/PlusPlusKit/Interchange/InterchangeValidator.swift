@@ -151,6 +151,48 @@ public enum InterchangeValidator {
             }
         }
 
+        var equipmentNames: Set<String> = []
+        for item in bundle.equipment ?? [] {
+            let path = "equipment[\(item.name)]"
+            let key = item.name.lowercased().trimmingCharacters(in: .whitespaces)
+            if key.isEmpty {
+                issues.append(.init(path: path, message: "equipment name is empty"))
+            }
+            if !equipmentNames.insert(key).inserted {
+                issues.append(.init(path: path, message: "duplicate equipment name"))
+            }
+            if let step = item.weightStep, !step.isFinite || step <= 0 {
+                issues.append(.init(path: path, message: "weightStep \(step) must be finite and positive"))
+            }
+            // Same curated vocabulary as exercise metrics, but no
+            // work-metric requirement: this is a suggestion set, not a
+            // trackable profile.
+            for key in item.metrics ?? [] {
+                if key == WorkoutMetric.rest.rawValue {
+                    issues.append(.init(path: path, message: "metrics may not include rest (block configuration, not a tracked metric)"))
+                } else if WorkoutMetric(rawValue: key) == nil {
+                    issues.append(.init(path: path, message: "metrics.\(key) is not a known metric"))
+                }
+            }
+        }
+
+        var libraryNames: Set<String> = []
+        for library in bundle.equipmentLibraries ?? [] {
+            let path = "equipmentLibraries[\(library.name)]"
+            let key = library.name.lowercased().trimmingCharacters(in: .whitespaces)
+            if key.isEmpty {
+                issues.append(.init(path: path, message: "library name is empty"))
+            }
+            if !libraryNames.insert(key).inserted {
+                issues.append(.init(path: path, message: "duplicate library name"))
+            }
+            // Gear names are free-form (customs are legal and importers
+            // create them), but an empty string is always a mistake.
+            for name in library.equipment where name.trimmingCharacters(in: .whitespaces).isEmpty {
+                issues.append(.init(path: path, message: "equipment entry is empty"))
+            }
+        }
+
         for session in bundle.sessions {
             let path = "sessions[\(session.routineName) @ \(session.startedAt)]"
             if let endedAt = session.endedAt, endedAt < session.startedAt {

@@ -74,6 +74,10 @@ program/
     band-pulses.json          # one file per custom exercise (slugged name)
   routines/
     shoulder-pt.json          # one file per routine template
+  equipment/
+    dumbbells.json            # gear with config worth keeping (weight step, metrics)
+  equipment-libraries/
+    home.json                 # one file per equipment library (Home, Hotel…)
 history/
   2026/
     2026-07-05-shoulder-pt.json   # one file per finished session; append-only
@@ -95,6 +99,25 @@ The app's single-file export (backup / manual transport) is a bundle:
 
 ```json
 {
+  "equipment": [
+    { "isBuiltIn": true, "name": "Dumbbells", "weightStep": 2.5 },
+    {
+      "distanceUnit": "m",
+      "isBuiltIn": true,
+      "metrics": ["distance", "duration", "pace", "resistance"],
+      "name": "Rowing Machine"
+    }
+  ],
+  "equipmentLibraries": [
+    {
+      "equipment": ["Bench", "Dumbbells", "Resistance Band", "Rowing Machine"],
+      "name": "Home"
+    },
+    {
+      "equipment": [],
+      "name": "Hotel"
+    }
+  ],
   "exercises": [
     {
       "defaultReps": 15,
@@ -208,7 +231,8 @@ are byte-representative, and CI decodes them to keep this document honest.)
 
 In the repo layout, the same DTOs are stored one entity per file, wrapped in a
 document envelope: `{ "exercise": { … }, "schemaVersion": 1 }` (likewise
-`"routine"` / `"session"` — see `InterchangeDocuments.swift`). A group with >1 exercise is a superset —
+`"routine"` / `"session"` / `"equipment"` / `"library"` — see
+`InterchangeDocuments.swift`). A group with >1 exercise is a superset —
 same uniform model as the app.
 
 Semantics worth writing down:
@@ -244,9 +268,33 @@ Semantics worth writing down:
   `restSecondsOverride`.
 - **Sessions snapshot everything** (names, types, targets) exactly like the app's
   data model, so history files stand alone even if templates change.
+- **Equipment records** (additive to schema v1): the optional `equipment`
+  array carries gear that has something to say — custom gear (its existence
+  is user data) and any gear with user config: `weightStep` (per-tap
+  increment, unit-agnostic, must be positive) and/or a suggested `metrics`
+  profile + `distanceUnit` (same curated vocabulary as exercise `metrics`,
+  but no work-metric requirement — it's a suggestion set for new exercises
+  on that gear). Unconfigured built-ins are never written; the app's seed
+  catalog is the source for those. This is what makes a new-phone restore
+  complete: libraries say WHAT you have, equipment records say how it's
+  set up.
+- **Equipment libraries** (additive to schema v1): the optional
+  `equipmentLibraries` array names one curated gear list per training context
+  (`Home`, `Hotel`…), each `{ "name", "equipment": [names] }`. An empty
+  `equipment` list is a legal and useful library (bodyweight-only travel).
+  Gear names are free-form — importers resolve unknown names by creating
+  custom equipment, so libraries round-trip with customs. Which library is
+  ACTIVE is deliberately not in the contract: it's device state ("what's with
+  me right now"), not training data, and two devices syncing one repo may
+  differ. Absent `equipmentLibraries` means the file predates them; readers
+  leave existing library state alone.
 - **Import policy** (app side): exercises upsert by case-insensitive name;
   routines replace-or-create by name; sessions append only — an incoming session
   with the same routine name and start time as an existing one is skipped.
+  Equipment records and equipment libraries replace-or-create by
+  case-insensitive name (the file is the source of truth for a library's
+  membership and a gear record's config); entries the file doesn't mention
+  are kept, and the device's active-library pointer is never touched.
 - **Units** (decided 2026-07-06, issue #33): weight numbers are unit-agnostic;
   a bundle's optional `units` field (`"lb"` / `"kg"`) declares what they mean,
   and **absent always means pounds** — every pre-units file stays valid.

@@ -3,9 +3,11 @@ import PlusPlusKit
 
 /// Reads and writes the per-entity repo layout (docs/PLATFORM.md):
 ///
-///     program/exercises/<slug>.json    ExerciseDocument
-///     program/routines/<slug>.json     RoutineDocument
-///     history/<YYYY>/<date>-<slug>.json SessionDocument (append-only)
+///     program/exercises/<slug>.json           ExerciseDocument
+///     program/routines/<slug>.json            RoutineDocument
+///     program/equipment/<slug>.json           EquipmentDocument
+///     program/equipment-libraries/<slug>.json EquipmentLibraryDocument
+///     history/<YYYY>/<date>-<slug>.json       SessionDocument (append-only)
 struct RoutineRepo {
     enum RepoError: Error, CustomStringConvertible {
         case notARepo(String)
@@ -35,6 +37,12 @@ struct RoutineRepo {
     var routinesDirectory: URL {
         root.appendingPathComponent(FileLayout.routinesDirectory)
     }
+    var equipmentDirectory: URL {
+        root.appendingPathComponent(FileLayout.equipmentDirectory)
+    }
+    var equipmentLibrariesDirectory: URL {
+        root.appendingPathComponent(FileLayout.equipmentLibrariesDirectory)
+    }
     var historyDirectory: URL {
         root.appendingPathComponent(FileLayout.historyDirectory)
     }
@@ -56,13 +64,28 @@ struct RoutineRepo {
         let routines: [RoutineDTO] = try loadDocuments(in: routinesDirectory) {
             (document: RoutineDocument) in document.routine
         }
+        let equipment: [EquipmentDTO] = try loadDocuments(in: equipmentDirectory) {
+            (document: EquipmentDocument) in document.equipment
+        }
+        let libraries: [EquipmentLibraryDTO] = try loadDocuments(in: equipmentLibrariesDirectory) {
+            (document: EquipmentLibraryDocument) in document.library
+        }
         var sessions: [SessionDTO] = []
         for yearDirectory in try subdirectories(of: historyDirectory) {
             sessions += try loadDocuments(in: yearDirectory) {
                 (document: SessionDocument) in document.session
             }
         }
-        return ExportBundle(exercises: exercises, routines: routines, sessions: sessions)
+        return ExportBundle(
+            exercises: exercises,
+            routines: routines,
+            sessions: sessions,
+            // nil when a directory is absent or empty: "none declared"
+            // and "predates the field" read the same to importers, which
+            // must leave existing state alone either way.
+            equipment: equipment.isEmpty ? nil : equipment,
+            equipmentLibraries: libraries.isEmpty ? nil : libraries
+        )
     }
 
     private func subdirectories(of url: URL) throws -> [URL] {

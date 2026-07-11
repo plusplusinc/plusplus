@@ -6,8 +6,16 @@ import PlusPlusKit
 final class Equipment {
     var name: String
     var isBuiltIn: Bool
-    /// Personal-library membership (v2 Library, #63); see Exercise.inLibrary.
+    /// LEGACY single-library membership (v2 Library, #63; opt-in #232).
+    /// Frozen since the equipment-libraries migration folded it into the
+    /// default EquipmentLibrary — kept for store compatibility, no live
+    /// read or write remains. Availability is membership in the ACTIVE
+    /// EquipmentLibrary now.
     var inLibrary: Bool = true
+    /// Which libraries carry this gear (inverse declared on
+    /// EquipmentLibrary.equipment). Shared records: weight steps and
+    /// suggested profiles travel with the gear across libraries.
+    var libraries: [EquipmentLibrary]? = []
     /// Per-tap weight increment for exercises using this gear (nil =
     /// the unit default, 5 lb / 2.5 kg). Unit-agnostic like every
     /// stored number: the value is whatever the user's plates say.

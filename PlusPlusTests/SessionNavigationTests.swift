@@ -8,7 +8,7 @@ import PlusPlusKit
 struct SessionNavigationTests {
     private func makeContainer() throws -> ModelContainer {
         let schema = Schema([
-            Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self,
+            Exercise.self, Equipment.self, EquipmentLibrary.self, Routine.self, ExerciseGroup.self,
             RoutineExercise.self, WorkoutSession.self, SetLog.self,
         ])
         let url = FileManager.default.temporaryDirectory

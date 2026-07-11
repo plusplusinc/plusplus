@@ -33,3 +33,23 @@ public struct SessionDocument: Codable, Equatable, Sendable {
         self.session = session
     }
 }
+
+public struct EquipmentLibraryDocument: Codable, Equatable, Sendable {
+    public var schemaVersion: Int
+    public var library: EquipmentLibraryDTO
+
+    public init(library: EquipmentLibraryDTO) {
+        self.schemaVersion = Interchange.schemaVersion
+        self.library = library
+    }
+}
+
+public struct EquipmentDocument: Codable, Equatable, Sendable {
+    public var schemaVersion: Int
+    public var equipment: EquipmentDTO
+
+    public init(equipment: EquipmentDTO) {
+        self.schemaVersion = Interchange.schemaVersion
+        self.equipment = equipment
+    }
+}

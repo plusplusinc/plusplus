@@ -7,33 +7,37 @@ final class ExerciseFilterState {
     var searchText: String = ""
     var selectedMuscleGroups: Set<MuscleGroup> = []
     var selectedEquipment: Set<Equipment> = []
-    /// #113 escape hatch: exercises needing equipment you don't own are
+    /// #113 escape hatch: exercises needing equipment you don't have are
     /// hidden by default; "show all" reveals them (the row then shows
-    /// what's missing).
-    var showUnowned = false
+    /// what's missing). Availability is the ACTIVE equipment library's
+    /// membership — callers pass it in, since only views know it live.
+    var showUnavailable = false
 
-    /// `overridingShowUnowned` lets a caller count what the ownership
-    /// filter is hiding (the §H escape hatch) without mutating state.
-    func filteredExercises(from allExercises: [Exercise], overridingShowUnowned: Bool? = nil) -> [Exercise] {
+    /// `overridingShowUnavailable` lets a caller count what the
+    /// availability filter is hiding (the §H escape hatch) without
+    /// mutating state.
+    func filteredExercises(
+        from allExercises: [Exercise],
+        available: Set<String>,
+        overridingShowUnavailable: Bool? = nil
+    ) -> [Exercise] {
         allExercises.filter { exercise in
             matchesSearch(exercise) && matchesMuscleGroup(exercise)
                 && matchesEquipment(exercise)
-                && ((overridingShowUnowned ?? showUnowned) || Self.missingEquipment(for: exercise).isEmpty)
+                && ((overridingShowUnavailable ?? showUnavailable)
+                    || Self.missingEquipment(for: exercise, available: available).isEmpty)
         }
         .sorted { $0.name < $1.name }
     }
 
-    /// Equipment the exercise needs but the user doesn't own — drives
-    /// both the hide and the "needs squat rack" cue when shown anyway.
-    static func missingEquipment(for exercise: Exercise) -> [String] {
+    /// Equipment the exercise needs but the active library doesn't have —
+    /// drives both the hide and the "needs squat rack" cue when shown
+    /// anyway.
+    static func missingEquipment(for exercise: Exercise, available: Set<String>) -> [String] {
         // isDeleted: a just-deleted custom equipment lingers in the
-        // relationship until save and must not count as owned or
+        // relationship until save and must not count as available or
         // missing (bug hunt B1).
-        exercise.equipment.filter { !$0.isDeleted && !$0.inLibrary }.map(\.name).sorted()
-    }
-
-    private func matchesOwnership(_ exercise: Exercise) -> Bool {
-        showUnowned || Self.missingEquipment(for: exercise).isEmpty
+        exercise.equipment.filter { !$0.isDeleted && !available.contains($0.name) }.map(\.name).sorted()
     }
 
     private func matchesSearch(_ exercise: Exercise) -> Bool {

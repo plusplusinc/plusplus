@@ -142,6 +142,7 @@ struct AppMenuScreen: View {
 /// TestFlight dispatch (keep it to one line, no obligation words).
 private enum WhatsNew {
     static let entries: [(build: String, notes: String)] = [
+        ("48", "Equipment libraries: keep a set for home and another for the road · switch and the whole app follows · your gear travels with you to a new phone"),
         ("46", "Cardio speaks its own numbers — splits, watts, damper, incline · intervals: rounds with their own rest · choose what any exercise tracks · heart rate on screen"),
         ("45", "The ++ key on every tab · catalog pages push and pop one step at a time"),
         ("44", "The ++ wears its key"),
@@ -150,6 +151,6 @@ private enum WhatsNew {
         ("35", "Swipe actions stay put when you let go · this page · start any workout from Today's header"),
         ("34", "Catalogs open on your gear, fixable in place · pick several filters at once"),
         ("33", "A finish screen that names your next session · Today always offers a path"),
-        ("32", "Scratch workouts you can keep as routines · equipment you actually own"),
+        ("32", "Scratch workouts you can keep as routines · equipment you actually have"),
     ]
 }

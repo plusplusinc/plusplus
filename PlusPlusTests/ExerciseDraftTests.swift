@@ -7,7 +7,7 @@ import PlusPlusKit
 @Suite("ExerciseDraft")
 struct ExerciseDraftTests {
     private func makeContainer() throws -> ModelContainer {
-        let schema = Schema([Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self, RoutineExercise.self])
+        let schema = Schema([Exercise.self, Equipment.self, EquipmentLibrary.self, Routine.self, ExerciseGroup.self, RoutineExercise.self])
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("exercisedraft-\(UUID().uuidString).store")
         let config = ModelConfiguration(schema: schema, url: url, allowsSave: true, cloudKitDatabase: .none)

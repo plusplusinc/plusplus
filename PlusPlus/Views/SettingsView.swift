@@ -21,7 +21,10 @@ struct SettingsScreen: View {
     @State private var dataError: String?
     @State private var showingSyncExplainer = false
     @State private var showingEquipmentSetup = false
+    @State private var showingLibraryTray = false
     @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
+    @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
+    @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -56,8 +59,9 @@ struct SettingsScreen: View {
                     SheetSectionLabel("EQUIPMENT")
                         .padding(.top, 24)
                     // Nav rows are secondary raised keys (Quiet Arcade:
-                    // navigation is a press). "My equipment" — the one
-                    // ownership word (#232 vocabulary).
+                    // navigation is a press). "My equipment" curates the
+                    // active library; the summary reflects it by name so
+                    // the app-wide scope is legible here too.
                     Button {
                         showingEquipmentSetup = true
                     } label: {
@@ -80,7 +84,32 @@ struct SettingsScreen: View {
                     }
                     .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
                     .accessibilityIdentifier("equipmentSetupButton")
-                    Text("Never touches logged history.")
+                    // The switcher is discoverable here too, but the
+                    // control's home is the Equipment tab (where the list
+                    // re-renders live). Present only once it's meaningful.
+                    if libraries.count > 1 {
+                        Button {
+                            showingLibraryTray = true
+                        } label: {
+                            HStack {
+                                Text("Switch library")
+                                    .font(.system(.footnote, weight: .semibold))
+                                    .foregroundStyle(Theme.textPrimary)
+                                Spacer()
+                                Image(systemName: "arrow.left.arrow.right")
+                                    .font(.system(.caption, weight: .bold))
+                                    .foregroundStyle(Theme.textFaint)
+                            }
+                            .padding(.horizontal, 14)
+                            .frame(minHeight: 48)
+                            .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                            .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.borderStrong))
+                        }
+                        .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
+                        .accessibilityIdentifier("switchLibraryButton")
+                        .padding(.top, 8)
+                    }
+                    Text("Switching libraries changes what counts as your gear everywhere. Never touches logged history.")
                         .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
                         .padding(.top, 6)
@@ -224,6 +253,9 @@ struct SettingsScreen: View {
         .navigationDestination(isPresented: $showingEquipmentSetup) {
             CatalogBrowseScreen(kind: .equipment, setupMode: true)
         }
+        .sheet(isPresented: $showingLibraryTray) {
+            EquipmentLibraryTray()
+        }
         .fileExporter(
             isPresented: $showingExporter,
             document: exportDocument,
@@ -264,8 +296,14 @@ struct SettingsScreen: View {
     }
 
     private var equipmentSummary: String {
-        let owned = allEquipment.filter { $0.isBuiltIn && $0.inLibrary }.count
-        return owned == 0 ? "bodyweight only" : "\(owned) item\(owned == 1 ? "" : "s")"
+        let active = EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)
+        let count = active?.members.count ?? 0
+        let items = count == 0 ? "bodyweight only" : "\(count) item\(count == 1 ? "" : "s")"
+        // Name the library once more than one exists ("Home · 6 items").
+        if libraries.count > 1, let name = active?.name {
+            return "\(name) · \(items)"
+        }
+        return items
     }
 
     private func prepareExport() {
@@ -315,6 +353,12 @@ struct SettingsScreen: View {
         }
         if summary.routinesCreated + summary.routinesReplaced > 0 {
             lines.append("Routines: \(summary.routinesCreated) added, \(summary.routinesReplaced) replaced")
+        }
+        if summary.equipmentConfigured > 0 {
+            lines.append("Equipment: \(summary.equipmentConfigured) configured")
+        }
+        if summary.librariesCreated + summary.librariesReplaced > 0 {
+            lines.append("Libraries: \(summary.librariesCreated) added, \(summary.librariesReplaced) updated")
         }
         lines.append("Sessions: \(summary.sessionsAdded) added, \(summary.sessionsSkipped) already present")
         return lines.joined(separator: "\n")

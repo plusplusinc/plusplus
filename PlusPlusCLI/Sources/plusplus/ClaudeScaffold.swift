@@ -28,10 +28,12 @@ enum ClaudeScaffold {
     ## Layout
 
     ```
-    program/exercises/   one exercise per file — the movement catalog
-    program/routines/    one routine template per file — groups, sets, targets
-    history/YYYY/        finished sessions — append-only, NEVER edited
-    .claude/skills/      /weekly-review, /tweak-program, /deload-check
+    program/exercises/           one exercise per file — the movement catalog
+    program/routines/            one routine template per file — groups, sets, targets
+    program/equipment/           gear with config worth keeping (weight steps, metric profiles)
+    program/equipment-libraries/ one gear list per training spot (Home, Hotel…)
+    history/YYYY/                finished sessions — append-only, NEVER edited
+    .claude/skills/              /weekly-review, /tweak-program, /deload-check
     ```
 
     ## Rules
