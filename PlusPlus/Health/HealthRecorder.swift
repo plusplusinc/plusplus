@@ -8,7 +8,8 @@ import HealthKit
 ///
 /// Health is a bonus, never a gate: unavailable, undecided, or denied all
 /// mean "skip silently". Disabled under --uitest-reset so the permission
-/// sheet can't eat a smoke test's tap (same rule as RestNotifier).
+/// sheet can't eat a smoke test's tap (same gate as the workout Live
+/// Activity controller).
 enum HealthRecorder {
     private static var store: HKHealthStore { HealthAccess.store }
 

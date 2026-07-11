@@ -89,7 +89,7 @@ struct PlusPlusApp: App {
         if inMemory && CommandLine.arguments.contains("--uitest-bigworkout") {
             Self.seedBigRoutine(context: modelContainer.mainContext)
         }
-        RestNotifier.shared.activate()
+        LiveMirror.shared.activate(container: modelContainer)
         // The superset-introduction tips (the only TipKit surface).
         // Daily cadence: with two tips in the pool, HIG wants a
         // frequency so consecutive screens can't stack popovers. Not

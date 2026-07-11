@@ -17,16 +17,33 @@ public enum PlusPlusAppGroup {
 }
 
 #if canImport(ActivityKit)
-/// The rest countdown as a Live Activity (Dynamic Island + Lock
-/// Screen). Date-based like the in-app timer, so suspension can't
-/// drift it; the island renders the countdown natively from endDate.
-struct RestActivityAttributes: ActivityAttributes {
+/// The active workout as a Live Activity (Dynamic Island + Lock Screen).
+/// ONE activity spans the whole session (#322): it rides in `.working`
+/// showing the current exercise, set progress, and count-up elapsed, and
+/// swaps to `.resting` with a live countdown + controls between sets.
+/// Date-based throughout (elapsed from `sessionStart`, countdown to
+/// `restEnd`), so app suspension can't drift either timer — the island
+/// renders both natively without the app being awake.
+struct WorkoutActivityAttributes: ActivityAttributes {
     struct ContentState: Codable, Hashable {
-        /// When rest ends; the island's timer text counts down to it.
-        var endDate: Date
-        /// What's up next when rest is over.
+        enum Phase: String, Codable, Hashable {
+            /// Mid-set: elapsed + progress, no countdown.
+            case working
+            /// Between sets: countdown to `restEnd` + rest controls.
+            case resting
+        }
+
+        var phase: Phase
+        /// The CURRENT exercise while working; the UP-NEXT exercise while
+        /// resting (the set you're about to do when the countdown ends).
         var exerciseName: String
         var setNumber: Int
+        var setsCompleted: Int
+        var totalSets: Int
+        /// Session start, for the count-up elapsed timer.
+        var sessionStart: Date
+        /// When rest ends; the countdown drains to it. Nil while working.
+        var restEnd: Date?
     }
 
     /// Fixed for the activity's life: the routine being performed.

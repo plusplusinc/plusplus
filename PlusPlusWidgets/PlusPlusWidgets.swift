@@ -43,38 +43,44 @@ enum WTheme {
 @main
 struct PlusPlusWidgetsBundle: WidgetBundle {
     var body: some Widget {
-        RestLiveActivity()
+        WorkoutLiveActivity()
         DueTodayWidget()
         StreakWidget()
     }
 }
 
-// MARK: - Rest Live Activity
+// MARK: - Workout Live Activity (#322)
+// One activity spans the whole session: it rides in `.working` (current
+// exercise, set progress, count-up elapsed) and swaps to `.resting`
+// (countdown + controls) between sets.
 
-struct RestLiveActivity: Widget {
+struct WorkoutLiveActivity: Widget {
     var body: some WidgetConfiguration {
-        ActivityConfiguration(for: RestActivityAttributes.self) { context in
+        ActivityConfiguration(for: WorkoutActivityAttributes.self) { context in
             // Lock Screen / banner.
             VStack(spacing: 10) {
                 HStack(alignment: .center, spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("REST")
+                        Text(context.state.phase == .resting ? "REST" : context.attributes.routineName.uppercased())
                             .font(.system(.caption2, design: .monospaced, weight: .semibold))
                             .kerning(0.8)
                             .foregroundStyle(.secondary)
-                        Text("Up next: \(context.state.exerciseName) · set \(context.state.setNumber)")
+                            .lineLimit(1)
+                        Text(context.state.phase == .resting
+                             ? "Up next: \(context.state.exerciseName) · set \(context.state.setNumber)"
+                             : "\(context.state.exerciseName) · set \(context.state.setNumber)")
                             .font(.system(.footnote, weight: .semibold))
                             .lineLimit(1)
                     }
                     Spacer()
-                    Text(timerInterval: Date()...context.state.endDate, countsDown: true)
-                        .font(.system(size: 32, weight: .bold, design: .monospaced))
-                        .monospacedDigit()
-                        .multilineTextAlignment(.trailing)
-                        .foregroundStyle(WTheme.accent)
+                    trailingTimer(context.state, size: 32)
                         .frame(maxWidth: 96)
                 }
-                RestControlButtons()
+                if context.state.phase == .resting {
+                    RestControlButtons()
+                } else {
+                    WorkoutProgressBar(completed: context.state.setsCompleted, total: context.state.totalSets)
+                }
             }
             .padding(14)
             .activityBackgroundTint(Color.black.opacity(0.55))
@@ -82,46 +88,108 @@ struct RestLiveActivity: Widget {
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("REST")
+                        Text(context.state.phase == .resting ? "REST" : "SET \(context.state.setNumber)")
                             .font(.system(.caption2, design: .monospaced, weight: .semibold))
                             .foregroundStyle(.secondary)
                         Text(context.state.exerciseName)
                             .font(.system(.footnote, weight: .semibold))
                             .lineLimit(1)
-                        Text("set \(context.state.setNumber)")
+                        Text("\(context.state.setsCompleted)/\(context.state.totalSets) done")
                             .font(.system(.caption2, design: .monospaced))
                             .foregroundStyle(.secondary)
                     }
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    Text(timerInterval: Date()...context.state.endDate, countsDown: true)
-                        .font(.system(size: 30, weight: .bold, design: .monospaced))
-                        .monospacedDigit()
-                        .foregroundStyle(WTheme.green)
-                        .frame(maxWidth: 88)
+                    trailingTimer(context.state, size: 30)
+                        .frame(maxWidth: 92)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    RestControlButtons()
-                        .padding(.top, 6)
+                    if context.state.phase == .resting {
+                        RestControlButtons()
+                            .padding(.top, 6)
+                    } else {
+                        WorkoutProgressBar(completed: context.state.setsCompleted, total: context.state.totalSets)
+                            .padding(.top, 4)
+                    }
                 }
             } compactLeading: {
                 Text("++")
                     .font(.system(.footnote, design: .monospaced, weight: .bold))
                     .foregroundStyle(WTheme.green)
             } compactTrailing: {
-                Text(timerInterval: Date()...context.state.endDate, countsDown: true)
-                    .font(.system(.footnote, design: .monospaced, weight: .semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(WTheme.green)
-                    .frame(maxWidth: 44)
+                compactTrailing(context.state)
             } minimal: {
-                Text(timerInterval: Date()...context.state.endDate, countsDown: true)
-                    .font(.system(.caption2, design: .monospaced, weight: .semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(WTheme.green)
-                    .frame(maxWidth: 36)
+                minimal(context.state)
             }
         }
+    }
+
+    /// Resting drains a countdown; working counts elapsed up from start.
+    @ViewBuilder
+    private func trailingTimer(_ state: WorkoutActivityAttributes.ContentState, size: CGFloat) -> some View {
+        if state.phase == .resting, let restEnd = state.restEnd {
+            Text(timerInterval: Date()...restEnd, countsDown: true)
+                .font(.system(size: size, weight: .bold, design: .monospaced))
+                .monospacedDigit()
+                .multilineTextAlignment(.trailing)
+                .foregroundStyle(WTheme.accent)
+        } else {
+            Text(state.sessionStart, style: .timer)
+                .font(.system(size: size, weight: .bold, design: .monospaced))
+                .monospacedDigit()
+                .multilineTextAlignment(.trailing)
+                .foregroundStyle(.primary)
+        }
+    }
+
+    @ViewBuilder
+    private func compactTrailing(_ state: WorkoutActivityAttributes.ContentState) -> some View {
+        if state.phase == .resting, let restEnd = state.restEnd {
+            Text(timerInterval: Date()...restEnd, countsDown: true)
+                .font(.system(.footnote, design: .monospaced, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(WTheme.accent)
+                .frame(maxWidth: 44)
+        } else {
+            Text("\(state.setsCompleted)/\(state.totalSets)")
+                .font(.system(.footnote, design: .monospaced, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(WTheme.green)
+                .frame(maxWidth: 44)
+        }
+    }
+
+    @ViewBuilder
+    private func minimal(_ state: WorkoutActivityAttributes.ContentState) -> some View {
+        if state.phase == .resting, let restEnd = state.restEnd {
+            Text(timerInterval: Date()...restEnd, countsDown: true)
+                .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(WTheme.accent)
+                .frame(maxWidth: 36)
+        } else {
+            Text("++")
+                .font(.system(.caption2, design: .monospaced, weight: .bold))
+                .foregroundStyle(WTheme.green)
+        }
+    }
+}
+
+/// A slim set-progress bar for the working phase.
+struct WorkoutProgressBar: View {
+    let completed: Int
+    let total: Int
+
+    var body: some View {
+        GeometryReader { geo in
+            let fraction = total > 0 ? min(1, Double(completed) / Double(total)) : 0
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.secondary.opacity(0.25))
+                Capsule().fill(WTheme.done)
+                    .frame(width: geo.size.width * fraction)
+            }
+        }
+        .frame(height: 5)
     }
 }
 
