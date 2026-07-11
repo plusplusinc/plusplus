@@ -6,6 +6,12 @@ import PlusPlusKit
 /// see connection state and sync on demand. Your program and history live as
 /// JSON in a repo you own — no PlusPlus server ever sees it.
 struct GitHubConnectScreen: View {
+    /// When true, the screen starts the device flow itself on first appear —
+    /// the post-install auto-return (B2): the GitHub Setup-URL bounce presents
+    /// this as a sheet, and the user lands straight on the authorize step
+    /// instead of hunting for the Connect button.
+    var autoConnect: Bool = false
+
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(\.openURL) private var openURL
@@ -13,6 +19,7 @@ struct GitHubConnectScreen: View {
 
     @State private var sync = GitHubSyncCoordinator.shared
     @State private var connectTask: Task<Void, Never>?
+    @State private var didAutoConnect = false
     @State private var codeCopied = false
     @State private var copyResetTask: Task<Void, Never>?
 
@@ -50,6 +57,16 @@ struct GitHubConnectScreen: View {
         }
         .background(Theme.background)
         .pushedScreenChrome(title: "GitHub Sync", onBack: { dismiss() })
+        .onAppear {
+            // One-shot: kick off the device flow only if we arrived here to
+            // connect and aren't already connected or mid-authorize.
+            guard autoConnect, !didAutoConnect else { return }
+            didAutoConnect = true
+            let isAuthorizing: Bool = { if case .authorizing = sync.activity { return true }; return false }()
+            guard case .disconnected = sync.connection, !isAuthorizing else { return }
+            connectTask?.cancel()
+            connectTask = Task { await sync.connect() }
+        }
         .onDisappear {
             connectTask?.cancel()
             copyResetTask?.cancel()
