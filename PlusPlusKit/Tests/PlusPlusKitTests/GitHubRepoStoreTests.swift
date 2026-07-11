@@ -131,20 +131,30 @@ struct GitHubRepoStoreTests {
         }
     }
 
-    @Test("write into an empty repo creates the branch ref")
-    func writeInitialCommit() async throws {
-        let client = ScriptedHTTPClient { request, _ in
+    @Test("write into an UNBORN repo seeds an initial commit, then commits on it")
+    func writeSeedsUnbornRepo() async throws {
+        // Real GitHub returns 409 "Git Repository is empty" on the Git Data
+        // API for a repo with zero commits (the user's brought-their-own empty
+        // repo). The store must birth the branch via the Contents API first.
+        let client = ScriptedHTTPClient { request, index in
             switch (request.method, request.path) {
             case (.get, let p) where p.contains("git/ref/heads/main"):
-                return GHResponse.status(404, body: "no ref yet")
+                // Unborn on the first look; born once the seed PUT has landed.
+                return index == 0
+                    ? GHResponse.status(409, body: "Git Repository is empty.")
+                    : GHResponse.json(["object": ["sha": "seed-commit"]])
+            case (.put, let p) where p.hasSuffix("contents/README.md"):
+                return GHResponse.json(["commit": ["sha": "seed-commit"]], status: 201)
+            case (.get, let p) where p.contains("git/commits/"):
+                return GHResponse.json(["tree": ["sha": "seed-tree"]])
             case (.post, let p) where p.contains("git/blobs"):
                 return GHResponse.json(["sha": "blob"], status: 201)
             case (.post, let p) where p.contains("git/trees"):
                 return GHResponse.json(["sha": "new-tree"], status: 201)
             case (.post, let p) where p.contains("git/commits"):
                 return GHResponse.json(["sha": "new-commit"], status: 201)
-            case (.post, let p) where p.hasSuffix("git/refs"):
-                return GHResponse.json(["ref": "refs/heads/main"], status: 201)
+            case (.patch, let p) where p.contains("git/refs/heads/main"):
+                return GHResponse.json(["object": ["sha": "new-commit"]])
             default:
                 return GHResponse.status(500, body: "unexpected \(request.method.rawValue) \(request.path)")
             }
@@ -152,13 +162,20 @@ struct GitHubRepoStoreTests {
 
         try await store(client).write([FileWrite(path: "program/x.json", data: Data("A".utf8))], message: "Sync: x")
 
-        // No base_tree (nothing to layer on), no parents, and a ref CREATE.
+        // The unborn repo is seeded via the Contents API on the target branch.
+        let seed = client.requests.first { $0.path.hasSuffix("contents/README.md") && $0.method == .put }
+        #expect(seed?.jsonBody?["branch"] as? String == "main")
+        #expect(seed?.jsonBody?["message"] as? String == "Initialize repository")
+        // Then the batched write layers on the seed commit and UPDATES the ref
+        // (the branch now exists) — never a bare create.
         let tree = client.requests.first { $0.path.contains("git/trees") && $0.method == .post }
-        #expect(tree?.jsonBody?["base_tree"] == nil)
+        #expect(tree?.jsonBody?["base_tree"] as? String == "seed-tree")
         let commit = client.requests.first { $0.path.hasSuffix("git/commits") && $0.method == .post }
-        #expect((commit?.jsonBody?["parents"] as? [String])?.isEmpty == true)
-        let refCreate = client.requests.first { $0.path.hasSuffix("git/refs") && $0.method == .post }
-        #expect(refCreate?.jsonBody?["ref"] as? String == "refs/heads/main")
+        #expect((commit?.jsonBody?["parents"] as? [String]) == ["seed-commit"])
+        let refUpdate = client.requests.first { $0.path.contains("git/refs/heads/main") && $0.method == .patch }
+        #expect(refUpdate?.jsonBody?["sha"] as? String == "new-commit")
+        let bareCreate = client.requests.first { $0.path.hasSuffix("git/refs") && $0.method == .post }
+        #expect(bareCreate == nil, "no bare ref create once the repo is seeded")
     }
 
     @Test("Writing no files is a no-op with no network calls")

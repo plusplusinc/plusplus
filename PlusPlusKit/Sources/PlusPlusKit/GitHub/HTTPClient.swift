@@ -19,6 +19,7 @@ public struct HTTPRequest: Sendable, Equatable {
         case get = "GET"
         case post = "POST"
         case patch = "PATCH"
+        case put = "PUT"
     }
 
     public var method: Method
