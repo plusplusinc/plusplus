@@ -46,6 +46,9 @@ struct EquipmentLibraryTray: View {
                 .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                 .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
                 .padding(.top, 14)
+                // ONE feedback for the switch, above the ForEach: on the
+                // row it fired once per rendered library (swift-reviewer).
+                .sensoryFeedback(.selection, trigger: activeLibraryID)
 
                 // Creation is green (#202); starts empty and active, so
                 // the tab's browse-the-catalog empty state takes over.
@@ -156,7 +159,6 @@ struct EquipmentLibraryTray: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .sensoryFeedback(.selection, trigger: activeLibraryID)
     }
 
     /// The library's gear as chips — as many as the row fits, then a
@@ -238,6 +240,9 @@ struct EquipmentLibraryTray: View {
         guard let library = deleting, libraries.count > 1 else { return }
         let wasActive = library === activeLibrary
         modelContext.delete(library)
+        // `order` isn't reindexed after a delete: it drives sort STABILITY
+        // only (not contiguity), and creation uses max()+1, so a gap can't
+        // collide. Reindexing would be churn for no behavior change.
         if wasActive, let next = libraries.first(where: { $0 !== library }) {
             activeLibraryID = next.uuid.uuidString
         }

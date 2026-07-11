@@ -672,9 +672,10 @@ struct CatalogBrowseScreen: View {
     // MARK: - Rows
 
     private func toggleRow(name: String, sub: Text, isOn: Binding<Bool>) -> some View {
-        // Toggle wraps the whole label: the full row flips it, and the
-        // row stays put either way — membership is visible state, not a
-        // disappearing act (#139).
+        // Toggle wraps the whole label: the full row flips it. Under the
+        // default (All) membership filter the row stays put on flip —
+        // visible state, not a disappearing act (#139); under an explicit
+        // In/Not-in-library filter it correctly leaves the filtered set.
         Toggle(isOn: isOn) {
             VStack(alignment: .leading, spacing: 1) {
                 Text(name)
