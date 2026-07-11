@@ -13,7 +13,18 @@ struct ExercisePickerView: View {
     @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
     var filterState: ExerciseFilterState
-    var onSelect: (Exercise) -> Void
+    /// The configured-selection path (session adds): a row tap opens a
+    /// configure sheet — set count + targets — stacked on the picker,
+    /// and Add hands back the finished `SessionExerciseConfig`. When set,
+    /// it takes precedence over `onSelect`.
+    var onConfigured: ((SessionExerciseConfig) -> Void)?
+    /// The plain path (routine building): a row tap selects immediately;
+    /// the routine's own detail sheet does the configuring.
+    var onSelect: ((Exercise) -> Void)?
+
+    /// The configure sheet's working config (configured path only) —
+    /// held so the sheet's edits survive to Add.
+    @State private var pendingConfig: SessionExerciseConfig?
 
     private var availableEquipmentNames: Set<String> {
         EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.memberNames ?? []
@@ -76,8 +87,15 @@ struct ExercisePickerView: View {
                 }
                 ForEach(candidates) { exercise in
                     Button {
-                        onSelect(exercise)
-                        dismiss()
+                        if onConfigured != nil {
+                            // Stack the configure sheet on the picker —
+                            // no dismiss-then-present handoff (the
+                            // documented presentation-drop class).
+                            pendingConfig = SessionExerciseConfig(exercise: exercise)
+                        } else {
+                            onSelect?(exercise)
+                            dismiss()
+                        }
                     } label: {
                         ExerciseRow(exercise: exercise, available: availableEquipmentNames)
                     }
@@ -154,6 +172,15 @@ struct ExercisePickerView: View {
             }
             .sheet(item: $editingExercise) { exercise in
                 ExerciseEditorView(editing: exercise)
+            }
+            // Configure-before-add (session picks): the sheet stacks on
+            // the picker; Add commits the config and dismisses the picker
+            // (iOS tears the stacked sheet down with its parent).
+            .sheet(item: $pendingConfig) { config in
+                ExerciseConfigSheet(config: config) {
+                    onConfigured?(config)
+                    dismiss()
+                }
             }
             .confirmationDialog(
                 deletionTitle,

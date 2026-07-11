@@ -20,7 +20,10 @@ enum HealthRecorder {
               let endedAt = session.endedAt,
               !session.completedSetLogs.isEmpty
         else { return }
-        let startedAt = session.startedAt
+        // The workout-clock anchor, not the session's creation: an
+        // ad-hoc session's Health window starts when the first exercise
+        // did, not while it was being assembled.
+        let startedAt = session.effectiveStart
         // The prompt lands on the "Workout Complete" screen the first
         // time — auth requested in context, remembered system-wide after.
         store.requestAuthorization(toShare: [.workoutType()], read: []) { success, _ in

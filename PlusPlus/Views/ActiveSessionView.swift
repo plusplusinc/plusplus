@@ -69,6 +69,10 @@ struct ActiveSessionView: View {
 
             if session.isFinished {
                 finishedView
+            } else if session.isPaused {
+                // Paused takes the screen from the logging/rest flow —
+                // the clock is banked and held until Resume.
+                pausedView
             } else if let displayLog = lingeringLog ?? session.currentLog {
                 // While `lingeringLog` holds, the just-completed set's
                 // screen stays up for the +1 beat — SAME structural
@@ -113,6 +117,11 @@ struct ActiveSessionView: View {
                     // torn down when rest takes the view
                     // (swift-reviewer).
                     .allowsHitTesting(lingeringLog == nil)
+                    // "Don't start the timer until the first exercise is
+                    // started" (Dave): an ad-hoc session's clock engages
+                    // when its first set screen appears. Routine sessions
+                    // engaged at start, so this is a no-op for them.
+                    .onAppear { engageClockIfNeeded() }
                 }
             } else if totalSets == 0 {
                 // A scratch session before its first exercise: no logs
@@ -152,9 +161,9 @@ struct ActiveSessionView: View {
             .presentationDetents([.fraction(0.88)])
         }
         .sheet(isPresented: $showingAddExercise) {
-            ExercisePickerView(filterState: pickerFilterState) { exercise in
-                session.appendExercise(exercise, context: modelContext)
-            }
+            ExercisePickerView(filterState: pickerFilterState, onConfigured: { config in
+                session.appendExercise(config: config, context: modelContext)
+            })
         }
         .alert("Save as routine", isPresented: $showingSaveAsRoutine) {
             TextField("Name", text: $routineNameDraft)
@@ -177,8 +186,11 @@ struct ActiveSessionView: View {
             // Prefetch so the denied caption is already placed when the
             // first rest renders instead of nudging the countdown.
             RestNotifier.shared.notificationsDenied { restAlertsDenied = $0 }
-            if !session.isFinished {
-                heartRate.start(from: session.startedAt)
+            // HR monitoring rides the workout clock: a routine session
+            // has already started, so it begins now; an ad-hoc session
+            // waits for its first exercise (engageClockIfNeeded).
+            if !session.isFinished, session.isWorkoutStarted {
+                heartRate.start(from: session.effectiveStart)
             }
         }
         .onDisappear {
@@ -247,6 +259,27 @@ struct ActiveSessionView: View {
                     target: (lingeringLog ?? session.currentLog)?.targetHeartRate,
                     chrome: true
                 )
+
+                // Pause the workout clock. Shown only while it's actually
+                // running under the logging flow (never mid-rest, where
+                // the rest screen owns the controls, and never before the
+                // first exercise has started).
+                if session.isRunning, restEndDate == nil, lingeringLog == nil {
+                    Button {
+                        session.pauseClock()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "pause.fill").font(.system(.caption, weight: .semibold))
+                            Text("Pause").font(.system(.footnote, weight: .semibold))
+                        }
+                        .foregroundStyle(Theme.textPrimary)
+                        .padding(.horizontal, 12)
+                        .frame(height: 34)
+                        .background(Theme.surface, in: Capsule())
+                        .overlay(Capsule().strokeBorder(Theme.border))
+                    }
+                    .accessibilityIdentifier("pauseWorkoutButton")
+                }
             }
 
             Spacer()
@@ -257,10 +290,10 @@ struct ActiveSessionView: View {
                 HStack(spacing: 7) {
                     TimelineView(.periodic(from: .now, by: 1)) { context in
                         // "set 1/0" is nonsense on an empty scratch
-                        // session — elapsed alone carries that state.
+                        // session — the clock state alone carries it.
                         Text(totalSets == 0
-                            ? elapsedText(at: context.date)
-                            : "set \(min(completedSets + 1, max(totalSets, 1)))/\(totalSets) · \(elapsedText(at: context.date))")
+                            ? clockText(at: context.date)
+                            : "set \(min(completedSets + 1, max(totalSets, 1)))/\(totalSets) · \(clockText(at: context.date))")
                             .font(.system(.caption, design: .monospaced))
                             .foregroundStyle(Theme.textPrimary)
                     }
@@ -279,10 +312,70 @@ struct ActiveSessionView: View {
         .padding(.top, 8)
     }
 
+    /// The clock face — mm:ss of active running time, from the session's
+    /// pause-aware clock.
     private func elapsedText(at date: Date) -> String {
-        let reference = session.endedAt ?? date
-        let elapsed = max(0, Int(reference.timeIntervalSince(session.startedAt)))
+        let elapsed = max(0, Int(session.elapsed(at: date)))
         return String(format: "%d:%02d", elapsed / 60, elapsed % 60)
+    }
+
+    /// The header pill's clock: "ready" before the first exercise starts
+    /// (the timer hasn't engaged), the running time otherwise, tagged
+    /// "· paused" while held.
+    private func clockText(at date: Date) -> String {
+        guard session.isWorkoutStarted else { return "ready" }
+        let elapsed = elapsedText(at: date)
+        return session.isPaused ? "\(elapsed) · paused" : elapsed
+    }
+
+    /// Engages the ad-hoc clock the first time a set screen appears —
+    /// the moment the first exercise is started. Routine sessions have
+    /// already started theirs, so the guard makes this a no-op for them.
+    private func engageClockIfNeeded() {
+        guard !session.isWorkoutStarted, !session.isFinished else { return }
+        session.startClock()
+        heartRate.start(from: session.effectiveStart)
+    }
+
+    // MARK: - Paused
+
+    /// The workout on hold: the clock frozen at its banked total, a
+    /// single Resume key. The screen replaces the logging/rest flow so
+    /// no set can be logged while paused.
+    private var pausedView: some View {
+        VStack(spacing: 16) {
+            Spacer()
+            Image(systemName: "pause.circle.fill")
+                .font(.system(size: 56))
+                .foregroundStyle(Theme.textSecondary)
+            Text("Paused")
+                .font(.system(.title2, weight: .bold))
+            // Frozen while paused — elapsed doesn't advance, so no clock.
+            Text(elapsedText(at: Date()))
+                .font(.system(size: 40, weight: .bold, design: .monospaced))
+                .foregroundStyle(Theme.textPrimary)
+            Text("your workout timer is on hold")
+                .font(.system(.footnote))
+                .foregroundStyle(Theme.textFaint)
+            Spacer()
+            Button {
+                session.startClock()
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "play.fill").font(.system(.footnote, weight: .bold))
+                    Text("Resume workout").font(.system(.body, weight: .bold))
+                }
+                .foregroundStyle(Theme.onPrimary)
+                .frame(maxWidth: .infinity)
+                .frame(height: 50)
+                .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
+            }
+            .buttonStyle(.raisedPrimaryKey(cornerRadius: 12))
+            .accessibilityIdentifier("resumeWorkoutButton")
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     /// Block-style set progress (Quiet Arcade, mock 08): one block per
@@ -381,7 +474,7 @@ struct ActiveSessionView: View {
             // detail) catches samples that sync in later.
             if let endedAt = session.endedAt {
                 let finished = session
-                HeartRateMonitor.summary(from: finished.startedAt, to: endedAt) { average, peak in
+                HeartRateMonitor.summary(from: finished.effectiveStart, to: endedAt) { average, peak in
                     guard !finished.isDeleted else { return }
                     if let average { finished.averageHeartRate = average }
                     if let peak { finished.maxHeartRate = peak }
@@ -584,7 +677,7 @@ struct ActiveSessionView: View {
     }
 
     private var finalElapsedText: String {
-        let elapsed = max(0, Int((session.endedAt ?? Date()).timeIntervalSince(session.startedAt)))
+        let elapsed = max(0, Int(session.duration ?? 0))
         return String(format: "%d:%02d", elapsed / 60, elapsed % 60)
     }
 
