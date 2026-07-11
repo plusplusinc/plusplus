@@ -54,10 +54,14 @@ struct RoutineDetailView: View {
             railList
         }
         .background(Theme.background)
-        // Custom key chrome (build-42 call): title + the counts
-        // subtitle (mock 07), share/settings as trailing keys. Share
-        // keeps its UIKit sheet (#178).
-        .pushedScreenChrome(title: routine.name, subtitle: headerSubtitle, onBack: { dismiss() }) {
+        // Custom key chrome: title + share/settings as trailing keys.
+        // The counts subtitle left the chrome (Dave, build-48): with
+        // two trailing keys the centered title needs 100 pt clearance
+        // each side, which crushed the subtitle to "~15 min · 5
+        // exercise…". The workload facts moved to the body header where
+        // they get full width (see `header`); the chrome carries the
+        // title alone. Share keeps its UIKit sheet (#178).
+        .pushedScreenChrome(title: routine.name, onBack: { dismiss() }) {
             if !routine.groups.isEmpty, shareURL != nil {
                 HeaderIconButton(systemImage: "square.and.arrow.up", identifier: "shareRoutineButton") {
                     showingShareSheet = true
@@ -125,9 +129,10 @@ struct RoutineDetailView: View {
 
     // MARK: - Header
 
-    /// "~40 min · 6 exercises · 18 sets" — the chrome subtitle
-    /// (mock 07).
-    private var headerSubtitle: String? {
+    /// "~40 min · 6 exercises · 18 sets" — the workload facts, now the
+    /// body header's top line (moved out of the cramped chrome subtitle,
+    /// build-48). Nil until the routine has an exercise.
+    private var workloadFacts: String? {
         let exercises = routine.sortedGroups.reduce(0) { $0 + $1.sortedExercises.count }
         guard exercises > 0 else { return nil }
         let sets = routine.sortedGroups.reduce(0) { $0 + $1.sets * $1.sortedExercises.count }
@@ -136,18 +141,27 @@ struct RoutineDetailView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // The name and counts live in the chrome now; the header
-            // keeps the schedule facts only.
+            // Facts, not inputs (v4 §A). The chrome carries just the
+            // title now; the workload summary and cadence live here at
+            // full width. Nothing is tappable — the settings key is the
+            // single edit entry.
             if !routine.groups.isEmpty {
-                // Facts, not inputs (v4 §A): schedule value first (ink,
-                // semibold), then rest as secondary meta (the estimate
-                // moved to the chrome subtitle). Nothing here is
-                // tappable — the settings key is the single edit entry.
+                // Workload first — "what is this session" (estimate +
+                // counts), full-width so it never truncates the way the
+                // chrome subtitle did.
+                if let facts = workloadFacts {
+                    Text(facts)
+                        .font(.system(.footnote, design: .monospaced))
+                        .foregroundStyle(Theme.textSecondary)
+                        .padding(.top, 8)
+                }
+                // Cadence next: schedule value (ink, semibold) then rest
+                // as secondary meta.
                 (scheduleFactText
                     + Text("  ·  rest \(restText)")
                     .font(.system(.footnote, design: .monospaced))
                     .foregroundStyle(Theme.textSecondary))
-                    .padding(.top, 8)
+                    .padding(.top, workloadFacts == nil ? 8 : 3)
 
                 if let notes = routine.notes {
                     Text(notes)

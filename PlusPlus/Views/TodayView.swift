@@ -194,7 +194,6 @@ struct TodayView: View {
                                         ) {
                                             committedCard(session)
                                                 .scaleEffect(converting && !completionConverted ? 0.97 : 1.0)
-                                                .matchedTransitionSource(id: session.persistentModelID, in: zoomNamespace)
                                         }
                                     }
                                 }
@@ -273,8 +272,12 @@ struct TodayView: View {
                 // view's start() parked the deferred fire's state on
                 // a surviving screen, where a mid-pop drop would have
                 // wedged the cover for good (swift-reviewer catch).
+                //
+                // Plain push, NOT a zoom (Dave, build-48): the record
+                // now opens with the same standard slide as tapping a
+                // pending/upcoming card into routine detail — the two
+                // navigations felt different and the plain push won.
                 SessionDetailView(session: destination.session)
-                    .navigationTransition(.zoom(sourceID: destination.session.persistentModelID, in: zoomNamespace))
             }
             // Registered at the stack root, NOT inside RoutineCatalogScreen
             // (pushed below for setup step 2): a value destination declared
@@ -682,7 +685,13 @@ struct TodayView: View {
             .padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
-            .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
+            // Dashed grey: a future occurrence is "not yet" (Dave,
+            // build-48) — the dash carries provisionality, and grey keeps
+            // it inert while today's card wears the solid green it earns.
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.cardRadius)
+                    .strokeBorder(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+            )
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -1008,9 +1017,13 @@ struct TodayView: View {
         }
         .padding(12)
         .background(Theme.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+        // Today's card is the one to DO now: a solid green border marks
+        // it (Dave, build-48), the same actionable-green the node ring
+        // already speaks. Dashes moved to the FUTURE cards (see
+        // futureCard) — a dash now reads "not yet", not "pending here".
         .overlay(
             RoundedRectangle(cornerRadius: Theme.cardRadius)
-                .strokeBorder(Theme.borderStrong, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                .strokeBorder(Theme.accent, lineWidth: 1.5)
         )
     }
 
