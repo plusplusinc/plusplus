@@ -39,6 +39,12 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
     /// Default targets for metrics beyond the three dedicated fields
     /// above, keyed by metric identifier.
     public var extraDefaults: [String: Double]?
+    /// Whether this exercise is in the user's library ("my exercises"), the
+    /// curation that used to be lost on export/restore. Additive: written only
+    /// when `false` (the exception — an exported exercise NOT in the library,
+    /// e.g. a removed custom), so the common in-library case stays byte-clean
+    /// and every pre-existing file (absent) reads as in-library.
+    public var inLibrary: Bool?
 
     public init(
         name: String,
@@ -54,7 +60,8 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
         defaultDurationSeconds: Int? = nil,
         metrics: [String]? = nil,
         distanceUnit: DistanceUnit? = nil,
-        extraDefaults: [String: Double]? = nil
+        extraDefaults: [String: Double]? = nil,
+        inLibrary: Bool? = nil
     ) {
         self.name = name
         self.muscleGroup = muscleGroup
@@ -70,6 +77,7 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
         self.metrics = metrics?.sorted()
         self.distanceUnit = distanceUnit
         self.extraDefaults = extraDefaults
+        self.inLibrary = inLibrary
     }
 }
 

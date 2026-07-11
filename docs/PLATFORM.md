@@ -89,10 +89,14 @@ history/
 README.md                     # (later) auto-generated summary
 ```
 
-Built-in library exercises are not written to the repo; routine files may
-reference them by name, and the app resolves them against its seed library.
-An exercise file is written only for custom exercises (or built-ins the user
-has effectively customized).
+An exercise file is written for everything in the user's **library** — all
+custom exercises, plus any built-in the user has adopted (the equipment-driven
+populate offer, a manual add) or customized. Un-adopted catalog built-ins are
+NOT written; routine files may reference them by name, and the app resolves
+them against its seed library on import (#328). Membership rides an additive
+`inLibrary` field, written only when `false` (an exported exercise NOT in the
+library, e.g. a removed custom) so the common case stays byte-clean and every
+pre-existing file reads as in-library.
 
 ## Interchange schema v1
 

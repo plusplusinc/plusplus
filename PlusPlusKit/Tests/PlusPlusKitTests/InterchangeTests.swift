@@ -167,6 +167,23 @@ struct InterchangeTests {
         #expect(strict.contains { $0.message.contains("unresolved exercise reference") })
     }
 
+    @Test("inLibrary round-trips and is written only when false (#328)")
+    func inLibraryRoundTrips() throws {
+        // Not in library → explicit false in the file.
+        let notInLib = ExerciseDTO(name: "Probe A", muscleGroup: .core, exerciseType: .weightReps,
+                                   equipment: [], isBuiltIn: true, inLibrary: false)
+        let dataFalse = try InterchangeCodec.encode(ExerciseDocument(exercise: notInLib))
+        #expect(String(decoding: dataFalse, as: UTF8.self).contains("\"inLibrary\" : false"))
+        #expect(try InterchangeCodec.decode(ExerciseDocument.self, from: dataFalse).exercise.inLibrary == false)
+
+        // In library (nil) → omitted, keeping files byte-clean; decodes to nil.
+        let inLib = ExerciseDTO(name: "Probe B", muscleGroup: .core, exerciseType: .weightReps,
+                                equipment: [], inLibrary: nil)
+        let dataNil = try InterchangeCodec.encode(ExerciseDocument(exercise: inLib))
+        #expect(!String(decoding: dataNil, as: UTF8.self).contains("inLibrary"))
+        #expect(try InterchangeCodec.decode(ExerciseDocument.self, from: dataNil).exercise.inLibrary == nil)
+    }
+
     @Test("Validator bounds exercise default targets (#187)")
     func validatorChecksDefaultTargets() {
         let bundle = ExportBundle(

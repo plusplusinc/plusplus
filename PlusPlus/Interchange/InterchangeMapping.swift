@@ -40,10 +40,12 @@ enum InterchangeMapping {
         }
         return ExportBundle(
             units: units,
-            // Built-ins ship with every install; only export ones the user
-            // has annotated so imports stay meaningful.
+            // Export the user's LIBRARY: all customs, plus any built-in that's
+            // in the library (the populate offer / manual adds — #328) or
+            // that the user has annotated. Un-adopted catalog built-ins ship
+            // with the app and resolve on import, so they stay out.
             exercises: exercises
-                .filter { !$0.isBuiltIn || $0.notes != nil || $0.videoURL != nil || $0.hasDefaultTargets || $0.metricsData != nil }
+                .filter { !$0.isBuiltIn || $0.inLibrary || $0.notes != nil || $0.videoURL != nil || $0.hasDefaultTargets || $0.metricsData != nil }
                 .map(makeDTO),
             routines: routines.map(makeDTO),
             sessions: sessions.map(makeDTO),
@@ -90,7 +92,11 @@ enum InterchangeMapping {
             defaultDurationSeconds: exercise.defaultDurationSeconds,
             metrics: explicitProfile.map { $0.metrics.map(\.rawValue) },
             distanceUnit: explicitProfile?.distanceUnit,
-            extraDefaults: MetricValues.toRaw(exercise.extraDefaults)
+            extraDefaults: MetricValues.toRaw(exercise.extraDefaults),
+            // Carry library membership so it round-trips. Written only when
+            // NOT in the library (the exception) — the common in-library case
+            // stays absent, keeping files byte-clean.
+            inLibrary: exercise.inLibrary ? nil : false
         )
     }
 
@@ -205,6 +211,9 @@ enum InterchangeMapping {
                 // means "derive" (table/type), not "keep mine".
                 existing.metricsData = profileData(from: dto)
                 existing.extraDefaults = MetricValues.fromRaw(dto.extraDefaults)
+                // Restore library membership (#328). Absent means in-library
+                // (the common case + every pre-inLibrary file).
+                existing.inLibrary = dto.inLibrary ?? true
                 summary.exercisesUpdated += 1
             } else {
                 let exercise = Exercise(
@@ -221,6 +230,7 @@ enum InterchangeMapping {
                 exercise.defaultDurationSeconds = dto.defaultDurationSeconds
                 exercise.metricsData = profileData(from: dto)
                 exercise.extraDefaults = MetricValues.fromRaw(dto.extraDefaults)
+                exercise.inLibrary = dto.inLibrary ?? true
                 context.insert(exercise)
                 // Post-insert, like the seeder: pre-insert relationship
                 // assignment loses nondeterministically.

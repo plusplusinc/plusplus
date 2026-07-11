@@ -56,7 +56,10 @@ final class GitHubSyncCoordinator {
     init(
         config: GitHubAppConfiguration? = GitHubSyncSettings.appConfiguration,
         tokens: any TokenStore = KeychainTokenStore(),
-        client: any HTTPClient = URLSessionHTTPClient()
+        // Retry transient network failures — notably URLError -1005
+        // (connection lost), which fires on the first request after the app
+        // returns from the Safari authorization round-trip.
+        client: any HTTPClient = RetryingHTTPClient(wrapping: URLSessionHTTPClient())
     ) {
         let savedCoordinate = GitHubSyncSettings.savedCoordinate()
         self.config = config

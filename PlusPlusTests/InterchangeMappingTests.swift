@@ -95,6 +95,35 @@ struct InterchangeMappingTests {
         #expect(sessions.first?.sortedSetLogs.first?.actualReps == 10)
     }
 
+    @Test("Library membership travels: adopted built-ins export and restore (#328)")
+    func libraryMembershipRoundTrips() throws {
+        let source = ModelContext(try makeContainer())
+        // An un-customized built-in the user adopted (the populate offer, or a
+        // manual add). Built-ins default inLibrary = true.
+        let adopted = Exercise(name: "Probe Adopted", muscleGroup: .core, isBuiltIn: true)
+        // An un-customized built-in still catalog-only (not in the library).
+        let catalogOnly = Exercise(name: "Probe Catalog", muscleGroup: .core, isBuiltIn: true)
+        catalogOnly.inLibrary = false
+        source.insert(adopted)
+        source.insert(catalogOnly)
+        try source.save()
+
+        // Export ships the adopted one but not the catalog-only one — the #328
+        // fix (was: only customs + edited built-ins, dropping the library).
+        let bundle = try InterchangeMapping.exportBundle(context: source)
+        let exported = Set(bundle.exercises.map(\.name))
+        #expect(exported.contains("Probe Adopted"), "An in-library built-in must export")
+        #expect(!exported.contains("Probe Catalog"), "A catalog-only built-in must not export")
+
+        // Membership restores on import into a fresh store.
+        let dest = ModelContext(try makeContainer())
+        _ = try InterchangeMapping.importBundle(bundle, context: dest)
+        let imported = try dest.fetch(
+            FetchDescriptor<Exercise>(predicate: #Predicate { $0.name == "Probe Adopted" })
+        )
+        #expect(imported.first?.inLibrary == true)
+    }
+
     /// The new-phone story: a source store's equipment libraries and
     /// gear config survive export → import into a fresh store, and the
     /// libraries carry their exact membership (customs included).
