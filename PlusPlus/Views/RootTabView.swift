@@ -99,7 +99,7 @@ struct RootTabView: View {
         // Universal-link form of the same GitHub Setup-URL return
         // (https://plusplus.fit/github/…), for when it opens the app directly.
         .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
-            if let url = activity.webpageURL, url.path.hasPrefix("/github") {
+            if let url = activity.webpageURL, url.path == "/github/connected" || url.path.hasPrefix("/github/") {
                 showGitHubConnect = true
             }
         }
