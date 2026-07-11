@@ -556,6 +556,16 @@ struct ActiveSessionView: View {
             }
 
             Button {
+                // Closing the recap goes home: the root switches to
+                // Today and Today converts this workout's card to done
+                // (pending green → committed purple). Posted before the
+                // dismiss so Today is already staging the animation as
+                // the cover pulls away. Only a finished session reaches
+                // here — Discard deletes and dismisses on its own path.
+                NotificationCenter.default.post(
+                    name: .plusplusWorkoutFinished,
+                    object: session.persistentModelID
+                )
                 dismiss()
             } label: {
                 Text("Continue")

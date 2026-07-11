@@ -10,6 +10,11 @@ import AppIntents
 extension Notification.Name {
     /// Posted by StartRoutineIntent with the routine name as `object`.
     static let plusplusStartRoutine = Notification.Name("plusplusStartRoutine")
+    /// Posted when the recap's Continue closes a finished workout, with
+    /// the session's `PersistentIdentifier` as `object`. The root switches
+    /// to Today and Today plays the pending→done conversion on that card —
+    /// regardless of which screen presented the session cover.
+    static let plusplusWorkoutFinished = Notification.Name("plusplusWorkoutFinished")
 }
 
 struct RoutineEntity: AppEntity {

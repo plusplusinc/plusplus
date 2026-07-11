@@ -61,6 +61,14 @@ struct TodayView: View {
     /// from a workout cover, tab hops) must not yank the scroll
     /// position. Day changes re-anchor separately via dayToken.
     @State private var hasAnchoredToday = false
+    /// The workout just finished (its recap closed), awaiting the
+    /// pending→done conversion flourish on its committed card. Nil
+    /// outside the beat.
+    @State private var justCompletedID: PersistentIdentifier?
+    /// Flips true a beat after landing on Today: the just-finished
+    /// card's node completes its green→purple turn and the checkmark
+    /// seals it. False both before the turn and after it settles.
+    @State private var completionConverted = false
 
     /// The zero-height marker the opening scroll anchors to — today's
     /// content top-aligns here, with the week ahead above it (#267).
@@ -164,8 +172,22 @@ struct TodayView: View {
                                         setupSection
                                     }
                                     ForEach(sessions) { session in
-                                        TimelineItem(node: .committed) {
+                                        // The just-finished session converts
+                                        // on landing (recap-close animation):
+                                        // its node turns from actionable green
+                                        // to done purple and a checkmark seals
+                                        // it. Every other committed card is a
+                                        // plain purple ring.
+                                        let converting = justCompletedID == session.persistentModelID
+                                        TimelineItem(
+                                            node: .committed,
+                                            strokeOverride: converting
+                                                ? (completionConverted ? Theme.committedFill : Theme.accent)
+                                                : nil,
+                                            showCheckmark: converting && completionConverted
+                                        ) {
                                             committedCard(session)
+                                                .scaleEffect(converting && !completionConverted ? 0.97 : 1.0)
                                                 .matchedTransitionSource(id: session.persistentModelID, in: zoomNamespace)
                                         }
                                     }
@@ -369,6 +391,47 @@ struct TodayView: View {
                       let routine = routines.first(where: { $0.name.lowercased() == name.lowercased() })
                 else { return }
                 start(routine)
+            }
+            // A finished workout's recap just closed: pop to the Today
+            // root (the session may have started from a pushed screen)
+            // and convert its committed card to done.
+            .onReceive(NotificationCenter.default.publisher(for: .plusplusWorkoutFinished)) { note in
+                guard let id = note.object as? PersistentIdentifier else { return }
+                if !todayPath.isEmpty { todayPath = NavigationPath() }
+                playCompletionConversion(for: id)
+            }
+        }
+    }
+
+    /// The pending→done conversion, staged so it reads as a sequence:
+    /// the card lands looking still-active (green node, a hair small),
+    /// then a beat later the node turns purple and a checkmark seals it,
+    /// then it settles into the resting committed look. A completion
+    /// flourish, so it runs slower than the app's 0.15 s selection/nav
+    /// motion on purpose (the grammar's "completion" beat — the recap's
+    /// own checkmark bounces too); DECISIONS.md 2026-07-11 logs the
+    /// exception. The 0.35 s lead matches the finish cover's dismiss so
+    /// the turn plays in full view, not behind the pull-away.
+    private func playCompletionConversion(for id: PersistentIdentifier) {
+        // Pre-state set WITHOUT animation, and safe only because the only
+        // caller (the recap close) fires while the full-screen cover
+        // still covers Today — the purple→green reset is invisible. A
+        // future caller firing over a visible Today would blink; wrap
+        // this in a transaction if that ever becomes a path.
+        justCompletedID = id
+        completionConverted = false
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(0.35))
+            guard justCompletedID == id else { return }
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                completionConverted = true
+            }
+            try? await Task.sleep(for: .seconds(0.8))
+            // A newer finish supersedes this one — don't clear its beat.
+            guard justCompletedID == id else { return }
+            withAnimation(.easeOut(duration: 0.2)) {
+                justCompletedID = nil
+                completionConverted = false
             }
         }
     }
@@ -1355,6 +1418,13 @@ private enum TimelineNode {
 
 private struct TimelineItem<Content: View>: View {
     let node: TimelineNode
+    /// Drives the node color directly (the completion conversion animates
+    /// green → purple here). Nil falls back to the node's own color.
+    var strokeOverride: Color? = nil
+    /// A one-shot purple checkmark that seals the node at the end of the
+    /// conversion — bigger than the ring, so it reads as a stamp, then
+    /// fades back to the resting ring (nodes are rings at rest, #build-33).
+    var showCheckmark: Bool = false
     @ViewBuilder let content: () -> Content
 
     var body: some View {
@@ -1365,9 +1435,18 @@ private struct TimelineItem<Content: View>: View {
                     .frame(width: 2)
                     .frame(maxHeight: .infinity)
                 Circle()
-                    .strokeBorder(node.strokeColor, lineWidth: 2)
+                    .strokeBorder(strokeOverride ?? node.strokeColor, lineWidth: 2)
                     .frame(width: 10, height: 10)
                     .background(Circle().fill(Theme.background))
+                    .overlay {
+                        if showCheckmark {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundStyle(Theme.done)
+                                .symbolEffect(.bounce, options: .nonRepeating, value: showCheckmark)
+                                .transition(.scale.combined(with: .opacity))
+                        }
+                    }
                     .padding(.top, 18)
             }
             .frame(width: 20)
