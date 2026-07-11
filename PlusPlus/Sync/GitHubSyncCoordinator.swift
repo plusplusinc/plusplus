@@ -168,7 +168,7 @@ final class GitHubSyncCoordinator {
             if Self.isAuthFailure(error) {
                 try? tokens.clear()
                 GitHubSyncSettings.clearCoordinate()
-                coordinate = nil
+                self.coordinate = nil
                 connection = .disconnected
                 activity = .error("Your GitHub connection expired. Reconnect.")
             } else {
