@@ -1,0 +1,76 @@
+# Diagnostic: ask App Store Connect for recent builds' processing states.
+# testflight.yml going green only proves the binary was DELIVERED — ASC then
+# processes it asynchronously (→ appears in TestFlight, or gets rejected with
+# an email), which is invisible to that run. This closes the blind spot: it
+# mints a JWT from the same ASC key and prints each build's processingState
+# (PROCESSING / VALID / INVALID / FAILED), so "did it actually make it?" is a
+# query, not a guess. Dispatch-only; reads nothing but ASC.
+name: ASC build status
+
+on:
+  workflow_dispatch:
+
+jobs:
+  status:
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - name: Query App Store Connect for recent builds
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet 'pyjwt[crypto]'
+          "$RUNNER_TEMP/venv/bin/python" <<'PY'
+          import os, time, json, urllib.request, urllib.error, jwt
+
+          key = os.environ["ASC_KEY_P8"]
+          now = int(time.time())
+          token = jwt.encode(
+              {"iss": os.environ["ASC_ISSUER_ID"], "iat": now, "exp": now + 300,
+               "aud": "appstoreconnect-v1"},
+              key, algorithm="ES256",
+              headers={"kid": os.environ["ASC_KEY_ID"], "typ": "JWT"},
+          )
+
+          def api(path):
+              req = urllib.request.Request(
+                  "https://api.appstoreconnect.apple.com" + path,
+                  headers={"Authorization": "Bearer " + token},
+              )
+              try:
+                  with urllib.request.urlopen(req) as r:
+                      return json.load(r)
+              except urllib.error.HTTPError as e:
+                  print(f"::error::ASC API {e.code}: {e.read().decode()[:600]}")
+                  raise
+
+          BUNDLE = "com.davidcole.plusplus"
+          apps = api(f"/v1/apps?filter[bundleId]={BUNDLE}")["data"]
+          if not apps:
+              print(f"::error::No app found for bundle id {BUNDLE}")
+              raise SystemExit(1)
+          app = apps[0]
+          print(f"App: {app['attributes'].get('name')} ({BUNDLE}) id={app['id']}\n")
+
+          builds = api(f"/v1/builds?filter[app]={app['id']}&sort=-uploadedDate&limit=15")["data"]
+          if not builds:
+              print("No builds found in App Store Connect.")
+              raise SystemExit(0)
+
+          print(f"{'BUILD':>6}  {'STATE':<12} {'EXPIRED':<8} UPLOADED")
+          bad = []
+          for b in builds:
+              a = b["attributes"]
+              print(f"{str(a.get('version')):>6}  {str(a.get('processingState')):<12} "
+                    f"{str(a.get('expired')):<8} {a.get('uploadedDate')}")
+              if a.get("processingState") in ("INVALID", "FAILED"):
+                  bad.append(str(a.get("version")))
+
+          for v in bad:
+              print(f"::warning::build {v} is INVALID/FAILED in ASC processing — "
+                    f"check the Apple ID email for the ITMS reason")
+          PY
