@@ -868,22 +868,11 @@ private struct SetLoggingView: View {
         }.count
     }
 
-    /// Superset rotation chips: unique exercise names in this log's group,
-    /// in rotation order. Empty when the group is solo.
-    private var supersetNames: [String] {
-        var names: [String] = []
-        for other in session.sortedSetLogs where other.groupIndex == log.groupIndex {
-            if !names.contains(other.exerciseName) { names.append(other.exerciseName) }
-        }
-        return names.count > 1 ? names : []
-    }
-
     var body: some View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    // SUPERSET moved onto the chips row (mock 08) —
-                    // the kicker keeps the set count alone. Cardio work
+                    // The kicker keeps the set count alone. Cardio work
                     // (a timed piece, a distance repeat) counts ROUNDS:
                     // "round 3 of 8" is the honest name for an interval.
                     Text("\(driver == .reps ? "SET" : "ROUND") \(log.setNumber) OF \(setsTotal)")
@@ -896,9 +885,21 @@ private struct SetLoggingView: View {
                         .font(.system(.title, weight: .bold))
                         .padding(.top, 6)
 
-                    if !supersetNames.isEmpty {
-                        SupersetChips(names: supersetNames, current: log.exerciseName)
-                            .padding(.top, 10)
+                    // What comes after this set: a superset partner, or
+                    // the exercise after this block, with its prescription.
+                    // The clear replacement for the old A→B→C rotation
+                    // chips (which truncated and confused more than they
+                    // told), and it rides the shared header so auto-logging
+                    // duration sets show it too (Dave, build-46).
+                    if let upNext = upNextLine {
+                        HStack(spacing: 8) {
+                            Text("NEXT")
+                                .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                                .foregroundStyle(Theme.textFaint)
+                                .kerning(0.8)
+                            upNext
+                        }
+                        .padding(.top, 10)
                     }
 
                     // Weight/reps sets carry target + last INSIDE the
@@ -1251,53 +1252,24 @@ private struct SetLoggingView: View {
             }
             .padding(.horizontal, 16)
             .padding(.top, 24)
-
-            // "1 of 3 logged · rest 90s auto" (mock 08): the block's
-            // tally plus what happens at the log — plain facts.
-            Text("\(loggedLine) · rest \(WorkoutMetric.rest.displayText(Double(session.restSeconds(after: log)))) auto")
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(Theme.textFaint)
-                .frame(maxWidth: .infinity)
-                .padding(.top, 8)
-
-            // UP NEXT (mock 08): where the rotation goes after this
-            // block — the same fact the rest screen carries, visible
-            // before the finger commits.
-            if let upNext = upNextLine {
-                VStack(alignment: .leading, spacing: 3) {
-                    Divider().overlay(Theme.border)
-                    Text("UP NEXT")
-                        .font(.system(.caption2, design: .monospaced, weight: .semibold))
-                        .foregroundStyle(Theme.textFaint)
-                        .kerning(0.8)
-                        .padding(.top, 8)
-                    upNext
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 10)
-            }
+            // The block tally and rest length that used to sit here are
+            // gone (Dave, build-46): "SET n OF m" up top already carries
+            // the count, and "what's next" now rides the header so every
+            // driver — including auto-logging duration sets — shows it.
         }
         .padding(.bottom, 12)
     }
 
-    /// "no sets logged yet" / "1 of 3 logged" — this block's tally.
-    private var loggedLine: String {
-        let logged = session.sortedSetLogs.filter {
-            $0.groupIndex == log.groupIndex && $0.exerciseName == log.exerciseName && $0.isCompleted
-        }.count
-        return logged == 0 ? "no sets logged yet" : "\(logged) of \(setsTotal) logged"
-    }
-
-    /// The next pending log after this one: a superset partner gets
-    /// its name + prescription, a plain next set just its number.
+    /// The next DIFFERENT exercise coming up — a superset partner, or the
+    /// exercise after this block — with its prescription. Nil when the
+    /// next pending set is just another set of THIS exercise (the "SET n
+    /// OF m" kicker already says that) or when nothing's left, so a plain
+    /// block stays quiet until it hands off.
     private var upNextLine: Text? {
-        guard let next = session.sortedSetLogs.first(where: { !$0.isCompleted && $0.order != log.order }) else {
+        guard let next = session.sortedSetLogs.first(where: {
+            !$0.isCompleted && $0.order != log.order
+        }), next.exerciseName != log.exerciseName else {
             return nil
-        }
-        if next.exerciseName == log.exerciseName {
-            return Text("\(next.exerciseName) — \(next.driver == .reps ? "set" : "round") \(next.setNumber)")
-                .font(.system(.footnote, weight: .semibold))
-                .foregroundStyle(Theme.textPrimary)
         }
         let detail = MetricSummary.line(
             profile: next.metricProfile,
@@ -1305,9 +1277,12 @@ private struct SetLoggingView: View {
             repsText: next.targetReps.lower != nil ? next.targetReps.display : nil,
             value: { next.target($0) }
         ) ?? "\(next.driver == .reps ? "set" : "round") \(next.setNumber)"
-        return Text("\(next.exerciseName) — ")
+        return Text(next.exerciseName)
             .font(.system(.footnote, weight: .semibold))
             .foregroundStyle(Theme.textPrimary)
+            + Text(" · ")
+            .font(.system(.footnote))
+            .foregroundStyle(Theme.textFaint)
             + Text(detail)
             .font(.system(.footnote, design: .monospaced))
             .foregroundStyle(Theme.textPrimary)
@@ -1334,46 +1309,6 @@ private struct SetLoggingView: View {
             return "\(driver == .reps ? "set" : "round") \(log.setNumber)"
         }
         return "target \(line)"
-    }
-}
-
-/// "A · BENCH → B · ROW" rotation chips (mock 08): lettered mono
-/// capsules, the current member an INVERSE INK fill — mid-action it's
-/// "where you are", a position in the rotation, not a selection being
-/// made — the next member outlined, and the SUPERSET legend riding
-/// the row's trailing edge.
-private struct SupersetChips: View {
-    let names: [String]
-    let current: String
-
-    var body: some View {
-        HStack(spacing: 7) {
-            ForEach(Array(names.enumerated()), id: \.offset) { index, name in
-                if index > 0 {
-                    Text("→")
-                        .font(.system(.caption))
-                        .foregroundStyle(Theme.textFaint)
-                }
-                Text("\(letter(index)) · \(name.uppercased())")
-                    .font(.system(.caption2, design: .monospaced, weight: .semibold))
-                    .kerning(0.5)
-                    .foregroundStyle(name == current ? Theme.onPrimary : Theme.textSecondary)
-                    .lineLimit(1)
-                    .padding(.horizontal, 11)
-                    .frame(height: 34)
-                    .background(name == current ? Theme.primaryFill : Color.clear, in: Capsule())
-                    .overlay(Capsule().strokeBorder(name == current ? Color.clear : Theme.borderStrong, lineWidth: 1))
-            }
-            Spacer(minLength: 6)
-            Text("SUPERSET")
-                .font(.system(.caption2, design: .monospaced, weight: .semibold))
-                .kerning(0.6)
-                .foregroundStyle(Theme.textFaint)
-        }
-    }
-
-    private func letter(_ index: Int) -> String {
-        String(UnicodeScalar(UInt8(65 + index % 26)))
     }
 }
 
@@ -1421,28 +1356,47 @@ private struct LiveHeartRateLabel: View {
 
 /// The "+1" popped on each logged set (Quiet Arcade, replacing the
 /// mitosis "+"): a mono green +1 rises ~30 pt from the key's top edge,
-/// scaling 0.7 → 1.25 while it fades, 0.7 s ease-out, one-shot per
-/// trigger bump. Real number, real increment — the whole brand in one
-/// flourish.
+/// scaling 0.7 → 1.25 while it fades, ~0.7 s, one-shot per trigger bump.
+/// Real number, real increment — the whole brand in one flourish.
+///
+/// Driven by `keyframeAnimator`, which plays ONLY when `trigger` changes
+/// and otherwise sits at `initialValue` (opacity 0). The old
+/// value-derived opacity left it FROZEN at full opacity on any set whose
+/// carried-in `trigger` was already > 0 — every set after the first
+/// showed a stuck +1 above Log set before you'd logged anything (Dave,
+/// build-46). A keyframe track can't get stranded like that: the resting
+/// state is defined, not inferred.
 private struct PlusOneBurst: View {
     let trigger: Int
-    @State private var animating = false
+
+    private struct Beat {
+        var opacity = 0.0
+        var scale = 0.7
+        var lift = 0.0
+    }
 
     var body: some View {
         Text("+1")
             .font(.system(.body, design: .monospaced, weight: .bold))
             .foregroundStyle(Theme.accent)
-            .scaleEffect(animating ? 1.25 : 0.7)
-            .offset(y: animating ? -30 : 0)
-            .opacity(animating ? 0 : (trigger > 0 ? 1 : 0))
-            .animation(.easeOut(duration: 0.7), value: animating)
-            .onChange(of: trigger) { _, _ in
-                animating = false
-                withAnimation(.easeOut(duration: 0.7)) {
-                    animating = true
+            .allowsHitTesting(false)
+            .keyframeAnimator(initialValue: Beat(), trigger: trigger) { view, beat in
+                view
+                    .opacity(beat.opacity)
+                    .scaleEffect(beat.scale)
+                    .offset(y: beat.lift)
+            } keyframes: { _ in
+                KeyframeTrack(\.opacity) {
+                    LinearKeyframe(1, duration: 0.05)
+                    LinearKeyframe(0, duration: 0.65)
+                }
+                KeyframeTrack(\.scale) {
+                    CubicKeyframe(1.25, duration: 0.7)
+                }
+                KeyframeTrack(\.lift) {
+                    CubicKeyframe(-30, duration: 0.7)
                 }
             }
-            .allowsHitTesting(false)
     }
 }
 
@@ -1637,7 +1591,7 @@ private struct RestView: View {
                         .font(.system(.caption2, design: .monospaced, weight: .semibold))
                         .foregroundStyle(Theme.textFaint)
                         .kerning(0.8)
-                    Text("\(upNext.exerciseName) — \(upNext.driver == .reps ? "set" : "round") \(upNext.setNumber)")
+                    Text("\(upNext.exerciseName) · \(upNext.driver == .reps ? "set" : "round") \(upNext.setNumber)")
                         .font(.system(.body, weight: .semibold))
                     // Values in plain ink (the handoff's rule): the next
                     // prescription is a fact, not a delta — green stays
