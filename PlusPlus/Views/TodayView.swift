@@ -866,69 +866,71 @@ struct TodayView: View {
         }
 
         return VStack(alignment: .leading, spacing: 0) {
-            // SSE tiers: the name owns the top row (the estimate moved
-            // down to the go/no-go meta row — Dave's ask) with Configure
-            // as a real-but-subordinate bordered capsule — Start stays
-            // the card's only filled element.
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(routine.name)
-                    .font(.system(.body, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-                    .lineLimit(1)
-                Spacer(minLength: 8)
-                NavigationLink(value: routine) {
-                    HStack(spacing: 4) {
-                        Text("Configure")
-                            .font(.system(.caption, weight: .semibold))
+            // The whole meta region above Start navigates to the routine
+            // (Dave's ask): the Configure capsule is gone, replaced by a
+            // trailing chevron in the committed-card grammar (tap the
+            // card, chevron trailing) that the upcoming cards already
+            // speak. Start keeps its own frame below, so exactly one
+            // affordance fires per tap.
+            NavigationLink(value: routine) {
+                VStack(alignment: .leading, spacing: 0) {
+                    // The name owns the top row (the estimate moved down
+                    // to the go/no-go meta row — Dave's ask); the chevron
+                    // trails it like every navigating card.
+                    HStack(alignment: .center, spacing: 8) {
+                        Text(routine.name)
+                            .font(.system(.body, weight: .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                            .lineLimit(1)
+                        Spacer(minLength: 8)
                         Image(systemName: "chevron.right")
-                            .font(.system(.caption2, weight: .semibold))
+                            .font(.system(.caption2, weight: .bold))
+                            .foregroundStyle(Theme.textFaint)
                     }
-                    .foregroundStyle(Theme.textSecondary)
-                    .padding(.horizontal, 11)
-                    .frame(height: 30)
-                    .overlay(Capsule().strokeBorder(Theme.borderStrong, lineWidth: 1))
-                    .padding(.vertical, 7)
-                    .contentShape(Rectangle())
+
+                    // Two meta rows: what it hits, then what to have
+                    // nearby and how long it runs. The schedule label is
+                    // gone — the card's presence on Today IS the schedule
+                    // statement.
+                    if let muscles = cappedList(musclesFor(routine)) {
+                        Text(muscles)
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(Theme.textFaint)
+                            .lineLimit(1)
+                            .padding(.top, 9)
+                    }
+                    // Gear + estimate pair on the go/no-go row — what to
+                    // have nearby and how long it takes, the two "can I do
+                    // this now?" facts. The estimate keeps priority so a
+                    // long gear list truncates before the time does.
+                    HStack(spacing: 8) {
+                        Text(cappedList(gearFor(routine)) ?? "bodyweight")
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(Theme.textFaint)
+                            .lineLimit(1)
+                        Spacer(minLength: 8)
+                        Text(routine.estimateText)
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(Theme.textFaint)
+                            .layoutPriority(1)
+                    }
+                    .padding(.top, 3)
+
+                    // The diff is the identity moment — it outranks the
+                    // meta above it (footnote semibold; unchanged tallies
+                    // aren't news).
+                    if !segments.isEmpty {
+                        diffSummaryText(segments)
+                            .lineLimit(1)
+                            .padding(.top, 8)
+                            .accessibilityIdentifier("diffSummary")
+                    }
                 }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("configureRoutineButton")
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
-
-            // Two meta rows: what it hits, then what to have nearby and
-            // how long it runs. The schedule label is gone — the card's
-            // presence on Today IS the schedule statement.
-            if let muscles = cappedList(musclesFor(routine)) {
-                Text(muscles)
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(Theme.textFaint)
-                    .lineLimit(1)
-                    .padding(.top, 9)
-            }
-            // Gear + estimate pair on the go/no-go row — what to have
-            // nearby and how long it takes, the two "can I do this now?"
-            // facts. The estimate keeps priority so a long gear list
-            // truncates before the time does.
-            HStack(spacing: 8) {
-                Text(cappedList(gearFor(routine)) ?? "bodyweight")
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(Theme.textFaint)
-                    .lineLimit(1)
-                Spacer(minLength: 8)
-                Text(routine.estimateText)
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(Theme.textFaint)
-                    .layoutPriority(1)
-            }
-            .padding(.top, 3)
-
-            // The diff is the identity moment — it outranks the meta
-            // above it (footnote semibold; unchanged tallies aren't news).
-            if !segments.isEmpty {
-                diffSummaryText(segments)
-                    .lineLimit(1)
-                    .padding(.top, 8)
-                    .accessibilityIdentifier("diffSummary")
-            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("configureRoutineButton")
 
             StartFlashButton(label: "Start", identifier: "startStagedButton") {
                 start(routine)
