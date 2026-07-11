@@ -188,10 +188,25 @@ struct TodayView: View {
                             dayToken += 1
                         }
                         .onAppear {
-                            guard !hasAnchoredToday else { return }
+                            // Only seat once the GeometryReader has a real
+                            // height — the below-anchor min height must have
+                            // grown the region before there's room to push
+                            // the week ahead off-screen. If height is still
+                            // pending, the onChange below fires the anchor.
+                            guard !hasAnchoredToday, viewport.size.height > 0 else { return }
                             hasAnchoredToday = true
                             // Unanimated: Today OPENS at today; the week
                             // above is something you go looking for.
+                            proxy.scrollTo(Self.todayAnchorID, anchor: .top)
+                        }
+                        .onChange(of: viewport.size.height) { _, height in
+                            // GeometryReader can publish the real height a
+                            // beat after onAppear; seat today the instant we
+                            // have room. One-shot via hasAnchoredToday, so a
+                            // later height change (rotation, keyboard) never
+                            // yanks a scroll the user has since moved.
+                            guard !hasAnchoredToday, height > 0 else { return }
+                            hasAnchoredToday = true
                             proxy.scrollTo(Self.todayAnchorID, anchor: .top)
                         }
                         .onChange(of: dayToken) {
