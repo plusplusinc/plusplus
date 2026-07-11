@@ -42,7 +42,19 @@ public enum InterchangeValidator {
         }
     }
 
-    public static func validate(_ bundle: ExportBundle) -> [ValidationIssue] {
+    /// - Parameter knownExerciseNames: lowercased names of exercises that
+    ///   exist in the target library (the app's built-ins + already-imported
+    ///   exercises, or a repo's exercise files). When provided, a routine
+    ///   reference resolving against neither the bundle NOR this set is
+    ///   flagged. When `nil` (the default), reference existence is NOT checked
+    ///   — a bundle legitimately omits unannotated built-ins (the export
+    ///   policy: built-ins ship with the app, only annotated ones travel), so
+    ///   guessing from the bundle alone false-positives. The app importer
+    ///   resolves references against the live store and skips any that don't.
+    public static func validate(
+        _ bundle: ExportBundle,
+        knownExerciseNames: Set<String>? = nil
+    ) -> [ValidationIssue] {
         var issues: [ValidationIssue] = []
 
         var exerciseNames: Set<String> = []
@@ -120,13 +132,17 @@ public enum InterchangeValidator {
                 }
                 for entry in group.exercises {
                     let entryPath = "\(groupPath).\(entry.exercise)"
-                    // References may resolve against the bundle OR the app's
-                    // built-in library, which this validator can't see — so a
-                    // missing reference is only reported when the bundle
-                    // declares exercises at all and the name isn't among them.
-                    if !bundle.exercises.isEmpty,
-                       !exerciseNames.contains(entry.exercise.lowercased()) {
-                        issues.append(.init(path: entryPath, message: "unresolved exercise reference (not in bundle; must exist in the target library)"))
+                    // Reference existence needs the target library, which this
+                    // pure validator can't see — so it's checked only when the
+                    // caller supplies `knownExerciseNames`. Otherwise a bundle
+                    // that omits unannotated built-ins (the export policy) would
+                    // false-positive; the importer resolves against the live
+                    // store instead.
+                    if let known = knownExerciseNames {
+                        let name = entry.exercise.lowercased()
+                        if !exerciseNames.contains(name), !known.contains(name) {
+                            issues.append(.init(path: entryPath, message: "unresolved exercise reference (not in bundle or the target library)"))
+                        }
                     }
                     if let reps = entry.reps, !(1...100).contains(reps) {
                         issues.append(.init(path: entryPath, message: "reps \(reps) outside 1...100"))
