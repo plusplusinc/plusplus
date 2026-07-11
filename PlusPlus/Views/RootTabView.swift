@@ -91,6 +91,12 @@ struct RootTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: .plusplusStartRoutine)) { _ in
             tab = .today
         }
+        // Closing a finished workout's recap goes home: whatever screen
+        // presented the session cover, the finish lands on Today, where
+        // the just-committed card converts itself to done.
+        .onReceive(NotificationCenter.default.publisher(for: .plusplusWorkoutFinished)) { _ in
+            tab = .today
+        }
         .sheet(item: $shareImport) { item in
             ShareImportSheet(payload: item.payload)
                 .presentationDetents([.large])

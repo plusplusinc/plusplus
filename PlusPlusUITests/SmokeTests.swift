@@ -231,15 +231,17 @@ final class SmokeTests: XCTestCase {
         snap("routine-complete")
         app.buttons["sessionDoneButton"].tap()
 
-        // Back out to the list, then into the record via the Today tab
-        // (the standalone History screen died with #109).
-        let back = app.buttons["backButton"]
-        XCTAssertTrue(back.waitForExistence(timeout: 5))
-        back.tap()
-
-        let today = app.tabBars.buttons["Today"]
-        XCTAssertTrue(today.waitForExistence(timeout: 5))
-        today.tap()
+        // Closing the recap lands on Today on its own (the recap-close
+        // flow: the root switches to Today and the just-finished card
+        // converts to done). The workout started from a routine detail
+        // in the Routines tab, yet the record is right here — no back-out,
+        // no manual tab hop. The Today header's start-tray key is a
+        // Today-only element (routine detail has none), so its presence
+        // proves the auto-landing.
+        XCTAssertTrue(
+            app.buttons["startTrayButton"].waitForExistence(timeout: 10),
+            "closing the recap must land on the Today screen"
+        )
 
         // Snapshot the list before asserting, so a failure here leaves
         // visual evidence of what history actually showed.
