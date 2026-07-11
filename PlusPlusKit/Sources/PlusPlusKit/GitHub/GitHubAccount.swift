@@ -45,6 +45,24 @@ public struct GitHubAccount: Sendable {
         return true
     }
 
+    /// The coordinate for `owner/name` — carrying its REAL default branch — if
+    /// it exists, else nil. Bootstrap adopts an existing repo through this so
+    /// sync targets the branch the repo actually uses (a repo defaulting to
+    /// `master`/`trunk` must not be synced against a hardcoded `main`).
+    public func repository(owner: String, name: String) async throws -> GitHubRepoCoordinate? {
+        let response = try await send(.get, path: "repos/\(owner)/\(name)")
+        if response.status == 404 { return nil }
+        try throwIfError(response)
+        guard let repo = try? JSONDecoder().decode(Repository.self, from: response.body) else {
+            throw AccountError.malformedResponse
+        }
+        return GitHubRepoCoordinate(
+            owner: repo.owner.login,
+            repo: repo.name,
+            branch: repo.default_branch ?? "main"
+        )
+    }
+
     /// Creates a PRIVATE repo on the authenticated user's account, auto-init'd
     /// so it has a default branch (and thus a ref for the first sync to
     /// fast-forward). Returns the coordinate to sync against.

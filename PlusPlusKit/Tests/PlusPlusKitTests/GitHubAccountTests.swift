@@ -25,6 +25,22 @@ struct GitHubAccountTests {
         #expect(try await account(absent).repositoryExists(owner: "octocat", name: "workouts") == false)
     }
 
+    @Test("repository adopts the repo at its real default branch, nil on 404")
+    func repositoryCarriesDefaultBranch() async throws {
+        let present = ScriptedHTTPClient { _, _ in
+            GHResponse.json([
+                "name": "workouts",
+                "owner": ["login": "octocat"],
+                "default_branch": "master",
+            ])
+        }
+        let coordinate = try await account(present).repository(owner: "octocat", name: "workouts")
+        #expect(coordinate == GitHubRepoCoordinate(owner: "octocat", repo: "workouts", branch: "master"))
+
+        let absent = ScriptedHTTPClient { _, _ in GHResponse.status(404, body: "Not Found") }
+        #expect(try await account(absent).repository(owner: "octocat", name: "workouts") == nil)
+    }
+
     @Test("createRoutineRepository asks for a private, auto-init'd repo")
     func createRepository() async throws {
         let client = ScriptedHTTPClient { _, _ in

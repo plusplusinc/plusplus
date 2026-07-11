@@ -15,27 +15,29 @@ struct GitHubConnectScreen: View {
 
     private var units: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .lb }
 
-    private var isSyncing: Bool {
-        if case .syncing = sync.status { return true }
-        return false
+    private var activityError: String? {
+        if case .error(let message) = sync.activity { return message }
+        return nil
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                switch sync.status {
-                case .unconfigured:
-                    unconfigured
-                case .disconnected, .failed:
-                    intro
-                    if case .failed(let message) = sync.status {
-                        errorNote(message)
-                    }
-                    connectButton
-                case .authorizing(let code, let url):
+                // Authorizing is a transient activity that runs while the
+                // connection is still .disconnected — check it first.
+                if case .authorizing(let code, let url) = sync.activity {
                     authorizing(code: code, url: url)
-                case .connected, .syncing:
-                    connectedPanel
+                } else {
+                    switch sync.connection {
+                    case .unconfigured:
+                        unconfigured
+                    case .disconnected:
+                        intro
+                        if let message = activityError { errorNote(message) }
+                        connectButton
+                    case .connected:
+                        connectedPanel
+                    }
                 }
             }
             .padding(.horizontal, 16)
@@ -44,7 +46,10 @@ struct GitHubConnectScreen: View {
         }
         .background(Theme.background)
         .pushedScreenChrome(title: "GitHub Sync", onBack: { dismiss() })
-        .onDisappear { connectTask?.cancel() }
+        .onDisappear {
+            connectTask?.cancel()
+            sync.authorizingAborted()
+        }
     }
 
     // MARK: - States
@@ -100,7 +105,7 @@ struct GitHubConnectScreen: View {
                     .foregroundStyle(Theme.textPrimary)
                 Text(code)
                     .font(.system(.largeTitle, design: .monospaced, weight: .bold))
-                    .foregroundStyle(Theme.selected)
+                    .foregroundStyle(Theme.textPrimary)
                     .textSelection(.enabled)
                     .accessibilityIdentifier("deviceUserCode")
             }
@@ -126,7 +131,7 @@ struct GitHubConnectScreen: View {
 
             Button("Cancel") {
                 connectTask?.cancel()
-                sync.disconnect()
+                sync.authorizingAborted()
             }
             .font(.system(.footnote, weight: .semibold))
             .foregroundStyle(Theme.textSecondary)
@@ -166,7 +171,7 @@ struct GitHubConnectScreen: View {
             Button {
                 Task { await sync.sync(context: modelContext, units: units) }
             } label: {
-                if isSyncing {
+                if sync.isSyncing {
                     HStack(spacing: 8) {
                         ProgressView().controlSize(.small)
                         Text("Syncing…").font(.system(.subheadline, weight: .bold))
@@ -181,10 +186,10 @@ struct GitHubConnectScreen: View {
                 }
             }
             .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
-            .disabled(isSyncing)
+            .disabled(sync.isSyncing)
             .accessibilityIdentifier("syncNowButton")
 
-            if case .failed(let message) = sync.status {
+            if let message = activityError {
                 errorNote(message)
             }
 

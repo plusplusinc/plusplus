@@ -10,6 +10,12 @@ import PlusPlusKit
 /// One coordinator is created at app root and shared. `@MainActor` because it
 /// drives UI state and touches the main `ModelContext`; the network calls
 /// suspend, so the main thread isn't blocked.
+///
+/// Two orthogonal pieces of state, deliberately separate: **connection** is the
+/// durable identity (do we hold a token + a repo?), **activity** is the
+/// transient of-the-moment (authorizing / syncing / last error). A failed
+/// *sync* must NOT read as disconnected — the token is still good — so it only
+/// sets an `activity` error and auto-sync keeps working.
 @Observable @MainActor
 final class GitHubSyncCoordinator {
     /// One instance app-wide (the connect screen, Settings, and the app-root
@@ -18,18 +24,23 @@ final class GitHubSyncCoordinator {
     /// sharing keeps the transient authorizing/syncing status coherent.
     static let shared = GitHubSyncCoordinator()
 
-    enum Status: Equatable {
+    enum Connection: Equatable {
         /// No client ID compiled in — the GitHub App isn't registered yet.
         case unconfigured
         case disconnected
-        /// Device flow in flight: show the code, wait for approval.
-        case authorizing(userCode: String, verificationURL: URL)
         case connected
-        case syncing
-        case failed(String)
     }
 
-    private(set) var status: Status
+    enum Activity: Equatable {
+        case idle
+        /// Device flow in flight: show the code, wait for approval.
+        case authorizing(userCode: String, verificationURL: URL)
+        case syncing
+        case error(String)
+    }
+
+    private(set) var connection: Connection
+    private(set) var activity: Activity = .idle
     private(set) var coordinate: GitHubRepoCoordinate?
     private(set) var lastSyncedAt: Date?
     /// A short human line about the last pass ("Pushed 3 · pulled 1").
@@ -44,25 +55,29 @@ final class GitHubSyncCoordinator {
         tokens: any TokenStore = KeychainTokenStore(),
         client: any HTTPClient = URLSessionHTTPClient()
     ) {
+        let savedCoordinate = GitHubSyncSettings.savedCoordinate()
         self.config = config
         self.tokens = tokens
         self.client = client
-        self.coordinate = GitHubSyncSettings.savedCoordinate()
+        self.coordinate = savedCoordinate
         self.lastSyncedAt = GitHubSyncSettings.lastSyncedAt
 
+        // Use the local, not self.coordinate — `connection` (the last stored
+        // property) isn't initialized yet, so touching self is illegal here.
         let hasToken = ((try? tokens.load()) ?? nil) != nil
         if config == nil {
-            status = .unconfigured
-        } else if hasToken, coordinate != nil {
-            status = .connected
+            connection = .unconfigured
+        } else if hasToken, savedCoordinate != nil {
+            connection = .connected
         } else {
-            status = .disconnected
+            connection = .disconnected
         }
     }
 
-    var isConnected: Bool {
-        if case .connected = status { return true }
-        if case .syncing = status { return true }
+    var isConnected: Bool { connection == .connected }
+
+    var isSyncing: Bool {
+        if case .syncing = activity { return true }
         return false
     }
 
@@ -71,32 +86,44 @@ final class GitHubSyncCoordinator {
     /// Runs the device flow to completion, then bootstraps the repo. Long-lived
     /// (it waits for the user to approve on github.com); drive it from a Task.
     func connect() async {
-        guard let config else { status = .unconfigured; return }
+        guard let config else { connection = .unconfigured; return }
         let flow = GitHubDeviceFlow(config: config, client: client)
         do {
             let verification = try await flow.requestVerification()
             let url = URL(string: verification.verificationURI) ?? URL(string: "https://github.com/login/device")!
-            status = .authorizing(userCode: verification.userCode, verificationURL: url)
+            activity = .authorizing(userCode: verification.userCode, verificationURL: url)
 
             let token = try await flow.pollForToken(for: verification)
+            try Task.checkCancellation()
             try tokens.save(token)
             try await bootstrap()
-            status = .connected
+            connection = .connected
+            activity = .idle
+        } catch is CancellationError {
+            // User backed out (Cancel / swipe-back); the UI already reset. Do
+            // not stamp a spurious error over it.
         } catch {
-            status = .failed(Self.describe(error))
+            activity = .error(Self.describe(error))
         }
     }
 
-    /// Finds the user's routine repo (adopting it if it already exists) or
-    /// creates it private, and remembers the coordinate.
+    /// The user abandoned the device-flow screen. Clears the transient
+    /// authorizing state so a later return starts fresh (the task itself is
+    /// cancelled by the caller).
+    func authorizingAborted() {
+        if case .authorizing = activity { activity = .idle }
+    }
+
+    /// Finds the user's routine repo (adopting it, at its real default branch,
+    /// if it already exists) or creates it private, and remembers the coordinate.
     private func bootstrap() async throws {
         let account = GitHubAccount(tokens: tokens, client: client)
         let login = try await account.currentLogin()
         let name = GitHubSyncSettings.defaultRepoName
 
         let resolved: GitHubRepoCoordinate
-        if try await account.repositoryExists(owner: login, name: name) {
-            resolved = GitHubRepoCoordinate(owner: login, repo: name)
+        if let existing = try await account.repository(owner: login, name: name) {
+            resolved = existing
         } else {
             resolved = try await account.createRoutineRepository(name: name)
         }
@@ -109,10 +136,11 @@ final class GitHubSyncCoordinator {
     /// One foreground sync pass: push new sessions and local template edits,
     /// pull remote changes, merge. Conflicts default to postpone (never
     /// clobber) — an interactive keep-mine/take-theirs prompt is a follow-up.
-    /// Safe to call when disconnected (no-ops).
+    /// Safe to call when disconnected (no-ops) and single-flight (a second call
+    /// while one is in flight no-ops rather than racing the base snapshot).
     func sync(context: ModelContext, units: WeightUnit) async {
-        guard isConnected, let coordinate else { return }
-        status = .syncing
+        guard isConnected, let coordinate, !isSyncing else { return }
+        activity = .syncing
         do {
             let baseStore = try ApplicationSupportBaseStore()
             let store = GitHubRepoStore(coordinate: coordinate, tokens: tokens, client: client)
@@ -131,9 +159,21 @@ final class GitHubSyncCoordinator {
             lastSyncedAt = Date()
             GitHubSyncSettings.lastSyncedAt = lastSyncedAt
             lastSyncSummary = Self.summarize(outcome)
-            status = .connected
+            activity = .idle
         } catch {
-            status = .failed(Self.describe(error))
+            // A genuine auth failure means the token is dead — drop to
+            // disconnected so the UI offers reconnect. Any other failure
+            // (network, transient conflict) leaves us CONNECTED with an error
+            // banner, so auto-sync keeps trying and "Sync now" stays reachable.
+            if Self.isAuthFailure(error) {
+                try? tokens.clear()
+                GitHubSyncSettings.clearCoordinate()
+                coordinate = nil
+                connection = .disconnected
+                activity = .error("Your GitHub connection expired. Reconnect.")
+            } else {
+                activity = .error(Self.describe(error))
+            }
         }
     }
 
@@ -144,7 +184,8 @@ final class GitHubSyncCoordinator {
         coordinate = nil
         lastSyncedAt = nil
         lastSyncSummary = nil
-        status = config == nil ? .unconfigured : .disconnected
+        activity = .idle
+        connection = config == nil ? .unconfigured : .disconnected
     }
 
     // MARK: - Local file map (templates + finished sessions)
@@ -172,6 +213,11 @@ final class GitHubSyncCoordinator {
         if !outcome.pulls.isEmpty { parts.append("pulled \(outcome.pulls.count)") }
         if !outcome.postponed.isEmpty { parts.append("\(outcome.postponed.count) to resolve") }
         return parts.isEmpty ? "Up to date" : parts.joined(separator: " · ").capitalizedFirst
+    }
+
+    private static func isAuthFailure(_ error: Error) -> Bool {
+        (error as? GitHubRepoStore.StoreError) == .notAuthenticated
+            || (error as? GitHubAccount.AccountError) == .notAuthenticated
     }
 
     private static func describe(_ error: Error) -> String {
