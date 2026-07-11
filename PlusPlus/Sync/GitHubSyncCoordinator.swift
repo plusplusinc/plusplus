@@ -234,7 +234,7 @@ final class GitHubSyncCoordinator {
 
     private static func describe(_ error: Error) -> String {
         if error is BootstrapError {
-            return "Install PlusPlus Sync on a private repo (GitHub → the app → Configure), then reconnect."
+            return "Install PlusPlus Sync on a repo (GitHub → the app → Configure), then reconnect."
         }
         if let flow = error as? GitHubDeviceFlow.FlowError {
             switch flow {
