@@ -34,6 +34,19 @@ final class RunLocationMonitor: NSObject, CLLocationManagerDelegate {
         totalMeters.map { unit.value(fromMeters: $0) }
     }
 
+    /// Whether the published readings are current — a set's auto-log must
+    /// never write a prior exercise's frozen values while the new meter is
+    /// still acquiring GPS.
+    var isFresh: Bool {
+        guard let latestAt else { return false }
+        return Date().timeIntervalSince(latestAt) < Self.freshWindow
+    }
+
+    /// Fastest plausible human running segment (~2:08 /mi); a fix implying
+    /// more is a GPS teleport, not a stride — skip it (distance-side twin
+    /// of LivePaceMeter's pace clamp).
+    private let maxSpeed: Double = 12.5
+
     private let uitest = CommandLine.arguments.contains("--uitest-reset")
     private lazy var manager: CLLocationManager = {
         let m = CLLocationManager()
@@ -101,6 +114,12 @@ final class RunLocationMonitor: NSObject, CLLocationManagerDelegate {
         meter = nil
         startDate = nil
         lastLocation = nil
+        // Clear the readings so a re-base for the NEXT exercise can't
+        // auto-log this one's frozen distance/pace before GPS re-locks.
+        currentPaceSeconds = nil
+        averagePaceSeconds = nil
+        totalMeters = nil
+        latestAt = nil
     }
 
     // MARK: - CLLocationManagerDelegate
@@ -125,7 +144,14 @@ final class RunLocationMonitor: NSObject, CLLocationManagerDelegate {
             let elapsed = location.timestamp.timeIntervalSince(startDate)
             guard elapsed >= 0 else { continue }
             if let last = lastLocation {
-                meter?.ingest(at: elapsed, cumulativeMeters: (meter?.totalMeters ?? 0) + location.distance(from: last))
+                let dt = location.timestamp.timeIntervalSince(last.timestamp)
+                let segment = location.distance(from: last)
+                // A good-accuracy fix can still teleport (urban canyon,
+                // tunnel exit); ignore a segment implying a superhuman
+                // speed rather than banking its distance, and wait for the
+                // next honest fix from the last good position.
+                if dt > 0, segment / dt > maxSpeed { continue }
+                meter?.ingest(at: elapsed, cumulativeMeters: (meter?.totalMeters ?? 0) + segment)
             }
             // The first fix after a start/pause seeds position without
             // counting the gap to it as distance.

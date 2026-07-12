@@ -201,7 +201,7 @@ struct WorkoutRunView: View {
     /// step's pace target (pace improves DOWN, so actual ≤ target); the
     /// target trails as a fact. nil without a reading.
     private func paceLine(for step: WatchSync.Step) -> Text? {
-        guard let pace = health.currentPaceSeconds else { return nil }
+        guard let pace = health.livePaceSeconds else { return nil }
         let target = step.extraTargets?[WorkoutMetric.pace.rawValue]
         let meeting = target.map { pace <= $0 } ?? false
         var line = Text("\(Image(systemName: "figure.run")) \(WorkoutMetric.pace.formatted(pace)) \(runUnit.paceLabel)")
@@ -219,7 +219,7 @@ struct WorkoutRunView: View {
         if let bpm = health.latestBPM {
             line = Text("\(Image(systemName: "heart.fill")) \(bpm)")
         }
-        if let pace = health.currentPaceSeconds {
+        if let pace = health.livePaceSeconds {
             let paceText = Text("\(Image(systemName: "figure.run")) \(WorkoutMetric.pace.formatted(pace)) \(runUnit.paceLabel)")
             line = line.map { $0 + Text("  ") + paceText } ?? paceText
         }

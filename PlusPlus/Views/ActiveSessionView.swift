@@ -58,6 +58,10 @@ struct ActiveSessionView: View {
     /// Live pace + distance from GPS during an outdoor run. Engaged only
     /// while the current exercise is outdoor; same @State discipline.
     @State private var location = RunLocationMonitor()
+    /// The outdoor exercise the meter is currently tracking (group+name).
+    /// The meter re-bases when this changes so each exercise measures its
+    /// OWN distance/pace — but persists across the rounds of one exercise.
+    @State private var outdoorExerciseKey: String?
 
     private var totalSets: Int { session.sortedSetLogs.count }
 
@@ -70,6 +74,29 @@ struct ActiveSessionView: View {
     private var isOutdoorNow: Bool { activeLog?.metricProfile.isOutdoor == true }
     /// The active run's pace/distance denomination.
     private var runUnit: DistanceUnit { activeLog?.metricProfile.distanceUnit ?? .miles }
+    /// Identity of the active exercise's block — the re-base key.
+    private var activeExerciseKey: String? {
+        activeLog.map { "\($0.groupIndex)·\($0.exerciseName)" }
+    }
+
+    /// Point the location meter at the active exercise: start (or re-base
+    /// to a fresh meter) when it's a new outdoor exercise, keep it running
+    /// across that exercise's rounds, and stop when the exercise isn't
+    /// outdoor. Called wherever the active log or workout state changes.
+    private func syncLocation() {
+        guard !session.isFinished, session.isWorkoutStarted, isOutdoorNow,
+              let key = activeExerciseKey else {
+            location.stop()
+            outdoorExerciseKey = nil
+            return
+        }
+        guard key != outdoorExerciseKey else { return }
+        // New outdoor exercise → re-base so its distance starts at zero
+        // (stop() clears the prior exercise's readings).
+        location.stop()
+        location.start(from: session.effectiveStart, unit: runUnit)
+        outdoorExerciseKey = key
+    }
     private var completedSets: Int { session.completedSetLogs.count }
 
     var body: some View {
@@ -206,7 +233,7 @@ struct ActiveSessionView: View {
             // waits for its first exercise (engageClockIfNeeded).
             if !session.isFinished, session.isWorkoutStarted {
                 heartRate.start(from: session.effectiveStart)
-                if isOutdoorNow { location.start(from: session.effectiveStart, unit: runUnit) }
+                syncLocation()
             }
         }
         .onDisappear {
@@ -218,16 +245,11 @@ struct ActiveSessionView: View {
         .onChange(of: session.isPaused) { _, paused in
             paused ? location.pause() : location.resume()
         }
-        // Engage/disengage location as the current exercise's outdoor-ness
-        // flips. start() is idempotent, so a contiguous outdoor stretch
-        // (a run's rounds + rests) keeps ONE session and accumulates
-        // distance; entering a non-outdoor exercise stops it.
-        .onChange(of: activeLog?.order) {
-            if isOutdoorNow {
-                location.start(from: session.effectiveStart, unit: runUnit)
-            } else {
-                location.stop()
-            }
+        // Re-point the meter as the active exercise changes: a new outdoor
+        // exercise re-bases (its own distance), the same exercise's next
+        // round keeps accumulating, a non-outdoor exercise stops it.
+        .onChange(of: activeExerciseKey) {
+            syncLocation()
         }
         // Island / Lock Screen rest controls (#157): LiveActivityIntents
         // run in this process and post here — same mutations as the
@@ -410,7 +432,7 @@ struct ActiveSessionView: View {
         guard !session.isWorkoutStarted, !session.isFinished else { return }
         session.startClock()
         heartRate.start(from: session.effectiveStart)
-        if isOutdoorNow { location.start(from: session.effectiveStart, unit: runUnit) }
+        syncLocation()
     }
 
     // MARK: - Paused
@@ -491,9 +513,10 @@ struct ActiveSessionView: View {
         // An outdoor run's measured distance/pace become the logged
         // actuals, so the record reflects the GPS run instead of a hand
         // guess. Only for a single-round piece (the meter tracks the whole
-        // exercise, not a per-round split) and only when not already
-        // edited — a manual actual always wins.
-        if isOutdoorNow, roundsInBlock(of: log) == 1 {
+        // exercise, not a per-round split), only with a FRESH reading (so
+        // a still-acquiring re-base can't log stale values), and only when
+        // not already edited — a manual actual always wins.
+        if isOutdoorNow, location.isFresh, roundsInBlock(of: log) == 1 {
             if log.actual(.distance) == nil, let distance = location.totalDistanceInUnit {
                 log.setActual(.distance, to: distance)
             }

@@ -31,8 +31,23 @@ final class WatchWorkoutController: NSObject, HKLiveWorkoutBuilderDelegate {
 
     /// Live pace during an OUTDOOR run, from the builder's fused
     /// distanceWalkingRunning fed into a Kit pace meter. nil for indoor
-    /// sessions (no distance collected) and until GPS locks.
+    /// sessions (no distance collected) and until GPS locks. Read through
+    /// `livePaceSeconds`, which expires a stale value.
     private(set) var currentPaceSeconds: Double?
+    private(set) var latestPaceAt: Date?
+
+    /// How long a pace reading stays "live" without a new distance sample —
+    /// when you stop, HealthKit stops delivering distance, so the last
+    /// pace must age out rather than freeze on screen.
+    private static let paceFreshWindow: TimeInterval = 20
+
+    /// The pace to show: the latest reading while it's fresh, else nil (so
+    /// standing still clears it, matching the phone's staleness gate).
+    var livePaceSeconds: Double? {
+        guard let currentPaceSeconds, let latestPaceAt,
+              Date().timeIntervalSince(latestPaceAt) < Self.paceFreshWindow else { return nil }
+        return currentPaceSeconds
+    }
 
     /// Location authorization is required for an outdoor session's GPS
     /// distance — we don't consume fixes ourselves, the workout does.
@@ -148,6 +163,7 @@ final class WatchWorkoutController: NSObject, HKLiveWorkoutBuilderDelegate {
             let pace = paceMeter?.currentPaceSeconds
             DispatchQueue.main.async { [weak self] in
                 self?.currentPaceSeconds = pace
+                self?.latestPaceAt = pace != nil ? Date() : nil
             }
         }
     }
