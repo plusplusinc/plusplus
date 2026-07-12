@@ -135,10 +135,11 @@ public struct GitHubRepoStore: RepoStore {
     /// the Contents API (the only write endpoint that works with zero
     /// commits). Mirrors the `auto_init` the bootstrap uses when the app
     /// creates the repo itself. The README lives at the repo root, outside
-    /// the synced prefixes, so sync never reads or overwrites it.
+    /// the synced prefixes, so sync never reads or overwrites it. It carries a
+    /// PlusPlus link so a public sync repo is a discovery surface (Dave).
     private func seedInitialCommit() async throws {
         let readme = Data(
-            "# PlusPlus data\n\nYour workout program and history, synced by the PlusPlus app.\n".utf8
+            "# PlusPlus data\n\nWorkout program and history, synced from [PlusPlus](https://plusplus.fit), the hackable workout tracker for incrementing yourself.\n".utf8
         )
         let body = try JSONEncoder().encode(ContentsPutInput(
             message: "Initialize repository",

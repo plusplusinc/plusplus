@@ -11,6 +11,10 @@ struct GitHubConnectScreen: View {
     /// this as a sheet, and the user lands straight on the authorize step
     /// instead of hunting for the Connect button.
     var autoConnect: Bool = false
+    /// The screen was reached via the post-install redirect (GitHub only sends
+    /// users to the Setup URL after a completed install), so we can confirm
+    /// step 1 succeeded with a banner while the authorize step runs.
+    var justInstalled: Bool = false
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -33,6 +37,11 @@ struct GitHubConnectScreen: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
+                // Confirm step 1 (Install) succeeded when we arrived via the
+                // post-install redirect, until the connection actually lands.
+                if justInstalled, sync.connection != .connected {
+                    installedBanner
+                }
                 // Authorizing is a transient activity that runs while the
                 // connection is still .disconnected — check it first.
                 if case .authorizing(let code, let url) = sync.activity {
@@ -76,15 +85,37 @@ struct GitHubConnectScreen: View {
 
     // MARK: - States
 
+    private var installedBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(.title3, weight: .semibold))
+                .foregroundStyle(Theme.accent)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Installed on GitHub")
+                    .font(.system(.footnote, weight: .bold))
+                    .foregroundStyle(Theme.textPrimary)
+                Text("Now authorize to finish connecting.")
+                    .font(.system(.caption))
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+        .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.accent.opacity(0.4)))
+        .padding(.bottom, 16)
+    }
+
     private var intro: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Keep your routines and history in a GitHub repo you own.")
+            Text("You own your data.")
                 .font(.system(.footnote, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
-            Text("Point an agent at it, run Actions on your training data, or just have a durable backup. The app talks to GitHub directly · nothing runs on a PlusPlus server.")
+            Text("Two-way sync with a GitHub repo you own: edits in the repo land back in the app. Use it as a simple backup, point an AI agent personal trainer at it, or anything in between. It's yours.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textSecondary)
-            Text("First time: create a repo and install PlusPlus Sync on it, then connect. The app syncs to whichever repo you installed it on.")
+            Text("No PlusPlus server ever sees it. First time? Make an empty repo on GitHub, then Install below.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textFaint)
         }
@@ -119,7 +150,7 @@ struct GitHubConnectScreen: View {
             }
             .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
             .accessibilityIdentifier("installGitHubButton")
-            Text("Step 1 · pick the repo to sync to. Skip if you've already installed it.")
+            Text("Step 1. Install on the repo to sync. Access to that repo only. Skip if done.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textFaint)
         }
@@ -136,7 +167,7 @@ struct GitHubConnectScreen: View {
             }
             .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
             .accessibilityIdentifier("connectGitHubButton")
-            Text("Step 2 · authorize on GitHub with a short code.")
+            Text("Step 2. Authorize the app. One tap on GitHub.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textFaint)
         }
@@ -152,7 +183,7 @@ struct GitHubConnectScreen: View {
                 copyCode(code)
             } label: {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Enter this code at github.com")
+                    Text("Approve on GitHub to connect")
                         .font(.system(.footnote, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                     HStack(spacing: 12) {
@@ -166,7 +197,7 @@ struct GitHubConnectScreen: View {
                             .foregroundStyle(codeCopied ? Theme.accent : Theme.textFaint)
                             .contentTransition(.symbolEffect(.replace))
                     }
-                    Text(codeCopied ? "Copied" : "Tap to copy")
+                    Text(codeCopied ? "Copied" : "Filled in when you open GitHub. Tap to copy.")
                         .font(.system(.caption, weight: .semibold))
                         .foregroundStyle(codeCopied ? Theme.accent : Theme.textFaint)
                 }
@@ -218,9 +249,12 @@ struct GitHubConnectScreen: View {
                     Text("\(coordinate.owner)/\(coordinate.repo)")
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(Theme.textSecondary)
+                    Text("Read and write access to this repo only.")
+                        .font(.system(.caption))
+                        .foregroundStyle(Theme.textFaint)
                 }
                 if let summary = sync.lastSyncSummary, let at = sync.lastSyncedAt {
-                    Text("\(summary) · \(at.formatted(.relative(presentation: .named)))")
+                    Text("\(summary). \(at.formatted(.relative(presentation: .named)))")
                         .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
                 } else if let at = sync.lastSyncedAt {
@@ -266,7 +300,7 @@ struct GitHubConnectScreen: View {
             .foregroundStyle(Theme.textSecondary)
             .padding(.top, 4)
 
-            Text("Disconnecting forgets the token on this phone. Your repo and its history stay exactly as they are.")
+            Text("Removes the token from this phone. Your repo is untouched. Revoke on GitHub anytime.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textFaint)
         }

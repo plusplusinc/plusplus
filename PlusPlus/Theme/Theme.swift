@@ -53,6 +53,17 @@ enum Theme {
     /// Content on a SOLID selected fill. Never white on the
     /// dark-scheme blue.
     static let onSelected = Color(light: 0xFFFFFF, dark: 0x161616)
+    /// The superset return-loop at REST (2026-07-12, #superset-feedback).
+    /// v4 §1a drew it in `border` — colorless, "just an order map" — but
+    /// the loop that a ring-drag leaves behind read as disconnected from
+    /// the vivid blue selection field that drew it. It now settles into
+    /// the selection hue, quieted: the same blue, dialed down, so a
+    /// grouped block reads as a bound unit without claiming the one live
+    /// selection blue. Amends "exactly one blue at rest" to "one VIVID
+    /// blue" — the settled loop is a deliberately quieter tone. Mixed
+    /// toward full `selected` during the landing bloom.
+    static let supersetLoop = selected.opacity(0.5)
+
     /// Selected-state fill; always accompanied by `selectedRing`.
     static let selectedTint = Color(uiColor: UIColor { traits in
         traits.userInterfaceStyle == .dark
