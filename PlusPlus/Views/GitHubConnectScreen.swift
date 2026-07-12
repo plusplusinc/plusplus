@@ -112,13 +112,10 @@ struct GitHubConnectScreen: View {
             Text("Sync to a GitHub repo you own.")
                 .font(.system(.footnote, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
-            Text("Your routines and history sync as plain JSON, straight from this phone to GitHub. Nothing runs on a PlusPlus server, and no one else can see it.")
+            Text("Routines and history sync as plain JSON, phone to GitHub. No PlusPlus server ever sees it.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textSecondary)
-            Text("PlusPlus Sync reaches only the one repo you pick · nothing else in your account. Disconnect anytime and your data stays put.")
-                .font(.system(.caption))
-                .foregroundStyle(Theme.textSecondary)
-            Text("First time? Create an empty repo on GitHub, then Install below. PlusPlus can't create the repo for you.")
+            Text("Touches only the repo you pick, public or private. First time? Make an empty repo on GitHub, then Install below.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textFaint)
         }
@@ -153,7 +150,7 @@ struct GitHubConnectScreen: View {
             }
             .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
             .accessibilityIdentifier("installGitHubButton")
-            Text("Step 1 · install PlusPlus Sync on your repo. It gets access to that one repo, nothing more. Skip if you already have.")
+            Text("Step 1 · install on the repo to sync. Access to that repo only · skip if done.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textFaint)
         }
@@ -170,7 +167,7 @@ struct GitHubConnectScreen: View {
             }
             .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
             .accessibilityIdentifier("connectGitHubButton")
-            Text("Step 2 · authorize the app on GitHub. One tap when it opens.")
+            Text("Step 2 · authorize the app. One tap on GitHub.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textFaint)
         }
@@ -200,7 +197,7 @@ struct GitHubConnectScreen: View {
                             .foregroundStyle(codeCopied ? Theme.accent : Theme.textFaint)
                             .contentTransition(.symbolEffect(.replace))
                     }
-                    Text(codeCopied ? "Copied" : "Open GitHub fills this in · tap to copy if needed")
+                    Text(codeCopied ? "Copied" : "Filled in when you open GitHub · tap to copy")
                         .font(.system(.caption, weight: .semibold))
                         .foregroundStyle(codeCopied ? Theme.accent : Theme.textFaint)
                 }
@@ -303,7 +300,7 @@ struct GitHubConnectScreen: View {
             .foregroundStyle(Theme.textSecondary)
             .padding(.top, 4)
 
-            Text("Disconnecting removes the token from this phone. Your repo and its history are untouched. Revoke access anytime from GitHub too.")
+            Text("Removes the token from this phone. Your repo is untouched · revoke on GitHub anytime.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textFaint)
         }
