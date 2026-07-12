@@ -403,6 +403,15 @@ The contract has grown a lot without a version bump, on purpose. The rule:
 | Sessions | app → repo, on finish (queued offline) | none possible (new file, append-only) |
 | Routines / exercises | bidirectional, on app foreground + manual pull | per-file SHA compare; a both-sides change is auto-merged field-by-field (`TemplateMerge`), same-field collisions resolve local-wins. `keep-mine/take-theirs/postpone` remains the fallback for an undecodable file |
 
+**First sync is a RESTORE, not a merge** (the reinstall-safe rule): when a
+device has no sync base (a fresh install / reinstall) and the repo is
+non-empty, the engine adopts every remote file and pushes only local files the
+repo doesn't have — it never overwrites a remote file. A fresh install seeds
+default/empty state (an empty "Home" library, the un-adopted catalog), and with
+no base the three-way merge can't tell that emptiness from a deliberate edit, so
+a plain merge would let the seed wipe real data in the repo. After the first
+pass saves a base, every later sync is the normal three-way merge above.
+
 Commit messages are composed by the sync engine: sessions get
 `Log: Shoulder PT — 8 sets (2026-07-05)` and template pushes get
 `Sync: push-day, band-pulses (+3 more)` (slugged file names — see
