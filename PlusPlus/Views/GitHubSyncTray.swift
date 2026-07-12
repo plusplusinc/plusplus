@@ -156,38 +156,51 @@ struct GitHubSyncTray: View {
     private var wizard: some View {
         VStack(alignment: .leading, spacing: 14) {
             stepBar
-            // Slide the step-specific block: the `.id(step)` makes each step a
-            // fresh view, so a step change is an insert+remove the transition
-            // animates. Direction follows `advancing` so Continue reads
-            // right-to-left and Back reverses. The VStack is clipped (below) so
-            // the incoming/outgoing steps are masked at its edges mid-slide.
-            stepContent
-                .id(step)
-                .transition(.asymmetric(
-                    insertion: .move(edge: advancing ? .trailing : .leading).combined(with: .opacity),
-                    removal: .move(edge: advancing ? .leading : .trailing).combined(with: .opacity)
-                ))
+            // Overlap the outgoing/incoming steps in a ZStack (the repo's
+            // SwapInSheet idiom) so the slide doesn't lay them out as vertical
+            // siblings and briefly double the height, shoving the error note.
+            // Clipped so the moving step can't draw past the edges mid-slide.
+            // Direction follows `advancing`: Continue slides right-to-left,
+            // Back reverses.
+            ZStack(alignment: .topLeading) {
+                switch step {
+                case .createRepo: createRepoStep.transition(stepTransition)
+                case .install: installStep.transition(stepTransition)
+                case .connect: connectStep.transition(stepTransition)
+                }
+            }
+            .clipped()
             if let activityError { errorNote(activityError) }
         }
-        .clipped()
     }
 
-    @ViewBuilder
-    private var stepContent: some View {
+    private var stepTransition: AnyTransition {
+        .asymmetric(
+            insertion: .move(edge: advancing ? .trailing : .leading).combined(with: .opacity),
+            removal: .move(edge: advancing ? .leading : .trailing).combined(with: .opacity)
+        )
+    }
+
+    private var createRepoStep: some View {
         VStack(alignment: .leading, spacing: 14) {
-            switch step {
-            case .createRepo:
-                primaryKey(title: "Create repo in GitHub", identifier: "createRepoButton") { openCreateRepo() }
-                guidance("Make a new, empty repo to hold your training data.")
-                continueButton { advance(to: .install) }
-            case .install:
-                primaryKey(title: "Install on GitHub", identifier: "installGitHubButton") { openInApp(GitHubSyncSettings.installURL) }
-                guidance("Install the PlusPlus Sync GitHub app to your repo.")
-                continueButton { advance(to: .connect) }
-            case .connect:
-                primaryKey(title: "Connect this app", identifier: "connectGitHubButton") { startConnect() }
-                guidance("Authorize on GitHub to link this iPhone to your repo.")
-            }
+            primaryKey(title: "Create repo in GitHub", identifier: "createRepoButton") { openCreateRepo() }
+            guidance("Make a new, empty repo to hold your training data.")
+            continueButton { advance(to: .install) }
+        }
+    }
+
+    private var installStep: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            primaryKey(title: "Install on GitHub", identifier: "installGitHubButton") { openInstall() }
+            guidance("Install the PlusPlus Sync GitHub app to your repo.")
+            continueButton { advance(to: .connect) }
+        }
+    }
+
+    private var connectStep: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            primaryKey(title: "Connect this app", identifier: "connectGitHubButton") { startConnect() }
+            guidance("Authorize on GitHub to link this iPhone to your repo.")
         }
     }
 
@@ -396,11 +409,19 @@ struct GitHubSyncTray: View {
     }
 
     /// Open a web URL inside the app (SFSafariViewController) rather than
-    /// kicking out to Safari — keeps the user in the flow. Reused by the
-    /// install and authorize steps; create-repo prefers the GitHub app first
-    /// and only falls back here.
+    /// kicking out to Safari — keeps the user in the flow. Used by the authorize
+    /// step (and the create-repo fallback), which have no deep-link dependency.
     private func openInApp(_ url: URL) {
         browser = BrowserURL(url: url)
+    }
+
+    /// Install opens EXTERNALLY (Safari, or the GitHub app if it claims the
+    /// link), NOT the in-app browser: `SFSafariViewController` can't hand a
+    /// universal link back to the app, so an in-app install would forfeit the
+    /// post-install auto-return (plusplus.fit/github/connected → the app). The
+    /// other steps have no such dependency and stay in-app.
+    private func openInstall() {
+        UIApplication.shared.open(GitHubSyncSettings.installURL)
     }
 
     private func startConnect() {

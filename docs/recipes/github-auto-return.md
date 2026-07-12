@@ -15,15 +15,14 @@ B2's app side is wired (`RootTabView` deep-link handlers + a `GitHubSyncTray(sta
 sheet that opens on the authorize step and auto-starts the device flow). It needs
 two owner-side pieces to function end to end.
 
-> **In-app browser note:** the tray's Install step now opens GitHub in an
-> in-app `SFSafariViewController` (not external Safari). `SFSafariViewController`
-> does NOT hand a universal link back to the app, so the AASA path (step 3
-> below) can't fire the auto-return from there — the return runs through the
-> bounce page's `plusplus://github/connected` custom-scheme redirect (step 2),
-> which SFSafari *does* honor. So for the in-app install flow, the step-2 bounce
-> page is the load-bearing piece, not the AASA entry. If the bounce page isn't
-> configured, the user closes the browser and taps "Done? Continue" to reach the
-> authorize step manually.
+> **In-app browser note:** the tray opens the authorize step (and the
+> create-repo fallback) in an in-app `SFSafariViewController`, but the **Install
+> step opens EXTERNALLY** (`UIApplication.open`, Safari or the GitHub app) on
+> purpose. `SFSafariViewController` does NOT hand a universal link back to the
+> app, so an in-app install would forfeit the AASA auto-return (step 3) and
+> leave only the custom-scheme bounce (step 2). Opening install externally keeps
+> BOTH return paths available. The device-flow authorize step has no such
+> dependency (the app polls in the background), so it stays in-app.
 
 ## Owner step 1 — set the GitHub App's Setup URL
 
