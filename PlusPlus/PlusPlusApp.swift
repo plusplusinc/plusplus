@@ -136,6 +136,10 @@ struct PlusPlusApp: App {
             if phase == .background {
                 WatchBridge.shared.pushPlan()
                 WidgetSnapshotWriter.write(container: modelContainer)
+                // Reconcile before the user might switch to their calendar
+                // app, so a just-made schedule edit is already reflected
+                // (#333). A no-op unless calendar sync is on.
+                if !Self.isUnitTestHost { reconcileCalendar() }
             } else if phase == .active, !Self.isUnitTestHost {
                 // Pull remote changes and push anything logged elsewhere, once
                 // per foreground. No-ops unless GitHub sync is connected (#23).
@@ -145,7 +149,20 @@ struct PlusPlusApp: App {
                         context: modelContainer.mainContext, units: units
                     )
                 }
+                // The reconcile backstop (#333): heals external calendar
+                // changes and any schedule edit a specific hook missed.
+                reconcileCalendar()
             }
+        }
+    }
+
+    /// Bring the "++ Workouts" calendar in step with the current routines.
+    /// Guarded internally so it costs nothing unless the feature is on.
+    @MainActor
+    private func reconcileCalendar() {
+        Task { @MainActor in
+            let routines = (try? modelContainer.mainContext.fetch(FetchDescriptor<Routine>())) ?? []
+            await CalendarSyncCoordinator.shared.reconcile(routines: routines)
         }
     }
 }
