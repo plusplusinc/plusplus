@@ -25,6 +25,7 @@ enum GitHubSyncSettings {
         static let repo = "github.sync.repo"
         static let branch = "github.sync.branch"
         static let lastSynced = "github.sync.lastSyncedAt"
+        static let faulted = "github.sync.faulted"
     }
 
     /// The registered GitHub App client ID, or nil until the App exists.
@@ -73,5 +74,18 @@ enum GitHubSyncSettings {
         set {
             UserDefaults.standard.set(newValue?.timeIntervalSince1970 ?? 0, forKey: Key.lastSynced)
         }
+    }
+
+    /// A connect attempt genuinely failed (declined, expired, network), or a
+    /// live connection expired or broke. Drives the red "disconnected" trigger,
+    /// separating it from a clean never-connected install (gray dot). NOT set
+    /// when the failure is just an unfinished setup (repo not installed yet) —
+    /// that's incomplete, not broken. Survives relaunches because an expired
+    /// token is cleared on failure, so nothing else would remember the
+    /// connection had ever existed. Cleared on a clean connect or a deliberate
+    /// disconnect.
+    static var connectionFaulted: Bool {
+        get { UserDefaults.standard.bool(forKey: Key.faulted) }
+        set { UserDefaults.standard.set(newValue, forKey: Key.faulted) }
     }
 }

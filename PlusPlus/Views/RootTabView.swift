@@ -149,9 +149,7 @@ struct RootTabView: View {
                 .presentationDetents([.large])
         }
         .sheet(isPresented: $showGitHubConnect) {
-            NavigationStack {
-                GitHubConnectScreen(autoConnect: true, justInstalled: true)
-            }
+            GitHubSyncTray(startAtConnect: true)
         }
     }
 

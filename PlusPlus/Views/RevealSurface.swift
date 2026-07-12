@@ -44,7 +44,7 @@ struct RevealSurface: View {
     @State private var dataError: String?
 
     enum Tray: String, Identifiable { case library, sync, calendar, data, whatsNew, about; var id: String { rawValue } }
-    enum Push: String, Identifiable { case connect, equipment; var id: String { rawValue } }
+    enum Push: String, Identifiable { case equipment; var id: String { rawValue } }
 
     private var version: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
@@ -67,10 +67,8 @@ struct RevealSurface: View {
                     .padding(.top, 22)
                 unitsSection
                     .padding(.top, 18)
-                syncRow
+                syncSection
                     .padding(.top, 22)
-                calendarRow
-                    .padding(.top, 10)
                 tiles
                     .padding(.top, 20)
                 footer
@@ -102,7 +100,6 @@ struct RevealSurface: View {
         .sheet(item: $activePush) { push in
             NavigationStack {
                 switch push {
-                case .connect: GitHubConnectScreen()
                 case .equipment: CatalogBrowseScreen(kind: .equipment, setupMode: true)
                 }
             }
@@ -221,24 +218,62 @@ struct RevealSurface: View {
 
     // MARK: - Sync rows (GitHub + Calendar)
 
-    private var syncRow: some View {
-        let (dot, label): (Color, String) = {
-            switch sync.connection {
-            case .connected: return (Theme.accent, "connected")
-            case .disconnected: return (Theme.destructive, "not connected")
-            case .unconfigured: return (Theme.textFaint, "unavailable")
-            }
-        }()
-        return statusRow(dot: dot, title: "GitHub sync", status: label, identifier: "revealSyncRow") {
-            openTray(.sync)
+    /// GitHub + Calendar triggers under one SYNC header; the rows drop the
+    /// redundant "sync" word now that the header carries it.
+    private var syncSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SheetSectionLabel("SYNC")
+            syncRow
+            calendarRow
         }
+    }
+
+    private var syncRow: some View {
+        let connected = sync.isConnected
+        // Red "disconnected" only when a live connection broke or a connect
+        // attempt failed; a clean never-connected install reads as neutral
+        // gray with no trailing word, and so does an unconfigured build (gate
+        // on .disconnected, so a stale fault flag can't paint it red). Green
+        // when live, also with no trailing word.
+        let faulted = sync.connection == .disconnected && sync.faulted
+        let dot: Color = connected ? Theme.accent : (faulted ? Theme.destructive : Theme.textFaint)
+        return Button {
+            openTray(.sync)
+        } label: {
+            HStack(spacing: 9) {
+                Circle().fill(dot).frame(width: 8, height: 8)
+                Image("GitHubMark").resizable().scaledToFit().frame(width: 16, height: 16)
+                Text("GitHub")
+                    .font(.system(.subheadline, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                    .fixedSize()
+                if faulted {
+                    Text("disconnected")
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(Theme.textFaint)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.system(.caption2, weight: .bold))
+                    .foregroundStyle(Theme.textFaint)
+            }
+            .padding(.horizontal, 14)
+            .frame(height: 50)
+            .frame(maxWidth: .infinity)
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 11))
+            .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
+        }
+        .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: 11, travel: 3))
+        .accessibilityIdentifier("revealSyncRow")
     }
 
     private var calendarRow: some View {
         let on = calendar.isEnabled
         return statusRow(
             dot: on ? Theme.accent : Theme.textFaint,
-            title: "Calendar sync",
+            title: "Calendar",
             status: on ? "on" : "off",
             identifier: "revealCalendarRow"
         ) { openTray(.calendar) }
@@ -326,7 +361,7 @@ struct RevealSurface: View {
                 onEditGear: { queuePush(.equipment) }
             )
         case .sync:
-            SyncTray(sync: sync, onConnect: { queuePush(.connect) })
+            GitHubSyncTray()
         case .calendar:
             CalendarTray(calendar: calendar, routines: routines)
         case .data:
@@ -595,87 +630,6 @@ private struct LibraryTray: View {
         let library = EquipmentLibrary(name: name, order: (libraries.map(\.order).max() ?? -1) + 1)
         modelContext.insert(library)
         activeLibraryID = library.uuid.uuidString
-    }
-}
-
-// MARK: - GitHub sync tray
-
-/// Status + the real connect flow (`GitHubConnectScreen`) — the design's
-/// Connect/Disconnect toggle, kept faithful to the actual feature.
-private struct SyncTray: View {
-    let sync: GitHubSyncCoordinator
-    let onConnect: () -> Void
-    @Environment(\.dismiss) private var dismiss
-
-    private var dot: Color {
-        switch sync.connection {
-        case .connected: return Theme.accent
-        case .disconnected: return Theme.destructive
-        case .unconfigured: return Theme.textFaint
-        }
-    }
-    private var statusLabel: String {
-        switch sync.connection {
-        case .connected: return "connected"
-        case .disconnected: return "not connected"
-        case .unconfigured: return "unavailable"
-        }
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "GitHub sync", closeOnly: true, action: { dismiss() })
-            Text("Your program and history live as JSON in a repo you own.")
-                .font(.system(.caption))
-                .foregroundStyle(Theme.textFaint)
-                .padding(.top, 4)
-
-            HStack(spacing: 9) {
-                Circle().fill(dot).frame(width: 9, height: 9)
-                Text(sync.isConnected ? "GitHub" : "Connect GitHub")
-                    .font(.system(.subheadline, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-                Spacer()
-                Text(statusLabel)
-                    .font(.system(.caption2, design: .monospaced))
-                    .foregroundStyle(Theme.textFaint)
-            }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
-            .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.border))
-            .padding(.top, 16)
-
-            if sync.isConnected {
-                Button(role: .destructive) {
-                    sync.disconnect()
-                } label: {
-                    Text("Disconnect")
-                        .font(.system(.subheadline, weight: .bold))
-                        .foregroundStyle(Theme.destructive)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 48)
-                        .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.destructive.opacity(0.4)))
-                }
-                .accessibilityIdentifier("revealDisconnect")
-                .padding(.top, 12)
-            } else {
-                Button(action: onConnect) {
-                    Text(sync.connection == .unconfigured ? "Set up sync" : "Connect GitHub")
-                        .font(.system(.subheadline, weight: .bold))
-                        .foregroundStyle(Theme.onPrimary)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 48)
-                        .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 11))
-                }
-                .buttonStyle(.raisedPrimaryKey())
-                .accessibilityIdentifier("revealConnect")
-                .padding(.top, 12)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 18)
-        .presentationDetents([.medium])
     }
 }
 

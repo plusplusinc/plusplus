@@ -442,8 +442,9 @@ one routine repo), token in the Keychain. Not classic OAuth `repo` scope.
    protocol and are Linux-tested against a scripted fake. The app side —
    `KeychainTokenStore`, `ApplicationSupportBaseStore`, and a
    `GitHubSyncCoordinator` (@Observable) that runs connect → bootstrap →
-   foreground sync, surfaced by `GitHubConnectScreen` off Settings › SYNC —
-   compiles in CI. Remaining is owner-gated: register the GitHub App and drop
+   foreground sync, surfaced by `GitHubSyncTray` off the ++ reveal's GitHub
+   sync row (one tray: the create-repo → install → authorize wizard, then
+   Disconnect once live) — compiles in CI. Remaining is owner-gated: register the GitHub App and drop
    its client ID into `GITHUB_APP_CLIENT_ID` (project.yml), then a two-device
    Mac validation pass. Template conflicts auto-merge field-by-field
    (`TemplateMerge`, local-wins on a true same-field collision), so no
