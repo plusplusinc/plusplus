@@ -43,7 +43,19 @@ an entitlements entry in project.yml. The workflow needs nothing new.
   .appex; project.yml pins `CURRENT_PROJECT_VERSION: 1`, and TestFlight
   overrides with the run number.
 
-## After shipping
+## Recording the build (fold into the feature PR, not a follow-up)
 
-Update CLAUDE.md's Current State (build number + contents) and tell Dave
-what to expect on-device, flagging anything that needs the #1 checklist.
+The CLAUDE.md Current State update (build number + contents) rides in the
+SAME PR as the change — never a separate bookkeeping PR after shipping
+(Dave, 2026-07-12). The wrinkle: the build number IS the testflight run
+number, which doesn't exist until dispatch, and dispatch is after merge. So
+PREDICT it before merging — it's the latest testflight run number + 1
+(`actions_list` on `testflight.yml`, take the top `run_number`, add 1). You
+dispatch immediately after merging, so nothing slips in between and the
+prediction holds. Write the Current State line with that number, commit it in
+the feature PR, merge, then dispatch — the run number matches. If a stray
+dispatch ever bumps the number, fix the one line in the next PR that touches
+CLAUDE.md; don't open a PR just for the correction.
+
+Then tell Dave what to expect on-device, flagging anything that needs the
+#1 checklist.
