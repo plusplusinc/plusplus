@@ -153,7 +153,11 @@ final class RunLocationMonitor: NSObject, CLLocationManagerDelegate {
                 // speed rather than banking its distance, and wait for the
                 // next honest fix from the last good position.
                 if dt > 0, segment / dt > maxSpeed { continue }
-                meter?.ingest(at: elapsed, cumulativeMeters: (meter?.totalMeters ?? 0) + segment)
+                // Read the running total into a local first: mutating
+                // `meter` while also reading it in the same expression is
+                // an exclusivity violation.
+                let cumulative = (meter?.totalMeters ?? 0) + segment
+                meter?.ingest(at: elapsed, cumulativeMeters: cumulative)
             }
             // The first fix after a start/pause seeds position without
             // counting the gap to it as distance.
