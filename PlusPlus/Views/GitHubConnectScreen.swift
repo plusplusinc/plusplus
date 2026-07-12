@@ -11,6 +11,10 @@ struct GitHubConnectScreen: View {
     /// this as a sheet, and the user lands straight on the authorize step
     /// instead of hunting for the Connect button.
     var autoConnect: Bool = false
+    /// The screen was reached via the post-install redirect (GitHub only sends
+    /// users to the Setup URL after a completed install), so we can confirm
+    /// step 1 succeeded with a banner while the authorize step runs.
+    var justInstalled: Bool = false
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -33,6 +37,11 @@ struct GitHubConnectScreen: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
+                // Confirm step 1 (Install) succeeded when we arrived via the
+                // post-install redirect, until the connection actually lands.
+                if justInstalled, sync.connection != .connected {
+                    installedBanner
+                }
                 // Authorizing is a transient activity that runs while the
                 // connection is still .disconnected — check it first.
                 if case .authorizing(let code, let url) = sync.activity {
@@ -75,6 +84,28 @@ struct GitHubConnectScreen: View {
     }
 
     // MARK: - States
+
+    private var installedBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(.title3, weight: .semibold))
+                .foregroundStyle(Theme.accent)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Installed on GitHub")
+                    .font(.system(.footnote, weight: .bold))
+                    .foregroundStyle(Theme.textPrimary)
+                Text("Now authorize to finish connecting.")
+                    .font(.system(.caption))
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+        .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.accent.opacity(0.4)))
+        .padding(.bottom, 16)
+    }
 
     private var intro: some View {
         VStack(alignment: .leading, spacing: 10) {

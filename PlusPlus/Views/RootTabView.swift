@@ -120,7 +120,7 @@ struct RootTabView: View {
         }
         .sheet(isPresented: $showGitHubConnect) {
             NavigationStack {
-                GitHubConnectScreen(autoConnect: true)
+                GitHubConnectScreen(autoConnect: true, justInstalled: true)
             }
         }
     }
