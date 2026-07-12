@@ -83,7 +83,8 @@ final class WatchBridge: NSObject, WCSessionDelegate {
                         targetHeartRateUpperBPM: heartBand?.upperBound,
                         extraTargets: MetricValues.toRaw(extras),
                         distanceUnit: extras.isEmpty ? nil : profile.distanceUnit,
-                        restSecondsOverride: group.restSecondsOverride
+                        restSecondsOverride: group.restSecondsOverride,
+                        isOutdoor: profile.isOutdoor ? true : nil
                     ))
                 }
             }

@@ -95,6 +95,12 @@ targets:
         # REMOVE the events we create (write-only can only add). No
         # entitlement — EventKit full access is a usage string only.
         NSCalendarsFullAccessUsageDescription: PlusPlus adds your scheduled workouts to a "++ Workouts" calendar so they show up at the right time, each with a link that starts the workout. It only touches that calendar.
+        # Live pace + distance during outdoor runs, from GPS. Background
+        # location keeps a pocketed, screen-off run tracking (the standard
+        # running-app pattern); the OS shows the blue indicator while it does.
+        NSLocationWhenInUseUsageDescription: PlusPlus reads your location during outdoor runs to show live pace and distance. It only tracks while a run is in progress.
+        UIBackgroundModes:
+          - location
     # App Group shared with the widget extension — the snapshot channel.
     entitlements:
       path: PlusPlus/PlusPlus.entitlements
@@ -201,6 +207,9 @@ targets:
           - workout-processing
         NSHealthShareUsageDescription: PlusPlus reads heart rate and energy during workouts you run from your wrist.
         NSHealthUpdateUsageDescription: PlusPlus saves workouts you run from your wrist to Health.
+        # Outdoor runs use GPS for live pace and distance (the workout
+        # session consumes the fixes; we only hold the grant).
+        NSLocationWhenInUseUsageDescription: PlusPlus uses GPS during outdoor runs to measure your pace and distance.
     entitlements:
       path: PlusPlusWatch/PlusPlusWatch.entitlements
       properties:

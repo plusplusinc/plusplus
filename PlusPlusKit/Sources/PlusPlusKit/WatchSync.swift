@@ -30,6 +30,14 @@ public enum WatchSync {
             self.restSeconds = restSeconds
             self.steps = steps
         }
+
+        /// Whether this routine runs as an OUTDOOR workout on the wrist —
+        /// an HKWorkoutSession is one activity type, so we only switch the
+        /// watch config to running/outdoor (and collect GPS distance) when
+        /// EVERY step is outdoor. A mixed routine stays strength/indoor.
+        public var isOutdoorRun: Bool {
+            !steps.isEmpty && steps.allSatisfy { $0.isOutdoor == true }
+        }
     }
 
     /// One set of one exercise, in execution order (supersets already
@@ -58,6 +66,10 @@ public enum WatchSync {
         /// The block's rest override (interval blocks) — the wrist rests
         /// this long after the step instead of the routine default.
         public var restSecondsOverride: Int?
+        /// Whether this step is an outdoor, GPS-trackable run/walk — the
+        /// wrist reads it to decide the workout's activity/location type
+        /// and whether to show live pace (see `PlanRoutine.isOutdoorRun`).
+        public var isOutdoor: Bool?
 
         public init(
             exerciseName: String,
@@ -72,7 +84,8 @@ public enum WatchSync {
             targetHeartRateUpperBPM: Int? = nil,
             extraTargets: [String: Double]? = nil,
             distanceUnit: DistanceUnit? = nil,
-            restSecondsOverride: Int? = nil
+            restSecondsOverride: Int? = nil,
+            isOutdoor: Bool? = nil
         ) {
             self.exerciseName = exerciseName
             self.groupIndex = groupIndex
@@ -87,6 +100,7 @@ public enum WatchSync {
             self.extraTargets = extraTargets
             self.distanceUnit = distanceUnit
             self.restSecondsOverride = restSecondsOverride
+            self.isOutdoor = isOutdoor
         }
     }
 

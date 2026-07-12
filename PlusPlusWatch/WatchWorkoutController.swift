@@ -1,6 +1,8 @@
 import Foundation
+import CoreLocation
 import HealthKit
 import Observation
+import PlusPlusKit
 
 /// HealthKit runtime for wrist execution (#90): an HKWorkoutSession keeps
 /// the app running with the wrist down (so the rest haptic fires directly
@@ -27,42 +29,68 @@ final class WatchWorkoutController: NSObject, HKLiveWorkoutBuilderDelegate {
     private(set) var averageBPM: Int?
     private(set) var maxBPM: Int?
 
+    /// Live pace during an OUTDOOR run, from the builder's fused
+    /// distanceWalkingRunning fed into a Kit pace meter. nil for indoor
+    /// sessions (no distance collected) and until GPS locks.
+    private(set) var currentPaceSeconds: Double?
+
+    /// Location authorization is required for an outdoor session's GPS
+    /// distance — we don't consume fixes ourselves, the workout does.
+    private let locationManager = CLLocationManager()
+    private var paceMeter: LivePaceMeter?
+    private var sessionStart: Date?
+
     /// Request authorization (first run only — the system remembers) and
-    /// begin a workout session. Idempotent; failures leave us inert.
-    func start() {
+    /// begin a workout session. Idempotent; failures leave us inert. On an
+    /// outdoor run the session runs as `.running`/`.outdoor`, collects GPS
+    /// distance, and surfaces live pace in the run's `unit`.
+    func start(outdoorRun: Bool = false, unit: DistanceUnit = .miles) {
         guard HKHealthStore.isHealthDataAvailable(), session == nil else { return }
         // Share covers everything the live builder saves with the workout;
-        // read lets the data source collect from the sensors.
-        let share: Set<HKSampleType> = [
+        // read lets the data source collect from the sensors. Distance is
+        // an outdoor-only ask.
+        var share: Set<HKSampleType> = [
             .workoutType(),
             HKQuantityType(.activeEnergyBurned),
             HKQuantityType(.heartRate),
         ]
-        let read: Set<HKObjectType> = [
+        var read: Set<HKObjectType> = [
             HKQuantityType(.activeEnergyBurned),
             HKQuantityType(.heartRate),
         ]
+        if outdoorRun {
+            share.insert(HKQuantityType(.distanceWalkingRunning))
+            read.insert(HKQuantityType(.distanceWalkingRunning))
+            paceMeter = LivePaceMeter(unit: unit)
+            // GPS distance needs location authorization; the workout
+            // consumes the fixes, we just hold the grant.
+            locationManager.requestWhenInUseAuthorization()
+        }
         // `success` means the request was processed, not that anything was
         // granted (HealthKit never reveals denial). Begin regardless: with
         // denied share auth the builder's saves fail and we ignore them.
         store.requestAuthorization(toShare: share, read: read) { [weak self] success, _ in
             guard success else { return }
-            DispatchQueue.main.async { self?.begin() }
+            DispatchQueue.main.async { self?.begin(outdoorRun: outdoorRun) }
         }
     }
 
-    private func begin() {
+    private func begin(outdoorRun: Bool) {
         guard session == nil else { return }
         let configuration = HKWorkoutConfiguration()
-        configuration.activityType = .traditionalStrengthTraining
-        configuration.locationType = .indoor
+        // One session is one activity type — the caller only asks for
+        // outdoor when the whole routine is a run (PlanRoutine.isOutdoorRun).
+        configuration.activityType = outdoorRun ? .running : .traditionalStrengthTraining
+        configuration.locationType = outdoorRun ? .outdoor : .indoor
         do {
             let session = try HKWorkoutSession(healthStore: store, configuration: configuration)
             let builder = session.associatedWorkoutBuilder()
             builder.dataSource = HKLiveWorkoutDataSource(healthStore: store, workoutConfiguration: configuration)
             builder.delegate = self
-            session.startActivity(with: Date())
-            builder.beginCollection(withStart: Date()) { _, _ in }
+            let now = Date()
+            sessionStart = now
+            session.startActivity(with: now)
+            builder.beginCollection(withStart: now) { _, _ in }
             self.session = session
             self.builder = builder
         } catch {
@@ -96,17 +124,31 @@ final class WatchWorkoutController: NSObject, HKLiveWorkoutBuilderDelegate {
 
     func workoutBuilder(_ workoutBuilder: HKLiveWorkoutBuilder, didCollectDataOf collectedTypes: Set<HKSampleType>) {
         let heartRate = HKQuantityType(.heartRate)
-        guard collectedTypes.contains(heartRate),
-              let statistics = workoutBuilder.statistics(for: heartRate) else { return }
-        let unit = HKUnit.count().unitDivided(by: .minute())
-        let latest = statistics.mostRecentQuantity().map { Int($0.doubleValue(for: unit).rounded()) }
-        let average = statistics.averageQuantity().map { Int($0.doubleValue(for: unit).rounded()) }
-        let peak = statistics.maximumQuantity().map { Int($0.doubleValue(for: unit).rounded()) }
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            if let latest { self.latestBPM = latest }
-            if let average { self.averageBPM = average }
-            if let peak { self.maxBPM = peak }
+        if collectedTypes.contains(heartRate), let statistics = workoutBuilder.statistics(for: heartRate) {
+            let unit = HKUnit.count().unitDivided(by: .minute())
+            let latest = statistics.mostRecentQuantity().map { Int($0.doubleValue(for: unit).rounded()) }
+            let average = statistics.averageQuantity().map { Int($0.doubleValue(for: unit).rounded()) }
+            let peak = statistics.maximumQuantity().map { Int($0.doubleValue(for: unit).rounded()) }
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                if let latest { self.latestBPM = latest }
+                if let average { self.averageBPM = average }
+                if let peak { self.maxBPM = peak }
+            }
+        }
+
+        // Outdoor run: feed HealthKit's fused cumulative distance into the
+        // pace meter (better than raw CLLocation — it blends GPS + motion).
+        let distanceType = HKQuantityType(.distanceWalkingRunning)
+        if paceMeter != nil, collectedTypes.contains(distanceType),
+           let statistics = workoutBuilder.statistics(for: distanceType),
+           let meters = statistics.sumQuantity()?.doubleValue(for: .meter()),
+           let start = sessionStart {
+            paceMeter?.ingest(at: Date().timeIntervalSince(start), cumulativeMeters: meters)
+            let pace = paceMeter?.currentPaceSeconds
+            DispatchQueue.main.async { [weak self] in
+                self?.currentPaceSeconds = pace
+            }
         }
     }
 

@@ -38,6 +38,10 @@ struct WorkoutRunView: View {
         routine.steps.indices.contains(stepIndex) ? routine.steps[stepIndex] : nil
     }
 
+    /// The run's pace/distance denomination (an outdoor routine is
+    /// homogeneous, so the first step's unit speaks for it).
+    private var runUnit: DistanceUnit { routine.steps.first?.distanceUnit ?? .miles }
+
     var body: some View {
         Group {
             if finished {
@@ -53,8 +57,9 @@ struct WorkoutRunView: View {
         .navigationTitle(routine.name)
         .navigationBarBackButtonHidden(startedAt != nil && !finished)
         // The HK session starts as soon as the routine is opened —
-        // runtime + heart rate from the first set, not the first log.
-        .onAppear { health.start() }
+        // runtime + heart rate from the first set, not the first log. An
+        // all-outdoor routine runs as a GPS running session for live pace.
+        .onAppear { health.start(outdoorRun: routine.isOutdoorRun, unit: runUnit) }
         // If the system pops us mid-session (plan row vanished after a
         // rename/delete on the phone), the logged sets still count:
         // partial history beats lost history, and the phone-side
@@ -90,6 +95,13 @@ struct WorkoutRunView: View {
             // band (phone-side zone math) rides along as a fact.
             if let heart = heartLine(for: step) {
                 heart
+                    .font(.system(.caption2, design: .monospaced, weight: .semibold))
+            }
+
+            // Live GPS pace on an outdoor run, accent while meeting the
+            // step's pace target — same treatment as the heart line.
+            if let pace = paceLine(for: step) {
+                pace
                     .font(.system(.caption2, design: .monospaced, weight: .semibold))
             }
 
@@ -185,6 +197,35 @@ struct WorkoutRunView: View {
         return line
     }
 
+    /// "🏃 8:30 /mi · 9:00" — live GPS pace, accent while meeting the
+    /// step's pace target (pace improves DOWN, so actual ≤ target); the
+    /// target trails as a fact. nil without a reading.
+    private func paceLine(for step: WatchSync.Step) -> Text? {
+        guard let pace = health.currentPaceSeconds else { return nil }
+        let target = step.extraTargets?[WorkoutMetric.pace.rawValue]
+        let meeting = target.map { pace <= $0 } ?? false
+        var line = Text("\(Image(systemName: "figure.run")) \(WorkoutMetric.pace.formatted(pace)) \(runUnit.paceLabel)")
+            .foregroundStyle(meeting ? WatchTheme.accent : .secondary)
+        if let target {
+            line = line + Text(" · \(WorkoutMetric.pace.formatted(target))").foregroundStyle(.secondary)
+        }
+        return line
+    }
+
+    /// "♥ 128  🏃 8:30 /mi" — the rest screen's recovery vitals, quiet
+    /// (no target judgment). nil when neither reading is live.
+    private var restVitalsLine: Text? {
+        var line: Text?
+        if let bpm = health.latestBPM {
+            line = Text("\(Image(systemName: "heart.fill")) \(bpm)")
+        }
+        if let pace = health.currentPaceSeconds {
+            let paceText = Text("\(Image(systemName: "figure.run")) \(WorkoutMetric.pace.formatted(pace)) \(runUnit.paceLabel)")
+            line = line.map { $0 + Text("  ") + paceText } ?? paceText
+        }
+        return line
+    }
+
     private func log(_ step: WatchSync.Step) {
         let now = Date()
         if startedAt == nil {
@@ -238,8 +279,10 @@ struct WorkoutRunView: View {
                 // progress, so accent green, draining with the clock.
                 rechargeBlocks(remaining: remaining)
                 // Recovery at a glance — no band judgment during rest.
-                if let bpm = health.latestBPM {
-                    Text("\(Image(systemName: "heart.fill")) \(bpm)")
+                // On a run, pace joins it while a walk break keeps moving
+                // (it drops out when you stand still).
+                if let vitals = restVitalsLine {
+                    vitals
                         .font(.system(.caption2, design: .monospaced, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }

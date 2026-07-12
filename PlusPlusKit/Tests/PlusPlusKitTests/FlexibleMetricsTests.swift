@@ -63,6 +63,23 @@ struct MetricProfileTests {
         #expect(lenient.distanceUnit == .meters)
     }
 
+    @Test("isOutdoor round-trips and a pre-outdoor blob decodes to false")
+    func outdoorFlag() throws {
+        let run = MetricProfile([.distance, .duration, .pace], distanceUnit: .miles, isOutdoor: true)
+        #expect(run.isOutdoor)
+        #expect(MetricProfile.decode(from: run.encoded()) == run)
+
+        // A blob written before the flag existed (no isOutdoor key) is an
+        // indoor profile, not a crash.
+        let legacy = Data(#"{"metrics":["distance","pace"],"distanceUnit":"mi"}"#.utf8)
+        let decoded = try JSONDecoder().decode(MetricProfile.self, from: legacy)
+        #expect(decoded.isOutdoor == false)
+
+        // The flag participates in equality — same metrics, different
+        // outdoor-ness are different profiles.
+        #expect(MetricProfile([.distance], isOutdoor: true) != MetricProfile([.distance]))
+    }
+
     @Test("MetricValues encodes nil when empty and drops unknown raw keys")
     func valueBags() {
         #expect(MetricValues.encode([:]) == nil)
