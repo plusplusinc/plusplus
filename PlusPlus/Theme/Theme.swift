@@ -63,6 +63,11 @@ enum Theme {
     /// order. Product decision this round: blue = the MOMENT of creating
     /// (selection field + snap line + spark); gray = the bound unit at rest.
     static let supersetLoop = Color(light: 0x7C786F, dark: 0x7C786F)
+    /// The create-animation's pulse spark + chevron flare — a light blue
+    /// brighter than `selected`, so the travelling glow reads as energy on
+    /// top of the creation blue. Same tone both schemes (it's additive
+    /// light, not a surface). Used only during the superset landing.
+    static let supersetFlare = Color(light: 0x96C8FA, dark: 0x96C8FA)
 
     /// Selected-state fill; always accompanied by `selectedRing`.
     static let selectedTint = Color(uiColor: UIColor { traits in

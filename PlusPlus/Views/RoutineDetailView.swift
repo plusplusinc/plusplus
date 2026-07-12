@@ -56,6 +56,9 @@ struct RoutineDetailView: View {
     private struct SupersetLanding: Equatable {
         var groupID: PersistentIdentifier
         var progress: Double
+        /// The group was already a superset (≥2) before this landing grew
+        /// it — so its rows keep their loop through the reshape.
+        var grew: Bool
     }
 
     var body: some View {
@@ -308,7 +311,14 @@ struct RoutineDetailView: View {
         .scrollDisabled(railGesture != .idle)
         .sensoryFeedback(.impact(weight: .light), trigger: gestureFeedbackToken)
         .sensoryFeedback(.impact(weight: .medium), trigger: landingTick)
-        .onDisappear { railGesture = .idle }
+        .onDisappear {
+            railGesture = .idle
+            // Cancel any in-flight landing: bumping the token invalidates
+            // the deferred clock/haptic guards, and clearing the state stops
+            // its rendering (the view is going away).
+            landingSeq &+= 1
+            supersetLanding = nil
+        }
     }
 
     private var activeRingGroup: Int? {
@@ -610,6 +620,7 @@ struct RoutineDetailView: View {
         return RailLandingParams(
             active: true,
             progress: landing.progress,
+            grew: landing.grew,
             firstNodeY: firstRow.y + half,
             lastNodeY: lastRow.y + half,
             rowTopY: thisRow.y
@@ -699,6 +710,10 @@ struct RoutineDetailView: View {
         let span = RailRing.span(groupSizes: sizes, group: g, edge: edge, fingerY: fingerY, metrics: railMetrics)
         guard !span.isNoOp else { return }
         let group = routine.sortedGroups[g]
+        // Captured BEFORE the merges: did this landing grow an existing
+        // superset, or form a fresh one? Drives whether the loop is kept
+        // through the reshape or revealed.
+        let wasExistingSuperset = group.sortedExercises.count > 1
 
         for _ in 0..<span.absorbAfter {
             let groups = routine.sortedGroups
@@ -729,7 +744,7 @@ struct RoutineDetailView: View {
             SupersetLoopTip().invalidate(reason: .actionPerformed)
             // The selection field they drew now collapses into the loop
             // it leaves behind, with a snap to mark the bond forming.
-            flashSupersetLanding(group)
+            flashSupersetLanding(group, grew: wasExistingSuperset)
         }
         // An eject is the same dot-drag mechanic in reverse — the
         // how-to is proven found.
@@ -742,10 +757,10 @@ struct RoutineDetailView: View {
     /// (design handoff 2026-07-12 v2): one linear clock, `progress` 0→1 over
     /// ~1.3 s, feeds the field reshape+snap, the pulse spark, and the loop's
     /// blue→gray fade. A medium impact snaps at the Phase B → C hand-off.
-    private func flashSupersetLanding(_ group: ExerciseGroup) {
+    private func flashSupersetLanding(_ group: ExerciseGroup, grew: Bool) {
         let seq = landingSeq &+ 1
         landingSeq = seq
-        supersetLanding = SupersetLanding(groupID: group.persistentModelID, progress: 0)
+        supersetLanding = SupersetLanding(groupID: group.persistentModelID, progress: 0, grew: grew)
         // Commit the progress-0 frame FIRST (reshape start), then run the
         // clock on the next tick — animating in the same tick as the insert
         // would snap straight to the end (a fresh view has no baseline to
@@ -896,6 +911,7 @@ enum RailRole {
 struct RailLandingParams {
     var active = false
     var progress: Double = 0
+    var grew = false
     var firstNodeY: CGFloat = 0
     var lastNodeY: CGFloat = 0
     var rowTopY: CGFloat = 0
@@ -952,6 +968,7 @@ private struct ExerciseRailRow: View {
                 dotY: rowHeight / 2,
                 isLanding: !hideLoop && landing.active,
                 landingProgress: landing.progress,
+                landingGrew: landing.grew,
                 groupFirstNodeY: landing.firstNodeY,
                 groupLastNodeY: landing.lastNodeY,
                 rowTopY: landing.rowTopY
@@ -1014,6 +1031,11 @@ struct RailGlyph: View, Animatable {
     /// per-row chevron reveal. Only `landingProgress` changes per frame.
     var isLanding = false
     var landingProgress: Double = 0
+    /// True when the landing GREW an existing superset (vs formed a fresh
+    /// one from solos). A grow already shows a settled gray loop, so the
+    /// reshape KEEPS it rather than blanking it (which would wink the loop
+    /// out for ~260 ms); a fresh pair has nothing to keep and reveals in.
+    var landingGrew = false
     var groupFirstNodeY: CGFloat = 0
     var groupLastNodeY: CGFloat = 0
     var rowTopY: CGFloat = 0
@@ -1028,7 +1050,6 @@ struct RailGlyph: View, Animatable {
 
     private static let spineX: CGFloat = 15
     private static let loopX: CGFloat = 3
-    private static let flareColor = Color(red: 150 / 255, green: 200 / 255, blue: 250 / 255)
 
     var body: some View {
         Canvas { context, _ in
@@ -1073,7 +1094,7 @@ struct RailGlyph: View, Animatable {
                     p.addLine(to: CGPoint(x: loopX, y: 0.5))
                     p.addLine(to: CGPoint(x: loopX + 2.5, y: 5))
                     if look.chevron == .flare {
-                        lctx.stroke(p, with: .color(Self.flareColor), style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+                        lctx.stroke(p, with: .color(Theme.supersetFlare), style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
                     } else {
                         lctx.stroke(p, with: .color(ink), style: loopStyle)
                     }
@@ -1123,20 +1144,30 @@ struct RailGlyph: View, Animatable {
         func clamp(_ t: Double) -> Double { min(max(t, 0), 1) }
 
         if g < fA {
-            // Reshape: the field is still morphing; the loop isn't drawn.
-            return Look(ink: blue, alpha: 0, chevron: .hidden, nodePop: 1)
+            // Reshape. A fresh pair has no loop yet (draw nothing); GROWING
+            // an existing superset keeps its settled gray loop so it doesn't
+            // wink out under the morphing field.
+            return landingGrew
+                ? Look(ink: gray, alpha: 1, chevron: .shown, nodePop: 1)
+                : Look(ink: blue, alpha: 0, chevron: .hidden, nodePop: 1)
         } else if g < fB {
-            // Snap: the loop fades in (blue), no chevrons; the node pops.
+            // Snap. Fresh: the line fades IN blue, chevrons still hidden.
+            // Grow: the visible gray line crossfades UP to blue (no fade-in),
+            // chevrons already shown. The node pops in both.
             let p = (g - fA) / (fB - fA)
             let snap = clamp((p - 0.15) / 0.85)
             let pop = 1 + max(0, sin(clamp((snap - 0.35) / 0.5) * .pi)) * 0.22
-            return Look(ink: blue, alpha: eo(snap), chevron: .hidden, nodePop: CGFloat(pop))
+            return landingGrew
+                ? Look(ink: gray.mix(with: blue, by: eo(snap)), alpha: 1, chevron: .shown, nodePop: CGFloat(pop))
+                : Look(ink: blue, alpha: eo(snap), chevron: .hidden, nodePop: CGFloat(pop))
         } else if g < fC {
-            // Pulse: full blue; each chevron reveals + flares as the spark
-            // (bottom → top) passes its row boundary.
+            // Pulse: full blue; the spark (bottom → top) flares each chevron
+            // as it passes. Fresh reveals them progressively; a grow's are
+            // already shown, so they only flare.
             let s = eo((g - fB) / (fC - fB))
             let sparkY = SupersetRailGeometry.pulsePoint(s, firstNodeY: groupFirstNodeY, lastNodeY: groupLastNodeY).y
-            let chev: Chevron = sparkY <= rowTopY + 6 ? (abs(sparkY - rowTopY) < 18 ? .flare : .shown) : .hidden
+            let flaring = abs(sparkY - rowTopY) < 18
+            let chev: Chevron = flaring ? .flare : ((landingGrew || sparkY <= rowTopY + 6) ? .shown : .hidden)
             return Look(ink: blue, alpha: 1, chevron: chev, nodePop: 1)
         } else {
             // Fade: the whole loop crossfades blue → settled gray.
@@ -1270,7 +1301,7 @@ private struct SupersetSparkView: View, Animatable {
             let s = eo((g - fB) / (fC - fB))
             let pt = SupersetRailGeometry.pulsePoint(s, firstNodeY: firstNodeY, lastNodeY: lastNodeY)
             let glow = Gradient(stops: [
-                .init(color: Color(red: 150 / 255, green: 200 / 255, blue: 250 / 255).opacity(0.42), location: 0),
+                .init(color: Theme.supersetFlare.opacity(0.42), location: 0),
                 .init(color: Theme.selected.opacity(0.16), location: 0.5),
                 .init(color: Theme.selected.opacity(0), location: 1),
             ])
