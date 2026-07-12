@@ -110,6 +110,19 @@ struct WorkoutCalendarPlanTests {
         #expect(byName["Long"] == 55)
     }
 
+    @Test("Routine name is trimmed to match the deep-link round trip")
+    func trimsName() {
+        let events = WorkoutCalendarPlan.events(
+            for: [input("  Legs  ", .weekdays([3]))],
+            startHour: 7, startMinute: 0
+        )
+        #expect(events.first?.routineName == "Legs")
+        // The link the app writes onto the event decodes back to the same
+        // trimmed name, so the reconcile's desired/existing keys match.
+        let url = WorkoutCalendarLink.webURL(forRoutineNamed: "  Legs  ")
+        #expect(url.flatMap(WorkoutCalendarLink.routineName(from:)) == "Legs")
+    }
+
     @Test("Fingerprint changes when any calendar-visible field changes")
     func fingerprintSensitivity() {
         let base = WorkoutCalendarEvent(routineName: "Push", weekdays: [2, 4], startHour: 7, startMinute: 0, durationMinutes: 45)

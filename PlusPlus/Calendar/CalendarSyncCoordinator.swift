@@ -339,11 +339,20 @@ final class CalendarSyncCoordinator {
         let end = cal.date(byAdding: .day, value: 21, to: now) ?? now
         let predicate = store.predicateForEvents(withStart: start, end: end, calendars: [calendar])
 
-        // Occurrences → one representative event per series.
+        // Occurrences → one representative per series, and it must be the
+        // EARLIEST occurrence: `removeEvent` deletes with `.futureEvents`,
+        // which only takes the given occurrence and later ones, so removing
+        // from a mid-series occurrence would strand the earlier ones as
+        // ghosts. An event with no identifier can't be a managed series, so
+        // skip it rather than mint a fake key that would split one series.
         var seriesByID: [String: EKEvent] = [:]
         for occurrence in store.events(matching: predicate) {
-            let id = occurrence.eventIdentifier ?? UUID().uuidString
-            if seriesByID[id] == nil { seriesByID[id] = occurrence }
+            guard let id = occurrence.eventIdentifier else { continue }
+            if let kept = seriesByID[id] {
+                if occurrence.startDate < kept.startDate { seriesByID[id] = occurrence }
+            } else {
+                seriesByID[id] = occurrence
+            }
         }
         // One series per routine; remove any stray duplicate series.
         var result: [String: EKEvent] = [:]
