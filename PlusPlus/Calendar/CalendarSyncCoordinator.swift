@@ -15,14 +15,26 @@ private let calendarLog = Logger(subsystem: "com.davidcole.plusplus", category: 
 /// Two design choices carry the whole feature:
 ///  - **A dedicated "++ Workouts" calendar.** Every event lives in a
 ///    calendar PlusPlus owns, created in the user's default source (so it
-///    still syncs up to iCloud/Google). Removal is one `removeCalendar`;
+///    still syncs up to iCloud/Google). Removal takes every event with it;
 ///    the reconcile only ever touches this calendar, never the user's own
 ///    events; the user gets a native off-switch (hide/delete it).
 ///  - **One idempotent `reconcile`, not per-edit hooks.** It computes the
-///    desired event set and diffs against `managedEvents`. Every
-///    transition (routine deleted, rescheduled, retimed, unscheduled,
-///    feature toggled) falls out of the same diff, and running it on
-///    every foreground/background heals anything a hook missed.
+///    desired event set and reconciles it against what's actually in the
+///    calendar. Every transition (routine deleted, rescheduled, retimed,
+///    unscheduled, feature toggled) falls out of the same diff, and running
+///    it on every foreground/background heals anything a hook missed.
+///
+/// **Identity is the calendar TITLE, not its identifier** (#346). iOS
+/// reassigns a calendar's `calendarIdentifier` once it syncs to an
+/// iCloud/Google account, so a stored identifier stops resolving even
+/// though the calendar is right there. The first cut trusted the stored
+/// identifier: the drifted lookup read as "user deleted it," the feature
+/// turned itself off, and re-enabling created a SECOND "++ Workouts"
+/// calendar while orphaning the first (the app only ever remembered one
+/// identifier). So we now find our calendar by title, consolidate any
+/// strays into one, match events by the routine link they carry (event
+/// identifiers drift too), and remove EVERY "++ Workouts" calendar on
+/// disable.
 ///
 /// `@MainActor` because it reads SwiftData `Routine` models and drives UI
 /// state; the EventKit calls are cheap (a handful of events) and the
@@ -90,24 +102,25 @@ final class CalendarSyncCoordinator {
         }
     }
 
-    /// Turn the feature off and remove everything: deleting our calendar
-    /// takes every event with it.
+    /// Turn the feature off and remove everything. Removes EVERY
+    /// "++ Workouts" calendar, not just the last-remembered one, so a
+    /// duplicate left by the old identifier bug (or one the user made) can't
+    /// survive as an orphan.
     func disableAndRemove() async {
         timeDebounce?.cancel()
-        // Only forget the calendar once it's actually gone. If removal
-        // throws (e.g. access revoked mid-session), keep the identifier so
-        // a later re-enable reuses that calendar instead of duplicating it.
-        var removedOrAbsent = true
-        if let id = CalendarSyncSettings.calendarIdentifier,
-           let calendar = store.calendar(withIdentifier: id) {
+        var allRemoved = true
+        for calendar in ourCalendars() {
             do {
                 try store.removeCalendar(calendar, commit: true)
             } catch {
-                calendarLog.error("Removing ++ Workouts calendar failed: \(error.localizedDescription)")
-                removedOrAbsent = false
+                calendarLog.error("Removing a ++ Workouts calendar failed: \(error.localizedDescription)")
+                allRemoved = false
             }
         }
-        if removedOrAbsent {
+        // Only forget our state once the calendars are actually gone; if a
+        // removal threw (e.g. access revoked mid-session) keep the pointer
+        // so a later pass finishes the job.
+        if allRemoved {
             CalendarSyncSettings.clear()
         } else {
             CalendarSyncSettings.isEnabled = false
@@ -150,17 +163,21 @@ final class CalendarSyncCoordinator {
         isReconciling = true
         defer { isReconciling = false }
 
+        let ours = ourCalendars()
         // Deleting "++ Workouts" is a documented off-switch (the Settings
-        // caption and the event notes both say so). If a calendar we
-        // created no longer resolves, honor the deletion — turn the
-        // feature off and clear state — instead of resurrecting it on the
-        // next foreground pass.
-        if let id = CalendarSyncSettings.calendarIdentifier, store.calendar(withIdentifier: id) == nil {
+        // caption and the event notes both say so). On a PASSIVE pass, if
+        // we once created a calendar and now NONE by that title exist,
+        // honor the deletion and turn the feature off. Keyed on "no
+        // calendar by title exists", NOT "the stored id stopped resolving":
+        // Apple documents that a full sync loses the identifier, and the
+        // old code misread that drift as a deletion (#346). The enable path
+        // (`allowCreate`) skips this so re-enabling after a delete rebuilds.
+        if ours.isEmpty, !allowCreate, CalendarSyncSettings.calendarIdentifier != nil {
             await disableAndRemove()
             return
         }
 
-        guard let calendar = ensureCalendar(allowCreate: allowCreate) else {
+        guard let calendar = resolvedCalendar(ours: ours, allowCreate: allowCreate) else {
             if allowCreate {
                 calendarLog.error("No calendar source would host ++ Workouts.")
             }
@@ -180,53 +197,91 @@ final class CalendarSyncCoordinator {
         )
         let desiredByName = Dictionary(desired.map { ($0.routineName, $0) }, uniquingKeysWith: { first, _ in first })
 
-        var managed = CalendarSyncSettings.managedEvents
+        // Match against the events ACTUALLY in the calendar, keyed by the
+        // routine link they carry — not by stored event identifiers, which
+        // drift with the same sync that moves the calendar's id (#346).
+        let existing = existingManagedEvents(in: calendar)
+        var cache = CalendarSyncSettings.managedEvents
 
         // 1. Remove events whose routine dropped out of the desired set
         //    (deleted, unscheduled, or switched to frequency mode).
-        for (name, record) in managed where desiredByName[name] == nil {
-            removeEvent(record.eventIdentifier)
-            managed[name] = nil
+        for (name, event) in existing where desiredByName[name] == nil {
+            removeEvent(event)
+            cache[name] = nil
         }
 
-        // 2. Create or update the desired events. Unchanged-and-present
-        //    events are left alone; a fingerprint mismatch or a
-        //    user-deleted event is rebuilt.
-        for event in desired {
-            if let existing = managed[event.routineName],
-               existing.fingerprint == event.fingerprint,
-               store.event(withIdentifier: existing.eventIdentifier) != nil {
-                continue
+        // 2. Create or update the desired events. An event that's present
+        //    and unchanged (matching fingerprint) is left alone; anything
+        //    missing or changed is (re)built.
+        for spec in desired {
+            if let event = existing[spec.routineName] {
+                if cache[spec.routineName]?.fingerprint == spec.fingerprint {
+                    continue
+                }
+                removeEvent(event)
             }
-            if let existing = managed[event.routineName] {
-                removeEvent(existing.eventIdentifier)
-            }
-            if let identifier = makeEvent(event, in: calendar) {
-                managed[event.routineName] = .init(eventIdentifier: identifier, fingerprint: event.fingerprint)
+            if let identifier = makeEvent(spec, in: calendar) {
+                cache[spec.routineName] = .init(eventIdentifier: identifier, fingerprint: spec.fingerprint)
             } else {
-                managed[event.routineName] = nil
+                cache[spec.routineName] = nil
             }
         }
 
-        CalendarSyncSettings.managedEvents = managed
+        // Drop cache entries no longer backed by a desired routine.
+        cache = cache.filter { desiredByName[$0.key] != nil }
+        CalendarSyncSettings.managedEvents = cache
     }
 
-    // MARK: - EventKit helpers
+    // MARK: - Calendar resolution
 
-    /// Our calendar. Returns the stored one if it still resolves;
-    /// otherwise creates it — but ONLY when `allowCreate` is set (the
-    /// explicit enable path). A passive foreground/background reconcile
-    /// passes `false`, so it never resurrects a calendar the user removed.
-    private func ensureCalendar(allowCreate: Bool) -> EKCalendar? {
-        if let id = CalendarSyncSettings.calendarIdentifier,
-           let existing = store.calendar(withIdentifier: id) {
-            return existing
+    /// Every event calendar titled "++ Workouts". The title is our durable
+    /// handle; the identifier is not (#346).
+    private func ourCalendars() -> [EKCalendar] {
+        store.calendars(for: .event).filter { $0.title == CalendarSyncSettings.calendarTitle }
+    }
+
+    /// The one calendar to manage. Consolidates any strays (deleting the
+    /// extras), re-points the stored identifier if it drifted, and creates
+    /// a fresh calendar only when none exist and `allowCreate` is set (the
+    /// enable path). When the calendar set changes — a consolidation or a
+    /// re-point — the event cache is cleared so the surviving calendar is
+    /// rebuilt from the current schedule rather than trusting stale entries.
+    private func resolvedCalendar(ours: [EKCalendar], allowCreate: Bool) -> EKCalendar? {
+        guard let canonical = canonicalCalendar(ours) else {
+            guard allowCreate else { return nil }
+            return createCalendar()
         }
-        guard allowCreate else { return nil }
-        // A fresh calendar means any remembered events are gone with the
-        // old one — start the map clean.
-        CalendarSyncSettings.managedEvents = [:]
+        var changed = false
+        for extra in ours where extra.calendarIdentifier != canonical.calendarIdentifier {
+            do {
+                try store.removeCalendar(extra, commit: true)
+                changed = true
+            } catch {
+                calendarLog.error("Consolidating a duplicate ++ Workouts calendar failed: \(error.localizedDescription)")
+            }
+        }
+        if CalendarSyncSettings.calendarIdentifier != canonical.calendarIdentifier {
+            CalendarSyncSettings.calendarIdentifier = canonical.calendarIdentifier
+            changed = true
+        }
+        if changed {
+            CalendarSyncSettings.managedEvents = [:]
+        }
+        return canonical
+    }
 
+    /// Prefer the calendar the stored identifier still points at; otherwise
+    /// a deterministic pick so repeated runs agree on the survivor.
+    private func canonicalCalendar(_ ours: [EKCalendar]) -> EKCalendar? {
+        if let id = CalendarSyncSettings.calendarIdentifier,
+           let match = ours.first(where: { $0.calendarIdentifier == id }) {
+            return match
+        }
+        return ours.sorted { $0.calendarIdentifier < $1.calendarIdentifier }.first
+    }
+
+    /// Create the "++ Workouts" calendar in the best available source.
+    private func createCalendar() -> EKCalendar? {
         for source in candidateSources() {
             let calendar = EKCalendar(for: .event, eventStore: store)
             calendar.title = CalendarSyncSettings.calendarTitle
@@ -236,6 +291,7 @@ final class CalendarSyncCoordinator {
             do {
                 try store.saveCalendar(calendar, commit: true)
                 CalendarSyncSettings.calendarIdentifier = calendar.calendarIdentifier
+                CalendarSyncSettings.managedEvents = [:]
                 return calendar
             } catch {
                 calendarLog.notice("Source \(source.title) rejected the calendar; trying the next.")
@@ -264,6 +320,54 @@ final class CalendarSyncCoordinator {
         return ordered
     }
 
+    // MARK: - Events
+
+    /// One event per routine currently in our calendar, keyed by the
+    /// routine name carried in each event's start link. Found by scanning
+    /// the calendar rather than by stored identifier, so a synced event
+    /// whose id drifted is still matched to its routine (#346).
+    ///
+    /// Two collapses happen here: a recurring series shows up as several
+    /// occurrences in the window, deduped to one by `eventIdentifier`; and
+    /// if the pre-#346 bug left MORE THAN ONE series for the same routine,
+    /// the extras are removed so only one survives. A weekly series always
+    /// has an occurrence inside the 21-day window.
+    private func existingManagedEvents(in calendar: EKCalendar) -> [String: EKEvent] {
+        let now = Date()
+        let cal = Calendar.current
+        let start = cal.date(byAdding: .day, value: -1, to: now) ?? now
+        let end = cal.date(byAdding: .day, value: 21, to: now) ?? now
+        let predicate = store.predicateForEvents(withStart: start, end: end, calendars: [calendar])
+
+        // Occurrences → one representative per series, and it must be the
+        // EARLIEST occurrence: `removeEvent` deletes with `.futureEvents`,
+        // which only takes the given occurrence and later ones, so removing
+        // from a mid-series occurrence would strand the earlier ones as
+        // ghosts. An event with no identifier can't be a managed series, so
+        // skip it rather than mint a fake key that would split one series.
+        var seriesByID: [String: EKEvent] = [:]
+        for occurrence in store.events(matching: predicate) {
+            guard let id = occurrence.eventIdentifier else { continue }
+            if let kept = seriesByID[id] {
+                if occurrence.startDate < kept.startDate { seriesByID[id] = occurrence }
+            } else {
+                seriesByID[id] = occurrence
+            }
+        }
+        // One series per routine; remove any stray duplicate series.
+        var result: [String: EKEvent] = [:]
+        for event in seriesByID.values.sorted(by: { $0.startDate < $1.startDate }) {
+            guard let url = event.url,
+                  let name = WorkoutCalendarLink.routineName(from: url) else { continue }
+            if result[name] == nil {
+                result[name] = event
+            } else {
+                removeEvent(event)
+            }
+        }
+        return result
+    }
+
     /// Build one recurring event and return its identifier.
     private func makeEvent(_ spec: WorkoutCalendarEvent, in calendar: EKCalendar) -> String? {
         guard let start = Self.firstOccurrence(weekdays: spec.weekdays, hour: spec.startHour, minute: spec.startMinute) else {
@@ -288,8 +392,7 @@ final class CalendarSyncCoordinator {
         }
     }
 
-    private func removeEvent(_ identifier: String) {
-        guard let event = store.event(withIdentifier: identifier) else { return }
+    private func removeEvent(_ event: EKEvent) {
         do {
             try store.remove(event, span: .futureEvents, commit: true)
         } catch {

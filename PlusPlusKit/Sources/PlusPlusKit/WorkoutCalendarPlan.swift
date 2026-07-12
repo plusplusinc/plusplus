@@ -26,7 +26,12 @@ public struct WorkoutCalendarEvent: Equatable, Sendable {
     public let durationMinutes: Int
 
     public init(routineName: String, weekdays: [Int], startHour: Int, startMinute: Int, durationMinutes: Int) {
-        self.routineName = routineName
+        // Trim to match the name that survives a deep-link round trip
+        // (`WorkoutCalendarLink` percent-encodes a trimmed name). Otherwise
+        // a routine named " Legs " keys the desired set as " Legs " while
+        // the event scanned back out of the calendar keys as "Legs", and
+        // every reconcile would needlessly remove-and-recreate it.
+        self.routineName = routineName.trimmingCharacters(in: .whitespacesAndNewlines)
         self.weekdays = weekdays.sorted()
         self.startHour = startHour
         self.startMinute = startMinute
