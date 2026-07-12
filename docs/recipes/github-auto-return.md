@@ -15,6 +15,15 @@ B2's app side is wired (`RootTabView` deep-link handlers + a `GitHubSyncTray(sta
 sheet that opens on the authorize step and auto-starts the device flow). It needs
 two owner-side pieces to function end to end.
 
+> **In-app browser note:** the tray opens the authorize step (and the
+> create-repo fallback) in an in-app `SFSafariViewController`, but the **Install
+> step opens EXTERNALLY** (`UIApplication.open`, Safari or the GitHub app) on
+> purpose. `SFSafariViewController` does NOT hand a universal link back to the
+> app, so an in-app install would forfeit the AASA auto-return (step 3) and
+> leave only the custom-scheme bounce (step 2). Opening install externally keeps
+> BOTH return paths available. The device-flow authorize step has no such
+> dependency (the app polls in the background), so it stays in-app.
+
 ## Owner step 1 — set the GitHub App's Setup URL
 
 At `github.com/settings/apps/plusplus-sync` → **General** → *Post installation*:
