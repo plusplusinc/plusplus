@@ -47,28 +47,30 @@ final class RunLocationMonitor: NSObject, CLLocationManagerDelegate {
     /// of LivePaceMeter's pace clamp).
     private let maxSpeed: Double = 12.5
 
-    private let uitest = CommandLine.arguments.contains("--uitest-reset")
-    private lazy var manager: CLLocationManager = {
-        let m = CLLocationManager()
-        m.delegate = self
-        m.activityType = .fitness
-        m.desiredAccuracy = kCLLocationAccuracyBestForNavigation
-        m.distanceFilter = kCLDistanceFilterNone
-        // A pocketed run must keep tracking; the OS shows the blue
-        // indicator while it does.
-        m.allowsBackgroundLocationUpdates = true
-        m.pausesLocationUpdatesAutomatically = false
-        m.showsBackgroundLocationIndicator = true
-        return m
-    }()
-
-    private var meter: LivePaceMeter?
-    private var startDate: Date?
-    private var lastLocation: CLLocation?
-    private var running = false
+    // Internal machinery — never observed (and `@Observable` forbids
+    // `lazy`, so `manager` is configured in init instead).
+    @ObservationIgnored private let uitest = CommandLine.arguments.contains("--uitest-reset")
+    @ObservationIgnored private let manager = CLLocationManager()
+    @ObservationIgnored private var meter: LivePaceMeter?
+    @ObservationIgnored private var startDate: Date?
+    @ObservationIgnored private var lastLocation: CLLocation?
+    @ObservationIgnored private var running = false
     /// Bumped by every start/stop so a late authorization callback can't
     /// arm updates against a superseded run (the HeartRateMonitor guard).
-    private var generation = 0
+    @ObservationIgnored private var generation = 0
+
+    override init() {
+        super.init()
+        manager.delegate = self
+        manager.activityType = .fitness
+        manager.desiredAccuracy = kCLLocationAccuracyBestForNavigation
+        manager.distanceFilter = kCLDistanceFilterNone
+        // A pocketed run must keep tracking; the OS shows the blue
+        // indicator while it does.
+        manager.allowsBackgroundLocationUpdates = true
+        manager.pausesLocationUpdatesAutomatically = false
+        manager.showsBackgroundLocationIndicator = true
+    }
 
     /// Begin tracking from the session start, denominated in the run's
     /// unit. Idempotent; a no-op under uitest or when already running.
