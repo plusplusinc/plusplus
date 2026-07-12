@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import TipKit
 import PlusPlusKit
+import Foundation   // sin / pow for the landing-animation easings
 
 /// Routine detail, v2 (#61): a compact program view — meta line with
 /// estimated time and rest, exercise rows on a rail with supersets drawn
@@ -22,13 +23,18 @@ struct RoutineDetailView: View {
     @State private var openSwipeRow: PersistentIdentifier?
     /// The just-formed superset's landing animation (nil at rest). Keyed
     /// by the group's stable id so it survives the commit's reindex; its
-    /// `progress` runs 0→1 to collapse the departed selection field into
-    /// the rail and bloom the new loop. See supersetLandingOverlay.
+    /// `progress` runs 0→1 as the single clock for the field reshape+snap,
+    /// the pulse spark, and the loop's blue→gray fade. See
+    /// `supersetLandingFX` (spanning FX) and `RailGlyph` (per-row loop).
     @State private var supersetLanding: SupersetLanding?
     /// Monotonic trigger for the landing impact — a single medium "snap"
-    /// when a ring-drag forms a superset (distinct from the light drag
-    /// ticks; `.success` stays reserved for the purple finish).
+    /// at the field's deflate (Phase B → C), distinct from the light drag
+    /// ticks; `.success` stays reserved for the purple finish.
     @State private var landingTick = 0
+    /// Monotonic token identifying the current landing run, so a superseded
+    /// run's deferred work (the clock, its completion, the delayed haptic)
+    /// bows out instead of clobbering a newer one.
+    @State private var landingSeq = 0
     /// Rows track Dynamic Type: 52 pt at standard body size, growing with
     /// the user's setting so 17 pt+ text never clips (#82).
     @ScaledMetric(relativeTo: .body) private var railRowHeight: Double = 52
@@ -50,6 +56,9 @@ struct RoutineDetailView: View {
     private struct SupersetLanding: Equatable {
         var groupID: PersistentIdentifier
         var progress: Double
+        /// The group was already a superset (≥2) before this landing grew
+        /// it — so its rows keep their loop through the reshape.
+        var grew: Bool
     }
 
     var body: some View {
@@ -268,8 +277,12 @@ struct RoutineDetailView: View {
             VStack(spacing: 0) {
                 ForEach(Array(groups.enumerated()), id: \.element.persistentModelID) { g, group in
                     ForEach(Array(group.sortedExercises.enumerated()), id: \.element.persistentModelID) { i, routineExercise in
-                        railRow(routineExercise, group: group, groupIndex: g, index: i, hideLoop: ringGroup == g)
-                            .offset(y: offsets[.exercise(group: g, index: i)] ?? 0)
+                        railRow(
+                            routineExercise, group: group, groupIndex: g, index: i,
+                            hideLoop: ringGroup == g,
+                            landing: landingParams(groupIndex: g, index: i, layout: layout, sizes: sizes)
+                        )
+                        .offset(y: offsets[.exercise(group: g, index: i)] ?? 0)
                     }
                 }
                 addExerciseRow
@@ -287,7 +300,7 @@ struct RoutineDetailView: View {
                 .allowsHitTesting(false)
             }
             .overlay(alignment: .topLeading) { ringHighlight(layout: layout, sizes: sizes) }
-            .overlay(alignment: .topLeading) { supersetLandingOverlay(layout: layout, sizes: sizes) }
+            .overlay(alignment: .topLeading) { supersetLandingFX(layout: layout, sizes: sizes) }
             .overlay(alignment: .topLeading) { floatingDragPreview(layout: layout, groups: groups) }
             .animation(.easeOut(duration: 0.16), value: offsets)
             .padding(.top, 10)
@@ -298,7 +311,14 @@ struct RoutineDetailView: View {
         .scrollDisabled(railGesture != .idle)
         .sensoryFeedback(.impact(weight: .light), trigger: gestureFeedbackToken)
         .sensoryFeedback(.impact(weight: .medium), trigger: landingTick)
-        .onDisappear { railGesture = .idle }
+        .onDisappear {
+            railGesture = .idle
+            // Cancel any in-flight landing: bumping the token invalidates
+            // the deferred clock/haptic guards, and clearing the state stops
+            // its rendering (the view is going away).
+            landingSeq &+= 1
+            supersetLanding = nil
+        }
     }
 
     private var activeRingGroup: Int? {
@@ -359,7 +379,7 @@ struct RoutineDetailView: View {
 
     /// One row: swipe-revealable content with the two long-press zones —
     /// the rail column grabs the ring, the body drags the row.
-    private func railRow(_ routineExercise: RoutineExercise, group: ExerciseGroup, groupIndex g: Int, index i: Int, hideLoop: Bool) -> some View {
+    private func railRow(_ routineExercise: RoutineExercise, group: ExerciseGroup, groupIndex g: Int, index i: Int, hideLoop: Bool, landing: RailLandingParams) -> some View {
         let height = railRowHeight
         let isDragged: Bool = {
             if case .dragging(let dg, let di, _, _) = railGesture { return dg == g && di == i }
@@ -386,7 +406,7 @@ struct RoutineDetailView: View {
                 role: railRole(index: i, of: group),
                 rowHeight: railRowHeight,
                 hideLoop: hideLoop,
-                flash: landingFlash(for: group)
+                landing: landing
             )
             .contentShape(Rectangle())
         } actions: {
@@ -584,42 +604,64 @@ struct RoutineDetailView: View {
         return nil
     }
 
-    /// The loop bloom for `group`, 0 unless it's the one that just landed.
-    /// Runs 1→0 as the landing settles (progress 0→1).
-    private func landingFlash(for group: ExerciseGroup) -> Double {
+    /// Per-row landing inputs for `RailGlyph`, resolved from the active
+    /// `SupersetLanding` against the current (post-commit) layout. Inert
+    /// unless this group is the one that just formed and has ≥2 members.
+    private func landingParams(groupIndex g: Int, index i: Int, layout: RailLayout, sizes: [Int]) -> RailLandingParams {
         guard let landing = supersetLanding,
-              group.persistentModelID == landing.groupID else { return 0 }
-        return 1 - landing.progress
+              routine.sortedGroups.indices.contains(g),
+              routine.sortedGroups[g].persistentModelID == landing.groupID,
+              sizes.indices.contains(g), sizes[g] > 1,
+              let firstRow = layout.row(for: .exercise(group: g, index: 0)),
+              let lastRow = layout.row(for: .exercise(group: g, index: sizes[g] - 1)),
+              let thisRow = layout.row(for: .exercise(group: g, index: i))
+        else { return RailLandingParams() }
+        let half = railRowHeight / 2
+        return RailLandingParams(
+            active: true,
+            progress: landing.progress,
+            grew: landing.grew,
+            firstNodeY: firstRow.y + half,
+            lastNodeY: lastRow.y + half,
+            rowTopY: thisRow.y
+        )
     }
 
-    /// The "big → little" collapse: on landing, the selection field that
-    /// filled the group's rows shrinks left into the rail column and fades,
-    /// handing off to the loop blooming beneath it. Deliberately NOT a
-    /// matchedGeometryEffect — the loop is a Canvas path with no matchable
-    /// frame, and this fires mid-relayout (commitRing mutated the model),
-    /// where matched geometry inside a ScrollView drops frames. A
-    /// self-owned scaleEffect is deterministic and tunable. Uses the
-    /// POST-commit layout, so the band matches the formed group exactly.
+    /// The create → static landing FX that span the whole group (design
+    /// handoff 2026-07-12 v2): the selection field's reshape + snap (phases
+    /// A/B) and the pulse spark (phase C). Both read the single landing
+    /// `progress`; the loop line, chevron reveals and blue→gray fade live
+    /// per-row in `RailGlyph`. Uses the POST-commit layout, so the field
+    /// band and spark path match the formed group exactly.
     @ViewBuilder
-    private func supersetLandingOverlay(layout: RailLayout, sizes: [Int]) -> some View {
+    private func supersetLandingFX(layout: RailLayout, sizes: [Int]) -> some View {
         if let landing = supersetLanding,
            let gf = routine.sortedGroups.firstIndex(where: { $0.persistentModelID == landing.groupID }),
-           sizes.indices.contains(gf), sizes[gf] > 1 {
-            let firstFlat = RailLayout.flatIndex(groupSizes: sizes, group: gf, index: 0)
-            let lastFlat = firstFlat + sizes[gf] - 1
-            if let first = exerciseRow(layout: layout, sizes: sizes, flat: firstFlat),
-               let last = exerciseRow(layout: layout, sizes: sizes, flat: lastFlat) {
-                let p = landing.progress
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Theme.selected.opacity(0.14 * (1 - p)))
-                    .frame(height: last.maxY - first.y + 12)
-                    .padding(.horizontal, -8)
-                    // Collapse toward the rail column, pinned to the left
-                    // edge, so the field visibly drains into the loop.
-                    .scaleEffect(x: 1 - p * 0.9, y: 1, anchor: .leading)
-                    .offset(y: first.y - 6)
-                    .allowsHitTesting(false)
+           sizes.indices.contains(gf), sizes[gf] > 1,
+           let firstRow = layout.row(for: .exercise(group: gf, index: 0)),
+           let lastRow = layout.row(for: .exercise(group: gf, index: sizes[gf] - 1)) {
+            let half = railRowHeight / 2
+            let firstNodeY = firstRow.y + half
+            let lastNodeY = lastRow.y + half
+            GeometryReader { geo in
+                ZStack(alignment: .topLeading) {
+                    SupersetFieldView(
+                        progress: landing.progress,
+                        width: geo.size.width,
+                        fullTop: firstRow.y - 6,
+                        fullBottom: lastRow.maxY + 6,
+                        firstNodeY: firstNodeY,
+                        lastNodeY: lastNodeY
+                    )
+                    SupersetSparkView(
+                        progress: landing.progress,
+                        firstNodeY: firstNodeY,
+                        lastNodeY: lastNodeY
+                    )
+                    .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
+                }
             }
+            .allowsHitTesting(false)
         }
     }
 
@@ -668,6 +710,10 @@ struct RoutineDetailView: View {
         let span = RailRing.span(groupSizes: sizes, group: g, edge: edge, fingerY: fingerY, metrics: railMetrics)
         guard !span.isNoOp else { return }
         let group = routine.sortedGroups[g]
+        // Captured BEFORE the merges: did this landing grow an existing
+        // superset, or form a fresh one? Drives whether the loop is kept
+        // through the reshape or revealed.
+        let wasExistingSuperset = group.sortedExercises.count > 1
 
         for _ in 0..<span.absorbAfter {
             let groups = routine.sortedGroups
@@ -698,7 +744,7 @@ struct RoutineDetailView: View {
             SupersetLoopTip().invalidate(reason: .actionPerformed)
             // The selection field they drew now collapses into the loop
             // it leaves behind, with a snap to mark the bond forming.
-            flashSupersetLanding(group)
+            flashSupersetLanding(group, grew: wasExistingSuperset)
         }
         // An eject is the same dot-drag mechanic in reverse — the
         // how-to is proven found.
@@ -707,27 +753,36 @@ struct RoutineDetailView: View {
         }
     }
 
-    /// Fire the landing feedback for a just-formed/grown superset: one
-    /// medium impact, then collapse the selection field into the loop as
-    /// the loop blooms from vivid selection blue back to its settled tone.
-    private func flashSupersetLanding(_ group: ExerciseGroup) {
-        landingTick += 1
-        let tick = landingTick
-        supersetLanding = SupersetLanding(groupID: group.persistentModelID, progress: 0)
-        // Commit the progress-0 frame FIRST (overlay inserted at full
-        // width, loop vivid), then animate to settled on the next tick —
-        // animating in the same tick as the insert would snap straight to
-        // the end (a newly-inserted view has no baseline to interpolate).
+    /// Drive the create → static landing for a just-formed/grown superset
+    /// (design handoff 2026-07-12 v2): one linear clock, `progress` 0→1 over
+    /// ~1.3 s, feeds the field reshape+snap, the pulse spark, and the loop's
+    /// blue→gray fade. A medium impact snaps at the Phase B → C hand-off.
+    private func flashSupersetLanding(_ group: ExerciseGroup, grew: Bool) {
+        let seq = landingSeq &+ 1
+        landingSeq = seq
+        supersetLanding = SupersetLanding(groupID: group.persistentModelID, progress: 0, grew: grew)
+        // Commit the progress-0 frame FIRST (reshape start), then run the
+        // clock on the next tick — animating in the same tick as the insert
+        // would snap straight to the end (a fresh view has no baseline to
+        // interpolate from). `.linear`: the per-phase easings live inside the
+        // views, so the master clock must run at wall speed.
         Task { @MainActor in
-            // A newer landing (even same group) bumps landingTick and owns
-            // the state; this one bows out rather than fighting it — which
-            // also stops its completion from clearing the fresh landing.
-            guard landingTick == tick else { return }
-            withAnimation(.easeOut(duration: 0.42)) {
+            guard landingSeq == seq else { return }   // superseded before it started
+            withAnimation(.linear(duration: SupersetRailGeometry.total / 1000)) {
                 supersetLanding?.progress = 1
             } completion: {
-                if landingTick == tick { supersetLanding = nil }
+                // A newer landing bumps landingSeq and owns the state; only
+                // the finishing one clears itself (→ rest render, identical
+                // to the fade's end state, so the swap is seamless).
+                if landingSeq == seq { supersetLanding = nil }
             }
+        }
+        // The "snap shut" click lands at the Phase B → C hand-off (~580 ms),
+        // not at t=0 — that's the moment the field deflates into the line.
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(580))
+            guard landingSeq == seq else { return }
+            landingTick &+= 1                          // → .sensoryFeedback(.impact(.medium))
         }
     }
 
@@ -851,6 +906,17 @@ enum RailRole {
     case supersetLast
 }
 
+/// Per-row inputs for the create → static landing, resolved from the
+/// active `SupersetLanding` against the rail layout. Inert by default.
+struct RailLandingParams {
+    var active = false
+    var progress: Double = 0
+    var grew = false
+    var firstNodeY: CGFloat = 0
+    var lastNodeY: CGFloat = 0
+    var rowTopY: CGFloat = 0
+}
+
 private struct ExerciseRailRow: View {
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
     let routineExercise: RoutineExercise
@@ -860,9 +926,9 @@ private struct ExerciseRailRow: View {
     /// ring are mutually exclusive — the active group's rows drop their
     /// loop drawing while the highlight is up.
     var hideLoop = false
-    /// Landing bloom for this row's group (0 at rest); forwarded to the
-    /// glyph so the loop ignites blue the moment the superset forms.
-    var flash: Double = 0
+    /// The create → static landing for this row's group, forwarded to the
+    /// glyph. Inert (`isLanding == false`) at rest.
+    var landing = RailLandingParams()
 
     /// "3×15", "3×10 · 5lb", "2×45s", "4×500 m" — the condensed target
     /// summary, speaking each block's WORK metric (flexible metrics).
@@ -896,8 +962,18 @@ private struct ExerciseRailRow: View {
 
     var body: some View {
         HStack(spacing: 13) {
-            RailGlyph(role: hideLoop ? .solo : role, height: rowHeight, dotY: rowHeight / 2, flash: hideLoop ? 0 : flash)
-                .frame(width: 28, height: rowHeight)
+            RailGlyph(
+                role: hideLoop ? .solo : role,
+                height: rowHeight,
+                dotY: rowHeight / 2,
+                isLanding: !hideLoop && landing.active,
+                landingProgress: landing.progress,
+                landingGrew: landing.grew,
+                groupFirstNodeY: landing.firstNodeY,
+                groupLastNodeY: landing.lastNodeY,
+                rowTopY: landing.rowTopY
+            )
+            .frame(width: 28, height: rowHeight)
 
             Text(routineExercise.exercise?.name ?? "Unknown")
                 .font(.system(.body, weight: .semibold))
@@ -922,18 +998,14 @@ private struct ExerciseRailRow: View {
     }
 }
 
-/// The rail drawing beside each exercise row, redrawn in v4 §1a: the
-/// spine runs SOLID through members (dash means "pending", and only on
-/// Today), grouping is a return loop on the rail side at x=3. The spine
+/// The rail drawing beside each exercise row: the spine runs SOLID through
+/// members, grouping is a return loop on the rail side at x=3. The spine
 /// and node strokes stay neutral (border / borderStrong) — they're the
-/// order map. The LOOP + chevrons carry the settled superset blue
-/// (`supersetLoop`, §1a revisited 2026-07-12): the spine's own line
-/// stays quiet, but the grouping mark reads as a bound unit in the
-/// selection hue, dialed down. The full-chroma `selected` still belongs
-/// to the live ring highlight (ringHighlight); the loop only reaches it
-/// briefly, on `flash`, as the just-drawn selection field settles onto
-/// it. Reading: sets run down the spine; the loop returns you to the
-/// top — the A1 B1 A2 B2 rotation made literal.
+/// order map. The LOOP + chevrons are the superset mark: they REST in an
+/// opaque warm gray (`supersetLoop`) so a bound block reads as structure,
+/// and turn the vivid selection blue only during the create animation
+/// (design handoff 2026-07-12 v2). Reading: sets run down the spine; the
+/// loop returns you to the top — the A1 B1 A2 B2 rotation made literal.
 ///
 /// Geometry: 28 pt column, spine x=15, loop x=3 (12 pt off the spine,
 /// ~7 pt clear of the 10 pt node), quarter curves r≈10 into each node.
@@ -941,23 +1013,39 @@ private struct ExerciseRailRow: View {
 /// centered on the row boundary; the line runs continuously from behind
 /// the chevron through its tip, and the 4 pt break sits in FRONT of the
 /// tip only — in the direction of travel, never behind.
+///
+/// The create → static landing (see `flashSupersetLanding`) runs off one
+/// linear clock, `landingProgress`; this glyph reads it (Animatable, so
+/// the Canvas redraws each frame) to fade the loop in during the snap,
+/// reveal each chevron as the pulse spark passes, and crossfade the whole
+/// loop from blue to its settled gray. At rest (`isLanding == false`) it's
+/// just the gray loop with every chevron shown.
 struct RailGlyph: View, Animatable {
     let role: RailRole
     let height: CGFloat
     let dotY: CGFloat
-    /// Landing bloom (2026-07-12): 0 at rest, 1 the instant a ring-drag
-    /// forms this superset. Drives the loop's ink from its settled tone up
-    /// to the full selection blue (matching the field that just collapsed
-    /// onto it) and a hair thicker, then eases back to rest.
-    var flash: Double = 0
+    /// Landing animation for this glyph's GROUP. `isLanding` gates it;
+    /// `landingProgress` (0→1, linear over ~1.3 s) is the shared clock
+    /// every phase reads. The Ys are this row's node-top boundary and the
+    /// group's first/last node centres in rail space — for the spark's
+    /// per-row chevron reveal. Only `landingProgress` changes per frame.
+    var isLanding = false
+    var landingProgress: Double = 0
+    /// True when the landing GREW an existing superset (vs formed a fresh
+    /// one from solos). A grow already shows a settled gray loop, so the
+    /// reshape KEEPS it rather than blanking it (which would wink the loop
+    /// out for ~260 ms); a fresh pair has nothing to keep and reveals in.
+    var landingGrew = false
+    var groupFirstNodeY: CGFloat = 0
+    var groupLastNodeY: CGFloat = 0
+    var rowTopY: CGFloat = 0
 
-    /// `flash` IS the animatable channel: a `Canvas` draws imperatively and
-    /// SwiftUI won't re-run `body` per frame for a plain View, so without
-    /// this the bloom would jump end-to-end in one frame instead of easing.
-    /// Conforming makes SwiftUI interpolate `flash` and redraw each step.
+    /// `landingProgress` is the animatable channel: a Canvas draws
+    /// imperatively and SwiftUI won't re-run a plain View's body per frame,
+    /// so conforming makes it interpolate the clock and redraw each step.
     var animatableData: Double {
-        get { flash }
-        set { flash = newValue }
+        get { landingProgress }
+        set { landingProgress = newValue }
     }
 
     private static let spineX: CGFloat = 15
@@ -965,82 +1053,263 @@ struct RailGlyph: View, Animatable {
 
     var body: some View {
         Canvas { context, _ in
-            // Spine stays the rail's own neutral ink — it's the order
-            // line, drawn through solo rows too, never superset-specific.
-            let spineInk = Theme.border
-            let spineStyle = StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round)
-            // The loop + chevrons ARE the superset mark, so they carry the
-            // settled blue, blooming to vivid `selected` on landing (§1a
-            // revisited, #superset-feedback).
-            let loopInk = Theme.supersetLoop.mix(with: Theme.selected, by: flash)
-            let loopStyle = StrokeStyle(lineWidth: 2 + flash * 0.8, lineCap: .round, lineJoin: .round)
             let spineX = Self.spineX
             let loopX = Self.loopX
+            let loopStyle = StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round)
+            let look = loopLook()
 
-            func vline(_ x: CGFloat, _ y0: CGFloat, _ y1: CGFloat, _ color: Color, _ style: StrokeStyle) {
-                guard y1 > y0 else { return }
-                var path = Path()
-                path.move(to: CGPoint(x: x, y: y0))
-                path.addLine(to: CGPoint(x: x, y: y1))
-                context.stroke(path, with: .color(color), style: style)
+            // Spine — the order line, neutral, solid through every row.
+            var spine = Path()
+            spine.move(to: CGPoint(x: spineX, y: 0))
+            spine.addLine(to: CGPoint(x: spineX, y: height))
+            context.stroke(spine, with: .color(Theme.border), style: loopStyle)
+
+            // Loop + chevrons — the superset mark. Drawn in a sub-context
+            // whose opacity carries the snap fade-in (alpha 0 = not drawn).
+            if role != .solo, look.alpha > 0 {
+                var lctx = context
+                lctx.opacity = look.alpha
+                let ink = look.ink
+
+                func vline(_ x: CGFloat, _ y0: CGFloat, _ y1: CGFloat) {
+                    guard y1 > y0 else { return }
+                    var p = Path()
+                    p.move(to: CGPoint(x: x, y: y0))
+                    p.addLine(to: CGPoint(x: x, y: y1))
+                    lctx.stroke(p, with: .color(ink), style: loopStyle)
+                }
+                func corner(_ from: CGPoint, _ to: CGPoint, _ control: CGPoint) {
+                    var p = Path()
+                    p.move(to: from)
+                    p.addQuadCurve(to: to, control: control)
+                    lctx.stroke(p, with: .color(ink), style: loopStyle)
+                }
+                // Up-chevron at this row's TOP boundary. `look.chevron`
+                // decides whether it shows, and whether it flares brighter
+                // the instant the pulse spark passes it.
+                func chevron() {
+                    guard look.chevron != .hidden else { return }
+                    var p = Path()
+                    p.move(to: CGPoint(x: loopX - 2.5, y: 5))
+                    p.addLine(to: CGPoint(x: loopX, y: 0.5))
+                    p.addLine(to: CGPoint(x: loopX + 2.5, y: 5))
+                    if look.chevron == .flare {
+                        lctx.stroke(p, with: .color(Theme.supersetFlare), style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+                    } else {
+                        lctx.stroke(p, with: .color(ink), style: loopStyle)
+                    }
+                }
+
+                switch role {
+                case .solo:
+                    break
+                case .supersetFirst:
+                    corner(CGPoint(x: loopX, y: dotY + 10), CGPoint(x: spineX, y: dotY), CGPoint(x: loopX, y: dotY))
+                    vline(loopX, dotY + 10, height - 3.5)
+                case .supersetMiddle:
+                    chevron()
+                    vline(loopX, 0.5, height - 3.5)
+                case .supersetLast:
+                    chevron()
+                    vline(loopX, 0.5, dotY - 10)
+                    corner(CGPoint(x: spineX, y: dotY), CGPoint(x: loopX, y: dotY - 10), CGPoint(x: loopX, y: dotY))
+                }
             }
 
-            /// Quarter curve joining the loop line to a node row: the
-            /// control point sits at the corner, reading as r≈10.
-            func corner(from: CGPoint, to: CGPoint, control: CGPoint) {
-                var path = Path()
-                path.move(to: from)
-                path.addQuadCurve(to: to, control: control)
-                context.stroke(path, with: .color(loopInk), style: loopStyle)
-            }
-
-            /// Up-pointing chevron at this row's TOP boundary; the 4 pt
-            /// break above the tip is the previous row's job (it stops
-            /// its loop line 3.5 pt short of its bottom edge).
-            func chevron() {
-                var path = Path()
-                path.move(to: CGPoint(x: loopX - 2.5, y: 5))
-                path.addLine(to: CGPoint(x: loopX, y: 0.5))
-                path.addLine(to: CGPoint(x: loopX + 2.5, y: 5))
-                context.stroke(path, with: .color(loopInk), style: loopStyle)
-            }
-
-            // The spine is solid through everything (§1a) — role only
-            // decides the loop's slice.
-            vline(spineX, 0, height, spineInk, spineStyle)
-
-            switch role {
-            case .solo:
-                break
-            case .supersetFirst:
-                // Loop rejoins the first member's node from below.
-                corner(
-                    from: CGPoint(x: loopX, y: dotY + 10),
-                    to: CGPoint(x: spineX, y: dotY),
-                    control: CGPoint(x: loopX, y: dotY)
-                )
-                vline(loopX, dotY + 10, height - 3.5, loopInk, loopStyle)
-            case .supersetMiddle:
-                chevron()
-                vline(loopX, 0.5, height - 3.5, loopInk, loopStyle)
-            case .supersetLast:
-                // Loop leaves the last member's node and runs up.
-                chevron()
-                vline(loopX, 0.5, dotY - 10, loopInk, loopStyle)
-                corner(
-                    from: CGPoint(x: spineX, y: dotY),
-                    to: CGPoint(x: loopX, y: dotY - 10),
-                    control: CGPoint(x: loopX, y: dotY)
-                )
-            }
-
-            // The member dot, drawn last so it sits on the lines.
-            let dotRect = CGRect(x: spineX - 5, y: dotY - 5, width: 10, height: 10)
+            // Member dot — drawn last, over the lines, always neutral; a
+            // subtle scale pop as the group forms.
+            let r = 5 * look.nodePop
+            let dotRect = CGRect(x: spineX - r, y: dotY - r, width: r * 2, height: r * 2)
             context.fill(Path(ellipseIn: dotRect), with: .color(Theme.background))
             context.stroke(
                 Path(ellipseIn: dotRect.insetBy(dx: 1, dy: 1)),
                 with: .color(Theme.borderStrong),
                 style: StrokeStyle(lineWidth: 2)
+            )
+        }
+    }
+
+    private enum Chevron { case hidden, shown, flare }
+    private struct Look { var ink: Color; var alpha: Double; var chevron: Chevron; var nodePop: CGFloat }
+
+    /// This frame's loop appearance, from the shared landing clock.
+    private func loopLook() -> Look {
+        let gray = Theme.supersetLoop
+        let blue = Theme.selected
+        guard isLanding else { return Look(ink: gray, alpha: 1, chevron: .shown, nodePop: 1) }
+
+        let g = landingProgress
+        let fA = SupersetRailGeometry.fA, fB = SupersetRailGeometry.fB, fC = SupersetRailGeometry.fC
+        func eo(_ t: Double) -> Double { let c = min(max(t, 0), 1); return 1 - pow(1 - c, 3) }
+        func clamp(_ t: Double) -> Double { min(max(t, 0), 1) }
+
+        if g < fA {
+            // Reshape. A fresh pair has no loop yet (draw nothing); GROWING
+            // an existing superset keeps its settled gray loop so it doesn't
+            // wink out under the morphing field.
+            return landingGrew
+                ? Look(ink: gray, alpha: 1, chevron: .shown, nodePop: 1)
+                : Look(ink: blue, alpha: 0, chevron: .hidden, nodePop: 1)
+        } else if g < fB {
+            // Snap. Fresh: the line fades IN blue, chevrons still hidden.
+            // Grow: the visible gray line crossfades UP to blue (no fade-in),
+            // chevrons already shown. The node pops in both.
+            let p = (g - fA) / (fB - fA)
+            let snap = clamp((p - 0.15) / 0.85)
+            let pop = 1 + max(0, sin(clamp((snap - 0.35) / 0.5) * .pi)) * 0.22
+            return landingGrew
+                ? Look(ink: gray.mix(with: blue, by: eo(snap)), alpha: 1, chevron: .shown, nodePop: CGFloat(pop))
+                : Look(ink: blue, alpha: eo(snap), chevron: .hidden, nodePop: CGFloat(pop))
+        } else if g < fC {
+            // Pulse: full blue; the spark (bottom → top) flares each chevron
+            // as it passes. Fresh reveals them progressively; a grow's are
+            // already shown, so they only flare.
+            let s = eo((g - fB) / (fC - fB))
+            let sparkY = SupersetRailGeometry.pulsePoint(s, firstNodeY: groupFirstNodeY, lastNodeY: groupLastNodeY).y
+            let flaring = abs(sparkY - rowTopY) < 18
+            let chev: Chevron = flaring ? .flare : ((landingGrew || sparkY <= rowTopY + 6) ? .shown : .hidden)
+            return Look(ink: blue, alpha: 1, chevron: chev, nodePop: 1)
+        } else {
+            // Fade: the whole loop crossfades blue → settled gray.
+            let f = eo((g - fC) / (1 - fC))
+            return Look(ink: blue.mix(with: gray, by: f), alpha: 1, chevron: .shown, nodePop: 1)
+        }
+    }
+}
+
+/// Shared timing + path math for the superset landing (design handoff
+/// 2026-07-12 v2). One linear clock (`landingProgress` 0→1 over ~1.3 s)
+/// runs four phases — Reshape, Snap, Pulse, Fade — and every landing view
+/// reads these to place its own piece against the same wall time.
+private enum SupersetRailGeometry {
+    static let total: Double = 1300                       // ms
+    static let fA = 260.0 / total                         // reshape ends
+    static let fB = (260.0 + 320.0) / total               // snap ends
+    static let fC = (260.0 + 320.0 + 420.0) / total       // pulse ends; fade → 1.0
+
+    static let loopX: CGFloat = 3
+    static let nodeX: CGFloat = 15
+
+    /// The pulse spark's point along the ACTUAL loop path, s: 0 (bottom /
+    /// last node) → 1 (top / first node): out of the last node on its
+    /// quarter curve, up the straight line, into the first node's curve —
+    /// so the glow hugs the curves rather than running a bare vertical.
+    static func pulsePoint(_ s: Double, firstNodeY: CGFloat, lastNodeY: CGFloat) -> CGPoint {
+        let dotFirst = firstNodeY, dotLast = lastNodeY
+        let lineTop = dotFirst + 10, lineBot = dotLast - 10
+        func quad(_ p0: CGPoint, _ c: CGPoint, _ p1: CGPoint, _ t: CGFloat) -> CGPoint {
+            let mt = 1 - t
+            return CGPoint(
+                x: mt * mt * p0.x + 2 * mt * t * c.x + t * t * p1.x,
+                y: mt * mt * p0.y + 2 * mt * t * c.y + t * t * p1.y
+            )
+        }
+        if s < 0.14 {
+            return quad(CGPoint(x: nodeX, y: dotLast), CGPoint(x: loopX, y: dotLast), CGPoint(x: loopX, y: lineBot), CGFloat(s / 0.14))
+        } else if s < 0.86 {
+            let t = CGFloat((s - 0.14) / 0.72)
+            return CGPoint(x: loopX, y: lineBot + (lineTop - lineBot) * t)
+        } else {
+            return quad(CGPoint(x: loopX, y: lineTop), CGPoint(x: loopX, y: dotFirst), CGPoint(x: nodeX, y: dotFirst), CGFloat((s - 0.86) / 0.14))
+        }
+    }
+}
+
+/// The selection field's landing move (phases A + B). It REShapes onto the
+/// loop-to-be with the right edge HELD at full width, then the right edge
+/// sweeps left in one monotonic ease, deflating into the loop line — so the
+/// snap is the right edge's one and only move (no mid-way seam). Animatable
+/// so the shape recomputes each frame off the shared clock.
+private struct SupersetFieldView: View, Animatable {
+    var progress: Double
+    let width: CGFloat        // rail content width — the full-width right edge
+    let fullTop: CGFloat
+    let fullBottom: CGFloat
+    let firstNodeY: CGFloat
+    let lastNodeY: CGFloat
+
+    var animatableData: Double {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    var body: some View {
+        let g = progress
+        let fA = SupersetRailGeometry.fA, fB = SupersetRailGeometry.fB
+        func eo(_ t: Double) -> Double { let c = min(max(t, 0), 1); return 1 - pow(1 - c, 3) }
+        func lerp(_ a: CGFloat, _ b: CGFloat, _ t: Double) -> CGFloat { a + (b - a) * CGFloat(t) }
+
+        let fullLeft: CGFloat = -8, fullRight = width + 8
+        let alignLeft: CGFloat = 2
+
+        var left = fullLeft, right = fullRight, top = fullTop, bottom = fullBottom
+        var tlr: CGFloat = 12, blr: CGFloat = 12, trr: CGFloat = 12, brr: CGFloat = 12
+        var fillOpacity = 0.16
+        var visible = true
+
+        if g < fA {
+            // Reshape: top/bottom/left edges + left corners settle onto the
+            // loop; the right edge is held at full width.
+            let p = eo(g / fA)
+            left = lerp(fullLeft, alignLeft, p)
+            top = lerp(fullTop, firstNodeY, p)
+            bottom = lerp(fullBottom, lastNodeY, p)
+            tlr = lerp(12, 11, p); blr = lerp(12, 11, p)
+        } else if g < fB {
+            // Snap: the right edge sweeps left onto the line; fill fades;
+            // right corners tighten 12 → 4.
+            let p = (g - fA) / (fB - fA)
+            let er = 1 - pow(1 - p, 2.2)                   // fast, then a gentle settle
+            left = alignLeft; top = firstNodeY; bottom = lastNodeY
+            right = lerp(fullRight, alignLeft + 2, er)
+            tlr = 11; blr = 11
+            trr = lerp(12, 4, p); brr = lerp(12, 4, p)
+            fillOpacity = 0.16 * (1 - min(max((er - 0.2) / 0.8, 0), 1))
+        } else {
+            visible = false
+        }
+
+        let shape = UnevenRoundedRectangle(topLeadingRadius: tlr, bottomLeadingRadius: blr, bottomTrailingRadius: brr, topTrailingRadius: trr)
+        return shape
+            .fill(Theme.selected.opacity(fillOpacity))
+            .overlay(shape.strokeBorder(Theme.selected, lineWidth: 2))
+            .frame(width: max(0, right - left), height: max(0, bottom - top), alignment: .topLeading)
+            .opacity(visible ? 1 : 0)
+            .offset(x: left, y: top)
+    }
+}
+
+/// The pulse spark (phase C): a soft, low-intensity additive bloom that
+/// rides the loop path bottom → top. Its chevron reveals live in RailGlyph;
+/// this draws only the travelling glow.
+private struct SupersetSparkView: View, Animatable {
+    var progress: Double
+    let firstNodeY: CGFloat
+    let lastNodeY: CGFloat
+
+    var animatableData: Double {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    var body: some View {
+        Canvas { context, _ in
+            let g = progress
+            let fB = SupersetRailGeometry.fB, fC = SupersetRailGeometry.fC
+            guard g >= fB, g < fC else { return }
+            func eo(_ t: Double) -> Double { let c = min(max(t, 0), 1); return 1 - pow(1 - c, 3) }
+            let s = eo((g - fB) / (fC - fB))
+            let pt = SupersetRailGeometry.pulsePoint(s, firstNodeY: firstNodeY, lastNodeY: lastNodeY)
+            let glow = Gradient(stops: [
+                .init(color: Theme.supersetFlare.opacity(0.42), location: 0),
+                .init(color: Theme.selected.opacity(0.16), location: 0.5),
+                .init(color: Theme.selected.opacity(0), location: 1),
+            ])
+            var gctx = context
+            gctx.blendMode = .plusLighter
+            gctx.fill(
+                Path(ellipseIn: CGRect(x: pt.x - 10, y: pt.y - 10, width: 20, height: 20)),
+                with: .radialGradient(glow, center: pt, startRadius: 0, endRadius: 10)
             )
         }
     }
