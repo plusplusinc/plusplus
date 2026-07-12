@@ -712,22 +712,21 @@ struct RoutineDetailView: View {
     /// the loop blooms from vivid selection blue back to its settled tone.
     private func flashSupersetLanding(_ group: ExerciseGroup) {
         landingTick += 1
-        let id = group.persistentModelID
-        supersetLanding = SupersetLanding(groupID: id, progress: 0)
+        let tick = landingTick
+        supersetLanding = SupersetLanding(groupID: group.persistentModelID, progress: 0)
         // Commit the progress-0 frame FIRST (overlay inserted at full
         // width, loop vivid), then animate to settled on the next tick —
         // animating in the same tick as the insert would snap straight to
         // the end (a newly-inserted view has no baseline to interpolate).
         Task { @MainActor in
-            guard supersetLanding?.groupID == id else { return }
+            // A newer landing (even same group) bumps landingTick and owns
+            // the state; this one bows out rather than fighting it — which
+            // also stops its completion from clearing the fresh landing.
+            guard landingTick == tick else { return }
             withAnimation(.easeOut(duration: 0.42)) {
                 supersetLanding?.progress = 1
             } completion: {
-                // A newer landing (same or other group) resets progress to
-                // 0; only the finishing one clears itself.
-                if supersetLanding?.groupID == id, supersetLanding?.progress == 1 {
-                    supersetLanding = nil
-                }
+                if landingTick == tick { supersetLanding = nil }
             }
         }
     }
@@ -942,7 +941,7 @@ private struct ExerciseRailRow: View {
 /// centered on the row boundary; the line runs continuously from behind
 /// the chevron through its tip, and the 4 pt break sits in FRONT of the
 /// tip only — in the direction of travel, never behind.
-struct RailGlyph: View {
+struct RailGlyph: View, Animatable {
     let role: RailRole
     let height: CGFloat
     let dotY: CGFloat
@@ -951,6 +950,15 @@ struct RailGlyph: View {
     /// to the full selection blue (matching the field that just collapsed
     /// onto it) and a hair thicker, then eases back to rest.
     var flash: Double = 0
+
+    /// `flash` IS the animatable channel: a `Canvas` draws imperatively and
+    /// SwiftUI won't re-run `body` per frame for a plain View, so without
+    /// this the bloom would jump end-to-end in one frame instead of easing.
+    /// Conforming makes SwiftUI interpolate `flash` and redraw each step.
+    var animatableData: Double {
+        get { flash }
+        set { flash = newValue }
+    }
 
     private static let spineX: CGFloat = 15
     private static let loopX: CGFloat = 3
