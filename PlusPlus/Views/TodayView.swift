@@ -1681,7 +1681,7 @@ private struct SwapInSheet: View {
     }
 
     private func go(to newStage: Stage) {
-        withAnimation(.easeOut(duration: 0.15)) {
+        withAnimation(Theme.Anim.standard) {
             stage = newStage
             detent = newStage == .menu ? Self.menuDetent : .medium
         }
@@ -1730,7 +1730,7 @@ private struct SwapInSheet: View {
             }
         }
         .padding(.top, 14)
-        .animation(.easeOut(duration: 0.15), value: stage == .picker)
+        .animation(Theme.Anim.standard, value: stage == .picker)
     }
 
     // MARK: - Stage one: the two ways to start

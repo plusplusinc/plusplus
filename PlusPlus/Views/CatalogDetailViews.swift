@@ -605,7 +605,7 @@ struct EquipmentDetailScreen: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("equipmentMetricChip-\(metric.rawValue)")
-        .animation(.easeOut(duration: 0.15), value: selected)
+        .animation(Theme.Anim.selection, value: selected)
     }
 
     private func rename() {

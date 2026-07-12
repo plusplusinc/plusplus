@@ -89,6 +89,33 @@ enum Theme {
     static let cardRadius: CGFloat = 14
     static let sheetRadius: CGFloat = 20
     static let controlRadius: CGFloat = 10
+
+    // MARK: - Motion
+
+    /// The motion grammar as tunable tokens — the design law ("selection
+    /// slides, data rolls, the app always feels fast") lived only in prose
+    /// with `.easeOut(duration: 0.15)` copy-pasted ~30 times. Call sites
+    /// reference these instead, so the tempo is consistent and dialable
+    /// from one place. Deliberate flourishes (splash fade, superset landing
+    /// bloom, the completion beat) keep their own longer curves inline —
+    /// they are exceptions to the fast-feel rule, not part of it.
+    enum Anim {
+        /// Selection changes: the segmented pill sliding between segments,
+        /// selected-state fills, active filter chips. A snappy spring reads
+        /// crisp — velocity is front-loaded (immediate response to touch)
+        /// and it settles without overshoot. Replaces `.easeOut(0.15)`,
+        /// whose decelerating tail made a large sliding object crawl into
+        /// place and read as muddy (Dave, 2026-07-12). One line to retune
+        /// the whole app's selection feel.
+        static let selection: Animation = .snappy(duration: 0.25, extraBounce: 0)
+        /// The house curve for everything that isn't a selection slide or a
+        /// deliberate flourish: data rolls (paired with `.numericText`),
+        /// opacity fades, search expansion. The "~0.15 s ease-out" of the
+        /// motion law.
+        static let standard: Animation = .easeOut(duration: 0.15)
+        /// RaisedKey cap depression — the fastest motion in the app.
+        static let press: Animation = .easeOut(duration: 0.06)
+    }
 }
 
 extension Color {

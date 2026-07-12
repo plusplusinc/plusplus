@@ -74,7 +74,7 @@ struct FacetChip<Value: Hashable>: View {
                 .frame(height: 44)
                 .contentShape(Rectangle())
         }
-        .animation(.easeOut(duration: 0.15), value: selection == nil)
+        .animation(Theme.Anim.selection, value: selection == nil)
         .sensoryFeedback(.selection, trigger: selection)
         .accessibilityIdentifier("facet\(facet.capitalized)")
     }
@@ -140,7 +140,7 @@ struct MultiFacetChip<Value: Hashable>: View {
                 .frame(height: 44)
                 .contentShape(Rectangle())
         }
-        .animation(.easeOut(duration: 0.15), value: selection.isEmpty)
+        .animation(Theme.Anim.selection, value: selection.isEmpty)
         .sensoryFeedback(.selection, trigger: selection)
         .accessibilityIdentifier("facet\(facet.capitalized)")
     }
@@ -195,7 +195,7 @@ struct TrayFilterChip: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .animation(.easeOut(duration: 0.15), value: active)
+        .animation(Theme.Anim.selection, value: active)
         .sensoryFeedback(.selection, trigger: count)
         .accessibilityIdentifier("facet\(facet.capitalized)")
     }

@@ -568,7 +568,7 @@ struct RoutineDetailView: View {
                     .padding(.horizontal, -8)
                     .offset(y: first.y - 6)
                     .allowsHitTesting(false)
-                    .transition(.opacity.animation(.easeOut(duration: 0.15)))
+                    .transition(.opacity.animation(Theme.Anim.standard))
             }
         }
     }
@@ -1289,7 +1289,7 @@ struct RoutineSettingsScreen: View {
                 .frame(maxWidth: .infinity)
             }
         }
-        .animation(.easeOut(duration: 0.15), value: scheduleDays)
+        .animation(Theme.Anim.selection, value: scheduleDays)
         .sensoryFeedback(.selection, trigger: scheduleDays)
     }
 

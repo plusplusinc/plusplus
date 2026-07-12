@@ -4,8 +4,9 @@ import SwiftUI
 /// SOLID selected-blue fill with onSelected text (#210 — the tint+ring
 /// treatment read too muted in the field; one prominent look for every
 /// toggled-on state). Ink fills stay reserved for actions. 40 pt
-/// segments (46 with container padding, §H) and the one motion rule
-/// (§2): 0.15 s ease-out, selection haptic.
+/// segments (46 with container padding, §H). The pill slides on
+/// `Theme.Anim.selection` (a snappy spring) with a selection haptic —
+/// an ease-out's decelerating tail made the slide read muddy (§2).
 struct SegmentedTabs: View {
     let options: [String]
     @Binding var selectedIndex: Int
@@ -37,7 +38,7 @@ struct SegmentedTabs: View {
         .padding(3)
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
-        .animation(.easeOut(duration: 0.15), value: selectedIndex)
+        .animation(Theme.Anim.selection, value: selectedIndex)
         .sensoryFeedback(.selection, trigger: selectedIndex)
     }
 }

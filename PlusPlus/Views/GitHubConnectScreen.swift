@@ -311,14 +311,14 @@ struct GitHubConnectScreen: View {
     private func copyCode(_ code: String) {
         UIPasteboard.general.string = code
         UISelectionFeedbackGenerator().selectionChanged()
-        withAnimation(.easeOut(duration: 0.15)) { codeCopied = true }
+        withAnimation(Theme.Anim.standard) { codeCopied = true }
         // Revert the affordance after a beat so it reads as momentary feedback,
         // not a stuck state. One-shot, cancelled on re-tap and on disappear.
         copyResetTask?.cancel()
         copyResetTask = Task {
             try? await Task.sleep(for: .seconds(2))
             guard !Task.isCancelled else { return }
-            withAnimation(.easeOut(duration: 0.15)) { codeCopied = false }
+            withAnimation(Theme.Anim.standard) { codeCopied = false }
         }
     }
 

@@ -290,7 +290,7 @@ struct RoutineCatalogScreen: View {
             SortChip(selection: $sort, options: CatalogSort.allCases.map { ($0, $0.rawValue) })
             Spacer(minLength: 0)
         }
-        .animation(.easeOut(duration: 0.15), value: anyFilterActive)
+        .animation(Theme.Anim.standard, value: anyFilterActive)
     }
 
     private func clearFilters() {

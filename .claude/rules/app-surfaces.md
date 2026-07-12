@@ -31,7 +31,16 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   toolbars on pushed screens.
 - **Motion carries meaning, one mechanism each**: selection slides, data
   rolls, completion thuds (impact per set, `.success` only at the purple
-  finish), navigation zooms. ~0.15 s ease-out; the app always feels fast.
+  finish), navigation zooms. The tempo lives in `Theme.Anim` tokens, never
+  inline curves (the "draw from Theme, never ad-hoc literals" law extended
+  to motion): `.selection` (a snappy spring — front-loaded, no overshoot —
+  for the segmented pill, selected fills/chips, schedule circles; an
+  ease-out's decelerating tail made a sliding pill read muddy, 2026-07-12),
+  `.standard` (~0.15 s ease-out for data rolls, opacity, search expansion),
+  `.press` (0.06 s cap depression). Deliberate flourishes (splash fade,
+  superset landing bloom, the green→purple completion beat) keep their own
+  longer curves inline — they are exceptions to the fast-feel rule. The app
+  always feels fast.
 - **No obligation vocabulary** ("due" is banned) and **anti-shame**:
   regressions render neutral, diffs sum positive movement only, no
   out-of-band warnings.
