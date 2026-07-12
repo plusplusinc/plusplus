@@ -89,10 +89,14 @@ history/
 README.md                     # (later) auto-generated summary
 ```
 
-Built-in library exercises are not written to the repo; routine files may
-reference them by name, and the app resolves them against its seed library.
-An exercise file is written only for custom exercises (or built-ins the user
-has effectively customized).
+An exercise file is written for everything in the user's **library** — all
+custom exercises, plus any built-in the user has adopted (the equipment-driven
+populate offer, a manual add) or customized. Un-adopted catalog built-ins are
+NOT written; routine files may reference them by name, and the app resolves
+them against its seed library on import (#328). Membership rides an additive
+`inLibrary` field, written only when `false` (an exported exercise NOT in the
+library, e.g. a removed custom) so the common case stays byte-clean and every
+pre-existing file reads as in-library.
 
 ## Interchange schema v1
 
@@ -136,6 +140,7 @@ The app's single-file export (backup / manual transport) is a bundle:
       "videoURL": "https://youtu.be/ykZHbcGNfII"
     },
     {
+      "defaultHeartRateTarget": { "kind": "zone", "zone": 3 },
       "distanceUnit": "m",
       "equipment": ["Rowing Machine"],
       "exerciseType": "duration",
@@ -165,14 +170,19 @@ The app's single-file export (backup / manual transport) is a bundle:
       "groups": [
         {
           "exercises": [
-            { "exercise": "Erg Row", "extraTargets": { "distance": 500, "pace": 118 } }
+            {
+              "exercise": "Erg Row",
+              "extraTargets": { "distance": 500, "pace": 118 },
+              "heartRateTarget": { "kind": "range", "lower": 130, "upper": 150 }
+            }
           ],
           "restSeconds": 120,
           "sets": 4
         }
       ],
       "name": "Erg Intervals",
-      "restSeconds": 90
+      "restSeconds": 90,
+      "schedule": { "mode": "frequency", "perDays": 7, "times": 3 }
     },
     {
       "groups": [
@@ -191,7 +201,8 @@ The app's single-file export (backup / manual transport) is a bundle:
         }
       ],
       "name": "Shoulder PT",
-      "restSeconds": 60
+      "restSeconds": 60,
+      "schedule": { "mode": "weekdays", "weekdays": [1, 3, 5] }
     }
   ],
   "schemaVersion": 1,
@@ -212,7 +223,10 @@ The app's single-file export (backup / manual transport) is a bundle:
       "startedAt": "2026-07-05T14:31:00Z"
     },
     {
+      "activeSeconds": 1380,
+      "averageHeartRate": 142,
       "endedAt": "2026-07-06T10:24:00Z",
+      "maxHeartRate": 168,
       "restSeconds": 90,
       "routineName": "Erg Intervals",
       "sets": [
@@ -222,7 +236,10 @@ The app's single-file export (backup / manual transport) is a bundle:
           "exerciseName": "Erg Row", "exerciseType": "duration",
           "extraActuals": { "distance": 500, "pace": 116 },
           "extraTargets": { "distance": 500, "pace": 118 },
-          "groupIndex": 0, "order": 0, "restSecondsOverride": 120, "setNumber": 1
+          "groupIndex": 0,
+          "metrics": ["distance", "duration", "pace", "resistance"],
+          "order": 0, "restSecondsOverride": 120, "setNumber": 1,
+          "targetHeartRate": { "kind": "range", "lower": 130, "upper": 150 }
         }
       ],
       "startedAt": "2026-07-06T10:00:00Z"
@@ -272,7 +289,32 @@ Semantics worth writing down:
   (4×500 m with 2:00 rests) are written — and session sets snapshot it as
   `restSecondsOverride`.
 - **Sessions snapshot everything** (names, types, targets) exactly like the app's
-  data model, so history files stand alone even if templates change.
+  data model, so history files stand alone even if templates change. A session
+  also carries `activeSeconds` (running-clock duration, excluding pauses and
+  staging — absent means the record was never clock-tracked, so a reader uses
+  the `startedAt`→`endedAt` span) and, when recorded, `averageHeartRate` /
+  `maxHeartRate` (bpm). A set snapshots its
+  `metrics` profile and `distanceUnit` (same curated identifiers as
+  `ExerciseDTO.metrics`) **only when the profile says more than `exerciseType`
+  already implies** — a flexible-metrics set; classic weight/reps and duration
+  sets stay absent and derive from `exerciseType`, byte-stable with
+  pre-snapshot files. The snapshot lets history render every logged value even
+  after a library edit or the exercise's deletion.
+- **Schedules** (#83, additive to schema v1): a routine may carry a `schedule`
+  declaring when it wants to happen. Two modes:
+  `{ "mode": "weekdays", "weekdays": [1, 3, 5] }` (ISO weekdays, 1 = Monday …
+  7 = Sunday) and `{ "mode": "frequency", "times": 3, "perDays": 7 }` (rolling
+  cadence). Absent means unscheduled — every pre-schedule file round-trips
+  unchanged. The app never renders obligation ("due") language from this; it's
+  a rhythm, not a deadline.
+- **Heart-rate targets** (additive to schema v1): an optional cardio
+  prescription — guidance shown during execution, never a logged metric.
+  Encoded as `{ "kind": "zone", "zone": 3 }` (zones 1–5) or
+  `{ "kind": "range", "lower": 130, "upper": 150 }` (bpm, bounds normalized).
+  It appears as `defaultHeartRateTarget` on an exercise (the prefill for new
+  entries), `heartRateTarget` on a routine entry (the prescription), and
+  `targetHeartRate` on a session set (the snapshot the set ran under). Absent
+  everywhere means no prescription.
 - **Equipment records** (additive to schema v1): the optional `equipment`
   array carries gear that has something to say — custom gear (its existence
   is user data) and any gear with user config: `weightStep` (per-tap
@@ -319,12 +361,56 @@ Semantics worth writing down:
   but at the file layer both kinds are still keyed by name-slug, so a routine
   rename produces a new file next to the old one in sync.
 
+## Schema evolution
+
+The contract has grown a lot without a version bump, on purpose. The rule:
+
+- **Additive optional fields don't bump `schemaVersion`.** Everything added
+  since v1 shipped — default targets, flexible metrics, equipment records,
+  equipment libraries, library membership (`inLibrary`), schedules, heart-rate
+  targets, per-set metric snapshots, session `activeSeconds` / heart-rate
+  summary — is an *optional* field that is **omitted when it carries no
+  signal**. That buys two-way compatibility for free: an old reader ignores a
+  field it doesn't know, and a new reader treats an absent field as its
+  documented default (which is exactly what the old file meant). Determinism
+  holds because omitted-when-default keeps unrelated files byte-identical.
+  When you add such a field, its *absence* must decode to the pre-field
+  behavior, and its writer must skip it in the common/default case.
+- **Breaking changes bump `schemaVersion`** and are the only thing that does:
+  removing or renaming a field, changing a field's type or meaning, making an
+  optional field required, or changing a default so that an old file's silence
+  would be misread. The envelope's version gate is the enforcement point — the
+  codec rejects any document whose `schemaVersion` exceeds what it understands
+  (`InterchangeError.unsupportedSchemaVersion`, covered by the future-version
+  conformance fixture), so an older app fails loudly instead of silently
+  misreading a v2 file. A bump means writing a migration for the reader and,
+  for sync, a repo-format transition plan.
+- **Nothing is ever silently dropped on the app boundary.** Every stored
+  property of a synced SwiftData model has a disposition — EXPORTED or
+  EXCLUDED-with-reason — recorded in the `INTERCHANGE FIELD CENSUS` at the top
+  of `PlusPlus/Interchange/InterchangeMapping.swift`. The completeness test
+  `fullGraphRoundTripPreservesEveryContentField` (PlusPlusTests) sets every
+  exported field to a distinctive value and asserts it survives a full
+  export → import into a fresh store, so a new field that isn't mapped (and
+  isn't a documented exclusion) fails there. A `docs-drift` hook nudges when a
+  model file changes. Adding a synced field is therefore a three-step move:
+  map it here, assert it in that test, and document it in this section.
+
 ## Sync semantics (phase: #23)
 
 | Data | Direction | Conflict handling |
 |---|---|---|
 | Sessions | app → repo, on finish (queued offline) | none possible (new file, append-only) |
 | Routines / exercises | bidirectional, on app foreground + manual pull | per-file SHA compare; a both-sides change is auto-merged field-by-field (`TemplateMerge`), same-field collisions resolve local-wins. `keep-mine/take-theirs/postpone` remains the fallback for an undecodable file |
+
+**First sync is a RESTORE, not a merge** (the reinstall-safe rule): when a
+device has no sync base (a fresh install / reinstall) and the repo is
+non-empty, the engine adopts every remote file and pushes only local files the
+repo doesn't have — it never overwrites a remote file. A fresh install seeds
+default/empty state (an empty "Home" library, the un-adopted catalog), and with
+no base the three-way merge can't tell that emptiness from a deliberate edit, so
+a plain merge would let the seed wipe real data in the repo. After the first
+pass saves a base, every later sync is the normal three-way merge above.
 
 Commit messages are composed by the sync engine: sessions get
 `Log: Shoulder PT — 8 sets (2026-07-05)` and template pushes get

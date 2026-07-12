@@ -67,6 +67,19 @@ public struct SyncEngine {
     ) async throws -> SyncOutcome {
         let base = try baseStore.loadBase()
         let remote = try await store.fetchAll()
+
+        // First sync on this install (no base) against a populated repo is a
+        // RESTORE, not a merge. A fresh install seeds default/empty state (an
+        // empty "Home" library, the un-adopted catalog), and with no base the
+        // three-way merge can't tell that emptiness from a deliberate edit — so
+        // a plain merge lets the seed's empty fields win and WIPES real data in
+        // the repo (the reinstall-erased-my-equipment bug). Instead: adopt every
+        // remote file, and push only local files the repo doesn't have. Once the
+        // base is saved, every later pass is a normal three-way merge.
+        if base.isEmpty && !remote.isEmpty {
+            return try await restore(local: local, remote: remote)
+        }
+
         let plan = SyncPlanner.plan(local: local, remote: remote, base: base)
 
         var outcome = SyncOutcome()
@@ -123,6 +136,38 @@ public struct SyncEngine {
         for path in outcome.postponed { newBase[path] = base[path] }
         try baseStore.saveBase(newBase)
 
+        return outcome
+    }
+
+    /// First-sync restore: the repo is the source of truth. Adopt every remote
+    /// file (the caller applies `pulls` locally), push only local-only files
+    /// (real work made before connecting — a fresh reinstall has none), and
+    /// save the converged state as the base. Never overwrites a remote file, so
+    /// a fresh install can't wipe the backup it's restoring from.
+    private func restore(local: [String: Data], remote: [String: Data]) async throws -> SyncOutcome {
+        var outcome = SyncOutcome()
+        var newBase: [String: Data] = [:]
+        var pulls: [FileWrite] = []
+        for (path, data) in remote {
+            newBase[path] = data
+            if local[path] != data {
+                pulls.append(FileWrite(path: path, data: data))
+            }
+        }
+        let writes = local
+            .filter { remote[$0.key] == nil }
+            .map { FileWrite(path: $0.key, data: $0.value) }
+            .sorted { $0.path < $1.path }
+        for write in writes { newBase[write.path] = write.data }
+
+        if !writes.isEmpty {
+            let message = Self.commitMessage(pushing: writes.map(\.path))
+            try await store.write(writes, message: message)
+            outcome.commitMessage = message
+        }
+        outcome.pushed = writes.map(\.path)
+        outcome.pulls = pulls.sorted { $0.path < $1.path }
+        try baseStore.saveBase(newBase)
         return outcome
     }
 

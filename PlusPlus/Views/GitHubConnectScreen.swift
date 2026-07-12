@@ -6,6 +6,12 @@ import PlusPlusKit
 /// see connection state and sync on demand. Your program and history live as
 /// JSON in a repo you own — no PlusPlus server ever sees it.
 struct GitHubConnectScreen: View {
+    /// When true, the screen starts the device flow itself on first appear —
+    /// the post-install auto-return (B2): the GitHub Setup-URL bounce presents
+    /// this as a sheet, and the user lands straight on the authorize step
+    /// instead of hunting for the Connect button.
+    var autoConnect: Bool = false
+
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(\.openURL) private var openURL
@@ -13,6 +19,7 @@ struct GitHubConnectScreen: View {
 
     @State private var sync = GitHubSyncCoordinator.shared
     @State private var connectTask: Task<Void, Never>?
+    @State private var didAutoConnect = false
     @State private var codeCopied = false
     @State private var copyResetTask: Task<Void, Never>?
 
@@ -50,6 +57,16 @@ struct GitHubConnectScreen: View {
         }
         .background(Theme.background)
         .pushedScreenChrome(title: "GitHub Sync", onBack: { dismiss() })
+        .onAppear {
+            // One-shot: kick off the device flow only if we arrived here to
+            // connect and aren't already connected or mid-authorize.
+            guard autoConnect, !didAutoConnect else { return }
+            didAutoConnect = true
+            let isAuthorizing: Bool = { if case .authorizing = sync.activity { return true }; return false }()
+            guard case .disconnected = sync.connection, !isAuthorizing else { return }
+            connectTask?.cancel()
+            connectTask = Task { await sync.connect() }
+        }
         .onDisappear {
             connectTask?.cancel()
             copyResetTask?.cancel()
@@ -98,7 +115,7 @@ struct GitHubConnectScreen: View {
             Button {
                 openURL(GitHubSyncSettings.installURL)
             } label: {
-                keyLabel(icon: "arrow.up.right", title: "Install on GitHub")
+                keyLabel(icon: "arrow.up.right", title: "Install on GitHub", github: true)
             }
             .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
             .accessibilityIdentifier("installGitHubButton")
@@ -115,7 +132,7 @@ struct GitHubConnectScreen: View {
                 connectTask?.cancel()
                 connectTask = Task { await sync.connect() }
             } label: {
-                keyLabel(icon: "arrow.triangle.2.circlepath", title: "Connect GitHub")
+                keyLabel(icon: "arrow.triangle.2.circlepath", title: "Connect GitHub", github: true)
             }
             .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
             .accessibilityIdentifier("connectGitHubButton")
@@ -166,7 +183,7 @@ struct GitHubConnectScreen: View {
             Button {
                 openURL(url)
             } label: {
-                keyLabel(icon: "arrow.up.right", title: "Open GitHub")
+                keyLabel(icon: "arrow.up.right", title: "Open GitHub", github: true)
             }
             .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
 
@@ -192,7 +209,7 @@ struct GitHubConnectScreen: View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
-                    Circle().fill(Theme.done).frame(width: 8, height: 8)
+                    Circle().fill(Theme.accent).frame(width: 8, height: 8)
                     Text("Connected")
                         .font(.system(.footnote, weight: .bold))
                         .foregroundStyle(Theme.textPrimary)
@@ -271,9 +288,13 @@ struct GitHubConnectScreen: View {
         }
     }
 
-    private func keyLabel(icon: String, title: String) -> some View {
+    private func keyLabel(icon: String, title: String, github: Bool = false) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: icon).font(.system(.footnote))
+            if github {
+                Image("GitHubMark").resizable().scaledToFit().frame(width: 15, height: 15)
+            } else {
+                Image(systemName: icon).font(.system(.footnote))
+            }
             Text(title).font(.system(.subheadline, weight: .bold))
         }
         .foregroundStyle(Theme.textPrimary)

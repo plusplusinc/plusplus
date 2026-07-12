@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import PlusPlusKit
 
@@ -20,6 +21,9 @@ struct RootTabView: View {
     @State private var showingWelcome: Bool
     /// A share link the app was opened with, awaiting import (#145).
     @State private var shareImport: ShareImport?
+    /// Post-install return from GitHub (the Setup-URL bounce, #23): present
+    /// the connect step so the user just authorizes.
+    @State private var showGitHubConnect = false
 
     init() {
         // The launch beat: the ++ mark centered, then the app. Skipped
@@ -81,10 +85,23 @@ struct RootTabView: View {
                 tab = .today
                 return
             }
+            // Post-install bounce from GitHub (plusplus://github/connected):
+            // present the connect step, which auto-starts the device flow.
+            if url.scheme == RoutineShareLink.appScheme, url.host == "github" {
+                showGitHubConnect = true
+                return
+            }
             guard RoutineShareLink.isShareLink(url),
                   let payload = try? RoutineShareLink.payload(from: url)
             else { return }
             shareImport = ShareImport(payload: payload)
+        }
+        // Universal-link form of the same GitHub Setup-URL return
+        // (https://plusplus.fit/github/…), for when it opens the app directly.
+        .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+            if let url = activity.webpageURL, url.path == "/github/connected" || url.path.hasPrefix("/github/") {
+                showGitHubConnect = true
+            }
         }
         // Siri/Shortcuts "Start Routine" (#147): the intent posts, the
         // root switches to Today, and Today starts the session.
@@ -100,6 +117,11 @@ struct RootTabView: View {
         .sheet(item: $shareImport) { item in
             ShareImportSheet(payload: item.payload)
                 .presentationDetents([.large])
+        }
+        .sheet(isPresented: $showGitHubConnect) {
+            NavigationStack {
+                GitHubConnectScreen(autoConnect: true)
+            }
         }
     }
 

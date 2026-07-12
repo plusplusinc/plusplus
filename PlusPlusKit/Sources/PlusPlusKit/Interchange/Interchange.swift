@@ -39,6 +39,15 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
     /// Default targets for metrics beyond the three dedicated fields
     /// above, keyed by metric identifier.
     public var extraDefaults: [String: Double]?
+    /// Whether this exercise is in the user's library ("my exercises"), the
+    /// curation that used to be lost on export/restore. Additive: written only
+    /// when `false` (the exception — an exported exercise NOT in the library,
+    /// e.g. a removed custom), so the common in-library case stays byte-clean
+    /// and every pre-existing file (absent) reads as in-library.
+    public var inLibrary: Bool?
+    /// Default heart-rate target for new routine entries on this exercise
+    /// (zone or bpm range). Additive.
+    public var defaultHeartRateTarget: HeartRateTarget?
 
     public init(
         name: String,
@@ -54,7 +63,9 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
         defaultDurationSeconds: Int? = nil,
         metrics: [String]? = nil,
         distanceUnit: DistanceUnit? = nil,
-        extraDefaults: [String: Double]? = nil
+        extraDefaults: [String: Double]? = nil,
+        inLibrary: Bool? = nil,
+        defaultHeartRateTarget: HeartRateTarget? = nil
     ) {
         self.name = name
         self.muscleGroup = muscleGroup
@@ -70,6 +81,8 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
         self.metrics = metrics?.sorted()
         self.distanceUnit = distanceUnit
         self.extraDefaults = extraDefaults
+        self.inLibrary = inLibrary
+        self.defaultHeartRateTarget = defaultHeartRateTarget
     }
 }
 
@@ -77,11 +90,15 @@ public struct RoutineDTO: Codable, Equatable, Sendable {
     public var name: String
     public var restSeconds: Int
     public var notes: String?
+    /// The recurrence (weekdays / frequency). Additive; absent means
+    /// unscheduled, so pre-schedule files round-trip unchanged.
+    public var schedule: RoutineSchedule?
     public var groups: [GroupDTO]
 
-    public init(name: String, restSeconds: Int, notes: String? = nil, groups: [GroupDTO]) {
+    public init(name: String, restSeconds: Int, notes: String? = nil, schedule: RoutineSchedule? = nil, groups: [GroupDTO]) {
         self.name = name
         self.restSeconds = restSeconds
+        self.schedule = schedule
         self.notes = notes
         self.groups = groups
     }
@@ -112,6 +129,8 @@ public struct RoutineDTO: Codable, Equatable, Sendable {
         /// Targets for metrics beyond the three dedicated fields, keyed
         /// by metric identifier ("distance", "pace", "resistance", …).
         public var extraTargets: [String: Double]?
+        /// Heart-rate target (zone or bpm range) for this entry. Additive.
+        public var heartRateTarget: HeartRateTarget?
 
         public init(
             exercise: String,
@@ -119,7 +138,8 @@ public struct RoutineDTO: Codable, Equatable, Sendable {
             reps: Int? = nil,
             repsUpper: Int? = nil,
             durationSeconds: Int? = nil,
-            extraTargets: [String: Double]? = nil
+            extraTargets: [String: Double]? = nil,
+            heartRateTarget: HeartRateTarget? = nil
         ) {
             self.exercise = exercise
             self.weight = weight
@@ -127,6 +147,7 @@ public struct RoutineDTO: Codable, Equatable, Sendable {
             self.repsUpper = repsUpper
             self.durationSeconds = durationSeconds
             self.extraTargets = extraTargets
+            self.heartRateTarget = heartRateTarget
         }
     }
 }
@@ -136,6 +157,14 @@ public struct SessionDTO: Codable, Equatable, Sendable {
     public var startedAt: Date
     public var endedAt: Date?
     public var restSeconds: Int
+    /// Active workout seconds — running time only, excluding pauses and
+    /// staging (the app's `WorkoutSession.duration`). Additive; absent
+    /// means the record was never clock-tracked, so a reader falls back
+    /// to the start→end span, exactly as before this field existed.
+    public var activeSeconds: Double?
+    /// Recorded heart-rate summary for the session (bpm). Additive.
+    public var averageHeartRate: Int?
+    public var maxHeartRate: Int?
     public var sets: [SetDTO]
 
     public init(
@@ -143,12 +172,18 @@ public struct SessionDTO: Codable, Equatable, Sendable {
         startedAt: Date,
         endedAt: Date?,
         restSeconds: Int,
+        activeSeconds: Double? = nil,
+        averageHeartRate: Int? = nil,
+        maxHeartRate: Int? = nil,
         sets: [SetDTO]
     ) {
         self.routineName = routineName
         self.startedAt = startedAt
         self.endedAt = endedAt
         self.restSeconds = restSeconds
+        self.activeSeconds = activeSeconds
+        self.averageHeartRate = averageHeartRate
+        self.maxHeartRate = maxHeartRate
         self.sets = sets
     }
 
@@ -173,6 +208,19 @@ public struct SessionDTO: Codable, Equatable, Sendable {
         public var extraActuals: [String: Double]?
         /// The block's rest override at session time, if it had one.
         public var restSecondsOverride: Int?
+        /// Heart-rate target the set was performed under (snapshot). Additive.
+        public var targetHeartRate: HeartRateTarget?
+        /// Tracked-metric profile snapshot (metric identifiers), written
+        /// only when it says more than `exerciseType` already implies (a
+        /// flexible-metrics set). Absent derives from `exerciseType`, like
+        /// `ExerciseDTO.metrics` — so classic weight/reps and duration sets
+        /// stay absent and byte-stable with pre-snapshot files. Additive.
+        public var metrics: [String]?
+        /// What this set's distance/pace/speed numbers are denominated in —
+        /// snapshotted with the profile so history stands alone even if the
+        /// exercise's unit later changes or the exercise is gone. Absent
+        /// means meters (or, for a pre-field file, resolve from the exercise).
+        public var distanceUnit: DistanceUnit?
 
         public init(
             order: Int,
@@ -190,7 +238,10 @@ public struct SessionDTO: Codable, Equatable, Sendable {
             completedAt: Date? = nil,
             extraTargets: [String: Double]? = nil,
             extraActuals: [String: Double]? = nil,
-            restSecondsOverride: Int? = nil
+            restSecondsOverride: Int? = nil,
+            targetHeartRate: HeartRateTarget? = nil,
+            metrics: [String]? = nil,
+            distanceUnit: DistanceUnit? = nil
         ) {
             self.order = order
             self.groupIndex = groupIndex
@@ -208,6 +259,9 @@ public struct SessionDTO: Codable, Equatable, Sendable {
             self.extraTargets = extraTargets
             self.extraActuals = extraActuals
             self.restSecondsOverride = restSecondsOverride
+            self.targetHeartRate = targetHeartRate
+            self.metrics = metrics?.sorted()
+            self.distanceUnit = distanceUnit
         }
     }
 }

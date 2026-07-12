@@ -83,7 +83,17 @@ public struct GitHubRepoStore: RepoStore {
         guard !files.isEmpty else { return }
 
         // 1. Current branch head (parent commit + its tree), if the branch exists.
-        let head = try await currentHead()
+        var head = try await currentHead()
+        if head == nil {
+            // An UNBORN repo (the user created it empty and installed the App
+            // on it — the app's own bootstrap uses auto_init, but a
+            // brought-your-own repo skips that). GitHub's Git Data API can't
+            // create the first commit on a repo with zero commits (blobs /
+            // trees / refs all 409 "Git Repository is empty"), so birth the
+            // branch via the Contents API — which CAN — then build on it.
+            try await seedInitialCommit()
+            head = try await currentHead()
+        }
 
         // 2. A blob per file.
         var treeEntries: [TreeEntryInput] = []
@@ -119,6 +129,24 @@ public struct GitHubRepoStore: RepoStore {
             throw StoreError.malformedResponse
         }
         return Head(commitSHA: ref.object.sha, treeSHA: commit.tree.sha)
+    }
+
+    /// Births the default branch on an unborn repo with one commit through
+    /// the Contents API (the only write endpoint that works with zero
+    /// commits). Mirrors the `auto_init` the bootstrap uses when the app
+    /// creates the repo itself. The README lives at the repo root, outside
+    /// the synced prefixes, so sync never reads or overwrites it.
+    private func seedInitialCommit() async throws {
+        let readme = Data(
+            "# PlusPlus data\n\nYour workout program and history, synced by the PlusPlus app.\n".utf8
+        )
+        let body = try JSONEncoder().encode(ContentsPutInput(
+            message: "Initialize repository",
+            content: readme.base64EncodedString(),
+            branch: coordinate.branch
+        ))
+        let response = try await send(.put, path: "contents/README.md", jsonBody: body)
+        try throwIfError(response)
     }
 
     private func createBlob(_ data: Data) async throws -> String {
@@ -224,4 +252,5 @@ public struct GitHubRepoStore: RepoStore {
     private struct CommitInput: Encodable { let message: String; let tree: String; let parents: [String] }
     private struct RefUpdateInput: Encodable { let sha: String; let force: Bool }
     private struct RefCreateInput: Encodable { let ref: String; let sha: String }
+    private struct ContentsPutInput: Encodable { let message: String; let content: String; let branch: String }
 }

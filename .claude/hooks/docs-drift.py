@@ -7,6 +7,8 @@ import json
 import sys
 
 RULES = [
+    ("PlusPlus/Models/", "if you added a STORED property to a synced model, it must be threaded through PlusPlus/Interchange/InterchangeMapping.swift (map it + assert it in fullGraphRoundTripPreservesEveryContentField) OR marked EXCLUDED in that file's INTERCHANGE FIELD CENSUS — else it silently drops on export/restore. See docs/PLATFORM.md 'Schema evolution'."),
+    ("PlusPlus/Interchange/", "docs/PLATFORM.md documents the interchange contract and its schema-evolution policy — update it if fields, mappings, or the field census changed."),
     ("PlusPlusKit/Sources/PlusPlusKit/Interchange/", "docs/PLATFORM.md documents this contract (its JSON examples are executable via DocsConformanceTests) — update it if fields, bounds, layout, or sync semantics changed."),
     ("PlusPlusCLI/Sources/", "docs/AGENTS.md and docs/recipes/ document the CLI surface — update them if subcommands, flags, --json shapes, or MCP tools changed."),
     (".github/workflows/", "CLAUDE.md (Current State + CI notes) and .claude/skills/ci-status describe the CI/TestFlight pipelines — keep them true."),

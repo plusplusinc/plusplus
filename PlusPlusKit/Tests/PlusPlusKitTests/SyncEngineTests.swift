@@ -49,6 +49,33 @@ struct SyncEngineTests {
         #expect(repo.commits[0].message == "Sync: band-pulses, push-day")
     }
 
+    @Test("First sync into a POPULATED repo restores it, never overwrites (reinstall)")
+    func firstSyncRestoresFromPopulatedRepo() async throws {
+        // Reinstall: base is empty, and the fresh seed's local library file
+        // collides with the repo's populated one. The repo must win — a merge
+        // would let the empty seed wipe it (the equipment-erased bug).
+        let libraryPath = "program/equipment-libraries/home.json"
+        let seedEmpty = Data("empty-home".utf8)    // fresh seed: Home, no gear
+        let populated = Data("home-with-gear".utf8) // repo: Home with 10 items
+        let localOnly = "program/routines/made-offline.json"
+        let repo = FakeRepoStore(files: [libraryPath: populated])
+        let baseStore = FakeBaseStore()   // empty base ⇒ first sync on this install
+        let engine = SyncEngine(store: repo, baseStore: baseStore)
+
+        let outcome = try await engine.sync(local: [libraryPath: seedEmpty, localOnly: a])
+
+        // The repo's populated library is untouched, and comes back as a pull.
+        #expect(repo.files[libraryPath] == populated, "restore must never overwrite remote data")
+        #expect(outcome.pulls.contains(FileWrite(path: libraryPath, data: populated)))
+        // A genuinely local-only file (made before connecting) is still pushed.
+        #expect(outcome.pushed == [localOnly])
+        #expect(repo.files[localOnly] == a)
+        // Base converges to remote ∪ pushed; only the local-only file commits.
+        #expect(baseStore.base == [libraryPath: populated, localOnly: a])
+        #expect(repo.commits.count == 1)
+        #expect(repo.commits[0].paths == [localOnly])
+    }
+
     @Test("A no-op sync makes no commit")
     func noOpMakesNoCommit() async throws {
         let repo = FakeRepoStore(files: [routinePath: a])
