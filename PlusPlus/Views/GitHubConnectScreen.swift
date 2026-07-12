@@ -115,7 +115,7 @@ struct GitHubConnectScreen: View {
             Button {
                 openURL(GitHubSyncSettings.installURL)
             } label: {
-                keyLabel(icon: "arrow.up.right", title: "Install on GitHub")
+                keyLabel(icon: "arrow.up.right", title: "Install on GitHub", github: true)
             }
             .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
             .accessibilityIdentifier("installGitHubButton")
@@ -132,7 +132,7 @@ struct GitHubConnectScreen: View {
                 connectTask?.cancel()
                 connectTask = Task { await sync.connect() }
             } label: {
-                keyLabel(icon: "arrow.triangle.2.circlepath", title: "Connect GitHub")
+                keyLabel(icon: "arrow.triangle.2.circlepath", title: "Connect GitHub", github: true)
             }
             .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
             .accessibilityIdentifier("connectGitHubButton")
@@ -183,7 +183,7 @@ struct GitHubConnectScreen: View {
             Button {
                 openURL(url)
             } label: {
-                keyLabel(icon: "arrow.up.right", title: "Open GitHub")
+                keyLabel(icon: "arrow.up.right", title: "Open GitHub", github: true)
             }
             .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
 
@@ -209,7 +209,7 @@ struct GitHubConnectScreen: View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
-                    Circle().fill(Theme.done).frame(width: 8, height: 8)
+                    Circle().fill(Theme.accent).frame(width: 8, height: 8)
                     Text("Connected")
                         .font(.system(.footnote, weight: .bold))
                         .foregroundStyle(Theme.textPrimary)
@@ -288,9 +288,13 @@ struct GitHubConnectScreen: View {
         }
     }
 
-    private func keyLabel(icon: String, title: String) -> some View {
+    private func keyLabel(icon: String, title: String, github: Bool = false) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: icon).font(.system(.footnote))
+            if github {
+                Image("GitHubMark").resizable().scaledToFit().frame(width: 15, height: 15)
+            } else {
+                Image(systemName: icon).font(.system(.footnote))
+            }
             Text(title).font(.system(.subheadline, weight: .bold))
         }
         .foregroundStyle(Theme.textPrimary)

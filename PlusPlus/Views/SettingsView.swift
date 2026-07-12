@@ -221,13 +221,20 @@ struct SettingsScreen: View {
                         showingSync = true
                     } label: {
                         HStack(spacing: 8) {
-                            Image(systemName: "arrow.triangle.2.circlepath")
-                                .font(.system(.footnote))
+                            Image("GitHubMark")
+                                .resizable().scaledToFit().frame(width: 15, height: 15)
                             Text(syncRowTitle)
                                 .font(.system(.subheadline, weight: .bold))
                             Spacer()
-                            if sync.isConnected {
-                                Circle().fill(Theme.done).frame(width: 8, height: 8)
+                            // Green = connected, red = not (a connection status,
+                            // the one place we override the purple "done" mark).
+                            switch sync.connection {
+                            case .connected:
+                                Circle().fill(Theme.accent).frame(width: 8, height: 8)
+                            case .disconnected:
+                                Circle().fill(Theme.destructive).frame(width: 8, height: 8)
+                            case .unconfigured:
+                                EmptyView()
                             }
                             Image(systemName: "chevron.right")
                                 .font(.system(.caption, weight: .bold))
