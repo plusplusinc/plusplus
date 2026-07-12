@@ -1,11 +1,12 @@
 import SwiftUI
 import Observation
+import UIKit
 
 /// Drives the slide-to-reveal drawer (the top-left ++ surface): the whole
-/// app (tab bar and all) slides right and scales down, uncovering the
-/// app-level `RevealSurface` beneath, leaving a thin peeking sliver of the
-/// app on the right — the Claude-drawer interaction model. Lives above the
-/// tabs' NavigationStacks so it moves the entire `TabView` as one layer.
+/// app (tab bar and all) slides right, uncovering the app-level
+/// `RevealSurface` beneath and leaving a thin peeking sliver of the app on
+/// the right — the Claude-drawer interaction model. Lives above the tabs'
+/// NavigationStacks so it moves the entire `TabView` as one layer.
 @Observable @MainActor
 final class RevealController {
     /// 0 = app fully covering the surface, 1 = surface fully revealed.
@@ -37,21 +38,30 @@ final class RevealController {
     var tabRootState: [String: Bool] = [:]
     var canSwipeOpen: Bool { tabRootState[activeTab] ?? true }
 
+    /// A soft tap on every commit to open or closed.
+    private let impact = UIImpactFeedbackGenerator(style: .medium)
+
     func toggle() { setOpen(!isOpen) }
     func open() { setOpen(true) }
     func close() { setOpen(false) }
 
     private func setOpen(_ open: Bool) {
-        withAnimation(.spring(response: 0.44, dampingFraction: 0.9)) {
-            openFraction = open ? 1 : 0
+        let target: CGFloat = open ? 1 : 0
+        // Only when actually moving to a new state (not re-closing a closed
+        // drawer), so an aborted flick that barely moved stays quiet.
+        if abs(openFraction - target) > 0.01 { impact.impactOccurred() }
+        // Snappy + confident: fast response, damped just short of a bounce.
+        withAnimation(.spring(response: 0.33, dampingFraction: 0.86)) {
+            openFraction = target
         }
     }
 
-    // MARK: - Dragging (drag the peeking app back to close)
+    // MARK: - Dragging (drag the peeking app back to close / edge to open)
 
     func beginDrag() {
         dragStart = openFraction
         dragging = true
+        impact.prepare()
     }
 
     func updateDrag(translationX: CGFloat, width: CGFloat) {
@@ -59,17 +69,22 @@ final class RevealController {
         openFraction = min(1, max(0, dragStart + translationX / travel))
     }
 
-    /// Snap on release: past 40% open → open, else → closed (mock threshold).
-    func endDrag() {
+    /// Snap using the velocity-aware PROJECTED landing, not just where the
+    /// finger stopped — a quick flick opens even if it didn't travel far
+    /// (Dave, build 64: flicks were opening partway then aborting). Biased
+    /// slightly toward opening.
+    func endDrag(predictedTranslationX: CGFloat, width: CGFloat) {
         dragging = false
-        setOpen(openFraction > 0.4)
+        let travel = max(width * Self.travelFactor, 1)
+        let projected = dragStart + predictedTranslationX / travel
+        setOpen(projected > 0.35)
     }
 }
 
 /// Wraps the app (the `TabView`) as a movable top layer over `RevealSurface`.
-/// The transform matches the design handoff: translate 0.72W, scale to
-/// 0.86, corners to 34 pt, a drop shadow and a dim overlay fading in, while
-/// the surface parallaxes in from the left and fades up.
+/// The app slides right by 0.8W (no scaling), rounding its left corners with
+/// a drop shadow and a dim/lighten veil fading in over it; the surface
+/// beneath stays static.
 struct RevealContainer<Content: View>: View {
     let controller: RevealController
     @ViewBuilder var content: Content
@@ -79,11 +94,10 @@ struct RevealContainer<Content: View>: View {
             let f = controller.openFraction
             let width = geo.size.width
             ZStack {
-                // The surface, beneath — revealed as the app slides away.
+                // The surface, beneath — sits STATICALLY (Dave, build 64: no
+                // parallax/fade); the app simply slides off it.
                 RevealSurface()
                     .frame(width: geo.size.width, height: geo.size.height)
-                    .offset(x: (1 - f) * -34)
-                    .opacity(0.30 + 0.70 * f)
                     // Only interactive once substantially revealed; the app
                     // covers it otherwise.
                     .allowsHitTesting(controller.isOpen)
@@ -125,7 +139,9 @@ struct RevealContainer<Content: View>: View {
     /// Inert while closed so the app underneath stays fully interactive.
     private func closeScrim(fraction f: CGFloat, width: CGFloat) -> some View {
         Rectangle()
-            .fill(Color.black.opacity(0.42 * f))
+            // Darken the covered app in dark mode, LIGHTEN it in light mode
+            // (Dave, build 64) — a dark veil over a light UI read wrong.
+            .fill(Color(light: 0xFFFFFF, dark: 0x000000).opacity(0.42 * f))
             .ignoresSafeArea()
             .allowsHitTesting(f > 0.02)
             .onTapGesture { controller.close() }
@@ -143,7 +159,9 @@ struct RevealContainer<Content: View>: View {
                 if !controller.dragging { controller.beginDrag() }
                 controller.updateDrag(translationX: value.translation.width, width: width)
             }
-            .onEnded { _ in controller.endDrag() }
+            .onEnded { value in
+                controller.endDrag(predictedTranslationX: value.predictedEndTranslation.width, width: width)
+            }
     }
 
     /// The open strip sits over the leftmost column of scrollable rows, so it
@@ -161,7 +179,11 @@ struct RevealContainer<Content: View>: View {
                 }
                 controller.updateDrag(translationX: value.translation.width, width: width)
             }
-            .onEnded { _ in if controller.dragging { controller.endDrag() } }
+            .onEnded { value in
+                if controller.dragging {
+                    controller.endDrag(predictedTranslationX: value.predictedEndTranslation.width, width: width)
+                }
+            }
     }
 }
 
