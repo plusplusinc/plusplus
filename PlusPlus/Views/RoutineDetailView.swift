@@ -20,6 +20,15 @@ struct RoutineDetailView: View {
     @State private var selectedExercise: RoutineExercise?
     @State private var railGesture: RailGestureState = .idle
     @State private var openSwipeRow: PersistentIdentifier?
+    /// The just-formed superset's landing animation (nil at rest). Keyed
+    /// by the group's stable id so it survives the commit's reindex; its
+    /// `progress` runs 0→1 to collapse the departed selection field into
+    /// the rail and bloom the new loop. See supersetLandingOverlay.
+    @State private var supersetLanding: SupersetLanding?
+    /// Monotonic trigger for the landing impact — a single medium "snap"
+    /// when a ring-drag forms a superset (distinct from the light drag
+    /// ticks; `.success` stays reserved for the purple finish).
+    @State private var landingTick = 0
     /// Rows track Dynamic Type: 52 pt at standard body size, growing with
     /// the user's setting so 17 pt+ text never clips (#82).
     @ScaledMetric(relativeTo: .body) private var railRowHeight: Double = 52
@@ -33,6 +42,14 @@ struct RoutineDetailView: View {
         case idle
         case dragging(group: Int, index: Int, fingerY: Double, grabOffset: Double)
         case ring(group: Int, edge: RingEdge?, pressY: Double, fingerY: Double)
+    }
+
+    /// A superset just formed by a ring-drag: `groupID` is the surviving
+    /// container's stable id, `progress` animates 0 (big blue field, loop
+    /// vivid) → 1 (field collapsed away, loop settled).
+    private struct SupersetLanding: Equatable {
+        var groupID: PersistentIdentifier
+        var progress: Double
     }
 
     var body: some View {
@@ -270,6 +287,7 @@ struct RoutineDetailView: View {
                 .allowsHitTesting(false)
             }
             .overlay(alignment: .topLeading) { ringHighlight(layout: layout, sizes: sizes) }
+            .overlay(alignment: .topLeading) { supersetLandingOverlay(layout: layout, sizes: sizes) }
             .overlay(alignment: .topLeading) { floatingDragPreview(layout: layout, groups: groups) }
             .animation(.easeOut(duration: 0.16), value: offsets)
             .padding(.top, 10)
@@ -279,6 +297,7 @@ struct RoutineDetailView: View {
         }
         .scrollDisabled(railGesture != .idle)
         .sensoryFeedback(.impact(weight: .light), trigger: gestureFeedbackToken)
+        .sensoryFeedback(.impact(weight: .medium), trigger: landingTick)
         .onDisappear { railGesture = .idle }
     }
 
@@ -366,7 +385,8 @@ struct RoutineDetailView: View {
                 routineExercise: routineExercise,
                 role: railRole(index: i, of: group),
                 rowHeight: railRowHeight,
-                hideLoop: hideLoop
+                hideLoop: hideLoop,
+                flash: landingFlash(for: group)
             )
             .contentShape(Rectangle())
         } actions: {
@@ -564,6 +584,45 @@ struct RoutineDetailView: View {
         return nil
     }
 
+    /// The loop bloom for `group`, 0 unless it's the one that just landed.
+    /// Runs 1→0 as the landing settles (progress 0→1).
+    private func landingFlash(for group: ExerciseGroup) -> Double {
+        guard let landing = supersetLanding,
+              group.persistentModelID == landing.groupID else { return 0 }
+        return 1 - landing.progress
+    }
+
+    /// The "big → little" collapse: on landing, the selection field that
+    /// filled the group's rows shrinks left into the rail column and fades,
+    /// handing off to the loop blooming beneath it. Deliberately NOT a
+    /// matchedGeometryEffect — the loop is a Canvas path with no matchable
+    /// frame, and this fires mid-relayout (commitRing mutated the model),
+    /// where matched geometry inside a ScrollView drops frames. A
+    /// self-owned scaleEffect is deterministic and tunable. Uses the
+    /// POST-commit layout, so the band matches the formed group exactly.
+    @ViewBuilder
+    private func supersetLandingOverlay(layout: RailLayout, sizes: [Int]) -> some View {
+        if let landing = supersetLanding,
+           let gf = routine.sortedGroups.firstIndex(where: { $0.persistentModelID == landing.groupID }),
+           sizes.indices.contains(gf), sizes[gf] > 1 {
+            let firstFlat = RailLayout.flatIndex(groupSizes: sizes, group: gf, index: 0)
+            let lastFlat = firstFlat + sizes[gf] - 1
+            if let first = exerciseRow(layout: layout, sizes: sizes, flat: firstFlat),
+               let last = exerciseRow(layout: layout, sizes: sizes, flat: lastFlat) {
+                let p = landing.progress
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Theme.selected.opacity(0.14 * (1 - p)))
+                    .frame(height: last.maxY - first.y + 12)
+                    .padding(.horizontal, -8)
+                    // Collapse toward the rail column, pinned to the left
+                    // edge, so the field visibly drains into the loop.
+                    .scaleEffect(x: 1 - p * 0.9, y: 1, anchor: .leading)
+                    .offset(y: first.y - 6)
+                    .allowsHitTesting(false)
+            }
+        }
+    }
+
     @ViewBuilder
     private func floatingDragPreview(layout: RailLayout, groups: [ExerciseGroup]) -> some View {
         if case .dragging(let g, let i, let fingerY, let grabOffset) = railGesture,
@@ -637,11 +696,39 @@ struct RoutineDetailView: View {
         if span.absorbAfter > 0 || span.absorbBefore > 0 {
             SupersetCreationTip().invalidate(reason: .actionPerformed)
             SupersetLoopTip().invalidate(reason: .actionPerformed)
+            // The selection field they drew now collapses into the loop
+            // it leaves behind, with a snap to mark the bond forming.
+            flashSupersetLanding(group)
         }
         // An eject is the same dot-drag mechanic in reverse — the
         // how-to is proven found.
         if span.ejectFirst > 0 || span.ejectLast > 0 {
             SupersetCreationTip().invalidate(reason: .actionPerformed)
+        }
+    }
+
+    /// Fire the landing feedback for a just-formed/grown superset: one
+    /// medium impact, then collapse the selection field into the loop as
+    /// the loop blooms from vivid selection blue back to its settled tone.
+    private func flashSupersetLanding(_ group: ExerciseGroup) {
+        landingTick += 1
+        let id = group.persistentModelID
+        supersetLanding = SupersetLanding(groupID: id, progress: 0)
+        // Commit the progress-0 frame FIRST (overlay inserted at full
+        // width, loop vivid), then animate to settled on the next tick —
+        // animating in the same tick as the insert would snap straight to
+        // the end (a newly-inserted view has no baseline to interpolate).
+        Task { @MainActor in
+            guard supersetLanding?.groupID == id else { return }
+            withAnimation(.easeOut(duration: 0.42)) {
+                supersetLanding?.progress = 1
+            } completion: {
+                // A newer landing (same or other group) resets progress to
+                // 0; only the finishing one clears itself.
+                if supersetLanding?.groupID == id, supersetLanding?.progress == 1 {
+                    supersetLanding = nil
+                }
+            }
         }
     }
 
@@ -774,6 +861,9 @@ private struct ExerciseRailRow: View {
     /// ring are mutually exclusive — the active group's rows drop their
     /// loop drawing while the highlight is up.
     var hideLoop = false
+    /// Landing bloom for this row's group (0 at rest); forwarded to the
+    /// glyph so the loop ignites blue the moment the superset forms.
+    var flash: Double = 0
 
     /// "3×15", "3×10 · 5lb", "2×45s", "4×500 m" — the condensed target
     /// summary, speaking each block's WORK metric (flexible metrics).
@@ -807,7 +897,7 @@ private struct ExerciseRailRow: View {
 
     var body: some View {
         HStack(spacing: 13) {
-            RailGlyph(role: hideLoop ? .solo : role, height: rowHeight, dotY: rowHeight / 2)
+            RailGlyph(role: hideLoop ? .solo : role, height: rowHeight, dotY: rowHeight / 2, flash: hideLoop ? 0 : flash)
                 .frame(width: 28, height: rowHeight)
 
             Text(routineExercise.exercise?.name ?? "Unknown")
@@ -835,13 +925,16 @@ private struct ExerciseRailRow: View {
 
 /// The rail drawing beside each exercise row, redrawn in v4 §1a: the
 /// spine runs SOLID through members (dash means "pending", and only on
-/// Today), grouping is a return loop on the rail side at x=3, and at
-/// rest the whole glyph draws in the rail's own ink — border for the
-/// loop, borderStrong for node strokes — because collapsed it's just a
-/// map of the routine's order. Blue appears on the rail only while the
-/// ring gesture is live (the highlight in ringHighlight), and in that
-/// moment it IS selection. Reading: sets run down the spine; the loop
-/// returns you to the top — the A1 B1 A2 B2 rotation made literal.
+/// Today), grouping is a return loop on the rail side at x=3. The spine
+/// and node strokes stay neutral (border / borderStrong) — they're the
+/// order map. The LOOP + chevrons carry the settled superset blue
+/// (`supersetLoop`, §1a revisited 2026-07-12): the spine's own line
+/// stays quiet, but the grouping mark reads as a bound unit in the
+/// selection hue, dialed down. The full-chroma `selected` still belongs
+/// to the live ring highlight (ringHighlight); the loop only reaches it
+/// briefly, on `flash`, as the just-drawn selection field settles onto
+/// it. Reading: sets run down the spine; the loop returns you to the
+/// top — the A1 B1 A2 B2 rotation made literal.
 ///
 /// Geometry: 28 pt column, spine x=15, loop x=3 (12 pt off the spine,
 /// ~7 pt clear of the 10 pt node), quarter curves r≈10 into each node.
@@ -853,23 +946,35 @@ struct RailGlyph: View {
     let role: RailRole
     let height: CGFloat
     let dotY: CGFloat
+    /// Landing bloom (2026-07-12): 0 at rest, 1 the instant a ring-drag
+    /// forms this superset. Drives the loop's ink from its settled tone up
+    /// to the full selection blue (matching the field that just collapsed
+    /// onto it) and a hair thicker, then eases back to rest.
+    var flash: Double = 0
 
     private static let spineX: CGFloat = 15
     private static let loopX: CGFloat = 3
 
     var body: some View {
         Canvas { context, _ in
-            let ink = Theme.border
-            let loopStyle = StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round)
+            // Spine stays the rail's own neutral ink — it's the order
+            // line, drawn through solo rows too, never superset-specific.
+            let spineInk = Theme.border
+            let spineStyle = StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round)
+            // The loop + chevrons ARE the superset mark, so they carry the
+            // settled blue, blooming to vivid `selected` on landing (§1a
+            // revisited, #superset-feedback).
+            let loopInk = Theme.supersetLoop.mix(with: Theme.selected, by: flash)
+            let loopStyle = StrokeStyle(lineWidth: 2 + flash * 0.8, lineCap: .round, lineJoin: .round)
             let spineX = Self.spineX
             let loopX = Self.loopX
 
-            func vline(_ x: CGFloat, _ y0: CGFloat, _ y1: CGFloat) {
+            func vline(_ x: CGFloat, _ y0: CGFloat, _ y1: CGFloat, _ color: Color, _ style: StrokeStyle) {
                 guard y1 > y0 else { return }
                 var path = Path()
                 path.move(to: CGPoint(x: x, y: y0))
                 path.addLine(to: CGPoint(x: x, y: y1))
-                context.stroke(path, with: .color(ink), style: loopStyle)
+                context.stroke(path, with: .color(color), style: style)
             }
 
             /// Quarter curve joining the loop line to a node row: the
@@ -878,7 +983,7 @@ struct RailGlyph: View {
                 var path = Path()
                 path.move(to: from)
                 path.addQuadCurve(to: to, control: control)
-                context.stroke(path, with: .color(ink), style: loopStyle)
+                context.stroke(path, with: .color(loopInk), style: loopStyle)
             }
 
             /// Up-pointing chevron at this row's TOP boundary; the 4 pt
@@ -889,12 +994,12 @@ struct RailGlyph: View {
                 path.move(to: CGPoint(x: loopX - 2.5, y: 5))
                 path.addLine(to: CGPoint(x: loopX, y: 0.5))
                 path.addLine(to: CGPoint(x: loopX + 2.5, y: 5))
-                context.stroke(path, with: .color(ink), style: loopStyle)
+                context.stroke(path, with: .color(loopInk), style: loopStyle)
             }
 
             // The spine is solid through everything (§1a) — role only
             // decides the loop's slice.
-            vline(spineX, 0, height)
+            vline(spineX, 0, height, spineInk, spineStyle)
 
             switch role {
             case .solo:
@@ -906,14 +1011,14 @@ struct RailGlyph: View {
                     to: CGPoint(x: spineX, y: dotY),
                     control: CGPoint(x: loopX, y: dotY)
                 )
-                vline(loopX, dotY + 10, height - 3.5)
+                vline(loopX, dotY + 10, height - 3.5, loopInk, loopStyle)
             case .supersetMiddle:
                 chevron()
-                vline(loopX, 0.5, height - 3.5)
+                vline(loopX, 0.5, height - 3.5, loopInk, loopStyle)
             case .supersetLast:
                 // Loop leaves the last member's node and runs up.
                 chevron()
-                vline(loopX, 0.5, dotY - 10)
+                vline(loopX, 0.5, dotY - 10, loopInk, loopStyle)
                 corner(
                     from: CGPoint(x: spineX, y: dotY),
                     to: CGPoint(x: loopX, y: dotY - 10),
