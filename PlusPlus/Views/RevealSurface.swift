@@ -230,13 +230,14 @@ struct RevealSurface: View {
 
     private var syncRow: some View {
         let connected = sync.isConnected
-        // Red "disconnected" only when a live connection broke or a connect
-        // attempt failed; a clean never-connected install reads as neutral
-        // gray with no trailing word, and so does an unconfigured build (gate
-        // on .disconnected, so a stale fault flag can't paint it red). Green
-        // when live, also with no trailing word.
+        // Trailing status word: "connected" (green) when live, "disconnected"
+        // (red) when a connect attempt failed or a live connection broke. A
+        // clean never-connected install reads as neutral gray with no word, and
+        // so does an unconfigured build (red gated on .disconnected, so a stale
+        // fault flag can't paint it red).
         let faulted = sync.connection == .disconnected && sync.faulted
         let dot: Color = connected ? Theme.accent : (faulted ? Theme.destructive : Theme.textFaint)
+        let secondary: String? = connected ? "connected" : (faulted ? "disconnected" : nil)
         return Button {
             openTray(.sync)
         } label: {
@@ -248,8 +249,8 @@ struct RevealSurface: View {
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
                     .fixedSize()
-                if faulted {
-                    Text("disconnected")
+                if let secondary {
+                    Text(secondary)
                         .font(.system(.caption2, design: .monospaced))
                         .foregroundStyle(Theme.textFaint)
                         .lineLimit(1)
