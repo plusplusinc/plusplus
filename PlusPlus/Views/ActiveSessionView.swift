@@ -1216,7 +1216,7 @@ private struct SetLoggingView: View {
                         // Digits roll like an odometer, directional
                         // with the raw value (#216).
                         .contentTransition(.numericText(value: current ?? 0))
-                        .animation(.easeOut(duration: 0.15), value: current)
+                        .animation(Theme.Anim.standard, value: current)
                 }
                 .accessibilityIdentifier(metric == .weight ? "logWeightValue" : "log-\(metric.rawValue)-value")
                 Spacer(minLength: 8)
@@ -1227,7 +1227,7 @@ private struct SetLoggingView: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                         .contentTransition(.numericText())
-                        .animation(.easeOut(duration: 0.15), value: annotation.text)
+                        .animation(Theme.Anim.standard, value: annotation.text)
                 }
             }
             HStack(spacing: 10) {
@@ -1290,7 +1290,7 @@ private struct SetLoggingView: View {
                     .font(.system(.title3, design: .monospaced, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
                     .contentTransition(.numericText(value: Double(log.actualReps ?? log.targetRepsLower ?? 0)))
-                    .animation(.easeOut(duration: 0.15), value: log.actualReps ?? log.targetRepsLower)
+                    .animation(Theme.Anim.standard, value: log.actualReps ?? log.targetRepsLower)
             }
             .accessibilityIdentifier("logRepsValue")
             if log.targetReps.lower != nil {
@@ -1328,7 +1328,7 @@ private struct SetLoggingView: View {
                     .font(.system(.title3, design: .monospaced, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
                     .contentTransition(.numericText(value: current ?? 0))
-                    .animation(.easeOut(duration: 0.15), value: current)
+                    .animation(Theme.Anim.standard, value: current)
             }
             .accessibilityIdentifier("log-\(metric.rawValue)-value")
             Spacer(minLength: 8)
@@ -1469,7 +1469,7 @@ private struct LiveHeartRateLabel: View {
                 if chrome {
                     label
                         .contentTransition(.numericText())
-                        .animation(.easeOut(duration: 0.15), value: bpm)
+                        .animation(Theme.Anim.standard, value: bpm)
                         .padding(.horizontal, 10)
                         .frame(height: 34)
                         .background(Theme.surface, in: Capsule())
@@ -1478,7 +1478,7 @@ private struct LiveHeartRateLabel: View {
                 } else {
                     label
                         .contentTransition(.numericText())
-                        .animation(.easeOut(duration: 0.15), value: bpm)
+                        .animation(Theme.Anim.standard, value: bpm)
                         .accessibilityIdentifier("liveHeartRate")
                 }
             }
@@ -1783,7 +1783,7 @@ private struct RestView: View {
                     .frame(width: 17, height: 17)
             }
         }
-        .animation(.easeOut(duration: 0.15), value: filled)
+        .animation(Theme.Anim.standard, value: filled)
     }
 
     /// "10 reps @ 135 lb" — weight value in ink, the rest faint. Classic

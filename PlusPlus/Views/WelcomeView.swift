@@ -157,7 +157,7 @@ struct WelcomeView: View {
                     .frame(width: 7, height: 7)
             }
         }
-        .animation(.easeOut(duration: 0.15), value: page)
+        .animation(Theme.Anim.standard, value: page)
     }
 
     /// Every page reserves the two-key height — primary cap 50 + 4 travel,

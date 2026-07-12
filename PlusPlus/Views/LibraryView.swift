@@ -507,7 +507,7 @@ struct CatalogBrowseScreen: View {
                     }
                     Spacer(minLength: 0)
                 }
-                .animation(.easeOut(duration: 0.15), value: anyFilterActive)
+                .animation(Theme.Anim.standard, value: anyFilterActive)
                 .padding(.horizontal, 16)
             }
             .padding(.top, 6)

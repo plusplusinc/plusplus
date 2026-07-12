@@ -66,7 +66,7 @@ private struct PushedScreenChrome<Trailing: View>: ViewModifier {
                     if let search {
                         HeaderIconButton(systemImage: "magnifyingglass", identifier: "\(search.identifier)Toggle") {
                             wantsFocus = true
-                            withAnimation(.easeOut(duration: 0.15)) { searchExpanded = true }
+                            withAnimation(Theme.Anim.standard) { searchExpanded = true }
                         }
                     }
                     trailing
@@ -103,7 +103,7 @@ private struct PushedScreenChrome<Trailing: View>: ViewModifier {
             Button {
                 search.text.wrappedValue = ""
                 searchFocused = false
-                withAnimation(.easeOut(duration: 0.15)) { searchExpanded = false }
+                withAnimation(Theme.Anim.standard) { searchExpanded = false }
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(.caption, weight: .semibold))

@@ -620,7 +620,7 @@ struct HeartRateTargetSheet: View {
             .contentShape(Rectangle())
             .background(isSelected ? Theme.selectedTint : Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
             .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(isSelected ? Theme.selectedRing : Theme.border))
-            .animation(.easeOut(duration: 0.15), value: isSelected)
+            .animation(Theme.Anim.selection, value: isSelected)
         }
         .accessibilityIdentifier("hrTarget\(label.replacingOccurrences(of: " ", with: ""))")
     }

@@ -313,7 +313,7 @@ private struct FilterBar: View {
                 ) { showingEquipmentFilter = true }
                 Spacer(minLength: 0)
             }
-            .animation(.easeOut(duration: 0.15), value: anyFilterActive)
+            .animation(Theme.Anim.standard, value: anyFilterActive)
             .padding(.horizontal)
         }
         .padding(.vertical, 8)
@@ -485,7 +485,7 @@ private struct SelectableChip: View {
                 .padding(4)
                 .contentShape(Rectangle())
         }
-        .animation(.easeOut(duration: 0.15), value: isSelected)
+        .animation(Theme.Anim.selection, value: isSelected)
         .sensoryFeedback(.selection, trigger: isSelected)
     }
 }

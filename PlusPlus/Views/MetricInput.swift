@@ -32,7 +32,7 @@ struct MetricRow: View {
                         .fontWeight(.medium)
                         // Rolling digits on step, directional (#216).
                         .contentTransition(.numericText(value: value ?? 0))
-                        .animation(.easeOut(duration: 0.15), value: value)
+                        .animation(Theme.Anim.standard, value: value)
                     let unit = metric.unit(for: value, weightUnit: weightUnit)
                     if !unit.isEmpty {
                         Text(unit)
@@ -113,7 +113,7 @@ struct RepTargetRow: View {
                         // Ranges shift whole ("15–20" → "16–21"), so the
                         // lower bound carries the roll direction (#216).
                         .contentTransition(.numericText(value: Double(lower ?? 0)))
-                        .animation(.easeOut(duration: 0.15), value: target.display)
+                        .animation(Theme.Anim.standard, value: target.display)
                     Text("reps")
                         .font(.caption)
                         .foregroundStyle(.secondary)

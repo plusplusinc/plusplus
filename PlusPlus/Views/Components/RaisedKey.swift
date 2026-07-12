@@ -40,7 +40,7 @@ struct RaisedKeyStyle: ButtonStyle {
                         .padding(.top, travel)
                 }
             }
-            .animation(.easeOut(duration: 0.06), value: configuration.isPressed)
+            .animation(Theme.Anim.press, value: configuration.isPressed)
     }
 }
 
@@ -143,7 +143,7 @@ struct StartFlashButton: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: height)
                 .background(flashing ? Theme.accent : Theme.primaryFill, in: RoundedRectangle(cornerRadius: 11))
-                .animation(.easeOut(duration: 0.15), value: flashing)
+                .animation(Theme.Anim.standard, value: flashing)
         }
         .buttonStyle(.raisedPrimaryKey())
         .accessibilityIdentifier(identifier ?? label)
@@ -171,6 +171,6 @@ struct BlockBar: View {
                     .frame(maxWidth: .infinity)
             }
         }
-        .animation(.easeOut(duration: 0.15), value: filled)
+        .animation(Theme.Anim.standard, value: filled)
     }
 }

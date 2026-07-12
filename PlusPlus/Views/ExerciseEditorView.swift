@@ -357,7 +357,7 @@ struct ExerciseEditorView: View {
                 .overlay(Capsule().strokeBorder(selected ? Color.clear : Theme.border))
         }
         .accessibilityIdentifier("metricChip-\(metric.rawValue)")
-        .animation(.easeOut(duration: 0.15), value: selected)
+        .animation(Theme.Anim.selection, value: selected)
     }
 
     private func muscleChip(_ group: MuscleGroup) -> some View {
@@ -376,7 +376,7 @@ struct ExerciseEditorView: View {
                 .background(selected ? Theme.selected : Theme.background, in: Capsule())
                 .overlay(Capsule().strokeBorder(selected ? Color.clear : Theme.border))
         }
-        .animation(.easeOut(duration: 0.15), value: selected)
+        .animation(Theme.Anim.selection, value: selected)
     }
 
     private func equipmentChip(_ equipment: Equipment) -> some View {
