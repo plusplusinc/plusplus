@@ -230,66 +230,66 @@ struct RevealSurface: View {
 
     private var syncRow: some View {
         let connected = sync.isConnected
-        // Red "disconnected" only when a live connection broke or a connect
-        // attempt failed; a clean never-connected install reads as neutral
-        // gray with no trailing word, and so does an unconfigured build (gate
-        // on .disconnected, so a stale fault flag can't paint it red). Green
-        // when live, also with no trailing word.
+        // Trailing status word: "connected" (green) when live, "disconnected"
+        // (red) when a connect attempt failed or a live connection broke. A
+        // clean never-connected install reads as neutral gray with no word, and
+        // so does an unconfigured build (red gated on .disconnected, so a stale
+        // fault flag can't paint it red).
         let faulted = sync.connection == .disconnected && sync.faulted
         let dot: Color = connected ? Theme.accent : (faulted ? Theme.destructive : Theme.textFaint)
-        return Button {
-            openTray(.sync)
-        } label: {
-            HStack(spacing: 9) {
-                Circle().fill(dot).frame(width: 8, height: 8)
-                Image("GitHubMark").resizable().scaledToFit().frame(width: 16, height: 16)
-                Text("GitHub")
-                    .font(.system(.subheadline, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-                    .lineLimit(1)
-                    .fixedSize()
-                if faulted {
-                    Text("disconnected")
-                        .font(.system(.caption2, design: .monospaced))
-                        .foregroundStyle(Theme.textFaint)
-                        .lineLimit(1)
-                }
-                Spacer(minLength: 8)
-                Image(systemName: "chevron.right")
-                    .font(.system(.caption2, weight: .bold))
-                    .foregroundStyle(Theme.textFaint)
-            }
-            .padding(.horizontal, 14)
-            .frame(height: 50)
-            .frame(maxWidth: .infinity)
-            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 11))
-            .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
-        }
-        .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: 11, travel: 3))
-        .accessibilityIdentifier("revealSyncRow")
+        let secondary: String? = connected ? "connected" : (faulted ? "disconnected" : nil)
+        return statusRow(
+            dot: dot,
+            icon: { Image("GitHubMark").resizable().scaledToFit().frame(width: 16, height: 16) },
+            title: "GitHub",
+            status: secondary,
+            identifier: "revealSyncRow"
+        ) { openTray(.sync) }
     }
 
     private var calendarRow: some View {
         let on = calendar.isEnabled
         return statusRow(
             dot: on ? Theme.accent : Theme.textFaint,
+            icon: {
+                Image(systemName: "calendar")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Theme.textPrimary)
+                    .frame(width: 16, height: 16)
+            },
             title: "Calendar",
             status: on ? "on" : "off",
             identifier: "revealCalendarRow"
         ) { openTray(.calendar) }
     }
 
-    private func statusRow(dot: Color, title: String, status: String, identifier: String, action: @escaping () -> Void) -> some View {
+    /// A SYNC trigger row: status dot, a leading icon (GitHub mark / SF Symbol),
+    /// the name, then a right-aligned status word before the chevron. `status`
+    /// is optional so a never-connected GitHub row shows no trailing word.
+    private func statusRow<Icon: View>(
+        dot: Color,
+        @ViewBuilder icon: () -> Icon,
+        title: String,
+        status: String?,
+        identifier: String,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
             HStack(spacing: 9) {
                 Circle().fill(dot).frame(width: 8, height: 8)
+                icon()
                 Text(title)
                     .font(.system(.subheadline, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                    .fixedSize()
                 Spacer(minLength: 8)
-                Text(status)
-                    .font(.system(.caption2, design: .monospaced))
-                    .foregroundStyle(Theme.textFaint)
+                if let status {
+                    Text(status)
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(Theme.textFaint)
+                        .lineLimit(1)
+                }
                 Image(systemName: "chevron.right")
                     .font(.system(.caption2, weight: .bold))
                     .foregroundStyle(Theme.textFaint)
