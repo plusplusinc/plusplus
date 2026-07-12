@@ -37,7 +37,6 @@ struct TodayView: View {
         EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)
     }
 
-    @State private var showingAppMenu = false
     @State private var showingSwapIn = false
     @State private var swapInPick: Routine?
     /// Programmatic pushes (#208: land in a routine created from the
@@ -286,9 +285,6 @@ struct TodayView: View {
             // placeholder (build 33).
             .navigationDestination(for: RoutineTemplate.self) { template in
                 RoutineTemplateDetailScreen(template: template, path: $todayPath)
-            }
-            .navigationDestination(isPresented: $showingAppMenu) {
-                AppMenuScreen()
             }
             .sheet(isPresented: $showingSwapIn, onDismiss: {
                 // Start only once the sheet is fully gone: dismissing a
@@ -872,7 +868,7 @@ struct TodayView: View {
                 // The ++ is a button (#266): the app-level page —
                 // Settings, About, What's new, links, feedback. Since
                 // build 44 every root header wears it (AppMenuKey).
-                AppMenuKey { showingAppMenu = true }
+                AppMenuKey()
                 Spacer()
                 // Settings' old seat starts workouts instead (#266):
                 // the one action that should never be more than a tap

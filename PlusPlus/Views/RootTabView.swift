@@ -14,6 +14,10 @@ struct RootTabView: View {
     }
 
     @State private var tab: AppTab = .today
+    /// The slide-to-reveal drawer behind the ++ key (replaces the pushed
+    /// AppMenuScreen). Lives here, above the tabs' NavigationStacks, so it
+    /// moves the whole TabView as one layer.
+    @State private var reveal = RevealController()
     @State private var showingSplash: Bool
     /// The welcome beat (first launch only): three screens — the idea,
     /// the mechanics, the Health ask — then Today's setup timeline
@@ -37,6 +41,14 @@ struct RootTabView: View {
     }
 
     var body: some View {
+        // The whole app rides inside the reveal drawer: tapping ++ slides
+        // this TabView aside to uncover the app surface beneath it.
+        RevealContainer(controller: reveal) {
+            appContent
+        }
+    }
+
+    private var appContent: some View {
         // Native TabView (iOS 26 Liquid Glass) over the v3 custom bar:
         // system hit targets, accessibility, and scroll-edge treatment
         // for free — and per-tab navigation state survives switching.
@@ -160,16 +172,16 @@ struct HeaderGlyph: View {
     }
 }
 
-/// The ++ wearing its key — every root header's top-left opens the
-/// app page (Dave, build 44: "every root view, not just Today"). The
-/// glyph stays brand green — content is the brand, the key says
-/// "press me". Each tab presents its own AppMenuScreen so the push
-/// rides that tab's stack.
+/// The ++ wearing its key — every root header's top-left opens the app
+/// surface (Dave, build 44: "every root view, not just Today"). The glyph
+/// stays brand green — content is the brand, the key says "press me". It no
+/// longer pushes onto a tab's stack; it toggles the shared reveal drawer,
+/// which slides the whole app aside to uncover the surface beneath.
 struct AppMenuKey: View {
-    let action: () -> Void
+    @Environment(RevealController.self) private var reveal
 
     var body: some View {
-        Button(action: action) {
+        Button { reveal.toggle() } label: {
             HeaderGlyph()
                 .frame(width: 44, height: 44)
                 .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
