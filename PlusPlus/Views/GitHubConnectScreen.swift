@@ -109,13 +109,13 @@ struct GitHubConnectScreen: View {
 
     private var intro: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Sync to a GitHub repo you own.")
+            Text("You own your data.")
                 .font(.system(.footnote, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
-            Text("Routines and history sync as plain JSON, phone to GitHub. No PlusPlus server ever sees it.")
+            Text("Sync your routines and history to GitHub. Use it as a simple backup, point an AI agent personal trainer at it, or anything in between. It's yours.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textSecondary)
-            Text("Touches only the repo you pick, public or private. First time? Make an empty repo on GitHub, then Install below.")
+            Text("No PlusPlus server ever sees it. Syncs to one repo you pick · make an empty one on GitHub first, then Install below.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textFaint)
         }
