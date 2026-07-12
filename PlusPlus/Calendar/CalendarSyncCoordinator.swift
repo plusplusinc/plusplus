@@ -36,11 +36,17 @@ final class CalendarSyncCoordinator {
     /// True when the feature is on but the OS hasn't granted full
     /// calendar access — the UI points the user to iOS Settings.
     private(set) var accessDenied = false
+    /// True when access was granted but no calendar source would host the
+    /// "++ Workouts" calendar (rare) — the toggle reverts and the UI says so.
+    private(set) var unavailable = false
 
     private let store = EKEventStore()
     /// Guards against overlapping passes (foreground + a settings edit
     /// firing together).
     private var isReconciling = false
+    /// Coalesces the rapid binding writes a time picker emits while the
+    /// user drags, so the events rebuild once when the drag settles.
+    private var timeDebounce: Task<Void, Never>?
 
     private init() {
         isEnabled = CalendarSyncSettings.isEnabled
@@ -55,7 +61,8 @@ final class CalendarSyncCoordinator {
     // MARK: - User actions
 
     /// Turn the feature on: request access, then populate. Leaves the
-    /// toggle off if access is denied.
+    /// toggle off if access is denied or no calendar can be created — this
+    /// is the ONE path allowed to create the "++ Workouts" calendar.
     func enable(routines: [Routine]) async {
         let granted: Bool
         do {
@@ -65,6 +72,7 @@ final class CalendarSyncCoordinator {
             granted = false
         }
         accessDenied = !granted
+        unavailable = false
         guard granted else {
             CalendarSyncSettings.isEnabled = false
             isEnabled = false
@@ -72,30 +80,56 @@ final class CalendarSyncCoordinator {
         }
         CalendarSyncSettings.isEnabled = true
         isEnabled = true
-        await reconcile(routines: routines)
+        await reconcile(routines: routines, allowCreate: true)
+        // No calendar could be created (no writable source) — revert the
+        // toggle rather than sit on silently for nothing.
+        if CalendarSyncSettings.calendarIdentifier == nil {
+            CalendarSyncSettings.isEnabled = false
+            isEnabled = false
+            unavailable = true
+        }
     }
 
     /// Turn the feature off and remove everything: deleting our calendar
     /// takes every event with it.
     func disableAndRemove() async {
+        timeDebounce?.cancel()
+        // Only forget the calendar once it's actually gone. If removal
+        // throws (e.g. access revoked mid-session), keep the identifier so
+        // a later re-enable reuses that calendar instead of duplicating it.
+        var removedOrAbsent = true
         if let id = CalendarSyncSettings.calendarIdentifier,
            let calendar = store.calendar(withIdentifier: id) {
             do {
                 try store.removeCalendar(calendar, commit: true)
             } catch {
                 calendarLog.error("Removing ++ Workouts calendar failed: \(error.localizedDescription)")
+                removedOrAbsent = false
             }
         }
-        CalendarSyncSettings.clear()
+        if removedOrAbsent {
+            CalendarSyncSettings.clear()
+        } else {
+            CalendarSyncSettings.isEnabled = false
+        }
         isEnabled = false
         accessDenied = false
+        unavailable = false
     }
 
-    /// A new preferred time from Settings: persist and re-time every event.
-    func updateTime(hour: Int, minute: Int, routines: [Routine]) async {
+    /// A new preferred time from Settings. Debounced: a time picker writes
+    /// its binding on every detent, and each change re-fingerprints every
+    /// event, so without this a single drag would delete-and-recreate the
+    /// whole set many times over.
+    func updateTime(hour: Int, minute: Int, routines: [Routine]) {
         CalendarSyncSettings.hour = hour
         CalendarSyncSettings.minute = minute
-        await reconcile(routines: routines)
+        timeDebounce?.cancel()
+        timeDebounce = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(700))
+            guard !Task.isCancelled else { return }
+            await reconcile(routines: routines)
+        }
     }
 
     // MARK: - Reconcile (the spine)
@@ -103,7 +137,7 @@ final class CalendarSyncCoordinator {
     /// Make the calendar match the routines. Safe to call anytime; a
     /// no-op when the feature is off. Called on every foreground and
     /// background so external changes and missed edits self-heal.
-    func reconcile(routines: [Routine]) async {
+    func reconcile(routines: [Routine], allowCreate: Bool = false) async {
         guard CalendarSyncSettings.isEnabled else { return }
         guard !isReconciling else { return }
         guard Self.hasFullAccess else {
@@ -116,8 +150,20 @@ final class CalendarSyncCoordinator {
         isReconciling = true
         defer { isReconciling = false }
 
-        guard let calendar = ensureCalendar() else {
-            calendarLog.error("Could not obtain the ++ Workouts calendar; skipping reconcile.")
+        // Deleting "++ Workouts" is a documented off-switch (the Settings
+        // caption and the event notes both say so). If a calendar we
+        // created no longer resolves, honor the deletion — turn the
+        // feature off and clear state — instead of resurrecting it on the
+        // next foreground pass.
+        if let id = CalendarSyncSettings.calendarIdentifier, store.calendar(withIdentifier: id) == nil {
+            await disableAndRemove()
+            return
+        }
+
+        guard let calendar = ensureCalendar(allowCreate: allowCreate) else {
+            if allowCreate {
+                calendarLog.error("No calendar source would host ++ Workouts.")
+            }
             return
         }
 
@@ -167,14 +213,16 @@ final class CalendarSyncCoordinator {
 
     // MARK: - EventKit helpers
 
-    /// Our calendar, created on first use. Prefers the default calendar's
-    /// source so it syncs to the user's account; falls back to a local
-    /// source when the account won't host an app-created calendar.
-    private func ensureCalendar() -> EKCalendar? {
+    /// Our calendar. Returns the stored one if it still resolves;
+    /// otherwise creates it — but ONLY when `allowCreate` is set (the
+    /// explicit enable path). A passive foreground/background reconcile
+    /// passes `false`, so it never resurrects a calendar the user removed.
+    private func ensureCalendar(allowCreate: Bool) -> EKCalendar? {
         if let id = CalendarSyncSettings.calendarIdentifier,
            let existing = store.calendar(withIdentifier: id) {
             return existing
         }
+        guard allowCreate else { return nil }
         // A fresh calendar means any remembered events are gone with the
         // old one — start the map clean.
         CalendarSyncSettings.managedEvents = [:]

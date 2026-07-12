@@ -226,6 +226,12 @@ struct SettingsScreen: View {
                             .foregroundStyle(Theme.destructive)
                             .padding(.top, 6)
                     }
+                    if calendar.unavailable {
+                        Text("Couldn't create the calendar. Add an account with a writable calendar in iOS Settings, then try again.")
+                            .font(.system(.caption))
+                            .foregroundStyle(Theme.destructive)
+                            .padding(.top, 6)
+                    }
                     Text("Fixed-weekday routines get a recurring event in a \u{201C}++ Workouts\u{201D} calendar, each with a link that starts the workout. To remove them, turn this off or delete that calendar.")
                         .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
@@ -389,7 +395,7 @@ struct SettingsScreen: View {
             set: { date in
                 let comps = Calendar.current.dateComponents([.hour, .minute], from: date)
                 Task { @MainActor in
-                    await calendar.updateTime(
+                    calendar.updateTime(
                         hour: comps.hour ?? CalendarSyncSettings.defaultHour,
                         minute: comps.minute ?? CalendarSyncSettings.defaultMinute,
                         routines: routines
