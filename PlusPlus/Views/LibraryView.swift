@@ -69,6 +69,7 @@ struct ExercisesTabView: View {
                 CatalogBrowseScreen(kind: .exercises)
             }
         }
+        .revealRoot(tab: "exercises", atRoot: path.isEmpty)
     }
 
     // MARK: - Rows
@@ -213,6 +214,7 @@ struct EquipmentTabView: View {
                 EquipmentLibraryTray()
             }
         }
+        .revealRoot(tab: "equipment", atRoot: path.isEmpty)
     }
 
     @ViewBuilder

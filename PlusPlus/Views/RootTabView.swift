@@ -69,6 +69,11 @@ struct RootTabView: View {
             }
         }
         .tint(Theme.textPrimary)
+        // Swipe-to-open is gated on the active tab being at its root; keep
+        // the reveal controller told which tab is showing.
+        .onChange(of: tab, initial: true) { _, newTab in
+            reveal.activeTab = newTab.rawValue
+        }
         .overlay {
             if showingWelcome {
                 WelcomeView {

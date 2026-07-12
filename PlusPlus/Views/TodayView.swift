@@ -406,6 +406,7 @@ struct TodayView: View {
                 playCompletionConversion(for: id)
             }
         }
+        .revealRoot(tab: "today", atRoot: todayPath.isEmpty)
     }
 
     /// The pending→done conversion, staged so it reads as a sequence:

@@ -80,6 +80,7 @@ struct RoutineListView: View {
                 RoutineCatalogScreen(path: $path)
             }
         }
+        .revealRoot(tab: "routines", atRoot: path.isEmpty)
     }
 
     private var header: some View {
