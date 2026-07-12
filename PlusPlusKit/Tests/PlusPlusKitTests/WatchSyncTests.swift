@@ -91,5 +91,25 @@ struct WatchSyncTests {
         """
         let step = try WatchSync.decode(WatchSync.Step.self, from: Data(stepJSON.utf8))
         #expect(step.targetHeartRateLowerBPM == nil)
+        // A pre-outdoor step decodes with no outdoor flag.
+        #expect(step.isOutdoor == nil)
+    }
+
+    @Test func isOutdoorRunNeedsEveryStepOutdoor() {
+        func step(_ name: String, outdoor: Bool?) -> WatchSync.Step {
+            WatchSync.Step(exerciseName: name, groupIndex: 0, setNumber: 1, isDuration: true, isOutdoor: outdoor)
+        }
+        let run = WatchSync.PlanRoutine(name: "5K", restSeconds: 0, steps: [
+            step("Running", outdoor: true), step("Running", outdoor: true),
+        ])
+        #expect(run.isOutdoorRun)
+        // One indoor (or unflagged) step keeps the whole session indoor —
+        // an HKWorkoutSession is a single activity type.
+        let mixed = WatchSync.PlanRoutine(name: "Brick", restSeconds: 0, steps: [
+            step("Running", outdoor: true), step("Squat", outdoor: nil),
+        ])
+        #expect(mixed.isOutdoorRun == false)
+        let empty = WatchSync.PlanRoutine(name: "Empty", restSeconds: 0, steps: [])
+        #expect(empty.isOutdoorRun == false)
     }
 }

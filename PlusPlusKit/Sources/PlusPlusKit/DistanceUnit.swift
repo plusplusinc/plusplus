@@ -71,6 +71,28 @@ public enum DistanceUnit: String, Codable, CaseIterable, Sendable {
         }
     }
 
+    /// The reference distance, in meters, a pace is quoted over — the
+    /// denominator that turns a live speed into a "per unit" split:
+    /// 500 m for an erg, 1 km, 1609.344 m for a mile. Matches `paceLabel`.
+    public var paceReferenceMeters: Double {
+        switch self {
+        case .meters: 500
+        case .kilometers: 1000
+        case .miles: 1609.344
+        }
+    }
+
+    /// A raw meter distance expressed in this unit — for showing a live
+    /// GPS distance ("1.24 mi", "1500 m") in the exercise's own
+    /// denomination. Meters stay meters; km/mi divide by the reference.
+    public func value(fromMeters meters: Double) -> Double {
+        switch self {
+        case .meters: meters
+        case .kilometers: meters / 1000
+        case .miles: meters / 1609.344
+        }
+    }
+
     public var paceRange: ClosedRange<Double> {
         switch self {
         case .meters: 60...300      // 1:00–5:00 per 500 m

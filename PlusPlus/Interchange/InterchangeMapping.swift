@@ -18,6 +18,10 @@ import PlusPlusKit
 ///                    inLibrary·notes·videoURL·defaultWeight·defaultReps·
 ///                    defaultRepsUpper·defaultDurationSeconds·
 ///                    defaultHeartRateTargetData·metricsData·extraDefaultsData  → all EXPORTED
+///                    metricsData.isOutdoor → EXCLUDED (the profile blob round-trips
+///                    metrics+distanceUnit only; outdoor-ness is a curated built-in
+///                    trait re-resolved from the seed catalog, and there is no
+///                    user-facing outdoor toggle yet — revisit if one ships)
 /// Equipment          name·isBuiltIn·weightStep·metricsData → EXPORTED
 ///                    inLibrary → EXCLUDED (dead legacy field, folded into the default library)
 ///                    libraries → EXPORTED via EquipmentLibraryDTO membership

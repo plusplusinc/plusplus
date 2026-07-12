@@ -154,7 +154,8 @@ final class LiveMirror {
                 targetHeartRateUpperBPM: band?.upperBound,
                 extraTargets: MetricValues.toRaw(extras),
                 distanceUnit: extras.isEmpty ? nil : profile.distanceUnit,
-                restSecondsOverride: log.restSecondsOverride
+                restSecondsOverride: log.restSecondsOverride,
+                isOutdoor: profile.isOutdoor ? true : nil
             )
         }
     }

@@ -56,8 +56,12 @@ struct CatalogProfileTests {
         // The explicit overrides.
         #expect(SeedData.builtInProfile(named: "Ruck")
                 == MetricProfile([.weight, .distance, .duration], distanceUnit: .miles))
+        // Running/Walking are outdoor (GPS pace); Cycling stays indoor.
         #expect(SeedData.builtInProfile(named: "Running")
-                == MetricProfile([.distance, .duration, .pace], distanceUnit: .miles))
+                == MetricProfile([.distance, .duration, .pace], distanceUnit: .miles, isOutdoor: true))
+        #expect(SeedData.builtInProfile(named: "Walking")
+                == MetricProfile([.distance, .duration, .pace], distanceUnit: .miles, isOutdoor: true))
+        #expect(SeedData.builtInProfile(named: "Cycling")?.isOutdoor == false)
     }
 
     @Test("Equipment-free cardio joined the catalog")

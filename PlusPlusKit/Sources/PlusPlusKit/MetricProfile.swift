@@ -16,17 +16,30 @@ public struct MetricProfile: Equatable, Codable, Sendable {
     /// What this exercise's distance/pace/speed numbers are denominated
     /// in. Meaningless (and ignored) unless one of those is tracked.
     public var distanceUnit: DistanceUnit
+    /// Whether this is an outdoor, GPS-trackable locomotion activity (a
+    /// road run/walk) — the signal that engages live pace/distance from
+    /// GPS. Distinguishes an outdoor run from an erg or treadmill that
+    /// also tracks distance/pace but has no location.
+    ///
+    /// ⚠️ Read `isOutdoor` ONLY off a DECODED profile (`Exercise`/`SetLog`
+    /// resolve theirs from stored JSON, or the seed catalog). The
+    /// `(metrics:distanceUnit:isOutdoor:)` initializer defaults it to
+    /// false, so a profile RECONSTRUCTED from another's `.metrics` (the
+    /// set screen's `secondaryMetricsList`, the watch's `targetText`)
+    /// does NOT carry the flag — those sites never read it.
+    public var isOutdoor: Bool
 
-    public init(_ metrics: [WorkoutMetric], distanceUnit: DistanceUnit = .meters) {
+    public init(_ metrics: [WorkoutMetric], distanceUnit: DistanceUnit = .meters, isOutdoor: Bool = false) {
         self.metrics = WorkoutMetric.allCases.filter { $0 != .rest && metrics.contains($0) }
         self.distanceUnit = distanceUnit
+        self.isOutdoor = isOutdoor
     }
 
     // Decoding routes through the normalizing init so stored or
     // hand-edited JSON can't smuggle in duplicate/misordered metrics, and
     // a missing unit falls back to meters like everywhere else.
     private enum CodingKeys: String, CodingKey {
-        case metrics, distanceUnit
+        case metrics, distanceUnit, isOutdoor
     }
 
     public init(from decoder: Decoder) throws {
@@ -35,7 +48,9 @@ public struct MetricProfile: Equatable, Codable, Sendable {
         // future metric shouldn't brick the whole profile.
         let rawMetrics = try container.decode([String].self, forKey: .metrics)
         let unit = try container.decodeIfPresent(DistanceUnit.self, forKey: .distanceUnit) ?? .meters
-        self.init(rawMetrics.compactMap(WorkoutMetric.init(rawValue:)), distanceUnit: unit)
+        // Absent in pre-outdoor blobs → false, like distanceUnit's fallback.
+        let outdoor = try container.decodeIfPresent(Bool.self, forKey: .isOutdoor) ?? false
+        self.init(rawMetrics.compactMap(WorkoutMetric.init(rawValue:)), distanceUnit: unit, isOutdoor: outdoor)
     }
 
     // MARK: - Common shapes

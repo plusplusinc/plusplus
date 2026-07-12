@@ -460,9 +460,9 @@ enum SeedData {
             // gear, but running is training — these make distance
             // intervals (6×400 m) and steady pieces first-class.
             e("Running", .fullBody, [], .duration,
-              metrics: MetricProfile([.distance, .duration, .pace], distanceUnit: .miles)),
+              metrics: MetricProfile([.distance, .duration, .pace], distanceUnit: .miles, isOutdoor: true)),
             e("Walking", .fullBody, [], .duration,
-              metrics: MetricProfile([.distance, .duration, .pace], distanceUnit: .miles)),
+              metrics: MetricProfile([.distance, .duration, .pace], distanceUnit: .miles, isOutdoor: true)),
             e("Cycling", .fullBody, [], .duration,
               metrics: MetricProfile([.distance, .duration, .speed], distanceUnit: .miles)),
 

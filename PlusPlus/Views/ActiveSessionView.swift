@@ -55,8 +55,48 @@ struct ActiveSessionView: View {
     /// chest strap on; nothing otherwise). Plain @Observable class in
     /// @State: stable across re-renders.
     @State private var heartRate = HeartRateMonitor()
+    /// Live pace + distance from GPS during an outdoor run. Engaged only
+    /// while the current exercise is outdoor; same @State discipline.
+    @State private var location = RunLocationMonitor()
+    /// The outdoor exercise the meter is currently tracking (group+name).
+    /// The meter re-bases when this changes so each exercise measures its
+    /// OWN distance/pace — but persists across the rounds of one exercise.
+    @State private var outdoorExerciseKey: String?
 
     private var totalSets: Int { session.sortedSetLogs.count }
+
+    /// The set whose screen is up (the lingering freeze-frame, else the
+    /// live current). What "the active exercise" means for live vitals.
+    private var activeLog: SetLog? { lingeringLog ?? session.currentLog }
+    /// Whether the active exercise is a GPS-trackable outdoor run — the
+    /// gate for engaging location and showing live pace. Read off the
+    /// DECODED snapshot profile (never a reconstructed one).
+    private var isOutdoorNow: Bool { activeLog?.metricProfile.isOutdoor == true }
+    /// The active run's pace/distance denomination.
+    private var runUnit: DistanceUnit { activeLog?.metricProfile.distanceUnit ?? .miles }
+    /// Identity of the active exercise's block — the re-base key.
+    private var activeExerciseKey: String? {
+        activeLog.map { "\($0.groupIndex)·\($0.exerciseName)" }
+    }
+
+    /// Point the location meter at the active exercise: start (or re-base
+    /// to a fresh meter) when it's a new outdoor exercise, keep it running
+    /// across that exercise's rounds, and stop when the exercise isn't
+    /// outdoor. Called wherever the active log or workout state changes.
+    private func syncLocation() {
+        guard !session.isFinished, session.isWorkoutStarted, isOutdoorNow,
+              let key = activeExerciseKey else {
+            location.stop()
+            outdoorExerciseKey = nil
+            return
+        }
+        guard key != outdoorExerciseKey else { return }
+        // New outdoor exercise → re-base so its distance starts at zero
+        // (stop() clears the prior exercise's readings).
+        location.stop()
+        location.start(from: session.effectiveStart, unit: runUnit)
+        outdoorExerciseKey = key
+    }
     private var completedSets: Int { session.completedSetLogs.count }
 
     var body: some View {
@@ -85,6 +125,9 @@ struct ActiveSessionView: View {
                         endDate: restEndDate,
                         totalSeconds: restTotalSeconds,
                         upNext: displayLog,
+                        heartRate: heartRate,
+                        location: isOutdoorNow ? location : nil,
+                        runUnit: runUnit,
                         onAddTime: { extendRest(by: 30) },
                         onEnd: { endRest() }
                     )
@@ -96,6 +139,7 @@ struct ActiveSessionView: View {
                         routineNotes: completedSets == 0 ? session.routine?.notes : nil,
                         burstCount: burstCount,
                         heartRate: heartRate,
+                        location: isOutdoorNow ? location : nil,
                         onComplete: { completeCurrentSet(displayLog) }
                     )
                     .id(displayLog.order)
@@ -189,10 +233,23 @@ struct ActiveSessionView: View {
             // waits for its first exercise (engageClockIfNeeded).
             if !session.isFinished, session.isWorkoutStarted {
                 heartRate.start(from: session.effectiveStart)
+                syncLocation()
             }
         }
         .onDisappear {
             heartRate.stop()
+            location.stop()
+        }
+        // GPS pauses with the workout clock (HR keeps its passive query) —
+        // no distance banked across a pause, and the battery rests.
+        .onChange(of: session.isPaused) { _, paused in
+            paused ? location.pause() : location.resume()
+        }
+        // Re-point the meter as the active exercise changes: a new outdoor
+        // exercise re-bases (its own distance), the same exercise's next
+        // round keeps accumulating, a non-outdoor exercise stops it.
+        .onChange(of: activeExerciseKey) {
+            syncLocation()
         }
         // Island / Lock Screen rest controls (#157): LiveActivityIntents
         // run in this process and post here — same mutations as the
@@ -289,6 +346,17 @@ struct ActiveSessionView: View {
                     chrome: true
                 )
 
+                // Live pace beside it on an outdoor run — accent while
+                // it's meeting the set's pace target.
+                if isOutdoorNow {
+                    LivePaceLabel(
+                        monitor: location,
+                        unit: runUnit,
+                        target: activeLog?.target(.pace),
+                        chrome: true
+                    )
+                }
+
                 // Pause the workout clock. Shown only while it's actually
                 // running under the logging flow (never mid-rest, where
                 // the rest screen owns the controls, and never before the
@@ -364,6 +432,7 @@ struct ActiveSessionView: View {
         guard !session.isWorkoutStarted, !session.isFinished else { return }
         session.startClock()
         heartRate.start(from: session.effectiveStart)
+        syncLocation()
     }
 
     // MARK: - Paused
@@ -429,10 +498,32 @@ struct ActiveSessionView: View {
     /// flow and quiescence-block nothing observable).
     private static let playsLogBeat = !CommandLine.arguments.contains("--uitest-reset")
 
+    /// How many sets (rounds) this exercise's block holds — a single-round
+    /// run can auto-log the whole-session GPS distance as its actual.
+    private func roundsInBlock(of log: SetLog) -> Int {
+        session.sortedSetLogs.filter {
+            $0.groupIndex == log.groupIndex && $0.exerciseName == log.exerciseName
+        }.count
+    }
+
     private func completeCurrentSet(_ log: SetLog) {
         // Taps during the beat are the double-log class — the button is
         // still on screen while the view lingers.
         guard lingeringLog == nil else { return }
+        // An outdoor run's measured distance/pace become the logged
+        // actuals, so the record reflects the GPS run instead of a hand
+        // guess. Only for a single-round piece (the meter tracks the whole
+        // exercise, not a per-round split), only with a FRESH reading (so
+        // a still-acquiring re-base can't log stale values), and only when
+        // not already edited — a manual actual always wins.
+        if isOutdoorNow, location.isFresh, roundsInBlock(of: log) == 1 {
+            if log.actual(.distance) == nil, let distance = location.totalDistanceInUnit {
+                log.setActual(.distance, to: distance)
+            }
+            if log.actual(.pace) == nil, let pace = location.averagePaceSeconds {
+                log.setActual(.pace, to: pace)
+            }
+        }
         session.complete(log)
         // Mirror the logged set to the watch (#322).
         LiveMirror.shared.logged(log, in: session)
@@ -496,6 +587,7 @@ struct ActiveSessionView: View {
             // so the endedAt stamp rides along.
             LiveMirror.shared.finished(session, at: session.endedAt ?? Date())
             heartRate.stop()
+            location.stop()
             // The session's heart-rate summary, from Health's samples
             // over the window. Watch imports never pass through here —
             // their summary rides the result payload. The completion
@@ -946,6 +1038,9 @@ private struct SetLoggingView: View {
     let routineNotes: String?
     let burstCount: Int
     let heartRate: HeartRateMonitor
+    /// Non-nil only on an outdoor run — its presence drives the live
+    /// pace/distance rows.
+    let location: RunLocationMonitor?
     let onComplete: () -> Void
 
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
@@ -998,6 +1093,19 @@ private struct SetLoggingView: View {
         session.sortedSetLogs.filter {
             $0.groupIndex == log.groupIndex && $0.exerciseName == log.exerciseName
         }.count
+    }
+
+    /// The pace target in ink, or a placeholder glyph when untargeted.
+    private var paceTargetText: Text {
+        guard let target = log.target(.pace) else { return Text("—").foregroundStyle(Theme.textFaint) }
+        return Text(WorkoutMetric.pace.formatted(target) + " " + profile.distanceUnit.paceLabel)
+            .foregroundStyle(Theme.textPrimary)
+    }
+
+    private var distanceTargetText: Text {
+        guard let target = log.target(.distance) else { return Text("—").foregroundStyle(Theme.textFaint) }
+        return Text(WorkoutMetric.distance.displayText(target, weightUnit: weightUnit, distanceUnit: profile.distanceUnit))
+            .foregroundStyle(Theme.textPrimary)
     }
 
     var body: some View {
@@ -1066,6 +1174,30 @@ private struct SetLoggingView: View {
                             LiveHeartRateLabel(monitor: heartRate, target: target)
                         }
                         .font(.system(.subheadline))
+                        .padding(.top, 6)
+                    }
+
+                    // Outdoor run: pace and distance as target · live
+                    // actual, the actual accenting when it's meeting the
+                    // target — the same grammar as the heart-rate line.
+                    if let location {
+                        VStack(alignment: .leading, spacing: 6) {
+                            if profile.contains(.pace) {
+                                HStack(spacing: 10) {
+                                    (Text("pace ").foregroundStyle(Theme.textSecondary)
+                                        + paceTargetText)
+                                    LivePaceLabel(monitor: location, unit: profile.distanceUnit, target: log.target(.pace))
+                                }
+                            }
+                            if profile.contains(.distance) {
+                                HStack(spacing: 10) {
+                                    (Text("distance ").foregroundStyle(Theme.textSecondary)
+                                        + distanceTargetText)
+                                    LiveDistanceLabel(monitor: location, unit: profile.distanceUnit, target: log.target(.distance))
+                                }
+                            }
+                        }
+                        .font(.system(.subheadline, design: .monospaced))
                         .padding(.top, 6)
                     }
 
@@ -1486,6 +1618,71 @@ private struct LiveHeartRateLabel: View {
     }
 }
 
+/// "↗ 8:30 /mi" — the live GPS pace while it's fresh (same freshness rule
+/// and chrome option as the heart-rate label). The reading goes accent
+/// while it's meeting `target` (pace improves DOWN, so actual ≤ target);
+/// untargeted it stays quiet ink.
+private struct LivePaceLabel: View {
+    let monitor: RunLocationMonitor
+    let unit: DistanceUnit
+    var target: Double?
+    var chrome = false
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 5)) { context in
+            if let pace = monitor.currentPaceSeconds, let at = monitor.latestAt,
+               context.date.timeIntervalSince(at) < RunLocationMonitor.freshWindow {
+                let meeting = target.map { pace <= $0 } ?? false
+                let label = (Text("\(Image(systemName: "figure.run")) ")
+                    .foregroundStyle(meeting ? Theme.accent : Theme.textSecondary)
+                    + Text(WorkoutMetric.pace.formatted(pace))
+                    .foregroundStyle(meeting ? Theme.accent : Theme.textPrimary)
+                    + Text(" \(unit.paceLabel)")
+                    .foregroundStyle(Theme.textSecondary))
+                    .font(.system(.caption, design: .monospaced, weight: .semibold))
+                if chrome {
+                    label
+                        .contentTransition(.numericText())
+                        .animation(Theme.Anim.standard, value: pace)
+                        .padding(.horizontal, 10)
+                        .frame(height: 34)
+                        .background(Theme.surface, in: Capsule())
+                        .overlay(Capsule().strokeBorder(Theme.border))
+                        .accessibilityIdentifier("livePace")
+                } else {
+                    label
+                        .contentTransition(.numericText())
+                        .animation(Theme.Anim.standard, value: pace)
+                        .accessibilityIdentifier("livePace")
+                }
+            }
+        }
+    }
+}
+
+/// "1.24 mi" — the live GPS distance, accenting once it reaches `target`
+/// (distance improves UP). Quiet ink before, and while untargeted.
+private struct LiveDistanceLabel: View {
+    let monitor: RunLocationMonitor
+    let unit: DistanceUnit
+    var target: Double?
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 5)) { context in
+            if let value = monitor.totalDistanceInUnit, let at = monitor.latestAt,
+               context.date.timeIntervalSince(at) < RunLocationMonitor.freshWindow {
+                let reached = target.map { value >= $0 } ?? false
+                Text(WorkoutMetric.distance.displayText(value, distanceUnit: unit))
+                    .font(.system(.caption, design: .monospaced, weight: .semibold))
+                    .foregroundStyle(reached ? Theme.accent : Theme.textPrimary)
+                    .contentTransition(.numericText())
+                    .animation(Theme.Anim.standard, value: value)
+                    .accessibilityIdentifier("liveDistance")
+            }
+        }
+    }
+}
+
 /// The "+1" popped on each logged set (Quiet Arcade, replacing the
 /// mitosis "+"): a mono green +1 rises ~30 pt from the key's top edge,
 /// scaling 0.7 → 1.25 while it fades, ~0.7 s, one-shot per trigger bump.
@@ -1688,6 +1885,12 @@ private struct RestView: View {
     /// (an extension can push `remaining` past it; the blocks cap full).
     let totalSeconds: Int
     let upNext: SetLog
+    /// Live vitals through the rest: heart rate always, pace when the
+    /// recovery interval is part of an outdoor run (a walk break still
+    /// moves). `location` is non-nil only outdoors.
+    let heartRate: HeartRateMonitor
+    let location: RunLocationMonitor?
+    let runUnit: DistanceUnit
     let onAddTime: () -> Void
     let onEnd: () -> Void
 
@@ -1710,6 +1913,17 @@ private struct RestView: View {
                     .contentTransition(.numericText(countsDown: true))
 
                 rechargeBlocks(remaining: remaining)
+
+                // Recovery at a glance — heart rate always, pace when a
+                // walk break keeps moving. No target judgment during rest
+                // (both stay quiet ink); pace simply drops out when you're
+                // standing still.
+                HStack(spacing: 14) {
+                    LiveHeartRateLabel(monitor: heartRate, target: nil)
+                    if let location {
+                        LivePaceLabel(monitor: location, unit: runUnit, target: nil)
+                    }
+                }
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("UP NEXT")
