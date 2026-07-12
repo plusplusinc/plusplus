@@ -112,10 +112,10 @@ struct GitHubConnectScreen: View {
             Text("You own your data.")
                 .font(.system(.footnote, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
-            Text("Sync your routines and history to GitHub. Use it as a simple backup, point an AI agent personal trainer at it, or anything in between. It's yours.")
+            Text("Two-way sync with a GitHub repo you own: edits in the repo land back in the app. Use it as a simple backup, point an AI agent personal trainer at it, or anything in between. It's yours.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textSecondary)
-            Text("No PlusPlus server ever sees it. Syncs to one repo you pick · make an empty one on GitHub first, then Install below.")
+            Text("No PlusPlus server ever sees it. First time? Make an empty repo on GitHub, then Install below.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textFaint)
         }
@@ -150,7 +150,7 @@ struct GitHubConnectScreen: View {
             }
             .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
             .accessibilityIdentifier("installGitHubButton")
-            Text("Step 1 · install on the repo to sync. Access to that repo only · skip if done.")
+            Text("Step 1. Install on the repo to sync. Access to that repo only. Skip if done.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textFaint)
         }
@@ -167,7 +167,7 @@ struct GitHubConnectScreen: View {
             }
             .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
             .accessibilityIdentifier("connectGitHubButton")
-            Text("Step 2 · authorize the app. One tap on GitHub.")
+            Text("Step 2. Authorize the app. One tap on GitHub.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textFaint)
         }
@@ -197,7 +197,7 @@ struct GitHubConnectScreen: View {
                             .foregroundStyle(codeCopied ? Theme.accent : Theme.textFaint)
                             .contentTransition(.symbolEffect(.replace))
                     }
-                    Text(codeCopied ? "Copied" : "Filled in when you open GitHub · tap to copy")
+                    Text(codeCopied ? "Copied" : "Filled in when you open GitHub. Tap to copy.")
                         .font(.system(.caption, weight: .semibold))
                         .foregroundStyle(codeCopied ? Theme.accent : Theme.textFaint)
                 }
@@ -254,7 +254,7 @@ struct GitHubConnectScreen: View {
                         .foregroundStyle(Theme.textFaint)
                 }
                 if let summary = sync.lastSyncSummary, let at = sync.lastSyncedAt {
-                    Text("\(summary) · \(at.formatted(.relative(presentation: .named)))")
+                    Text("\(summary). \(at.formatted(.relative(presentation: .named)))")
                         .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
                 } else if let at = sync.lastSyncedAt {
@@ -300,7 +300,7 @@ struct GitHubConnectScreen: View {
             .foregroundStyle(Theme.textSecondary)
             .padding(.top, 4)
 
-            Text("Removes the token from this phone. Your repo is untouched · revoke on GitHub anytime.")
+            Text("Removes the token from this phone. Your repo is untouched. Revoke on GitHub anytime.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textFaint)
         }
