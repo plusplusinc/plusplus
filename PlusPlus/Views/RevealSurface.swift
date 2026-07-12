@@ -67,10 +67,8 @@ struct RevealSurface: View {
                     .padding(.top, 22)
                 unitsSection
                     .padding(.top, 18)
-                syncRow
+                syncSection
                     .padding(.top, 22)
-                calendarRow
-                    .padding(.top, 10)
                 tiles
                     .padding(.top, 20)
                 footer
@@ -220,6 +218,16 @@ struct RevealSurface: View {
 
     // MARK: - Sync rows (GitHub + Calendar)
 
+    /// GitHub + Calendar triggers under one SYNC header; the rows drop the
+    /// redundant "sync" word now that the header carries it.
+    private var syncSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SheetSectionLabel("SYNC")
+            syncRow
+            calendarRow
+        }
+    }
+
     private var syncRow: some View {
         let connected = sync.isConnected
         // Red "disconnected" only when a live connection broke or a connect
@@ -234,7 +242,7 @@ struct RevealSurface: View {
             HStack(spacing: 9) {
                 Circle().fill(dot).frame(width: 8, height: 8)
                 Image("GitHubMark").resizable().scaledToFit().frame(width: 16, height: 16)
-                Text("GitHub sync")
+                Text("GitHub")
                     .font(.system(.subheadline, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
@@ -264,7 +272,7 @@ struct RevealSurface: View {
         let on = calendar.isEnabled
         return statusRow(
             dot: on ? Theme.accent : Theme.textFaint,
-            title: "Calendar sync",
+            title: "Calendar",
             status: on ? "on" : "off",
             identifier: "revealCalendarRow"
         ) { openTray(.calendar) }
