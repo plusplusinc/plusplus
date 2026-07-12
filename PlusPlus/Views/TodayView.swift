@@ -1256,7 +1256,7 @@ struct TodayView: View {
                     }
                     .buttonStyle(.raisedKey(cornerRadius: 10))
                     .accessibilityIdentifier("restDayNewRoutineButton")
-                    QuietKey(label: "start empty workout", identifier: "startEmptyWorkoutButton") {
+                    QuietKey(label: "build as you go", systemImage: "plus.square.dashed", identifier: "startEmptyWorkoutButton") {
                         startEmptySession()
                     }
                 } else if promptsWorkout {
@@ -1774,14 +1774,18 @@ private struct SwapInSheet: View {
             Button {
                 onStartEmpty()
             } label: {
-                Text("start empty workout")
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(Theme.textSecondary)
-                    .padding(.horizontal, 14)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .frame(height: 46)
-                    .background(Theme.background, in: RoundedRectangle(cornerRadius: 10))
-                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.border))
+                HStack(spacing: 8) {
+                    Image(systemName: "plus.square.dashed")
+                        .font(.system(.caption, weight: .semibold))
+                    Text("build as you go")
+                        .font(.system(.caption, design: .monospaced))
+                }
+                .foregroundStyle(Theme.textSecondary)
+                .padding(.horizontal, 14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(height: 46)
+                .background(Theme.background, in: RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.border))
             }
             .buttonStyle(.quietKey)
             .accessibilityIdentifier("swapInStartEmpty")
