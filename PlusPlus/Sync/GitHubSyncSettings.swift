@@ -76,12 +76,14 @@ enum GitHubSyncSettings {
         }
     }
 
-    /// A connection was attempted and failed, or a live connection expired or
-    /// broke. Distinguishes the "was working, now needs reconnect" state (red
-    /// dot, "disconnected") from a clean never-connected install (gray dot).
-    /// Survives relaunches because an expired token is cleared on failure, so
-    /// nothing else would remember the connection had ever existed. Set on
-    /// failure, cleared on a clean connect or a deliberate disconnect.
+    /// A connect attempt genuinely failed (declined, expired, network), or a
+    /// live connection expired or broke. Drives the red "disconnected" trigger,
+    /// separating it from a clean never-connected install (gray dot). NOT set
+    /// when the failure is just an unfinished setup (repo not installed yet) —
+    /// that's incomplete, not broken. Survives relaunches because an expired
+    /// token is cleared on failure, so nothing else would remember the
+    /// connection had ever existed. Cleared on a clean connect or a deliberate
+    /// disconnect.
     static var connectionFaulted: Bool {
         get { UserDefaults.standard.bool(forKey: Key.faulted) }
         set { UserDefaults.standard.set(newValue, forKey: Key.faulted) }

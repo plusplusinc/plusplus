@@ -133,7 +133,12 @@ final class GitHubSyncCoordinator {
         } catch {
             syncLog.error("connect failed: \(String(reflecting: error), privacy: .public)")
             activity = .error(Self.describe(error))
-            setFault()
+            // A missing/uninstalled repo is an unfinished setup, not a broken
+            // connection: don't flag the trigger red or force the next open
+            // onto the authorize step (the user still needs the install step).
+            // The in-tray error already names what to do. Every other failure
+            // (declined, expired, network) is a genuine failed attempt → fault.
+            if !(error is BootstrapError) { setFault() }
         }
     }
 

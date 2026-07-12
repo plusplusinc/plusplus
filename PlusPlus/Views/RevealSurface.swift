@@ -231,10 +231,11 @@ struct RevealSurface: View {
     private var syncRow: some View {
         let connected = sync.isConnected
         // Red "disconnected" only when a live connection broke or a connect
-        // attempt failed; a clean never-connected install (and the unconfigured
-        // build) reads as neutral gray with no trailing word. Green when live,
-        // also with no trailing word.
-        let faulted = !connected && sync.faulted
+        // attempt failed; a clean never-connected install reads as neutral
+        // gray with no trailing word, and so does an unconfigured build (gate
+        // on .disconnected, so a stale fault flag can't paint it red). Green
+        // when live, also with no trailing word.
+        let faulted = sync.connection == .disconnected && sync.faulted
         let dot: Color = connected ? Theme.accent : (faulted ? Theme.destructive : Theme.textFaint)
         return Button {
             openTray(.sync)

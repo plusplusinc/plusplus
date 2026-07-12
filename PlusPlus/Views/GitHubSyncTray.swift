@@ -28,6 +28,10 @@ struct GitHubSyncTray: View {
     @State private var codeCopied = false
     @State private var copyResetTask: Task<Void, Never>?
     @State private var browser: BrowserURL?
+    /// The authorizing card (a tall monospaced code + "Open GitHub") can fall
+    /// below the fold at `.medium`; expand to `.large` while it's up so the
+    /// one action the user needs stays visible.
+    @State private var detent: PresentationDetent = .medium
 
     enum Step: Int { case createRepo = 1, install = 2, connect = 3 }
 
@@ -61,8 +65,11 @@ struct GitHubSyncTray: View {
             }
         }
         .padding(.horizontal, 18)
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.medium, .large], selection: $detent)
         .presentationDragIndicator(.visible)
+        .onChange(of: isAuthorizing) { _, authorizing in
+            if authorizing { detent = .large }
+        }
         .sheet(item: $browser) { item in
             SafariView(url: item.url).ignoresSafeArea()
         }
