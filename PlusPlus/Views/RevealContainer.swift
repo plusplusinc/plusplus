@@ -99,16 +99,17 @@ struct RevealContainer<Content: View>: View {
 
                 // Swipe-to-open: a stationary left-edge strip, present only
                 // at a tab root (no pushed screen whose swipe-back this would
-                // fight). Kept mounted until nearly fully open so it can't
-                // vanish out from under an in-progress drag. Inset below the
-                // header so it never swallows a tap on the ++ key.
-                if controller.canSwipeOpen && f < 0.999 {
+                // fight). Stays mounted while a drag is live (|| dragging) so
+                // a full-throw open can't unmount it mid-gesture and skip
+                // endDrag. Inset below the header so it never swallows a tap
+                // on the ++ key; thin so it barely overlaps row content.
+                if controller.canSwipeOpen && (f < 0.999 || controller.dragging) {
                     HStack(spacing: 0) {
                         Color.clear
-                            .frame(width: 20)
+                            .frame(width: 16)
                             .frame(maxHeight: .infinity)
                             .contentShape(Rectangle())
-                            .gesture(revealDrag(width: width))
+                            .gesture(openDrag(width: width))
                         Spacer(minLength: 0)
                     }
                     .padding(.top, 104)
@@ -143,6 +144,24 @@ struct RevealContainer<Content: View>: View {
                 controller.updateDrag(translationX: value.translation.width, width: width)
             }
             .onEnded { _ in controller.endDrag() }
+    }
+
+    /// The open strip sits over the leftmost column of scrollable rows, so it
+    /// only engages on a rightward, horizontal-dominant intent — a vertical
+    /// scroll or a leftward row-swipe started at the edge never moves the
+    /// drawer. Once engaged it tracks like any drag.
+    private func openDrag(width: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 12, coordinateSpace: .global)
+            .onChanged { value in
+                if !controller.dragging {
+                    guard value.translation.width > 0,
+                          abs(value.translation.width) > abs(value.translation.height)
+                    else { return }
+                    controller.beginDrag()
+                }
+                controller.updateDrag(translationX: value.translation.width, width: width)
+            }
+            .onEnded { _ in if controller.dragging { controller.endDrag() } }
     }
 }
 

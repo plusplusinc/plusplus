@@ -69,7 +69,9 @@ struct ExercisesTabView: View {
                 CatalogBrowseScreen(kind: .exercises)
             }
         }
-        .revealRoot(tab: "exercises", atRoot: path.isEmpty)
+        // The catalog pushes via isPresented (not the path); include it so
+        // swipe-to-open yields to its swipe-back.
+        .revealRoot(tab: "exercises", atRoot: path.isEmpty && !showingCatalog)
     }
 
     // MARK: - Rows
@@ -214,7 +216,7 @@ struct EquipmentTabView: View {
                 EquipmentLibraryTray()
             }
         }
-        .revealRoot(tab: "equipment", atRoot: path.isEmpty)
+        .revealRoot(tab: "equipment", atRoot: path.isEmpty && !showingCatalog)
     }
 
     @ViewBuilder

@@ -406,7 +406,9 @@ struct TodayView: View {
                 playCompletionConversion(for: id)
             }
         }
-        .revealRoot(tab: "today", atRoot: todayPath.isEmpty)
+        // Equipment setup pushes via isPresented (not the path), so factor it
+        // into root-ness or swipe-to-open would fight its swipe-back.
+        .revealRoot(tab: "today", atRoot: todayPath.isEmpty && !showingEquipmentSetup)
     }
 
     /// The pending→done conversion, staged so it reads as a sequence:
