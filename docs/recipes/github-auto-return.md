@@ -15,6 +15,16 @@ B2's app side is wired (`RootTabView` deep-link handlers + a `GitHubSyncTray(sta
 sheet that opens on the authorize step and auto-starts the device flow). It needs
 two owner-side pieces to function end to end.
 
+> **In-app browser note:** the tray's Install step now opens GitHub in an
+> in-app `SFSafariViewController` (not external Safari). `SFSafariViewController`
+> does NOT hand a universal link back to the app, so the AASA path (step 3
+> below) can't fire the auto-return from there — the return runs through the
+> bounce page's `plusplus://github/connected` custom-scheme redirect (step 2),
+> which SFSafari *does* honor. So for the in-app install flow, the step-2 bounce
+> page is the load-bearing piece, not the AASA entry. If the bounce page isn't
+> configured, the user closes the browser and taps "Done? Continue" to reach the
+> authorize step manually.
+
 ## Owner step 1 — set the GitHub App's Setup URL
 
 At `github.com/settings/apps/plusplus-sync` → **General** → *Post installation*:
