@@ -1184,15 +1184,15 @@ private struct SetLoggingView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             if profile.contains(.pace) {
                                 HStack(spacing: 10) {
-                                    Text("pace ").foregroundStyle(Theme.textSecondary)
-                                        + paceTargetText
+                                    (Text("pace ").foregroundStyle(Theme.textSecondary)
+                                        + paceTargetText)
                                     LivePaceLabel(monitor: location, unit: profile.distanceUnit, target: log.target(.pace))
                                 }
                             }
                             if profile.contains(.distance) {
                                 HStack(spacing: 10) {
-                                    Text("distance ").foregroundStyle(Theme.textSecondary)
-                                        + distanceTargetText
+                                    (Text("distance ").foregroundStyle(Theme.textSecondary)
+                                        + distanceTargetText)
                                     LiveDistanceLabel(monitor: location, unit: profile.distanceUnit, target: log.target(.distance))
                                 }
                             }
