@@ -14,8 +14,14 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
 - **Green is data/creation** (deltas, net chips, the ++ glyph, create
   affordances, the Start play key) — never chrome.
 - **Blue (#1668D2/#5CA8F5) is selection/interactive state** — solid fills,
-  one blue on screen outside a live ring gesture. `Theme.selected` is retired
-  as a text/link color; escape hatches are quiet keys.
+  one VIVID blue on screen outside a live ring gesture. `Theme.selected` is
+  retired as a text/link color; escape hatches are quiet keys. Exception
+  (2026-07-12, #superset-feedback): the settled superset return-loop draws in
+  `Theme.supersetLoop` (the selection hue at ~50%, a deliberately quieter
+  tone) so a grouped block reads as a bound unit; the full-chroma selection
+  blue still means "live". On a ring-drag landing the loop blooms up to full
+  `selected` for ~0.4 s (the departed selection field collapsing onto it),
+  then settles back.
 - **Purple is done** (GitHub-merged mapping): committed rail rings, session
   pips, the finish checkmark, widget streak squares.
 - **RaisedKey press grammar**: every committing/navigating button is an opaque
