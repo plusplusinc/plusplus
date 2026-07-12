@@ -46,6 +46,11 @@ final class GitHubSyncCoordinator {
     private(set) var activity: Activity = .idle
     private(set) var coordinate: GitHubRepoCoordinate?
     private(set) var lastSyncedAt: Date?
+    /// True when disconnected because a connect attempt failed or a live
+    /// connection expired/broke (not a clean, never-connected state). Drives
+    /// the red "disconnected" trigger and starts a reconnect on the authorize
+    /// step (the repo + App install already exist). Meaningless while connected.
+    private(set) var faulted: Bool = false
     /// A short human line about the last pass ("Pushed 3 · pulled 1").
     private(set) var lastSyncSummary: String?
 
@@ -78,6 +83,19 @@ final class GitHubSyncCoordinator {
         } else {
             connection = .disconnected
         }
+        // A live connection is never in a fault state; the persisted flag only
+        // matters while disconnected (never-connected gray vs broke-off red).
+        faulted = connection == .connected ? false : GitHubSyncSettings.connectionFaulted
+    }
+
+    private func setFault() {
+        faulted = true
+        GitHubSyncSettings.connectionFaulted = true
+    }
+
+    private func clearFault() {
+        faulted = false
+        GitHubSyncSettings.connectionFaulted = false
     }
 
     var isConnected: Bool { connection == .connected }
@@ -108,12 +126,14 @@ final class GitHubSyncCoordinator {
             try await bootstrap()
             connection = .connected
             activity = .idle
+            clearFault()
         } catch is CancellationError {
             // User backed out (Cancel / swipe-back); the UI already reset. Do
             // not stamp a spurious error over it.
         } catch {
             syncLog.error("connect failed: \(String(reflecting: error), privacy: .public)")
             activity = .error(Self.describe(error))
+            setFault()
         }
     }
 
@@ -188,6 +208,7 @@ final class GitHubSyncCoordinator {
                 self.coordinate = nil
                 connection = .disconnected
                 activity = .error("Your GitHub connection expired. Reconnect.")
+                setFault()
             } else {
                 syncLog.error("sync failed: \(String(reflecting: error), privacy: .public)")
                 activity = .error(Self.describe(error))
@@ -204,6 +225,8 @@ final class GitHubSyncCoordinator {
         lastSyncSummary = nil
         activity = .idle
         connection = config == nil ? .unconfigured : .disconnected
+        // A deliberate disconnect is clean, not a breakage: back to gray.
+        clearFault()
     }
 
     // MARK: - Local file map (templates + finished sessions)

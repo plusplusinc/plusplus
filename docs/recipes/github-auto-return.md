@@ -11,8 +11,9 @@ it *feel* like one:
   straight back into the app, which auto-starts the authorize step. Removes the
   manual "switch back to the app and find the Connect button" gap.
 
-B2's app side is wired (`RootTabView` deep-link handlers + a `GitHubConnectScreen(autoConnect:)`
-sheet). It needs two owner-side pieces to function end to end.
+B2's app side is wired (`RootTabView` deep-link handlers + a `GitHubSyncTray(startAtConnect:)`
+sheet that opens on the authorize step and auto-starts the device flow). It needs
+two owner-side pieces to function end to end.
 
 ## Owner step 1 — set the GitHub App's Setup URL
 

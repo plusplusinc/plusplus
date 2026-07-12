@@ -25,6 +25,7 @@ enum GitHubSyncSettings {
         static let repo = "github.sync.repo"
         static let branch = "github.sync.branch"
         static let lastSynced = "github.sync.lastSyncedAt"
+        static let faulted = "github.sync.faulted"
     }
 
     /// The registered GitHub App client ID, or nil until the App exists.
@@ -73,5 +74,16 @@ enum GitHubSyncSettings {
         set {
             UserDefaults.standard.set(newValue?.timeIntervalSince1970 ?? 0, forKey: Key.lastSynced)
         }
+    }
+
+    /// A connection was attempted and failed, or a live connection expired or
+    /// broke. Distinguishes the "was working, now needs reconnect" state (red
+    /// dot, "disconnected") from a clean never-connected install (gray dot).
+    /// Survives relaunches because an expired token is cleared on failure, so
+    /// nothing else would remember the connection had ever existed. Set on
+    /// failure, cleared on a clean connect or a deliberate disconnect.
+    static var connectionFaulted: Bool {
+        get { UserDefaults.standard.bool(forKey: Key.faulted) }
+        set { UserDefaults.standard.set(newValue, forKey: Key.faulted) }
     }
 }

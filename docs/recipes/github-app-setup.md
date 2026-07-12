@@ -65,13 +65,17 @@ device-flow UX, and a real repo, none of which a remote Linux session can do.
    (`github.com/apps/plusplus-sync` → Install → Only select repositories → pick
    it). The app discovers whichever repo you installed it on — no fixed name.
 2. Build & run the app with the client ID set.
-3. **Today → ++ → Settings → SYNC → Connect GitHub.** A code appears (e.g.
-   `WDJB-MJHT`). Tap **Open GitHub**, enter the code, approve.
-4. Back in the app, the screen flips to **Connected** and shows the repo you
-   installed it on (bootstrap *adopts* it at its real default branch). If you
-   skipped step 1 you'll see "Install PlusPlus Sync on a repo, then reconnect"
-   instead — do that and reconnect.
-5. Tap **Sync now.** In the repo on github.com you should see commits appear:
+3. **Open the ++ reveal → GitHub sync.** The tray is a three-step wizard
+   (create repo → install → authorize). You already did steps 1–2 above, so tap
+   **Done? Continue** twice to reach the authorize step, then **Connect this
+   app**. A code appears (e.g. `WDJB-MJHT`). Tap **Open GitHub**, enter the code,
+   approve.
+4. Back in the app, the tray flips to **Connected** and shows the repo you
+   installed it on (bootstrap *adopts* it at its real default branch). If the
+   App isn't installed you'll see "Install PlusPlus Sync on a repo, then
+   reconnect" instead — tap **Back** to the install step, do that, and reconnect.
+5. Foreground the app (background then return); the once-per-foreground sync
+   runs automatically. In the repo on github.com you should see commits appear:
    `Sync: …` for templates, your finished sessions under `history/YYYY/`.
 6. **Round-trip:** edit a routine file on github.com (or from the CLI), reopen
    the app (foreground triggers a sync), and confirm the change lands in the
