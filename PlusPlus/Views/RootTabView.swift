@@ -91,6 +91,14 @@ struct RootTabView: View {
                 showGitHubConnect = true
                 return
             }
+            // A calendar event's start link (plusplus://start/<name>, #333):
+            // hand off to the same pathway Siri's StartRoutineIntent uses —
+            // TodayView resolves the name and starts the session, the root
+            // switches to Today.
+            if let name = WorkoutCalendarLink.routineName(from: url) {
+                NotificationCenter.default.post(name: .plusplusStartRoutine, object: name)
+                return
+            }
             guard RoutineShareLink.isShareLink(url),
                   let payload = try? RoutineShareLink.payload(from: url)
             else { return }
@@ -99,8 +107,13 @@ struct RootTabView: View {
         // Universal-link form of the same GitHub Setup-URL return
         // (https://plusplus.fit/github/…), for when it opens the app directly.
         .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
-            if let url = activity.webpageURL, url.path == "/github/connected" || url.path.hasPrefix("/github/") {
+            guard let url = activity.webpageURL else { return }
+            if url.path == "/github/connected" || url.path.hasPrefix("/github/") {
                 showGitHubConnect = true
+            } else if let name = WorkoutCalendarLink.routineName(from: url) {
+                // https://plusplus.fit/start/<name> — the universal-link
+                // form of a calendar event's start link (#333).
+                NotificationCenter.default.post(name: .plusplusStartRoutine, object: name)
             }
         }
         // Siri/Shortcuts "Start Routine" (#147): the intent posts, the

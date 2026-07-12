@@ -91,6 +91,10 @@ targets:
         # access; "Update" is write.
         NSHealthUpdateUsageDescription: PlusPlus saves your finished workouts to Health.
         NSHealthShareUsageDescription: PlusPlus reads your heart rate (and date of birth, for zone math) to show effort live during workouts and keep a summary on each record.
+        # Calendar sync (#333): full access is required to UPDATE and
+        # REMOVE the events we create (write-only can only add). No
+        # entitlement — EventKit full access is a usage string only.
+        NSCalendarsFullAccessUsageDescription: PlusPlus adds your scheduled workouts to a "++ Workouts" calendar so they show up at the right time, each with a link that starts the workout. It only touches that calendar.
     # App Group shared with the widget extension — the snapshot channel.
     entitlements:
       path: PlusPlus/PlusPlus.entitlements

@@ -25,7 +25,9 @@ struct SettingsScreen: View {
     @State private var showingLibraryTray = false
     @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
     @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
+    @Query private var routines: [Routine]
     @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
+    @State private var calendar = CalendarSyncCoordinator.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -186,6 +188,49 @@ struct SettingsScreen: View {
                     .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                     .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
 
+                    // Calendar sync (#333): scheduled workouts on the
+                    // user's own calendar, one tap to start. Writes to a
+                    // dedicated "++ Workouts" calendar so removal is one
+                    // delete and the app never touches the user's own
+                    // events. Placed by the pull-back-in surfaces above.
+                    SheetSectionLabel("CALENDAR")
+                        .padding(.top, 24)
+                    VStack(alignment: .leading, spacing: 12) {
+                        Toggle(isOn: calendarEnabledBinding) {
+                            Text("Add scheduled workouts")
+                                .font(.system(.subheadline, weight: .bold))
+                                .foregroundStyle(Theme.textPrimary)
+                        }
+                        .tint(Theme.selected)
+                        .accessibilityIdentifier("calendarSyncToggle")
+
+                        if calendar.isEnabled {
+                            Divider().overlay(Theme.border)
+                            HStack {
+                                Text("Start time")
+                                    .font(.system(.footnote, weight: .semibold))
+                                    .foregroundStyle(Theme.textPrimary)
+                                Spacer()
+                                DatePicker("", selection: calendarTimeBinding, displayedComponents: .hourAndMinute)
+                                    .labelsHidden()
+                                    .accessibilityIdentifier("calendarStartTime")
+                            }
+                        }
+                    }
+                    .padding(14)
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
+                    if calendar.accessDenied {
+                        Text("PlusPlus needs calendar access. Turn it on in iOS Settings \u{2192} Privacy \u{2192} Calendars.")
+                            .font(.system(.caption))
+                            .foregroundStyle(Theme.destructive)
+                            .padding(.top, 6)
+                    }
+                    Text("Fixed-weekday routines get a recurring event in a \u{201C}++ Workouts\u{201D} calendar, each with a link that starts the workout. To remove them, turn this off or delete that calendar.")
+                        .font(.system(.caption))
+                        .foregroundStyle(Theme.textFaint)
+                        .padding(.top, 6)
+
                     // Health access, re-runnable like equipment setup:
                     // the welcome flow asks once, this row is for
                     // everyone who said "not now" (the sheet only
@@ -312,6 +357,46 @@ struct SettingsScreen: View {
 
     private var syncRowTitle: String {
         sync.isConnected ? "GitHub" : "Connect GitHub"
+    }
+
+    /// Flipping on requests calendar access then populates; flipping off
+    /// deletes the whole "++ Workouts" calendar.
+    private var calendarEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { calendar.isEnabled },
+            set: { on in
+                Task { @MainActor in
+                    if on {
+                        await calendar.enable(routines: routines)
+                    } else {
+                        await calendar.disableAndRemove()
+                    }
+                }
+            }
+        )
+    }
+
+    /// The preferred start time as a Date the picker can edit; writing it
+    /// back re-times every event.
+    private var calendarTimeBinding: Binding<Date> {
+        Binding(
+            get: {
+                var comps = DateComponents()
+                comps.hour = CalendarSyncSettings.hour
+                comps.minute = CalendarSyncSettings.minute
+                return Calendar.current.date(from: comps) ?? Date()
+            },
+            set: { date in
+                let comps = Calendar.current.dateComponents([.hour, .minute], from: date)
+                Task { @MainActor in
+                    await calendar.updateTime(
+                        hour: comps.hour ?? CalendarSyncSettings.defaultHour,
+                        minute: comps.minute ?? CalendarSyncSettings.defaultMinute,
+                        routines: routines
+                    )
+                }
+            }
+        )
     }
 
     private var equipmentSummary: String {
