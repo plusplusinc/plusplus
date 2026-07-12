@@ -14,7 +14,6 @@ struct ExercisesTabView: View {
     @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
     @State private var showingCatalog = false
-    @State private var showingAppMenu = false
     @State private var openSwipeRow: PersistentIdentifier?
     @State private var path = NavigationPath()
 
@@ -35,8 +34,7 @@ struct ExercisesTabView: View {
                 CatalogTabHeader(
                     title: "Exercises",
                     addIdentifier: "addExercisesButton",
-                    onAdd: { showingCatalog = true },
-                    onMenu: { showingAppMenu = true }
+                    onAdd: { showingCatalog = true }
                 )
 
                 if libraryExercises.isEmpty {
@@ -70,10 +68,10 @@ struct ExercisesTabView: View {
             .navigationDestination(isPresented: $showingCatalog) {
                 CatalogBrowseScreen(kind: .exercises)
             }
-            .navigationDestination(isPresented: $showingAppMenu) {
-                AppMenuScreen()
-            }
         }
+        // The catalog pushes via isPresented (not the path); include it so
+        // swipe-to-open yields to its swipe-back.
+        .revealRoot(tab: "exercises", atRoot: path.isEmpty && !showingCatalog)
     }
 
     // MARK: - Rows
@@ -165,7 +163,6 @@ struct EquipmentTabView: View {
     @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
     @State private var showingCatalog = false
-    @State private var showingAppMenu = false
     @State private var showingLibraryTray = false
     @State private var openSwipeRow: PersistentIdentifier?
     @State private var path = NavigationPath()
@@ -185,8 +182,7 @@ struct EquipmentTabView: View {
                 CatalogTabHeader(
                     title: "Equipment",
                     addIdentifier: "addEquipmentButton",
-                    onAdd: { showingCatalog = true },
-                    onMenu: { showingAppMenu = true }
+                    onAdd: { showingCatalog = true }
                 ) {
                     LibrarySwitcherKey(name: activeLibrary?.name ?? EquipmentLibrary.defaultName) {
                         showingLibraryTray = true
@@ -216,13 +212,11 @@ struct EquipmentTabView: View {
             .navigationDestination(isPresented: $showingCatalog) {
                 CatalogBrowseScreen(kind: .equipment)
             }
-            .navigationDestination(isPresented: $showingAppMenu) {
-                AppMenuScreen()
-            }
             .sheet(isPresented: $showingLibraryTray) {
                 EquipmentLibraryTray()
             }
         }
+        .revealRoot(tab: "equipment", atRoot: path.isEmpty && !showingCatalog)
     }
 
     @ViewBuilder
@@ -333,15 +327,14 @@ struct CatalogTabHeader<Accessory: View>: View {
     // The tab's create action; optional so title-only headers work.
     var addIdentifier: String?
     var onAdd: (() -> Void)?
-    /// Opens the app page — every root header wears the ++ key
-    /// (Dave, build 44).
-    let onMenu: () -> Void
     @ViewBuilder var accessory: () -> Accessory
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
-                AppMenuKey(action: onMenu)
+                // Every root header wears the ++ key (Dave, build 44); it
+                // toggles the shared reveal drawer.
+                AppMenuKey()
                 Spacer(minLength: 0)
                 accessory()
                 if let onAdd {
@@ -361,8 +354,8 @@ struct CatalogTabHeader<Accessory: View>: View {
 }
 
 extension CatalogTabHeader where Accessory == EmptyView {
-    init(title: String, addIdentifier: String? = nil, onAdd: (() -> Void)? = nil, onMenu: @escaping () -> Void) {
-        self.init(title: title, addIdentifier: addIdentifier, onAdd: onAdd, onMenu: onMenu, accessory: { EmptyView() })
+    init(title: String, addIdentifier: String? = nil, onAdd: (() -> Void)? = nil) {
+        self.init(title: title, addIdentifier: addIdentifier, onAdd: onAdd, accessory: { EmptyView() })
     }
 }
 

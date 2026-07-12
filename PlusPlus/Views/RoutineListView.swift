@@ -12,7 +12,6 @@ struct RoutineListView: View {
     private var routines: [Routine]
 
     @State private var path = NavigationPath()
-    @State private var showingAppMenu = false
     @State private var openSwipeRow: PersistentIdentifier?
 
     var body: some View {
@@ -80,16 +79,14 @@ struct RoutineListView: View {
             .navigationDestination(for: RoutineCatalogDestination.self) { _ in
                 RoutineCatalogScreen(path: $path)
             }
-            .navigationDestination(isPresented: $showingAppMenu) {
-                AppMenuScreen()
-            }
         }
+        .revealRoot(tab: "routines", atRoot: path.isEmpty)
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                AppMenuKey { showingAppMenu = true }
+                AppMenuKey()
                 Spacer()
                 HeaderIconButton(systemImage: "plus", identifier: "newRoutineButton") {
                     // Root-only affordance, so emptiness doubles as the
