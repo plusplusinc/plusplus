@@ -1228,10 +1228,12 @@ struct TodayView: View {
                 Text(restDayItemCaption)
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(Theme.textSecondary)
-                // ONE action on the card (Dave, build-45: the empty-
-                // workout quiet key sat plopped under the primary): the
-                // tray it opens carries both paths — choose a routine,
-                // or start empty — so the card doesn't repeat them.
+                // A true rest day carries NO start key (Dave, 2026-07-12):
+                // rest is the point, swapping in a workout is possible but
+                // not primary — the header's play key (always a tap away)
+                // owns starting. The card only offers an action when it's
+                // NOT resting: creation when no routine can start, or the
+                // "Work out now" prompt when one is due-but-empty / mid-setup.
                 if swapInCandidates.isEmpty {
                     // No candidates → no dead tray (#208): offer
                     // creation directly instead, with the no-plan
@@ -1257,7 +1259,11 @@ struct TodayView: View {
                     QuietKey(label: "start empty workout", identifier: "startEmptyWorkoutButton") {
                         startEmptySession()
                     }
-                } else {
+                } else if promptsWorkout {
+                    // Not a rest day: the card is telling you to work out
+                    // (a scheduled routine is due-but-empty, or setup's
+                    // first-workout step). Keep the start key here — the
+                    // rest-day silence would misread as "nothing to do".
                     Button {
                         showingSwapIn = true
                     } label: {
@@ -1345,10 +1351,18 @@ struct TodayView: View {
         !scheduledRoutines.isEmpty
     }
 
+    /// The card is prompting a workout, not resting: mid-setup (the first-
+    /// workout step is the point) or an empty scheduled routine is due (the
+    /// card above names that state). Gates both the title AND the on-card
+    /// start key — a true rest day carries neither.
+    private var promptsWorkout: Bool {
+        (setupActive && !allSetupDone) || !dueButEmptyRoutines.isEmpty
+    }
+
     /// "Rest day" is a claim — don't make it while an empty scheduled
     /// routine is due (the card above names that state) or mid-setup.
     private var restDayTitle: String {
-        if (setupActive && !allSetupDone) || !dueButEmptyRoutines.isEmpty {
+        if promptsWorkout {
             return "Work out now"
         }
         return scheduledRoutinesExist ? "Rest day" : "Nothing scheduled"
