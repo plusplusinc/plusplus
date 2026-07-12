@@ -63,25 +63,33 @@ extension ButtonStyle where Self == RaisedKeyStyle {
 }
 
 /// Escape hatches as quiet keys ("N more need gear you don't own —
-/// show", "Gear check…", "start empty workout"): `Theme.selected` is
+/// show", "Gear check…", "build as you go"): `Theme.selected` is
 /// retired as a text/link color — a low-travel key reads as pressable
-/// without borrowing the selection hue or an underline.
+/// without borrowing the selection hue or an underline. An optional
+/// `systemImage` rides at the leading edge in the same quiet ink.
 struct QuietKey: View {
     let label: String
+    var systemImage: String?
     var identifier: String?
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Text(label)
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(Theme.textSecondary)
-                .multilineTextAlignment(.leading)
-                .padding(.horizontal, 13)
-                .padding(.vertical, 8)
-                .frame(minHeight: 42)
-                .background(Theme.background, in: RoundedRectangle(cornerRadius: 10))
-                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.border))
+            HStack(spacing: 7) {
+                if let systemImage {
+                    Image(systemName: systemImage)
+                        .font(.system(.caption, weight: .semibold))
+                }
+                Text(label)
+                    .font(.system(.caption, design: .monospaced))
+                    .multilineTextAlignment(.leading)
+            }
+            .foregroundStyle(Theme.textSecondary)
+            .padding(.horizontal, 13)
+            .padding(.vertical, 8)
+            .frame(minHeight: 42)
+            .background(Theme.background, in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.border))
         }
         .buttonStyle(.quietKey)
         .accessibilityIdentifier(identifier ?? label)
