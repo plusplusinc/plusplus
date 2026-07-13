@@ -1697,6 +1697,10 @@ private struct LiveDistanceLabel: View {
 /// state is defined, not inferred.
 private struct PlusOneBurst: View {
     let trigger: Int
+    // Under Reduce Motion the +1 still appears (it's informative) but drops
+    // the scale pop and upward travel, leaving a quiet opacity flash
+    // (WCAG 2.3.3).
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private struct Beat {
         var opacity = 0.0
@@ -1709,7 +1713,7 @@ private struct PlusOneBurst: View {
             .font(.system(.body, design: .monospaced, weight: .bold))
             .foregroundStyle(Theme.accent)
             .allowsHitTesting(false)
-            .keyframeAnimator(initialValue: Beat(), trigger: trigger) { view, beat in
+            .keyframeAnimator(initialValue: Beat(scale: reduceMotion ? 1.0 : 0.7), trigger: trigger) { view, beat in
                 view
                     .opacity(beat.opacity)
                     .scaleEffect(beat.scale)
@@ -1720,10 +1724,10 @@ private struct PlusOneBurst: View {
                     LinearKeyframe(0, duration: 0.65)
                 }
                 KeyframeTrack(\.scale) {
-                    CubicKeyframe(1.25, duration: 0.7)
+                    CubicKeyframe(reduceMotion ? 1.0 : 1.25, duration: 0.7)
                 }
                 KeyframeTrack(\.lift) {
-                    CubicKeyframe(-30, duration: 0.7)
+                    CubicKeyframe(reduceMotion ? 0 : -30, duration: 0.7)
                 }
             }
     }

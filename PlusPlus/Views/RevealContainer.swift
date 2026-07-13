@@ -51,7 +51,9 @@ final class RevealController {
         // drawer), so an aborted flick that barely moved stays quiet.
         if abs(openFraction - target) > 0.01 { impact.impactOccurred() }
         // Snappy + confident: fast response, damped just short of a bounce.
-        withAnimation(.spring(response: 0.33, dampingFraction: 0.86)) {
+        // Under Reduce Motion the whole-app slide would be large vestibular
+        // motion, so it resolves to an instant state change (WCAG 2.3.3).
+        withAnimation(Theme.Anim.flourish(.spring(response: 0.33, dampingFraction: 0.86))) {
             openFraction = target
         }
     }

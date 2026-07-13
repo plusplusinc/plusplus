@@ -768,7 +768,9 @@ struct RoutineDetailView: View {
         // views, so the master clock must run at wall speed.
         Task { @MainActor in
             guard landingSeq == seq else { return }   // superseded before it started
-            withAnimation(.linear(duration: SupersetRailGeometry.total / 1000)) {
+            // Under Reduce Motion the multi-phase bloom resolves instantly to
+            // the settled loop (WCAG 2.3.3); the snap haptic still fires below.
+            withAnimation(Theme.Anim.flourish(.linear(duration: SupersetRailGeometry.total / 1000))) {
                 supersetLanding?.progress = 1
             } completion: {
                 // A newer landing bumps landingSeq and owns the state; only

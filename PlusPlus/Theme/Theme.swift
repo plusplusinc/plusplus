@@ -21,19 +21,25 @@ enum Theme {
     static let surfaceRaised = Color(light: 0xEAE8E4, dark: 0x34322D)
     /// Hairline borders on cards and rows; doubles as the raised-key
     /// base-plate color (secondary/quiet keys).
-    static let border = Color(light: 0xDDDBD7, dark: 0x3D3B35)
+    static let border = Color(light: 0xDDDBD7, dark: 0x3D3B35, lightHC: 0xB8B6B0, darkHC: 0x605D55)
     /// Stronger borders (sheets, outlined buttons, chips); the base
     /// plate under primary keys.
-    static let borderStrong = Color(light: 0xC2C0BA, dark: 0x4E4B43)
+    static let borderStrong = Color(light: 0xC2C0BA, dark: 0x4E4B43, lightHC: 0x8F8D86, darkHC: 0x76736A)
 
     static let textPrimary = Color(light: 0x232220, dark: 0xF0EDE6)
-    static let textSecondary = Color(light: 0x6B6965, dark: 0x9D9B96)
-    static let textFaint = Color(light: 0x767370, dark: 0x8A8781)
+    static let textSecondary = Color(light: 0x6B6965, dark: 0x9D9B96, lightHC: 0x565450, darkHC: 0xB8B6B0)
+    /// The faintest text tier. Its original values (#767370 / #8A8781) read
+    /// below WCAG 4.5:1 when placed on `surface`/card grounds (~4.2:1), where
+    /// much of the caption copy actually sits — so both sides were darkened a
+    /// half-step to clear the floor on surface while staying a visible tier
+    /// below `textSecondary`. High-contrast variants push further. (a11y audit
+    /// 2026-07-13.)
+    static let textFaint = Color(light: 0x6F6C68, dark: 0x949089, lightHC: 0x4F4D49, darkHC: 0xBFBDB6)
 
     /// The data green. Green is data, never chrome: deltas, net chips,
     /// "new" markers, next-due values, live progress, creation
     /// affordances (a future increment), and the ++ glyph.
-    static let accent = Color(light: 0x17914B, dark: 0x46D17C)
+    static let accent = Color(light: 0x17914B, dark: 0x46D17C, lightHC: 0x0E7A3D, darkHC: 0x67DD95)
 
     /// Completion purple (#201, Dave: "akin to a merged PR") — the
     /// third hue job: green is data in motion, blue is selection,
@@ -75,8 +81,10 @@ enum Theme {
             ? UIColor(hex: 0x5CA8F5).withAlphaComponent(0.16)
             : UIColor(hex: 0x1668D2).withAlphaComponent(0.12)
     })
-    /// 1 pt border accompanying every selectedTint fill.
-    static let selectedRing = selected.opacity(0.55)
+    /// 1 pt border accompanying every selectedTint fill. Bumped from 0.55 to
+    /// 0.7 opacity so the selection boundary clears the 3:1 UI-component floor
+    /// against `surface` (a11y audit 2026-07-13).
+    static let selectedRing = selected.opacity(0.7)
 
     /// Filled controls — Start/Continue/Log set, Done capsules, setup
     /// CTAs: ink in light, cream in dark. Actions, never selection.
@@ -85,9 +93,9 @@ enum Theme {
     static let onPrimary = Color(light: 0xFFFFFF, dark: 0x161616)
 
     /// Exercise/routine notes ("form cues" amber).
-    static let notes = Color(light: 0x9A6700, dark: 0xCFA14A)
+    static let notes = Color(light: 0x9A6700, dark: 0xCFA14A, lightHC: 0x805400, darkHC: 0xDCB25E)
 
-    static let destructive = Color(light: 0xCF222E, dark: 0xE5534B)
+    static let destructive = Color(light: 0xCF222E, dark: 0xE5534B, lightHC: 0xB01722, darkHC: 0xEC6B63)
 
     // MARK: - Metrics
 
@@ -105,21 +113,39 @@ enum Theme {
     /// bloom, the completion beat) keep their own longer curves inline —
     /// they are exceptions to the fast-feel rule, not part of it.
     enum Anim {
+        /// True when the user has asked the system to minimize motion
+        /// (Settings → Accessibility → Motion → Reduce Motion). Read at use
+        /// time so the tokens below and every deliberate flourish quiet their
+        /// large / spring / positional motion (WCAG 2.3.3). SwiftUI views
+        /// should prefer `@Environment(\.accessibilityReduceMotion)`; this
+        /// mirror exists for the token accessors and non-View call sites
+        /// (e.g. `RevealController`).
+        @MainActor static var reduceMotion: Bool { UIAccessibility.isReduceMotionEnabled }
+
+        /// Full-motion values, used when Reduce Motion is off.
+        static let selectionFull: Animation = .snappy(duration: 0.25, extraBounce: 0)
+        static let standardFull: Animation = .easeOut(duration: 0.15)
+
         /// Selection changes: the segmented pill sliding between segments,
         /// selected-state fills, active filter chips. A snappy spring reads
         /// crisp — velocity is front-loaded (immediate response to touch)
-        /// and it settles without overshoot. Replaces `.easeOut(0.15)`,
-        /// whose decelerating tail made a large sliding object crawl into
-        /// place and read as muddy (Dave, 2026-07-12). One line to retune
-        /// the whole app's selection feel.
-        static let selection: Animation = .snappy(duration: 0.25, extraBounce: 0)
+        /// and it settles without overshoot. Under Reduce Motion the sliding
+        /// pill snaps in place instead of travelling.
+        @MainActor static var selection: Animation { reduceMotion ? .linear(duration: 0.01) : selectionFull }
         /// The house curve for everything that isn't a selection slide or a
         /// deliberate flourish: data rolls (paired with `.numericText`),
-        /// opacity fades, search expansion. The "~0.15 s ease-out" of the
-        /// motion law.
-        static let standard: Animation = .easeOut(duration: 0.15)
-        /// RaisedKey cap depression — the fastest motion in the app.
+        /// opacity fades, search expansion. Fades are fine under Reduce
+        /// Motion; the token still resolves near-instant there for parity.
+        @MainActor static var standard: Animation { reduceMotion ? .linear(duration: 0.01) : standardFull }
+        /// RaisedKey cap depression — the fastest motion in the app; a 3–4 pt
+        /// press is not vestibular motion, so it is unaffected by Reduce Motion.
         static let press: Animation = .easeOut(duration: 0.06)
+
+        /// Resolve a deliberate large-motion flourish (whole-app reveal slide,
+        /// card zoom, superset landing, the +1 pop): the full animation
+        /// normally, `nil` (instant, no travel) under Reduce Motion. Use at
+        /// imperative `withAnimation` sites.
+        @MainActor static func flourish(_ full: Animation) -> Animation? { reduceMotion ? nil : full }
     }
 }
 
@@ -136,10 +162,21 @@ extension Color {
     }
 
     /// An adaptive pair resolved by the environment's color scheme —
-    /// works everywhere Color does, including Canvas drawing.
-    init(light: UInt32, dark: UInt32) {
+    /// works everywhere Color does, including Canvas drawing. Optional
+    /// `lightHC`/`darkHC` supply stronger values used when the system
+    /// Increase Contrast setting is on (`traits.accessibilityContrast ==
+    /// .high`); omit them to reuse the standard value. This is the single
+    /// hook through which the palette honors Increase Contrast (a11y audit
+    /// 2026-07-13).
+    init(light: UInt32, dark: UInt32, lightHC: UInt32? = nil, darkHC: UInt32? = nil) {
         self.init(uiColor: UIColor { traits in
-            traits.userInterfaceStyle == .dark ? UIColor(hex: dark) : UIColor(hex: light)
+            let increased = traits.accessibilityContrast == .high
+            switch traits.userInterfaceStyle {
+            case .dark:
+                return UIColor(hex: increased ? (darkHC ?? dark) : dark)
+            default:
+                return UIColor(hex: increased ? (lightHC ?? light) : light)
+            }
         })
     }
 }

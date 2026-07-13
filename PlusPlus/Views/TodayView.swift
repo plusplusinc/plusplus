@@ -21,6 +21,9 @@ struct TodayView: View {
     var onGoToRoutines: () -> Void = {}
 
     @Environment(\.modelContext) private var modelContext
+    /// Pending (today's) card sits on a translucent surface; under Reduce
+    /// Transparency it goes opaque so its caption text keeps contrast.
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
     @Query(sort: [SortDescriptor(\Routine.order), SortDescriptor(\Routine.createdAt, order: .reverse)])
     private var routines: [Routine]
@@ -316,11 +319,18 @@ struct TodayView: View {
                 })
             }
             .fullScreenCover(item: $activeSession, onDismiss: resolveOrphanedSessions) { session in
-                ActiveSessionView(session: session)
-                    .navigationTransition(.zoom(
-                        sourceID: session.routine?.persistentModelID ?? session.persistentModelID,
-                        in: zoomNamespace
-                    ))
+                // The card→session zoom is deliberate large-scale motion, so
+                // Reduce Motion gets the plain cross-fade cover instead
+                // (WCAG 2.3.3).
+                if Theme.Anim.reduceMotion {
+                    ActiveSessionView(session: session)
+                } else {
+                    ActiveSessionView(session: session)
+                        .navigationTransition(.zoom(
+                            sourceID: session.routine?.persistentModelID ?? session.persistentModelID,
+                            in: zoomNamespace
+                        ))
+                }
             }
             .navigationDestination(isPresented: $showingEquipmentSetup) {
                 CatalogBrowseScreen(kind: .equipment, setupMode: true, offersPopulateOnDone: true)
@@ -431,7 +441,7 @@ struct TodayView: View {
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(0.35))
             guard justCompletedID == id else { return }
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+            withAnimation(Theme.Anim.flourish(.spring(response: 0.4, dampingFraction: 0.7))) {
                 completionConverted = true
             }
             try? await Task.sleep(for: .seconds(0.8))
@@ -1017,7 +1027,7 @@ struct TodayView: View {
             .padding(.top, 12)
         }
         .padding(12)
-        .background(Theme.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+        .background(Theme.surface.opacity(reduceTransparency ? 1 : 0.55), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
         // Today's card is the one to DO now: a solid green border marks
         // it (Dave, build-48), the same actionable-green the node ring
         // already speaks. Dashes moved to the FUTURE cards (see
@@ -1513,6 +1523,13 @@ private struct SetupRow: View {
     let action: () -> Void
     let edit: () -> Void
 
+    /// Pending/gated setup cards render on a translucent surface so they read
+    /// as not-yet-real. Under Reduce Transparency they go fully opaque so the
+    /// (already faint) caption text keeps its contrast.
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    private var cardFill: Color { Theme.surface.opacity(reduceTransparency ? 1 : 0.55) }
+    private var gatedDim: Double { reduceTransparency ? 1 : 0.55 }
+
     var body: some View {
         TimelineItem(node: node) {
             card
@@ -1586,7 +1603,7 @@ private struct SetupRow: View {
                 .padding(.top, 10)
             }
             .padding(12)
-            .background(Theme.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+            .background(cardFill, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.cardRadius)
                     .strokeBorder(Theme.borderStrong, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
@@ -1609,12 +1626,12 @@ private struct SetupRow: View {
                     .padding(.top, 5)
             }
             .padding(12)
-            .background(Theme.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+            .background(cardFill, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.cardRadius)
                     .strokeBorder(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
             )
-            .opacity(0.55)
+            .opacity(gatedDim)
         }
     }
 }
