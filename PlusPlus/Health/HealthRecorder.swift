@@ -18,6 +18,7 @@ enum HealthRecorder {
     /// before any HealthKit callback hops threads.
     static func record(_ session: WorkoutSession) {
         guard HealthAccess.isAvailable,
+              HealthSyncSettings.isEnabled,
               let endedAt = session.endedAt,
               !session.completedSetLogs.isEmpty
         else { return }

@@ -1,30 +1,30 @@
 import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
+import HealthKit
+import UIKit
 import PlusPlusKit
 
 /// The app-level surface beneath the reveal drawer (replaces the pushed
 /// `AppMenuScreen` + `SettingsScreen`). Settings is folded in: the
-/// most-used controls live inline (appearance, units, GitHub + calendar
-/// sync, the active equipment library as the hero card); the rarer things
-/// are tiles that open bottom-sheet trays (data, Apple Health, what's new,
+/// most-used controls live inline (appearance, units, the GitHub / Health /
+/// calendar sync rows, the active equipment library as the hero card); the
+/// rarer things are tiles that open bottom-sheet trays (data, what's new,
 /// about). Left-aligned column so nothing hides under the app's peeking
 /// sliver on the right.
 struct RevealSurface: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage(AppAppearance.storageKey) private var appearanceRaw = AppAppearance.system.rawValue
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw = WeightUnit.lb.rawValue
     @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
-    /// Set once the Health ask has been made this install — the tile sub
-    /// flips to "connected" (HealthKit hides read authorization, so this
-    /// is the honest signal the app has).
-    @AppStorage("healthAccessRequested") private var healthRequested = false
 
     @Query(sort: \Exercise.name) private var allExercises: [Exercise]
     @Query(sort: \Routine.order) private var routines: [Routine]
     @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
 
     @State private var sync = GitHubSyncCoordinator.shared
+    @State private var health = HealthSyncCoordinator.shared
     @State private var calendar = CalendarSyncCoordinator.shared
 
     @State private var activeTray: Tray?
@@ -43,7 +43,7 @@ struct RevealSurface: View {
     @State private var importResultMessage: String?
     @State private var dataError: String?
 
-    enum Tray: String, Identifiable { case library, sync, calendar, data, whatsNew, about; var id: String { rawValue } }
+    enum Tray: String, Identifiable { case library, sync, health, calendar, data, whatsNew, about; var id: String { rawValue } }
     enum Push: String, Identifiable { case equipment; var id: String { rawValue } }
 
     private var version: String {
@@ -218,13 +218,23 @@ struct RevealSurface: View {
 
     // MARK: - Sync rows (GitHub + Calendar)
 
-    /// GitHub + Calendar triggers under one SYNC header; the rows drop the
-    /// redundant "sync" word now that the header carries it.
+    /// GitHub + Health + Calendar triggers under one SYNC header (each syncs
+    /// to an external system); the rows drop the redundant "sync" word now
+    /// that the header carries it.
     private var syncSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             SheetSectionLabel("SYNC")
             syncRow
+            healthRow
             calendarRow
+        }
+        // The Health write grant only ever changes through the system sheet
+        // or iOS Settings, outside this view — re-read it whenever the surface
+        // reappears AND on foreground return (onAppear doesn't re-fire when the
+        // app resumes to an already-visible drawer).
+        .onAppear { health.refreshStatus() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { health.refreshStatus() }
         }
     }
 
@@ -245,6 +255,38 @@ struct RevealSurface: View {
             status: secondary,
             identifier: "revealSyncRow"
         ) { openTray(.sync) }
+    }
+
+    /// Honest Health status: green "on" ONLY when the OS actually grants the
+    /// workout write (the one authorization HealthKit will reveal). Enabled
+    /// but never granted reads neutral "connect"; a denied write is red; a
+    /// user-disabled or unavailable integration is neutral "off"/"unavailable".
+    private var healthRow: some View {
+        let dot: Color
+        let word: String
+        if !health.isAvailable {
+            dot = Theme.textFaint; word = "unavailable"
+        } else if !health.isEnabled {
+            dot = Theme.textFaint; word = "off"
+        } else {
+            switch health.writeStatus {
+            case .sharingAuthorized: dot = Theme.accent; word = "on"
+            case .sharingDenied: dot = Theme.destructive; word = "denied"
+            default: dot = Theme.textFaint; word = "connect"
+            }
+        }
+        return statusRow(
+            dot: dot,
+            icon: {
+                Image(systemName: "heart.fill")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Theme.textPrimary)
+                    .frame(width: 16, height: 16)
+            },
+            title: "Health",
+            status: word,
+            identifier: "revealHealthRow"
+        ) { openTray(.health) }
     }
 
     private var calendarRow: some View {
@@ -310,12 +352,6 @@ struct RevealSurface: View {
         let columns = [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)]
         return LazyVGrid(columns: columns, spacing: 6) {
             tile(title: "Data", sub: "export · import", subColor: Theme.textFaint, id: "revealDataTile") { openTray(.data) }
-            tile(
-                title: "Health",
-                sub: healthRequested ? "connected" : "connect",
-                subColor: healthRequested ? Theme.accent : Theme.textFaint,
-                id: "revealHealthTile"
-            ) { connectHealth() }
             tile(title: "What's new", sub: "build \(build)", subColor: Theme.textFaint, id: "revealWhatsNewTile") { openTray(.whatsNew) }
             tile(title: "About", sub: "links · feedback", subColor: Theme.textFaint, id: "revealAboutTile") { openTray(.about) }
         }
@@ -362,6 +398,8 @@ struct RevealSurface: View {
             )
         case .sync:
             GitHubSyncTray()
+        case .health:
+            HealthTray(health: health)
         case .calendar:
             CalendarTray(calendar: calendar, routines: routines)
         case .data:
@@ -387,10 +425,6 @@ struct RevealSurface: View {
     private func queuePush(_ push: Push) {
         pendingPush = push
         activeTray = nil
-    }
-
-    private func connectHealth() {
-        HealthAccess.requestEverything { healthRequested = true }
     }
 
     // MARK: - Downstream counts (equipment → exercises → routines)
@@ -630,6 +664,134 @@ private struct LibraryTray: View {
         let library = EquipmentLibrary(name: name, order: (libraries.map(\.order).max() ?? -1) + 1)
         modelContext.insert(library)
         activeLibraryID = library.uuid.uuidString
+    }
+}
+
+// MARK: - Health sync tray
+
+/// Configure the Apple Health integration: one toggle for the whole thing,
+/// plus an honest read-out of the only authorization HealthKit will reveal
+/// (the workout WRITE grant). Reads are invisible to us by design, so we
+/// never claim more than we can prove.
+private struct HealthTray: View {
+    let health: HealthSyncCoordinator
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
+
+    private var enabledBinding: Binding<Bool> {
+        Binding(
+            get: { health.isEnabled },
+            set: { on in on ? health.enable() : health.disable() }
+        )
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SheetHeader(title: "Apple Health", closeOnly: true, action: { dismiss() })
+
+            Text("PlusPlus saves finished workouts to Health and reads heart rate to color your zones, and nothing else. Turning this off stops both on this iPhone. A workout you run from Apple Watch keeps its own Health access.")
+                .font(.system(.caption))
+                .foregroundStyle(Theme.textSecondary)
+                .padding(.top, 4)
+
+            VStack(alignment: .leading, spacing: 12) {
+                Toggle(isOn: enabledBinding) {
+                    Text("Use Apple Health")
+                        .font(.system(.subheadline, weight: .bold))
+                        .foregroundStyle(Theme.textPrimary)
+                }
+                .tint(Theme.selected)
+                .disabled(!health.isAvailable)
+                .accessibilityIdentifier("healthSyncToggle")
+
+                if health.isAvailable, health.isEnabled {
+                    Divider().overlay(Theme.border)
+                    statusBlock
+                }
+            }
+            .padding(14)
+            .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+            .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
+            .padding(.top, 16)
+
+            if !health.isAvailable {
+                Text("Apple Health isn't available on this device.")
+                    .font(.system(.caption))
+                    .foregroundStyle(Theme.textFaint)
+                    .padding(.top, 6)
+            }
+
+            Text("HealthKit keeps read permission private, so \u{201C}connected\u{201D} reflects the workout-saving grant. To change access later, use iOS Settings \u{2192} Health \u{2192} Data Access.")
+                .font(.system(.caption))
+                .foregroundStyle(Theme.textFaint)
+                .padding(.top, 8)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 18)
+        .presentationDetents([.medium, .large])
+        // The grant only ever moves through the system sheet — re-read it
+        // when we return from it (or from iOS Settings).
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { health.refreshStatus() }
+        }
+    }
+
+    /// The live authorization read-out under the toggle.
+    @ViewBuilder
+    private var statusBlock: some View {
+        switch health.writeStatus {
+        case .sharingAuthorized:
+            statusLine(dot: Theme.accent, text: "Connected. Finished workouts are saved to Health.")
+        case .sharingDenied:
+            VStack(alignment: .leading, spacing: 8) {
+                statusLine(dot: Theme.destructive, text: "Saving workouts is turned off in iOS Settings.")
+                settingsButton
+            }
+        default:
+            VStack(alignment: .leading, spacing: 8) {
+                statusLine(dot: Theme.textFaint, text: "Not connected yet. Grant access so PlusPlus can save workouts and read heart rate.")
+                Button { health.enable() } label: {
+                    Text("Connect")
+                        .font(.system(.subheadline, weight: .semibold))
+                        .foregroundStyle(Theme.accent)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 11))
+                        .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
+                }
+                .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: 11, travel: 3))
+                .accessibilityIdentifier("healthConnectButton")
+            }
+        }
+    }
+
+    private func statusLine(dot: Color, text: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Circle().fill(dot).frame(width: 8, height: 8).padding(.top, 5)
+            Text(text)
+                .font(.system(.footnote))
+                .foregroundStyle(Theme.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var settingsButton: some View {
+        Button {
+            if let url = URL(string: UIApplication.openSettingsURLString) {
+                UIApplication.shared.open(url)
+            }
+        } label: {
+            Text("Open iOS Settings")
+                .font(.system(.subheadline, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+                .frame(maxWidth: .infinity)
+                .frame(height: 44)
+                .background(Theme.surface, in: RoundedRectangle(cornerRadius: 11))
+                .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
+        }
+        .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: 11, travel: 3))
+        .accessibilityIdentifier("healthOpenSettingsButton")
     }
 }
 

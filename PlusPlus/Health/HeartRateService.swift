@@ -59,6 +59,13 @@ enum HealthAccess {
     /// characteristics are a local read, and callers (plan push, zone
     /// coloring) can't await.
     static func resolvedMaxHeartRate() -> Int {
+        // NOT gated on HealthSyncSettings.isEnabled: this is a one-shot local
+        // date-of-birth read feeding HR-TARGET arithmetic (percent-of-max →
+        // bpm bands shown here and pushed to the watch plan), not the live HR
+        // stream the Settings toggle turns off. Gating it would silently
+        // recompute the user's configured targets against the fallback max
+        // when they disable Health — and the watch, reading live HR through
+        // its own store, would then zone-color against the wrong ceiling.
         guard isAvailable,
               let components = try? store.dateOfBirthComponents(),
               let birthDate = Calendar.current.date(from: components),
@@ -94,7 +101,7 @@ final class HeartRateMonitor {
     private var generation = 0
 
     func start(from startDate: Date) {
-        guard HealthAccess.isAvailable, query == nil, !starting else { return }
+        guard HealthAccess.isAvailable, HealthSyncSettings.isEnabled, query == nil, !starting else { return }
         starting = true
         generation += 1
         let expected = generation
@@ -151,7 +158,7 @@ final class HeartRateMonitor {
     /// record backfill. Answers nil when Health has nothing (no access,
     /// no samples) — never zero.
     static func summary(from start: Date, to end: Date, completion: @escaping (_ average: Int?, _ max: Int?) -> Void) {
-        guard HealthAccess.isAvailable else {
+        guard HealthAccess.isAvailable, HealthSyncSettings.isEnabled else {
             completion(nil, nil)
             return
         }
