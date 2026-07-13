@@ -132,6 +132,15 @@ struct PlusPlusApp: App {
                     // layouts still need the on-device reflow pass before the
                     // two largest extremes are safe.
                     .dynamicTypeSize(...DynamicTypeSize.accessibility3)
+                    // Safety net for the fixed-height capsules/pills/chips the
+                    // design grammar uses: `minimumScaleFactor` propagates
+                    // through the environment to every descendant Text, so a
+                    // label that would overflow its frame at a large
+                    // accessibility size scales down to fit instead of
+                    // clipping. Only engages when space is actually tight (a
+                    // no-op at default sizes), and per-control overrides still
+                    // win (a11y audit 2026-07-13, #164).
+                    .minimumScaleFactor(0.6)
             }
         }
         .modelContainer(modelContainer)

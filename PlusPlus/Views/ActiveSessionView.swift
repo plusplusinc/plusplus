@@ -330,6 +330,7 @@ struct ActiveSessionView: View {
                         Image(systemName: "xmark").font(.system(.caption, weight: .semibold))
                             .accessibilityHidden(true)
                         Text("End").font(.system(.footnote, weight: .semibold))
+                            .lineLimit(1).minimumScaleFactor(0.6)
                     }
                     .foregroundStyle(Theme.textPrimary)
                     .padding(.horizontal, 12)
