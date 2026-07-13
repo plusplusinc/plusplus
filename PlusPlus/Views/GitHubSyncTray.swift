@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 import UIKit
 import PlusPlusKit
 
@@ -19,6 +20,8 @@ struct GitHubSyncTray: View {
     var startAtConnect: Bool = false
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    @AppStorage(WeightUnitSetting.key) private var weightUnitRaw = WeightUnit.lb.rawValue
 
     @State private var sync = GitHubSyncCoordinator.shared
     @State private var step: Step = .createRepo
@@ -76,7 +79,19 @@ struct GitHubSyncTray: View {
         // lands the token, dismiss it so the connected state is revealed
         // instead of sitting behind GitHub's "authorized" page.
         .onChange(of: sync.isConnected) { _, connected in
-            if connected { browser = nil }
+            guard connected else { return }
+            browser = nil
+            // Connecting never backgrounds the app (the authorize step is an
+            // in-app browser, not an external one), so no scenePhase → .active
+            // transition fires the app-root foreground sync. Without this, the
+            // repo's data wouldn't land until the user next backgrounded and
+            // returned. Kick the first pass off here so it appears right after
+            // connecting. Safe to double up with a foreground sync: sync() is
+            // single-flight and no-ops while one is in flight.
+            let units = WeightUnit(rawValue: weightUnitRaw) ?? .lb
+            Task { @MainActor in
+                await sync.sync(context: modelContext, units: units)
+            }
         }
         .sheet(item: $browser) { item in
             SafariView(url: item.url).ignoresSafeArea()
