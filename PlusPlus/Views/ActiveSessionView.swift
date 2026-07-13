@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import CoreLocation
 import PlusPlusKit
 
 /// The at-the-gym screen, v2 (#65/#66): End + set-counter pills, a
@@ -616,6 +617,10 @@ struct ActiveSessionView: View {
             // so the endedAt stamp rides along.
             LiveMirror.shared.finished(session, at: session.endedAt ?? Date())
             heartRate.stop()
+            // Capture the GPS route before stop() clears the monitor; a
+            // non-empty route saves the workout as an outdoor run with its
+            // map in Health (#348).
+            let runRoute = location.route
             location.stop()
             // The session's heart-rate summary, from Health's samples
             // over the window. Watch imports never pass through here —
@@ -632,7 +637,7 @@ struct ActiveSessionView: View {
             }
             // Phone-logged sessions reach Health here; watch imports are
             // recorded by the wrist's own live session (#90).
-            HealthRecorder.record(session)
+            HealthRecorder.record(session, route: runRoute)
         }
         if dismissAfter {
             dismiss()
