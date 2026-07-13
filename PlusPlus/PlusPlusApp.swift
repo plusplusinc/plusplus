@@ -134,15 +134,18 @@ struct PlusPlusApp: App {
                     // clipping. The exact packing of the busiest rows at the
                     // AX4/AX5 extremes still wants an on-device glance.
                     .dynamicTypeSize(...DynamicTypeSize.accessibility5)
-                    // Safety net for the fixed-height capsules/pills/chips the
-                    // design grammar uses: `minimumScaleFactor` propagates
-                    // through the environment to every descendant Text, so a
-                    // label that would overflow its frame at a large
-                    // accessibility size scales down to fit instead of
-                    // clipping. Only engages when space is actually tight (a
-                    // no-op at default sizes), and per-control overrides still
-                    // win. 0.5 floor so a 2× control still fits at AX5.
-                    .minimumScaleFactor(0.5)
+                    // NB: no app-wide `minimumScaleFactor` here. A global one
+                    // propagates through the environment to EVERY descendant
+                    // Text, so any single-line label a touch too wide for its
+                    // container silently shrank — even at the default type size
+                    // (the #164 net did exactly this: the Health tray status
+                    // line rendered at ~half size, and equal-role fields like
+                    // the Exercises-list subtitles came out at DIFFERENT sizes
+                    // depending on string length). Shrink-to-fit is now local
+                    // to the fixed-height capsules/pills/chips that actually
+                    // need it (each carries its own `.minimumScaleFactor`);
+                    // everything else renders at its true, consistent size and
+                    // wraps rather than shrinks.
             }
         }
         .modelContainer(modelContainer)

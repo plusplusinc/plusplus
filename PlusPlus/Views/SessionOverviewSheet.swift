@@ -128,6 +128,7 @@ struct SessionOverviewSheet: View {
                     Text("Back to now · \(backLabel)")
                         .font(.system(.subheadline, weight: .bold))
                         .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                 }
                 .foregroundStyle(Theme.onPrimary)
                 .frame(maxWidth: .infinity)
