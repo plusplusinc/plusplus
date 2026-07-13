@@ -282,20 +282,21 @@ struct RevealSurface: View {
                     .font(.system(.subheadline, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
-                    .fixedSize()
+                    .minimumScaleFactor(0.6)
                 Spacer(minLength: 8)
                 if let status {
                     Text(status)
                         .font(.system(.caption2, design: .monospaced))
                         .foregroundStyle(Theme.textFaint)
                         .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                 }
                 Image(systemName: "chevron.right")
                     .font(.system(.caption2, weight: .bold))
                     .foregroundStyle(Theme.textFaint)
             }
             .padding(.horizontal, 14)
-            .frame(height: 50)
+            .frame(minHeight: 50)
             .frame(maxWidth: .infinity)
             .background(Theme.surface, in: RoundedRectangle(cornerRadius: 11))
             .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
@@ -536,11 +537,13 @@ private struct LibraryTray: View {
                                 .font(.system(size: 17, weight: .bold, design: .monospaced))
                             Text("New library")
                                 .font(.system(.subheadline, weight: .semibold))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
                         }
                         .foregroundStyle(Theme.accent)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 14)
-                        .frame(height: 50)
+                        .frame(minHeight: 50)
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
                                 .strokeBorder(Theme.borderStrong, style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
@@ -555,13 +558,15 @@ private struct LibraryTray: View {
                             Text("Choose your gear")
                                 .font(.system(.footnote, weight: .semibold))
                                 .foregroundStyle(Theme.textPrimary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
                             Spacer()
                             Image(systemName: "chevron.right")
                                 .font(.system(.caption2, weight: .bold))
                                 .foregroundStyle(Theme.textFaint)
                         }
                         .padding(.horizontal, 14)
-                        .frame(height: 48)
+                        .frame(minHeight: 48)
                         .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                         .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.borderStrong))
                     }
@@ -868,13 +873,15 @@ private struct AboutTray: View {
                 Text(title)
                     .font(.system(.subheadline))
                     .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
                 Spacer()
                 Image(systemName: "arrow.up.right")
                     .font(.system(.caption, weight: .bold))
                     .foregroundStyle(Theme.textFaint)
             }
             .padding(.horizontal, 14)
-            .frame(height: 46)
+            .frame(minHeight: 46)
             .contentShape(Rectangle())
         }
     }

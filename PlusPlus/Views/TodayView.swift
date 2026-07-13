@@ -1256,10 +1256,12 @@ struct TodayView: View {
                                 .font(.system(.caption, weight: .semibold))
                             Text("New routine")
                                 .font(.system(.footnote, weight: .semibold))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
                         }
                         .foregroundStyle(Theme.accent)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 46)
+                        .frame(minHeight: 46)
                         .background(Theme.background, in: RoundedRectangle(cornerRadius: 10))
                         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.borderStrong))
                     }
@@ -1287,10 +1289,12 @@ struct TodayView: View {
                             // workout") since #266 retitled it.
                             Text("Start a workout")
                                 .font(.system(.footnote, weight: .semibold))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
                         }
                         .foregroundStyle(Theme.textPrimary)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 46)
+                        .frame(minHeight: 46)
                         .background(Theme.background, in: RoundedRectangle(cornerRadius: 10))
                         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.borderStrong))
                     }

@@ -318,10 +318,12 @@ struct LibraryEmptyState: View {
                         .font(.system(.caption, weight: .semibold))
                     Text("Browse the catalog")
                         .font(.system(.footnote, weight: .semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                 }
                 .foregroundStyle(Theme.accent)
                 .padding(.horizontal, 16)
-                .frame(height: 48)
+                .frame(minHeight: 48)
                 .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                 .overlay(
                     RoundedRectangle(cornerRadius: Theme.controlRadius)

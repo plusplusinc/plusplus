@@ -54,6 +54,8 @@ private struct CreateRow: View {
                     .font(.system(.caption, weight: .semibold))
                 Text(label)
                     .font(.system(.footnote, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
             }
             // Green content on a raised key (Quiet Arcade): creation
             // stays in the data-green voice, the key anatomy carries
@@ -61,7 +63,7 @@ private struct CreateRow: View {
             .foregroundStyle(Theme.accent)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 12)
-            .frame(height: 48)
+            .frame(minHeight: 48)
             .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.controlRadius)

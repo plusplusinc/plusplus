@@ -88,12 +88,14 @@ struct SessionOverviewSheet: View {
                             .font(.system(.caption, weight: .semibold))
                         Text("Add exercise")
                             .font(.system(.footnote, weight: .semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
                     }
                     // Creation is green (#202).
                     .foregroundStyle(Theme.accent)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 12)
-                    .frame(height: 44)
+                    .frame(minHeight: 44)
                     .contentShape(Rectangle())
                     .overlay(
                         RoundedRectangle(cornerRadius: Theme.controlRadius)

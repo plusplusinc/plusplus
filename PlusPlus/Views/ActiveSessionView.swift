@@ -458,39 +458,51 @@ struct ActiveSessionView: View {
     /// single Resume key. The screen replaces the logging/rest flow so
     /// no set can be logged while paused.
     private var pausedView: some View {
-        VStack(spacing: 16) {
-            Spacer()
-            Image(systemName: "pause.circle.fill")
-                .font(.system(size: 56))
-                .foregroundStyle(Theme.textSecondary)
-            Text("Paused")
-                .font(.system(.title2, weight: .bold))
-            // Frozen while paused — elapsed doesn't advance, so no clock.
-            Text(elapsedText(at: Date()))
-                .font(.system(size: 40, weight: .bold, design: .monospaced))
-                .foregroundStyle(Theme.textPrimary)
-            Text("your workout timer is on hold")
-                .font(.system(.footnote))
-                .foregroundStyle(Theme.textFaint)
-            Spacer()
-            Button {
-                session.startClock()
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "play.fill").font(.system(.footnote, weight: .bold))
-                    Text("Resume workout").font(.system(.body, weight: .bold))
+        // Scrollable so the Resume CTA can't be pushed off-screen at large
+        // accessibility text sizes (it's the only exit from the paused state);
+        // the minHeight keeps it centered when the content fits (a11y audit).
+        GeometryReader { proxy in
+            ScrollView {
+                VStack(spacing: 16) {
+                    Spacer()
+                    Image(systemName: "pause.circle.fill")
+                        .font(.system(size: 56))
+                        .foregroundStyle(Theme.textSecondary)
+                    Text("Paused")
+                        .font(.system(.title2, weight: .bold))
+                    // Frozen while paused — elapsed doesn't advance, so no clock.
+                    Text(elapsedText(at: Date()))
+                        .font(.system(size: 40, weight: .bold, design: .monospaced))
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                    Text("your workout timer is on hold")
+                        .font(.system(.footnote))
+                        .foregroundStyle(Theme.textFaint)
+                        .multilineTextAlignment(.center)
+                    Spacer()
+                    Button {
+                        session.startClock()
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "play.fill").font(.system(.footnote, weight: .bold))
+                            Text("Resume workout").font(.system(.body, weight: .bold))
+                                .lineLimit(1).minimumScaleFactor(0.6)
+                        }
+                        .foregroundStyle(Theme.onPrimary)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 50)
+                        .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.raisedPrimaryKey(cornerRadius: 12))
+                    .accessibilityIdentifier("resumeWorkoutButton")
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
                 }
-                .foregroundStyle(Theme.onPrimary)
                 .frame(maxWidth: .infinity)
-                .frame(height: 50)
-                .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
+                .frame(minHeight: proxy.size.height)
             }
-            .buttonStyle(.raisedPrimaryKey(cornerRadius: 12))
-            .accessibilityIdentifier("resumeWorkoutButton")
-            .padding(.horizontal, 20)
-            .padding(.bottom, 20)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     /// Block-style set progress (Quiet Arcade, mock 08): one block per
@@ -652,11 +664,13 @@ struct ActiveSessionView: View {
                         .font(.system(.caption, weight: .semibold))
                     Text("Add exercise")
                         .font(.system(.footnote, weight: .semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                 }
                 // Creation is green (#202).
                 .foregroundStyle(Theme.accent)
                 .padding(.horizontal, 22)
-                .frame(height: 48)
+                .frame(minHeight: 48)
                 .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                 .overlay(
                     RoundedRectangle(cornerRadius: Theme.controlRadius)
@@ -766,11 +780,13 @@ struct ActiveSessionView: View {
                                     .font(.system(.caption, weight: .semibold))
                                 Text("Save as routine")
                                     .font(.system(.footnote, weight: .semibold))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.6)
                             }
                             // Creation is green (#202).
                             .foregroundStyle(Theme.accent)
                             .padding(.horizontal, 18)
-                            .frame(height: 44)
+                            .frame(minHeight: 44)
                             .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                             .overlay(
                                 RoundedRectangle(cornerRadius: Theme.controlRadius)
@@ -1931,7 +1947,12 @@ private struct RestView: View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             let remaining = max(0, Int(endDate.timeIntervalSince(context.date).rounded(.up)))
 
-            VStack(spacing: 20) {
+            // Scrollable so the +30s / Skip controls stay reachable at large
+            // accessibility text sizes; minHeight keeps it centered when it
+            // fits (a11y audit).
+            GeometryReader { screen in
+              ScrollView {
+                VStack(spacing: 20) {
                 Text("REST")
                     .font(.system(.caption, design: .monospaced, weight: .semibold))
                     .foregroundStyle(Theme.textSecondary)
@@ -1939,6 +1960,8 @@ private struct RestView: View {
 
                 Text(String(format: "%d:%02d", remaining / 60, remaining % 60))
                     .font(.system(size: 52, weight: .bold, design: .monospaced))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
                     .contentTransition(.numericText(countsDown: true))
 
                 rechargeBlocks(remaining: remaining)
@@ -1961,6 +1984,8 @@ private struct RestView: View {
                         .kerning(0.8)
                     Text("\(upNext.exerciseName) · \(upNext.driver == .reps ? "set" : "round") \(upNext.setNumber)")
                         .font(.system(.body, weight: .semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                     // Values in plain ink (the handoff's rule): the next
                     // prescription is a fact, not a delta — green stays
                     // on movement.
@@ -2009,13 +2034,16 @@ private struct RestView: View {
                 }
                 .frame(height: 56)
                 .padding(.horizontal, 20)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .onChange(of: remaining) { _, newValue in
-                if newValue <= 0 { onEnd() }
-            }
-            .onAppear {
-                if remaining <= 0 { onEnd() }
+                }
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: screen.size.height)
+                .onChange(of: remaining) { _, newValue in
+                    if newValue <= 0 { onEnd() }
+                }
+                .onAppear {
+                    if remaining <= 0 { onEnd() }
+                }
+              }
             }
         }
     }
