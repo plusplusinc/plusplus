@@ -124,14 +124,16 @@ struct PlusPlusApp: App {
             } else {
                 RootTabView()
                     .preferredColorScheme((AppAppearance(rawValue: appearanceRaw) ?? .system).colorScheme)
-                    // Dynamic Type everywhere (#82). Raised from xxLarge to
-                    // accessibility3 (a11y audit 2026-07-13, #164): the first
-                    // three accessibility sizes now take effect, covering the
-                    // low-vision range most users rely on. AX4/AX5 stay capped
-                    // as the documented, device-gated limit — the densest fixed
-                    // layouts still need the on-device reflow pass before the
-                    // two largest extremes are safe.
-                    .dynamicTypeSize(...DynamicTypeSize.accessibility3)
+                    // Dynamic Type everywhere (#82). The old xxLarge cap is
+                    // lifted: the full range through AX5 is now reachable
+                    // (a11y audit 2026-07-13, #164). The densest fixed-height
+                    // controls were hardened for it in the same pass — the
+                    // scale net below plus `minHeight`/`@ScaledMetric` on the
+                    // capsules, sheets, and rows the swiftui-layout-auditor
+                    // flagged — so text scales/grows to fit rather than
+                    // clipping. The exact packing of the busiest rows at the
+                    // AX4/AX5 extremes still wants an on-device glance.
+                    .dynamicTypeSize(...DynamicTypeSize.accessibility5)
                     // Safety net for the fixed-height capsules/pills/chips the
                     // design grammar uses: `minimumScaleFactor` propagates
                     // through the environment to every descendant Text, so a
@@ -139,8 +141,8 @@ struct PlusPlusApp: App {
                     // accessibility size scales down to fit instead of
                     // clipping. Only engages when space is actually tight (a
                     // no-op at default sizes), and per-control overrides still
-                    // win (a11y audit 2026-07-13, #164).
-                    .minimumScaleFactor(0.6)
+                    // win. 0.5 floor so a 2× control still fits at AX5.
+                    .minimumScaleFactor(0.5)
             }
         }
         .modelContainer(modelContainer)

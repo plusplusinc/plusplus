@@ -26,8 +26,8 @@ struct WelcomeView: View {
                                 .font(.system(.caption, design: .monospaced))
                                 .foregroundStyle(Theme.textFaint)
                                 .padding(.horizontal, 12)
-                                .frame(height: 34)
-                                .contentShape(Capsule())
+                                .frame(minHeight: 44)
+                                .contentShape(Rectangle())
                         }
                         .accessibilityIdentifier("welcomeSkipButton")
                     }

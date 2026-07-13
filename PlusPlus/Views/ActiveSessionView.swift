@@ -337,6 +337,9 @@ struct ActiveSessionView: View {
                     .frame(minHeight: 34)
                     .background(Theme.surface, in: Capsule())
                     .overlay(Capsule().strokeBorder(Theme.border))
+                    // 34 pt visual carried to a 44 pt hit target (#130 floor).
+                    .padding(.vertical, 5)
+                    .contentShape(Rectangle())
                 }
                 .accessibilityLabel("End workout")
                 .accessibilityIdentifier("exitSessionButton")
@@ -379,6 +382,8 @@ struct ActiveSessionView: View {
                         .frame(minHeight: 34)
                         .background(Theme.surface, in: Capsule())
                         .overlay(Capsule().strokeBorder(Theme.border))
+                        .padding(.vertical, 5)
+                        .contentShape(Rectangle())
                     }
                     .accessibilityLabel("Pause workout")
                     .accessibilityIdentifier("pauseWorkoutButton")
@@ -410,6 +415,8 @@ struct ActiveSessionView: View {
                 .frame(minHeight: 34)
                 .background(Theme.surface, in: Capsule())
                 .overlay(Capsule().strokeBorder(Theme.border))
+                .padding(.vertical, 5)
+                .contentShape(Rectangle())
             }
             .accessibilityElement(children: .combine)
             .accessibilityHint("Opens the set overview")
@@ -1514,11 +1521,15 @@ private struct SetLoggingView: View {
                     Text("Log set")
                         .font(.system(.body, weight: .bold))
                         .foregroundStyle(Theme.onPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 54)
+                        .frame(minHeight: 54)
                         .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.raisedPrimaryKey(cornerRadius: 12))
+                // Return logs the set for external-keyboard users (WCAG 2.1.1).
+                .keyboardShortcut(.defaultAction)
                 .accessibilityIdentifier("completeSetButton")
 
                 PlusOneBurst(trigger: burstCount)

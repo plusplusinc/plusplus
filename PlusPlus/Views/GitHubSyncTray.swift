@@ -117,6 +117,8 @@ struct GitHubSyncTray: View {
                     .frame(width: 32, height: 32)
                     .background(Theme.surface, in: Circle())
                     .overlay(Circle().strokeBorder(Theme.border))
+                    // 32 pt visual carried to a 44 pt hit target (#130 floor).
+                    .padding(6)
                     .contentShape(Circle())
             }
             .accessibilityLabel("Close")
