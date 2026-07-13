@@ -1344,10 +1344,12 @@ struct TodayView: View {
                         .font(.system(.caption, weight: .semibold))
                     Text("Add exercises")
                         .font(.system(.footnote, weight: .semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                 }
                 .foregroundStyle(Theme.accent)
                 .frame(maxWidth: .infinity)
-                .frame(height: 44)
+                .frame(minHeight: 44)
                 .background(Theme.background, in: RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.borderStrong))
             }
@@ -1598,8 +1600,10 @@ private struct SetupRow: View {
                     Text(cta)
                         .font(.system(.subheadline, weight: .bold))
                         .foregroundStyle(Theme.onPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 44)
+                        .frame(minHeight: 44)
                         .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 11))
                 }
                 .buttonStyle(.raisedPrimaryKey())
@@ -1889,11 +1893,13 @@ private struct SwapInSheet: View {
                             .font(.system(.caption, weight: .semibold))
                         Text("New routine")
                             .font(.system(.footnote, weight: .semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
                     }
                     .foregroundStyle(Theme.accent)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 14)
-                    .frame(height: 48)
+                    .frame(minHeight: 48)
                     .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                     .overlay(
                         RoundedRectangle(cornerRadius: Theme.controlRadius)

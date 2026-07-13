@@ -362,8 +362,10 @@ struct RoutineDetailView: View {
                 Text("Add exercise")
                     .font(.system(.subheadline, weight: .semibold))
                     .foregroundStyle(Theme.accent)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
                     .padding(.horizontal, 18)
-                    .frame(height: 44)
+                    .frame(minHeight: 44)
                     .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                     .overlay(
                         RoundedRectangle(cornerRadius: Theme.controlRadius)

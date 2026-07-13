@@ -366,10 +366,12 @@ struct SessionExerciseSheet: View {
                                 .font(.system(.footnote, weight: .bold))
                             Text("Skip to this exercise")
                                 .font(.system(.subheadline, weight: .bold))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
                         }
                         .foregroundStyle(Theme.onPrimary)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 48)
+                        .frame(minHeight: 48)
                         .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
                     }
                 }

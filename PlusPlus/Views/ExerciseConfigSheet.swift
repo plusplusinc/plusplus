@@ -70,10 +70,12 @@ struct ExerciseConfigSheet: View {
                             .font(.system(.footnote, weight: .bold))
                         Text("Add to workout")
                             .font(.system(.subheadline, weight: .bold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
                     }
                     .foregroundStyle(Theme.onPrimary)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 50)
+                    .frame(minHeight: 50)
                     .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.raisedPrimaryKey(cornerRadius: 12))
