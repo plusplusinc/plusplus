@@ -34,6 +34,12 @@ final class RunLocationMonitor: NSObject, CLLocationManagerDelegate {
         totalMeters.map { unit.value(fromMeters: $0) }
     }
 
+    /// The accepted GPS fixes for the current outdoor segment, in order.
+    /// Handed to HealthKit at finish to save the workout's route; read it
+    /// BEFORE `stop()`, which clears it (as does a re-base `start()`), so it
+    /// covers the last contiguous outdoor stretch.
+    var route: [CLLocation] { routeFixes }
+
     /// Whether the published readings are current — a set's auto-log must
     /// never write a prior exercise's frozen values while the new meter is
     /// still acquiring GPS.
@@ -54,6 +60,11 @@ final class RunLocationMonitor: NSObject, CLLocationManagerDelegate {
     @ObservationIgnored private var meter: LivePaceMeter?
     @ObservationIgnored private var startDate: Date?
     @ObservationIgnored private var lastLocation: CLLocation?
+    /// The accepted fixes for this run, kept so the finished workout can be
+    /// saved to Health with its GPS route (#348). Only trustworthy fixes
+    /// land here (the same accuracy + no-teleport gate distance uses), so
+    /// the saved route is the same track the distance was measured from.
+    @ObservationIgnored private var routeFixes: [CLLocation] = []
     @ObservationIgnored private var running = false
     /// Bumped by every start/stop so a late authorization callback can't
     /// arm updates against a superseded run (the HeartRateMonitor guard).
@@ -82,6 +93,7 @@ final class RunLocationMonitor: NSObject, CLLocationManagerDelegate {
         self.startDate = startDate
         self.meter = LivePaceMeter(unit: unit)
         self.lastLocation = nil
+        self.routeFixes = []
 
         switch manager.authorizationStatus {
         case .notDetermined:
@@ -122,6 +134,13 @@ final class RunLocationMonitor: NSObject, CLLocationManagerDelegate {
         averagePaceSeconds = nil
         totalMeters = nil
         latestAt = nil
+        // Drop the route too, so switching off an outdoor exercise doesn't
+        // leave a stale track that would classify a later strength finish
+        // as an outdoor run (the finish path reads `route` BEFORE calling
+        // stop(), so a genuine outdoor finish still keeps its fixes). Like
+        // distance, the saved route therefore covers the LAST contiguous
+        // outdoor segment, not a whole run-then-strength-then-run session.
+        routeFixes = []
     }
 
     // MARK: - CLLocationManagerDelegate
@@ -162,6 +181,14 @@ final class RunLocationMonitor: NSObject, CLLocationManagerDelegate {
             // The first fix after a start/pause seeds position without
             // counting the gap to it as distance.
             lastLocation = location
+            // Bank the accepted fix for the saved route. A mid-run teleport
+            // hits the `continue` above, but the seed fix after a start or a
+            // resume has no prior point to test against, so a run that was
+            // paused and then resumed somewhere else can leave one straight
+            // segment across the gap in the saved map. That's cosmetic only
+            // (a single HKWorkoutRoute is one polyline and can't encode a
+            // gap); the pause boundary already keeps the gap out of distance.
+            routeFixes.append(location)
         }
         guard generation == expected, let meter else { return }
         let pace = meter.currentPaceSeconds
