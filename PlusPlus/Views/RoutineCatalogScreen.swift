@@ -311,11 +311,13 @@ struct RoutineCatalogScreen: View {
                     .font(.system(.caption, weight: .semibold))
                 Text("New blank routine")
                     .font(.system(.footnote, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
             }
             .foregroundStyle(Theme.accent)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 12)
-            .frame(height: 48)
+            .frame(minHeight: 48)
             .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.controlRadius)
@@ -506,8 +508,10 @@ struct RoutineTemplateDetailScreen: View {
                 Text(added ? "Added" : "Add to routines")
                     .font(.system(.body, weight: .bold))
                     .foregroundStyle(added ? Theme.textFaint : Theme.onPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 52)
+                    .frame(minHeight: 52)
                     .background(added ? Theme.surface : Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
                     .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(added ? Theme.borderStrong : Color.clear))
             }

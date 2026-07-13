@@ -34,6 +34,7 @@ struct ExercisesTabView: View {
                 CatalogTabHeader(
                     title: "Exercises",
                     addIdentifier: "addExercisesButton",
+                    addLabel: "Add exercise",
                     onAdd: { showingCatalog = true }
                 )
 
@@ -86,7 +87,13 @@ struct ExercisesTabView: View {
                 id: exercise.persistentModelID,
                 openRow: $openSwipeRow,
                 actionsWidth: 58,
-                onTap: { path.append(exercise) }
+                onTap: { path.append(exercise) },
+                accessibilityActions: [
+                    SwipeRowAction(name: exercise.isBuiltIn ? "Remove" : "Delete") {
+                        openSwipeRow = nil
+                        remove(exercise)
+                    }
+                ]
             ) {
                 HStack(spacing: 10) {
                     VStack(alignment: .leading, spacing: 1) {
@@ -110,6 +117,7 @@ struct ExercisesTabView: View {
                     Image(systemName: "chevron.right")
                         .font(.system(.caption, weight: .bold))
                         .foregroundStyle(Theme.textFaint)
+                        .accessibilityHidden(true)
                 }
                 .padding(.vertical, 10)
                 .contentShape(Rectangle())
@@ -182,6 +190,7 @@ struct EquipmentTabView: View {
                 CatalogTabHeader(
                     title: "Equipment",
                     addIdentifier: "addEquipmentButton",
+                    addLabel: "Add equipment",
                     onAdd: { showingCatalog = true }
                 ) {
                     LibrarySwitcherKey(name: activeLibrary?.name ?? EquipmentLibrary.defaultName) {
@@ -226,7 +235,13 @@ struct EquipmentTabView: View {
                 id: equipment.persistentModelID,
                 openRow: $openSwipeRow,
                 actionsWidth: 58,
-                onTap: { path.append(equipment) }
+                onTap: { path.append(equipment) },
+                accessibilityActions: [
+                    SwipeRowAction(name: equipment.isBuiltIn ? "Remove" : "Delete") {
+                        openSwipeRow = nil
+                        remove(equipment)
+                    }
+                ]
             ) {
                 HStack {
                     VStack(alignment: .leading, spacing: 1) {
@@ -241,6 +256,7 @@ struct EquipmentTabView: View {
                     Image(systemName: "chevron.right")
                         .font(.system(.caption, weight: .bold))
                         .foregroundStyle(Theme.textFaint)
+                        .accessibilityHidden(true)
                 }
                 .padding(.vertical, 10)
                 .contentShape(Rectangle())
@@ -302,10 +318,12 @@ struct LibraryEmptyState: View {
                         .font(.system(.caption, weight: .semibold))
                     Text("Browse the catalog")
                         .font(.system(.footnote, weight: .semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                 }
                 .foregroundStyle(Theme.accent)
                 .padding(.horizontal, 16)
-                .frame(height: 48)
+                .frame(minHeight: 48)
                 .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                 .overlay(
                     RoundedRectangle(cornerRadius: Theme.controlRadius)
@@ -326,6 +344,8 @@ struct CatalogTabHeader<Accessory: View>: View {
     let title: String
     // The tab's create action; optional so title-only headers work.
     var addIdentifier: String?
+    /// Spoken VoiceOver name for the add key; falls back to "Add <title>".
+    var addLabel: String? = nil
     var onAdd: (() -> Void)?
     @ViewBuilder var accessory: () -> Accessory
 
@@ -338,7 +358,7 @@ struct CatalogTabHeader<Accessory: View>: View {
                 Spacer(minLength: 0)
                 accessory()
                 if let onAdd {
-                    HeaderIconButton(systemImage: "plus", identifier: addIdentifier) {
+                    HeaderIconButton(systemImage: "plus", accessibilityLabel: addLabel ?? "Add \(title)", identifier: addIdentifier) {
                         onAdd()
                     }
                 }
@@ -354,8 +374,8 @@ struct CatalogTabHeader<Accessory: View>: View {
 }
 
 extension CatalogTabHeader where Accessory == EmptyView {
-    init(title: String, addIdentifier: String? = nil, onAdd: (() -> Void)? = nil) {
-        self.init(title: title, addIdentifier: addIdentifier, onAdd: onAdd, accessory: { EmptyView() })
+    init(title: String, addIdentifier: String? = nil, addLabel: String? = nil, onAdd: (() -> Void)? = nil) {
+        self.init(title: title, addIdentifier: addIdentifier, addLabel: addLabel, onAdd: onAdd, accessory: { EmptyView() })
     }
 }
 
@@ -512,6 +532,8 @@ struct CatalogBrowseScreen: View {
                     Image(systemName: "plus")
                         .font(.system(.caption, weight: .semibold))
                     Text(createLabel).font(.system(.footnote, weight: .semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                 }
                 // Creation is green (#202) — a future increment, same
                 // voice as the catalog dead-end create rows; the key
@@ -520,7 +542,7 @@ struct CatalogBrowseScreen: View {
                 .foregroundStyle(Theme.accent)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 12)
-                .frame(height: 48)
+                .frame(minHeight: 48)
                 .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                 .overlay(
                     RoundedRectangle(cornerRadius: Theme.controlRadius)
@@ -614,8 +636,10 @@ struct CatalogBrowseScreen: View {
                     Text(availableNames.isEmpty ? "Done · bodyweight only" : "Done · \(availableNames.count) item\(availableNames.count == 1 ? "" : "s")")
                         .font(.system(.subheadline, weight: .bold))
                         .foregroundStyle(Theme.onPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 52)
+                        .frame(minHeight: 52)
                         .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.raisedPrimaryKey(cornerRadius: 12))

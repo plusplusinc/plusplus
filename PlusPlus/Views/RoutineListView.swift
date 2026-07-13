@@ -25,7 +25,13 @@ struct RoutineListView: View {
                         id: routine.persistentModelID,
                         openRow: $openSwipeRow,
                         actionsWidth: 58,
-                        onTap: { path.append(routine) }
+                        onTap: { path.append(routine) },
+                        accessibilityActions: [
+                            SwipeRowAction(name: "Delete") {
+                                openSwipeRow = nil
+                                deleteRoutine(routine)
+                            }
+                        ]
                     ) {
                         RoutineCard(routine: routine)
                     } actions: {
@@ -88,7 +94,7 @@ struct RoutineListView: View {
             HStack {
                 AppMenuKey()
                 Spacer()
-                HeaderIconButton(systemImage: "plus", identifier: "newRoutineButton") {
+                HeaderIconButton(systemImage: "plus", accessibilityLabel: "New routine", identifier: "newRoutineButton") {
                     // Root-only affordance, so emptiness doubles as the
                     // double-tap guard (the addTemplateButton class): a
                     // second tap during the push must not stack a
@@ -131,6 +137,9 @@ struct RoutineListView: View {
 /// creation rows).
 struct HeaderIconButton: View {
     let systemImage: String
+    /// Spoken VoiceOver name for the action (required — the glyph alone reads
+    /// as its raw SF Symbol name, e.g. "slider horizontal 3").
+    let accessibilityLabel: String
     var identifier: String?
     let action: () -> Void
 
@@ -144,6 +153,7 @@ struct HeaderIconButton: View {
                 .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
         }
         .buttonStyle(.raisedKey())
+        .accessibilityLabel(accessibilityLabel)
         .accessibilityIdentifier(identifier ?? systemImage)
     }
 }

@@ -74,6 +74,11 @@ targets:
         # App is registered (see GITHUB_APP_CLIENT_ID above).
         GitHubAppClientID: $(GITHUB_APP_CLIENT_ID)
         UILaunchScreen: {}
+        # Declare support for Assistive Access (iOS 17+): the app stays
+        # available in that cognitive-accessibility mode rather than being
+        # hidden. The core loop (open Today, start a workout, log) fits the
+        # simplified environment (a11y audit 2026-07-13, #164).
+        UISupportsAssistiveAccess: true
         # No non-exempt encryption: skips the compliance question on every
         # TestFlight upload (#55).
         ITSAppUsesNonExemptEncryption: false

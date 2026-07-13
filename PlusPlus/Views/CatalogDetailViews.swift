@@ -54,6 +54,8 @@ private struct CreateRow: View {
                     .font(.system(.caption, weight: .semibold))
                 Text(label)
                     .font(.system(.footnote, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
             }
             // Green content on a raised key (Quiet Arcade): creation
             // stays in the data-green voice, the key anatomy carries
@@ -61,7 +63,7 @@ private struct CreateRow: View {
             .foregroundStyle(Theme.accent)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 12)
-            .frame(height: 48)
+            .frame(minHeight: 48)
             .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.controlRadius)
@@ -242,11 +244,11 @@ struct ExerciseDetailScreen: View {
         // built-in outside the library leaves nothing for the menu, so
         // it hides instead of rendering empty (#265).
         .pushedScreenChrome(title: exercise.name, onBack: { dismiss() }) {
-            HeaderIconButton(systemImage: "pencil", identifier: "editExerciseButton") {
+            HeaderIconButton(systemImage: "pencil", accessibilityLabel: "Edit exercise", identifier: "editExerciseButton") {
                 showingEditor = true
             }
             if !exercise.isBuiltIn || exercise.inLibrary {
-                HeaderMenuKey(systemImage: "ellipsis", identifier: "exerciseDetailMenu") {
+                HeaderMenuKey(systemImage: "ellipsis", accessibilityLabel: "Exercise options", identifier: "exerciseDetailMenu") {
                     if exercise.isBuiltIn {
                         Button("Remove from my exercises", role: .destructive) {
                             exercise.inLibrary = false
@@ -497,7 +499,7 @@ struct EquipmentDetailScreen: View {
         .scrollDismissesKeyboard(.immediately)
         .pushedScreenChrome(title: equipment.name, onBack: { dismiss() }) {
             if !equipment.isBuiltIn {
-                HeaderIconButton(systemImage: "pencil", identifier: "renameEquipmentButton") {
+                HeaderIconButton(systemImage: "pencil", accessibilityLabel: "Rename equipment", identifier: "renameEquipmentButton") {
                     renameText = equipment.name
                     showingRename = true
                 }
@@ -505,7 +507,7 @@ struct EquipmentDetailScreen: View {
             // "Remove" is membership in the active library; "Delete" is
             // the custom's full removal (#265 — destructive in the menu).
             if inActiveLibrary || !equipment.isBuiltIn {
-                HeaderMenuKey(systemImage: "ellipsis", identifier: "equipmentDetailMenu") {
+                HeaderMenuKey(systemImage: "ellipsis", accessibilityLabel: "Equipment options", identifier: "equipmentDetailMenu") {
                     if inActiveLibrary {
                         Button("Remove from my equipment", role: .destructive) {
                             activeLibrary?.setMembership(equipment, false)
@@ -567,8 +569,10 @@ struct EquipmentDetailScreen: View {
             Text(WorkoutMetric.weight.formatted(choice))
                 .font(.system(.footnote, design: .monospaced, weight: .semibold))
                 .foregroundStyle(active ? Theme.accent : Theme.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
                 .frame(maxWidth: .infinity)
-                .frame(height: 38)
+                .frame(minHeight: 44)
                 .contentShape(Rectangle())
                 .background(active ? Theme.accent.opacity(0.16) : Theme.surface, in: RoundedRectangle(cornerRadius: 9))
                 .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(active ? Theme.accent.opacity(0.55) : Theme.border))

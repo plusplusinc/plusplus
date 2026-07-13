@@ -20,6 +20,7 @@ struct SearchField: View {
             Image(systemName: "magnifyingglass")
                 .font(.system(.footnote))
                 .foregroundStyle(Theme.textFaint)
+                .accessibilityHidden(true)
             TextField(prompt, text: $text)
                 .font(.system(.subheadline))
                 .autocorrectionDisabled()
@@ -32,6 +33,7 @@ struct SearchField: View {
                         .font(.system(.footnote))
                         .foregroundStyle(Theme.textFaint)
                 }
+                .accessibilityLabel("Clear text")
             }
         }
         .padding(.horizontal, 10)

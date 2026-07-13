@@ -77,6 +77,10 @@ struct SheetHeader: View {
                         .padding(6)
                         .contentShape(Circle())
                 }
+                .accessibilityLabel("Close")
+                // Escape dismisses the sheet for external-keyboard users (WCAG
+                // 2.1.1); a no-op without a hardware keyboard.
+                .keyboardShortcut(.cancelAction)
                 .accessibilityIdentifier(actionIdentifier ?? "")
             } else {
                 if let onCancel {
@@ -84,18 +88,23 @@ struct SheetHeader: View {
                         .font(.system(.subheadline))
                         .foregroundStyle(Theme.textSecondary)
                         .frame(minHeight: 44)
+                        .keyboardShortcut(.cancelAction)
                 }
                 if let actionLabel {
                     Button(action: action) {
                         Text(actionLabel)
                             .font(.system(.subheadline, weight: .bold))
                             .foregroundStyle(actionEnabled ? Theme.onPrimary : Theme.textFaint)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
                             .padding(.horizontal, 16)
-                            .frame(height: 36)
+                            .frame(minHeight: 36)
                             .background(actionEnabled ? Theme.primaryFill : Theme.surface, in: Capsule())
                             .overlay(Capsule().strokeBorder(actionEnabled ? Color.clear : Theme.borderStrong, lineWidth: 1))
                     }
                     .disabled(!actionEnabled)
+                    // Return commits the sheet's primary action.
+                    .keyboardShortcut(.defaultAction)
                     .accessibilityIdentifier(actionIdentifier ?? "")
                 }
             }
@@ -189,6 +198,9 @@ struct MetricStepperRow: View {
                     .animation(Theme.Anim.standard, value: value)
             }
             .disabled(onTapValue == nil)
+            .accessibilityLabel(label)
+            .accessibilityValue(value)
+            .accessibilityHint(onTapValue == nil ? "" : "Opens a picker")
             .accessibilityIdentifier("\(identifier)Value")
 
             // 44-wide targets with the hit carried to 44 pt tall by the
@@ -201,6 +213,7 @@ struct MetricStepperRow: View {
                         .frame(width: 44, height: 36)
                         .contentShape(Rectangle().inset(by: -4))
                 }
+                .accessibilityLabel("Decrease \(label)")
                 .accessibilityIdentifier("\(identifier)Decrement")
                 Divider().frame(height: 36).overlay(Theme.border)
                 Button(action: onIncrement) {
@@ -210,6 +223,7 @@ struct MetricStepperRow: View {
                         .frame(width: 44, height: 36)
                         .contentShape(Rectangle().inset(by: -4))
                 }
+                .accessibilityLabel("Increase \(label)")
                 .accessibilityIdentifier("\(identifier)Increment")
             }
             .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.border))

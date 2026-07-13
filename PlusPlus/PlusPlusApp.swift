@@ -124,9 +124,25 @@ struct PlusPlusApp: App {
             } else {
                 RootTabView()
                     .preferredColorScheme((AppAppearance(rawValue: appearanceRaw) ?? .system).colorScheme)
-                    // Dynamic Type everywhere (#82), capped where the dense
-                    // layouts stop coping — full a11y sizes are future work.
-                    .dynamicTypeSize(...DynamicTypeSize.xxLarge)
+                    // Dynamic Type everywhere (#82). The old xxLarge cap is
+                    // lifted: the full range through AX5 is now reachable
+                    // (a11y audit 2026-07-13, #164). The densest fixed-height
+                    // controls were hardened for it in the same pass — the
+                    // scale net below plus `minHeight`/`@ScaledMetric` on the
+                    // capsules, sheets, and rows the swiftui-layout-auditor
+                    // flagged — so text scales/grows to fit rather than
+                    // clipping. The exact packing of the busiest rows at the
+                    // AX4/AX5 extremes still wants an on-device glance.
+                    .dynamicTypeSize(...DynamicTypeSize.accessibility5)
+                    // Safety net for the fixed-height capsules/pills/chips the
+                    // design grammar uses: `minimumScaleFactor` propagates
+                    // through the environment to every descendant Text, so a
+                    // label that would overflow its frame at a large
+                    // accessibility size scales down to fit instead of
+                    // clipping. Only engages when space is actually tight (a
+                    // no-op at default sizes), and per-control overrides still
+                    // win. 0.5 floor so a 2× control still fits at AX5.
+                    .minimumScaleFactor(0.5)
             }
         }
         .modelContainer(modelContainer)

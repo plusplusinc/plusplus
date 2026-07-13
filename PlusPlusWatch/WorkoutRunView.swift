@@ -96,6 +96,8 @@ struct WorkoutRunView: View {
             if let heart = heartLine(for: step) {
                 heart
                     .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                    .accessibilityLabel("Heart rate")
+                    .accessibilityValue(health.latestBPM.map { "\($0) beats per minute" } ?? "")
             }
 
             // Live GPS pace on an outdoor run, accent while meeting the
@@ -103,6 +105,8 @@ struct WorkoutRunView: View {
             if let pace = paceLine(for: step) {
                 pace
                     .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                    .accessibilityLabel("Pace")
+                    .accessibilityValue(health.livePaceSeconds.map { "\(WorkoutMetric.pace.formatted($0)) \(runUnit.paceLabel)" } ?? "")
             }
 
             // The wrist's one big commit, in the phone's grammar: a
@@ -115,7 +119,7 @@ struct WorkoutRunView: View {
                     .font(.headline)
                     .foregroundStyle(WatchTheme.onPrimary)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 40)
+                    .frame(minHeight: 44)
                     .background(WatchTheme.primaryFill, in: RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(WatchRaisedKeyStyle())
@@ -133,6 +137,8 @@ struct WorkoutRunView: View {
                 Text(results.isEmpty ? "Leave" : "End early")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }

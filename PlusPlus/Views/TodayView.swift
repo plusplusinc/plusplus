@@ -21,6 +21,9 @@ struct TodayView: View {
     var onGoToRoutines: () -> Void = {}
 
     @Environment(\.modelContext) private var modelContext
+    /// Pending (today's) card sits on a translucent surface; under Reduce
+    /// Transparency it goes opaque so its caption text keeps contrast.
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
     @Query(sort: [SortDescriptor(\Routine.order), SortDescriptor(\Routine.createdAt, order: .reverse)])
     private var routines: [Routine]
@@ -316,11 +319,18 @@ struct TodayView: View {
                 })
             }
             .fullScreenCover(item: $activeSession, onDismiss: resolveOrphanedSessions) { session in
-                ActiveSessionView(session: session)
-                    .navigationTransition(.zoom(
-                        sourceID: session.routine?.persistentModelID ?? session.persistentModelID,
-                        in: zoomNamespace
-                    ))
+                // The card→session zoom is deliberate large-scale motion, so
+                // Reduce Motion gets the plain cross-fade cover instead
+                // (WCAG 2.3.3).
+                if Theme.Anim.reduceMotion {
+                    ActiveSessionView(session: session)
+                } else {
+                    ActiveSessionView(session: session)
+                        .navigationTransition(.zoom(
+                            sourceID: session.routine?.persistentModelID ?? session.persistentModelID,
+                            in: zoomNamespace
+                        ))
+                }
             }
             .navigationDestination(isPresented: $showingEquipmentSetup) {
                 CatalogBrowseScreen(kind: .equipment, setupMode: true, offersPopulateOnDone: true)
@@ -431,7 +441,7 @@ struct TodayView: View {
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(0.35))
             guard justCompletedID == id else { return }
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+            withAnimation(Theme.Anim.flourish(.spring(response: 0.4, dampingFraction: 0.7))) {
                 completionConverted = true
             }
             try? await Task.sleep(for: .seconds(0.8))
@@ -878,7 +888,7 @@ struct TodayView: View {
                 // away, via the existing start tray. Neutral like every
                 // header key (Quiet Arcade tightened green's scope to
                 // true data; the flourish moved into Start's flash).
-                HeaderIconButton(systemImage: "play.fill", identifier: "startTrayButton") {
+                HeaderIconButton(systemImage: "play.fill", accessibilityLabel: "Start a workout", identifier: "startTrayButton") {
                     showingSwapIn = true
                 }
             }
@@ -1017,7 +1027,7 @@ struct TodayView: View {
             .padding(.top, 12)
         }
         .padding(12)
-        .background(Theme.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+        .background(Theme.surface.opacity(reduceTransparency ? 1 : 0.55), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
         // Today's card is the one to DO now: a solid green border marks
         // it (Dave, build-48), the same actionable-green the node ring
         // already speaks. Dashes moved to the FUTURE cards (see
@@ -1246,10 +1256,12 @@ struct TodayView: View {
                                 .font(.system(.caption, weight: .semibold))
                             Text("New routine")
                                 .font(.system(.footnote, weight: .semibold))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
                         }
                         .foregroundStyle(Theme.accent)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 46)
+                        .frame(minHeight: 46)
                         .background(Theme.background, in: RoundedRectangle(cornerRadius: 10))
                         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.borderStrong))
                     }
@@ -1277,10 +1289,12 @@ struct TodayView: View {
                             // workout") since #266 retitled it.
                             Text("Start a workout")
                                 .font(.system(.footnote, weight: .semibold))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
                         }
                         .foregroundStyle(Theme.textPrimary)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 46)
+                        .frame(minHeight: 46)
                         .background(Theme.background, in: RoundedRectangle(cornerRadius: 10))
                         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.borderStrong))
                     }
@@ -1330,10 +1344,12 @@ struct TodayView: View {
                         .font(.system(.caption, weight: .semibold))
                     Text("Add exercises")
                         .font(.system(.footnote, weight: .semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                 }
                 .foregroundStyle(Theme.accent)
                 .frame(maxWidth: .infinity)
-                .frame(height: 44)
+                .frame(minHeight: 44)
                 .background(Theme.background, in: RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.borderStrong))
             }
@@ -1513,6 +1529,13 @@ private struct SetupRow: View {
     let action: () -> Void
     let edit: () -> Void
 
+    /// Pending/gated setup cards render on a translucent surface so they read
+    /// as not-yet-real. Under Reduce Transparency they go fully opaque so the
+    /// (already faint) caption text keeps its contrast.
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    private var cardFill: Color { Theme.surface.opacity(reduceTransparency ? 1 : 0.55) }
+    private var gatedDim: Double { reduceTransparency ? 1 : 0.55 }
+
     var body: some View {
         TimelineItem(node: node) {
             card
@@ -1577,8 +1600,10 @@ private struct SetupRow: View {
                     Text(cta)
                         .font(.system(.subheadline, weight: .bold))
                         .foregroundStyle(Theme.onPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 44)
+                        .frame(minHeight: 44)
                         .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 11))
                 }
                 .buttonStyle(.raisedPrimaryKey())
@@ -1586,7 +1611,7 @@ private struct SetupRow: View {
                 .padding(.top, 10)
             }
             .padding(12)
-            .background(Theme.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+            .background(cardFill, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.cardRadius)
                     .strokeBorder(Theme.borderStrong, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
@@ -1609,12 +1634,12 @@ private struct SetupRow: View {
                     .padding(.top, 5)
             }
             .padding(12)
-            .background(Theme.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+            .background(cardFill, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.cardRadius)
                     .strokeBorder(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
             )
-            .opacity(0.55)
+            .opacity(gatedDim)
         }
     }
 }
@@ -1642,11 +1667,14 @@ private struct SwapInSheet: View {
 
     /// The menu is two keys tall — a compact detent; the picker grows
     /// to .medium (user-expandable to .large). The detent rides the
-    /// stage so the sheet resizes with the slide.
-    private static let menuDetent = PresentationDetent.height(280)
+    /// stage so the sheet resizes with the slide. The compact height
+    /// scales with Dynamic Type so the two keys don't clip at large
+    /// accessibility sizes (a11y audit 2026-07-13).
+    @ScaledMetric(relativeTo: .body) private var menuDetentHeight: CGFloat = 280
+    private var menuDetent: PresentationDetent { .height(menuDetentHeight) }
 
     @State private var stage: Stage = .menu
-    @State private var detent = SwapInSheet.menuDetent
+    @State private var detent: PresentationDetent = .height(280)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -1676,13 +1704,14 @@ private struct SwapInSheet: View {
         }
         .padding(.horizontal, 18)
         .presentationBackground(Theme.background)
-        .presentationDetents([Self.menuDetent, .medium, .large], selection: $detent)
+        .presentationDetents([menuDetent, .medium, .large], selection: $detent)
+        .onAppear { if stage == .menu { detent = menuDetent } }
     }
 
     private func go(to newStage: Stage) {
         withAnimation(Theme.Anim.standard) {
             stage = newStage
-            detent = newStage == .menu ? Self.menuDetent : .medium
+            detent = newStage == .menu ? menuDetent : .medium
         }
     }
 
@@ -1747,9 +1776,11 @@ private struct SwapInSheet: View {
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Choose a routine")
                             .font(.system(.footnote, weight: .semibold))
+                            .lineLimit(1).minimumScaleFactor(0.6)
                         Text(routineCountCaption)
                             .font(.system(.caption2, design: .monospaced))
                             .foregroundStyle(Theme.textFaint)
+                            .lineLimit(1).minimumScaleFactor(0.6)
                     }
                     Spacer(minLength: 8)
                     Image(systemName: "chevron.right")
@@ -1759,7 +1790,7 @@ private struct SwapInSheet: View {
                 .foregroundStyle(Theme.textPrimary)
                 .padding(.horizontal, 14)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: 56)
+                .frame(minHeight: 56)
                 .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
                 .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
             }
@@ -1778,11 +1809,12 @@ private struct SwapInSheet: View {
                         .font(.system(.caption, weight: .semibold))
                     Text("build as you go")
                         .font(.system(.caption, design: .monospaced))
+                        .lineLimit(1).minimumScaleFactor(0.6)
                 }
                 .foregroundStyle(Theme.textSecondary)
                 .padding(.horizontal, 14)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: 46)
+                .frame(minHeight: 46)
                 .background(Theme.background, in: RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.border))
             }
@@ -1861,11 +1893,13 @@ private struct SwapInSheet: View {
                             .font(.system(.caption, weight: .semibold))
                         Text("New routine")
                             .font(.system(.footnote, weight: .semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
                     }
                     .foregroundStyle(Theme.accent)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 14)
-                    .frame(height: 48)
+                    .frame(minHeight: 48)
                     .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                     .overlay(
                         RoundedRectangle(cornerRadius: Theme.controlRadius)

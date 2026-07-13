@@ -42,6 +42,9 @@ struct MetricRow: View {
                 }
             }
             .buttonStyle(.borderless)
+            .accessibilityLabel(metric.label)
+            .accessibilityValue(metric.formatted(value))
+            .accessibilityHint("Opens a picker")
 
             Stepper(metric.label) {
                 value = metric.incremented(value, weightUnit: weightUnit)

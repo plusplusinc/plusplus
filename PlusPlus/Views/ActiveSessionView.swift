@@ -329,14 +329,20 @@ struct ActiveSessionView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "xmark").font(.system(.caption, weight: .semibold))
+                            .accessibilityHidden(true)
                         Text("End").font(.system(.footnote, weight: .semibold))
+                            .lineLimit(1).minimumScaleFactor(0.6)
                     }
                     .foregroundStyle(Theme.textPrimary)
                     .padding(.horizontal, 12)
-                    .frame(height: 34)
+                    .frame(minHeight: 34)
                     .background(Theme.surface, in: Capsule())
                     .overlay(Capsule().strokeBorder(Theme.border))
+                    // 34 pt visual carried to a 44 pt hit target (#130 floor).
+                    .padding(.vertical, 5)
+                    .contentShape(Rectangle())
                 }
+                .accessibilityLabel("End workout")
                 .accessibilityIdentifier("exitSessionButton")
 
                 // Live heart rate, when Health has a fresh reading —
@@ -368,14 +374,19 @@ struct ActiveSessionView: View {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "pause.fill").font(.system(.caption, weight: .semibold))
+                                .accessibilityHidden(true)
                             Text("Pause").font(.system(.footnote, weight: .semibold))
+                                .lineLimit(1).minimumScaleFactor(0.6)
                         }
                         .foregroundStyle(Theme.textPrimary)
                         .padding(.horizontal, 12)
-                        .frame(height: 34)
+                        .frame(minHeight: 34)
                         .background(Theme.surface, in: Capsule())
                         .overlay(Capsule().strokeBorder(Theme.border))
+                        .padding(.vertical, 5)
+                        .contentShape(Rectangle())
                     }
+                    .accessibilityLabel("Pause workout")
                     .accessibilityIdentifier("pauseWorkoutButton")
                 }
             }
@@ -394,16 +405,22 @@ struct ActiveSessionView: View {
                             : "set \(min(completedSets + 1, max(totalSets, 1)))/\(totalSets) · \(clockText(at: context.date))")
                             .font(.system(.caption, design: .monospaced))
                             .foregroundStyle(Theme.textPrimary)
+                            .lineLimit(1).minimumScaleFactor(0.6)
                     }
                     Image(systemName: "chevron.down")
                         .font(.system(.caption2, weight: .semibold))
                         .foregroundStyle(Theme.textSecondary)
+                        .accessibilityHidden(true)
                 }
                 .padding(.horizontal, 12)
-                .frame(height: 34)
+                .frame(minHeight: 34)
                 .background(Theme.surface, in: Capsule())
                 .overlay(Capsule().strokeBorder(Theme.border))
+                .padding(.vertical, 5)
+                .contentShape(Rectangle())
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityHint("Opens the set overview")
             .accessibilityIdentifier("sessionOverviewButton")
         }
         .padding(.horizontal, 14)
@@ -442,39 +459,51 @@ struct ActiveSessionView: View {
     /// single Resume key. The screen replaces the logging/rest flow so
     /// no set can be logged while paused.
     private var pausedView: some View {
-        VStack(spacing: 16) {
-            Spacer()
-            Image(systemName: "pause.circle.fill")
-                .font(.system(size: 56))
-                .foregroundStyle(Theme.textSecondary)
-            Text("Paused")
-                .font(.system(.title2, weight: .bold))
-            // Frozen while paused — elapsed doesn't advance, so no clock.
-            Text(elapsedText(at: Date()))
-                .font(.system(size: 40, weight: .bold, design: .monospaced))
-                .foregroundStyle(Theme.textPrimary)
-            Text("your workout timer is on hold")
-                .font(.system(.footnote))
-                .foregroundStyle(Theme.textFaint)
-            Spacer()
-            Button {
-                session.startClock()
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "play.fill").font(.system(.footnote, weight: .bold))
-                    Text("Resume workout").font(.system(.body, weight: .bold))
+        // Scrollable so the Resume CTA can't be pushed off-screen at large
+        // accessibility text sizes (it's the only exit from the paused state);
+        // the minHeight keeps it centered when the content fits (a11y audit).
+        GeometryReader { proxy in
+            ScrollView {
+                VStack(spacing: 16) {
+                    Spacer()
+                    Image(systemName: "pause.circle.fill")
+                        .font(.system(size: 56))
+                        .foregroundStyle(Theme.textSecondary)
+                    Text("Paused")
+                        .font(.system(.title2, weight: .bold))
+                    // Frozen while paused — elapsed doesn't advance, so no clock.
+                    Text(elapsedText(at: Date()))
+                        .font(.system(size: 40, weight: .bold, design: .monospaced))
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                    Text("your workout timer is on hold")
+                        .font(.system(.footnote))
+                        .foregroundStyle(Theme.textFaint)
+                        .multilineTextAlignment(.center)
+                    Spacer()
+                    Button {
+                        session.startClock()
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "play.fill").font(.system(.footnote, weight: .bold))
+                            Text("Resume workout").font(.system(.body, weight: .bold))
+                                .lineLimit(1).minimumScaleFactor(0.6)
+                        }
+                        .foregroundStyle(Theme.onPrimary)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 50)
+                        .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.raisedPrimaryKey(cornerRadius: 12))
+                    .accessibilityIdentifier("resumeWorkoutButton")
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
                 }
-                .foregroundStyle(Theme.onPrimary)
                 .frame(maxWidth: .infinity)
-                .frame(height: 50)
-                .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
+                .frame(minHeight: proxy.size.height)
             }
-            .buttonStyle(.raisedPrimaryKey(cornerRadius: 12))
-            .accessibilityIdentifier("resumeWorkoutButton")
-            .padding(.horizontal, 20)
-            .padding(.bottom, 20)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     /// Block-style set progress (Quiet Arcade, mock 08): one block per
@@ -640,11 +669,13 @@ struct ActiveSessionView: View {
                         .font(.system(.caption, weight: .semibold))
                     Text("Add exercise")
                         .font(.system(.footnote, weight: .semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                 }
                 // Creation is green (#202).
                 .foregroundStyle(Theme.accent)
                 .padding(.horizontal, 22)
-                .frame(height: 48)
+                .frame(minHeight: 48)
                 .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                 .overlay(
                     RoundedRectangle(cornerRadius: Theme.controlRadius)
@@ -754,11 +785,13 @@ struct ActiveSessionView: View {
                                     .font(.system(.caption, weight: .semibold))
                                 Text("Save as routine")
                                     .font(.system(.footnote, weight: .semibold))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.6)
                             }
                             // Creation is green (#202).
                             .foregroundStyle(Theme.accent)
                             .padding(.horizontal, 18)
-                            .frame(height: 44)
+                            .frame(minHeight: 44)
                             .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                             .overlay(
                                 RoundedRectangle(cornerRadius: Theme.controlRadius)
@@ -1509,11 +1542,15 @@ private struct SetLoggingView: View {
                     Text("Log set")
                         .font(.system(.body, weight: .bold))
                         .foregroundStyle(Theme.onPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 54)
+                        .frame(minHeight: 54)
                         .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.raisedPrimaryKey(cornerRadius: 12))
+                // Return logs the set for external-keyboard users (WCAG 2.1.1).
+                .keyboardShortcut(.defaultAction)
                 .accessibilityIdentifier("completeSetButton")
 
                 PlusOneBurst(trigger: burstCount)
@@ -1603,20 +1640,21 @@ private struct LiveHeartRateLabel: View {
                     + Text("\(bpm)")
                     .foregroundStyle(inTarget ? Theme.accent : Theme.textPrimary))
                     .font(.system(.caption, design: .monospaced, weight: .semibold))
+                let described = label
+                    .lineLimit(1)
+                    .contentTransition(.numericText())
+                    .animation(Theme.Anim.standard, value: bpm)
+                    .accessibilityLabel("Heart rate")
+                    .accessibilityValue("\(bpm) beats per minute" + (inTarget ? ", in target" : ""))
+                    .accessibilityIdentifier("liveHeartRate")
                 if chrome {
-                    label
-                        .contentTransition(.numericText())
-                        .animation(Theme.Anim.standard, value: bpm)
+                    described
                         .padding(.horizontal, 10)
-                        .frame(height: 34)
+                        .frame(minHeight: 34)
                         .background(Theme.surface, in: Capsule())
                         .overlay(Capsule().strokeBorder(Theme.border))
-                        .accessibilityIdentifier("liveHeartRate")
                 } else {
-                    label
-                        .contentTransition(.numericText())
-                        .animation(Theme.Anim.standard, value: bpm)
-                        .accessibilityIdentifier("liveHeartRate")
+                    described
                 }
             }
         }
@@ -1645,20 +1683,21 @@ private struct LivePaceLabel: View {
                     + Text(" \(unit.paceLabel)")
                     .foregroundStyle(Theme.textSecondary))
                     .font(.system(.caption, design: .monospaced, weight: .semibold))
+                let described = label
+                    .lineLimit(1)
+                    .contentTransition(.numericText())
+                    .animation(Theme.Anim.standard, value: pace)
+                    .accessibilityLabel("Pace")
+                    .accessibilityValue("\(WorkoutMetric.pace.formatted(pace)) \(unit.paceLabel)" + (meeting ? ", meeting target" : ""))
+                    .accessibilityIdentifier("livePace")
                 if chrome {
-                    label
-                        .contentTransition(.numericText())
-                        .animation(Theme.Anim.standard, value: pace)
+                    described
                         .padding(.horizontal, 10)
-                        .frame(height: 34)
+                        .frame(minHeight: 34)
                         .background(Theme.surface, in: Capsule())
                         .overlay(Capsule().strokeBorder(Theme.border))
-                        .accessibilityIdentifier("livePace")
                 } else {
-                    label
-                        .contentTransition(.numericText())
-                        .animation(Theme.Anim.standard, value: pace)
-                        .accessibilityIdentifier("livePace")
+                    described
                 }
             }
         }
@@ -1682,6 +1721,8 @@ private struct LiveDistanceLabel: View {
                     .foregroundStyle(reached ? Theme.accent : Theme.textPrimary)
                     .contentTransition(.numericText())
                     .animation(Theme.Anim.standard, value: value)
+                    .accessibilityLabel("Distance")
+                    .accessibilityValue(WorkoutMetric.distance.displayText(value, distanceUnit: unit) + (reached ? ", target reached" : ""))
                     .accessibilityIdentifier("liveDistance")
             }
         }
@@ -1702,6 +1743,10 @@ private struct LiveDistanceLabel: View {
 /// state is defined, not inferred.
 private struct PlusOneBurst: View {
     let trigger: Int
+    // Under Reduce Motion the +1 still appears (it's informative) but drops
+    // the scale pop and upward travel, leaving a quiet opacity flash
+    // (WCAG 2.3.3).
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private struct Beat {
         var opacity = 0.0
@@ -1714,7 +1759,7 @@ private struct PlusOneBurst: View {
             .font(.system(.body, design: .monospaced, weight: .bold))
             .foregroundStyle(Theme.accent)
             .allowsHitTesting(false)
-            .keyframeAnimator(initialValue: Beat(), trigger: trigger) { view, beat in
+            .keyframeAnimator(initialValue: Beat(scale: reduceMotion ? 1.0 : 0.7), trigger: trigger) { view, beat in
                 view
                     .opacity(beat.opacity)
                     .scaleEffect(beat.scale)
@@ -1725,10 +1770,10 @@ private struct PlusOneBurst: View {
                     LinearKeyframe(0, duration: 0.65)
                 }
                 KeyframeTrack(\.scale) {
-                    CubicKeyframe(1.25, duration: 0.7)
+                    CubicKeyframe(reduceMotion ? 1.0 : 1.25, duration: 0.7)
                 }
                 KeyframeTrack(\.lift) {
-                    CubicKeyframe(-30, duration: 0.7)
+                    CubicKeyframe(reduceMotion ? 0 : -30, duration: 0.7)
                 }
             }
     }
@@ -1907,7 +1952,12 @@ private struct RestView: View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             let remaining = max(0, Int(endDate.timeIntervalSince(context.date).rounded(.up)))
 
-            VStack(spacing: 20) {
+            // Scrollable so the +30s / Skip controls stay reachable at large
+            // accessibility text sizes; minHeight keeps it centered when it
+            // fits (a11y audit).
+            GeometryReader { screen in
+              ScrollView {
+                VStack(spacing: 20) {
                 Text("REST")
                     .font(.system(.caption, design: .monospaced, weight: .semibold))
                     .foregroundStyle(Theme.textSecondary)
@@ -1915,6 +1965,8 @@ private struct RestView: View {
 
                 Text(String(format: "%d:%02d", remaining / 60, remaining % 60))
                     .font(.system(size: 52, weight: .bold, design: .monospaced))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
                     .contentTransition(.numericText(countsDown: true))
 
                 rechargeBlocks(remaining: remaining)
@@ -1937,6 +1989,8 @@ private struct RestView: View {
                         .kerning(0.8)
                     Text("\(upNext.exerciseName) · \(upNext.driver == .reps ? "set" : "round") \(upNext.setNumber)")
                         .font(.system(.body, weight: .semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                     // Values in plain ink (the handoff's rule): the next
                     // prescription is a fact, not a delta — green stays
                     // on movement.
@@ -1960,8 +2014,10 @@ private struct RestView: View {
                             Text("+30s")
                                 .font(.system(.subheadline, design: .monospaced, weight: .bold))
                                 .foregroundStyle(Theme.textPrimary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
                                 .frame(width: (proxy.size.width - 10) * 5 / 12)
-                                .frame(height: 52)
+                                .frame(minHeight: 52)
                                 .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
                                 .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
                         }
@@ -1971,8 +2027,10 @@ private struct RestView: View {
                             Text("Skip rest")
                                 .font(.system(.subheadline, weight: .bold))
                                 .foregroundStyle(Theme.onPrimary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
                                 .frame(maxWidth: .infinity)
-                                .frame(height: 52)
+                                .frame(minHeight: 52)
                                 .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 11))
                         }
                         .buttonStyle(.raisedPrimaryKey())
@@ -1981,13 +2039,16 @@ private struct RestView: View {
                 }
                 .frame(height: 56)
                 .padding(.horizontal, 20)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .onChange(of: remaining) { _, newValue in
-                if newValue <= 0 { onEnd() }
-            }
-            .onAppear {
-                if remaining <= 0 { onEnd() }
+                }
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: screen.size.height)
+                .onChange(of: remaining) { _, newValue in
+                    if newValue <= 0 { onEnd() }
+                }
+                .onAppear {
+                    if remaining <= 0 { onEnd() }
+                }
+              }
             }
         }
     }

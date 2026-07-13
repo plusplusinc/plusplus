@@ -126,12 +126,14 @@ struct ExercisePickerView: View {
                                 .font(.system(.caption, weight: .semibold))
                             Text("From the catalog…")
                                 .font(.system(.footnote, weight: .semibold))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
                         }
                         // Creation is green (#202).
                         .foregroundStyle(Theme.accent)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 12)
-                        .frame(height: 48)
+                        .frame(minHeight: 48)
                         .contentShape(Rectangle())
                         .overlay(
                             RoundedRectangle(cornerRadius: Theme.controlRadius)

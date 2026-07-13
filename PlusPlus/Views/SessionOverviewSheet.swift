@@ -8,6 +8,9 @@ import PlusPlusKit
 struct SessionOverviewSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    /// When on, the done/pending set pips gain a fill-vs-outline shape cue so
+    /// completion doesn't read by color alone (a11y audit 2026-07-13).
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
     @Bindable var session: WorkoutSession
     /// Called after any jump so the presenter can clear a running rest.
     let onJumped: () -> Void
@@ -85,12 +88,14 @@ struct SessionOverviewSheet: View {
                             .font(.system(.caption, weight: .semibold))
                         Text("Add exercise")
                             .font(.system(.footnote, weight: .semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
                     }
                     // Creation is green (#202).
                     .foregroundStyle(Theme.accent)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 12)
-                    .frame(height: 44)
+                    .frame(minHeight: 44)
                     .contentShape(Rectangle())
                     .overlay(
                         RoundedRectangle(cornerRadius: Theme.controlRadius)
@@ -205,13 +210,23 @@ struct SessionOverviewSheet: View {
                 Spacer(minLength: 6)
                 HStack(spacing: 3) {
                     ForEach(Array(block.logs.enumerated()), id: \.offset) { _, log in
+                        // Differentiate Without Color: a done set stays a solid
+                        // pip; a not-yet-done one becomes a hollow outline, so
+                        // completion reads by shape as well as by purple.
+                        let done = log.isCompleted
                         RoundedRectangle(cornerRadius: 2)
-                            .fill(pipColor(for: log))
+                            .fill(differentiateWithoutColor && !done ? Color.clear : pipColor(for: log))
                             .frame(width: 5, height: 13)
+                            .overlay {
+                                if differentiateWithoutColor && !done {
+                                    RoundedRectangle(cornerRadius: 2)
+                                        .strokeBorder(pipColor(for: log), lineWidth: 1)
+                                }
+                            }
                     }
                 }
             }
-            .frame(height: 52)
+            .frame(minHeight: 52)
             .background(isLive ? Theme.accent.opacity(0.09) : .clear)
         }
         .buttonStyle(.plain)
@@ -351,10 +366,12 @@ struct SessionExerciseSheet: View {
                                 .font(.system(.footnote, weight: .bold))
                             Text("Skip to this exercise")
                                 .font(.system(.subheadline, weight: .bold))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
                         }
                         .foregroundStyle(Theme.onPrimary)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 48)
+                        .frame(minHeight: 48)
                         .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
                     }
                 }

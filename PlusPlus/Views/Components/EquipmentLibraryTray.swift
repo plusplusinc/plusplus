@@ -61,11 +61,13 @@ struct EquipmentLibraryTray: View {
                             .font(.system(.caption, weight: .semibold))
                         Text("New library…")
                             .font(.system(.footnote, weight: .semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
                     }
                     .foregroundStyle(Theme.accent)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 12)
-                    .frame(height: 48)
+                    .frame(minHeight: 48)
                     .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                     .overlay(
                         RoundedRectangle(cornerRadius: Theme.controlRadius)
@@ -152,9 +154,10 @@ struct EquipmentLibraryTray: View {
                 Image(systemName: "ellipsis")
                     .font(.system(.footnote, weight: .semibold))
                     .foregroundStyle(Theme.textFaint)
-                    .frame(width: 34, height: 44)
+                    .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
+            .accessibilityLabel("\(library.name) options")
             .accessibilityIdentifier("libraryMenu-\(library.name)")
         }
         .padding(.horizontal, 12)

@@ -20,6 +20,15 @@ import SwiftData
 /// is `onTap`, which the component composes with the reveal drag in
 /// an ExclusiveGesture: once the drag activates (16 pt), the tap is
 /// structurally impossible — arbitration, not heuristics.
+/// A row action exposed to assistive tech: the same name+handler the
+/// visible swipe button carries, surfaced as a VoiceOver custom action so
+/// the swipe (impossible under VoiceOver / Switch Control / Voice Control)
+/// is not the only path to it.
+struct SwipeRowAction {
+    let name: String
+    let perform: () -> Void
+}
+
 struct SwipeRevealRow<Content: View, Actions: View>: View {
     let id: PersistentIdentifier
     @Binding var openRow: PersistentIdentifier?
@@ -30,6 +39,12 @@ struct SwipeRevealRow<Content: View, Actions: View>: View {
     /// close affordance, owned here rather than copy-pasted into every
     /// consumer's tap handler.
     var onTap: (() -> Void)? = nil
+    /// Mirror of the swipe `actions` as VoiceOver custom actions (#164).
+    /// Attached to `content()` only, via `.accessibilityActions` (which adds
+    /// rotor actions without collapsing the row into one element the way
+    /// `.accessibilityAddTraits` on the container did), so the child labels
+    /// the smoke tests query stay individually reachable.
+    var accessibilityActions: [SwipeRowAction] = []
     @ViewBuilder let content: () -> Content
     @ViewBuilder let actions: () -> Actions
 
@@ -83,12 +98,14 @@ struct SwipeRevealRow<Content: View, Actions: View>: View {
                 // dispatch via accessibility and bypass the overlay,
                 // which is why CI never saw it.
                 .offset(x: offset)
-                // No .accessibilityAddTraits/.accessibilityAction here:
-                // both flatten the content into ONE accessibility
-                // element, hiding child static texts from the
-                // accessibility tree (CI-proven — four smoke tests lost
-                // their row lookups). VoiceOver row activation for
-                // swipe rows is #164's remit.
+                // VoiceOver path to the swipe actions (#164). CONTRACT: use
+                // `.contain`, NOT `.combine`/`.accessibilityAddTraits`, which
+                // flatten the row into one element and hide the child texts the
+                // smoke tests query (CI-proven, build 36; testing.md). `.contain`
+                // keeps children individually queryable while carrying the rotor
+                // actions. Only applied when there ARE actions, so action-less
+                // rows are untouched.
+                .modifier(RowAccessibilityActions(actions: accessibilityActions))
         }
         .clipped()
         .animation(.easeOut(duration: 0.18), value: offset)
@@ -169,6 +186,28 @@ struct SwipeRevealRow<Content: View, Actions: View>: View {
                 let projected = (openRow == id ? -actionsWidth : 0) + momentum
                 openRow = projected < -actionsWidth / 2 ? id : nil
             }
+    }
+}
+
+/// Adds the swipe actions as VoiceOver custom actions without flattening the
+/// row (`.contain` keeps child `staticTexts` visible to XCUITest; `.combine`
+/// would not). A no-op when there are no actions, so rows that never opted in
+/// keep their exact prior accessibility tree.
+private struct RowAccessibilityActions: ViewModifier {
+    let actions: [SwipeRowAction]
+
+    func body(content: Content) -> some View {
+        if actions.isEmpty {
+            content
+        } else {
+            content
+                .accessibilityElement(children: .contain)
+                .accessibilityActions {
+                    ForEach(actions, id: \.name) { act in
+                        Button(act.name) { act.perform() }
+                    }
+                }
+        }
     }
 }
 
