@@ -115,7 +115,7 @@ struct WorkoutRunView: View {
                     .font(.headline)
                     .foregroundStyle(WatchTheme.onPrimary)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 40)
+                    .frame(minHeight: 44)
                     .background(WatchTheme.primaryFill, in: RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(WatchRaisedKeyStyle())
@@ -133,6 +133,8 @@ struct WorkoutRunView: View {
                 Text(results.isEmpty ? "Leave" : "End early")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }

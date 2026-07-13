@@ -103,6 +103,9 @@ struct RevealContainer<Content: View>: View {
                     // Only interactive once substantially revealed; the app
                     // covers it otherwise.
                     .allowsHitTesting(controller.isOpen)
+                    // Kept out of the VoiceOver tree while the app covers it,
+                    // so focus can't land on the hidden surface (a11y audit).
+                    .accessibilityHidden(!controller.isOpen)
 
                 // The app, on top — the whole TabView slides right as one
                 // layer (no scaling). Rounded left corners + a drop shadow
@@ -112,6 +115,9 @@ struct RevealContainer<Content: View>: View {
                     .clipShape(RoundedRectangle(cornerRadius: f * 34, style: .continuous))
                     .shadow(color: .black.opacity(0.55 * f), radius: 28, x: 0, y: 22)
                     .offset(x: f * width * RevealController.travelFactor)
+                    // While the drawer is open the covered app is inert to
+                    // VoiceOver; the surface beneath owns focus.
+                    .accessibilityHidden(controller.isOpen)
 
                 // Swipe-to-open: a stationary left-edge strip, present only
                 // at a tab root (no pushed screen whose swipe-back this would
@@ -132,6 +138,11 @@ struct RevealContainer<Content: View>: View {
                 }
             }
             .environment(controller)
+            // Move VoiceOver focus onto whichever layer just took over
+            // (surface on open, app on close).
+            .onChange(of: controller.isOpen) { _, _ in
+                UIAccessibility.post(notification: .screenChanged, argument: nil)
+            }
         }
         .ignoresSafeArea()
     }

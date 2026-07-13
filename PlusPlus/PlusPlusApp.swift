@@ -124,9 +124,14 @@ struct PlusPlusApp: App {
             } else {
                 RootTabView()
                     .preferredColorScheme((AppAppearance(rawValue: appearanceRaw) ?? .system).colorScheme)
-                    // Dynamic Type everywhere (#82), capped where the dense
-                    // layouts stop coping — full a11y sizes are future work.
-                    .dynamicTypeSize(...DynamicTypeSize.xxLarge)
+                    // Dynamic Type everywhere (#82). Raised from xxLarge to
+                    // accessibility3 (a11y audit 2026-07-13, #164): the first
+                    // three accessibility sizes now take effect, covering the
+                    // low-vision range most users rely on. AX4/AX5 stay capped
+                    // as the documented, device-gated limit — the densest fixed
+                    // layouts still need the on-device reflow pass before the
+                    // two largest extremes are safe.
+                    .dynamicTypeSize(...DynamicTypeSize.accessibility3)
             }
         }
         .modelContainer(modelContainer)

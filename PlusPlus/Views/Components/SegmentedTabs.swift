@@ -23,6 +23,8 @@ struct SegmentedTabs: View {
                     Text(option)
                         .font(.system(.footnote, weight: .semibold))
                         .foregroundStyle(selectedIndex == index ? Theme.onSelected : Theme.textSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
                         .background {
