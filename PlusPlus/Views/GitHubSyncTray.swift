@@ -105,6 +105,7 @@ struct GitHubSyncTray: View {
     private var header: some View {
         HStack(alignment: .center, spacing: 10) {
             Image("GitHubMark").resizable().scaledToFit().frame(width: 22, height: 22)
+                .accessibilityHidden(true)
             Text("GitHub sync")
                 .font(.system(.title3, weight: .bold))
                 .foregroundStyle(Theme.textPrimary)
@@ -352,6 +353,7 @@ struct GitHubSyncTray: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image("GitHubMark").resizable().scaledToFit().frame(width: 15, height: 15)
+                    .accessibilityHidden(true)
                 Text(title).font(.system(.subheadline, weight: .bold))
                     .lineLimit(1).minimumScaleFactor(0.6)
             }

@@ -240,7 +240,7 @@ struct RevealSurface: View {
         let secondary: String? = connected ? "connected" : (faulted ? "disconnected" : nil)
         return statusRow(
             dot: dot,
-            icon: { Image("GitHubMark").resizable().scaledToFit().frame(width: 16, height: 16) },
+            icon: { Image("GitHubMark").resizable().scaledToFit().frame(width: 16, height: 16).accessibilityHidden(true) },
             title: "GitHub",
             status: secondary,
             identifier: "revealSyncRow"

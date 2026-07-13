@@ -170,7 +170,7 @@ struct WelcomeView: View {
         Group {
             if page < 2 {
                 Button {
-                    withAnimation(.easeOut(duration: 0.2)) { page += 1 }
+                    withAnimation(Theme.Anim.flourish(.easeOut(duration: 0.2))) { page += 1 }
                 } label: {
                     Text("Continue")
                         .font(.system(.body, weight: .bold))
