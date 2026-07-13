@@ -390,6 +390,7 @@ struct ExerciseEditorView: View {
                 Image(systemName: "xmark")
                     .font(.system(.caption2, weight: .bold))
                     .foregroundStyle(Theme.textFaint)
+                    .accessibilityHidden(true)
             }
             .foregroundStyle(Theme.textPrimary)
             .frame(maxWidth: .infinity)
@@ -397,6 +398,7 @@ struct ExerciseEditorView: View {
             .background(Theme.surfaceRaised, in: Capsule())
             .overlay(Capsule().strokeBorder(Theme.borderStrong))
         }
+        .accessibilityLabel("Remove \(equipment.name)")
     }
 
     private var addEquipmentChip: some View {

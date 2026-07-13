@@ -34,6 +34,7 @@ struct ExercisesTabView: View {
                 CatalogTabHeader(
                     title: "Exercises",
                     addIdentifier: "addExercisesButton",
+                    addLabel: "Add exercise",
                     onAdd: { showingCatalog = true }
                 )
 
@@ -182,6 +183,7 @@ struct EquipmentTabView: View {
                 CatalogTabHeader(
                     title: "Equipment",
                     addIdentifier: "addEquipmentButton",
+                    addLabel: "Add equipment",
                     onAdd: { showingCatalog = true }
                 ) {
                     LibrarySwitcherKey(name: activeLibrary?.name ?? EquipmentLibrary.defaultName) {
@@ -326,6 +328,8 @@ struct CatalogTabHeader<Accessory: View>: View {
     let title: String
     // The tab's create action; optional so title-only headers work.
     var addIdentifier: String?
+    /// Spoken VoiceOver name for the add key; falls back to "Add <title>".
+    var addLabel: String? = nil
     var onAdd: (() -> Void)?
     @ViewBuilder var accessory: () -> Accessory
 
@@ -338,7 +342,7 @@ struct CatalogTabHeader<Accessory: View>: View {
                 Spacer(minLength: 0)
                 accessory()
                 if let onAdd {
-                    HeaderIconButton(systemImage: "plus", identifier: addIdentifier) {
+                    HeaderIconButton(systemImage: "plus", accessibilityLabel: addLabel ?? "Add \(title)", identifier: addIdentifier) {
                         onAdd()
                     }
                 }
@@ -354,8 +358,8 @@ struct CatalogTabHeader<Accessory: View>: View {
 }
 
 extension CatalogTabHeader where Accessory == EmptyView {
-    init(title: String, addIdentifier: String? = nil, onAdd: (() -> Void)? = nil) {
-        self.init(title: title, addIdentifier: addIdentifier, onAdd: onAdd, accessory: { EmptyView() })
+    init(title: String, addIdentifier: String? = nil, addLabel: String? = nil, onAdd: (() -> Void)? = nil) {
+        self.init(title: title, addIdentifier: addIdentifier, addLabel: addLabel, onAdd: onAdd, accessory: { EmptyView() })
     }
 }
 

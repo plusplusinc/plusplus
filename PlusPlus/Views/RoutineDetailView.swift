@@ -111,11 +111,11 @@ struct RoutineDetailView: View {
         // title alone. Share keeps its UIKit sheet (#178).
         .pushedScreenChrome(title: routine.name, onBack: { dismiss() }) {
             if !routine.groups.isEmpty, shareURL != nil {
-                HeaderIconButton(systemImage: "square.and.arrow.up", identifier: "shareRoutineButton") {
+                HeaderIconButton(systemImage: "square.and.arrow.up", accessibilityLabel: "Share routine", identifier: "shareRoutineButton") {
                     showingShareSheet = true
                 }
             }
-            HeaderIconButton(systemImage: "slider.horizontal.3", identifier: "routineSettingsButton") {
+            HeaderIconButton(systemImage: "slider.horizontal.3", accessibilityLabel: "Routine settings", identifier: "routineSettingsButton") {
                 showingRoutineSettings = true
             }
         }
@@ -1464,7 +1464,7 @@ struct RoutineSettingsScreen: View {
         // page is simply always saved. Delete nests behind "…" —
         // present, not primary.
         .pushedScreenChrome(title: routine.name, onBack: { commitName(); dismiss() }) {
-            HeaderMenuKey(systemImage: "ellipsis", identifier: "routineSettingsMenu") {
+            HeaderMenuKey(systemImage: "ellipsis", accessibilityLabel: "Routine options", identifier: "routineSettingsMenu") {
                 Button("Delete routine", role: .destructive) {
                     confirmingDelete = true
                 }

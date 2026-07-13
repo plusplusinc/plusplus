@@ -119,6 +119,7 @@ struct GitHubSyncTray: View {
                     .overlay(Circle().strokeBorder(Theme.border))
                     .contentShape(Circle())
             }
+            .accessibilityLabel("Close")
             .accessibilityIdentifier("closeGitHubSync")
         }
         .padding(.top, 14)

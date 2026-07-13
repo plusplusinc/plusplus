@@ -328,6 +328,7 @@ struct ActiveSessionView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "xmark").font(.system(.caption, weight: .semibold))
+                            .accessibilityHidden(true)
                         Text("End").font(.system(.footnote, weight: .semibold))
                     }
                     .foregroundStyle(Theme.textPrimary)
@@ -336,6 +337,7 @@ struct ActiveSessionView: View {
                     .background(Theme.surface, in: Capsule())
                     .overlay(Capsule().strokeBorder(Theme.border))
                 }
+                .accessibilityLabel("End workout")
                 .accessibilityIdentifier("exitSessionButton")
 
                 // Live heart rate, when Health has a fresh reading —
@@ -367,6 +369,7 @@ struct ActiveSessionView: View {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "pause.fill").font(.system(.caption, weight: .semibold))
+                                .accessibilityHidden(true)
                             Text("Pause").font(.system(.footnote, weight: .semibold))
                         }
                         .foregroundStyle(Theme.textPrimary)
@@ -375,6 +378,7 @@ struct ActiveSessionView: View {
                         .background(Theme.surface, in: Capsule())
                         .overlay(Capsule().strokeBorder(Theme.border))
                     }
+                    .accessibilityLabel("Pause workout")
                     .accessibilityIdentifier("pauseWorkoutButton")
                 }
             }
@@ -397,12 +401,15 @@ struct ActiveSessionView: View {
                     Image(systemName: "chevron.down")
                         .font(.system(.caption2, weight: .semibold))
                         .foregroundStyle(Theme.textSecondary)
+                        .accessibilityHidden(true)
                 }
                 .padding(.horizontal, 12)
                 .frame(height: 34)
                 .background(Theme.surface, in: Capsule())
                 .overlay(Capsule().strokeBorder(Theme.border))
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityHint("Opens the set overview")
             .accessibilityIdentifier("sessionOverviewButton")
         }
         .padding(.horizontal, 14)
@@ -1598,20 +1605,20 @@ private struct LiveHeartRateLabel: View {
                     + Text("\(bpm)")
                     .foregroundStyle(inTarget ? Theme.accent : Theme.textPrimary))
                     .font(.system(.caption, design: .monospaced, weight: .semibold))
+                let described = label
+                    .contentTransition(.numericText())
+                    .animation(Theme.Anim.standard, value: bpm)
+                    .accessibilityLabel("Heart rate")
+                    .accessibilityValue("\(bpm) beats per minute" + (inTarget ? ", in target" : ""))
+                    .accessibilityIdentifier("liveHeartRate")
                 if chrome {
-                    label
-                        .contentTransition(.numericText())
-                        .animation(Theme.Anim.standard, value: bpm)
+                    described
                         .padding(.horizontal, 10)
                         .frame(height: 34)
                         .background(Theme.surface, in: Capsule())
                         .overlay(Capsule().strokeBorder(Theme.border))
-                        .accessibilityIdentifier("liveHeartRate")
                 } else {
-                    label
-                        .contentTransition(.numericText())
-                        .animation(Theme.Anim.standard, value: bpm)
-                        .accessibilityIdentifier("liveHeartRate")
+                    described
                 }
             }
         }
@@ -1640,20 +1647,20 @@ private struct LivePaceLabel: View {
                     + Text(" \(unit.paceLabel)")
                     .foregroundStyle(Theme.textSecondary))
                     .font(.system(.caption, design: .monospaced, weight: .semibold))
+                let described = label
+                    .contentTransition(.numericText())
+                    .animation(Theme.Anim.standard, value: pace)
+                    .accessibilityLabel("Pace")
+                    .accessibilityValue("\(WorkoutMetric.pace.formatted(pace)) \(unit.paceLabel)" + (meeting ? ", meeting target" : ""))
+                    .accessibilityIdentifier("livePace")
                 if chrome {
-                    label
-                        .contentTransition(.numericText())
-                        .animation(Theme.Anim.standard, value: pace)
+                    described
                         .padding(.horizontal, 10)
                         .frame(height: 34)
                         .background(Theme.surface, in: Capsule())
                         .overlay(Capsule().strokeBorder(Theme.border))
-                        .accessibilityIdentifier("livePace")
                 } else {
-                    label
-                        .contentTransition(.numericText())
-                        .animation(Theme.Anim.standard, value: pace)
-                        .accessibilityIdentifier("livePace")
+                    described
                 }
             }
         }
@@ -1677,6 +1684,8 @@ private struct LiveDistanceLabel: View {
                     .foregroundStyle(reached ? Theme.accent : Theme.textPrimary)
                     .contentTransition(.numericText())
                     .animation(Theme.Anim.standard, value: value)
+                    .accessibilityLabel("Distance")
+                    .accessibilityValue(WorkoutMetric.distance.displayText(value, distanceUnit: unit) + (reached ? ", target reached" : ""))
                     .accessibilityIdentifier("liveDistance")
             }
         }

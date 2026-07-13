@@ -888,7 +888,7 @@ struct TodayView: View {
                 // away, via the existing start tray. Neutral like every
                 // header key (Quiet Arcade tightened green's scope to
                 // true data; the flourish moved into Start's flash).
-                HeaderIconButton(systemImage: "play.fill", identifier: "startTrayButton") {
+                HeaderIconButton(systemImage: "play.fill", accessibilityLabel: "Start a workout", identifier: "startTrayButton") {
                     showingSwapIn = true
                 }
             }

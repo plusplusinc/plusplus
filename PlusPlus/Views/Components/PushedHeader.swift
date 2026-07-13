@@ -56,7 +56,7 @@ private struct PushedScreenChrome<Trailing: View>: ViewModifier {
             }
 
             HStack(spacing: 10) {
-                HeaderIconButton(systemImage: "chevron.left", identifier: "backButton") {
+                HeaderIconButton(systemImage: "chevron.left", accessibilityLabel: "Back", identifier: "backButton") {
                     onBack()
                 }
                 if searchExpanded, let search {
@@ -64,7 +64,7 @@ private struct PushedScreenChrome<Trailing: View>: ViewModifier {
                 } else {
                     Spacer(minLength: 0)
                     if let search {
-                        HeaderIconButton(systemImage: "magnifyingglass", identifier: "\(search.identifier)Toggle") {
+                        HeaderIconButton(systemImage: "magnifyingglass", accessibilityLabel: "Search", identifier: "\(search.identifier)Toggle") {
                             wantsFocus = true
                             withAnimation(Theme.Anim.standard) { searchExpanded = true }
                         }
@@ -86,6 +86,7 @@ private struct PushedScreenChrome<Trailing: View>: ViewModifier {
             Image(systemName: "magnifyingglass")
                 .font(.system(.footnote))
                 .foregroundStyle(Theme.textFaint)
+                .accessibilityHidden(true)
             TextField(search.prompt, text: search.text)
                 .font(.system(.footnote, design: .monospaced))
                 .autocorrectionDisabled()
@@ -111,6 +112,7 @@ private struct PushedScreenChrome<Trailing: View>: ViewModifier {
                     .frame(width: 32, height: 44)
                     .contentShape(Rectangle())
             }
+            .accessibilityLabel("Clear search")
             .accessibilityIdentifier("dismissSearchButton")
         }
         .padding(.leading, 13)
@@ -133,6 +135,8 @@ struct HeaderSearchConfig {
 /// every other key.
 struct HeaderMenuKey<Items: View>: View {
     let systemImage: String
+    /// Spoken VoiceOver name for the menu (required).
+    let accessibilityLabel: String
     var identifier: String?
     @ViewBuilder let items: () -> Items
 
@@ -149,6 +153,7 @@ struct HeaderMenuKey<Items: View>: View {
         }
         .menuStyle(.button)
         .buttonStyle(.raisedKey())
+        .accessibilityLabel(accessibilityLabel)
         .accessibilityIdentifier(identifier ?? systemImage)
     }
 }

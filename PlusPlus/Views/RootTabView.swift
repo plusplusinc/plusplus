@@ -191,6 +191,8 @@ struct AppMenuKey: View {
                 .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
         }
         .buttonStyle(.raisedKey())
+        .accessibilityLabel("Menu")
+        .accessibilityHint(reveal.isOpen ? "Closes the app menu" : "Opens the app menu and settings")
         .accessibilityIdentifier("appMenuButton")
     }
 }

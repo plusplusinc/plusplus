@@ -242,11 +242,11 @@ struct ExerciseDetailScreen: View {
         // built-in outside the library leaves nothing for the menu, so
         // it hides instead of rendering empty (#265).
         .pushedScreenChrome(title: exercise.name, onBack: { dismiss() }) {
-            HeaderIconButton(systemImage: "pencil", identifier: "editExerciseButton") {
+            HeaderIconButton(systemImage: "pencil", accessibilityLabel: "Edit exercise", identifier: "editExerciseButton") {
                 showingEditor = true
             }
             if !exercise.isBuiltIn || exercise.inLibrary {
-                HeaderMenuKey(systemImage: "ellipsis", identifier: "exerciseDetailMenu") {
+                HeaderMenuKey(systemImage: "ellipsis", accessibilityLabel: "Exercise options", identifier: "exerciseDetailMenu") {
                     if exercise.isBuiltIn {
                         Button("Remove from my exercises", role: .destructive) {
                             exercise.inLibrary = false
@@ -497,7 +497,7 @@ struct EquipmentDetailScreen: View {
         .scrollDismissesKeyboard(.immediately)
         .pushedScreenChrome(title: equipment.name, onBack: { dismiss() }) {
             if !equipment.isBuiltIn {
-                HeaderIconButton(systemImage: "pencil", identifier: "renameEquipmentButton") {
+                HeaderIconButton(systemImage: "pencil", accessibilityLabel: "Rename equipment", identifier: "renameEquipmentButton") {
                     renameText = equipment.name
                     showingRename = true
                 }
@@ -505,7 +505,7 @@ struct EquipmentDetailScreen: View {
             // "Remove" is membership in the active library; "Delete" is
             // the custom's full removal (#265 — destructive in the menu).
             if inActiveLibrary || !equipment.isBuiltIn {
-                HeaderMenuKey(systemImage: "ellipsis", identifier: "equipmentDetailMenu") {
+                HeaderMenuKey(systemImage: "ellipsis", accessibilityLabel: "Equipment options", identifier: "equipmentDetailMenu") {
                     if inActiveLibrary {
                         Button("Remove from my equipment", role: .destructive) {
                             activeLibrary?.setMembership(equipment, false)

@@ -77,6 +77,7 @@ struct SheetHeader: View {
                         .padding(6)
                         .contentShape(Circle())
                 }
+                .accessibilityLabel("Close")
                 .accessibilityIdentifier(actionIdentifier ?? "")
             } else {
                 if let onCancel {
@@ -189,6 +190,9 @@ struct MetricStepperRow: View {
                     .animation(Theme.Anim.standard, value: value)
             }
             .disabled(onTapValue == nil)
+            .accessibilityLabel(label)
+            .accessibilityValue(value)
+            .accessibilityHint(onTapValue == nil ? "" : "Opens a picker")
             .accessibilityIdentifier("\(identifier)Value")
 
             // 44-wide targets with the hit carried to 44 pt tall by the
@@ -201,6 +205,7 @@ struct MetricStepperRow: View {
                         .frame(width: 44, height: 36)
                         .contentShape(Rectangle().inset(by: -4))
                 }
+                .accessibilityLabel("Decrease \(label)")
                 .accessibilityIdentifier("\(identifier)Decrement")
                 Divider().frame(height: 36).overlay(Theme.border)
                 Button(action: onIncrement) {
@@ -210,6 +215,7 @@ struct MetricStepperRow: View {
                         .frame(width: 44, height: 36)
                         .contentShape(Rectangle().inset(by: -4))
                 }
+                .accessibilityLabel("Increase \(label)")
                 .accessibilityIdentifier("\(identifier)Increment")
             }
             .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.border))

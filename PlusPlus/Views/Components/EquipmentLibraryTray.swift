@@ -152,9 +152,10 @@ struct EquipmentLibraryTray: View {
                 Image(systemName: "ellipsis")
                     .font(.system(.footnote, weight: .semibold))
                     .foregroundStyle(Theme.textFaint)
-                    .frame(width: 34, height: 44)
+                    .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
+            .accessibilityLabel("\(library.name) options")
             .accessibilityIdentifier("libraryMenu-\(library.name)")
         }
         .padding(.horizontal, 12)

@@ -3,8 +3,8 @@ import SwiftUI
 /// Segmented control in the selection grammar: the active tab is a
 /// SOLID selected-blue fill with onSelected text (#210 — the tint+ring
 /// treatment read too muted in the field; one prominent look for every
-/// toggled-on state). Ink fills stay reserved for actions. 40 pt
-/// segments (46 with container padding, §H). The pill slides on
+/// toggled-on state). Ink fills stay reserved for actions. 44 pt
+/// segments (meets the HIG touch-target floor). The pill slides on
 /// `Theme.Anim.selection` (a snappy spring) with a selection haptic —
 /// an ease-out's decelerating tail made the slide read muddy (§2).
 struct SegmentedTabs: View {
@@ -24,7 +24,7 @@ struct SegmentedTabs: View {
                         .font(.system(.footnote, weight: .semibold))
                         .foregroundStyle(selectedIndex == index ? Theme.onSelected : Theme.textSecondary)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 40)
+                        .frame(height: 44)
                         .background {
                             if selectedIndex == index {
                                 RoundedRectangle(cornerRadius: 9)
@@ -33,6 +33,7 @@ struct SegmentedTabs: View {
                             }
                         }
                 }
+                .accessibilityAddTraits(selectedIndex == index ? [.isButton, .isSelected] : .isButton)
             }
         }
         .padding(3)

@@ -185,6 +185,7 @@ struct TrayFilterChip: View {
                 }
                 Image(systemName: "chevron.down")
                     .font(.system(.caption2, weight: .semibold))
+                    .accessibilityHidden(true)
             }
             .foregroundStyle(active ? Theme.onSelected : Theme.textSecondary)
             .padding(.horizontal, 13)
@@ -197,6 +198,7 @@ struct TrayFilterChip: View {
         .buttonStyle(.plain)
         .animation(Theme.Anim.selection, value: active)
         .sensoryFeedback(.selection, trigger: count)
+        .accessibilityAddTraits(active ? [.isButton, .isSelected] : .isButton)
         .accessibilityIdentifier("facet\(facet.capitalized)")
     }
 }
@@ -217,6 +219,7 @@ struct ClearAllChip: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Clear filters")
         .accessibilityIdentifier("clearFilters")
         .transition(.opacity)
     }
@@ -239,12 +242,16 @@ struct SortChip<Value: Hashable>: View {
             HStack(spacing: 6) {
                 Image(systemName: "arrow.up.arrow.down")
                     .font(.system(.caption2, weight: .semibold))
+                    .accessibilityHidden(true)
                 Text(currentLabel.uppercased())
                     .font(.system(.caption2, design: .monospaced, weight: .semibold))
                     .kerning(0.5)
                     .lineLimit(1)
             }
             .foregroundStyle(Theme.textSecondary)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Sort")
+            .accessibilityValue(currentLabel)
             .padding(.horizontal, 13)
             .frame(height: 36)
             .background(Theme.surface, in: Capsule())
