@@ -172,5 +172,9 @@ struct BlockBar: View {
             }
         }
         .animation(Theme.Anim.standard, value: filled)
+        // Shape-only progress; VoiceOver hears the count, not the blocks
+        // (#164, WCAG 1.1.1). Consumers set the label (sessions / sets).
+        .accessibilityElement(children: .ignore)
+        .accessibilityValue("\(filled) of \(total)")
     }
 }

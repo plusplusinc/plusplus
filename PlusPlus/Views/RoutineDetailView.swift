@@ -386,6 +386,47 @@ struct RoutineDetailView: View {
             return false
         }()
 
+        // The rail's reorder + superset live on a UIKit long-press gesture,
+        // impossible under VoiceOver / Switch Control. Surface the SAME
+        // operations (the ones ExerciseDetailSheet already exposes as buttons)
+        // as row custom actions so those users can build/break supersets and
+        // reorder without the drag (#164). Bounds mirror the sheet's guards.
+        let lastGroup = routine.sortedGroups.count - 1
+        var a11yActions: [SwipeRowAction] = []
+        if g > 0 {
+            a11yActions.append(SwipeRowAction(name: "Move up") { openSwipeRow = nil; moveGroup(g, by: -1) })
+        }
+        if g < lastGroup {
+            a11yActions.append(SwipeRowAction(name: "Move down") { openSwipeRow = nil; moveGroup(g, by: 1) })
+        }
+        if group.isSuperset {
+            a11yActions.append(SwipeRowAction(name: "Move out of superset") {
+                openSwipeRow = nil
+                routine.splitExercise(routineExercise, context: modelContext)
+            })
+        } else {
+            if g > 0 {
+                a11yActions.append(SwipeRowAction(name: "Superset with exercise above") {
+                    openSwipeRow = nil
+                    routine.mergeSoloGroup(group, direction: -1, context: modelContext)
+                })
+            }
+            if g < lastGroup {
+                a11yActions.append(SwipeRowAction(name: "Superset with exercise below") {
+                    openSwipeRow = nil
+                    routine.mergeSoloGroup(group, direction: 1, context: modelContext)
+                })
+            }
+        }
+        a11yActions.append(SwipeRowAction(name: "Duplicate") {
+            openSwipeRow = nil
+            duplicateExercise(routineExercise, in: group)
+        })
+        a11yActions.append(SwipeRowAction(name: "Delete") {
+            openSwipeRow = nil
+            deleteExercise(routineExercise, in: group)
+        })
+
         // Activation is the component's onTap (see the SwipeRevealRow
         // contract): the old row-body and dot-zone onTapGestures were
         // the same latent bug class as the list rows' Buttons — a tap
@@ -399,7 +440,8 @@ struct RoutineDetailView: View {
             openRow: $openSwipeRow,
             enabled: railGesture == .idle,
             actionsWidth: 116,
-            onTap: { selectedExercise = routineExercise }
+            onTap: { selectedExercise = routineExercise },
+            accessibilityActions: a11yActions
         ) {
             ExerciseRailRow(
                 routineExercise: routineExercise,
@@ -829,6 +871,17 @@ struct RoutineDetailView: View {
         }
     }
 
+    /// Discrete group reorder — the non-gesture path behind the rail's
+    /// long-press drag, surfaced as a VoiceOver custom action (#164). Mirrors
+    /// ExerciseDetailSheet.moveGroup so both routes reindex identically.
+    private func moveGroup(_ index: Int, by delta: Int) {
+        var sorted = routine.sortedGroups
+        let target = index + delta
+        guard sorted.indices.contains(index), sorted.indices.contains(target) else { return }
+        sorted.swapAt(index, target)
+        for (newOrder, moved) in sorted.enumerated() { moved.order = newOrder }
+    }
+
     /// The design's DUPE: copy the exercise (with its targets) into a new
     /// solo group directly below this one.
     private func duplicateExercise(_ routineExercise: RoutineExercise, in group: ExerciseGroup) {
@@ -976,6 +1029,9 @@ private struct ExerciseRailRow: View {
                 rowTopY: landing.rowTopY
             )
             .frame(width: 28, height: rowHeight)
+            // The rail glyph is a Canvas drawing of the order/superset spine;
+            // its meaning is spoken via the row's accessibilityValue below.
+            .accessibilityHidden(true)
 
             Text(routineExercise.exercise?.name ?? "Unknown")
                 .font(.system(.body, weight: .semibold))
@@ -997,6 +1053,11 @@ private struct ExerciseRailRow: View {
                 .foregroundStyle(Theme.textSecondary)
         }
         .frame(height: rowHeight)
+        // One coherent read per row (name + target), with the superset
+        // grouping the Canvas draws spoken as a value (#164). Rail rows carry
+        // no test identifiers, so combining is safe (testing.md).
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(routineExercise.group?.isSuperset == true ? "In a superset" : "")
     }
 }
 

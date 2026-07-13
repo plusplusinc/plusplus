@@ -377,6 +377,11 @@ struct StreakView: View {
                 }
             }
             .frame(height: 20, alignment: .bottom)
+            // The bar chart is drawn shape-only; give VoiceOver the summary
+            // it can't read off the rectangles (#164, WCAG 1.1.1).
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Last \(counts.count) weeks")
+            .accessibilityValue("\(counts.filter { $0 > 0 }.count) weeks trained")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .widgetURL(URL(string: "plusplus://today"))

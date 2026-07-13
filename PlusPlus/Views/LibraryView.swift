@@ -87,7 +87,13 @@ struct ExercisesTabView: View {
                 id: exercise.persistentModelID,
                 openRow: $openSwipeRow,
                 actionsWidth: 58,
-                onTap: { path.append(exercise) }
+                onTap: { path.append(exercise) },
+                accessibilityActions: [
+                    SwipeRowAction(name: exercise.isBuiltIn ? "Remove" : "Delete") {
+                        openSwipeRow = nil
+                        remove(exercise)
+                    }
+                ]
             ) {
                 HStack(spacing: 10) {
                     VStack(alignment: .leading, spacing: 1) {
@@ -111,6 +117,7 @@ struct ExercisesTabView: View {
                     Image(systemName: "chevron.right")
                         .font(.system(.caption, weight: .bold))
                         .foregroundStyle(Theme.textFaint)
+                        .accessibilityHidden(true)
                 }
                 .padding(.vertical, 10)
                 .contentShape(Rectangle())
@@ -228,7 +235,13 @@ struct EquipmentTabView: View {
                 id: equipment.persistentModelID,
                 openRow: $openSwipeRow,
                 actionsWidth: 58,
-                onTap: { path.append(equipment) }
+                onTap: { path.append(equipment) },
+                accessibilityActions: [
+                    SwipeRowAction(name: equipment.isBuiltIn ? "Remove" : "Delete") {
+                        openSwipeRow = nil
+                        remove(equipment)
+                    }
+                ]
             ) {
                 HStack {
                     VStack(alignment: .leading, spacing: 1) {
@@ -243,6 +256,7 @@ struct EquipmentTabView: View {
                     Image(systemName: "chevron.right")
                         .font(.system(.caption, weight: .bold))
                         .foregroundStyle(Theme.textFaint)
+                        .accessibilityHidden(true)
                 }
                 .padding(.vertical, 10)
                 .contentShape(Rectangle())

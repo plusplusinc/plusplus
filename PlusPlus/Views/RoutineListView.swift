@@ -25,7 +25,13 @@ struct RoutineListView: View {
                         id: routine.persistentModelID,
                         openRow: $openSwipeRow,
                         actionsWidth: 58,
-                        onTap: { path.append(routine) }
+                        onTap: { path.append(routine) },
+                        accessibilityActions: [
+                            SwipeRowAction(name: "Delete") {
+                                openSwipeRow = nil
+                                deleteRoutine(routine)
+                            }
+                        ]
                     ) {
                         RoutineCard(routine: routine)
                     } actions: {
