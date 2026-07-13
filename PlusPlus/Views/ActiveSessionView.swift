@@ -334,7 +334,7 @@ struct ActiveSessionView: View {
                     }
                     .foregroundStyle(Theme.textPrimary)
                     .padding(.horizontal, 12)
-                    .frame(height: 34)
+                    .frame(minHeight: 34)
                     .background(Theme.surface, in: Capsule())
                     .overlay(Capsule().strokeBorder(Theme.border))
                 }
@@ -372,10 +372,11 @@ struct ActiveSessionView: View {
                             Image(systemName: "pause.fill").font(.system(.caption, weight: .semibold))
                                 .accessibilityHidden(true)
                             Text("Pause").font(.system(.footnote, weight: .semibold))
+                                .lineLimit(1).minimumScaleFactor(0.6)
                         }
                         .foregroundStyle(Theme.textPrimary)
                         .padding(.horizontal, 12)
-                        .frame(height: 34)
+                        .frame(minHeight: 34)
                         .background(Theme.surface, in: Capsule())
                         .overlay(Capsule().strokeBorder(Theme.border))
                     }
@@ -398,6 +399,7 @@ struct ActiveSessionView: View {
                             : "set \(min(completedSets + 1, max(totalSets, 1)))/\(totalSets) · \(clockText(at: context.date))")
                             .font(.system(.caption, design: .monospaced))
                             .foregroundStyle(Theme.textPrimary)
+                            .lineLimit(1).minimumScaleFactor(0.6)
                     }
                     Image(systemName: "chevron.down")
                         .font(.system(.caption2, weight: .semibold))
@@ -405,7 +407,7 @@ struct ActiveSessionView: View {
                         .accessibilityHidden(true)
                 }
                 .padding(.horizontal, 12)
-                .frame(height: 34)
+                .frame(minHeight: 34)
                 .background(Theme.surface, in: Capsule())
                 .overlay(Capsule().strokeBorder(Theme.border))
             }
@@ -1607,6 +1609,7 @@ private struct LiveHeartRateLabel: View {
                     .foregroundStyle(inTarget ? Theme.accent : Theme.textPrimary))
                     .font(.system(.caption, design: .monospaced, weight: .semibold))
                 let described = label
+                    .lineLimit(1)
                     .contentTransition(.numericText())
                     .animation(Theme.Anim.standard, value: bpm)
                     .accessibilityLabel("Heart rate")
@@ -1615,7 +1618,7 @@ private struct LiveHeartRateLabel: View {
                 if chrome {
                     described
                         .padding(.horizontal, 10)
-                        .frame(height: 34)
+                        .frame(minHeight: 34)
                         .background(Theme.surface, in: Capsule())
                         .overlay(Capsule().strokeBorder(Theme.border))
                 } else {
@@ -1649,6 +1652,7 @@ private struct LivePaceLabel: View {
                     .foregroundStyle(Theme.textSecondary))
                     .font(.system(.caption, design: .monospaced, weight: .semibold))
                 let described = label
+                    .lineLimit(1)
                     .contentTransition(.numericText())
                     .animation(Theme.Anim.standard, value: pace)
                     .accessibilityLabel("Pace")
@@ -1657,7 +1661,7 @@ private struct LivePaceLabel: View {
                 if chrome {
                     described
                         .padding(.horizontal, 10)
-                        .frame(height: 34)
+                        .frame(minHeight: 34)
                         .background(Theme.surface, in: Capsule())
                         .overlay(Capsule().strokeBorder(Theme.border))
                 } else {
@@ -1969,8 +1973,10 @@ private struct RestView: View {
                             Text("+30s")
                                 .font(.system(.subheadline, design: .monospaced, weight: .bold))
                                 .foregroundStyle(Theme.textPrimary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
                                 .frame(width: (proxy.size.width - 10) * 5 / 12)
-                                .frame(height: 52)
+                                .frame(minHeight: 52)
                                 .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
                                 .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
                         }
@@ -1980,8 +1986,10 @@ private struct RestView: View {
                             Text("Skip rest")
                                 .font(.system(.subheadline, weight: .bold))
                                 .foregroundStyle(Theme.onPrimary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
                                 .frame(maxWidth: .infinity)
-                                .frame(height: 52)
+                                .frame(minHeight: 52)
                                 .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 11))
                         }
                         .buttonStyle(.raisedPrimaryKey())

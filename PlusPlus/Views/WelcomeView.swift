@@ -175,8 +175,10 @@ struct WelcomeView: View {
                     Text("Continue")
                         .font(.system(.body, weight: .bold))
                         .foregroundStyle(Theme.onPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 50)
+                        .frame(minHeight: 50)
                         .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.raisedPrimaryKey(cornerRadius: 12))
@@ -189,8 +191,10 @@ struct WelcomeView: View {
                         Text(connecting ? "Connecting…" : "Connect Apple Health")
                             .font(.system(.body, weight: .bold))
                             .foregroundStyle(Theme.onPrimary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
                             .frame(maxWidth: .infinity)
-                            .frame(height: 50)
+                            .frame(minHeight: 50)
                             .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
                     }
                     .buttonStyle(.raisedPrimaryKey(cornerRadius: 12))
@@ -203,8 +207,10 @@ struct WelcomeView: View {
                         Text("Not now")
                             .font(.system(.footnote, weight: .semibold))
                             .foregroundStyle(Theme.textSecondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
                             .frame(maxWidth: .infinity)
-                            .frame(height: 44)
+                            .frame(minHeight: 44)
                             .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
                             .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.border))
                     }
@@ -213,7 +219,7 @@ struct WelcomeView: View {
                 }
             }
         }
-        .frame(height: Self.controlsHeight, alignment: .top)
+        .frame(minHeight: Self.controlsHeight, alignment: .top)
     }
 
     /// The system sheet does the real asking; whatever the user decides

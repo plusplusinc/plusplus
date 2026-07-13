@@ -1051,8 +1051,10 @@ private struct ExerciseRailRow: View {
             Text(summary)
                 .font(.system(.footnote, design: .monospaced))
                 .foregroundStyle(Theme.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
         }
-        .frame(height: rowHeight)
+        .frame(minHeight: rowHeight)
         // One coherent read per row (name + target), with the superset
         // grouping the Canvas draws spoken as a value (#164). Rail rows carry
         // no test identifiers, so combining is safe (testing.md).

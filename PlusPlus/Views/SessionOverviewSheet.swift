@@ -224,7 +224,7 @@ struct SessionOverviewSheet: View {
                     }
                 }
             }
-            .frame(height: 52)
+            .frame(minHeight: 52)
             .background(isLive ? Theme.accent.opacity(0.09) : .clear)
         }
         .buttonStyle(.plain)

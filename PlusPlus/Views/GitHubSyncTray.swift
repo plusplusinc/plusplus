@@ -351,10 +351,11 @@ struct GitHubSyncTray: View {
             HStack(spacing: 8) {
                 Image("GitHubMark").resizable().scaledToFit().frame(width: 15, height: 15)
                 Text(title).font(.system(.subheadline, weight: .bold))
+                    .lineLimit(1).minimumScaleFactor(0.6)
             }
             .foregroundStyle(Theme.onPrimary)
             .frame(maxWidth: .infinity)
-            .frame(height: 48)
+            .frame(minHeight: 48)
             .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
         }
         .buttonStyle(.raisedPrimaryKey(cornerRadius: Theme.controlRadius))
@@ -366,8 +367,9 @@ struct GitHubSyncTray: View {
             Text("Done? Continue")
                 .font(.system(.subheadline, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
+                .lineLimit(1).minimumScaleFactor(0.6)
                 .frame(maxWidth: .infinity)
-                .frame(height: 44)
+                .frame(minHeight: 44)
                 .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.borderStrong))
         }
         .buttonStyle(.plain)

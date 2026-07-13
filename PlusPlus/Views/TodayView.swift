@@ -1659,11 +1659,14 @@ private struct SwapInSheet: View {
 
     /// The menu is two keys tall — a compact detent; the picker grows
     /// to .medium (user-expandable to .large). The detent rides the
-    /// stage so the sheet resizes with the slide.
-    private static let menuDetent = PresentationDetent.height(280)
+    /// stage so the sheet resizes with the slide. The compact height
+    /// scales with Dynamic Type so the two keys don't clip at large
+    /// accessibility sizes (a11y audit 2026-07-13).
+    @ScaledMetric(relativeTo: .body) private var menuDetentHeight: CGFloat = 280
+    private var menuDetent: PresentationDetent { .height(menuDetentHeight) }
 
     @State private var stage: Stage = .menu
-    @State private var detent = SwapInSheet.menuDetent
+    @State private var detent: PresentationDetent = .height(280)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -1693,13 +1696,14 @@ private struct SwapInSheet: View {
         }
         .padding(.horizontal, 18)
         .presentationBackground(Theme.background)
-        .presentationDetents([Self.menuDetent, .medium, .large], selection: $detent)
+        .presentationDetents([menuDetent, .medium, .large], selection: $detent)
+        .onAppear { if stage == .menu { detent = menuDetent } }
     }
 
     private func go(to newStage: Stage) {
         withAnimation(Theme.Anim.standard) {
             stage = newStage
-            detent = newStage == .menu ? Self.menuDetent : .medium
+            detent = newStage == .menu ? menuDetent : .medium
         }
     }
 
@@ -1764,9 +1768,11 @@ private struct SwapInSheet: View {
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Choose a routine")
                             .font(.system(.footnote, weight: .semibold))
+                            .lineLimit(1).minimumScaleFactor(0.6)
                         Text(routineCountCaption)
                             .font(.system(.caption2, design: .monospaced))
                             .foregroundStyle(Theme.textFaint)
+                            .lineLimit(1).minimumScaleFactor(0.6)
                     }
                     Spacer(minLength: 8)
                     Image(systemName: "chevron.right")
@@ -1776,7 +1782,7 @@ private struct SwapInSheet: View {
                 .foregroundStyle(Theme.textPrimary)
                 .padding(.horizontal, 14)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: 56)
+                .frame(minHeight: 56)
                 .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
                 .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
             }
@@ -1795,11 +1801,12 @@ private struct SwapInSheet: View {
                         .font(.system(.caption, weight: .semibold))
                     Text("build as you go")
                         .font(.system(.caption, design: .monospaced))
+                        .lineLimit(1).minimumScaleFactor(0.6)
                 }
                 .foregroundStyle(Theme.textSecondary)
                 .padding(.horizontal, 14)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: 46)
+                .frame(minHeight: 46)
                 .background(Theme.background, in: RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.border))
             }
