@@ -319,6 +319,9 @@ struct RoutineDetailView: View {
             landingSeq &+= 1
             supersetLanding = nil
         }
+        // Routine edits (rail structure, sets, schedule) reach GitHub when you
+        // leave the detail. Debounced + dirty-gated, so a no-edit visit is free.
+        .syncsProgramOnClose()
     }
 
     private var activeRingGroup: Int? {

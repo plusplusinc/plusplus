@@ -46,7 +46,8 @@ struct SyncEngineTests {
         #expect(repo.files == [routinePath: a, exercisePath: b])
         #expect(baseStore.base == [routinePath: a, exercisePath: b])
         #expect(repo.commits.count == 1)
-        #expect(repo.commits[0].message == "Sync: band-pulses, push-day")
+        // A routine + an exercise in one pass spans two areas → generic count.
+        #expect(repo.commits[0].message == "Sync 2 changes")
     }
 
     @Test("First sync into a POPULATED repo restores it, never overwrites (reinstall)")
@@ -232,12 +233,29 @@ struct SyncEngineTests {
         #expect(repo.files.count == 2)
     }
 
-    @Test("Commit messages summarize beyond two paths")
-    func commitMessageSummarizes() {
-        let message = SyncEngine.commitMessage(pushing: [
+    @Test("Commit messages describe what changed, by area")
+    func commitMessageDescribesChange() {
+        // Single file in an area names it.
+        #expect(SyncEngine.commitMessage(pushing: ["program/equipment/barbell.json"])
+            == "Update equipment: barbell")
+        #expect(SyncEngine.commitMessage(pushing: ["program/routines/push-day.json"])
+            == "Update routine: push-day")
+        #expect(SyncEngine.commitMessage(pushing: ["program/exercises/bench-press.json"])
+            == "Update exercise: bench-press")
+        // Equipment libraries fold into the equipment idea.
+        #expect(SyncEngine.commitMessage(pushing: [
+            "program/equipment/barbell.json", "program/equipment-libraries/home.json",
+        ]) == "Update equipment (2 items)")
+        // Several files in one area → a count.
+        #expect(SyncEngine.commitMessage(pushing: [
             "program/routines/a.json", "program/routines/b.json",
-            "program/exercises/c.json", "program/exercises/d.json",
-        ])
-        #expect(message == "Sync: a, b (+2 more)")
+        ]) == "Update 2 routines")
+        // History is named generically (date-stamped slugs are noisy).
+        #expect(SyncEngine.commitMessage(pushing: ["history/2026/2026-07-14-push-day.json"])
+            == "Log workout")
+        // A pass spanning areas → generic change count.
+        #expect(SyncEngine.commitMessage(pushing: [
+            "program/routines/a.json", "program/exercises/c.json",
+        ]) == "Sync 2 changes")
     }
 }

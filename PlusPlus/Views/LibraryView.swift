@@ -73,6 +73,8 @@ struct ExercisesTabView: View {
         // The catalog pushes via isPresented (not the path); include it so
         // swipe-to-open yields to its swipe-back.
         .revealRoot(tab: "exercises", atRoot: path.isEmpty && !showingCatalog)
+        // Swipe-removes / deletes here reach GitHub when you leave the tab.
+        .syncsProgramOnClose()
     }
 
     // MARK: - Rows
@@ -226,6 +228,8 @@ struct EquipmentTabView: View {
             }
         }
         .revealRoot(tab: "equipment", atRoot: path.isEmpty && !showingCatalog)
+        // Gear membership changes / deletes reach GitHub when you leave the tab.
+        .syncsProgramOnClose()
     }
 
     @ViewBuilder
@@ -663,6 +667,9 @@ struct CatalogBrowseScreen: View {
                 }
             }
         }
+        // Membership toggles + catalog adds reach GitHub when the browse
+        // surface closes. Debounced + dirty-gated (see requestSync).
+        .syncsProgramOnClose()
         .sheet(isPresented: Binding(
             get: { customPrefill != nil },
             set: { if !$0 { customPrefill = nil } }

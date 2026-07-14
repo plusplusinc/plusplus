@@ -87,6 +87,9 @@ struct RoutineListView: View {
             }
         }
         .revealRoot(tab: "routines", atRoot: path.isEmpty)
+        // Routine creates / deletes / reorders reach GitHub when you leave the
+        // tab. Debounced + dirty-gated (see requestSync).
+        .syncsProgramOnClose()
     }
 
     private var header: some View {
