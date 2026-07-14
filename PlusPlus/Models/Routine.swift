@@ -9,12 +9,16 @@ final class Routine {
     /// decoupling): `persistentModelID` re-keys at a fresh model's first
     /// save and flickers open sheets/pushes, so the UI keys on this instead
     /// (mirrors `EquipmentLibrary.uuid`). Device-local, NOT in the
-    /// interchange. OPTIONAL so the additive migration is lightweight-safe
-    /// (a non-optional UUID has no static default, so existing rows would
-    /// fail validation) — a new instance mints one via the default, and rows
-    /// migrated in from a pre-uuid store are backfilled at launch
-    /// (`SeedData.backfillModelUUIDsIfNeeded`). Effectively always non-nil.
-    var uuid: UUID? = UUID()
+    /// interchange. OPTIONAL and set in `init` (NOT a property-level
+    /// `= UUID()` default): SwiftData's lightweight migration applies a
+    /// property default as a SINGLE CONSTANT to every existing row, so a
+    /// `= UUID()` default made all migrated routines share ONE uuid and
+    /// nav resolved every routine to the same one. Without the default,
+    /// migrated rows get `nil` and `SeedData.backfillModelUUIDsIfNeeded`
+    /// assigns each a UNIQUE value at launch (it also de-dupes any store
+    /// already stamped with the shared default). New instances mint one in
+    /// `init`. Effectively always non-nil and unique once populated.
+    var uuid: UUID?
     var createdAt: Date
     var order: Int
     /// Rest between sets during execution, in seconds.
@@ -29,6 +33,7 @@ final class Routine {
     var groups: [ExerciseGroup] = []
 
     init(name: String, order: Int = 0, restSeconds: Int = 90, notes: String? = nil) {
+        self.uuid = UUID()
         self.name = name
         self.createdAt = Date()
         self.order = order

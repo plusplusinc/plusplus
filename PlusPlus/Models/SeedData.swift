@@ -114,24 +114,40 @@ enum SeedData {
         try? context.save()
     }
 
-    /// #155 uuid backfill. `Routine`/`ExerciseGroup`/`RoutineExercise` gained
-    /// an OPTIONAL `uuid` (for the tray-flicker decoupling); SwiftData's
-    /// lightweight migration adds the column as nil for existing rows, and
-    /// this assigns each a value at launch. Content-keyed + idempotent: a
-    /// no-op once every row has a uuid (the common case), so it's safe to run
-    /// every launch. New rows get their uuid from the model init default;
-    /// this only ever touches rows migrated in from a pre-uuid store.
+    /// #155 uuid backfill — ENFORCES UNIQUENESS, not just non-nil. The
+    /// routine-family models gained an optional `uuid` (for the tray-flicker
+    /// decoupling). It's set in `init`, never via a property-level default,
+    /// because SwiftData's lightweight migration stamps a `= UUID()` default
+    /// as ONE SHARED CONSTANT across every migrated row — which made all
+    /// routines resolve to the same one and the rail render duplicate rows.
+    /// So this assigns a fresh uuid to any row whose uuid is nil OR a
+    /// duplicate of one already seen, repairing both a clean migration (all
+    /// nil) and a store already stamped with the shared default (all equal).
+    /// Content-keyed + idempotent: once every row has a distinct uuid it's a
+    /// no-op, so it's safe to run every launch.
     static func backfillModelUUIDsIfNeeded(context: ModelContext) {
         var changed = false
-        for routine in (try? context.fetch(FetchDescriptor<Routine>())) ?? [] where routine.uuid == nil {
-            routine.uuid = UUID(); changed = true
+        var seen = Set<UUID>()
+
+        func ensureUnique(_ current: UUID?, assign: (UUID) -> Void) {
+            if let current, seen.insert(current).inserted { return }
+            // nil, or a uuid already used by an earlier row → mint a fresh one.
+            var fresh = UUID()
+            while !seen.insert(fresh).inserted { fresh = UUID() }
+            assign(fresh)
+            changed = true
         }
-        for group in (try? context.fetch(FetchDescriptor<ExerciseGroup>())) ?? [] where group.uuid == nil {
-            group.uuid = UUID(); changed = true
+
+        for routine in (try? context.fetch(FetchDescriptor<Routine>())) ?? [] {
+            ensureUnique(routine.uuid) { routine.uuid = $0 }
         }
-        for entry in (try? context.fetch(FetchDescriptor<RoutineExercise>())) ?? [] where entry.uuid == nil {
-            entry.uuid = UUID(); changed = true
+        for group in (try? context.fetch(FetchDescriptor<ExerciseGroup>())) ?? [] {
+            ensureUnique(group.uuid) { group.uuid = $0 }
         }
+        for entry in (try? context.fetch(FetchDescriptor<RoutineExercise>())) ?? [] {
+            ensureUnique(entry.uuid) { entry.uuid = $0 }
+        }
+
         if changed { try? context.save() }
     }
 

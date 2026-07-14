@@ -70,13 +70,13 @@ struct StoreMigrationTests {
         #expect(try ctx.fetch(FetchDescriptor<Routine>()).count == 1)
     }
 
-    /// The launch backfill assigns a FRESH, UNIQUE uuid to every routine-
-    /// family row missing one — the exact state a pre-uuid store migrates
-    /// into (SwiftData's lightweight add leaves the optional column nil).
-    /// This is the production populate path (`PlusPlusApp` runs it at launch),
-    /// so it's the meaningful thing to lock; the SwiftData lightweight add
-    /// itself is framework behavior, exercised on the real on-device upgrade.
-    @Test func backfillAssignsUniqueUUIDsToNilRows() throws {
+    /// The launch backfill ENFORCES UNIQUENESS — it repairs both a clean
+    /// migration (all uuids nil) AND a store already stamped with the shared
+    /// property-default constant (all uuids equal, the real on-device bug
+    /// where every routine opened the same one and the rail drew duplicate
+    /// rows). This is the production populate path (`PlusPlusApp` runs it at
+    /// launch), so it's the meaningful thing to lock.
+    @Test func backfillEnforcesUniqueUUIDs() throws {
         let url = tempURL()
         let schema = AppSchema.latest
         let config = ModelConfiguration(schema: schema, url: url, allowsSave: true, cloudKitDatabase: .none)
@@ -85,15 +85,21 @@ struct StoreMigrationTests {
 
         let ex = Exercise(name: "Probe Press", muscleGroup: .chest)
         ctx.insert(ex)
-        let routine = Routine(name: "Probe Routine")
-        ctx.insert(routine)
-        routine.addExerciseInNewGroup(ex, context: ctx)
-        // Simulate the post-lightweight-migration state: uuids cleared to nil.
-        routine.uuid = nil
-        for group in routine.groups {
-            group.uuid = nil
-            for entry in group.exercises { entry.uuid = nil }
+        // Three routines, each with a group + exercise.
+        for i in 0..<3 {
+            let routine = Routine(name: "Probe Routine \(i)")
+            ctx.insert(routine)
+            routine.addExerciseInNewGroup(ex, context: ctx)
         }
+
+        // Simulate the migration bug: every row gets the SAME uuid (the
+        // shared property-default constant), plus one nil for good measure.
+        let shared = UUID()
+        for (i, routine) in try ctx.fetch(FetchDescriptor<Routine>()).enumerated() {
+            routine.uuid = i == 0 ? nil : shared
+        }
+        for group in try ctx.fetch(FetchDescriptor<ExerciseGroup>()) { group.uuid = shared }
+        for entry in try ctx.fetch(FetchDescriptor<RoutineExercise>()) { entry.uuid = shared }
         try ctx.save()
 
         SeedData.backfillModelUUIDsIfNeeded(context: ctx)
@@ -102,8 +108,8 @@ struct StoreMigrationTests {
         let groups = try ctx.fetch(FetchDescriptor<ExerciseGroup>())
         let entries = try ctx.fetch(FetchDescriptor<RoutineExercise>())
         let ids = routines.compactMap(\.uuid) + groups.compactMap(\.uuid) + entries.compactMap(\.uuid)
-        #expect(ids.count == 3)          // none left nil
-        #expect(Set(ids).count == 3)     // all distinct
+        #expect(ids.count == 9)          // 3 routines + 3 groups + 3 entries, none nil
+        #expect(Set(ids).count == 9)     // ALL distinct — no shared uuid survives
     }
 
     /// Seed a routine + exercise + finished session with the pre-#155 plain
