@@ -114,12 +114,13 @@ enum SeedData {
         try? context.save()
     }
 
-    /// #155 defensive uuid backfill. The V1→V2 migration's `didMigrate`
-    /// populates the routine-family `uuid`s, but the plan-less-fallback open
-    /// path (PlusPlusApp) skips migration stages, so a store opened that way
-    /// keeps nil uuids. Assign one to any row missing it. Content-keyed +
-    /// idempotent: a no-op once every row has a uuid (the common case), so
-    /// it's safe to run every launch.
+    /// #155 uuid backfill. `Routine`/`ExerciseGroup`/`RoutineExercise` gained
+    /// an OPTIONAL `uuid` (for the tray-flicker decoupling); SwiftData's
+    /// lightweight migration adds the column as nil for existing rows, and
+    /// this assigns each a value at launch. Content-keyed + idempotent: a
+    /// no-op once every row has a uuid (the common case), so it's safe to run
+    /// every launch. New rows get their uuid from the model init default;
+    /// this only ever touches rows migrated in from a pre-uuid store.
     static func backfillModelUUIDsIfNeeded(context: ModelContext) {
         var changed = false
         for routine in (try? context.fetch(FetchDescriptor<Routine>())) ?? [] where routine.uuid == nil {

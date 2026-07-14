@@ -92,8 +92,8 @@ struct PlusPlusApp: App {
         // AFTER the legacy one-shots: the libraries migration snapshots
         // the inLibrary flags the reset may have just rewritten.
         SeedData.ensureEquipmentLibrary(context: modelContainer.mainContext)
-        // Ensure every routine/group/exercise has a stable uuid — covers the
-        // plan-less-fallback open path, which skips the migration stage (#155).
+        // Ensure every routine/group/exercise has a stable uuid — assigns one
+        // to any row migrated in from a pre-uuid store (#155).
         SeedData.backfillModelUUIDsIfNeeded(context: modelContainer.mainContext)
         // A routine tall enough to overflow every simulator screen, for
         // the scroll regression test. Only meaningful with --uitest-reset.

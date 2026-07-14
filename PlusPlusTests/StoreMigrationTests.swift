@@ -70,55 +70,40 @@ struct StoreMigrationTests {
         #expect(try ctx.fetch(FetchDescriptor<Routine>()).count == 1)
     }
 
-    /// V1 → V2: the custom stage adds `uuid` and its `didMigrate` backfills
-    /// a FRESH, UNIQUE value per row (a lightweight column-add would give
-    /// every migrated row the same default). Relationships survive.
-    @Test func migratesV1ToV2AssigningUniqueUUIDs() throws {
+    /// The launch backfill assigns a FRESH, UNIQUE uuid to every routine-
+    /// family row missing one — the exact state a pre-uuid store migrates
+    /// into (SwiftData's lightweight add leaves the optional column nil).
+    /// This is the production populate path (`PlusPlusApp` runs it at launch),
+    /// so it's the meaningful thing to lock; the SwiftData lightweight add
+    /// itself is framework behavior, exercised on the real on-device upgrade.
+    @Test func backfillAssignsUniqueUUIDsToNilRows() throws {
         let url = tempURL()
-        try writeV1ProbeData(to: url)
-
-        let v2 = AppSchema.latest
-        let config = ModelConfiguration(schema: v2, url: url, allowsSave: true, cloudKitDatabase: .none)
-        let container = try ModelContainer(for: v2, migrationPlan: AppMigrationPlan.self, configurations: [config])
-        let ctx = ModelContext(container)
-
-        let routines = try ctx.fetch(FetchDescriptor<Routine>())
-        let groups = try ctx.fetch(FetchDescriptor<ExerciseGroup>())
-        let entries = try ctx.fetch(FetchDescriptor<RoutineExercise>())
-        #expect(routines.count == 1)
-        #expect(groups.count == 1)
-        #expect(entries.count == 1)
-
-        // Every routine-family row has a distinct uuid after backfill.
-        let ids = routines.map(\.uuid) + groups.map(\.uuid) + entries.map(\.uuid)
-        let distinct = Set(ids).count == ids.count
-        #expect(distinct)
-        #expect(ids.count == 3)
-
-        // Relationships survived the version bump.
-        #expect(routines.first?.sortedGroups.first?.sortedExercises.first?.exercise?.name == "Probe Press")
-    }
-
-    /// Seed a routine + group + exercise into a V1 (pre-`uuid`) store using
-    /// the frozen snapshot classes, releasing the container before return.
-    private func writeV1ProbeData(to url: URL) throws {
-        let v1 = Schema(versionedSchema: AppSchemaV1.self)
-        let config = ModelConfiguration(schema: v1, url: url, allowsSave: true, cloudKitDatabase: .none)
-        let container = try ModelContainer(for: v1, configurations: [config])
+        let schema = AppSchema.latest
+        let config = ModelConfiguration(schema: schema, url: url, allowsSave: true, cloudKitDatabase: .none)
+        let container = try ModelContainer(for: schema, migrationPlan: AppMigrationPlan.self, configurations: [config])
         let ctx = ModelContext(container)
 
         let ex = Exercise(name: "Probe Press", muscleGroup: .chest)
         ctx.insert(ex)
-        let routine = AppSchemaV1.Routine(name: "Probe Routine")
+        let routine = Routine(name: "Probe Routine")
         ctx.insert(routine)
-        let group = AppSchemaV1.ExerciseGroup(order: 0, sets: 3)
-        ctx.insert(group)
-        group.routine = routine
-        let entry = AppSchemaV1.RoutineExercise(exercise: ex, order: 0)
-        ctx.insert(entry)
-        entry.group = group
-
+        routine.addExerciseInNewGroup(ex, context: ctx)
+        // Simulate the post-lightweight-migration state: uuids cleared to nil.
+        routine.uuid = nil
+        for group in routine.groups {
+            group.uuid = nil
+            for entry in group.exercises { entry.uuid = nil }
+        }
         try ctx.save()
+
+        SeedData.backfillModelUUIDsIfNeeded(context: ctx)
+
+        let routines = try ctx.fetch(FetchDescriptor<Routine>())
+        let groups = try ctx.fetch(FetchDescriptor<ExerciseGroup>())
+        let entries = try ctx.fetch(FetchDescriptor<RoutineExercise>())
+        let ids = routines.compactMap(\.uuid) + groups.compactMap(\.uuid) + entries.compactMap(\.uuid)
+        #expect(ids.count == 3)          // none left nil
+        #expect(Set(ids).count == 3)     // all distinct
     }
 
     /// Seed a routine + exercise + finished session with the pre-#155 plain

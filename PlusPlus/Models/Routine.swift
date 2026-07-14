@@ -11,9 +11,9 @@ final class Routine {
     /// (mirrors `EquipmentLibrary.uuid`). Device-local, NOT in the
     /// interchange. OPTIONAL so the additive migration is lightweight-safe
     /// (a non-optional UUID has no static default, so existing rows would
-    /// fail validation) — a new instance mints one via the default, and
-    /// migrated rows are backfilled (the V1→V2 stage's `didMigrate` and a
-    /// defensive launch pass). Effectively always non-nil once populated.
+    /// fail validation) — a new instance mints one via the default, and rows
+    /// migrated in from a pre-uuid store are backfilled at launch
+    /// (`SeedData.backfillModelUUIDsIfNeeded`). Effectively always non-nil.
     var uuid: UUID? = UUID()
     var createdAt: Date
     var order: Int
