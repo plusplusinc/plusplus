@@ -396,6 +396,9 @@ struct RoutineCatalogScreen: View {
         for existing in routines where existing !== routine {
             existing.order += 1
         }
+        // Permanent id before the push, so a later autosave can't re-key the
+        // routine sitting on the nav path (the tray-flicker class; swiftdata.md).
+        try? modelContext.save()
         path.append(routine)
     }
 }
@@ -503,6 +506,9 @@ struct RoutineTemplateDetailScreen: View {
                 guard !added else { return }
                 added = true
                 let routine = template.instantiate(in: modelContext, among: routines)
+                // Permanent id before the push — see createBlankRoutine
+                // (the tray-flicker class; swiftdata.md).
+                try? modelContext.save()
                 path.append(routine)
             } label: {
                 Text(added ? "Added" : "Add to routines")

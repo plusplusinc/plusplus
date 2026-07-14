@@ -304,6 +304,12 @@ struct ExerciseDetailScreen: View {
             existing.order += 1
         }
         _ = routine.addExerciseInNewGroup(exercise, context: modelContext)
+        // Permanent id before we navigate: .navigationDestination(item:)
+        // keys on persistentModelID, which SwiftData swaps temporary→
+        // permanent at the first save — a later autosave firing while the
+        // pushed RoutineDetailView is up would re-key the destination and
+        // tear it down/re-push (the tray-flicker class; swiftdata.md).
+        try? modelContext.save()
         createdRoutine = routine
     }
 
