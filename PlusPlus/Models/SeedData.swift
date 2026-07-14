@@ -114,6 +114,26 @@ enum SeedData {
         try? context.save()
     }
 
+    /// #155 defensive uuid backfill. The V1→V2 migration's `didMigrate`
+    /// populates the routine-family `uuid`s, but the plan-less-fallback open
+    /// path (PlusPlusApp) skips migration stages, so a store opened that way
+    /// keeps nil uuids. Assign one to any row missing it. Content-keyed +
+    /// idempotent: a no-op once every row has a uuid (the common case), so
+    /// it's safe to run every launch.
+    static func backfillModelUUIDsIfNeeded(context: ModelContext) {
+        var changed = false
+        for routine in (try? context.fetch(FetchDescriptor<Routine>())) ?? [] where routine.uuid == nil {
+            routine.uuid = UUID(); changed = true
+        }
+        for group in (try? context.fetch(FetchDescriptor<ExerciseGroup>())) ?? [] where group.uuid == nil {
+            group.uuid = UUID(); changed = true
+        }
+        for entry in (try? context.fetch(FetchDescriptor<RoutineExercise>())) ?? [] where entry.uuid == nil {
+            entry.uuid = UUID(); changed = true
+        }
+        if changed { try? context.save() }
+    }
+
     /// One-shot ownership reset (#232): equipment seeded fully-owned on
     /// fresh stores until build 32 — backwards, since an all-owned list
     /// filters nothing — and Dave chose to reset existing stores rather

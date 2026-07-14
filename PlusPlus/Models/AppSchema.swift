@@ -31,13 +31,14 @@ enum AppMigrationPlan: SchemaMigrationPlan {
         [migrateV1toV2]
     }
 
-    /// V1 → V2: adding `uuid` is an additive column, but a lightweight add
-    /// fills EVERY migrated row with the SAME property default — so this is
-    /// a `.custom` stage whose `didMigrate` assigns a fresh, unique `uuid`
-    /// per row. `uuid` is not `@Attribute(.unique)` (collision-free by
-    /// generation), so the transient all-equal state between the column-add
-    /// and this backfill is harmless. Runs only on a real V1→V2 upgrade;
-    /// fresh installs create at V2 with init-minted uuids and never hit it.
+    /// V1 → V2: `uuid` is added as an OPTIONAL column (a non-optional UUID
+    /// has no static default, so existing rows would fail validation on the
+    /// add). Existing rows migrate to nil; this `.custom` stage's
+    /// `didMigrate` then assigns a fresh, unique `uuid` per row. A defensive
+    /// launch backfill (`SeedData.backfillModelUUIDsIfNeeded`) covers the
+    /// plan-less-fallback open path, which skips migration stages. Runs only
+    /// on a real V1→V2 upgrade; fresh installs create at V2 with init-minted
+    /// uuids and never hit it.
     static let migrateV1toV2 = MigrationStage.custom(
         fromVersion: AppSchemaV1.self,
         toVersion: AppSchemaV2.self,

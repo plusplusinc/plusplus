@@ -9,10 +9,12 @@ final class Routine {
     /// decoupling): `persistentModelID` re-keys at a fresh model's first
     /// save and flickers open sheets/pushes, so the UI keys on this instead
     /// (mirrors `EquipmentLibrary.uuid`). Device-local, NOT in the
-    /// interchange. The property default both mints a fresh value per new
-    /// instance and supplies the additive-migration column default (a
-    /// custom stage backfills unique values on existing rows).
-    var uuid: UUID = UUID()
+    /// interchange. OPTIONAL so the additive migration is lightweight-safe
+    /// (a non-optional UUID has no static default, so existing rows would
+    /// fail validation) — a new instance mints one via the default, and
+    /// migrated rows are backfilled (the V1→V2 stage's `didMigrate` and a
+    /// defensive launch pass). Effectively always non-nil once populated.
+    var uuid: UUID? = UUID()
     var createdAt: Date
     var order: Int
     /// Rest between sets during execution, in seconds.

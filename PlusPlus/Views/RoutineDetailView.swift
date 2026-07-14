@@ -23,7 +23,10 @@ struct RoutineDetailView: View {
     /// re-key the open sheet on a background autosave — the flicker).
     @State private var selectedExercise: IdentifiedUUID?
     @State private var railGesture: RailGestureState = .idle
-    @State private var openSwipeRow: UUID?
+    // Swipe-open state stays on persistentModelID: it's not a flicker
+    // source (an id swap just collapses an open swipe), and it avoids a
+    // double-optional now that uuid is optional.
+    @State private var openSwipeRow: PersistentIdentifier?
     /// The just-formed superset's landing animation (nil at rest). Keyed
     /// by the group's stable id so it survives the commit's reindex; its
     /// `progress` runs 0→1 as the single clock for the field reshape+snap,
@@ -164,7 +167,7 @@ struct RoutineDetailView: View {
                 ExerciseDetailSheet(
                     routine: routine,
                     routineExercise: routineExercise,
-                    onAddToSuperset: { group in pickerDestination = .group(group.uuid) }
+                    onAddToSuperset: { group in group.uuid.map { pickerDestination = .group($0) } }
                 )
                 .presentationDetents([.large])
             }
@@ -448,11 +451,11 @@ struct RoutineDetailView: View {
         // `enabled: railGesture == .idle` keeps a second finger from
         // opening sheets or closing rows while a rail gesture is live.
         return SwipeRevealRow(
-            id: routineExercise.uuid,
+            id: routineExercise.persistentModelID,
             openRow: $openSwipeRow,
             enabled: railGesture == .idle,
             actionsWidth: 116,
-            onTap: { selectedExercise = IdentifiedUUID(id: routineExercise.uuid) },
+            onTap: { selectedExercise = routineExercise.uuid.map(IdentifiedUUID.init) },
             accessibilityActions: a11yActions
         ) {
             ExerciseRailRow(
@@ -812,9 +815,10 @@ struct RoutineDetailView: View {
     /// ~1.3 s, feeds the field reshape+snap, the pulse spark, and the loop's
     /// blue→gray fade. A medium impact snaps at the Phase B → C hand-off.
     private func flashSupersetLanding(_ group: ExerciseGroup, grew: Bool) {
+        guard let groupID = group.uuid else { return }
         let seq = landingSeq &+ 1
         landingSeq = seq
-        supersetLanding = SupersetLanding(groupID: group.uuid, progress: 0, grew: grew)
+        supersetLanding = SupersetLanding(groupID: groupID, progress: 0, grew: grew)
         // Commit the progress-0 frame FIRST (reshape start), then run the
         // clock on the next tick — animating in the same tick as the insert
         // would snap straight to the end (a fresh view has no baseline to
