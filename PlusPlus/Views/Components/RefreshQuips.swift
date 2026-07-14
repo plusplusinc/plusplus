@@ -11,20 +11,24 @@ enum RefreshQuip {
         "+1 to you.",
         "Nice increment.",
         "Commit to yourself.",
-        "You're the main branch.",
-        "Ship it. 🚢",
-        "No conflicts to merge.",
+        "Incrementally yours.",
+        "One more than before.",
+        "Consistency compiles.",
         // Body / gym
         "Hydrate, then conquer. 🚰",
-        "Drink some water. 🚰",
         "Rest is part of the program.",
-        "The bar misses you. 🏋️",
+        "Every rep counts.",
+        "Keep stacking.",
+        "Fuel up. 🍎",
+        // Warm / progress / whimsy
         "Stronger than yesterday.",
-        // Warm / whimsy / lore
         "Look who showed up. 👀",
         "Future you says thanks.",
-        "The machines are impressed. 🤖",
         "Small reps, big you.",
+        "Steady wins.",
+        "Proud of you.",
+        "Showing up is the whole thing.",
+        "Momentum suits you.",
     ]
 
     static func random() -> String { all.randomElement() ?? "you++" }
