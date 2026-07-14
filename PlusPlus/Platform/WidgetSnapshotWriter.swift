@@ -45,7 +45,8 @@ enum WidgetSnapshotWriter {
                 exerciseCount: routine.sortedGroups.reduce(0) { $0 + $1.sortedExercises.count },
                 scheduleData: routine.scheduleData,
                 lastCompleted: completions.last,
-                previousCompleted: completions.previous
+                previousCompleted: completions.previous,
+                addedOn: routine.createdAt
             ))
             let state = routine.schedule.dueState(
                 lastCompleted: completions.last,
