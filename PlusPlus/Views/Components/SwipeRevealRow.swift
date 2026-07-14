@@ -29,9 +29,13 @@ struct SwipeRowAction {
     let perform: () -> Void
 }
 
-struct SwipeRevealRow<Content: View, Actions: View>: View {
-    let id: PersistentIdentifier
-    @Binding var openRow: PersistentIdentifier?
+struct SwipeRevealRow<ID: Hashable, Content: View, Actions: View>: View {
+    // Identity is generic (Hashable) so callers key the shared open-row
+    // state on whatever is stable for them — a routine-family model's
+    // `uuid`, or a `persistentModelID` for the browse lists that don't
+    // decouple. Only equality/nil is used below.
+    let id: ID
+    @Binding var openRow: ID?
     var enabled: Bool = true
     let actionsWidth: CGFloat
     /// Row activation for a genuine tap (navigate, open a sheet).

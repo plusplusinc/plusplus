@@ -18,8 +18,14 @@ struct RoutineDetailView: View {
     @State private var activeSession: WorkoutSession?
     @State private var showingRoutineSettings = false
     @State private var showingShareSheet = false
-    @State private var selectedExercise: RoutineExercise?
+    /// The exercise-detail tray's target, keyed on the RoutineExercise's
+    /// stable `uuid` (not the model / its persistentModelID, which would
+    /// re-key the open sheet on a background autosave — the flicker).
+    @State private var selectedExercise: IdentifiedUUID?
     @State private var railGesture: RailGestureState = .idle
+    // Swipe-open state stays on persistentModelID: it's not a flicker
+    // source (an id swap just collapses an open swipe), and it avoids a
+    // double-optional now that uuid is optional.
     @State private var openSwipeRow: PersistentIdentifier?
     /// The just-formed superset's landing animation (nil at rest). Keyed
     /// by the group's stable id so it survives the commit's reindex; its
@@ -54,7 +60,7 @@ struct RoutineDetailView: View {
     /// container's stable id, `progress` animates 0 (big blue field, loop
     /// vivid) → 1 (field collapsed away, loop settled).
     private struct SupersetLanding: Equatable {
-        var groupID: PersistentIdentifier
+        var groupID: UUID
         var progress: Double
         /// The group was already a superset (≥2) before this landing grew
         /// it — so its rows keep their loop through the reshape.
@@ -154,13 +160,17 @@ struct RoutineDetailView: View {
                 }
             }
         }
-        .sheet(item: $selectedExercise) { routineExercise in
-            ExerciseDetailSheet(
-                routine: routine,
-                routineExercise: routineExercise,
-                onAddToSuperset: { group in pickerDestination = .group(group) }
-            )
-            .presentationDetents([.large])
+        .sheet(item: $selectedExercise) { ref in
+            // Resolve the RoutineExercise from its stable uuid within the
+            // live routine graph. Nothing to show if it was deleted.
+            if let routineExercise = routine.sortedGroups.flatMap(\.sortedExercises).first(where: { $0.uuid == ref.id }) {
+                ExerciseDetailSheet(
+                    routine: routine,
+                    routineExercise: routineExercise,
+                    onAddToSuperset: { group in group.uuid.map { pickerDestination = .group($0) } }
+                )
+                .presentationDetents([.large])
+            }
         }
         .fullScreenCover(item: $activeSession) { session in
             ActiveSessionView(session: session)
@@ -275,8 +285,8 @@ struct RoutineDetailView: View {
         // now carry only the drag-preview deltas.
         return ScrollView {
             VStack(spacing: 0) {
-                ForEach(Array(groups.enumerated()), id: \.element.persistentModelID) { g, group in
-                    ForEach(Array(group.sortedExercises.enumerated()), id: \.element.persistentModelID) { i, routineExercise in
+                ForEach(Array(groups.enumerated()), id: \.element.uuid) { g, group in
+                    ForEach(Array(group.sortedExercises.enumerated()), id: \.element.uuid) { i, routineExercise in
                         railRow(
                             routineExercise, group: group, groupIndex: g, index: i,
                             hideLoop: ringGroup == g,
@@ -445,7 +455,7 @@ struct RoutineDetailView: View {
             openRow: $openSwipeRow,
             enabled: railGesture == .idle,
             actionsWidth: 116,
-            onTap: { selectedExercise = routineExercise },
+            onTap: { selectedExercise = routineExercise.uuid.map(IdentifiedUUID.init) },
             accessibilityActions: a11yActions
         ) {
             ExerciseRailRow(
@@ -657,7 +667,7 @@ struct RoutineDetailView: View {
     private func landingParams(groupIndex g: Int, index i: Int, layout: RailLayout, sizes: [Int]) -> RailLandingParams {
         guard let landing = supersetLanding,
               routine.sortedGroups.indices.contains(g),
-              routine.sortedGroups[g].persistentModelID == landing.groupID,
+              routine.sortedGroups[g].uuid == landing.groupID,
               sizes.indices.contains(g), sizes[g] > 1,
               let firstRow = layout.row(for: .exercise(group: g, index: 0)),
               let lastRow = layout.row(for: .exercise(group: g, index: sizes[g] - 1)),
@@ -683,7 +693,7 @@ struct RoutineDetailView: View {
     @ViewBuilder
     private func supersetLandingFX(layout: RailLayout, sizes: [Int]) -> some View {
         if let landing = supersetLanding,
-           let gf = routine.sortedGroups.firstIndex(where: { $0.persistentModelID == landing.groupID }),
+           let gf = routine.sortedGroups.firstIndex(where: { $0.uuid == landing.groupID }),
            sizes.indices.contains(gf), sizes[gf] > 1,
            let firstRow = layout.row(for: .exercise(group: gf, index: 0)),
            let lastRow = layout.row(for: .exercise(group: gf, index: sizes[gf] - 1)) {
@@ -805,9 +815,10 @@ struct RoutineDetailView: View {
     /// ~1.3 s, feeds the field reshape+snap, the pulse spark, and the loop's
     /// blue→gray fade. A medium impact snaps at the Phase B → C hand-off.
     private func flashSupersetLanding(_ group: ExerciseGroup, grew: Bool) {
+        guard let groupID = group.uuid else { return }
         let seq = landingSeq &+ 1
         landingSeq = seq
-        supersetLanding = SupersetLanding(groupID: group.persistentModelID, progress: 0, grew: grew)
+        supersetLanding = SupersetLanding(groupID: groupID, progress: 0, grew: grew)
         // Commit the progress-0 frame FIRST (reshape start), then run the
         // clock on the next tick — animating in the same tick as the insert
         // would snap straight to the end (a fresh view has no baseline to
@@ -857,7 +868,8 @@ struct RoutineDetailView: View {
         switch destination {
         case .newGroup:
             routine.addExerciseInNewGroup(exercise, context: modelContext)
-        case .group(let group):
+        case .group(let uuid):
+            guard let group = routine.sortedGroups.first(where: { $0.uuid == uuid }) else { return }
             routine.addExercise(exercise, to: group, context: modelContext)
             // Picking into an existing group is superset creation by
             // another door — same rule as the ring and sheet paths:
@@ -865,17 +877,10 @@ struct RoutineDetailView: View {
             SupersetCreationTip().invalidate(reason: .actionPerformed)
             SupersetLoopTip().invalidate(reason: .actionPerformed)
         }
-        // Give the freshly inserted group/exercise a PERMANENT id now.
-        // Both trays this screen presents key on persistentModelID — the
-        // per-exercise detail sheet (.sheet(item: $selectedExercise)) and
-        // the superset picker (pickerDestination's id IS
-        // group.persistentModelID). SwiftData swaps that id from a
-        // temporary to a permanent value at the first save; if that save is
-        // a later autosave firing WHILE one of those trays is open, the id
-        // change reads as a new item and the sheet briefly dismisses +
-        // re-presents — the "tray flickers for no apparent reason" bug.
-        // Saving synchronously at insertion closes the window (same rule as
-        // WorkoutSession.start's fullScreenCover; swiftdata.md).
+        // Persist the freshly inserted group/exercise. This screen's trays
+        // now key on the stable `uuid` (not persistentModelID), so they no
+        // longer flicker when the id swaps — this save is belt-and-suspenders
+        // (and the honest commit of a durable user action).
         try? modelContext.save()
     }
 
@@ -962,12 +967,14 @@ private struct SupersetTipInline: View {
 /// existing group (forming a superset).
 enum PickerDestination: Identifiable {
     case newGroup
-    case group(ExerciseGroup)
+    /// A superset target, keyed on the group's stable `uuid` (not its
+    /// persistentModelID, which would re-key the open picker on autosave).
+    case group(UUID)
 
     var id: AnyHashable {
         switch self {
         case .newGroup: AnyHashable("newGroup")
-        case .group(let group): AnyHashable(group.persistentModelID)
+        case .group(let uuid): AnyHashable(uuid)
         }
     }
 }

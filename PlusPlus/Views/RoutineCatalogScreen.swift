@@ -396,10 +396,8 @@ struct RoutineCatalogScreen: View {
         for existing in routines where existing !== routine {
             existing.order += 1
         }
-        // Permanent id before the push, so a later autosave can't re-key the
-        // routine sitting on the nav path (the tray-flicker class; swiftdata.md).
         try? modelContext.save()
-        path.append(routine)
+        routine.uuid.map { path.append(RoutineRef(uuid: $0)) }
     }
 }
 
@@ -509,7 +507,7 @@ struct RoutineTemplateDetailScreen: View {
                 // Permanent id before the push — see createBlankRoutine
                 // (the tray-flicker class; swiftdata.md).
                 try? modelContext.save()
-                path.append(routine)
+                routine.uuid.map { path.append(RoutineRef(uuid: $0)) }
             } label: {
                 Text(added ? "Added" : "Add to routines")
                     .font(.system(.body, weight: .bold))

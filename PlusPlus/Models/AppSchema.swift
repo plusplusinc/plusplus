@@ -3,26 +3,25 @@ import SwiftData
 
 /// The versioned SwiftData schema and its migration plan (#155).
 ///
-/// Until build 74 the app opened a plain `Schema([...])` and, on ANY
-/// open failure, DESTROYED and recreated the store (the #153 beta
-/// stopgap). That silently drops training history the moment real usage
-/// or sync ships. This file establishes the 1.0 policy:
+/// Until build 74 the app opened a plain `Schema([...])` and, on ANY open
+/// failure, DESTROYED and recreated the store (the #153 beta stopgap). This
+/// establishes the 1.0 policy: a `VersionedSchema` + `SchemaMigrationPlan`
+/// so a future shape change MIGRATES the store instead of resetting it, and
+/// recovery that copies the store aside rather than wiping it silently
+/// (`StoreRecovery`, `PlusPlusApp`).
 ///
-/// - A `VersionedSchema` per shape (starting at V1 = today's entities)
-///   plus a `SchemaMigrationPlan`, so a future shape change MIGRATES the
-///   store instead of resetting it (an entity rename like #144 no longer
-///   bricks a store).
-/// - The container opens WITH the plan (`PlusPlusApp`). Recovery only
-///   fires when opening is genuinely impossible (corruption, an unknown
-///   store), and even then it copies the raw store aside first — never a
-///   silent wipe (`StoreRecovery`).
-///
-/// V1 lists the LIVE model types directly: it *is* the current shape, so
-/// no snapshot duplication is needed yet. **When a later version changes
-/// a model, FREEZE V1 into standalone snapshot classes here** (the live
-/// classes become the newer version's `models`) so V1 keeps describing
-/// the pre-change shape — each `VersionedSchema` is a complete snapshot,
-/// not a diff (the Axiom/Apple rule).
+/// V1 lists the LIVE model types directly — it *is* the current shape. The
+/// routine-family `uuid` (for the tray-flicker decoupling) is an OPTIONAL
+/// additive column, which SwiftData migrates in automatically (lightweight):
+/// an existing store's rows get `nil`, and `SeedData.backfillModelUUIDsIfNeeded`
+/// assigns each a value at launch. Deliberately NOT modeled as a V1→V2 custom
+/// stage with a frozen V1 snapshot: nested snapshot `@Model` classes that
+/// coexist with the live top-level classes of the same entity name crash
+/// migration with a `Failed to cast model` fatal error — the lightweight +
+/// launch-backfill path is the robust way to add this field. **When a future
+/// change genuinely needs a custom transform, add a new `VersionedSchema` +
+/// `MigrationStage` here** (freezing V1 into snapshots only if that change
+/// can't ride lightweight).
 enum AppSchemaV1: VersionedSchema {
     static var versionIdentifier = Schema.Version(1, 0, 0)
 
@@ -36,8 +35,7 @@ enum AppSchemaV1: VersionedSchema {
 }
 
 /// The migration plan the container opens with. One schema today (V1);
-/// stages arrive with the first shape change. `schemas` is in upgrade
-/// order, oldest first.
+/// stages arrive with the first change lightweight can't express.
 enum AppMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
         [AppSchemaV1.self]

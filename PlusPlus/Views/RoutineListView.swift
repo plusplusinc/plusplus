@@ -25,7 +25,7 @@ struct RoutineListView: View {
                         id: routine.persistentModelID,
                         openRow: $openSwipeRow,
                         actionsWidth: 58,
-                        onTap: { path.append(routine) },
+                        onTap: { routine.uuid.map { path.append(RoutineRef(uuid: $0)) } },
                         accessibilityActions: [
                             SwipeRowAction(name: "Delete") {
                                 openSwipeRow = nil
@@ -55,8 +55,13 @@ struct RoutineListView: View {
             // made list -> detail read as a custom cover rather than a
             // navigation push. Today's zooms (committed card -> record,
             // pending card -> workout cover) are unchanged.
-            .navigationDestination(for: Routine.self) { routine in
-                RoutineDetailView(routine: routine)
+            .navigationDestination(for: RoutineRef.self) { ref in
+                // Resolve the routine from its stable uuid (not by pushing
+                // the @Model, whose persistentModelID can swap under the
+                // push). A just-created routine resolves via a direct fetch.
+                if let routine = modelContext.routine(uuid: ref.uuid) {
+                    RoutineDetailView(routine: routine)
+                }
             }
             // Registered at the stack root, NOT inside RoutineCatalogScreen:
             // a value destination declared on a screen that is itself pushed

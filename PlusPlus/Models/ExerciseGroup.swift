@@ -4,6 +4,11 @@ import SwiftData
 @Model
 final class ExerciseGroup {
     var routine: Routine?
+    /// Stable identity for presentation (the superset picker keys on it) —
+    /// see `Routine.uuid`. Set in init (no property default, which a
+    /// migration would stamp as one shared constant); backfilled if nil or
+    /// duplicated. Device-local, not in the interchange.
+    var uuid: UUID?
     var order: Int
     var sets: Int
     /// Per-block rest override in seconds; nil rides the routine's
@@ -16,6 +21,7 @@ final class ExerciseGroup {
     var exercises: [RoutineExercise] = []
 
     init(order: Int = 0, sets: Int = 3) {
+        self.uuid = UUID()
         self.order = order
         self.sets = sets
     }

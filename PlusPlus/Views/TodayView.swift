@@ -58,7 +58,7 @@ struct TodayView: View {
     /// Nonzero presents the populate-offer alert (#204); computed at
     /// present time from the store, never carried stale.
     @State private var populateOfferCount = 0
-    @State private var scheduleEditTarget: Routine?
+    @State private var scheduleEditTarget: IdentifiedUUID?
     @State private var activeSession: WorkoutSession?
     /// Bumped on day change so every Date()-based computed re-evaluates
     /// — without it, an app resident overnight keeps rendering
@@ -109,12 +109,11 @@ struct TodayView: View {
         for existing in routines where existing !== routine {
             existing.order += 1
         }
-        // Permanent id before the push: a @Model's Hashable derives from
-        // persistentModelID, which swaps at the first save, so a later
-        // autosave would re-key the value sitting on the nav path and
-        // re-resolve the pushed detail (the tray-flicker class; swiftdata.md).
+        // Push by stable uuid, resolved in the destination (ModelRefs) — the
+        // nav path no longer depends on the swappable persistentModelID. The
+        // save keeps the routine durable before it's navigated to.
         try? modelContext.save()
-        todayPath.append(routine)
+        routine.uuid.map { todayPath.append(RoutineRef(uuid: $0)) }
     }
 
     var body: some View {
@@ -310,8 +309,12 @@ struct TodayView: View {
             }
             .background(Theme.background)
             .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(for: Routine.self) { routine in
-                RoutineDetailView(routine: routine)
+            .navigationDestination(for: RoutineRef.self) { ref in
+                // Resolve by stable uuid, not by pushing the @Model (whose
+                // persistentModelID can swap under the push) — see ModelRefs.
+                if let routine = modelContext.routine(uuid: ref.uuid) {
+                    RoutineDetailView(routine: routine)
+                }
             }
             .navigationDestination(for: SessionRecordDestination.self) { destination in
                 // "Do it again" starts from INSIDE the record, state
@@ -430,11 +433,13 @@ struct TodayView: View {
                 Button("Cancel", role: .cancel) { newRoutineName = "" }
                 Button("Create") { createRoutine() }
             }
-            .navigationDestination(item: $scheduleEditTarget) { routine in
-                RoutineSettingsScreen(routine: routine) {
-                    scheduleEditTarget = nil
-                    Task { @MainActor in
-                        modelContext.delete(routine)
+            .navigationDestination(item: $scheduleEditTarget) { ref in
+                if let routine = modelContext.routine(uuid: ref.id) {
+                    RoutineSettingsScreen(routine: routine) {
+                        scheduleEditTarget = nil
+                        Task { @MainActor in
+                            modelContext.delete(routine)
+                        }
                     }
                 }
             }
@@ -730,7 +735,7 @@ struct TodayView: View {
     /// same routine's pending card may be on screen with that id — off-card
     /// starts fall back to the standard transition (#216).
     private func futureCard(_ entry: UpcomingEntry) -> some View {
-        NavigationLink(value: entry.routine) {
+        NavigationLink(value: entry.routine.uuid.map { RoutineRef(uuid: $0) }) {
             HStack(alignment: .center, spacing: 8) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(entry.routine.name)
@@ -819,7 +824,7 @@ struct TodayView: View {
     /// the estimate — no diff, no green border, and no one-click Start
     /// (reserved for today). Tapping opens the routine, where Start lives.
     private func missedCard(_ entry: MissedEntry) -> some View {
-        NavigationLink(value: entry.routine) {
+        NavigationLink(value: entry.routine.uuid.map { RoutineRef(uuid: $0) }) {
             HStack(alignment: .center, spacing: 8) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(entry.routine.name)
@@ -1098,7 +1103,7 @@ struct TodayView: View {
             // card, chevron trailing) that the upcoming cards already
             // speak. Start keeps its own frame below, so exactly one
             // affordance fires per tap.
-            NavigationLink(value: routine) {
+            NavigationLink(value: routine.uuid.map { RoutineRef(uuid: $0) }) {
                 VStack(alignment: .leading, spacing: 0) {
                     // The name owns the top row (the estimate moved down
                     // to the go/no-go meta row — Dave's ask); the chevron
@@ -1308,8 +1313,8 @@ struct TodayView: View {
                 gatedSub: "Needs a routine first",
                 cta: "Choose days or pace",
                 identifier: "setupScheduleStep",
-                action: { scheduleEditTarget = scheduleEditRoutine },
-                edit: { scheduleEditTarget = scheduleEditRoutine }
+                action: { scheduleEditTarget = scheduleEditRoutine?.uuid.map(IdentifiedUUID.init)},
+                edit: { scheduleEditTarget = scheduleEditRoutine?.uuid.map(IdentifiedUUID.init)}
             )
             SetupRow(
                 state: routineStepDone ? .done : (equipmentStepDone ? .ready : .gated),
@@ -1458,7 +1463,7 @@ struct TodayView: View {
                         label: "schedule a routine — it appears here on its day",
                         identifier: "scheduleOfferButton"
                     ) {
-                        scheduleEditTarget = target
+                        scheduleEditTarget = target.uuid.map(IdentifiedUUID.init)
                     }
                 }
             }
@@ -1482,7 +1487,7 @@ struct TodayView: View {
             Button {
                 // Root-only affordance: emptiness doubles as the
                 // double-tap guard (see the setup step's catalog push).
-                if todayPath.isEmpty { todayPath.append(routine) }
+                if todayPath.isEmpty { routine.uuid.map { todayPath.append(RoutineRef(uuid: $0)) } }
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "plus")

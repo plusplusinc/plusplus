@@ -114,6 +114,43 @@ enum SeedData {
         try? context.save()
     }
 
+    /// #155 uuid backfill — ENFORCES UNIQUENESS, not just non-nil. The
+    /// routine-family models gained an optional `uuid` (for the tray-flicker
+    /// decoupling). It's set in `init`, never via a property-level default,
+    /// because SwiftData's lightweight migration stamps a `= UUID()` default
+    /// as ONE SHARED CONSTANT across every migrated row — which made all
+    /// routines resolve to the same one and the rail render duplicate rows.
+    /// So this assigns a fresh uuid to any row whose uuid is nil OR a
+    /// duplicate of one already seen, repairing both a clean migration (all
+    /// nil) and a store already stamped with the shared default (all equal).
+    /// Content-keyed + idempotent: once every row has a distinct uuid it's a
+    /// no-op, so it's safe to run every launch.
+    static func backfillModelUUIDsIfNeeded(context: ModelContext) {
+        var changed = false
+        var seen = Set<UUID>()
+
+        func ensureUnique(_ current: UUID?, assign: (UUID) -> Void) {
+            if let current, seen.insert(current).inserted { return }
+            // nil, or a uuid already used by an earlier row → mint a fresh one.
+            var fresh = UUID()
+            while !seen.insert(fresh).inserted { fresh = UUID() }
+            assign(fresh)
+            changed = true
+        }
+
+        for routine in (try? context.fetch(FetchDescriptor<Routine>())) ?? [] {
+            ensureUnique(routine.uuid) { routine.uuid = $0 }
+        }
+        for group in (try? context.fetch(FetchDescriptor<ExerciseGroup>())) ?? [] {
+            ensureUnique(group.uuid) { group.uuid = $0 }
+        }
+        for entry in (try? context.fetch(FetchDescriptor<RoutineExercise>())) ?? [] {
+            ensureUnique(entry.uuid) { entry.uuid = $0 }
+        }
+
+        if changed { try? context.save() }
+    }
+
     /// One-shot ownership reset (#232): equipment seeded fully-owned on
     /// fresh stores until build 32 — backwards, since an all-owned list
     /// filters nothing — and Dave chose to reset existing stores rather

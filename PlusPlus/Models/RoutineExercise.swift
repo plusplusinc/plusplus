@@ -6,6 +6,11 @@ import PlusPlusKit
 final class RoutineExercise {
     var group: ExerciseGroup?
     var exercise: Exercise?
+    /// Stable identity for presentation (the per-exercise detail sheet keys
+    /// on it) — see `Routine.uuid`. Set in init (no property default, which
+    /// a migration would stamp as one shared constant); backfilled if nil or
+    /// duplicated. Device-local, not in the interchange.
+    var uuid: UUID?
     var order: Int
     var weight: Double?
     var reps: Int?
@@ -23,6 +28,7 @@ final class RoutineExercise {
     var extraTargetsData: Data?
 
     init(exercise: Exercise, order: Int = 0) {
+        self.uuid = UUID()
         self.exercise = exercise
         self.order = order
     }

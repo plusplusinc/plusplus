@@ -106,11 +106,11 @@ struct ExerciseDetailScreen: View {
     @State private var showingDeleteConfirm = false
     /// A routine created from here pushes immediately — the fluid-nav
     /// promise: create it with this exercise already inside, land in it.
-    @State private var createdRoutine: Routine?
+    @State private var createdRoutine: IdentifiedUUID?
 
     private enum PushTarget: Hashable {
         case equipment(Equipment)
-        case routine(Routine)
+        case routine(UUID)
     }
 
     private var usedInRoutines: [Routine] {
@@ -203,7 +203,7 @@ struct ExerciseDetailScreen: View {
                         crossRefBlock {
                             ForEach(Array(usedInRoutines.enumerated()), id: \.element.persistentModelID) { index, routine in
                                 CrossRefRow(title: routine.name, meta: routine.schedule.shortLabel) {
-                                    path = .routine(routine)
+                                    routine.uuid.map { path = .routine($0) }
                                 }
                                 if index < usedInRoutines.count - 1 {
                                     Divider().overlay(Theme.border)
@@ -265,11 +265,16 @@ struct ExerciseDetailScreen: View {
         .navigationDestination(item: $path) { target in
             switch target {
             case .equipment(let equipment): EquipmentDetailScreen(equipment: equipment)
-            case .routine(let routine): RoutineDetailView(routine: routine)
+            case .routine(let uuid):
+                if let routine = modelContext.routine(uuid: uuid) {
+                    RoutineDetailView(routine: routine)
+                }
             }
         }
-        .navigationDestination(item: $createdRoutine) { routine in
-            RoutineDetailView(routine: routine)
+        .navigationDestination(item: $createdRoutine) { ref in
+            if let routine = modelContext.routine(uuid: ref.id) {
+                RoutineDetailView(routine: routine)
+            }
         }
         .sheet(isPresented: $showingEditor) {
             ExerciseEditorView(editing: exercise)
@@ -310,7 +315,7 @@ struct ExerciseDetailScreen: View {
         // pushed RoutineDetailView is up would re-key the destination and
         // tear it down/re-push (the tray-flicker class; swiftdata.md).
         try? modelContext.save()
-        createdRoutine = routine
+        createdRoutine = routine.uuid.map(IdentifiedUUID.init)
     }
 
     private func deleteCustom() {
@@ -341,7 +346,7 @@ struct EquipmentDetailScreen: View {
 
     private enum PushTarget: Hashable {
         case exercise(Exercise)
-        case routine(Routine)
+        case routine(UUID)
     }
 
     private var activeLibrary: EquipmentLibrary? {
@@ -487,7 +492,7 @@ struct EquipmentDetailScreen: View {
                         crossRefBlock {
                             ForEach(Array(usedInRoutines.enumerated()), id: \.element.persistentModelID) { index, routine in
                                 CrossRefRow(title: routine.name, meta: routine.schedule.shortLabel) {
-                                    path = .routine(routine)
+                                    routine.uuid.map { path = .routine($0) }
                                 }
                                 if index < usedInRoutines.count - 1 {
                                     Divider().overlay(Theme.border)
@@ -552,7 +557,10 @@ struct EquipmentDetailScreen: View {
         .navigationDestination(item: $path) { target in
             switch target {
             case .exercise(let exercise): ExerciseDetailScreen(exercise: exercise)
-            case .routine(let routine): RoutineDetailView(routine: routine)
+            case .routine(let uuid):
+                if let routine = modelContext.routine(uuid: uuid) {
+                    RoutineDetailView(routine: routine)
+                }
             }
         }
         .sheet(isPresented: $showingAddExercise) {

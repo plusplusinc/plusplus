@@ -19,12 +19,13 @@ struct StoreMigrationTests {
             .appendingPathComponent("migration-\(UUID().uuidString).store")
     }
 
-    /// A store created with the pre-#155 PLAIN schema (the exact shape the
-    /// app shipped with) reopens cleanly under the versioned schema V1 +
-    /// migration plan, data intact. This is the load-bearing assumption:
-    /// adopting `VersionedSchema` V1 == the current entities must NOT reset
-    /// existing unversioned stores.
-    @Test func unversionedStoreOpensUnderVersionedSchemaV1WithoutLoss() throws {
+    /// A store created with a PLAIN `Schema([...])` and NO migration plan
+    /// (how the app opened pre-#155) reopens cleanly under the versioned
+    /// schema + plan, data intact — the load-bearing assumption that
+    /// attaching a migration plan doesn't reset an existing plan-less store
+    /// of the same shape. (The pre-`uuid` → `uuid` transition specifically
+    /// is covered by `migratesV1ToV2AssigningUniqueUUIDs`.)
+    @Test func plainSchemaStoreOpensUnderVersionedSchemaWithoutLoss() throws {
         let url = tempURL()
 
         // Write with the OLD plain schema, then release the container so
@@ -67,6 +68,48 @@ struct StoreMigrationTests {
         try ctx.save()
 
         #expect(try ctx.fetch(FetchDescriptor<Routine>()).count == 1)
+    }
+
+    /// The launch backfill ENFORCES UNIQUENESS — it repairs both a clean
+    /// migration (all uuids nil) AND a store already stamped with the shared
+    /// property-default constant (all uuids equal, the real on-device bug
+    /// where every routine opened the same one and the rail drew duplicate
+    /// rows). This is the production populate path (`PlusPlusApp` runs it at
+    /// launch), so it's the meaningful thing to lock.
+    @Test func backfillEnforcesUniqueUUIDs() throws {
+        let url = tempURL()
+        let schema = AppSchema.latest
+        let config = ModelConfiguration(schema: schema, url: url, allowsSave: true, cloudKitDatabase: .none)
+        let container = try ModelContainer(for: schema, migrationPlan: AppMigrationPlan.self, configurations: [config])
+        let ctx = ModelContext(container)
+
+        let ex = Exercise(name: "Probe Press", muscleGroup: .chest)
+        ctx.insert(ex)
+        // Three routines, each with a group + exercise.
+        for i in 0..<3 {
+            let routine = Routine(name: "Probe Routine \(i)")
+            ctx.insert(routine)
+            routine.addExerciseInNewGroup(ex, context: ctx)
+        }
+
+        // Simulate the migration bug: every row gets the SAME uuid (the
+        // shared property-default constant), plus one nil for good measure.
+        let shared = UUID()
+        for (i, routine) in try ctx.fetch(FetchDescriptor<Routine>()).enumerated() {
+            routine.uuid = i == 0 ? nil : shared
+        }
+        for group in try ctx.fetch(FetchDescriptor<ExerciseGroup>()) { group.uuid = shared }
+        for entry in try ctx.fetch(FetchDescriptor<RoutineExercise>()) { entry.uuid = shared }
+        try ctx.save()
+
+        SeedData.backfillModelUUIDsIfNeeded(context: ctx)
+
+        let routines = try ctx.fetch(FetchDescriptor<Routine>())
+        let groups = try ctx.fetch(FetchDescriptor<ExerciseGroup>())
+        let entries = try ctx.fetch(FetchDescriptor<RoutineExercise>())
+        let ids = routines.compactMap(\.uuid) + groups.compactMap(\.uuid) + entries.compactMap(\.uuid)
+        #expect(ids.count == 9)          // 3 routines + 3 groups + 3 entries, none nil
+        #expect(Set(ids).count == 9)     // ALL distinct — no shared uuid survives
     }
 
     /// Seed a routine + exercise + finished session with the pre-#155 plain
