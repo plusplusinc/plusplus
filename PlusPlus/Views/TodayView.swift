@@ -735,7 +735,7 @@ struct TodayView: View {
     /// same routine's pending card may be on screen with that id — off-card
     /// starts fall back to the standard transition (#216).
     private func futureCard(_ entry: UpcomingEntry) -> some View {
-        NavigationLink(value: entry.routine) {
+        NavigationLink(value: entry.routine.uuid.map { RoutineRef(uuid: $0) }) {
             HStack(alignment: .center, spacing: 8) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(entry.routine.name)
@@ -824,7 +824,7 @@ struct TodayView: View {
     /// the estimate — no diff, no green border, and no one-click Start
     /// (reserved for today). Tapping opens the routine, where Start lives.
     private func missedCard(_ entry: MissedEntry) -> some View {
-        NavigationLink(value: entry.routine) {
+        NavigationLink(value: entry.routine.uuid.map { RoutineRef(uuid: $0) }) {
             HStack(alignment: .center, spacing: 8) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(entry.routine.name)
@@ -1103,7 +1103,7 @@ struct TodayView: View {
             // card, chevron trailing) that the upcoming cards already
             // speak. Start keeps its own frame below, so exactly one
             // affordance fires per tap.
-            NavigationLink(value: routine) {
+            NavigationLink(value: routine.uuid.map { RoutineRef(uuid: $0) }) {
                 VStack(alignment: .leading, spacing: 0) {
                     // The name owns the top row (the estimate moved down
                     // to the go/no-go meta row — Dave's ask); the chevron
