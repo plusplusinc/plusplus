@@ -30,12 +30,25 @@ enum StoreRecovery {
             .first?
             .appendingPathComponent("RecoveredStore-\(Int(Date().timeIntervalSince1970))", isDirectory: true)
 
+        // Track whether the MAIN store file actually copied — a corrupt
+        // store can be caused by a full disk, in which case every copy
+        // fails and we must NOT promise the user a backup that doesn't
+        // exist. The sidecars are recoverable-nice-to-have; the .sqlite
+        // itself is what "a backup was saved" means.
+        var mainStoreCopied = false
         if let backupDir {
             try? fm.createDirectory(at: backupDir, withIntermediateDirectories: true)
             for suffix in sidecarSuffixes {
                 let src = URL(fileURLWithPath: storeURL.path + suffix)
                 guard fm.fileExists(atPath: src.path) else { continue }
-                try? fm.copyItem(at: src, to: backupDir.appendingPathComponent(src.lastPathComponent))
+                let dst = backupDir.appendingPathComponent(src.lastPathComponent)
+                do {
+                    try fm.copyItem(at: src, to: dst)
+                    if suffix.isEmpty { mainStoreCopied = true }
+                } catch {
+                    // best-effort — a failed copy still leaves the reset to
+                    // unbrick the app; we just won't claim a saved backup.
+                }
             }
         }
 
@@ -43,6 +56,6 @@ enum StoreRecovery {
             try? fm.removeItem(at: URL(fileURLWithPath: storeURL.path + suffix))
         }
 
-        SetupState.markStoreReset(backupPath: backupDir?.path)
+        SetupState.markStoreReset(backupPath: mainStoreCopied ? backupDir?.path : nil)
     }
 }

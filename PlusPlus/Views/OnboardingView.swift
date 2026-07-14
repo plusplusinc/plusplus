@@ -54,6 +54,11 @@ enum SetupState {
         UserDefaults.standard.set(true, forKey: storeWasResetKey)
         if let backupPath {
             UserDefaults.standard.set(backupPath, forKey: storeResetBackupPathKey)
+        } else {
+            // No backup was written (e.g. the copy failed on a full disk) —
+            // clear any stale path from a prior incident so the notice
+            // doesn't promise a backup that isn't there.
+            UserDefaults.standard.removeObject(forKey: storeResetBackupPathKey)
         }
     }
 

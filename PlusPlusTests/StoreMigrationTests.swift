@@ -29,6 +29,10 @@ struct StoreMigrationTests {
 
         // Write with the OLD plain schema, then release the container so
         // its SQLite handle is closed before we reopen the same file.
+        // ⚠️ Caveat: SwiftData/CoreData caches store state per-URL within a
+        // process, so this reopen may reuse the writer's coordinator rather
+        // than proving a true cold open — the definitive proof is the
+        // on-device upgrade-over-real-data pass, not this test.
         try writeProbeData(to: url)
 
         let versioned = AppSchema.latest

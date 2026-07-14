@@ -53,24 +53,29 @@ struct PlusPlusApp: App {
         do {
             modelContainer = try ModelContainer(for: schema, migrationPlan: AppMigrationPlan.self, configurations: [config])
         } catch {
-            // #155: a store we can't open (genuine corruption, or one the
-            // migration plan can't map) must not be a crash loop AND must
-            // not be a silent wipe. Copy the raw store aside first, leave a
-            // breadcrumb so RootTabView can tell the user, THEN recreate.
-            // The migration plan (above) is what keeps ordinary shape
-            // changes from ever reaching here (build 15's #144 rename would
-            // now migrate rather than brick the store).
             guard !inMemory else { fatalError("Failed to create in-memory ModelContainer: \(error)") }
-            StoreRecovery.backUpAndReset(storeURL: config.url, error: error)
-            do {
-                modelContainer = try ModelContainer(for: schema, migrationPlan: AppMigrationPlan.self, configurations: [config])
-            } catch {
-                fatalError("Failed to create ModelContainer even after store reset: \(error)")
+            // #155: before treating the store as unrecoverable, try opening
+            // it WITHOUT the plan. Attaching a plan is stricter than the
+            // plan-less container that shipped pre-#155 (which relied on
+            // SwiftData's implicit lightweight migration for additive drift);
+            // a store the empty-stage plan rejects may still open leniently.
+            // Only if THAT also fails is the store genuinely unopenable — and
+            // then we still never wipe silently: copy the raw store aside,
+            // leave a breadcrumb, and recreate.
+            if let salvaged = try? ModelContainer(for: schema, configurations: [config]) {
+                modelContainer = salvaged
+            } else {
+                StoreRecovery.backUpAndReset(storeURL: config.url, error: error)
+                do {
+                    modelContainer = try ModelContainer(for: schema, migrationPlan: AppMigrationPlan.self, configurations: [config])
+                } catch {
+                    fatalError("Failed to create ModelContainer even after store reset: \(error)")
+                }
+                // The store was rebuilt, so the stored setup flag describing
+                // the old data is stale too; the rest of the setup timeline
+                // self-heals from live data.
+                UserDefaults.standard.removeObject(forKey: SetupState.equipmentDoneKey)
             }
-            // The store was rebuilt, so the stored setup flag describing
-            // the old data is stale too; the rest of the setup timeline
-            // self-heals from live data.
-            UserDefaults.standard.removeObject(forKey: SetupState.equipmentDoneKey)
         }
         guard !Self.isUnitTestHost else { return }
         // Smoke tests assume a usable library; the onboarding test and
