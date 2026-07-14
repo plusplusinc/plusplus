@@ -25,7 +25,10 @@ struct PlusPlusApp: App {
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
 
     init() {
-        let schema = Schema([Routine.self, Exercise.self, Equipment.self, EquipmentLibrary.self, WorkoutSession.self, SetLog.self])
+        // The versioned schema + migration plan (#155). Opening WITH the
+        // plan is what lets a future shape change migrate the store instead
+        // of resetting it; see AppSchema.swift.
+        let schema = AppSchema.latest
         // UI tests pass --uitest-reset so every launch starts from a clean,
         // throwaway store (seed data still loads).
         let inMemory = CommandLine.arguments.contains("--uitest-reset")
@@ -48,28 +51,31 @@ struct PlusPlusApp: App {
         }
         let config = ModelConfiguration(isStoredInMemoryOnly: inMemory)
         do {
-            modelContainer = try ModelContainer(for: schema, configurations: [config])
+            modelContainer = try ModelContainer(for: schema, migrationPlan: AppMigrationPlan.self, configurations: [config])
         } catch {
-            // An unopenable store must not be a crash loop (build 15:
-            // the #144 entity renames made pre-15 stores unreadable and
-            // this fatalError'd on every launch). During beta the call
-            // is destroy-and-recreate — data is explicitly throwaway
-            // until sync ships; a real migration policy is the 1.0 bar.
             guard !inMemory else { fatalError("Failed to create in-memory ModelContainer: \(error)") }
-            let storeURL = config.url
-            let fm = FileManager.default
-            for suffix in ["", "-shm", "-wal"] {
-                try? fm.removeItem(at: URL(fileURLWithPath: storeURL.path + suffix))
+            // #155: before treating the store as unrecoverable, try opening
+            // it WITHOUT the plan. Attaching a plan is stricter than the
+            // plan-less container that shipped pre-#155 (which relied on
+            // SwiftData's implicit lightweight migration for additive drift);
+            // a store the empty-stage plan rejects may still open leniently.
+            // Only if THAT also fails is the store genuinely unopenable — and
+            // then we still never wipe silently: copy the raw store aside,
+            // leave a breadcrumb, and recreate.
+            if let salvaged = try? ModelContainer(for: schema, configurations: [config]) {
+                modelContainer = salvaged
+            } else {
+                StoreRecovery.backUpAndReset(storeURL: config.url, error: error)
+                do {
+                    modelContainer = try ModelContainer(for: schema, migrationPlan: AppMigrationPlan.self, configurations: [config])
+                } catch {
+                    fatalError("Failed to create ModelContainer even after store reset: \(error)")
+                }
+                // The store was rebuilt, so the stored setup flag describing
+                // the old data is stale too; the rest of the setup timeline
+                // self-heals from live data.
+                UserDefaults.standard.removeObject(forKey: SetupState.equipmentDoneKey)
             }
-            do {
-                modelContainer = try ModelContainer(for: schema, configurations: [config])
-            } catch {
-                fatalError("Failed to create ModelContainer even after store reset: \(error)")
-            }
-            // The store was rebuilt, so the stored setup flag describing
-            // the old data is stale too; the rest of the setup timeline
-            // self-heals from live data.
-            UserDefaults.standard.removeObject(forKey: SetupState.equipmentDoneKey)
         }
         guard !Self.isUnitTestHost else { return }
         // Smoke tests assume a usable library; the onboarding test and
