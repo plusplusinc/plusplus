@@ -167,16 +167,14 @@ extension RoutineSchedule {
         switch normalized {
         case .unscheduled:
             return nil
-        case .weekdays(let days):
-            // The guard above means the shared walk finds a day; the
-            // fallback only quiets the optional.
-            return Self.oldestOutstandingScheduledDay(
-                onOrBefore: todayStart, days: days,
-                completedDay: lastCompleted.map { calendar.startOfDay(for: $0) },
-                previousCompleted: previousCompleted.map { calendar.startOfDay(for: $0) },
-                addedOn: addedOn.map { calendar.startOfDay(for: $0) },
-                calendar: calendar
-            ) ?? todayStart
+        case .weekdays:
+            // Today wins: a weekday `.due` is only ever returned when
+            // today is itself an outstanding occurrence (see `dueState`),
+            // so due-ness began today — even if an earlier day this week
+            // also went unmet (that older lapse is the `.missed` lane's
+            // business, surfaced separately). Returning the older day here
+            // would contradict the "today wins" split.
+            return todayStart
         case .frequency(let times, let perDays):
             guard let last = lastCompleted else { return todayStart }
             let interval = (perDays + times - 1) / times

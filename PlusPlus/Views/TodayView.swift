@@ -157,8 +157,12 @@ struct TodayView: View {
                                     // the same thing twice reads broken. Once a
                                     // routine CAN start, the item returns (#246):
                                     // scheduling is optional and must not read as
-                                    // the only path to working out.
-                                    if dueRoutines.isEmpty
+                                    // the only path to working out. It also yields
+                                    // when carried-over work exists (2026-07-14):
+                                    // the CARRIED OVER lane is the actionable
+                                    // surface then, so a "rest day · start whenever"
+                                    // line above it would read as a blind claim.
+                                    if dueRoutines.isEmpty && missedEntries.isEmpty
                                         && (!setupActive || allSetupDone || !swapInCandidates.isEmpty) {
                                         restDayItem
                                     }
@@ -184,7 +188,7 @@ struct TodayView: View {
                                     // calmly between today's work and the
                                     // history below — never as a green due, and
                                     // never dressed up as today's date.
-                                    if !missedRoutines.isEmpty {
+                                    if !missedEntries.isEmpty {
                                         carriedOverSection
                                     }
                                     ForEach(sessions) { session in
@@ -500,24 +504,29 @@ struct TodayView: View {
         }
     }
 
+    /// One carried-over occurrence: the routine plus the day it lapsed
+    /// (its `.missed(since:)`). Bundling the day here means the card
+    /// renders straight from it instead of re-deriving the due-state (and
+    /// re-scanning sessions) per card per render.
+    private struct MissedEntry: Identifiable {
+        let routine: Routine
+        let since: Date
+        var id: PersistentIdentifier { routine.persistentModelID }
+    }
+
     /// Routines whose most recent scheduled day lapsed within the carry
     /// window (Kit `.missed`, 2026-07-14): today isn't their day, but a
     /// past occurrence went unmet. Surfaced as a calm amber card, never
     /// the green due. Empty routines can't start, so they don't appear —
     /// nothing to make up.
-    private var missedRoutines: [Routine] {
-        routines.filter { routine in
-            guard !routine.groups.isEmpty else { return false }
-            if case .missed = dueState(of: routine) { return true }
-            return false
+    private var missedEntries: [MissedEntry] {
+        routines.compactMap { routine in
+            guard !routine.groups.isEmpty else { return nil }
+            if case .missed(let since) = dueState(of: routine) {
+                return MissedEntry(routine: routine, since: since)
+            }
+            return nil
         }
-    }
-
-    /// The day a missed routine last lapsed (its `.missed(since:)`), for
-    /// the card's quiet caption. nil when not missed.
-    private func missedSince(_ routine: Routine) -> Date? {
-        if case .missed(let since) = dueState(of: routine) { return since }
-        return nil
     }
 
     /// The routine's due state, anchored to when it joined the library
@@ -760,12 +769,12 @@ struct TodayView: View {
             Spacer(minLength: 0)
         }
         .fixedSize(horizontal: false, vertical: true)
-        ForEach(missedRoutines) { routine in
+        ForEach(missedEntries) { entry in
             // Amber node, amber card: a lapsed occurrence is neither the
             // green "today" nor the grey "not yet" — it's the warm
             // in-between (the notes/advisory amber already in the grammar).
             TimelineItem(node: .inert, strokeOverride: Theme.notes) {
-                missedCard(routine)
+                missedCard(entry)
             }
         }
     }
@@ -773,15 +782,15 @@ struct TodayView: View {
     /// The gentle carried-over card: name, the day it was scheduled, and
     /// the estimate — no diff, no green border, and no one-click Start
     /// (reserved for today). Tapping opens the routine, where Start lives.
-    private func missedCard(_ routine: Routine) -> some View {
-        NavigationLink(value: routine) {
+    private func missedCard(_ entry: MissedEntry) -> some View {
+        NavigationLink(value: entry.routine) {
             HStack(alignment: .center, spacing: 8) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(routine.name)
+                    Text(entry.routine.name)
                         .font(.system(.body, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                         .lineLimit(1)
-                    Text(missedCaption(routine))
+                    Text(missedCaption(entry))
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(Theme.notes)
                         .lineLimit(1)
@@ -804,17 +813,16 @@ struct TodayView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier("missedRoutine-\(routine.name)")
+        .accessibilityIdentifier("missedRoutine-\(entry.routine.name)")
     }
 
     /// "was tue · jul 7 · ~30 min" — the lapsed day named plainly (the
     /// "was" reads it as past without any obligation word), then the
-    /// estimate. Falls back gracefully if the state isn't missed.
-    private func missedCaption(_ routine: Routine) -> String {
-        guard let since = missedSince(routine) else { return routine.estimateText }
-        let weekday = since.formatted(.dateTime.weekday(.abbreviated)).lowercased()
-        let date = since.formatted(.dateTime.month(.abbreviated).day()).lowercased()
-        return "was \(weekday) · \(date) · \(routine.estimateText)"
+    /// estimate.
+    private func missedCaption(_ entry: MissedEntry) -> String {
+        let weekday = entry.since.formatted(.dateTime.weekday(.abbreviated)).lowercased()
+        let date = entry.since.formatted(.dateTime.month(.abbreviated).day()).lowercased()
+        return "was \(weekday) · \(date) · \(entry.routine.estimateText)"
     }
 
     /// The two most recent completions of a routine: `.last` drives

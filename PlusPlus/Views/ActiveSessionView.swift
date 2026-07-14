@@ -1033,6 +1033,11 @@ struct ActiveSessionView: View {
                 addedOn: routine.createdAt,
                 calendar: calendar
             )
+            // Only `.notDue` next occurrences feed "next up". A `.missed`
+            // routine is deliberately omitted (2026-07-14): the finish
+            // screen is a moment of completion, and carried-over work
+            // surfaces calmly in Today's CARRIED OVER lane, not as a nag
+            // here (anti-shame grammar).
             if case .notDue(let next) = state {
                 if best == nil || next < best!.date {
                     best = (next, routine.name)
