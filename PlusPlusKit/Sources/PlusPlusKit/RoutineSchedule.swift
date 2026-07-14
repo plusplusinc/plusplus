@@ -19,8 +19,19 @@ public enum RoutineSchedule: Equatable, Sendable {
     public enum DueState: Equatable, Sendable {
         /// The routine has no schedule; there is nothing to be due.
         case unscheduled
-        /// Scheduled for today (or overdue) and not yet done today.
+        /// TODAY is a scheduled occurrence and it hasn't been done — the
+        /// green "do it now" state. Today always wins: a scheduled day
+        /// that is today reads as due even when an earlier day this week
+        /// also went unmet.
         case due
+        /// A PAST scheduled day (1–6 days ago, and not before the routine
+        /// joined the library) went unmet and today is not itself a
+        /// scheduled day. The gentle carried-over state — surfaced calmly,
+        /// never as a green call to action (Dave, 2026-07-14). `since` is
+        /// the start of that missed day. Weekday schedules only; a rolling
+        /// frequency floats and is never "missed", only `.due` or
+        /// `.notDue`.
+        case missed(since: Date)
         /// Not today; `nextDue` is the start of the next scheduled day.
         case notDue(nextDue: Date)
     }
@@ -74,25 +85,41 @@ public enum RoutineSchedule: Equatable, Sendable {
     /// slots average 2⅓ days rather than drifting to every-3-days.
     /// Frequency ignores `previousCompleted` — anchoring to the last
     /// completion already re-slots early sessions.
-    public func dueState(lastCompleted: Date?, previousCompleted: Date? = nil, today: Date, calendar: Calendar) -> DueState {
+    ///
+    /// `addedOn` is the day the routine joined the user's library (its
+    /// `createdAt`, which for a catalog routine is the add-to-library
+    /// moment). Scheduled days before it are never counted as missed — a
+    /// freshly added Tuesday routine viewed on Monday must not read as
+    /// "overdue from last Tuesday" it was never around for (2026-07-14).
+    /// nil means no floor (legacy call sites, and pre-`addedOn` behavior).
+    public func dueState(lastCompleted: Date?, previousCompleted: Date? = nil, today: Date, addedOn: Date? = nil, calendar: Calendar) -> DueState {
         let todayStart = calendar.startOfDay(for: today)
         switch normalized {
         case .unscheduled:
             return .unscheduled
 
         case .weekdays(let days):
-            // Due when any scheduled day since the last completion has
-            // arrived and gone unmet — a missed Thursday keeps the
-            // routine due through Friday (§3's "due since thu"), and
-            // completing it then satisfies that occurrence. Occurrences
-            // never stack: one due-ness, however many days were missed.
             let completedDay = lastCompleted.map { calendar.startOfDay(for: $0) }
             let previousDay = previousCompleted.map { calendar.startOfDay(for: $0) }
-            if Self.oldestOutstandingScheduledDay(
-                onOrBefore: todayStart, days: days,
-                completedDay: completedDay, previousCompleted: previousDay, calendar: calendar
-            ) != nil {
+            let addedStart = addedOn.map { calendar.startOfDay(for: $0) }
+            // Today wins: a scheduled, unmet occurrence TODAY is the green
+            // "due today", even when an earlier day this week also went
+            // unmet (do today's; the older miss folds in).
+            if Self.occurrenceIsOutstanding(
+                on: todayStart, days: days, completedDay: completedDay,
+                previousCompleted: previousDay, addedOn: addedStart, calendar: calendar
+            ) {
                 return .due
+            }
+            // Otherwise an unmet PAST scheduled day (within the 6-day
+            // carry window, on or after the routine joined the library)
+            // is a gentle miss — never the green due. `since` is that day.
+            if let missed = Self.oldestOutstandingScheduledDay(
+                onOrBefore: todayStart, days: days,
+                completedDay: completedDay, previousCompleted: previousDay,
+                addedOn: addedStart, calendar: calendar
+            ) {
+                return .missed(since: missed)
             }
             // The next unsatisfied scheduled day. 14 days bounds the
             // walk: the nearest scheduled day is within 7, and the one
@@ -100,7 +127,8 @@ public enum RoutineSchedule: Equatable, Sendable {
             // after the banked one is within 14.
             if let next = Self.unsatisfiedScheduledDays(
                 after: todayStart, withinDays: 14, days: days,
-                completedDay: completedDay, previousCompleted: previousDay, calendar: calendar
+                completedDay: completedDay, previousCompleted: previousDay,
+                addedOn: addedStart, calendar: calendar
             ).first {
                 return .notDue(nextDue: next)
             }
@@ -127,11 +155,14 @@ extension RoutineSchedule {
     /// The day the current due-ness began — today for an on-time
     /// routine, the missed day for an overdue one ("due since thu").
     /// Nil when the routine isn't due at all.
-    public func dueSince(lastCompleted: Date?, previousCompleted: Date? = nil, today: Date, calendar: Calendar) -> Date? {
-        guard case .due = dueState(
+    public func dueSince(lastCompleted: Date?, previousCompleted: Date? = nil, today: Date, addedOn: Date? = nil, calendar: Calendar) -> Date? {
+        let state = dueState(
             lastCompleted: lastCompleted, previousCompleted: previousCompleted,
-            today: today, calendar: calendar
-        ) else { return nil }
+            today: today, addedOn: addedOn, calendar: calendar
+        )
+        // A carried miss already carries its day; hand it straight back.
+        if case .missed(let since) = state { return since }
+        guard case .due = state else { return nil }
         let todayStart = calendar.startOfDay(for: today)
         switch normalized {
         case .unscheduled:
@@ -143,6 +174,7 @@ extension RoutineSchedule {
                 onOrBefore: todayStart, days: days,
                 completedDay: lastCompleted.map { calendar.startOfDay(for: $0) },
                 previousCompleted: previousCompleted.map { calendar.startOfDay(for: $0) },
+                addedOn: addedOn.map { calendar.startOfDay(for: $0) },
                 calendar: calendar
             ) ?? todayStart
         case .frequency(let times, let perDays):
@@ -171,6 +203,7 @@ extension RoutineSchedule {
         previousCompleted: Date? = nil,
         today: Date,
         horizon: Int = 7,
+        addedOn: Date? = nil,
         calendar: Calendar
     ) -> [Date] {
         guard horizon >= 1 else { return [] }
@@ -184,6 +217,7 @@ extension RoutineSchedule {
                 after: todayStart, withinDays: horizon, days: days,
                 completedDay: lastCompleted.map { calendar.startOfDay(for: $0) },
                 previousCompleted: previousCompleted.map { calendar.startOfDay(for: $0) },
+                addedOn: addedOn.map { calendar.startOfDay(for: $0) },
                 calendar: calendar
             )
 
@@ -192,7 +226,7 @@ extension RoutineSchedule {
             // overdue) is today's business — the carried tail never
             // previews; otherwise the single predicted day, horizon
             // permitting.
-            guard case .notDue(let next) = dueState(lastCompleted: lastCompleted, today: today, calendar: calendar),
+            guard case .notDue(let next) = dueState(lastCompleted: lastCompleted, today: today, addedOn: addedOn, calendar: calendar),
                   let boundary = calendar.date(byAdding: .day, value: horizon, to: todayStart),
                   next <= boundary
             else { return [] }
@@ -232,16 +266,36 @@ extension RoutineSchedule {
     /// discharging, never double-banking. The recursion terminates: the
     /// inner call carries nil `previousCompleted`, and its own inner
     /// checks then see a nil completion and bail.
-    private static func occurrenceSatisfiedEarly(on day: Date, days: Set<Int>, completedDay: Date?, previousCompleted: Date?, calendar: Calendar) -> Bool {
+    private static func occurrenceSatisfiedEarly(on day: Date, days: Set<Int>, completedDay: Date?, previousCompleted: Date?, addedOn: Date?, calendar: Calendar) -> Bool {
         guard let completedDay, completedDay < day else { return false }
         guard let previous = previousScheduledDay(before: day, days: days, calendar: calendar),
               completedDay > previous else { return false }
         let dueAtCompletion = RoutineSchedule.weekdays(days).dueState(
             lastCompleted: previousCompleted,
             today: completedDay,
+            addedOn: addedOn,
             calendar: calendar
         )
-        return dueAtCompletion != .due
+        // Banks only a genuine EXTRA — a session on a day when nothing was
+        // outstanding (`.notDue`). A `.due` or `.missed` at the completion
+        // means it was a make-up, which discharges its own occurrence and
+        // banks nothing.
+        if case .notDue = dueAtCompletion { return true }
+        return false
+    }
+
+    /// Whether the scheduled occurrence ON `day` is still open: `day` is
+    /// a scheduled weekday, at or after the routine joined the library, no
+    /// completion has landed on or after it, and no prior extra banked it.
+    /// The per-day companion to `oldestOutstandingScheduledDay` — it lets
+    /// `dueState` give today precedence (green due) over an older miss.
+    private static func occurrenceIsOutstanding(on day: Date, days: Set<Int>, completedDay: Date?, previousCompleted: Date?, addedOn: Date?, calendar: Calendar) -> Bool {
+        guard days.contains(calendar.component(.weekday, from: day)) else { return false }
+        if let addedOn, day < addedOn { return false }
+        // A completion on or after the day discharges it (late satisfaction).
+        if let completedDay, completedDay >= day { return false }
+        if occurrenceSatisfiedEarly(on: day, days: days, completedDay: completedDay, previousCompleted: previousCompleted, addedOn: addedOn, calendar: calendar) { return false }
+        return true
     }
 
     /// The oldest scheduled day that has arrived (≤ today) and is
@@ -256,14 +310,18 @@ extension RoutineSchedule {
         days: Set<Int>,
         completedDay: Date?,
         previousCompleted: Date?,
+        addedOn: Date?,
         calendar: Calendar
     ) -> Date? {
         var oldest: Date?
         for offset in 0...6 {
             guard let candidate = calendar.date(byAdding: .day, value: -offset, to: todayStart) else { continue }
             if let completedDay, candidate <= completedDay { break }
+            // Days before the routine joined the library never carry — and
+            // the walk only gets older from here, so stop.
+            if let addedOn, candidate < addedOn { break }
             if days.contains(calendar.component(.weekday, from: candidate)),
-               !occurrenceSatisfiedEarly(on: candidate, days: days, completedDay: completedDay, previousCompleted: previousCompleted, calendar: calendar) {
+               !occurrenceSatisfiedEarly(on: candidate, days: days, completedDay: completedDay, previousCompleted: previousCompleted, addedOn: addedOn, calendar: calendar) {
                 oldest = candidate
             }
         }
@@ -280,14 +338,16 @@ extension RoutineSchedule {
         days: Set<Int>,
         completedDay: Date?,
         previousCompleted: Date?,
+        addedOn: Date?,
         calendar: Calendar
     ) -> [Date] {
         guard dayCount >= 1 else { return [] }
         var result: [Date] = []
         for offset in 1...dayCount {
             guard let candidate = calendar.date(byAdding: .day, value: offset, to: start) else { continue }
+            if let addedOn, candidate < addedOn { continue }
             guard days.contains(calendar.component(.weekday, from: candidate)),
-                  !occurrenceSatisfiedEarly(on: candidate, days: days, completedDay: completedDay, previousCompleted: previousCompleted, calendar: calendar)
+                  !occurrenceSatisfiedEarly(on: candidate, days: days, completedDay: completedDay, previousCompleted: previousCompleted, addedOn: addedOn, calendar: calendar)
             else { continue }
             result.append(candidate)
         }

@@ -45,14 +45,18 @@ enum WidgetSnapshotWriter {
                 exerciseCount: routine.sortedGroups.reduce(0) { $0 + $1.sortedExercises.count },
                 scheduleData: routine.scheduleData,
                 lastCompleted: completions.last,
-                previousCompleted: completions.previous
+                previousCompleted: completions.previous,
+                addedOn: routine.createdAt
             ))
             let state = routine.schedule.dueState(
                 lastCompleted: completions.last,
                 previousCompleted: completions.previous,
                 today: today,
+                addedOn: routine.createdAt,
                 calendar: calendar
             )
+            // Only TODAY's occurrences ride the "due" widget; a carried
+            // miss (`.missed`) is not today's business here.
             guard state == .due else { continue }
             // No "due" vocabulary anywhere (#172): a routine's presence
             // IS the statement. The caption is the schedule's own label.

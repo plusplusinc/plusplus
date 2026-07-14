@@ -47,9 +47,12 @@ struct WidgetSnapshotTests {
     }
 
     @Test func dueListRollsForwardWithoutTheApp() throws {
-        // Push on Mondays (never done → due, carried over, every day);
-        // Pull on Wednesdays, last done the previous Wednesday (Jul 1) —
-        // satisfied on Monday, on again when its day comes back around.
+        // Push on Mondays (never done → due ON Monday); Pull on
+        // Wednesdays, last done the previous Wednesday (Jul 1) — satisfied
+        // on Monday, on again when its day comes back around. On Wednesday
+        // Push has become a carried MISS (Monday lapsed, today isn't
+        // Monday), so the widget's "due today" list drops it (2026-07-14
+        // split) — a missed occurrence is not today's business here.
         let previousWednesday = calendar.date(byAdding: .day, value: -5, to: monday)!
         let snap = snapshot(
             scheduled: [
@@ -64,7 +67,7 @@ struct WidgetSnapshotTests {
 
         let wednesday = calendar.date(byAdding: .day, value: 2, to: monday)!
         let wednesdayList = snap.dueList(at: wednesday, calendar: calendar)
-        #expect(Set(wednesdayList.map(\.name)) == ["Push Day", "Pull Day"])
+        #expect(wednesdayList.map(\.name) == ["Pull Day"])
 
         // Completing Push on Monday satisfies it until next Monday.
         let done = snapshot(

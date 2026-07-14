@@ -76,6 +76,13 @@ struct WidgetSnapshot: Codable {
         /// #267 decode nil, which just turns banking conservatively
         /// off until the app writes a fresh snapshot.
         var previousCompleted: Date? = nil
+        /// The day the routine joined the library (`Routine.createdAt`),
+        /// the schedule anchor (2026-07-14): the widget must compute
+        /// due-ness with the SAME floor the app uses, or the two surfaces
+        /// disagree on the early-banking edge. Additive/optional — old
+        /// snapshots decode nil (no floor), matching pre-anchor behavior
+        /// until the app writes a fresh one.
+        var addedOn: Date? = nil
 
         var schedule: RoutineSchedule {
             guard let scheduleData,
@@ -109,10 +116,13 @@ struct WidgetSnapshot: Codable {
         guard let scheduled else { return due }
         return scheduled.compactMap { routine in
             let schedule = routine.schedule
+            // `== .due` only: a carried `.missed` is not "due today" on the
+            // widget either, matching the app's due cards (2026-07-14).
             guard case .due = schedule.dueState(
                 lastCompleted: routine.lastCompleted,
                 previousCompleted: routine.previousCompleted,
                 today: date,
+                addedOn: routine.addedOn,
                 calendar: calendar
             ) else { return nil }
             return DueRoutine(
