@@ -329,6 +329,17 @@ struct RoutineScheduleTests {
 
     // MARK: - Missed vs due, and the added-to-library anchor (2026-07-14)
 
+    @Test func dueSinceIsTodayWhenTodayWinsOverAnEarlierMiss() {
+        // Mon/Thu, never done: on Thursday, today is a scheduled unmet day
+        // (`.due`) AND Monday also went unmet. "Today wins", so due-ness
+        // began TODAY, not the older Monday lapse.
+        let schedule = RoutineSchedule.weekdays([2, 5])
+        let thursday = date(2026, 7, 9)
+        #expect(schedule.dueState(lastCompleted: nil, today: thursday, calendar: calendar) == .due)
+        #expect(schedule.dueSince(lastCompleted: nil, today: thursday, calendar: calendar)
+                == calendar.startOfDay(for: thursday))
+    }
+
     @Test func weekdaysScheduledTodayIsDueNotMissed() {
         // Tuesdays only, never done, today IS Tuesday: the green due, and
         // never a miss — today's occurrence outranks any carry.
