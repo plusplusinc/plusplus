@@ -64,6 +64,10 @@ struct TodayView: View {
     /// — without it, an app resident overnight keeps rendering
     /// yesterday's due list (bug hunt).
     @State private var dayToken = 0
+    @State private var sync = GitHubSyncCoordinator.shared
+    /// Transient pull-to-refresh confirmation (a sync result, or a quip when
+    /// there's nothing to sync). Cleared automatically by the toast.
+    @State private var refreshMessage: String?
     /// One-shot: the timeline anchors to today's content on FIRST
     /// appearance only (#267) — re-appearances mid-session (returning
     /// from a workout cover, tab hops) must not yank the scroll
@@ -219,10 +223,34 @@ struct TodayView: View {
                         .refreshable {
                             // Honest refresh (#267): due-ness is pure local
                             // computation keyed on the clock, so bumping the
-                            // token re-derives everything instantly — no
-                            // fake delay. Sync state joins this gesture when
-                            // #23 ships.
+                            // token re-derives everything instantly.
                             dayToken += 1
+                            // #23: pull-to-refresh now also syncs GitHub. The
+                            // spinner should stay up only while there's real
+                            // work — so we await the sync ONLY when connected.
+                            // Disconnected, there's nothing to fetch, so we skip
+                            // the network (the spinner snaps back) and reward the
+                            // gesture with a little delight instead of nothing.
+                            if !sync.isConnected {
+                                // Nothing to fetch — skip the network (the
+                                // spinner snaps back) and reward the pull with a
+                                // little delight instead of a dead gesture.
+                                refreshMessage = RefreshQuip.random()
+                            } else if sync.isSyncing {
+                                // A pass is already running (foreground or Sync
+                                // now). sync() is single-flight, so this call
+                                // would no-op — don't report a result it didn't
+                                // produce (that would show a stale summary).
+                                refreshMessage = "Syncing…"
+                            } else {
+                                let units = WeightUnit(rawValue: weightUnitRaw) ?? .lb
+                                await sync.sync(context: modelContext, units: units)
+                                if case .error = sync.activity {
+                                    refreshMessage = "Couldn't sync. Try again."
+                                } else {
+                                    refreshMessage = sync.lastSyncSummary ?? "Synced"
+                                }
+                            }
                         }
                         .onAppear {
                             // Only seat once the GeometryReader has a real
@@ -427,6 +455,9 @@ struct TodayView: View {
         // Equipment setup pushes via isPresented (not the path), so factor it
         // into root-ness or swipe-to-open would fight its swipe-back.
         .revealRoot(tab: "today", atRoot: todayPath.isEmpty && !showingEquipmentSetup)
+        // Pull-to-refresh confirmation (sync result, or a quip when there's
+        // nothing to sync). Self-clears.
+        .toast($refreshMessage)
     }
 
     /// The pending→done conversion, staged so it reads as a sequence:

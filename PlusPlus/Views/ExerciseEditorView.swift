@@ -445,6 +445,11 @@ struct ExerciseEditorView: View {
             draft.apply(to: exercise)
         }
         dismiss()
+        // Push the saved exercise to GitHub at this boundary (debounced,
+        // dirty-gated). No-op unless connected and something changed.
+        GitHubSyncCoordinator.shared.requestSync(
+            context: modelContext, units: WeightUnit(rawValue: weightUnitRaw) ?? .lb
+        )
     }
 }
 

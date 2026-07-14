@@ -314,12 +314,14 @@ struct GitHubSyncTray: View {
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(Theme.textSecondary)
                 }
-                if let summary = sync.lastSyncSummary, let at = sync.lastSyncedAt {
-                    Text("\(summary). \(at.formatted(.relative(presentation: .named)))")
+                if sync.isSyncing {
+                    Text("Syncing…")
                         .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
                 } else if let at = sync.lastSyncedAt {
-                    Text("Last synced \(at.formatted(.relative(presentation: .named)))")
+                    // Foundation's relative style pluralizes correctly on its
+                    // own ("1 minute ago", never "1 minutes ago").
+                    Text("Synced \(at.formatted(.relative(presentation: .named)))")
                         .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
                 }
@@ -328,6 +330,8 @@ struct GitHubSyncTray: View {
             .padding(14)
             .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
             .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
+
+            syncNowButton
 
             Button(role: .destructive) {
                 sync.disconnect()
@@ -345,6 +349,35 @@ struct GitHubSyncTray: View {
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textFaint)
         }
+    }
+
+    /// Manual "check now" for the connected state. Foreground, boundaries, and
+    /// pull-to-refresh sync on their own; this is the on-demand escape hatch.
+    private var syncNowButton: some View {
+        Button {
+            let units = WeightUnit(rawValue: weightUnitRaw) ?? .lb
+            Task { @MainActor in
+                await sync.sync(context: modelContext, units: units)
+            }
+        } label: {
+            HStack(spacing: 8) {
+                if sync.isSyncing {
+                    ProgressView().controlSize(.small).tint(Theme.onPrimary)
+                } else {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.system(.subheadline, weight: .bold))
+                }
+                Text(sync.isSyncing ? "Syncing…" : "Sync now")
+                    .font(.system(.subheadline, weight: .bold))
+            }
+            .foregroundStyle(Theme.onPrimary)
+            .frame(maxWidth: .infinity)
+            .frame(minHeight: 48)
+            .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+        }
+        .buttonStyle(.raisedPrimaryKey(cornerRadius: Theme.controlRadius))
+        .disabled(sync.isSyncing)
+        .accessibilityIdentifier("syncNowButton")
     }
 
     private var unconfiguredNote: some View {

@@ -190,15 +190,64 @@ public struct SyncEngine {
         return placement.path
     }
 
-    /// "Sync: push-day, band-pulses (+3 more)" — enough to make repo
-    /// history scannable without dumping every path.
+    /// A human commit subject derived from WHAT changed, not just which files:
+    /// "Update equipment: barbell", "Update 2 routines", "Log workout", and
+    /// "Sync 4 changes" when a single pass spans more than one area. The paths
+    /// already carry the category (the interchange layout), so the message needs
+    /// no intent hint threaded from the call site — every commit reads cleanly
+    /// in the repo history on its own.
     public static func commitMessage(pushing paths: [String]) -> String {
-        let names = paths.map { path in
-            let file = path.split(separator: "/").last.map(String.init) ?? path
-            return file.hasSuffix(".json") ? String(file.dropLast(5)) : file
+        var buckets: [PathCategory: [String]] = [:]
+        for path in paths {
+            buckets[PathCategory(path: path), default: []].append(fileName(of: path))
         }
-        let shown = names.prefix(2).joined(separator: ", ")
-        let extra = names.count - min(names.count, 2)
-        return extra > 0 ? "Sync: \(shown) (+\(extra) more)" : "Sync: \(shown)"
+        guard buckets.count == 1, let (category, names) = buckets.first else {
+            let total = paths.count
+            return "Sync \(total) change\(total == 1 ? "" : "s")"
+        }
+        return category.message(names: names.sorted())
+    }
+
+    private static func fileName(of path: String) -> String {
+        let file = path.split(separator: "/").last.map(String.init) ?? path
+        return file.hasSuffix(".json") ? String(file.dropLast(5)) : file
+    }
+
+    /// Which interchange area a synced path belongs to, for commit-message copy.
+    /// Equipment and equipment-libraries fold into one "equipment" idea.
+    private enum PathCategory: Hashable {
+        case equipment, exercises, routines, history, other
+
+        init(path: String) {
+            if path.hasPrefix(FileLayout.equipmentDirectory + "/") ||
+               path.hasPrefix(FileLayout.equipmentLibrariesDirectory + "/") {
+                self = .equipment
+            } else if path.hasPrefix(FileLayout.exercisesDirectory + "/") {
+                self = .exercises
+            } else if path.hasPrefix(FileLayout.routinesDirectory + "/") {
+                self = .routines
+            } else if path.hasPrefix(FileLayout.historyDirectory + "/") {
+                self = .history
+            } else {
+                self = .other
+            }
+        }
+
+        func message(names: [String]) -> String {
+            let n = names.count
+            switch self {
+            case .equipment:
+                return n == 1 ? "Update equipment: \(names[0])" : "Update equipment (\(n) items)"
+            case .exercises:
+                return n == 1 ? "Update exercise: \(names[0])" : "Update \(n) exercises"
+            case .routines:
+                return n == 1 ? "Update routine: \(names[0])" : "Update \(n) routines"
+            case .history:
+                // History filenames are date-stamped slugs, too noisy to name.
+                return n == 1 ? "Log workout" : "Log \(n) workouts"
+            case .other:
+                return n == 1 ? "Sync \(names[0])" : "Sync \(n) changes"
+            }
+        }
     }
 }

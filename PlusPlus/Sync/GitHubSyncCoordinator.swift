@@ -221,6 +221,52 @@ final class GitHubSyncCoordinator {
         }
     }
 
+    // MARK: - Boundary sync (debounced, dirty-gated)
+
+    @ObservationIgnored private var pendingSyncTask: Task<Void, Never>?
+
+    /// A sync triggered by an edit boundary (leaving the catalog, an editor, a
+    /// routine). Two properties the always-runs `sync()` deliberately lacks:
+    /// it's **debounced**, so a burst of edits (toggle several items, then close
+    /// the screen) coalesces into ONE commit; and it's **dirty-gated**, doing a
+    /// cheap network-free diff of local-vs-base and only reaching GitHub when
+    /// there's actually something to push. So merely opening a routine and
+    /// backing out costs nothing. Pulling remote changes stays on `sync()`
+    /// (foreground, pull-to-refresh); this never fetches on a no-op.
+    func requestSync(context: ModelContext, units: WeightUnit) {
+        guard isConnected else { return }
+        pendingSyncTask?.cancel()
+        pendingSyncTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(1500))
+            guard !Task.isCancelled else { return }
+            // If a pass is mid-flight, single-flight would drop THIS one and the
+            // just-made edit would wait for the next trigger. Wait it out, then
+            // re-check dirtiness and push, so a boundary edit can't be lost to a
+            // race with the foreground/Sync-now pass.
+            while isSyncing {
+                try? await Task.sleep(for: .milliseconds(300))
+                guard !Task.isCancelled else { return }
+            }
+            guard Self.hasLocalChanges(context: context, units: units) else { return }
+            await sync(context: context, units: units)
+        }
+    }
+
+    /// Cheap, network-free: does the local program differ from the base snapshot
+    /// saved at the last sync? True when there's something to push. Errs toward
+    /// syncing if it can't tell (the pass itself is safe and single-flighted).
+    private static func hasLocalChanges(context: ModelContext, units: WeightUnit) -> Bool {
+        do {
+            let base = try ApplicationSupportBaseStore().loadBase()
+            if base.isEmpty { return true }   // never synced → a first pass matters
+            let bundle = try InterchangeMapping.exportBundle(context: context, units: units)
+            let local = try localFileMap(for: bundle)
+            return local != base
+        } catch {
+            return true
+        }
+    }
+
     func disconnect() {
         try? tokens.clear()
         GitHubSyncSettings.clearCoordinate()
@@ -253,12 +299,13 @@ final class GitHubSyncCoordinator {
         return map
     }
 
+    /// A short, friendly line about the last pass — for the pull-to-refresh
+    /// toast. Getting new data wins the label, then backing up, else nothing
+    /// changed. Deliberately plain language, not counts or git verbs (Dave).
     private static func summarize(_ outcome: SyncOutcome) -> String {
-        var parts: [String] = []
-        if !outcome.pushed.isEmpty { parts.append("pushed \(outcome.pushed.count)") }
-        if !outcome.pulls.isEmpty { parts.append("pulled \(outcome.pulls.count)") }
-        if !outcome.postponed.isEmpty { parts.append("\(outcome.postponed.count) to resolve") }
-        return parts.isEmpty ? "Up to date" : parts.joined(separator: " · ").capitalizedFirst
+        if !outcome.pulls.isEmpty { return "Updated from GitHub" }
+        if !outcome.pushed.isEmpty { return "Backed up" }
+        return "Up to date"
     }
 
     private static func isAuthFailure(_ error: Error) -> Bool {
@@ -303,12 +350,5 @@ final class GitHubSyncCoordinator {
         // Last resort: surface the concrete error so on-device testing can name
         // the cause instead of guessing.
         return "Couldn't connect: \(error)"
-    }
-}
-
-private extension String {
-    var capitalizedFirst: String {
-        guard let first else { return self }
-        return first.uppercased() + dropFirst()
     }
 }
