@@ -1,56 +1,65 @@
 import Foundation
 import SwiftData
 
-/// The versioned SwiftData schema and its migration plan (#155).
-///
-/// Until build 74 the app opened a plain `Schema([...])` and, on ANY
-/// open failure, DESTROYED and recreated the store (the #153 beta
-/// stopgap). That silently drops training history the moment real usage
-/// or sync ships. This file establishes the 1.0 policy:
-///
-/// - A `VersionedSchema` per shape (starting at V1 = today's entities)
-///   plus a `SchemaMigrationPlan`, so a future shape change MIGRATES the
-///   store instead of resetting it (an entity rename like #144 no longer
-///   bricks a store).
-/// - The container opens WITH the plan (`PlusPlusApp`). Recovery only
-///   fires when opening is genuinely impossible (corruption, an unknown
-///   store), and even then it copies the raw store aside first — never a
-///   silent wipe (`StoreRecovery`).
-///
-/// V1 lists the LIVE model types directly: it *is* the current shape, so
-/// no snapshot duplication is needed yet. **When a later version changes
-/// a model, FREEZE V1 into standalone snapshot classes here** (the live
-/// classes become the newer version's `models`) so V1 keeps describing
-/// the pre-change shape — each `VersionedSchema` is a complete snapshot,
-/// not a diff (the Axiom/Apple rule).
-enum AppSchemaV1: VersionedSchema {
-    static var versionIdentifier = Schema.Version(1, 0, 0)
+/// Schema **V2** — adds a stable `uuid` to `Routine`, `ExerciseGroup`, and
+/// `RoutineExercise` so presentation/navigation can key on it instead of
+/// SwiftData's `persistentModelID` (which swaps temporary→permanent at a
+/// fresh model's first save and flickers open sheets/pushes). This is the
+/// LATEST schema, so it references the live model types directly; the
+/// pre-`uuid` shape lives frozen in `AppSchemaV1`.
+enum AppSchemaV2: VersionedSchema {
+    static var versionIdentifier = Schema.Version(2, 0, 0)
 
     static var models: [any PersistentModel.Type] {
         [
-            Routine.self, RoutineExercise.self, ExerciseGroup.self,
+            Routine.self, ExerciseGroup.self, RoutineExercise.self,
             Exercise.self, Equipment.self, EquipmentLibrary.self,
             WorkoutSession.self, SetLog.self,
         ]
     }
 }
 
-/// The migration plan the container opens with. One schema today (V1);
-/// stages arrive with the first shape change. `schemas` is in upgrade
-/// order, oldest first.
+/// The migration plan the container opens with (#155). `schemas` is in
+/// upgrade order, oldest first. Opening WITH the plan is what lets a shape
+/// change migrate the store instead of resetting it.
 enum AppMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
-        [AppSchemaV1.self]
+        [AppSchemaV1.self, AppSchemaV2.self]
     }
 
     static var stages: [MigrationStage] {
-        []
+        [migrateV1toV2]
     }
+
+    /// V1 → V2: adding `uuid` is an additive column, but a lightweight add
+    /// fills EVERY migrated row with the SAME property default — so this is
+    /// a `.custom` stage whose `didMigrate` assigns a fresh, unique `uuid`
+    /// per row. `uuid` is not `@Attribute(.unique)` (collision-free by
+    /// generation), so the transient all-equal state between the column-add
+    /// and this backfill is harmless. Runs only on a real V1→V2 upgrade;
+    /// fresh installs create at V2 with init-minted uuids and never hit it.
+    static let migrateV1toV2 = MigrationStage.custom(
+        fromVersion: AppSchemaV1.self,
+        toVersion: AppSchemaV2.self,
+        willMigrate: nil,
+        didMigrate: { context in
+            for routine in try context.fetch(FetchDescriptor<Routine>()) {
+                routine.uuid = UUID()
+            }
+            for group in try context.fetch(FetchDescriptor<ExerciseGroup>()) {
+                group.uuid = UUID()
+            }
+            for entry in try context.fetch(FetchDescriptor<RoutineExercise>()) {
+                entry.uuid = UUID()
+            }
+            try context.save()
+        }
+    )
 }
 
 /// The schema the app opens against — always the latest version. Kept as
 /// one named accessor so `PlusPlusApp` and the migration tests build the
 /// identical schema.
 enum AppSchema {
-    static var latest: Schema { Schema(versionedSchema: AppSchemaV1.self) }
+    static var latest: Schema { Schema(versionedSchema: AppSchemaV2.self) }
 }

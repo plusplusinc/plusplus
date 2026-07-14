@@ -4,6 +4,9 @@ import SwiftData
 @Model
 final class ExerciseGroup {
     var routine: Routine?
+    /// Stable identity for presentation (the superset picker keys on it) —
+    /// see `Routine.uuid`. Device-local, not in the interchange.
+    var uuid: UUID = UUID()
     var order: Int
     var sets: Int
     /// Per-block rest override in seconds; nil rides the routine's

@@ -5,6 +5,14 @@ import PlusPlusKit
 @Model
 final class Routine {
     var name: String
+    /// Stable identity for presentation/navigation (#155 + the tray-flicker
+    /// decoupling): `persistentModelID` re-keys at a fresh model's first
+    /// save and flickers open sheets/pushes, so the UI keys on this instead
+    /// (mirrors `EquipmentLibrary.uuid`). Device-local, NOT in the
+    /// interchange. The property default both mints a fresh value per new
+    /// instance and supplies the additive-migration column default (a
+    /// custom stage backfills unique values on existing rows).
+    var uuid: UUID = UUID()
     var createdAt: Date
     var order: Int
     /// Rest between sets during execution, in seconds.

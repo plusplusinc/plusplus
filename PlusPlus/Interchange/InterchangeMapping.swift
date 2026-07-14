@@ -32,11 +32,14 @@ import PlusPlusKit
 /// Routine            name·restSeconds·notes·scheduleData·groups → EXPORTED
 ///                    createdAt → EXCLUDED (device metadata)
 ///                    order → EXCLUDED (device ordering; import appends)
+///                    uuid → EXCLUDED (presentation identity, device state, like EquipmentLibrary.uuid)
 /// ExerciseGroup      sets·restSecondsOverride·exercises → EXPORTED
 ///                    order → EXCLUDED (structural: DTO array position)
+///                    uuid → EXCLUDED (presentation identity, device state)
 /// RoutineExercise    exercise·weight·reps·repsUpper·durationSeconds·
 ///                    heartRateTargetData·extraTargetsData → EXPORTED
 ///                    group → EXCLUDED (structural); order → EXCLUDED (array position)
+///                    uuid → EXCLUDED (presentation identity, device state)
 /// WorkoutSession     routineName·startedAt·endedAt·restSeconds·
 ///                    accumulatedSeconds(activeSeconds)·averageHeartRate·
 ///                    maxHeartRate·setLogs → EXPORTED

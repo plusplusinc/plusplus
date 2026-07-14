@@ -19,12 +19,13 @@ struct StoreMigrationTests {
             .appendingPathComponent("migration-\(UUID().uuidString).store")
     }
 
-    /// A store created with the pre-#155 PLAIN schema (the exact shape the
-    /// app shipped with) reopens cleanly under the versioned schema V1 +
-    /// migration plan, data intact. This is the load-bearing assumption:
-    /// adopting `VersionedSchema` V1 == the current entities must NOT reset
-    /// existing unversioned stores.
-    @Test func unversionedStoreOpensUnderVersionedSchemaV1WithoutLoss() throws {
+    /// A store created with a PLAIN `Schema([...])` and NO migration plan
+    /// (how the app opened pre-#155) reopens cleanly under the versioned
+    /// schema + plan, data intact — the load-bearing assumption that
+    /// attaching a migration plan doesn't reset an existing plan-less store
+    /// of the same shape. (The pre-`uuid` → `uuid` transition specifically
+    /// is covered by `migratesV1ToV2AssigningUniqueUUIDs`.)
+    @Test func plainSchemaStoreOpensUnderVersionedSchemaWithoutLoss() throws {
         let url = tempURL()
 
         // Write with the OLD plain schema, then release the container so
@@ -67,6 +68,57 @@ struct StoreMigrationTests {
         try ctx.save()
 
         #expect(try ctx.fetch(FetchDescriptor<Routine>()).count == 1)
+    }
+
+    /// V1 → V2: the custom stage adds `uuid` and its `didMigrate` backfills
+    /// a FRESH, UNIQUE value per row (a lightweight column-add would give
+    /// every migrated row the same default). Relationships survive.
+    @Test func migratesV1ToV2AssigningUniqueUUIDs() throws {
+        let url = tempURL()
+        try writeV1ProbeData(to: url)
+
+        let v2 = AppSchema.latest
+        let config = ModelConfiguration(schema: v2, url: url, allowsSave: true, cloudKitDatabase: .none)
+        let container = try ModelContainer(for: v2, migrationPlan: AppMigrationPlan.self, configurations: [config])
+        let ctx = ModelContext(container)
+
+        let routines = try ctx.fetch(FetchDescriptor<Routine>())
+        let groups = try ctx.fetch(FetchDescriptor<ExerciseGroup>())
+        let entries = try ctx.fetch(FetchDescriptor<RoutineExercise>())
+        #expect(routines.count == 1)
+        #expect(groups.count == 1)
+        #expect(entries.count == 1)
+
+        // Every routine-family row has a distinct uuid after backfill.
+        let ids = routines.map(\.uuid) + groups.map(\.uuid) + entries.map(\.uuid)
+        let distinct = Set(ids).count == ids.count
+        #expect(distinct)
+        #expect(ids.count == 3)
+
+        // Relationships survived the version bump.
+        #expect(routines.first?.sortedGroups.first?.sortedExercises.first?.exercise?.name == "Probe Press")
+    }
+
+    /// Seed a routine + group + exercise into a V1 (pre-`uuid`) store using
+    /// the frozen snapshot classes, releasing the container before return.
+    private func writeV1ProbeData(to url: URL) throws {
+        let v1 = Schema(versionedSchema: AppSchemaV1.self)
+        let config = ModelConfiguration(schema: v1, url: url, allowsSave: true, cloudKitDatabase: .none)
+        let container = try ModelContainer(for: v1, configurations: [config])
+        let ctx = ModelContext(container)
+
+        let ex = Exercise(name: "Probe Press", muscleGroup: .chest)
+        ctx.insert(ex)
+        let routine = AppSchemaV1.Routine(name: "Probe Routine")
+        ctx.insert(routine)
+        let group = AppSchemaV1.ExerciseGroup(order: 0, sets: 3)
+        ctx.insert(group)
+        group.routine = routine
+        let entry = AppSchemaV1.RoutineExercise(exercise: ex, order: 0)
+        ctx.insert(entry)
+        entry.group = group
+
+        try ctx.save()
     }
 
     /// Seed a routine + exercise + finished session with the pre-#155 plain
