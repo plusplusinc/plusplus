@@ -42,6 +42,36 @@ enum SetupState {
         UserDefaults.standard.set(true, forKey: welcomeSeenKey)
     }
 
+    // #155 store-reset breadcrumb. Set ONLY when the store could not be
+    // opened and was recreated (never a normal migration, which the
+    // migration plan handles silently). RootTabView reads it once to tell
+    // the user their data was reset and a backup was saved, then clears
+    // it. Deliberately NOT tied to store contents.
+    static let storeWasResetKey = "storeWasReset"
+    static let storeResetBackupPathKey = "storeResetBackupPath"
+
+    static func markStoreReset(backupPath: String?) {
+        UserDefaults.standard.set(true, forKey: storeWasResetKey)
+        if let backupPath {
+            UserDefaults.standard.set(backupPath, forKey: storeResetBackupPathKey)
+        }
+    }
+
+    static var storeWasReset: Bool {
+        UserDefaults.standard.bool(forKey: storeWasResetKey)
+    }
+
+    /// True when a backup folder was actually written (so copy stated a
+    /// path). Drives whether the notice mentions the saved backup.
+    static var storeResetBackupSaved: Bool {
+        UserDefaults.standard.string(forKey: storeResetBackupPathKey) != nil
+    }
+
+    static func clearStoreResetFlag() {
+        UserDefaults.standard.removeObject(forKey: storeWasResetKey)
+        UserDefaults.standard.removeObject(forKey: storeResetBackupPathKey)
+    }
+
     // The populate offer rides Today, not the catalog (#204): Done just
     // raises this flag and dismisses; Today consumes it and asks from an
     // anchored alert. One-shot; the count is computed at ask time.

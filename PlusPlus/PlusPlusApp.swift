@@ -25,7 +25,10 @@ struct PlusPlusApp: App {
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
 
     init() {
-        let schema = Schema([Routine.self, Exercise.self, Equipment.self, EquipmentLibrary.self, WorkoutSession.self, SetLog.self])
+        // The versioned schema + migration plan (#155). Opening WITH the
+        // plan is what lets a future shape change migrate the store instead
+        // of resetting it; see AppSchema.swift.
+        let schema = AppSchema.latest
         // UI tests pass --uitest-reset so every launch starts from a clean,
         // throwaway store (seed data still loads).
         let inMemory = CommandLine.arguments.contains("--uitest-reset")
@@ -48,21 +51,19 @@ struct PlusPlusApp: App {
         }
         let config = ModelConfiguration(isStoredInMemoryOnly: inMemory)
         do {
-            modelContainer = try ModelContainer(for: schema, configurations: [config])
+            modelContainer = try ModelContainer(for: schema, migrationPlan: AppMigrationPlan.self, configurations: [config])
         } catch {
-            // An unopenable store must not be a crash loop (build 15:
-            // the #144 entity renames made pre-15 stores unreadable and
-            // this fatalError'd on every launch). During beta the call
-            // is destroy-and-recreate — data is explicitly throwaway
-            // until sync ships; a real migration policy is the 1.0 bar.
+            // #155: a store we can't open (genuine corruption, or one the
+            // migration plan can't map) must not be a crash loop AND must
+            // not be a silent wipe. Copy the raw store aside first, leave a
+            // breadcrumb so RootTabView can tell the user, THEN recreate.
+            // The migration plan (above) is what keeps ordinary shape
+            // changes from ever reaching here (build 15's #144 rename would
+            // now migrate rather than brick the store).
             guard !inMemory else { fatalError("Failed to create in-memory ModelContainer: \(error)") }
-            let storeURL = config.url
-            let fm = FileManager.default
-            for suffix in ["", "-shm", "-wal"] {
-                try? fm.removeItem(at: URL(fileURLWithPath: storeURL.path + suffix))
-            }
+            StoreRecovery.backUpAndReset(storeURL: config.url, error: error)
             do {
-                modelContainer = try ModelContainer(for: schema, configurations: [config])
+                modelContainer = try ModelContainer(for: schema, migrationPlan: AppMigrationPlan.self, configurations: [config])
             } catch {
                 fatalError("Failed to create ModelContainer even after store reset: \(error)")
             }

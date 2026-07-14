@@ -28,6 +28,10 @@ struct RootTabView: View {
     /// Post-install return from GitHub (the Setup-URL bounce, #23): present
     /// the connect step so the user just authorizes.
     @State private var showGitHubConnect = false
+    /// #155: the store couldn't be opened and was reset this launch. Read
+    /// once at init (the flag is set during app init, before any view), so
+    /// we tell the user rather than pretending nothing happened.
+    @State private var showStoreResetNotice: Bool
 
     init() {
         // The launch beat: the ++ mark centered, then the app. Skipped
@@ -38,6 +42,7 @@ struct RootTabView: View {
         let welcome = !SetupState.welcomeSeen
         _showingWelcome = State(initialValue: welcome)
         _showingSplash = State(initialValue: !welcome && !CommandLine.arguments.contains("--uitest-reset"))
+        _showStoreResetNotice = State(initialValue: SetupState.storeWasReset)
     }
 
     var body: some View {
@@ -150,6 +155,16 @@ struct RootTabView: View {
         }
         .sheet(isPresented: $showGitHubConnect) {
             GitHubSyncTray(startAtConnect: true)
+        }
+        // #155: never a silent wipe. If the store couldn't be opened and
+        // was reset this launch, say so plainly (calm, no blame) and note
+        // the saved backup. One-shot: the flag clears on dismiss.
+        .alert("Your data was reset", isPresented: $showStoreResetNotice) {
+            Button("OK") { SetupState.clearStoreResetFlag() }
+        } message: {
+            Text(SetupState.storeResetBackupSaved
+                 ? "PlusPlus couldn't open your saved data, so it started fresh. A copy of the old data was saved to the Files app in case it can be recovered."
+                 : "PlusPlus couldn't open your saved data, so it started fresh.")
         }
     }
 

@@ -74,6 +74,11 @@ targets:
         # App is registered (see GITHUB_APP_CLIENT_ID above).
         GitHubAppClientID: $(GITHUB_APP_CLIENT_ID)
         UILaunchScreen: {}
+        # #155 store recovery: a store that can't be opened is copied aside
+        # to Documents before being reset (never a silent wipe). These make
+        # that backup reachable in the Files app so it isn't a dead artifact.
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
         # Declare support for Assistive Access (iOS 17+): the app stays
         # available in that cognitive-accessibility mode rather than being
         # hidden. The core loop (open Today, start a workout, log) fits the

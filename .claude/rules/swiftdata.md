@@ -14,6 +14,8 @@ paths:
 
 **Sessions snapshot, never reference-only:** `WorkoutSession`/`SetLog` copy names/targets at start time; the `routine`/`exercise` references are conveniences that may go stale. History must survive template edits and deletions.
 
+**Store migration is versioned, never destroy-and-recreate (#155):** the container opens `Schema(versionedSchema: AppSchemaV1.self)` + `AppMigrationPlan` (`PlusPlus/Models/AppSchema.swift`). A shape change adds a new `VersionedSchema` + a `MigrationStage` — and **freezes the prior version into standalone snapshot classes** (each VersionedSchema is a complete snapshot, not a diff). Adding an additive property (optional, or non-optional with a default) is a lightweight stage; per-row unique backfill (e.g. a fresh `uuid`) needs a `.custom` stage assigning values in `didMigrate` (the column-add gives every migrated row the SAME default). NEVER wipe an unopenable store silently — `StoreRecovery.backUpAndReset` copies the raw store aside first and sets the `SetupState.storeWasReset` breadcrumb. ⚠️ Migration correctness is **on-device-only** — simulator/CI success ≠ production safety; a `StoreMigrationTests`-style headless test is necessary but not sufficient.
+
 **`#Predicate` macro:** requires `import Foundation` in addition to `import SwiftData`.
 
 **Enum case named `none` + Optional switches:** ⚠️ a `case none` on an enum used as `Optional<T>` makes `case .none:` inside a `switch` over the optional resolve to `Optional.none`, silently orphaning `.some(.none)`. Name such cases something else (`bodyweightOnly`, not `none`).
