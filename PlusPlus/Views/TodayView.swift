@@ -109,6 +109,11 @@ struct TodayView: View {
         for existing in routines where existing !== routine {
             existing.order += 1
         }
+        // Permanent id before the push: a @Model's Hashable derives from
+        // persistentModelID, which swaps at the first save, so a later
+        // autosave would re-key the value sitting on the nav path and
+        // re-resolve the pushed detail (the tray-flicker class; swiftdata.md).
+        try? modelContext.save()
         todayPath.append(routine)
     }
 

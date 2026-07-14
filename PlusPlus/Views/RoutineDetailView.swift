@@ -865,6 +865,18 @@ struct RoutineDetailView: View {
             SupersetCreationTip().invalidate(reason: .actionPerformed)
             SupersetLoopTip().invalidate(reason: .actionPerformed)
         }
+        // Give the freshly inserted group/exercise a PERMANENT id now.
+        // Both trays this screen presents key on persistentModelID — the
+        // per-exercise detail sheet (.sheet(item: $selectedExercise)) and
+        // the superset picker (pickerDestination's id IS
+        // group.persistentModelID). SwiftData swaps that id from a
+        // temporary to a permanent value at the first save; if that save is
+        // a later autosave firing WHILE one of those trays is open, the id
+        // change reads as a new item and the sheet briefly dismisses +
+        // re-presents — the "tray flickers for no apparent reason" bug.
+        // Saving synchronously at insertion closes the window (same rule as
+        // WorkoutSession.start's fullScreenCover; swiftdata.md).
+        try? modelContext.save()
     }
 
     private func deleteExercise(_ routineExercise: RoutineExercise, in group: ExerciseGroup) {
@@ -908,6 +920,10 @@ struct RoutineDetailView: View {
         copy.group = copyGroup
         modelContext.insert(copy)
         routine.reindexGroups()
+        // Permanent id before the duplicated row can be tapped open — an
+        // item-keyed tray re-keys and flickers if the id swaps under it on
+        // a later autosave (see addExercise for the full mechanism).
+        try? modelContext.save()
     }
 
 }
