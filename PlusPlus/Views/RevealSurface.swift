@@ -365,7 +365,7 @@ struct RevealSurface: View {
                     .font(.system(.footnote, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                 Text(sub)
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(.system(.caption2, design: .monospaced))
                     .foregroundStyle(subColor)
             }
             .frame(maxWidth: .infinity, alignment: .leading)

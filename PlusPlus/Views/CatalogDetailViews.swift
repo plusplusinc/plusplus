@@ -602,6 +602,7 @@ struct EquipmentDetailScreen: View {
                 .font(.system(.footnote, weight: .semibold))
                 .foregroundStyle(selected ? Theme.onSelected : Theme.textSecondary)
                 .lineLimit(1)
+                .minimumScaleFactor(0.6)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 7)
                 .background(selected ? Theme.selected : Theme.background, in: Capsule())

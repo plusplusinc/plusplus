@@ -63,6 +63,7 @@ struct FacetChip<Value: Hashable>: View {
                 .font(.system(.caption2, design: .monospaced, weight: .semibold))
                 .kerning(0.5)
                 .lineLimit(1)
+                .minimumScaleFactor(0.6)
                 .foregroundStyle(selection == nil ? Theme.textSecondary : Theme.onSelected)
                 .padding(.horizontal, 13)
                 .frame(height: 36)
@@ -129,6 +130,7 @@ struct MultiFacetChip<Value: Hashable>: View {
                 .font(.system(.caption2, design: .monospaced, weight: .semibold))
                 .kerning(0.5)
                 .lineLimit(1)
+                .minimumScaleFactor(0.6)
                 .foregroundStyle(selection.isEmpty ? Theme.textSecondary : Theme.onSelected)
                 .padding(.horizontal, 13)
                 .frame(height: 36)
@@ -175,6 +177,7 @@ struct TrayFilterChip: View {
                     .font(.system(.caption2, design: .monospaced, weight: .semibold))
                     .kerning(0.5)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.6)
                 if active {
                     Text("\(count)")
                         .font(.system(.caption2, design: .monospaced, weight: .bold))
@@ -247,6 +250,7 @@ struct SortChip<Value: Hashable>: View {
                     .font(.system(.caption2, design: .monospaced, weight: .semibold))
                     .kerning(0.5)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.6)
             }
             .foregroundStyle(Theme.textSecondary)
             .accessibilityElement(children: .combine)

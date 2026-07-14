@@ -103,7 +103,7 @@ struct ExercisesTabView: View {
                             .lineLimit(1)
                         subtitleText(for: exercise)
                             .font(.system(.caption))
-                            .lineLimit(1)
+                            .lineLimit(2)
                     }
                     Spacer()
                     if !exercise.isBuiltIn {
@@ -394,6 +394,7 @@ struct LibrarySwitcherKey: View {
                     .font(.system(.footnote, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.6)
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.system(.caption2, weight: .bold))
                     .foregroundStyle(Theme.textFaint)
@@ -701,7 +702,7 @@ struct CatalogBrowseScreen: View {
                     .lineLimit(1)
                 sub
                     .font(.system(.caption))
-                    .lineLimit(1)
+                    .lineLimit(2)
             }
         }
         .tint(Theme.selected)
