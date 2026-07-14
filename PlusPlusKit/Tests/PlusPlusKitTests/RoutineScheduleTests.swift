@@ -33,15 +33,16 @@ struct RoutineScheduleTests {
         #expect(state == .notDue(nextDue: calendar.startOfDay(for: date(2026, 7, 8))))
     }
 
-    @Test func weekdaysMissedDayCarriesOverAsDue() {
-        // Mon/Thu schedule, completed Monday, Thursday missed: still due
-        // on Saturday, and dueSince points at Thursday.
+    @Test func weekdaysMissedDayCarriesOverAsMissed() {
+        // Mon/Thu schedule, completed Monday, Thursday missed: on Saturday
+        // (not itself a scheduled day) it reads as a gentle carried MISS,
+        // not the green due — and `since` / dueSince point at Thursday.
         let schedule = RoutineSchedule.weekdays([2, 5])
         let saturday = date(2026, 7, 11)
         let monday = date(2026, 7, 6)
-        #expect(schedule.dueState(lastCompleted: monday, today: saturday, calendar: calendar) == .due)
-        #expect(schedule.dueSince(lastCompleted: monday, today: saturday, calendar: calendar)
-                == calendar.startOfDay(for: date(2026, 7, 9)))
+        let thursday = calendar.startOfDay(for: date(2026, 7, 9))
+        #expect(schedule.dueState(lastCompleted: monday, today: saturday, calendar: calendar) == .missed(since: thursday))
+        #expect(schedule.dueSince(lastCompleted: monday, today: saturday, calendar: calendar) == thursday)
     }
 
     @Test func weekdaysCarriedOverDueIsSatisfiedByLateCompletion() {
@@ -263,7 +264,9 @@ struct RoutineScheduleTests {
         let schedule = RoutineSchedule.weekdays([5])
         let completedThursday = date(2026, 7, 2)
         let friday = date(2026, 7, 10)
-        #expect(schedule.dueState(lastCompleted: completedThursday, today: friday, calendar: calendar) == .due)
+        // Friday isn't a Thursday, so the missed Thursday reads as a carry.
+        #expect(schedule.dueState(lastCompleted: completedThursday, today: friday, calendar: calendar)
+                == .missed(since: calendar.startOfDay(for: date(2026, 7, 9))))
         let days = schedule.upcomingScheduledDays(lastCompleted: completedThursday, today: friday, calendar: calendar)
         #expect(days == [calendar.startOfDay(for: date(2026, 7, 16))])
     }
@@ -322,6 +325,71 @@ struct RoutineScheduleTests {
         // …an early make-up on Jul 8 pushes it to Jul 15.
         #expect(schedule.dueState(lastCompleted: date(2026, 7, 8), today: date(2026, 7, 9), calendar: calendar)
                 == .notDue(nextDue: calendar.startOfDay(for: date(2026, 7, 15))))
+    }
+
+    // MARK: - Missed vs due, and the added-to-library anchor (2026-07-14)
+
+    @Test func weekdaysScheduledTodayIsDueNotMissed() {
+        // Tuesdays only, never done, today IS Tuesday: the green due, and
+        // never a miss — today's occurrence outranks any carry.
+        let schedule = RoutineSchedule.weekdays([3])
+        let tuesday = date(2026, 7, 14)
+        #expect(schedule.dueState(lastCompleted: nil, today: tuesday, calendar: calendar) == .due)
+    }
+
+    @Test func weekdaysMissedShowsAsMissedTheDayAfter() {
+        // Tuesdays only, never done, today is Wednesday: last Tuesday went
+        // unmet and today isn't scheduled, so it's a gentle carried miss.
+        let schedule = RoutineSchedule.weekdays([3])
+        let wednesday = date(2026, 7, 15)
+        #expect(schedule.dueState(lastCompleted: nil, today: wednesday, calendar: calendar)
+                == .missed(since: calendar.startOfDay(for: date(2026, 7, 14))))
+    }
+
+    @Test func weekdaysTodayWinsOverAnEarlierMissThisWeek() {
+        // Mon/Thu, never done (Monday missed), today Thursday: today is a
+        // scheduled unmet day, so it reads as due — not "missed since Mon".
+        let schedule = RoutineSchedule.weekdays([2, 5])
+        let thursday = date(2026, 7, 9)
+        #expect(schedule.dueState(lastCompleted: nil, today: thursday, calendar: calendar) == .due)
+    }
+
+    @Test func weekdaysAddedAfterALapsedOccurrenceIsNotMissed() {
+        // THE BUG (2026-07-14): a Tuesday routine added Sunday, viewed the
+        // following Monday, must NOT read as overdue from the Tuesday it
+        // was never around for — it's simply not due, next Tuesday ahead.
+        let schedule = RoutineSchedule.weekdays([3]) // Tuesdays
+        let addedSunday = date(2026, 7, 12)
+        let monday = date(2026, 7, 13)
+        let state = schedule.dueState(lastCompleted: nil, today: monday, addedOn: addedSunday, calendar: calendar)
+        #expect(state == .notDue(nextDue: calendar.startOfDay(for: date(2026, 7, 14))))
+    }
+
+    @Test func weekdaysAddedBeforeALapsedOccurrenceStaysMissed() {
+        // Same Tuesday routine, but it joined the library two weeks back —
+        // last Tuesday was a real miss and carries as such.
+        let schedule = RoutineSchedule.weekdays([3])
+        let addedLongAgo = date(2026, 7, 1)
+        let monday = date(2026, 7, 13)
+        let state = schedule.dueState(lastCompleted: nil, today: monday, addedOn: addedLongAgo, calendar: calendar)
+        #expect(state == .missed(since: calendar.startOfDay(for: date(2026, 7, 7))))
+    }
+
+    @Test func weekdaysAddedTodayOnItsScheduledDayIsDue() {
+        // Added on a Tuesday that is also its scheduled day: due today, the
+        // anchor's boundary is inclusive.
+        let schedule = RoutineSchedule.weekdays([3])
+        let tuesday = date(2026, 7, 14)
+        #expect(schedule.dueState(lastCompleted: nil, today: tuesday, addedOn: tuesday, calendar: calendar) == .due)
+    }
+
+    @Test func upcomingRespectsTheAddedAnchor() {
+        // A routine added today still previews its future occurrences —
+        // the anchor only silences the PAST, never the week ahead.
+        let schedule = RoutineSchedule.weekdays([3]) // Tuesdays
+        let monday = date(2026, 7, 13)
+        let days = schedule.upcomingScheduledDays(lastCompleted: nil, today: monday, addedOn: monday, calendar: calendar)
+        #expect(days == [calendar.startOfDay(for: date(2026, 7, 14))])
     }
 
     // MARK: - Frequency

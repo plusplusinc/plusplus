@@ -179,6 +179,14 @@ struct TodayView: View {
                                     if setupActive {
                                         setupSection
                                     }
+                                    // Carried-over occurrences (Kit .missed):
+                                    // a past scheduled day that lapsed, shown
+                                    // calmly between today's work and the
+                                    // history below — never as a green due, and
+                                    // never dressed up as today's date.
+                                    if !missedRoutines.isEmpty {
+                                        carriedOverSection
+                                    }
                                     ForEach(sessions) { session in
                                         // The just-finished session converts
                                         // on landing (recap-close animation):
@@ -488,14 +496,42 @@ struct TodayView: View {
         // the schedule satisfied (bug hunt, highest severity).
         routines.filter { routine in
             guard !routine.groups.isEmpty else { return false }
-            let completions = recentCompletions(of: routine)
-            return routine.schedule.dueState(
-                lastCompleted: completions.last,
-                previousCompleted: completions.previous,
-                today: today,
-                calendar: calendar
-            ) == .due
+            return dueState(of: routine) == .due
         }
+    }
+
+    /// Routines whose most recent scheduled day lapsed within the carry
+    /// window (Kit `.missed`, 2026-07-14): today isn't their day, but a
+    /// past occurrence went unmet. Surfaced as a calm amber card, never
+    /// the green due. Empty routines can't start, so they don't appear —
+    /// nothing to make up.
+    private var missedRoutines: [Routine] {
+        routines.filter { routine in
+            guard !routine.groups.isEmpty else { return false }
+            if case .missed = dueState(of: routine) { return true }
+            return false
+        }
+    }
+
+    /// The day a missed routine last lapsed (its `.missed(since:)`), for
+    /// the card's quiet caption. nil when not missed.
+    private func missedSince(_ routine: Routine) -> Date? {
+        if case .missed(let since) = dueState(of: routine) { return since }
+        return nil
+    }
+
+    /// The routine's due state, anchored to when it joined the library
+    /// (`createdAt`) so a freshly added routine never carries a scheduled
+    /// day it wasn't around for (2026-07-14).
+    private func dueState(of routine: Routine) -> RoutineSchedule.DueState {
+        let completions = recentCompletions(of: routine)
+        return routine.schedule.dueState(
+            lastCompleted: completions.last,
+            previousCompleted: completions.previous,
+            today: today,
+            addedOn: routine.createdAt,
+            calendar: calendar
+        )
     }
 
     /// Scheduled-but-empty routines whose day this is (#246): they
@@ -505,13 +541,7 @@ struct TodayView: View {
     private var dueButEmptyRoutines: [Routine] {
         routines.filter { routine in
             guard routine.groups.isEmpty else { return false }
-            let completions = recentCompletions(of: routine)
-            return routine.schedule.dueState(
-                lastCompleted: completions.last,
-                previousCompleted: completions.previous,
-                today: today,
-                calendar: calendar
-            ) == .due
+            return dueState(of: routine) == .due
         }
     }
 
@@ -557,6 +587,7 @@ struct TodayView: View {
                 lastCompleted: completions.last,
                 previousCompleted: completions.previous,
                 today: today,
+                addedOn: routine.createdAt,
                 calendar: calendar
             )
             entries.append(contentsOf: days.map { (entry: UpcomingEntry(routine: routine, day: $0), order: index) })
@@ -644,17 +675,15 @@ struct TodayView: View {
     }
 
     /// A condensed pending card, deliberately SECONDARY to today's
-    /// (Dave's #267 call): name + date + estimate, a compact bordered
-    /// Start instead of the full-width fill, no promoted diff, no
-    /// muscles/gear rows. The card itself navigates to the routine —
-    /// the committed-card grammar (tap the card, chevron trailing) —
-    /// so an upcoming workout can be configured before it starts
-    /// (Dave's build-45 ask); the inner Start wins its own frame.
-    /// Start is the same path as today's Start; the early completion
-    /// satisfies the upcoming occurrence (Kit #267), so the day's card
-    /// retires itself. No matchedTransitionSource: the same routine's
-    /// pending card may be on screen with that id — off-card starts
-    /// fall back to the standard transition (#216).
+    /// (Dave's #267 call): name + date + estimate, no promoted diff, no
+    /// muscles/gear rows. The whole card navigates to the routine — the
+    /// committed-card grammar (tap the card, chevron trailing) — so an
+    /// upcoming workout can be configured (or started) from its detail.
+    /// One-click Start is reserved for TODAY's card now (Dave,
+    /// 2026-07-14): a future day is a calendar fact, not a call to act, so
+    /// the inline Start button is gone. No matchedTransitionSource: the
+    /// same routine's pending card may be on screen with that id — off-card
+    /// starts fall back to the standard transition (#216).
     private func futureCard(_ entry: UpcomingEntry) -> some View {
         NavigationLink(value: entry.routine) {
             HStack(alignment: .center, spacing: 8) {
@@ -669,25 +698,6 @@ struct TodayView: View {
                         .lineLimit(1)
                 }
                 Spacer(minLength: 8)
-                Button {
-                    start(entry.routine)
-                } label: {
-                    Text("Start")
-                        .font(.system(.caption, weight: .semibold))
-                        .foregroundStyle(Theme.textSecondary)
-                        .padding(.horizontal, 11)
-                        .frame(height: 30)
-                        .overlay(Capsule().strokeBorder(Theme.borderStrong, lineWidth: 1))
-                        .padding(.vertical, 7)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                // Day-suffixed for individual addressability
-                // ("startUpcoming-2026-07-11") — though no test leans
-                // on it yet, and a Button nested in a NavigationLink
-                // label is untested XCUITest territory here: verify on
-                // CI before writing one against it.
-                .accessibilityIdentifier("startUpcoming-\(dayStamp(entry.day))")
                 Image(systemName: "chevron.right")
                     .font(.system(.caption2, weight: .bold))
                     .foregroundStyle(Theme.textFaint)
@@ -722,6 +732,89 @@ struct TodayView: View {
         let weekday = entry.day.formatted(.dateTime.weekday(.abbreviated)).lowercased()
         let date = entry.day.formatted(.dateTime.month(.abbreviated).day()).lowercased()
         return "\(weekday) · \(date) · \(entry.routine.estimateText)"
+    }
+
+    // MARK: - Carried over (missed occurrences)
+
+    /// A quiet cluster between today's work and the history below: routines
+    /// whose most recent scheduled day lapsed within the carry window
+    /// (Kit `.missed`, 2026-07-14). Its own faint marker keeps them OFF
+    /// today's date, and amber (never green) keeps them a gentle nudge, not
+    /// a call to act — the anti-shame grammar holds ("no obligation words").
+    @ViewBuilder
+    private var carriedOverSection: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Rectangle()
+                .fill(Theme.border)
+                .frame(width: 2)
+                .frame(maxHeight: .infinity)
+                .frame(width: 20)
+            VStack(alignment: .leading, spacing: 3) {
+                SheetSectionLabel("CARRIED OVER")
+                Text("still open from earlier — do them whenever")
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(Theme.textFaint)
+                    .lineLimit(1)
+            }
+            .padding(.vertical, 10)
+            Spacer(minLength: 0)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        ForEach(missedRoutines) { routine in
+            // Amber node, amber card: a lapsed occurrence is neither the
+            // green "today" nor the grey "not yet" — it's the warm
+            // in-between (the notes/advisory amber already in the grammar).
+            TimelineItem(node: .inert, strokeOverride: Theme.notes) {
+                missedCard(routine)
+            }
+        }
+    }
+
+    /// The gentle carried-over card: name, the day it was scheduled, and
+    /// the estimate — no diff, no green border, and no one-click Start
+    /// (reserved for today). Tapping opens the routine, where Start lives.
+    private func missedCard(_ routine: Routine) -> some View {
+        NavigationLink(value: routine) {
+            HStack(alignment: .center, spacing: 8) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(routine.name)
+                        .font(.system(.body, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(1)
+                    Text(missedCaption(routine))
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(Theme.notes)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.system(.caption2, weight: .bold))
+                    .foregroundStyle(Theme.textFaint)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.surface.opacity(reduceTransparency ? 1 : 0.55), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+            // A soft, solid amber edge: distinct from today's solid green
+            // and the future cards' dashed grey.
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.cardRadius)
+                    .strokeBorder(Theme.notes.opacity(0.55), lineWidth: 1)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("missedRoutine-\(routine.name)")
+    }
+
+    /// "was tue · jul 7 · ~30 min" — the lapsed day named plainly (the
+    /// "was" reads it as past without any obligation word), then the
+    /// estimate. Falls back gracefully if the state isn't missed.
+    private func missedCaption(_ routine: Routine) -> String {
+        guard let since = missedSince(routine) else { return routine.estimateText }
+        let weekday = since.formatted(.dateTime.weekday(.abbreviated)).lowercased()
+        let date = since.formatted(.dateTime.month(.abbreviated).day()).lowercased()
+        return "was \(weekday) · \(date) · \(routine.estimateText)"
     }
 
     /// The two most recent completions of a routine: `.last` drives
@@ -1087,6 +1180,14 @@ struct TodayView: View {
     private func committedCard(_ session: WorkoutSession) -> some View {
         NavigationLink(value: SessionRecordDestination(session: session)) {
             HStack(spacing: 8) {
+                // A purple check seal on the card itself (Dave, 2026-07-14):
+                // the rail node already reads done, but a committed card
+                // should say so at a glance without leaning on its ring —
+                // the finish-checkmark grammar, purple = landed (#201).
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(.subheadline))
+                    .foregroundStyle(Theme.done)
+                    .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(session.routineName)
                         .font(.system(.subheadline, weight: .semibold))
@@ -1396,14 +1497,7 @@ struct TodayView: View {
     private var restDayCaption: String {
         var best: (date: Date, name: String)?
         for routine in routines {
-            let completions = recentCompletions(of: routine)
-            let state = routine.schedule.dueState(
-                lastCompleted: completions.last,
-                previousCompleted: completions.previous,
-                today: today,
-                calendar: calendar
-            )
-            if case .notDue(let next) = state {
+            if case .notDue(let next) = dueState(of: routine) {
                 if best == nil || next < best!.date {
                     best = (next, routine.name)
                 }

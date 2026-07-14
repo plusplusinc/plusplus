@@ -25,7 +25,19 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   which composited with itself at the Canvas stroke overlaps and read
   blotchy; opaque ink strokes uniformly.)
 - **Purple is done** (GitHub-merged mapping): committed rail rings, session
-  pips, the finish checkmark, widget streak squares.
+  pips, the finish checkmark (now also stamped on the committed Today card
+  itself, not only its rail node), widget streak squares.
+- **Amber (`Theme.notes`) is advisory, never alarm** — the warm in-between
+  that is neither green (do/create) nor grey (inert). Two jobs: form-cue /
+  "needs X gear" notes, AND a **carried-over occurrence** (2026-07-14) — a
+  scheduled day that lapsed within the 6-day window shows in Today's
+  **CARRIED OVER** lane (below today's cards, above history) as an amber
+  tap-to-open card, never a green due. Green + one-click Start is reserved
+  for TODAY's occurrence only; future and carried cards navigate to detail.
+  Due-ness is anchored to a routine's `createdAt` (its added-to-library
+  moment), so a freshly added routine never carries a day it wasn't around
+  for. The Kit split that backs this: `DueState.due` = scheduled today and
+  unmet; `.missed(since:)` = a past scheduled day lapsed.
 - **RaisedKey press grammar**: every committing/navigating button is an opaque
   cap depressing onto a fixed base plate (4 pt standard / 3 pt quiet, 0.06 s
   ease-out); flat controls (chips, toggles, segments, rows) stay flat.

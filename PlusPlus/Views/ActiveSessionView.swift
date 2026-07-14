@@ -1030,6 +1030,7 @@ struct ActiveSessionView: View {
                 lastCompleted: completions.last,
                 previousCompleted: completions.previous,
                 today: today,
+                addedOn: routine.createdAt,
                 calendar: calendar
             )
             if case .notDue(let next) = state {
