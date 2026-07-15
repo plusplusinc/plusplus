@@ -18,6 +18,10 @@ struct RootTabView: View {
     /// AppMenuScreen). Lives here, above the tabs' NavigationStacks, so it
     /// moves the whole TabView as one layer.
     @State private var reveal = RevealController()
+    /// What screen is frontmost, as one compact line — Operator's
+    /// view-context (injected app-wide; screens report via
+    /// `.operatorContext(_:)`).
+    @State private var viewContext = ViewContext()
     /// The launch beat (splash + first-launch welcome, fused): a cold open
     /// always opens on the `++` mark; `introShowsWelcome` decides whether
     /// it settles into the welcome content or dissolves straight to Today.
@@ -58,6 +62,9 @@ struct RootTabView: View {
         RevealContainer(controller: reveal) {
             appContent
         }
+        // Injected here so BOTH layers see it: the tabs report context,
+        // the reveal surface (Operator) reads it.
+        .environment(viewContext)
     }
 
     private var appContent: some View {
@@ -67,24 +74,34 @@ struct RootTabView: View {
         // The quiet-terminal identity lives in the content; the chrome
         // is the platform's (Dave, build 10 feedback).
         TabView(selection: $tab) {
+            // Each root clears Operator's detail line on re-appear (a pop
+            // or tab switch lands back at the root).
             Tab("Today", systemImage: "smallcircle.filled.circle", value: AppTab.today) {
                 TodayView(onGoToRoutines: { tab = .routines })
+                    .operatorContext(nil)
             }
             Tab("Routines", systemImage: "square.stack", value: AppTab.routines) {
                 RoutineListView()
+                    .operatorContext(nil)
             }
             Tab("Exercises", systemImage: "list.bullet", value: AppTab.exercises) {
                 ExercisesTabView()
+                    .operatorContext(nil)
             }
             Tab("Equipment", systemImage: "dumbbell", value: AppTab.equipment) {
                 EquipmentTabView()
+                    .operatorContext(nil)
             }
         }
         .tint(Theme.textPrimary)
         // Swipe-to-open is gated on the active tab being at its root; keep
-        // the reveal controller told which tab is showing.
+        // the reveal controller told which tab is showing. Operator's
+        // view-context follows the same signal (a tab switch also clears
+        // a popped detail's stale line).
         .onChange(of: tab, initial: true) { _, newTab in
             reveal.activeTab = newTab.rawValue
+            viewContext.tab = newTab.rawValue
+            viewContext.detail = nil
         }
         .overlay {
             if showingIntro {
