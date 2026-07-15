@@ -390,7 +390,7 @@ final class SmokeTests: XCTestCase {
         app.launchArguments += ["--uitest-welcome"]
         app.launch()
 
-        let start = app.buttons["welcomeGetStartedButton"]
+        let start = app.buttons["welcomeStartButton"]
         XCTAssertTrue(start.waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["PlusPlus"].exists, "the one screen is the idea")
         snap("welcome-idea")

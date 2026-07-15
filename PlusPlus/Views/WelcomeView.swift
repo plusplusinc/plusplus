@@ -25,23 +25,17 @@ struct WelcomeView: View {
                         .font(.system(.subheadline))
                         .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
-                    // PROVISIONAL copy (Dave undecided, 2026-07-15): the
-                    // "left alone" line — the one value nothing downstream
-                    // carries now that the other screens are gone. Easy to
-                    // swap; it is the only supporting prose before the app.
-                    Text("No account, no nagging, no upsell. Just you and the numbers.")
-                        .font(.system(.footnote, design: .monospaced))
-                        .foregroundStyle(Theme.textFaint)
-                        .multilineTextAlignment(.center)
                 }
                 .padding(.horizontal, 36)
                 Spacer()
-                // PROVISIONAL copy (Dave undecided): the CTA. "Get started"
-                // reads as entering the app, not paging through more intro.
+                // The tagline carries the positioning; the button just
+                // enters the app (Dave, 2026-07-15: no second line). "Start
+                // building" reads as entering AND picks up the build/version
+                // thread the app leans on (++/commit vocabulary).
                 Button {
                     finish()
                 } label: {
-                    Text("Get started")
+                    Text("Start building")
                         .font(.system(.body, weight: .bold))
                         .foregroundStyle(Theme.onPrimary)
                         .lineLimit(1)
@@ -51,7 +45,7 @@ struct WelcomeView: View {
                         .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.raisedPrimaryKey(cornerRadius: 12))
-                .accessibilityIdentifier("welcomeGetStartedButton")
+                .accessibilityIdentifier("welcomeStartButton")
                 .padding(.horizontal, 20)
                 .padding(.bottom, 16)
             }
