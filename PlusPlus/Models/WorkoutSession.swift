@@ -302,13 +302,13 @@ extension WorkoutSession {
         return session
     }
 
-    /// Appends `sets` pending logs of `exercise` as a new solo block at
-    /// the end of the session, targets prefilled from the exercise's own
-    /// defaults (#187). The convenience overload; the configured path
-    /// (a set count and targets chosen in the add sheet) is
-    /// `appendExercise(config:context:)`.
+    /// Appends pending logs of `exercise` as a new solo block at the end
+    /// of the session, targets prefilled from the exercise's own
+    /// defaults (#187). nil sets = the exercise's default count. The
+    /// convenience overload; the configured path (a set count and
+    /// targets chosen in the add sheet) is `appendExercise(config:context:)`.
     @discardableResult
-    func appendExercise(_ exercise: Exercise, sets: Int = 3, context: ModelContext) -> [SetLog] {
+    func appendExercise(_ exercise: Exercise, sets: Int? = nil, context: ModelContext) -> [SetLog] {
         appendExercise(config: SessionExerciseConfig(exercise: exercise, sets: sets), context: context)
     }
 
@@ -528,25 +528,21 @@ final class SessionExerciseConfig: Identifiable {
     var heartRateTargetData: Data?
     var extraTargets: [WorkoutMetric: Double]
 
-    init(exercise: Exercise, sets: Int = 3) {
+    init(exercise: Exercise, sets: Int? = nil) {
         self.exercise = exercise
-        let profile = exercise.metricProfile
-        self.profile = profile
-        self.sets = sets
-        // The same prefill the old appendExercise and
-        // Routine.applyDefaultTargets use: the classic profiles keep
-        // their floor prescriptions (a 10-rep / 45 s block is startable
-        // as-is); richer cardio profiles take the exercise's own
-        // defaults only — a fabricated 45 s target on a 2000 m rower
-        // would hijack the driver into a timer.
-        self.weight = profile.contains(.weight) ? exercise.defaultWeight : nil
-        self.reps = profile.tracksReps ? (exercise.defaultReps ?? 10) : nil
-        self.repsUpper = profile.tracksReps ? exercise.defaultRepsUpper : nil
-        self.durationSeconds = profile.contains(.duration)
-            ? (exercise.defaultDurationSeconds ?? (profile.metrics == [.duration] ? 45 : nil))
-            : nil
-        self.heartRateTargetData = profile.legacyType == .duration ? exercise.defaultHeartRateTargetData : nil
-        self.extraTargets = exercise.extraDefaults.filter { profile.contains($0.key) }
+        self.profile = exercise.metricProfile
+        // nil = the exercise's own default count (a stretch is one hold,
+        // a press the classic 3) — same resolution as routine adds.
+        self.sets = sets ?? exercise.defaultSetCount
+        // The ONE prefill resolution shared with Routine's add path
+        // (own bumped default #187 → catalog assignment → global floor).
+        let targets = exercise.addTimeTargets
+        self.weight = targets.weight
+        self.reps = targets.reps
+        self.repsUpper = targets.repsUpper
+        self.durationSeconds = targets.durationSeconds
+        self.heartRateTargetData = targets.heartRateTargetData
+        self.extraTargets = targets.extraTargets
     }
 
     /// Typed view over `heartRateTargetData`.

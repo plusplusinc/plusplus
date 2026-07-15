@@ -87,6 +87,8 @@ struct PlusPlusApp: App {
         )
         if !inMemory {
             SeedData.repairBuiltInEquipmentIfNeeded(context: modelContainer.mainContext)
+            // After loadIfNeeded (the Bicycle row must exist to attach).
+            SeedData.syncRevisedEquipmentRequirementsIfNeeded(context: modelContainer.mainContext)
             SeedData.resetEquipmentOwnershipIfNeeded(context: modelContainer.mainContext)
             // Don't re-prime installs that already trained on a pre-primer
             // build (keyed on real history, not welcomeSeen — which is set

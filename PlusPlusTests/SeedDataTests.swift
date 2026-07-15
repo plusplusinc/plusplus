@@ -155,6 +155,46 @@ struct SeedDataTests {
         #expect(pushUp.equipment.isEmpty)
     }
 
+    /// Equipment audit (2026-07-15): the one-shot sync upgrades rows
+    /// still at their OLD canonical requirements (Cycling was
+    /// bodyweight, the landmine pair lacked its barbell), never touches
+    /// a user's customization, and never re-runs.
+    @Test func equipmentRequirementsSyncUpgradesOldCanonicalRowsOnce() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        SeedData.loadIfNeeded(context: context)
+
+        let exercises = try context.fetch(FetchDescriptor<Exercise>())
+        let cycling = try #require(exercises.first { $0.name == "Cycling" })
+        let landmineRow = try #require(exercises.first { $0.name == "Landmine Row" })
+        let landminePress = try #require(exercises.first { $0.name == "Landmine Press" })
+        let equipment = try context.fetch(FetchDescriptor<Equipment>())
+        let landmine = try #require(equipment.first { $0.name == "Landmine" })
+        let kettlebell = try #require(equipment.first { $0.name == "Kettlebell" })
+
+        // Simulate a store seeded BEFORE the audit: Cycling bodyweight,
+        // landmine work missing its barbell — and one row a user
+        // customized away from the old canonical (kettlebell landmine
+        // press, why not), which must survive untouched.
+        cycling.equipment = []
+        landmineRow.equipment = [landmine]
+        landminePress.equipment = [landmine, kettlebell]
+        try context.save()
+
+        UserDefaults.standard.removeObject(forKey: SeedData.equipmentRequirementsSyncKey)
+        defer { UserDefaults.standard.removeObject(forKey: SeedData.equipmentRequirementsSyncKey) }
+        SeedData.syncRevisedEquipmentRequirementsIfNeeded(context: context)
+
+        #expect(Set(cycling.equipment.map(\.name)) == ["Bicycle"])
+        #expect(Set(landmineRow.equipment.map(\.name)) == ["Barbell", "Landmine"])
+        #expect(Set(landminePress.equipment.map(\.name)) == ["Kettlebell", "Landmine"], "customized rows are never rewritten")
+
+        // One-shot: a user who then strips the restored gear isn't fought.
+        cycling.equipment = []
+        SeedData.syncRevisedEquipmentRequirementsIfNeeded(context: context)
+        #expect(cycling.equipment.isEmpty)
+    }
+
     /// #232: equipment ownership is opt-in — a fresh seed owns nothing.
     @Test func freshSeedLeavesEquipmentUnowned() throws {
         let container = try makeContainer()
