@@ -167,6 +167,7 @@ struct RevealSurface: View {
                     Circle()
                         .fill(operatorAvailability == .ready ? Theme.accent : Theme.textFaint)
                         .frame(width: 8, height: 8)
+                        .accessibilityHidden(true)
                     Text("OPERATOR")
                         .font(.system(.caption2, design: .monospaced, weight: .semibold))
                         .foregroundStyle(operatorAvailability == .ready ? Theme.accent : Theme.textFaint)

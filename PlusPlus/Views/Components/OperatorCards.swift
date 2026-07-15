@@ -130,6 +130,7 @@ struct OperatorReceiptCard: View {
                 Circle()
                     .fill(payload.undone ? Theme.textFaint : Theme.done)
                     .frame(width: 7, height: 7)
+                    .accessibilityHidden(true)
                 Text(payload.undone ? "UNDONE" : "DONE")
                     .font(.system(.caption2, design: .monospaced, weight: .semibold))
                     .foregroundStyle(payload.undone ? Theme.textFaint : Theme.done)

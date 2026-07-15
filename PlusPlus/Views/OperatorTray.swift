@@ -10,6 +10,7 @@ import PlusPlusKit
 /// Operator's voice.
 struct OperatorTray: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(RevealController.self) private var reveal
     let controller: OperatorController
 
     @State private var draft = ""
@@ -45,6 +46,7 @@ struct OperatorTray: View {
             Circle()
                 .fill(controller.availability == .ready ? Theme.accent : Theme.textFaint)
                 .frame(width: 8, height: 8)
+                .accessibilityHidden(true)
             Text("Operator")
                 .font(.system(.title3, weight: .bold))
                 .foregroundStyle(Theme.textPrimary)
@@ -148,12 +150,19 @@ struct OperatorTray: View {
                 onCancel: { controller.cancelPreview(messageID: message.id) }
             )
         case .receipt(let payload):
-            // onView stays nil until the outcome-navigation PR lands its
-            // .plusplusOperatorShow listeners — a silent no-op key would
-            // be worse than no key.
             OperatorReceiptCard(
                 payload: payload,
-                onView: nil,
+                onView: payload.destinations.isEmpty ? nil : {
+                    // Re-post (the user may have wandered since the
+                    // apply-time auto-navigation), then get out of the
+                    // way: tray down, drawer closed, result on screen.
+                    NotificationCenter.default.post(
+                        name: .plusplusOperatorShow,
+                        object: payload.destinations.first
+                    )
+                    reveal.close()
+                    dismiss()
+                },
                 onUndo: { controller.undoReceipt(messageID: message.id) }
             )
         case .options(let payload):
