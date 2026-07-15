@@ -145,6 +145,13 @@ struct ExercisePickerView: View {
                     .listRowSeparator(.hidden)
                 }
             }
+            // Plain list on the warm background, matching the Library
+            // (the sibling exercise list). The default grouped style's
+            // generous top inset was the oversized gap under the filter
+            // row; plain seats the first exercise right below it.
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(Theme.background)
             .navigationTitle("Add Exercise")
             .navigationBarTitleDisplayMode(.inline)
             .scrollDismissesKeyboard(.immediately)
@@ -202,7 +209,10 @@ struct ExercisePickerView: View {
                     deletionCandidate = nil
                 }
             }
-            .safeAreaInset(edge: .top) {
+            .safeAreaInset(edge: .top, spacing: 0) {
+                // One continuous bar behind search AND filters: the two
+                // used to carry separate backgrounds, leaving a transparent
+                // band between them that let scrolled-up rows peek through.
                 VStack(spacing: 8) {
                     SearchField(prompt: "Search exercises", text: Bindable(filterState).searchText)
                         .padding(.horizontal, 16)
@@ -212,6 +222,8 @@ struct ExercisePickerView: View {
                         showingEquipmentFilter: $showingEquipmentFilter
                     )
                 }
+                .padding(.top, 8)
+                .background(.bar)
             }
             .sheet(isPresented: $showingMuscleGroupFilter) {
                 MuscleGroupFilterSheet(filterState: filterState)
@@ -318,8 +330,10 @@ private struct FilterBar: View {
             .animation(Theme.Anim.standard, value: anyFilterActive)
             .padding(.horizontal)
         }
+        // The seal (the .bar background) now lives on the whole sticky
+        // header in the safeAreaInset above, so the search-to-filter band
+        // is covered too; this bar just carries its own vertical rhythm.
         .padding(.vertical, 8)
-        .background(.bar)
     }
 }
 

@@ -15,7 +15,8 @@ import PlusPlusKit
 struct RevealSurface: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
-    @AppStorage(AppAppearance.storageKey) private var appearanceRaw = AppAppearance.system.rawValue
+    // Appearance now lives in the Settings tray (SettingsTray owns that
+    // @AppStorage). The weight unit stays here — export/import read it.
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw = WeightUnit.lb.rawValue
     @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
@@ -43,7 +44,7 @@ struct RevealSurface: View {
     @State private var importResultMessage: String?
     @State private var dataError: String?
 
-    enum Tray: String, Identifiable { case library, sync, health, calendar, data, whatsNew, about; var id: String { rawValue } }
+    enum Tray: String, Identifiable { case library, sync, health, calendar, settings, data, whatsNew, about; var id: String { rawValue } }
     enum Push: String, Identifiable { case equipment; var id: String { rawValue } }
 
     private var version: String {
@@ -63,11 +64,12 @@ struct RevealSurface: View {
                 identity
                 libraryCard
                     .padding(.top, 26)
-                appearanceSection
-                    .padding(.top, 22)
-                unitsSection
-                    .padding(.top, 18)
                 syncSection
+                    .padding(.top, 26)
+                // Separator between the sync rows and the bottom tile
+                // group (Dave, build-78).
+                Divider()
+                    .overlay(Theme.border)
                     .padding(.top, 22)
                 tiles
                     .padding(.top, 20)
@@ -183,37 +185,6 @@ struct RevealSurface: View {
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius - 2))
         .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius - 2).strokeBorder(Theme.borderStrong))
         .raisedPlate(cornerRadius: Theme.cardRadius - 2)
-    }
-
-    // MARK: - Appearance / Units
-
-    private var appearanceSection: some View {
-        // Explicit System / Light / Dark order (handoff), mapped back to
-        // the enum's raw values.
-        let order: [AppAppearance] = [.system, .light, .dark]
-        return VStack(alignment: .leading, spacing: 7) {
-            SheetSectionLabel("APPEARANCE")
-            SegmentedTabs(
-                options: order.map(\.label),
-                selectedIndex: Binding(
-                    get: { order.firstIndex(of: AppAppearance(rawValue: appearanceRaw) ?? .system) ?? 0 },
-                    set: { appearanceRaw = order[$0].rawValue }
-                )
-            )
-        }
-    }
-
-    private var unitsSection: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            SheetSectionLabel("UNITS")
-            SegmentedTabs(
-                options: ["lb", "kg"],
-                selectedIndex: Binding(
-                    get: { weightUnitRaw == WeightUnit.kg.rawValue ? 1 : 0 },
-                    set: { weightUnitRaw = ($0 == 1 ? WeightUnit.kg : WeightUnit.lb).rawValue }
-                )
-            )
-        }
     }
 
     // MARK: - Sync rows (GitHub + Calendar)
@@ -351,7 +322,10 @@ struct RevealSurface: View {
 
     private var tiles: some View {
         let columns = [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)]
+        // A 2×2 of equal tiles (Dave, build-78): Settings joins the group,
+        // and every tile shares one height regardless of caption length.
         return LazyVGrid(columns: columns, spacing: 6) {
+            tile(title: "Settings", sub: "appearance · units", subColor: Theme.textFaint, id: "revealSettingsTile") { openTray(.settings) }
             tile(title: "Data", sub: "export · import", subColor: Theme.textFaint, id: "revealDataTile") { openTray(.data) }
             tile(title: "What's new", sub: "build \(build)", subColor: Theme.textFaint, id: "revealWhatsNewTile") { openTray(.whatsNew) }
             tile(title: "About", sub: "links · feedback", subColor: Theme.textFaint, id: "revealAboutTile") { openTray(.about) }
@@ -364,12 +338,19 @@ struct RevealSurface: View {
                 Text(title)
                     .font(.system(.footnote, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                 Text(sub)
                     .font(.system(.caption2, design: .monospaced))
                     .foregroundStyle(subColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(12)
+            // Fixed minimum height + single-line captions keep every tile
+            // the same size; "export · import" used to wrap and make Data
+            // taller than its neighbors.
+            .frame(maxWidth: .infinity, minHeight: 58, alignment: .topLeading)
             .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
             .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
         }
@@ -403,6 +384,8 @@ struct RevealSurface: View {
             HealthTray(health: health)
         case .calendar:
             CalendarTray(calendar: calendar, routines: routines)
+        case .settings:
+            SettingsTray()
         case .data:
             // Queue + close the tray; the exporter/importer presents in the
             // tray's onDismiss so it never races the tray's own dismissal.
@@ -894,6 +877,54 @@ private struct CalendarTray: View {
         }
         .padding(.horizontal, 18)
         .presentationDetents([.medium, .large])
+    }
+}
+
+// MARK: - Settings tray (appearance + units)
+
+/// The two display preferences that used to sit inline on the drawer
+/// (Dave, build-78): appearance and units, pulled into their own tray
+/// behind the Settings tile so the drawer leads with library + sync.
+private struct SettingsTray: View {
+    @Environment(\.dismiss) private var dismiss
+    @AppStorage(AppAppearance.storageKey) private var appearanceRaw = AppAppearance.system.rawValue
+    @AppStorage(WeightUnitSetting.key) private var weightUnitRaw = WeightUnit.lb.rawValue
+
+    var body: some View {
+        // Explicit System / Light / Dark order (handoff), mapped back to
+        // the enum's raw values.
+        let order: [AppAppearance] = [.system, .light, .dark]
+        return VStack(alignment: .leading, spacing: 0) {
+            SheetHeader(title: "Settings", closeOnly: true, action: { dismiss() })
+
+            VStack(alignment: .leading, spacing: 7) {
+                SheetSectionLabel("APPEARANCE")
+                SegmentedTabs(
+                    options: order.map(\.label),
+                    selectedIndex: Binding(
+                        get: { order.firstIndex(of: AppAppearance(rawValue: appearanceRaw) ?? .system) ?? 0 },
+                        set: { appearanceRaw = order[$0].rawValue }
+                    )
+                )
+            }
+            .padding(.top, 18)
+
+            VStack(alignment: .leading, spacing: 7) {
+                SheetSectionLabel("UNITS")
+                SegmentedTabs(
+                    options: ["lb", "kg"],
+                    selectedIndex: Binding(
+                        get: { weightUnitRaw == WeightUnit.kg.rawValue ? 1 : 0 },
+                        set: { weightUnitRaw = ($0 == 1 ? WeightUnit.kg : WeightUnit.lb).rawValue }
+                    )
+                )
+            }
+            .padding(.top, 22)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 18)
+        .presentationDetents([.medium])
     }
 }
 
