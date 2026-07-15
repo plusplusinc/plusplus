@@ -130,9 +130,12 @@ final class Routine {
     // invariants hold; views should not assemble groups by hand.
 
     /// Adds an exercise in its own new group at the end of the routine.
+    /// The set count is the exercise's own default (config audit: a
+    /// stretch lands as one hold, a steady erg piece as one round, a
+    /// press as the classic 3).
     @discardableResult
     func addExerciseInNewGroup(_ exercise: Exercise, context: ModelContext) -> ExerciseGroup {
-        let group = ExerciseGroup(order: groups.count, sets: 3)
+        let group = ExerciseGroup(order: groups.count, sets: exercise.defaultSetCount)
         group.routine = self
         context.insert(group)
 
@@ -145,30 +148,18 @@ final class Routine {
         return group
     }
 
-    /// Fresh entries start from the exercise's own defaults (#187) and
-    /// fall back to the design's global ones (10 reps / 45 s) instead of
-    /// blank targets. Richer cardio profiles take defaults only — a
-    /// fabricated duration target would hijack the set's driver (the
-    /// appendExercise rule).
+    /// Fresh entries start from `Exercise.addTimeTargets` — the ONE
+    /// resolution (own bumped default #187 → catalog assignment → global
+    /// floor) shared with the session add sheet, so the two paths can
+    /// never prefill differently.
     private func applyDefaultTargets(to entry: RoutineExercise, for exercise: Exercise) {
-        let profile = exercise.metricProfile
-        if profile.contains(.weight) {
-            entry.weight = exercise.defaultWeight
-        }
-        if profile.tracksReps {
-            entry.reps = exercise.defaultReps ?? 10
-            entry.repsUpper = exercise.defaultRepsUpper
-        }
-        if profile.contains(.duration) {
-            entry.durationSeconds = exercise.defaultDurationSeconds
-                ?? (profile.metrics == [.duration] ? 45 : nil)
-        }
-        // The heart-rate prescription prefills on cardio entries, same
-        // as the other defaults (#187).
-        if profile.legacyType == .duration {
-            entry.heartRateTargetData = exercise.defaultHeartRateTargetData
-        }
-        entry.extraTargets = exercise.extraDefaults.filter { profile.contains($0.key) }
+        let targets = exercise.addTimeTargets
+        entry.weight = targets.weight
+        entry.reps = targets.reps
+        entry.repsUpper = targets.repsUpper
+        entry.durationSeconds = targets.durationSeconds
+        entry.heartRateTargetData = targets.heartRateTargetData
+        entry.extraTargets = targets.extraTargets
     }
 
     /// Adds an exercise to an existing group, making (or extending) a
