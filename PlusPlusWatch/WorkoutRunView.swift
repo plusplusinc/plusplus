@@ -277,7 +277,7 @@ struct WorkoutRunView: View {
                 // The in-app haptic only fires while the app is frontmost;
                 // with the wrist down the app suspends, so a local
                 // notification carries the "rest over" signal.
-                WatchRestNotifier.schedule(at: end, exerciseName: next.exerciseName)
+                WatchRestNotifier.schedule(at: end, exerciseName: next.exerciseName, isTransition: currentRestIsTransition)
             }
         } else {
             finish()

@@ -147,6 +147,11 @@ final class WorkoutSession {
     /// — is a transition, just enough to switch stations. Classified
     /// against wherever the cursor points next, so jump/redo reclassifies
     /// naturally. A 0-second transition means no countdown at all.
+    ///
+    /// Callers freeze the result at log time. A structure edit DURING the
+    /// countdown (resizing the pending block from the exercise sheet) can
+    /// invalidate the frozen kind/length — accepted (swift-reviewer MED):
+    /// self-inflicted, one countdown, and +30s/Skip are on screen.
     func pause(after log: SetLog) -> (seconds: Int, isTransition: Bool) {
         let rest = (seconds: log.restSecondsOverride ?? restSeconds, isTransition: false)
         guard let next = currentLog else { return rest }
@@ -472,7 +477,7 @@ extension WorkoutSession {
 
         let trimmed = proposed.trimmingCharacters(in: .whitespaces)
         let name = Routine.uniqueName(trimmed.isEmpty ? Self.scratchName : trimmed, among: existing)
-        let routine = Routine(name: name, order: 0, restSeconds: restSeconds)
+        let routine = Routine(name: name, order: 0, restSeconds: restSeconds, transitionSeconds: transitionSeconds)
         context.insert(routine)
 
         for key in blockOrder {
