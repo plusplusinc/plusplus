@@ -419,8 +419,9 @@ struct RoutineCatalogScreen: View {
 /// rail's order map, equipment shows ownership honestly, and Add is
 /// the single primary action — instantiate and join the library. Where
 /// it lands afterwards is the host's call via `onAdded`: the Routines
-/// library pops back to itself with the new card highlighted; Today (no
-/// `onAdded`) pushes into the new routine's detail.
+/// library pops back to itself with the new card highlighted; Today
+/// collapses to the new routine's detail on its own root. Absent an
+/// `onAdded` the default is a plain push into the detail.
 struct RoutineTemplateDetailScreen: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -432,12 +433,13 @@ struct RoutineTemplateDetailScreen: View {
 
     let template: RoutineTemplate
     @Binding var path: NavigationPath
-    /// How to navigate once the routine is instantiated. Default (Today's
-    /// stack): push into the new routine's detail. The Routines-library
-    /// call site supplies a closure that instead pops back to the library
-    /// and highlights the new card (Dave, 2026-07-15 — a template arrives
-    /// complete, so landing back in the library reads as "added" better
-    /// than a fresh detail push).
+    /// How to navigate once the routine is instantiated. Absent this, the
+    /// default is a plain push into the new routine's detail. Both hosts
+    /// supply one: the Routines library pops back to itself and highlights
+    /// the new card (a template arrives complete, so landing back in the
+    /// library reads as "added" better than a fresh detail push); Today
+    /// collapses the catalog/template out so the detail rests on its root
+    /// (Dave, 2026-07-15).
     var onAdded: ((Routine) -> Void)? = nil
     /// Add fires exactly once: a fast double-tap could otherwise
     /// instantiate twice against a stale routines query and mint the

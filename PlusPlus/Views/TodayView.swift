@@ -335,7 +335,19 @@ struct TodayView: View {
             // production — template taps hit SwiftUI's missing-destination
             // placeholder (build 33).
             .navigationDestination(for: RoutineTemplate.self) { template in
-                RoutineTemplateDetailScreen(template: template, path: $todayPath)
+                RoutineTemplateDetailScreen(template: template, path: $todayPath) { routine in
+                    // Today has no routines list to return to, so keep the
+                    // land-in-the-new-routine feedback — but COLLAPSE the
+                    // catalog + template out from beneath it (like
+                    // createBlankRoutine), so the detail sits directly on
+                    // Today's root and Back — or a delete from its settings —
+                    // returns to the timeline instead of stranding the user
+                    // on the template/catalog level (Dave, 2026-07-15).
+                    guard let uuid = routine.uuid else { return }
+                    var collapsed = NavigationPath()
+                    collapsed.append(RoutineRef(uuid: uuid))
+                    todayPath = collapsed
+                }
             }
             .sheet(isPresented: $showingSwapIn, onDismiss: {
                 // Start only once the sheet is fully gone: dismissing a
