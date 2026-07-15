@@ -48,11 +48,14 @@ struct DurationScrubber: View {
     /// callbacks before that reflect the un-positioned ScrollView and
     /// would flash the lower bound through the ruler.
     @State private var settled = false
-    /// True once the user has actually touched the tape (a tracking/
-    /// interacting scroll phase, or a VoiceOver adjust). Programmatic
-    /// scrolls never set this, so picks and commits are structurally
-    /// impossible on a merely-opened scrubber, regardless of callback
-    /// ordering.
+    /// True once the user has actually MOVED the tape (an .interacting
+    /// scroll phase, or a VoiceOver adjust). Deliberately not .tracking:
+    /// a finger that rests on the ruler and lifts without dragging must
+    /// not commit the value under the caret — for an out-of-range
+    /// stored value displaying clamped, that idle touch would destroy
+    /// it. Programmatic scrolls never set this, so picks and commits
+    /// are structurally impossible on a merely-opened scrubber,
+    /// regardless of callback ordering.
     @State private var userTouched = false
 
     private let rulerHeight: CGFloat = 56
@@ -110,7 +113,7 @@ struct DurationScrubber: View {
             }
         }
         .onScrollPhaseChange { _, newPhase in
-            if newPhase == .tracking || newPhase == .interacting {
+            if newPhase == .interacting {
                 userTouched = true
             } else if newPhase == .idle, userTouched {
                 onSettle(seconds)
