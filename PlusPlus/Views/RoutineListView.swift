@@ -58,19 +58,24 @@ struct RoutineListView: View {
                     // let the pop settle, then scroll the new card into
                     // view (it lands at order 0 = top, but the list may
                     // have been scrolled) and release so the entrance
-                    // flash can retrigger on the next add.
-                    .onChange(of: newlyAdded) { _, id in
-                        guard let id else { return }
-                        Task { @MainActor in
-                            try? await Task.sleep(for: .milliseconds(350))
+                    // flash can retrigger on the next add. Lifecycle-bound
+                    // via .task(id:): leaving the tab or a rapid second add
+                    // cancels this in flight, and the throwing sleeps bail
+                    // in the catch WITHOUT clearing newlyAdded — so a
+                    // superseding add keeps its own highlight (the repo's
+                    // cancel-deferred-UI-on-disappear law, ui-interaction.md).
+                    .task(id: newlyAdded) {
+                        guard let id = newlyAdded else { return }
+                        do {
+                            try await Task.sleep(for: .milliseconds(350))
                             withAnimation(Theme.Anim.standard) {
                                 proxy.scrollTo(id, anchor: .top)
                             }
-                            try? await Task.sleep(for: .milliseconds(1500))
-                            // Only release if a newer add hasn't taken over,
-                            // or a rapid second add's highlight gets cut short.
-                            if newlyAdded == id { newlyAdded = nil }
+                            try await Task.sleep(for: .milliseconds(1500))
+                        } catch {
+                            return
                         }
+                        newlyAdded = nil
                     }
                 }
             }
