@@ -18,11 +18,18 @@ enum HealthAccess {
         !uitest && HKHealthStore.isHealthDataAvailable()
     }
 
-    /// Everything the phone reads: live/summary heart rate, plus date
+    /// Everything the phone reads: live/summary heart rate, active
+    /// energy (the per-workout calories shown on a record), plus date
     /// of birth so zones resolve against a real max HR instead of the
-    /// fallback.
+    /// fallback. We request only what a surface actually uses — the
+    /// wider fitness-trend types (resting HR, VO2 max, bodyweight) ride
+    /// their own contextual ask when the trends surface ships (#295).
     private static var readTypes: Set<HKObjectType> {
-        [HKQuantityType(.heartRate), HKCharacteristicType(.dateOfBirth)]
+        [
+            HKQuantityType(.heartRate),
+            HKQuantityType(.activeEnergyBurned),
+            HKCharacteristicType(.dateOfBirth),
+        ]
     }
 
     /// The full ask — the welcome flow's Connect button and the
@@ -72,6 +79,31 @@ enum HealthAccess {
               let age = Calendar.current.dateComponents([.year], from: birthDate, to: Date()).year
         else { return HeartRate.fallbackMax }
         return HeartRate.estimatedMax(age: age)
+    }
+
+    /// Active energy (kcal) burned across a workout window, summed from
+    /// Health. Present when a Watch was worn during the session (its
+    /// passive + workout samples land in the window); answers nil when
+    /// Health has nothing (no access, no Watch, no samples) — never
+    /// zero, so the record shows nothing rather than a hollow "0 cal".
+    /// Same bonus-never-a-gate contract as the heart-rate summary.
+    static func activeEnergy(from start: Date, to end: Date, completion: @escaping (_ kilocalories: Int?) -> Void) {
+        guard isAvailable, HealthSyncSettings.isEnabled, end > start else {
+            completion(nil)
+            return
+        }
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: [])
+        let query = HKStatisticsQuery(
+            quantityType: HKQuantityType(.activeEnergyBurned),
+            quantitySamplePredicate: predicate,
+            options: .cumulativeSum
+        ) { _, statistics, _ in
+            let kcal = statistics?.sumQuantity().map { Int($0.doubleValue(for: .kilocalorie()).rounded()) }
+            DispatchQueue.main.async {
+                completion(kcal.flatMap { $0 > 0 ? $0 : nil })
+            }
+        }
+        store.execute(query)
     }
 }
 

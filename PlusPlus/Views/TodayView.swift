@@ -60,6 +60,8 @@ struct TodayView: View {
     @State private var populateOfferCount = 0
     @State private var scheduleEditTarget: IdentifiedUUID?
     @State private var activeSession: WorkoutSession?
+    /// The first-workout Health primer, raised by the start gate.
+    @State private var healthStartRequest: HealthStartRequest?
     /// Bumped on day change so every Date()-based computed re-evaluates
     /// — without it, an app resident overnight keeps rendering
     /// yesterday's due list (bug hunt).
@@ -392,6 +394,8 @@ struct TodayView: View {
                         ))
                 }
             }
+            // The one-time Health ask, in front of the first workout start.
+            .healthStartPrimer($healthStartRequest)
             .navigationDestination(isPresented: $showingEquipmentSetup) {
                 CatalogBrowseScreen(kind: .equipment, setupMode: true, offersPopulateOnDone: true)
             }
@@ -1013,8 +1017,15 @@ struct TodayView: View {
         // activeSession would wedge every future start and salvage
         // (swift-reviewer). A tap that raced the tray simply loses.
         guard activeSession == nil, !showingSwapIn else { return }
-        // ActiveSessionView requests notification permission on appear.
-        activeSession = WorkoutSession.start(from: routine, context: modelContext)
+        // First workout gets the Health primer; after that (or under UI
+        // test) this begins immediately. The start runs from the primer's
+        // onDismiss, so re-check activeSession at fire time — the sheet can
+        // sit open for seconds.
+        HealthStartGate.begin({
+            guard activeSession == nil else { return }
+            // ActiveSessionView requests notification permission on appear.
+            activeSession = WorkoutSession.start(from: routine, context: modelContext)
+        }, orPresent: { healthStartRequest = $0 })
     }
 
     /// The no-plan session (#239): starts empty, gets filled on the
@@ -1023,7 +1034,10 @@ struct TodayView: View {
     /// auto-finishes, so nothing 0-set can commit.
     private func startEmptySession() {
         guard activeSession == nil else { return }
-        activeSession = WorkoutSession.startEmpty(context: modelContext)
+        HealthStartGate.begin({
+            guard activeSession == nil else { return }
+            activeSession = WorkoutSession.startEmpty(context: modelContext)
+        }, orPresent: { healthStartRequest = $0 })
     }
 
     // MARK: - Header
