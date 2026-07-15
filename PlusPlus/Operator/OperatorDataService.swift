@@ -24,20 +24,24 @@ struct OperatorDataService {
         let cap = max(1, min(limit, 15))
         let fragment = ChangeFilter.normalized(nameContains)
         do {
+            // Fragment matching is FuzzySearch everywhere below: the
+            // fragment is the user's words relayed by the model, typos
+            // included. Ranked best-first so the cap keeps the likeliest
+            // lines, not the first in storage order.
             switch kind {
             case .routine:
                 let all = try context.fetch(FetchDescriptor<Routine>(sortBy: [SortDescriptor(\.order)]))
-                let matched = all.filter { fragment.map($0.name.localizedCaseInsensitiveContains) ?? true }
+                let matched = fragment.map { q in FuzzySearch.ranked(all, query: q) { $0.name } } ?? all
                 return digest(matched.map(routineLine), of: matched.count, kind: "routines", cap: cap, fragment: fragment)
 
             case .exercise:
                 let all = try context.fetch(FetchDescriptor<Exercise>(sortBy: [SortDescriptor(\.name)]))
-                let matched = all.filter { exercise in
-                    if let fragment, !exercise.name.localizedCaseInsensitiveContains(fragment) { return false }
+                let filtered = all.filter { exercise in
                     if let muscleGroup, exercise.muscleGroup != muscleGroup { return false }
                     if inLibraryOnly, !exercise.inLibrary { return false }
                     return true
                 }
+                let matched = fragment.map { q in FuzzySearch.ranked(filtered, query: q) { $0.name } } ?? filtered
                 return digest(matched.map(exerciseLine), of: matched.count, kind: "exercises", cap: cap, fragment: fragment)
 
             case .superset:
@@ -46,17 +50,18 @@ struct OperatorDataService {
                 for routine in all {
                     for group in routine.sortedGroups where group.isSuperset {
                         let names = group.sortedExercises.compactMap { $0.exercise?.name }
-                        let line = "\(routine.name): \(names.joined(separator: " + ")) · \(group.sets) sets"
-                        if let fragment, !line.localizedCaseInsensitiveContains(fragment) { continue }
-                        lines.append(line)
+                        lines.append("\(routine.name): \(names.joined(separator: " + ")) · \(group.sets) sets")
                     }
+                }
+                if let fragment {
+                    lines = FuzzySearch.ranked(lines, query: fragment) { $0 }
                 }
                 return digest(lines, of: lines.count, kind: "supersets", cap: cap, fragment: fragment)
 
             case .library:
                 let all = try context.fetch(FetchDescriptor<EquipmentLibrary>(sortBy: [SortDescriptor(\.order)]))
                 let active = EquipmentLibrary.active(in: all)
-                let matched = all.filter { fragment.map($0.name.localizedCaseInsensitiveContains) ?? true }
+                let matched = fragment.map { q in FuzzySearch.ranked(all, query: q) { $0.name } } ?? all
                 let lines = matched.map { library in
                     "\(library.name) · \(library.members.count) item\(library.members.count == 1 ? "" : "s")\(library === active ? " · active" : "")"
                 }
@@ -103,7 +108,16 @@ struct OperatorDataService {
             let sessions = try context.fetch(
                 FetchDescriptor<WorkoutSession>(sortBy: [SortDescriptor(\.startedAt, order: .reverse)])
             ).filter { $0.endedAt != nil }
-            let scoped = routineName.map { name in
+            // A typo'd or half-remembered routine name resolves to ONE
+            // canonical history name first (forgiving lookup, exact
+            // scoping): the count stays precise and the reply speaks the
+            // canonical name, never a blend of near-matches. Unresolved
+            // names keep the raw text and honestly count zero. Sessions
+            // are newest-first, so ties resolve to the recent name.
+            let scopeName = routineName.map { name in
+                FuzzySearch.bestMatch(query: name, in: distinct(sessions.map(\.routineName))) ?? name
+            }
+            let scoped = scopeName.map { name in
                 sessions.filter { $0.routineName.compare(name, options: .caseInsensitive) == .orderedSame }
             } ?? sessions
 
@@ -112,7 +126,7 @@ struct OperatorDataService {
                 let window = days ?? 30
                 let cutoff = calendar.date(byAdding: .day, value: -window, to: today()) ?? today()
                 let count = scoped.filter { $0.startedAt >= cutoff }.count
-                let scope = routineName.map { " of \($0)" } ?? ""
+                let scope = scopeName.map { " of \($0)" } ?? ""
                 return "workouts\(scope) in last \(window) days: \(count)"
 
             case .lastDone:
@@ -122,19 +136,25 @@ struct OperatorDataService {
                     return lastDoneExercise(named: exerciseName, sessions: scoped)
                 }
                 guard let last = scoped.first else {
-                    return "no finished workouts\(routineName.map { " of \($0)" } ?? "") yet"
+                    return "no finished workouts\(scopeName.map { " of \($0)" } ?? "") yet"
                 }
                 return "\(last.routineName) last done \(dateText(last.startedAt)) · \(last.completedSetLogs.count) sets logged"
 
             case .setVolume:
                 let window = days ?? 30
                 let cutoff = calendar.date(byAdding: .day, value: -window, to: today()) ?? today()
-                let logs = scoped.filter { $0.startedAt >= cutoff }
+                let windowLogs = scoped.filter { $0.startedAt >= cutoff }
                     .flatMap(\.completedSetLogs)
-                    .filter { log in
-                        exerciseName.map { log.exerciseName.compare($0, options: .caseInsensitive) == .orderedSame } ?? true
-                    }
-                let scope = exerciseName.map { " of \($0)" } ?? ""
+                // Same rule as the routine scope: resolve to one
+                // canonical exercise, count only it — "benchpres" must
+                // never sum Bench Press AND Incline Bench Press.
+                let exercise = exerciseName.map { name in
+                    FuzzySearch.bestMatch(query: name, in: distinct(windowLogs.map(\.exerciseName))) ?? name
+                }
+                let logs = exercise.map { name in
+                    windowLogs.filter { $0.exerciseName.compare(name, options: .caseInsensitive) == .orderedSame }
+                } ?? windowLogs
+                let scope = exercise.map { " of \($0)" } ?? ""
                 return "completed sets\(scope) in last \(window) days: \(logs.count)"
 
             case .streak:
@@ -147,12 +167,12 @@ struct OperatorDataService {
 
     private func lastDoneExercise(named name: String, sessions: [WorkoutSession]) -> String {
         for session in sessions {
-            let logs = session.completedSetLogs.filter {
-                $0.exerciseName.compare(name, options: .caseInsensitive) == .orderedSame
-                    || $0.exerciseName.localizedCaseInsensitiveContains(name)
-            }
-            guard !logs.isEmpty else { continue }
-            let canonical = logs[0].exerciseName
+            // Resolve within the session to ONE canonical name before
+            // counting — a loose match must not sum sets across, say,
+            // Bench Press and Overhead Press in the same session.
+            let byName = Dictionary(grouping: session.completedSetLogs, by: \.exerciseName)
+            guard let canonical = FuzzySearch.bestMatch(query: name, in: byName.keys.sorted()),
+                  let logs = byName[canonical], !logs.isEmpty else { continue }
             var line = "\(canonical) last done \(dateText(session.startedAt)) · \(logs.count) sets"
             if let topWeight = logs.compactMap(\.actualWeight).max() {
                 line += " · top \(trimmedNumber(topWeight))"
@@ -160,6 +180,13 @@ struct OperatorDataService {
             return line
         }
         return "no logged sets of \(name) yet"
+    }
+
+    /// First-appearance-ordered unique names, so bestMatch ties break
+    /// toward the caller's ordering (newest history first).
+    private func distinct(_ names: [String]) -> [String] {
+        var seen = Set<String>()
+        return names.filter { seen.insert($0).inserted }
     }
 
     /// Streak = the ONE shared rule (`WidgetSnapshot.streak`), fed weekly
