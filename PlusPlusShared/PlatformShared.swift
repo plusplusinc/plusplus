@@ -44,6 +44,10 @@ struct WorkoutActivityAttributes: ActivityAttributes {
         var sessionStart: Date
         /// When rest ends; the countdown drains to it. Nil while working.
         var restEnd: Date?
+        /// Whether the `.resting` countdown is a TRANSITION — a different
+        /// exercise or block up next (#369) — so the label says SWITCH
+        /// instead of REST. Additive optional; absent reads as rest.
+        var isTransition: Bool? = nil
     }
 
     /// Fixed for the activity's life: the routine being performed.

@@ -182,7 +182,8 @@ The app's single-file export (backup / manual transport) is a bundle:
       ],
       "name": "Erg Intervals",
       "restSeconds": 90,
-      "schedule": { "mode": "frequency", "perDays": 7, "times": 3 }
+      "schedule": { "mode": "frequency", "perDays": 7, "times": 3 },
+      "transitionSeconds": 30
     },
     {
       "groups": [
@@ -288,6 +289,16 @@ Semantics worth writing down:
   (15–600) overrides the routine's rest for that block — how interval blocks
   (4×500 m with 2:00 rests) are written — and session sets snapshot it as
   `restSecondsOverride`.
+- **Transition time** (#369, additive to schema v1): a routine's optional
+  `transitionSeconds` (0–600) is the pause when a session moves to a
+  *different* exercise — switching stations between blocks, or the handoff
+  between superset partners within a round — while `restSeconds` covers a new
+  round of the same block (where a block's `restSeconds` override still
+  wins). `0` means no countdown at all. Absent means the app default (15 s),
+  and the writer omits that default, so pre-field files round-trip unchanged.
+  `transition` is block configuration like `rest`: neither identifier may
+  appear in `metrics` or the extras maps. Sessions don't carry it — a
+  finished record's real gaps live in `completedAt`.
 - **Sessions snapshot everything** (names, types, targets) exactly like the app's
   data model, so history files stand alone even if templates change. A session
   also carries `activeSeconds` (running-clock duration, excluding pauses and
@@ -369,8 +380,8 @@ The contract has grown a lot without a version bump, on purpose. The rule:
   since v1 shipped — default targets, flexible metrics, equipment records,
   equipment libraries, library membership (`inLibrary`), schedules, heart-rate
   targets, per-set metric snapshots, session `activeSeconds` / heart-rate
-  summary — is an *optional* field that is **omitted when it carries no
-  signal**. That buys two-way compatibility for free: an old reader ignores a
+  summary, routine `transitionSeconds` — is an *optional* field that is
+  **omitted when it carries no signal**. That buys two-way compatibility for free: an old reader ignores a
   field it doesn't know, and a new reader treats an absent field as its
   documented default (which is exactly what the old file meant). Determinism
   holds because omitted-when-default keeps unrelated files byte-identical.

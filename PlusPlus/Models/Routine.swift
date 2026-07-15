@@ -21,8 +21,17 @@ final class Routine {
     var uuid: UUID?
     var createdAt: Date
     var order: Int
-    /// Rest between sets during execution, in seconds.
-    var restSeconds: Int = 90
+    /// Rest between sets during execution, in seconds. New routines
+    /// default to 45 (#369): with transitions carved out, rest no longer
+    /// has to cover station switches.
+    var restSeconds: Int = 45
+    /// Pause when the session moves to a DIFFERENT exercise or block —
+    /// just enough to switch stations (#369); rest covers a new round of
+    /// the same block. 0 means no countdown at all. Constant property
+    /// default on purpose: lightweight migration stamps every existing
+    /// routine 15 s, which IS the feature — station switches (and
+    /// superset partners) shorten from a full rest to a transition.
+    var transitionSeconds: Int = 15
     /// Freeform intent for the whole routine ("keep it under an hour",
     /// "finisher optional") — shown at session start.
     var notes: String?
@@ -32,12 +41,13 @@ final class Routine {
     @Relationship(deleteRule: .cascade, inverse: \ExerciseGroup.routine)
     var groups: [ExerciseGroup] = []
 
-    init(name: String, order: Int = 0, restSeconds: Int = 90, notes: String? = nil) {
+    init(name: String, order: Int = 0, restSeconds: Int = 45, transitionSeconds: Int = 15, notes: String? = nil) {
         self.uuid = UUID()
         self.name = name
         self.createdAt = Date()
         self.order = order
         self.restSeconds = restSeconds
+        self.transitionSeconds = transitionSeconds
         self.notes = notes
     }
 
@@ -86,29 +96,31 @@ final class Routine {
     }
 
     /// Rough all-in seconds for the detail meta line: ~45 s of work per
-    /// weight set, the actual target for timed sets, plus rest between
-    /// sets (matches the v2 prototype's estimate). Blocks with a rest
-    /// override (interval blocks) count their own rest.
+    /// weight set, the actual target for timed sets, plus the pause after
+    /// every set but the last (#369) — rest before a new round of the same
+    /// block (interval blocks count their override), transition when the
+    /// session moves to a superset partner or another block.
     var estimatedSeconds: Int {
         var work = 0
-        var rest = 0
-        var lastRest = restSeconds
-        for group in sortedGroups {
+        var pauses = 0
+        let populated = sortedGroups.filter { !$0.sortedExercises.isEmpty }
+        for group in populated {
+            let rounds = max(group.sets, 1)
             let groupRest = group.restSecondsOverride ?? restSeconds
             for entry in group.sortedExercises {
                 let perSet = entry.exercise?.exerciseType == .duration
                     ? (entry.durationSeconds ?? 45)
                     : 45
-                work += perSet * group.sets
-                rest += groupRest * group.sets
+                work += perSet * rounds
             }
-            if !group.sortedExercises.isEmpty {
-                lastRest = groupRest
-            }
+            // Superset partners hand off within the round; each new round
+            // of the block is the rest.
+            pauses += (group.sortedExercises.count - 1) * transitionSeconds * rounds
+            pauses += (rounds - 1) * groupRest
         }
-        // Rest follows every set except the very last — whose length is
-        // the FINAL block's, not the routine default's.
-        return work + max(0, rest - lastRest)
+        // Every block boundary is a station switch.
+        pauses += max(0, populated.count - 1) * transitionSeconds
+        return work + pauses
     }
 
     /// "~40 min" — the shared rendering of `estimatedSeconds` (Today

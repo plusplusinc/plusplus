@@ -432,7 +432,7 @@ struct EquipmentDetailScreen: View {
                         SheetSectionLabel("EXERCISE CONFIG")
                             .padding(.top, 24)
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 7)], spacing: 7) {
-                            ForEach(WorkoutMetric.allCases.filter { $0 != .rest }) { metric in
+                            ForEach(WorkoutMetric.allCases.filter { !$0.isBlockConfiguration }) { metric in
                                 configMetricChip(metric)
                             }
                         }

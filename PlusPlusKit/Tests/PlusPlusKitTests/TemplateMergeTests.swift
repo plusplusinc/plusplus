@@ -59,6 +59,27 @@ struct TemplateMergeTests {
         #expect(merged == edited)
     }
 
+    @Test("transitionSeconds merges as its own field (#369)")
+    func transitionFieldMerges() throws {
+        func routine(transition: Int?) throws -> Data {
+            let dto = RoutineDTO(
+                name: "Push Day", restSeconds: 90, transitionSeconds: transition, notes: "n",
+                groups: [.init(sets: 3, exercises: [.init(exercise: "Bench Press", reps: 5)])]
+            )
+            return try InterchangeCodec.encode(RoutineDocument(routine: dto))
+        }
+        // The phone set a transition; the repo copy predates the field —
+        // the local edit applies without touching anything else.
+        let merged = try #require(TemplateMerge.merge(
+            base: try routine(transition: nil),
+            local: try routine(transition: 10),
+            remote: try routine(transition: nil),
+            path: path
+        ))
+        #expect(try decoded(merged).transitionSeconds == 10)
+        #expect(try decoded(merged).restSeconds == 90)
+    }
+
     @Test("Non-template paths and undecodable input return nil")
     func rejectsNonTemplates() throws {
         let valid = try routine(rest: 90, notes: "n", groupSets: 3)

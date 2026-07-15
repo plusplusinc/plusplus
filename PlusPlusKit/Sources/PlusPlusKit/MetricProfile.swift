@@ -10,8 +10,9 @@ import Foundation
 /// assignment for built-ins, else to the legacy ExerciseType).
 public struct MetricProfile: Equatable, Codable, Sendable {
     /// Tracked metrics in canonical order (WorkoutMetric declaration
-    /// order), deduped, `.rest` excluded — rest is block configuration,
-    /// not a tracked quantity.
+    /// order), deduped, block configuration (`.rest`/`.transition`)
+    /// excluded — those shape the pause after a set, they aren't tracked
+    /// quantities.
     public private(set) var metrics: [WorkoutMetric]
     /// What this exercise's distance/pace/speed numbers are denominated
     /// in. Meaningless (and ignored) unless one of those is tracked.
@@ -30,7 +31,7 @@ public struct MetricProfile: Equatable, Codable, Sendable {
     public var isOutdoor: Bool
 
     public init(_ metrics: [WorkoutMetric], distanceUnit: DistanceUnit = .meters, isOutdoor: Bool = false) {
-        self.metrics = WorkoutMetric.allCases.filter { $0 != .rest && metrics.contains($0) }
+        self.metrics = WorkoutMetric.allCases.filter { !$0.isBlockConfiguration && metrics.contains($0) }
         self.distanceUnit = distanceUnit
         self.isOutdoor = isOutdoor
     }

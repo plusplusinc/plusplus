@@ -95,6 +95,20 @@ struct WatchSyncTests {
         #expect(step.isOutdoor == nil)
     }
 
+    @Test func transitionSecondsIsAdditive() throws {
+        // New plans carry it; a pre-transition phone's plan decodes nil
+        // (#369) so the wrist falls back to resting everywhere.
+        let routine = WatchSync.PlanRoutine(name: "Pairs", restSeconds: 45, transitionSeconds: 15, steps: [])
+        let decoded = try WatchSync.decode(WatchSync.PlanRoutine.self, from: WatchSync.encode(routine))
+        #expect(decoded.transitionSeconds == 15)
+
+        let legacyJSON = """
+        {"name":"Push Day","restSeconds":90,"steps":[]}
+        """
+        let legacy = try WatchSync.decode(WatchSync.PlanRoutine.self, from: Data(legacyJSON.utf8))
+        #expect(legacy.transitionSeconds == nil)
+    }
+
     @Test func isOutdoorRunNeedsEveryStepOutdoor() {
         func step(_ name: String, outdoor: Bool?) -> WatchSync.Step {
             WatchSync.Step(exerciseName: name, groupIndex: 0, setNumber: 1, isDuration: true, isOutdoor: outdoor)

@@ -68,17 +68,25 @@ struct RoutineTemplate: Identifiable, Hashable {
     // MARK: - Derived
 
     /// Mirrors `Routine.estimatedSeconds` (~45 s of work per weight
-    /// set, actual target for timed sets, rest between sets).
+    /// set, actual target for timed sets, rest before each new round,
+    /// the default transition at exercise/block boundaries #369) — the
+    /// card's number must not change the moment a template becomes a
+    /// routine, and created routines ride the default transition.
     var estimatedSeconds: Int {
+        let transition = Int(WorkoutMetric.transition.defaultValue)
         var work = 0
-        var totalSets = 0
-        for block in blocks {
+        var pauses = 0
+        let populated = blocks.filter { !$0.entries.isEmpty }
+        for block in populated {
+            let rounds = max(block.sets, 1)
             for entry in block.entries {
-                work += (entry.durationSeconds ?? 45) * block.sets
+                work += (entry.durationSeconds ?? 45) * rounds
             }
-            totalSets += block.sets * block.entries.count
+            pauses += (block.entries.count - 1) * transition * rounds
+            pauses += (rounds - 1) * restSeconds
         }
-        return work + max(0, totalSets - 1) * restSeconds
+        pauses += max(0, populated.count - 1) * transition
+        return work + pauses
     }
 
     var totalSets: Int {

@@ -29,7 +29,7 @@ import PlusPlusKit
 /// EquipmentLibrary   name·equipment(members) → EXPORTED
 ///                    order → EXCLUDED (device ordering; import appends)
 ///                    uuid → EXCLUDED (active-pointer identity, device state)
-/// Routine            name·restSeconds·notes·scheduleData·groups → EXPORTED
+/// Routine            name·restSeconds·transitionSeconds·notes·scheduleData·groups → EXPORTED
 ///                    createdAt → EXCLUDED (device metadata)
 ///                    order → EXCLUDED (device ordering; import appends)
 ///                    uuid → EXCLUDED (presentation identity, device state, like EquipmentLibrary.uuid)
@@ -47,6 +47,8 @@ import PlusPlusKit
 ///                    sessionId → EXCLUDED (live-mirror cross-device id, inert once finished)
 ///                    runStartedAt·segmentStartedAt → EXCLUDED (live-clock state, nil when finished)
 ///                    cursorOrder → EXCLUDED (live session position)
+///                    transitionSeconds → EXCLUDED (execution pacing config, inert once
+///                    finished — a record's real gaps live in completedAt)
 /// SetLog             order·groupIndex·setNumber·exerciseName·exerciseType·
 ///                    metricsData·restSecondsOverride·targetWeight·
 ///                    targetRepsLower·targetRepsUpper·targetDuration·
@@ -165,6 +167,11 @@ enum InterchangeMapping {
         RoutineDTO(
             name: routine.name,
             restSeconds: routine.restSeconds,
+            // Omitted at the app default (the schema-evolution rule:
+            // additive fields carry signal or stay absent) — existing
+            // repo files don't all rewrite to say 15.
+            transitionSeconds: routine.transitionSeconds == Int(WorkoutMetric.transition.defaultValue)
+                ? nil : routine.transitionSeconds,
             notes: routine.notes,
             // Omit when unscheduled so pre-schedule files stay byte-identical.
             schedule: routine.schedule == .unscheduled ? nil : routine.schedule,
@@ -380,6 +387,9 @@ enum InterchangeMapping {
                 summary.routinesCreated += 1
             }
             target.restSeconds = dto.restSeconds
+            // Absent (a pre-transition file) means the app default — the
+            // same value migration stamps existing stores (#369).
+            target.transitionSeconds = dto.transitionSeconds ?? Int(WorkoutMetric.transition.defaultValue)
             target.notes = dto.notes
             // Restore recurrence; absent means unscheduled (pre-schedule files).
             target.schedule = dto.schedule ?? .unscheduled

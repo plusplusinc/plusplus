@@ -116,7 +116,7 @@ struct InterchangeTests {
                 ExerciseDTO(name: "curl", muscleGroup: .biceps, exerciseType: .weightReps, equipment: []),
             ],
             routines: [
-                RoutineDTO(name: "Arms", restSeconds: 5, groups: [
+                RoutineDTO(name: "Arms", restSeconds: 5, transitionSeconds: 700, groups: [
                     .init(sets: 0, exercises: [
                         .init(exercise: "Ghost Exercise", reps: 20, repsUpper: 15)
                     ]),
@@ -131,6 +131,7 @@ struct InterchangeTests {
         let messages = issues.map(\.message).joined(separator: "; ")
         #expect(messages.contains("duplicate exercise name"))
         #expect(messages.contains("restSeconds 5 outside 15...600"))
+        #expect(messages.contains("transitionSeconds 700 outside 0...600"))
         #expect(messages.contains("sets 0 outside 1...20"))
         #expect(messages.contains("unresolved exercise reference"))
         #expect(messages.contains("repsUpper 15 must exceed reps 20"))
@@ -221,6 +222,41 @@ struct InterchangeTests {
         #expect(decoded.sessions.first?.sets.first?.metrics == ["distance", "pace"])
         #expect(decoded.sessions.first?.sets.first?.distanceUnit == .miles)
         #expect(decoded == bundle, "Full bundle survives the round trip")
+    }
+
+    @Test("transitionSeconds rides routines; absent stays absent and 0 is legal (#369)")
+    func transitionSecondsAdditive() throws {
+        var routine = RoutineDTO(name: "Pairs", restSeconds: 45, transitionSeconds: 15, groups: [
+            .init(sets: 3, exercises: [.init(exercise: "Y Raise", reps: 10)])
+        ])
+        let data = try InterchangeCodec.encode(RoutineDocument(routine: routine))
+        #expect(String(decoding: data, as: UTF8.self).contains("\"transitionSeconds\" : 15"))
+        #expect(try InterchangeCodec.decode(RoutineDocument.self, from: data).routine.transitionSeconds == 15)
+
+        // A pre-transition file must not grow the key on re-encode.
+        routine.transitionSeconds = nil
+        let legacy = try InterchangeCodec.encode(RoutineDocument(routine: routine))
+        #expect(!String(decoding: legacy, as: UTF8.self).contains("transitionSeconds"),
+                "absent must not materialize — pre-transition files stay byte-identical")
+        #expect(try InterchangeCodec.decode(RoutineDocument.self, from: legacy).routine.transitionSeconds == nil)
+
+        // 0 means "no countdown" and validates clean; rest keeps its floor.
+        routine.transitionSeconds = 0
+        let bundle = ExportBundle(exercises: [], routines: [routine], sessions: [])
+        #expect(InterchangeValidator.validate(bundle).isEmpty)
+    }
+
+    @Test("Exercise metrics may not include block configuration (#369)")
+    func exerciseMetricsRejectBlockConfiguration() {
+        let bundle = ExportBundle(
+            exercises: [
+                ExerciseDTO(name: "Erg", muscleGroup: .fullBody, exerciseType: .duration, equipment: [],
+                            metrics: ["duration", "transition"])
+            ],
+            routines: [], sessions: []
+        )
+        let messages = InterchangeValidator.validate(bundle).map(\.message).joined(separator: "; ")
+        #expect(messages.contains("metrics may not include transition"))
     }
 
     @Test("Validator bounds exercise default targets (#187)")

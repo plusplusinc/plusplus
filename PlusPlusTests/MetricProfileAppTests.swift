@@ -178,7 +178,10 @@ struct ModelProfileTests {
         #expect(first.target(.distance) == 500)
         #expect(first.target(.resistance) == 5)
         #expect(first.restSecondsOverride == 120)
-        #expect(session.restSeconds(after: first) == 120)
+        // Round 1 → round 2 of the same block: the override rest (#369).
+        let pause = session.pause(after: first)
+        #expect(pause.seconds == 120)
+        #expect(!pause.isTransition)
         #expect(first.driver == .distance)
 
         // Completing prefills every tracked actual from its target.
