@@ -13,41 +13,71 @@ struct RoutineListView: View {
 
     @State private var path = NavigationPath()
     @State private var openSwipeRow: PersistentIdentifier?
+    /// The routine just added from a template — scrolled into view and
+    /// given an entrance flash when we land back on the library, then
+    /// released (Dave, 2026-07-15). Permanent id (set post-save), so it is
+    /// safe as list/scroll identity.
+    @State private var newlyAdded: PersistentIdentifier?
 
     var body: some View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
                 header
 
-                List {
-                ForEach(routines) { routine in
-                    SwipeRevealRow(
-                        id: routine.persistentModelID,
-                        openRow: $openSwipeRow,
-                        actionsWidth: 58,
-                        onTap: { routine.uuid.map { path.append(RoutineRef(uuid: $0)) } },
-                        accessibilityActions: [
-                            SwipeRowAction(name: "Delete") {
+                ScrollViewReader { proxy in
+                    List {
+                    ForEach(routines) { routine in
+                        SwipeRevealRow(
+                            id: routine.persistentModelID,
+                            openRow: $openSwipeRow,
+                            actionsWidth: 58,
+                            onTap: { routine.uuid.map { path.append(RoutineRef(uuid: $0)) } },
+                            accessibilityActions: [
+                                SwipeRowAction(name: "Delete") {
+                                    openSwipeRow = nil
+                                    deleteRoutine(routine)
+                                }
+                            ]
+                        ) {
+                            RoutineCard(routine: routine, justAdded: routine.persistentModelID == newlyAdded)
+                        } actions: {
+                            SwipeActionButton(label: "DELETE", color: Theme.destructive) {
                                 openSwipeRow = nil
                                 deleteRoutine(routine)
                             }
-                        ]
-                    ) {
-                        RoutineCard(routine: routine)
-                    } actions: {
-                        SwipeActionButton(label: "DELETE", color: Theme.destructive) {
-                            openSwipeRow = nil
-                            deleteRoutine(routine)
                         }
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                     }
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                        .onMove(perform: moveRoutines)
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    // A template add pops back here and sets newlyAdded;
+                    // let the pop settle, then scroll the new card into
+                    // view (it lands at order 0 = top, but the list may
+                    // have been scrolled) and release so the entrance
+                    // flash can retrigger on the next add. Lifecycle-bound
+                    // via .task(id:): leaving the tab or a rapid second add
+                    // cancels this in flight, and the throwing sleeps bail
+                    // in the catch WITHOUT clearing newlyAdded — so a
+                    // superseding add keeps its own highlight (the repo's
+                    // cancel-deferred-UI-on-disappear law, ui-interaction.md).
+                    .task(id: newlyAdded) {
+                        guard let id = newlyAdded else { return }
+                        do {
+                            try await Task.sleep(for: .milliseconds(350))
+                            withAnimation(Theme.Anim.standard) {
+                                proxy.scrollTo(id, anchor: .top)
+                            }
+                            try await Task.sleep(for: .milliseconds(1500))
+                        } catch {
+                            return
+                        }
+                        newlyAdded = nil
+                    }
                 }
-                    .onMove(perform: moveRoutines)
-                }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
             }
             .background(Theme.background)
             .toolbar(.hidden, for: .navigationBar)
@@ -69,7 +99,15 @@ struct RoutineListView: View {
             // to resolve in production — template taps hit SwiftUI's
             // missing-destination placeholder (build 33).
             .navigationDestination(for: RoutineTemplate.self) { template in
-                RoutineTemplateDetailScreen(template: template, path: $path)
+                RoutineTemplateDetailScreen(template: template, path: $path) { routine in
+                    // A template is complete on arrival, so return to the
+                    // library with the new card highlighted rather than
+                    // pushing into an empty-feeling detail (Dave,
+                    // 2026-07-15). Popping the whole path also clears the
+                    // catalog beneath, so Back is never stranded.
+                    newlyAdded = routine.persistentModelID
+                    path = NavigationPath()
+                }
             }
             .overlay {
                 if routines.isEmpty {
@@ -171,6 +209,12 @@ struct HeaderIconButton: View {
 /// fired on reveal-drag release and closed the row it opened).
 private struct RoutineCard: View {
     let routine: Routine
+    /// True for the routine just added from a template — plays a one-shot
+    /// entrance flash so the eye lands on it (Dave, 2026-07-15).
+    var justAdded: Bool = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// 1 at the peak of the entrance flash, animating to 0 at rest.
+    @State private var entrance: Double = 0
     @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
     @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
@@ -279,5 +323,21 @@ private struct RoutineCard: View {
         .contentShape(Rectangle())
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
         .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
+        // Entrance flash: a green (creation) ring plus a gentle pop that
+        // settles to rest, so a template-added card announces itself. Green
+        // is the creation hue (Theme.accent, the ++ grammar); no banner
+        // needed. Set to full instantly, then eased to 0. The pop is
+        // suppressed under Reduce Motion; the color fade is not vestibular.
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.cardRadius)
+                .strokeBorder(Theme.accent, lineWidth: 2)
+                .opacity(entrance)
+        )
+        .scaleEffect(reduceMotion ? 1 : 1 + 0.03 * entrance)
+        .onChange(of: justAdded, initial: true) { _, isNew in
+            guard isNew else { return }
+            entrance = 1
+            withAnimation(.easeOut(duration: 0.9).delay(0.3)) { entrance = 0 }
+        }
     }
 }

@@ -397,7 +397,19 @@ struct RoutineCatalogScreen: View {
             existing.order += 1
         }
         try? modelContext.save()
-        routine.uuid.map { path.append(RoutineRef(uuid: $0)) }
+        // Blank creation still pushes into the new routine's detail (the
+        // fluid-nav promise — an empty routine wants its exercises added
+        // now), but REPLACE this catalog with the detail rather than
+        // stacking on top of it: the detail then sits directly on the
+        // library root, so its Back key — and a delete from its settings —
+        // returns to the library, never to this catalog (Dave, 2026-07-15;
+        // deleting a just-created routine used to strand the user on the
+        // catalog level). Permanent id before the push (tray-flicker
+        // class; swiftdata.md).
+        guard let uuid = routine.uuid else { return }
+        var collapsed = NavigationPath()
+        collapsed.append(RoutineRef(uuid: uuid))
+        path = collapsed
     }
 }
 
@@ -405,8 +417,11 @@ struct RoutineCatalogScreen: View {
 
 /// Full template view: the block list reads like the routine detail
 /// rail's order map, equipment shows ownership honestly, and Add is
-/// the single primary action — instantiate, join the library, land in
-/// the new routine (the fluid-nav promise).
+/// the single primary action — instantiate and join the library. Where
+/// it lands afterwards is the host's call via `onAdded`: the Routines
+/// library pops back to itself with the new card highlighted; Today
+/// collapses to the new routine's detail on its own root. Absent an
+/// `onAdded` the default is a plain push into the detail.
 struct RoutineTemplateDetailScreen: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -418,6 +433,14 @@ struct RoutineTemplateDetailScreen: View {
 
     let template: RoutineTemplate
     @Binding var path: NavigationPath
+    /// How to navigate once the routine is instantiated. Absent this, the
+    /// default is a plain push into the new routine's detail. Both hosts
+    /// supply one: the Routines library pops back to itself and highlights
+    /// the new card (a template arrives complete, so landing back in the
+    /// library reads as "added" better than a fresh detail push); Today
+    /// collapses the catalog/template out so the detail rests on its root
+    /// (Dave, 2026-07-15).
+    var onAdded: ((Routine) -> Void)? = nil
     /// Add fires exactly once: a fast double-tap could otherwise
     /// instantiate twice against a stale routines query and mint the
     /// duplicate-name state #189 forbids (reviewer catch).
@@ -504,10 +527,14 @@ struct RoutineTemplateDetailScreen: View {
                 guard !added else { return }
                 added = true
                 let routine = template.instantiate(in: modelContext, among: routines)
-                // Permanent id before the push — see createBlankRoutine
-                // (the tray-flicker class; swiftdata.md).
+                // Permanent id before either navigation — see
+                // createBlankRoutine (the tray-flicker class; swiftdata.md).
                 try? modelContext.save()
-                routine.uuid.map { path.append(RoutineRef(uuid: $0)) }
+                if let onAdded {
+                    onAdded(routine)
+                } else {
+                    routine.uuid.map { path.append(RoutineRef(uuid: $0)) }
+                }
             } label: {
                 Text(added ? "Added" : "Add to routines")
                     .font(.system(.body, weight: .bold))
