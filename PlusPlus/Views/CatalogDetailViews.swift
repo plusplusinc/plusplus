@@ -170,6 +170,14 @@ struct ExerciseDetailScreen: View {
                         NotesBlock(notes)
                     }
 
+                    // The app's own demo leads; the external video link
+                    // below stays as the fallback.
+                    if let animation = MascotMoves.animation(forExerciseNamed: exercise.name) {
+                        SheetSectionLabel("FORM")
+                            .padding(.top, 24)
+                        MascotFormCard(exerciseName: exercise.name, animation: animation)
+                    }
+
                     if let videoURL = exercise.videoURL, let url = URL(string: videoURL) {
                         SheetSectionLabel("VIDEO")
                             .padding(.top, 24)

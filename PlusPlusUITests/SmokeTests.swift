@@ -206,6 +206,42 @@ final class SmokeTests: XCTestCase {
         snap("custom-exercise-in-routine")
     }
 
+    /// The mascot form demo: the FORM card renders on the exercise sheet
+    /// and expands into the demo sheet. Under --uitest-reset the mascot
+    /// is deliberately frozen (static pose, no render-loop motion), so
+    /// this also proves the app's first RealityKit viewport initializes
+    /// on a CI simulator without starving XCUITest's quiescence wait —
+    /// and the screenshots are the only mascot visuals reviewable from a
+    /// remote session.
+    func testExerciseSheetShowsFormDemo() throws {
+        createRoutine(named: "Leg Day")
+        addExercise(searching: "Squat")
+
+        let row = app.staticTexts["Squat"]
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        row.tap()
+
+        // ScrollView content is fully realized (not List-lazy), so
+        // existence is immediate; scroll only to make it tappable.
+        let card = app.buttons["mascotPreviewCard"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        if !card.isHittable {
+            app.swipeUp()
+        }
+        snap("exercise-sheet-form-card")
+        card.tap()
+
+        let close = app.buttons["closeMascotDemoSheet"]
+        XCTAssertTrue(close.waitForExistence(timeout: 5))
+        snap("mascot-demo-sheet")
+        close.tap()
+
+        let closeSheet = app.buttons["closeExerciseSheet"]
+        XCTAssertTrue(closeSheet.waitForExistence(timeout: 5))
+        closeSheet.tap()
+        XCTAssertTrue(app.buttons["startWorkoutButton"].waitForExistence(timeout: 5))
+    }
+
     func testExecuteWorkoutAndSeeHistory() throws {
         createRoutine(named: "Quick Session")
         addExercise(searching: "Push-Up")
