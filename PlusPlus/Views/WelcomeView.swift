@@ -103,6 +103,13 @@ struct IntroView: View {
             startButton
                 .opacity(contentVisible ? 1 : 0)
         }
+        // `opacity(0)` does NOT remove a view from hit testing (this repo's
+        // ui-interaction law): without this an invisible "Start building"
+        // sits tappable through the whole splash dwell, so a stray tap would
+        // fire the ignition (two haptics, wrong-path entry) before the
+        // button is even visible — worst on the returning-user path, where
+        // the content never fades in at all.
+        .allowsHitTesting(contentVisible)
     }
 
     private var startButton: some View {
