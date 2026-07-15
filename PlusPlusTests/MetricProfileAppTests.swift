@@ -64,12 +64,19 @@ struct CatalogProfileTests {
         #expect(SeedData.builtInProfile(named: "Cycling")?.isOutdoor == false)
     }
 
-    @Test("Equipment-free cardio joined the catalog")
+    @Test("Road cardio joined the catalog; only the runnable kind is equipment-free")
     func newCardioExercises() {
-        for name in ["Running", "Walking", "Cycling"] {
+        // Running/Walking genuinely need nothing; Cycling needs the bike
+        // (equipment audit, 2026-07-15 — it used to read "Bodyweight").
+        for name in ["Running", "Walking"] {
             #expect(SeedData.builtInDefinition(named: name) != nil, "\(name) missing")
             #expect(SeedData.builtInDefinition(named: name)?.equipmentNames.isEmpty == true)
         }
+        #expect(SeedData.builtInDefinition(named: "Cycling")?.equipmentNames == ["Bicycle"])
+        // The explicit metrics override died with the Bicycle's declared
+        // profile — the derivation must reproduce it exactly.
+        #expect(SeedData.builtInProfile(named: "Cycling")
+                == MetricProfile([.distance, .duration, .speed], distanceUnit: .miles))
     }
 
     @Test("Every equipment-profile entry names real gear")

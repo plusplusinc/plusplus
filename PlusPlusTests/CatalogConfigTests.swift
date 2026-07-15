@@ -218,6 +218,18 @@ struct CatalogConfigTests {
         #expect(SessionExerciseConfig(exercise: stretch, sets: 4).sets == 4)
     }
 
+    @Test("Equipment-audit corrections hold")
+    func equipmentRequirements() {
+        // The audit's fixes: Cycling is not bodyweight, sliders slide,
+        // a landmine sleeve is useless without its barbell.
+        #expect(SeedData.builtInDefinition(named: "Cycling")?.equipmentNames == ["Bicycle"])
+        #expect(SeedData.builtInDefinition(named: "Slider Leg Curl")?.equipmentNames == ["Sliders"])
+        #expect(SeedData.builtInDefinition(named: "Landmine Row")?.equipmentNames == ["Barbell", "Landmine"])
+        #expect(SeedData.builtInDefinition(named: "Landmine Press")?.equipmentNames == ["Barbell", "Landmine"])
+        // Deliberately equipment-free locomotion stays that way.
+        #expect(SeedData.builtInDefinition(named: "Running")?.equipmentNames.isEmpty == true)
+    }
+
     @Test("Heart-rate prescription gating: stretches drop it, conditioning keeps it")
     func heartRateGating() throws {
         #expect(try builtIn("Pigeon Pose").supportsHeartRateTarget == false)

@@ -204,6 +204,47 @@ enum SeedData {
         try? context.save()
     }
 
+    /// One-shot definition sync (equipment audit, 2026-07-15): the audit
+    /// corrected four catalog rows — Cycling gained the new Bicycle (it
+    /// read as "Bodyweight"), Slider Leg Curl its Sliders, and the
+    /// landmine pair the Barbell the attachment is useless without. The
+    /// top-up seeder never updates existing rows, so stores that predate
+    /// the fix still carry the old requirements. This upgrades exactly
+    /// the rows still AT the old canonical set — a user's own
+    /// customization never matches, so it's never touched — and runs
+    /// once (UserDefaults-keyed, the #186 repair pattern) so removing
+    /// the restored gear later isn't fought. Must run AFTER loadIfNeeded
+    /// (the Bicycle row has to exist to be attached).
+    static let equipmentRequirementsSyncKey = "equipmentRequirementsSync1"
+
+    static func syncRevisedEquipmentRequirementsIfNeeded(context: ModelContext) {
+        guard !UserDefaults.standard.bool(forKey: equipmentRequirementsSyncKey) else { return }
+        UserDefaults.standard.set(true, forKey: equipmentRequirementsSyncKey)
+
+        // Name → the requirement set the row shipped with BEFORE the audit.
+        let previousRequirements: [String: Set<String>] = [
+            "Cycling": [],
+            "Slider Leg Curl": [],
+            "Landmine Row": ["Landmine"],
+            "Landmine Press": ["Landmine"],
+        ]
+
+        let exercises = (try? context.fetch(
+            FetchDescriptor<Exercise>(predicate: #Predicate { $0.isBuiltIn == true })
+        )) ?? []
+        let equipment = (try? context.fetch(FetchDescriptor<Equipment>())) ?? []
+        let byName = Dictionary(equipment.map { ($0.name.lowercased(), $0) }, uniquingKeysWith: { a, _ in a })
+
+        for exercise in exercises {
+            guard let previous = previousRequirements[exercise.name],
+                  let def = builtInDefinition(named: exercise.name) else { continue }
+            let current = Set(exercise.equipment.filter { !$0.isDeleted }.map(\.name))
+            guard current == previous else { continue }
+            exercise.equipment = def.equipmentNames.compactMap { byName[$0.lowercased()] }
+        }
+        try? context.save()
+    }
+
     // MARK: - Equipment
 
     // Generic types only, no brand names (#222 — compiled from a sweep
@@ -244,10 +285,11 @@ enum SeedData {
             "Bicep Curl Machine", "Tricep Extension Machine",
             "Low Back Extension Machine", "Multi-Hip Machine",
             "Glute Kickback Machine",
-            // Cardio
+            // Cardio (Bicycle = the road bike, like the Weight Vest for
+            // Ruck: outdoor gear an exercise genuinely requires)
             "Rowing Machine", "Stationary Bike", "Treadmill", "Air Bike",
             "Ski Erg", "Elliptical", "Stair Climber", "Vertical Climber",
-            "Upper Body Ergometer",
+            "Upper Body Ergometer", "Bicycle",
             // Strongman
             "Sled", "Yoke", "Farmers Walk Handles", "Log Bar",
             "Atlas Stone", "Circus Dumbbell", "Husafell Stone", "Tire",
@@ -382,7 +424,9 @@ enum SeedData {
             e("Seated Cable Row", .back, ["Seated Row Machine"]),
             e("Cable Row", .back, ["Cable Machine"]),
             e("Machine Row", .back, ["Seated Row Machine"]),
-            e("Landmine Row", .back, ["Landmine"]),
+            // A landmine is a sleeve for a BARBELL — the bar is required
+            // (equipment audit; the Chain Bench Press convention).
+            e("Landmine Row", .back, ["Barbell", "Landmine"]),
             e("Pull-Up", .back, ["Pull-Up Bar"]),
             e("Chin-Up", .back, ["Pull-Up Bar"]),
             e("Neutral-Grip Pull-Up", .back, ["Pull-Up Bar"]),
@@ -401,7 +445,7 @@ enum SeedData {
             e("Machine Shoulder Press", .shoulders, ["Shoulder Press Machine"]),
             e("Arnold Press", .shoulders, ["Dumbbells"]),
             e("Push Press", .shoulders, ["Barbell"]),
-            e("Landmine Press", .shoulders, ["Landmine"]),
+            e("Landmine Press", .shoulders, ["Barbell", "Landmine"]),
             e("Lateral Raise", .shoulders, ["Dumbbells"]),
             e("Cable Lateral Raise", .shoulders, ["Cable Machine"]),
             e("Front Raise", .shoulders, ["Dumbbells"]),
@@ -469,7 +513,9 @@ enum SeedData {
             e("Nordic Curl", .hamstrings, [], reps: 5),
             e("Glute-Ham Raise", .hamstrings, ["Back Extension Bench"]),
             e("Cable Pull-Through", .hamstrings, ["Cable Machine"]),
-            e("Slider Leg Curl", .hamstrings, []),
+            // Sliders required, like Slider Lunge/Body Saw (equipment
+            // audit — this one shipped as bodyweight).
+            e("Slider Leg Curl", .hamstrings, ["Sliders"]),
 
             // Glutes
             e("Hip Thrust", .glutes, ["Barbell", "Bench"]),
@@ -546,16 +592,19 @@ enum SeedData {
             e("Stationary Bike", .fullBody, ["Stationary Bike"], .duration, sets: 1),
             e("Treadmill Run", .fullBody, ["Treadmill"], .duration, sets: 1),
             e("Sandbag Carry", .fullBody, ["Sandbag"], .duration),
-            // Cardio, no equipment (flexible metrics): the road is not
-            // gear, but running is training — these make distance
-            // intervals (6×400 m) and steady pieces first-class. One
-            // steady piece by default, like the machines.
+            // Road cardio (flexible metrics): the road is not gear, but
+            // running is training — these make distance intervals
+            // (6×400 m) and steady pieces first-class. One steady piece
+            // by default, like the machines. Cycling DOES require gear
+            // (equipment audit, 2026-07-15: it read as "Bodyweight"):
+            // the Bicycle, whose declared profile derives the same
+            // [distance, duration, speed] the old explicit override
+            // spelled out. Running/Walking stay genuinely equipment-free.
             e("Running", .fullBody, [], .duration,
               metrics: MetricProfile([.distance, .duration, .pace], distanceUnit: .miles, isOutdoor: true), sets: 1),
             e("Walking", .fullBody, [], .duration,
               metrics: MetricProfile([.distance, .duration, .pace], distanceUnit: .miles, isOutdoor: true), sets: 1),
-            e("Cycling", .fullBody, [], .duration,
-              metrics: MetricProfile([.distance, .duration, .speed], distanceUnit: .miles), sets: 1),
+            e("Cycling", .fullBody, ["Bicycle"], .duration, sets: 1),
 
             // #235: every equipment type gates at least one exercise —
             // the 60 types the #222 sweep added get their movements.
@@ -754,6 +803,7 @@ enum SeedData {
         // The air bike prescribes in calories and punishes in watts.
         "Air Bike": MetricProfile([.duration, .calories, .power]),
         "Stationary Bike": MetricProfile([.duration, .distance, .resistance, .power], distanceUnit: .miles),
+        "Bicycle": MetricProfile([.distance, .duration, .speed], distanceUnit: .miles),
         "Treadmill": MetricProfile([.distance, .duration, .speed, .incline], distanceUnit: .miles),
         "Elliptical": MetricProfile([.duration, .resistance, .incline]),
         "Stair Climber": MetricProfile([.duration, .resistance]),
