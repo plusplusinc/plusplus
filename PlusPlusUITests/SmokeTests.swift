@@ -27,15 +27,16 @@ final class SmokeTests: XCTestCase {
         row.tap()
 
         // First increment lands on the 45 lb default. The value renders
-        // as a tappable button (it opens the wheel picker), so assert on
-        // the button's label — there is no separate static text.
+        // as a tappable button (it opens the wheel picker); since the
+        // VoiceOver pass the number is the button's accessibility VALUE
+        // (its label is the metric name, "Weight"), so assert on the value.
         let increment = app.buttons["weightIncrement"]
         XCTAssertTrue(increment.waitForExistence(timeout: 5))
         let weightValue = app.buttons["weightValue"]
         increment.tap()
-        XCTAssertTrue(waitForLabel(weightValue, "45 lb"), "first increment lands on the empty-bar default")
+        XCTAssertTrue(waitForValue(weightValue, "45 lb"), "first increment lands on the empty-bar default")
         increment.tap()
-        XCTAssertTrue(waitForLabel(weightValue, "50 lb"), "second increment steps by 5 lb")
+        XCTAssertTrue(waitForValue(weightValue, "50 lb"), "second increment steps by 5 lb")
 
         snap("exercise-sheet")
 
@@ -57,14 +58,13 @@ final class SmokeTests: XCTestCase {
     func testSwipeRevealActionSurvivesRelease() throws {
         createRoutine(named: "Swipe Target")
 
-        // Back to the list — the swipe surface under test. TWO pops
-        // since build 45: blank creation lands routine detail ON TOP
-        // of the catalog (the nav fix — back steps one screen at a
-        // time; the old single-pop relied on the replace bug).
+        // Back to the library list — the swipe surface under test. Since
+        // #848 blank creation REPLACES the catalog with the detail on the
+        // library root (so a delete from the new routine returns to the
+        // library, not the catalog), a single Back returns straight to the
+        // list — there is no intermediate catalog to step through.
         let back = app.buttons["backButton"]
         XCTAssertTrue(back.waitForExistence(timeout: 5))
-        back.tap()
-        XCTAssertTrue(app.buttons["createBlankRoutine"].waitForExistence(timeout: 5))
         back.tap()
 
         let card = app.staticTexts["Swipe Target"]
@@ -414,12 +414,13 @@ final class SmokeTests: XCTestCase {
 
     // MARK: - Helpers
 
-    /// Waits for an element's label to become `label` — for values that
-    /// render inside buttons, where waitForExistence can't see the text.
-    /// The timeout must absorb accessibility-snapshot latency: on a loaded
-    /// CI simulator a single evaluation has been observed to take ~15 s.
-    private func waitForLabel(_ element: XCUIElement, _ label: String, timeout: TimeInterval = 30) -> Bool {
-        let predicate = NSPredicate(format: "label == %@", label)
+    /// Waits for an element's accessibility VALUE to become `value` — for
+    /// stepper readouts that render inside buttons, where the label is the
+    /// metric name and the number lives in the accessibility value. The
+    /// timeout must absorb accessibility-snapshot latency: on a loaded CI
+    /// simulator a single evaluation has been observed to take ~15 s.
+    private func waitForValue(_ element: XCUIElement, _ value: String, timeout: TimeInterval = 30) -> Bool {
+        let predicate = NSPredicate(format: "value == %@", value)
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
         return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
     }
