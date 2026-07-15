@@ -48,6 +48,16 @@ struct MascotDemoSheet: View {
             Spacer(minLength: 0)
         }
         .background(Theme.surface)
+        // A downward orbit drag must never be claimed by the sheet's
+        // dismiss gesture; the ✕ key and Escape both close.
+        .interactiveDismissDisabled()
+        .onAppear {
+            // Frozen mode opens ON step 1 (pose, cues, and label agree
+            // from the first frame, not after a wrap-around).
+            if playback.frozen {
+                stepBy(0)
+            }
+        }
         .onChange(of: scenePhase) {
             playback.paused = scenePhase != .active
         }

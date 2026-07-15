@@ -16,6 +16,7 @@ struct MascotView: View {
     let mode: Mode
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// make-closure products that must outlive the closure. A class so
     /// the make closure can write into SwiftUI state it doesn't own.
@@ -36,6 +37,12 @@ struct MascotView: View {
         realityView
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(accessibilityDescription)
+            .onAppear { playback.reduceMotion = reduceMotion }
+            .onChange(of: reduceMotion) { playback.reduceMotion = reduceMotion }
+            .onDisappear {
+                holder.subscription?.cancel()
+                holder.subscription = nil
+            }
     }
 
     private var realityView: some View {
@@ -60,11 +67,15 @@ struct MascotView: View {
             MascotPoseApplier.apply(initial.pose, face: initial.face, to: rig)
 
             // The clock: one subscription, delta-timed, checked against
-            // frozen/paused every frame.
-            holder.subscription = content.subscribe(to: SceneEvents.Update.self) { event in
+            // frozen/paused every frame. Weak captures + the explicit
+            // cancel in onDisappear break the cycle the token would
+            // otherwise form (subscription retains closure retains
+            // holder retains subscription) — dismissed viewports must
+            // not leak their entity trees.
+            holder.subscription = content.subscribe(to: SceneEvents.Update.self) { [weak holder, weak playback] event in
                 MainActor.assumeIsolated {
-                    guard let rig = holder.rig,
-                          let sample = playback.tick(deltaTime: event.deltaTime) else { return }
+                    guard let rig = holder?.rig,
+                          let sample = playback?.tick(deltaTime: event.deltaTime) else { return }
                     MascotPoseApplier.apply(sample.pose, face: sample.face, to: rig)
                 }
             }
@@ -95,17 +106,19 @@ struct MascotView: View {
     private func addLights(to content: inout some RealityViewContentProtocol) {
         // A warm key from the front upper left (with soft shadows) and
         // a dim cool fill from behind right — deterministic and
-        // asset-free, no image-based lighting.
+        // asset-free, no image-based lighting. Tints live beside the
+        // palette (MascotLighting): scene light, not UI chrome, so not
+        // Theme — but tunable in one place.
         let key = DirectionalLight()
-        key.light.intensity = 3200
-        key.light.color = UIColor(red: 1.0, green: 0.97, blue: 0.92, alpha: 1)
+        key.light.intensity = MascotLighting.keyIntensity
+        key.light.color = MascotLighting.keyColor
         key.shadow = DirectionalLightComponent.Shadow()
         key.look(at: .zero, from: [0.9, 1.6, 1.3], relativeTo: nil)
         content.add(key)
 
         let fill = DirectionalLight()
-        fill.light.intensity = 900
-        fill.light.color = UIColor(red: 0.85, green: 0.9, blue: 1.0, alpha: 1)
+        fill.light.intensity = MascotLighting.fillIntensity
+        fill.light.color = MascotLighting.fillColor
         fill.look(at: .zero, from: [-1.1, 0.8, -0.9], relativeTo: nil)
         content.add(fill)
     }

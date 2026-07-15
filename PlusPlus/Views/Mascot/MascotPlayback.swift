@@ -16,7 +16,12 @@ import PlusPlusKit
 @MainActor @Observable
 final class MascotPlayback {
     let animation: ExerciseAnimation
-    let frozen: Bool
+    /// The uitest half of frozen never changes; the Reduce Motion half
+    /// is kept live by MascotView from the environment, so flipping the
+    /// setting mid-demo takes effect without recreating the view.
+    private let uitest: Bool
+    var reduceMotion: Bool
+    var frozen: Bool { uitest || reduceMotion }
     var paused = false
 
     private(set) var activeCueIndices: [Int] = []
@@ -30,7 +35,8 @@ final class MascotPlayback {
 
     init(animation: ExerciseAnimation) {
         self.animation = animation
-        frozen = Theme.Anim.reduceMotion || CommandLine.arguments.contains("--uitest-reset")
+        uitest = CommandLine.arguments.contains("--uitest-reset")
+        reduceMotion = Theme.Anim.reduceMotion
     }
 
     /// Advances the clock; nil when nothing should move this frame.

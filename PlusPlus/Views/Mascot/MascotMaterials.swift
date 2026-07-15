@@ -8,6 +8,15 @@ import RealityKit
 /// update closure re-applies it). Color jobs: the body is warm neutral
 /// ink, the "+" eyes are accent green — the mascot's face IS the ++
 /// mark, and green is the glyph's color everywhere in the app.
+/// Scene lighting tints — light, not UI chrome, so deliberately not
+/// Theme colors; named here so the whole 3D look tunes in one file.
+enum MascotLighting {
+    static let keyIntensity: Float = 3200
+    static let keyColor = UIColor(red: 1.0, green: 0.97, blue: 0.92, alpha: 1)
+    static let fillIntensity: Float = 900
+    static let fillColor = UIColor(red: 0.85, green: 0.9, blue: 1.0, alpha: 1)
+}
+
 struct MascotPalette: Equatable {
     let scheme: ColorScheme
 

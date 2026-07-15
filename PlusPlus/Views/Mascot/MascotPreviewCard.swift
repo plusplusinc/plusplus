@@ -46,7 +46,8 @@ struct MascotFormCard: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("mascotPreviewCard")
-        .accessibilityLabel("Form demo. Watch the mascot perform \(exerciseName). Double tap to expand.")
+        .accessibilityLabel("Form demo. The mascot performs \(exerciseName).")
+        .accessibilityHint("Expands into the full demo with form cues.")
         .onScrollVisibilityChange(threshold: 0.1) { isVisible in
             visible = isVisible
             reconcilePause()
