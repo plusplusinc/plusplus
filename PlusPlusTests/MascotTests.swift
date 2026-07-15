@@ -18,7 +18,7 @@ import PlusPlusKit
 
     @Test func thePrototypeFiveAreCovered() {
         for name in ["Squat", "Deadlift", "Push-Up", "Dumbbell Curl", "Plank"] {
-            #expect(MascotMoves.animation(forExerciseNamed: name) != nil, name)
+            #expect(MascotMoves.animation(forExerciseNamed: name) != nil, "missing demo for \(name)")
         }
         // Name matching is exact: no entry, no FORM section.
         #expect(MascotMoves.animation(forExerciseNamed: "squat") == nil)
