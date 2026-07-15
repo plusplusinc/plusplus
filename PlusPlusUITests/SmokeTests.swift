@@ -11,7 +11,24 @@ final class SmokeTests: XCTestCase {
         continueAfterFailure = false
         app = XCUIApplication()
         app.launchArguments += ["--uitest-reset"]
-        app.launch()
+        launchAndSettle()
+    }
+
+    /// Launch and confirm the app is actually interactive before the test
+    /// body runs. `app.launch()` on a loaded CI runner intermittently returns
+    /// with the process up but the first screen not yet live — the documented
+    /// launch-wedge flake: the tab bar never materialises and the test's first
+    /// assertion times out ~2 minutes in. The `--uitest-reset` launch lands on
+    /// the Today tab, so use the tab bar as the ready signal; if it doesn't
+    /// appear, terminate and relaunch once. No assertion here — if it wedges
+    /// twice, let the test's own first assertion surface it rather than mask a
+    /// genuine startup crash behind a passing setUp.
+    private func launchAndSettle() {
+        for attempt in 0..<2 {
+            app.launch()
+            if app.tabBars.buttons["Today"].waitForExistence(timeout: 30) { return }
+            if attempt == 0 { app.terminate() }
+        }
     }
 
     // MARK: - Flows
