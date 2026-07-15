@@ -154,7 +154,10 @@ final class WorkoutSession {
     /// self-inflicted, one countdown, and +30s/Skip are on screen.
     func pause(after log: SetLog) -> (seconds: Int, isTransition: Bool) {
         let rest = (seconds: log.restSecondsOverride ?? restSeconds, isTransition: false)
-        guard let next = currentLog else { return rest }
+        // Asked before the completion landed, the cursor still points at
+        // `log` itself (same block, same setNumber — it would misread as
+        // a transition). Never classify against itself; fall back to rest.
+        guard let next = currentLog, next !== log else { return rest }
         let newRoundOfSameBlock = next.groupIndex == log.groupIndex && next.setNumber != log.setNumber
         return newRoundOfSameBlock ? rest : (seconds: transitionSeconds, isTransition: true)
     }
