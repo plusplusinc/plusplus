@@ -57,15 +57,23 @@ enum SetupState {
         UserDefaults.standard.set(true, forKey: healthPrimerShownKey)
     }
 
-    /// Existing installs were already past onboarding (and had Health
-    /// decided by the old welcome screen) before the first-workout primer
-    /// existed. Don't re-prime them: if the welcome was already seen and
-    /// the primer flag was never written, treat it as shown. A genuinely
-    /// fresh install has `welcomeSeen == false` at first launch, so this
-    /// no-ops for them and they meet the primer at their first workout.
-    static func backfillHealthPrimerForExistingInstalls() {
+    /// Installs that already TRAINED on a pre-primer build had Health
+    /// decided by the old welcome screen (or the live monitor's ask), so
+    /// don't re-prime them: if the primer flag was never written and the
+    /// store already holds workout history, treat it as shown.
+    ///
+    /// Keyed on prior use, NOT `welcomeSeen` — `welcomeSeen` is set the
+    /// instant a fresh user taps "Get started", before their first
+    /// workout, and this runs at every launch, so gating on it would
+    /// mark the primer shown for a brand-new user who merely relaunched
+    /// between onboarding and training (the primer would then never
+    /// appear). A genuinely fresh install has NO `WorkoutSession` at
+    /// first launch, so this no-ops and they meet the primer at their
+    /// first workout; a fresh install that has trained once already set
+    /// the flag via the primer itself, so `hasWorkoutHistory` is moot.
+    static func backfillHealthPrimerForExistingInstalls(hasWorkoutHistory: Bool) {
         guard UserDefaults.standard.object(forKey: healthPrimerShownKey) == nil,
-              welcomeSeen
+              hasWorkoutHistory
         else { return }
         markHealthPrimerShown()
     }

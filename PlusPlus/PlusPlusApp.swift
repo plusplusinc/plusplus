@@ -88,9 +88,11 @@ struct PlusPlusApp: App {
         if !inMemory {
             SeedData.repairBuiltInEquipmentIfNeeded(context: modelContainer.mainContext)
             SeedData.resetEquipmentOwnershipIfNeeded(context: modelContainer.mainContext)
-            // Don't re-prime installs that already saw the old welcome's
-            // Health screen (the primer replaced it).
-            SetupState.backfillHealthPrimerForExistingInstalls()
+            // Don't re-prime installs that already trained on a pre-primer
+            // build (keyed on real history, not welcomeSeen — which is set
+            // at "Get started", before a fresh user's first workout).
+            let hasHistory = ((try? modelContainer.mainContext.fetchCount(FetchDescriptor<WorkoutSession>())) ?? 0) > 0
+            SetupState.backfillHealthPrimerForExistingInstalls(hasWorkoutHistory: hasHistory)
         }
         // AFTER the legacy one-shots: the libraries migration snapshots
         // the inLibrary flags the reset may have just rewritten.
