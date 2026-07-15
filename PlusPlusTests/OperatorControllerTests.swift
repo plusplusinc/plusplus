@@ -18,6 +18,8 @@ struct OperatorControllerTests {
         enum Step {
             case reply([String])
             case failure(OperatorModelError)
+            /// Yields one chunk and never finishes — a live turn.
+            case hang
         }
 
         var steps: [Step]
@@ -49,6 +51,8 @@ struct OperatorControllerTests {
                     continuation.finish()
                 case .failure(let error):
                     continuation.finish(throwing: error)
+                case .hang:
+                    continuation.yield("thinking")
                 }
             }
         }
@@ -374,6 +378,62 @@ struct OperatorControllerTests {
             question: .workoutCount, exerciseName: nil, routineName: nil, days: nil
         ))
         #expect(statsDigest == "workouts in last 30 days: 0")
+    }
+
+    @Test("An options tap during a live turn keeps the card unanswered")
+    func optionsTapWhileBusy() async throws {
+        let container = try makeContainer()
+        let model = ScriptedOperatorModel(steps: [.hang])
+        let controller = makeController(context: ModelContext(container), model: model)
+
+        let tool = AskUserTool(services: controller)
+        _ = try await tool.call(arguments: AskUserTool.Arguments(
+            question: "Which?", options: ["A", "B"], allowMultiple: false
+        ))
+        let optionsID = try #require(controller.messages.last?.id)
+
+        controller.send("kick off the hanging turn")
+        #expect(controller.turnState != .idle)
+
+        controller.chooseOptions(messageID: optionsID, selection: ["A"])
+        let payload = controller.messages.compactMap { message -> OperatorMessage.OptionsPayload? in
+            guard message.id == optionsID, case .options(let value) = message.kind else { return nil }
+            return value
+        }.first
+        // The answer was NOT eaten: the card stays live for a retry.
+        #expect(payload?.selection == nil)
+        #expect(lastNotice(controller) == OperatorPersona.stillWorking)
+        controller.cancelTurn()
+    }
+
+    @Test("A bounced send reports rejection so callers keep the input")
+    func sendRejectionContract() async throws {
+        let container = try makeContainer()
+        let model = ScriptedOperatorModel(steps: [.hang])
+        let controller = makeController(context: ModelContext(container), model: model)
+
+        #expect(controller.send("first") == true)
+        #expect(controller.send("second") == false)
+        controller.cancelTurn()
+    }
+
+    @Test("Persisted receipts lose their Undo on load; depth-1 undo is in-memory")
+    func staleUndoDropsOnLoad() throws {
+        let container = try makeContainer()
+        let directory = tempThreadDirectory()
+        OperatorThreadStore(directory: directory).save([
+            OperatorMessage(kind: .receipt(.init(summary: "Created X.", destinations: [], undoable: true))),
+        ])
+
+        let controller = OperatorController(
+            context: ModelContext(container),
+            store: OperatorThreadStore(directory: directory),
+            makeModel: { _ in ScriptedOperatorModel() }
+        )
+        guard case .receipt(let payload) = controller.messages.last?.kind else {
+            Issue.record("expected the loaded receipt"); return
+        }
+        #expect(payload.undoable == false)
     }
 
     // MARK: - Thread persistence

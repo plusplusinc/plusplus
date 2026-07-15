@@ -75,7 +75,10 @@ final class OperatorController {
                 instructions: OperatorPersona.instructions
             )
         }
-        messages = store.load()
+        // Persisted receipts lose their Undo on load: depth-1 undo is
+        // in-memory only, so a stale enabled key would be a silent no-op
+        // (the dishonest kind).
+        messages = Self.droppingStaleUndo(store.load())
         engine.afterApply = { [weak self] context in
             self?.runPostApplyHooks(context)
         }
@@ -83,12 +86,30 @@ final class OperatorController {
         refreshChips()
     }
 
+    private static func droppingStaleUndo(_ loaded: [OperatorMessage]) -> [OperatorMessage] {
+        loaded.map { message in
+            guard case .receipt(var payload) = message.kind, payload.undoable else { return message }
+            var sanitized = message
+            payload.undoable = false
+            sanitized.kind = .receipt(payload)
+            return sanitized
+        }
+    }
+
+    /// Mirrors PlusPlusApp's unit-test-host guard: the test host must
+    /// never touch a real EKEventStore.
+    private static let isUnitTestHost =
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+            || ProcessInfo.processInfo.environment["XCTestSessionIdentifier"] != nil
+            || NSClassFromString("XCTestCase") != nil
+
     /// The live post-mutation hooks — the same trio the app fires on
     /// scenePhase transitions (PlusPlusApp), so an Operator change
     /// reaches the widget/watch/calendar without waiting for one.
     private func runPostApplyHooks(_ context: ModelContext) {
         WatchBridge.shared.pushPlan()
         WidgetSnapshotWriter.write(container: context.container)
+        guard !Self.isUnitTestHost else { return }
         if let routines = try? context.fetch(FetchDescriptor<Routine>()) {
             Task {
                 await CalendarSyncCoordinator.shared.reconcile(routines: routines)
@@ -136,17 +157,30 @@ final class OperatorController {
 
     // MARK: - Turns
 
-    func send(_ rawText: String) {
+    /// Starts a turn. Returns whether the text was ACCEPTED — a false
+    /// means nothing entered the thread, so callers keep the user's
+    /// input alive (the tray keeps the draft, an options card stays
+    /// tappable) instead of silently losing it.
+    @discardableResult
+    func send(_ rawText: String) -> Bool {
         let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
-        guard turnState == .idle else {
+        guard !text.isEmpty else { return false }
+        guard turnState == .idle, model?.isResponding != true else {
+            // isResponding covers the cancel race: our task died but the
+            // session is still winding down; a new request would only
+            // bounce off .concurrentRequests.
             post(OperatorMessage(kind: .notice(OperatorPersona.stillWorking)))
-            return
+            return false
         }
-        guard availability == .ready else { return }
+        prewarmIfReady()
+        guard availability == .ready, model != nil else {
+            post(OperatorMessage(kind: .notice(availability.explanation ?? OperatorPersona.somethingJammed)))
+            return false
+        }
 
         append(OperatorMessage(kind: .user(text)))
         runTurn(userText: text, isRetry: false)
+        return true
     }
 
     func cancelTurn() {
@@ -161,7 +195,10 @@ final class OperatorController {
 
     private func runTurn(userText: String, isRetry: Bool) {
         prewarmIfReady()
-        guard let model else { return }
+        guard let model else {
+            post(OperatorMessage(kind: .notice(availability.explanation ?? OperatorPersona.somethingJammed)))
+            return
+        }
 
         // Proactive recycle BEFORE the turn when the estimate says the
         // next exchange might not fit.
@@ -326,17 +363,19 @@ final class OperatorController {
         return OperatorPersona.undoneLabel
     }
 
-    /// An options card tap: record the selection and send it as the
-    /// next user turn (ask_user is non-blocking by design).
+    /// An options card tap: send the selection as the next user turn
+    /// (ask_user is non-blocking by design). The card is only marked
+    /// answered when the send is ACCEPTED — a tap while a turn is still
+    /// streaming leaves the card live instead of eating the answer.
     func chooseOptions(messageID: UUID, selection: [String]) {
         guard let index = indexOfMessage(messageID),
               case .options(var payload) = messages[index].kind,
               payload.selection == nil
         else { return }
+        guard send(selection.joined(separator: ", ")) else { return }
         payload.selection = selection
         messages[index].kind = .options(payload)
         persist()
-        send(selection.joined(separator: ", "))
     }
 
     // MARK: - OperatorToolServices plumbing

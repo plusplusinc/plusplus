@@ -13,7 +13,6 @@ struct OperatorTray: View {
     let controller: OperatorController
 
     @State private var draft = ""
-    @FocusState private var inputFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -62,6 +61,9 @@ struct OperatorTray: View {
                     .font(.system(.footnote, weight: .bold))
                     .foregroundStyle(Theme.textSecondary)
                     .frame(width: 32, height: 32)
+                    // Theme.background, not SheetHeader's Theme.surface:
+                    // this tray's body IS surface, so a surface circle
+                    // would vanish into it.
                     .background(Theme.background, in: Circle())
                     .overlay(Circle().strokeBorder(Theme.border))
                     .padding(6)
@@ -177,7 +179,6 @@ struct OperatorTray: View {
                     .font(.system(.subheadline))
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1...4)
-                    .focused($inputFocused)
                     .padding(.horizontal, 13)
                     .padding(.vertical, 9)
                     .background(Theme.background, in: RoundedRectangle(cornerRadius: 14))
@@ -192,9 +193,11 @@ struct OperatorTray: View {
     private var sendKey: some View {
         if controller.turnState == .idle {
             Button {
-                let text = draft
-                draft = ""
-                controller.send(text)
+                // The draft only clears when the controller ACCEPTED the
+                // text — a bounced send must not eat the user's typing.
+                if controller.send(draft) {
+                    draft = ""
+                }
             } label: {
                 Image(systemName: "arrow.up")
                     .font(.system(.subheadline, weight: .bold))

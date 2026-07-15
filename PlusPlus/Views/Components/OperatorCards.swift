@@ -19,7 +19,7 @@ struct OperatorUserBubble: View {
                 .foregroundStyle(Theme.textPrimary)
                 .padding(.horizontal, 13)
                 .padding(.vertical, 9)
-                .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
+                .background(Theme.background, in: RoundedRectangle(cornerRadius: 14))
                 .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border))
         }
     }
@@ -31,7 +31,7 @@ struct OperatorReplyView: View {
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 0) {
-            (Text(text) + Text(streaming ? " ▍" : "").foregroundColor(Theme.accent))
+            (Text(text) + Text(streaming ? " ▍" : "").foregroundStyle(Theme.accent))
                 .font(.system(.subheadline))
                 .foregroundStyle(Theme.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -100,7 +100,7 @@ struct OperatorPreviewCard: View {
         }
         .padding(13)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius - 2))
+        .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.cardRadius - 2))
         .overlay(
             RoundedRectangle(cornerRadius: Theme.cardRadius - 2)
                 .strokeBorder(payload.state == .pending ? Theme.notes.opacity(0.6) : Theme.border)
@@ -149,7 +149,7 @@ struct OperatorReceiptCard: View {
         }
         .padding(13)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius - 2))
+        .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.cardRadius - 2))
         .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius - 2).strokeBorder(Theme.border))
     }
 }
@@ -192,7 +192,7 @@ struct OperatorOptionsCard: View {
         }
         .padding(13)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius - 2))
+        .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.cardRadius - 2))
         .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius - 2).strokeBorder(Theme.border))
     }
 
@@ -220,7 +220,7 @@ struct OperatorOptionsCard: View {
             }
             .padding(.horizontal, 11)
             .padding(.vertical, 9)
-            .background(chosen ? Theme.selectedTint : Theme.background, in: RoundedRectangle(cornerRadius: 10))
+            .background(chosen ? Theme.selectedTint : Theme.surface, in: RoundedRectangle(cornerRadius: 10))
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
                     .strokeBorder(chosen ? Theme.selectedRing : Theme.border)

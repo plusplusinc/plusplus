@@ -29,6 +29,16 @@ enum ChangeOpArg {
 @Generable
 enum ChangeKindArg {
     case routine, exercise, superset, library
+
+    /// The one arg→Kit kind mapping (toSpec and find_items share it).
+    var changeEntity: ChangeEntity {
+        switch self {
+        case .routine: .routine
+        case .exercise: .exercise
+        case .superset: .superset
+        case .library: .library
+        }
+    }
 }
 
 @Generable
@@ -95,13 +105,7 @@ extension ChangeArgs {
         case .update: mappedOperation = .update
         case .delete: mappedOperation = .delete
         }
-        let mappedEntity: ChangeEntity
-        switch entity {
-        case .routine: mappedEntity = .routine
-        case .exercise: mappedEntity = .exercise
-        case .superset: mappedEntity = .superset
-        case .library: mappedEntity = .library
-        }
+        let mappedEntity = entity.changeEntity
 
         var mappedFilter: ChangeFilter? = nil
         if let filter {
@@ -216,13 +220,7 @@ final class FindItemsTool: Tool {
         let services = self.services
         return await MainActor.run {
             guard let services else { return "unavailable" }
-            let kind: ChangeEntity
-            switch arguments.kind {
-            case .routine: kind = .routine
-            case .exercise: kind = .exercise
-            case .superset: kind = .superset
-            case .library: kind = .library
-            }
+            let kind = arguments.kind.changeEntity
             var muscle: MuscleGroup? = nil
             if let raw = arguments.muscleGroup {
                 guard let mapped = ChangeArgs.muscleGroup(from: raw) else {
