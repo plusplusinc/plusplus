@@ -108,14 +108,12 @@ struct RoutineDetailView: View {
             railList
         }
         .background(Theme.background)
-        // Custom key chrome: title + share/settings as trailing keys.
-        // The counts subtitle left the chrome (Dave, build-48): with
-        // two trailing keys the centered title needs 100 pt clearance
-        // each side, which crushed the subtitle to "~15 min · 5
-        // exercise…". The workload facts moved to the body header where
-        // they get full width (see `header`); the chrome carries the
-        // title alone. Share keeps its UIKit sheet (#178).
-        .pushedScreenChrome(title: routine.name, onBack: { dismiss() }) {
+        // Custom key chrome: back + share/settings as trailing keys, no
+        // centered title. The name moved to the body header (Dave,
+        // build-78) where it gets full width and wraps instead of
+        // truncating; the workload facts already live there (build-48).
+        // Share keeps its UIKit sheet (#178).
+        .pushedScreenChrome(title: "", onBack: { dismiss() }) {
             if !routine.groups.isEmpty, shareURL != nil {
                 HeaderIconButton(systemImage: "square.and.arrow.up", accessibilityLabel: "Share routine", identifier: "shareRoutineButton") {
                     showingShareSheet = true
@@ -207,10 +205,22 @@ struct RoutineDetailView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Facts, not inputs (v4 §A). The chrome carries just the
-            // title now; the workload summary and cadence live here at
-            // full width. Nothing is tappable — the settings key is the
-            // single edit entry.
+            // The routine name is the screen's heading, below the back
+            // key (Dave, build-78): a centered chrome title truncated a
+            // long name to "Travel bodyweight…". Here it gets the full
+            // width and wraps to a second line instead of clipping.
+            Text(routine.name)
+                .font(.system(.title, weight: .bold))
+                .foregroundStyle(Theme.textPrimary)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+                .padding(.top, 4)
+
+            // Facts, not inputs (v4 §A). The chrome carries no title now;
+            // the name (above) plus the workload summary and cadence live
+            // here at full width. Nothing is tappable — the settings key is
+            // the single edit entry.
             if !routine.groups.isEmpty {
                 // Workload first — "what is this session" (estimate +
                 // counts), full-width so it never truncates the way the
@@ -1549,12 +1559,13 @@ struct RoutineSettingsScreen: View {
         }
         .padding(.horizontal, 16)
         .background(Theme.background)
-        // The title stays the ROUTINE's name (§A intact: onboarding
-        // step 3 still says what it configures). No Save (#219): every
-        // field commits live and the name commits on any exit, so the
-        // page is simply always saved. Delete nests behind "…" —
-        // present, not primary.
-        .pushedScreenChrome(title: routine.name, onBack: { commitName(); dismiss() }) {
+        // A static "Routine settings" heading (Dave, build-78): the
+        // routine's name was redundant with the editable NAME field right
+        // below, and truncated when long. No Save (#219): every field
+        // commits live and the name commits on any exit, so the page is
+        // simply always saved. Delete nests behind "…" — present, not
+        // primary.
+        .pushedScreenChrome(title: "Routine settings", onBack: { commitName(); dismiss() }) {
             HeaderMenuKey(systemImage: "ellipsis", accessibilityLabel: "Routine options", identifier: "routineSettingsMenu") {
                 Button("Delete routine", role: .destructive) {
                     confirmingDelete = true
