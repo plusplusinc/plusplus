@@ -214,10 +214,15 @@ final class SmokeTests: XCTestCase {
     /// and the screenshots are the only mascot visuals reviewable from a
     /// remote session.
     func testExerciseSheetShowsFormDemo() throws {
+        // Deadlift, not Squat: the picker's List is lazy and the exact
+        // "Squat" row sorts below its many variants (Bulgarian Split,
+        // Front, Goblet...) — off the first screen, invisible to
+        // XCUITest (the testing.md lazy-list law; #222). "Deadlift"
+        // sorts first in its own filtered list.
         createRoutine(named: "Leg Day")
-        addExercise(searching: "Squat")
+        addExercise(searching: "Deadlift")
 
-        let row = app.staticTexts["Squat"]
+        let row = app.staticTexts["Deadlift"]
         XCTAssertTrue(row.waitForExistence(timeout: 5))
         row.tap()
 
