@@ -1,4 +1,5 @@
 import Foundation
+import FoundationModels
 import Observation
 import SwiftData
 import SwiftUI
@@ -95,7 +96,7 @@ final class OperatorController {
         }
     }
 
-    private func makeTools() -> [any FoundationModels.Tool] {
+    private func makeTools() -> [any Tool] {
         [
             FindItemsTool(services: self),
             GetStatsTool(services: self),
