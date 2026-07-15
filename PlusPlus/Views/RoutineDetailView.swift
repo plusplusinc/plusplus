@@ -1443,6 +1443,7 @@ struct RoutineSettingsScreen: View {
     @State private var scheduleTimes: Int
     @State private var schedulePerDays: Int
     @State private var confirmingDelete = false
+    @State private var showingRestScrubber = false
     /// Inline drafts (#207 — the rename/notes trays died). Name commits
     /// through Save/submit so #189's duplicate guard can veto; notes
     /// write live like every other field on this autosaving page.
@@ -1541,11 +1542,23 @@ struct RoutineSettingsScreen: View {
                         label: "Rest",
                         value: WorkoutMetric.rest.displayText(Double(routine.restSeconds)),
                         identifier: "rest",
+                        onTapValue: { showingRestScrubber = true },
                         onDecrement: { routine.restSeconds = Int(WorkoutMetric.rest.decremented(Double(routine.restSeconds))) },
                         onIncrement: { routine.restSeconds = Int(WorkoutMetric.rest.incremented(Double(routine.restSeconds))) }
                     )
                     .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
                     .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+                    .sheet(isPresented: $showingRestScrubber) {
+                        // Tap-to-pick parity with the block-level rest row
+                        // (2026-07-15) — this row had only the ±15 s stepper.
+                        MetricWheelSheet(
+                            metric: .rest,
+                            value: Binding(
+                                get: { Double(routine.restSeconds) },
+                                set: { routine.restSeconds = Int(($0 ?? Double(routine.restSeconds)).rounded()) }
+                            )
+                        )
+                    }
 
                     SheetSectionLabel("BETWEEN EXERCISES")
                         .padding(.top, 24)

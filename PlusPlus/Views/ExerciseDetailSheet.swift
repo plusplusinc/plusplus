@@ -628,38 +628,6 @@ struct HeartRateTargetSheet: View {
     }
 }
 
-/// Single-wheel picker sheet for any stepped metric, v2 styling.
-struct MetricWheelSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    let metric: WorkoutMetric
-    var weightUnit: WeightUnit = .lb
-    var distanceUnit: DistanceUnit = .meters
-    @Binding var value: Double?
-
-    var body: some View {
-        NavigationStack {
-            Picker(metric.label, selection: Binding(
-                get: { metric.nearestWheelValue(to: value, weightUnit: weightUnit, distanceUnit: distanceUnit) },
-                set: { value = $0 }
-            )) {
-                ForEach(metric.wheelValues(weightUnit: weightUnit, distanceUnit: distanceUnit), id: \.self) { candidate in
-                    Text(metric.displayText(candidate, weightUnit: weightUnit, distanceUnit: distanceUnit))
-                        .font(.system(.body, design: .monospaced))
-                        .tag(candidate)
-                }
-            }
-            .pickerStyle(.wheel)
-            .navigationTitle(metric.label)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .font(.system(.footnote, weight: .bold))
-                        .foregroundStyle(Theme.accent)
-                }
-            }
-        }
-        .presentationDetents([.height(300)])
-        .presentationBackground(Theme.surface)
-    }
-}
+// MetricWheelSheet moved to Views/Components/ (2026-07-15) — it is
+// presented from four screens and now branches to the tape scrubber
+// for time spans.
