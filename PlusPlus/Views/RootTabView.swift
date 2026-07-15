@@ -18,11 +18,12 @@ struct RootTabView: View {
     /// AppMenuScreen). Lives here, above the tabs' NavigationStacks, so it
     /// moves the whole TabView as one layer.
     @State private var reveal = RevealController()
-    @State private var showingSplash: Bool
-    /// The welcome beat (first launch only): three screens — the idea,
-    /// the mechanics, the Health ask — then Today's setup timeline
-    /// takes over as always.
-    @State private var showingWelcome: Bool
+    /// The launch beat (splash + first-launch welcome, fused): a cold open
+    /// always opens on the `++` mark; `introShowsWelcome` decides whether
+    /// it settles into the welcome content or dissolves straight to Today.
+    @State private var showingIntro: Bool
+    private let introShowsWelcome: Bool
+    private let introInstant: Bool
     /// A share link the app was opened with, awaiting import (#145).
     @State private var shareImport: ShareImport?
     /// Post-install return from GitHub (the Setup-URL bounce, #23): present
@@ -34,14 +35,20 @@ struct RootTabView: View {
     @State private var showStoreResetNotice: Bool
 
     init() {
-        // The launch beat: the ++ mark centered, then the app. Skipped
-        // under UI tests (speed + quiescence). Everyone lands on Today —
-        // a fresh install's timeline IS the onboarding (setup steps
-        // render as gated entries there). The welcome flow replaces the
-        // splash the one time it shows — its first page IS the mark.
+        // The launch beat: a cold open ALWAYS opens on the ++ mark
+        // (IntroView), then the app. On first launch the same mark settles
+        // into the welcome content; on later launches it just holds a beat
+        // and dissolves to Today. Everyone lands on Today — a fresh
+        // install's timeline IS the onboarding (setup steps render as gated
+        // entries there).
         let welcome = !SetupState.welcomeSeen
-        _showingWelcome = State(initialValue: welcome)
-        _showingSplash = State(initialValue: !welcome && !CommandLine.arguments.contains("--uitest-reset"))
+        let uitest = CommandLine.arguments.contains("--uitest-reset")
+        // Under UI test the pure-splash (returning-user) case is skipped so
+        // the smoke suite lands on the tabs immediately; the welcome test
+        // still gets its screen (it forces welcomeSeen false).
+        _showingIntro = State(initialValue: welcome || !uitest)
+        introShowsWelcome = welcome
+        introInstant = uitest
         _showStoreResetNotice = State(initialValue: SetupState.storeWasReset)
     }
 
@@ -80,22 +87,13 @@ struct RootTabView: View {
             reveal.activeTab = newTab.rawValue
         }
         .overlay {
-            if showingWelcome {
-                WelcomeView {
+            if showingIntro {
+                IntroView(showWelcome: introShowsWelcome, instant: introInstant) {
                     withAnimation(.easeOut(duration: 0.35)) {
-                        showingWelcome = false
+                        showingIntro = false
                     }
                 }
                 .transition(.opacity)
-            } else if showingSplash {
-                splash
-            }
-        }
-        .task {
-            guard showingSplash else { return }
-            try? await Task.sleep(for: .seconds(0.9))
-            withAnimation(.easeOut(duration: 0.35)) {
-                showingSplash = false
             }
         }
         // plusplus://r#… (and, once universal links land, the https
@@ -166,16 +164,6 @@ struct RootTabView: View {
                  ? "PlusPlus couldn't open your saved data, so it started fresh. A copy of the old data was saved to the Files app in case it can be recovered."
                  : "PlusPlus couldn't open your saved data, so it started fresh.")
         }
-    }
-
-    private var splash: some View {
-        ZStack {
-            Theme.background.ignoresSafeArea()
-            Text("++")
-                .font(.system(size: 72, weight: .bold, design: .monospaced))
-                .foregroundStyle(Theme.accent)
-        }
-        .transition(.opacity)
     }
 
 }
