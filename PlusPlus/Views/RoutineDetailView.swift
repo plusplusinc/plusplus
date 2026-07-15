@@ -16,6 +16,8 @@ struct RoutineDetailView: View {
     @State private var filterState = ExerciseFilterState()
     @State private var pickerDestination: PickerDestination?
     @State private var activeSession: WorkoutSession?
+    /// The first-workout Health primer, raised by the start gate.
+    @State private var healthStartRequest: HealthStartRequest?
     @State private var showingRoutineSettings = false
     @State private var showingShareSheet = false
     /// The exercise-detail tray's target, keyed on the RoutineExercise's
@@ -175,6 +177,8 @@ struct RoutineDetailView: View {
         .fullScreenCover(item: $activeSession) { session in
             ActiveSessionView(session: session)
         }
+        // The one-time Health ask, in front of the first workout start.
+        .healthStartPrimer($healthStartRequest)
     }
 
     /// The share link for this routine — built fresh on each render so
@@ -853,7 +857,10 @@ struct RoutineDetailView: View {
                 // Fire-time re-check (the flash defers ~0.85 s; see
                 // TodayView.start for the failure class).
                 guard activeSession == nil, !routine.isDeleted else { return }
-                activeSession = WorkoutSession.start(from: routine, context: modelContext)
+                HealthStartGate.begin({
+                    guard activeSession == nil, !routine.isDeleted else { return }
+                    activeSession = WorkoutSession.start(from: routine, context: modelContext)
+                }, orPresent: { healthStartRequest = $0 })
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)

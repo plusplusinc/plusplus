@@ -69,6 +69,12 @@ struct SessionDetailView: View {
     /// state dies with the pop and the started session rides Today's
     /// orphan salvage instead (swift-reviewer catch).
     @State private var activeSession: WorkoutSession?
+    /// The first-workout Health primer, raised by the start gate.
+    @State private var healthStartRequest: HealthStartRequest?
+    /// Per-workout active energy (kcal), read live from Health when this
+    /// record opens — not persisted, so it needs no schema/interchange
+    /// change. nil until the query answers, or when Health has nothing.
+    @State private var activeEnergy: Int?
 
     private var weightUnit: WeightUnit {
         WeightUnit(rawValue: weightUnitRaw) ?? .lb
@@ -149,14 +155,23 @@ struct SessionDetailView: View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(spacing: 0) {
-                    // The heart-rate summary, when Health had one —
-                    // facts in ink, like the rest of the record.
-                    if let average = session.averageHeartRate {
-                        Text("\(Image(systemName: "heart.fill")) \(average) avg\(session.maxHeartRate.map { " · \($0) max" } ?? "")")
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundStyle(Theme.textSecondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.top, 10)
+                    // The Health facts, when there were any — heart rate
+                    // and the workout's active energy, in ink like the
+                    // rest of the record. Each shows only when present
+                    // (denied or no Watch reads as absent, never zero).
+                    if session.averageHeartRate != nil || activeEnergy != nil {
+                        HStack(spacing: 12) {
+                            if let average = session.averageHeartRate {
+                                Text("\(Image(systemName: "heart.fill")) \(average) avg\(session.maxHeartRate.map { " · \($0) max" } ?? "")")
+                            }
+                            if let activeEnergy {
+                                Text("\(Image(systemName: "flame.fill")) \(activeEnergy) cal")
+                            }
+                        }
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(Theme.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 10)
                     }
                     if previousSession != nil {
                         Text("Δ vs \(previousDateText) session")
@@ -208,7 +223,10 @@ struct SessionDetailView: View {
                     // Fire-time re-check (the flash defers ~0.85 s;
                     // see TodayView.start for the failure class).
                     guard activeSession == nil, !routine.isDeleted, !routine.groups.isEmpty else { return }
-                    activeSession = WorkoutSession.start(from: routine, context: modelContext)
+                    HealthStartGate.begin({
+                        guard activeSession == nil, !routine.isDeleted, !routine.groups.isEmpty else { return }
+                        activeSession = WorkoutSession.start(from: routine, context: modelContext)
+                    }, orPresent: { healthStartRequest = $0 })
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
@@ -219,6 +237,8 @@ struct SessionDetailView: View {
         .fullScreenCover(item: $activeSession) { started in
             ActiveSessionView(session: started)
         }
+        // The one-time Health ask, in front of a "Do it again" start.
+        .healthStartPrimer($healthStartRequest)
         // Heart-rate backfill: a session finished before its samples
         // reached Health (watch sync lag, or access granted later)
         // fills in when the record is opened. Idempotent — only runs
@@ -231,6 +251,14 @@ struct SessionDetailView: View {
                 guard !session.isDeleted else { return }
                 if let average { session.averageHeartRate = average }
                 if let peak { session.maxHeartRate = peak }
+            }
+        }
+        // Active energy for this workout, read live from Health (not
+        // persisted). effectiveStart matches the HR window above.
+        .task {
+            guard let endedAt = session.endedAt else { return }
+            HealthAccess.activeEnergy(from: session.effectiveStart, to: endedAt) { kcal in
+                activeEnergy = kcal
             }
         }
     }

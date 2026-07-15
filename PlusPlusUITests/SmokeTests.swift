@@ -380,33 +380,21 @@ final class SmokeTests: XCTestCase {
         snap("setup-complete")
     }
 
-    /// The welcome flow (opt-in via --uitest-welcome; every other test
-    /// launches straight into the tabs): three screens — idea,
-    /// mechanics, Health — each escapable, landing on the app. The
-    /// Health buttons are inert under UI test (HealthAccess is disabled
-    /// by --uitest-reset), so "Connect" here exercises the navigation,
-    /// not the system sheet.
+    /// The welcome beat (opt-in via --uitest-welcome; every other test
+    /// launches straight into the tabs): ONE screen now — the mark, the
+    /// name, the idea, and a single "Get started" that drops into the
+    /// app. The old mechanics + Health screens are gone (the Health ask
+    /// moved to a contextual primer on the first workout).
     func testWelcomeFlow() throws {
         app.terminate()
         app.launchArguments += ["--uitest-welcome"]
         app.launch()
 
-        let next = app.buttons["welcomeContinueButton"]
-        XCTAssertTrue(next.waitForExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts["PlusPlus"].exists, "page 1 is the idea")
+        let start = app.buttons["welcomeGetStartedButton"]
+        XCTAssertTrue(start.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["PlusPlus"].exists, "the one screen is the idea")
         snap("welcome-idea")
-        next.tap()
-
-        XCTAssertTrue(app.staticTexts["HOW IT WORKS"].waitForExistence(timeout: 5))
-        snap("welcome-mechanics")
-        next.tap()
-
-        // Page 3: the Health ask, with a visible escape.
-        let connect = app.buttons["welcomeConnectHealthButton"]
-        XCTAssertTrue(connect.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["welcomeSkipHealthButton"].exists, "the ask must be declinable")
-        snap("welcome-health")
-        connect.tap()
+        start.tap()
 
         // The intro yields to the app proper. The tab bar EXISTS under
         // the overlay the whole time, so existence proves nothing —
@@ -414,7 +402,7 @@ final class SmokeTests: XCTestCase {
         let today = app.tabBars.buttons["Today"]
         XCTAssertTrue(today.waitForExistence(timeout: 10))
         let hittable = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == 1"), object: today)
-        XCTAssertEqual(XCTWaiter().wait(for: [hittable], timeout: 10), .completed, "the welcome flow must land in the tabbed app")
+        XCTAssertEqual(XCTWaiter().wait(for: [hittable], timeout: 10), .completed, "the welcome screen must land in the tabbed app")
         snap("welcome-done")
 
         // Seen once means seen: a relaunch (no reset of the flag inside

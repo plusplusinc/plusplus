@@ -88,6 +88,9 @@ struct PlusPlusApp: App {
         if !inMemory {
             SeedData.repairBuiltInEquipmentIfNeeded(context: modelContainer.mainContext)
             SeedData.resetEquipmentOwnershipIfNeeded(context: modelContainer.mainContext)
+            // Don't re-prime installs that already saw the old welcome's
+            // Health screen (the primer replaced it).
+            SetupState.backfillHealthPrimerForExistingInstalls()
         }
         // AFTER the legacy one-shots: the libraries migration snapshots
         // the inLibrary flags the reset may have just rewritten.
