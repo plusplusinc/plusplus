@@ -185,18 +185,16 @@ extension ChangeArgs {
 
 // MARK: - Tools
 
-// All four are @MainActor classes: their work is ModelContext work, and
-// an actor-isolated async method satisfies the protocol's async `call`
-// requirement (the framework's invocation hops here automatically).
-// `name`/`description` are immutable Sendable lets, readable from
-// anywhere.
+// The framework's `call` requirement is NONISOLATED — a @MainActor class
+// cannot satisfy it implicitly, so the tools are plain classes whose
+// `call` bodies hop to the MainActor explicitly (their work is
+// ModelContext work). `services` is set once at init and only read.
 
 /// Search the user's data. Digest lines re-enter the context window,
 /// so the service caps them by construction.
-@MainActor
 final class FindItemsTool: Tool {
-    nonisolated let name = "find_items"
-    nonisolated let description = "Search the user's routines, exercises, supersets, or equipment libraries."
+    let name = "find_items"
+    let description = "Search the user's routines, exercises, supersets, or equipment libraries."
 
     @Generable
     struct Arguments {
@@ -215,37 +213,39 @@ final class FindItemsTool: Tool {
     init(services: any OperatorToolServices) { self.services = services }
 
     func call(arguments: Arguments) async throws -> String {
-        guard let services else { return "unavailable" }
-        let kind: ChangeEntity
-        switch arguments.kind {
-        case .routine: kind = .routine
-        case .exercise: kind = .exercise
-        case .superset: kind = .superset
-        case .library: kind = .library
-        }
-        var muscle: MuscleGroup? = nil
-        if let raw = arguments.muscleGroup {
-            guard let mapped = ChangeArgs.muscleGroup(from: raw) else {
-                return "unknown muscleGroup \(raw)"
+        let services = self.services
+        return await MainActor.run {
+            guard let services else { return "unavailable" }
+            let kind: ChangeEntity
+            switch arguments.kind {
+            case .routine: kind = .routine
+            case .exercise: kind = .exercise
+            case .superset: kind = .superset
+            case .library: kind = .library
             }
-            muscle = mapped
+            var muscle: MuscleGroup? = nil
+            if let raw = arguments.muscleGroup {
+                guard let mapped = ChangeArgs.muscleGroup(from: raw) else {
+                    return "unknown muscleGroup \(raw)"
+                }
+                muscle = mapped
+            }
+            return services.dataService.findItems(
+                kind: kind,
+                nameContains: arguments.nameContains,
+                muscleGroup: muscle,
+                inLibraryOnly: arguments.inLibraryOnly ?? false,
+                limit: arguments.limit ?? 8
+            )
         }
-        return services.dataService.findItems(
-            kind: kind,
-            nameContains: arguments.nameContains,
-            muscleGroup: muscle,
-            inLibraryOnly: arguments.inLibraryOnly ?? false,
-            limit: arguments.limit ?? 8
-        )
     }
 }
 
 /// History stats from real fetches. The instructions tell the model to
 /// never guess numbers; this is where the numbers come from.
-@MainActor
 final class GetStatsTool: Tool {
-    nonisolated let name = "get_stats"
-    nonisolated let description = "Compute workout history stats. Never guess numbers; use this."
+    let name = "get_stats"
+    let description = "Compute workout history stats. Never guess numbers; use this."
 
     @Generable
     enum StatKindArg {
@@ -265,20 +265,23 @@ final class GetStatsTool: Tool {
     init(services: any OperatorToolServices) { self.services = services }
 
     func call(arguments: Arguments) async throws -> String {
-        guard let services else { return "unavailable" }
-        let kind: OperatorDataService.StatKind
-        switch arguments.question {
-        case .workoutCount: kind = .workoutCount
-        case .lastDone: kind = .lastDone
-        case .setVolume: kind = .setVolume
-        case .streak: kind = .streak
+        let services = self.services
+        return await MainActor.run {
+            guard let services else { return "unavailable" }
+            let kind: OperatorDataService.StatKind
+            switch arguments.question {
+            case .workoutCount: kind = .workoutCount
+            case .lastDone: kind = .lastDone
+            case .setVolume: kind = .setVolume
+            case .streak: kind = .streak
+            }
+            return services.dataService.stats(
+                kind: kind,
+                exerciseName: arguments.exerciseName,
+                routineName: arguments.routineName,
+                days: arguments.days
+            )
         }
-        return services.dataService.stats(
-            kind: kind,
-            exerciseName: arguments.exerciseName,
-            routineName: arguments.routineName,
-            days: arguments.days
-        )
     }
 }
 
@@ -286,10 +289,9 @@ final class GetStatsTool: Tool {
 /// resolve → tier pipeline. The tool's return string only steers the
 /// model's narration; the preview/receipt cards it triggers are the
 /// real record.
-@MainActor
 final class ProposeChangeTool: Tool {
-    nonisolated let name = "propose_change"
-    nonisolated let description = "Create, edit, or delete routines, exercises, supersets, schedules, or equipment libraries. The app validates, previews, and applies; you never apply anything yourself."
+    let name = "propose_change"
+    let description = "Create, edit, or delete routines, exercises, supersets, schedules, or equipment libraries. The app validates, previews, and applies; you never apply anything yourself."
 
     typealias Arguments = ChangeArgs
 
@@ -297,14 +299,17 @@ final class ProposeChangeTool: Tool {
     init(services: any OperatorToolServices) { self.services = services }
 
     func call(arguments: ChangeArgs) async throws -> String {
-        guard let services else { return "unavailable" }
-        switch arguments.toSpec() {
-        case .invalid(let reason):
-            return "INVALID: \(reason)"
-        case .spec(let spec):
-            let outcome = services.engine.propose(spec)
-            services.handle(outcome)
-            return outcome.digest
+        let services = self.services
+        return await MainActor.run {
+            guard let services else { return "unavailable" }
+            switch arguments.toSpec() {
+            case .invalid(let reason):
+                return "INVALID: \(reason)"
+            case .spec(let spec):
+                let outcome = services.engine.propose(spec)
+                services.handle(outcome)
+                return outcome.digest
+            }
         }
     }
 }
@@ -313,10 +318,9 @@ final class ProposeChangeTool: Tool {
 /// turn ends, and the tap arrives as the next user message — a held
 /// continuation would wedge `isResponding` across a dismissed tray or
 /// a killed app.
-@MainActor
 final class AskUserTool: Tool {
-    nonisolated let name = "ask_user"
-    nonisolated let description = "Show the user tappable choices when you need a decision. Then stop and wait."
+    let name = "ask_user"
+    let description = "Show the user tappable choices when you need a decision. Then stop and wait."
 
     @Generable
     struct Arguments {
@@ -330,16 +334,19 @@ final class AskUserTool: Tool {
     init(services: any OperatorToolServices) { self.services = services }
 
     func call(arguments: Arguments) async throws -> String {
-        guard let services else { return "unavailable" }
-        let options = Array(arguments.options.prefix(5))
-        guard options.count >= 2 else {
-            return "ask_user needs 2 to 5 options"
+        let services = self.services
+        return await MainActor.run {
+            guard let services else { return "unavailable" }
+            let options = Array(arguments.options.prefix(5))
+            guard options.count >= 2 else {
+                return "ask_user needs 2 to 5 options"
+            }
+            services.post(OperatorMessage(kind: .options(.init(
+                question: arguments.question,
+                options: options,
+                allowMultiple: arguments.allowMultiple ?? false
+            ))))
+            return "Choices shown. End your reply now; the user's pick arrives as their next message."
         }
-        services.post(OperatorMessage(kind: .options(.init(
-            question: arguments.question,
-            options: options,
-            allowMultiple: arguments.allowMultiple ?? false
-        ))))
-        return "Choices shown. End your reply now; the user's pick arrives as their next message."
     }
 }
