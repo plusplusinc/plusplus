@@ -26,15 +26,25 @@ private struct OperatorContextReporter: ViewModifier {
     @Environment(ViewContext.self) private var context
 
     func body(content: Content) -> some View {
-        content.onAppear {
-            context.detail = line
-        }
+        content
+            .onAppear {
+                context.detail = line
+            }
+            // A pop must clear the line: the tab-level wrappers never
+            // disappear on a push, so their onAppear can't re-fire on
+            // the way back — the DETAIL clears itself instead, guarded
+            // so a sibling that already took over isn't stomped.
+            .onDisappear {
+                if context.detail == line {
+                    context.detail = nil
+                }
+            }
     }
 }
 
 extension View {
     /// Report this screen as the visible context while it's frontmost.
-    /// Pass nil from tab roots (clears a popped detail's line).
+    /// Attach to pushed detail screens; the line clears itself on pop.
     func operatorContext(_ line: String?) -> some View {
         modifier(OperatorContextReporter(line: line))
     }

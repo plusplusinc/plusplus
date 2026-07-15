@@ -82,7 +82,10 @@ struct OperatorTray: View {
     private var transcript: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 12) {
+                // A plain VStack, not lazy: the transcript is capped at 60
+                // rows, and a lazy stack would discard an options card's
+                // in-progress multi-selection when scrolled out of window.
+                VStack(alignment: .leading, spacing: 12) {
                     if controller.hasHiddenHistory {
                         OperatorNoticeRow(text: OperatorPersona.scrollbackNotice)
                     }
@@ -145,17 +148,12 @@ struct OperatorTray: View {
                 onCancel: { controller.cancelPreview(messageID: message.id) }
             )
         case .receipt(let payload):
+            // onView stays nil until the outcome-navigation PR lands its
+            // .plusplusOperatorShow listeners — a silent no-op key would
+            // be worse than no key.
             OperatorReceiptCard(
                 payload: payload,
-                onView: payload.destinations.isEmpty ? nil : {
-                    // Outcome navigation lands in the follow-up PR; the
-                    // notification is already the contract.
-                    NotificationCenter.default.post(
-                        name: .plusplusOperatorShow,
-                        object: nil,
-                        userInfo: payload.destinations.first.map { ["destination": $0] } ?? [:]
-                    )
-                },
+                onView: nil,
                 onUndo: { controller.undoReceipt(messageID: message.id) }
             )
         case .options(let payload):

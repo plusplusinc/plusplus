@@ -199,10 +199,13 @@ struct OperatorControllerTests {
     @Test("Proactive recycle carries recent context in the next prompt")
     func proactiveRecycleCarryover() async throws {
         let container = try makeContainer()
-        // A tiny window: the first exchange overflows the 70% threshold.
+        // The estimate starts at the fixed session overhead (~1,000
+        // tokens). A 1,600-token window puts the 70% threshold (1,120)
+        // above the bare overhead but below overhead + one long
+        // exchange, so exactly the SECOND send recycles.
         let model = ScriptedOperatorModel(
             steps: [.reply([String(repeating: "long reply. ", count: 40)]), .reply(["ok."])],
-            contextSize: 120
+            contextSize: 1600
         )
         let controller = makeController(context: ModelContext(container), model: model)
 

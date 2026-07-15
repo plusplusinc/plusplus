@@ -52,8 +52,11 @@ final class OperatorController {
     /// so context survives in the PROMPT channel, never instructions.
     private var pendingCarryover: String?
     /// Rough token bookkeeping for the proactive recycle (chars/3, the
-    /// policy's estimate). Reset on recycle.
-    private var sessionCharacters = 0
+    /// policy's estimate). Starts at the fixed session overhead —
+    /// instructions plus four tool schemas, ~1,000 tokens — so the 70%
+    /// threshold measures the whole window, not just the conversation.
+    private static let sessionOverheadCharacters = 3_000
+    private var sessionCharacters = OperatorController.sessionOverheadCharacters
     /// The screen line supplier (RootTabView's ViewContext).
     var contextLine: () -> String? = { nil }
     var hasWorkoutHistory: () -> Bool = { false }
@@ -225,8 +228,12 @@ final class OperatorController {
                     self.streamingText = cumulative
                     self.turnState = .streaming
                 }
+                // A cancelled stream can end its loop normally; without
+                // this guard the dead task would finish a NEWER turn.
+                guard !Task.isCancelled else { return }
                 self.finishTurn(reply: self.streamingText)
             } catch let error as OperatorModelError {
+                guard !Task.isCancelled else { return }
                 self.handleTurnError(error, userText: userText, isRetry: isRetry)
             } catch {
                 if !Task.isCancelled {
@@ -297,7 +304,7 @@ final class OperatorController {
             pieces.append("last topic: \(text.prefix(80))")
         }
         pendingCarryover = pieces.isEmpty ? nil : pieces.joined(separator: " · ")
-        sessionCharacters = 0
+        sessionCharacters = Self.sessionOverheadCharacters
         model?.recycle()
     }
 

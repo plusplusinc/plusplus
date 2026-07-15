@@ -74,23 +74,21 @@ struct RootTabView: View {
         // The quiet-terminal identity lives in the content; the chrome
         // is the platform's (Dave, build 10 feedback).
         TabView(selection: $tab) {
-            // Each root clears Operator's detail line on re-appear (a pop
-            // or tab switch lands back at the root).
+            // Operator's context: the tab line comes from the onChange
+            // below; pushed details report (and clear) their own line via
+            // .operatorContext — a tab-level reporter would never re-fire
+            // on a pop, so none is attached here.
             Tab("Today", systemImage: "smallcircle.filled.circle", value: AppTab.today) {
                 TodayView(onGoToRoutines: { tab = .routines })
-                    .operatorContext(nil)
             }
             Tab("Routines", systemImage: "square.stack", value: AppTab.routines) {
                 RoutineListView()
-                    .operatorContext(nil)
             }
             Tab("Exercises", systemImage: "list.bullet", value: AppTab.exercises) {
                 ExercisesTabView()
-                    .operatorContext(nil)
             }
             Tab("Equipment", systemImage: "dumbbell", value: AppTab.equipment) {
                 EquipmentTabView()
-                    .operatorContext(nil)
             }
         }
         .tint(Theme.textPrimary)

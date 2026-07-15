@@ -54,6 +54,9 @@ final class FoundationOperatorModel: OperatorModel {
 
     var isResponding: Bool { session.isResponding }
 
+    /// @backDeployed(before: iOS 26.4): runs on 26.0 devices, but the
+    /// DECLARATION needs the Xcode 26.4+ SDK to compile (CI's "newest
+    /// Xcode 26" qualifies).
     var contextSize: Int { SystemLanguageModel.default.contextSize }
 
     func prewarm() {

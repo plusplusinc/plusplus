@@ -124,12 +124,15 @@ struct OperatorReceiptCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 7) {
+                // Purple, not green: the grammar says done is purple; the
+                // seal literally reads DONE (green stays on the data the
+                // summary describes, not the completion mark).
                 Circle()
-                    .fill(payload.undone ? Theme.textFaint : Theme.accent)
+                    .fill(payload.undone ? Theme.textFaint : Theme.done)
                     .frame(width: 7, height: 7)
                 Text(payload.undone ? "UNDONE" : "DONE")
                     .font(.system(.caption2, design: .monospaced, weight: .semibold))
-                    .foregroundStyle(payload.undone ? Theme.textFaint : Theme.accent)
+                    .foregroundStyle(payload.undone ? Theme.textFaint : Theme.done)
                     .kerning(0.5)
             }
             Text(payload.summary)
