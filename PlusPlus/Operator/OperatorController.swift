@@ -402,6 +402,13 @@ final class OperatorController {
         )))
         lastApplied = undoable ? (message.id, change.inverse) : nil
         append(message)
+        // Outcome navigation (Dave): the main surface steers to what the
+        // change touched, BEHIND the still-open drawer — closing it (or
+        // the receipt's View key) lands on the result. Deterministic and
+        // engine-driven; the model has no navigation primitives.
+        if let destination = change.receipt.destinations.first {
+            NotificationCenter.default.post(name: .plusplusOperatorShow, object: destination)
+        }
     }
 
     private func indexOfMessage(_ id: UUID) -> Int? {

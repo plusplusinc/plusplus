@@ -439,6 +439,39 @@ struct OperatorControllerTests {
         #expect(payload.undoable == false)
     }
 
+    @Test("An applied change announces its destination for outcome navigation")
+    func outcomeNavigationPosts() async throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let controller = makeController(context: context, model: ScriptedOperatorModel())
+
+        var received: [OperatorDestination] = []
+        // queue nil = synchronous delivery on the posting (main) thread,
+        // so the assertion below sees the post deterministically.
+        let observer = NotificationCenter.default.addObserver(
+            forName: .plusplusOperatorShow, object: nil, queue: nil
+        ) { note in
+            if let destination = note.object as? OperatorDestination {
+                received.append(destination)
+            }
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        let tool = ProposeChangeTool(services: controller)
+        _ = try await tool.call(arguments: ChangeArgs(
+            operation: .create, entity: .routine,
+            targets: ["Probe Nav"], filter: nil, values: nil
+        ))
+
+        let routine = try #require(try context.fetch(FetchDescriptor<Routine>()).first)
+        #expect(received.count == 1)
+        if case .routine(let uuid) = try #require(received.first) {
+            #expect(uuid == routine.uuid)
+        } else {
+            Issue.record("expected a routine destination")
+        }
+    }
+
     // MARK: - Thread persistence
 
     @Test("The thread survives a relaunch through the store")

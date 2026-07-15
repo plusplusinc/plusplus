@@ -101,6 +101,18 @@ struct RootTabView: View {
             viewContext.tab = newTab.rawValue
             viewContext.detail = nil
         }
+        // Operator's outcome navigation: the root switches tabs; the
+        // owning tab root resolves and pushes (the .plusplusStartRoutine
+        // pattern).
+        .onReceive(NotificationCenter.default.publisher(for: .plusplusOperatorShow)) { note in
+            guard let destination = note.object as? OperatorDestination else { return }
+            switch destination {
+            case .today: tab = .today
+            case .routine: tab = .routines
+            case .exercisesTab: tab = .exercises
+            case .equipmentTab: tab = .equipment
+            }
+        }
         .overlay {
             if showingIntro {
                 IntroView(showWelcome: introShowsWelcome, instant: introInstant) {
