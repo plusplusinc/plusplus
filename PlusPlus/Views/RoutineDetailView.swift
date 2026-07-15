@@ -1049,11 +1049,7 @@ private struct ExerciseRailRow: View {
         }
         let driver = profile.driver { routineExercise.target($0) }
         if driver == .duration {
-            let dur = routineExercise.durationSeconds.map { seconds in
-                seconds >= 60
-                    ? WorkoutMetric.duration.formatted(Double(seconds))
-                    : "\(seconds)s"
-            } ?? "—"
+            let dur = routineExercise.durationSeconds.map { DurationTape.label(for: $0) } ?? "—"
             return "\(sets)×\(dur)"
         }
         return "\(sets)×" + driver.displayText(

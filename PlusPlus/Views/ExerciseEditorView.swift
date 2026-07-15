@@ -348,9 +348,7 @@ struct ExerciseEditorView: View {
 
     private var defaultDurationText: String {
         guard let seconds = draft.defaultDurationSeconds else { return "—" }
-        return seconds >= 60
-            ? WorkoutMetric.duration.formatted(Double(seconds))
-            : "\(seconds)s"
+        return DurationTape.label(for: seconds)
     }
 
     private func stepDefault(_ metric: WorkoutMetric, _ direction: Double) {

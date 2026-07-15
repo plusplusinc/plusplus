@@ -41,19 +41,12 @@ public struct DurationTape: Equatable, Sendable {
 
     // MARK: - Ticks
 
-    public enum TickWeight: Equatable, Sendable {
-        /// Unlabeled 5 s marks.
-        case minor
-        /// Labeled 30 s midpoints.
-        case medium
-        /// Labeled whole minutes.
-        case major
-    }
-
     public struct Tick: Equatable, Sendable {
         public let seconds: Int
-        public let weight: TickWeight
-        /// Present on medium/major ticks ("30s", "1:00", "12:30").
+        /// Present on the 30 s and whole-minute marks ("30s", "1:00",
+        /// "12:30"); nil on the plain 5 s marks. Bars render uniform
+        /// (the iOS 27 tape look), so labeled-or-not is the only
+        /// distinction the schedule carries.
         public let label: String?
     }
 
@@ -71,30 +64,35 @@ public struct DurationTape: Equatable, Sendable {
         let highest = min(range.upperBound, Int((highExact / 5).rounded(.down)) * 5)
         var result: [Tick] = []
         while s <= highest {
-            let weight: TickWeight = s % 60 == 0 ? .major : (s % 30 == 0 ? .medium : .minor)
-            result.append(Tick(
-                seconds: s,
-                weight: weight,
-                label: weight == .minor ? nil : Self.label(for: s)
-            ))
+            result.append(Tick(seconds: s, label: s % 30 == 0 ? Self.label(for: s) : nil))
             s += 5
         }
         return result
     }
 
-    /// Compact clock-style tape text: "45s" under a minute, m:ss from
-    /// there ("1:30", "12:00"). Also the scrubber's big readout format.
+    /// Compact clock-style duration text: "45s" under a minute, m:ss
+    /// from there ("1:30", "12:00") — delegating the m:ss branch to
+    /// `WorkoutMetric.formatted` so the clock format has one owner.
+    /// The scrubber's readout AND every compact duration label in the
+    /// app ("3×45s", "3×1:30") speak through this one helper.
     public static func label(for seconds: Int) -> String {
-        guard seconds >= 60 else { return "\(seconds)s" }
-        return String(format: "%d:%02d", seconds / 60, seconds % 60)
+        seconds >= 60 ? WorkoutMetric.duration.formatted(Double(seconds)) : "\(seconds)s"
     }
 }
 
 public extension WorkoutMetric {
     /// True for metrics that ARE a span of time (duration targets and
     /// rest) — the ones the app picks on the tape scrubber instead of a
-    /// wheel. Pace is m:ss too but is a rate, not a span.
+    /// wheel. Pace is m:ss too but is a rate, not a span. Exhaustive on
+    /// purpose, like `step`/`range`/`wheelValues`: a new metric must
+    /// DECIDE its picker, not silently fall to the wheel.
     var isTimeSpan: Bool {
-        self == .duration || self == .rest
+        switch self {
+        case .duration, .rest:
+            true
+        case .weight, .assistance, .reps, .height, .distance, .calories,
+             .pace, .speed, .incline, .resistance, .power, .cadence, .rpe:
+            false
+        }
     }
 }

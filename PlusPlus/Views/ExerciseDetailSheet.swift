@@ -325,9 +325,7 @@ struct ExerciseDetailSheet: View {
 
     private var durationText: String {
         guard let seconds = routineExercise.durationSeconds else { return "—" }
-        return seconds >= 60
-            ? WorkoutMetric.duration.formatted(Double(seconds))
-            : "\(seconds)s"
+        return DurationTape.label(for: seconds)
     }
 
     private func applyReps(_ target: RepTarget) {

@@ -46,12 +46,10 @@ struct DurationTapeTests {
         #expect(ticks.map(\.seconds) == Array(stride(from: 5, through: 70, by: 5)))
 
         let byS = Dictionary(uniqueKeysWithValues: ticks.map { ($0.seconds, $0) })
-        #expect(byS[30]?.weight == .medium)
         #expect(byS[30]?.label == "30s")
-        #expect(byS[60]?.weight == .major)
         #expect(byS[60]?.label == "1:00")
-        #expect(byS[35]?.weight == .minor)
         #expect(byS[35]?.label == nil)
+        #expect(byS[40]?.label == nil)
     }
 
     @Test("Ticks never escape the range and an empty window yields nothing")
