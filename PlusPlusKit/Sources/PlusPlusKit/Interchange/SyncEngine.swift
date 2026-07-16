@@ -205,7 +205,9 @@ public struct SyncEngine {
             buckets[PathCategory(path: path), default: []].insert(fileName(of: path))
         }
         guard buckets.count == 1, let (category, names) = buckets.first else {
-            let total = paths.count
+            // Per-bucket unique names, so a run's json+gpx pair counts once
+            // in the mixed fallback too.
+            let total = buckets.values.reduce(0) { $0 + $1.count }
             return "Sync \(total) change\(total == 1 ? "" : "s")"
         }
         return category.message(names: names.sorted())

@@ -1,16 +1,16 @@
 import Foundation
 import PlusPlusKit
 
-/// The app's `GitBlobCache`: one file per git SHA under Application
-/// Support/BlobCache (#378 PR 3). Content-addressed, so entries are
-/// immutable — no invalidation, just a size cap. Eviction is
-/// oldest-access-first, approximated by file modification date (a hit
-/// re-stamps it), checked lazily on store so the hot read path never scans
-/// the directory.
+/// The app's `GitBlobCache`: one file per git SHA under Caches/BlobCache
+/// (#378 PR 3). Content-addressed, so entries are immutable — no
+/// invalidation, just a size cap. Eviction is oldest-access-first,
+/// approximated by file modification date (a hit re-stamps it), checked
+/// lazily on store so the hot read path never scans the directory.
 ///
-/// Losing this directory is always safe: the next sync re-fetches. It's
-/// deliberately NOT excluded from anything or backed up anywhere — pure
-/// re-derivable cache.
+/// Losing this directory is always safe: the next sync re-fetches — which
+/// is exactly why it lives in Caches (never backed up, purgeable by the
+/// system under pressure), per Apple's data-storage guidance for
+/// re-derivable content.
 final class DiskBlobCache: GitBlobCache, @unchecked Sendable {
     /// ~50 MB holds years of session JSON plus hundreds of GPX sidecars.
     private let capBytes: Int
@@ -18,14 +18,22 @@ final class DiskBlobCache: GitBlobCache, @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.davidcole.plusplus.blob-cache")
 
     init?(capBytes: Int = 50_000_000) {
-        guard let support = try? FileManager.default.url(
-            for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true
+        guard let caches = try? FileManager.default.url(
+            for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true
         ) else { return nil }
-        directory = support.appendingPathComponent("BlobCache", isDirectory: true)
+        directory = caches.appendingPathComponent("BlobCache", isDirectory: true)
         self.capBytes = capBytes
         guard (try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)) != nil else {
             return nil
         }
+    }
+
+    /// Disconnect hygiene — repo-derived bytes go with the connection.
+    static func reset() {
+        guard let caches = try? FileManager.default.url(
+            for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: false
+        ) else { return }
+        try? FileManager.default.removeItem(at: caches.appendingPathComponent("BlobCache", isDirectory: true))
     }
 
     func data(forSHA sha: String) -> Data? {
