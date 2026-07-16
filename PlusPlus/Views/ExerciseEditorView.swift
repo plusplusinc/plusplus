@@ -171,7 +171,10 @@ struct ExerciseEditorView: View {
                     if draft.canBeOutdoor {
                         SheetSectionLabel("OUTDOOR")
                             .padding(.top, 24)
-                        Toggle(isOn: Bindable(draft).isOutdoor) {
+                        Toggle(isOn: Binding(
+                            get: { draft.isOutdoor },
+                            set: { draft.setOutdoor($0) }   // latches — prefill must never revert it
+                        )) {
                             Text("Outdoor (GPS)")
                                 .font(.system(.subheadline, weight: .bold))
                                 .foregroundStyle(Theme.textPrimary)

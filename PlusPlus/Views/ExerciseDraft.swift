@@ -113,6 +113,16 @@ final class ExerciseDraft {
         isOutdoor = profile.isOutdoor
     }
 
+    /// The editor's Outdoor toggle (#378). Latches `metricsTouched`: an
+    /// explicit flip is the user speaking about the profile, and the
+    /// equipment-prefill re-adoption (`onChange(of: selectedEquipment)`)
+    /// must never silently revert it — the toggle is off-screen when gear
+    /// changes, so a clobber would be invisible (swift-reviewer catch).
+    func setOutdoor(_ on: Bool) {
+        isOutdoor = on
+        metricsTouched = true
+    }
+
     /// Adopt a canonical definition wholesale (revert-to-default) —
     /// an explicit act, so it counts as touched.
     func setProfile(_ profile: MetricProfile) {

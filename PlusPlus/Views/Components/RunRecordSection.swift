@@ -23,11 +23,14 @@ struct RunRecordSection: View {
 
     /// The unit splits and pace quote against: the first outdoor set's
     /// snapshot unit (decoded profiles only — the reconstructed-profile
-    /// law), falling back to miles.
+    /// law), else any distance/pace-tracking set's unit (a foreign
+    /// sidecar paired onto a session whose sets never carried the outdoor
+    /// flag), falling back to miles.
     private var runUnit: DistanceUnit {
-        session.sortedSetLogs
-            .compactMap { MetricProfile.decode(from: $0.metricsData) }
-            .first(where: \.isOutdoor)?.distanceUnit ?? .miles
+        let profiles = session.sortedSetLogs.compactMap { MetricProfile.decode(from: $0.metricsData) }
+        return profiles.first(where: \.isOutdoor)?.distanceUnit
+            ?? profiles.first { $0.contains(.distance) || $0.contains(.pace) }?.distanceUnit
+            ?? .miles
     }
 
     var body: some View {
@@ -35,7 +38,12 @@ struct RunRecordSection: View {
             if let track, !track.isEmpty {
                 routeMap(track)
             }
-            statLine
+            // A route-only record (foreign sidecar, no summary) has no
+            // stats to state — an empty full-width HStack would just be a
+            // ghost gap between map and splits.
+            if session.runDistanceMeters != nil {
+                statLine
+            }
             if let track {
                 let splits = track.splits(per: runUnit)
                 if splits.count >= 2 {
@@ -46,7 +54,11 @@ struct RunRecordSection: View {
                 }
             }
         }
-        .task {
+        // Keyed on route presence so a sidecar attached by a background
+        // sync WHILE the record is open still gets its map (the id read
+        // also registers observation — body otherwise never touches
+        // routeData).
+        .task(id: session.routeData != nil) {
             guard track == nil, let data = session.routeData else { return }
             let decoded = await Task.detached(priority: .userInitiated) {
                 try? GPX.decode(data).track
@@ -188,6 +200,11 @@ struct RunRecordSection: View {
         }
         if split.meters >= bucket - 1 {
             return "\(name) \(split.index)"
+        }
+        // A partial of a 500 m erg bucket reads cleaner as absolute
+        // meters ("200M") than as a fraction of the bucket ("0.4 500M").
+        if unit == .meters {
+            return "\(Int(split.meters.rounded()))M"
         }
         let fraction = split.meters / bucket
         return String(format: "%.1f %@", fraction, name)

@@ -26,6 +26,9 @@ struct RunRecordSectionTests {
 
         let erg = RouteTrack.Split(index: 2, meters: 500, seconds: 110, paceSeconds: 110)
         #expect(RunRecordSection.splitLabel(erg, unit: .meters) == "500M 2")
+
+        let ergPartial = RouteTrack.Split(index: 3, meters: 200, seconds: 46, paceSeconds: 115)
+        #expect(RunRecordSection.splitLabel(ergPartial, unit: .meters) == "200M")
     }
 
     @Test("The map region fits the track with padding")
