@@ -241,10 +241,14 @@ struct ActiveSessionView: View {
                 heartRate.start(from: session.effectiveStart)
                 syncLocation()
             }
+            // The session's FIRST exercise announces here (no key change
+            // to observe); later exercises ride activeExerciseKey below.
+            announceVoiceCue()
         }
         .onDisappear {
             heartRate.stop()
             location.stop()
+            VoiceCueSpeaker.shared.stop()
         }
         // GPS pauses with the workout clock (HR keeps its passive query) —
         // no distance banked across a pause, and the battery rests.
@@ -253,9 +257,20 @@ struct ActiveSessionView: View {
         }
         // Re-point the meter as the active exercise changes: a new outdoor
         // exercise re-bases (its own distance), the same exercise's next
-        // round keeps accumulating, a non-outdoor exercise stops it.
+        // round keeps accumulating, a non-outdoor exercise stops it. The
+        // voice cue rides the same identity: the key flips to the up-next
+        // exercise the moment its transition starts, so the cue plays
+        // while the user is racking over, not mid-set.
         .onChange(of: activeExerciseKey) {
             syncLocation()
+            announceVoiceCue()
+        }
+        // A WATCH-driven finish swaps this screen to the purple record
+        // while a cue may still be talking — the phone-side finish path
+        // stops speech inside finishSession, but the mirror path never
+        // passes through there (swift-reviewer).
+        .onChange(of: session.isFinished) { _, finished in
+            if finished { VoiceCueSpeaker.shared.stop() }
         }
         // Island / Lock Screen rest controls (#157): LiveActivityIntents
         // run in this process and post here — same mutations as the
@@ -310,6 +325,37 @@ struct ActiveSessionView: View {
             isTransition: restIsTransition
         )
         LiveMirror.shared.restStarted(endsAt: endDate, total: restTotalSeconds, in: session)
+    }
+
+    /// Voice cues (opt-in, Settings → VOICE CUES): the active exercise's
+    /// cue line speaks once as its block starts. Dedup keys on session
+    /// identity + block (`startedAt` is persisted, so a remount of this
+    /// view can't re-announce within one app run); everything else —
+    /// mode, catalog coverage, UI-test inertness — gates inside the
+    /// speaker, which only evaluates the refresher scan when the mode
+    /// asks for it.
+    private func announceVoiceCue() {
+        guard !session.isFinished, let log = activeLog, let key = activeExerciseKey else { return }
+        VoiceCueSpeaker.shared.announce(
+            exerciseNamed: log.exerciseName,
+            dedupKey: "\(session.startedAt.timeIntervalSince1970)·\(key)",
+            isRefresher: isVoiceCueRefresher(log)
+        )
+    }
+
+    /// Refresher mode's model knowledge: an exercise deserves a spoken
+    /// reminder when it's new to you or you haven't done it in a month
+    /// — no completed set with this snapshot name in any finished
+    /// session inside the window, and none earlier in THIS session (a
+    /// second block of the same exercise is not a refresher).
+    private func isVoiceCueRefresher(_ log: SetLog) -> Bool {
+        let name = log.exerciseName
+        if session.completedSetLogs.contains(where: { $0.exerciseName == name }) { return false }
+        let cutoff = Date().addingTimeInterval(-TimeInterval(VoiceCueMode.refresherWindowDays) * 24 * 3600)
+        return !finishedSessions.contains { finished in
+            (finished.endedAt ?? .distantPast) >= cutoff
+                && finished.completedSetLogs.contains { $0.exerciseName == name }
+        }
     }
 
     /// Pushes the current working state (exercise · set · progress) to the
@@ -628,6 +674,8 @@ struct ActiveSessionView: View {
 
     private func finishSession(dismissAfter: Bool = true) {
         WorkoutActivityController.shared.end()
+        // A cue still talking over the purple finish would be noise.
+        VoiceCueSpeaker.shared.stop()
         if !session.isFinished {
             isFirstEverFinish = finishedSessions.isEmpty
             session.finish()

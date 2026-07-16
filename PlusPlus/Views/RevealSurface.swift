@@ -966,6 +966,11 @@ private struct SettingsTray: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage(AppAppearance.storageKey) private var appearanceRaw = AppAppearance.system.rawValue
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw = WeightUnit.lb.rawValue
+    @AppStorage(VoiceCueMode.key) private var voiceCueRaw = VoiceCueMode.off.rawValue
+    @AppStorage(VoiceCueVoice.key) private var voiceCueVoiceRaw = ""
+    /// Enumerating system voices has real cost — snapshot per tray
+    /// appearance, not per render.
+    @State private var voiceOptions: [VoiceCueVoice.Option] = []
 
     var body: some View {
         // Explicit System / Light / Dark order (handoff), mapped back to
@@ -998,10 +1003,85 @@ private struct SettingsTray: View {
             }
             .padding(.top, 22)
 
+            VStack(alignment: .leading, spacing: 7) {
+                SheetSectionLabel("VOICE CUES")
+                // Explicit order: most talkative to silent, matching the
+                // APPEARANCE idiom of a fixed display order over the
+                // enum's declaration order.
+                let cueOrder: [VoiceCueMode] = [.always, .refresher, .off]
+                SegmentedTabs(
+                    options: ["Every time", "Refreshers", "Off"],
+                    selectedIndex: Binding(
+                        get: { cueOrder.firstIndex(of: VoiceCueMode(rawValue: voiceCueRaw) ?? .off) ?? 2 },
+                        set: { voiceCueRaw = cueOrder[$0].rawValue }
+                    )
+                )
+                Text(voiceCueCaption)
+                    .font(.system(.caption))
+                    .foregroundStyle(Theme.textFaint)
+
+                // The voice picker is dead UI while cues are off.
+                if (VoiceCueMode(rawValue: voiceCueRaw) ?? .off) != .off {
+                    HStack {
+                        Text("Voice")
+                            .font(.system(.subheadline, weight: .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                        Spacer()
+                        Menu {
+                            Picker("Voice", selection: $voiceCueVoiceRaw) {
+                                ForEach(voiceOptions) { option in
+                                    Text(option.label).tag(option.id)
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 5) {
+                                Text(selectedVoiceLabel)
+                                    .font(.system(.subheadline))
+                                Image(systemName: "chevron.up.chevron.down")
+                                    .font(.system(.caption2, weight: .semibold))
+                            }
+                            .foregroundStyle(Theme.textSecondary)
+                        }
+                        .accessibilityIdentifier("voiceCueVoicePicker")
+                    }
+                    .padding(.top, 8)
+                    // A picked voice speaks a sample cue so it can be
+                    // judged without starting a workout.
+                    .onChange(of: voiceCueVoiceRaw) {
+                        VoiceCueSpeaker.shared.preview()
+                    }
+                    Text("Voices come from iOS. Download more under Settings \u{2192} Accessibility \u{2192} Spoken Content \u{2192} Voices.")
+                        .font(.system(.caption))
+                        .foregroundStyle(Theme.textFaint)
+                }
+            }
+            .padding(.top, 22)
+            .onAppear { voiceOptions = VoiceCueVoice.options() }
+
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 18)
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
+    }
+
+    /// The current picker label; an identifier whose voice was deleted
+    /// from the device reads as the default it will actually fall back
+    /// to.
+    private var selectedVoiceLabel: String {
+        voiceOptions.first { $0.id == voiceCueVoiceRaw }?.label ?? "System default"
+    }
+
+    /// The caption explains the SELECTED mode (the segment labels are
+    /// too short to carry the refresher definition on their own).
+    private var voiceCueCaption: String {
+        switch VoiceCueMode(rawValue: voiceCueRaw) ?? .off {
+        case .always:
+            return "A voice speaks a quick form reminder as each exercise begins. Music ducks while it talks."
+        case .refresher:
+            return "A voice speaks form reminders only for exercises that are new to you or that you haven't done in a month."
+        case .off:
+            return "No spoken form reminders."
+        }
     }
 }
 
