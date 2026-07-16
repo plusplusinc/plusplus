@@ -25,6 +25,66 @@ enum VoiceCueMode: String, CaseIterable {
     static let refresherWindowDays = 30
 }
 
+/// The chosen synthesis voice, stored as the voice IDENTIFIER; empty or
+/// unset = the system's default voice for the device language. A voice
+/// later deleted from the device falls back to the default silently.
+///
+/// What Apple exposes (`AVSpeechSynthesisVoice.speechVoices()`): every
+/// INSTALLED system voice, per language, in three quality tiers —
+/// compact (always present), Enhanced and Premium (downloaded by the
+/// user in iOS Settings → Accessibility → Spoken Content → Voices).
+/// The same name ships at several tiers, so tiered variants are
+/// distinct picker entries labeled by quality. Filtered out: novelty
+/// voices (Bells, Bubbles…) — a joke voice coaching form undermines
+/// the feature — and Personal Voice, which needs its own authorization
+/// flow (a fine follow-up, not v1). Siri's own voices are not exposed
+/// to apps at all.
+enum VoiceCueVoice {
+    static let key = "voiceCueVoiceIdentifier"
+
+    static var selectedIdentifier: String? {
+        let raw = UserDefaults.standard.string(forKey: key) ?? ""
+        return raw.isEmpty ? nil : raw
+    }
+
+    /// The resolved voice for an utterance; nil = system default.
+    static var selected: AVSpeechSynthesisVoice? {
+        selectedIdentifier.flatMap { AVSpeechSynthesisVoice(identifier: $0) }
+    }
+
+    /// One pickable voice. `id` is the AVSpeech identifier; "" is the
+    /// system-default sentinel (it round-trips through the same stored
+    /// string).
+    struct Option: Identifiable, Hashable {
+        let id: String
+        let label: String
+    }
+
+    /// English voices installed on the device (the cues are English),
+    /// system default first, then name-sorted. Enumerating the system
+    /// voice list has real cost — call once per tray appearance, not
+    /// per render.
+    static func options() -> [Option] {
+        let voices = AVSpeechSynthesisVoice.speechVoices()
+            .filter { voice in
+                voice.language.hasPrefix("en")
+                    && !voice.voiceTraits.contains(.isNoveltyVoice)
+                    && !voice.voiceTraits.contains(.isPersonalVoice)
+            }
+            .map { voice in
+                var label = voice.name
+                switch voice.quality {
+                case .enhanced: label += " · Enhanced"
+                case .premium: label += " · Premium"
+                default: break
+                }
+                return Option(id: voice.identifier, label: label)
+            }
+            .sorted { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
+        return [Option(id: "", label: "System default")] + voices
+    }
+}
+
 /// Speaks a built-in exercise's form cues (`FormCues`) as the exercise
 /// starts in a live session — driven from ActiveSessionView's
 /// `activeExerciseKey`, the same identity the GPS meter re-bases on, so
@@ -94,9 +154,22 @@ final class VoiceCueSpeaker: NSObject, AVSpeechSynthesizerDelegate {
         guard let cues = FormCues.line(for: name) else { return }
         if mode == .refresher, !isRefresher() { return }
         announcedKeys.insert(dedupKey)
+        speak("\(name). \(cues)")
+    }
 
-        let utterance = AVSpeechUtterance(string: "\(name). \(cues)")
+    /// Speaks a short sample so a just-picked voice can be judged
+    /// without starting a workout — the settings tray calls this on
+    /// voice selection. Real cue content, so the sample sounds like
+    /// the feature.
+    func preview() {
+        guard !disabled else { return }
+        speak("Squat. \(FormCues.line(for: "Squat") ?? "")")
+    }
+
+    private func speak(_ text: String) {
+        let utterance = AVSpeechUtterance(string: text)
         utterance.preUtteranceDelay = 0.1
+        utterance.voice = VoiceCueVoice.selected
         queue.async { [self] in
             let audio = AVAudioSession.sharedInstance()
             try? audio.setCategory(
