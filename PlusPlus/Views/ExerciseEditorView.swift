@@ -164,6 +164,26 @@ struct ExerciseEditorView: View {
                             .padding(.top, 6)
                     }
 
+                    // Outdoor lives with the distance vocabulary: it only
+                    // means something with a distance or pace metric to
+                    // feed (#378), and the flag itself is a flat control —
+                    // toggles stay flat per the press grammar.
+                    if draft.canBeOutdoor {
+                        SheetSectionLabel("OUTDOOR")
+                            .padding(.top, 24)
+                        Toggle(isOn: Bindable(draft).isOutdoor) {
+                            Text("Outdoor (GPS)")
+                                .font(.system(.subheadline, weight: .bold))
+                                .foregroundStyle(Theme.textPrimary)
+                        }
+                        .tint(Theme.selected)
+                        .accessibilityIdentifier("outdoorToggle")
+                        Text("Live pace and distance from GPS while you work out, and the route on the record.")
+                            .font(.system(.caption))
+                            .foregroundStyle(Theme.textFaint)
+                            .padding(.top, 6)
+                    }
+
                     SheetSectionLabel("DEFAULTS")
                         .padding(.top, 24)
                     defaultsCard
