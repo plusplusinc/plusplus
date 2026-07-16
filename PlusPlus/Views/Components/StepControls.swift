@@ -42,13 +42,18 @@ struct ConfigIconButton: View {
 /// 2026-07-16) — press and hold to keep stepping until release. Same raised
 /// cap + mono step label as the rest of the set screen.
 ///
-/// The tap stays a plain `Button` (reliable, and what XCUITest drives); the
-/// hold rides two SIMULTANEOUS gestures so neither starves the enclosing
-/// scroll (.claude/rules/ui-interaction.md warns a sequenced long-press/drag
-/// does): a 0.3 s long-press starts the repeat, a 0-distance drag's end stops
-/// it, and a scroll's movement past 24 pt cancels the long-press before it
-/// can fire. ⚠️ Gesture-layer behavior isn't exercisable by XCUITest (taps
-/// bypass the gesture overlay) — needs an on-device pass.
+/// The tap stays a plain `Button` (reliable, accessible, and what XCUITest
+/// drives); the hold rides ONE `.onLongPressGesture(perform:onPressingChanged:)`.
+/// `perform` fires at the 0.3 s threshold (while still pressed) to start the
+/// repeat; `onPressingChanged(false)` fires on BOTH release AND cancellation —
+/// so when a scrolling ancestor steals the touch, the repeat still stops
+/// (a bare `DragGesture.onEnded` never fires on cancel, which would leak the
+/// task and let the value climb on its own — swift-reviewer). `maximumDistance`
+/// cancels the press if the finger travels into a scroll, so a pan never
+/// starts a repeat. A completed hold sets `didRepeat` so the Button's
+/// trailing tap-up doesn't append one extra step. ⚠️ Gesture-layer behavior
+/// isn't exercisable by XCUITest (taps bypass the gesture overlay) — needs an
+/// on-device pass.
 struct HoldRepeatKey: View {
     let label: String
     var height: CGFloat = 56
@@ -57,9 +62,16 @@ struct HoldRepeatKey: View {
     let onStep: () -> Void
 
     @State private var repeatTask: Task<Void, Never>?
+    /// True once a hold has begun repeating, so the Button's tap-up on release
+    /// is swallowed instead of adding a stray step. Reset when the next press
+    /// begins (and defensively when the swallow happens).
+    @State private var didRepeat = false
 
     var body: some View {
-        Button(action: onStep) {
+        Button {
+            if didRepeat { didRepeat = false; return }
+            onStep()
+        } label: {
             Text(label)
                 .font(.system(.body, design: .monospaced, weight: .bold))
                 .foregroundStyle(Theme.textPrimary)
@@ -72,14 +84,16 @@ struct HoldRepeatKey: View {
         }
         .buttonStyle(.raisedKey(cornerRadius: 12))
         .accessibilityIdentifier(identifier)
-        .simultaneousGesture(
-            LongPressGesture(minimumDuration: 0.3, maximumDistance: 24)
-                .onEnded { _ in beginRepeat() }
-        )
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onEnded { _ in endRepeat() }
-        )
+        .onLongPressGesture(minimumDuration: 0.3, maximumDistance: 24, perform: {
+            beginRepeat()
+        }, onPressingChanged: { pressing in
+            if pressing {
+                didRepeat = false
+            } else {
+                // Release OR cancel (scroll steal) — always stops the repeat.
+                endRepeat()
+            }
+        })
         // A hold in flight must not outlive the screen (the deferred-beat
         // rule): cancel if this key disappears mid-press.
         .onDisappear { endRepeat() }
@@ -87,6 +101,7 @@ struct HoldRepeatKey: View {
 
     private func beginRepeat() {
         endRepeat()
+        didRepeat = true
         let haptic = UIImpactFeedbackGenerator(style: .light)
         haptic.prepare()
         repeatTask = Task { @MainActor in
