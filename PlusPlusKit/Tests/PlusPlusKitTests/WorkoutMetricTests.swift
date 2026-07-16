@@ -35,6 +35,35 @@ struct WorkoutMetricTests {
         #expect(WorkoutMetric.weight.decremented(5, stepOverride: 10) == 0)
     }
 
+    @Test("Every metric's step choices are positive, ascending, and non-empty")
+    func stepChoicesWellFormed() {
+        for metric in WorkoutMetric.allCases {
+            for weightUnit in WeightUnit.allCases {
+                for distanceUnit in DistanceUnit.allCases {
+                    let choices = metric.stepChoices(weightUnit: weightUnit, distanceUnit: distanceUnit)
+                    #expect(!choices.isEmpty, "\(metric) has no step choices")
+                    let allPositive = choices.allSatisfy { $0.isFinite && $0 > 0 }
+                    #expect(allPositive, "\(metric) step choices must be finite and positive")
+                    let ascending = zip(choices, choices.dropFirst()).allSatisfy { $0 < $1 }
+                    #expect(ascending, "\(metric) step choices must strictly ascend")
+                }
+            }
+        }
+    }
+
+    @Test("Step choices are unit-aware for weight and distance")
+    func stepChoicesUnitAware() {
+        #expect(WorkoutMetric.weight.stepChoices(weightUnit: .lb).contains(2.5))
+        #expect(WorkoutMetric.weight.stepChoices(weightUnit: .lb).contains(45))
+        #expect(WorkoutMetric.weight.stepChoices(weightUnit: .kg).contains(1.25))
+        #expect(WorkoutMetric.distance.stepChoices(distanceUnit: .meters).contains(50))
+        #expect(WorkoutMetric.distance.stepChoices(distanceUnit: .miles).contains(0.25))
+        // A choosable increment should be usable as a stepOverride and
+        // move the value by exactly that amount.
+        let choice = WorkoutMetric.incline.stepChoices().first!
+        #expect(WorkoutMetric.incline.incremented(1, stepOverride: choice) == 1 + choice)
+    }
+
     @Test("Values clamp at the range bounds")
     func clamping() {
         #expect(WorkoutMetric.weight.decremented(0) == 0)

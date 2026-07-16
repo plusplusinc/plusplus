@@ -69,6 +69,45 @@ final class Exercise {
         set { extraDefaultsData = MetricValues.encode(newValue) }
     }
 
+    // MARK: - Stepper strides (#391)
+    // The per-tap increment the weight/assist ± keys move by is an EQUIPMENT
+    // property, not an exercise or session one: your microplates step 2.5 on
+    // every barbell lift. It rides the long-standing `Equipment.weightStep`,
+    // resolved through `weightStepOverride` (the smallest stride across
+    // loadable gear, so the finest plates win). The set screen's increment
+    // sheet writes back to that gear so the change sticks and travels with
+    // it. Only the load metrics are adjustable this way — every other metric
+    // keeps its unit/metric default, which has no equipment home.
+
+    /// Loadable gear that can carry the weight stride (a bench holds no
+    /// plates). `isDeleted` guard mirrors `weightStepOverride`.
+    private var loadableStepGear: [Equipment] {
+        equipment.filter { !$0.isDeleted && SeedData.isLoadable($0) }
+    }
+
+    /// The chosen stride for a metric, read off the exercise's gear — the
+    /// top layer of step resolution. Only the load metrics have one; every
+    /// other metric resolves nil (its default step stands).
+    func stepOverride(for metric: WorkoutMetric) -> Double? {
+        (metric == .weight || metric == .assistance) ? weightStepOverride : nil
+    }
+
+    /// Whether `metric`'s stride can be adjusted from the set screen — only
+    /// the load metrics, and only when there's loadable gear to hold the
+    /// stride (a gearless bodyweight move keeps the default step).
+    func canAdjustStep(for metric: WorkoutMetric) -> Bool {
+        (metric == .weight || metric == .assistance) && !loadableStepGear.isEmpty
+    }
+
+    /// Persist a chosen weight stride onto the exercise's loadable gear, so
+    /// it applies here and everywhere that gear is used. Writing to every
+    /// loadable piece keeps `weightStepOverride`'s min-resolution honest (one
+    /// straggler at the old stride would otherwise win).
+    func setStep(_ value: Double, for metric: WorkoutMetric) {
+        guard value > 0, metric == .weight || metric == .assistance else { return }
+        for gear in loadableStepGear { gear.weightStep = value }
+    }
+
     /// One lookup for any metric's default target, columns and bag alike.
     func defaultTarget(_ metric: WorkoutMetric) -> Double? {
         switch metric {
