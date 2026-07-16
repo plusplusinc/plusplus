@@ -139,6 +139,9 @@ struct RoutineTemplate: Identifiable, Hashable {
             restSeconds: restSeconds
         )
         context.insert(routine)
+        // Carry the curated one-liner onto the routine so its description
+        // survives into the library (the catalog voice, editable after).
+        routine.summary = summary
         for other in existingRoutines {
             other.order += 1
         }

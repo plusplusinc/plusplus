@@ -207,6 +207,7 @@ The app's single-file export (backup / manual transport) is a bundle:
       "name": "Erg Intervals",
       "restSeconds": 90,
       "schedule": { "mode": "frequency", "perDays": 7, "times": 3 },
+      "summary": "Six hard two-minute pieces on the erg.",
       "transitionSeconds": 30
     },
     {
@@ -348,6 +349,11 @@ Semantics worth writing down:
   `transition` is block configuration like `rest`: neither identifier may
   appear in `metrics` or the extras maps. Sessions don't carry it — a
   finished record's real gaps live in `completedAt`.
+- **Routine `summary`** (additive to schema v1): an optional one-line
+  description, the routine's own voice, seeded from a curated catalog
+  template on add and editable after. Absent means no description, so
+  pre-field files round-trip unchanged. Distinct from `notes`, which is
+  freeform intent shown at session start.
 - **Sessions snapshot everything** (names, types, targets) exactly like the app's
   data model, so history files stand alone even if templates change. A session
   also carries `activeSeconds` (running-clock duration, excluding pauses and

@@ -103,17 +103,22 @@ public struct RoutineDTO: Codable, Equatable, Sendable {
     /// pre-field file round-trips unchanged.
     public var transitionSeconds: Int?
     public var notes: String?
+    /// A one-line description, the routine's own voice (seeded from a
+    /// catalog template's summary on add, editable after). Additive; absent
+    /// means no description, so a pre-field file round-trips unchanged.
+    public var summary: String?
     /// The recurrence (weekdays / frequency). Additive; absent means
     /// unscheduled, so pre-schedule files round-trip unchanged.
     public var schedule: RoutineSchedule?
     public var groups: [GroupDTO]
 
-    public init(name: String, restSeconds: Int, transitionSeconds: Int? = nil, notes: String? = nil, schedule: RoutineSchedule? = nil, groups: [GroupDTO]) {
+    public init(name: String, restSeconds: Int, transitionSeconds: Int? = nil, notes: String? = nil, summary: String? = nil, schedule: RoutineSchedule? = nil, groups: [GroupDTO]) {
         self.name = name
         self.restSeconds = restSeconds
         self.transitionSeconds = transitionSeconds
         self.schedule = schedule
         self.notes = notes
+        self.summary = summary
         self.groups = groups
     }
 

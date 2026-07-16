@@ -29,7 +29,7 @@ import PlusPlusKit
 /// EquipmentLibrary   name·equipment(members) → EXPORTED
 ///                    order → EXCLUDED (device ordering; import appends)
 ///                    uuid → EXCLUDED (active-pointer identity, device state)
-/// Routine            name·restSeconds·transitionSeconds·notes·scheduleData·groups → EXPORTED
+/// Routine            name·restSeconds·transitionSeconds·notes·summary·scheduleData·groups → EXPORTED
 ///                    createdAt → EXCLUDED (device metadata)
 ///                    order → EXCLUDED (device ordering; import appends)
 ///                    uuid → EXCLUDED (presentation identity, device state, like EquipmentLibrary.uuid)
@@ -183,6 +183,7 @@ enum InterchangeMapping {
             transitionSeconds: routine.transitionSeconds == Int(WorkoutMetric.transition.defaultValue)
                 ? nil : routine.transitionSeconds,
             notes: routine.notes,
+            summary: routine.summary,
             // Omit when unscheduled so pre-schedule files stay byte-identical.
             schedule: routine.schedule == .unscheduled ? nil : routine.schedule,
             groups: routine.sortedGroups.map { group in
@@ -412,6 +413,7 @@ enum InterchangeMapping {
             // same value migration stamps existing stores (#369).
             target.transitionSeconds = dto.transitionSeconds ?? Int(WorkoutMetric.transition.defaultValue)
             target.notes = dto.notes
+            target.summary = dto.summary
             // Restore recurrence; absent means unscheduled (pre-schedule files).
             target.schedule = dto.schedule ?? .unscheduled
 

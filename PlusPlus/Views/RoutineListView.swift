@@ -331,30 +331,34 @@ private struct RoutineCard: View {
         hasExercises && !(isCardio && routine.equipmentNames.isEmpty)
     }
 
-    /// The merged middle line: calendar cadence · time estimate · what it
-    /// works. One `Text` so it truncates as a unit.
-    private var middleLine: Text {
-        var line = Text(Image(systemName: "calendar")).foregroundStyle(scheduleColor)
-            + Text(" \(cadenceLabel)").foregroundStyle(scheduleColor)
-        if hasExercises {
-            line = line + Text(" · \(estimateText)").foregroundStyle(Theme.textFaint)
-        }
-        return line + Text(" · \(descriptor)").foregroundStyle(Theme.textSecondary)
+    /// The routine's own one-line description, when it has a non-empty one
+    /// (seeded from a catalog template on add). This takes the card's
+    /// description row; without it the row falls back to `descriptor`.
+    private var routineSummary: String? {
+        guard let s = routine.summary?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !s.isEmpty else { return nil }
+        return s
     }
 
-    /// A clean spoken summary for the merged line — the raw concatenated
-    /// `Text` would have VoiceOver read the calendar glyph and the "·"/"~"
-    /// separators aloud.
-    private var middleAccessibilityLabel: String {
-        var parts = [cadenceLabel]
-        if hasExercises { parts.append(estimateText) }
-        parts.append(descriptor)
-        return parts.joined(separator: ", ")
+    /// The facts line: calendar cadence · time estimate. One `Text` so it
+    /// truncates as a unit; the description and gear ride their own rows.
+    private var factsLine: Text {
+        let line = Text(Image(systemName: "calendar")).foregroundStyle(scheduleColor)
+            + Text(" \(cadenceLabel)").foregroundStyle(scheduleColor)
+        guard hasExercises else { return line }
+        return line + Text(" · \(estimateText)").foregroundStyle(Theme.textFaint)
+    }
+
+    /// A clean spoken label for the facts line — the raw concatenated `Text`
+    /// would have VoiceOver read the calendar glyph and the "·"/"~" aloud.
+    private var factsAccessibilityLabel: String {
+        hasExercises ? "\(cadenceLabel), \(estimateText)" : cadenceLabel
     }
 
     var body: some View {
-        // Three rows: identity, the merged when · estimate · what-it-works
-        // line, and gear as soft tags on its own line (Dave, 2026-07-16).
+        // Three rows (Dave, 2026-07-16): identity; the description (the
+        // routine's own summary if it has one, else what it works); then
+        // the facts line (calendar cadence · estimate) with gear soft tags.
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(routine.name)
@@ -366,15 +370,28 @@ private struct RoutineCard: View {
                     .font(.system(.footnote, weight: .bold))
                     .foregroundStyle(Theme.textFaint)
             }
-            middleLine
-                .font(.system(.caption))
-                .lineLimit(1)
-                .accessibilityLabel(middleAccessibilityLabel)
-            if showsGear {
-                HStack(spacing: 5) {
-                    // Soft tags (filled, no stroke): a stroked capsule read
-                    // as a button next to the plain-text rows above (Dave,
-                    // 2026-07-16). Amber still flags gear you don't have.
+            // Description row: the routine's own line if it has one (the
+            // catalog voice, carried into the library), else what it works.
+            if let summary = routineSummary {
+                Text(summary)
+                    .font(.system(.caption))
+                    .foregroundStyle(Theme.textSecondary)
+                    .lineLimit(2)
+            } else {
+                Text(descriptor)
+                    .font(.system(.caption))
+                    .foregroundStyle(Theme.textSecondary)
+                    .lineLimit(1)
+            }
+            // Facts + gear on one row: calendar cadence · estimate, then the
+            // gear as soft tags (filled, no stroke — a stroked capsule read
+            // as a button; amber still flags gear you don't have).
+            HStack(spacing: 8) {
+                factsLine
+                    .font(.system(.caption))
+                    .lineLimit(1)
+                    .accessibilityLabel(factsAccessibilityLabel)
+                if showsGear {
                     ForEach(pills, id: \.self) { pill in
                         let unavailable = pillUnavailable(pill)
                         Text(pill)
@@ -388,8 +405,8 @@ private struct RoutineCard: View {
                             )
                             .lineLimit(1)
                     }
-                    Spacer(minLength: 0)
                 }
+                Spacer(minLength: 0)
             }
         }
         .padding(.vertical, 14)
