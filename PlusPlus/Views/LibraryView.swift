@@ -674,7 +674,15 @@ struct CatalogBrowseScreen: View {
             get: { customPrefill != nil },
             set: { if !$0 { customPrefill = nil } }
         )) {
-            ExerciseEditorView(prefillName: customPrefill ?? "")
+            // Creating from a narrowed list carries the narrowing in:
+            // the filters describe the exercise being looked for, so
+            // the missing one starts from them. Reading filterState
+            // live is safe — the filters sit behind this sheet.
+            ExerciseEditorView(
+                prefillName: customPrefill ?? "",
+                prefillMuscleGroup: filterState.prefillMuscleGroup,
+                prefillEquipment: filterState.prefillEquipment
+            )
         }
         .alert("New equipment", isPresented: $promptingEquipmentName) {
             TextField("Name", text: $newEquipmentName)

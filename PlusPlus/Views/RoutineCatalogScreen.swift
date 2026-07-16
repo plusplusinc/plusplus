@@ -302,14 +302,26 @@ struct RoutineCatalogScreen: View {
 
     // MARK: - Rows
 
+    /// Mirrors the exercise catalog's create key (#63): with a query
+    /// live, the label telegraphs the prefilled name.
+    private var createLabel: String {
+        let trimmed = search.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty { return "Create “\(trimmed)”" }
+        return "New blank routine"
+    }
+
     private var createRow: some View {
         Button {
+            // A searched-for routine that isn't in the catalog is
+            // probably the one being created — the query seeds the
+            // name prompt (still fully editable; Cancel clears it).
+            newRoutineName = search.trimmingCharacters(in: .whitespacesAndNewlines)
             showingNewRoutine = true
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "plus")
                     .font(.system(.caption, weight: .semibold))
-                Text("New blank routine")
+                Text(createLabel)
                     .font(.system(.footnote, weight: .semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
