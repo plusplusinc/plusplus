@@ -32,7 +32,9 @@ public enum GPX {
         lines.append(#"<gpx version="1.1" creator="\#(creator)" xmlns="http://www.topografix.com/GPX/1/1">"#)
         lines.append("  <metadata><time>\(timestamp(startedAt))</time></metadata>")
         lines.append("  <trk>")
-        lines.append("    <name>\(escape(name))</name>")
+        // Trimmed to mirror the reader (which trims and lives with XML's
+        // mandated CR normalization), so name round-trips stay symmetric.
+        lines.append("    <name>\(escape(name.trimmingCharacters(in: .whitespacesAndNewlines)))</name>")
         for segment in track.segments {
             lines.append("    <trkseg>")
             for fix in segment {

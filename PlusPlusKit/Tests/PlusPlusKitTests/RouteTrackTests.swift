@@ -45,6 +45,22 @@ struct RouteTrackTests {
         #expect(RouteTrack(segments: []).isEmpty)
     }
 
+    @Test("Init drops non-finite coordinates and nulls non-finite elevations")
+    func nonFiniteSanitation() {
+        let a = fix(meters: 0, seconds: 0)
+        let poisonedLat = RouteTrack.Fix(latitude: .nan, longitude: 0, time: start.addingTimeInterval(5))
+        let infiniteEle = RouteTrack.Fix(
+            latitude: 100 / Self.metersPerDegree, longitude: 0,
+            elevation: .infinity, time: start.addingTimeInterval(10)
+        )
+        let track = RouteTrack(segments: [[a, poisonedLat, infiniteEle]])
+        #expect(track.segments.count == 1)
+        #expect(track.segments[0].count == 2)   // the NaN-lat fix is gone
+        #expect(track.segments[0][1].elevation == nil)
+        #expect(track.totalMeters.isFinite)
+        #expect(track.elevationGainMeters == nil)   // no finite pair survives
+    }
+
     // MARK: - Distance and time
 
     @Test("Haversine matches a known meridian degree")

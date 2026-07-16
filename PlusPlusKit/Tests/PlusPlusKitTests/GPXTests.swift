@@ -91,6 +91,27 @@ struct GPXTests {
         #expect(decoded.track.segments[0][0].time == date("2026-01-01T10:00:00Z"))
     }
 
+    @Test("A poisoned sidecar (nan/inf values) decodes sanitized, never NaN")
+    func nonFiniteInput() throws {
+        let poisoned = """
+        <gpx version="1.1" creator="X" xmlns="http://www.topografix.com/GPX/1/1">
+          <trk><name>Bad Run</name>
+            <trkseg>
+              <trkpt lat="37.1" lon="-122.1"><time>2026-01-01T10:00:00Z</time></trkpt>
+              <trkpt lat="nan" lon="-122.2"><time>2026-01-01T10:00:05Z</time></trkpt>
+              <trkpt lat="37.2" lon="-122.2"><ele>inf</ele><time>2026-01-01T10:00:10Z</time></trkpt>
+            </trkseg>
+          </trk>
+        </gpx>
+        """
+        let decoded = try GPX.decode(Data(poisoned.utf8))
+        #expect(decoded.track.segments == [[
+            .init(latitude: 37.1, longitude: -122.1, time: date("2026-01-01T10:00:00Z")),
+            .init(latitude: 37.2, longitude: -122.2, elevation: nil, time: date("2026-01-01T10:00:10Z")),
+        ]])
+        #expect(decoded.track.totalMeters.isFinite)
+    }
+
     @Test("A route (rte/rtept) reads as one segment")
     func routePoints() throws {
         let rte = """

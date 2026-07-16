@@ -49,6 +49,15 @@ public struct RouteTrack: Equatable, Sendable {
         /// Seconds normalized to a FULL bucket, so a partial final split
         /// quotes a comparable pace, not a tiny absolute time.
         public var paceSeconds: Double
+
+        // Public memberwise init: the Kit is MIT-for-adoption, and an
+        // adopter's tests need to construct expected splits.
+        public init(index: Int, meters: Double, seconds: TimeInterval, paceSeconds: Double) {
+            self.index = index
+            self.meters = meters
+            self.seconds = seconds
+            self.paceSeconds = paceSeconds
+        }
     }
 
     /// Below this the wearer is standing, not moving — the same floor
@@ -71,17 +80,22 @@ public struct RouteTrack: Equatable, Sendable {
     static let minimumPartialSplitMeters: Double = 1
 
     /// Contiguous recording stretches, in time order. Construction
-    /// sanitizes: within a segment only strictly-ascending timestamps
-    /// survive (a duplicate or rewound fix is dropped), and a segment left
-    /// with fewer than two fixes carries no distance or time and is dropped
-    /// whole.
+    /// sanitizes: a fix with a non-finite coordinate is dropped and a
+    /// non-finite elevation nulled (the tolerant GPX reader parses "nan" /
+    /// "inf" — swift-reviewer's catch: unguarded, one poisoned fix turns
+    /// every derivation NaN and the frozen writer would emit invalid GPX);
+    /// within a segment only strictly-ascending timestamps survive (a
+    /// duplicate or rewound fix is dropped); and a segment left with fewer
+    /// than two fixes carries no distance or time and is dropped whole.
     public private(set) var segments: [[Fix]]
 
     public init(segments: [[Fix]]) {
         self.segments = segments.map { segment in
             var kept: [Fix] = []
             kept.reserveCapacity(segment.count)
-            for fix in segment {
+            for var fix in segment {
+                guard fix.latitude.isFinite, fix.longitude.isFinite else { continue }
+                if let elevation = fix.elevation, !elevation.isFinite { fix.elevation = nil }
                 if let last = kept.last, fix.time <= last.time { continue }
                 kept.append(fix)
             }
