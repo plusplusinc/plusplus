@@ -263,7 +263,7 @@ struct InterchangeMappingTests {
         source.insert(retired)
 
         // ── Routine: notes + schedule + a superset block with an override.
-        let routine = Routine(name: "Probe Routine", restSeconds: 75, transitionSeconds: 25, notes: "Under an hour.")
+        let routine = Routine(name: "Probe Routine", restSeconds: 75, transitionSeconds: 25, notes: "Under an hour.", summary: "A probe routine, one line of voice.")
         source.insert(routine)
         routine.schedule = .weekdays([1, 3, 5])
         let block = routine.addExerciseInNewGroup(row, context: source)
@@ -357,6 +357,7 @@ struct InterchangeMappingTests {
         #expect(importedRoutine.restSeconds == 75)
         #expect(importedRoutine.transitionSeconds == 25)
         #expect(importedRoutine.notes == "Under an hour.")
+        #expect(importedRoutine.summary == "A probe routine, one line of voice.")
         #expect(importedRoutine.schedule == .weekdays([1, 3, 5]))
         let importedBlock = try #require(importedRoutine.sortedGroups.first)
         #expect(importedBlock.sets == 4)

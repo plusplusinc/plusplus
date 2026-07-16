@@ -127,7 +127,14 @@ struct RoutineCatalogScreen: View {
 
     private func filtered(gearOverride: GearFit?) -> [RoutineTemplate] {
         let owned = ownedEquipmentNames
+        // A template already in the library drops out of the catalog: the
+        // detail's "Add" was only local view state, so an added routine
+        // still read as addable (Dave, 2026-07-16). Matched by name — the
+        // same key `instantiate`'s uniqueName dedups on; a routine renamed
+        // away from its template frees the template to be added fresh again.
+        let inLibrary = Set(routines.map { $0.name.lowercased() })
         var result = RoutineCatalog.all.filter { template in
+            if inLibrary.contains(template.name.lowercased()) { return false }
             if !focusFilter.isEmpty, !focusFilter.contains(template.focus) { return false }
             if !effortFilter.isEmpty, !effortFilter.contains(template.effort) { return false }
             if !timeFilter.isEmpty, !timeFilter.contains(where: { $0.contains(template.estimatedSeconds) }) { return false }

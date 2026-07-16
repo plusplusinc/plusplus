@@ -194,6 +194,7 @@ struct InterchangeTests {
             ],
             routines: [
                 RoutineDTO(name: "Cardio", restSeconds: 60,
+                           summary: "Steady rowing, one line of voice.",
                            schedule: .weekdays([2, 4]),
                            groups: [.init(sets: 1, exercises: [
                                .init(exercise: "Row", durationSeconds: 1200,
@@ -213,6 +214,7 @@ struct InterchangeTests {
         )
         let decoded = try InterchangeCodec.decode(ExportBundle.self, from: try InterchangeCodec.encode(bundle))
         #expect(decoded.routines.first?.schedule == .weekdays([2, 4]))
+        #expect(decoded.routines.first?.summary == "Steady rowing, one line of voice.")
         #expect(decoded.exercises.first?.defaultHeartRateTarget == .zone(.zone3))
         #expect(decoded.routines.first?.groups.first?.exercises.first?.heartRateTarget == .range(lowerBPM: 130, upperBPM: 150))
         #expect(decoded.sessions.first?.activeSeconds == 1140)
