@@ -17,9 +17,21 @@ struct FuzzySearchTests {
     func punctuation() {
         #expect(FuzzySearch.matches(query: "push up", candidate: "Push-Up"))
         #expect(FuzzySearch.matches(query: "push-up", candidate: "Push Up"))
-        // A query with no letters or digits matches nothing.
         #expect(!FuzzySearch.matches(query: "++", candidate: "Push-Up"))
         #expect(FuzzySearch.score(query: "  ", candidate: "Push-Up") == nil)
+    }
+
+    @Test("Symbol-only names and queries compare literally, never match-all")
+    func symbolOnly() {
+        // A user CAN name a routine "++" in this app; it must stay findable.
+        #expect(FuzzySearch.matches(query: "++", candidate: "++"))
+        #expect(FuzzySearch.matches(query: "++", candidate: "Push++"))
+        // A symbol query NARROWS — only a blank query passes everything.
+        #expect(FuzzySearch.ranked(["Push Day", "++"], query: "++", key: { $0 }) == ["++"])
+        // A resolver must never pick an arbitrary winner for a token-free
+        // name (a stat scoped to the wrong routine reads as fact).
+        #expect(FuzzySearch.bestMatch(query: "💪", in: ["Push Day", "Leg Day"]) == nil)
+        #expect(FuzzySearch.bestMatch(query: "  ", in: ["Push Day"]) == nil)
     }
 
     // MARK: - Tiers

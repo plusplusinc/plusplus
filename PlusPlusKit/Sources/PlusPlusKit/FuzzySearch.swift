@@ -13,13 +13,21 @@ import Foundation
 /// it never guesses). Discovery is forgiving; applying changes is not.
 public enum FuzzySearch {
     /// Match quality in 0...1, or nil when the query doesn't match.
-    /// A query with no letters or digits (empty, whitespace, "-") is
-    /// nil — callers decide what an absent query means.
+    /// A blank (empty/whitespace) query is nil — callers decide what an
+    /// absent query means. A side made only of symbols ("++", "💪")
+    /// still has an identity: it compares literally on the folded text,
+    /// so a symbol-only name stays findable and a symbol-only query
+    /// matches only what actually contains it — never everything.
     public static func score(query: String, candidate: String) -> Double? {
         let queryTokens = tokens(query)
-        guard !queryTokens.isEmpty else { return nil }
         let candidateTokens = tokens(candidate)
-        guard !candidateTokens.isEmpty else { return nil }
+        guard !queryTokens.isEmpty, !candidateTokens.isEmpty else {
+            let q = folded(query), c = folded(candidate)
+            guard !q.isEmpty, !c.isEmpty else { return nil }
+            if c == q { return 1.0 }
+            if c.contains(q) { return 0.6 }
+            return nil
+        }
         // "pushup" must reach "Push-Up", "benchpress" reach "Bench
         // Press": the glued form is one more haystack token, at a small
         // demotion so the properly-spaced candidate still ranks first.
@@ -55,10 +63,11 @@ public enum FuzzySearch {
 
     /// Matching items, best first; equal scores keep their incoming
     /// order (so an alphabetical input stays alphabetical within a
-    /// tier). A query with no letters or digits returns the items
-    /// unchanged — no query means nothing to narrow by.
+    /// tier). A BLANK query returns the items unchanged — no query
+    /// means nothing to narrow by; a symbol-only query narrows like
+    /// any other.
     public static func ranked<T>(_ items: [T], query: String, key: (T) -> String) -> [T] {
-        guard !tokens(query).isEmpty else { return items }
+        guard !folded(query).isEmpty else { return items }
         return items.enumerated()
             .compactMap { index, item in
                 score(query: query, candidate: key(item)).map { (item: item, score: $0, index: index) }
@@ -69,16 +78,27 @@ public enum FuzzySearch {
 
     /// The single best-matching candidate, for resolving a spoken/typed
     /// name to its canonical form. Ties go to the earliest candidate.
+    /// A blank query resolves to NOTHING — unlike ranked(), where blank
+    /// passes items through, a resolver must never pick an arbitrary
+    /// winner for an absent name (a stat scoped to the wrong routine
+    /// would be a confidently wrong number).
     public static func bestMatch(query: String, in candidates: [String]) -> String? {
-        ranked(candidates, query: query, key: { $0 }).first
+        guard !folded(query).isEmpty else { return nil }
+        return ranked(candidates, query: query, key: { $0 }).first
     }
 
     // MARK: - Internals
 
-    /// Fold and split: lowercase, diacritics stripped, anything that
-    /// isn't a letter or digit is a separator ("Push-Up" → push, up).
-    static func tokens(_ text: String) -> [String] {
+    /// Lowercased, diacritics stripped, outer whitespace trimmed.
+    static func folded(_ text: String) -> String {
         text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Fold and split: anything that isn't a letter or digit is a
+    /// separator ("Push-Up" → push, up).
+    static func tokens(_ text: String) -> [String] {
+        folded(text)
             .components(separatedBy: CharacterSet.alphanumerics.inverted)
             .filter { !$0.isEmpty }
     }
