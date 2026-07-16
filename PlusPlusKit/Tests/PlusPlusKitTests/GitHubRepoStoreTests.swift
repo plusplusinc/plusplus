@@ -42,6 +42,43 @@ struct GitHubRepoStoreTests {
         #expect(files["README.md"] == nil, "Non-interchange files must never be fetched")
     }
 
+    @Test("A blob-cache hit skips the per-blob GET (#378)")
+    func blobCacheSkipsFetches() async throws {
+        final class MemoryCache: GitBlobCache, @unchecked Sendable {
+            private let lock = NSLock()
+            private var blobs: [String: Data] = [:]
+            func data(forSHA sha: String) -> Data? { lock.withLock { blobs[sha] } }
+            func store(_ data: Data, sha: String) { lock.withLock { blobs[sha] = data } }
+        }
+        let routineData = Data("{\"routine\":true}".utf8)
+        let client = ScriptedHTTPClient { request, _ in
+            if request.path.contains("git/trees") {
+                return GHResponse.json(["tree": [
+                    ["path": "program/routines/push-day.json", "type": "blob", "sha": "sha-routine"],
+                ]])
+            }
+            if request.path.contains("git/blobs/sha-routine") {
+                return GHResponse.json(["content": routineData.base64EncodedString(), "encoding": "base64"])
+            }
+            return GHResponse.status(500, body: "unexpected \(request.path)")
+        }
+        let cache = MemoryCache()
+        let store = GitHubRepoStore(
+            coordinate: coordinate, tokens: InMemoryTokenStore(token: "gho_token"),
+            client: client, blobCache: cache
+        )
+
+        let first = try await store.fetchAll()
+        let second = try await store.fetchAll()
+
+        #expect(first == second)
+        #expect(second["program/routines/push-day.json"] == routineData)
+        let blobGets = client.requests.filter { $0.path.contains("git/blobs") }
+        #expect(blobGets.count == 1, "the second pass must be served from the cache")
+        let treeGets = client.requests.filter { $0.path.contains("git/trees") }
+        #expect(treeGets.count == 2, "the tree listing still runs every pass — it's what supplies the SHAs")
+    }
+
     @Test("fetchAll on an empty repo (no tree) returns nothing")
     func fetchAllEmptyRepo() async throws {
         let client = ScriptedHTTPClient { request, _ in
