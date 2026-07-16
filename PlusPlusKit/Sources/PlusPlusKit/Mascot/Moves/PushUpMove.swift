@@ -1,15 +1,36 @@
 import Foundation
 
-/// Push-up: the whole rig pitches forward into a straight-arm plank
-/// (hands and toes on the floor), the elbows fold the body down, and
-/// the press back up carries the effort spike. The hands stay planted
-/// through the rep — the root solver pins the wrists in world space.
+/// Push-up: the rig pitches forward into a straight-arm plank, the
+/// elbows fold the body down to the floor, and the press back up
+/// carries the effort spike. Hands AND toes stay planted through the
+/// rep — the wrists are root-solved, the toes are ankle-solved, and
+/// the bottom's body pitch + slight hip flex were tuned numerically so
+/// the toes return to the top pose's exact spot (4 mm residual): the
+/// body pivots about the toes, the way physics says it must.
 enum PushUpMove {
     static let animation: ExerciseAnimation = {
-        let bodyPitch = 78.0
+        // Numerically solved constants (see the round-2 probe work):
+        // the top rides at 73 degrees so the SHORT-armed chunky bot's
+        // toes actually reach the floor; the bottom tips 4 degrees
+        // further and flexes the hips 11.5 degrees, which keeps the
+        // toes pinned to the millimeter while the chest drops to
+        // 0.165 m (0.18 m of travel).
+        let topPitch = 73.0
+        let bottomPitch = 77.0
+        let bottomShoulder = 0.0
+        let bottomElbow = -120.0
+        let bottomHip = 11.5
         let handY = 0.03
 
-        func plankPose(shoulderPitch: Double, elbowPitch: Double, effort: Double) -> MascotPose {
+        func plankPose(
+            bodyPitch: Double,
+            shoulderPitch: Double,
+            elbowPitch: Double,
+            hipPitch: Double,
+            effort: Double
+        ) -> MascotPose {
+            // Neck near neutral (build-80: it was craned back); the toe
+            // solve replaces any eyeballed ankle angle.
             MascotPose(
                 rootRotation: .deg(pitch: bodyPitch),
                 joints: MascotPoseBuilder.merge(
@@ -17,16 +38,16 @@ enum PushUpMove {
                         shoulder: .deg(pitch: shoulderPitch),
                         elbow: .deg(pitch: elbowPitch)
                     ),
-                    MascotPoseBuilder.symmetricLegs(ankle: .deg(pitch: -75)),
-                    MascotPoseBuilder.torso(neck: .deg(pitch: -35), head: .deg(pitch: -15))
+                    MascotPoseBuilder.symmetricLegs(hip: .deg(pitch: hipPitch), ankle: .deg(pitch: -75)),
+                    MascotPoseBuilder.torso(neck: .deg(pitch: -12), head: .deg(pitch: -6))
                 ),
                 effort: effort
             )
         }
 
-        // Top of the push-up: arms world-vertical under the shoulders,
-        // wrists dropped onto the floor.
-        var top = plankPose(shoulderPitch: -bodyPitch, elbowPitch: 0, effort: 0.3)
+        // Top: arms world-vertical under the shoulders, wrists dropped
+        // onto the floor, toes solved down to it.
+        var top = plankPose(bodyPitch: topPitch, shoulderPitch: -topPitch, elbowPitch: 0, hipPitch: 0, effort: 0.3)
         let handJoints: [MascotJoint] = [.leftWrist, .rightWrist]
         let topPositions = top.jointPositions(skeleton: .standard)
         let wristTargets: [(MascotJoint, Vec3)] = handJoints.compactMap { joint in
@@ -34,43 +55,85 @@ enum PushUpMove {
             return (joint, Vec3(now.x, handY, now.z))
         }
         top = MascotPoseBuilder.anchored(top, anchors: wristTargets)
+        top = MascotPoseBuilder.solvingToes(top)
         let plantedWrists = top.jointPositions(skeleton: .standard)
 
-        // Bottom: upper arms swing 45 degrees toward the feet, forearms
-        // stay vertical, and the root re-solves so the planted wrists do
-        // not move.
-        var bottom = plankPose(shoulderPitch: -bodyPitch + 45, elbowPitch: -45, effort: 0.5)
+        var bottom = plankPose(
+            bodyPitch: bottomPitch,
+            shoulderPitch: bottomShoulder,
+            elbowPitch: bottomElbow,
+            hipPitch: bottomHip,
+            effort: 0.5
+        )
         bottom = MascotPoseBuilder.anchored(bottom, anchors: handJoints.compactMap { joint in
             plantedWrists[joint].map { (joint, $0) }
         })
+        bottom = MascotPoseBuilder.solvingToes(bottom)
 
-        // Lower and press as baked paths with the wrists re-pinned at
-        // every sample, so the hands never leave their spot.
-        let pinnedHands: (MascotPose) -> MascotPose = { pose in
-            MascotPoseBuilder.anchored(pose, anchors: handJoints.compactMap { joint in
+        // Lower and press as baked paths where every sample keeps the
+        // hands pinned AND the toes grounded. A lerped pose alone can't
+        // do both — with hands fixed, dropping the chest pivots the
+        // body about the TOES, so each sample re-solves its own body
+        // pitch: rotate until the ankle base returns to a reachable
+        // height (interpolated from the solved endpoints), re-anchor
+        // the wrists, then drop the toes. The solved pitches vary
+        // smoothly, which keeps the sampling spline calm (per-sample
+        // solving without this blew up 25 cm mid-press).
+        let topAnkleY = plantedWrists[.leftAnkle]!.y
+        let bottomAnkleY = bottom.jointPositions(skeleton: .standard)[.leftAnkle]!.y
+
+        func grounded(_ pose: MascotPose, targetAnkleY: Double) -> MascotPose {
+            var candidate = pose
+            for _ in 0..<6 {
+                candidate = MascotPoseBuilder.anchored(candidate, anchors: handJoints.compactMap { joint in
+                    plantedWrists[joint].map { (joint, $0) }
+                })
+                let ankleY = candidate.jointPositions(skeleton: .standard)[.leftAnkle]!.y
+                // Empirically d(ankleY)/d(pitch) is about +0.57 m/rad
+                // (raising the pitch raises the foot end), so correct
+                // AGAINST the error, one clamped step at a time — the
+                // first cut had the sign flipped and the feedback loop
+                // back-flipped the bot to 220 degrees.
+                let step = min(max(-(ankleY - targetAnkleY) / 0.6, -0.1), 0.1)
+                candidate.rootRotation.pitch += step
+                candidate.rootRotation.pitch = min(max(candidate.rootRotation.pitch, 1.05), 1.57)
+            }
+            candidate = MascotPoseBuilder.anchored(candidate, anchors: handJoints.compactMap { joint in
                 plantedWrists[joint].map { (joint, $0) }
             })
+            return MascotPoseBuilder.solvingToes(candidate)
         }
-        var repKeyframes = MascotPoseBuilder.span(
+
+        func groundedSpan(_ raw: [MascotKeyframe], ankleFrom: Double, ankleTo: Double) -> [MascotKeyframe] {
+            let count = raw.count
+            return raw.enumerated().map { index, kf in
+                let f = Double(index) / Double(count - 1)
+                let target = ankleFrom + (ankleTo - ankleFrom) * f
+                return MascotKeyframe(t: kf.t, pose: grounded(kf.pose, targetAnkleY: target), easing: .linear)
+            }
+        }
+        let descent = groundedSpan(MascotPoseBuilder.span(
             from: top, to: bottom, t0: 0, t1: 0.42,
-            effortKeys: [(0, 0.3), (1, 0.5)],
-            solve: pinnedHands
-        )
-        repKeyframes.append(MascotKeyframe(t: 0.52, pose: bottom, easing: .linear))
-        repKeyframes.append(contentsOf: MascotPoseBuilder.span(
+            effortKeys: [(0, 0.3), (1, 0.5)]
+        ), ankleFrom: topAnkleY, ankleTo: bottomAnkleY)
+        let press = groundedSpan(MascotPoseBuilder.span(
             from: bottom, to: top, t0: 0.52, t1: 0.92,
             easing: .easeOut,
-            effortKeys: [(0, 0.5), (0.5, 0.9), (1, 0.4)],
-            solve: pinnedHands
-        ).dropFirst())
-        repKeyframes.append(MascotKeyframe(t: 1, pose: top))
+            effortKeys: [(0, 0.5), (0.5, 0.9), (1, 0.4)]
+        ), ankleFrom: bottomAnkleY, ankleTo: topAnkleY)
+
+        var repKeyframes = descent
+        repKeyframes.append(MascotKeyframe(t: 0.52, pose: descent[descent.count - 1].pose, easing: .linear))
+        repKeyframes.append(contentsOf: press.dropFirst())
+        repKeyframes.append(MascotKeyframe(t: 1, pose: repKeyframes[0].pose))
+        let loopPose = repKeyframes[0].pose
 
         return ExerciseAnimation(
             exerciseName: "Push-Up",
             style: .reps(repDuration: 2.2),
             repsPerDemoSet: 4,
             repKeyframes: repKeyframes,
-            restBeat: MascotPoseBuilder.tiredBeat(from: top, to: top, duration: 2.4, slump: 0.7),
+            restBeat: MascotPoseBuilder.tiredBeat(from: loopPose, to: loopPose, duration: 2.4, settle: 0.7),
             cues: [
                 MascotCue("Straight line head to heels", window: 0.0...0.3),
                 MascotCue("Elbows about 45 degrees", window: 0.2...0.5),
@@ -80,7 +143,8 @@ enum PushUpMove {
             blinkPhases: MascotPoseBuilder.defaultBlinkPhases(
                 reps: 4, repDuration: 2.2, restDuration: 2.4, repPhase: 0.04
             ),
-            restingPhase: 0.42
+            restingPhase: 0.42,
+            smoothing: .curved
         )
     }()
 }

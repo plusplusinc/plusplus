@@ -16,8 +16,8 @@ enum DeadliftMove {
         )
         let legsBottom = MascotPoseBuilder.symmetricLegs(
             hip: .deg(pitch: -55, roll: stanceRoll),
-            knee: .deg(pitch: 60),
-            ankle: .deg(pitch: -5)
+            knee: .deg(pitch: 67),
+            ankle: .deg(pitch: -12)
         )
         let torsoBottom = MascotPoseBuilder.torso(
             spine: .deg(pitch: spinePitch),
@@ -31,8 +31,14 @@ enum DeadliftMove {
             shoulder: .deg(pitch: -(spinePitch + chestPitch))
         )
 
+        // Lockout arms sit ~16 degrees forward so the bar rests against
+        // the FRONT of the thighs (build-80: straight-down arms put the
+        // bar inside the belly; the clearance invariant now forbids it).
+        let armsLockout = MascotPoseBuilder.symmetricArms(
+            shoulder: .deg(pitch: -16)
+        )
         let lockout = MascotPoseBuilder.plantingFeet(MascotPose(
-            joints: legsLockout,
+            joints: MascotPoseBuilder.merge(legsLockout, armsLockout),
             effort: 0.3
         ))
         let bottom = MascotPoseBuilder.plantingFeet(MascotPose(
@@ -71,7 +77,8 @@ enum DeadliftMove {
             blinkPhases: MascotPoseBuilder.defaultBlinkPhases(
                 reps: 3, repDuration: 3.5, restDuration: 2.8, repPhase: 0.04
             ),
-            restingPhase: 0.4
+            restingPhase: 0.4,
+            smoothing: .curved
         )
     }()
 }

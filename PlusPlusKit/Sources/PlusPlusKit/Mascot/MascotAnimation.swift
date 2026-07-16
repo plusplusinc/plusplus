@@ -1,5 +1,16 @@
 import Foundation
 
+/// How an animation's keyframes are sampled. `.eased` is the plain
+/// per-keyframe easing chain; `.curved` is a C1 cubic (Catmull-Rom
+/// tangents, non-uniform knots) over the whole pose vector — every
+/// authored move uses it, because chained ease-in-outs stop dead at
+/// every keyframe and read as robotic stutter (build-80 device
+/// feedback: "the motion is a bit jerky").
+public enum MascotSmoothing: Equatable, Sendable {
+    case eased
+    case curved
+}
+
 /// Easing INTO the next keyframe.
 public enum MascotEasing: Equatable, Sendable {
     case linear
@@ -115,6 +126,7 @@ public struct ExerciseAnimation: Sendable {
     /// when motion is frozen (Reduce Motion, UI test): pick the most
     /// characteristic moment, e.g. a squat at depth.
     public var restingPhase: Double
+    public var smoothing: MascotSmoothing
 
     public init(
         exerciseName: String,
@@ -125,7 +137,8 @@ public struct ExerciseAnimation: Sendable {
         cues: [MascotCue],
         props: [MascotProp] = [],
         blinkPhases: [Double],
-        restingPhase: Double = 0
+        restingPhase: Double = 0,
+        smoothing: MascotSmoothing = .eased
     ) {
         self.exerciseName = exerciseName
         self.style = style
@@ -136,6 +149,7 @@ public struct ExerciseAnimation: Sendable {
         self.props = props
         self.blinkPhases = blinkPhases
         self.restingPhase = restingPhase
+        self.smoothing = smoothing
     }
 
     // MARK: - Timeline
@@ -171,9 +185,19 @@ public struct ExerciseAnimation: Sendable {
     }
 
     public func pose(at t: Double) -> MascotPose {
+        let keyframes: [MascotKeyframe]
+        let phase: Double
         switch segment(at: t) {
-        case .rep(_, let phase): return Self.sample(repKeyframes, at: phase)
-        case .rest(let phase): return Self.sample(restBeat.keyframes, at: phase)
+        case .rep(_, let p):
+            keyframes = repKeyframes
+            phase = p
+        case .rest(let p):
+            keyframes = restBeat.keyframes
+            phase = p
+        }
+        switch smoothing {
+        case .eased: return Self.sample(keyframes, at: phase)
+        case .curved: return Self.sampleCurved(keyframes, at: phase)
         }
     }
 
@@ -196,6 +220,63 @@ public struct ExerciseAnimation: Sendable {
             lower = upper
         }
         return keyframes[keyframes.count - 1].pose
+    }
+
+    /// C1 sampling: cubic Hermite with Catmull-Rom tangents over
+    /// non-uniform knots. A knot adjacent to a STILL segment (the body
+    /// doesn't move across it — a pause at depth, the settle at the
+    /// top) gets a ZERO tangent, so motion eases naturally into and out
+    /// of pauses instead of S-wiggling between duplicate poses.
+    /// Per-keyframe easing is ignored here — the spline IS the easing.
+    public static func sampleCurved(_ keyframes: [MascotKeyframe], at phase: Double) -> MascotPose {
+        guard let first = keyframes.first else { return MascotPose() }
+        guard keyframes.count > 1 else { return first.pose }
+        let p = min(max(phase, 0), 1)
+
+        var index = keyframes.count - 2
+        for i in 0..<(keyframes.count - 1) where p < keyframes[i + 1].t {
+            index = i
+            break
+        }
+        let k0 = keyframes[index]
+        let k1 = keyframes[index + 1]
+        let dt = k1.t - k0.t
+        guard dt > 0 else { return k1.pose }
+
+        func still(_ a: Int, _ b: Int) -> Bool {
+            keyframes[a].pose.maxBodyDelta(to: keyframes[b].pose) < 1e-9
+        }
+        func tangent(at j: Int) -> MascotPose {
+            let before = max(j - 1, 0)
+            let after = min(j + 1, keyframes.count - 1)
+            if before == after { return MascotPose() }
+            // A still neighbor segment pins the velocity to zero.
+            if (j > 0 && still(j - 1, j)) || (j < keyframes.count - 1 && still(j, j + 1)) {
+                return MascotPose()
+            }
+            let span = keyframes[after].t - keyframes[before].t
+            guard span > 0 else { return MascotPose() }
+            return MascotPose.weightedSum([
+                (keyframes[after].pose, 1 / span),
+                (keyframes[before].pose, -1 / span),
+            ])
+        }
+
+        let m0 = tangent(at: index)
+        let m1 = tangent(at: index + 1)
+        let u = (p - k0.t) / dt
+        let u2 = u * u
+        let u3 = u2 * u
+        let h00 = 2 * u3 - 3 * u2 + 1
+        let h10 = u3 - 2 * u2 + u
+        let h01 = -2 * u3 + 3 * u2
+        let h11 = u3 - u2
+        return MascotPose.weightedSum([
+            (k0.pose, h00),
+            (m0, h10 * dt),
+            (k1.pose, h01),
+            (m1, h11 * dt),
+        ])
     }
 
     // MARK: - Face channel

@@ -49,22 +49,100 @@ public struct MascotPose: Equatable, Sendable {
     /// feet planted, nothing through the floor, wrists barbell-symmetric —
     /// without ever rendering a frame.
     public func jointPositions(skeleton: MascotSkeleton) -> [MascotJoint: Vec3] {
-        var positions: [MascotJoint: Vec3] = [:]
-        var rotations: [MascotJoint: Mat3] = [:]
+        jointFrames(skeleton: skeleton).mapValues(\.position)
+    }
+
+    /// Positions AND world rotations — what the toe solver and the
+    /// ground-contact invariants need (a toe hangs off the ankle's
+    /// rotated frame).
+    public func jointFrames(skeleton: MascotSkeleton) -> [MascotJoint: (position: Vec3, rotation: Mat3)] {
+        var frames: [MascotJoint: (position: Vec3, rotation: Mat3)] = [:]
 
         let rootBone = skeleton.bone(.root)
-        positions[.root] = rootBone.offset + rootTranslation
-        rotations[.root] = Mat3.rotation(rootRotation) * Mat3.rotation(angles(.root))
+        frames[.root] = (
+            rootBone.offset + rootTranslation,
+            Mat3.rotation(rootRotation) * Mat3.rotation(angles(.root))
+        )
 
         // CaseIterable order lists every parent before its children.
         for joint in MascotJoint.allCases where joint != .root {
-            guard let parent = joint.parent,
-                  let parentPosition = positions[parent],
-                  let parentRotation = rotations[parent] else { continue }
+            guard let parent = joint.parent, let parentFrame = frames[parent] else { continue }
             let bone = skeleton.bone(joint)
-            positions[joint] = parentPosition + parentRotation.rotate(bone.offset)
-            rotations[joint] = parentRotation * Mat3.rotation(angles(joint))
+            frames[joint] = (
+                parentFrame.position + parentFrame.rotation.rotate(bone.offset),
+                parentFrame.rotation * Mat3.rotation(angles(joint))
+            )
         }
-        return positions
+        return frames
+    }
+
+    /// The tip of each foot: the ankle's bone extended through its
+    /// rotated frame. "The toes touch the ground" is an invariant about
+    /// THESE points, not the ankle joints.
+    public func toePositions(skeleton: MascotSkeleton) -> (left: Vec3, right: Vec3) {
+        let frames = jointFrames(skeleton: skeleton)
+        func toe(_ ankle: MascotJoint) -> Vec3 {
+            guard let frame = frames[ankle] else { return .zero }
+            let reach = skeleton.bone(ankle).length
+            return frame.position + frame.rotation.rotate(Vec3(0, -reach, 0))
+        }
+        return (toe(.leftAnkle), toe(.rightAnkle))
+    }
+
+    /// The largest joint-or-root delta between two poses, EXCLUDING
+    /// effort — "is the body still here" for pause detection and
+    /// continuity checks.
+    public func maxBodyDelta(to other: MascotPose) -> Double {
+        var worst = rootTranslation.distance(to: other.rootTranslation)
+        let rotDelta = EulerAngles(
+            pitch: rootRotation.pitch - other.rootRotation.pitch,
+            yaw: rootRotation.yaw - other.rootRotation.yaw,
+            roll: rootRotation.roll - other.rootRotation.roll
+        )
+        worst = max(worst, rotDelta.maxMagnitude)
+        for joint in Set(joints.keys).union(other.joints.keys) {
+            let d = EulerAngles(
+                pitch: angles(joint).pitch - other.angles(joint).pitch,
+                yaw: angles(joint).yaw - other.angles(joint).yaw,
+                roll: angles(joint).roll - other.angles(joint).roll
+            )
+            worst = max(worst, d.maxMagnitude)
+        }
+        return worst
+    }
+
+    /// Linear combination over the key union — the smoothing spline's
+    /// building block. Terms may carry negative weights (differences).
+    public static func weightedSum(_ terms: [(pose: MascotPose, weight: Double)]) -> MascotPose {
+        var root = Vec3.zero
+        var rootRot = EulerAngles.zero
+        var effort = 0.0
+        var keys = Set<MascotJoint>()
+        for term in terms {
+            keys.formUnion(term.pose.joints.keys)
+        }
+        var joints: [MascotJoint: EulerAngles] = [:]
+        for key in keys {
+            joints[key] = .zero
+        }
+        for (pose, weight) in terms {
+            root = root + weight * pose.rootTranslation
+            rootRot = EulerAngles(
+                pitch: rootRot.pitch + weight * pose.rootRotation.pitch,
+                yaw: rootRot.yaw + weight * pose.rootRotation.yaw,
+                roll: rootRot.roll + weight * pose.rootRotation.roll
+            )
+            effort += weight * pose.effort
+            for key in keys {
+                let a = pose.angles(key)
+                let current = joints[key] ?? .zero
+                joints[key] = EulerAngles(
+                    pitch: current.pitch + weight * a.pitch,
+                    yaw: current.yaw + weight * a.yaw,
+                    roll: current.roll + weight * a.roll
+                )
+            }
+        }
+        return MascotPose(rootTranslation: root, rootRotation: rootRot, joints: joints, effort: effort)
     }
 }

@@ -47,7 +47,8 @@ enum DumbbellCurlMove {
             blinkPhases: MascotPoseBuilder.defaultBlinkPhases(
                 reps: 4, repDuration: 2.6, restDuration: 2.4, repPhase: 0.9
             ),
-            restingPhase: 0.38
+            restingPhase: 0.38,
+            smoothing: .curved
         )
     }()
 }

@@ -17,10 +17,11 @@ enum PlankMove {
                     shoulder: .deg(pitch: -bodyPitch),
                     elbow: .deg(pitch: -90)
                 ),
-                // Hips extend slightly so the toe end rides up: without
-                // this the ankles solve just under the floor.
-                MascotPoseBuilder.symmetricLegs(hip: .deg(pitch: 8), ankle: .deg(pitch: -70)),
-                MascotPoseBuilder.torso(neck: .deg(pitch: -35), head: .deg(pitch: -15))
+                // Hip pitch tuned so the ankles sit low enough for the
+                // toe solve to actually reach the floor (at +8 the feet
+                // hung in the air — build-80). Neck near neutral.
+                MascotPoseBuilder.symmetricLegs(hip: .deg(pitch: 3), ankle: .deg(pitch: -70)),
+                MascotPoseBuilder.torso(neck: .deg(pitch: -14), head: .deg(pitch: -6))
             ),
             effort: 0
         )
@@ -33,6 +34,7 @@ enum PlankMove {
             return (joint, Vec3(now.x, 0.05, now.z))
         }
         base = MascotPoseBuilder.anchored(base, anchors: elbowTargets)
+        base = MascotPoseBuilder.solvingToes(base)
 
         // The hold: sampled sinusoidal breathing at a resolution that
         // keeps linear interpolation smooth, effort ramping underneath.
@@ -66,7 +68,7 @@ enum PlankMove {
                 from: holdPose(atPhase: 1),
                 to: holdPose(atPhase: 0),
                 duration: 3.0,
-                slump: 0.35
+                settle: 0.35
             ),
             cues: [
                 MascotCue("Straight line head to heels", window: 0.0...0.3),
@@ -75,7 +77,8 @@ enum PlankMove {
             ],
             blinkPhases: [0.08, 0.28, 0.46].map { $0 * workShare }
                 + [workShare + 0.35 * (1 - workShare), workShare + 0.72 * (1 - workShare)],
-            restingPhase: 0.5
+            restingPhase: 0.5,
+            smoothing: .curved
         )
     }()
 }

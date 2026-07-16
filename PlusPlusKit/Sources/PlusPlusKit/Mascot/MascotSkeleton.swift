@@ -117,7 +117,11 @@ public struct MascotSkeleton: Sendable {
         ] {
             bones[hip] = Bone(offset: Vec3(side * hipSpan, -0.03, 0), length: 0.26, thickness: 0.07)
             bones[knee] = Bone(offset: Vec3(0, -0.26, 0), length: 0.24, thickness: 0.06)
-            bones[ankle] = Bone(offset: Vec3(0, -0.24, 0), length: 0.12, thickness: 0.05)
+            // Big cartoon feet, deliberately: a wide support polygon is
+            // what lets the chunky proportions squat to textbook depth
+            // and stay balanced (ASIMO's feet are huge for the same
+            // reason).
+            bones[ankle] = Bone(offset: Vec3(0, -0.24, 0), length: 0.14, thickness: 0.05)
         }
         return MascotSkeleton(bones: bones)
     }()

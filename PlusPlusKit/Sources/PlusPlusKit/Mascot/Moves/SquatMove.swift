@@ -5,26 +5,37 @@ import Foundation
 /// drive up through the heels with the effort spike on the ascent.
 enum SquatMove {
     static let animation: ExerciseAnimation = {
-        let stanceRoll = 6.0
-        // Rack hold: upper arms out about 55 degrees, forearms folded up
-        // and BACK (positive elbow pitch) so the wrists sit behind the
-        // neck at shoulder height and the bar reads across the traps.
+        // Kept small: roll composed with a deep hip hinge slides the
+        // ankles laterally (the planted solver can only pin the mean),
+        // and the stance width already comes from the hip offsets.
+        let stanceRoll = 3.0
+        // Rack hold, v2 (build-80: "arms look extremely uncomfortable"):
+        // upper arms tucked closer (32 degrees out), elbows folded so
+        // the forearms rise just behind the shoulders, wrists cocked
+        // back so the palms face up under the bar.
         let arms = MascotPoseBuilder.symmetricArms(
-            shoulder: .deg(pitch: 15, roll: 55),
-            elbow: .deg(pitch: 120)
+            shoulder: .deg(pitch: 14, roll: 18),
+            elbow: .deg(pitch: 155),
+            wrist: .deg(pitch: -8)
         )
         let legsStanding = MascotPoseBuilder.symmetricLegs(
             hip: .deg(roll: stanceRoll)
         )
+        // Textbook bottom geometry (build-80: "looks like it would
+        // fall backwards" — thighs past horizontal shoved the hips 33
+        // cm back and nothing could counterbalance): thighs stop just
+        // above parallel (70 degrees), shins lean 22 (knees over
+        // toes), torso leans 45 — which lands the center of mass AND
+        // the bar over the midfoot. Both are enforced by invariants.
         let legsBottom = MascotPoseBuilder.symmetricLegs(
-            hip: .deg(pitch: -90, roll: stanceRoll),
-            knee: .deg(pitch: 78),
-            ankle: .deg(pitch: 14)
+            hip: .deg(pitch: -70, roll: stanceRoll),
+            knee: .deg(pitch: 98),
+            ankle: .deg(pitch: 28)
         )
         let torsoBottom = MascotPoseBuilder.torso(
-            spine: .deg(pitch: 18),
-            chest: .deg(pitch: 12),
-            neck: .deg(pitch: -20),
+            spine: .deg(pitch: 26),
+            chest: .deg(pitch: 19),
+            neck: .deg(pitch: -30),
             head: .deg(pitch: -8)
         )
 
@@ -68,7 +79,8 @@ enum SquatMove {
             blinkPhases: MascotPoseBuilder.defaultBlinkPhases(
                 reps: 3, repDuration: 3.0, restDuration: 2.6, repPhase: 0.04
             ),
-            restingPhase: 0.42
+            restingPhase: 0.42,
+            smoothing: .curved
         )
     }()
 }

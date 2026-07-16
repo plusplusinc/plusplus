@@ -162,21 +162,26 @@ public enum MascotPoseBuilder {
 
     // MARK: - The shared tired beat
 
-    /// The end-of-set beat (Dave, 2026-07-15): from the set's final pose,
-    /// slump — spine and neck give a little, the arms drift, the whole
-    /// body settles a centimeter — take a slow breath, then recover into
-    /// the set's starting pose. Endpoint poses match the rep loop's
+    /// The end-of-set beat, HAPPY-TIRED by decree (Dave, build-80
+    /// feedback: the first cut's forward slump "looks so sad" — the
+    /// mascot should always look happy, even when tired). From the
+    /// set's final pose: a small proud "phew" — the head tips UP, the
+    /// chest lifts on a slow breath, the shoulders stay open, the body
+    /// settles a touch — then it eases back into the set's starting
+    /// pose. Never a head-drop, never a shoulder slump. The half-lidded
+    /// eyes come from the face channel's tiredness cap (level lids —
+    /// serene, not droopy). Endpoint poses match the rep loop's
     /// endpoints exactly, so both seams are continuous.
     public static func tiredBeat(
         from end: MascotPose,
         to start: MascotPose,
         duration: TimeInterval,
-        slump: Double = 1
+        settle: Double = 1
     ) -> ExerciseAnimation.RestBeat {
-        func slumped(_ base: MascotPose) -> MascotPose {
+        func adding(_ base: MascotPose, _ deltas: [(MascotJoint, EulerAngles)], rootLift: Double, effort: Double) -> MascotPose {
             var pose = base
             var joints = pose.joints
-            func add(_ joint: MascotJoint, _ delta: EulerAngles) {
+            for (joint, delta) in deltas {
                 let current = joints[joint] ?? .zero
                 joints[joint] = EulerAngles(
                     pitch: current.pitch + delta.pitch,
@@ -184,31 +189,87 @@ public enum MascotPoseBuilder {
                     roll: current.roll + delta.roll
                 )
             }
-            add(.spine, .deg(pitch: 8 * slump))
-            add(.neck, .deg(pitch: 14 * slump))
-            add(.leftShoulder, .deg(pitch: -6 * slump))
-            add(.rightShoulder, .deg(pitch: -6 * slump))
             pose.joints = joints
-            pose.rootTranslation.y -= 0.012 * slump
-            pose.effort = 0.08
+            pose.rootTranslation.y += rootLift
+            pose.effort = effort
             return pose
         }
-        let low = slumped(end)
-        var breath = low
-        var breathJoints = breath.joints
-        let chest = breathJoints[.chest] ?? .zero
-        breathJoints[.chest] = EulerAngles(pitch: chest.pitch - 3 * slump * .pi / 180, yaw: chest.yaw, roll: chest.roll)
-        let neck = breathJoints[.neck] ?? .zero
-        breathJoints[.neck] = EulerAngles(pitch: neck.pitch - 4 * slump * .pi / 180, yaw: neck.yaw, roll: neck.roll)
-        breath.joints = breathJoints
-        breath.rootTranslation.y += 0.004 * slump
+        // The phew: chin up, chest proud, arms opening a hair outward.
+        let phew = adding(end, [
+            (.neck, .deg(pitch: -7 * settle)),
+            (.head, .deg(pitch: -3 * settle)),
+            (.chest, .deg(pitch: -4 * settle)),
+            (.leftShoulder, .deg(roll: 5 * settle)),
+            (.rightShoulder, .deg(roll: -5 * settle)),
+        ], rootLift: -0.006 * settle, effort: 0.06)
+        // The slow exhale: the chest eases back down, still tall.
+        let exhale = adding(end, [
+            (.neck, .deg(pitch: -4 * settle)),
+            (.head, .deg(pitch: -2 * settle)),
+            (.chest, .deg(pitch: -1 * settle)),
+            (.leftShoulder, .deg(roll: 2 * settle)),
+            (.rightShoulder, .deg(roll: -2 * settle)),
+        ], rootLift: -0.009 * settle, effort: 0.05)
 
         return ExerciseAnimation.RestBeat(duration: duration, keyframes: [
             MascotKeyframe(t: 0, pose: end, easing: .easeOut),
-            MascotKeyframe(t: 0.3, pose: low, easing: .easeInOut),
-            MascotKeyframe(t: 0.55, pose: breath, easing: .easeInOut),
+            MascotKeyframe(t: 0.32, pose: phew, easing: .easeInOut),
+            MascotKeyframe(t: 0.62, pose: exhale, easing: .easeInOut),
             MascotKeyframe(t: 1, pose: start),
         ])
+    }
+
+    // MARK: - Toe solve
+
+    /// Solves the (symmetric) ankle pitch so the toes rest on the
+    /// floor — the build-80 push-up floated its feet because the ankle
+    /// angle was eyeballed. Pure bisection over the FK toe height;
+    /// call AFTER any root solve (rotating an ankle never moves the
+    /// ankle joint itself).
+    /// `nearPitch` narrows the search to a window around a previous
+    /// solution — the ankle equation has two roots, and a sequence of
+    /// independent solves can hop branches between neighboring samples
+    /// (which kinks the sampling spline); seeding keeps a baked path's
+    /// ankle continuous.
+    public static func solvingToes(
+        _ pose: MascotPose,
+        skeleton: MascotSkeleton = .standard,
+        targetToeY: Double = 0.008,
+        nearPitch: Double? = nil
+    ) -> MascotPose {
+        func toeY(anklePitch: Double) -> Double {
+            var candidate = pose
+            var joints = candidate.joints
+            let left = joints[.leftAnkle] ?? .zero
+            let right = joints[.rightAnkle] ?? .zero
+            joints[.leftAnkle] = EulerAngles(pitch: anklePitch, yaw: left.yaw, roll: left.roll)
+            joints[.rightAnkle] = EulerAngles(pitch: anklePitch, yaw: right.yaw, roll: right.roll)
+            candidate.joints = joints
+            let toes = candidate.toePositions(skeleton: skeleton)
+            return min(toes.left.y, toes.right.y)
+        }
+        // Bracket: toes pointed hard (very negative pitch, lowest toe)
+        // vs foot trailing the shin (pitch 0, highest toe). Toe height
+        // increases with pitch on this stretch, so bisect accordingly.
+        var low = nearPitch.map { $0 - 0.5 } ?? -1.9
+        var high = nearPitch.map { min($0 + 0.5, 0) } ?? 0.0
+        for _ in 0..<40 {
+            let mid = (low + high) / 2
+            if toeY(anklePitch: mid) > targetToeY {
+                high = mid
+            } else {
+                low = mid
+            }
+        }
+        var solved = pose
+        var joints = solved.joints
+        let pitch = (low + high) / 2
+        let left = joints[.leftAnkle] ?? .zero
+        let right = joints[.rightAnkle] ?? .zero
+        joints[.leftAnkle] = EulerAngles(pitch: pitch, yaw: left.yaw, roll: left.roll)
+        joints[.rightAnkle] = EulerAngles(pitch: pitch, yaw: right.yaw, roll: right.roll)
+        solved.joints = joints
+        return solved
     }
 
     // MARK: - Blinks
