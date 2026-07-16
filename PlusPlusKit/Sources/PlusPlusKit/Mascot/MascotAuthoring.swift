@@ -28,13 +28,19 @@ public enum MascotPoseBuilder {
 
     /// The same arm on both sides, mirror-symmetric: the right side gets
     /// yaw and roll negated so "splay out" splays out on both.
+    /// `clavicle` is the shoulder girdle (left side conventions: +roll
+    /// shrugs the shoulder up, +yaw retracts it back, -yaw protracts it
+    /// forward).
     public static func symmetricArms(
+        clavicle: EulerAngles = .zero,
         shoulder: EulerAngles = .zero,
         elbow: EulerAngles = .zero,
         wrist: EulerAngles = .zero
     ) -> [MascotJoint: EulerAngles] {
         [
+            .leftClavicle: clavicle,
             .leftShoulder: shoulder, .leftElbow: elbow, .leftWrist: wrist,
+            .rightClavicle: mirroredAngles(clavicle),
             .rightShoulder: mirroredAngles(shoulder),
             .rightElbow: mirroredAngles(elbow),
             .rightWrist: mirroredAngles(wrist),
@@ -221,11 +227,14 @@ public enum MascotPoseBuilder {
 
     // MARK: - Toe solve
 
-    /// Solves the (symmetric) ankle pitch so the toes rest on the
-    /// floor — the build-80 push-up floated its feet because the ankle
-    /// angle was eyeballed. Pure bisection over the FK toe height;
-    /// call AFTER any root solve (rotating an ankle never moves the
-    /// ankle joint itself).
+    /// Solves the (symmetric) ankle pitch so the foot's lowest SOLE
+    /// CORNER rests on the floor — the build-80 push-up floated its
+    /// feet because the ankle angle was eyeballed, and the first solver
+    /// targeted the pointed-toe bone reach, which left the actual toe
+    /// corner of the foot mesh 4-5 cm under the floor (the round-3
+    /// sole-corner invariant caught it). Pure bisection over the FK
+    /// sole height; call AFTER any root solve (rotating an ankle never
+    /// moves the ankle joint itself).
     /// `nearPitch` narrows the search to a window around a previous
     /// solution — the ankle equation has two roots, and a sequence of
     /// independent solves can hop branches between neighboring samples
@@ -234,10 +243,10 @@ public enum MascotPoseBuilder {
     public static func solvingToes(
         _ pose: MascotPose,
         skeleton: MascotSkeleton = .standard,
-        targetToeY: Double = 0.008,
+        targetSoleY: Double = 0.006,
         nearPitch: Double? = nil
     ) -> MascotPose {
-        func toeY(anklePitch: Double) -> Double {
+        func soleY(anklePitch: Double) -> Double {
             var candidate = pose
             var joints = candidate.joints
             let left = joints[.leftAnkle] ?? .zero
@@ -245,25 +254,53 @@ public enum MascotPoseBuilder {
             joints[.leftAnkle] = EulerAngles(pitch: anklePitch, yaw: left.yaw, roll: left.roll)
             joints[.rightAnkle] = EulerAngles(pitch: anklePitch, yaw: right.yaw, roll: right.roll)
             candidate.joints = joints
-            let toes = candidate.toePositions(skeleton: skeleton)
-            return min(toes.left.y, toes.right.y)
+            return candidate.solePoints(skeleton: skeleton).map(\.y).min() ?? 0
         }
-        // Bracket: toes pointed hard (very negative pitch, lowest toe)
-        // vs foot trailing the shin (pitch 0, highest toe). Toe height
-        // increases with pitch on this stretch, so bisect accordingly.
-        var low = nearPitch.map { $0 - 0.5 } ?? -1.9
-        var high = nearPitch.map { min($0 + 0.5, 0) } ?? 0.0
-        for _ in 0..<40 {
-            let mid = (low + high) / 2
-            if toeY(anklePitch: mid) > targetToeY {
-                high = mid
-            } else {
-                low = mid
+        // The sole-height curve is NOT monotone in ankle pitch (the
+        // lowest corner switches between toe and heel as the foot
+        // rotates, so most heights are reached from TWO foot attitudes)
+        // — a blind bisection hops branches. Scan densely, collect
+        // every crossing of the target height, and pick the crossing
+        // nearest the SEED: `nearPitch` when given, otherwise the
+        // pose's authored ankle pitch — the author's eyeballed angle
+        // states which attitude the foot means to hold, and the solver
+        // only refines it to exact contact.
+        let seed = nearPitch ?? (pose.joints[.leftAnkle] ?? .zero).pitch
+        let low = nearPitch.map { $0 - 0.5 } ?? -1.9
+        let high = nearPitch.map { min($0 + 0.5, 0.55) } ?? 0.55
+        let steps = 260
+        func sample(_ i: Int) -> Double { low + (high - low) * Double(i) / Double(steps) }
+        var crossings: [Double] = []
+        var previous = soleY(anklePitch: sample(0)) - targetSoleY
+        for i in 1...steps {
+            let candidate = sample(i)
+            let value = soleY(anklePitch: candidate) - targetSoleY
+            if value == 0 || (value < 0) != (previous < 0) {
+                // Refine the crossing by bisection oriented to THIS
+                // branch's local slope.
+                var a = sample(i - 1)
+                var b = candidate
+                let rising = value > previous
+                for _ in 0..<30 {
+                    let mid = (a + b) / 2
+                    let midValue = soleY(anklePitch: mid) - targetSoleY
+                    if (midValue < 0) == rising { a = mid } else { b = mid }
+                }
+                crossings.append((a + b) / 2)
             }
+            previous = value
+        }
+        let pitch: Double
+        if let nearest = crossings.min(by: { abs($0 - seed) < abs($1 - seed) }) {
+            pitch = nearest
+        } else {
+            // No crossing in the bracket: land on the closest approach.
+            pitch = (0...steps).map(sample).min {
+                abs(soleY(anklePitch: $0) - targetSoleY) < abs(soleY(anklePitch: $1) - targetSoleY)
+            } ?? 0
         }
         var solved = pose
         var joints = solved.joints
-        let pitch = (low + high) / 2
         let left = joints[.leftAnkle] ?? .zero
         let right = joints[.rightAnkle] ?? .zero
         joints[.leftAnkle] = EulerAngles(pitch: pitch, yaw: left.yaw, roll: left.roll)

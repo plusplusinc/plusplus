@@ -71,14 +71,15 @@ enum PlankMove {
                 settle: 0.35
             ),
             cues: [
-                MascotCue("Straight line head to heels", window: 0.0...0.3),
-                MascotCue("Squeeze glutes and brace", window: 0.28...0.6),
-                MascotCue("Keep hips level", window: 0.58...0.92),
+                MascotCue("Straight line head to heels"),
+                MascotCue("Keep hips level"),
+                MascotCue("Squeeze glutes and brace", window: 0.25...0.75),
             ],
             blinkPhases: [0.08, 0.28, 0.46].map { $0 * workShare }
                 + [workShare + 0.35 * (1 - workShare), workShare + 0.72 * (1 - workShare)],
             restingPhase: 0.5,
-            smoothing: .curved
+            smoothing: .curved,
+            dynamics: MascotDynamics(handsBearWeight: true)
         )
     }()
 }

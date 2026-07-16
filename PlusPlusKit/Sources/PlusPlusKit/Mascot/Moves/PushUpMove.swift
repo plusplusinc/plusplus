@@ -9,18 +9,24 @@ import Foundation
 /// body pivots about the toes, the way physics says it must.
 enum PushUpMove {
     static let animation: ExerciseAnimation = {
-        // Numerically solved constants (see the round-2 probe work):
-        // the top rides at 73 degrees so the SHORT-armed chunky bot's
-        // toes actually reach the floor; the bottom tips 4 degrees
-        // further and flexes the hips 11.5 degrees, which keeps the
-        // toes pinned to the millimeter while the chest drops to
-        // 0.165 m (0.18 m of travel).
+        // Numerically solved constants (round-2 probe work, re-solved
+        // in round 3 when the floor contract moved to the REAL foot
+        // and hand surfaces): the top rides at 73 degrees so the
+        // SHORT-armed chunky bot's toes actually reach the floor; the
+        // bottom tips 4.5 degrees further and flexes the hips 15.5
+        // degrees, which keeps the toe corners pinned to 2 mm while
+        // the chest drops to 0.184 m (0.176 m of travel).
         let topPitch = 73.0
-        let bottomPitch = 77.0
+        let bottomPitch = 77.5
         let bottomShoulder = 0.0
         let bottomElbow = -120.0
-        let bottomHip = 11.5
-        let handY = 0.03
+        let bottomHip = 15.5
+        // Wrist height that rests the flat hand's contact pad ON the
+        // floor (wrist joint - 0.0475 of hand). The first cut anchored
+        // the wrists at 0.03 and the hands sank 2 cm into the ground —
+        // the round-3 palm-pad invariant now measures the real hand
+        // underside.
+        let handY = 0.049
 
         func plankPose(
             bodyPitch: Double,
@@ -135,16 +141,17 @@ enum PushUpMove {
             repKeyframes: repKeyframes,
             restBeat: MascotPoseBuilder.tiredBeat(from: loopPose, to: loopPose, duration: 2.4, settle: 0.7),
             cues: [
-                MascotCue("Straight line head to heels", window: 0.0...0.3),
-                MascotCue("Elbows about 45 degrees", window: 0.2...0.5),
-                MascotCue("Chest toward the floor", window: 0.32...0.55),
-                MascotCue("Press the floor away", window: 0.55...0.92),
+                MascotCue("Straight line head to heels"),
+                MascotCue("Elbows about 45 degrees"),
+                MascotCue("Chest toward the floor", window: 0.06...0.5),
+                MascotCue("Press the floor away", window: 0.55...0.95),
             ],
             blinkPhases: MascotPoseBuilder.defaultBlinkPhases(
                 reps: 4, repDuration: 2.2, restDuration: 2.4, repPhase: 0.04
             ),
             restingPhase: 0.42,
-            smoothing: .curved
+            smoothing: .curved,
+            dynamics: MascotDynamics(handsBearWeight: true)
         )
     }()
 }

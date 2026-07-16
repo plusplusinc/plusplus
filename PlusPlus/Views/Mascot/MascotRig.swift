@@ -130,11 +130,14 @@ final class MascotRig {
         }
 
         // Hands: a dark palm with three fingers and a thumb (cartoon
-        // rules). Around a prop the fingers wrap into a grip.
+        // rules). Around a prop the fingers wrap into a grip; on a
+        // weight-bearing hand (push-up, plank) they lie FLAT along the
+        // floor — the relaxed half-curl dug fingertips into the ground.
         let gripped = !animation.props.isEmpty
+        let planted = animation.dynamics.handsBearWeight
         for (wrist, side) in [(MascotJoint.leftWrist, Float(1)), (.rightWrist, -1)] {
             attach(box(0.06, 0.055, 0.052), to: wrist, offset: [0, -0.02, 0], role: .joint)
-            let fingerPitch: Float = gripped ? -1.5 : -0.45
+            let fingerPitch: Float = gripped ? -1.5 : (planted ? -1.42 : -0.45)
             for (index, dx) in [-0.018, 0, 0.018].enumerated() {
                 let finger = ModelEntity(mesh: box(0.015, 0.05, 0.015))
                 finger.position = [Float(dx), -0.045, 0.008]
@@ -145,7 +148,7 @@ final class MascotRig {
             }
             let thumb = ModelEntity(mesh: box(0.014, 0.04, 0.014))
             thumb.position = [side * 0.032, -0.028, 0.012]
-            thumb.orientation = simd_quatf(angle: gripped ? -1.15 : -0.35, axis: [1, 0, 0])
+            thumb.orientation = simd_quatf(angle: gripped ? -1.15 : (planted ? -1.05 : -0.35), axis: [1, 0, 0])
                 * simd_quatf(angle: side * -0.35, axis: [0, 0, 1])
             joints[wrist]?.addChild(thumb)
             themed.append((thumb, .joint))
@@ -153,13 +156,16 @@ final class MascotRig {
 
         // The room: a soft stage disc, a dot-grid floor, and dot-grid
         // walls sized so the clamped orbit camera always stays inside.
+        // The disc TOP sits exactly at y = 0 — the kit's floor plane,
+        // where the round-3 invariants put the soles — so the feet
+        // stand ON the stage instead of sinking through it.
         let ground = ModelEntity(mesh: .generateCylinder(height: 0.02, radius: 0.62))
-        ground.position = [0, -0.011, 0]
+        ground.position = [0, -0.010, 0]
         container.addChild(ground)
         themed.append((ground, .ground))
 
         let floor = ModelEntity(mesh: .generatePlane(width: 6.4, depth: 6.4))
-        floor.position = [0, -0.024, 0]
+        floor.position = [0, -0.022, 0]
         container.addChild(floor)
         themed.append((floor, .floor))
 

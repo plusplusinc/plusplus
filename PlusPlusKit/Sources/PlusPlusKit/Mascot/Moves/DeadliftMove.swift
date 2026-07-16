@@ -33,11 +33,14 @@ enum DeadliftMove {
             shoulder: .deg(pitch: -(spinePitch + chestPitch) - 8)
         )
 
-        // Lockout arms sit ~16 degrees forward so the bar rests against
+        // Lockout arms sit ~15 degrees forward so the bar rests against
         // the FRONT of the thighs (build-80: straight-down arms put the
         // bar inside the belly; the clearance invariant now forbids it).
+        // Not a degree more: the tired beat's chest lift swings the
+        // hanging bar forward, and at -16 the swing crossed the
+        // bar-over-midfoot bound by a millimeter.
         let armsLockout = MascotPoseBuilder.symmetricArms(
-            shoulder: .deg(pitch: -16)
+            shoulder: .deg(pitch: -15)
         )
         let lockout = MascotPoseBuilder.plantingFeet(MascotPose(
             joints: MascotPoseBuilder.merge(legsLockout, armsLockout),
@@ -70,10 +73,10 @@ enum DeadliftMove {
             repKeyframes: repKeyframes,
             restBeat: MascotPoseBuilder.tiredBeat(from: lockout, to: lockout, duration: 2.8),
             cues: [
-                MascotCue("Hips hinge back", window: 0.05...0.35),
-                MascotCue("Flat back, chest proud", window: 0.2...0.5),
-                MascotCue("Push the floor away", window: 0.5...0.8),
-                MascotCue("Stand tall at the top", window: 0.82...1.0),
+                MascotCue("Flat back, chest proud"),
+                MascotCue("Bar close to the body"),
+                MascotCue("Hips hinge back", window: 0.03...0.4),
+                MascotCue("Push the floor away", window: 0.5...0.85),
             ],
             props: [.barbell],
             blinkPhases: MascotPoseBuilder.defaultBlinkPhases(

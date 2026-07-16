@@ -84,40 +84,89 @@ import Foundation
         #expect(worst < 0.052, "\(name): worst per-step delta \(worst)")
     }
 
+    /// Per-joint anatomical ranges in degrees (pitch, yaw, roll),
+    /// LEFT-side canonical — right-side joints are mirrored (yaw/roll
+    /// negated) before checking. Ranges are a reasonably fit and
+    /// flexible human's (build-81 rule: joints bend only the proper
+    /// direction, to a human degree). The ankle's generous
+    /// plantarflexion stands in for the missing toe joint: a
+    /// toes-tucked floor stance reads as one large ankle angle.
+    private static let jointRanges: [MascotJoint: (pitch: ClosedRange<Double>, yaw: ClosedRange<Double>, roll: ClosedRange<Double>)] = [
+        .root: (-5...5, -5...5, -5...5),
+        .spine: (-10...55, -30...30, -20...20),
+        .chest: (-10...50, -30...30, -15...15),
+        .neck: (-55...40, -60...60, -25...25),
+        .head: (-35...35, -45...45, -20...20),
+        // The shoulder girdle (clavicle/scapula as one joint): +roll
+        // shrugs the shoulder up (elevation, generous — a hard shrug),
+        // -roll drops it; +yaw retracts it back, -yaw protracts
+        // forward. Pitch barely moves the shoulder (the offset is
+        // along the rotation-invariant axis) and stays near zero.
+        .leftClavicle: (-15...15, -30...30, -12...40),
+        .leftShoulder: (-185...60, -95...95, -25...175),
+        .leftElbow: (-150...2, -25...25, -25...25),
+        // Wrist yaw IS forearm pronation/supination: the forearm's
+        // long axis is the wrist frame's local Y, so yaw at the wrist
+        // is exactly the hand rotating about the forearm — a human
+        // manages about 90 degrees each way.
+        .leftWrist: (-80...80, -90...90, -45...45),
+        .leftHip: (-125...25, -40...40, -10...50),
+        .leftKnee: (-2...150, -12...12, -12...12),
+        .leftAnkle: (-85...30, -15...15, -20...20),
+    ]
+
     @Test(arguments: MascotMoves.all.map(\.exerciseName))
-    func jointsStayHumanish(name: String) throws {
+    func jointsBendOnlyHumanWays(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
-        let maxAngle = 170.0 * .pi / 180
-        let kneeRange = (-2.0 * .pi / 180)...(157.0 * .pi / 180)
-        for keyframes in [animation.repKeyframes, animation.restBeat.keyframes] {
-            for keyframe in keyframes {
-                let pose = keyframe.pose
-                #expect(pose.effort >= 0 && pose.effort <= 1, "\(name): effort in range")
-                for joint in MascotJoint.allCases {
-                    let angles = pose.angles(joint)
-                    #expect(angles.maxMagnitude <= maxAngle, "\(name) \(joint): angle magnitude")
-                }
-                // Knees bend one way only.
-                for knee in [MascotJoint.leftKnee, .rightKnee] {
-                    let pitch = pose.angles(knee).pitch
-                    #expect(kneeRange.contains(pitch), "\(name) \(knee): pitch \(pitch)")
-                }
+        let toRadians = Double.pi / 180
+        for i in 0...200 {
+            let t = Double(i) / 200
+            let pose = animation.pose(at: t)
+            #expect(pose.effort >= -0.01 && pose.effort <= 1.01, "\(name): effort in range")
+            for joint in MascotJoint.allCases {
+                // Canonicalize to the left side: mirror twins negate
+                // yaw and roll.
+                let isRight = joint.mirrored != joint && "\(joint)".hasPrefix("right")
+                let canonical: MascotJoint = isRight ? joint.mirrored : joint
+                guard let range = Self.jointRanges[canonical] else { continue }
+                let raw = pose.angles(joint)
+                let angles = isRight
+                    ? EulerAngles(pitch: raw.pitch, yaw: -raw.yaw, roll: -raw.roll)
+                    : raw
+                let pitchOK = range.pitch.contains(angles.pitch / toRadians)
+                let yawOK = range.yaw.contains(angles.yaw / toRadians)
+                let rollOK = range.roll.contains(angles.roll / toRadians)
+                #expect(pitchOK && yawOK && rollOK,
+                        "\(name) \(joint) at t=\(t): pitch \(angles.pitch / toRadians), yaw \(angles.yaw / toRadians), roll \(angles.roll / toRadians)")
             }
         }
     }
 
+    /// Capsule-surface floor clearance (build-81 rule: no body part or
+    /// equipment through the floor). Contact parts — soles, toes,
+    /// palms — may TOUCH; everything else keeps its surface above.
     @Test(arguments: MascotMoves.all.map(\.exerciseName))
     func nothingGoesThroughTheFloor(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
-        var lowest = Double.infinity
         for i in 0...400 {
             let t = Double(i) / 400
-            let positions = animation.pose(at: t).jointPositions(skeleton: Self.skeleton)
-            for y in positions.values.map(\.y) {
-                lowest = min(lowest, y)
-            }
+            let result = MascotCollision.floorPenetration(animation: animation, at: t)
+            #expect(result.contact <= 0.012, "\(name): contact part below floor at t=\(t): \(result.worstPart) \(result.contact)")
+            #expect(result.body <= 0.008, "\(name): body below floor at t=\(t): \(result.worstPart) \(result.body)")
+            #expect(result.equipment <= 0.005, "\(name): equipment below floor at t=\(t): \(result.worstPart) \(result.equipment)")
         }
-        #expect(lowest >= -0.01, "\(name): lowest joint \(lowest)")
+    }
+
+    @Test(arguments: ["Squat", "Deadlift"])
+    func handsActuallyGripTheBar(name: String) throws {
+        let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
+        let limit = 20.0 * .pi / 180
+        for i in 0...400 {
+            let t = Double(i) / 400
+            let misalignment = MascotCollision.worstGripMisalignment(pose: animation.pose(at: t))
+            #expect(misalignment <= limit,
+                    "\(name): a hand's grip channel is \(misalignment * 180 / .pi) degrees off the bar axis at t=\(t)")
+        }
     }
 
     @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl"])
@@ -189,15 +238,29 @@ import Foundation
         #expect(!animation.cues.isEmpty)
         for cue in animation.cues {
             #expect(!cue.text.isEmpty)
+            #expect(cue.text.count <= 42, "\(name): cue fits a line: '\(cue.text)'")
             #expect(!cue.text.contains("\u{2014}"), "\(name): no em dashes in user copy")
-            #expect(cue.window.lowerBound >= 0 && cue.window.upperBound <= 1)
-            #expect(cue.window.lowerBound < cue.window.upperBound)
+            if let window = cue.window {
+                #expect(window.lowerBound >= 0 && window.upperBound <= 1)
+                #expect(window.lowerBound < window.upperBound)
+            }
         }
-        // Every cue actually gets its moment: active at its window midpoint.
+        // The pacing law (build-81: highlights cycled too fast): at
+        // most two SYNCED cues per move, each window generous enough
+        // to read, and at least one static cue for the rest.
+        let synced = animation.cues.compactMap(\.window)
+        let staticCount = animation.cues.count - synced.count
+        #expect((1...2).contains(synced.count), "\(name): \(synced.count) synced cues")
+        #expect(staticCount >= 1, "\(name): at least one static cue")
+        let allWide = synced.allSatisfy { ($0.upperBound - $0.lowerBound) >= 0.3 }
+        #expect(allWide, "\(name): synced windows at least 30 percent of a rep")
+        // Every synced cue actually gets its moment: active at its
+        // window midpoint.
         let workShare = animation.workDuration / animation.cycleDuration
         let repShare = workShare / Double(animation.repsPerDemoSet)
         for (index, cue) in animation.cues.enumerated() {
-            let mid = (cue.window.lowerBound + cue.window.upperBound) / 2
+            guard let window = cue.window else { continue }
+            let mid = (window.lowerBound + window.upperBound) / 2
             let active = animation.activeCueIndices(at: mid * repShare)
             #expect(active.contains(index), "\(name): cue \(index) fires at its midpoint")
         }
@@ -220,15 +283,18 @@ import Foundation
     @Test(arguments: ["Push-Up", "Plank"])
     func floorMovesKeepToesOnTheGround(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
-        let reference = animation.pose(at: 0).toePositions(skeleton: Self.skeleton)
+        // Sole TOE corners (indices 0 and 2: left toe, right toe) — the
+        // foot mesh's actual contact edge in a toes-tucked floor pose.
+        let reference = animation.pose(at: 0).solePoints(skeleton: Self.skeleton)
         for i in 0...400 {
             let t = Double(i) / 400
-            let toes = animation.pose(at: t).toePositions(skeleton: Self.skeleton)
-            for toe in [toes.left, toes.right] {
+            let soles = animation.pose(at: t).solePoints(skeleton: Self.skeleton)
+            for index in [0, 2] {
+                let toe = soles[index]
                 #expect(toe.y >= -0.012 && toe.y <= 0.035, "\(name): toe floats at t=\(t): y=\(toe.y)")
+                let drift = toe.distance(to: reference[index])
+                #expect(drift < 0.03, "\(name): toe slides at t=\(t): drift \(drift)")
             }
-            #expect(toes.left.distance(to: reference.left) < 0.03, "\(name): left toe slides at t=\(t)")
-            #expect(toes.right.distance(to: reference.right) < 0.03, "\(name): right toe slides at t=\(t)")
         }
     }
 
@@ -243,6 +309,18 @@ import Foundation
         .leftKnee: 1.5, .rightKnee: 1.5,
         .leftAnkle: 1.5, .rightAnkle: 1.5,
     ]
+
+    /// The bar's center: the palm midpoint (the renderer solves the
+    /// bar from the palms; the wrist JOINTS can sit centimeters off the
+    /// bar line in a rotated grip like the back-squat rack).
+    private static func barCenter(_ pose: MascotPose) -> Vec3 {
+        let frames = pose.jointFrames(skeleton: skeleton)
+        let left = frames[.leftWrist]!
+        let right = frames[.rightWrist]!
+        let leftPalm = left.position + left.rotation.rotate(MascotGrip.palmOffset)
+        let rightPalm = right.position + right.rotation.rotate(MascotGrip.palmOffset)
+        return 0.5 * (leftPalm + rightPalm)
+    }
 
     @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl"])
     func standingMovesStayBalancedOverTheFeet(name: String) throws {
@@ -266,8 +344,7 @@ import Foundation
                 mass += m
             }
             if barMass > 0 {
-                let barZ = (positions[.leftWrist]!.z + positions[.rightWrist]!.z) / 2
-                moment += barMass * barZ
+                moment += barMass * Self.barCenter(animation.pose(at: t)).z
                 mass += barMass
             }
             let comZ = moment / mass
@@ -302,8 +379,7 @@ import Foundation
                 mass += m
             }
             if barMass > 0 {
-                let barZ = (positions[.leftWrist]!.z + positions[.rightWrist]!.z) / 2
-                moment += barMass * barZ
+                moment += barMass * Self.barCenter(animation.pose(at: phase * repShare)).z
                 mass += barMass
             }
             let comZ = moment / mass
@@ -317,8 +393,9 @@ import Foundation
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         for i in 0...400 {
             let t = Double(i) / 400
-            let positions = animation.pose(at: t).jointPositions(skeleton: Self.skeleton)
-            let bar = 0.5 * (positions[.leftWrist]! + positions[.rightWrist]!)
+            let pose = animation.pose(at: t)
+            let positions = pose.jointPositions(skeleton: Self.skeleton)
+            let bar = Self.barCenter(pose)
             let ankleZ = (positions[.leftAnkle]!.z + positions[.rightAnkle]!.z) / 2
             // Textbook bar path: over the midfoot. Real bar paths
             // wander a couple of centimeters mid-transition (the
@@ -342,8 +419,9 @@ import Foundation
         // the bar is strictly over the midfoot.
         let repShare = animation.repDuration / animation.cycleDuration
         for phase in [0.0, animation.restingPhase] {
-            let positions = animation.pose(at: phase * repShare).jointPositions(skeleton: Self.skeleton)
-            let bar = 0.5 * (positions[.leftWrist]! + positions[.rightWrist]!)
+            let pose = animation.pose(at: phase * repShare)
+            let positions = pose.jointPositions(skeleton: Self.skeleton)
+            let bar = Self.barCenter(pose)
             let ankleZ = (positions[.leftAnkle]!.z + positions[.rightAnkle]!.z) / 2
             #expect(bar.z >= ankleZ - 0.08 && bar.z <= ankleZ + 0.13,
                     "\(name): bar off midfoot at loaded phase \(phase): bar z \(bar.z)")
@@ -377,7 +455,11 @@ import Foundation
             chestBottom = min(chestBottom, chestY)
         }
         #expect(chestTop - chestBottom >= 0.10, "full range of motion: travel \(chestTop - chestBottom)")
-        #expect(chestBottom <= 0.17, "chest reaches toward the floor: bottom \(chestBottom)")
+        // 0.19 at the chest JOINT = the chest cowl's surface about a
+        // centimeter off the floor, with the flat hands honestly ON it
+        // (round 3 raised the wrists so the hand mesh stopped sinking
+        // 2 cm into the ground).
+        #expect(chestBottom <= 0.19, "chest reaches toward the floor: bottom \(chestBottom)")
         let neutralNeck = 21.0 * .pi / 180
         for keyframe in pushUp.repKeyframes {
             let pitch = abs(keyframe.pose.angles(.neck).pitch)
@@ -392,14 +474,22 @@ import Foundation
         let repShare = (squat.repDuration / squat.cycleDuration)
         let bottom = squat.pose(at: 0.42 * repShare)
         #expect(bottom.rootTranslation.y < -0.12, "squat bottom drops the hips")
-        let positions = bottom.jointPositions(skeleton: Self.skeleton)
-        let chestY = positions[.chest]!.y
-        let neckZ = positions[.neck]!.z
-        for wrist in [MascotJoint.leftWrist, .rightWrist] {
-            let p = positions[wrist]!
-            #expect(p.y > chestY, "bar rides high: wrist above the chest joint")
-            #expect(abs(p.x) > 0.17, "hands wider than shoulders")
-            #expect(p.z < neckZ, "back squat: bar behind the neck line")
+        // BACK rack (v4, on the clavicle-upgraded rig): the bar rides
+        // ON the traps — behind and just below the neck joint, hands
+        // wider than the shoulders. Checked at the bottom AND standing
+        // so the rack holds through the whole rep.
+        for phase in [0.0, 0.42] {
+            let positions = squat.pose(at: phase * repShare).jointPositions(skeleton: Self.skeleton)
+            let neck = positions[.neck]!
+            for wrist in [MascotJoint.leftWrist, .rightWrist] {
+                let p = positions[wrist]!
+                #expect(abs(p.x) > 0.2, "hands outside the shoulders")
+                #expect(p.z < neck.z - 0.03, "back squat: bar behind the neck at phase \(phase)")
+                let dy = p.y - neck.y
+                let dz = p.z - neck.z
+                let fromNeck = (dy * dy + dz * dz).squareRoot()
+                #expect(fromNeck < 0.17, "bar racked at the traps: \(fromNeck) from the neck at phase \(phase)")
+            }
         }
     }
 

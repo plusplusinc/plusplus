@@ -48,14 +48,17 @@ public struct MascotKeyframe: Sendable {
     }
 }
 
-/// A short form cue and the rep-relative window (0...1 within a single
-/// rep, or within the hold) where it applies. The demo sheet highlights
-/// the active cue in notes amber while the motion passes through it.
+/// A short form cue. A cue with a `window` (rep-relative, 0...1) is
+/// SYNCED: the demo sheet highlights it in notes amber while the motion
+/// passes through it. A cue without one is STATIC: always listed, never
+/// flashing. Most cues should be static — a handful of fast-cycling
+/// highlights is unreadable (build-81 feedback); each move carries at
+/// most two synced cues, enforced by test.
 public struct MascotCue: Equatable, Sendable {
     public var text: String
-    public var window: ClosedRange<Double>
+    public var window: ClosedRange<Double>?
 
-    public init(_ text: String, window: ClosedRange<Double>) {
+    public init(_ text: String, window: ClosedRange<Double>? = nil) {
         self.text = text
         self.window = window
     }
@@ -67,6 +70,37 @@ public struct MascotCue: Equatable, Sendable {
 public enum MascotProp: String, CaseIterable, Sendable {
     case barbell
     case dumbbellPair
+}
+
+/// The physical context a move declares beyond its pose stream — the
+/// hooks the physics invariants key off. The default describes the
+/// common case: grounded from start to finish. Built for the dynamic
+/// end of the catalog (Dave's rule: the mascot can do ALL human
+/// movements, and jumps, swings, and throws obey gravity and inertia
+/// like everything else): a move that leaves the ground declares WHERE,
+/// and the invariants swap their demand — ground contact everywhere
+/// else, a free-fall center-of-mass parabola inside the window.
+public struct MascotDynamics: Equatable, Sendable {
+    /// REP-relative phase windows (matching cue windows) where the
+    /// mascot is deliberately airborne — jump squats, burpee hops. The
+    /// something-touches-the-ground invariant skips them; the ballistic
+    /// invariant takes over inside them.
+    public var airborneWindows: [ClosedRange<Double>]
+    /// The hands carry body weight on the floor (push-up, plank): the
+    /// renderer lays the fingers flat instead of the relaxed half-curl,
+    /// and the palm contact pads are expected AT the ground.
+    public var handsBearWeight: Bool
+
+    public init(
+        airborneWindows: [ClosedRange<Double>] = [],
+        handsBearWeight: Bool = false
+    ) {
+        self.airborneWindows = airborneWindows
+        self.handsBearWeight = handsBearWeight
+    }
+
+    /// Grounded throughout — every non-jumping move.
+    public static let grounded = MascotDynamics()
 }
 
 /// What the face is doing at an instant: blink, effort squint, and the
@@ -127,6 +161,7 @@ public struct ExerciseAnimation: Sendable {
     /// characteristic moment, e.g. a squat at depth.
     public var restingPhase: Double
     public var smoothing: MascotSmoothing
+    public var dynamics: MascotDynamics
 
     public init(
         exerciseName: String,
@@ -138,7 +173,8 @@ public struct ExerciseAnimation: Sendable {
         props: [MascotProp] = [],
         blinkPhases: [Double],
         restingPhase: Double = 0,
-        smoothing: MascotSmoothing = .eased
+        smoothing: MascotSmoothing = .eased,
+        dynamics: MascotDynamics = .grounded
     ) {
         self.exerciseName = exerciseName
         self.style = style
@@ -150,6 +186,7 @@ public struct ExerciseAnimation: Sendable {
         self.blinkPhases = blinkPhases
         self.restingPhase = restingPhase
         self.smoothing = smoothing
+        self.dynamics = dynamics
     }
 
     // MARK: - Timeline
@@ -325,12 +362,22 @@ public struct ExerciseAnimation: Sendable {
 
     // MARK: - Cues and frozen-mode support
 
-    /// Indices into `cues` active at a set phase. Cue windows are
-    /// rep-relative, so a cue lights up on EVERY rep as the motion passes
-    /// through it; nothing is active during the tired beat.
+    /// Indices into `cues` active at a set phase — SYNCED cues only
+    /// (static cues are always shown, never highlighted). Windows are
+    /// rep-relative, so a synced cue lights up on EVERY rep as the
+    /// motion passes through it; nothing is active during the tired
+    /// beat.
     public func activeCueIndices(at t: Double) -> [Int] {
         guard case .rep(_, let phase) = segment(at: t) else { return [] }
-        return cues.indices.filter { cues[$0].window.contains(phase) }
+        return cues.indices.filter { cues[$0].window?.contains(phase) ?? false }
+    }
+
+    /// Whether the mascot is deliberately airborne at a SET-relative
+    /// phase — true only inside a rep, within one of the declared
+    /// airborne windows. The tired beat is always grounded.
+    public func isAirborne(at t: Double) -> Bool {
+        guard case .rep(_, let phase) = segment(at: t) else { return false }
+        return dynamics.airborneWindows.contains { $0.contains(phase) }
     }
 
     /// The static stand-in when motion is frozen (Reduce Motion,

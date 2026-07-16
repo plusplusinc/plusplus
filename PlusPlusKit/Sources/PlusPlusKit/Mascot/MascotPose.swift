@@ -89,6 +89,21 @@ public struct MascotPose: Equatable, Sendable {
         return (toe(.leftAnkle), toe(.rightAnkle))
     }
 
+    /// The four sole corners (heel and toe of each foot), for the
+    /// floor-contact invariants. Distinct from `toePositions` (the
+    /// pointed-foot reach used by the floor-move toe solver): these
+    /// track the flat sole of the renderer's foot mesh.
+    public func solePoints(skeleton: MascotSkeleton) -> [Vec3] {
+        let frames = jointFrames(skeleton: skeleton)
+        var points: [Vec3] = []
+        for ankle in [MascotJoint.leftAnkle, .rightAnkle] {
+            guard let frame = frames[ankle] else { continue }
+            points.append(frame.position + frame.rotation.rotate(MascotSkeleton.soleToeOffset))
+            points.append(frame.position + frame.rotation.rotate(MascotSkeleton.soleHeelOffset))
+        }
+        return points
+    }
+
     /// The largest joint-or-root delta between two poses, EXCLUDING
     /// effort — "is the body still here" for pause detection and
     /// continuity checks.

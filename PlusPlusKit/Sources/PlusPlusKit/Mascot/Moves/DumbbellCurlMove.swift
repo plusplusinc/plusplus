@@ -43,9 +43,9 @@ enum DumbbellCurlMove {
             ],
             restBeat: MascotPoseBuilder.tiredBeat(from: start, to: start, duration: 2.4),
             cues: [
-                MascotCue("Elbows pinned to your sides", window: 0.02...0.45),
-                MascotCue("Squeeze at the top", window: 0.36...0.55),
-                MascotCue("Lower with control", window: 0.55...0.95),
+                MascotCue("Elbows pinned to your sides"),
+                MascotCue("Squeeze at the top", window: 0.22...0.55),
+                MascotCue("Lower with control", window: 0.58...0.98),
             ],
             props: [.dumbbellPair],
             blinkPhases: MascotPoseBuilder.defaultBlinkPhases(

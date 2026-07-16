@@ -7,6 +7,13 @@ import Foundation
 public enum MascotJoint: String, CaseIterable, Sendable, Codable {
     case root
     case spine, chest, neck, head
+    // Clavicles: the shoulder girdle. A human shoulder is not bolted to
+    // the ribcage — the scapula/clavicle slides it up (shrug), back
+    // (retraction), and forward (protraction), and whole families of
+    // movements (a back-squat rack, rows, overhead work) lean on that
+    // motion. Dave's rule: the mascot can do ALL movements a human can,
+    // so the rig models the girdle instead of moves working around it.
+    case leftClavicle, rightClavicle
     case leftShoulder, leftElbow, leftWrist
     case rightShoulder, rightElbow, rightWrist
     case leftHip, leftKnee, leftAnkle
@@ -19,7 +26,9 @@ public enum MascotJoint: String, CaseIterable, Sendable, Codable {
         case .chest: return .spine
         case .neck: return .chest
         case .head: return .neck
-        case .leftShoulder, .rightShoulder: return .chest
+        case .leftClavicle, .rightClavicle: return .chest
+        case .leftShoulder: return .leftClavicle
+        case .rightShoulder: return .rightClavicle
         case .leftElbow: return .leftShoulder
         case .leftWrist: return .leftElbow
         case .rightElbow: return .rightShoulder
@@ -36,6 +45,8 @@ public enum MascotJoint: String, CaseIterable, Sendable, Codable {
     /// midline maps to itself.
     public var mirrored: MascotJoint {
         switch self {
+        case .leftClavicle: return .rightClavicle
+        case .rightClavicle: return .leftClavicle
         case .leftShoulder: return .rightShoulder
         case .leftElbow: return .rightElbow
         case .leftWrist: return .rightWrist
@@ -88,6 +99,14 @@ public struct MascotSkeleton: Sendable {
     /// The rest hip height above the ground plane.
     public var restRootHeight: Double { bone(.root).offset.y }
 
+    /// The foot sole's corners in the ankle's local frame, matching the
+    /// renderer's foot mesh: heel behind the ankle, toe out front,
+    /// sole at the bottom. Floor-contact invariants check THESE (a
+    /// rotated foot can dig its heel corner in long before the ankle
+    /// joint gets near the ground).
+    public static let soleToeOffset = Vec3(0, -0.047, 0.145)
+    public static let soleHeelOffset = Vec3(0, -0.047, -0.05)
+
     /// Zero angles ARE the natural standing pose: the rest offsets hang
     /// the arms at the sides and stack the legs under the hips, so an
     /// empty pose stands the bot upright facing +Z.
@@ -98,16 +117,28 @@ public struct MascotSkeleton: Sendable {
         let shoulderSpan = 0.17
         let hipSpan = 0.09
         var bones: [MascotJoint: Bone] = [:]
-        bones[.root] = Bone(offset: Vec3(0, 0.55, 0), length: 0.10, thickness: 0.22)
+        // Rest hip height puts the SOLES exactly on the floor plane:
+        // hip 0.03 + thigh 0.26 + shin 0.24 below the root leaves the
+        // ankle at 0.047, and the sole sits 0.047 under the ankle. The
+        // round-3 floor invariants measure sole corners against y = 0,
+        // so rest = standing on the ground by construction (the first
+        // cut used 0.55 and the whole bot stood 2.7 cm sunk).
+        bones[.root] = Bone(offset: Vec3(0, 0.577, 0), length: 0.10, thickness: 0.22)
         bones[.spine] = Bone(offset: Vec3(0, 0.05, 0), length: 0.18, thickness: 0.22)
         bones[.chest] = Bone(offset: Vec3(0, 0.18, 0), length: 0.12, thickness: 0.26)
         bones[.neck] = Bone(offset: Vec3(0, 0.12, 0), length: 0.06, thickness: 0.07)
         bones[.head] = Bone(offset: Vec3(0, 0.06, 0), length: 0.22, thickness: 0.20)
-        for (shoulder, elbow, wrist, side) in [
-            (MascotJoint.leftShoulder, MascotJoint.leftElbow, MascotJoint.leftWrist, 1.0),
-            (MascotJoint.rightShoulder, MascotJoint.rightElbow, MascotJoint.rightWrist, -1.0),
+        for (clavicle, shoulder, elbow, wrist, side) in [
+            (MascotJoint.leftClavicle, MascotJoint.leftShoulder, MascotJoint.leftElbow, MascotJoint.leftWrist, 1.0),
+            (MascotJoint.rightClavicle, MascotJoint.rightShoulder, MascotJoint.rightElbow, MascotJoint.rightWrist, -1.0),
         ] {
-            bones[shoulder] = Bone(offset: Vec3(side * shoulderSpan, 0.10, 0), length: 0.18, thickness: 0.055)
+            // The old chest->shoulder offset split at the girdle: the
+            // clavicle roots near the sternum, the shoulder hangs off
+            // its lateral end. Zero clavicle angles reproduce the old
+            // shoulder position exactly, so every pose authored before
+            // the girdle existed is unchanged.
+            bones[clavicle] = Bone(offset: Vec3(side * 0.05, 0.10, 0), length: shoulderSpan - 0.05, thickness: 0.04)
+            bones[shoulder] = Bone(offset: Vec3(side * (shoulderSpan - 0.05), 0, 0), length: 0.18, thickness: 0.055)
             bones[elbow] = Bone(offset: Vec3(0, -0.18, 0), length: 0.16, thickness: 0.05)
             bones[wrist] = Bone(offset: Vec3(0, -0.16, 0), length: 0.07, thickness: 0.06)
         }
