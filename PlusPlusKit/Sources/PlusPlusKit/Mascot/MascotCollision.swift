@@ -49,6 +49,14 @@ public enum MascotSupport {
     public static let benchPadThickness = 0.05
     /// Pad CENTER in world space (mid-thickness).
     public static let benchCenter = Vec3(0, benchTopHeight - benchPadThickness / 2, -0.16)
+    /// Leg placement (z offsets from the pad center) and section — the
+    /// renderer's numbers, kept in the contract so they can't drift.
+    /// Legs are VISUAL-ONLY today: they sit under the pad where no
+    /// current pose can reach; they join the collision sweep the day a
+    /// seated/decline move's feet can touch them.
+    public static let benchLegZOffsets: [Double] = [-0.26, 0.26]
+    public static let benchLegWidth = 0.16
+    public static let benchLegDepth = 0.045
 
     /// The pad as collision capsules: three rails along its length at
     /// mid-thickness, radius = half the pad thickness, so a torso
@@ -98,6 +106,19 @@ public enum MascotCollision {
         (.leftAnkle, 0.036), (.rightAnkle, 0.036),   // shins (calf swell)
     ]
 
+    /// The named radius for a segment (by its child joint) — invariants
+    /// that reason about a specific surface (the bench contact bands)
+    /// read THIS instead of hardcoding a copy that goes stale when a
+    /// silhouette pass retunes the table.
+    static func segmentRadius(_ child: MascotJoint) -> Double {
+        segmentRadii.first { $0.child == child }?.radius ?? 0
+    }
+
+    /// The head sphere's placement — shared by the capsule model and
+    /// the bench head-contact invariant.
+    static let headCenterOffset = Vec3(0, 0.11, 0)
+    static let headRadius = 0.115
+
     public static func bodyCapsules(
         pose: MascotPose,
         skeleton: MascotSkeleton = .standard
@@ -112,8 +133,8 @@ public enum MascotCollision {
         }
         // Head: a sphere at the helmet's center.
         if let head = frames[.head] {
-            let center = head.position + head.rotation.rotate(Vec3(0, 0.11, 0))
-            capsules.append(Capsule(name: "head", from: center, to: center, radius: 0.115))
+            let center = head.position + head.rotation.rotate(headCenterOffset)
+            capsules.append(Capsule(name: "head", from: center, to: center, radius: headRadius))
         }
         // Feet: capsules along the SOLE line of the renderer's SPLIT
         // foot mesh (the forefoot hinge) — rearfoot from heel corner to

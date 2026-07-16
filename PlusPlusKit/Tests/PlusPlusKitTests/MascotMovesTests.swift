@@ -492,19 +492,22 @@ import Foundation
             let t = Double(i) / 400
             let pose = animation.pose(at: t)
             let frames = pose.jointFrames(skeleton: Self.skeleton)
-            // Torso back surfaces: joint axis minus the capsule radius
-            // (the same radii the collision model carries).
-            for (joint, radius, part) in [
-                (MascotJoint.spine, 0.075, "glutes"),
-                (.chest, 0.08, "mid back"),
-                (.neck, 0.085, "upper back"),
+            // Torso back surfaces: joint axis minus the capsule radius,
+            // read FROM the collision model — a hardcoded copy would go
+            // silently stale when a silhouette pass retunes the table
+            // (the muscle pass changed exactly these numbers).
+            for (joint, part) in [
+                (MascotJoint.spine, "glutes"),
+                (.chest, "mid back"),
+                (.neck, "upper back"),
             ] {
-                let gap = (frames[joint]!.position.y - radius) - padTop
+                let gap = (frames[joint]!.position.y - MascotCollision.segmentRadius(joint)) - padTop
                 #expect(gap >= -0.008 && gap <= 0.012,
                         "\(name): \(part) off the pad by \(gap) at t=\(t)")
             }
             let head = frames[.head]!
-            let headBottom = (head.position + head.rotation.rotate(Vec3(0, 0.11, 0))).y - 0.115
+            let headBottom = (head.position + head.rotation.rotate(MascotCollision.headCenterOffset)).y
+                - MascotCollision.headRadius
             let headGap = headBottom - padTop
             #expect(headGap >= -0.008 && headGap <= 0.015,
                     "\(name): head off the pad by \(headGap) at t=\(t)")

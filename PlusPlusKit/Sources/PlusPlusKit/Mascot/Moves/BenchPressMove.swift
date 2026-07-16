@@ -50,22 +50,6 @@ enum BenchPressMove {
             )
         }
 
-        // Lockout: bar at full reach (0.726) stacked over the shoulders.
-        let lockout = benchPose(
-            shoulder: .deg(pitch: -84.9, yaw: -10.1, roll: 25.5),
-            elbow: -7.2,
-            wrist: .deg(pitch: -3.8, yaw: 3.9, roll: -15.2),
-            effort: 0.3
-        )
-        // Touch: bar grazing the mid cowl (4 mm proud of the surface),
-        // elbow under the bar in the sagittal plane.
-        let touch = benchPose(
-            shoulder: .deg(pitch: 27.9, yaw: 15.8, roll: 73.0),
-            elbow: -133.4,
-            wrist: .deg(pitch: -39.0, yaw: 40.6, roll: 33.8),
-            effort: 0.55
-        )
-
         // The STANDING servo (`coordinating` — CoM over feet, bar over
         // midfoot) doesn't apply lying down; the bench's servo is the
         // GRIP one: a joint lerp between the two perfectly-gripped
@@ -76,6 +60,26 @@ enum BenchPressMove {
         let solve = { (pose: MascotPose) in
             MascotPoseBuilder.aligningGrip(pose)
         }
+
+        // Endpoints run through the solve too (repCycle's contract) —
+        // today the scan winners sit under the servo's identity gate so
+        // this is a no-op, but it stays true if a future retune lands a
+        // hair over the gate.
+        // Lockout: bar at full reach (0.726) stacked over the shoulders.
+        let lockout = solve(benchPose(
+            shoulder: .deg(pitch: -84.9, yaw: -10.1, roll: 25.5),
+            elbow: -7.2,
+            wrist: .deg(pitch: -3.8, yaw: 3.9, roll: -15.2),
+            effort: 0.3
+        ))
+        // Touch: bar grazing the mid cowl (4 mm proud of the surface),
+        // elbow under the bar in the sagittal plane.
+        let touch = solve(benchPose(
+            shoulder: .deg(pitch: 27.9, yaw: 15.8, roll: 73.0),
+            elbow: -133.4,
+            wrist: .deg(pitch: -39.0, yaw: 40.6, roll: 33.8),
+            effort: 0.55
+        ))
         let repKeyframes = MascotPoseBuilder.repCycle(
             top: lockout, bottom: touch,
             steps: 12,

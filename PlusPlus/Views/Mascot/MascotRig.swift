@@ -266,12 +266,15 @@ final class MascotRig {
             container.addChild(pad)
             themed.append((pad, .equipment))
             let legHeight = Float(MascotSupport.benchTopHeight) - padThickness
-            for zEnd in [Float(-0.26), 0.26] {
-                let leg = ModelEntity(mesh: box(0.16, Double(legHeight), 0.045, corner: 0.012))
+            for zOffset in MascotSupport.benchLegZOffsets {
+                let leg = ModelEntity(mesh: box(
+                    MascotSupport.benchLegWidth, Double(legHeight), MascotSupport.benchLegDepth,
+                    corner: 0.012
+                ))
                 leg.position = [
                     0,
                     legHeight / 2,
-                    Float(MascotSupport.benchCenter.z) + zEnd,
+                    Float(MascotSupport.benchCenter.z + zOffset),
                 ]
                 container.addChild(leg)
                 themed.append((leg, .equipmentDark))
