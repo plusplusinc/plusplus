@@ -635,11 +635,28 @@ struct ActiveSessionView: View {
             // so the endedAt stamp rides along.
             LiveMirror.shared.finished(session, at: session.endedAt ?? Date())
             heartRate.stop()
-            // Capture the GPS route before stop() clears the monitor; a
-            // non-empty route saves the workout as an outdoor run with its
-            // map in Health (#348).
-            let runRoute = location.route
+            // Capture the GPS track before stop() (#348/#378): the flattened
+            // route goes to Health (a non-empty one classifies the workout
+            // as an outdoor run with its map), and the segmented track
+            // becomes the session's durable record — the GPX bytes stored
+            // here are the EXACT sidecar the repo sync will replay, plus
+            // the denormalized summary for cheap display.
+            let runTrack = location.sessionTrack
+            let runRoute = location.sessionRoute
             location.stop()
+            // Positive-measurement gate, not just non-empty: a degenerate
+            // track (standing still → zero distance, or sub-floor creep →
+            // zero moving time) must stamp NOTHING — the validator requires
+            // positive run measurements, and an invalid session file would
+            // make a whole repo restore throw. No summary, no sidecar; the
+            // set actuals still tell the honest story.
+            let hasRealRun = !runTrack.isEmpty && runTrack.totalMeters > 0 && runTrack.movingSeconds > 0
+            if hasRealRun {
+                session.routeData = GPX.encode(runTrack, name: session.routineName, startedAt: session.effectiveStart)
+                session.runDistanceMeters = runTrack.totalMeters
+                session.runMovingSeconds = runTrack.movingSeconds
+                session.runElevationGainMeters = runTrack.elevationGainMeters
+            }
             // The session's heart-rate summary, from Health's samples
             // over the window. Watch imports never pass through here —
             // their summary rides the result payload. The completion
@@ -654,8 +671,10 @@ struct ActiveSessionView: View {
                 }
             }
             // Phone-logged sessions reach Health here; watch imports are
-            // recorded by the wrist's own live session (#90).
-            HealthRecorder.record(session, route: runRoute)
+            // recorded by the wrist's own live session (#90). Health gets
+            // the route only when the durable record calls it a run — the
+            // two must not disagree about a degenerate zero-distance track.
+            HealthRecorder.record(session, route: hasRealRun ? runRoute : [])
         }
         if dismissAfter {
             dismiss()
