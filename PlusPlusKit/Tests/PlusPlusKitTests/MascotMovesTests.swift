@@ -437,6 +437,45 @@ import Foundation
         }
     }
 
+    /// The straight-line law, geometrically (build-88 on-device: the
+    /// push-up read hips-sagging with the head craned back): through
+    /// every WORKING frame of the floor moves, chest–hip–knee and
+    /// hip–knee–ankle stay within a few degrees of collinear, and the
+    /// head CONTINUES the body line instead of craning off it. The
+    /// tired beat is exempt — the proud chest-lift between sets bends
+    /// on purpose.
+    @Test(arguments: ["Push-Up", "Plank"])
+    func floorMovesHoldAStraightLine(name: String) throws {
+        let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
+        let workShare = animation.workDuration / animation.cycleDuration
+        // Bend at the apex joint, in the sagittal plane only — the hips
+        // sit wider than the body's midline by design, and lateral
+        // offsets are not sag.
+        func degreesFromStraight(_ a: Vec3, _ apex: Vec3, _ b: Vec3) -> Double {
+            let u = (z: a.z - apex.z, y: a.y - apex.y)
+            let v = (z: b.z - apex.z, y: b.y - apex.y)
+            let dot = u.z * v.z + u.y * v.y
+            let mag = (u.z * u.z + u.y * u.y).squareRoot()
+                * (v.z * v.z + v.y * v.y).squareRoot()
+            guard mag > 1e-9 else { return 0 }
+            return 180 - acos(max(-1, min(1, dot / mag))) * 180 / .pi
+        }
+        for i in 0...200 {
+            let t = Double(i) / 200 * workShare * 0.999
+            let positions = animation.pose(at: t).jointPositions(skeleton: Self.skeleton)
+            let chest = positions[.chest]!
+            let hip = 0.5 * (positions[.leftHip]! + positions[.rightHip]!)
+            let knee = 0.5 * (positions[.leftKnee]! + positions[.rightKnee]!)
+            let ankle = 0.5 * (positions[.leftAnkle]! + positions[.rightAnkle]!)
+            let hipBend = degreesFromStraight(chest, hip, knee)
+            let kneeBend = degreesFromStraight(hip, knee, ankle)
+            let headBend = degreesFromStraight(hip, positions[.neck]!, positions[.head]!)
+            #expect(hipBend <= 8, "\(name): hips \(hipBend) deg off the line at t=\(t)")
+            #expect(kneeBend <= 8, "\(name): knees \(kneeBend) deg off the line at t=\(t)")
+            #expect(headBend <= 12, "\(name): head \(headBend) deg off the line at t=\(t)")
+        }
+    }
+
     // MARK: - Per-move semantics (the authored shapes mean what they say)
 
     @Test func squatDescendsAndRacksTheBar() throws {
@@ -506,7 +545,7 @@ import Foundation
         let curl = try #require(MascotMoves.animation(forExerciseNamed: "Dumbbell Curl"))
         #expect(curl.props == [.dumbbellPair])
         let repShare = curl.repDuration / curl.cycleDuration
-        let top = curl.pose(at: 0.38 * repShare).jointPositions(skeleton: Self.skeleton)
+        let top = curl.pose(at: 0.47 * repShare).jointPositions(skeleton: Self.skeleton)
         let start = curl.pose(at: 0).jointPositions(skeleton: Self.skeleton)
         for wrist in [MascotJoint.leftWrist, .rightWrist] {
             #expect(top[wrist]!.y > start[wrist]!.y + 0.2, "curl lifts the wrists")
@@ -517,7 +556,7 @@ import Foundation
         // to at least 130 degrees of flexion at the squeeze.
         let toDegrees = 180 / Double.pi
         let startFlexion = abs(curl.pose(at: 0).angles(.leftElbow).pitch) * toDegrees
-        let topFlexion = abs(curl.pose(at: 0.38 * repShare).angles(.leftElbow).pitch) * toDegrees
+        let topFlexion = abs(curl.pose(at: 0.47 * repShare).angles(.leftElbow).pitch) * toDegrees
         #expect(startFlexion <= 10, "full extension at the bottom: \(startFlexion) degrees")
         #expect(topFlexion >= 128, "full squeeze at the top: \(topFlexion) degrees")
     }

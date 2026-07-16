@@ -29,7 +29,11 @@ enum DumbbellCurlMove {
         // bottom (-5, a soft elbow, never a slammed lockout) up to a
         // -132 squeeze at the top — both ends invariant-enforced.
         let start = standingPose(shoulderPitch: 0, elbowPitch: -5, effort: 0.15)
-        let topOfCurl = standingPose(shoulderPitch: -10, elbowPitch: -132, effort: 0.75)
+        let topOfCurl = standingPose(shoulderPitch: -10, elbowPitch: -132, effort: 0.78)
+        // The squeeze eases off through the hold so peak effort lands
+        // at the END OF THE RISE (the concentric), not mid-stillness.
+        var squeezeEnd = topOfCurl
+        squeezeEnd.effort = 0.68
         var lowering = topOfCurl.lerp(to: start, t: 0.4)
         lowering.effort = 0.35
 
@@ -37,18 +41,25 @@ enum DumbbellCurlMove {
             exerciseName: "Dumbbell Curl",
             style: .reps(repDuration: 2.6),
             repsPerDemoSet: 4,
+            // A real curl PAUSES at full extension before the next rep
+            // (build-88: reps rolled straight into each other) — the
+            // 0...0.06 dwell is an exact start-pose copy, and with the
+            // loop seam it reads as a natural beat at the bottom. The
+            // squeeze at the top keeps its own hold.
             repKeyframes: [
-                MascotKeyframe(t: 0, pose: start, easing: .easeInOut),
-                MascotKeyframe(t: 0.38, pose: topOfCurl, easing: .hold),
-                MascotKeyframe(t: 0.48, pose: topOfCurl, easing: .easeInOut),
-                MascotKeyframe(t: 0.72, pose: lowering, easing: .easeInOut),
+                MascotKeyframe(t: 0, pose: start, easing: .hold),
+                MascotKeyframe(t: 0.06, pose: start, easing: .easeInOut),
+                MascotKeyframe(t: 0.42, pose: topOfCurl, easing: .hold),
+                MascotKeyframe(t: 0.52, pose: squeezeEnd, easing: .easeInOut),
+                MascotKeyframe(t: 0.74, pose: lowering, easing: .easeInOut),
+                MascotKeyframe(t: 0.94, pose: start, easing: .hold),
                 MascotKeyframe(t: 1, pose: start),
             ],
             restBeat: MascotPoseBuilder.tiredBeat(from: start, to: start, duration: 2.4),
             cues: [
                 MascotCue("Elbows pinned to your sides"),
-                MascotCue("Squeeze at the top", window: 0.22...0.55),
-                MascotCue("Lower with control", window: 0.58...0.98),
+                MascotCue("Squeeze at the top", window: 0.26...0.58),
+                MascotCue("Lower with control", window: 0.58...0.94),
             ],
             props: [.dumbbellPair],
             blinkPhases: MascotPoseBuilder.defaultBlinkPhases(

@@ -48,15 +48,18 @@ public enum MascotCollision {
 
     /// Body capsule radii, mirroring the renderer's meshes. Torso
     /// entries are the box HALF-DEPTHS (the direction a bar approaches
-    /// from); the head is a sphere around its mesh center.
+    /// from); the head is a sphere around its mesh center. Limb radii
+    /// are the WIDEST point of the renderer's lathed muscle profiles
+    /// (the build-88 muscle pass: deltoid 0.034, quad 0.042, calf
+    /// 0.036) — the swell is what a hanging bar grazes first.
     static let segmentRadii: [(child: MascotJoint, radius: Double)] = [
         (.spine, 0.075),   // pelvis/lower torso
         (.chest, 0.08),    // abdomen
         (.neck, 0.085),    // chest cowl
         (.leftShoulder, 0.0275), (.rightShoulder, 0.0275),   // clavicle yokes
-        (.leftElbow, 0.028), (.rightElbow, 0.028),   // upper arms
-        (.leftKnee, 0.036), (.rightKnee, 0.036),     // thighs
-        (.leftAnkle, 0.031), (.rightAnkle, 0.031),   // shins
+        (.leftElbow, 0.034), (.rightElbow, 0.034),   // upper arms (deltoid swell)
+        (.leftKnee, 0.042), (.rightKnee, 0.042),     // thighs (quad swell)
+        (.leftAnkle, 0.036), (.rightAnkle, 0.036),   // shins (calf swell)
     ]
 
     public static func bodyCapsules(
@@ -82,7 +85,7 @@ public enum MascotCollision {
         // hinged frame, both lifted to the boxes' mid-height. (The old
         // ankle-to-pointed-toe segment dived 12 cm under the floor on a
         // standing foot.)
-        let midHeight = Vec3(0, 0.025, 0)
+        let midHeight = Vec3(0, 0.021, 0)
         for (ankle, toe, name) in [
             (MascotJoint.leftAnkle, MascotJoint.leftToe, "left"),
             (.rightAnkle, .rightToe, "right"),
@@ -92,13 +95,13 @@ public enum MascotCollision {
                 name: "\(name)Foot",
                 from: ankleFrame.position + ankleFrame.rotation.rotate(MascotSkeleton.soleHeelOffset + midHeight),
                 to: ankleFrame.position + ankleFrame.rotation.rotate(MascotSkeleton.soleBallOffset + midHeight),
-                radius: 0.025
+                radius: 0.021
             ))
             capsules.append(Capsule(
                 name: "\(name)ToeCap",
                 from: toeFrame.position,
-                to: toeFrame.position + toeFrame.rotation.rotate(Vec3(0, 0, 0.065)),
-                radius: 0.025
+                to: toeFrame.position + toeFrame.rotation.rotate(Vec3(0, 0, 0.054)),
+                radius: 0.018
             ))
         }
         return capsules

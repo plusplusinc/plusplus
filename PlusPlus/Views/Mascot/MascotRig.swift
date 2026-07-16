@@ -66,9 +66,20 @@ final class MascotRig {
         }
 
         // Torso: white pelvis and chest cowl over a dark abdomen —
-        // panels over an undersuit.
+        // panels over an undersuit. The abdomen is a lathe that narrows
+        // to a WAIST between the cowl and the pelvis (the muscle pass's
+        // torso contribution, build-88: "a bit more human like shape"),
+        // stretched wider in x so the trunk stays broader than deep.
         attach(box(0.24, 0.15, 0.15, corner: 0.055), to: .root, offset: [0, 0.005, 0], role: .panel)
-        attach(box(0.19, 0.15, 0.125), to: .spine, offset: [0, 0.085, 0], role: .joint)
+        if let waist = MascotMeshes.muscle(
+            length: 0.15,
+            controls: [(0, 0.063), (0.45, 0.055), (1, 0.061)]
+        ) {
+            let core = attach(waist, to: .spine, offset: [0, 0.16, 0], role: .joint)
+            core.scale = [1.5, 1, 1]
+        } else {
+            attach(box(0.19, 0.15, 0.125), to: .spine, offset: [0, 0.085, 0], role: .joint)
+        }
         attach(box(0.30, 0.19, 0.165, corner: 0.06), to: .chest, offset: [0, 0.055, 0], role: .panel)
         attach(box(0.075, 0.075, 0.075), to: .neck, offset: [0, 0.03, 0], role: .joint)
 
@@ -95,19 +106,47 @@ final class MascotRig {
         }
         eyeVerticalBars = verticalBars
 
-        // Limbs: white segments with dark joint spheres at every
-        // articulation point.
-        for (joint, size, offset) in [
-            (MascotJoint.leftShoulder, (0.055, 0.17, 0.055), SIMD3<Float>(0, -0.09, 0)),
-            (.rightShoulder, (0.055, 0.17, 0.055), [0, -0.09, 0]),
-            (.leftElbow, (0.05, 0.15, 0.05), [0, -0.08, 0]),
-            (.rightElbow, (0.05, 0.15, 0.05), [0, -0.08, 0]),
-            (.leftHip, (0.072, 0.25, 0.072), [0, -0.13, 0]),
-            (.rightHip, (0.072, 0.25, 0.072), [0, -0.13, 0]),
-            (.leftKnee, (0.062, 0.23, 0.062), [0, -0.12, 0]),
-            (.rightKnee, (0.062, 0.23, 0.062), [0, -0.12, 0]),
-        ] {
-            attach(box(size.0, size.1, size.2), to: joint, offset: offset, role: .panel)
+        // Limbs: sculpted white segments with dark joint spheres at
+        // every articulation point. Each limb is a smooth lathe with a
+        // muscle-suggesting radius curve — a deltoid cap on the upper
+        // arm, a forearm swell, a quad bulge, a calf (build-88: "some
+        // approximation" of musculature, deliberately not an anatomical
+        // model). ⚠️ The widest radius of each COLLIDING limb matches
+        // its capsule in MascotCollision.segmentRadii (upper arm 0.034,
+        // thigh 0.042, shin 0.036) so the proof mirrors the pixels;
+        // forearms are excluded from collision by design (they grip).
+        let limbs: [(joints: [MascotJoint], length: Float, controls: [(t: Float, r: Float)])] = [
+            ([.leftShoulder, .rightShoulder], 0.17,
+             [(0, 0.029), (0.15, 0.034), (0.55, 0.0265), (1, 0.024)]),
+            ([.leftElbow, .rightElbow], 0.15,
+             [(0, 0.025), (0.18, 0.030), (0.60, 0.0235), (1, 0.020)]),
+            ([.leftHip, .rightHip], 0.25,
+             [(0, 0.038), (0.28, 0.042), (0.75, 0.0335), (1, 0.031)]),
+            ([.leftKnee, .rightKnee], 0.23,
+             [(0, 0.031), (0.24, 0.036), (0.70, 0.026), (1, 0.022)]),
+        ]
+        let limbMeshes = limbs.map { MascotMeshes.muscle(length: $0.length, controls: $0.controls) }
+        if limbMeshes.allSatisfy({ $0 != nil }) {
+            for (limb, mesh) in zip(limbs, limbMeshes) {
+                for joint in limb.joints {
+                    attach(mesh!, to: joint, offset: [0, -0.005, 0], role: .panel)
+                }
+            }
+        } else {
+            // Lathe generation failed (it shouldn't): the old box limbs
+            // beat invisible ones.
+            for (joint, size, offset) in [
+                (MascotJoint.leftShoulder, (0.055, 0.17, 0.055), SIMD3<Float>(0, -0.09, 0)),
+                (.rightShoulder, (0.055, 0.17, 0.055), [0, -0.09, 0]),
+                (.leftElbow, (0.05, 0.15, 0.05), [0, -0.08, 0]),
+                (.rightElbow, (0.05, 0.15, 0.05), [0, -0.08, 0]),
+                (.leftHip, (0.072, 0.25, 0.072), [0, -0.13, 0]),
+                (.rightHip, (0.072, 0.25, 0.072), [0, -0.13, 0]),
+                (.leftKnee, (0.062, 0.23, 0.062), [0, -0.12, 0]),
+                (.rightKnee, (0.062, 0.23, 0.062), [0, -0.12, 0]),
+            ] {
+                attach(box(size.0, size.1, size.2), to: joint, offset: offset, role: .panel)
+            }
         }
         for (joint, radius) in [
             (MascotJoint.leftShoulder, Float(0.048)), (.rightShoulder, 0.048),
@@ -133,17 +172,19 @@ final class MascotRig {
             attach(box(0.17, 0.055, 0.055), to: clavicle, offset: [side * 0.06, 0, 0], role: .joint)
         }
 
-        // Big cartoon feet, SPLIT at the forefoot hinge (matching the
-        // kit skeleton's support geometry: heel ~5 cm back, ball line
-        // at +8 cm, toe cap out to +14.5 cm). The cap pivots at the
-        // ball so calf raises and toe-offs keep the forefoot FLAT on
-        // the floor instead of tipping the whole shoe on its edge.
-        // Collision twins: the leftFoot/leftToeCap capsules in
-        // MascotCollision.bodyCapsules.
+        // Feet proportioned like a smooth cross-training shoe (build-88:
+        // the first big cartoon feet "look weird" — normal size, normal
+        // shape now), still SPLIT at the forefoot hinge: a low-profile
+        // rearfoot from the heel to the ball line, a toe cap pivoting at
+        // the ball so calf raises and toe-offs keep the forefoot FLAT on
+        // the floor. Dimensions come from the kit's sole landmarks
+        // (MascotSkeleton.soleHeelOffset/.soleBallOffset/
+        // .toeCapFrontOffset); collision twins are the leftFoot/
+        // leftToeCap capsules in MascotCollision.bodyCapsules.
         for (ankle, toe) in [(MascotJoint.leftAnkle, MascotJoint.leftToe), (.rightAnkle, .rightToe)] {
-            attach(box(0.07, 0.05, 0.13, corner: 0.022), to: ankle, offset: [0, -0.022, 0.015], role: .panel)
-            attach(box(0.07, 0.05, 0.065, corner: 0.02), to: toe, offset: [0, 0, 0.0325], role: .panel)
-            let sphere = ModelEntity(mesh: .generateSphere(radius: 0.038))
+            attach(box(0.06, 0.042, 0.106, corner: 0.016), to: ankle, offset: [0, -0.021, 0.005], role: .panel)
+            attach(box(0.056, 0.036, 0.054, corner: 0.014), to: toe, offset: [0, 0, 0.027], role: .panel)
+            let sphere = ModelEntity(mesh: .generateSphere(radius: 0.03))
             joints[ankle]?.addChild(sphere)
             themed.append((sphere, .joint))
         }
@@ -174,10 +215,13 @@ final class MascotRig {
         }
 
         // The room: a soft stage disc, a dot-grid floor, and dot-grid
-        // walls sized so the clamped orbit camera always stays inside.
-        // The disc TOP sits exactly at y = 0 — the kit's floor plane,
-        // where the round-3 invariants put the soles — so the feet
-        // stand ON the stage instead of sinking through it.
+        // walls on ALL FOUR sides — the orbit spins the full circle now
+        // (build-88: rotate all the way around), so every backdrop the
+        // camera can face must exist. Walls sit outside the camera's
+        // 2.2 m max radius. The disc TOP sits exactly at y = 0 — the
+        // kit's floor plane, where the round-3 invariants put the soles
+        // — so the feet stand ON the stage instead of sinking through
+        // it.
         let ground = ModelEntity(mesh: .generateCylinder(height: 0.02, radius: 0.62))
         ground.position = [0, -0.010, 0]
         container.addChild(ground)
@@ -188,14 +232,15 @@ final class MascotRig {
         container.addChild(floor)
         themed.append((floor, .floor))
 
-        let back = ModelEntity(mesh: .generatePlane(width: 6.4, height: 3.4))
-        back.position = [0, 1.65, -2.5]
-        container.addChild(back)
-        themed.append((back, .wall))
-        for side in [Float(1), -1] {
+        for (position, angle) in [
+            (SIMD3<Float>(0, 1.65, -2.5), Float(0)),          // back
+            ([0, 1.65, 2.5], .pi),                            // front
+            ([2.7, 1.65, 0], -.pi / 2),                       // left
+            ([-2.7, 1.65, 0], .pi / 2),                       // right
+        ] {
             let wall = ModelEntity(mesh: .generatePlane(width: 6.4, height: 3.4))
-            wall.position = [side * 2.7, 1.65, 0]
-            wall.orientation = simd_quatf(angle: side * -.pi / 2, axis: [0, 1, 0])
+            wall.position = position
+            wall.orientation = simd_quatf(angle: angle, axis: [0, 1, 0])
             container.addChild(wall)
             themed.append((wall, .wall))
         }

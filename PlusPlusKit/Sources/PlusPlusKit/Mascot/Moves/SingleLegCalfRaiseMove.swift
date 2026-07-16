@@ -71,18 +71,20 @@ enum SingleLegCalfRaiseMove {
         let swayed = anchoredToTheBall(state(rise: 0, sway: swayHip, effort: 0.3))
         let top = anchoredToTheBall(state(rise: rise, sway: swayHip, effort: 0.8))
 
-        // Shift, rise, squeeze, lower slow (the eccentric is the long
-        // half — invariant-enforced), settle.
+        // Dwell at the bottom stretch, shift, rise, squeeze at the
+        // top, lower slow (the eccentric is the long half —
+        // invariant-enforced), settle back into the stretch.
         var repKeyframes: [MascotKeyframe] = [
-            MascotKeyframe(t: 0, pose: bottom, easing: .easeInOut),
+            MascotKeyframe(t: 0, pose: bottom, easing: .hold),
+            MascotKeyframe(t: 0.05, pose: bottom, easing: .easeInOut),
         ]
         repKeyframes.append(contentsOf: MascotPoseBuilder.span(
-            from: bottom, to: swayed, t0: 0, t1: 0.12, steps: 3,
+            from: bottom, to: swayed, t0: 0.05, t1: 0.15, steps: 3,
             effortKeys: [(0, 0.2), (1, 0.3)],
             solve: anchoredToTheBall
         ).dropFirst())
         repKeyframes.append(contentsOf: MascotPoseBuilder.span(
-            from: swayed, to: top, t0: 0.12, t1: 0.44, steps: 10,
+            from: swayed, to: top, t0: 0.15, t1: 0.45, steps: 10,
             effortKeys: [(0, 0.3), (0.75, 0.88), (1, 0.8)],
             solve: anchoredToTheBall
         ).dropFirst())
@@ -90,15 +92,16 @@ enum SingleLegCalfRaiseMove {
         // The lower keeps the default ease-in-out: an ease-OUT would
         // front-load the descent speed — dropping, not lowering.
         repKeyframes.append(contentsOf: MascotPoseBuilder.span(
-            from: top, to: swayed, t0: 0.56, t1: 0.95, steps: 10,
+            from: top, to: swayed, t0: 0.56, t1: 0.92, steps: 10,
             effortKeys: [(0, 0.8), (0.35, 0.5), (1, 0.3)],
             solve: anchoredToTheBall
         ).dropFirst())
         repKeyframes.append(contentsOf: MascotPoseBuilder.span(
-            from: swayed, to: bottom, t0: 0.95, t1: 1, steps: 2,
+            from: swayed, to: bottom, t0: 0.92, t1: 0.97, steps: 2,
             effortKeys: [(0, 0.3), (1, 0.2)],
             solve: anchoredToTheBall
         ).dropFirst())
+        repKeyframes.append(MascotKeyframe(t: 1, pose: bottom))
 
         return ExerciseAnimation(
             exerciseName: "Single-Leg Calf Raise",
@@ -109,8 +112,8 @@ enum SingleLegCalfRaiseMove {
             cues: [
                 MascotCue("Weight on the ball of the foot"),
                 MascotCue("Stand tall"),
-                MascotCue("Drive up to the top", window: 0.1...0.44),
-                MascotCue("Lower with control", window: 0.55...0.95),
+                MascotCue("Drive up to the top", window: 0.12...0.45),
+                MascotCue("Lower with control", window: 0.56...0.92),
             ],
             blinkPhases: MascotPoseBuilder.defaultBlinkPhases(
                 reps: 4, repDuration: 2.6, restDuration: 2.4, repPhase: 0.02

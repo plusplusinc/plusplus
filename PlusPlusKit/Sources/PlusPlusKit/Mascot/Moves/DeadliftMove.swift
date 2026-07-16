@@ -60,25 +60,64 @@ enum DeadliftMove {
             )
         }
 
+        // The FIRST-PULL waypoint (build-88: the bar visibly deflected
+        // around the knees — proper technique moves the KNEES out of
+        // the bar's way, not the bar around the knees): at knee
+        // passage the shins are near vertical (hip -40 + knee 44) with
+        // the BACK ANGLE UNCHANGED from the floor — knees extend
+        // first, hips stay closed, the bar path stays a straight
+        // vertical line. Mirrored on the way down: hips hinge back
+        // and the bar slides down the thighs past the knees BEFORE
+        // the knees bend.
+        let legsKneePass = MascotPoseBuilder.symmetricLegs(
+            hip: .deg(pitch: -40, roll: stanceRoll),
+            knee: .deg(pitch: 44),
+            ankle: .deg(pitch: -4)
+        )
+        let armsKneePass = MascotPoseBuilder.symmetricArms(
+            shoulder: .deg(pitch: -(spinePitch + chestPitch))
+        )
+
         let lockout = solve(MascotPose(
             joints: MascotPoseBuilder.merge(legsLockout, armsLockout),
             effort: 0.3
+        ))
+        let kneePass = solve(MascotPose(
+            joints: MascotPoseBuilder.merge(legsKneePass, torsoBottom, armsKneePass),
+            effort: 0.45
         ))
         let bottom = solve(MascotPose(
             joints: MascotPoseBuilder.merge(legsBottom, torsoBottom, armsBottom),
             effort: 0.5
         ))
-        // The standard rep cycle (slow eccentric down to the floor, a
-        // beat to set the grip, the pull with the hardest effort of
-        // any move). Densely baked: the servo only speaks at the
-        // knots, and with 8 of them the spline dipped the bar 1.5 cm
-        // back into the legs BETWEEN samples — 24 pin the path to the
-        // servo's line.
-        let repKeyframes = MascotPoseBuilder.repCycle(
-            top: lockout, bottom: bottom, steps: 24,
-            topEffort: 0.3, bottomEffort: 0.5, driveEffort: 0.95, settleEffort: 0.45,
+        // Slow eccentric staged through the knee pass, a beat at the
+        // floor to set the grip, then the pull (knees first, hips
+        // through) with the hardest effort of any move. Densely baked:
+        // the servo only speaks at the knots.
+        var repKeyframes = MascotPoseBuilder.span(
+            from: lockout, to: kneePass, t0: 0, t1: 0.22, steps: 10,
+            effortKeys: [(0, 0.3), (1, 0.4)],
             solve: solve
         )
+        repKeyframes.append(contentsOf: MascotPoseBuilder.span(
+            from: kneePass, to: bottom, t0: 0.22, t1: 0.46, steps: 12,
+            effortKeys: [(0, 0.4), (1, 0.5)],
+            solve: solve
+        ).dropFirst())
+        repKeyframes.append(MascotKeyframe(t: 0.56, pose: bottom, easing: .linear))
+        repKeyframes.append(contentsOf: MascotPoseBuilder.span(
+            from: bottom, to: kneePass, t0: 0.56, t1: 0.72, steps: 8,
+            easing: .easeOut,
+            effortKeys: [(0, 0.5), (0.6, 0.95), (1, 0.8)],
+            solve: solve
+        ).dropFirst())
+        repKeyframes.append(contentsOf: MascotPoseBuilder.span(
+            from: kneePass, to: lockout, t0: 0.72, t1: 0.9, steps: 8,
+            easing: .easeOut,
+            effortKeys: [(0, 0.8), (0.5, 0.9), (1, 0.45)],
+            solve: solve
+        ).dropFirst())
+        repKeyframes.append(MascotKeyframe(t: 1, pose: lockout))
 
         return ExerciseAnimation(
             exerciseName: "Deadlift",

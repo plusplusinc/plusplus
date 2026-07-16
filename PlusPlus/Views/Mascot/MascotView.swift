@@ -37,17 +37,16 @@ struct MascotView: View {
         var palette: MascotPalette?
     }
 
-    /// Spherical camera state around a fixed target. Clamps keep the
-    /// mascot on screen and the camera inside the room at every zoom.
+    /// Spherical camera state around a fixed target. Elevation and
+    /// radius clamps keep the mascot on screen and the camera inside
+    /// the room at every zoom; azimuth is FREE — the room has walls on
+    /// all four sides now, so the orbit spins the full circle in either
+    /// direction, forever (build-88: rotate all the way around).
     struct OrbitState {
         var azimuth: Float
         var elevation: Float
         var radius: Float
         var target: SIMD3<Float>
-        /// Azimuth clamps to a window around the per-move framing: the
-        /// room has three walls, and an unclamped orbit could face the
-        /// open side (raw viewport background past the floor's edge).
-        var azimuthRange: ClosedRange<Float> = 0...0
 
         static let elevationRange: ClosedRange<Float> = -0.05...1.25
         static let radiusRange: ClosedRange<Float> = 0.9...2.2
@@ -68,7 +67,6 @@ struct MascotView: View {
             var state = isFloorMove
                 ? OrbitState(azimuth: 1.15, elevation: 0.5, radius: 1.55, target: [0, 0.22, 0])
                 : OrbitState(azimuth: 0.32, elevation: 0.33, radius: 1.6, target: [0, 0.55, 0])
-            state.azimuthRange = (state.azimuth - 1.15)...(state.azimuth + 1.15)
             if mode == .preview {
                 state.radius -= 0.15
             }
@@ -166,8 +164,7 @@ struct MascotView: View {
                 if dragBase == nil {
                     dragBase = base
                 }
-                let azimuth = base.azimuth - Float(value.translation.width) * 0.008
-                orbit.azimuth = min(max(azimuth, orbit.azimuthRange.lowerBound), orbit.azimuthRange.upperBound)
+                orbit.azimuth = base.azimuth - Float(value.translation.width) * 0.008
                 let elevation = base.elevation + Float(value.translation.height) * 0.008
                 orbit.elevation = min(max(elevation, OrbitState.elevationRange.lowerBound), OrbitState.elevationRange.upperBound)
             }

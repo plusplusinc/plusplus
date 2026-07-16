@@ -1,135 +1,179 @@
 import Foundation
 
-/// Push-up: the rig pitches forward into a straight-arm plank, the
-/// elbows fold the body down to the floor, and the press back up
-/// carries the effort spike. Hands AND toes stay planted through the
-/// rep — the wrists are root-solved, the toes are ankle-solved, and
-/// the bottom's body pitch + slight hip flex were tuned numerically so
-/// the toes return to the top pose's exact spot (4 mm residual): the
-/// body pivots about the toes, the way physics says it must.
+/// Push-up: a STRAIGHT line from head to heels (the move's own first
+/// cue — build-88 caught the hips sagging and the head craned back),
+/// pivoting about tucked toes: the toe caps lie flat on the floor, the
+/// feet stand near-vertical on the forefoot hinge, and the ankles sit
+/// close to neutral, exactly like a human on their toes. Wrists are
+/// root-anchored; each baked sample re-solves the body pitch so the
+/// toe hinges ride at cap-flat height while the chest travels.
 enum PushUpMove {
     static let animation: ExerciseAnimation = {
-        // Numerically solved constants (round-2 probe work, re-solved
-        // in round 3 when the floor contract moved to the REAL foot
-        // and hand surfaces): the top rides at 73 degrees so the
-        // SHORT-armed chunky bot's toes actually reach the floor; the
-        // bottom tips 4.5 degrees further and flexes the hips 15.5
-        // degrees, which keeps the toe corners pinned to 2 mm while
-        // the chest drops to 0.184 m (0.176 m of travel).
-        let topPitch = 73.0
-        let bottomPitch = 77.5
-        let bottomShoulder = 0.0
-        let bottomElbow = -120.0
-        let bottomHip = 15.5
+        // The straight-line law: hips within a couple of degrees of
+        // the body line (invariant-enforced), head continuing the line
+        // with the gaze at the floor slightly ahead — never craned.
+        let hipPitch = 2.0
+        // Feet tucked at 72 degrees to the floor: toe caps flat, toe
+        // hinge at -72 (inside the anatomical -80 bound with margin).
+        let footWorldPitch = 72.0
         // Wrist height that rests the flat hand's contact pad ON the
-        // floor (wrist joint - 0.0475 of hand). The first cut anchored
-        // the wrists at 0.03 and the hands sank 2 cm into the ground —
-        // the round-3 palm-pad invariant now measures the real hand
-        // underside.
+        // floor (wrist joint - 0.0475 of hand).
         let handY = 0.049
+        // Toe hinge height when the cap lies flat: half the cap's
+        // thickness above the floor.
+        let toeY = 0.018
 
         func plankPose(
             bodyPitch: Double,
             shoulderPitch: Double,
             elbowPitch: Double,
-            hipPitch: Double,
+            footPitch: Double,
             effort: Double
         ) -> MascotPose {
-            // Neck near neutral (build-80: it was craned back); the toe
-            // solve replaces any eyeballed ankle angle.
-            MascotPose(
+            // Ankle closes the chain to the given foot angle; the toe
+            // cap counter-rotates flat.
+            let anklePitch = footPitch - bodyPitch - hipPitch
+            return MascotPose(
                 rootRotation: .deg(pitch: bodyPitch),
                 joints: MascotPoseBuilder.merge(
                     MascotPoseBuilder.symmetricArms(
                         shoulder: .deg(pitch: shoulderPitch),
                         elbow: .deg(pitch: elbowPitch)
                     ),
-                    MascotPoseBuilder.symmetricLegs(hip: .deg(pitch: hipPitch), ankle: .deg(pitch: -75)),
-                    MascotPoseBuilder.torso(neck: .deg(pitch: -12), head: .deg(pitch: -6))
+                    MascotPoseBuilder.symmetricLegs(
+                        hip: .deg(pitch: hipPitch),
+                        ankle: .deg(pitch: anklePitch),
+                        toe: .deg(pitch: -footPitch)
+                    ),
+                    MascotPoseBuilder.torso(neck: .deg(pitch: -5), head: .deg(pitch: -2))
                 ),
                 effort: effort
             )
         }
 
-        // Top: arms world-vertical under the shoulders, wrists dropped
-        // onto the floor, toes solved down to it.
-        var top = plankPose(bodyPitch: topPitch, shoulderPitch: -topPitch, elbowPitch: 0, hipPitch: 0, effort: 0.3)
         let handJoints: [MascotJoint] = [.leftWrist, .rightWrist]
+        let toeJoints: [MascotJoint] = [.leftToe, .rightToe]
+
+        // Provisional top: wrists dropped to the floor, body pitch
+        // bisected until the toe hinges reach cap-flat height. This
+        // fixes WHERE the hands and toes live; everything after
+        // anchors to those spots exactly.
+        func provisionalTop() -> MascotPose {
+            func toeHeight(at bodyPitch: Double) -> (pose: MascotPose, y: Double) {
+                var pose = plankPose(
+                    bodyPitch: bodyPitch, shoulderPitch: -72,
+                    elbowPitch: 0, footPitch: footWorldPitch, effort: 0.3
+                )
+                let positions = pose.jointPositions(skeleton: .standard)
+                let targets: [(MascotJoint, Vec3)] = handJoints.compactMap { joint in
+                    positions[joint].map { (joint, Vec3($0.x, handY, $0.z)) }
+                }
+                pose = MascotPoseBuilder.anchored(pose, anchors: targets)
+                return (pose, pose.jointPositions(skeleton: .standard)[.leftToe]!.y)
+            }
+            var low = 60.0
+            var high = 80.0
+            for _ in 0..<36 {
+                let mid = (low + high) / 2
+                if toeHeight(at: mid).y > toeY {
+                    high = mid
+                } else {
+                    low = mid
+                }
+            }
+            return toeHeight(at: (low + high) / 2).pose
+        }
+
+        let top = provisionalTop()
         let topPositions = top.jointPositions(skeleton: .standard)
-        let wristTargets: [(MascotJoint, Vec3)] = handJoints.compactMap { joint in
-            guard let now = topPositions[joint] else { return nil }
-            return (joint, Vec3(now.x, handY, now.z))
+        let toeAnchors: [(MascotJoint, Vec3)] = toeJoints.compactMap { joint in
+            topPositions[joint].map { (joint, $0) }
         }
-        top = MascotPoseBuilder.anchored(top, anchors: wristTargets)
-        top = MascotPoseBuilder.solvingToes(top)
-        let plantedWrists = top.jointPositions(skeleton: .standard)
+        let wristTarget = topPositions[.leftWrist]!
 
-        var bottom = plankPose(
-            bodyPitch: bottomPitch,
-            shoulderPitch: bottomShoulder,
-            elbowPitch: bottomElbow,
-            hipPitch: bottomHip,
-            effort: 0.5
-        )
-        bottom = MascotPoseBuilder.anchored(bottom, anchors: handJoints.compactMap { joint in
-            plantedWrists[joint].map { (joint, $0) }
-        })
-        bottom = MascotPoseBuilder.solvingToes(bottom)
-
-        // Lower and press as baked paths where every sample keeps the
-        // hands pinned AND the toes grounded. A lerped pose alone can't
-        // do both — with hands fixed, dropping the chest pivots the
-        // body about the TOES, so each sample re-solves its own body
-        // pitch: rotate until the ankle base returns to a reachable
-        // height (interpolated from the solved endpoints), re-anchor
-        // the wrists, then drop the toes. The solved pitches vary
-        // smoothly, which keeps the sampling spline calm (per-sample
-        // solving without this blew up 25 cm mid-press).
-        let topAnkleY = plantedWrists[.leftAnkle]!.y
-        let bottomAnkleY = bottom.jointPositions(skeleton: .standard)[.leftAnkle]!.y
-
-        func grounded(_ pose: MascotPose, targetAnkleY: Double) -> MascotPose {
-            var candidate = pose
-            for _ in 0..<6 {
-                candidate = MascotPoseBuilder.anchored(candidate, anchors: handJoints.compactMap { joint in
-                    plantedWrists[joint].map { (joint, $0) }
-                })
-                let ankleY = candidate.jointPositions(skeleton: .standard)[.leftAnkle]!.y
-                // Empirically d(ankleY)/d(pitch) is about +0.57 m/rad
-                // (raising the pitch raises the foot end), so correct
-                // AGAINST the error, one clamped step at a time — the
-                // first cut had the sign flipped and the feedback loop
-                // back-flipped the bot to 220 degrees.
-                let step = min(max(-(ankleY - targetAnkleY) / 0.6, -0.1), 0.1)
-                candidate.rootRotation.pitch += step
-                candidate.rootRotation.pitch = min(max(candidate.rootRotation.pitch, 1.05), 1.57)
+        /// The honest chain closure: TOES anchored exactly (they are
+        /// the pivot — planted toes never slide), the body pitch
+        /// bisected so the wrists ride at hand height, and the
+        /// SHOULDER solved so the arm actually reaches the planted
+        /// hand — interpolating the shoulder while force-anchoring the
+        /// wrists swept the feet through a 3 cm arc, which the toe
+        /// invariant rejected.
+        func settled(
+            shoulderGuess: Double,
+            elbowPitch: Double,
+            effort: Double
+        ) -> MascotPose {
+            var shoulderPitch = shoulderGuess
+            var solved = top
+            for _ in 0..<14 {
+                func wristState(at bodyPitch: Double) -> (pose: MascotPose, wrist: Vec3) {
+                    var pose = plankPose(
+                        bodyPitch: bodyPitch, shoulderPitch: shoulderPitch,
+                        elbowPitch: elbowPitch, footPitch: footWorldPitch, effort: effort
+                    )
+                    pose = MascotPoseBuilder.anchored(pose, anchors: toeAnchors)
+                    return (pose, pose.jointPositions(skeleton: .standard)[.leftWrist]!)
+                }
+                // With the toes pinned, raising the body pitch drops
+                // the head end: wrist height FALLS as pitch rises.
+                var low = 58.0
+                var high = 88.0
+                for _ in 0..<32 {
+                    let mid = (low + high) / 2
+                    if wristState(at: mid).wrist.y > wristTarget.y {
+                        low = mid
+                    } else {
+                        high = mid
+                    }
+                }
+                let state = wristState(at: (low + high) / 2)
+                solved = state.pose
+                let errorZ = state.wrist.z - wristTarget.z
+                if abs(errorZ) < 0.0008 { break }
+                // MORE NEGATIVE shoulder pitch swings the arm forward
+                // (+z, ~0.3 m/rad of lever): correct the hand's z error
+                // against that slope. (The first cut had the sign
+                // flipped and the solver ran to its clamp — the same
+                // lesson as the round-2 grounded() gain.)
+                shoulderPitch += errorZ / 0.0052
+                shoulderPitch = min(max(shoulderPitch, -85), 5)
             }
-            candidate = MascotPoseBuilder.anchored(candidate, anchors: handJoints.compactMap { joint in
-                plantedWrists[joint].map { (joint, $0) }
-            })
-            return MascotPoseBuilder.solvingToes(candidate)
+            return solved
         }
 
-        func groundedSpan(_ raw: [MascotKeyframe], ankleFrom: Double, ankleTo: Double) -> [MascotKeyframe] {
-            let count = raw.count
-            return raw.enumerated().map { index, kf in
-                let f = Double(index) / Double(count - 1)
-                let target = ankleFrom + (ankleTo - ankleFrom) * f
-                return MascotKeyframe(t: kf.t, pose: grounded(kf.pose, targetAnkleY: target), easing: .linear)
+        let settledTop = settled(shoulderGuess: -72, elbowPitch: 0, effort: 0.3)
+        let bottom = settled(shoulderGuess: -10, elbowPitch: -130, effort: 0.5)
+
+        // Baked spans: the ELBOW is the depth driver; every sample
+        // re-solves shoulder + pitch so both contacts stay planted.
+        func groundedSpan(
+            from: MascotPose, to: MascotPose,
+            t0: Double, t1: Double,
+            easing: MascotEasing = .easeInOut,
+            effortKeys: [(Double, Double)]
+        ) -> [MascotKeyframe] {
+            let steps = 10
+            return (0...steps).map { i in
+                let f = Double(i) / Double(steps)
+                let eased = easing.apply(f)
+                let sample = from.lerp(to: to, t: eased)
+                let shoulder = sample.angles(.leftShoulder).pitch * 180 / .pi
+                let elbow = sample.angles(.leftElbow).pitch * 180 / .pi
+                var pose = settled(shoulderGuess: shoulder, elbowPitch: elbow, effort: 0)
+                pose.effort = MascotPoseBuilder.effortValue(at: f, keys: effortKeys)
+                return MascotKeyframe(t: t0 + (t1 - t0) * f, pose: pose, easing: .linear)
             }
         }
-        // Eccentric tempo (the ROM/tempo round): the lowering phase
-        // runs deliberately slower than the press — "control the
-        // negative" is form, and the invariant enforces it.
-        let descent = groundedSpan(MascotPoseBuilder.span(
-            from: top, to: bottom, t0: 0, t1: 0.46,
+
+        let descent = groundedSpan(
+            from: settledTop, to: bottom, t0: 0, t1: 0.46,
             effortKeys: [(0, 0.3), (1, 0.5)]
-        ), ankleFrom: topAnkleY, ankleTo: bottomAnkleY)
-        let press = groundedSpan(MascotPoseBuilder.span(
-            from: bottom, to: top, t0: 0.56, t1: 0.92,
+        )
+        let press = groundedSpan(
+            from: bottom, to: settledTop, t0: 0.56, t1: 0.92,
             easing: .easeOut,
             effortKeys: [(0, 0.5), (0.5, 0.9), (1, 0.4)]
-        ), ankleFrom: bottomAnkleY, ankleTo: topAnkleY)
+        )
 
         var repKeyframes = descent
         repKeyframes.append(MascotKeyframe(t: 0.56, pose: descent[descent.count - 1].pose, easing: .linear))

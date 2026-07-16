@@ -32,7 +32,7 @@ public enum MascotBalance {
         pose: MascotPose,
         skeleton: MascotSkeleton = .standard,
         contactThreshold: Double = 0.02,
-        halfWidthX: Double = 0.035,
+        halfWidthX: Double = 0.03,
         patchZ: Double = 0.005
     ) -> (x: ClosedRange<Double>, z: ClosedRange<Double>)? {
         var points: [Vec3] = []

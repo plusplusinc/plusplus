@@ -109,16 +109,17 @@ public struct MascotSkeleton: Sendable {
     public var restRootHeight: Double { bone(.root).offset.y }
 
     /// The foot sole's landmarks, matching the renderer's split foot
-    /// mesh. Heel and BALL corners live in the ANKLE's local frame;
-    /// the toe cap's front corner lives in the TOE joint's frame (the
-    /// forefoot hinge at the ball line — ankle-local (0, -0.022, 0.08)).
-    /// Zero toe angle reproduces the old rigid foot EXACTLY: hinge z
-    /// 0.08 + cap length 0.065 = the old toe corner at z 0.145.
+    /// mesh — proportioned like a human foot in a smooth cross-trainer
+    /// (build-88 feedback: the first big cartoon feet read weird):
+    /// 0.16 long, low profile, heel ~30% behind the ankle. Heel and
+    /// BALL corners live in the ANKLE's local frame; the toe cap's
+    /// front corner lives in the TOE joint's frame (the forefoot hinge
+    /// at the ball line — ankle-local (0, -0.024, 0.058)).
     /// Floor-contact invariants check these corners (a rotated foot
     /// digs a corner in long before a joint gets near the ground).
-    public static let soleHeelOffset = Vec3(0, -0.047, -0.05)
-    public static let soleBallOffset = Vec3(0, -0.047, 0.08)
-    public static let toeCapFrontOffset = Vec3(0, -0.025, 0.065)
+    public static let soleHeelOffset = Vec3(0, -0.042, -0.048)
+    public static let soleBallOffset = Vec3(0, -0.042, 0.058)
+    public static let toeCapFrontOffset = Vec3(0, -0.018, 0.054)
 
     /// Zero angles ARE the natural standing pose: the rest offsets hang
     /// the arms at the sides and stack the legs under the hips, so an
@@ -161,14 +162,10 @@ public struct MascotSkeleton: Sendable {
         ] {
             bones[hip] = Bone(offset: Vec3(side * hipSpan, -0.03, 0), length: 0.26, thickness: 0.07)
             bones[knee] = Bone(offset: Vec3(0, -0.26, 0), length: 0.24, thickness: 0.06)
-            // Big cartoon feet, deliberately: a wide support polygon is
-            // what lets the chunky proportions squat to textbook depth
-            // and stay balanced (ASIMO's feet are huge for the same
-            // reason).
-            bones[ankle] = Bone(offset: Vec3(0, -0.24, 0), length: 0.14, thickness: 0.05)
+            bones[ankle] = Bone(offset: Vec3(0, -0.24, 0), length: 0.11, thickness: 0.042)
             // The forefoot hinge sits at the ball line, mid-height of
-            // the foot box; the toe cap hangs off it.
-            bones[toe] = Bone(offset: Vec3(0, -0.022, 0.08), length: 0.065, thickness: 0.05)
+            // the toe cap; the cap hangs off it.
+            bones[toe] = Bone(offset: Vec3(0, -0.024, 0.058), length: 0.054, thickness: 0.036)
         }
         return MascotSkeleton(bones: bones)
     }()

@@ -220,6 +220,71 @@ import Foundation
                 "\(name): the load drops faster than it rises (down \(peakDown) vs up \(peakUp) m/s)")
     }
 
+    /// Every rep-style move owes its turnarounds a NATURAL PAUSE
+    /// (build-88 on-device: curls rolled straight from rep to rep with
+    /// no beat at the bottom). Concretely: each rep holds at least two
+    /// genuinely still windows long enough to read (≥4% of the rep),
+    /// and they sit where the load actually turns around — one at the
+    /// bottom of its travel, one at the top. An eased turnaround
+    /// without a dwell only grazes zero speed for an instant, so the
+    /// window-length bar separates a real pause from a slow reversal.
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise"])
+    func everyRepPausesAtItsTurnarounds(name: String) throws {
+        let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
+        let repShare = animation.repDuration / animation.cycleDuration
+        let samples = 500
+        let dt = animation.repDuration / Double(samples)
+        var poses: [MascotPose] = []
+        poses.reserveCapacity(samples)
+        for i in 0..<samples {
+            poses.append(animation.pose(at: Double(i) / Double(samples) * repShare))
+        }
+        // Stillness, measured circularly — the rep loops, and a bottom
+        // dwell that wraps the seam (the curl's) is one pause, not two.
+        let still = (0..<samples).map { i in
+            poses[i].maxBodyDelta(to: poses[(i + 1) % samples]) / dt < 0.1
+        }
+        guard let firstMoving = still.firstIndex(of: false) else {
+            Issue.record("\(name): the whole rep is still")
+            return
+        }
+        var windows: [[Int]] = []
+        var run: [Int] = []
+        for offset in 1...samples {
+            let i = (firstMoving + offset) % samples
+            if still[i] {
+                run.append(i)
+            } else if !run.isEmpty {
+                windows.append(run)
+                run = []
+            }
+        }
+        if !run.isEmpty { windows.append(run) }
+        let pauses = windows.filter { $0.count >= samples * 4 / 100 }
+        #expect(pauses.count >= 2, "\(name): \(pauses.count) readable pauses (needs bottom AND top)")
+
+        // The pauses must SEAT at the turnarounds: the load's lowest
+        // and highest points each live inside a pause window.
+        func loadHeight(_ pose: MascotPose) -> Double {
+            if animation.props.isEmpty {
+                return pose.jointPositions(skeleton: Self.skeleton)[.chest]!.y
+            }
+            let frames = pose.jointFrames(skeleton: Self.skeleton)
+            let left = frames[.leftWrist]!
+            let right = frames[.rightWrist]!
+            let leftPalm = left.position + left.rotation.rotate(MascotGrip.palmOffset)
+            let rightPalm = right.position + right.rotation.rotate(MascotGrip.palmOffset)
+            return (leftPalm.y + rightPalm.y) / 2
+        }
+        let heights = poses.map(loadHeight)
+        let lowest = heights.min()!
+        let highest = heights.max()!
+        let nearBottom = pauses.contains { $0.contains { heights[$0] <= lowest + 0.012 } }
+        let nearTop = pauses.contains { $0.contains { heights[$0] >= highest - 0.012 } }
+        #expect(nearBottom, "\(name): no pause at the bottom turnaround")
+        #expect(nearTop, "\(name): no pause at the top turnaround")
+    }
+
     // MARK: - Ballistics (jumps obey gravity)
 
     /// The mean vertical acceleration of the ROOT across a rep-relative
