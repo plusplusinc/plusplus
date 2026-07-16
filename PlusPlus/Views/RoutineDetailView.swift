@@ -110,6 +110,9 @@ struct RoutineDetailView: View {
             railList
         }
         .background(Theme.background)
+        // Operator's view-context: the deepest visible screen reports
+        // one compact line (appear-only; the root's re-appear clears it).
+        .operatorContext("routines/\(routine.name)")
         // Custom key chrome: back + share/settings as trailing keys, no
         // centered title. The name moved to the body header (Dave,
         // build-78) where it gets full width and wraps instead of

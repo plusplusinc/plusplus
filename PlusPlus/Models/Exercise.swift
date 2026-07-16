@@ -79,6 +79,87 @@ final class Exercise {
         }
     }
 
+    // MARK: - Add-time resolution (config audit, 2026-07-15)
+    // What a fresh routine entry / session block starts from: the
+    // exercise's own bumped default (#187 — the user's latest word),
+    // else the catalog's per-exercise assignment, else the global floor.
+    // Computed, not stored — catalog improvements keep reaching every
+    // store with zero writes, like the profile fallback above.
+
+    /// The catalog row for a built-in; customs have none.
+    private var catalogDefinition: SeedData.BuiltInExerciseDefinition? {
+        isBuiltIn ? SeedData.builtInDefinition(named: name) : nil
+    }
+
+    /// Set count for a fresh block: a stretch is one hold, a mobility
+    /// drill one pass, a steady cardio piece one round; everything else
+    /// (customs included — we can't classify intent, and set count has
+    /// no per-exercise stored home to bump) keeps the classic 3.
+    var defaultSetCount: Int {
+        catalogDefinition?.defaultSets ?? 3
+    }
+
+    /// The full target prefill for a fresh routine entry or session
+    /// config — ONE resolution, so the two add paths can never drift.
+    /// Untracked metrics resolve nil.
+    struct AddTimeTargets {
+        var weight: Double?
+        var reps: Int?
+        var repsUpper: Int?
+        var durationSeconds: Int?
+        var heartRateTargetData: Data?
+        var extraTargets: [WorkoutMetric: Double]
+    }
+
+    /// The duration rule: own default → catalog assignment → a 45 s
+    /// floor whenever duration is the profile's ONLY work metric — not
+    /// just for bare [duration] profiles. That covers the loaded carries
+    /// ([weight, duration]), which used to start with no work target at
+    /// all and silently ran an arbitrary 30 s auto-timer in-session.
+    /// Profiles with another work metric (a rower's distance) take no
+    /// fabricated target — it would hijack the set's driver (the
+    /// appendExercise rule). The heart-rate default only prefills where
+    /// the prescription is offered at all (`supportsHeartRateTarget`) —
+    /// a stretch must not inherit a stale zone onto fresh entries.
+    var addTimeTargets: AddTimeTargets {
+        let profile = metricProfile
+        let catalog = catalogDefinition
+        let duration: Int?
+        if !profile.contains(.duration) {
+            duration = nil
+        } else if let own = defaultDurationSeconds ?? catalog?.defaultDurationSeconds {
+            duration = own
+        } else {
+            duration = profile.metrics.filter(\.isWorkMetric) == [.duration] ? 45 : nil
+        }
+        return AddTimeTargets(
+            weight: profile.contains(.weight) ? defaultWeight : nil,
+            reps: profile.tracksReps ? (defaultReps ?? catalog?.defaultReps ?? 10) : nil,
+            repsUpper: profile.tracksReps ? defaultRepsUpper : nil,
+            durationSeconds: duration,
+            heartRateTargetData: profile.legacyType == .duration && supportsHeartRateTarget
+                ? defaultHeartRateTargetData : nil,
+            extraTargets: extraDefaults.filter { profile.contains($0.key) }
+        )
+    }
+
+    /// Whether a heart-rate prescription is offered for this exercise —
+    /// catalog stretches and static holds say no (the definition table's
+    /// `supportsHeartRate` column); everything else, customs included,
+    /// keeps it.
+    var supportsHeartRateTarget: Bool {
+        catalogDefinition?.supportsHeartRate ?? true
+    }
+
+    /// The planning/config sheets' Target HR row gate, in one place: the
+    /// cardio prescription rides the duration family, dropped where it's
+    /// meaningless — but a target someone already set stays visible and
+    /// editable (the stale-prescription rule), never invisible-but-active.
+    func showsHeartRateTargetRow(existingTarget: HeartRateTarget?) -> Bool {
+        metricProfile.legacyType == .duration
+            && (supportsHeartRateTarget || existingTarget != nil)
+    }
+
     /// The per-tap weight increment this exercise's gear implies: the
     /// smallest override among its LOADABLE equipment (microplates win
     /// over a pin stack when both are involved), nil when none is set.

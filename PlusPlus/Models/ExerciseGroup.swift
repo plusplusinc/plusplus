@@ -20,7 +20,11 @@ final class ExerciseGroup {
     @Relationship(deleteRule: .cascade, inverse: \RoutineExercise.group)
     var exercises: [RoutineExercise] = []
 
-    init(order: Int = 0, sets: Int = 3) {
+    /// `sets` is deliberately required: the add-time default is
+    /// per-exercise (`Exercise.defaultSetCount` — a stretch is one hold,
+    /// a press the classic 3), so a silent fallback here would let a
+    /// call site bypass that resolution.
+    init(order: Int = 0, sets: Int) {
         self.uuid = UUID()
         self.order = order
         self.sets = sets

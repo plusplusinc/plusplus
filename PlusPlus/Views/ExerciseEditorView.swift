@@ -19,31 +19,34 @@ struct ExerciseEditorView: View {
     @State private var defaultsWheel: WorkoutMetric?
     @State private var showingDefaultRepsWheel = false
 
-    init(editing exercise: Exercise? = nil) {
+    init(editing exercise: Exercise) {
         editingExercise = exercise
-        _draft = State(initialValue: exercise.map(ExerciseDraft.init(from:)) ?? ExerciseDraft())
+        _draft = State(initialValue: ExerciseDraft(from: exercise))
     }
 
-    /// New custom exercise with the name pre-filled (the Library's
-    /// "Create “query”" path, #63).
-    init(prefillName: String) {
+    /// New custom exercise seeded from wherever creation started: the
+    /// search query as the name (the "Create “query”" path, #63), the
+    /// filtered muscle group, and gear — from an active equipment
+    /// filter or the equipment screen's "add an exercise with this"
+    /// path (#137). Gear brings its suggested profile (a rower
+    /// exercise starts with the rower's metrics); everything is an
+    /// editable starting point, not a commitment.
+    init(prefillName: String = "", prefillMuscleGroup: MuscleGroup? = nil, prefillEquipment: Set<Equipment> = []) {
         editingExercise = nil
         let draft = ExerciseDraft()
         draft.name = prefillName
-        _draft = State(initialValue: draft)
-    }
-
-    /// New custom exercise with gear pre-attached — the equipment
-    /// screen's "add an exercise with this" path (#137). The gear's
-    /// suggested profile arrives with it (a rower exercise starts with
-    /// the rower's metrics).
-    init(prefillEquipment: Equipment) {
-        editingExercise = nil
-        let draft = ExerciseDraft()
-        draft.selectedEquipment = [prefillEquipment]
-        draft.adoptSuggestedProfile(
-            SeedData.suggestedProfile(type: .weightReps, equipment: [prefillEquipment])
-        )
+        if let prefillMuscleGroup {
+            draft.muscleGroup = prefillMuscleGroup
+        }
+        if !prefillEquipment.isEmpty {
+            draft.selectedEquipment = prefillEquipment
+            // Sorted, not Array(set): the merge is order-sensitive
+            // (first distance-carrying profile wins the unit), and an
+            // unstable order would flip the suggestion run to run.
+            draft.adoptSuggestedProfile(
+                SeedData.suggestedProfile(type: .weightReps, equipment: prefillEquipment.sorted { $0.name < $1.name })
+            )
+        }
         _draft = State(initialValue: draft)
     }
 
@@ -252,8 +255,9 @@ struct ExerciseEditorView: View {
         // their choice (ExerciseDraft.metricsTouched).
         .onChange(of: draft.selectedEquipment) { _, newEquipment in
             guard editingExercise == nil else { return }
+            // Sorted for a stable merge — see the prefill init.
             draft.adoptSuggestedProfile(
-                SeedData.suggestedProfile(type: .weightReps, equipment: Array(newEquipment))
+                SeedData.suggestedProfile(type: .weightReps, equipment: newEquipment.sorted { $0.name < $1.name })
             )
         }
         .sheet(item: $defaultsWheel) { metric in

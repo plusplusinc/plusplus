@@ -564,7 +564,7 @@ struct EquipmentDetailScreen: View {
             }
         }
         .sheet(isPresented: $showingAddExercise) {
-            ExerciseEditorView(prefillEquipment: equipment)
+            ExerciseEditorView(prefillEquipment: [equipment])
         }
         .alert("Rename equipment", isPresented: $showingRename) {
             TextField("Name", text: $renameText)

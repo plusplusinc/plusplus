@@ -130,6 +130,17 @@ struct RoutineListView: View {
             }
         }
         .revealRoot(tab: "routines", atRoot: path.isEmpty)
+        // Operator's outcome navigation: a touched routine pushes by its
+        // stable uuid (RoutineRef is registered at this stack root, per
+        // the #262/#291 laws). The path resets first so the result is
+        // one Back from the list, never stacked under stale screens.
+        .onReceive(NotificationCenter.default.publisher(for: .plusplusOperatorShow)) { note in
+            guard let destination = note.object as? OperatorDestination,
+                  case .routine(let uuid) = destination
+            else { return }
+            path = NavigationPath()
+            path.append(RoutineRef(uuid: uuid))
+        }
         // Routine creates / deletes / reorders reach GitHub when you leave the
         // tab. Debounced + dirty-gated (see requestSync).
         .syncsProgramOnClose()

@@ -169,7 +169,15 @@ struct ExercisePickerView: View {
                 }
             }
             .sheet(isPresented: $showingCreateSheet) {
-                ExerciseEditorView()
+                // Whatever narrowed the picker seeds the new exercise
+                // (the searched-for name, the filtered muscle/gear) —
+                // the create path from a zeroed search starts from
+                // what was being looked for, not from scratch.
+                ExerciseEditorView(
+                    prefillName: filterState.prefillName,
+                    prefillMuscleGroup: filterState.prefillMuscleGroup,
+                    prefillEquipment: filterState.prefillEquipment
+                )
             }
             // The catalog browser is a pushed page by design; inside
             // this sheet it gets its own stack. Toggling membership

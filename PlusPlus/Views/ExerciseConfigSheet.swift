@@ -161,7 +161,10 @@ struct ExerciseConfigSheet: View {
                     )
                 }
             }
-            if profile.legacyType == .duration {
+            // Stretches and static holds drop the HR prescription
+            // (Exercise.showsHeartRateTargetRow owns the rule,
+            // stale-target escape included).
+            if exercise.showsHeartRateTargetRow(existingTarget: config.heartRateTarget) {
                 heartRateTargetRow
             }
             MetricStepperRow(

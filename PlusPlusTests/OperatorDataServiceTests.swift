@@ -1,0 +1,188 @@
+import Foundation
+import Testing
+import SwiftData
+import PlusPlusKit
+@testable import PlusPlus
+
+/// Operator's read side: digest formatting and stat math, all against
+/// real fetches (no model involved).
+@MainActor
+@Suite("Operator data service")
+struct OperatorDataServiceTests {
+    private func makeContainer() throws -> ModelContainer {
+        let schema = Schema([
+            Exercise.self, Equipment.self, EquipmentLibrary.self,
+            Routine.self, ExerciseGroup.self, RoutineExercise.self,
+            WorkoutSession.self, SetLog.self,
+        ])
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("operator-data-\(UUID().uuidString).store")
+        let config = ModelConfiguration(schema: schema, url: url, allowsSave: true, cloudKitDatabase: .none)
+        return try ModelContainer(for: schema, configurations: [config])
+    }
+
+    /// Fixed clock + UTC calendar so results don't depend on the machine.
+    private var calendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        return calendar
+    }
+
+    private func date(_ year: Int, _ month: Int, _ day: Int, hour: Int = 12) -> Date {
+        DateComponents(calendar: calendar, year: year, month: month, day: day, hour: hour).date!
+    }
+
+    private func service(_ context: ModelContext, today: Date) -> OperatorDataService {
+        OperatorDataService(context: context, calendar: calendar, today: { today })
+    }
+
+    private func finishedSession(_ name: String, on day: Date, in context: ModelContext) -> WorkoutSession {
+        let session = WorkoutSession(routineName: name, startedAt: day)
+        session.endedAt = day.addingTimeInterval(1800)
+        context.insert(session)
+        return session
+    }
+
+    // MARK: - find_items
+
+    @Test("Routine digest lists name, size, schedule, estimate")
+    func routineDigest() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let squat = Exercise(name: "Probe Squat", muscleGroup: .quads)
+        context.insert(squat)
+        let routine = Routine(name: "Probe Legs", order: 0)
+        context.insert(routine)
+        routine.addExerciseInNewGroup(squat, context: context)
+        routine.schedule = .weekdays([2, 5])
+        context.insert(Routine(name: "Probe Arms", order: 1))
+
+        let digest = service(context, today: date(2026, 7, 15)).findItems(kind: .routine)
+        let lines = digest.split(separator: "\n").map(String.init)
+        #expect(lines[0] == "2 of 2 routines:")
+        // Schedule text is shortLabel, THE shared schedule vocabulary.
+        #expect(lines[1].hasPrefix("Probe Legs · 1 exercise · mon/thu · ~"))
+        #expect(lines[2] == "Probe Arms · 0 exercises · no schedule · ~5 min")
+    }
+
+    @Test("Exercise digest filters by muscle and library membership")
+    func exerciseDigest() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let curl = Exercise(name: "Probe Curl", muscleGroup: .biceps)
+        context.insert(curl)
+        let stretch = Exercise(name: "Probe Neck Stretch", muscleGroup: .shoulders)
+        context.insert(stretch)
+        stretch.metricProfile = .durationOnly
+        stretch.inLibrary = false
+
+        let all = service(context, today: date(2026, 7, 15)).findItems(kind: .exercise)
+        #expect(all.contains("Probe Curl · biceps · weight and reps"))
+        #expect(all.contains("Probe Neck Stretch · shoulders · duration · catalog only"))
+
+        let filtered = service(context, today: date(2026, 7, 15)).findItems(kind: .exercise, muscleGroup: .biceps)
+        #expect(filtered.contains("Probe Curl"))
+        #expect(!filtered.contains("Neck"))
+
+        let inLibrary = service(context, today: date(2026, 7, 15)).findItems(kind: .exercise, inLibraryOnly: true)
+        #expect(!inLibrary.contains("Neck"))
+    }
+
+    @Test("No matches reads honestly")
+    func noMatches() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let digest = service(context, today: date(2026, 7, 15)).findItems(kind: .routine, nameContains: "pilates")
+        #expect(digest == "no matches for \"pilates\" in routines")
+    }
+
+    @Test("Library digest marks the active library")
+    func libraryDigest() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        context.insert(EquipmentLibrary(name: "Probe Home", order: 0))
+        context.insert(EquipmentLibrary(name: "Probe Hotel", order: 1))
+        let digest = service(context, today: date(2026, 7, 15)).findItems(kind: .library)
+        let lines = digest.split(separator: "\n").map(String.init)
+        #expect(lines[1] == "Probe Home · 0 items · active")
+        #expect(lines[2] == "Probe Hotel · 0 items")
+    }
+
+    // MARK: - get_stats
+
+    @Test("Workout count respects the day window and routine scope")
+    func workoutCount() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let today = date(2026, 7, 15)
+        _ = finishedSession("Probe Legs", on: date(2026, 7, 10), in: context)
+        _ = finishedSession("Probe Legs", on: date(2026, 5, 1), in: context)
+        _ = finishedSession("Probe Arms", on: date(2026, 7, 12), in: context)
+        // Unfinished sessions never count.
+        context.insert(WorkoutSession(routineName: "Probe Legs", startedAt: date(2026, 7, 14)))
+
+        let all = service(context, today: today).stats(kind: .workoutCount)
+        #expect(all == "workouts in last 30 days: 2")
+        let scoped = service(context, today: today).stats(kind: .workoutCount, routineName: "probe legs", days: 90)
+        #expect(scoped == "workouts of probe legs in last 90 days: 2")
+    }
+
+    @Test("Last done reports the set summary with dates")
+    func lastDone() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let today = date(2026, 7, 15)
+        let session = finishedSession("Probe Legs", on: date(2026, 7, 8), in: context)
+        for setNumber in 1...3 {
+            let log = SetLog(order: setNumber, groupIndex: 0, setNumber: setNumber, exerciseName: "Probe Deadlift", targetWeight: 225)
+            log.actualWeight = 225
+            log.actualReps = 5
+            log.completedAt = session.startedAt
+            log.session = session
+            context.insert(log)
+        }
+
+        let digest = service(context, today: today).stats(kind: .lastDone, exerciseName: "deadlift")
+        #expect(digest == "Probe Deadlift last done 2026-07-08 (7 days ago) · 3 sets · top 225")
+
+        let routineDigest = service(context, today: today).stats(kind: .lastDone, routineName: "Probe Legs")
+        #expect(routineDigest == "Probe Legs last done 2026-07-08 (7 days ago) · 3 sets logged")
+
+        let missing = service(context, today: today).stats(kind: .lastDone, exerciseName: "bench")
+        #expect(missing == "no logged sets of bench yet")
+    }
+
+    @Test("Set volume counts completed sets in the window")
+    func setVolume() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let today = date(2026, 7, 15)
+        let recent = finishedSession("Probe Legs", on: date(2026, 7, 10), in: context)
+        let old = finishedSession("Probe Legs", on: date(2026, 3, 1), in: context)
+        for (index, session) in [recent, recent, old].enumerated() {
+            let log = SetLog(order: index, groupIndex: 0, setNumber: 1, exerciseName: "Probe Squat")
+            log.completedAt = session.startedAt
+            log.session = session
+            context.insert(log)
+        }
+        let digest = service(context, today: today).stats(kind: .setVolume, exerciseName: "Probe Squat")
+        #expect(digest == "completed sets of Probe Squat in last 30 days: 2")
+    }
+
+    @Test("Streak counts consecutive weeks; an empty current week holds")
+    func streak() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        // 2026-07-15 is a Wednesday. Workouts last week and the week
+        // before, none yet this week: streak reads 2 and holds.
+        _ = finishedSession("Probe Legs", on: date(2026, 7, 9), in: context)
+        _ = finishedSession("Probe Legs", on: date(2026, 7, 1), in: context)
+        let digest = service(context, today: date(2026, 7, 15)).stats(kind: .streak)
+        #expect(digest == "current streak: 2 weeks with a workout")
+
+        // A workout this week extends it to 3.
+        _ = finishedSession("Probe Arms", on: date(2026, 7, 14), in: context)
+        let extended = service(context, today: date(2026, 7, 15)).stats(kind: .streak)
+        #expect(extended == "current streak: 3 weeks with a workout")
+    }
+}
