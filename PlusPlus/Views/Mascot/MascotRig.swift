@@ -120,6 +120,19 @@ final class MascotRig {
             themed.append((sphere, .joint))
         }
 
+        // The clavicle YOKE: a charcoal girdle segment from inside the
+        // chest cowl out through the shoulder ball, parented to the
+        // clavicle pivot — so scapular motion (a shrug, the back-squat
+        // rack's retraction) carries the shoulder WITH its structure
+        // and the arm can never read as detached from the body (Dave's
+        // rule: if the rig needs a structure to demonstrate form, it
+        // gets the structure). Its collision twin is the
+        // clavicle->shoulder capsule in MascotCollision.segmentRadii —
+        // keep the sizes in step.
+        for (clavicle, side) in [(MascotJoint.leftClavicle, Float(1)), (.rightClavicle, -1)] {
+            attach(box(0.17, 0.055, 0.055), to: clavicle, offset: [side * 0.06, 0, 0], role: .joint)
+        }
+
         // Big cartoon feet (matching the kit skeleton's support
         // geometry: heel ~5 cm back, toes ~14.5 cm forward).
         for ankle in [MascotJoint.leftAnkle, .rightAnkle] {

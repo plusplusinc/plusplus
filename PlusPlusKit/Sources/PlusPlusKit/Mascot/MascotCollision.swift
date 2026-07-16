@@ -53,6 +53,7 @@ public enum MascotCollision {
         (.spine, 0.075),   // pelvis/lower torso
         (.chest, 0.08),    // abdomen
         (.neck, 0.085),    // chest cowl
+        (.leftShoulder, 0.0275), (.rightShoulder, 0.0275),   // clavicle yokes
         (.leftElbow, 0.028), (.rightElbow, 0.028),   // upper arms
         (.leftKnee, 0.036), (.rightKnee, 0.036),     // thighs
         (.leftAnkle, 0.031), (.rightAnkle, 0.031),   // shins
