@@ -203,7 +203,7 @@ final class FindItemsTool: Tool {
     @Generable
     struct Arguments {
         var kind: ChangeKindArg
-        @Guide(description: "Case-insensitive name fragment")
+        @Guide(description: "Name fragment; forgiving, typos still match")
         var nameContains: String? = nil
         @Guide(description: "Exercises only; one of the muscle group names")
         var muscleGroup: String? = nil

@@ -96,6 +96,21 @@ struct OperatorDataServiceTests {
         #expect(digest == "no matches for \"pilates\" in routines")
     }
 
+    @Test("A typo'd fragment still finds its item")
+    func fuzzyFragment() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        context.insert(Routine(name: "Probe Legs", order: 0))
+        context.insert(Routine(name: "Probe Arms", order: 1))
+
+        let typo = service(context, today: date(2026, 7, 15)).findItems(kind: .routine, nameContains: "lgegs")
+        #expect(typo.contains("Probe Legs"))
+        #expect(!typo.contains("Probe Arms"))
+
+        let glued = service(context, today: date(2026, 7, 15)).findItems(kind: .routine, nameContains: "probelegs")
+        #expect(glued.contains("Probe Legs"))
+    }
+
     @Test("Library digest marks the active library")
     func libraryDigest() throws {
         let container = try makeContainer()
@@ -123,8 +138,18 @@ struct OperatorDataServiceTests {
 
         let all = service(context, today: today).stats(kind: .workoutCount)
         #expect(all == "workouts in last 30 days: 2")
+        // The reply speaks the CANONICAL history name, not the model's
+        // casing of it.
         let scoped = service(context, today: today).stats(kind: .workoutCount, routineName: "probe legs", days: 90)
-        #expect(scoped == "workouts of probe legs in last 90 days: 2")
+        #expect(scoped == "workouts of Probe Legs in last 90 days: 2")
+        // A typo resolves to one canonical routine; the count stays
+        // exact-scoped to it.
+        let typo = service(context, today: today).stats(kind: .workoutCount, routineName: "probe lgegs", days: 90)
+        #expect(typo == "workouts of Probe Legs in last 90 days: 2")
+        // An unresolvable name echoes raw and counts zero — never a
+        // silent blend of near-matches.
+        let missing = service(context, today: today).stats(kind: .workoutCount, routineName: "pilates", days: 90)
+        #expect(missing == "workouts of pilates in last 90 days: 0")
     }
 
     @Test("Last done reports the set summary with dates")
@@ -144,6 +169,11 @@ struct OperatorDataServiceTests {
 
         let digest = service(context, today: today).stats(kind: .lastDone, exerciseName: "deadlift")
         #expect(digest == "Probe Deadlift last done 2026-07-08 (7 days ago) · 3 sets · top 225")
+
+        // Fuzzy lookup, canonical answer: a typo'd exercise name still
+        // resolves, and the reply names the real thing.
+        let typo = service(context, today: today).stats(kind: .lastDone, exerciseName: "dedlift")
+        #expect(typo == "Probe Deadlift last done 2026-07-08 (7 days ago) · 3 sets · top 225")
 
         let routineDigest = service(context, today: today).stats(kind: .lastDone, routineName: "Probe Legs")
         #expect(routineDigest == "Probe Legs last done 2026-07-08 (7 days ago) · 3 sets logged")

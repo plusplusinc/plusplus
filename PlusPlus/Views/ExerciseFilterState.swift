@@ -21,13 +21,22 @@ final class ExerciseFilterState {
         available: Set<String>,
         overridingShowUnavailable: Bool? = nil
     ) -> [Exercise] {
-        allExercises.filter { exercise in
-            matchesSearch(exercise) && matchesMuscleGroup(exercise)
-                && matchesEquipment(exercise)
+        let matched = allExercises.filter { exercise in
+            matchesMuscleGroup(exercise) && matchesEquipment(exercise)
                 && ((overridingShowUnavailable ?? showUnavailable)
                     || Self.missingEquipment(for: exercise, available: available).isEmpty)
         }
         .sorted { $0.name < $1.name }
+        // Forgiving search (the FuzzySearch tiers), ranked best-first —
+        // ties keep the alphabetical order from above. A blank search
+        // passes everything through unchanged.
+        return FuzzySearch.ranked(matched, query: searchText, key: Self.searchHaystack)
+    }
+
+    /// Name plus muscle group, so "hamstring curl" finds Leg Curl even
+    /// though no exercise carries the word "hamstring" in its name.
+    static func searchHaystack(_ exercise: Exercise) -> String {
+        "\(exercise.name) \(exercise.muscleGroup.displayName)"
     }
 
     // MARK: - Create-from-here prefill
@@ -63,10 +72,6 @@ final class ExerciseFilterState {
         // relationship until save and must not count as available or
         // missing (bug hunt B1).
         exercise.equipment.filter { !$0.isDeleted && !available.contains($0.name) }.map(\.name).sorted()
-    }
-
-    private func matchesSearch(_ exercise: Exercise) -> Bool {
-        searchText.isEmpty || exercise.name.localizedCaseInsensitiveContains(searchText)
     }
 
     private func matchesMuscleGroup(_ exercise: Exercise) -> Bool {

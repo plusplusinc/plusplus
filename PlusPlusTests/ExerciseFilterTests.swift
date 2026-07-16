@@ -165,6 +165,24 @@ struct ExerciseFilterTests {
         #expect(result.first?.name == "Probe Press")
     }
 
+    @Test func searchForgivesTyposAndRanksLiteralFirst() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let (_, _, _, exercises) = makeExercises(context: context)
+
+        let filter = ExerciseFilterState()
+        // Transposed letters still find the one press.
+        filter.searchText = "prses"
+        let typo = filter.filteredExercises(from: exercises, available: fixtureGear)
+        #expect(typo.map(\.name) == ["Probe Press"])
+
+        // Muscle group rides the haystack: "chest" alone surfaces the
+        // chest work without any name containing the word.
+        filter.searchText = "chest"
+        let byMuscle = filter.filteredExercises(from: exercises, available: fixtureGear)
+        #expect(Set(byMuscle.map(\.name)) == ["Probe Press", "Probe Fly", "Probe Push"])
+    }
+
     @Test func emptySearchMatchesAll() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
