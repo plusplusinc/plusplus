@@ -16,13 +16,14 @@ import PlusPlusKit
         }
     }
 
-    @Test func thePrototypeFiveAreCovered() {
-        for name in ["Squat", "Deadlift", "Push-Up", "Dumbbell Curl", "Plank"] {
+    @Test func thePrototypeMovesAreCovered() {
+        for name in ["Squat", "Deadlift", "Push-Up", "Dumbbell Curl", "Plank", "Bench Press"] {
             #expect(MascotMoves.animation(forExerciseNamed: name) != nil, "missing demo for \(name)")
         }
-        // Name matching is exact: no entry, no FORM section.
+        // Name matching is exact: no entry, no FORM section. (Running
+        // is a real built-in with no authored demo yet.)
         #expect(MascotMoves.animation(forExerciseNamed: "squat") == nil)
-        #expect(MascotMoves.animation(forExerciseNamed: "Bench Press") == nil)
+        #expect(MascotMoves.animation(forExerciseNamed: "Running") == nil)
     }
 
     /// THE order contract: `MascotPoseApplier.quaternion(from:)` (simd,

@@ -250,6 +250,34 @@ final class MascotRig {
         // Prop dimensions come from MascotGrip — the shared contract
         // with the kit's equipment-collision invariant, so the proof
         // and the pixels can't drift apart.
+        //
+        // The flat bench is SUPPORT furniture, world-fixed: its pad and
+        // placement come from MascotSupport — the same numbers the
+        // kit's five-points-of-contact invariant and pad collision
+        // rails prove against.
+        if animation.props.contains(.flatBench) {
+            let padWidth = Float(MascotSupport.benchPadHalfWidth * 2)
+            let padLength = Float(MascotSupport.benchPadHalfLength * 2)
+            let padThickness = Float(MascotSupport.benchPadThickness)
+            let pad = ModelEntity(mesh: box(
+                Double(padWidth), Double(padThickness), Double(padLength), corner: 0.016
+            ))
+            pad.position = SIMD3<Float>(MascotSupport.benchCenter)
+            container.addChild(pad)
+            themed.append((pad, .equipment))
+            let legHeight = Float(MascotSupport.benchTopHeight) - padThickness
+            for zEnd in [Float(-0.26), 0.26] {
+                let leg = ModelEntity(mesh: box(0.16, Double(legHeight), 0.045, corner: 0.012))
+                leg.position = [
+                    0,
+                    legHeight / 2,
+                    Float(MascotSupport.benchCenter.z) + zEnd,
+                ]
+                container.addChild(leg)
+                themed.append((leg, .equipmentDark))
+            }
+        }
+
         if animation.props.contains(.barbell) {
             let bar = Entity()
             let shaft = ModelEntity(mesh: .generateCylinder(

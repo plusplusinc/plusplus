@@ -32,6 +32,15 @@ scale-out doesn't re-derive it. Everything runs on Linux: `swift test` in
    - `coordinating` — the path servo: center of mass over the feet, bar over
      the midfoot, equipment clearing the legs, at EVERY baked sample. A lerp
      between two legal poses is not itself legal.
+   - `aligningGrip` — the grip servo for barbell spans: re-aims the wrists so
+     the palm channel stays ON the bar axis at every baked sample (a lerp
+     between two perfectly-gripped endpoints drifted 34° off it mid-press).
+     ANALYTIC minimal rotation, left wrist solved + mirrored right — requires
+     a bilaterally symmetric pose. Two hard-won rules inside it: the
+     objective must be SIGNED (under `abs` a 180° hand flip reads as aligned,
+     and a searcher hops branches between samples — an 11 rad/s wrist snap),
+     and per-sample greedy search is NOT a continuous map — prefer a
+     closed-form correction wherever one exists.
 5. **Bake transitions.** `repCycle` for descend-pause-drive-settle moves
    (its defaults encode the slower eccentric); raw `span`s for anything else.
    Every span takes the SAME solve closure as the endpoints, and endpoints go
@@ -69,11 +78,32 @@ scale-out doesn't re-derive it. Everything runs on Linux: `swift test` in
 ## The physical contracts (shared Kit↔renderer, never duplicated)
 
 - `MascotGrip` — palm/pad offsets, every prop dimension.
+- `MascotSupport` — support-surface geometry (the flat bench: pad top height,
+  half-extents, world placement) plus its collision rails. The renderer
+  builds the bench from these numbers; the five-points-of-contact invariant
+  proves the body lies on them.
 - `MascotBalance` — segment masses, center of mass, support polygon.
 - `MascotCollision` — body capsules mirroring the meshes. **A body part
   exists in BOTH the renderer and the collision model, or in neither.**
 - `MascotSkeleton` sole landmarks — heel/ball corners (ankle frame), cap
   front corner (toe frame). Floor = y 0; rest soles sit exactly ON it.
+
+## Supine (bench) moves — placement notes
+
+- The body pitch lives in `rootRotation` (≈ −89°, like the push-up's +72°);
+  `angles(.root)` stays inside its ±5° range.
+- The torso capsules' radii differ (pelvis 0.075 / abdomen 0.08 / cowl
+  0.085), so a LEVEL body cannot graze the pad everywhere — about a degree
+  of head-up tilt balances all three inside the contact band. The helmet
+  (r 0.115) out-bulges the back plane by 4 cm; ~7° of chin tuck rests it on
+  the pad.
+- Legs hang toward the floor through hip EXTENSION (~+21°, near the +25°
+  anatomical stop); the ankle closes the chain to a flat sole:
+  `ankle = −(rootPitch + hip + knee)`.
+- The camera frames supine moves from the side (`rootRotation.pitch <
+  −π/4` in `MascotView.framing`).
+- The standing servo (`coordinating`) does not apply; the bench's servo is
+  `aligningGrip`, and the contact/collision invariants police the rest.
 
 ## What the invariants will demand (so author for them up front)
 

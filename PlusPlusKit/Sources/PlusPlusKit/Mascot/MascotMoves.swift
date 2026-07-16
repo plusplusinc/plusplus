@@ -9,6 +9,7 @@ public enum MascotMoves {
     public static let all: [ExerciseAnimation] = [
         SquatMove.animation,
         DeadliftMove.animation,
+        BenchPressMove.animation,
         PushUpMove.animation,
         DumbbellCurlMove.animation,
         PlankMove.animation,

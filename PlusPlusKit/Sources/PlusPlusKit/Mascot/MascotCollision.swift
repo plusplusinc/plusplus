@@ -31,6 +31,42 @@ public enum MascotGrip {
     public static let contactPadRadius = 0.012
 }
 
+/// Where SUPPORT surfaces sit and how big they are — the `MascotGrip`
+/// pattern extended to furniture the bot rests ON (the bench class,
+/// unlocking the ~25 pressing/seated moves). ONE source of truth: the
+/// renderer builds the bench meshes from these numbers, the collision
+/// sweep carries the pad as capsules (lying on it reads as legal graze),
+/// and the bench-contact invariant proves the body actually LIES on it.
+public enum MascotSupport {
+    /// Pad top height above the floor. A human flat bench is ~43 cm
+    /// under a ~175 cm body; the 1.15 m bot scales to 28 cm.
+    public static let benchTopHeight = 0.28
+    public static let benchPadHalfWidth = 0.10
+    /// The pad runs along z (the bot lies head toward -z). Its foot end
+    /// stops just past the glutes: the thighs angle DOWN past the end
+    /// toward the planted feet, and a longer pad would catch them.
+    public static let benchPadHalfLength = 0.34
+    public static let benchPadThickness = 0.05
+    /// Pad CENTER in world space (mid-thickness).
+    public static let benchCenter = Vec3(0, benchTopHeight - benchPadThickness / 2, -0.16)
+
+    /// The pad as collision capsules: three rails along its length at
+    /// mid-thickness, radius = half the pad thickness, so a torso
+    /// capsule resting exactly ON the pad top reads as depth-zero
+    /// contact to the equipment sweep (grazing, never inside).
+    public static var benchRails: [MascotCollision.Capsule] {
+        let inset = benchPadThickness / 2
+        return [-benchPadHalfWidth + inset, 0, benchPadHalfWidth - inset].map { x in
+            MascotCollision.Capsule(
+                name: "benchPad",
+                from: Vec3(x, benchCenter.y, benchCenter.z - benchPadHalfLength),
+                to: Vec3(x, benchCenter.y, benchCenter.z + benchPadHalfLength),
+                radius: benchPadThickness / 2
+            )
+        }
+    }
+}
+
 /// Capsule-based collision between the mascot's equipment and its own
 /// body ("the equipment never passes through any part of the body" —
 /// Dave). Everything is a capsule: body segments over the FK frames
@@ -139,6 +175,10 @@ public enum MascotCollision {
                     radius: MascotGrip.plateRadius
                 ))
             }
+        }
+
+        if props.contains(.flatBench) {
+            capsules.append(contentsOf: MascotSupport.benchRails)
         }
 
         if props.contains(.dumbbellPair) {

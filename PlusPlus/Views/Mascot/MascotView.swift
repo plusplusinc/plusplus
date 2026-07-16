@@ -60,13 +60,20 @@ struct MascotView: View {
         }
 
         /// Floor moves run along the z axis, so their camera sits more
-        /// to the side; standing moves get the front three-quarter view
-        /// (the framing the build-80 pass confirmed on the curl).
+        /// to the side; SUPINE (bench) moves get the same side-on view
+        /// framed at bench height; standing moves get the front
+        /// three-quarter view (the framing the build-80 pass confirmed
+        /// on the curl).
         static func framing(for animation: ExerciseAnimation, mode: Mode) -> OrbitState {
-            let isFloorMove = animation.restingPose.rootRotation.pitch > .pi / 4
-            var state = isFloorMove
-                ? OrbitState(azimuth: 1.15, elevation: 0.5, radius: 1.55, target: [0, 0.22, 0])
-                : OrbitState(azimuth: 0.32, elevation: 0.33, radius: 1.6, target: [0, 0.55, 0])
+            let bodyPitch = animation.restingPose.rootRotation.pitch
+            var state: OrbitState
+            if bodyPitch > .pi / 4 {
+                state = OrbitState(azimuth: 1.15, elevation: 0.5, radius: 1.55, target: [0, 0.22, 0])
+            } else if bodyPitch < -.pi / 4 {
+                state = OrbitState(azimuth: 1.1, elevation: 0.42, radius: 1.7, target: [0, 0.38, 0])
+            } else {
+                state = OrbitState(azimuth: 0.32, elevation: 0.33, radius: 1.6, target: [0, 0.55, 0])
+            }
             if mode == .preview {
                 state.radius -= 0.15
             }

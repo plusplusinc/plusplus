@@ -30,7 +30,7 @@ import Foundation
     }
 
     @Test func catalogIntegrity() {
-        #expect(MascotMoves.all.count == 6)
+        #expect(MascotMoves.all.count == 7)
         let names = MascotMoves.all.map(\.exerciseName)
         #expect(Set(names).count == names.count)
         for name in names {
@@ -165,7 +165,7 @@ import Foundation
         }
     }
 
-    @Test(arguments: ["Squat", "Deadlift"])
+    @Test(arguments: ["Squat", "Deadlift", "Bench Press"])
     func handsActuallyGripTheBar(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         let limit = 20.0 * .pi / 180
@@ -194,7 +194,7 @@ import Foundation
         }
     }
 
-    @Test(arguments: ["Squat", "Deadlift"])
+    @Test(arguments: ["Squat", "Deadlift", "Bench Press"])
     func barbellWristsStaySymmetric(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         #expect(animation.props.contains(.barbell))
@@ -398,7 +398,7 @@ import Foundation
         }
     }
 
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl"])
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Bench Press"])
     func equipmentNeverPassesThroughTheBody(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         #expect(!animation.props.isEmpty)
@@ -474,6 +474,90 @@ import Foundation
             #expect(kneeBend <= 8, "\(name): knees \(kneeBend) deg off the line at t=\(t)")
             #expect(headBend <= 12, "\(name): head \(headBend) deg off the line at t=\(t)")
         }
+    }
+
+    /// The bench law — FIVE POINTS OF CONTACT, textbook and enforced at
+    /// every frame of the whole cycle (rest beat included): the head,
+    /// the upper back, and the glutes stay ON the pad (back surfaces
+    /// within a graze-to-12 mm band of the pad top — no bridging, no
+    /// sinking through), and both soles stay planted on the floor.
+    /// Every future bench/seat move inherits this by joining the
+    /// argument list.
+    @Test(arguments: ["Bench Press"])
+    func benchMovesKeepFiveContactPoints(name: String) throws {
+        let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
+        #expect(animation.props.contains(.flatBench))
+        let padTop = MascotSupport.benchTopHeight
+        for i in 0...400 {
+            let t = Double(i) / 400
+            let pose = animation.pose(at: t)
+            let frames = pose.jointFrames(skeleton: Self.skeleton)
+            // Torso back surfaces: joint axis minus the capsule radius
+            // (the same radii the collision model carries).
+            for (joint, radius, part) in [
+                (MascotJoint.spine, 0.075, "glutes"),
+                (.chest, 0.08, "mid back"),
+                (.neck, 0.085, "upper back"),
+            ] {
+                let gap = (frames[joint]!.position.y - radius) - padTop
+                #expect(gap >= -0.008 && gap <= 0.012,
+                        "\(name): \(part) off the pad by \(gap) at t=\(t)")
+            }
+            let head = frames[.head]!
+            let headBottom = (head.position + head.rotation.rotate(Vec3(0, 0.11, 0))).y - 0.115
+            let headGap = headBottom - padTop
+            #expect(headGap >= -0.008 && headGap <= 0.015,
+                    "\(name): head off the pad by \(headGap) at t=\(t)")
+            let soles = pose.solePoints(skeleton: Self.skeleton)
+            let soleLow = soles.map(\.y).min() ?? 0
+            let soleHigh = soles.map(\.y).max() ?? 0
+            #expect(soleLow >= -0.012 && soleHigh <= 0.02,
+                    "\(name): feet leave the floor (\(soleLow)...\(soleHigh)) at t=\(t)")
+        }
+    }
+
+    /// Bench press semantics: full range of motion from a mid-chest
+    /// TOUCH (the bar grazes the chest cowl, never floats above it) to
+    /// a full-reach LOCKOUT stacked over the shoulder line — with the
+    /// textbook vertical forearm (elbow under the bar in the side view)
+    /// at the touch.
+    @Test func benchPressTouchesTheChestAndLocksOut() throws {
+        let animation = try #require(MascotMoves.animation(forExerciseNamed: "Bench Press"))
+        let repShare = animation.repDuration / animation.cycleDuration
+        func bar(at t: Double) -> (center: Vec3, elbowZ: Double, elbowPitch: Double) {
+            let pose = animation.pose(at: t)
+            let frames = pose.jointFrames(skeleton: Self.skeleton)
+            let left = frames[.leftWrist]!
+            let right = frames[.rightWrist]!
+            let leftPalm = left.position + left.rotation.rotate(MascotGrip.palmOffset)
+            let rightPalm = right.position + right.rotation.rotate(MascotGrip.palmOffset)
+            return (
+                0.5 * (leftPalm + rightPalm),
+                frames[.leftElbow]!.position.z,
+                pose.angles(.leftElbow).pitch * 180 / .pi
+            )
+        }
+        let frames = animation.pose(at: 0).jointFrames(skeleton: Self.skeleton)
+        let shoulder = frames[.leftShoulder]!.position
+
+        // Touch, mid-pause: on the cowl (within 12 mm of its surface),
+        // over the chest (feet-ward of the shoulder line, but not by
+        // much), forearm vertical in the sagittal plane.
+        let touch = bar(at: 0.5 * repShare)
+        let cowlSurface = frames[.neck]!.position.y + 0.085 + MascotGrip.barRadius
+        #expect(touch.center.y <= cowlSurface + 0.012, "bar floats above the chest: \(touch.center.y) vs \(cowlSurface)")
+        #expect(touch.center.z > shoulder.z && touch.center.z < shoulder.z + 0.09,
+                "touch point off mid chest: \(touch.center.z) vs shoulder \(shoulder.z)")
+        #expect(abs(touch.elbowZ - touch.center.z) <= 0.02,
+                "forearm not vertical at the touch: elbow z \(touch.elbowZ) vs bar z \(touch.center.z)")
+
+        // Lockout, top dwell: full reach stacked over the shoulders.
+        let lock = bar(at: 0.95 * repShare)
+        #expect(lock.center.y - shoulder.y >= 0.33, "lockout short of full reach: \(lock.center.y - shoulder.y)")
+        #expect(abs(lock.center.z - shoulder.z) <= 0.03,
+                "bar not stacked over the shoulders: \(lock.center.z) vs \(shoulder.z)")
+        #expect(lock.elbowPitch >= -12, "elbows stay bent at lockout: \(lock.elbowPitch)")
+        #expect(lock.center.y - touch.center.y >= 0.24, "full range of motion: travel \(lock.center.y - touch.center.y)")
     }
 
     // MARK: - Per-move semantics (the authored shapes mean what they say)

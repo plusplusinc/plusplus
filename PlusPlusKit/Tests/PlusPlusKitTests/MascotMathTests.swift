@@ -221,4 +221,22 @@ import Foundation
         let solved = anchored.jointPositions(skeleton: skeleton)
         #expect(solved[.leftWrist]!.distance(to: target) < 1e-9)
     }
+
+    /// `Mat3.eulerAngles` is the inverse of `Mat3.rotation(_:)` under
+    /// the order contract — round-trip pinned away from the gimbal
+    /// pitch, so the grip servo's matrix-to-angles step can't drift
+    /// from the composition.
+    @Test func eulerAnglesRoundTripTheRotationContract() {
+        for pitch in [-75.0, -30, 0, 12, 64] {
+            for yaw in [-85.0, -20, 0, 45, 88] {
+                for roll in [-40.0, -5, 0, 18, 43] {
+                    let angles = EulerAngles.deg(pitch: pitch, yaw: yaw, roll: roll)
+                    let recovered = Mat3.rotation(angles).eulerAngles
+                    #expect(abs(recovered.pitch - angles.pitch) < 1e-9)
+                    #expect(abs(recovered.yaw - angles.yaw) < 1e-9)
+                    #expect(abs(recovered.roll - angles.roll) < 1e-9)
+                }
+            }
+        }
+    }
 }

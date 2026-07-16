@@ -56,7 +56,7 @@ import Foundation
         }
     }
 
-    @Test(arguments: ["Squat", "Deadlift"])
+    @Test(arguments: ["Squat", "Deadlift", "Bench Press"])
     func theBarStaysLevel(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         let maxTilt = sin(3.0 * .pi / 180)
@@ -90,7 +90,7 @@ import Foundation
         #expect(worst <= 8, "\(name): peak joint speed \(worst) rad/s")
     }
 
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise"])
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise", "Bench Press"])
     func effortPeaksWhileTheLoadRises(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         let repShare = animation.repDuration / animation.cycleDuration
@@ -188,7 +188,7 @@ import Foundation
     /// — its peak downward speed stays comfortably under its peak
     /// upward speed, i.e. the eccentric is the slow half. Textbook
     /// tempo, enforced (holds are exempt: nothing travels).
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise"])
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise", "Bench Press"])
     func theEccentricIsControlled(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         let workShare = animation.workDuration / animation.cycleDuration
@@ -228,7 +228,7 @@ import Foundation
     /// bottom of its travel, one at the top. An eased turnaround
     /// without a dwell only grazes zero speed for an instant, so the
     /// window-length bar separates a real pause from a slow reversal.
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise"])
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise", "Bench Press"])
     func everyRepPausesAtItsTurnarounds(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         let repShare = animation.repDuration / animation.cycleDuration

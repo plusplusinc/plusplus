@@ -64,12 +64,18 @@ public struct MascotCue: Equatable, Sendable {
     }
 }
 
-/// Equipment the renderer attaches to the rig. Placement is derived from
-/// the wrists app-side (a barbell spans both, dumbbells parent one per
-/// hand), so the kit only declares WHICH props a move carries.
+/// Equipment the renderer attaches to the rig. Held props derive their
+/// placement from the wrists app-side (a barbell spans both, dumbbells
+/// parent one per hand); SUPPORT props are world-fixed furniture whose
+/// geometry lives in `MascotSupport` — the kit only declares WHICH
+/// props a move carries.
 public enum MascotProp: String, CaseIterable, Sendable {
     case barbell
     case dumbbellPair
+    /// A flat bench (the support class's first member): the bot lies ON
+    /// it, so its pad joins the collision sweep and the bench-contact
+    /// invariant proves the five points of contact.
+    case flatBench
 }
 
 /// The physical context a move declares beyond its pose stream — the

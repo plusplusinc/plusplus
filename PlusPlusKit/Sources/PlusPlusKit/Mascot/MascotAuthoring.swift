@@ -229,6 +229,62 @@ public enum MascotPoseBuilder {
         return candidate
     }
 
+    /// The GRIP servo for baked spans: a joint-space lerp between two
+    /// perfectly-gripped endpoints does not keep the hands gripped —
+    /// the wrist orientation that lays the palm channel ON the bar axis
+    /// at the top and at the bottom drifts tens of degrees off it in
+    /// between (the bench press's first bake read 34 degrees at
+    /// mid-press). The fix is ANALYTIC, not searched: pre-rotate the
+    /// left hand by the MINIMAL world rotation carrying its current
+    /// grip axis onto the bar axis (a symmetric pose's palm-to-palm
+    /// axis is exactly world +x for the left hand), then mirror the
+    /// result to the right wrist — so it requires (and preserves) exact
+    /// bilateral symmetry. Minimal-rotation is a continuous map, which
+    /// is the point: a first cut used coordinate descent, and greedy
+    /// search hopping between points of the 2-parameter solution family
+    /// on adjacent baked samples read as an 11 rad/s wrist snap.
+    /// Identity where the grip is already aligned, so authored
+    /// endpoints and pause seams pass through unchanged.
+    public static func aligningGrip(
+        _ pose: MascotPose,
+        skeleton: MascotSkeleton = .standard
+    ) -> MascotPose {
+        let frames = pose.jointFrames(skeleton: skeleton)
+        guard let wrist = frames[.leftWrist], let elbow = frames[.leftElbow] else { return pose }
+        let axis = wrist.rotation.rotate(Vec3(1, 0, 0))
+        let c = min(max(axis.x, -1), 1)
+        // Identity gate: authored endpoints pass through untouched so
+        // pause keyframes stay exact copies. (And the Rodrigues form
+        // below degenerates only toward a 180-degree flip, which the
+        // anatomical wrist ranges keep unreachable.)
+        guard Foundation.acos(c) > 0.002, c > -0.999 else { return pose }
+
+        // Rodrigues: R = I + K + K^2 / (1 + c), for k = axis x target.
+        let k = Vec3(
+            axis.y * 0 - axis.z * 0,
+            axis.z * 1 - axis.x * 0,
+            axis.x * 0 - axis.y * 1
+        )
+        let kMat = Mat3(rows: Vec3(0, -k.z, k.y), Vec3(k.z, 0, -k.x), Vec3(-k.y, k.x, 0))
+        let k2 = kMat * kMat
+        let s = 1.0 / (1 + c)
+        let correction = Mat3(
+            rows: Vec3(1 + kMat.m.0 + s * k2.m.0, kMat.m.1 + s * k2.m.1, kMat.m.2 + s * k2.m.2),
+            Vec3(kMat.m.3 + s * k2.m.3, 1 + kMat.m.4 + s * k2.m.4, kMat.m.5 + s * k2.m.5),
+            Vec3(kMat.m.6 + s * k2.m.6, kMat.m.7 + s * k2.m.7, 1 + kMat.m.8 + s * k2.m.8)
+        )
+
+        // Conjugate the world-frame correction into the wrist's local
+        // frame and mirror it across the sagittal plane.
+        let newLeft = (elbow.rotation.transposed * (correction * wrist.rotation)).eulerAngles
+        var joints = pose.joints
+        joints[.leftWrist] = newLeft
+        joints[.rightWrist] = EulerAngles(pitch: newLeft.pitch, yaw: -newLeft.yaw, roll: -newLeft.roll)
+        var solved = pose
+        solved.joints = joints
+        return solved
+    }
+
     // MARK: - The standard rep cycle
 
     /// The shared shape of a loaded rep: descend (the ECCENTRIC —

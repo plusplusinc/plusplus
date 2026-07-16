@@ -149,6 +149,26 @@ public struct Mat3: Sendable {
             m.6 * v.x + m.7 * v.y + m.8 * v.z
         )
     }
+
+    /// For a rotation matrix, the transpose IS the inverse — what a
+    /// solver needs to move a world-frame correction into a joint's
+    /// local frame.
+    public var transposed: Mat3 {
+        Mat3(rows: Vec3(m.0, m.3, m.6), Vec3(m.1, m.4, m.7), Vec3(m.2, m.5, m.8))
+    }
+
+    /// The inverse of `rotation(_:)` — Euler angles back out of a
+    /// rotation matrix under THE ORDER CONTRACT (Ry·Rx·Rz). Valid away
+    /// from pitch = ±90 degrees, which the anatomical joint ranges keep
+    /// every solver-touched joint clear of. Pinned to the composition
+    /// by a round-trip test.
+    public var eulerAngles: EulerAngles {
+        EulerAngles(
+            pitch: asin(min(max(-m.5, -1), 1)),
+            yaw: atan2(m.2, m.8),
+            roll: atan2(m.3, m.4)
+        )
+    }
 }
 
 /// Closest distance between two line segments — the collision model's
