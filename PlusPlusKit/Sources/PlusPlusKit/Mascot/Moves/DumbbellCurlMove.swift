@@ -49,7 +49,10 @@ enum DumbbellCurlMove {
             repKeyframes: [
                 MascotKeyframe(t: 0, pose: start, easing: .hold),
                 MascotKeyframe(t: 0.06, pose: start, easing: .easeInOut),
-                MascotKeyframe(t: 0.42, pose: topOfCurl, easing: .hold),
+                // .linear, not .hold: squeezeEnd differs in EFFORT
+                // (.hold is only legal between exact copies — through
+                // the eased sampler it would step the face at 0.52).
+                MascotKeyframe(t: 0.42, pose: topOfCurl, easing: .linear),
                 MascotKeyframe(t: 0.52, pose: squeezeEnd, easing: .easeInOut),
                 MascotKeyframe(t: 0.74, pose: lowering, easing: .easeInOut),
                 MascotKeyframe(t: 0.94, pose: start, easing: .hold),

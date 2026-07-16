@@ -93,21 +93,30 @@ enum DeadliftMove {
         // Slow eccentric staged through the knee pass, a beat at the
         // floor to set the grip, then the pull (knees first, hips
         // through) with the hardest effort of any move. Densely baked:
-        // the servo only speaks at the knots.
+        // the servo only speaks at the knots. The knee pass is a pure
+        // POSITION waypoint, never a velocity zero: each half runs
+        // easeIn INTO it and easeOut AWAY from it, so the bar moves
+        // continuously through knee height (the default easeInOut on
+        // both sides baked a visible hitch into the samples — and gave
+        // the pull an upside-down speed shape, peak velocity right off
+        // the floor; a real first pull is slowest off the floor and
+        // accelerates past the knees).
         var repKeyframes = MascotPoseBuilder.span(
             from: lockout, to: kneePass, t0: 0, t1: 0.22, steps: 10,
+            easing: .easeIn,
             effortKeys: [(0, 0.3), (1, 0.4)],
             solve: solve
         )
         repKeyframes.append(contentsOf: MascotPoseBuilder.span(
             from: kneePass, to: bottom, t0: 0.22, t1: 0.46, steps: 12,
+            easing: .easeOut,
             effortKeys: [(0, 0.4), (1, 0.5)],
             solve: solve
         ).dropFirst())
         repKeyframes.append(MascotKeyframe(t: 0.56, pose: bottom, easing: .linear))
         repKeyframes.append(contentsOf: MascotPoseBuilder.span(
             from: bottom, to: kneePass, t0: 0.56, t1: 0.72, steps: 8,
-            easing: .easeOut,
+            easing: .easeIn,
             effortKeys: [(0, 0.5), (0.6, 0.95), (1, 0.8)],
             solve: solve
         ).dropFirst())

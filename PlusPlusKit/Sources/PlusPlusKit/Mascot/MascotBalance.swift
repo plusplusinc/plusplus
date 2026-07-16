@@ -1,20 +1,24 @@
 import Foundation
 
-/// THIS bot's mass model — segment masses proportional to its own mesh
-/// volumes in liters (the head alone is ~8 L; the limbs are skinny
-/// capsules), each hung at the segment midpoint, plus the demo bar's
+/// THIS bot's mass model — segment masses TRACKING its own mesh
+/// volumes in rough liters (the head alone is ~8 L; the limbs are
+/// slender), each hung at the segment midpoint, plus the demo bar's
 /// mass at the palm midpoint. ONE source of truth shared by the balance
 /// invariants and the authoring path servos (a baked descent leans the
 /// torso until the center of mass rides over the feet — the same
-/// continuous coordination a real lifter does by feel).
+/// continuous coordination a real lifter does by feel). Approximate by
+/// design, but re-check it whenever a silhouette changes: the build-88
+/// muscle/feet pass slimmed the legs (lathes vs boxes, −~17% thigh /
+/// −~34% shin) and nearly halved the feet, and the table moved with it.
 public enum MascotBalance {
     /// Keyed by the segment's child joint; `.root` is the pelvis.
+    /// `.wrist` includes the hand; `.ankle` includes the foot.
     public static let segmentMasses: [MascotJoint: Double] = [
         .root: 5.2, .spine: 6.5, .chest: 6.6, .neck: 0.3, .head: 8.4,
-        .leftElbow: 0.65, .rightElbow: 0.65,
-        .leftWrist: 0.65, .rightWrist: 0.65,
-        .leftKnee: 1.5, .rightKnee: 1.5,
-        .leftAnkle: 1.5, .rightAnkle: 1.5,
+        .leftElbow: 0.6, .rightElbow: 0.6,
+        .leftWrist: 0.6, .rightWrist: 0.6,
+        .leftKnee: 1.4, .rightKnee: 1.4,
+        .leftAnkle: 1.0, .rightAnkle: 1.0,
     ]
     /// The demo barbell (small lathe plates — a teaching bar).
     public static let barMass = 2.0
