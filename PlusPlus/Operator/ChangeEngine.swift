@@ -881,13 +881,22 @@ final class ChangeEngine {
         return .success(all.filter { matchesFilter($0, filter) })
     }
 
-    /// "Closest: Push Day, Leg Day" — prefix/substring/shared-word
-    /// suggestions for a missed name; empty when nothing is close.
+    /// "Closest: Push Day, Leg Day" — suggestions for a missed name;
+    /// empty when nothing is close. FuzzySearch first (typos, glued
+    /// words, abbreviations — ranked best-first), then the looser
+    /// prefix/substring/shared-word heuristics for partial overlaps
+    /// fuzzy's every-word-must-land rule rejects ("Push Workout" still
+    /// suggests "Push Day"). Suggestions only — resolution above stays
+    /// exact-or-unique-substring, so forgiveness here can never make
+    /// the engine touch the wrong thing.
     private func closestText(_ query: String, in names: [String]) -> String {
+        var close = FuzzySearch.ranked(names, query: query) { $0 }
         let lowered = query.lowercased()
-        var close = names.filter { candidate in
-            let name = candidate.lowercased()
-            return name.hasPrefix(String(lowered.prefix(3))) || name.contains(lowered) || lowered.contains(name)
+        if close.isEmpty {
+            close = names.filter { candidate in
+                let name = candidate.lowercased()
+                return name.hasPrefix(String(lowered.prefix(3))) || name.contains(lowered) || lowered.contains(name)
+            }
         }
         if close.isEmpty {
             let words = Set(lowered.split(separator: " ").map(String.init))

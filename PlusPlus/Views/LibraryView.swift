@@ -750,8 +750,9 @@ struct CatalogBrowseScreen: View {
     /// so the catalog is where you add it to another one. Membership is
     /// active-library membership.
     private var candidateEquipment: [Equipment] {
-        allEquipment
-            .filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) }
+        // Forgiving search, best match first (blank passes all through
+        // in @Query's alphabetical order).
+        FuzzySearch.ranked(allEquipment, query: query) { $0.name }
             .filter { matchesLibraryFilter(activeLibrary?.contains($0) ?? false) }
     }
 
