@@ -197,9 +197,12 @@ public struct SyncEngine {
     /// no intent hint threaded from the call site — every commit reads cleanly
     /// in the repo history on its own.
     public static func commitMessage(pushing paths: [String]) -> String {
-        var buckets: [PathCategory: [String]] = [:]
+        var buckets: [PathCategory: Set<String>] = [:]
         for path in paths {
-            buckets[PathCategory(path: path), default: []].append(fileName(of: path))
+            // A Set, not an array: a session and its GPX route sidecar
+            // (#378) share a basename and are ONE logical workout — a run
+            // must commit as "Log workout", not "Log 2 workouts".
+            buckets[PathCategory(path: path), default: []].insert(fileName(of: path))
         }
         guard buckets.count == 1, let (category, names) = buckets.first else {
             let total = paths.count
@@ -210,7 +213,9 @@ public struct SyncEngine {
 
     private static func fileName(of path: String) -> String {
         let file = path.split(separator: "/").last.map(String.init) ?? path
-        return file.hasSuffix(".json") ? String(file.dropLast(5)) : file
+        if file.hasSuffix(".json") { return String(file.dropLast(5)) }
+        if file.hasSuffix(".gpx") { return String(file.dropLast(4)) }
+        return file
     }
 
     /// Which interchange area a synced path belongs to, for commit-message copy.

@@ -185,16 +185,25 @@ final class GitHubSyncCoordinator {
         activity = .syncing
         do {
             let baseStore = try ApplicationSupportBaseStore()
-            let store = GitHubRepoStore(coordinate: coordinate, tokens: tokens, client: client)
+            let store = GitHubRepoStore(
+                coordinate: coordinate, tokens: tokens, client: client,
+                // Content-addressed by git SHA — without it every pass
+                // re-downloads the whole history archive, and GPX sidecars
+                // (#378) multiply that.
+                blobCache: DiskBlobCache()
+            )
             let engine = SyncEngine(store: store, baseStore: baseStore)
 
             let bundle = try InterchangeMapping.exportBundle(context: context, units: units)
-            let local = try Self.localFileMap(for: bundle)
+            let local = try Self.localFileMap(for: bundle, routes: Self.routeSidecars(context: context))
             let outcome = try await engine.sync(local: local)
 
             if !outcome.pulls.isEmpty {
                 let pulled = try InterchangeFiles.bundle(from: outcome.pulls)
                 _ = try InterchangeMapping.importBundle(pulled, context: context)
+                // Sidecars skip the bundle path by design; pair + attach
+                // them after the sessions they belong to exist (#378).
+                RouteSidecars.attach(pulls: outcome.pulls, context: context)
                 try context.save()
             }
 
@@ -260,7 +269,9 @@ final class GitHubSyncCoordinator {
             let base = try ApplicationSupportBaseStore().loadBase()
             if base.isEmpty { return true }   // never synced → a first pass matters
             let bundle = try InterchangeMapping.exportBundle(context: context, units: units)
-            let local = try localFileMap(for: bundle)
+            // Routes included — the base carries sidecars after a sync, so a
+            // map built without them would read as dirty forever.
+            let local = try localFileMap(for: bundle, routes: routeSidecars(context: context))
             return local != base
         } catch {
             return true
@@ -286,8 +297,11 @@ final class GitHubSyncCoordinator {
     /// against remote. Templates plus finished sessions (append-only, but
     /// carried here so a session already on the remote reads as unchanged
     /// instead of being re-pulled every pass, and an offline-finished one gets
-    /// pushed on the next sync).
-    static func localFileMap(for bundle: ExportBundle) throws -> [String: Data] {
+    /// pushed on the next sync). `routes` carries each GPS session's sidecar
+    /// bytes VERBATIM (#378) — they must appear in EVERY map or the planner
+    /// re-pulls them each pass, and they must never be re-encoded or the
+    /// byte-diff churns.
+    static func localFileMap(for bundle: ExportBundle, routes: [String: Data] = [:]) throws -> [String: Data] {
         var map: [String: Data] = [:]
         for file in try FileLayout.templateFiles(for: bundle) {
             map[file.path] = file.data
@@ -295,8 +309,31 @@ final class GitHubSyncCoordinator {
         for session in bundle.sessions {
             let placement = try FileLayout.sessionPlacement(for: session) { map[$0] }
             map[placement.path] = placement.data
+            if let gpx = routes[Self.routeKey(session.routineName, session.startedAt)] {
+                map[FileLayout.routeSidecarPath(forSessionPath: placement.path)] = gpx
+            }
         }
         return map
+    }
+
+    /// The stored sidecar bytes of every finished GPS session, keyed to pair
+    /// with the bundle's DTOs inside `localFileMap`.
+    static func routeSidecars(context: ModelContext) -> [String: Data] {
+        let sessions = (try? context.fetch(
+            FetchDescriptor<WorkoutSession>(predicate: #Predicate { $0.routeData != nil && $0.endedAt != nil })
+        )) ?? []
+        return Dictionary(
+            sessions.compactMap { session in
+                session.routeData.map { (Self.routeKey(session.routineName, session.startedAt), $0) }
+            },
+            // Same name + same start can't import twice (the dedupe key),
+            // but never crash on a weird store — first wins.
+            uniquingKeysWith: { first, _ in first }
+        )
+    }
+
+    private static func routeKey(_ routineName: String, _ startedAt: Date) -> String {
+        "\(routineName.lowercased())|\(startedAt.timeIntervalSince1970)"
     }
 
     /// A short, friendly line about the last pass — for the pull-to-refresh

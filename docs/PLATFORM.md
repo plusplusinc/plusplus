@@ -480,7 +480,13 @@ The contract has grown a lot without a version bump, on purpose. The rule:
 | Data | Direction | Conflict handling |
 |---|---|---|
 | Sessions | app → repo, on finish (queued offline) | none possible (new file, append-only) |
+| GPX route sidecars (#378) | app → repo beside their session, byte-verbatim; pulled sidecars attach to their session by the basename pairing | none in practice (append-only like sessions); an unpairable or ambiguous pulled sidecar is skipped, stays in the repo, and can pair on a later pass |
 | Routines / exercises | bidirectional, on app foreground + manual pull | per-file SHA compare; a both-sides change is auto-merged field-by-field (`TemplateMerge`), same-field collisions resolve local-wins. `keep-mine/take-theirs/postpone` remains the fallback for an undecodable file |
+
+Blob reads are cached content-addressed by git SHA (`GitBlobCache`; the app
+uses a size-capped disk cache) — a SHA's bytes can never go stale, so a
+sync pass only downloads blobs it has never seen. A session and its sidecar
+share one "Log workout" commit.
 
 **First sync is a RESTORE, not a merge** (the reinstall-safe rule): when a
 device has no sync base (a fresh install / reinstall) and the repo is

@@ -92,6 +92,44 @@ struct SyncEngineTests {
         #expect(baseStore.base == [routinePath: a])
     }
 
+    @Test("A run's session + GPX sidecar push as one 'Log workout' commit (#378)")
+    func sidecarPushesWithSession() async throws {
+        let sessionPath = "history/2026/2026-07-15-morning-run.json"
+        let sidecarPath = "history/2026/2026-07-15-morning-run.gpx"
+        let repo = FakeRepoStore()
+        let baseStore = FakeBaseStore()
+        let engine = SyncEngine(store: repo, baseStore: baseStore)
+
+        let outcome = try await engine.sync(local: [sessionPath: a, sidecarPath: b])
+
+        #expect(outcome.pushed == [sidecarPath, sessionPath])
+        #expect(repo.commits.count == 1)
+        // One logical workout: the sidecar shares the session's basename
+        // and must not inflate the count.
+        #expect(repo.commits[0].message == "Log workout")
+        #expect(baseStore.base == [sessionPath: a, sidecarPath: b])
+
+        // Second pass with identical local state: byte-stable no-op.
+        let again = try await engine.sync(local: [sessionPath: a, sidecarPath: b])
+        #expect(again.pushed.isEmpty && again.pulls.isEmpty)
+        #expect(repo.commits.count == 1)
+    }
+
+    @Test("A restore pulls the sidecar beside its session")
+    func restorePullsSidecar() async throws {
+        let sessionPath = "history/2026/2026-07-15-morning-run.json"
+        let sidecarPath = "history/2026/2026-07-15-morning-run.gpx"
+        let repo = FakeRepoStore(files: [sessionPath: a, sidecarPath: b])
+        let baseStore = FakeBaseStore()   // fresh install
+        let engine = SyncEngine(store: repo, baseStore: baseStore)
+
+        let outcome = try await engine.sync(local: [:])
+
+        #expect(outcome.pulls.contains(FileWrite(path: sessionPath, data: a)))
+        #expect(outcome.pulls.contains(FileWrite(path: sidecarPath, data: b)))
+        #expect(outcome.pushed.isEmpty)
+    }
+
     @Test("Remote edits come back as pulls and advance the base")
     func remoteEditPulled() async throws {
         let repo = FakeRepoStore(files: [routinePath: b])

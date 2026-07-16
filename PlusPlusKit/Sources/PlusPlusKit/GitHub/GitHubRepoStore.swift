@@ -16,6 +16,9 @@ public struct GitHubRepoStore: RepoStore {
     private let tokens: any TokenStore
     private let client: any HTTPClient
     private let apiHost: URL
+    /// Optional content-addressed blob cache — a hit skips the per-blob GET
+    /// entirely (SHAs are content-addressed, so a hit can never be stale).
+    private let blobCache: (any GitBlobCache)?
 
     /// Only files under these prefixes participate in sync — the interchange
     /// layout (`program/…` templates + `history/…` sessions). A user's README,
@@ -27,12 +30,14 @@ public struct GitHubRepoStore: RepoStore {
         coordinate: GitHubRepoCoordinate,
         tokens: any TokenStore,
         client: any HTTPClient,
-        apiHost: URL = URL(string: "https://api.github.com")!
+        apiHost: URL = URL(string: "https://api.github.com")!,
+        blobCache: (any GitBlobCache)? = nil
     ) {
         self.coordinate = coordinate
         self.tokens = tokens
         self.client = client
         self.apiHost = apiHost
+        self.blobCache = blobCache
     }
 
     public enum StoreError: Error, Equatable {
@@ -58,7 +63,13 @@ public struct GitHubRepoStore: RepoStore {
         var files: [String: Data] = [:]
         for entry in tree.tree where entry.type == "blob" && Self.isSynced(entry.path) {
             guard let sha = entry.sha else { continue }
-            files[entry.path] = try await fetchBlob(sha: sha)
+            if let cached = blobCache?.data(forSHA: sha) {
+                files[entry.path] = cached
+                continue
+            }
+            let data = try await fetchBlob(sha: sha)
+            blobCache?.store(data, sha: sha)
+            files[entry.path] = data
         }
         return files
     }
@@ -95,10 +106,12 @@ public struct GitHubRepoStore: RepoStore {
             head = try await currentHead()
         }
 
-        // 2. A blob per file.
+        // 2. A blob per file. Warm the cache with what we just pushed — the
+        // next fetchAll will list these SHAs, and we already hold the bytes.
         var treeEntries: [TreeEntryInput] = []
         for file in files {
             let sha = try await createBlob(file.data)
+            blobCache?.store(file.data, sha: sha)
             treeEntries.append(TreeEntryInput(path: file.path, mode: "100644", type: "blob", sha: sha))
         }
 
