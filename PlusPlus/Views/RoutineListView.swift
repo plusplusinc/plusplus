@@ -201,7 +201,11 @@ struct RoutineListView: View {
     }
 
     private func moveRoutines(from source: IndexSet, to destination: Int) {
-        var reordered = Array(routines)
+        // Reorder over the SAME collection the ForEach displays: `.onMove`
+        // hands indices into `displayedRoutines`, so basing the move on the
+        // full `routines` would mis-map during the brief entrance window
+        // where the two diverge. In the steady state they're identical.
+        var reordered = displayedRoutines
         reordered.move(fromOffsets: source, toOffset: destination)
         for (index, routine) in reordered.enumerated() {
             routine.order = index
@@ -338,6 +342,16 @@ private struct RoutineCard: View {
         return line + Text(" · \(descriptor)").foregroundStyle(Theme.textSecondary)
     }
 
+    /// A clean spoken summary for the merged line — the raw concatenated
+    /// `Text` would have VoiceOver read the calendar glyph and the "·"/"~"
+    /// separators aloud.
+    private var middleAccessibilityLabel: String {
+        var parts = [cadenceLabel]
+        if hasExercises { parts.append(estimateText) }
+        parts.append(descriptor)
+        return parts.joined(separator: ", ")
+    }
+
     var body: some View {
         // Three rows: identity, the merged when · estimate · what-it-works
         // line, and gear as soft tags on its own line (Dave, 2026-07-16).
@@ -355,6 +369,7 @@ private struct RoutineCard: View {
             middleLine
                 .font(.system(.caption))
                 .lineLimit(1)
+                .accessibilityLabel(middleAccessibilityLabel)
             if showsGear {
                 HStack(spacing: 5) {
                     // Soft tags (filled, no stroke): a stroked capsule read
