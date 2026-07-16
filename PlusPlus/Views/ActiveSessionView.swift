@@ -241,10 +241,14 @@ struct ActiveSessionView: View {
                 heartRate.start(from: session.effectiveStart)
                 syncLocation()
             }
+            // The session's FIRST exercise announces here (no key change
+            // to observe); later exercises ride activeExerciseKey below.
+            announceFormGuidance()
         }
         .onDisappear {
             heartRate.stop()
             location.stop()
+            FormGuidanceSpeaker.shared.stop()
         }
         // GPS pauses with the workout clock (HR keeps its passive query) —
         // no distance banked across a pause, and the battery rests.
@@ -253,9 +257,13 @@ struct ActiveSessionView: View {
         }
         // Re-point the meter as the active exercise changes: a new outdoor
         // exercise re-bases (its own distance), the same exercise's next
-        // round keeps accumulating, a non-outdoor exercise stops it.
+        // round keeps accumulating, a non-outdoor exercise stops it. The
+        // voice cue rides the same identity: the key flips to the up-next
+        // exercise the moment its transition starts, so the cue plays
+        // while the user is racking over, not mid-set.
         .onChange(of: activeExerciseKey) {
             syncLocation()
+            announceFormGuidance()
         }
         // Island / Lock Screen rest controls (#157): LiveActivityIntents
         // run in this process and post here — same mutations as the
@@ -310,6 +318,20 @@ struct ActiveSessionView: View {
             isTransition: restIsTransition
         )
         LiveMirror.shared.restStarted(endsAt: endDate, total: restTotalSeconds, in: session)
+    }
+
+    /// Voice form cues (opt-in, Settings → VOICE): the active exercise's
+    /// cue line speaks once as its block starts. Dedup keys on session
+    /// identity + block (`startedAt` is persisted, so a remount of this
+    /// view can't re-announce within one app run); everything else —
+    /// setting, catalog coverage, UI-test inertness — gates inside the
+    /// speaker.
+    private func announceFormGuidance() {
+        guard !session.isFinished, let log = activeLog, let key = activeExerciseKey else { return }
+        FormGuidanceSpeaker.shared.announce(
+            exerciseNamed: log.exerciseName,
+            dedupKey: "\(session.startedAt.timeIntervalSince1970)·\(key)"
+        )
     }
 
     /// Pushes the current working state (exercise · set · progress) to the
@@ -628,6 +650,8 @@ struct ActiveSessionView: View {
 
     private func finishSession(dismissAfter: Bool = true) {
         WorkoutActivityController.shared.end()
+        // A cue still talking over the purple finish would be noise.
+        FormGuidanceSpeaker.shared.stop()
         if !session.isFinished {
             isFirstEverFinish = finishedSessions.isEmpty
             session.finish()

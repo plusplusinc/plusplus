@@ -966,6 +966,7 @@ private struct SettingsTray: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage(AppAppearance.storageKey) private var appearanceRaw = AppAppearance.system.rawValue
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw = WeightUnit.lb.rawValue
+    @AppStorage(FormGuidanceSetting.key) private var formGuidanceOn = false
 
     var body: some View {
         // Explicit System / Light / Dark order (handoff), mapped back to
@@ -995,6 +996,21 @@ private struct SettingsTray: View {
                         set: { weightUnitRaw = ($0 == 1 ? WeightUnit.kg : WeightUnit.lb).rawValue }
                     )
                 )
+            }
+            .padding(.top, 22)
+
+            VStack(alignment: .leading, spacing: 7) {
+                SheetSectionLabel("VOICE")
+                Toggle(isOn: $formGuidanceOn) {
+                    Text("Form cues at exercise start")
+                        .font(.system(.subheadline, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                }
+                .tint(Theme.selected)
+                .accessibilityIdentifier("formGuidanceToggle")
+                Text("A voice speaks a quick form reminder as each exercise begins. Music ducks while it talks; covers the built-in catalog.")
+                    .font(.system(.caption))
+                    .foregroundStyle(Theme.textFaint)
             }
             .padding(.top, 22)
 
