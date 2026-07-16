@@ -243,6 +243,11 @@ public struct ExerciseAnimation: Sendable {
         let dt = k1.t - k0.t
         guard dt > 0 else { return k1.pose }
 
+        // NOTE: stillness relies on pause keyframes being EXACT value
+        // copies of one pose (all five moves author pauses that way).
+        // A pause whose endpoints come from two separate solver runs
+        // (near-equal, not equal) would silently lose its
+        // ease-into-pause — author pauses by reusing the pose value.
         func still(_ a: Int, _ b: Int) -> Bool {
             keyframes[a].pose.maxBodyDelta(to: keyframes[b].pose) < 1e-9
         }

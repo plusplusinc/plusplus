@@ -44,6 +44,10 @@ struct MascotView: View {
         var elevation: Float
         var radius: Float
         var target: SIMD3<Float>
+        /// Azimuth clamps to a window around the per-move framing: the
+        /// room has three walls, and an unclamped orbit could face the
+        /// open side (raw viewport background past the floor's edge).
+        var azimuthRange: ClosedRange<Float> = 0...0
 
         static let elevationRange: ClosedRange<Float> = -0.05...1.25
         static let radiusRange: ClosedRange<Float> = 0.9...2.2
@@ -64,6 +68,7 @@ struct MascotView: View {
             var state = isFloorMove
                 ? OrbitState(azimuth: 1.15, elevation: 0.5, radius: 1.55, target: [0, 0.22, 0])
                 : OrbitState(azimuth: 0.32, elevation: 0.33, radius: 1.6, target: [0, 0.55, 0])
+            state.azimuthRange = (state.azimuth - 1.15)...(state.azimuth + 1.15)
             if mode == .preview {
                 state.radius -= 0.15
             }
@@ -161,7 +166,8 @@ struct MascotView: View {
                 if dragBase == nil {
                     dragBase = base
                 }
-                orbit.azimuth = base.azimuth - Float(value.translation.width) * 0.008
+                let azimuth = base.azimuth - Float(value.translation.width) * 0.008
+                orbit.azimuth = min(max(azimuth, orbit.azimuthRange.lowerBound), orbit.azimuthRange.upperBound)
                 let elevation = base.elevation + Float(value.translation.height) * 0.008
                 orbit.elevation = min(max(elevation, OrbitState.elevationRange.lowerBound), OrbitState.elevationRange.upperBound)
             }

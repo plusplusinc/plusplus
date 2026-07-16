@@ -6,6 +6,7 @@ import Foundation
 /// rounded edges around its perimeter (Dave's spec for weight plates:
 /// "still cylinders, just with rounded edges") built as a lathe — a
 /// rounded-rectangle half-profile revolved around the Y axis.
+@MainActor
 enum MascotMeshes {
     /// - Parameters:
     ///   - radius: cylinder radius (Y is the axis; rotate the entity to

@@ -74,8 +74,7 @@ final class MascotRig {
 
         // Head: white helmet, dark face panel on its front, the green
         // "+" eyes EMBEDDED in the panel (build-80: no floating glyphs).
-        let head = attach(box(0.21, 0.23, 0.20, corner: 0.075), to: .head, offset: [0, 0.11, 0], role: .panel)
-        _ = head
+        attach(box(0.21, 0.23, 0.20, corner: 0.075), to: .head, offset: [0, 0.11, 0], role: .panel)
         let facePanel = ModelEntity(mesh: box(0.148, 0.112, 0.024, corner: 0.012))
         facePanel.position = [0, 0.115, 0.093]
         joints[.head]?.addChild(facePanel)
@@ -225,10 +224,12 @@ final class MascotRig {
     }
 
     /// Re-resolves every mesh's material — called on build and whenever
-    /// the color scheme flips.
+    /// the color scheme flips. The room textures are generated once and
+    /// shared across the floor and walls.
     func apply(palette: MascotPalette) {
+        let room = palette.makeRoomTextures()
         for (model, role) in themed {
-            model.model?.materials = [palette.material(for: role)]
+            model.model?.materials = [palette.material(for: role, room: room)]
         }
     }
 }

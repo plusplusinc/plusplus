@@ -49,8 +49,25 @@ struct MascotPalette: Equatable {
         case equipmentDark // bar shafts, handles: darkened accent
     }
 
+    /// The room textures, generated ONCE per apply and shared across
+    /// the floor and all three walls (regenerating per entity uploaded
+    /// four identical multi-megabyte textures on every rig build —
+    /// swift-reviewer HIGH). Aspect-matched so wall dots stay round.
+    struct RoomTextures {
+        let floor: TextureResource?
+        let wall: TextureResource?
+    }
+
     @MainActor
-    func material(for role: Role) -> any RealityKit.Material {
+    func makeRoomTextures() -> RoomTextures {
+        RoomTextures(
+            floor: dotGridTexture(width: 1024, height: 1024),
+            wall: dotGridTexture(width: 1024, height: 544)
+        )
+    }
+
+    @MainActor
+    func material(for role: Role, room: RoomTextures) -> any RealityKit.Material {
         switch role {
         case .panel:
             return SimpleMaterial(color: MascotSkin.panel, roughness: 0.6, isMetallic: false)
@@ -64,13 +81,13 @@ struct MascotPalette: Equatable {
             return SimpleMaterial(color: resolved(Theme.surfaceRaised), roughness: 0.95, isMetallic: false)
         case .floor:
             var material = SimpleMaterial(color: resolved(Theme.background), roughness: 0.95, isMetallic: false)
-            if let texture = dotGridTexture() {
+            if let texture = room.floor {
                 material.color = .init(tint: .white, texture: .init(texture))
             }
             return material
         case .wall:
             var material = UnlitMaterial(color: resolved(Theme.background))
-            if let texture = dotGridTexture() {
+            if let texture = room.wall {
                 material.color = .init(tint: .white, texture: .init(texture))
             }
             return material
@@ -90,35 +107,39 @@ struct MascotPalette: Equatable {
 
     /// The room's dot-grid wallpaper, generated at runtime (no bundled
     /// textures): the full grid is baked into one image so no material
-    /// tiling transform is needed.
+    /// tiling transform is needed. Rendered at scale 1 deliberately —
+    /// the default screen-scale format tripled every dimension (a 37 MB
+    /// texture for a backdrop 2 m from the camera).
     @MainActor
-    func dotGridTexture() -> TextureResource? {
-        let size = 1024
-        let cells = 16
+    private func dotGridTexture(width: Int, height: Int) -> TextureResource? {
+        let spacing: CGFloat = 64
         let dotRadius: CGFloat = 3.5
         let background = resolved(Theme.background)
         let dot = resolved(Theme.border)
 
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: size, height: size))
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: width, height: height), format: format)
         let image = renderer.image { context in
             background.setFill()
-            context.fill(CGRect(x: 0, y: 0, width: size, height: size))
+            context.fill(CGRect(x: 0, y: 0, width: width, height: height))
             dot.setFill()
-            let spacing = CGFloat(size) / CGFloat(cells)
-            for row in 0...cells {
-                for column in 0...cells {
-                    let center = CGPoint(x: CGFloat(column) * spacing, y: CGFloat(row) * spacing)
-                    let rect = CGRect(
-                        x: center.x - dotRadius,
-                        y: center.y - dotRadius,
+            var y: CGFloat = 0
+            while y <= CGFloat(height) {
+                var x: CGFloat = 0
+                while x <= CGFloat(width) {
+                    context.cgContext.fillEllipse(in: CGRect(
+                        x: x - dotRadius,
+                        y: y - dotRadius,
                         width: dotRadius * 2,
                         height: dotRadius * 2
-                    )
-                    context.cgContext.fillEllipse(in: rect)
+                    ))
+                    x += spacing
                 }
+                y += spacing
             }
         }
         guard let cgImage = image.cgImage else { return nil }
-        return try? TextureResource.generate(from: cgImage, options: .init(semantic: .color))
+        return try? TextureResource(image: cgImage, options: .init(semantic: .color))
     }
 }
