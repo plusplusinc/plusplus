@@ -63,7 +63,7 @@ struct OperatorDataService {
                 let active = EquipmentLibrary.active(in: all)
                 let matched = fragment.map { q in FuzzySearch.ranked(all, query: q) { $0.name } } ?? all
                 let lines = matched.map { library in
-                    "\(library.name) · \(library.members.count) item\(library.members.count == 1 ? "" : "s")\(library === active ? " · active" : "")"
+                    libraryLine(library, isActive: library === active)
                 }
                 return digest(lines, of: matched.count, kind: "libraries", cap: cap, fragment: fragment)
             }
@@ -77,6 +77,26 @@ struct OperatorDataService {
         // shortLabel is THE schedule vocabulary (cards, detail header,
         // widget caption) — Operator must speak the same dialect.
         return "\(routine.name) · \(exerciseCount) exercise\(exerciseCount == 1 ? "" : "s") · \(routine.schedule.shortLabel) · \(routine.estimateText)"
+    }
+
+    /// Member names ride IN the line — the first on-device conversation
+    /// proved a count-only digest strands the model: it can say "3
+    /// items" but never WHICH, so it stalls in offer loops or fishes a
+    /// wrong answer out of exercise search. Alphabetized (the
+    /// relationship is unordered) and capped so a packed library can't
+    /// flood the context window.
+    private func libraryLine(_ library: EquipmentLibrary, isActive: Bool) -> String {
+        let names = library.members.map(\.name).sorted()
+        var line = "\(library.name) · \(names.count) item\(names.count == 1 ? "" : "s")"
+        if !names.isEmpty {
+            let shown = names.prefix(10)
+            line += ": \(shown.joined(separator: ", "))"
+            if names.count > shown.count {
+                line += ", +\(names.count - shown.count) more"
+            }
+        }
+        if isActive { line += " · active" }
+        return line
     }
 
     private func exerciseLine(_ exercise: Exercise) -> String {

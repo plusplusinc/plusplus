@@ -150,6 +150,50 @@ struct OperatorChangeTests {
             values: ChangeValues(equipment: ["Barbell"])
         )
         #expect(equipmentOnRoutine.validationIssues().contains("equipment applies to exercises and libraries only"))
+
+        let deltaOnExercise = ChangeSpec(
+            operation: .update, entity: .exercise,
+            targets: ["Plank"],
+            values: ChangeValues(addEquipment: ["Jump Rope"])
+        )
+        #expect(deltaOnExercise.validationIssues().contains("addEquipment/removeEquipment apply to libraries only"))
+
+        // Replace and delta in one spec is a contradiction, not a merge.
+        let replaceAndDelta = ChangeSpec(
+            operation: .update, entity: .library,
+            targets: ["Home"],
+            values: ChangeValues(equipment: ["Barbell"], addEquipment: ["Jump Rope"])
+        )
+        #expect(replaceAndDelta.validationIssues().contains("use equipment (replaces the list) or addEquipment/removeEquipment, not both"))
+
+        // The legitimate delta spelling stays clean.
+        let addToLibrary = ChangeSpec(
+            operation: .update, entity: .library,
+            targets: ["Home"],
+            values: ChangeValues(addEquipment: ["Jump Rope"])
+        )
+        #expect(addToLibrary.validationIssues().isEmpty)
+    }
+
+    @Test("A library update naming no target is valid; other entities and deletes still name theirs")
+    func libraryUpdateDefaultsToActive() {
+        // "Remove the barbell from my equipment" never names a library —
+        // the engine resolves it to the ACTIVE one downstream.
+        let unnamed = ChangeSpec(
+            operation: .update, entity: .library,
+            values: ChangeValues(removeEquipment: ["Barbell"])
+        )
+        #expect(unnamed.validationIssues().isEmpty)
+
+        let exerciseStillNeedsTargets = ChangeSpec(
+            operation: .update, entity: .exercise,
+            values: ChangeValues(reps: 10)
+        )
+        #expect(exerciseStillNeedsTargets.validationIssues().contains("update needs targets or a filter"))
+
+        // A delete must always say what it deletes.
+        let unnamedDelete = ChangeSpec(operation: .delete, entity: .library)
+        #expect(unnamedDelete.validationIssues().contains("delete needs targets or a filter"))
     }
 
     @Test("Inapplicable filter criteria are rejected, never silently widened")

@@ -103,7 +103,10 @@ struct RootTabView: View {
         }
         // Operator's outcome navigation: the root switches tabs; the
         // owning tab root resolves and pushes (the .plusplusStartRoutine
-        // pattern).
+        // pattern). The drawer closes too, so a half-height Operator
+        // tray shows the result landing behind it live (Dave, build-85
+        // round) — and dismissing the tray lands on the result, not the
+        // drawer.
         .onReceive(NotificationCenter.default.publisher(for: .plusplusOperatorShow)) { note in
             guard let destination = note.object as? OperatorDestination else { return }
             switch destination {
@@ -112,6 +115,7 @@ struct RootTabView: View {
             case .exercisesTab: tab = .exercises
             case .equipmentTab: tab = .equipment
             }
+            reveal.close()
         }
         .overlay {
             if showingIntro {
