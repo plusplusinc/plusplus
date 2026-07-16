@@ -621,7 +621,9 @@ struct RoutineTemplateDetailScreen: View {
 
     private func targetText(block: RoutineTemplate.Block, entry: RoutineTemplate.Entry) -> String {
         if let seconds = entry.durationSeconds {
-            return "\(block.sets)×\(seconds)s"
+            // Same compact label the scrubber and detail rows speak —
+            // a 90 s hold reads "1:30", not "90s".
+            return "\(block.sets)×\(DurationTape.label(for: seconds))"
         }
         if let reps = entry.reps {
             if let upper = entry.repsUpper {

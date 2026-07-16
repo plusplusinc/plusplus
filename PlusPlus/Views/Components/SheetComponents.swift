@@ -179,6 +179,14 @@ struct MetricStepperRow: View {
     let onDecrement: () -> Void
     let onIncrement: () -> Void
 
+    /// A tap-editable value (it opens a wheel or the duration tape).
+    /// Those read as an outlined text input so the picker behind them is
+    /// discoverable — the value was ALWAYS tappable, but as bare mono
+    /// text it looked like a readout, so the picker (and the whole tape
+    /// scrubber) went unfound even by Dave. A non-tappable value (Sets,
+    /// nudged only by the ± pair) stays a plain readout.
+    private var isValueTappable: Bool { onTapValue != nil }
+
     var body: some View {
         HStack(spacing: 10) {
             Text(label)
@@ -191,11 +199,22 @@ struct MetricStepperRow: View {
                 Text(value)
                     .font(.system(.subheadline, design: .monospaced, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                     // Rolling digits on step (#216).
                     .contentTransition(.numericText())
                     .animation(Theme.Anim.standard, value: value)
+                    // Field chrome only when tappable: same 36 pt height
+                    // and radius as the ± control beside it, so the two
+                    // read as a matched pair of inputs (Dave, 2026-07-16).
+                    .padding(.horizontal, isValueTappable ? 12 : 7)
+                    .padding(.vertical, isValueTappable ? 0 : 3)
+                    .frame(minWidth: isValueTappable ? 60 : nil, minHeight: isValueTappable ? 36 : nil)
+                    .overlay {
+                        if isValueTappable {
+                            RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.border)
+                        }
+                    }
             }
             .disabled(onTapValue == nil)
             .accessibilityLabel(label)

@@ -210,7 +210,7 @@ struct ExerciseConfigSheet: View {
     private func rowText(_ metric: WorkoutMetric) -> String {
         if metric == .duration {
             guard let seconds = config.durationSeconds else { return "—" }
-            return seconds >= 60 ? WorkoutMetric.duration.formatted(Double(seconds)) : "\(seconds)s"
+            return DurationTape.label(for: seconds)
         }
         return metric.displayText(config.target(metric), weightUnit: weightUnit, distanceUnit: profile.distanceUnit)
     }
