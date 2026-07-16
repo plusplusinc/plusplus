@@ -1163,6 +1163,7 @@ private struct AboutTray: View {
 /// dispatch (one line each, no obligation words).
 enum WhatsNew {
     static let entries: [(build: String, notes: String)] = [
+        ("84", "Operator: chat with your training data behind the ++ key · ask anything, change anything · bulk edits preview before they touch a thing, small ones undo in a tap · the model runs entirely on this phone · and outdoor runs now keep their route: map, splits, and stats on the record"),
         ("61", "Scheduled workouts on your calendar · one tap on the event starts the session · works with Apple and Google"),
         ("55", "Sync your program and history to a GitHub repo you own · restore-safe on a new phone"),
         ("48", "Equipment libraries: keep a set for home and another for the road · switch and the whole app follows · your gear travels with you to a new phone"),
