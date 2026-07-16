@@ -61,7 +61,9 @@ struct WorkoutLiveActivity: Widget {
             VStack(spacing: 10) {
                 HStack(alignment: .center, spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(context.state.phase == .resting ? "REST" : context.attributes.routineName.uppercased())
+                        Text(context.state.phase == .resting
+                             ? (context.state.isTransition == true ? "SWITCH" : "REST")
+                             : context.attributes.routineName.uppercased())
                             .font(.system(.caption2, design: .monospaced, weight: .semibold))
                             .kerning(0.8)
                             .foregroundStyle(.secondary)
@@ -88,7 +90,9 @@ struct WorkoutLiveActivity: Widget {
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(context.state.phase == .resting ? "REST" : "SET \(context.state.setNumber)")
+                        Text(context.state.phase == .resting
+                         ? (context.state.isTransition == true ? "SWITCH" : "REST")
+                         : "SET \(context.state.setNumber)")
                             .font(.system(.caption2, design: .monospaced, weight: .semibold))
                             .foregroundStyle(.secondary)
                         Text(context.state.exerciseName)

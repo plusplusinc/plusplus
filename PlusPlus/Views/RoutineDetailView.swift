@@ -1547,6 +1547,26 @@ struct RoutineSettingsScreen: View {
                     .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
                     .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
 
+                    SheetSectionLabel("BETWEEN EXERCISES")
+                        .padding(.top, 24)
+
+                    MetricStepperRow(
+                        label: "Transition",
+                        value: WorkoutMetric.transition.displayText(Double(routine.transitionSeconds)),
+                        identifier: "transition",
+                        onDecrement: { routine.transitionSeconds = Int(WorkoutMetric.transition.decremented(Double(routine.transitionSeconds))) },
+                        onIncrement: { routine.transitionSeconds = Int(WorkoutMetric.transition.incremented(Double(routine.transitionSeconds))) }
+                    )
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+
+                    // Rest is for a new round of the same block (#369) —
+                    // switching stations gets this shorter pause.
+                    Text("Switching to a different exercise (or a superset partner) uses this instead of rest. 0 skips the countdown.")
+                        .font(.system(.caption))
+                        .foregroundStyle(Theme.textFaint)
+                        .padding(.top, 6)
+
                     SheetSectionLabel("NOTES")
                         .padding(.top, 24)
 

@@ -21,6 +21,13 @@ final class WorkoutSession {
     var sessionId: UUID = UUID()
     /// Snapshot of the routine's rest setting at start time.
     var restSeconds: Int = 90
+    /// Snapshot of the routine's transition setting at start time (#369):
+    /// the pause when the session moves to a different exercise or block,
+    /// where rest covers a new round of the same block. Constant default
+    /// stamps old rows 15 — inert on finished history, and NOT in the
+    /// interchange (see the census: a finished record's real gaps live in
+    /// `completedAt`).
+    var transitionSeconds: Int = 15
     /// When the workout TIMER first engaged — the first exercise being
     /// started. nil while an ad-hoc session is still being assembled: no
     /// clock runs during setup (Dave, 2026-07-11). Routine sessions
@@ -50,11 +57,12 @@ final class WorkoutSession {
     @Relationship(deleteRule: .cascade, inverse: \SetLog.session)
     var setLogs: [SetLog] = []
 
-    init(routine: Routine? = nil, routineName: String, startedAt: Date = Date(), restSeconds: Int = 90) {
+    init(routine: Routine? = nil, routineName: String, startedAt: Date = Date(), restSeconds: Int = 45, transitionSeconds: Int = 15) {
         self.routine = routine
         self.routineName = routineName
         self.startedAt = startedAt
         self.restSeconds = restSeconds
+        self.transitionSeconds = transitionSeconds
     }
 
     var sortedSetLogs: [SetLog] {
@@ -132,10 +140,26 @@ final class WorkoutSession {
         return sortedSetLogs.contains { !$0.isCompleted && $0 !== log && $0.exerciseName == log.exerciseName }
     }
 
-    /// The rest that follows a just-completed set: its block's override
-    /// when one exists (interval blocks), else the session default.
-    func restSeconds(after log: SetLog) -> Int {
-        log.restSecondsOverride ?? restSeconds
+    /// The pause that follows a just-completed set (#369): a NEW ROUND of
+    /// the same block earns the block's rest (override when one exists —
+    /// interval blocks — else the session default); anything else — the
+    /// superset partner within a round, or the first set of another block
+    /// — is a transition, just enough to switch stations. Classified
+    /// against wherever the cursor points next, so jump/redo reclassifies
+    /// naturally. A 0-second transition means no countdown at all.
+    ///
+    /// Callers freeze the result at log time. A structure edit DURING the
+    /// countdown (resizing the pending block from the exercise sheet) can
+    /// invalidate the frozen kind/length — accepted (swift-reviewer MED):
+    /// self-inflicted, one countdown, and +30s/Skip are on screen.
+    func pause(after log: SetLog) -> (seconds: Int, isTransition: Bool) {
+        let rest = (seconds: log.restSecondsOverride ?? restSeconds, isTransition: false)
+        // Asked before the completion landed, the cursor still points at
+        // `log` itself (same block, same setNumber — it would misread as
+        // a transition). Never classify against itself; fall back to rest.
+        guard let next = currentLog, next !== log else { return rest }
+        let newRoundOfSameBlock = next.groupIndex == log.groupIndex && next.setNumber != log.setNumber
+        return newRoundOfSameBlock ? rest : (seconds: transitionSeconds, isTransition: true)
     }
 
     var isFinished: Bool { endedAt != nil }
@@ -233,7 +257,8 @@ final class WorkoutSession {
             routine: routine,
             routineName: routine.name,
             startedAt: date,
-            restSeconds: routine.restSeconds
+            restSeconds: routine.restSeconds,
+            transitionSeconds: routine.transitionSeconds
         )
         context.insert(session)
         // A routine session is started the moment it's presented — the
@@ -455,7 +480,7 @@ extension WorkoutSession {
 
         let trimmed = proposed.trimmingCharacters(in: .whitespaces)
         let name = Routine.uniqueName(trimmed.isEmpty ? Self.scratchName : trimmed, among: existing)
-        let routine = Routine(name: name, order: 0, restSeconds: restSeconds)
+        let routine = Routine(name: name, order: 0, restSeconds: restSeconds, transitionSeconds: transitionSeconds)
         context.insert(routine)
 
         for key in blockOrder {

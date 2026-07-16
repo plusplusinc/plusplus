@@ -21,6 +21,7 @@ public enum InterchangeValidator {
     private static let dedicatedMetrics: Set<String> = [
         WorkoutMetric.weight.rawValue, WorkoutMetric.reps.rawValue,
         WorkoutMetric.duration.rawValue, WorkoutMetric.rest.rawValue,
+        WorkoutMetric.transition.rawValue,
     ]
 
     /// Shared checks for extraDefaults/extraTargets/extraActuals: keys
@@ -92,8 +93,8 @@ public enum InterchangeValidator {
             if let metrics = exercise.metrics {
                 var parsed: [WorkoutMetric] = []
                 for key in metrics {
-                    if key == WorkoutMetric.rest.rawValue {
-                        issues.append(.init(path: path, message: "metrics may not include rest (block configuration, not a tracked metric)"))
+                    if let metric = WorkoutMetric(rawValue: key), metric.isBlockConfiguration {
+                        issues.append(.init(path: path, message: "metrics may not include \(key) (block configuration, not a tracked metric)"))
                     } else if let metric = WorkoutMetric(rawValue: key) {
                         parsed.append(metric)
                     } else {
@@ -118,6 +119,10 @@ public enum InterchangeValidator {
             }
             if !(15...600).contains(routine.restSeconds) {
                 issues.append(.init(path: path, message: "restSeconds \(routine.restSeconds) outside 15...600"))
+            }
+            // 0 is legal (no countdown at all); rest's floor is not.
+            if let transition = routine.transitionSeconds, !(0...600).contains(transition) {
+                issues.append(.init(path: path, message: "transitionSeconds \(transition) outside 0...600"))
             }
             for (groupIndex, group) in routine.groups.enumerated() {
                 let groupPath = "\(path).groups[\(groupIndex)]"
@@ -184,8 +189,8 @@ public enum InterchangeValidator {
             // work-metric requirement: this is a suggestion set, not a
             // trackable profile.
             for key in item.metrics ?? [] {
-                if key == WorkoutMetric.rest.rawValue {
-                    issues.append(.init(path: path, message: "metrics may not include rest (block configuration, not a tracked metric)"))
+                if let metric = WorkoutMetric(rawValue: key), metric.isBlockConfiguration {
+                    issues.append(.init(path: path, message: "metrics may not include \(key) (block configuration, not a tracked metric)"))
                 } else if WorkoutMetric(rawValue: key) == nil {
                     issues.append(.init(path: path, message: "metrics.\(key) is not a known metric"))
                 }

@@ -21,13 +21,19 @@ public enum WatchSync {
     public struct PlanRoutine: Codable, Equatable, Sendable, Identifiable {
         public var name: String
         public var restSeconds: Int
+        /// Pause when the next step is a different exercise or block
+        /// (#369); rest covers a new round of the same block. Additive
+        /// optional — a plan from a pre-transition phone decodes nil and
+        /// the wrist rests everywhere, exactly as before.
+        public var transitionSeconds: Int?
         public var steps: [Step]
 
         public var id: String { name }
 
-        public init(name: String, restSeconds: Int, steps: [Step]) {
+        public init(name: String, restSeconds: Int, transitionSeconds: Int? = nil, steps: [Step]) {
             self.name = name
             self.restSeconds = restSeconds
+            self.transitionSeconds = transitionSeconds
             self.steps = steps
         }
 

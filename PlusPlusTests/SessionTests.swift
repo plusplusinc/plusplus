@@ -64,6 +64,63 @@ struct SessionTests {
         #expect(logs.map(\.order) == Array(0..<8))
     }
 
+    @Test("Pause after a set: partners transition, new rounds rest, blocks transition (#369)")
+    func pauseClassification() throws {
+        let context = ModelContext(try makeContainer())
+        let routine = makePTRoutine(context: context)
+        routine.restSeconds = 60
+        routine.transitionSeconds = 20
+        let session = WorkoutSession.start(from: routine, context: context)
+        #expect(session.transitionSeconds == 20, "The session snapshots the routine's transition at start")
+        let logs = session.sortedSetLogs   // Y1 T1 Y2 T2 Y3 T3 · P1 P2
+
+        // Y1 → T1: the superset partner within the round — transition.
+        session.complete(logs[0])
+        var pause = session.pause(after: logs[0])
+        #expect(pause.seconds == 20)
+        #expect(pause.isTransition)
+
+        // T1 → Y2: a new round of the same block — rest.
+        session.complete(logs[1])
+        pause = session.pause(after: logs[1])
+        #expect(pause.seconds == 60)
+        #expect(!pause.isTransition)
+
+        // T3 → P1: the block boundary — transition.
+        for log in logs[2...5] { session.complete(log) }
+        pause = session.pause(after: logs[5])
+        #expect(pause.seconds == 20)
+        #expect(pause.isTransition)
+
+        // P1 → P2: straight sets — rest.
+        session.complete(logs[6])
+        pause = session.pause(after: logs[6])
+        #expect(pause.seconds == 60)
+        #expect(!pause.isTransition)
+
+        // Nothing next after the final set: the fallback reads as rest
+        // (no caller shows a pause after the last set anyway).
+        session.complete(logs[7])
+        #expect(!session.pause(after: logs[7]).isTransition)
+    }
+
+    @Test("Pause classifies against the jumped cursor; a 0 transition flows through (#369)")
+    func pauseFollowsCursor() throws {
+        let context = ModelContext(try makeContainer())
+        let routine = makePTRoutine(context: context)
+        routine.transitionSeconds = 0
+        let session = WorkoutSession.start(from: routine, context: context)
+        let logs = session.sortedSetLogs
+
+        // Complete Y1, then jump to the second block: the pause
+        // classifies against where the session actually points next.
+        session.complete(logs[0])
+        session.jump(to: logs[6])
+        let pause = session.pause(after: logs[0])
+        #expect(pause.isTransition)
+        #expect(pause.seconds == 0, "0 means no countdown at all")
+    }
+
     @Test("Targets are copied from the plan, including rep ranges")
     func targetsCopied() throws {
         let container = try makeContainer()
