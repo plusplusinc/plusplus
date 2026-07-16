@@ -19,6 +19,39 @@ public enum MascotBalance {
     /// The demo barbell (small lathe plates — a teaching bar).
     public static let barMass = 2.0
 
+    /// The support polygon: x/z extents of every contact point
+    /// currently ON the ground (sole corners and palm pads within the
+    /// contact threshold), padded by half a contact patch. Two planted
+    /// feet make the familiar wide box; a heel-up foot shrinks it to
+    /// the toe caps; a single-leg stance narrows x to one foot — the
+    /// polygon FOLLOWS the contact, which is what balance really is.
+    /// Contact points are modeled on the foot's CENTERLINE, so x grows
+    /// by the mesh half-width; the sole corners already are the z
+    /// extremes, so z gets only a small contact-patch edge.
+    public static func supportPolygon(
+        pose: MascotPose,
+        skeleton: MascotSkeleton = .standard,
+        contactThreshold: Double = 0.02,
+        halfWidthX: Double = 0.035,
+        patchZ: Double = 0.005
+    ) -> (x: ClosedRange<Double>, z: ClosedRange<Double>)? {
+        var points: [Vec3] = []
+        for point in pose.solePoints(skeleton: skeleton) where point.y <= contactThreshold {
+            points.append(point)
+        }
+        for pad in MascotCollision.palmSpheres(pose: pose, skeleton: skeleton)
+        where pad.from.y - pad.radius <= contactThreshold {
+            points.append(pad.from)
+        }
+        guard let first = points.first else { return nil }
+        var minX = first.x, maxX = first.x, minZ = first.z, maxZ = first.z
+        for p in points.dropFirst() {
+            minX = min(minX, p.x); maxX = max(maxX, p.x)
+            minZ = min(minZ, p.z); maxZ = max(maxZ, p.z)
+        }
+        return ((minX - halfWidthX)...(maxX + halfWidthX), (minZ - patchZ)...(maxZ + patchZ))
+    }
+
     /// The whole-body (plus held bar) center of mass.
     public static func centerOfMass(
         pose: MascotPose,

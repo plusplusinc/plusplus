@@ -76,30 +76,23 @@ public struct MascotPose: Equatable, Sendable {
         return frames
     }
 
-    /// The tip of each foot: the ankle's bone extended through its
-    /// rotated frame. "The toes touch the ground" is an invariant about
-    /// THESE points, not the ankle joints.
-    public func toePositions(skeleton: MascotSkeleton) -> (left: Vec3, right: Vec3) {
-        let frames = jointFrames(skeleton: skeleton)
-        func toe(_ ankle: MascotJoint) -> Vec3 {
-            guard let frame = frames[ankle] else { return .zero }
-            let reach = skeleton.bone(ankle).length
-            return frame.position + frame.rotation.rotate(Vec3(0, -reach, 0))
-        }
-        return (toe(.leftAnkle), toe(.rightAnkle))
-    }
-
-    /// The four sole corners (heel and toe of each foot), for the
-    /// floor-contact invariants. Distinct from `toePositions` (the
-    /// pointed-foot reach used by the floor-move toe solver): these
-    /// track the flat sole of the renderer's foot mesh.
+    /// The sole's contact corners for the floor invariants, tracking
+    /// the renderer's SPLIT foot mesh: the toe cap's front corner (in
+    /// the TOE joint's hinged frame), the heel corner, and the ball
+    /// corner (both in the ankle frame). Order: [capFrontL, heelL,
+    /// capFrontR, heelR, ballL, ballR] — the first four match the
+    /// pre-hinge four-corner contract.
     public func solePoints(skeleton: MascotSkeleton) -> [Vec3] {
         let frames = jointFrames(skeleton: skeleton)
         var points: [Vec3] = []
+        for (ankle, toe) in [(MascotJoint.leftAnkle, MascotJoint.leftToe), (.rightAnkle, .rightToe)] {
+            guard let ankleFrame = frames[ankle], let toeFrame = frames[toe] else { continue }
+            points.append(toeFrame.position + toeFrame.rotation.rotate(MascotSkeleton.toeCapFrontOffset))
+            points.append(ankleFrame.position + ankleFrame.rotation.rotate(MascotSkeleton.soleHeelOffset))
+        }
         for ankle in [MascotJoint.leftAnkle, .rightAnkle] {
             guard let frame = frames[ankle] else { continue }
-            points.append(frame.position + frame.rotation.rotate(MascotSkeleton.soleToeOffset))
-            points.append(frame.position + frame.rotation.rotate(MascotSkeleton.soleHeelOffset))
+            points.append(frame.position + frame.rotation.rotate(MascotSkeleton.soleBallOffset))
         }
         return points
     }

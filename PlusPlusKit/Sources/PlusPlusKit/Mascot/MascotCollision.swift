@@ -76,17 +76,28 @@ public enum MascotCollision {
             let center = head.position + head.rotation.rotate(Vec3(0, 0.11, 0))
             capsules.append(Capsule(name: "head", from: center, to: center, radius: 0.115))
         }
-        // Feet: a capsule along the SOLE line (heel corner to toe
-        // corner, lifted to the foot box's mid-height) — the renderer's
-        // actual foot mesh, unlike the old ankle-to-pointed-toe segment,
-        // which dived 12 cm under the floor on a standing foot.
+        // Feet: capsules along the SOLE line of the renderer's SPLIT
+        // foot mesh (the forefoot hinge) — rearfoot from heel corner to
+        // ball line in the ankle frame, toe cap along the toe joint's
+        // hinged frame, both lifted to the boxes' mid-height. (The old
+        // ankle-to-pointed-toe segment dived 12 cm under the floor on a
+        // standing foot.)
         let midHeight = Vec3(0, 0.025, 0)
-        for (ankle, name) in [(MascotJoint.leftAnkle, "leftFoot"), (.rightAnkle, "rightFoot")] {
-            guard let frame = frames[ankle] else { continue }
+        for (ankle, toe, name) in [
+            (MascotJoint.leftAnkle, MascotJoint.leftToe, "left"),
+            (.rightAnkle, .rightToe, "right"),
+        ] {
+            guard let ankleFrame = frames[ankle], let toeFrame = frames[toe] else { continue }
             capsules.append(Capsule(
-                name: name,
-                from: frame.position + frame.rotation.rotate(MascotSkeleton.soleHeelOffset + midHeight),
-                to: frame.position + frame.rotation.rotate(MascotSkeleton.soleToeOffset + midHeight),
+                name: "\(name)Foot",
+                from: ankleFrame.position + ankleFrame.rotation.rotate(MascotSkeleton.soleHeelOffset + midHeight),
+                to: ankleFrame.position + ankleFrame.rotation.rotate(MascotSkeleton.soleBallOffset + midHeight),
+                radius: 0.025
+            ))
+            capsules.append(Capsule(
+                name: "\(name)ToeCap",
+                from: toeFrame.position,
+                to: toeFrame.position + toeFrame.rotation.rotate(Vec3(0, 0, 0.065)),
                 radius: 0.025
             ))
         }
@@ -241,8 +252,9 @@ public enum MascotCollision {
             note(depth, palm.name)
         }
         for capsule in bodyCapsules(pose: pose, skeleton: skeleton) {
-            // Feet are contact parts, checked via their sole corners.
-            guard capsule.name != "leftFoot" && capsule.name != "rightFoot" else { continue }
+            // Feet (rearfoot AND toe caps) are contact parts, checked
+            // via their sole corners.
+            guard !capsule.name.hasSuffix("Foot") && !capsule.name.hasSuffix("ToeCap") else { continue }
             let depth = -(min(capsule.from.y, capsule.to.y) - capsule.radius)
             worstBody = max(worstBody, depth)
             note(depth, capsule.name)
@@ -271,6 +283,8 @@ public enum MascotCollision {
         joints["head"] = [.neck, .head]
         joints["leftFoot"] = [.leftKnee, .leftAnkle]
         joints["rightFoot"] = [.rightKnee, .rightAnkle]
+        joints["leftToeCap"] = [.leftAnkle, .leftToe]
+        joints["rightToeCap"] = [.rightAnkle, .rightToe]
 
         // Clavicles are pass-through for adjacency: no capsule spans
         // them (the upper-arm capsule starts at the shoulder), so the

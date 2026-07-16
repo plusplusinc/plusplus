@@ -38,8 +38,10 @@ import Foundation
     @Test(arguments: MascotMoves.all.map(\.exerciseName))
     func symmetricMovesAreExactlySymmetric(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
-        // All five prototype moves are bilaterally symmetric; a future
-        // alternating move earns an exemption here when it exists.
+        // Unilateral moves are asymmetric BY DESIGN — the calf raise
+        // stands on one leg (the exemption round 2 promised its first
+        // asymmetric move).
+        guard name != "Single-Leg Calf Raise" else { return }
         for keyframes in [animation.repKeyframes, animation.restBeat.keyframes] {
             for keyframe in keyframes {
                 for joint in MascotJoint.allCases where joint.mirrored != joint && "\(joint)".hasPrefix("left") {
@@ -88,7 +90,7 @@ import Foundation
         #expect(worst <= 8, "\(name): peak joint speed \(worst) rad/s")
     }
 
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up"])
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise"])
     func effortPeaksWhileTheLoadRises(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         let repShare = animation.repDuration / animation.cycleDuration
@@ -180,6 +182,42 @@ import Foundation
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         #expect(animation.repDuration >= 1.5 && animation.repDuration <= 25, "\(name): rep duration")
         #expect(animation.cycleDuration >= 5 && animation.cycleDuration <= 32, "\(name): cycle duration")
+    }
+
+    /// "Control the negative": on rep-style moves the load never FALLS
+    /// — its peak downward speed stays comfortably under its peak
+    /// upward speed, i.e. the eccentric is the slow half. Textbook
+    /// tempo, enforced (holds are exempt: nothing travels).
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise"])
+    func theEccentricIsControlled(name: String) throws {
+        let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
+        let workShare = animation.workDuration / animation.cycleDuration
+        func loadHeight(at t: Double) -> Double {
+            let pose = animation.pose(at: t)
+            if animation.props.isEmpty {
+                return pose.jointPositions(skeleton: Self.skeleton)[.chest]!.y
+            }
+            let frames = pose.jointFrames(skeleton: Self.skeleton)
+            let left = frames[.leftWrist]!
+            let right = frames[.rightWrist]!
+            let leftPalm = left.position + left.rotation.rotate(MascotGrip.palmOffset)
+            let rightPalm = right.position + right.rotation.rotate(MascotGrip.palmOffset)
+            return (leftPalm.y + rightPalm.y) / 2
+        }
+        let samples = 400
+        let dt = animation.cycleDuration * workShare / Double(samples)
+        var peakDown = 0.0
+        var peakUp = 0.0
+        var previous = loadHeight(at: 0)
+        for i in 1...samples {
+            let height = loadHeight(at: Double(i) / Double(samples) * workShare)
+            let velocity = (height - previous) / dt
+            peakDown = max(peakDown, -velocity)
+            peakUp = max(peakUp, velocity)
+            previous = height
+        }
+        #expect(peakDown <= 0.9 * peakUp,
+                "\(name): the load drops faster than it rises (down \(peakDown) vs up \(peakUp) m/s)")
     }
 
     // MARK: - Ballistics (jumps obey gravity)

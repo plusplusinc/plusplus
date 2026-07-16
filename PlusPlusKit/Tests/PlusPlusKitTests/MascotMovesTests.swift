@@ -30,7 +30,7 @@ import Foundation
     }
 
     @Test func catalogIntegrity() {
-        #expect(MascotMoves.all.count == 5)
+        #expect(MascotMoves.all.count == 6)
         let names = MascotMoves.all.map(\.exerciseName)
         #expect(Set(names).count == names.count)
         for name in names {
@@ -88,9 +88,7 @@ import Foundation
     /// LEFT-side canonical — right-side joints are mirrored (yaw/roll
     /// negated) before checking. Ranges are a reasonably fit and
     /// flexible human's (build-81 rule: joints bend only the proper
-    /// direction, to a human degree). The ankle's generous
-    /// plantarflexion stands in for the missing toe joint: a
-    /// toes-tucked floor stance reads as one large ankle angle.
+    /// direction, to a human degree).
     private static let jointRanges: [MascotJoint: (pitch: ClosedRange<Double>, yaw: ClosedRange<Double>, roll: ClosedRange<Double>)] = [
         .root: (-5...5, -5...5, -5...5),
         .spine: (-10...55, -30...30, -20...20),
@@ -110,9 +108,19 @@ import Foundation
         // is exactly the hand rotating about the forearm — a human
         // manages about 90 degrees each way.
         .leftWrist: (-80...80, -90...90, -45...45),
-        .leftHip: (-125...25, -40...40, -10...50),
+        // Hip roll: abduction generous, adduction ~20 (a single-leg
+        // stance shifts the pelvis over the foot through adduction).
+        .leftHip: (-125...25, -40...40, -20...50),
         .leftKnee: (-2...150, -12...12, -12...12),
-        .leftAnkle: (-85...30, -15...15, -20...20),
+        // Ankle pitch: POSITIVE = plantarflexion (the +z toe direction
+        // tips down), to a pointed ~50; negative = dorsiflexion, kept
+        // generous because the push-up still authors its tucked foot
+        // as one large ankle angle.
+        .leftAnkle: (-85...50, -15...15, -20...20),
+        // The forefoot hinge: NEGATIVE = the cap extends (dorsiflexes)
+        // at the ball — a heel raise counter-rotates ~40-55 — and a
+        // small positive curl under.
+        .leftToe: (-80...35, -8...8, -8...8),
     ]
 
     @Test(arguments: MascotMoves.all.map(\.exerciseName))
@@ -316,36 +324,37 @@ import Foundation
         return 0.5 * (leftPalm + rightPalm)
     }
 
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl"])
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Single-Leg Calf Raise"])
     func standingMovesStayBalancedOverTheFeet(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
-        for i in 0...400 {
-            let t = Double(i) / 400
+        // The support polygon is computed from what is ACTUALLY in
+        // contact — both x and z, so a single-leg stance or a heel-up
+        // calf raise shrinks it honestly. Mid-transition the moving
+        // body may ride the polygon's edge by a few millimeters
+        // (dynamic balance — deceleration loads the edge); held
+        // positions are strict.
+        func expectBalanced(at t: Double, pad: Double, label: String) {
             let pose = animation.pose(at: t)
-            let positions = pose.jointPositions(skeleton: Self.skeleton)
-            let ankleZ = (positions[.leftAnkle]!.z + positions[.rightAnkle]!.z) / 2
-            let comZ = MascotBalance.centerOfMass(pose: pose, props: animation.props).z
-            // The support polygon runs from the big cartoon foot's heel
-            // (~5.5 cm behind the ankle) to its toes (~14 cm ahead).
-            // Mid-transition the moving body may ride the heel edge by
-            // a few millimeters (dynamic balance — deceleration loads
-            // the polygon's edge); the held positions are checked
-            // strictly below.
-            #expect(comZ >= ankleZ - 0.065 && comZ <= ankleZ + 0.14,
-                    "\(name): center of mass off the feet at t=\(t): com z \(comZ), ankles \(ankleZ)")
+            guard let polygon = MascotBalance.supportPolygon(pose: pose) else {
+                Issue.record("\(name): nothing touches the ground at \(label)")
+                return
+            }
+            let com = MascotBalance.centerOfMass(pose: pose, props: animation.props)
+            let zOK = com.z >= polygon.z.lowerBound - pad && com.z <= polygon.z.upperBound + pad
+            let xOK = com.x >= polygon.x.lowerBound - pad && com.x <= polygon.x.upperBound + pad
+            #expect(zOK && xOK,
+                    "\(name): center of mass off the support at \(label): com (\(com.x), \(com.z)), polygon x \(polygon.x), z \(polygon.z)")
         }
-        // At the held positions (rep start and the bottom), the center
-        // of mass sits strictly inside the support polygon — a demo
+        for i in 0...400 {
+            expectBalanced(at: Double(i) / 400, pad: 0.012, label: "t=\(Double(i) / 400)")
+        }
+        // At the held positions (rep start and the resting pose), the
+        // center of mass sits strictly inside the polygon — a demo
         // that paused there must not tip (the build-80 squat read as
         // defying gravity).
         let repShare = animation.repDuration / animation.cycleDuration
         for phase in [0.0, animation.restingPhase] {
-            let pose = animation.pose(at: phase * repShare)
-            let positions = pose.jointPositions(skeleton: Self.skeleton)
-            let ankleZ = (positions[.leftAnkle]!.z + positions[.rightAnkle]!.z) / 2
-            let comZ = MascotBalance.centerOfMass(pose: pose, props: animation.props).z
-            #expect(comZ >= ankleZ - 0.055 && comZ <= ankleZ + 0.14,
-                    "\(name): held position tips at phase \(phase): com z \(comZ)")
+            expectBalanced(at: phase * repShare, pad: 0.002, label: "held phase \(phase)")
         }
     }
 
@@ -433,7 +442,7 @@ import Foundation
     @Test func squatDescendsAndRacksTheBar() throws {
         let squat = try #require(MascotMoves.animation(forExerciseNamed: "Squat"))
         let repShare = (squat.repDuration / squat.cycleDuration)
-        let bottom = squat.pose(at: 0.42 * repShare)
+        let bottom = squat.pose(at: 0.5 * repShare)
         #expect(bottom.rootTranslation.y < -0.12, "squat bottom drops the hips")
         // Full range of motion: BELOW parallel — the hip crease sinks
         // under the knee at the bottom (Dave's depth round; a squat
@@ -445,7 +454,7 @@ import Foundation
         // ON the traps — behind and just below the neck joint, hands
         // wider than the shoulders. Checked at the bottom AND standing
         // so the rack holds through the whole rep.
-        for phase in [0.0, 0.42] {
+        for phase in [0.0, 0.5] {
             let positions = squat.pose(at: phase * repShare).jointPositions(skeleton: Self.skeleton)
             let neck = positions[.neck]!
             for wrist in [MascotJoint.leftWrist, .rightWrist] {
@@ -463,7 +472,7 @@ import Foundation
     @Test func deadliftPullsFromTheFloor() throws {
         let deadlift = try #require(MascotMoves.animation(forExerciseNamed: "Deadlift"))
         let repShare = (deadlift.repDuration / deadlift.cycleDuration)
-        let bottom = deadlift.pose(at: 0.4 * repShare)
+        let bottom = deadlift.pose(at: 0.5 * repShare)
         // Full range of motion (Dave's depth round): the pull starts
         // FROM THE FLOOR — the bar within a couple of centimeters of
         // where the plates rest (plate radius above the ground), never

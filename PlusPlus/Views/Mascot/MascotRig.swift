@@ -133,10 +133,16 @@ final class MascotRig {
             attach(box(0.17, 0.055, 0.055), to: clavicle, offset: [side * 0.06, 0, 0], role: .joint)
         }
 
-        // Big cartoon feet (matching the kit skeleton's support
-        // geometry: heel ~5 cm back, toes ~14.5 cm forward).
-        for ankle in [MascotJoint.leftAnkle, .rightAnkle] {
-            attach(box(0.07, 0.05, 0.195, corner: 0.022), to: ankle, offset: [0, -0.022, 0.048], role: .panel)
+        // Big cartoon feet, SPLIT at the forefoot hinge (matching the
+        // kit skeleton's support geometry: heel ~5 cm back, ball line
+        // at +8 cm, toe cap out to +14.5 cm). The cap pivots at the
+        // ball so calf raises and toe-offs keep the forefoot FLAT on
+        // the floor instead of tipping the whole shoe on its edge.
+        // Collision twins: the leftFoot/leftToeCap capsules in
+        // MascotCollision.bodyCapsules.
+        for (ankle, toe) in [(MascotJoint.leftAnkle, MascotJoint.leftToe), (.rightAnkle, .rightToe)] {
+            attach(box(0.07, 0.05, 0.13, corner: 0.022), to: ankle, offset: [0, -0.022, 0.015], role: .panel)
+            attach(box(0.07, 0.05, 0.065, corner: 0.02), to: toe, offset: [0, 0, 0.0325], role: .panel)
             let sphere = ModelEntity(mesh: .generateSphere(radius: 0.038))
             joints[ankle]?.addChild(sphere)
             themed.append((sphere, .joint))

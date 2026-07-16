@@ -48,72 +48,37 @@ enum DeadliftMove {
         let armsLockout = MascotPoseBuilder.symmetricArms(
             shoulder: .deg(pitch: -15)
         )
-        // A lerp between the legal endpoints drags the hanging bar
-        // THROUGH the knees mid-hinge (the full-depth bottom made it
-        // 2.3 cm at the worst sample) and lets the center of mass sag
-        // behind the heels — a real lifter swings the bar around the
-        // shins and keeps the weight over the feet by feel; this solve
-        // is that feel: at every baked sample, ease the shoulders
-        // forward until the bar clears the leg capsules to grazing
-        // depth, and lean the spine until the center of mass rides
-        // over the support polygon. Identity at the endpoints (both
-        // already clear and balanced), so the seams stay exact.
-        func clearingTheLegs(_ raw: MascotPose) -> MascotPose {
-            var candidate = MascotPoseBuilder.plantingFeet(raw)
-            for _ in 0..<24 {
-                let pen = MascotCollision.maxEquipmentPenetration(pose: candidate, props: [.barbell]).depth
-                let frames = candidate.jointFrames(skeleton: .standard)
-                let ankleZ = 0.5 * (frames[.leftAnkle]!.position.z + frames[.rightAnkle]!.position.z)
-                let comZ = MascotBalance.centerOfMass(pose: candidate, props: [.barbell]).z
-                let barInsideLegs = pen > 0.005
-                let comBehindHeels = comZ - ankleZ < -0.058
-                if !barInsideLegs && !comBehindHeels { break }
-                var joints = candidate.joints
-                if barInsideLegs {
-                    for joint in [MascotJoint.leftShoulder, .rightShoulder] {
-                        let a = joints[joint] ?? .zero
-                        joints[joint] = EulerAngles(pitch: a.pitch - 0.01, yaw: a.yaw, roll: a.roll)
-                    }
-                } else {
-                    let spine = joints[.spine] ?? .zero
-                    joints[.spine] = EulerAngles(pitch: spine.pitch + 0.01, yaw: spine.yaw, roll: spine.roll)
-                }
-                candidate.joints = joints
-                candidate = MascotPoseBuilder.plantingFeet(candidate)
-            }
-            return candidate
+        // The path servo (MascotPoseBuilder.coordinating): the bar
+        // swings AROUND the shins instead of through them (a lerp
+        // between the legal endpoints dragged it 2.3 cm into the knees
+        // mid-hinge) and the center of mass stays over the feet — the
+        // continuous coordination a real lifter does by feel. Identity
+        // at the endpoints, so the pause seams stay exact.
+        let solve = { (pose: MascotPose) in
+            MascotPoseBuilder.coordinating(
+                pose, props: [.barbell], equipmentGrazeAtMost: 0.005
+            )
         }
 
-        // Endpoints run through the SAME solve as the path samples
-        // (identity when already clear, which the scanned poses are)
-        // so the pause keyframes stay exact copies — the spline's
-        // stillness detection depends on it.
-        let lockout = clearingTheLegs(MascotPose(
+        let lockout = solve(MascotPose(
             joints: MascotPoseBuilder.merge(legsLockout, armsLockout),
             effort: 0.3
         ))
-        let bottom = clearingTheLegs(MascotPose(
+        let bottom = solve(MascotPose(
             joints: MascotPoseBuilder.merge(legsBottom, torsoBottom, armsBottom),
             effort: 0.5
         ))
-        // Hinge down and pull up as baked planted paths; a beat at the
-        // bar to set the grip, a beat at the top.
-        // Dense baking: the servo only speaks at the knots, and with 8
-        // of them the spline dipped the bar 1.5 cm back into the legs
-        // BETWEEN samples. 24 knots pin the path to the servo's line.
-        var repKeyframes = MascotPoseBuilder.span(
-            from: lockout, to: bottom, t0: 0, t1: 0.4, steps: 24,
-            effortKeys: [(0, 0.3), (1, 0.5)],
-            solve: clearingTheLegs
+        // The standard rep cycle (slow eccentric down to the floor, a
+        // beat to set the grip, the pull with the hardest effort of
+        // any move). Densely baked: the servo only speaks at the
+        // knots, and with 8 of them the spline dipped the bar 1.5 cm
+        // back into the legs BETWEEN samples — 24 pin the path to the
+        // servo's line.
+        let repKeyframes = MascotPoseBuilder.repCycle(
+            top: lockout, bottom: bottom, steps: 24,
+            topEffort: 0.3, bottomEffort: 0.5, driveEffort: 0.95, settleEffort: 0.45,
+            solve: solve
         )
-        repKeyframes.append(MascotKeyframe(t: 0.5, pose: bottom, easing: .linear))
-        repKeyframes.append(contentsOf: MascotPoseBuilder.span(
-            from: bottom, to: lockout, t0: 0.5, t1: 0.88, steps: 24,
-            easing: .easeOut,
-            effortKeys: [(0, 0.5), (0.4, 0.95), (1, 0.45)],
-            solve: clearingTheLegs
-        ).dropFirst())
-        repKeyframes.append(MascotKeyframe(t: 1, pose: lockout))
 
         return ExerciseAnimation(
             exerciseName: "Deadlift",
@@ -124,14 +89,14 @@ enum DeadliftMove {
             cues: [
                 MascotCue("Flat back, chest proud"),
                 MascotCue("Bar close to the body"),
-                MascotCue("Hips hinge back", window: 0.03...0.4),
-                MascotCue("Push the floor away", window: 0.5...0.85),
+                MascotCue("Hips hinge back", window: 0.03...0.46),
+                MascotCue("Push the floor away", window: 0.56...0.9),
             ],
             props: [.barbell],
             blinkPhases: MascotPoseBuilder.defaultBlinkPhases(
                 reps: 3, repDuration: 3.5, restDuration: 2.8, repPhase: 0.04
             ),
-            restingPhase: 0.4,
+            restingPhase: 0.5,
             smoothing: .curved
         )
     }()

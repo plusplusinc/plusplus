@@ -122,11 +122,16 @@ import Foundation
         let leftAnkle = positions[.leftAnkle]!
         let rightAnkle = positions[.rightAnkle]!
 
-        // Head is the highest joint; ankles are the lowest.
+        // Head is the highest joint; the forefoot hinges (the lowest
+        // joints since the toe cap pivots at the ball line, below the
+        // ankles) sit at the bottom of the tree.
         let allY = positions.values.map(\.y)
         #expect(head.y == allY.max())
         let lowest = allY.min()!
-        #expect(abs(leftAnkle.y - lowest) < 1e-9 || abs(rightAnkle.y - lowest) < 1e-9)
+        let leftToe = positions[.leftToe]!
+        let rightToe = positions[.rightToe]!
+        #expect(abs(leftToe.y - lowest) < 1e-9 || abs(rightToe.y - lowest) < 1e-9)
+        #expect(leftToe.y < leftAnkle.y && rightToe.y < rightAnkle.y)
         // The head JOINT sits at the neck top; the head mesh extends
         // ~0.11 above it, landing total height in the chunky-bot range.
         #expect(head.y > 0.9 && head.y < 1.15)

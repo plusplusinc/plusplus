@@ -18,6 +18,11 @@ public enum MascotJoint: String, CaseIterable, Sendable, Codable {
     case rightShoulder, rightElbow, rightWrist
     case leftHip, leftKnee, leftAnkle
     case rightHip, rightKnee, rightAnkle
+    // The forefoot hinge (metatarsophalangeal line): the ball of the
+    // foot. Calf raises, lunge trail feet, and jump mechanics all pivot
+    // here — the heel rises while the toe cap stays FLAT on the floor,
+    // which a rigid foot can only fake by tipping onto its edge.
+    case leftToe, rightToe
 
     public var parent: MascotJoint? {
         switch self {
@@ -38,6 +43,8 @@ public enum MascotJoint: String, CaseIterable, Sendable, Codable {
         case .leftAnkle: return .leftKnee
         case .rightKnee: return .rightHip
         case .rightAnkle: return .rightKnee
+        case .leftToe: return .leftAnkle
+        case .rightToe: return .rightAnkle
         }
     }
 
@@ -59,6 +66,8 @@ public enum MascotJoint: String, CaseIterable, Sendable, Codable {
         case .rightHip: return .leftHip
         case .rightKnee: return .leftKnee
         case .rightAnkle: return .leftAnkle
+        case .leftToe: return .rightToe
+        case .rightToe: return .leftToe
         default: return self
         }
     }
@@ -99,13 +108,17 @@ public struct MascotSkeleton: Sendable {
     /// The rest hip height above the ground plane.
     public var restRootHeight: Double { bone(.root).offset.y }
 
-    /// The foot sole's corners in the ankle's local frame, matching the
-    /// renderer's foot mesh: heel behind the ankle, toe out front,
-    /// sole at the bottom. Floor-contact invariants check THESE (a
-    /// rotated foot can dig its heel corner in long before the ankle
-    /// joint gets near the ground).
-    public static let soleToeOffset = Vec3(0, -0.047, 0.145)
+    /// The foot sole's landmarks, matching the renderer's split foot
+    /// mesh. Heel and BALL corners live in the ANKLE's local frame;
+    /// the toe cap's front corner lives in the TOE joint's frame (the
+    /// forefoot hinge at the ball line — ankle-local (0, -0.022, 0.08)).
+    /// Zero toe angle reproduces the old rigid foot EXACTLY: hinge z
+    /// 0.08 + cap length 0.065 = the old toe corner at z 0.145.
+    /// Floor-contact invariants check these corners (a rotated foot
+    /// digs a corner in long before a joint gets near the ground).
     public static let soleHeelOffset = Vec3(0, -0.047, -0.05)
+    public static let soleBallOffset = Vec3(0, -0.047, 0.08)
+    public static let toeCapFrontOffset = Vec3(0, -0.025, 0.065)
 
     /// Zero angles ARE the natural standing pose: the rest offsets hang
     /// the arms at the sides and stack the legs under the hips, so an
@@ -142,9 +155,9 @@ public struct MascotSkeleton: Sendable {
             bones[elbow] = Bone(offset: Vec3(0, -0.18, 0), length: 0.16, thickness: 0.05)
             bones[wrist] = Bone(offset: Vec3(0, -0.16, 0), length: 0.07, thickness: 0.06)
         }
-        for (hip, knee, ankle, side) in [
-            (MascotJoint.leftHip, MascotJoint.leftKnee, MascotJoint.leftAnkle, 1.0),
-            (MascotJoint.rightHip, MascotJoint.rightKnee, MascotJoint.rightAnkle, -1.0),
+        for (hip, knee, ankle, toe, side) in [
+            (MascotJoint.leftHip, MascotJoint.leftKnee, MascotJoint.leftAnkle, MascotJoint.leftToe, 1.0),
+            (MascotJoint.rightHip, MascotJoint.rightKnee, MascotJoint.rightAnkle, MascotJoint.rightToe, -1.0),
         ] {
             bones[hip] = Bone(offset: Vec3(side * hipSpan, -0.03, 0), length: 0.26, thickness: 0.07)
             bones[knee] = Bone(offset: Vec3(0, -0.26, 0), length: 0.24, thickness: 0.06)
@@ -153,6 +166,9 @@ public struct MascotSkeleton: Sendable {
             // and stay balanced (ASIMO's feet are huge for the same
             // reason).
             bones[ankle] = Bone(offset: Vec3(0, -0.24, 0), length: 0.14, thickness: 0.05)
+            // The forefoot hinge sits at the ball line, mid-height of
+            // the foot box; the toe cap hangs off it.
+            bones[toe] = Bone(offset: Vec3(0, -0.022, 0.08), length: 0.065, thickness: 0.05)
         }
         return MascotSkeleton(bones: bones)
     }()

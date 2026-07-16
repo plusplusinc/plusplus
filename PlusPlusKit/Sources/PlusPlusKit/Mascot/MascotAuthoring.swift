@@ -50,13 +50,15 @@ public enum MascotPoseBuilder {
     public static func symmetricLegs(
         hip: EulerAngles = .zero,
         knee: EulerAngles = .zero,
-        ankle: EulerAngles = .zero
+        ankle: EulerAngles = .zero,
+        toe: EulerAngles = .zero
     ) -> [MascotJoint: EulerAngles] {
         [
-            .leftHip: hip, .leftKnee: knee, .leftAnkle: ankle,
+            .leftHip: hip, .leftKnee: knee, .leftAnkle: ankle, .leftToe: toe,
             .rightHip: mirroredAngles(hip),
             .rightKnee: mirroredAngles(knee),
             .rightAnkle: mirroredAngles(ankle),
+            .rightToe: mirroredAngles(toe),
         ]
     }
 
@@ -164,6 +166,104 @@ public enum MascotPoseBuilder {
             }
         }
         return keys[keys.count - 1].1
+    }
+
+    // MARK: - Path coordination (the lifter's "feel", as a solver)
+
+    /// Per-sample path corrections for baked spans. A joint-space lerp
+    /// between two LEGAL poses is not itself legal — mid-descent the
+    /// hips travel back faster than the torso leans, dragging a held
+    /// bar through the knees and sagging the center of mass behind the
+    /// heels. A real lifter coordinates continuously; this solver is
+    /// that coordination: plant the feet, then in small steps ease the
+    /// SHOULDERS forward while held equipment penetrates the body
+    /// deeper than a graze, and lean the SPINE forward while the bar or
+    /// the center of mass rides behind its line. Identity for poses
+    /// already inside every bound — so endpoints pass through
+    /// unchanged and pause seams stay exact.
+    public static func coordinating(
+        _ pose: MascotPose,
+        props: [MascotProp] = [],
+        comOverFeetAtLeast: Double? = -0.058,
+        barOverMidfootAtLeast: Double? = nil,
+        equipmentGrazeAtMost: Double? = nil,
+        skeleton: MascotSkeleton = .standard
+    ) -> MascotPose {
+        var candidate = plantingFeet(pose, skeleton: skeleton)
+        for _ in 0..<24 {
+            let frames = candidate.jointFrames(skeleton: skeleton)
+            let ankleZ = 0.5 * ((frames[.leftAnkle]?.position.z ?? 0) + (frames[.rightAnkle]?.position.z ?? 0))
+
+            var equipmentTooDeep = false
+            if let graze = equipmentGrazeAtMost {
+                equipmentTooDeep = MascotCollision.maxEquipmentPenetration(
+                    pose: candidate, props: props, skeleton: skeleton
+                ).depth > graze
+            }
+            var massBehind = false
+            if let comFloor = comOverFeetAtLeast {
+                massBehind = MascotBalance.centerOfMass(pose: candidate, props: props, skeleton: skeleton).z - ankleZ < comFloor
+            }
+            var barBehind = false
+            if let barFloor = barOverMidfootAtLeast,
+               let left = frames[.leftWrist], let right = frames[.rightWrist] {
+                let leftPalm = left.position + left.rotation.rotate(MascotGrip.palmOffset)
+                let rightPalm = right.position + right.rotation.rotate(MascotGrip.palmOffset)
+                barBehind = 0.5 * (leftPalm.z + rightPalm.z) - ankleZ < barFloor
+            }
+            if !equipmentTooDeep && !massBehind && !barBehind { break }
+
+            var joints = candidate.joints
+            if equipmentTooDeep {
+                for joint in [MascotJoint.leftShoulder, .rightShoulder] {
+                    let a = joints[joint] ?? .zero
+                    joints[joint] = EulerAngles(pitch: a.pitch - 0.01, yaw: a.yaw, roll: a.roll)
+                }
+            } else {
+                let spine = joints[.spine] ?? .zero
+                joints[.spine] = EulerAngles(pitch: spine.pitch + 0.01, yaw: spine.yaw, roll: spine.roll)
+            }
+            candidate.joints = joints
+            candidate = plantingFeet(candidate, skeleton: skeleton)
+        }
+        return candidate
+    }
+
+    // MARK: - The standard rep cycle
+
+    /// The shared shape of a loaded rep: descend (the ECCENTRIC —
+    /// deliberately slower, that is what "control the negative" means),
+    /// pause at the bottom, drive up with the effort spike, settle at
+    /// the top. Endpoints must already be solved (run them through the
+    /// same `solve` first); the pause reuses the exact bottom pose so
+    /// the spline's stillness detection holds.
+    public static func repCycle(
+        top: MascotPose,
+        bottom: MascotPose,
+        descendUntil: Double = 0.46,
+        pauseUntil: Double = 0.56,
+        driveUntil: Double = 0.9,
+        steps: Int = 8,
+        topEffort: Double,
+        bottomEffort: Double,
+        driveEffort: Double,
+        settleEffort: Double,
+        solve: @escaping (MascotPose) -> MascotPose
+    ) -> [MascotKeyframe] {
+        var keyframes = span(
+            from: top, to: bottom, t0: 0, t1: descendUntil, steps: steps,
+            effortKeys: [(0, topEffort), (1, bottomEffort)],
+            solve: solve
+        )
+        keyframes.append(MascotKeyframe(t: pauseUntil, pose: bottom, easing: .linear))
+        keyframes.append(contentsOf: span(
+            from: bottom, to: top, t0: pauseUntil, t1: driveUntil, steps: steps,
+            easing: .easeOut,
+            effortKeys: [(0, bottomEffort), (0.45, driveEffort), (1, settleEffort)],
+            solve: solve
+        ).dropFirst())
+        keyframes.append(MascotKeyframe(t: 1, pose: top))
+        return keyframes
     }
 
     // MARK: - The shared tired beat

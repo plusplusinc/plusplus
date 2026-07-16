@@ -118,18 +118,21 @@ enum PushUpMove {
                 return MascotKeyframe(t: kf.t, pose: grounded(kf.pose, targetAnkleY: target), easing: .linear)
             }
         }
+        // Eccentric tempo (the ROM/tempo round): the lowering phase
+        // runs deliberately slower than the press — "control the
+        // negative" is form, and the invariant enforces it.
         let descent = groundedSpan(MascotPoseBuilder.span(
-            from: top, to: bottom, t0: 0, t1: 0.42,
+            from: top, to: bottom, t0: 0, t1: 0.46,
             effortKeys: [(0, 0.3), (1, 0.5)]
         ), ankleFrom: topAnkleY, ankleTo: bottomAnkleY)
         let press = groundedSpan(MascotPoseBuilder.span(
-            from: bottom, to: top, t0: 0.52, t1: 0.92,
+            from: bottom, to: top, t0: 0.56, t1: 0.92,
             easing: .easeOut,
             effortKeys: [(0, 0.5), (0.5, 0.9), (1, 0.4)]
         ), ankleFrom: bottomAnkleY, ankleTo: topAnkleY)
 
         var repKeyframes = descent
-        repKeyframes.append(MascotKeyframe(t: 0.52, pose: descent[descent.count - 1].pose, easing: .linear))
+        repKeyframes.append(MascotKeyframe(t: 0.56, pose: descent[descent.count - 1].pose, easing: .linear))
         repKeyframes.append(contentsOf: press.dropFirst())
         repKeyframes.append(MascotKeyframe(t: 1, pose: repKeyframes[0].pose))
         let loopPose = repKeyframes[0].pose
@@ -143,13 +146,13 @@ enum PushUpMove {
             cues: [
                 MascotCue("Straight line head to heels"),
                 MascotCue("Elbows about 45 degrees"),
-                MascotCue("Chest toward the floor", window: 0.06...0.5),
+                MascotCue("Chest toward the floor", window: 0.06...0.46),
                 MascotCue("Press the floor away", window: 0.55...0.95),
             ],
             blinkPhases: MascotPoseBuilder.defaultBlinkPhases(
                 reps: 4, repDuration: 2.2, restDuration: 2.4, repPhase: 0.04
             ),
-            restingPhase: 0.42,
+            restingPhase: 0.5,
             smoothing: .curved,
             dynamics: MascotDynamics(handsBearWeight: true)
         )

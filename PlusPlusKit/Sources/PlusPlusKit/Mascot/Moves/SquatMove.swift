@@ -65,59 +65,32 @@ enum SquatMove {
             head: .deg(pitch: -5)
         )
 
-        // Between the endpoints, a joint-space lerp sends the hips
-        // back FASTER than the torso leans, swinging the trap-racked
-        // bar (and the center of mass with it) behind the midfoot line
-        // mid-descent. A real lifter coordinates continuously — bar
-        // over midfoot, weight over the feet, the whole way — so every
-        // baked sample gets the same servo: lean the spine forward in
-        // small steps until both the bar and the center of mass are
-        // back on their lines. Identity at the endpoints (both already
-        // inside the bounds).
-        func overTheMidfoot(_ raw: MascotPose) -> MascotPose {
-            var candidate = MascotPoseBuilder.plantingFeet(raw)
-            for _ in 0..<24 {
-                let frames = candidate.jointFrames(skeleton: .standard)
-                let left = frames[.leftWrist]!
-                let right = frames[.rightWrist]!
-                let leftPalm = left.position + left.rotation.rotate(MascotGrip.palmOffset)
-                let rightPalm = right.position + right.rotation.rotate(MascotGrip.palmOffset)
-                let barZ = 0.5 * (leftPalm.z + rightPalm.z)
-                let ankleZ = 0.5 * (frames[.leftAnkle]!.position.z + frames[.rightAnkle]!.position.z)
-                let comZ = MascotBalance.centerOfMass(pose: candidate, props: [.barbell]).z
-                if barZ - ankleZ >= -0.085 && comZ - ankleZ >= -0.058 { break }
-                var joints = candidate.joints
-                let spine = joints[.spine] ?? .zero
-                joints[.spine] = EulerAngles(pitch: spine.pitch + 0.01, yaw: spine.yaw, roll: spine.roll)
-                candidate.joints = joints
-                candidate = MascotPoseBuilder.plantingFeet(candidate)
-            }
-            return candidate
+        // The path servo (MascotPoseBuilder.coordinating): bar over
+        // midfoot AND center of mass over the feet at every baked
+        // sample — the continuous coordination a real lifter does by
+        // feel. Identity at the endpoints.
+        let solve = { (pose: MascotPose) in
+            MascotPoseBuilder.coordinating(
+                pose, props: [.barbell], barOverMidfootAtLeast: -0.085
+            )
         }
 
-        let standing = overTheMidfoot(MascotPose(
+        let standing = solve(MascotPose(
             joints: MascotPoseBuilder.merge(legsStanding, torsoStanding, arms),
             effort: 0.25
         ))
-        let bottom = overTheMidfoot(MascotPose(
+        let bottom = solve(MascotPose(
             joints: MascotPoseBuilder.merge(legsBottom, torsoBottom, arms),
             effort: 0.6
         ))
-        // Descent and drive are baked planted paths (see span()); the
-        // pause at depth and the settle at the top are plain keyframes.
-        var repKeyframes = MascotPoseBuilder.span(
-            from: standing, to: bottom, t0: 0, t1: 0.42,
-            effortKeys: [(0, 0.25), (1, 0.6)],
-            solve: overTheMidfoot
+        // The standard rep cycle: a deliberately slower eccentric
+        // (control the descent — invariant-enforced), pause at depth,
+        // drive with the effort spike, settle tall.
+        let repKeyframes = MascotPoseBuilder.repCycle(
+            top: standing, bottom: bottom,
+            topEffort: 0.25, bottomEffort: 0.6, driveEffort: 0.9, settleEffort: 0.4,
+            solve: solve
         )
-        repKeyframes.append(MascotKeyframe(t: 0.52, pose: bottom, easing: .linear))
-        repKeyframes.append(contentsOf: MascotPoseBuilder.span(
-            from: bottom, to: standing, t0: 0.52, t1: 0.9,
-            easing: .easeOut,
-            effortKeys: [(0, 0.6), (0.45, 0.9), (1, 0.4)],
-            solve: overTheMidfoot
-        ).dropFirst())
-        repKeyframes.append(MascotKeyframe(t: 1, pose: standing))
 
         return ExerciseAnimation(
             exerciseName: "Squat",
@@ -135,7 +108,7 @@ enum SquatMove {
             blinkPhases: MascotPoseBuilder.defaultBlinkPhases(
                 reps: 3, repDuration: 3.0, restDuration: 2.6, repPhase: 0.04
             ),
-            restingPhase: 0.42,
+            restingPhase: 0.5,
             smoothing: .curved
         )
     }()
