@@ -18,10 +18,10 @@ import PlusPlusKit
 ///                    inLibrary·notes·videoURL·defaultWeight·defaultReps·
 ///                    defaultRepsUpper·defaultDurationSeconds·
 ///                    defaultHeartRateTargetData·metricsData·extraDefaultsData  → all EXPORTED
-///                    metricsData.isOutdoor → EXCLUDED (the profile blob round-trips
-///                    metrics+distanceUnit only; outdoor-ness is a curated built-in
-///                    trait re-resolved from the seed catalog, and there is no
-///                    user-facing outdoor toggle yet — revisit if one ships)
+///                    metricsData.isOutdoor → EXPORTED (#378: ExerciseDTO.isOutdoor,
+///                    riding the explicit-profile gate, written only when true —
+///                    the user-facing toggle the old exclusion waited on ships
+///                    with the run-record work)
 /// Equipment          name·isBuiltIn·weightStep·metricsData → EXPORTED
 ///                    inLibrary → EXCLUDED (dead legacy field, folded into the default library)
 ///                    libraries → EXPORTED via EquipmentLibraryDTO membership
@@ -43,6 +43,13 @@ import PlusPlusKit
 /// WorkoutSession     routineName·startedAt·endedAt·restSeconds·
 ///                    accumulatedSeconds(activeSeconds)·averageHeartRate·
 ///                    maxHeartRate·setLogs → EXPORTED
+///                    runDistanceMeters·runMovingSeconds·runElevationGainMeters
+///                    → EXPORTED (#378: SessionDTO.run, absent = no GPS run)
+///                    routeData → EXPORTED as the history/YYYY/<basename>.gpx
+///                    sidecar, bytes verbatim — a repo-layout file, deliberately
+///                    NOT a bundle field (PLATFORM.md: the single-file bundle
+///                    carries the summary only), so the sync layer owns its
+///                    round-trip (#378 PR 3), not this mapping or its test
 ///                    routine → EXCLUDED (snapshot by name; reference is a convenience)
 ///                    sessionId → EXCLUDED (live-mirror cross-device id, inert once finished)
 ///                    runStartedAt·segmentStartedAt → EXCLUDED (live-clock state, nil when finished)
@@ -144,6 +151,9 @@ enum InterchangeMapping {
             defaultDurationSeconds: exercise.defaultDurationSeconds,
             metrics: explicitProfile.map { $0.metrics.map(\.rawValue) },
             distanceUnit: explicitProfile?.distanceUnit,
+            // Written only when TRUE (#378), riding the explicit-profile
+            // gate like metrics/distanceUnit — indoor files stay byte-clean.
+            isOutdoor: explicitProfile?.isOutdoor == true ? true : nil,
             extraDefaults: MetricValues.toRaw(exercise.extraDefaults),
             // Carry library membership so it round-trips. Written only when
             // NOT in the library (the exception) — the common in-library case
@@ -210,6 +220,15 @@ enum InterchangeMapping {
             activeSeconds: (session.runStartedAt != nil || session.accumulatedSeconds > 0) ? session.duration : nil,
             averageHeartRate: session.averageHeartRate,
             maxHeartRate: session.maxHeartRate,
+            // The GPS run summary (#378): both measurements or nothing —
+            // they're stamped together at finish, so a lone one is
+            // corruption we'd rather omit than validate into history.
+            run: session.runDistanceMeters.flatMap { distance in
+                session.runMovingSeconds.map { moving in
+                    .init(distanceMeters: distance, movingSeconds: moving,
+                          elevationGainMeters: session.runElevationGainMeters)
+                }
+            },
             sets: session.sortedSetLogs.map { log in
                 // The set profile snapshots ONLY when it says more than the
                 // snapshotted exerciseType implies (a flexible-metrics set) —
@@ -238,7 +257,9 @@ enum InterchangeMapping {
                     restSecondsOverride: log.restSecondsOverride,
                     targetHeartRate: decodeHeartRate(log.targetHeartRateData),
                     metrics: carriesProfile ? storedProfile?.metrics.map(\.rawValue) : nil,
-                    distanceUnit: (carriesProfile && storedProfile?.distanceUnit != .meters) ? storedProfile?.distanceUnit : nil
+                    distanceUnit: (carriesProfile && storedProfile?.distanceUnit != .meters) ? storedProfile?.distanceUnit : nil,
+                    // Same gate + only-when-true rule as the exercise (#378).
+                    isOutdoor: (carriesProfile && storedProfile?.isOutdoor == true) ? true : nil
                 )
             }
         )
@@ -447,6 +468,12 @@ enum InterchangeMapping {
             session.accumulatedSeconds = dto.activeSeconds ?? 0
             session.averageHeartRate = dto.averageHeartRate
             session.maxHeartRate = dto.maxHeartRate
+            // The run summary imports from the JSON alone (#378) — the GPX
+            // sidecar is a repo-layout file the sync layer attaches
+            // separately, so a missing sidecar degrades to stats-no-map.
+            session.runDistanceMeters = dto.run?.distanceMeters
+            session.runMovingSeconds = dto.run?.movingSeconds
+            session.runElevationGainMeters = dto.run?.elevationGainMeters
             context.insert(session)
 
             for setDTO in dto.sets {
@@ -490,7 +517,8 @@ enum InterchangeMapping {
         guard let metrics = dto.metrics else { return nil }
         return MetricProfile(
             metrics.compactMap(WorkoutMetric.init(rawValue:)),
-            distanceUnit: dto.distanceUnit ?? .meters
+            distanceUnit: dto.distanceUnit ?? .meters,
+            isOutdoor: dto.isOutdoor ?? false
         ).encoded()
     }
 
@@ -509,7 +537,8 @@ enum InterchangeMapping {
                 explicit.compactMap(WorkoutMetric.init(rawValue:)),
                 // Prefer the set's own snapshot; fall back to the exercise
                 // only for pre-field files that carried metrics without a unit.
-                distanceUnit: setDTO.distanceUnit ?? exercise?.metricProfile.distanceUnit ?? .meters
+                distanceUnit: setDTO.distanceUnit ?? exercise?.metricProfile.distanceUnit ?? .meters,
+                isOutdoor: setDTO.isOutdoor ?? false
             ).encoded()
         }
         let extras = Set(MetricValues.fromRaw(setDTO.extraTargets).keys)

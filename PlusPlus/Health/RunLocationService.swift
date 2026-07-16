@@ -34,11 +34,32 @@ final class RunLocationMonitor: NSObject, CLLocationManagerDelegate {
         totalMeters.map { unit.value(fromMeters: $0) }
     }
 
-    /// The accepted GPS fixes for the current outdoor segment, in order.
-    /// Handed to HealthKit at finish to save the workout's route; read it
-    /// BEFORE `stop()`, which clears it (as does a re-base `start()`), so it
-    /// covers the last contiguous outdoor stretch.
-    var route: [CLLocation] { routeFixes }
+    /// Every accepted fix of the WHOLE session in time order, flattened
+    /// across segments — what HealthKit's route builder takes (a single
+    /// HKWorkoutRoute is one polyline and can't encode a gap anyway).
+    /// Read BEFORE `stop()`, which banks-then-holds nothing new.
+    var sessionRoute: [CLLocation] {
+        (bankedSegments + [routeFixes]).flatMap { $0 }
+    }
+
+    /// The session's durable track (#378): one `RouteTrack` segment per
+    /// contiguous outdoor stretch — pauses and per-exercise re-bases are
+    /// honest gap boundaries, unlike the flattened Health route. Altitude
+    /// is carried only when the fix vouched for it (`verticalAccuracy`
+    /// 0...25 m); `RouteTrack.init` applies its own sanitation. Read
+    /// BEFORE `stop()`.
+    var sessionTrack: RouteTrack {
+        RouteTrack(segments: (bankedSegments + [routeFixes]).map { segment in
+            segment.map { fix in
+                RouteTrack.Fix(
+                    latitude: fix.coordinate.latitude,
+                    longitude: fix.coordinate.longitude,
+                    elevation: (fix.verticalAccuracy > 0 && fix.verticalAccuracy <= 25) ? fix.altitude : nil,
+                    time: fix.timestamp
+                )
+            }
+        })
+    }
 
     /// Whether the published readings are current — a set's auto-log must
     /// never write a prior exercise's frozen values while the new meter is
@@ -60,12 +81,27 @@ final class RunLocationMonitor: NSObject, CLLocationManagerDelegate {
     @ObservationIgnored private var meter: LivePaceMeter?
     @ObservationIgnored private var startDate: Date?
     @ObservationIgnored private var lastLocation: CLLocation?
-    /// The accepted fixes for this run, kept so the finished workout can be
-    /// saved to Health with its GPS route (#348). Only trustworthy fixes
+    /// The accepted fixes for the CURRENT contiguous segment, kept so the
+    /// finished workout can be saved to Health with its GPS route (#348)
+    /// and persisted as the session's track (#378). Only trustworthy fixes
     /// land here (the same accuracy + no-teleport gate distance uses), so
     /// the saved route is the same track the distance was measured from.
     @ObservationIgnored private var routeFixes: [CLLocation] = []
+    /// Completed segments for the WHOLE session — `pause()` and `stop()`
+    /// bank the live segment here, and unlike `routeFixes` it is NEVER
+    /// cleared (the monitor is `@State` per session presentation, so its
+    /// lifetime IS the reset). This is what fixes #348's last-segment-only
+    /// limitation: an outdoor→strength→outdoor session keeps every stretch.
+    @ObservationIgnored private var bankedSegments: [[CLLocation]] = []
     @ObservationIgnored private var running = false
+    /// Whether fixes are currently welcome. pause()/stop() disarm BEFORE
+    /// CoreLocation drains: `stopUpdatingLocation()` does not guarantee no
+    /// in-flight/batched delivery (background runs batch), and a straggler
+    /// arriving after a pause — with `lastLocation` freshly nil — would
+    /// bypass both the 1 Hz and teleport gates, seed the paused position,
+    /// and stitch phantom distance across the gap at resume
+    /// (swift-reviewer catch).
+    @ObservationIgnored private var armed = false
     /// Bumped by every start/stop so a late authorization callback can't
     /// arm updates against a superseded run (the HeartRateMonitor guard).
     @ObservationIgnored private var generation = 0
@@ -88,6 +124,7 @@ final class RunLocationMonitor: NSObject, CLLocationManagerDelegate {
     func start(from startDate: Date, unit: DistanceUnit) {
         guard !uitest, !running else { return }
         running = true
+        armed = true
         generation += 1
         self.unit = unit
         self.startDate = startDate
@@ -107,15 +144,22 @@ final class RunLocationMonitor: NSObject, CLLocationManagerDelegate {
 
     /// Hold tracking (workout paused): stop the GPS drain and mark a pause
     /// boundary so the paused gap counts as neither distance nor time.
+    /// The live segment banks — a pause is a track gap, and the resumed
+    /// stretch is honestly a new segment (no more phantom straight line
+    /// across a resume-elsewhere in OUR track; Health's single polyline
+    /// still flattens, which is cosmetic there).
     func pause() {
         guard running else { return }
+        armed = false
         manager.stopUpdatingLocation()
         meter?.markPauseBoundary()
         lastLocation = nil
+        bankCurrentSegment()
     }
 
     func resume() {
         guard running, !uitest else { return }
+        armed = true
         if manager.authorizationStatus == .authorizedWhenInUse || manager.authorizationStatus == .authorizedAlways {
             manager.startUpdatingLocation()
         }
@@ -123,6 +167,7 @@ final class RunLocationMonitor: NSObject, CLLocationManagerDelegate {
 
     func stop() {
         running = false
+        armed = false
         generation += 1
         manager.stopUpdatingLocation()
         meter = nil
@@ -134,19 +179,33 @@ final class RunLocationMonitor: NSObject, CLLocationManagerDelegate {
         averagePaceSeconds = nil
         totalMeters = nil
         latestAt = nil
-        // Drop the route too, so switching off an outdoor exercise doesn't
-        // leave a stale track that would classify a later strength finish
-        // as an outdoor run (the finish path reads `route` BEFORE calling
-        // stop(), so a genuine outdoor finish still keeps its fixes). Like
-        // distance, the saved route therefore covers the LAST contiguous
-        // outdoor segment, not a whole run-then-strength-then-run session.
+        // Bank the live segment instead of dropping it (#378): the session
+        // track keeps EVERY outdoor stretch, so an outdoor→strength→outdoor
+        // session records whole. The finish path reads `sessionTrack` /
+        // `sessionRoute` before stop(). Consequence, accepted in #378: a
+        // mixed run+strength session now classifies as an outdoor run in
+        // Health whenever ANY GPS segment exists, not only when a run came
+        // last.
+        bankCurrentSegment()
+    }
+
+    /// Move the live segment into the session archive. Sub-2-fix stubs are
+    /// dropped here (a lone seed fix carries no distance and would be
+    /// dropped by `RouteTrack.init` anyway — no reason to feed Health a
+    /// point either).
+    private func bankCurrentSegment() {
+        if routeFixes.count >= 2 {
+            bankedSegments.append(routeFixes)
+        }
         routeFixes = []
     }
 
     // MARK: - CLLocationManagerDelegate
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        guard running else { return }
+        // armed too: a grant landing mid-pause must not restart the GPS
+        // drain — resume() will.
+        guard running, armed else { return }
         switch manager.authorizationStatus {
         case .authorizedWhenInUse, .authorizedAlways:
             manager.startUpdatingLocation()
@@ -156,7 +215,7 @@ final class RunLocationMonitor: NSObject, CLLocationManagerDelegate {
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard running, let startDate, meter != nil else { return }
+        guard running, armed, let startDate, meter != nil else { return }
         let expected = generation
         for location in locations {
             // Reject cold-start / no-lock fixes and stale samples — the
@@ -164,6 +223,12 @@ final class RunLocationMonitor: NSObject, CLLocationManagerDelegate {
             guard location.horizontalAccuracy >= 0, location.horizontalAccuracy <= 30 else { continue }
             let elapsed = location.timestamp.timeIntervalSince(startDate)
             guard elapsed >= 0 else { continue }
+            // 1 Hz cap (#378): CLLocation can burst-deliver; one stored fix
+            // per second bounds the track (~800 KB GPX for a 2-hour run)
+            // and guarantees the sidecar's whole-second timestamps never
+            // collide. Distance isn't lost — the next accepted fix measures
+            // from the last accepted one.
+            if let last = lastLocation, location.timestamp.timeIntervalSince(last.timestamp) < 1 { continue }
             if let last = lastLocation {
                 let dt = location.timestamp.timeIntervalSince(last.timestamp)
                 let segment = location.distance(from: last)

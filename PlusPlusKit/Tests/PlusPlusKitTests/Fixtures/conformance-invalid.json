@@ -15,10 +15,27 @@
       "isBuiltIn" : false,
       "muscleGroup" : "biceps",
       "name" : "curl"
+    },
+    {
+      "equipment" : [],
+      "exerciseType" : "weightReps",
+      "isBuiltIn" : false,
+      "isOutdoor" : true,
+      "metrics" : ["reps", "weight"],
+      "muscleGroup" : "quads",
+      "name" : "Sofa Sprint"
     }
   ],
   "schemaVersion" : 1,
-  "sessions" : [],
+  "sessions" : [
+    {
+      "restSeconds" : 60,
+      "routineName" : "Ghost Run",
+      "run" : { "distanceMeters" : 0, "movingSeconds" : -5 },
+      "sets" : [],
+      "startedAt" : "2026-07-07T07:02:00Z"
+    }
+  ],
   "routines" : [
     {
       "groups" : [

@@ -241,10 +241,14 @@ struct ActiveSessionView: View {
                 heartRate.start(from: session.effectiveStart)
                 syncLocation()
             }
+            // The session's FIRST exercise announces here (no key change
+            // to observe); later exercises ride activeExerciseKey below.
+            announceVoiceCue()
         }
         .onDisappear {
             heartRate.stop()
             location.stop()
+            VoiceCueSpeaker.shared.stop()
         }
         // GPS pauses with the workout clock (HR keeps its passive query) —
         // no distance banked across a pause, and the battery rests.
@@ -253,9 +257,20 @@ struct ActiveSessionView: View {
         }
         // Re-point the meter as the active exercise changes: a new outdoor
         // exercise re-bases (its own distance), the same exercise's next
-        // round keeps accumulating, a non-outdoor exercise stops it.
+        // round keeps accumulating, a non-outdoor exercise stops it. The
+        // voice cue rides the same identity: the key flips to the up-next
+        // exercise the moment its transition starts, so the cue plays
+        // while the user is racking over, not mid-set.
         .onChange(of: activeExerciseKey) {
             syncLocation()
+            announceVoiceCue()
+        }
+        // A WATCH-driven finish swaps this screen to the purple record
+        // while a cue may still be talking — the phone-side finish path
+        // stops speech inside finishSession, but the mirror path never
+        // passes through there (swift-reviewer).
+        .onChange(of: session.isFinished) { _, finished in
+            if finished { VoiceCueSpeaker.shared.stop() }
         }
         // Island / Lock Screen rest controls (#157): LiveActivityIntents
         // run in this process and post here — same mutations as the
@@ -310,6 +325,37 @@ struct ActiveSessionView: View {
             isTransition: restIsTransition
         )
         LiveMirror.shared.restStarted(endsAt: endDate, total: restTotalSeconds, in: session)
+    }
+
+    /// Voice cues (opt-in, Settings → VOICE CUES): the active exercise's
+    /// cue line speaks once as its block starts. Dedup keys on session
+    /// identity + block (`startedAt` is persisted, so a remount of this
+    /// view can't re-announce within one app run); everything else —
+    /// mode, catalog coverage, UI-test inertness — gates inside the
+    /// speaker, which only evaluates the refresher scan when the mode
+    /// asks for it.
+    private func announceVoiceCue() {
+        guard !session.isFinished, let log = activeLog, let key = activeExerciseKey else { return }
+        VoiceCueSpeaker.shared.announce(
+            exerciseNamed: log.exerciseName,
+            dedupKey: "\(session.startedAt.timeIntervalSince1970)·\(key)",
+            isRefresher: isVoiceCueRefresher(log)
+        )
+    }
+
+    /// Refresher mode's model knowledge: an exercise deserves a spoken
+    /// reminder when it's new to you or you haven't done it in a month
+    /// — no completed set with this snapshot name in any finished
+    /// session inside the window, and none earlier in THIS session (a
+    /// second block of the same exercise is not a refresher).
+    private func isVoiceCueRefresher(_ log: SetLog) -> Bool {
+        let name = log.exerciseName
+        if session.completedSetLogs.contains(where: { $0.exerciseName == name }) { return false }
+        let cutoff = Date().addingTimeInterval(-TimeInterval(VoiceCueMode.refresherWindowDays) * 24 * 3600)
+        return !finishedSessions.contains { finished in
+            (finished.endedAt ?? .distantPast) >= cutoff
+                && finished.completedSetLogs.contains { $0.exerciseName == name }
+        }
     }
 
     /// Pushes the current working state (exercise · set · progress) to the
@@ -628,6 +674,8 @@ struct ActiveSessionView: View {
 
     private func finishSession(dismissAfter: Bool = true) {
         WorkoutActivityController.shared.end()
+        // A cue still talking over the purple finish would be noise.
+        VoiceCueSpeaker.shared.stop()
         if !session.isFinished {
             isFirstEverFinish = finishedSessions.isEmpty
             session.finish()
@@ -635,11 +683,28 @@ struct ActiveSessionView: View {
             // so the endedAt stamp rides along.
             LiveMirror.shared.finished(session, at: session.endedAt ?? Date())
             heartRate.stop()
-            // Capture the GPS route before stop() clears the monitor; a
-            // non-empty route saves the workout as an outdoor run with its
-            // map in Health (#348).
-            let runRoute = location.route
+            // Capture the GPS track before stop() (#348/#378): the flattened
+            // route goes to Health (a non-empty one classifies the workout
+            // as an outdoor run with its map), and the segmented track
+            // becomes the session's durable record — the GPX bytes stored
+            // here are the EXACT sidecar the repo sync will replay, plus
+            // the denormalized summary for cheap display.
+            let runTrack = location.sessionTrack
+            let runRoute = location.sessionRoute
             location.stop()
+            // Positive-measurement gate, not just non-empty: a degenerate
+            // track (standing still → zero distance, or sub-floor creep →
+            // zero moving time) must stamp NOTHING — the validator requires
+            // positive run measurements, and an invalid session file would
+            // make a whole repo restore throw. No summary, no sidecar; the
+            // set actuals still tell the honest story.
+            let hasRealRun = !runTrack.isEmpty && runTrack.totalMeters > 0 && runTrack.movingSeconds > 0
+            if hasRealRun {
+                session.routeData = GPX.encode(runTrack, name: session.routineName, startedAt: session.effectiveStart)
+                session.runDistanceMeters = runTrack.totalMeters
+                session.runMovingSeconds = runTrack.movingSeconds
+                session.runElevationGainMeters = runTrack.elevationGainMeters
+            }
             // The session's heart-rate summary, from Health's samples
             // over the window. Watch imports never pass through here —
             // their summary rides the result payload. The completion
@@ -654,8 +719,10 @@ struct ActiveSessionView: View {
                 }
             }
             // Phone-logged sessions reach Health here; watch imports are
-            // recorded by the wrist's own live session (#90).
-            HealthRecorder.record(session, route: runRoute)
+            // recorded by the wrist's own live session (#90). Health gets
+            // the route only when the durable record calls it a run — the
+            // two must not disagree about a degenerate zero-distance track.
+            HealthRecorder.record(session, route: hasRealRun ? runRoute : [])
         }
         if dismissAfter {
             dismiss()

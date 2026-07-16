@@ -84,6 +84,16 @@ public enum FileLayout {
         }
     }
 
+    /// The GPX route sidecar twin of a session file (#378): same directory,
+    /// same basename, `.gpx`. Pairing is this naming convention, not a JSON
+    /// field — computable from a directory listing, and the append-only
+    /// session file never needs a link rewritten. Numbered `-2` suffixes
+    /// pair automatically because both names derive from one
+    /// `sessionPlacement` result.
+    public static func routeSidecarPath(forSessionPath path: String) -> String {
+        path.hasSuffix(".json") ? String(path.dropLast(".json".count)) + ".gpx" : path + ".gpx"
+    }
+
     /// ("2026", "2026-07-05") in UTC — file names must be identical no
     /// matter which machine or time zone produces them.
     public static func utcDateParts(of date: Date) -> (year: String, dateStamp: String) {

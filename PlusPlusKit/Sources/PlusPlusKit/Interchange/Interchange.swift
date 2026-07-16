@@ -48,6 +48,12 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
     /// Default heart-rate target for new routine entries on this exercise
     /// (zone or bpm range). Additive.
     public var defaultHeartRateTarget: HeartRateTarget?
+    /// Whether this exercise happens outdoors under GPS (#378) — the flag
+    /// that engages live pace/distance and route capture. Rides the
+    /// explicit `metrics` profile and is written only when TRUE, so every
+    /// indoor exercise (and every pre-field file) stays byte-identical;
+    /// absent means indoor.
+    public var isOutdoor: Bool?
 
     public init(
         name: String,
@@ -63,6 +69,7 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
         defaultDurationSeconds: Int? = nil,
         metrics: [String]? = nil,
         distanceUnit: DistanceUnit? = nil,
+        isOutdoor: Bool? = nil,
         extraDefaults: [String: Double]? = nil,
         inLibrary: Bool? = nil,
         defaultHeartRateTarget: HeartRateTarget? = nil
@@ -80,6 +87,7 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
         self.defaultDurationSeconds = defaultDurationSeconds
         self.metrics = metrics?.sorted()
         self.distanceUnit = distanceUnit
+        self.isOutdoor = isOutdoor
         self.extraDefaults = extraDefaults
         self.inLibrary = inLibrary
         self.defaultHeartRateTarget = defaultHeartRateTarget
@@ -171,7 +179,33 @@ public struct SessionDTO: Codable, Equatable, Sendable {
     /// Recorded heart-rate summary for the session (bpm). Additive.
     public var averageHeartRate: Int?
     public var maxHeartRate: Int?
+    /// Outdoor GPS run summary (#378). Additive; absent means the session
+    /// carried no GPS run, so every pre-field file keeps its meaning.
+    public var run: RunSummary?
     public var sets: [SetDTO]
+
+    /// Capture-time MEASUREMENTS of the session's GPS track, in raw meters
+    /// and seconds (unit-agnostic, unlike the extras maps' exercise-
+    /// denominated values). Deliberately summary-only: splits and the pace
+    /// curve are pure derivations of the route sidecar (the `.gpx` twin in
+    /// the repo layout) and history is append-only — a stored derivation
+    /// could never be corrected if the algorithm improved.
+    public struct RunSummary: Codable, Equatable, Sendable {
+        public var distanceMeters: Double
+        /// Time at or above the moving-speed floor — a red light doesn't
+        /// count against the run.
+        public var movingSeconds: Double
+        /// Cumulative climb as computed at record time (smoothed +
+        /// hysteresis, see `RouteTrack`); absent when the receiver had no
+        /// trusted altitude data.
+        public var elevationGainMeters: Double?
+
+        public init(distanceMeters: Double, movingSeconds: Double, elevationGainMeters: Double? = nil) {
+            self.distanceMeters = distanceMeters
+            self.movingSeconds = movingSeconds
+            self.elevationGainMeters = elevationGainMeters
+        }
+    }
 
     public init(
         routineName: String,
@@ -181,6 +215,7 @@ public struct SessionDTO: Codable, Equatable, Sendable {
         activeSeconds: Double? = nil,
         averageHeartRate: Int? = nil,
         maxHeartRate: Int? = nil,
+        run: RunSummary? = nil,
         sets: [SetDTO]
     ) {
         self.routineName = routineName
@@ -190,6 +225,7 @@ public struct SessionDTO: Codable, Equatable, Sendable {
         self.activeSeconds = activeSeconds
         self.averageHeartRate = averageHeartRate
         self.maxHeartRate = maxHeartRate
+        self.run = run
         self.sets = sets
     }
 
@@ -227,6 +263,10 @@ public struct SessionDTO: Codable, Equatable, Sendable {
         /// exercise's unit later changes or the exercise is gone. Absent
         /// means meters (or, for a pre-field file, resolve from the exercise).
         public var distanceUnit: DistanceUnit?
+        /// Snapshot of the profile's outdoor flag (#378), riding the same
+        /// only-when-the-profile-is-written gate as `metrics`. Written only
+        /// when TRUE; absent means indoor, byte-stable with pre-field files.
+        public var isOutdoor: Bool?
 
         public init(
             order: Int,
@@ -247,7 +287,8 @@ public struct SessionDTO: Codable, Equatable, Sendable {
             restSecondsOverride: Int? = nil,
             targetHeartRate: HeartRateTarget? = nil,
             metrics: [String]? = nil,
-            distanceUnit: DistanceUnit? = nil
+            distanceUnit: DistanceUnit? = nil,
+            isOutdoor: Bool? = nil
         ) {
             self.order = order
             self.groupIndex = groupIndex
@@ -268,6 +309,7 @@ public struct SessionDTO: Codable, Equatable, Sendable {
             self.targetHeartRate = targetHeartRate
             self.metrics = metrics?.sorted()
             self.distanceUnit = distanceUnit
+            self.isOutdoor = isOutdoor
         }
     }
 }

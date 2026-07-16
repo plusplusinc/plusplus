@@ -155,6 +155,14 @@ struct SessionDetailView: View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(spacing: 0) {
+                    // The run, when this session carried one (#378): route
+                    // map, headline stats, splits. Gated on the summary,
+                    // not only the sidecar, so a summary-without-route
+                    // record still shows its stats.
+                    if session.runDistanceMeters != nil || session.routeData != nil {
+                        RunRecordSection(session: session)
+                            .padding(.top, 10)
+                    }
                     // The Health facts, when there were any — heart rate
                     // and the workout's active energy, in ink like the
                     // rest of the record. Each shows only when present

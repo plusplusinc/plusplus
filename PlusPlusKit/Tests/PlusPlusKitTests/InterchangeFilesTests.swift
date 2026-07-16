@@ -49,4 +49,18 @@ struct InterchangeFilesTests {
         let rebuilt = try InterchangeFiles.bundle(from: files)
         #expect(rebuilt.exercises.isEmpty && rebuilt.routines.isEmpty && rebuilt.sessions.isEmpty)
     }
+
+    @Test("A GPX route sidecar under history/ never breaks the pull")
+    func gpxSidecarSkipped() throws {
+        let session = SessionDTO(routineName: "Morning Run", startedAt: Date(timeIntervalSince1970: 1_752_000_000), endedAt: nil, restSeconds: 90, sets: [])
+        let placement = try FileLayout.sessionPlacement(for: session) { _ in nil }
+        let files = [
+            FileWrite(path: placement.path, data: placement.data),
+            // The sidecar is XML, not an interchange document — force-decoding
+            // it as one would fail the whole pass (#378's first guard).
+            FileWrite(path: FileLayout.routeSidecarPath(forSessionPath: placement.path), data: Data("<gpx></gpx>".utf8)),
+        ]
+        let rebuilt = try InterchangeFiles.bundle(from: files)
+        #expect(rebuilt.sessions.count == 1)
+    }
 }
