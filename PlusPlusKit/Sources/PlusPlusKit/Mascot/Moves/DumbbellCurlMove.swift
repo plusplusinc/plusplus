@@ -9,11 +9,15 @@ enum DumbbellCurlMove {
         let legs = MascotPoseBuilder.symmetricLegs(hip: .deg(roll: stanceRoll))
 
         func standingPose(shoulderPitch: Double, elbowPitch: Double, effort: Double) -> MascotPose {
+            // Arms ride slightly abducted (roll 12) so the hanging
+            // dumbbells clear the thighs — the collision invariant
+            // caught the inner heads 3.4 cm inside the legs when the
+            // arms hung straight down.
             MascotPoseBuilder.plantingFeet(MascotPose(
                 joints: MascotPoseBuilder.merge(
                     legs,
                     MascotPoseBuilder.symmetricArms(
-                        shoulder: .deg(pitch: shoulderPitch),
+                        shoulder: .deg(pitch: shoulderPitch, roll: 12),
                         elbow: .deg(pitch: elbowPitch)
                     )
                 ),

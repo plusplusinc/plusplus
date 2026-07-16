@@ -177,14 +177,24 @@ final class MascotRig {
 
         // Props: green matte equipment, plates as ROUNDED-EDGE
         // cylinders (a code-generated lathe — Dave's spec).
+        // Prop dimensions come from MascotGrip — the shared contract
+        // with the kit's equipment-collision invariant, so the proof
+        // and the pixels can't drift apart.
         if animation.props.contains(.barbell) {
             let bar = Entity()
-            let shaft = ModelEntity(mesh: .generateCylinder(height: 0.92, radius: 0.017))
+            let shaft = ModelEntity(mesh: .generateCylinder(
+                height: Float(MascotGrip.barHalfLength * 2),
+                radius: Float(MascotGrip.barRadius)
+            ))
             shaft.orientation = simd_quatf(angle: .pi / 2, axis: [0, 0, 1])
             bar.addChild(shaft)
             themed.append((shaft, .equipmentDark))
-            if let plateMesh = MascotMeshes.roundedCylinder(radius: 0.095, height: 0.05, edgeRadius: 0.02) {
-                for x in [Float(-0.38), 0.38] {
+            if let plateMesh = MascotMeshes.roundedCylinder(
+                radius: Float(MascotGrip.plateRadius),
+                height: Float(MascotGrip.plateHalfWidth * 2),
+                edgeRadius: 0.02
+            ) {
+                for x in [Float(-MascotGrip.plateOffset), Float(MascotGrip.plateOffset)] {
                     let plate = ModelEntity(mesh: plateMesh)
                     plate.orientation = simd_quatf(angle: .pi / 2, axis: [0, 0, 1])
                     plate.position = [x, 0, 0]
@@ -198,16 +208,23 @@ final class MascotRig {
             barbell = nil
         }
         if animation.props.contains(.dumbbellPair) {
-            let headMesh = MascotMeshes.roundedCylinder(radius: 0.042, height: 0.038, edgeRadius: 0.014)
+            let headMesh = MascotMeshes.roundedCylinder(
+                radius: Float(MascotGrip.dumbbellHeadRadius),
+                height: 0.038,
+                edgeRadius: 0.014
+            )
             for wrist in [MascotJoint.leftWrist, .rightWrist] {
                 let dumbbell = Entity()
-                dumbbell.position = [0, -0.045, 0.012]
-                let handle = ModelEntity(mesh: .generateCylinder(height: 0.15, radius: 0.014))
+                dumbbell.position = SIMD3<Float>(MascotGrip.dumbbellOffset)
+                let handle = ModelEntity(mesh: .generateCylinder(
+                    height: Float(MascotGrip.handleHalfLength * 2),
+                    radius: Float(MascotGrip.handleRadius)
+                ))
                 handle.orientation = simd_quatf(angle: .pi / 2, axis: [0, 0, 1])
                 dumbbell.addChild(handle)
                 themed.append((handle, .equipmentDark))
                 if let headMesh {
-                    for x in [Float(-0.062), 0.062] {
+                    for x in [Float(-MascotGrip.dumbbellHeadOffset), Float(MascotGrip.dumbbellHeadOffset)] {
                         let head = ModelEntity(mesh: headMesh)
                         head.orientation = simd_quatf(angle: .pi / 2, axis: [0, 0, 1])
                         head.position = [x, 0, 0]

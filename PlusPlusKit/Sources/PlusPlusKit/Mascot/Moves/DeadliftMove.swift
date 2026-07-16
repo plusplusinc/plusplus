@@ -25,10 +25,12 @@ enum DeadliftMove {
             neck: .deg(pitch: -38),
             head: .deg(pitch: -12)
         )
-        // Arms hang plumb toward the bar: the shoulders counter the
-        // full torso lean.
+        // Arms hang a few degrees forward of plumb: with the bot's
+        // short arms the bar sits AT knee height, and truly vertical
+        // arms would drag it through the knee line (the collision
+        // invariant caught 3.9 cm of bar-into-thigh).
         let armsBottom = MascotPoseBuilder.symmetricArms(
-            shoulder: .deg(pitch: -(spinePitch + chestPitch))
+            shoulder: .deg(pitch: -(spinePitch + chestPitch) - 8)
         )
 
         // Lockout arms sit ~16 degrees forward so the bar rests against

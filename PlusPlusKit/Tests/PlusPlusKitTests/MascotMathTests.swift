@@ -43,6 +43,45 @@ import Foundation
         #expect(MascotEasing.hold.apply(0.7) == 0)
     }
 
+    @Test func segmentDistanceHandComputedCases() {
+        // Parallel segments 1 apart.
+        let parallel = mascotSegmentDistance(
+            Vec3(0, 0, 0), Vec3(1, 0, 0),
+            Vec3(0, 1, 0), Vec3(1, 1, 0)
+        )
+        #expect(abs(parallel - 1) < 1e-12)
+        // Crossing (skew) segments: closest at the midpoints, 0.5 apart.
+        let skew = mascotSegmentDistance(
+            Vec3(-1, 0, 0), Vec3(1, 0, 0),
+            Vec3(0, 0.5, -1), Vec3(0, 0.5, 1)
+        )
+        #expect(abs(skew - 0.5) < 1e-12)
+        // Endpoint-to-endpoint: segments pointing away from each other.
+        let apart = mascotSegmentDistance(
+            Vec3(0, 0, 0), Vec3(-1, 0, 0),
+            Vec3(2, 0, 0), Vec3(3, 0, 0)
+        )
+        #expect(abs(apart - 2) < 1e-12)
+        // Degenerate: point vs segment.
+        let point = mascotSegmentDistance(
+            Vec3(0.5, 2, 0), Vec3(0.5, 2, 0),
+            Vec3(0, 0, 0), Vec3(1, 0, 0)
+        )
+        #expect(abs(point - 2) < 1e-12)
+        // Degenerate: point vs point.
+        let points = mascotSegmentDistance(
+            Vec3(0, 0, 0), Vec3(0, 0, 0),
+            Vec3(0, 3, 4), Vec3(0, 3, 4)
+        )
+        #expect(abs(points - 5) < 1e-12)
+        // Intersecting segments: zero.
+        let crossing = mascotSegmentDistance(
+            Vec3(-1, 0, 0), Vec3(1, 0, 0),
+            Vec3(0, -1, 0), Vec3(0, 1, 0)
+        )
+        #expect(crossing < 1e-12)
+    }
+
     @Test func smoothstepFixedPoints() {
         #expect(mascotSmoothstep(0, 1, -1) == 0)
         #expect(mascotSmoothstep(0, 1, 2) == 1)

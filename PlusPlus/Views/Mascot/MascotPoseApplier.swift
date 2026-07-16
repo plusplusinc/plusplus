@@ -47,7 +47,10 @@ enum MascotPoseApplier {
         if let barbell = rig.barbell,
            let leftWrist = rig.joints[.leftWrist],
            let rightWrist = rig.joints[.rightWrist] {
-            let palmOffset: SIMD3<Float> = [0, -0.038, 0.01]
+            // MascotGrip is the shared contract with the kit's
+            // equipment-collision invariant: the proof and the pixels
+            // use the same grip geometry.
+            let palmOffset = SIMD3<Float>(MascotGrip.palmOffset)
             let left = leftWrist.convert(position: palmOffset, to: rig.container)
             let right = rightWrist.convert(position: palmOffset, to: rig.container)
             barbell.position = (left + right) / 2

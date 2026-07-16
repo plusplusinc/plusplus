@@ -151,6 +151,56 @@ public struct Mat3: Sendable {
     }
 }
 
+/// Closest distance between two line segments — the collision model's
+/// primitive (capsule vs capsule = segment distance minus radii).
+/// Handles degenerate segments (points) via clamped projection.
+public func mascotSegmentDistance(_ a0: Vec3, _ a1: Vec3, _ b0: Vec3, _ b1: Vec3) -> Double {
+    let d1 = a1 - a0
+    let d2 = b1 - b0
+    let r = a0 - b0
+    let a = dot(d1, d1)
+    let e = dot(d2, d2)
+    let f = dot(d2, r)
+
+    var s = 0.0
+    var t = 0.0
+    if a <= 1e-12 && e <= 1e-12 {
+        // Both degenerate: point-point.
+    } else if a <= 1e-12 {
+        t = clamp01(f / e)
+    } else {
+        let c = dot(d1, r)
+        if e <= 1e-12 {
+            s = clamp01(-c / a)
+        } else {
+            let b = dot(d1, d2)
+            let denominator = a * e - b * b
+            if denominator > 1e-12 {
+                s = clamp01((b * f - c * e) / denominator)
+            }
+            t = (b * s + f) / e
+            if t < 0 {
+                t = 0
+                s = clamp01(-c / a)
+            } else if t > 1 {
+                t = 1
+                s = clamp01((b - c) / a)
+            }
+        }
+    }
+    let closestA = a0 + s * d1
+    let closestB = b0 + t * d2
+    return closestA.distance(to: closestB)
+}
+
+private func dot(_ a: Vec3, _ b: Vec3) -> Double {
+    a.x * b.x + a.y * b.y + a.z * b.z
+}
+
+private func clamp01(_ value: Double) -> Double {
+    min(max(value, 0), 1)
+}
+
 /// Hermite smoothstep, clamped. The face channel's effort-to-squint curve
 /// uses it; kept public so tests can pin the curve's fixed points.
 public func mascotSmoothstep(_ edge0: Double, _ edge1: Double, _ x: Double) -> Double {

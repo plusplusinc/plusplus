@@ -350,6 +350,21 @@ import Foundation
         }
     }
 
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl"])
+    func equipmentNeverPassesThroughTheBody(name: String) throws {
+        let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
+        #expect(!animation.props.isEmpty)
+        for i in 0...400 {
+            let t = Double(i) / 400
+            let worst = MascotCollision.maxEquipmentPenetration(animation: animation, at: t)
+            // Up to 8 mm of grazing contact is deliberate (a deadlift
+            // bar RESTS against the thighs); deeper means the equipment
+            // is inside the body (Dave's build-81 follow-up).
+            #expect(worst.depth <= 0.008,
+                    "\(name): \(worst.pair) penetrates \(worst.depth) at t=\(t)")
+        }
+    }
+
     @Test func pushUpHitsTextbookDepthWithANeutralNeck() throws {
         let pushUp = try #require(MascotMoves.animation(forExerciseNamed: "Push-Up"))
         let workShare = pushUp.workDuration / pushUp.cycleDuration
