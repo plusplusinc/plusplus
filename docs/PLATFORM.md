@@ -86,8 +86,22 @@ program/
 history/
   2026/
     2026-07-05-shoulder-pt.json   # one file per finished session; append-only
+    2026-07-07-trail-run.json     # a session with a GPS run…
+    2026-07-07-trail-run.gpx      # …gets a GPX 1.1 route sidecar (#378)
 README.md                     # (later) auto-generated summary
 ```
+
+A session recorded with GPS carries its route as a **GPX sidecar**: same
+directory, same basename, `.gpx` — the pairing is the naming convention, not
+a JSON field, so it's computable from a directory listing and the append-only
+session file never needs a link rewritten (numbered `-2` suffixes pair
+automatically; `FileLayout.routeSidecarPath`). GPX 1.1 (`creator="PlusPlus"`,
+one `<trkseg>` per continuous recording stretch, 6-decimal coordinates,
+`<ele>` to 0.1 m when the receiver trusted its altitude, whole-second UTC
+`<time>` on every point) because every running tool reads it — the track is
+usable outside PlusPlus by construction. Sidecar bytes are preserved verbatim
+through sync; a missing sidecar degrades gracefully (the session JSON's `run`
+summary stands alone).
 
 An exercise file is written for everything in the user's **library** — all
 custom exercises, plus any built-in the user has adopted (the equipment-driven
@@ -156,6 +170,16 @@ The app's single-file export (backup / manual transport) is a bundle:
       "isBuiltIn": false,
       "muscleGroup": "shoulders",
       "name": "T Raise"
+    },
+    {
+      "distanceUnit": "mi",
+      "equipment": [],
+      "exerciseType": "duration",
+      "isBuiltIn": false,
+      "isOutdoor": true,
+      "metrics": ["distance", "duration", "pace"],
+      "muscleGroup": "fullBody",
+      "name": "Trail Run"
     },
     {
       "equipment": ["Bench", "Dumbbells"],
@@ -244,6 +268,31 @@ The app's single-file export (backup / manual transport) is a bundle:
         }
       ],
       "startedAt": "2026-07-06T10:00:00Z"
+    },
+    {
+      "endedAt": "2026-07-07T07:32:10Z",
+      "restSeconds": 90,
+      "routineName": "Trail Run",
+      "run": {
+        "distanceMeters": 5023.4,
+        "elevationGainMeters": 46.5,
+        "movingSeconds": 1732
+      },
+      "sets": [
+        {
+          "actualDuration": 1745,
+          "completedAt": "2026-07-07T07:31:40Z",
+          "distanceUnit": "mi",
+          "exerciseName": "Trail Run", "exerciseType": "duration",
+          "extraActuals": { "distance": 3.12, "pace": 555 },
+          "extraTargets": { "distance": 3.11 },
+          "groupIndex": 0,
+          "isOutdoor": true,
+          "metrics": ["distance", "duration", "pace"],
+          "order": 0, "setNumber": 1
+        }
+      ],
+      "startedAt": "2026-07-07T07:02:00Z"
     }
   ]
 }
@@ -326,6 +375,25 @@ Semantics worth writing down:
   entries), `heartRateTarget` on a routine entry (the prescription), and
   `targetHeartRate` on a session set (the snapshot the set ran under). Absent
   everywhere means no prescription.
+- **Outdoor runs** (#378, additive to schema v1): an exercise whose profile
+  happens outdoors under GPS declares `isOutdoor: true` — the flag that
+  engages live pace/distance and route capture. It rides the explicit
+  `metrics` profile, is written only when true (indoor and pre-field files
+  stay byte-identical), and requires a `distance` or `pace` metric to feed
+  (validators flag a bare flag). Session sets snapshot it beside `metrics` /
+  `distanceUnit` under the same only-when-the-profile-is-written gate. A
+  session recorded with GPS carries a `run` summary — capture-time
+  MEASUREMENTS in raw meters/seconds, unit-agnostic unlike the extras maps:
+  `distanceMeters` and `movingSeconds` (time at or above the moving-speed
+  floor, so a red light doesn't count) must be positive; `elevationGainMeters`
+  (smoothed + hysteresis, as computed at record time) is present only when
+  the receiver trusted its altitude. Splits and the pace curve are
+  deliberately NOT stored: they are pure derivations of the GPX route
+  sidecar (see the repo layout above), and append-only history could never
+  correct a stored derivation if the algorithm improved. The single-file
+  bundle carries the summary only — the route lives in the repo layout. A
+  missing sidecar degrades gracefully: the summary stands alone; absent
+  `run` means the session carried no GPS run.
 - **Equipment records** (additive to schema v1): the optional `equipment`
   array carries gear that has something to say — custom gear (its existence
   is user data) and any gear with user config: `weightStep` (per-tap
