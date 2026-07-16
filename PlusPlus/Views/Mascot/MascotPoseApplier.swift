@@ -31,23 +31,26 @@ enum MascotPoseApplier {
         }
 
         // The face: openness scales the "+" eyes' vertical strokes (a
-        // floor keeps the collapsed stroke reading as a "-", not a gap);
-        // tiredness droops the eyes outward.
+        // floor keeps the collapsed stroke reading as a "-", not a
+        // gap). Tired lids stay LEVEL — half-closed reads serene; the
+        // build-80 droop tilt read sad, and this mascot is always
+        // happy.
         let openness = Float(max(face.eyeOpenness, 0.1))
         for bar in rig.eyeVerticalBars {
             bar.scale = [1, openness, 1]
         }
-        let droop = Float(face.tiredness) * 0.22
-        rig.leftEyePivot.transform.rotation = simd_quatf(angle: -droop, axis: [0, 0, 1])
-        rig.rightEyePivot.transform.rotation = simd_quatf(angle: droop, axis: [0, 0, 1])
 
         // A rigid barbell can't be parented to one hand: it spans both.
-        // Solve its transform from the two wrist world positions every
-        // frame (kit tests keep the wrists symmetric enough for this).
+        // Solve its transform from the two PALM centers every frame —
+        // the palms are where the grip closes, so the bar sits inside
+        // the wrapped fingers in every hand orientation.
         if let barbell = rig.barbell,
-           let left = rig.joints[.leftWrist]?.position(relativeTo: rig.container),
-           let right = rig.joints[.rightWrist]?.position(relativeTo: rig.container) {
-            barbell.position = (left + right) / 2 + [0, -0.02, 0.01]
+           let leftWrist = rig.joints[.leftWrist],
+           let rightWrist = rig.joints[.rightWrist] {
+            let palmOffset: SIMD3<Float> = [0, -0.038, 0.01]
+            let left = leftWrist.convert(position: palmOffset, to: rig.container)
+            let right = rightWrist.convert(position: palmOffset, to: rig.container)
+            barbell.position = (left + right) / 2
             let span = left - right
             if simd_length(span) > 0.001 {
                 barbell.orientation = simd_quatf(from: [1, 0, 0], to: simd_normalize(span))

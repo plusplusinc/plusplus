@@ -4,23 +4,25 @@ import PlusPlusKit
 
 /// Builds the mascot's RealityKit entity tree from the kit skeleton:
 /// one pivot entity per joint (meshes hang off the pivot so rotation
-/// happens AT the joint), the "+" eyes, four-fingered cartoon hands,
-/// the ground disc, and any props the move declares. Everything is a
-/// generated primitive — no bundled assets, the whole character is
-/// code.
+/// happens AT the joint), the dark face panel carrying the embedded
+/// "+" eyes, four-fingered cartoon hands, the dot-grid room, and any
+/// props the move declares. Everything is generated — no bundled
+/// assets, the whole character is code.
+///
+/// Art direction (build-80 round): matte white body panels over dark
+/// charcoal joints — sleek-robot articulation, ASIMO-adjacent without
+/// copying — big cartoon feet (also load-bearing: they're the support
+/// polygon the kit's balance invariants check against), and the
+/// equipment in brand green.
 @MainActor
 final class MascotRig {
-    /// The scene-space parent: bot, ground, and props all live here.
+    /// The scene-space parent: bot, room, and props all live here.
     let container: Entity
     let joints: [MascotJoint: Entity]
     let rootRestPosition: SIMD3<Float>
     /// The vertical stroke of each "+" eye; its y-scale is the eye
     /// openness (1 = "+", collapsed = "-").
     let eyeVerticalBars: [ModelEntity]
-    let leftEyePivot: Entity
-    let rightEyePivot: Entity
-    /// What the demo sheet's orbit camera targets.
-    let chestTarget: Entity
     let barbell: Entity?
 
     private var themed: [(ModelEntity, MascotPalette.Role)] = []
@@ -54,6 +56,7 @@ final class MascotRig {
         }
 
         var themed: [(ModelEntity, MascotPalette.Role)] = []
+        @discardableResult
         func attach(_ mesh: MeshResource, to joint: MascotJoint, offset: SIMD3<Float>, role: MascotPalette.Role) -> ModelEntity {
             let model = ModelEntity(mesh: mesh)
             model.position = offset
@@ -62,99 +65,133 @@ final class MascotRig {
             return model
         }
 
-        // Torso and head. Sizes echo the skeleton's bone lengths with a
-        // little overlap so segments read as one body.
-        _ = attach(box(0.23, 0.15, 0.15), to: .root, offset: [0, 0.01, 0], role: .body)
-        _ = attach(box(0.22, 0.21, 0.14), to: .spine, offset: [0, 0.09, 0], role: .body)
-        _ = attach(box(0.26, 0.17, 0.15), to: .chest, offset: [0, 0.06, 0], role: .body)
-        _ = attach(box(0.07, 0.07, 0.07), to: .neck, offset: [0, 0.03, 0], role: .body)
-        let head = attach(box(0.20, 0.22, 0.19, corner: 0.07), to: .head, offset: [0, 0.11, 0], role: .body)
+        // Torso: white pelvis and chest cowl over a dark abdomen —
+        // panels over an undersuit.
+        attach(box(0.24, 0.15, 0.15, corner: 0.055), to: .root, offset: [0, 0.005, 0], role: .panel)
+        attach(box(0.19, 0.15, 0.125), to: .spine, offset: [0, 0.085, 0], role: .joint)
+        attach(box(0.30, 0.19, 0.165, corner: 0.06), to: .chest, offset: [0, 0.055, 0], role: .panel)
+        attach(box(0.075, 0.075, 0.075), to: .neck, offset: [0, 0.03, 0], role: .joint)
 
-        // Limbs: capsule-ish boxes hanging from each pivot toward its
-        // child, so rotating the pivot swings the segment.
-        for (joint, size, offset) in [
-            (MascotJoint.leftShoulder, (0.058, 0.19, 0.058), SIMD3<Float>(0, -0.09, 0)),
-            (.rightShoulder, (0.058, 0.19, 0.058), [0, -0.09, 0]),
-            (.leftElbow, (0.052, 0.17, 0.052), [0, -0.08, 0]),
-            (.rightElbow, (0.052, 0.17, 0.052), [0, -0.08, 0]),
-            (.leftHip, (0.075, 0.27, 0.075), [0, -0.13, 0]),
-            (.rightHip, (0.075, 0.27, 0.075), [0, -0.13, 0]),
-            (.leftKnee, (0.065, 0.25, 0.065), [0, -0.12, 0]),
-            (.rightKnee, (0.065, 0.25, 0.065), [0, -0.12, 0]),
-        ] {
-            _ = attach(box(size.0, size.1, size.2), to: joint, offset: offset, role: .body)
-        }
+        // Head: white helmet, dark face panel on its front, the green
+        // "+" eyes EMBEDDED in the panel (build-80: no floating glyphs).
+        let head = attach(box(0.21, 0.23, 0.20, corner: 0.075), to: .head, offset: [0, 0.11, 0], role: .panel)
+        _ = head
+        let facePanel = ModelEntity(mesh: box(0.148, 0.112, 0.024, corner: 0.012))
+        facePanel.position = [0, 0.115, 0.093]
+        joints[.head]?.addChild(facePanel)
+        themed.append((facePanel, .facePanel))
 
-        // Feet, toes forward.
-        for ankle in [MascotJoint.leftAnkle, .rightAnkle] {
-            _ = attach(box(0.065, 0.05, 0.13), to: ankle, offset: [0, -0.02, 0.03], role: .hand)
-        }
-
-        // The face: two "+" glyphs on the head's front. Each eye is a
-        // pivot (for the tired droop) holding a horizontal bar and a
-        // vertical bar whose y-scale is driven by the face channel —
-        // a blink collapses the plus into a minus.
         var verticalBars: [ModelEntity] = []
-        func buildEye(x: Float) -> Entity {
+        for x in [Float(0.042), -0.042] {
             let pivot = Entity()
-            pivot.position = [x, 0.115, 0.098]
-            head.parent?.addChild(pivot)
-            let horizontal = ModelEntity(mesh: box(0.034, 0.008, 0.006))
-            let vertical = ModelEntity(mesh: box(0.008, 0.034, 0.006))
+            pivot.position = [x, 0.008, 0.011]
+            facePanel.addChild(pivot)
+            let horizontal = ModelEntity(mesh: box(0.036, 0.009, 0.006))
+            let vertical = ModelEntity(mesh: box(0.009, 0.036, 0.006))
             pivot.addChild(horizontal)
             pivot.addChild(vertical)
             themed.append((horizontal, .eye))
             themed.append((vertical, .eye))
             verticalBars.append(vertical)
-            return pivot
         }
-        leftEyePivot = buildEye(x: 0.048)
-        rightEyePivot = buildEye(x: -0.048)
         eyeVerticalBars = verticalBars
 
-        // Hands: a palm with three fingers and a thumb (cartoon rules).
-        // Around a prop the fingers wrap into a grip; otherwise they
-        // rest in a relaxed curl.
+        // Limbs: white segments with dark joint spheres at every
+        // articulation point.
+        for (joint, size, offset) in [
+            (MascotJoint.leftShoulder, (0.055, 0.17, 0.055), SIMD3<Float>(0, -0.09, 0)),
+            (.rightShoulder, (0.055, 0.17, 0.055), [0, -0.09, 0]),
+            (.leftElbow, (0.05, 0.15, 0.05), [0, -0.08, 0]),
+            (.rightElbow, (0.05, 0.15, 0.05), [0, -0.08, 0]),
+            (.leftHip, (0.072, 0.25, 0.072), [0, -0.13, 0]),
+            (.rightHip, (0.072, 0.25, 0.072), [0, -0.13, 0]),
+            (.leftKnee, (0.062, 0.23, 0.062), [0, -0.12, 0]),
+            (.rightKnee, (0.062, 0.23, 0.062), [0, -0.12, 0]),
+        ] {
+            attach(box(size.0, size.1, size.2), to: joint, offset: offset, role: .panel)
+        }
+        for (joint, radius) in [
+            (MascotJoint.leftShoulder, Float(0.048)), (.rightShoulder, 0.048),
+            (.leftElbow, 0.04), (.rightElbow, 0.04),
+            (.leftHip, 0.05), (.rightHip, 0.05),
+            (.leftKnee, 0.042), (.rightKnee, 0.042),
+        ] {
+            let sphere = ModelEntity(mesh: .generateSphere(radius: radius))
+            joints[joint]?.addChild(sphere)
+            themed.append((sphere, .joint))
+        }
+
+        // Big cartoon feet (matching the kit skeleton's support
+        // geometry: heel ~5 cm back, toes ~14.5 cm forward).
+        for ankle in [MascotJoint.leftAnkle, .rightAnkle] {
+            attach(box(0.07, 0.05, 0.195, corner: 0.022), to: ankle, offset: [0, -0.022, 0.048], role: .panel)
+            let sphere = ModelEntity(mesh: .generateSphere(radius: 0.038))
+            joints[ankle]?.addChild(sphere)
+            themed.append((sphere, .joint))
+        }
+
+        // Hands: a dark palm with three fingers and a thumb (cartoon
+        // rules). Around a prop the fingers wrap into a grip.
         let gripped = !animation.props.isEmpty
         for (wrist, side) in [(MascotJoint.leftWrist, Float(1)), (.rightWrist, -1)] {
-            _ = attach(box(0.06, 0.055, 0.052), to: wrist, offset: [0, -0.02, 0], role: .hand)
-            let fingerPitch: Float = gripped ? -1.45 : -0.45
+            attach(box(0.06, 0.055, 0.052), to: wrist, offset: [0, -0.02, 0], role: .joint)
+            let fingerPitch: Float = gripped ? -1.5 : -0.45
             for (index, dx) in [-0.018, 0, 0.018].enumerated() {
                 let finger = ModelEntity(mesh: box(0.015, 0.05, 0.015))
                 finger.position = [Float(dx), -0.045, 0.008]
                 finger.orientation = simd_quatf(angle: fingerPitch, axis: [1, 0, 0])
-                // Middle finger a touch longer, like a mitten that tried.
                 finger.scale = index == 1 ? [1, 1.15, 1] : [1, 1, 1]
                 joints[wrist]?.addChild(finger)
-                themed.append((finger, .hand))
+                themed.append((finger, .joint))
             }
             let thumb = ModelEntity(mesh: box(0.014, 0.04, 0.014))
             thumb.position = [side * 0.032, -0.028, 0.012]
-            thumb.orientation = simd_quatf(angle: gripped ? -1.1 : -0.35, axis: [1, 0, 0])
+            thumb.orientation = simd_quatf(angle: gripped ? -1.15 : -0.35, axis: [1, 0, 0])
                 * simd_quatf(angle: side * -0.35, axis: [0, 0, 1])
             joints[wrist]?.addChild(thumb)
-            themed.append((thumb, .hand))
+            themed.append((thumb, .joint))
         }
 
-        // The ground: a soft platform disc under the bot.
-        let ground = ModelEntity(mesh: .generateCylinder(height: 0.02, radius: 0.6))
+        // The room: a soft stage disc, a dot-grid floor, and dot-grid
+        // walls sized so the clamped orbit camera always stays inside.
+        let ground = ModelEntity(mesh: .generateCylinder(height: 0.02, radius: 0.62))
         ground.position = [0, -0.011, 0]
         container.addChild(ground)
         themed.append((ground, .ground))
 
-        // Props, built from primitives like everything else.
+        let floor = ModelEntity(mesh: .generatePlane(width: 6.4, depth: 6.4))
+        floor.position = [0, -0.024, 0]
+        container.addChild(floor)
+        themed.append((floor, .floor))
+
+        let back = ModelEntity(mesh: .generatePlane(width: 6.4, height: 3.4))
+        back.position = [0, 1.65, -2.5]
+        container.addChild(back)
+        themed.append((back, .wall))
+        for side in [Float(1), -1] {
+            let wall = ModelEntity(mesh: .generatePlane(width: 6.4, height: 3.4))
+            wall.position = [side * 2.7, 1.65, 0]
+            wall.orientation = simd_quatf(angle: side * -.pi / 2, axis: [0, 1, 0])
+            container.addChild(wall)
+            themed.append((wall, .wall))
+        }
+
+        // Props: green matte equipment, plates as ROUNDED-EDGE
+        // cylinders (a code-generated lathe — Dave's spec).
         if animation.props.contains(.barbell) {
             let bar = Entity()
             let shaft = ModelEntity(mesh: .generateCylinder(height: 0.92, radius: 0.017))
             shaft.orientation = simd_quatf(angle: .pi / 2, axis: [0, 0, 1])
             bar.addChild(shaft)
-            themed.append((shaft, .bar))
-            for x in [Float(-0.38), 0.38] {
-                let plate = ModelEntity(mesh: .generateCylinder(height: 0.045, radius: 0.095))
-                plate.orientation = simd_quatf(angle: .pi / 2, axis: [0, 0, 1])
-                plate.position = [x, 0, 0]
-                bar.addChild(plate)
-                themed.append((plate, .plate))
+            themed.append((shaft, .equipmentDark))
+            if let plateMesh = MascotMeshes.roundedCylinder(radius: 0.095, height: 0.05, edgeRadius: 0.02) {
+                for x in [Float(-0.38), 0.38] {
+                    let plate = ModelEntity(mesh: plateMesh)
+                    plate.orientation = simd_quatf(angle: .pi / 2, axis: [0, 0, 1])
+                    plate.position = [x, 0, 0]
+                    bar.addChild(plate)
+                    themed.append((plate, .equipment))
+                }
             }
             container.addChild(bar)
             barbell = bar
@@ -162,25 +199,27 @@ final class MascotRig {
             barbell = nil
         }
         if animation.props.contains(.dumbbellPair) {
+            let headMesh = MascotMeshes.roundedCylinder(radius: 0.042, height: 0.038, edgeRadius: 0.014)
             for wrist in [MascotJoint.leftWrist, .rightWrist] {
                 let dumbbell = Entity()
                 dumbbell.position = [0, -0.045, 0.012]
                 let handle = ModelEntity(mesh: .generateCylinder(height: 0.15, radius: 0.014))
                 handle.orientation = simd_quatf(angle: .pi / 2, axis: [0, 0, 1])
                 dumbbell.addChild(handle)
-                themed.append((handle, .bar))
-                for x in [Float(-0.062), 0.062] {
-                    let head = ModelEntity(mesh: .generateCylinder(height: 0.035, radius: 0.042))
-                    head.orientation = simd_quatf(angle: .pi / 2, axis: [0, 0, 1])
-                    head.position = [x, 0, 0]
-                    dumbbell.addChild(head)
-                    themed.append((head, .plate))
+                themed.append((handle, .equipmentDark))
+                if let headMesh {
+                    for x in [Float(-0.062), 0.062] {
+                        let head = ModelEntity(mesh: headMesh)
+                        head.orientation = simd_quatf(angle: .pi / 2, axis: [0, 0, 1])
+                        head.position = [x, 0, 0]
+                        dumbbell.addChild(head)
+                        themed.append((head, .equipment))
+                    }
                 }
                 joints[wrist]?.addChild(dumbbell)
             }
         }
 
-        chestTarget = joints[.chest] ?? container
         self.themed = themed
         apply(palette: palette)
     }
