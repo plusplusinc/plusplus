@@ -88,7 +88,7 @@ public extension WorkoutMetric {
     /// DECIDE its picker, not silently fall to the wheel.
     var isTimeSpan: Bool {
         switch self {
-        case .duration, .rest:
+        case .duration, .rest, .transition:
             true
         case .weight, .assistance, .reps, .height, .distance, .calories,
              .pace, .speed, .incline, .resistance, .power, .cadence, .rpe:

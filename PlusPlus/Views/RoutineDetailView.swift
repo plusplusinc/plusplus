@@ -1440,6 +1440,7 @@ struct RoutineSettingsScreen: View {
     @State private var schedulePerDays: Int
     @State private var confirmingDelete = false
     @State private var showingRestScrubber = false
+    @State private var showingTransitionScrubber = false
     /// Inline drafts (#207 — the rename/notes trays died). Name commits
     /// through Save/submit so #189's duplicate guard can veto; notes
     /// write live like every other field on this autosaving page.
@@ -1563,11 +1564,24 @@ struct RoutineSettingsScreen: View {
                         label: "Transition",
                         value: WorkoutMetric.transition.displayText(Double(routine.transitionSeconds)),
                         identifier: "transition",
+                        onTapValue: { showingTransitionScrubber = true },
                         onDecrement: { routine.transitionSeconds = Int(WorkoutMetric.transition.decremented(Double(routine.transitionSeconds))) },
                         onIncrement: { routine.transitionSeconds = Int(WorkoutMetric.transition.incremented(Double(routine.transitionSeconds))) }
                     )
                     .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
                     .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+                    .sheet(isPresented: $showingTransitionScrubber) {
+                        // A time span like rest, so it picks on the tape
+                        // (#373 landed the metric mid-flight; isTimeSpan's
+                        // exhaustive switch is what caught the join).
+                        MetricWheelSheet(
+                            metric: .transition,
+                            value: Binding(
+                                get: { Double(routine.transitionSeconds) },
+                                set: { routine.transitionSeconds = Int(($0 ?? Double(routine.transitionSeconds)).rounded()) }
+                            )
+                        )
+                    }
 
                     // Rest is for a new round of the same block (#369) —
                     // switching stations gets this shorter pause.

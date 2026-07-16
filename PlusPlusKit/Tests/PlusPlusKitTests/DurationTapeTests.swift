@@ -70,11 +70,21 @@ struct DurationTapeTests {
         #expect(DurationTape.label(for: 3600) == "60:00")
     }
 
-    @Test("Duration and rest are time spans; pace is a rate, reps aren't time")
+    @Test("Duration, rest, and transition are time spans; pace is a rate, reps aren't time")
     func timeSpanMetrics() {
         #expect(WorkoutMetric.duration.isTimeSpan)
         #expect(WorkoutMetric.rest.isTimeSpan)
+        #expect(WorkoutMetric.transition.isTimeSpan)
         #expect(!WorkoutMetric.pace.isTimeSpan)
         #expect(!WorkoutMetric.reps.isTimeSpan)
+    }
+
+    @Test("The transition tape starts at zero — 0s is a legal pick (no countdown)")
+    func transitionTape() {
+        let transition = DurationTape(range: 0...600)
+        #expect(transition.offset(for: 0) == 0)
+        #expect(transition.seconds(atOffset: -10) == 0)
+        #expect(transition.ticks(in: 0...30).first?.seconds == 0)
+        #expect(DurationTape.label(for: 0) == "0s")
     }
 }
