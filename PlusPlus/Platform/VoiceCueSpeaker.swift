@@ -65,23 +65,26 @@ enum VoiceCueVoice {
     /// voice list has real cost — call once per tray appearance, not
     /// per render.
     static func options() -> [Option] {
-        let voices = AVSpeechSynthesisVoice.speechVoices()
-            .filter { voice in
-                voice.language.hasPrefix("en")
-                    && !voice.voiceTraits.contains(.isNoveltyVoice)
-                    && !voice.voiceTraits.contains(.isPersonalVoice)
+        let voices = AVSpeechSynthesisVoice.speechVoices().filter { voice in
+            voice.language.hasPrefix("en")
+                && !voice.voiceTraits.contains(.isNoveltyVoice)
+                && !voice.voiceTraits.contains(.isPersonalVoice)
+        }
+        // Typed intermediate: a multi-statement map closure in a chain
+        // leaves the element type uninferred at the sorted step.
+        let named: [Option] = voices.map { voice in
+            var label = voice.name
+            switch voice.quality {
+            case .enhanced: label += " · Enhanced"
+            case .premium: label += " · Premium"
+            default: break
             }
-            .map { voice in
-                var label = voice.name
-                switch voice.quality {
-                case .enhanced: label += " · Enhanced"
-                case .premium: label += " · Premium"
-                default: break
-                }
-                return Option(id: voice.identifier, label: label)
-            }
-            .sorted { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
-        return [Option(id: "", label: "System default")] + voices
+            return Option(id: voice.identifier, label: label)
+        }
+        let sorted = named.sorted {
+            $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending
+        }
+        return [Option(id: "", label: "System default")] + sorted
     }
 }
 
