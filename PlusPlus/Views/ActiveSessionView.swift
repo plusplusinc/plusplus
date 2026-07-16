@@ -644,7 +644,13 @@ struct ActiveSessionView: View {
             let runTrack = location.sessionTrack
             let runRoute = location.sessionRoute
             location.stop()
-            if !runTrack.isEmpty {
+            // Positive-measurement gate, not just non-empty: a degenerate
+            // track (standing still → zero distance, or sub-floor creep →
+            // zero moving time) must stamp NOTHING — the validator requires
+            // positive run measurements, and an invalid session file would
+            // make a whole repo restore throw. No summary, no sidecar; the
+            // set actuals still tell the honest story.
+            if !runTrack.isEmpty, runTrack.totalMeters > 0, runTrack.movingSeconds > 0 {
                 session.routeData = GPX.encode(runTrack, name: session.routineName, startedAt: session.effectiveStart)
                 session.runDistanceMeters = runTrack.totalMeters
                 session.runMovingSeconds = runTrack.movingSeconds
