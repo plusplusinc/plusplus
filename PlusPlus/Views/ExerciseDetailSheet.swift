@@ -269,8 +269,10 @@ struct ExerciseDetailSheet: View {
                 }
             }
             // The cardio prescription rides with the cardio profiles —
-            // same placement the duration branch gave it.
-            if profile.legacyType == .duration {
+            // same placement the duration branch gave it; stretches and
+            // holds drop it (Exercise.showsHeartRateTargetRow owns the
+            // rule, stale-target escape included).
+            if exercise?.showsHeartRateTargetRow(existingTarget: routineExercise.heartRateTarget) == true {
                 heartRateTargetRow
             }
             MetricStepperRow(

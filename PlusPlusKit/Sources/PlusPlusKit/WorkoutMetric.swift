@@ -13,8 +13,9 @@ import Foundation
 public enum WorkoutMetric: String, Codable, CaseIterable, Sendable, Identifiable {
     // Declaration order IS the canonical display order (MetricProfile
     // normalizes to it): loads first, then work quantities, then the
-    // machine-dial facts, then subjective rating. `rest` is block
-    // configuration, not a tracked metric — it never joins a profile.
+    // machine-dial facts, then subjective rating. `rest` and `transition`
+    // are block configuration, not tracked metrics — they never join a
+    // profile (`isBlockConfiguration`).
     case weight
     case assistance
     case reps
@@ -30,6 +31,10 @@ public enum WorkoutMetric: String, Codable, CaseIterable, Sendable, Identifiable
     case cadence
     case rpe
     case rest
+    /// Pause when the session moves to a DIFFERENT exercise or block —
+    /// just enough to switch stations (#369). Rest covers a new round of
+    /// the same block. 0 means no countdown at all.
+    case transition
 
     /// Which direction means progress — drives diff celebration. `.down`
     /// metrics improve by shrinking (a faster split, less assistance);
@@ -41,11 +46,18 @@ public enum WorkoutMetric: String, Codable, CaseIterable, Sendable, Identifiable
 
     public var id: String { rawValue }
 
+    /// Block configuration, not a tracked quantity: rest and transition
+    /// shape the pause after a set. They never join a MetricProfile, stay
+    /// out of the metric pickers, and may not ride an extras dictionary.
+    public var isBlockConfiguration: Bool {
+        self == .rest || self == .transition
+    }
+
     public var improvementDirection: ImprovementDirection {
         switch self {
         case .weight, .reps, .duration, .distance, .power, .calories, .height: .up
         case .pace, .assistance: .down
-        case .speed, .incline, .resistance, .cadence, .rpe, .rest: .neutral
+        case .speed, .incline, .resistance, .cadence, .rpe, .rest, .transition: .neutral
         }
     }
 
@@ -74,6 +86,7 @@ public enum WorkoutMetric: String, Codable, CaseIterable, Sendable, Identifiable
         case .cadence: "Cadence"
         case .rpe: "RPE"
         case .rest: "Rest"
+        case .transition: "Transition"
         }
     }
 
@@ -88,7 +101,7 @@ public enum WorkoutMetric: String, Codable, CaseIterable, Sendable, Identifiable
         case .height: weightUnit == .kg ? "cm" : "in"
         case .distance: distanceUnit.symbol
         case .calories: "cal"
-        case .duration, .rest: "sec"
+        case .duration, .rest, .transition: "sec"
         case .pace: distanceUnit.paceLabel
         case .speed: distanceUnit.speedLabel
         case .incline: "%"
@@ -113,6 +126,9 @@ public enum WorkoutMetric: String, Codable, CaseIterable, Sendable, Identifiable
         case .calories: 5
         case .duration: 15
         case .rest: 15
+        // Finer than rest: transitions live in the 0–60 s range, where a
+        // 15 s stride would skip every value Dave actually wants.
+        case .transition: 5
         case .pace: 5
         case .speed: 0.5
         case .incline: 0.5
@@ -139,6 +155,7 @@ public enum WorkoutMetric: String, Codable, CaseIterable, Sendable, Identifiable
         case .calories: 1
         case .duration: 5
         case .rest: 15
+        case .transition: 5
         case .pace: distanceUnit.paceWheelStep
         case .speed: 0.5
         case .incline: 0.5
@@ -163,6 +180,8 @@ public enum WorkoutMetric: String, Codable, CaseIterable, Sendable, Identifiable
         case .calories: 1...2000
         case .duration: 5...3600
         case .rest: 15...600
+        // 0 is legal and means "no countdown" — back-to-back stations.
+        case .transition: 0...600
         case .pace: distanceUnit.paceRange
         case .speed: distanceUnit.speedRange
         case .incline: 0...15
@@ -203,7 +222,11 @@ public enum WorkoutMetric: String, Codable, CaseIterable, Sendable, Identifiable
         case .distance: distanceUnit.defaultValue
         case .calories: 15
         case .duration: 30
-        case .rest: 90
+        // 45, not 90 (#369): with transitions carved out, rest no longer
+        // has to cover station switches. Existing routines keep their
+        // stored value; this is the prescription for NEW ones.
+        case .rest: 45
+        case .transition: 15
         case .pace: distanceUnit.paceDefault
         case .speed: distanceUnit.speedDefault
         case .incline: 1

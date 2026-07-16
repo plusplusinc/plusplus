@@ -41,6 +41,10 @@ struct ActiveSessionView: View {
     /// session default. Captured at log time with the end date so the
     /// recharge blocks' denominator matches the countdown they drain.
     @State private var restTotalSeconds = 90
+    /// Whether the current countdown is a TRANSITION — the session moved
+    /// to a different exercise or block (#369) — so the screen says
+    /// SWITCH instead of REST. Captured at log time with the length.
+    @State private var restIsTransition = false
     /// The just-logged set, held on screen ~0.75 s so the "+1" beat has
     /// time to play before rest/finish takes the view (Dave, build-42:
     /// the instant swap ate the flourish). Data commits immediately —
@@ -125,6 +129,7 @@ struct ActiveSessionView: View {
                     RestView(
                         endDate: restEndDate,
                         totalSeconds: restTotalSeconds,
+                        isTransition: restIsTransition,
                         upNext: displayLog,
                         heartRate: heartRate,
                         location: isOutdoorNow ? location : nil,
@@ -265,9 +270,12 @@ struct ActiveSessionView: View {
         }
         // A WATCH-initiated rest (live mirror, #322) reflected onto the
         // open phone view — the countdown appears/clears here too.
+        // The mirror op is kind-agnostic, so a watch-initiated pause
+        // always reads REST here (#369 deferred the kind op-field).
         .onReceive(NotificationCenter.default.publisher(for: LiveMirror.restChanged)) { note in
             if let endsAt = note.object as? Date {
                 restTotalSeconds = max(1, Int(endsAt.timeIntervalSinceNow.rounded()))
+                restIsTransition = false
                 restEndDate = endsAt
             } else {
                 restEndDate = nil
@@ -298,7 +306,8 @@ struct ActiveSessionView: View {
             upNextSet: upNext.setNumber,
             setsCompleted: completedSets,
             totalSets: totalSets,
-            restEnd: endDate
+            restEnd: endDate,
+            isTransition: restIsTransition
         )
         LiveMirror.shared.restStarted(endsAt: endDate, total: restTotalSeconds, in: session)
     }
@@ -568,16 +577,25 @@ struct ActiveSessionView: View {
         }
 
         if hasNext {
-            // Rest STARTS now (endDate anchored at log time) even though
-            // its screen waits out the beat — the countdown stays honest.
-            // The rest-over cue is watch haptics + the Live Activity
-            // countdown, not a phone notification (#322).
-            let restLength = session.restSeconds(after: log)
-            restTotalSeconds = restLength
-            let endDate = Date().addingTimeInterval(TimeInterval(restLength))
-            restEndDate = endDate
-            if let upNext = session.currentLog {
-                reflectRest(endDate: endDate, upNext: upNext)
+            // The pause STARTS now (endDate anchored at log time) even
+            // though its screen waits out the beat — the countdown stays
+            // honest. The pause-over cue is watch haptics + the Live
+            // Activity countdown, not a phone notification (#322). A new
+            // round of the same block rests; a different exercise or
+            // block gets the shorter transition (#369).
+            let pause = session.pause(after: log)
+            if pause.seconds > 0 {
+                restTotalSeconds = pause.seconds
+                restIsTransition = pause.isTransition
+                let endDate = Date().addingTimeInterval(TimeInterval(pause.seconds))
+                restEndDate = endDate
+                if let upNext = session.currentLog {
+                    reflectRest(endDate: endDate, upNext: upNext)
+                }
+            } else {
+                // A 0-second transition: no countdown at all, straight
+                // to the next station.
+                syncActivityWorking()
             }
         } else {
             syncActivityWorking()
@@ -1940,6 +1958,10 @@ private struct RestView: View {
     /// The configured rest length — the recharge blocks' denominator
     /// (an extension can push `remaining` past it; the blocks cap full).
     let totalSeconds: Int
+    /// A transition (different exercise or block up next, #369) says
+    /// SWITCH; a new round of the same block says REST. Same screen,
+    /// same controls — only the word changes.
+    let isTransition: Bool
     let upNext: SetLog
     /// Live vitals through the rest: heart rate always, pace when the
     /// recovery interval is part of an outdoor run (a walk break still
@@ -1964,7 +1986,7 @@ private struct RestView: View {
             GeometryReader { screen in
               ScrollView {
                 VStack(spacing: 20) {
-                Text("REST")
+                Text(isTransition ? "SWITCH" : "REST")
                     .font(.system(.caption, design: .monospaced, weight: .semibold))
                     .foregroundStyle(Theme.textSecondary)
                     .kerning(1)
@@ -2030,7 +2052,7 @@ private struct RestView: View {
                         .buttonStyle(.raisedKey())
                         .accessibilityIdentifier("extendRestButton")
                         Button(action: onEnd) {
-                            Text("Skip rest")
+                            Text(isTransition ? "Skip" : "Skip rest")
                                 .font(.system(.subheadline, weight: .bold))
                                 .foregroundStyle(Theme.onPrimary)
                                 .lineLimit(1)

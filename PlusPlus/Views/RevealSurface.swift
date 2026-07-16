@@ -15,6 +15,8 @@ import PlusPlusKit
 struct RevealSurface: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(RevealController.self) private var reveal
+    @Environment(ViewContext.self) private var viewContext
     // Appearance now lives in the Settings tray (SettingsTray owns that
     // @AppStorage). The weight unit stays here — export/import read it.
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw = WeightUnit.lb.rawValue
@@ -27,6 +29,12 @@ struct RevealSurface: View {
     @State private var sync = GitHubSyncCoordinator.shared
     @State private var health = HealthSyncCoordinator.shared
     @State private var calendar = CalendarSyncCoordinator.shared
+
+    /// Operator's conductor — created LAZILY on first use (drawer open
+    /// or hero tap), never at app init: the model session and thread
+    /// load shouldn't cost a launch that never opens the drawer.
+    @State private var operatorController: OperatorController?
+    @State private var operatorAvailability = OperatorAvailability.current()
 
     @State private var activeTray: Tray?
     /// Work queued behind a closing tray — run in the tray's onDismiss so
@@ -44,7 +52,7 @@ struct RevealSurface: View {
     @State private var importResultMessage: String?
     @State private var dataError: String?
 
-    enum Tray: String, Identifiable { case library, sync, health, calendar, settings, data, whatsNew, about; var id: String { rawValue } }
+    enum Tray: String, Identifiable { case operatorChat, library, sync, health, calendar, settings, data, whatsNew, about; var id: String { rawValue } }
     enum Push: String, Identifiable { case equipment; var id: String { rawValue } }
 
     private var version: String {
@@ -62,7 +70,9 @@ struct RevealSurface: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 identity
-                libraryCard
+                operatorHero
+                    .padding(.top, 26)
+                librarySection
                     .padding(.top, 26)
                 syncSection
                     .padding(.top, 26)
@@ -144,47 +154,122 @@ struct RevealSurface: View {
         }
     }
 
-    // MARK: - Active-library card (the hero)
+    // MARK: - Operator card (the hero)
 
-    private var libraryCard: some View {
+    /// Operator takes the hero slot (Dave, 2026-07-15); the active
+    /// library demotes to a row below. Always visible — unavailable
+    /// states show a quiet status word here and explain themselves
+    /// inside the tray, in Operator's voice.
+    private var operatorHero: some View {
+        Button { openOperator() } label: {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 7) {
+                    Circle()
+                        .fill(operatorAvailability == .ready ? Theme.accent : Theme.textFaint)
+                        .frame(width: 8, height: 8)
+                        .accessibilityHidden(true)
+                    Text("OPERATOR")
+                        .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                        .foregroundStyle(operatorAvailability == .ready ? Theme.accent : Theme.textFaint)
+                        .kerning(0.5)
+                    Spacer()
+                    if let word = operatorAvailability.statusWord {
+                        Text(word)
+                            .font(.system(.caption2, design: .monospaced))
+                            .foregroundStyle(Theme.textFaint)
+                    }
+                }
+                HStack(alignment: .center, spacing: 6) {
+                    Text("Operator")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(Theme.textPrimary)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(.caption, weight: .bold))
+                        .foregroundStyle(Theme.textFaint)
+                }
+                Text(operatorSnippet)
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(Theme.textFaint)
+                    .lineLimit(1)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius - 2))
+            .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius - 2).strokeBorder(Theme.borderStrong))
+        }
+        .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: Theme.cardRadius - 2, travel: 3))
+        .accessibilityIdentifier("operatorHeroCard")
+        // Availability flips in Settings, outside the app; the session
+        // prewarms as soon as the drawer opens so the first turn is fast.
+        .onChange(of: reveal.isOpen) { _, isOpen in
+            guard isOpen else { return }
+            operatorAvailability = .current()
+            if operatorAvailability == .ready {
+                ensureOperatorController().prewarmIfReady()
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { operatorAvailability = .current() }
+        }
+    }
+
+    /// The hero's one-line sub: the last thing Operator said, else the
+    /// tagline. Reads from the loaded controller only — the hero never
+    /// forces the thread off disk just to render.
+    private var operatorSnippet: String {
+        guard let controller = operatorController else { return OperatorPersona.heroTagline }
+        for message in controller.messages.reversed() {
+            switch message.kind {
+            case .reply(let text):
+                let line = text.split(separator: "\n").first.map(String.init) ?? text
+                if !line.isEmpty { return line }
+            case .receipt(let payload):
+                return payload.summary
+            default:
+                continue
+            }
+        }
+        return OperatorPersona.heroTagline
+    }
+
+    @discardableResult
+    private func ensureOperatorController() -> OperatorController {
+        if let operatorController { return operatorController }
+        let controller = OperatorController(context: modelContext)
+        controller.contextLine = { [weak viewContext] in viewContext?.line }
+        controller.hasWorkoutHistory = { [modelContext] in
+            ((try? modelContext.fetchCount(FetchDescriptor<WorkoutSession>())) ?? 0) > 0
+        }
+        operatorController = controller
+        return controller
+    }
+
+    private func openOperator() {
+        ensureOperatorController()
+        openTray(.operatorChat)
+    }
+
+    // MARK: - Active-library row (demoted from the hero slot)
+
+    private var librarySection: some View {
         let items = activeLibrary?.members.count ?? 0
         let itemsText = items == 0 ? "bodyweight" : "\(items) item\(items == 1 ? "" : "s")"
-        return VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text("ACTIVE LIBRARY")
-                    .font(.system(.caption2, design: .monospaced, weight: .semibold))
-                    .foregroundStyle(Theme.accent)
-                    .kerning(0.5)
-                Spacer()
-                Button { openTray(.library) } label: {
-                    Text("Switch")
-                        .font(.system(.caption2, weight: .semibold))
+        return VStack(alignment: .leading, spacing: 10) {
+            SheetSectionLabel("LIBRARY")
+            statusRow(
+                dot: Theme.accent,
+                icon: {
+                    Image(systemName: "dumbbell")
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(Theme.textPrimary)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(Theme.background, in: RoundedRectangle(cornerRadius: 8))
-                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.borderStrong))
-                }
-                .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: 8, travel: 3))
-                .accessibilityIdentifier("revealSwitchLibrary")
-            }
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(activeLibrary?.name ?? "Home")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary)
-                Text("· \(itemsText)")
-                    .font(.system(.subheadline))
-                    .foregroundStyle(Theme.textSecondary)
-            }
-            Text("\(exerciseCount(for: activeLibrary)) exercises · \(routineCount(for: activeLibrary)) routines")
-                .font(.system(.caption2, design: .monospaced))
-                .foregroundStyle(Theme.textFaint)
+                        .frame(width: 16, height: 16)
+                },
+                title: activeLibrary?.name ?? "Home",
+                status: itemsText,
+                identifier: "revealLibraryRow"
+            ) { openTray(.library) }
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius - 2))
-        .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius - 2).strokeBorder(Theme.borderStrong))
-        .raisedPlate(cornerRadius: Theme.cardRadius - 2)
     }
 
     // MARK: - Sync rows (GitHub + Calendar)
@@ -372,6 +457,14 @@ struct RevealSurface: View {
     @ViewBuilder
     private func trayContent(_ tray: Tray) -> some View {
         switch tray {
+        case .operatorChat:
+            // The controller exists by construction (openOperator creates
+            // it before presenting); the fallback renders nothing.
+            if let operatorController {
+                OperatorTray(controller: operatorController)
+            } else {
+                Color.clear
+            }
         case .library:
             LibraryTray(
                 exerciseCount: { exerciseCount(for: $0) },
@@ -489,22 +582,6 @@ struct RevealSurface: View {
         }
         lines.append("Sessions: \(summary.sessionsAdded) added, \(summary.sessionsSkipped) already present")
         return lines.joined(separator: "\n")
-    }
-}
-
-// MARK: - Raised base-plate (for non-button cards that sit proud)
-
-private extension View {
-    /// A 3 pt base plate under a card, mirroring RaisedKeyStyle's plate so
-    /// a static card reads as part of the same key family without pressing.
-    func raisedPlate(cornerRadius: CGFloat) -> some View {
-        self
-            .padding(.bottom, 3)
-            .background {
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(Theme.border)
-                    .padding(.top, 3)
-            }
     }
 }
 

@@ -21,8 +21,17 @@ final class Routine {
     var uuid: UUID?
     var createdAt: Date
     var order: Int
-    /// Rest between sets during execution, in seconds.
-    var restSeconds: Int = 90
+    /// Rest between sets during execution, in seconds. New routines
+    /// default to 45 (#369): with transitions carved out, rest no longer
+    /// has to cover station switches.
+    var restSeconds: Int = 45
+    /// Pause when the session moves to a DIFFERENT exercise or block —
+    /// just enough to switch stations (#369); rest covers a new round of
+    /// the same block. 0 means no countdown at all. Constant property
+    /// default on purpose: lightweight migration stamps every existing
+    /// routine 15 s, which IS the feature — station switches (and
+    /// superset partners) shorten from a full rest to a transition.
+    var transitionSeconds: Int = 15
     /// Freeform intent for the whole routine ("keep it under an hour",
     /// "finisher optional") — shown at session start.
     var notes: String?
@@ -32,12 +41,13 @@ final class Routine {
     @Relationship(deleteRule: .cascade, inverse: \ExerciseGroup.routine)
     var groups: [ExerciseGroup] = []
 
-    init(name: String, order: Int = 0, restSeconds: Int = 90, notes: String? = nil) {
+    init(name: String, order: Int = 0, restSeconds: Int = 45, transitionSeconds: Int = 15, notes: String? = nil) {
         self.uuid = UUID()
         self.name = name
         self.createdAt = Date()
         self.order = order
         self.restSeconds = restSeconds
+        self.transitionSeconds = transitionSeconds
         self.notes = notes
     }
 
@@ -86,29 +96,31 @@ final class Routine {
     }
 
     /// Rough all-in seconds for the detail meta line: ~45 s of work per
-    /// weight set, the actual target for timed sets, plus rest between
-    /// sets (matches the v2 prototype's estimate). Blocks with a rest
-    /// override (interval blocks) count their own rest.
+    /// weight set, the actual target for timed sets, plus the pause after
+    /// every set but the last (#369) — rest before a new round of the same
+    /// block (interval blocks count their override), transition when the
+    /// session moves to a superset partner or another block.
     var estimatedSeconds: Int {
         var work = 0
-        var rest = 0
-        var lastRest = restSeconds
-        for group in sortedGroups {
+        var pauses = 0
+        let populated = sortedGroups.filter { !$0.sortedExercises.isEmpty }
+        for group in populated {
+            let rounds = max(group.sets, 1)
             let groupRest = group.restSecondsOverride ?? restSeconds
             for entry in group.sortedExercises {
                 let perSet = entry.exercise?.exerciseType == .duration
                     ? (entry.durationSeconds ?? 45)
                     : 45
-                work += perSet * group.sets
-                rest += groupRest * group.sets
+                work += perSet * rounds
             }
-            if !group.sortedExercises.isEmpty {
-                lastRest = groupRest
-            }
+            // Superset partners hand off within the round; each new round
+            // of the block is the rest.
+            pauses += (group.sortedExercises.count - 1) * transitionSeconds * rounds
+            pauses += (rounds - 1) * groupRest
         }
-        // Rest follows every set except the very last — whose length is
-        // the FINAL block's, not the routine default's.
-        return work + max(0, rest - lastRest)
+        // Every block boundary is a station switch.
+        pauses += max(0, populated.count - 1) * transitionSeconds
+        return work + pauses
     }
 
     /// "~40 min" — the shared rendering of `estimatedSeconds` (Today
@@ -130,9 +142,12 @@ final class Routine {
     // invariants hold; views should not assemble groups by hand.
 
     /// Adds an exercise in its own new group at the end of the routine.
+    /// The set count is the exercise's own default (config audit: a
+    /// stretch lands as one hold, a steady erg piece as one round, a
+    /// press as the classic 3).
     @discardableResult
     func addExerciseInNewGroup(_ exercise: Exercise, context: ModelContext) -> ExerciseGroup {
-        let group = ExerciseGroup(order: groups.count, sets: 3)
+        let group = ExerciseGroup(order: groups.count, sets: exercise.defaultSetCount)
         group.routine = self
         context.insert(group)
 
@@ -145,30 +160,18 @@ final class Routine {
         return group
     }
 
-    /// Fresh entries start from the exercise's own defaults (#187) and
-    /// fall back to the design's global ones (10 reps / 45 s) instead of
-    /// blank targets. Richer cardio profiles take defaults only — a
-    /// fabricated duration target would hijack the set's driver (the
-    /// appendExercise rule).
+    /// Fresh entries start from `Exercise.addTimeTargets` — the ONE
+    /// resolution (own bumped default #187 → catalog assignment → global
+    /// floor) shared with the session add sheet, so the two paths can
+    /// never prefill differently.
     private func applyDefaultTargets(to entry: RoutineExercise, for exercise: Exercise) {
-        let profile = exercise.metricProfile
-        if profile.contains(.weight) {
-            entry.weight = exercise.defaultWeight
-        }
-        if profile.tracksReps {
-            entry.reps = exercise.defaultReps ?? 10
-            entry.repsUpper = exercise.defaultRepsUpper
-        }
-        if profile.contains(.duration) {
-            entry.durationSeconds = exercise.defaultDurationSeconds
-                ?? (profile.metrics == [.duration] ? 45 : nil)
-        }
-        // The heart-rate prescription prefills on cardio entries, same
-        // as the other defaults (#187).
-        if profile.legacyType == .duration {
-            entry.heartRateTargetData = exercise.defaultHeartRateTargetData
-        }
-        entry.extraTargets = exercise.extraDefaults.filter { profile.contains($0.key) }
+        let targets = exercise.addTimeTargets
+        entry.weight = targets.weight
+        entry.reps = targets.reps
+        entry.repsUpper = targets.repsUpper
+        entry.durationSeconds = targets.durationSeconds
+        entry.heartRateTargetData = targets.heartRateTargetData
+        entry.extraTargets = targets.extraTargets
     }
 
     /// Adds an exercise to an existing group, making (or extending) a

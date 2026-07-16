@@ -107,6 +107,9 @@ struct ShareImportSheet: View {
 
     private var metaLine: String {
         var parts = ["\(exerciseCount) exercise\(exerciseCount == 1 ? "" : "s")", "rest \(routine.restSeconds)s"]
+        if let transition = routine.transitionSeconds {
+            parts.append("transition \(transition)s")
+        }
         if payload.units != nil {
             parts.append(senderUnit.rawValue)
         }

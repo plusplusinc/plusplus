@@ -21,6 +21,13 @@ final class WorkoutSession {
     var sessionId: UUID = UUID()
     /// Snapshot of the routine's rest setting at start time.
     var restSeconds: Int = 90
+    /// Snapshot of the routine's transition setting at start time (#369):
+    /// the pause when the session moves to a different exercise or block,
+    /// where rest covers a new round of the same block. Constant default
+    /// stamps old rows 15 — inert on finished history, and NOT in the
+    /// interchange (see the census: a finished record's real gaps live in
+    /// `completedAt`).
+    var transitionSeconds: Int = 15
     /// When the workout TIMER first engaged — the first exercise being
     /// started. nil while an ad-hoc session is still being assembled: no
     /// clock runs during setup (Dave, 2026-07-11). Routine sessions
@@ -50,11 +57,12 @@ final class WorkoutSession {
     @Relationship(deleteRule: .cascade, inverse: \SetLog.session)
     var setLogs: [SetLog] = []
 
-    init(routine: Routine? = nil, routineName: String, startedAt: Date = Date(), restSeconds: Int = 90) {
+    init(routine: Routine? = nil, routineName: String, startedAt: Date = Date(), restSeconds: Int = 45, transitionSeconds: Int = 15) {
         self.routine = routine
         self.routineName = routineName
         self.startedAt = startedAt
         self.restSeconds = restSeconds
+        self.transitionSeconds = transitionSeconds
     }
 
     var sortedSetLogs: [SetLog] {
@@ -132,10 +140,26 @@ final class WorkoutSession {
         return sortedSetLogs.contains { !$0.isCompleted && $0 !== log && $0.exerciseName == log.exerciseName }
     }
 
-    /// The rest that follows a just-completed set: its block's override
-    /// when one exists (interval blocks), else the session default.
-    func restSeconds(after log: SetLog) -> Int {
-        log.restSecondsOverride ?? restSeconds
+    /// The pause that follows a just-completed set (#369): a NEW ROUND of
+    /// the same block earns the block's rest (override when one exists —
+    /// interval blocks — else the session default); anything else — the
+    /// superset partner within a round, or the first set of another block
+    /// — is a transition, just enough to switch stations. Classified
+    /// against wherever the cursor points next, so jump/redo reclassifies
+    /// naturally. A 0-second transition means no countdown at all.
+    ///
+    /// Callers freeze the result at log time. A structure edit DURING the
+    /// countdown (resizing the pending block from the exercise sheet) can
+    /// invalidate the frozen kind/length — accepted (swift-reviewer MED):
+    /// self-inflicted, one countdown, and +30s/Skip are on screen.
+    func pause(after log: SetLog) -> (seconds: Int, isTransition: Bool) {
+        let rest = (seconds: log.restSecondsOverride ?? restSeconds, isTransition: false)
+        // Asked before the completion landed, the cursor still points at
+        // `log` itself (same block, same setNumber — it would misread as
+        // a transition). Never classify against itself; fall back to rest.
+        guard let next = currentLog, next !== log else { return rest }
+        let newRoundOfSameBlock = next.groupIndex == log.groupIndex && next.setNumber != log.setNumber
+        return newRoundOfSameBlock ? rest : (seconds: transitionSeconds, isTransition: true)
     }
 
     var isFinished: Bool { endedAt != nil }
@@ -233,7 +257,8 @@ final class WorkoutSession {
             routine: routine,
             routineName: routine.name,
             startedAt: date,
-            restSeconds: routine.restSeconds
+            restSeconds: routine.restSeconds,
+            transitionSeconds: routine.transitionSeconds
         )
         context.insert(session)
         // A routine session is started the moment it's presented — the
@@ -302,13 +327,13 @@ extension WorkoutSession {
         return session
     }
 
-    /// Appends `sets` pending logs of `exercise` as a new solo block at
-    /// the end of the session, targets prefilled from the exercise's own
-    /// defaults (#187). The convenience overload; the configured path
-    /// (a set count and targets chosen in the add sheet) is
-    /// `appendExercise(config:context:)`.
+    /// Appends pending logs of `exercise` as a new solo block at the end
+    /// of the session, targets prefilled from the exercise's own
+    /// defaults (#187). nil sets = the exercise's default count. The
+    /// convenience overload; the configured path (a set count and
+    /// targets chosen in the add sheet) is `appendExercise(config:context:)`.
     @discardableResult
-    func appendExercise(_ exercise: Exercise, sets: Int = 3, context: ModelContext) -> [SetLog] {
+    func appendExercise(_ exercise: Exercise, sets: Int? = nil, context: ModelContext) -> [SetLog] {
         appendExercise(config: SessionExerciseConfig(exercise: exercise, sets: sets), context: context)
     }
 
@@ -455,7 +480,7 @@ extension WorkoutSession {
 
         let trimmed = proposed.trimmingCharacters(in: .whitespaces)
         let name = Routine.uniqueName(trimmed.isEmpty ? Self.scratchName : trimmed, among: existing)
-        let routine = Routine(name: name, order: 0, restSeconds: restSeconds)
+        let routine = Routine(name: name, order: 0, restSeconds: restSeconds, transitionSeconds: transitionSeconds)
         context.insert(routine)
 
         for key in blockOrder {
@@ -528,25 +553,21 @@ final class SessionExerciseConfig: Identifiable {
     var heartRateTargetData: Data?
     var extraTargets: [WorkoutMetric: Double]
 
-    init(exercise: Exercise, sets: Int = 3) {
+    init(exercise: Exercise, sets: Int? = nil) {
         self.exercise = exercise
-        let profile = exercise.metricProfile
-        self.profile = profile
-        self.sets = sets
-        // The same prefill the old appendExercise and
-        // Routine.applyDefaultTargets use: the classic profiles keep
-        // their floor prescriptions (a 10-rep / 45 s block is startable
-        // as-is); richer cardio profiles take the exercise's own
-        // defaults only — a fabricated 45 s target on a 2000 m rower
-        // would hijack the driver into a timer.
-        self.weight = profile.contains(.weight) ? exercise.defaultWeight : nil
-        self.reps = profile.tracksReps ? (exercise.defaultReps ?? 10) : nil
-        self.repsUpper = profile.tracksReps ? exercise.defaultRepsUpper : nil
-        self.durationSeconds = profile.contains(.duration)
-            ? (exercise.defaultDurationSeconds ?? (profile.metrics == [.duration] ? 45 : nil))
-            : nil
-        self.heartRateTargetData = profile.legacyType == .duration ? exercise.defaultHeartRateTargetData : nil
-        self.extraTargets = exercise.extraDefaults.filter { profile.contains($0.key) }
+        self.profile = exercise.metricProfile
+        // nil = the exercise's own default count (a stretch is one hold,
+        // a press the classic 3) — same resolution as routine adds.
+        self.sets = sets ?? exercise.defaultSetCount
+        // The ONE prefill resolution shared with Routine's add path
+        // (own bumped default #187 → catalog assignment → global floor).
+        let targets = exercise.addTimeTargets
+        self.weight = targets.weight
+        self.reps = targets.reps
+        self.repsUpper = targets.repsUpper
+        self.durationSeconds = targets.durationSeconds
+        self.heartRateTargetData = targets.heartRateTargetData
+        self.extraTargets = targets.extraTargets
     }
 
     /// Typed view over `heartRateTargetData`.

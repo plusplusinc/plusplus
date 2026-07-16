@@ -139,9 +139,18 @@ struct RoutineCatalogScreen: View {
             case nil:
                 break
             }
-            if search.isEmpty { return true }
-            let haystack = "\(template.name) \(template.summary) \(template.style.rawValue) \(template.blocks.flatMap(\.entries).map(\.exercise).joined(separator: " "))"
-            return haystack.localizedCaseInsensitiveContains(search)
+            return true
+        }
+        if !search.isEmpty {
+            result = result.enumerated().compactMap { index, template in
+                searchScore(template).map { (template: template, score: $0, index: index) }
+            }
+            // Relevance replaces FEATURED order while a search is live
+            // (an explicit Name/Time sort still wins, below): a fuzzy
+            // hit set is only trustworthy with its best matches on top.
+            // Index tie-break because Swift doesn't promise sort stability.
+            .sorted { a, b in a.score != b.score ? a.score > b.score : a.index < b.index }
+            .map(\.template)
         }
         switch sort {
         case .featured: break
@@ -149,6 +158,17 @@ struct RoutineCatalogScreen: View {
         case .time: result.sort { $0.estimatedSeconds < $1.estimatedSeconds }
         }
         return result
+    }
+
+    /// The name is the headline: a hit anywhere else (summary, style,
+    /// the exercise list) still shows the template, demoted below any
+    /// name hit.
+    private func searchScore(_ template: RoutineTemplate) -> Double? {
+        let deep = "\(template.name) \(template.summary) \(template.style.rawValue) \(template.blocks.flatMap(\.entries).map(\.exercise).joined(separator: " "))"
+        return [
+            FuzzySearch.score(query: search, candidate: template.name),
+            FuzzySearch.score(query: search, candidate: deep).map { $0 * 0.75 },
+        ].compactMap { $0 }.max()
     }
 
     var body: some View {
@@ -302,14 +322,26 @@ struct RoutineCatalogScreen: View {
 
     // MARK: - Rows
 
+    /// Mirrors the exercise catalog's create key (#63): with a query
+    /// live, the label telegraphs the prefilled name.
+    private var createLabel: String {
+        let trimmed = search.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty { return "Create “\(trimmed)”" }
+        return "New blank routine"
+    }
+
     private var createRow: some View {
         Button {
+            // A searched-for routine that isn't in the catalog is
+            // probably the one being created — the query seeds the
+            // name prompt (still fully editable; Cancel clears it).
+            newRoutineName = search.trimmingCharacters(in: .whitespacesAndNewlines)
             showingNewRoutine = true
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "plus")
                     .font(.system(.caption, weight: .semibold))
-                Text("New blank routine")
+                Text(createLabel)
                     .font(.system(.footnote, weight: .semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)

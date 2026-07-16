@@ -213,6 +213,15 @@ final class LiveMirror {
 
     nonisolated private static func materialize(sessionId: UUID, routineName: String, startedAt: Date, restSeconds: Int, steps: [WatchSync.Step], into context: ModelContext) {
         let session = WorkoutSession(routineName: routineName, startedAt: startedAt, restSeconds: restSeconds)
+        // The `.started` op predates transitions (#369), so snapshot the
+        // routine's own setting by name — it covers a custody switch to
+        // the phone mid-run. A scratch name resolves nothing and keeps
+        // the default.
+        if let routine = try? context.fetch(
+            FetchDescriptor<Routine>(predicate: #Predicate { $0.name == routineName })
+        ).first {
+            session.transitionSeconds = routine.transitionSeconds
+        }
         session.sessionId = sessionId
         session.startClock(at: startedAt)
         context.insert(session)

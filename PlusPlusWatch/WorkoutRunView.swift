@@ -23,6 +23,9 @@ struct WorkoutRunView: View {
     @State private var startedAt: Date?
     @State private var results: [WatchSync.StepResult] = []
     @State private var restEndsAt: Date?
+    /// Whether the current countdown is a transition — a different
+    /// exercise or block up next (#369) — so the label says "switch".
+    @State private var currentRestIsTransition = false
     /// The current rest's configured length — the recharge blocks'
     /// denominator (per-block overrides make it vary between sets).
     @State private var currentRestTotal = 90
@@ -254,17 +257,28 @@ struct WorkoutRunView: View {
         // step's index in the shared plan).
         store.live.logged(index: results.count - 1, weight: weight, reps: reps, duration: duration, extras: step.extraTargets ?? [:], at: now)
         if results.count < routine.steps.count {
-            // The just-logged block's rest override (interval blocks)
-            // wins over the routine default — same rule as the phone.
-            let restLength = step.restSecondsOverride ?? routine.restSeconds
-            currentRestTotal = restLength
-            let end = now.addingTimeInterval(TimeInterval(restLength))
-            restEndsAt = end
-            store.live.restStarted(endsAt: end, total: restLength)
-            // The in-app haptic only fires while the app is frontmost;
-            // with the wrist down the app suspends, so a local
-            // notification carries the "rest over" signal.
-            WatchRestNotifier.schedule(at: end, exerciseName: routine.steps[results.count].exerciseName)
+            // A new round of the same block rests — the just-logged
+            // block's override (interval blocks) wins over the routine
+            // default, same rule as the phone. Moving to a different
+            // exercise or block is the shorter transition (#369); a plan
+            // from a pre-transition phone (nil) rests everywhere.
+            let next = routine.steps[results.count]
+            let newRoundOfSameBlock = next.groupIndex == step.groupIndex && next.setNumber != step.setNumber
+            let restLength = newRoundOfSameBlock
+                ? (step.restSecondsOverride ?? routine.restSeconds)
+                : (routine.transitionSeconds ?? step.restSecondsOverride ?? routine.restSeconds)
+            // A 0-second transition means no countdown at all.
+            if restLength > 0 {
+                currentRestTotal = restLength
+                currentRestIsTransition = !newRoundOfSameBlock && routine.transitionSeconds != nil
+                let end = now.addingTimeInterval(TimeInterval(restLength))
+                restEndsAt = end
+                store.live.restStarted(endsAt: end, total: restLength)
+                // The in-app haptic only fires while the app is frontmost;
+                // with the wrist down the app suspends, so a local
+                // notification carries the "rest over" signal.
+                WatchRestNotifier.schedule(at: end, exerciseName: next.exerciseName, isTransition: currentRestIsTransition)
+            }
         } else {
             finish()
         }
@@ -276,7 +290,7 @@ struct WorkoutRunView: View {
         TimelineView(.periodic(from: .now, by: 0.5)) { context in
             let remaining = max(0, end.timeIntervalSince(context.date))
             VStack(spacing: 10) {
-                Text("rest")
+                Text(currentRestIsTransition ? "switch" : "rest")
                     .font(.system(.caption2, design: .monospaced))
                     .foregroundStyle(.secondary)
                 Text(String(format: "%d:%02d", Int(remaining) / 60, Int(remaining) % 60))

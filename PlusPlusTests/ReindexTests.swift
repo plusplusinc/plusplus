@@ -24,7 +24,7 @@ struct ReindexTests {
         context.insert(routine)
 
         for i in 0..<3 {
-            let group = ExerciseGroup(order: i * 10) // arbitrary initial orders
+            let group = ExerciseGroup(order: i * 10, sets: 3) // arbitrary initial orders
             group.routine = routine
             context.insert(group)
         }
@@ -43,7 +43,7 @@ struct ReindexTests {
 
         var groups: [ExerciseGroup] = []
         for i in 0..<3 {
-            let group = ExerciseGroup(order: i)
+            let group = ExerciseGroup(order: i, sets: 3)
             group.routine = routine
             context.insert(group)
             groups.append(group)
@@ -64,15 +64,15 @@ struct ReindexTests {
         let routine = Routine(name: "Test")
         context.insert(routine)
 
-        let groupA = ExerciseGroup(order: 0)
+        let groupA = ExerciseGroup(order: 0, sets: 3)
         groupA.routine = routine
         context.insert(groupA)
 
-        let groupB = ExerciseGroup(order: 1)
+        let groupB = ExerciseGroup(order: 1, sets: 3)
         groupB.routine = routine
         context.insert(groupB)
 
-        let groupC = ExerciseGroup(order: 2)
+        let groupC = ExerciseGroup(order: 2, sets: 3)
         groupC.routine = routine
         context.insert(groupC)
 
@@ -93,7 +93,7 @@ struct ReindexTests {
         let container = try makeContainer()
         let context = ModelContext(container)
 
-        let group = ExerciseGroup(order: 0)
+        let group = ExerciseGroup(order: 0, sets: 3)
         context.insert(group)
 
         let exercise = Exercise(name: "Test", muscleGroup: .chest)
@@ -114,7 +114,7 @@ struct ReindexTests {
         let container = try makeContainer()
         let context = ModelContext(container)
 
-        let group = ExerciseGroup(order: 0)
+        let group = ExerciseGroup(order: 0, sets: 3)
         context.insert(group)
 
         let exercise = Exercise(name: "Test", muscleGroup: .chest)

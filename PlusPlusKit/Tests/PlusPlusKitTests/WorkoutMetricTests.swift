@@ -73,14 +73,34 @@ struct WorkoutMetricTests {
         #expect(repsWheel.count == 100)
     }
 
-    @Test("Rest metric: 15s steps within 15...600, default 90")
+    @Test("Rest metric: 15s steps within 15...600, default 45")
     func restMetric() {
-        #expect(WorkoutMetric.rest.incremented(nil) == 90)
+        // 45, not 90 (#369): transitions cover station switches now.
+        #expect(WorkoutMetric.rest.incremented(nil) == 45)
         #expect(WorkoutMetric.rest.incremented(90) == 105)
         #expect(WorkoutMetric.rest.decremented(15) == 15)
         #expect(WorkoutMetric.rest.incremented(600) == 600)
         #expect(WorkoutMetric.rest.wheelValues.first == 15)
         #expect(WorkoutMetric.rest.wheelValues.last == 600)
+    }
+
+    @Test("Transition metric: 5s steps within 0...600, default 15 (#369)")
+    func transitionMetric() {
+        #expect(WorkoutMetric.transition.incremented(nil) == 15)
+        #expect(WorkoutMetric.transition.incremented(15) == 20)
+        // 0 is legal and means "no countdown at all".
+        #expect(WorkoutMetric.transition.decremented(5) == 0)
+        #expect(WorkoutMetric.transition.decremented(0) == 0)
+        #expect(WorkoutMetric.transition.incremented(600) == 600)
+        #expect(WorkoutMetric.transition.displayText(15) == "15 sec")
+    }
+
+    @Test("Rest and transition are block configuration, everything else tracks")
+    func blockConfiguration() {
+        #expect(WorkoutMetric.rest.isBlockConfiguration)
+        #expect(WorkoutMetric.transition.isBlockConfiguration)
+        let trackable = WorkoutMetric.allCases.filter { !$0.isBlockConfiguration }
+        #expect(!trackable.isEmpty && !trackable.contains(.rest) && !trackable.contains(.transition))
     }
 
     @Test("Every wheel value formats to a stable label")

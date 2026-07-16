@@ -674,7 +674,15 @@ struct CatalogBrowseScreen: View {
             get: { customPrefill != nil },
             set: { if !$0 { customPrefill = nil } }
         )) {
-            ExerciseEditorView(prefillName: customPrefill ?? "")
+            // Creating from a narrowed list carries the narrowing in:
+            // the filters describe the exercise being looked for, so
+            // the missing one starts from them. Reading filterState
+            // live is safe — the filters sit behind this sheet.
+            ExerciseEditorView(
+                prefillName: customPrefill ?? "",
+                prefillMuscleGroup: filterState.prefillMuscleGroup,
+                prefillEquipment: filterState.prefillEquipment
+            )
         }
         .alert("New equipment", isPresented: $promptingEquipmentName) {
             TextField("Name", text: $newEquipmentName)
@@ -742,8 +750,9 @@ struct CatalogBrowseScreen: View {
     /// so the catalog is where you add it to another one. Membership is
     /// active-library membership.
     private var candidateEquipment: [Equipment] {
-        allEquipment
-            .filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) }
+        // Forgiving search, best match first (blank passes all through
+        // in @Query's alphabetical order).
+        FuzzySearch.ranked(allEquipment, query: query) { $0.name }
             .filter { matchesLibraryFilter(activeLibrary?.contains($0) ?? false) }
     }
 

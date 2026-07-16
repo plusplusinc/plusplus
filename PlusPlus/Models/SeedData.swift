@@ -204,6 +204,47 @@ enum SeedData {
         try? context.save()
     }
 
+    /// One-shot definition sync (equipment audit, 2026-07-15): the audit
+    /// corrected four catalog rows — Cycling gained the new Bicycle (it
+    /// read as "Bodyweight"), Slider Leg Curl its Sliders, and the
+    /// landmine pair the Barbell the attachment is useless without. The
+    /// top-up seeder never updates existing rows, so stores that predate
+    /// the fix still carry the old requirements. This upgrades exactly
+    /// the rows still AT the old canonical set — a user's own
+    /// customization never matches, so it's never touched — and runs
+    /// once (UserDefaults-keyed, the #186 repair pattern) so removing
+    /// the restored gear later isn't fought. Must run AFTER loadIfNeeded
+    /// (the Bicycle row has to exist to be attached).
+    static let equipmentRequirementsSyncKey = "equipmentRequirementsSync1"
+
+    static func syncRevisedEquipmentRequirementsIfNeeded(context: ModelContext) {
+        guard !UserDefaults.standard.bool(forKey: equipmentRequirementsSyncKey) else { return }
+        UserDefaults.standard.set(true, forKey: equipmentRequirementsSyncKey)
+
+        // Name → the requirement set the row shipped with BEFORE the audit.
+        let previousRequirements: [String: Set<String>] = [
+            "Cycling": [],
+            "Slider Leg Curl": [],
+            "Landmine Row": ["Landmine"],
+            "Landmine Press": ["Landmine"],
+        ]
+
+        let exercises = (try? context.fetch(
+            FetchDescriptor<Exercise>(predicate: #Predicate { $0.isBuiltIn == true })
+        )) ?? []
+        let equipment = (try? context.fetch(FetchDescriptor<Equipment>())) ?? []
+        let byName = Dictionary(equipment.map { ($0.name.lowercased(), $0) }, uniquingKeysWith: { a, _ in a })
+
+        for exercise in exercises {
+            guard let previous = previousRequirements[exercise.name],
+                  let def = builtInDefinition(named: exercise.name) else { continue }
+            let current = Set(exercise.equipment.filter { !$0.isDeleted }.map(\.name))
+            guard current == previous else { continue }
+            exercise.equipment = def.equipmentNames.compactMap { byName[$0.lowercased()] }
+        }
+        try? context.save()
+    }
+
     // MARK: - Equipment
 
     // Generic types only, no brand names (#222 — compiled from a sweep
@@ -244,10 +285,11 @@ enum SeedData {
             "Bicep Curl Machine", "Tricep Extension Machine",
             "Low Back Extension Machine", "Multi-Hip Machine",
             "Glute Kickback Machine",
-            // Cardio
+            // Cardio (Bicycle = the road bike, like the Weight Vest for
+            // Ruck: outdoor gear an exercise genuinely requires)
             "Rowing Machine", "Stationary Bike", "Treadmill", "Air Bike",
             "Ski Erg", "Elliptical", "Stair Climber", "Vertical Climber",
-            "Upper Body Ergometer",
+            "Upper Body Ergometer", "Bicycle",
             // Strongman
             "Sled", "Yoke", "Farmers Walk Handles", "Log Bar",
             "Atlas Stone", "Circus Dumbbell", "Husafell Stone", "Tire",
@@ -285,10 +327,37 @@ enum SeedData {
         /// whose tracking the rules can't express carry one (Ruck's
         /// mileage on plain strength gear, the no-equipment cardio).
         let metrics: MetricProfile?
+        /// Add-time set count (config audit, 2026-07-15). 3 — the classic
+        /// strength block — unless the exercise's shape says otherwise:
+        /// a stretch is one hold, a mobility drill one pass, a steady
+        /// cardio piece one round.
+        let defaultSets: Int
+        /// Catalog rep prescription where the global 10-rep floor is
+        /// never what anyone does (a Turkish get-up is 3, a power clean
+        /// 3, a rope climb 3). nil rides the global floor. A user's own
+        /// bumped default (#187) always wins over this.
+        let defaultReps: Int?
+        /// Catalog effort length where the global 45 s floor misses (a
+        /// static stretch holds 30 s, a heavy-bag round runs 3 min, an
+        /// L-sit survives 20 s). Same precedence as defaultReps.
+        let defaultDurationSeconds: Int?
+        /// Whether a heart-rate prescription makes sense here. False for
+        /// stretches and static holds — a "zone 2 hamstring stretch" is
+        /// noise — so their planning/config sheets drop the Target HR
+        /// row. A column, not a side table, so a new stretch can't
+        /// forget it. Customs always keep the row (the isLoadable
+        /// can't-classify-intent rule, applied in Exercise).
+        let supportsHeartRate: Bool
     }
 
+    /// Keyed lookup (the builtInProfilesByName pattern) — the resolution
+    /// helpers on Exercise hit this per add/sheet-open, so no linear scan.
+    private static let definitionsByName: [String: BuiltInExerciseDefinition] = {
+        Dictionary(uniqueKeysWithValues: builtInExerciseDefinitions.map { ($0.name, $0) })
+    }()
+
     static func builtInDefinition(named name: String) -> BuiltInExerciseDefinition? {
-        builtInExerciseDefinitions.first { $0.name == name }
+        definitionsByName[name]
     }
 
     /// Definition-table size, so tests assert against the table instead
@@ -309,8 +378,21 @@ enum SeedData {
     }
 
     private static let builtInExerciseDefinitions: [BuiltInExerciseDefinition] = {
-        func e(_ name: String, _ muscle: MuscleGroup, _ eqNames: [String], _ type: ExerciseType = .weightReps, metrics: MetricProfile? = nil) -> BuiltInExerciseDefinition {
-            BuiltInExerciseDefinition(name: name, muscleGroup: muscle, equipmentNames: eqNames, exerciseType: type, metrics: metrics)
+        func e(_ name: String, _ muscle: MuscleGroup, _ eqNames: [String], _ type: ExerciseType = .weightReps, metrics: MetricProfile? = nil, sets: Int = 3, reps: Int? = nil, seconds: Int? = nil, heartRate: Bool = true) -> BuiltInExerciseDefinition {
+            BuiltInExerciseDefinition(name: name, muscleGroup: muscle, equipmentNames: eqNames, exerciseType: type, metrics: metrics, defaultSets: sets, defaultReps: reps, defaultDurationSeconds: seconds, supportsHeartRate: heartRate)
+        }
+        // The two mobility-work shapes, defined ONCE: a static stretch is
+        // a single 30 s hold (the standard prescription — and what the
+        // Full Body Stretch routine already prescribes per entry); a
+        // dynamic drill is one pass of reps. Neither takes a heart-rate
+        // prescription. Static HOLDS that build strength (Plank, Wall
+        // Sit) are NOT stretches — they keep their 3-set blocks and
+        // declare `heartRate: false` on their own rows.
+        func stretch(_ name: String, _ muscle: MuscleGroup) -> BuiltInExerciseDefinition {
+            e(name, muscle, [], .duration, sets: 1, seconds: 30, heartRate: false)
+        }
+        func mobility(_ name: String, _ muscle: MuscleGroup) -> BuiltInExerciseDefinition {
+            e(name, muscle, [], sets: 1, heartRate: false)
         }
 
         return [
@@ -342,7 +424,9 @@ enum SeedData {
             e("Seated Cable Row", .back, ["Seated Row Machine"]),
             e("Cable Row", .back, ["Cable Machine"]),
             e("Machine Row", .back, ["Seated Row Machine"]),
-            e("Landmine Row", .back, ["Landmine"]),
+            // A landmine is a sleeve for a BARBELL — the bar is required
+            // (equipment audit; the Chain Bench Press convention).
+            e("Landmine Row", .back, ["Barbell", "Landmine"]),
             e("Pull-Up", .back, ["Pull-Up Bar"]),
             e("Chin-Up", .back, ["Pull-Up Bar"]),
             e("Neutral-Grip Pull-Up", .back, ["Pull-Up Bar"]),
@@ -361,7 +445,7 @@ enum SeedData {
             e("Machine Shoulder Press", .shoulders, ["Shoulder Press Machine"]),
             e("Arnold Press", .shoulders, ["Dumbbells"]),
             e("Push Press", .shoulders, ["Barbell"]),
-            e("Landmine Press", .shoulders, ["Landmine"]),
+            e("Landmine Press", .shoulders, ["Barbell", "Landmine"]),
             e("Lateral Raise", .shoulders, ["Dumbbells"]),
             e("Cable Lateral Raise", .shoulders, ["Cable Machine"]),
             e("Front Raise", .shoulders, ["Dumbbells"]),
@@ -416,7 +500,7 @@ enum SeedData {
             e("Box Squat", .quads, ["Barbell", "Squat Rack", "Plyo Box"]),
             e("Bodyweight Squat", .quads, []),
             e("Jump Squat", .quads, []),
-            e("Wall Sit", .quads, [], .duration),
+            e("Wall Sit", .quads, [], .duration, heartRate: false),
             e("Sissy Squat", .quads, []),
 
             // Hamstrings
@@ -425,10 +509,13 @@ enum SeedData {
             e("Stiff-Leg Deadlift", .hamstrings, ["Barbell"]),
             e("Single-Leg Romanian Deadlift", .hamstrings, ["Dumbbells"]),
             e("Leg Curl", .hamstrings, ["Leg Curl Machine"]),
-            e("Nordic Curl", .hamstrings, []),
+            // Nordics are near-maximal eccentrics — 5 is a real set.
+            e("Nordic Curl", .hamstrings, [], reps: 5),
             e("Glute-Ham Raise", .hamstrings, ["Back Extension Bench"]),
             e("Cable Pull-Through", .hamstrings, ["Cable Machine"]),
-            e("Slider Leg Curl", .hamstrings, []),
+            // Sliders required, like Slider Lunge/Body Saw (equipment
+            // audit — this one shipped as bodyweight).
+            e("Slider Leg Curl", .hamstrings, ["Sliders"]),
 
             // Glutes
             e("Hip Thrust", .glutes, ["Barbell", "Bench"]),
@@ -451,12 +538,15 @@ enum SeedData {
             e("Donkey Calf Raise", .calves, []),
             e("Calf Raise", .calves, ["Calf Raise Machine"]),
 
-            // Core
-            e("Plank", .core, [], .duration),
-            e("Side Plank", .core, [], .duration),
-            e("Dead Bug", .core, [], .duration),
-            e("Bird Dog", .core, [], .duration),
-            e("Hollow Hold", .core, [], .duration),
+            // Core. The isometric holds are strength work (3-set blocks
+            // stay), but take no heart-rate prescription; per-side and
+            // positional holds start at an honest 30 s where the plank
+            // keeps 45.
+            e("Plank", .core, [], .duration, heartRate: false),
+            e("Side Plank", .core, [], .duration, seconds: 30, heartRate: false),
+            e("Dead Bug", .core, [], .duration, seconds: 30, heartRate: false),
+            e("Bird Dog", .core, [], .duration, seconds: 30, heartRate: false),
+            e("Hollow Hold", .core, [], .duration, seconds: 30, heartRate: false),
             e("Crunch", .core, []),
             e("Cable Crunch", .core, ["Cable Machine"]),
             e("Sit-Up", .core, []),
@@ -465,7 +555,7 @@ enum SeedData {
             e("Hanging Leg Raise", .core, ["Pull-Up Bar"]),
             e("Toes to Bar", .core, ["Pull-Up Bar"]),
             e("Ab Wheel Rollout", .core, ["Ab Wheel"]),
-            e("Mountain Climber", .core, [], .duration),
+            e("Mountain Climber", .core, [], .duration, seconds: 30),
             e("Bicycle Crunch", .core, []),
             e("V-Up", .core, []),
             e("Leg Raise", .core, []),
@@ -477,31 +567,44 @@ enum SeedData {
 
             // Full Body
             e("Burpee", .fullBody, []),
-            e("Clean and Press", .fullBody, ["Barbell"]),
-            e("Power Clean", .fullBody, ["Barbell"]),
-            e("Kettlebell Clean and Press", .fullBody, ["Kettlebell"]),
+            // Technical/max-effort movements: nobody's prescription is
+            // the global 10-rep floor — cleans live at 3-5, a get-up
+            // at 3 a side.
+            e("Clean and Press", .fullBody, ["Barbell"], reps: 5),
+            e("Power Clean", .fullBody, ["Barbell"], reps: 3),
+            e("Kettlebell Clean and Press", .fullBody, ["Kettlebell"], reps: 5),
             e("Kettlebell Snatch", .fullBody, ["Kettlebell"]),
             e("Thruster", .fullBody, ["Barbell", "Squat Rack"]),
             e("Dumbbell Thruster", .fullBody, ["Dumbbells"]),
-            e("Turkish Get-Up", .fullBody, ["Kettlebell"]),
+            e("Turkish Get-Up", .fullBody, ["Kettlebell"], reps: 3),
             e("Sled Push", .fullBody, ["Sled"], .duration),
-            e("Battle Rope Waves", .fullBody, ["Battle Ropes"], .duration),
+            // Interval-shaped conditioning keeps 3 "rounds" but gets an
+            // honest round length: battle ropes burn out in 30 s, a bag
+            // round is boxing's 3 minutes, a jump-rope round a minute.
+            e("Battle Rope Waves", .fullBody, ["Battle Ropes"], .duration, seconds: 30),
             e("Box Jump", .fullBody, ["Plyo Box"]),
-            e("Jump Rope", .fullBody, ["Jump Rope"], .duration),
-            e("Rowing", .fullBody, ["Rowing Machine"], .duration),
-            e("Assault Bike", .fullBody, ["Air Bike"], .duration),
-            e("Stationary Bike", .fullBody, ["Stationary Bike"], .duration),
-            e("Treadmill Run", .fullBody, ["Treadmill"], .duration),
+            e("Jump Rope", .fullBody, ["Jump Rope"], .duration, seconds: 60),
+            // Machine cardio defaults to ONE steady piece — 3 "sets" of
+            // rowing is an interval prescription, which stays a
+            // deliberate configuration (bump Sets, add a block rest).
+            e("Rowing", .fullBody, ["Rowing Machine"], .duration, sets: 1),
+            e("Assault Bike", .fullBody, ["Air Bike"], .duration, sets: 1),
+            e("Stationary Bike", .fullBody, ["Stationary Bike"], .duration, sets: 1),
+            e("Treadmill Run", .fullBody, ["Treadmill"], .duration, sets: 1),
             e("Sandbag Carry", .fullBody, ["Sandbag"], .duration),
-            // Cardio, no equipment (flexible metrics): the road is not
-            // gear, but running is training — these make distance
-            // intervals (6×400 m) and steady pieces first-class.
+            // Road cardio (flexible metrics): the road is not gear, but
+            // running is training — these make distance intervals
+            // (6×400 m) and steady pieces first-class. One steady piece
+            // by default, like the machines. Cycling DOES require gear
+            // (equipment audit, 2026-07-15: it read as "Bodyweight"):
+            // the Bicycle, whose declared profile derives the same
+            // [distance, duration, speed] the old explicit override
+            // spelled out. Running/Walking stay genuinely equipment-free.
             e("Running", .fullBody, [], .duration,
-              metrics: MetricProfile([.distance, .duration, .pace], distanceUnit: .miles, isOutdoor: true)),
+              metrics: MetricProfile([.distance, .duration, .pace], distanceUnit: .miles, isOutdoor: true), sets: 1),
             e("Walking", .fullBody, [], .duration,
-              metrics: MetricProfile([.distance, .duration, .pace], distanceUnit: .miles, isOutdoor: true)),
-            e("Cycling", .fullBody, [], .duration,
-              metrics: MetricProfile([.distance, .duration, .speed], distanceUnit: .miles)),
+              metrics: MetricProfile([.distance, .duration, .pace], distanceUnit: .miles, isOutdoor: true), sets: 1),
+            e("Cycling", .fullBody, ["Bicycle"], .duration, sets: 1),
 
             // #235: every equipment type gates at least one exercise —
             // the 60 types the #222 sweep added get their movements.
@@ -512,14 +615,14 @@ enum SeedData {
             e("Swiss Bar Overhead Press", .shoulders, ["Swiss Bar"]),
             e("Cambered Bar Squat", .quads, ["Cambered Squat Bar", "Squat Rack"]),
             e("Axle Deadlift", .back, ["Axle Bar"]),
-            e("Axle Clean and Press", .fullBody, ["Axle Bar"]),
+            e("Axle Clean and Press", .fullBody, ["Axle Bar"], reps: 5),
             // Benches + stations
             e("Decline Bench Press", .chest, ["Barbell", "Decline Bench"]),
             e("Decline Sit-Up", .core, ["Decline Bench"]),
             e("GHD Raise", .hamstrings, ["Glute-Ham Developer"]),
             e("GHD Sit-Up", .core, ["Glute-Ham Developer"]),
             e("Reverse Hyperextension", .glutes, ["Reverse Hyper Machine"]),
-            e("Nordic Bench Curl", .hamstrings, ["Nordic Bench"]),
+            e("Nordic Bench Curl", .hamstrings, ["Nordic Bench"], reps: 5),
             e("Weighted Sissy Squat", .quads, ["Sissy Squat Bench", "Weight Plate"]),
             e("Captain's Chair Leg Raise", .core, ["Captain's Chair"]),
             // Plate-loaded machines
@@ -540,26 +643,33 @@ enum SeedData {
             e("Machine Back Extension", .back, ["Low Back Extension Machine"]),
             e("Multi-Hip Kickback", .glutes, ["Multi-Hip Machine"]),
             e("Machine Glute Kickback", .glutes, ["Glute Kickback Machine"]),
-            // Cardio
-            e("Ski Erg", .fullBody, ["Ski Erg"], .duration),
-            e("Elliptical", .fullBody, ["Elliptical"], .duration),
-            e("Stair Climber", .fullBody, ["Stair Climber"], .duration),
-            e("Vertical Climber", .fullBody, ["Vertical Climber"], .duration),
-            e("Upper Body Ergometer", .fullBody, ["Upper Body Ergometer"], .duration),
+            // Cardio — one steady piece, like the other machines. The
+            // ones whose ONLY work metric is duration (no distance or
+            // calories on the console profile) get an honest 10-minute
+            // piece: without it the work-metric floor would stamp them
+            // with an absurd 45 s "steady" piece. Distance/calorie
+            // machines (Ski Erg, Rowing, the bikes) stay target-less —
+            // the driver-hijack rule.
+            e("Ski Erg", .fullBody, ["Ski Erg"], .duration, sets: 1),
+            e("Elliptical", .fullBody, ["Elliptical"], .duration, sets: 1, seconds: 600),
+            e("Stair Climber", .fullBody, ["Stair Climber"], .duration, sets: 1, seconds: 600),
+            e("Vertical Climber", .fullBody, ["Vertical Climber"], .duration, sets: 1, seconds: 600),
+            e("Upper Body Ergometer", .fullBody, ["Upper Body Ergometer"], .duration, sets: 1, seconds: 600),
             // Strongman
             e("Yoke Carry", .fullBody, ["Yoke"], .duration),
             e("Farmers Handle Carry", .fullBody, ["Farmers Walk Handles"], .duration),
-            e("Log Clean and Press", .fullBody, ["Log Bar"]),
-            e("Atlas Stone Load", .fullBody, ["Atlas Stone"]),
+            e("Log Clean and Press", .fullBody, ["Log Bar"], reps: 5),
+            e("Atlas Stone Load", .fullBody, ["Atlas Stone"], reps: 5),
             e("Circus Dumbbell Press", .shoulders, ["Circus Dumbbell"]),
             e("Husafell Carry", .fullBody, ["Husafell Stone"], .duration),
             e("Tire Flip", .fullBody, ["Tire"]),
             e("Sledgehammer Slam", .fullBody, ["Sledgehammer", "Tire"]),
-            // Gymnastics + calisthenics
-            e("Parallette L-Sit", .core, ["Parallettes"], .duration),
+            // Gymnastics + calisthenics: an L-sit is measured in tens of
+            // seconds, and a climb "rep" is a whole ascent.
+            e("Parallette L-Sit", .core, ["Parallettes"], .duration, seconds: 20, heartRate: false),
             e("Parallette Push-Up", .chest, ["Parallettes"]),
-            e("Rope Climb", .back, ["Climbing Rope"]),
-            e("Peg Board Ascent", .back, ["Peg Board"]),
+            e("Rope Climb", .back, ["Climbing Rope"], reps: 3),
+            e("Peg Board Ascent", .back, ["Peg Board"], reps: 3),
             e("Stall Bar Leg Raise", .core, ["Stall Bars"]),
             // Small equipment
             e("Slam Ball Slam", .fullBody, ["Slam Ball"]),
@@ -567,20 +677,22 @@ enum SeedData {
             e("Stability Ball Rollout", .core, ["Stability Ball"]),
             e("Balance Trainer Squat", .quads, ["Balance Trainer"]),
             e("Slider Lunge", .quads, ["Sliders"]),
-            e("Body Saw", .core, ["Sliders"], .duration),
+            e("Body Saw", .core, ["Sliders"], .duration, seconds: 30, heartRate: false),
             e("Chain Bench Press", .chest, ["Barbell", "Bench", "Weightlifting Chains"]),
             e("Weighted Dip", .chest, ["Dip Station", "Dip Belt"]),
             e("Weighted Pull-Up", .back, ["Pull-Up Bar", "Dip Belt"]),
             e("Weighted Push-Up", .chest, ["Weight Vest"]),
             e("Ruck", .fullBody, ["Weight Vest"], .duration,
-              metrics: MetricProfile([.weight, .distance, .duration], distanceUnit: .miles)),
+              metrics: MetricProfile([.weight, .distance, .duration], distanceUnit: .miles), sets: 1),
             e("Mace 360", .shoulders, ["Macebell"]),
             e("Steel Club Mill", .shoulders, ["Steel Club"]),
             e("Bulgarian Bag Spin", .fullBody, ["Bulgarian Bag"]),
-            e("Wrist Roller Roll-Up", .biceps, ["Wrist Roller"]),
+            // A roll-up is a full up-and-down trip — 3 torches forearms.
+            e("Wrist Roller Roll-Up", .biceps, ["Wrist Roller"], reps: 3),
             e("Neck Harness Extension", .shoulders, ["Neck Harness"]),
             e("Gripper Close", .biceps, ["Hand Gripper"]),
-            e("Heavy Bag Rounds", .fullBody, ["Heavy Bag"], .duration),
+            // A bag round is boxing's three minutes, not a 45 s hold.
+            e("Heavy Bag Rounds", .fullBody, ["Heavy Bag"], .duration, seconds: 180),
             e("Agility Ladder Drills", .fullBody, ["Agility Ladder"], .duration),
             e("Tibialis Raise", .calves, ["Tibialis Bar"]),
             e("Slant Board Squat", .quads, ["Slant Board"]),
@@ -597,34 +709,37 @@ enum SeedData {
             // rides shoulders and forearm/biceps under biceps, matching
             // how the catalog already files adduction/neck/grip work.
             // All bodyweight, so they reach everyone and add no gear.
-            // Static holds (timed):
-            e("Standing Hamstring Stretch", .hamstrings, [], .duration),
-            e("Standing Quad Stretch", .quads, [], .duration),
-            e("Kneeling Hip Flexor Stretch", .quads, [], .duration),
-            e("Figure-Four Stretch", .glutes, [], .duration),
-            e("Pigeon Pose", .glutes, [], .duration),
-            e("Butterfly Stretch", .glutes, [], .duration),
-            e("Standing Calf Stretch", .calves, [], .duration),
-            e("Downward Dog", .fullBody, [], .duration),
-            e("Doorway Chest Stretch", .chest, [], .duration),
-            e("Cross-Body Shoulder Stretch", .shoulders, [], .duration),
-            e("Neck Stretch", .shoulders, [], .duration),
-            e("Overhead Triceps Stretch", .triceps, [], .duration),
-            e("Standing Biceps Stretch", .biceps, [], .duration),
-            e("Child's Pose", .back, [], .duration),
-            e("Seated Spinal Twist", .back, [], .duration),
-            e("Lat Stretch", .back, [], .duration),
-            e("Cobra Stretch", .core, [], .duration),
-            e("Standing Side Bend Stretch", .core, [], .duration),
-            // Dynamic mobility (rep-based warmup drills):
-            e("Arm Circles", .shoulders, []),
-            e("Leg Swings", .hamstrings, []),
-            e("Hip Circles", .glutes, []),
-            e("Walking Knee Hug", .glutes, []),
-            e("Standing Torso Twist", .core, []),
-            e("Cat-Cow", .back, []),
-            e("World's Greatest Stretch", .fullBody, []),
-            e("Inchworm", .fullBody, []),
+            // Static holds (timed): the `stretch` shape — ONE 30 s hold,
+            // no HR prescription (config audit, 2026-07-15). Repeats
+            // stay one Sets-tap away.
+            stretch("Standing Hamstring Stretch", .hamstrings),
+            stretch("Standing Quad Stretch", .quads),
+            stretch("Kneeling Hip Flexor Stretch", .quads),
+            stretch("Figure-Four Stretch", .glutes),
+            stretch("Pigeon Pose", .glutes),
+            stretch("Butterfly Stretch", .glutes),
+            stretch("Standing Calf Stretch", .calves),
+            stretch("Downward Dog", .fullBody),
+            stretch("Doorway Chest Stretch", .chest),
+            stretch("Cross-Body Shoulder Stretch", .shoulders),
+            stretch("Neck Stretch", .shoulders),
+            stretch("Overhead Triceps Stretch", .triceps),
+            stretch("Standing Biceps Stretch", .biceps),
+            stretch("Child's Pose", .back),
+            stretch("Seated Spinal Twist", .back),
+            stretch("Lat Stretch", .back),
+            stretch("Cobra Stretch", .core),
+            stretch("Standing Side Bend Stretch", .core),
+            // Dynamic warmup drills: the `mobility` shape — one pass of
+            // reps through a warmup, not a 3-set block.
+            mobility("Arm Circles", .shoulders),
+            mobility("Leg Swings", .hamstrings),
+            mobility("Hip Circles", .glutes),
+            mobility("Walking Knee Hug", .glutes),
+            mobility("Standing Torso Twist", .core),
+            mobility("Cat-Cow", .back),
+            mobility("World's Greatest Stretch", .fullBody),
+            mobility("Inchworm", .fullBody),
         ]
     }()
 
@@ -688,6 +803,7 @@ enum SeedData {
         // The air bike prescribes in calories and punishes in watts.
         "Air Bike": MetricProfile([.duration, .calories, .power]),
         "Stationary Bike": MetricProfile([.duration, .distance, .resistance, .power], distanceUnit: .miles),
+        "Bicycle": MetricProfile([.distance, .duration, .speed], distanceUnit: .miles),
         "Treadmill": MetricProfile([.distance, .duration, .speed, .incline], distanceUnit: .miles),
         "Elliptical": MetricProfile([.duration, .resistance, .incline]),
         "Stair Climber": MetricProfile([.duration, .resistance]),
@@ -773,4 +889,5 @@ enum SeedData {
     static func builtInProfile(named name: String) -> MetricProfile? {
         builtInProfilesByName[name]
     }
+
 }

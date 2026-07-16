@@ -165,6 +165,24 @@ struct ExerciseFilterTests {
         #expect(result.first?.name == "Probe Press")
     }
 
+    @Test func searchForgivesTyposAndRanksLiteralFirst() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let (_, _, _, exercises) = makeExercises(context: context)
+
+        let filter = ExerciseFilterState()
+        // Transposed letters still find the one press.
+        filter.searchText = "prses"
+        let typo = filter.filteredExercises(from: exercises, available: fixtureGear)
+        #expect(typo.map(\.name) == ["Probe Press"])
+
+        // Muscle group rides the haystack: "chest" alone surfaces the
+        // chest work without any name containing the word.
+        filter.searchText = "chest"
+        let byMuscle = filter.filteredExercises(from: exercises, available: fixtureGear)
+        #expect(Set(byMuscle.map(\.name)) == ["Probe Press", "Probe Fly", "Probe Push"])
+    }
+
     @Test func emptySearchMatchesAll() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
@@ -200,5 +218,42 @@ struct ExerciseFilterTests {
 
         let press = try #require(exercises.first { $0.name == "Probe Press" })
         #expect(ExerciseFilterState.missingEquipment(for: press, available: available) == ["Barbell"])
+    }
+
+    // MARK: - Create-from-here prefill
+
+    @Test func prefillNameIsTrimmedSearch() {
+        let filter = ExerciseFilterState()
+        #expect(filter.prefillName == "")
+
+        filter.searchText = "  Probe Pullover "
+        #expect(filter.prefillName == "Probe Pullover")
+    }
+
+    @Test func prefillMuscleGroupOnlyWhenExactlyOneFiltered() {
+        let filter = ExerciseFilterState()
+        #expect(filter.prefillMuscleGroup == nil)
+
+        filter.selectedMuscleGroups = [.chest]
+        #expect(filter.prefillMuscleGroup == .chest)
+
+        filter.selectedMuscleGroups = [.chest, .biceps]
+        #expect(filter.prefillMuscleGroup == nil, "a multi-select is ambiguous — the editor keeps its own default")
+    }
+
+    /// The filter state outlives picker presentations, so a just-deleted
+    /// gear item can linger in the selection (bug hunt B1). The read
+    /// side already guards this; the prefill is the first WRITE path
+    /// and must never seed a deleted model into a new exercise.
+    @Test func prefillEquipmentDropsDeletedGear() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let (barbell, dumbbells, _, _) = makeExercises(context: context)
+
+        let filter = ExerciseFilterState()
+        filter.selectedEquipment = [barbell, dumbbells]
+        context.delete(dumbbells)
+
+        #expect(filter.prefillEquipment == [barbell])
     }
 }

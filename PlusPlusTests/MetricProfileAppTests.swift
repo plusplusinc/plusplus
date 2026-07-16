@@ -64,12 +64,19 @@ struct CatalogProfileTests {
         #expect(SeedData.builtInProfile(named: "Cycling")?.isOutdoor == false)
     }
 
-    @Test("Equipment-free cardio joined the catalog")
+    @Test("Road cardio joined the catalog; only the runnable kind is equipment-free")
     func newCardioExercises() {
-        for name in ["Running", "Walking", "Cycling"] {
+        // Running/Walking genuinely need nothing; Cycling needs the bike
+        // (equipment audit, 2026-07-15 — it used to read "Bodyweight").
+        for name in ["Running", "Walking"] {
             #expect(SeedData.builtInDefinition(named: name) != nil, "\(name) missing")
             #expect(SeedData.builtInDefinition(named: name)?.equipmentNames.isEmpty == true)
         }
+        #expect(SeedData.builtInDefinition(named: "Cycling")?.equipmentNames == ["Bicycle"])
+        // The explicit metrics override died with the Bicycle's declared
+        // profile — the derivation must reproduce it exactly.
+        #expect(SeedData.builtInProfile(named: "Cycling")
+                == MetricProfile([.distance, .duration, .speed], distanceUnit: .miles))
     }
 
     @Test("Every equipment-profile entry names real gear")
@@ -178,13 +185,17 @@ struct ModelProfileTests {
         #expect(first.target(.distance) == 500)
         #expect(first.target(.resistance) == 5)
         #expect(first.restSecondsOverride == 120)
-        #expect(session.restSeconds(after: first) == 120)
         #expect(first.driver == .distance)
 
         // Completing prefills every tracked actual from its target.
         session.complete(first)
         #expect(first.actual(.distance) == 500)
         #expect(first.actual(.resistance) == 5)
+        // Round 1 → round 2 of the same block: the override rest (#369).
+        // Asked AFTER completing, like the production call order.
+        let pause = session.pause(after: first)
+        #expect(pause.seconds == 120)
+        #expect(!pause.isTransition)
 
         // A mid-session damper change carries to the remaining rounds.
         let second = logs[1]

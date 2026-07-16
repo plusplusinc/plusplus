@@ -79,7 +79,9 @@ struct InitCommand: ParsableCommand {
                 equipment: [],
                 notes: "Example exercise — edit or delete freely."
             )
-            let routine = RoutineDTO(name: "Example Day", restSeconds: 90, groups: [
+            // No transitionSeconds: the starter file follows the
+            // omit-when-default rule, same as the app's writer (#369).
+            let routine = RoutineDTO(name: "Example Day", restSeconds: 45, groups: [
                 .init(sets: 3, exercises: [.init(exercise: "Push-Up", reps: 10)])
             ])
             files.append((

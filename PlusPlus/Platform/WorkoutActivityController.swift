@@ -61,7 +61,7 @@ final class WorkoutActivityController {
         #endif
     }
 
-    func resting(upNextExercise: String, upNextSet: Int, setsCompleted: Int, totalSets: Int, restEnd: Date) {
+    func resting(upNextExercise: String, upNextSet: Int, setsCompleted: Int, totalSets: Int, restEnd: Date, isTransition: Bool = false) {
         #if canImport(ActivityKit)
         guard !disabled else { return }
         update(WorkoutActivityAttributes.ContentState(
@@ -71,7 +71,8 @@ final class WorkoutActivityController {
             setsCompleted: setsCompleted,
             totalSets: totalSets,
             sessionStart: sessionStart,
-            restEnd: restEnd
+            restEnd: restEnd,
+            isTransition: isTransition
         ), staleDate: restEnd)
         #endif
     }

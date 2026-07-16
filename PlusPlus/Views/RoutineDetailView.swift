@@ -110,6 +110,9 @@ struct RoutineDetailView: View {
             railList
         }
         .background(Theme.background)
+        // Operator's view-context: the deepest visible screen reports
+        // one compact line (appear-only; the root's re-appear clears it).
+        .operatorContext("routines/\(routine.name)")
         // Custom key chrome: back + share/settings as trailing keys, no
         // centered title. The name moved to the body header (Dave,
         // build-78) where it gets full width and wraps instead of
@@ -1543,6 +1546,26 @@ struct RoutineSettingsScreen: View {
                     )
                     .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
                     .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+
+                    SheetSectionLabel("BETWEEN EXERCISES")
+                        .padding(.top, 24)
+
+                    MetricStepperRow(
+                        label: "Transition",
+                        value: WorkoutMetric.transition.displayText(Double(routine.transitionSeconds)),
+                        identifier: "transition",
+                        onDecrement: { routine.transitionSeconds = Int(WorkoutMetric.transition.decremented(Double(routine.transitionSeconds))) },
+                        onIncrement: { routine.transitionSeconds = Int(WorkoutMetric.transition.incremented(Double(routine.transitionSeconds))) }
+                    )
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+
+                    // Rest is for a new round of the same block (#369) —
+                    // switching stations gets this shorter pause.
+                    Text("Switching to a different exercise (or a superset partner) uses this instead of rest. 0 skips the countdown.")
+                        .font(.system(.caption))
+                        .foregroundStyle(Theme.textFaint)
+                        .padding(.top, 6)
 
                     SheetSectionLabel("NOTES")
                         .padding(.top, 24)

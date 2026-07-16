@@ -4,9 +4,9 @@ import PlusPlusKit
 
 @Suite("MetricProfile")
 struct MetricProfileTests {
-    @Test("Profiles normalize to canonical order, dedupe, and exclude rest")
+    @Test("Profiles normalize to canonical order, dedupe, and exclude block configuration")
     func normalization() {
-        let profile = MetricProfile([.resistance, .duration, .distance, .duration, .rest, .pace])
+        let profile = MetricProfile([.resistance, .duration, .distance, .duration, .rest, .transition, .pace])
         #expect(profile.metrics == [.distance, .duration, .pace, .resistance])
     }
 

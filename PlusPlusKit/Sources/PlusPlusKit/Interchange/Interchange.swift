@@ -89,15 +89,21 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
 public struct RoutineDTO: Codable, Equatable, Sendable {
     public var name: String
     public var restSeconds: Int
+    /// Pause when the session moves to a DIFFERENT exercise or block
+    /// (#369); `restSeconds` covers a new round of the same block. 0 means
+    /// no countdown. Additive; absent means the app default (15 s), and a
+    /// pre-field file round-trips unchanged.
+    public var transitionSeconds: Int?
     public var notes: String?
     /// The recurrence (weekdays / frequency). Additive; absent means
     /// unscheduled, so pre-schedule files round-trip unchanged.
     public var schedule: RoutineSchedule?
     public var groups: [GroupDTO]
 
-    public init(name: String, restSeconds: Int, notes: String? = nil, schedule: RoutineSchedule? = nil, groups: [GroupDTO]) {
+    public init(name: String, restSeconds: Int, transitionSeconds: Int? = nil, notes: String? = nil, schedule: RoutineSchedule? = nil, groups: [GroupDTO]) {
         self.name = name
         self.restSeconds = restSeconds
+        self.transitionSeconds = transitionSeconds
         self.schedule = schedule
         self.notes = notes
         self.groups = groups

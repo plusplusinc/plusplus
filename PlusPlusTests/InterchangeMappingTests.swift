@@ -205,6 +205,7 @@ struct InterchangeMappingTests {
         #expect(routines.count == 1)
         let routine = try #require(routines.first)
         #expect(routine.restSeconds == 90)
+        #expect(routine.transitionSeconds == 15, "Absent transitionSeconds (a pre-#369 file) means the app default")
         #expect(routine.notes == nil, "A replacing DTO without notes clears them")
         #expect(routine.sortedGroups.count == 1)
         #expect(routine.sortedGroups[0].sets == 4)
@@ -262,7 +263,7 @@ struct InterchangeMappingTests {
         source.insert(retired)
 
         // ── Routine: notes + schedule + a superset block with an override.
-        let routine = Routine(name: "Probe Routine", restSeconds: 75, notes: "Under an hour.")
+        let routine = Routine(name: "Probe Routine", restSeconds: 75, transitionSeconds: 25, notes: "Under an hour.")
         source.insert(routine)
         routine.schedule = .weekdays([1, 3, 5])
         let block = routine.addExerciseInNewGroup(row, context: source)
@@ -346,6 +347,7 @@ struct InterchangeMappingTests {
             (try dest.fetch(FetchDescriptor<Routine>())).first { $0.name == "Probe Routine" }
         )
         #expect(importedRoutine.restSeconds == 75)
+        #expect(importedRoutine.transitionSeconds == 25)
         #expect(importedRoutine.notes == "Under an hour.")
         #expect(importedRoutine.schedule == .weekdays([1, 3, 5]))
         let importedBlock = try #require(importedRoutine.sortedGroups.first)

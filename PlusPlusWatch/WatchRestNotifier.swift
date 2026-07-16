@@ -12,7 +12,7 @@ enum WatchRestNotifier {
     private static let identifier = "watch-rest-over"
     private static var authorizationRequested = false
 
-    static func schedule(at date: Date, exerciseName: String) {
+    static func schedule(at date: Date, exerciseName: String, isTransition: Bool = false) {
         let center = UNUserNotificationCenter.current()
         if !authorizationRequested {
             authorizationRequested = true
@@ -20,7 +20,8 @@ enum WatchRestNotifier {
         }
 
         let content = UNMutableNotificationContent()
-        content.title = "Rest over"
+        // A transition countdown (#369) keeps the SWITCH vocabulary.
+        content.title = isTransition ? "Switch" : "Rest over"
         content.body = "Next: \(exerciseName)"
         content.sound = .default
 

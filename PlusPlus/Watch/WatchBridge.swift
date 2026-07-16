@@ -89,7 +89,12 @@ final class WatchBridge: NSObject, WCSessionDelegate {
                 }
             }
         }
-        return WatchSync.PlanRoutine(name: routine.name, restSeconds: routine.restSeconds, steps: steps)
+        return WatchSync.PlanRoutine(
+            name: routine.name,
+            restSeconds: routine.restSeconds,
+            transitionSeconds: routine.transitionSeconds,
+            steps: steps
+        )
     }
 
     // MARK: - Live mirror (#322)
