@@ -161,9 +161,19 @@ public enum MascotCollision {
         at t: Double,
         skeleton: MascotSkeleton = .standard
     ) -> (depth: Double, pair: String) {
-        let pose = animation.pose(at: t)
+        maxEquipmentPenetration(pose: animation.pose(at: t), props: animation.props, skeleton: skeleton)
+    }
+
+    /// The bare-pose form — what path solvers use to keep a hanging
+    /// bar OUTSIDE the legs at every baked sample, not just at the
+    /// authored endpoints.
+    public static func maxEquipmentPenetration(
+        pose: MascotPose,
+        props: [MascotProp],
+        skeleton: MascotSkeleton = .standard
+    ) -> (depth: Double, pair: String) {
         let body = bodyCapsules(pose: pose, skeleton: skeleton)
-        let equipment = equipmentCapsules(pose: pose, props: animation.props, skeleton: skeleton)
+        let equipment = equipmentCapsules(pose: pose, props: props, skeleton: skeleton)
         var worst = (depth: -Double.infinity, pair: "none")
         for item in equipment {
             for segment in body {

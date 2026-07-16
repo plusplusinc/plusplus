@@ -28,18 +28,20 @@ enum SquatMove {
         let legsStanding = MascotPoseBuilder.symmetricLegs(
             hip: .deg(roll: stanceRoll)
         )
-        // Textbook bottom geometry (build-80: "looks like it would
-        // fall backwards" — thighs past horizontal shoved the hips 33
-        // cm back and nothing could counterbalance): thighs stop just
-        // above parallel (70 degrees), shins lean 22 (knees over
-        // toes). Ankle CANCELS the accumulated shin lean (hip -70 +
-        // knee 98 = +28) so the feet stay FLAT on the floor — round 2
-        // shipped the sign flipped and the heels visibly dug through
-        // the floor (the sole-corner floor invariant now catches it).
+        // Full-ROM bottom (Dave's depth round): hip crease BELOW the
+        // knee — a below-parallel back squat, invariant-enforced (the
+        // v2 bottom stopped a thigh's width above parallel and read
+        // shallow). The depth scan holds every other rule at once:
+        // center of mass over the feet, bar over the midfoot, trap
+        // graze unchanged. Ankle CANCELS the accumulated shin lean
+        // (knee 135 + hip -100 = +35) so the feet stay FLAT on the
+        // floor — round 2 shipped the sign flipped and the heels
+        // visibly dug through the floor (the sole-corner floor
+        // invariant now catches it).
         let legsBottom = MascotPoseBuilder.symmetricLegs(
-            hip: .deg(pitch: -70, roll: stanceRoll),
-            knee: .deg(pitch: 98),
-            ankle: .deg(pitch: -28)
+            hip: .deg(pitch: -100, roll: stanceRoll),
+            knee: .deg(pitch: 135),
+            ankle: .deg(pitch: -35)
         )
         // The torso lean is what keeps the TRAP-racked bar over the
         // midfoot as the hips travel back — a back squat leans further
@@ -57,17 +59,47 @@ enum SquatMove {
             head: .deg(pitch: -2)
         )
         let torsoBottom = MascotPoseBuilder.torso(
-            spine: .deg(pitch: 29),
-            chest: .deg(pitch: 21),
+            spine: .deg(pitch: 33),
+            chest: .deg(pitch: 25),
             neck: .deg(pitch: -16),
             head: .deg(pitch: -5)
         )
 
-        let standing = MascotPoseBuilder.plantingFeet(MascotPose(
+        // Between the endpoints, a joint-space lerp sends the hips
+        // back FASTER than the torso leans, swinging the trap-racked
+        // bar (and the center of mass with it) behind the midfoot line
+        // mid-descent. A real lifter coordinates continuously — bar
+        // over midfoot, weight over the feet, the whole way — so every
+        // baked sample gets the same servo: lean the spine forward in
+        // small steps until both the bar and the center of mass are
+        // back on their lines. Identity at the endpoints (both already
+        // inside the bounds).
+        func overTheMidfoot(_ raw: MascotPose) -> MascotPose {
+            var candidate = MascotPoseBuilder.plantingFeet(raw)
+            for _ in 0..<24 {
+                let frames = candidate.jointFrames(skeleton: .standard)
+                let left = frames[.leftWrist]!
+                let right = frames[.rightWrist]!
+                let leftPalm = left.position + left.rotation.rotate(MascotGrip.palmOffset)
+                let rightPalm = right.position + right.rotation.rotate(MascotGrip.palmOffset)
+                let barZ = 0.5 * (leftPalm.z + rightPalm.z)
+                let ankleZ = 0.5 * (frames[.leftAnkle]!.position.z + frames[.rightAnkle]!.position.z)
+                let comZ = MascotBalance.centerOfMass(pose: candidate, props: [.barbell]).z
+                if barZ - ankleZ >= -0.085 && comZ - ankleZ >= -0.058 { break }
+                var joints = candidate.joints
+                let spine = joints[.spine] ?? .zero
+                joints[.spine] = EulerAngles(pitch: spine.pitch + 0.01, yaw: spine.yaw, roll: spine.roll)
+                candidate.joints = joints
+                candidate = MascotPoseBuilder.plantingFeet(candidate)
+            }
+            return candidate
+        }
+
+        let standing = overTheMidfoot(MascotPose(
             joints: MascotPoseBuilder.merge(legsStanding, torsoStanding, arms),
             effort: 0.25
         ))
-        let bottom = MascotPoseBuilder.plantingFeet(MascotPose(
+        let bottom = overTheMidfoot(MascotPose(
             joints: MascotPoseBuilder.merge(legsBottom, torsoBottom, arms),
             effort: 0.6
         ))
@@ -76,14 +108,14 @@ enum SquatMove {
         var repKeyframes = MascotPoseBuilder.span(
             from: standing, to: bottom, t0: 0, t1: 0.42,
             effortKeys: [(0, 0.25), (1, 0.6)],
-            solve: { MascotPoseBuilder.plantingFeet($0) }
+            solve: overTheMidfoot
         )
         repKeyframes.append(MascotKeyframe(t: 0.52, pose: bottom, easing: .linear))
         repKeyframes.append(contentsOf: MascotPoseBuilder.span(
             from: bottom, to: standing, t0: 0.52, t1: 0.9,
             easing: .easeOut,
             effortKeys: [(0, 0.6), (0.45, 0.9), (1, 0.4)],
-            solve: { MascotPoseBuilder.plantingFeet($0) }
+            solve: overTheMidfoot
         ).dropFirst())
         repKeyframes.append(MascotKeyframe(t: 1, pose: standing))
 

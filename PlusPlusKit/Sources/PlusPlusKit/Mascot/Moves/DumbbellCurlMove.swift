@@ -25,8 +25,11 @@ enum DumbbellCurlMove {
             ))
         }
 
-        let start = standingPose(shoulderPitch: 0, elbowPitch: -8, effort: 0.15)
-        let topOfCurl = standingPose(shoulderPitch: -10, elbowPitch: -125, effort: 0.75)
+        // Full ROM (Dave's depth round): near-full extension at the
+        // bottom (-5, a soft elbow, never a slammed lockout) up to a
+        // -132 squeeze at the top — both ends invariant-enforced.
+        let start = standingPose(shoulderPitch: 0, elbowPitch: -5, effort: 0.15)
+        let topOfCurl = standingPose(shoulderPitch: -10, elbowPitch: -132, effort: 0.75)
         var lowering = topOfCurl.lerp(to: start, t: 0.4)
         lowering.effort = 0.35
 

@@ -298,17 +298,11 @@ import Foundation
         }
     }
 
-    /// THIS bot's mass distribution — segment masses proportional to
-    /// its own mesh volumes in liters (the head alone is ~8 L; the
-    /// limbs are skinny capsules), each hung at the segment midpoint.
-    /// Keyed by the segment's child joint; `.root` is the pelvis.
-    private static let segmentMass: [MascotJoint: Double] = [
-        .root: 5.2, .spine: 6.5, .chest: 6.6, .neck: 0.3, .head: 8.4,
-        .leftElbow: 0.65, .rightElbow: 0.65,
-        .leftWrist: 0.65, .rightWrist: 0.65,
-        .leftKnee: 1.5, .rightKnee: 1.5,
-        .leftAnkle: 1.5, .rightAnkle: 1.5,
-    ]
+    /// THIS bot's mass model — segment masses proportional to its own
+    /// mesh volumes (the head alone is ~8 L), each hung at the segment
+    /// midpoint. The table lives in Kit (`MascotBalance`) — one source of
+    /// truth shared with the authoring path servos, like the grip
+    /// geometry.
 
     /// The bar's center: the palm midpoint (the renderer solves the
     /// bar from the palms; the wrist JOINTS can sit centimeters off the
@@ -325,29 +319,12 @@ import Foundation
     @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl"])
     func standingMovesStayBalancedOverTheFeet(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
-        let barMass = animation.props.contains(.barbell) ? 2.0 : 0.0
         for i in 0...400 {
             let t = Double(i) / 400
-            let positions = animation.pose(at: t).jointPositions(skeleton: Self.skeleton)
+            let pose = animation.pose(at: t)
+            let positions = pose.jointPositions(skeleton: Self.skeleton)
             let ankleZ = (positions[.leftAnkle]!.z + positions[.rightAnkle]!.z) / 2
-            var moment = 0.0
-            var mass = 0.0
-            for (joint, m) in Self.segmentMass {
-                guard let p = positions[joint] else { continue }
-                let anchor: Vec3
-                if joint != .root, let parent = joint.parent, let pp = positions[parent] {
-                    anchor = 0.5 * (p + pp)
-                } else {
-                    anchor = p
-                }
-                moment += m * anchor.z
-                mass += m
-            }
-            if barMass > 0 {
-                moment += barMass * Self.barCenter(animation.pose(at: t)).z
-                mass += barMass
-            }
-            let comZ = moment / mass
+            let comZ = MascotBalance.centerOfMass(pose: pose, props: animation.props).z
             // The support polygon runs from the big cartoon foot's heel
             // (~5.5 cm behind the ankle) to its toes (~14 cm ahead).
             // Mid-transition the moving body may ride the heel edge by
@@ -363,26 +340,10 @@ import Foundation
         // defying gravity).
         let repShare = animation.repDuration / animation.cycleDuration
         for phase in [0.0, animation.restingPhase] {
-            let positions = animation.pose(at: phase * repShare).jointPositions(skeleton: Self.skeleton)
+            let pose = animation.pose(at: phase * repShare)
+            let positions = pose.jointPositions(skeleton: Self.skeleton)
             let ankleZ = (positions[.leftAnkle]!.z + positions[.rightAnkle]!.z) / 2
-            var moment = 0.0
-            var mass = 0.0
-            for (joint, m) in Self.segmentMass {
-                guard let p = positions[joint] else { continue }
-                let anchor: Vec3
-                if joint != .root, let parent = joint.parent, let pp = positions[parent] {
-                    anchor = 0.5 * (p + pp)
-                } else {
-                    anchor = p
-                }
-                moment += m * anchor.z
-                mass += m
-            }
-            if barMass > 0 {
-                moment += barMass * Self.barCenter(animation.pose(at: phase * repShare)).z
-                mass += barMass
-            }
-            let comZ = moment / mass
+            let comZ = MascotBalance.centerOfMass(pose: pose, props: animation.props).z
             #expect(comZ >= ankleZ - 0.055 && comZ <= ankleZ + 0.14,
                     "\(name): held position tips at phase \(phase): com z \(comZ)")
         }
@@ -474,6 +435,12 @@ import Foundation
         let repShare = (squat.repDuration / squat.cycleDuration)
         let bottom = squat.pose(at: 0.42 * repShare)
         #expect(bottom.rootTranslation.y < -0.12, "squat bottom drops the hips")
+        // Full range of motion: BELOW parallel — the hip crease sinks
+        // under the knee at the bottom (Dave's depth round; a squat
+        // that stops high teaches a shallow squat).
+        let bottomPositions = bottom.jointPositions(skeleton: Self.skeleton)
+        let hipDrop = bottomPositions[.leftHip]!.y - bottomPositions[.leftKnee]!.y
+        #expect(hipDrop < -0.01, "below parallel: hip \(hipDrop) vs knee")
         // BACK rack (v4, on the clavicle-upgraded rig): the bar rides
         // ON the traps — behind and just below the neck joint, hands
         // wider than the shoulders. Checked at the bottom AND standing
@@ -493,19 +460,19 @@ import Foundation
         }
     }
 
-    @Test func deadliftReachesTheShins() throws {
+    @Test func deadliftPullsFromTheFloor() throws {
         let deadlift = try #require(MascotMoves.animation(forExerciseNamed: "Deadlift"))
         let repShare = (deadlift.repDuration / deadlift.cycleDuration)
         let bottom = deadlift.pose(at: 0.4 * repShare)
-        let positions = bottom.jointPositions(skeleton: Self.skeleton)
-        let kneeY = positions[.leftKnee]!.y
-        for wrist in [MascotJoint.leftWrist, .rightWrist] {
-            let p = positions[wrist]!
-            // The chunky bot's arms are proportionally short: knee
-            // height is as low as an honest hinge takes the bar.
-            #expect(p.y < kneeY + 0.06, "bar reaches the knees at the bottom: y=\(p.y), knee=\(kneeY)")
-            #expect(p.y > 0.05, "bar not through the floor")
-        }
+        // Full range of motion (Dave's depth round): the pull starts
+        // FROM THE FLOOR — the bar within a couple of centimeters of
+        // where the plates rest (plate radius above the ground), never
+        // from knee height (a rack pull is a different exercise) and
+        // never through the floor.
+        let bar = Self.barCenter(bottom)
+        #expect(bar.y <= MascotGrip.plateRadius + 0.02,
+                "bar catches at the floor: y=\(bar.y) vs plates at \(MascotGrip.plateRadius)")
+        #expect(bar.y >= MascotGrip.plateRadius - 0.005, "plates rest ON the floor, not in it: y=\(bar.y)")
     }
 
     @Test func pushUpKeepsHandsPlantedAndBodyInclined() throws {
@@ -536,6 +503,14 @@ import Foundation
             #expect(top[wrist]!.y > start[wrist]!.y + 0.2, "curl lifts the wrists")
             #expect(top[wrist]!.y > 0.72 && top[wrist]!.z > 0.05, "wrists finish up and forward")
         }
+        // Full range of motion (Dave's depth round): near-full elbow
+        // extension at the bottom (a soft elbow, not a bent-arm rest)
+        // to at least 130 degrees of flexion at the squeeze.
+        let toDegrees = 180 / Double.pi
+        let startFlexion = abs(curl.pose(at: 0).angles(.leftElbow).pitch) * toDegrees
+        let topFlexion = abs(curl.pose(at: 0.38 * repShare).angles(.leftElbow).pitch) * toDegrees
+        #expect(startFlexion <= 10, "full extension at the bottom: \(startFlexion) degrees")
+        #expect(topFlexion >= 128, "full squeeze at the top: \(topFlexion) degrees")
     }
 
     @Test func plankIsAStaticHoldWithRampingEffort() throws {
