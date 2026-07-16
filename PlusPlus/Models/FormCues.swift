@@ -1,13 +1,14 @@
 import Foundation
 
-/// Spoken form cues (voice guidance, 2026-07-16): one short line per
-/// BUILT-IN exercise, read aloud by `FormGuidanceSpeaker` when the
+/// Spoken form cues (voice cues, 2026-07-16): one short line per
+/// BUILT-IN exercise, read aloud by `VoiceCueSpeaker` when the
 /// exercise's block starts in a live session. Content law, enforced by
 /// `FormCuesTests`:
 ///
-/// - FULL catalog coverage — a voice that speaks for some exercises and
-///   goes silent for others reads as broken, so adding a SeedData row
-///   means adding its cue here (the test fails until it exists).
+/// - FULL catalog accounting — a voice that speaks for some exercises
+///   and goes silent for others reads as broken, so every SeedData row
+///   either has a cue here or sits in `deliberatelySilent`, exactly
+///   one of the two (the test fails until a new row picks a side).
 /// - Setup + execution reminders only: body position, path, control.
 ///   Never programming advice (reps/loads live in the plan) and never
 ///   judgement — cues instruct, anti-shame style.
@@ -22,14 +23,29 @@ import Foundation
 /// silence (the isLoadable can't-classify-intent rule).
 enum FormCues {
 
-    /// The spoken cue line for a built-in exercise; nil for customs
-    /// (and anything else the catalog doesn't know).
+    /// The spoken cue line for a built-in exercise; nil for customs,
+    /// the deliberately-silent rows, and anything else the catalog
+    /// doesn't know.
     static func line(for exerciseName: String) -> String? {
         linesByName[exerciseName]
     }
 
     /// All cue keys — the coverage tests' iteration surface.
     static var exerciseNames: [String] { Array(linesByName.keys) }
+
+    /// Built-ins that get NO cue on purpose (Dave, 2026-07-16: "cycling,
+    /// running, walking probably shouldn't have it"): steady locomotion
+    /// and console cardio, where the movement is continuous and
+    /// self-evident, there is no setup moment to coach, and a voice
+    /// reciting "stand tall" as you start a thirty-minute piece is
+    /// noise. Technique ergs (Rowing's legs-body-arms, Ski Erg's hinge
+    /// timing) and skill cardio (Jump Rope, Heavy Bag Rounds) keep
+    /// their cues — sequencing is real coaching.
+    static let deliberatelySilent: Set<String> = [
+        "Running", "Walking", "Cycling", "Treadmill Run",
+        "Stationary Bike", "Assault Bike", "Elliptical", "Stair Climber",
+        "Vertical Climber", "Upper Body Ergometer",
+    ]
 
     private static let linesByName: [String: String] = [
         // Chest
@@ -207,13 +223,7 @@ enum FormCues {
         "Box Jump": "Land soft with your whole foot, stand tall, step down.",
         "Jump Rope": "Bounce on the balls of your feet, spin from the wrists, stay relaxed.",
         "Rowing": "Legs, then body, then arms, and reverse it on the way back.",
-        "Assault Bike": "Push and pull with arms and legs together, settle into a rhythm.",
-        "Stationary Bike": "Set the saddle so the knee stays soft at the bottom, spin smoothly.",
-        "Treadmill Run": "Run tall with quick light steps, landing under your hips.",
         "Sandbag Carry": "Hug it high on your chest, brace, walk tall.",
-        "Running": "Run tall, relaxed shoulders, quick light steps.",
-        "Walking": "Walk tall, relaxed arms, steady rhythm.",
-        "Cycling": "Light grip, steady cadence, knees tracking straight.",
 
         // Specialty bars
         "Safety Bar Squat": "The bar tips you forward, so stay tall, brace, and drive up.",
@@ -254,12 +264,8 @@ enum FormCues {
         "Multi-Hip Kickback": "Stand tall, sweep the leg back, squeeze the glute.",
         "Machine Glute Kickback": "Hips square, press the pad back, squeeze at the top.",
 
-        // Cardio machines
+        // Cardio machines (the console machines are deliberatelySilent)
         "Ski Erg": "Reach tall, pull down with lats and core, hinge as you finish.",
-        "Elliptical": "Stand tall, push and pull evenly, light grip.",
-        "Stair Climber": "Stand tall, whole foot on the step, hands light on the rails.",
-        "Vertical Climber": "Long reaches, drive with the legs, keep breathing.",
-        "Upper Body Ergometer": "Sit tall, smooth circles, drive and pull evenly.",
 
         // Strongman
         "Yoke Carry": "Wedge under it, brace hard, take short fast steps, eyes forward.",

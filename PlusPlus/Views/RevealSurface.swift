@@ -966,7 +966,7 @@ private struct SettingsTray: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage(AppAppearance.storageKey) private var appearanceRaw = AppAppearance.system.rawValue
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw = WeightUnit.lb.rawValue
-    @AppStorage(FormGuidanceSetting.key) private var formGuidanceOn = false
+    @AppStorage(VoiceCueMode.key) private var voiceCueRaw = VoiceCueMode.off.rawValue
 
     var body: some View {
         // Explicit System / Light / Dark order (handoff), mapped back to
@@ -1000,15 +1000,19 @@ private struct SettingsTray: View {
             .padding(.top, 22)
 
             VStack(alignment: .leading, spacing: 7) {
-                SheetSectionLabel("VOICE")
-                Toggle(isOn: $formGuidanceOn) {
-                    Text("Form cues at exercise start")
-                        .font(.system(.subheadline, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
-                }
-                .tint(Theme.selected)
-                .accessibilityIdentifier("formGuidanceToggle")
-                Text("A voice speaks a quick form reminder as each exercise begins. Music ducks while it talks; covers the built-in catalog.")
+                SheetSectionLabel("VOICE CUES")
+                // Explicit order: most talkative to silent, matching the
+                // APPEARANCE idiom of a fixed display order over the
+                // enum's declaration order.
+                let cueOrder: [VoiceCueMode] = [.always, .refresher, .off]
+                SegmentedTabs(
+                    options: ["Every time", "Refreshers", "Off"],
+                    selectedIndex: Binding(
+                        get: { cueOrder.firstIndex(of: VoiceCueMode(rawValue: voiceCueRaw) ?? .off) ?? 2 },
+                        set: { voiceCueRaw = cueOrder[$0].rawValue }
+                    )
+                )
+                Text(voiceCueCaption)
                     .font(.system(.caption))
                     .foregroundStyle(Theme.textFaint)
             }
@@ -1018,6 +1022,19 @@ private struct SettingsTray: View {
         }
         .padding(.horizontal, 18)
         .presentationDetents([.medium])
+    }
+
+    /// The caption explains the SELECTED mode (the segment labels are
+    /// too short to carry the refresher definition on their own).
+    private var voiceCueCaption: String {
+        switch VoiceCueMode(rawValue: voiceCueRaw) ?? .off {
+        case .always:
+            return "A voice speaks a quick form reminder as each exercise begins. Music ducks while it talks."
+        case .refresher:
+            return "A voice speaks form reminders only for exercises that are new to you or that you haven't done in a month."
+        case .off:
+            return "No spoken form reminders."
+        }
     }
 }
 

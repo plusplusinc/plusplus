@@ -3,30 +3,39 @@ import Testing
 import PlusPlusKit
 @testable import PlusPlus
 
-/// The spoken form-cue table's content contract (voice guidance): the
-/// catalog and the cues can never drift apart — every built-in speaks,
-/// every cue names a real built-in, and every line stays short enough
-/// to finish inside the default transition.
+/// The spoken form-cue table's content contract (voice cues): the
+/// catalog and the cues can never drift apart — every built-in either
+/// speaks or is deliberately silent (exactly one of the two), every
+/// cue names a real built-in, and every line stays short enough to
+/// finish inside the default transition.
 struct FormCuesTests {
 
-    /// Full coverage: a voice that speaks for some exercises and goes
-    /// silent for others reads as broken, so a new SeedData row fails
-    /// here until its cue exists.
-    @Test func everyBuiltInExerciseHasACue() {
+    /// Full accounting: a voice that speaks for some exercises and goes
+    /// quiet for others with no stated reason reads as broken, so a new
+    /// SeedData row fails here until it either gets a cue or joins the
+    /// deliberatelySilent list — and never both.
+    @Test func everyBuiltInExerciseIsCuedOrDeliberatelySilent() {
         let exercises = SeedData.makeBuiltInExercisesForTesting(equipment: [])
         #expect(exercises.count == SeedData.builtInExerciseCount)
         for exercise in exercises {
-            #expect(FormCues.line(for: exercise.name) != nil,
-                    "\(exercise.name) has no form cue")
+            let cued = FormCues.line(for: exercise.name) != nil
+            let silent = FormCues.deliberatelySilent.contains(exercise.name)
+            #expect(cued != silent,
+                    "\(exercise.name) needs exactly one of: a form cue, or a deliberatelySilent entry")
         }
     }
 
     /// No orphans: a renamed or removed catalog exercise must take its
-    /// cue along (the RoutineCatalogTests reference rule).
+    /// cue — or its exclusion — along (the RoutineCatalogTests
+    /// reference rule).
     @Test func everyCueKeyResolvesToACatalogExercise() {
         for name in FormCues.exerciseNames {
             #expect(SeedData.builtInDefinition(named: name) != nil,
                     "form cue for unknown exercise \(name)")
+        }
+        for name in FormCues.deliberatelySilent {
+            #expect(SeedData.builtInDefinition(named: name) != nil,
+                    "deliberatelySilent entry for unknown exercise \(name)")
         }
     }
 
@@ -48,5 +57,16 @@ struct FormCuesTests {
     @Test func unknownExercisesStayQuiet() {
         #expect(FormCues.line(for: "Probe Custom Movement") == nil)
         #expect(FormCues.line(for: "") == nil)
+    }
+
+    /// The mode's storage contract: raw values round-trip and the
+    /// unset/garbage default is OFF — a voice must never start talking
+    /// because a preference failed to parse.
+    @Test func voiceCueModeDefaultsToOff() {
+        for mode in VoiceCueMode.allCases {
+            #expect(VoiceCueMode(rawValue: mode.rawValue) == mode)
+        }
+        #expect(VoiceCueMode(rawValue: "garbage") == nil)
+        #expect(VoiceCueMode(rawValue: "") == nil)
     }
 }
