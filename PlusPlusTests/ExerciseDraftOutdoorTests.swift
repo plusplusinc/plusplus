@@ -41,6 +41,20 @@ struct ExerciseDraftOutdoorTests {
         #expect(draft.metricProfile.isOutdoor, "re-adding a feeding metric restores the latched flag")
     }
 
+    @Test("A toggled flag survives the equipment-prefill re-adoption")
+    func toggleLatchesAgainstPrefill() {
+        let draft = ExerciseDraft()
+        draft.adoptSuggestedProfile(MetricProfile([.distance, .duration, .pace], distanceUnit: .miles))
+        #expect(!draft.isOutdoor)
+
+        draft.setOutdoor(true)   // the editor toggle — the user has spoken
+        // Gear changed → the editor re-runs the prefill; it must no-op now.
+        draft.adoptSuggestedProfile(MetricProfile([.duration], distanceUnit: .meters))
+
+        #expect(draft.isOutdoor, "an explicit flip must never be clobbered by the prefill")
+        #expect(draft.metricProfile.isOutdoor)
+    }
+
     @Test("Adopting a suggested or canonical profile carries the flag")
     func adoptionCarriesFlag() {
         let fresh = ExerciseDraft()
