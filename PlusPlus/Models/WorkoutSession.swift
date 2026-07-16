@@ -54,6 +54,23 @@ final class WorkoutSession {
     /// sensor, no Health access) — never zero.
     var averageHeartRate: Int?
     var maxHeartRate: Int?
+    /// GPX 1.1 bytes of this session's outdoor route (#378) — the EXACT
+    /// sidecar the repo sync replays (`history/YYYY/<basename>.gpx`), so
+    /// storing the bytes verbatim is what keeps sync deterministic; parse
+    /// with `GPX.decode` into a `RouteTrack` for display. Written once at
+    /// finish, never mutated. Additive optional (no property default, no
+    /// backfill — nil is the truthful value for every pre-GPS session and
+    /// for indoor work); externalStorage keeps a ~800 KB track out of the
+    /// row.
+    @Attribute(.externalStorage) var routeData: Data?
+    /// Denormalized run summary in RAW meters/seconds (unit-agnostic, like
+    /// the interchange's `run` block) — cheap display without decoding the
+    /// GPX blob, and truthful even when the sidecar never restored. All
+    /// three stamped ONCE at finish from the same `RouteTrack` as
+    /// `routeData`; nil = not a GPS run.
+    var runDistanceMeters: Double?
+    var runMovingSeconds: Double?
+    var runElevationGainMeters: Double?
     @Relationship(deleteRule: .cascade, inverse: \SetLog.session)
     var setLogs: [SetLog] = []
 

@@ -249,7 +249,7 @@ struct InterchangeMappingTests {
             notes: "Drive with the legs.", videoURL: "https://youtu.be/probe"
         )
         source.insert(row)
-        row.metricProfile = MetricProfile([.weight, .reps, .duration, .distance], distanceUnit: .miles)
+        row.metricProfile = MetricProfile([.weight, .reps, .duration, .distance], distanceUnit: .miles, isOutdoor: true)
         row.defaultWeight = 60
         row.defaultReps = 8
         row.defaultRepsUpper = 12
@@ -290,13 +290,20 @@ struct InterchangeMappingTests {
         session.accumulatedSeconds = 930    // active duration, excludes pauses
         session.averageHeartRate = 145
         session.maxHeartRate = 172
+        // GPS run summary (#378). routeData itself is deliberately absent
+        // here: it exports as the .gpx sidecar in the repo layout, not a
+        // bundle field (see the census) — its round-trip is the sync
+        // layer's to prove.
+        session.runDistanceMeters = 5023.4
+        session.runMovingSeconds = 1712
+        session.runElevationGainMeters = 46.5
         let log = SetLog(
             order: 0, groupIndex: 0, setNumber: 1, exercise: row,
             exerciseName: "Probe Row", exerciseType: .duration,
             targetWeight: 60, targetRepsLower: 8, targetRepsUpper: 12, targetDuration: 90,
             targetHeartRateData: InterchangeMapping.encodeHeartRate(.range(lowerBPM: 120, upperBPM: 140))
         )
-        log.metricProfile = MetricProfile([.weight, .reps, .duration, .distance], distanceUnit: .miles)
+        log.metricProfile = MetricProfile([.weight, .reps, .duration, .distance], distanceUnit: .miles, isOutdoor: true)
         log.restSecondsOverride = 120
         log.actualWeight = 62.5
         log.actualReps = 11
@@ -337,6 +344,7 @@ struct InterchangeMappingTests {
         #expect(InterchangeMapping.decodeHeartRate(importedRow.defaultHeartRateTargetData) == .zone(.zone3))
         #expect(importedRow.metricProfile.metrics == [.weight, .reps, .distance, .duration])
         #expect(importedRow.metricProfile.distanceUnit == .miles)
+        #expect(importedRow.metricProfile.isOutdoor == true, "the outdoor flag rides the explicit profile (#378)")
         #expect(importedRow.extraDefaults == [.distance: 2000, .pace: 300])
         #expect(importedRow.inLibrary == true)
         let importedRetired = try #require(importedExercises.first { $0.name == "Probe Retired" })
@@ -375,6 +383,9 @@ struct InterchangeMappingTests {
         #expect(importedSession.averageHeartRate == 145)
         #expect(importedSession.maxHeartRate == 172)
         #expect(importedSession.duration == 930, "active-clock duration survives")
+        #expect(importedSession.runDistanceMeters == 5023.4)
+        #expect(importedSession.runMovingSeconds == 1712)
+        #expect(importedSession.runElevationGainMeters == 46.5)
         let importedLog = try #require(importedSession.sortedSetLogs.first)
         #expect(importedLog.order == 0)
         #expect(importedLog.groupIndex == 0)
@@ -394,6 +405,7 @@ struct InterchangeMappingTests {
         #expect(importedLog.completedAt == Date(timeIntervalSince1970: 2_000_100))
         #expect(importedLog.metricProfile.metrics == [.weight, .reps, .distance, .duration])
         #expect(importedLog.metricProfile.distanceUnit == .miles, "the set's own distance unit snapshots, not the exercise's")
+        #expect(importedLog.metricProfile.isOutdoor == true, "the set snapshot carries outdoor-ness (#378)")
     }
 
     /// Byte-stability guard: `WorkoutSession.start` writes `metricsData` on

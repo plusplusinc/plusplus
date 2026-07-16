@@ -635,11 +635,21 @@ struct ActiveSessionView: View {
             // so the endedAt stamp rides along.
             LiveMirror.shared.finished(session, at: session.endedAt ?? Date())
             heartRate.stop()
-            // Capture the GPS route before stop() clears the monitor; a
-            // non-empty route saves the workout as an outdoor run with its
-            // map in Health (#348).
-            let runRoute = location.route
+            // Capture the GPS track before stop() (#348/#378): the flattened
+            // route goes to Health (a non-empty one classifies the workout
+            // as an outdoor run with its map), and the segmented track
+            // becomes the session's durable record — the GPX bytes stored
+            // here are the EXACT sidecar the repo sync will replay, plus
+            // the denormalized summary for cheap display.
+            let runTrack = location.sessionTrack
+            let runRoute = location.sessionRoute
             location.stop()
+            if !runTrack.isEmpty {
+                session.routeData = GPX.encode(runTrack, name: session.routineName, startedAt: session.effectiveStart)
+                session.runDistanceMeters = runTrack.totalMeters
+                session.runMovingSeconds = runTrack.movingSeconds
+                session.runElevationGainMeters = runTrack.elevationGainMeters
+            }
             // The session's heart-rate summary, from Health's samples
             // over the window. Watch imports never pass through here —
             // their summary rides the result payload. The completion
