@@ -14,6 +14,13 @@ final class ExerciseDraft {
     /// on read, so order and duplicates never matter here.
     var trackedMetrics: [WorkoutMetric] = MetricProfile.weightReps.metrics
     var distanceUnit: DistanceUnit = .meters
+    /// Whether the exercise happens outdoors under GPS (#378). Carried
+    /// faithfully through the draft — dropping it was a live bug: the
+    /// rebuilt profile defaulted `isOutdoor: false`, so ANY edit of
+    /// Running/Walking stored an explicit indoor profile and silently
+    /// killed live pace + route capture (swift-reviewer catch, fixed with
+    /// the run-record work; the visible toggle ships with the record UI).
+    var isOutdoor = false
     /// Latched once the user touches the metric chips: an explicit
     /// choice must never be clobbered by the equipment-based prefill.
     var metricsTouched = false
@@ -42,6 +49,7 @@ final class ExerciseDraft {
         let profile = exercise.metricProfile
         trackedMetrics = profile.metrics
         distanceUnit = profile.distanceUnit
+        isOutdoor = profile.isOutdoor
         // Editing an existing exercise: its profile is a fact, not a
         // suggestion — equipment changes must not rewrite it.
         metricsTouched = true
@@ -58,8 +66,17 @@ final class ExerciseDraft {
 
     // MARK: - Tracked metrics
 
+    /// Outdoor only means something with a distance or pace metric to
+    /// feed — the validator enforces the same pairing on export.
+    var canBeOutdoor: Bool {
+        trackedMetrics.contains(.distance) || trackedMetrics.contains(.pace)
+    }
+
     var metricProfile: MetricProfile {
-        MetricProfile(trackedMetrics, distanceUnit: distanceUnit)
+        // Dropping the last distance/pace metric drops the flag (the #187
+        // stale-defaults rule generalized): a bare isOutdoor would fail
+        // interchange validation and could make a repo restore throw.
+        MetricProfile(trackedMetrics, distanceUnit: distanceUnit, isOutdoor: isOutdoor && canBeOutdoor)
     }
 
     /// The legacy type the profile maps onto (kept for old readers).
@@ -93,6 +110,7 @@ final class ExerciseDraft {
         guard !metricsTouched else { return }
         trackedMetrics = profile.metrics
         distanceUnit = profile.distanceUnit
+        isOutdoor = profile.isOutdoor
     }
 
     /// Adopt a canonical definition wholesale (revert-to-default) —
@@ -100,6 +118,7 @@ final class ExerciseDraft {
     func setProfile(_ profile: MetricProfile) {
         trackedMetrics = profile.metrics
         distanceUnit = profile.distanceUnit
+        isOutdoor = profile.isOutdoor
         metricsTouched = true
     }
 

@@ -650,7 +650,8 @@ struct ActiveSessionView: View {
             // positive run measurements, and an invalid session file would
             // make a whole repo restore throw. No summary, no sidecar; the
             // set actuals still tell the honest story.
-            if !runTrack.isEmpty, runTrack.totalMeters > 0, runTrack.movingSeconds > 0 {
+            let hasRealRun = !runTrack.isEmpty && runTrack.totalMeters > 0 && runTrack.movingSeconds > 0
+            if hasRealRun {
                 session.routeData = GPX.encode(runTrack, name: session.routineName, startedAt: session.effectiveStart)
                 session.runDistanceMeters = runTrack.totalMeters
                 session.runMovingSeconds = runTrack.movingSeconds
@@ -670,8 +671,10 @@ struct ActiveSessionView: View {
                 }
             }
             // Phone-logged sessions reach Health here; watch imports are
-            // recorded by the wrist's own live session (#90).
-            HealthRecorder.record(session, route: runRoute)
+            // recorded by the wrist's own live session (#90). Health gets
+            // the route only when the durable record calls it a run — the
+            // two must not disagree about a degenerate zero-distance track.
+            HealthRecorder.record(session, route: hasRealRun ? runRoute : [])
         }
         if dismissAfter {
             dismiss()

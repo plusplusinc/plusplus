@@ -42,6 +42,7 @@ struct RunLocationMonitorTests {
             loc(meters: 0, seconds: 0), loc(meters: 50, seconds: 10), loc(meters: 100, seconds: 20),
         ])
         monitor.pause()
+        monitor.resume()
         monitor.locationManager(manager, didUpdateLocations: [
             loc(meters: 100, seconds: 100), loc(meters: 150, seconds: 110),
         ])
@@ -97,6 +98,28 @@ struct RunLocationMonitorTests {
         ])
         #expect(monitor.sessionRoute.count == 2)
         #expect(abs(monitor.sessionTrack.totalMeters - 20) < 2)
+    }
+
+    @Test("A straggler delivered while paused is dropped (the disarm gate)")
+    func pausedStragglerDropped() {
+        let monitor = startedMonitor()
+        monitor.locationManager(manager, didUpdateLocations: [
+            loc(meters: 0, seconds: 0), loc(meters: 50, seconds: 10),
+        ])
+        monitor.pause()
+        // CoreLocation doesn't guarantee no delivery after
+        // stopUpdatingLocation(); an accepted straggler here would seed
+        // lastLocation with nil-gate bypasses and stitch phantom distance
+        // across the gap at resume.
+        monitor.locationManager(manager, didUpdateLocations: [loc(meters: 60, seconds: 12)])
+        monitor.resume()
+        monitor.locationManager(manager, didUpdateLocations: [
+            loc(meters: 60, seconds: 100), loc(meters: 110, seconds: 110),
+        ])
+        let track = monitor.sessionTrack
+        #expect(track.segments.count == 2)
+        #expect(monitor.sessionRoute.count == 4)
+        #expect(abs(track.totalMeters - 100) < 2)
     }
 
     @Test("Altitude rides only a trusted vertical accuracy")

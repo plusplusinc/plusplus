@@ -249,7 +249,10 @@ extension ChangeEngine {
         if let metrics = dto.metrics {
             exercise.metricProfile = MetricProfile(
                 metrics.compactMap(WorkoutMetric.init(rawValue:)),
-                distanceUnit: dto.distanceUnit ?? .meters
+                distanceUnit: dto.distanceUnit ?? .meters,
+                // The snapshot DTO carries the outdoor flag (#378) — an
+                // undo must not quietly turn a run indoor.
+                isOutdoor: dto.isOutdoor ?? false
             )
         }
         exercise.extraDefaults = MetricValues.fromRaw(dto.extraDefaults)

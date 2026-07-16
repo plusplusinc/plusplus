@@ -94,6 +94,14 @@ final class RunLocationMonitor: NSObject, CLLocationManagerDelegate {
     /// limitation: an outdoor→strength→outdoor session keeps every stretch.
     @ObservationIgnored private var bankedSegments: [[CLLocation]] = []
     @ObservationIgnored private var running = false
+    /// Whether fixes are currently welcome. pause()/stop() disarm BEFORE
+    /// CoreLocation drains: `stopUpdatingLocation()` does not guarantee no
+    /// in-flight/batched delivery (background runs batch), and a straggler
+    /// arriving after a pause — with `lastLocation` freshly nil — would
+    /// bypass both the 1 Hz and teleport gates, seed the paused position,
+    /// and stitch phantom distance across the gap at resume
+    /// (swift-reviewer catch).
+    @ObservationIgnored private var armed = false
     /// Bumped by every start/stop so a late authorization callback can't
     /// arm updates against a superseded run (the HeartRateMonitor guard).
     @ObservationIgnored private var generation = 0
@@ -116,6 +124,7 @@ final class RunLocationMonitor: NSObject, CLLocationManagerDelegate {
     func start(from startDate: Date, unit: DistanceUnit) {
         guard !uitest, !running else { return }
         running = true
+        armed = true
         generation += 1
         self.unit = unit
         self.startDate = startDate
@@ -141,6 +150,7 @@ final class RunLocationMonitor: NSObject, CLLocationManagerDelegate {
     /// still flattens, which is cosmetic there).
     func pause() {
         guard running else { return }
+        armed = false
         manager.stopUpdatingLocation()
         meter?.markPauseBoundary()
         lastLocation = nil
@@ -149,6 +159,7 @@ final class RunLocationMonitor: NSObject, CLLocationManagerDelegate {
 
     func resume() {
         guard running, !uitest else { return }
+        armed = true
         if manager.authorizationStatus == .authorizedWhenInUse || manager.authorizationStatus == .authorizedAlways {
             manager.startUpdatingLocation()
         }
@@ -156,6 +167,7 @@ final class RunLocationMonitor: NSObject, CLLocationManagerDelegate {
 
     func stop() {
         running = false
+        armed = false
         generation += 1
         manager.stopUpdatingLocation()
         meter = nil
@@ -191,7 +203,9 @@ final class RunLocationMonitor: NSObject, CLLocationManagerDelegate {
     // MARK: - CLLocationManagerDelegate
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        guard running else { return }
+        // armed too: a grant landing mid-pause must not restart the GPS
+        // drain — resume() will.
+        guard running, armed else { return }
         switch manager.authorizationStatus {
         case .authorizedWhenInUse, .authorizedAlways:
             manager.startUpdatingLocation()
@@ -201,7 +215,7 @@ final class RunLocationMonitor: NSObject, CLLocationManagerDelegate {
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard running, let startDate, meter != nil else { return }
+        guard running, armed, let startDate, meter != nil else { return }
         let expected = generation
         for location in locations {
             // Reject cold-start / no-lock fixes and stale samples — the
