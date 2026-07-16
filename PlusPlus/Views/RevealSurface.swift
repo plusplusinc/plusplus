@@ -159,39 +159,35 @@ struct RevealSurface: View {
     /// Operator takes the hero slot (Dave, 2026-07-15); the active
     /// library demotes to a row below. Always visible — unavailable
     /// states show a quiet status word here and explain themselves
-    /// inside the tray, in Operator's voice.
+    /// inside the tray, in Operator's voice. Redesigned in the build-85
+    /// round (Dave: caption + title + snippet read "operator operator
+    /// operator"): one face glyph with ++ eyes, the name once, and the
+    /// designed tagline wrapping beneath — no dot (dots mean sync
+    /// state), no last-reply snippet.
     private var operatorHero: some View {
         Button { openOperator() } label: {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 7) {
-                    Circle()
-                        .fill(operatorAvailability == .ready ? Theme.accent : Theme.textFaint)
-                        .frame(width: 8, height: 8)
-                        .accessibilityHidden(true)
-                    Text("OPERATOR")
-                        .font(.system(.caption2, design: .monospaced, weight: .semibold))
-                        .foregroundStyle(operatorAvailability == .ready ? Theme.accent : Theme.textFaint)
-                        .kerning(0.5)
-                    Spacer()
-                    if let word = operatorAvailability.statusWord {
-                        Text(word)
-                            .font(.system(.caption2, design: .monospaced))
-                            .foregroundStyle(Theme.textFaint)
+            HStack(alignment: .center, spacing: 12) {
+                OperatorFaceGlyph(size: 38, ready: operatorAvailability == .ready)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text("Operator")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundStyle(Theme.textPrimary)
+                        if let word = operatorAvailability.statusWord {
+                            Text(word)
+                                .font(.system(.caption2, design: .monospaced))
+                                .foregroundStyle(Theme.textFaint)
+                        }
                     }
-                }
-                HStack(alignment: .center, spacing: 6) {
-                    Text("Operator")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundStyle(Theme.textPrimary)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(.caption, weight: .bold))
+                    Text(OperatorPersona.heroTagline)
+                        .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(Theme.textFaint)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                Text(operatorSnippet)
-                    .font(.system(.caption2, design: .monospaced))
+                Spacer(minLength: 6)
+                Image(systemName: "chevron.right")
+                    .font(.system(.caption, weight: .bold))
                     .foregroundStyle(Theme.textFaint)
-                    .lineLimit(1)
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -212,25 +208,6 @@ struct RevealSurface: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { operatorAvailability = .current() }
         }
-    }
-
-    /// The hero's one-line sub: the last thing Operator said, else the
-    /// tagline. Reads from the loaded controller only — the hero never
-    /// forces the thread off disk just to render.
-    private var operatorSnippet: String {
-        guard let controller = operatorController else { return OperatorPersona.heroTagline }
-        for message in controller.messages.reversed() {
-            switch message.kind {
-            case .reply(let text):
-                let line = text.split(separator: "\n").first.map(String.init) ?? text
-                if !line.isEmpty { return line }
-            case .receipt(let payload):
-                return payload.summary
-            default:
-                continue
-            }
-        }
-        return OperatorPersona.heroTagline
     }
 
     @discardableResult
@@ -258,7 +235,7 @@ struct RevealSurface: View {
         return VStack(alignment: .leading, spacing: 10) {
             SheetSectionLabel("LIBRARY")
             statusRow(
-                dot: Theme.accent,
+                dot: nil,
                 icon: {
                     Image(systemName: "dumbbell")
                         .font(.system(size: 13, weight: .medium))
@@ -361,11 +338,13 @@ struct RevealSurface: View {
         ) { openTray(.calendar) }
     }
 
-    /// A SYNC trigger row: status dot, a leading icon (GitHub mark / SF Symbol),
+    /// A trigger row: an optional status dot (SYNC rows only — a dot means
+    /// "state of a connection", so Operator/Library rows pass nil; Dave,
+    /// build-85 design round), a leading icon (GitHub mark / SF Symbol),
     /// the name, then a right-aligned status word before the chevron. `status`
     /// is optional so a never-connected GitHub row shows no trailing word.
     private func statusRow<Icon: View>(
-        dot: Color,
+        dot: Color?,
         @ViewBuilder icon: () -> Icon,
         title: String,
         status: String?,
@@ -374,7 +353,9 @@ struct RevealSurface: View {
     ) -> some View {
         Button(action: action) {
             HStack(spacing: 9) {
-                Circle().fill(dot).frame(width: 8, height: 8)
+                if let dot {
+                    Circle().fill(dot).frame(width: 8, height: 8)
+                }
                 icon()
                 Text(title)
                     .font(.system(.subheadline, weight: .semibold))

@@ -121,10 +121,26 @@ final class OperatorController {
     }
 
     private func makeTools() -> [any Tool] {
+        // The narrow-tool surface: one tool per edit intent, so the 3B
+        // model picks operations by NAME (classification) instead of
+        // composing a spec algebra (reasoning it demonstrably lacks).
         [
             FindItemsTool(services: self),
             GetStatsTool(services: self),
-            ProposeChangeTool(services: self),
+            AddGearTool(services: self),
+            RemoveGearTool(services: self),
+            ReplaceGearTool(services: self),
+            CreateLibraryTool(services: self),
+            CreateRoutineTool(services: self),
+            EditRoutineExercisesTool(services: self),
+            SetScheduleTool(services: self),
+            SetRestTool(services: self),
+            CreateExerciseTool(services: self),
+            EditExerciseTool(services: self),
+            ConvertTrackingTool(services: self),
+            FormSupersetTool(services: self),
+            RenameItemTool(services: self),
+            DeleteItemTool(services: self),
             AskUserTool(services: self),
         ]
     }

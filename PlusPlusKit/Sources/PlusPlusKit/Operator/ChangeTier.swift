@@ -22,17 +22,27 @@ public enum ChangeTierPolicy {
     ///     auto-applies for a single exercise with no live entries.
     ///   - cascadesToEntries: live `RoutineExercise` rows are rewritten
     ///     as a consequence (the tracking cascade).
+    ///   - replacesMembership: `values.equipment` on a library update —
+    ///     the whole member list is restated, so everything omitted is
+    ///     removed.
     public static func tier(
         operation: ChangeOperation,
         entity: ChangeEntity,
         affectedCount: Int,
         changesTracking: Bool = false,
-        cascadesToEntries: Bool = false
+        cascadesToEntries: Bool = false,
+        replacesMembership: Bool = false
     ) -> ChangeTier {
         // Destructive: deleting a persistent entity always previews, no
         // matter how small. (A superset "delete" only dissolves grouping —
         // structural, reversible, so it rides the count rules instead.)
         if operation == .delete, entity != .superset {
+            return .previewRequired
+        }
+        // Replacing a library's member list is a delete in disguise:
+        // whatever the spec forgot to restate silently leaves. Deltas
+        // (addEquipment/removeEquipment) ride the count rules instead.
+        if operation == .update, replacesMembership {
             return .previewRequired
         }
         if changesTracking, affectedCount > 1 || cascadesToEntries {

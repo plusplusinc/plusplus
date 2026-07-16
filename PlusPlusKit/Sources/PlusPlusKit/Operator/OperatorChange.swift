@@ -152,6 +152,13 @@ public struct ChangeValues: Equatable, Codable, Sendable {
     /// Equipment names — REPLACES the exercise's gear list, or a
     /// library's membership, wholesale.
     public var equipment: [String]?
+    /// Equipment names to add to / remove from a library's membership
+    /// WITHOUT restating the rest — the safe spelling for "add a jump
+    /// rope to my gear". (First on-device round: replace semantics were
+    /// the only path, and a small model that omits the existing members
+    /// would wipe them.)
+    public var addEquipment: [String]?
+    public var removeEquipment: [String]?
     /// Exercise names to append to a routine, in order.
     public var addExercises: [String]?
     public var removeExercises: [String]?
@@ -168,6 +175,8 @@ public struct ChangeValues: Equatable, Codable, Sendable {
         weight: Double? = nil,
         sets: Int? = nil,
         equipment: [String]? = nil,
+        addEquipment: [String]? = nil,
+        removeEquipment: [String]? = nil,
         addExercises: [String]? = nil,
         removeExercises: [String]? = nil
     ) {
@@ -182,6 +191,8 @@ public struct ChangeValues: Equatable, Codable, Sendable {
         self.weight = weight
         self.sets = sets
         self.equipment = equipment
+        self.addEquipment = addEquipment
+        self.removeEquipment = removeEquipment
         self.addExercises = addExercises
         self.removeExercises = removeExercises
     }
@@ -190,7 +201,8 @@ public struct ChangeValues: Equatable, Codable, Sendable {
         name == nil && notes == nil && restSeconds == nil && scheduleDays == nil
             && trackBy == nil && muscleGroup == nil && reps == nil
             && durationSeconds == nil && weight == nil && sets == nil
-            && equipment == nil && addExercises == nil && removeExercises == nil
+            && equipment == nil && addEquipment == nil && removeEquipment == nil
+            && addExercises == nil && removeExercises == nil
     }
 }
 
@@ -240,7 +252,13 @@ extension ChangeSpec {
             if values.isEmpty, !formsSuperset {
                 issues.append("update needs values")
             }
-            if spec.targets.isEmpty, spec.filter?.isEmpty != false {
+            // A LIBRARY update with nothing named is valid: it resolves
+            // to the ACTIVE library downstream ("my equipment" — second
+            // field round: requiring the model to restate a library name
+            // the user never said is exactly where a small model fails).
+            // Deletes never default; every other entity still names its
+            // targets.
+            if spec.targets.isEmpty, spec.filter?.isEmpty != false, spec.entity != .library {
                 issues.append("update needs targets or a filter")
             }
         case .delete:
@@ -300,6 +318,12 @@ extension ChangeSpec {
         }
         if spec.entity == .routine || spec.entity == .superset, values.equipment != nil {
             issues.append("equipment applies to exercises and libraries only")
+        }
+        if spec.entity != .library, values.addEquipment != nil || values.removeEquipment != nil {
+            issues.append("addEquipment/removeEquipment apply to libraries only")
+        }
+        if values.equipment != nil, values.addEquipment != nil || values.removeEquipment != nil {
+            issues.append("use equipment (replaces the list) or addEquipment/removeEquipment, not both")
         }
         return issues
     }

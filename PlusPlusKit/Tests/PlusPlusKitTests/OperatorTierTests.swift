@@ -32,6 +32,21 @@ struct OperatorTierTests {
         #expect(ChangeTierPolicy.tier(operation: .update, entity: .routine, affectedCount: 12) == .previewRequired)
     }
 
+    @Test("Replacing a library's member list previews even for one library")
+    func membershipReplacePreviews() {
+        // The whole-list restatement removes whatever it omits — a
+        // delete in disguise, so it never auto-applies.
+        #expect(ChangeTierPolicy.tier(
+            operation: .update, entity: .library, affectedCount: 1,
+            replacesMembership: true
+        ) == .previewRequired)
+        // Deltas (addEquipment/removeEquipment) stay small edits.
+        #expect(ChangeTierPolicy.tier(
+            operation: .update, entity: .library, affectedCount: 1,
+            replacesMembership: false
+        ) == .applyNow)
+    }
+
     @Test("Tracking conversion auto-applies only for one entry-free exercise")
     func trackingConversionRules() {
         #expect(ChangeTierPolicy.tier(
