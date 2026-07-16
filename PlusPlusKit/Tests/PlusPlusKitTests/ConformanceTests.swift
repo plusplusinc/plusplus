@@ -20,12 +20,15 @@ struct ConformanceTests {
         let bundle = try InterchangeCodec.decode(ExportBundle.self, from: data)
 
         #expect(bundle.schemaVersion == 1)
-        #expect(bundle.exercises.map(\.name) == ["Band Pulses", "Plank Hold"])
+        #expect(bundle.exercises.map(\.name) == ["Band Pulses", "Plank Hold", "Trail Run"])
         #expect(bundle.exercises.first?.defaultReps == 15)
         #expect(bundle.exercises.first?.defaultRepsUpper == 20)
-        #expect(bundle.exercises.last?.defaultDurationSeconds == 60)
+        #expect(bundle.exercises.last?.isOutdoor == true)
         #expect(bundle.routines.first?.groups.count == 2)
         #expect(bundle.sessions.first?.sets.count == 2)
+        #expect(bundle.sessions.last?.run?.distanceMeters == 5023.4)
+        #expect(bundle.sessions.last?.run?.movingSeconds == 1732)
+        #expect(bundle.sessions.last?.sets.first?.isOutdoor == true)
         #expect(InterchangeValidator.validate(bundle).isEmpty)
 
         // Semantic round-trip: encode → decode reproduces the value exactly.
@@ -54,6 +57,9 @@ struct ConformanceTests {
         #expect(messages.contains("repsUpper 15 must exceed reps 20"))
         #expect(messages.contains("defaultReps 0 outside 1...100"))
         #expect(messages.contains("defaultRepsUpper without defaultReps"))
+        #expect(messages.contains("isOutdoor without a distance or pace metric"))
+        #expect(messages.contains("run.distanceMeters 0.0 must be finite and positive"))
+        #expect(messages.contains("run.movingSeconds -5.0 must be finite and positive"))
     }
 
     @Test("Future-version fixture is rejected before field-level decoding")

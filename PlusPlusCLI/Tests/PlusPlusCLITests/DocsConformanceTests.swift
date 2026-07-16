@@ -75,6 +75,7 @@ struct DocsConformanceTests {
             defaultWeight: 1, defaultReps: 2, defaultRepsUpper: 3,
             defaultDurationSeconds: 4,
             metrics: ["weight", "reps"], distanceUnit: .meters,
+            isOutdoor: true,
             extraDefaults: ["rpe": 8]
         )
         let routine = RoutineDTO(
@@ -89,6 +90,7 @@ struct DocsConformanceTests {
             routineName: "Probe",
             startedAt: Date(timeIntervalSince1970: 0),
             endedAt: nil, restSeconds: 90,
+            run: .init(distanceMeters: 5000, movingSeconds: 1700, elevationGainMeters: 46.5),
             sets: [.init(
                 order: 0, groupIndex: 0, setNumber: 1,
                 exerciseName: "Probe", exerciseType: .weightReps,
@@ -109,6 +111,7 @@ struct DocsConformanceTests {
             "defaultWeight", "defaultReps", "defaultRepsUpper", "defaultDurationSeconds",
             "metrics", "distanceUnit", "extraDefaults", "extraTargets", "extraActuals",
             "restSecondsOverride", "equipmentLibraries", "weightStep",
+            "isOutdoor", "distanceMeters", "movingSeconds", "elevationGainMeters",
         ] {
             #expect(encoded.contains("\"\(field)\""), "\(field) missing from encoded DTO")
             #expect(text.contains(field), "PLATFORM.md never mentions \(field) but the schema carries it")

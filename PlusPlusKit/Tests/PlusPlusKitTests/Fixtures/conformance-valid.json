@@ -20,6 +20,16 @@
       "isBuiltIn" : false,
       "muscleGroup" : "core",
       "name" : "Plank Hold"
+    },
+    {
+      "distanceUnit" : "mi",
+      "equipment" : [],
+      "exerciseType" : "duration",
+      "isBuiltIn" : false,
+      "isOutdoor" : true,
+      "metrics" : ["distance", "duration", "pace"],
+      "muscleGroup" : "fullBody",
+      "name" : "Trail Run"
     }
   ],
   "schemaVersion" : 1,
@@ -52,6 +62,33 @@
       ],
       "startedAt" : "2026-07-05T14:31:00Z",
       "routineName" : "Shoulder PT"
+    },
+    {
+      "endedAt" : "2026-07-07T07:32:10Z",
+      "restSeconds" : 60,
+      "routineName" : "Trail Run",
+      "run" : {
+        "distanceMeters" : 5023.4,
+        "elevationGainMeters" : 46.5,
+        "movingSeconds" : 1732
+      },
+      "sets" : [
+        {
+          "actualDuration" : 1745,
+          "completedAt" : "2026-07-07T07:31:40Z",
+          "distanceUnit" : "mi",
+          "exerciseName" : "Trail Run",
+          "exerciseType" : "duration",
+          "extraActuals" : { "distance" : 3.12, "pace" : 555 },
+          "extraTargets" : { "distance" : 3.11 },
+          "groupIndex" : 0,
+          "isOutdoor" : true,
+          "metrics" : ["distance", "duration", "pace"],
+          "order" : 0,
+          "setNumber" : 1
+        }
+      ],
+      "startedAt" : "2026-07-07T07:02:00Z"
     }
   ],
   "routines" : [

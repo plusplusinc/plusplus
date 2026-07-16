@@ -109,6 +109,15 @@ public enum InterchangeValidator {
                     issues.append(.init(path: path, message: "exerciseType \(exercise.exerciseType.rawValue) disagrees with metrics (expected \(profile.legacyType.rawValue))"))
                 }
             }
+            // Outdoor is a GPS engagement flag — it means nothing without a
+            // distance or pace metric to feed, so a bare flag is a mistake
+            // (mirrors the editor's gating).
+            if exercise.isOutdoor == true {
+                let metrics = exercise.metrics ?? []
+                if !metrics.contains(WorkoutMetric.distance.rawValue), !metrics.contains(WorkoutMetric.pace.rawValue) {
+                    issues.append(.init(path: path, message: "isOutdoor without a distance or pace metric"))
+                }
+            }
             validateExtras(exercise.extraDefaults, field: "extraDefaults", path: path, issues: &issues)
         }
 
@@ -219,6 +228,20 @@ public enum InterchangeValidator {
             if let endedAt = session.endedAt, endedAt < session.startedAt {
                 issues.append(.init(path: path, message: "endedAt precedes startedAt"))
             }
+            // The run summary is a measurement record: a zero-distance or
+            // zero-time "run" is a capture bug, not data (a session with no
+            // GPS run omits the field entirely).
+            if let run = session.run {
+                if !run.distanceMeters.isFinite || run.distanceMeters <= 0 {
+                    issues.append(.init(path: path, message: "run.distanceMeters \(run.distanceMeters) must be finite and positive"))
+                }
+                if !run.movingSeconds.isFinite || run.movingSeconds <= 0 {
+                    issues.append(.init(path: path, message: "run.movingSeconds \(run.movingSeconds) must be finite and positive"))
+                }
+                if let gain = run.elevationGainMeters, !gain.isFinite || gain < 0 {
+                    issues.append(.init(path: path, message: "run.elevationGainMeters \(gain) must be finite and non-negative"))
+                }
+            }
             var seenOrders: Set<Int> = []
             for set in session.sets {
                 if set.exerciseName.trimmingCharacters(in: .whitespaces).isEmpty {
@@ -229,6 +252,12 @@ public enum InterchangeValidator {
                 }
                 if let rest = set.restSecondsOverride, !(15...600).contains(rest) {
                     issues.append(.init(path: path, message: "set \(set.order) restSecondsOverride \(rest) outside 15...600"))
+                }
+                if set.isOutdoor == true {
+                    let metrics = set.metrics ?? []
+                    if !metrics.contains(WorkoutMetric.distance.rawValue), !metrics.contains(WorkoutMetric.pace.rawValue) {
+                        issues.append(.init(path: path, message: "set \(set.order) isOutdoor without a distance or pace metric"))
+                    }
                 }
                 validateExtras(set.extraTargets, field: "extraTargets", path: "\(path).sets[\(set.order)]", issues: &issues)
                 validateExtras(set.extraActuals, field: "extraActuals", path: "\(path).sets[\(set.order)]", issues: &issues)

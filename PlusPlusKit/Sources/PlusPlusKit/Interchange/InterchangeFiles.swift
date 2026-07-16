@@ -16,6 +16,11 @@ public enum InterchangeFiles {
         var sessions: [SessionDTO] = []
 
         for file in files.sorted(by: { $0.path < $1.path }) {
+            // Only .json documents are interchange payloads: history also
+            // carries .gpx route sidecars (#378), and force-decoding one as
+            // a SessionDocument would fail the whole pull. Sidecars are
+            // paired and attached by the app's sync layer, not here.
+            guard file.path.hasSuffix(".json") else { continue }
             if file.path.hasPrefix(FileLayout.exercisesDirectory + "/") {
                 exercises.append(try InterchangeCodec.decode(ExerciseDocument.self, from: file.data).exercise)
             } else if file.path.hasPrefix(FileLayout.routinesDirectory + "/") {
