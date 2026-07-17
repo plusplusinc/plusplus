@@ -12,7 +12,7 @@ struct RoutineListView: View {
     private var routines: [Routine]
 
     @State private var path = NavigationPath()
-    @State private var openSwipeRow: PersistentIdentifier?
+    @State private var openSwipeRow: SwipeRevealOpen<PersistentIdentifier>?
     /// The routine just added from a template — scrolled into view and
     /// given an entrance flash when we land back on the library, then
     /// released (Dave, 2026-07-15). Permanent id (set post-save), so it is

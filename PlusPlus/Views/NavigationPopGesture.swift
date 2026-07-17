@@ -81,6 +81,22 @@ final class PopGestureGate: NSObject, UIGestureRecognizerDelegate {
     /// Clamped non-negative at every mutation site; main-thread only.
     static var suppressionCount = 0
 
+    /// Raised while a screen hosting LEADING swipe reveals is frontmost
+    /// (2026-07-17, the equipment quick-add): a leading reveal OPENS on
+    /// a rightward drag, which this full-width pan would otherwise win
+    /// every time (UIPan begins at ~10 pt; the reveal needs 16). While
+    /// > 0, the back-swipe narrows to the system-edge region — the
+    /// screen keeps a back gesture, the rows keep their reveal, and
+    /// every other screen keeps the full-width feel. Managed by
+    /// `.leadingRevealHost(active:)`; clamped non-negative; main-thread
+    /// only, like `suppressionCount`.
+    static var leadingRevealHostCount = 0
+
+    /// The edge region (pt, from the leading edge) where the back-swipe
+    /// still begins on a leading-reveal host — roughly the system
+    /// edge-pan band.
+    private static let edgeOnlyWidth: CGFloat = 44
+
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         guard Self.suppressionCount == 0,
               let pan = gestureRecognizer as? UIPanGestureRecognizer,
@@ -88,6 +104,11 @@ final class PopGestureGate: NSObject, UIGestureRecognizerDelegate {
               navigationController.viewControllers.count > 1,
               navigationController.transitionCoordinator == nil
         else { return false }
+        if Self.leadingRevealHostCount > 0,
+           let view = pan.view,
+           pan.location(in: view).x > Self.edgeOnlyWidth {
+            return false
+        }
         let velocity = pan.velocity(in: pan.view)
         // Rightward and decisively horizontal.
         return velocity.x > 0 && abs(velocity.x) > abs(velocity.y)
@@ -120,5 +141,35 @@ extension View {
     /// Apply to a pushed screen to make the whole surface swipe back.
     func fullWidthSwipeBack() -> some View {
         background(NavigationPopGestureProbe().frame(width: 0, height: 0))
+    }
+
+    /// Declare a screen that hosts LEADING swipe reveals. While `active`,
+    /// the full-width back-swipe narrows to the screen's edge band so
+    /// rightward row drags reach the rows. Pass `active: false` the
+    /// moment the screen pushes something on top (the pushed screen owns
+    /// full-width pop again). Balanced on appear/change/disappear so a
+    /// pop mid-state can't leak the count.
+    func leadingRevealHost(active: Bool) -> some View {
+        modifier(LeadingRevealHostModifier(active: active))
+    }
+}
+
+private struct LeadingRevealHostModifier: ViewModifier {
+    let active: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear {
+                if active { PopGestureGate.leadingRevealHostCount += 1 }
+            }
+            .onChange(of: active) { was, now in
+                guard was != now else { return }
+                PopGestureGate.leadingRevealHostCount = max(0, PopGestureGate.leadingRevealHostCount + (now ? 1 : -1))
+            }
+            .onDisappear {
+                if active {
+                    PopGestureGate.leadingRevealHostCount = max(0, PopGestureGate.leadingRevealHostCount - 1)
+                }
+            }
     }
 }

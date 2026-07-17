@@ -99,6 +99,11 @@ struct PlusPlusApp: App {
         // AFTER the legacy one-shots: the libraries migration snapshots
         // the inLibrary flags the reset may have just rewritten.
         SeedData.ensureEquipmentLibrary(context: modelContainer.mainContext)
+        // After ensure so the fetch sees settled library state. Targets
+        // existing stores whose lone default is still the pre-rename
+        // "Home"; fresh + just-migrated stores get "main" straight from
+        // the constant above.
+        SeedData.renameDefaultKitIfNeeded(context: modelContainer.mainContext)
         // Ensure every routine/group/exercise has a stable uuid — assigns one
         // to any row migrated in from a pre-uuid store (#155).
         SeedData.backfillModelUUIDsIfNeeded(context: modelContainer.mainContext)

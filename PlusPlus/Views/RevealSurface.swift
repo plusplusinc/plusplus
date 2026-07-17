@@ -112,7 +112,7 @@ struct RevealSurface: View {
         .sheet(item: $activePush) { push in
             NavigationStack {
                 switch push {
-                case .equipment: CatalogBrowseScreen(kind: .equipment, setupMode: true)
+                case .equipment: EquipmentCatalogScreen(setupMode: true)
                 }
             }
         }
@@ -233,7 +233,7 @@ struct RevealSurface: View {
         let items = activeLibrary?.members.count ?? 0
         let itemsText = items == 0 ? "bodyweight" : "\(items) item\(items == 1 ? "" : "s")"
         return VStack(alignment: .leading, spacing: 10) {
-            SheetSectionLabel("LIBRARY")
+            SheetSectionLabel("KIT")
             statusRow(
                 dot: nil,
                 icon: {
@@ -242,7 +242,7 @@ struct RevealSurface: View {
                         .foregroundStyle(Theme.textPrimary)
                         .frame(width: 16, height: 16)
                 },
-                title: activeLibrary?.name ?? "Home",
+                title: activeLibrary?.name ?? EquipmentLibrary.defaultName,
                 status: itemsText,
                 identifier: "revealLibraryRow"
             ) { openTray(.library) }
@@ -559,7 +559,7 @@ struct RevealSurface: View {
             lines.append("Equipment: \(summary.equipmentConfigured) configured")
         }
         if summary.librariesCreated + summary.librariesReplaced > 0 {
-            lines.append("Libraries: \(summary.librariesCreated) added, \(summary.librariesReplaced) updated")
+            lines.append("Kits: \(summary.librariesCreated) added, \(summary.librariesReplaced) updated")
         }
         lines.append("Sessions: \(summary.sessionsAdded) added, \(summary.sessionsSkipped) already present")
         return lines.joined(separator: "\n")
@@ -590,7 +590,7 @@ private struct LibraryTray: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "Equipment library", closeOnly: true, action: { dismiss() })
+            SheetHeader(title: "Kit", closeOnly: true, action: { dismiss() })
             // Pithy line (no em dash, per the copy law).
             Text("What you have decides what you can train. Switch sets any time, without touching your history.")
                 .font(.system(.caption))
@@ -610,7 +610,7 @@ private struct LibraryTray: View {
                         HStack(spacing: 9) {
                             Text("+")
                                 .font(.system(size: 17, weight: .bold, design: .monospaced))
-                            Text("New library")
+                            Text("New kit")
                                 .font(.system(.subheadline, weight: .semibold))
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.6)
@@ -655,7 +655,7 @@ private struct LibraryTray: View {
         }
         .padding(.horizontal, 18)
         .presentationDetents([.medium, .large])
-        .alert("New library", isPresented: $promptingNew) {
+        .alert("New kit", isPresented: $promptingNew) {
             TextField("Hotel, Garage, Office…", text: $newName)
             Button("Cancel", role: .cancel) {}
             Button("Create") { createLibrary() }
@@ -1227,7 +1227,7 @@ enum WhatsNew {
         ("84", "Operator: chat with your training data behind the ++ key · ask anything, change anything · bulk edits preview before they touch a thing, small ones undo in a tap · the model runs entirely on this phone · and outdoor runs now keep their route: map, splits, and stats on the record"),
         ("61", "Scheduled workouts on your calendar · one tap on the event starts the session · works with Apple and Google"),
         ("55", "Sync your program and history to a GitHub repo you own · restore-safe on a new phone"),
-        ("48", "Equipment libraries: keep a set for home and another for the road · switch and the whole app follows · your gear travels with you to a new phone"),
+        ("48", "Kits: keep one set of gear for home and another for the road · switch and the whole app follows · your gear travels with you to a new phone"),
         ("46", "Cardio speaks its own numbers · splits, watts, damper, incline · intervals with their own rest · choose what any exercise tracks · heart rate on screen"),
         ("45", "The ++ key on every tab · catalog pages push and pop one step at a time"),
         ("44", "The ++ wears its key"),

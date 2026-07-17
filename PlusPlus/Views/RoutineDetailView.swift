@@ -28,7 +28,7 @@ struct RoutineDetailView: View {
     // Swipe-open state stays on persistentModelID: it's not a flicker
     // source (an id swap just collapses an open swipe), and it avoids a
     // double-optional now that uuid is optional.
-    @State private var openSwipeRow: PersistentIdentifier?
+    @State private var openSwipeRow: SwipeRevealOpen<PersistentIdentifier>?
     /// The just-formed superset's landing animation (nil at rest). Keyed
     /// by the group's stable id so it survives the commit's reindex; its
     /// `progress` runs 0→1 as the single clock for the field reshape+snap,

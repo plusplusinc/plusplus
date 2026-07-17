@@ -343,6 +343,8 @@ struct EquipmentDetailScreen: View {
     @State private var showingRename = false
     @State private var confirmingDelete = false
     @State private var renameText = ""
+    @State private var showingStepSheet = false
+    @State private var showingMetricsSheet = false
 
     private enum PushTarget: Hashable {
         case exercise(Exercise)
@@ -359,10 +361,6 @@ struct EquipmentDetailScreen: View {
     }
 
     private var weightUnit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .lb }
-
-    /// No opaque "default" (#135): the chips are real numbers, and with
-    /// no stored override the unit default's chip reads as selected.
-    private static let stepChoices: [Double] = [1, 2.5, 5, 10]
 
     private var resolvedStep: Double {
         equipment.weightStep ?? weightUnit.step
@@ -389,58 +387,66 @@ struct EquipmentDetailScreen: View {
                             .padding(.horizontal, 7)
                             .padding(.vertical, 2)
                             .overlay(Capsule().strokeBorder(equipment.isBuiltIn ? Theme.borderStrong : Theme.accent.opacity(0.4)))
-                    }
-
-                    // Config adapts to the gear (#236): a bench holds
-                    // you, a barbell holds plates — only loadables get
-                    // a weight step. For customs, the declared exercise
-                    // config decides (undeclared customs keep the old
-                    // always-loadable default).
-                    if SeedData.isLoadable(equipment) {
-                        SheetSectionLabel("WEIGHT STEP")
-                            .padding(.top, 24)
-                        HStack(spacing: 7) {
-                            ForEach(Self.stepChoices, id: \.self) { choice in
-                                stepChip(choice)
-                            }
-                        }
-                        Text("Per-tap increment for weight exercises using this gear. The wheel picker stays fine-grained.")
-                            .font(.system(.caption))
-                            .foregroundStyle(Theme.textFaint)
-                            .padding(.top, 6)
-                    }
-
-                    // What exercises on this gear track (flexible
-                    // metrics): built-in cardio machines carry curated
-                    // profiles (shown as facts); custom gear is the
-                    // user's to declare — it prefills new exercises and
-                    // decides whether the weight step above applies.
-                    if equipment.isBuiltIn {
-                        if let profile = equipment.suggestedProfile {
-                            SheetSectionLabel("EXERCISE CONFIG")
-                                .padding(.top, 24)
-                            Text(profile.metrics.map(\.label).joined(separator: " · "))
-                                .font(.system(.footnote, design: .monospaced))
+                        if let category = SeedData.equipmentCategory(named: equipment.name) {
+                            Text(category.rawValue.uppercased())
+                                .font(.system(.caption2, design: .monospaced, weight: .semibold))
                                 .foregroundStyle(Theme.textSecondary)
-                                .padding(.top, 2)
-                            Text("New exercises with this gear start tracking these. Each exercise can change its own set in the editor.")
-                                .font(.system(.caption))
-                                .foregroundStyle(Theme.textFaint)
-                                .padding(.top, 6)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2)
+                                .overlay(Capsule().strokeBorder(Theme.borderStrong))
                         }
-                    } else {
-                        SheetSectionLabel("EXERCISE CONFIG")
-                            .padding(.top, 24)
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 7)], spacing: 7) {
-                            ForEach(WorkoutMetric.allCases.filter { !$0.isBlockConfiguration }) { metric in
-                                configMetricChip(metric)
-                            }
-                        }
-                        Text("What exercises on this gear typically track. New exercises with it start from this set. Leave everything off for plain strength gear.")
-                            .font(.system(.caption))
-                            .foregroundStyle(Theme.textFaint)
-                            .padding(.top, 6)
                     }
+
+                    // Adding is the PRIMARY act on gear that isn't in the
+                    // kit yet (pick → tune → keep moving), so it sits
+                    // right under the identity — not below the fold.
+                    // In-kit state is a quiet fact; removal stays in the
+                    // … menu (#241/#265).
+                    if inActiveLibrary {
+                        Text("IN YOUR KIT ✓")
+                            .font(.system(.caption, design: .monospaced, weight: .semibold))
+                            .kerning(0.7)
+                            .foregroundStyle(Theme.textFaint)
+                            .padding(.top, 14)
+                    } else {
+                        CreateRow(label: "Add to kit", identifier: "addToMyEquipment") {
+                            activeLibrary?.setMembership(equipment, true)
+                        }
+                        .padding(.top, 14)
+                    }
+
+                    // Sheet-per-configurable (2026-07-17): each row is one
+                    // adjustable fact — label, the resolved value, and the
+                    // app's one configuration glyph opening a small sheet.
+                    // Config adapts to the gear (#236): a bench holds you,
+                    // a barbell holds plates — only loadables get a weight
+                    // step. Built-ins are configurable too now (the
+                    // setter always supported the override; the read-only
+                    // rendering was legacy) — the sheet carries a reset.
+                    SheetSectionLabel("CONFIGURE")
+                        .padding(.top, 24)
+                    VStack(spacing: 0) {
+                        if SeedData.isLoadable(equipment) {
+                            configRow(
+                                label: "Weight step",
+                                value: WorkoutMetric.weight.displayText(resolvedStep, weightUnit: weightUnit),
+                                identifier: "configWeightStepRow"
+                            ) { showingStepSheet = true }
+                            Divider().overlay(Theme.border)
+                        }
+                        configRow(
+                            label: "Tracks",
+                            value: equipment.suggestedProfile.map { $0.metrics.map(\.label).joined(separator: " · ") } ?? "not set",
+                            identifier: "configTracksRow"
+                        ) { showingMetricsSheet = true }
+                    }
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
+                    .padding(.top, 7)
+                    Text("New exercises with this gear start from these. Each exercise can change its own set in the editor.")
+                        .font(.system(.caption))
+                        .foregroundStyle(Theme.textFaint)
+                        .padding(.top, 6)
 
                     SheetSectionLabel("EXERCISES (\(usedByExercises.count))")
                         .padding(.top, 24)
@@ -464,17 +470,6 @@ struct EquipmentDetailScreen: View {
                                     Divider().overlay(Theme.border)
                                 }
                             }
-                        }
-                        .padding(.bottom, 7)
-                    }
-                    // Same shape as the exercise screen (#265): adding
-                    // gear to this library is the primary act on a type
-                    // that isn't in it — especially now that the library
-                    // gates the catalogs (#260) — so it doesn't hide in
-                    // the … menu. Applies to customs too now.
-                    if !inActiveLibrary {
-                        CreateRow(label: "Add to my equipment", identifier: "addToMyEquipment") {
-                            activeLibrary?.setMembership(equipment, true)
                         }
                         .padding(.bottom, 7)
                     }
@@ -520,7 +515,7 @@ struct EquipmentDetailScreen: View {
             if inActiveLibrary || !equipment.isBuiltIn {
                 HeaderMenuKey(systemImage: "ellipsis", accessibilityLabel: "Equipment options", identifier: "equipmentDetailMenu") {
                     if inActiveLibrary {
-                        Button("Remove from my equipment", role: .destructive) {
+                        Button("Remove from kit", role: .destructive) {
                             activeLibrary?.setMembership(equipment, false)
                             dismiss()
                         }
@@ -566,6 +561,18 @@ struct EquipmentDetailScreen: View {
         .sheet(isPresented: $showingAddExercise) {
             ExerciseEditorView(prefillEquipment: [equipment])
         }
+        .sheet(isPresented: $showingStepSheet) {
+            IncrementSheet(
+                metric: .weight,
+                weightUnit: weightUnit,
+                distanceUnit: equipment.suggestedProfile?.distanceUnit ?? .meters,
+                current: resolvedStep,
+                onPick: { equipment.weightStep = $0 }
+            )
+        }
+        .sheet(isPresented: $showingMetricsSheet) {
+            EquipmentMetricsSheet(equipment: equipment)
+        }
         .alert("Rename equipment", isPresented: $showingRename) {
             TextField("Name", text: $renameText)
             Button("Cancel", role: .cancel) {}
@@ -573,58 +580,31 @@ struct EquipmentDetailScreen: View {
         }
     }
 
-    private func stepChip(_ choice: Double) -> some View {
-        let active = resolvedStep == choice
-        // Accent-tinted when active: the step is training data (what
-        // your plates allow), not chrome.
-        return Button {
-            equipment.weightStep = choice
-        } label: {
-            Text(WorkoutMetric.weight.formatted(choice))
-                .font(.system(.footnote, design: .monospaced, weight: .semibold))
-                .foregroundStyle(active ? Theme.accent : Theme.textSecondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-                .frame(maxWidth: .infinity)
-                .frame(minHeight: 44)
-                .contentShape(Rectangle())
-                .background(active ? Theme.accent.opacity(0.16) : Theme.surface, in: RoundedRectangle(cornerRadius: 9))
-                .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(active ? Theme.accent.opacity(0.55) : Theme.border))
-        }
-        .buttonStyle(.plain)
-    }
-
-    /// EXERCISE CONFIG chip (custom gear): toggles a metric in the
-    /// equipment's suggested profile. Selection blue like every
-    /// selected state (#210). An emptied set clears the declaration —
-    /// back to "plain strength gear, we can't classify intent".
-    private func configMetricChip(_ metric: WorkoutMetric) -> some View {
-        let profile = equipment.suggestedProfile
-        let selected = profile?.contains(metric) == true
-        return Button {
-            var metrics = profile?.metrics ?? []
-            if let index = metrics.firstIndex(of: metric) {
-                metrics.remove(at: index)
-            } else {
-                metrics.append(metric)
+    /// One configurable fact per row: label, the resolved value, and the
+    /// app's one configuration glyph (ConfigIconButton) opening its
+    /// sheet. The whole row is tappable — the glyph is the signpost.
+    private func configRow(label: String, value: String, identifier: String, open: @escaping () -> Void) -> some View {
+        Button(action: open) {
+            HStack(spacing: 8) {
+                Text(label)
+                    .font(.system(.subheadline, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                Spacer(minLength: 8)
+                Text(value)
+                    .font(.system(.footnote, design: .monospaced))
+                    .foregroundStyle(Theme.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(.caption, weight: .semibold))
+                    .foregroundStyle(Theme.textFaint)
             }
-            equipment.suggestedProfile = metrics.isEmpty
-                ? nil
-                : MetricProfile(metrics, distanceUnit: profile?.distanceUnit ?? .meters)
-        } label: {
-            Text(metric.label)
-                .font(.system(.footnote, weight: .semibold))
-                .foregroundStyle(selected ? Theme.onSelected : Theme.textSecondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 7)
-                .background(selected ? Theme.selected : Theme.background, in: Capsule())
-                .overlay(Capsule().strokeBorder(selected ? Color.clear : Theme.border))
+            .padding(.horizontal, 12)
+            .frame(minHeight: 48)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier("equipmentMetricChip-\(metric.rawValue)")
-        .animation(Theme.Anim.selection, value: selected)
+        .accessibilityIdentifier(identifier)
     }
 
     private func rename() {
