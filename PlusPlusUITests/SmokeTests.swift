@@ -156,9 +156,14 @@ final class SmokeTests: XCTestCase {
         XCTAssertEqual(setEquipment.label, "Done · bodyweight only", "fresh store starts gearless")
 
         // Alphabetically-first card, first-screen-realized (#222 rule).
+        // Start the drag from the row's MIDDLE: within 44 pt of the
+        // screen edge the narrowed back-swipe still owns rightward
+        // drags by design (the leading-reveal host's edge band), so an
+        // edge-adjacent start would hand the touch to the pop
+        // recognizer and the reveal would never happen.
         let card = app.staticTexts["Ab Crunch Machine"]
         XCTAssertTrue(card.waitForExistence(timeout: 5))
-        let start = card.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5))
+        let start = card.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
         let add = app.buttons["ADD"]
 
         let hittable = NSPredicate(format: "hittable == 1")

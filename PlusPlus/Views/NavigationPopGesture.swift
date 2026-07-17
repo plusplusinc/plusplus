@@ -156,20 +156,26 @@ extension View {
 
 private struct LeadingRevealHostModifier: ViewModifier {
     let active: Bool
+    /// This instance's CURRENT contribution to the global count. All
+    /// three callbacks reconcile against it, so the balance never
+    /// depends on appear/change ordering — which DIFFERS by pop
+    /// mechanism (a back-button `dismiss()` flips `active` before the
+    /// host's onAppear; an interactive swipe-back after). The naive
+    /// increment-per-signal version double-counted on button pops and
+    /// silently killed full-width back-swipe app-wide (reviewer catch,
+    /// 2026-07-17).
+    @State private var contributed = false
 
     func body(content: Content) -> some View {
         content
-            .onAppear {
-                if active { PopGestureGate.leadingRevealHostCount += 1 }
-            }
-            .onChange(of: active) { was, now in
-                guard was != now else { return }
-                PopGestureGate.leadingRevealHostCount = max(0, PopGestureGate.leadingRevealHostCount + (now ? 1 : -1))
-            }
-            .onDisappear {
-                if active {
-                    PopGestureGate.leadingRevealHostCount = max(0, PopGestureGate.leadingRevealHostCount - 1)
-                }
-            }
+            .onAppear { reconcile(to: active) }
+            .onChange(of: active) { _, now in reconcile(to: now) }
+            .onDisappear { reconcile(to: false) }
+    }
+
+    private func reconcile(to desired: Bool) {
+        guard desired != contributed else { return }
+        contributed = desired
+        PopGestureGate.leadingRevealHostCount = max(0, PopGestureGate.leadingRevealHostCount + (desired ? 1 : -1))
     }
 }

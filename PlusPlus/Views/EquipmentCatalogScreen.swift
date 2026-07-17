@@ -76,7 +76,10 @@ struct EquipmentCatalogScreen: View {
     /// the old browse re-scanned all exercises per row.
     private var exerciseIndex: [PersistentIdentifier: (count: Int, muscles: Set<MuscleGroup>)] {
         var index: [PersistentIdentifier: (count: Int, muscles: Set<MuscleGroup>)] = [:]
-        for exercise in allExercises where exercise.isBuiltIn {
+        // ALL exercises, customs included — the Equipment tab's counts
+        // do the same, and a muscle filter must not hide gear whose
+        // only exercises are the user's own.
+        for exercise in allExercises {
             for gear in exercise.equipment {
                 var entry = index[gear.persistentModelID] ?? (0, [])
                 entry.count += 1

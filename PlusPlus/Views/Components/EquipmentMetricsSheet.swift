@@ -9,7 +9,9 @@ import PlusPlusKit
 /// override rides `metricsData` (and exports, like any configured
 /// built-in); the reset row returns to the catalog's curated profile
 /// (the #136 revert precedent). An emptied set on a custom clears the
-/// declaration: back to "plain strength gear".
+/// declaration: back to "plain strength gear". A built-in keeps its
+/// last chip (emptying would fall back to the catalog set mid-touch);
+/// reset is its one path back.
 struct EquipmentMetricsSheet: View {
     @Bindable var equipment: Equipment
     @Environment(\.dismiss) private var dismiss
@@ -57,6 +59,12 @@ struct EquipmentMetricsSheet: View {
         return Button {
             var metrics = profile?.metrics ?? []
             if let index = metrics.firstIndex(of: metric) {
+                // A BUILT-IN can't empty its set by toggling: nil falls
+                // back to the catalog profile, so the last removal would
+                // re-light every curated chip under the user's finger
+                // (reviewer catch). The reset row is the one path back
+                // to catalog; the last chip stays put.
+                if equipment.isBuiltIn && metrics.count == 1 { return }
                 metrics.remove(at: index)
             } else {
                 metrics.append(metric)
