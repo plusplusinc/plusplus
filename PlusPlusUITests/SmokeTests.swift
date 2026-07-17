@@ -155,33 +155,32 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(setEquipment.waitForExistence(timeout: 5))
         XCTAssertEqual(setEquipment.label, "Done · bodyweight only", "fresh store starts gearless")
 
+        // Black-box test of the leading quick-add. The revealed ADD
+        // button lives BELOW content in the row's ZStack, opacity- and
+        // hit-test-gated; XCUITest never surfaces it in the a11y tree
+        // even when revealed (CI-proven across six runs: the row slides
+        // open — the card's frame shifts +58 — yet the button element
+        // reads exists=false). So we don't query the button. Instead:
+        // (1) drag the row right and confirm the reveal by the card's
+        // frame delta (the offset the reveal produces IS observable),
+        // then (2) tap the now-uncovered left region by coordinate — a
+        // synthetic touch dispatches through UIKit hit-testing, not the
+        // a11y tree, so it reaches the revealed ADD that queries can't
+        // see — and (3) assert the real outcome: the Done bar's count.
+        //
         // Alphabetically-first cards, first-screen-realized (#222 rule).
         // Drags start from the row's MIDDLE: within 44 pt of the screen
         // edge the narrowed back-swipe owns rightward drags by design,
-        // so an edge-adjacent start would hand the touch to the pop
-        // recognizer. Two gesture forms per row: the slow press-drag
-        // (the halfway-commit path) and swipeRight (the flick path —
-        // XCUITest's most reliably synthesized gesture); a real
-        // leading-reveal bug fails BOTH on BOTH rows.
-        // Per-row identifier, NOT app.buttons["ADD"]: every realized
-        // row's hidden leading action exists in the accessibility tree
-        // (opacity 0 removes nothing), so the bare label matches a
-        // dozen elements at once — the earlier runs' "never hittable"
-        // verdicts were this ambiguous query, not the gesture.
-        let hittable = NSPredicate(format: "hittable == 1")
-        var revealed = false
-        var tappedAdd: XCUIElement?
+        // so an edge-adjacent start would hand the touch to the pop.
+        var revealedCard: XCUIElement?
         var attempts: [String] = []
-        for name in ["Ab Crunch Machine", "Ab Wheel"] where !revealed {
-            // Any-element query: the identifier now sits on the Button
-            // itself, but stay agnostic to how SwiftUI types the element.
-            let add = app.descendants(matching: .any).matching(identifier: "quickAdd-\(name)").firstMatch
+        for name in ["Ab Crunch Machine", "Ab Wheel"] where revealedCard == nil {
             let card = app.staticTexts[name]
             XCTAssertTrue(card.waitForExistence(timeout: 5), "missing card \(name)")
-            let start = card.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            for form in ["slowDrag", "slowDrag", "swipeRight", "swipeRight"] where !revealed {
+            for form in ["slowDrag", "slowDrag", "swipeRight"] where revealedCard == nil {
                 let before = card.frame.minX
                 if form == "slowDrag" {
+                    let start = card.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
                     start.press(
                         forDuration: 0.05,
                         thenDragTo: start.withOffset(CGVector(dx: 150, dy: 0)),
@@ -191,27 +190,32 @@ final class SmokeTests: XCTestCase {
                 } else {
                     card.swipeRight()
                 }
-                revealed = XCTWaiter().wait(
-                    for: [XCTNSPredicateExpectation(predicate: hittable, object: add)],
-                    timeout: 4
-                ) == .completed
-                // The card's a11y frame rides the row offset: an
-                // unmoved frame means the rightward touch never reached
-                // the reveal gesture; a +58 shift with ADD unhittable
-                // means a leading-layer layout/a11y bug. This is the
-                // discriminator the exists/hittable pair can't provide.
-                let after = card.frame.minX
-                attempts.append("\(name)/\(form): exists=\(add.exists) hittable=\(revealed) frame=\(Int(before))→\(Int(after))\(add.exists ? " addFrame=\(add.frame.integral)" : "")")
+                // A ≥40 pt rightward shift = the leading edge revealed
+                // (full open is +58; the threshold absorbs mid-commit
+                // and runner jitter). An unmoved frame = the drag never
+                // reached the reveal gesture.
+                let shifted = card.frame.minX - before
+                attempts.append("\(name)/\(form): Δx=\(Int(shifted))")
+                if shifted >= 40 { revealedCard = card }
             }
-            if revealed { tappedAdd = add }
         }
-        if !revealed { snap("quick-add-failed") }
-        XCTAssertTrue(revealed, "leading ADD never hittable — \(attempts.joined(separator: " · "))")
+        guard let card = revealedCard else {
+            snap("quick-add-failed")
+            return XCTFail("leading reveal never opened the row — \(attempts.joined(separator: " · "))")
+        }
         snap("equipment-quick-add-revealed")
-        tappedAdd?.tap()
 
-        // Membership landed: the Done bar's count is the assertion.
-        XCTAssertTrue(waitForLabel(setEquipment, "Done · 1 item"), "quick add should join the gear to the kit")
+        // Tap the revealed ADD: it occupies the leftmost 58 pt of the
+        // row after the reveal, and content (opaque) has slid clear of
+        // it. Absolute window coordinate at the row's vertical center,
+        // x=28 (safely inside the 58 pt ADD block past any list inset).
+        let addPoint = app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: 28, dy: card.frame.midY))
+        addPoint.tap()
+
+        // Membership landed: the Done bar's count is the real assertion.
+        XCTAssertTrue(waitForLabel(setEquipment, "Done · 1 item"),
+                      "quick add should join the gear to the kit — reveal path: \(attempts.joined(separator: " · "))")
     }
 
     private func waitForLabel(_ element: XCUIElement, _ label: String, timeout: TimeInterval = 10) -> Bool {
