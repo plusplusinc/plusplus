@@ -173,7 +173,9 @@ final class SmokeTests: XCTestCase {
         var tappedAdd: XCUIElement?
         var attempts: [String] = []
         for name in ["Ab Crunch Machine", "Ab Wheel"] where !revealed {
-            let add = app.buttons["quickAdd-\(name)"]
+            // Any-element query: the identifier now sits on the Button
+            // itself, but stay agnostic to how SwiftUI types the element.
+            let add = app.descendants(matching: .any).matching(identifier: "quickAdd-\(name)").firstMatch
             let card = app.staticTexts[name]
             XCTAssertTrue(card.waitForExistence(timeout: 5), "missing card \(name)")
             let start = card.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))

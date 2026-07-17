@@ -305,18 +305,19 @@ struct EquipmentCatalogScreen: View {
             // Quick add: green = creation (#202). Flips to membership
             // removal when already in the kit, so setup keeps
             // toggle-off parity with the old browse.
+            // Unique per-row identifier: every realized row's hidden
+            // action lives in the accessibility tree (opacity 0
+            // removes nothing — the component's own law), so a bare
+            // "ADD" query matches a dozen rows at once. The
+            // `toggle-\(name)` precedent.
             SwipeActionButton(
                 label: inKit ? "REMOVE" : "ADD",
-                color: inKit ? Theme.destructive : Theme.accent
+                color: inKit ? Theme.destructive : Theme.accent,
+                identifier: "quickAdd-\(equipment.name)"
             ) {
                 openSwipeRow = nil
                 setMembership(equipment, !inKit)
             }
-            // Unique per row: every realized row's hidden action lives
-            // in the accessibility tree (opacity 0 removes nothing —
-            // the component's own law), so a bare "ADD" query matches
-            // a dozen rows at once. The `toggle-\(name)` precedent.
-            .accessibilityIdentifier("quickAdd-\(equipment.name)")
         }
         .accessibilityIdentifier("equipmentCard-\(equipment.name)")
         .listRowBackground(Color.clear)

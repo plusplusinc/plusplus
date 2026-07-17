@@ -317,6 +317,12 @@ struct SwipeActionButton: View {
     /// The block's fill.
     let color: Color
     var labelColor: Color = .white
+    /// Optional per-row accessibility identifier, applied to the Button
+    /// ITSELF — a modifier on the wrapping view struct does not reach
+    /// the button element (CI-proven, the quick-add hunt 2026-07-17).
+    /// Defaults to the label, which keeps existing label-keyed queries
+    /// ("DELETE") working unchanged.
+    var identifier: String? = nil
     let action: () -> Void
 
     var body: some View {
@@ -335,5 +341,6 @@ struct SwipeActionButton: View {
         // this lives in the ACTIONS slot, outside the content gesture,
         // and only receives touches that begin on it while revealed.
         .buttonStyle(.plain)
+        .accessibilityIdentifier(identifier ?? label)
     }
 }
