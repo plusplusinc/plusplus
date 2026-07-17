@@ -1163,7 +1163,7 @@ private struct AboutTray: View {
                 .font(.system(.caption, design: .monospaced, weight: .semibold))
                 .foregroundStyle(Theme.textSecondary)
                 .padding(.top, 4)
-            Text("The hackable workout tracker for incrementing yourself. Your training data is a git repo you own.")
+            Text("A hackable workout tracker for incrementing yourself. Your training data is a git repo you own.")
                 .font(.system(.footnote))
                 .foregroundStyle(Theme.textSecondary)
                 .padding(.top, 6)
