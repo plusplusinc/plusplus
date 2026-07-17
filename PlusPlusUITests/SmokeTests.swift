@@ -155,32 +155,42 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(setEquipment.waitForExistence(timeout: 5))
         XCTAssertEqual(setEquipment.label, "Done · bodyweight only", "fresh store starts gearless")
 
-        // Alphabetically-first card, first-screen-realized (#222 rule).
-        // Start the drag from the row's MIDDLE: within 44 pt of the
-        // screen edge the narrowed back-swipe still owns rightward
-        // drags by design (the leading-reveal host's edge band), so an
-        // edge-adjacent start would hand the touch to the pop
-        // recognizer and the reveal would never happen.
-        let card = app.staticTexts["Ab Crunch Machine"]
-        XCTAssertTrue(card.waitForExistence(timeout: 5))
-        let start = card.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        // Alphabetically-first cards, first-screen-realized (#222 rule).
+        // Drags start from the row's MIDDLE: within 44 pt of the screen
+        // edge the narrowed back-swipe owns rightward drags by design,
+        // so an edge-adjacent start would hand the touch to the pop
+        // recognizer. Two gesture forms per row: the slow press-drag
+        // (the halfway-commit path) and swipeRight (the flick path —
+        // XCUITest's most reliably synthesized gesture); a real
+        // leading-reveal bug fails BOTH on BOTH rows.
         let add = app.buttons["ADD"]
-
         let hittable = NSPredicate(format: "hittable == 1")
         var revealed = false
-        for _ in 0..<4 where !revealed {
-            start.press(
-                forDuration: 0.05,
-                thenDragTo: start.withOffset(CGVector(dx: 120, dy: 0)),
-                withVelocity: .slow,
-                thenHoldForDuration: 0.4
-            )
-            revealed = XCTWaiter().wait(
-                for: [XCTNSPredicateExpectation(predicate: hittable, object: add)],
-                timeout: 4
-            ) == .completed
+        var attempts: [String] = []
+        for name in ["Ab Crunch Machine", "Ab Wheel"] where !revealed {
+            let card = app.staticTexts[name]
+            XCTAssertTrue(card.waitForExistence(timeout: 5), "missing card \(name)")
+            let start = card.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            for form in ["slowDrag", "slowDrag", "swipeRight", "swipeRight"] where !revealed {
+                if form == "slowDrag" {
+                    start.press(
+                        forDuration: 0.05,
+                        thenDragTo: start.withOffset(CGVector(dx: 150, dy: 0)),
+                        withVelocity: .slow,
+                        thenHoldForDuration: 0.4
+                    )
+                } else {
+                    card.swipeRight()
+                }
+                revealed = XCTWaiter().wait(
+                    for: [XCTNSPredicateExpectation(predicate: hittable, object: add)],
+                    timeout: 4
+                ) == .completed
+                attempts.append("\(name)/\(form): exists=\(add.exists) hittable=\(revealed)")
+            }
         }
-        XCTAssertTrue(revealed, "the leading ADD action must reveal and become hittable")
+        if !revealed { snap("quick-add-failed") }
+        XCTAssertTrue(revealed, "leading ADD never hittable — \(attempts.joined(separator: " · "))")
         snap("equipment-quick-add-revealed")
         add.tap()
 
