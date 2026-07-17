@@ -362,7 +362,7 @@ struct OperatorControllerTests {
 
         let find = FindItemsTool(services: controller)
         let findDigest = try await find.call(arguments: FindItemsTool.Arguments(
-            kind: .routine, nameContains: nil, muscleGroup: nil, inLibraryOnly: nil, limit: nil
+            kind: .routine, nameContains: nil, muscleGroup: nil, favoritesOnly: nil, limit: nil
         ))
         #expect(findDigest.contains("Probe Push"))
 

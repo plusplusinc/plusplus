@@ -100,8 +100,8 @@ final class FindItemsTool: Tool {
         var nameContains: String? = nil
         @Guide(description: "Exercises only; one of the muscle group names")
         var muscleGroup: String? = nil
-        @Guide(description: "Exercises only: limit to the user's library")
-        var inLibraryOnly: Bool? = nil
+        @Guide(description: "Exercises only: limit to the user's favorites")
+        var favoritesOnly: Bool? = nil
         @Guide(description: "Max lines, 1 to 15")
         var limit: Int? = nil
     }
@@ -124,7 +124,7 @@ final class FindItemsTool: Tool {
                 kind: arguments.kind.changeEntity,
                 nameContains: arguments.nameContains,
                 muscleGroup: muscle,
-                inLibraryOnly: arguments.inLibraryOnly ?? false,
+                favoritesOnly: arguments.favoritesOnly ?? false,
                 limit: arguments.limit ?? 8
             )
         }

@@ -504,7 +504,7 @@ extension WorkoutSession {
             // A deleted exercise can't join a template; its logged sets
             // stay in this session's history either way.
             guard let logs = blocks[key], let exercise = logs.first?.exercise else { continue }
-            exercise.inLibrary = true
+            // No library to join (2026-07-17, whole catalog).
             let group = routine.addExerciseInNewGroup(exercise, context: context)
             group.sets = logs.count
             guard let last = logs.last, let entry = group.sortedExercises.first else { continue }

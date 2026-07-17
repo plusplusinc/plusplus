@@ -95,33 +95,33 @@ struct InterchangeMappingTests {
         #expect(sessions.first?.sortedSetLogs.first?.actualReps == 10)
     }
 
-    @Test("Library membership travels: adopted built-ins export and restore (#328)")
-    func libraryMembershipRoundTrips() throws {
+    @Test("Favorites travel: favorited built-ins export and restore (#328 basis)")
+    func favoritesRoundTrip() throws {
         let source = ModelContext(try makeContainer())
-        // An un-customized built-in the user adopted (the populate offer, or a
-        // manual add). Built-ins default inLibrary = true.
-        let adopted = Exercise(name: "Probe Adopted", muscleGroup: .core, isBuiltIn: true)
-        // An un-customized built-in still catalog-only (not in the library).
-        let catalogOnly = Exercise(name: "Probe Catalog", muscleGroup: .core, isBuiltIn: true)
-        catalogOnly.inLibrary = false
-        source.insert(adopted)
-        source.insert(catalogOnly)
+        // A favorited built-in — the whole-catalog curation. Exports as
+        // "yours".
+        let favorited = Exercise(name: "Probe Adopted", muscleGroup: .core, isBuiltIn: true)
+        favorited.isFavorite = true
+        // An un-favorited, un-annotated built-in stays out of the export.
+        let plain = Exercise(name: "Probe Catalog", muscleGroup: .core, isBuiltIn: true)
+        source.insert(favorited)
+        source.insert(plain)
         try source.save()
 
-        // Export ships the adopted one but not the catalog-only one — the #328
-        // fix (was: only customs + edited built-ins, dropping the library).
+        // Export ships the favorited one but not the plain one — the #328
+        // "self-contained for what's yours" thesis on the favorites basis.
         let bundle = try InterchangeMapping.exportBundle(context: source)
         let exported = Set(bundle.exercises.map(\.name))
-        #expect(exported.contains("Probe Adopted"), "An in-library built-in must export")
-        #expect(!exported.contains("Probe Catalog"), "A catalog-only built-in must not export")
+        #expect(exported.contains("Probe Adopted"), "A favorited built-in must export")
+        #expect(!exported.contains("Probe Catalog"), "A plain catalog built-in must not export")
 
-        // Membership restores on import into a fresh store.
+        // Favorites restore on import into a fresh store.
         let dest = ModelContext(try makeContainer())
         _ = try InterchangeMapping.importBundle(bundle, context: dest)
         let imported = try dest.fetch(
             FetchDescriptor<Exercise>(predicate: #Predicate { $0.name == "Probe Adopted" })
         )
-        #expect(imported.first?.inLibrary == true)
+        #expect(imported.first?.isFavorite == true)
     }
 
     /// The new-phone story: a source store's equipment libraries and
@@ -256,10 +256,10 @@ struct InterchangeMappingTests {
         row.defaultDurationSeconds = 90
         row.defaultHeartRateTargetData = InterchangeMapping.encodeHeartRate(.zone(.zone3))
         row.extraDefaults = [.distance: 2000, .pace: 300]
-        // A second exercise removed from the library: inLibrary must
-        // round-trip its non-default `false`.
+        // Favorited: isFavorite must round-trip its non-default `true`.
+        row.isFavorite = true
+        // A second exercise, unfavorited, to confirm the default round-trips.
         let retired = Exercise(name: "Probe Retired", muscleGroup: .chest)
-        retired.inLibrary = false
         source.insert(retired)
 
         // ── Routine: notes + schedule + a superset block with an override.
@@ -346,9 +346,9 @@ struct InterchangeMappingTests {
         #expect(importedRow.metricProfile.distanceUnit == .miles)
         #expect(importedRow.metricProfile.isOutdoor == true, "the outdoor flag rides the explicit profile (#378)")
         #expect(importedRow.extraDefaults == [.distance: 2000, .pace: 300])
-        #expect(importedRow.inLibrary == true)
+        #expect(importedRow.isFavorite == true, "favorite round-trips its true")
         let importedRetired = try #require(importedExercises.first { $0.name == "Probe Retired" })
-        #expect(importedRetired.inLibrary == false, "library removal round-trips")
+        #expect(importedRetired.isFavorite == false, "unfavorited round-trips")
 
         // ── Routine + block + entry.
         let importedRoutine = try #require(

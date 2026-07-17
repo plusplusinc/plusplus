@@ -65,27 +65,29 @@ struct OperatorDataServiceTests {
         #expect(lines[2] == "Probe Arms · 0 exercises · no schedule · ~5 min")
     }
 
-    @Test("Exercise digest filters by muscle and library membership")
+    @Test("Exercise digest filters by muscle and favorites")
     func exerciseDigest() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let curl = Exercise(name: "Probe Curl", muscleGroup: .biceps)
         context.insert(curl)
+        // A favorited exercise carries the "favorite" tag in the digest.
+        curl.isFavorite = true
         let stretch = Exercise(name: "Probe Neck Stretch", muscleGroup: .shoulders)
         context.insert(stretch)
         stretch.metricProfile = .durationOnly
-        stretch.inLibrary = false
 
         let all = service(context, today: date(2026, 7, 15)).findItems(kind: .exercise)
-        #expect(all.contains("Probe Curl · biceps · weight and reps"))
-        #expect(all.contains("Probe Neck Stretch · shoulders · duration · catalog only"))
+        #expect(all.contains("Probe Curl · biceps · weight and reps · favorite"))
+        #expect(all.contains("Probe Neck Stretch · shoulders · duration"))
 
         let filtered = service(context, today: date(2026, 7, 15)).findItems(kind: .exercise, muscleGroup: .biceps)
         #expect(filtered.contains("Probe Curl"))
         #expect(!filtered.contains("Neck"))
 
-        let inLibrary = service(context, today: date(2026, 7, 15)).findItems(kind: .exercise, inLibraryOnly: true)
-        #expect(!inLibrary.contains("Neck"))
+        let favorites = service(context, today: date(2026, 7, 15)).findItems(kind: .exercise, favoritesOnly: true)
+        #expect(favorites.contains("Probe Curl"))
+        #expect(!favorites.contains("Neck"))
     }
 
     @Test("No matches reads honestly")

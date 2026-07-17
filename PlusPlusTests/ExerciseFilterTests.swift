@@ -51,7 +51,7 @@ struct ExerciseFilterTests {
         let (_, _, _, exercises) = makeExercises(context: context)
 
         let filter = ExerciseFilterState()
-        let result = filter.filteredExercises(from: exercises, available: fixtureGear)
+        let result = filter.filteredExercises(from: exercises, kitNames: fixtureGear)
 
         #expect(result.count == 6)
         #expect(result.first?.name == "Probe Curl")
@@ -65,7 +65,7 @@ struct ExerciseFilterTests {
 
         let filter = ExerciseFilterState()
         filter.searchText = "curl"
-        let result = filter.filteredExercises(from: exercises, available: fixtureGear)
+        let result = filter.filteredExercises(from: exercises, kitNames: fixtureGear)
 
         #expect(result.count == 1)
         #expect(result.first?.name == "Probe Curl")
@@ -78,7 +78,7 @@ struct ExerciseFilterTests {
 
         let filter = ExerciseFilterState()
         filter.selectedMuscleGroups = [.chest]
-        let result = filter.filteredExercises(from: exercises, available: fixtureGear)
+        let result = filter.filteredExercises(from: exercises, kitNames: fixtureGear)
 
         #expect(result.count == 3)
         #expect(result.allSatisfy { $0.muscleGroup == .chest })
@@ -91,7 +91,7 @@ struct ExerciseFilterTests {
 
         let filter = ExerciseFilterState()
         filter.selectedMuscleGroups = [.chest, .biceps]
-        let result = filter.filteredExercises(from: exercises, available: fixtureGear)
+        let result = filter.filteredExercises(from: exercises, kitNames: fixtureGear)
 
         #expect(result.count == 4)
     }
@@ -103,7 +103,7 @@ struct ExerciseFilterTests {
 
         let filter = ExerciseFilterState()
         filter.selectedEquipment = [barbell]
-        let result = filter.filteredExercises(from: exercises, available: fixtureGear)
+        let result = filter.filteredExercises(from: exercises, kitNames: fixtureGear)
 
         // Probe Press (barbell) + Squat (barbell)
         #expect(result.count == 2)
@@ -117,7 +117,7 @@ struct ExerciseFilterTests {
 
         let filter = ExerciseFilterState()
         filter.selectedEquipment = [barbell]
-        let result = filter.filteredExercises(from: exercises, available: fixtureGear)
+        let result = filter.filteredExercises(from: exercises, kitNames: fixtureGear)
 
         // Push-Up and Plank have no equipment — should be excluded
         #expect(!result.contains { $0.name == "Probe Push" })
@@ -130,7 +130,7 @@ struct ExerciseFilterTests {
         let (_, _, _, exercises) = makeExercises(context: context)
 
         let filter = ExerciseFilterState()
-        let result = filter.filteredExercises(from: exercises, available: fixtureGear)
+        let result = filter.filteredExercises(from: exercises, kitNames: fixtureGear)
 
         #expect(result.contains { $0.name == "Probe Push" })
         #expect(result.contains { $0.name == "Probe Hold" })
@@ -144,7 +144,7 @@ struct ExerciseFilterTests {
         let filter = ExerciseFilterState()
         filter.selectedMuscleGroups = [.chest]
         filter.selectedEquipment = [barbell]
-        let result = filter.filteredExercises(from: exercises, available: fixtureGear)
+        let result = filter.filteredExercises(from: exercises, kitNames: fixtureGear)
 
         // Only Probe Press matches both chest + barbell
         #expect(result.count == 1)
@@ -159,7 +159,7 @@ struct ExerciseFilterTests {
         let filter = ExerciseFilterState()
         filter.searchText = "press"
         filter.selectedMuscleGroups = [.chest]
-        let result = filter.filteredExercises(from: exercises, available: fixtureGear)
+        let result = filter.filteredExercises(from: exercises, kitNames: fixtureGear)
 
         #expect(result.count == 1)
         #expect(result.first?.name == "Probe Press")
@@ -173,13 +173,13 @@ struct ExerciseFilterTests {
         let filter = ExerciseFilterState()
         // Transposed letters still find the one press.
         filter.searchText = "prses"
-        let typo = filter.filteredExercises(from: exercises, available: fixtureGear)
+        let typo = filter.filteredExercises(from: exercises, kitNames: fixtureGear)
         #expect(typo.map(\.name) == ["Probe Press"])
 
         // Muscle group rides the haystack: "chest" alone surfaces the
         // chest work without any name containing the word.
         filter.searchText = "chest"
-        let byMuscle = filter.filteredExercises(from: exercises, available: fixtureGear)
+        let byMuscle = filter.filteredExercises(from: exercises, kitNames: fixtureGear)
         #expect(Set(byMuscle.map(\.name)) == ["Probe Press", "Probe Fly", "Probe Push"])
     }
 
@@ -190,34 +190,49 @@ struct ExerciseFilterTests {
 
         let filter = ExerciseFilterState()
         filter.searchText = ""
-        let result = filter.filteredExercises(from: exercises, available: fixtureGear)
+        let result = filter.filteredExercises(from: exercises, kitNames: fixtureGear)
 
         #expect(result.count == 6)
     }
 
-    /// Availability drives the default hide: an exercise needing gear the
-    /// active library lacks is hidden, listed with `showUnavailable`, and
-    /// reported by `missingEquipment`.
-    @Test func availabilityHidesAndFlagsMissingGear() throws {
+    /// Gear modes (2026-07-17): nothing hides by default (whole catalog);
+    /// `.withKit` keeps only doable-with-the-kit work, `.withoutKit` its
+    /// complement, `.handPicked` tests a chosen set. `missingEquipment`
+    /// still reports the gap for the row cue.
+    @Test func gearModesFilterByAvailability() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let (_, _, _, exercises) = makeExercises(context: context)
 
-        // Only dumbbells available: barbell/cable work is hidden.
-        let available: Set<String> = ["Dumbbells"]
+        // Only dumbbells in the kit.
+        let kit: Set<String> = ["Dumbbells"]
         let filter = ExerciseFilterState()
 
-        let hidden = filter.filteredExercises(from: exercises, available: available)
-        #expect(!hidden.contains { $0.name == "Probe Press" }, "barbell work hides when the library lacks a barbell")
-        #expect(hidden.contains { $0.name == "Probe Curl" }, "dumbbell work stays")
-        #expect(hidden.contains { $0.name == "Probe Push" }, "bodyweight always stays")
+        // Default (All): the whole catalog, no hiding.
+        let all = filter.filteredExercises(from: exercises, kitNames: kit)
+        #expect(all.contains { $0.name == "Probe Press" }, "barbell work shows under All")
 
-        filter.showUnavailable = true
-        let shown = filter.filteredExercises(from: exercises, available: available)
-        #expect(shown.contains { $0.name == "Probe Press" }, "the escape hatch reveals it")
+        // Can do now: barbell work drops, dumbbell + bodyweight stay.
+        filter.gearMode = .withKit
+        let doable = filter.filteredExercises(from: exercises, kitNames: kit)
+        #expect(!doable.contains { $0.name == "Probe Press" }, "barbell work needs gear the kit lacks")
+        #expect(doable.contains { $0.name == "Probe Curl" }, "dumbbell work stays")
+        #expect(doable.contains { $0.name == "Probe Push" }, "bodyweight always stays")
+
+        // Can't yet: the complement.
+        filter.gearMode = .withoutKit
+        let notYet = filter.filteredExercises(from: exercises, kitNames: kit)
+        #expect(notYet.contains { $0.name == "Probe Press" }, "barbell work is what you can't do yet")
+        #expect(!notYet.contains { $0.name == "Probe Curl" }, "doable work drops from the complement")
+
+        // Hand-picked: add a barbell to the picked set → barbell work returns.
+        filter.gearMode = .handPicked
+        filter.pickedGearNames = ["Barbell"]
+        let picked = filter.filteredExercises(from: exercises, kitNames: kit)
+        #expect(picked.contains { $0.name == "Probe Press" }, "picked barbell enables barbell work")
 
         let press = try #require(exercises.first { $0.name == "Probe Press" })
-        #expect(ExerciseFilterState.missingEquipment(for: press, available: available) == ["Barbell"])
+        #expect(ExerciseFilterState.missingEquipment(for: press, available: kit) == ["Barbell"])
     }
 
     // MARK: - Create-from-here prefill

@@ -415,11 +415,9 @@ final class SmokeTests: XCTestCase {
             XCTAssertTrue(setEquipment.waitForExistence(timeout: 5), "back from \(name) detail should land on the catalog")
         }
         setEquipment.tap()
-        // The optional populate offer now asks from Today (#204): take
-        // it, so the picker and library flows downstream have content.
-        let populate = app.alerts.buttons["Add them"]
-        XCTAssertTrue(populate.waitForExistence(timeout: 10))
-        populate.tap()
+        // The populate offer is gone (2026-07-17): the exercise catalog
+        // is always fully visible, so equipment Done goes straight on to
+        // step 2 with content already available downstream.
 
         // Step 2 unlocks: pick a routine from the catalog (#246 — the
         // two-option seeder sheet died; the catalog is THE creation

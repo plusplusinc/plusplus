@@ -74,10 +74,15 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   "have" is membership in the ACTIVE `EquipmentLibrary` (Home, Hotel…),
   switched from a tray off the Equipment-tab header (left of the +) and via
   the catalog GEAR facet's "Switch library…" footer; the tab list re-renders
-  behind the tray, which is how the app-wide scope reads. Curated lists
-  flag-don't-hide (#113): the Routines/Exercises tabs list everything but
-  render unavailable gear in notes amber ("needs X", card pills); only the
-  CATALOGS filter by the active library. Copy says "have"/"in your kit",
+  behind the tray, which is how the app-wide scope reads. Lists
+  flag-don't-hide (#113): the Routines/Exercises tabs render unavailable
+  gear in notes amber ("needs X", card pills) rather than hiding it. The
+  **Exercises tab IS the whole catalog** (2026-07-17): an exercise is a
+  thing you choose to do, not property, so there's no library — curation
+  is FAVORITES (`Exercise.isFavorite`; `inLibrary` frozen), and the GEAR
+  facet's four modes (All / can do with the kit / can't / a hand-picked
+  set) are the opt-in availability filter that replaced the old
+  hide-by-default. Filters persist device-locally. Copy says "have"/"in your kit",
   never "own" (that word survives only for data ownership and "My
   equipment"/"YOUR GEAR ✓" selection possessives) and never "have access
   to" (retired 2026-07-17; permission-grant copy keeps "access" — Apple's

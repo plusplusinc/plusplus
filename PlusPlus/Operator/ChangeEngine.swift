@@ -702,10 +702,13 @@ final class ChangeEngine {
             summary = "Deleted \(names.joined(separator: ", "))."
 
         case (.delete, .exercise):
-            // Built-ins leave the library (the catalog keeps them);
-            // customs actually delete, taking their routine entries along
-            // rather than leaving ghost rows.
-            var removedFromLibrary = 0
+            // A built-in can't be deleted — the whole catalog is always
+            // there. If it's favorited, honor the delete as "remove from
+            // favorites"; otherwise there is nothing to do. Customs
+            // actually delete, taking their routine entries along rather
+            // than leaving ghost rows.
+            var unfavorited = 0
+            var keptBuiltIns = 0
             var deleted = 0
             let customIDs = Set(resolution.exercises.filter { !$0.isBuiltIn }.map(\.persistentModelID))
             let affectedRoutines = orderedUnique(resolution.cascadeEntries.compactMap { entry -> Routine? in
@@ -717,9 +720,13 @@ final class ChangeEngine {
             }
             for exercise in resolution.exercises {
                 if exercise.isBuiltIn {
-                    inverse.exerciseSnapshots.append(ExerciseSnapshot(exercise: exercise))
-                    exercise.inLibrary = false
-                    removedFromLibrary += 1
+                    if exercise.isFavorite {
+                        inverse.exerciseSnapshots.append(ExerciseSnapshot(exercise: exercise))
+                        exercise.isFavorite = false
+                        unfavorited += 1
+                    } else {
+                        keptBuiltIns += 1
+                    }
                 } else {
                     inverse.recreateExercises.append(InterchangeMapping.makeDTO(exercise))
                     for entry in resolution.cascadeEntries where entry.exercise === exercise {
@@ -731,8 +738,9 @@ final class ChangeEngine {
             }
             var parts: [String] = []
             if deleted > 0 { parts.append("deleted \(deleted) custom\(deleted == 1 ? "" : "s")") }
-            if removedFromLibrary > 0 { parts.append("\(removedFromLibrary) built-in\(removedFromLibrary == 1 ? "" : "s") left the library") }
-            summary = capitalizedFirst(parts.joined(separator: " · ")) + "."
+            if unfavorited > 0 { parts.append("removed \(unfavorited) built-in\(unfavorited == 1 ? "" : "s") from favorites") }
+            if keptBuiltIns > 0 { parts.append("\(keptBuiltIns) built-in\(keptBuiltIns == 1 ? "" : "s") stayed in the catalog") }
+            summary = parts.isEmpty ? "Nothing to delete." : capitalizedFirst(parts.joined(separator: " · ")) + "."
             destinations = [.exercisesTab]
 
         case (.delete, .library):

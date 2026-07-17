@@ -39,12 +39,19 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
     /// Default targets for metrics beyond the three dedicated fields
     /// above, keyed by metric identifier.
     public var extraDefaults: [String: Double]?
-    /// Whether this exercise is in the user's library ("my exercises"), the
-    /// curation that used to be lost on export/restore. Additive: written only
-    /// when `false` (the exception — an exported exercise NOT in the library,
-    /// e.g. a removed custom), so the common in-library case stays byte-clean
-    /// and every pre-existing file (absent) reads as in-library.
+    /// DEPRECATED (2026-07-17, the whole-catalog restructure). Was
+    /// personal-library membership ("my exercises"). Membership stopped
+    /// gating browsing when the Exercises surface became the whole
+    /// catalog, so this is no longer written or read into the model —
+    /// it stays only so a file written by an older build still decodes
+    /// cleanly (parse-and-ignore). `isFavorite` is the curation now.
     public var inLibrary: Bool?
+    /// Whether the user has favorited this exercise (the whole-catalog
+    /// curation, 2026-07-17). Additive: written only when TRUE (the
+    /// `isOutdoor` precedent), so an unfavorited exercise and every
+    /// pre-field file stay byte-identical; absent means not favorited.
+    /// Part of the export "what's yours" basis.
+    public var isFavorite: Bool?
     /// Default heart-rate target for new routine entries on this exercise
     /// (zone or bpm range). Additive.
     public var defaultHeartRateTarget: HeartRateTarget?
@@ -72,6 +79,7 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
         isOutdoor: Bool? = nil,
         extraDefaults: [String: Double]? = nil,
         inLibrary: Bool? = nil,
+        isFavorite: Bool? = nil,
         defaultHeartRateTarget: HeartRateTarget? = nil
     ) {
         self.name = name
@@ -90,6 +98,7 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
         self.isOutdoor = isOutdoor
         self.extraDefaults = extraDefaults
         self.inLibrary = inLibrary
+        self.isFavorite = isFavorite
         self.defaultHeartRateTarget = defaultHeartRateTarget
     }
 }
