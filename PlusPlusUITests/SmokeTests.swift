@@ -406,11 +406,11 @@ final class SmokeTests: XCTestCase {
             let row = card.waitForExistence(timeout: 2) ? card : fallback
             XCTAssertTrue(row.waitForExistence(timeout: 5), "missing equipment card for \(name)")
             row.tap()
-            let add = app.buttons["addToMyEquipment"]
-            XCTAssertTrue(add.waitForExistence(timeout: 5), "\(name) detail should offer Add to kit on a fresh store")
-            add.tap()
-            // In-kit state replaces the add key once membership lands.
-            XCTAssertTrue(app.staticTexts["IN YOUR KIT ✓"].waitForExistence(timeout: 5), "adding \(name) should read as in the kit")
+            // Add to kit is a prominent toggle now (2026-07-17): flip it on.
+            let add = app.switches["addToMyEquipment"]
+            XCTAssertTrue(add.waitForExistence(timeout: 5), "\(name) detail should show the kit toggle")
+            if (add.value as? String) != "1" { add.tap() }
+            XCTAssertTrue(waitForValue(add, "1"), "adding \(name) should flip the kit toggle on")
             app.buttons["backButton"].firstMatch.tap()
             XCTAssertTrue(setEquipment.waitForExistence(timeout: 5), "back from \(name) detail should land on the catalog")
         }

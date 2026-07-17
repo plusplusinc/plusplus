@@ -321,7 +321,7 @@ enum SeedData {
         case machines = "Machines"
         case bandsStraps = "Bands & straps"
         case cardio = "Cardio"
-        case bodyweightAnchors = "Bodyweight anchors"
+        case bodyweightGear = "Bodyweight gear"
     }
 
     /// Every built-in name maps to exactly one category (accounting
@@ -329,8 +329,8 @@ enum SeedData {
     /// skip the facet). Findability rules: a name containing "Machine"
     /// buckets under Machines EXCEPT the Rowing Machine (purpose wins —
     /// it's cardio); strongman implements, thrown/carried loads, and
-    /// loading accessories are Free weights; climbing/hanging/support
-    /// structures are Bodyweight anchors.
+    /// loading accessories are Free weights; benches, racks, stations,
+    /// and bodyweight floor tools are Bodyweight gear.
     static let equipmentCategories: [String: EquipmentCategory] = {
         var table: [String: EquipmentCategory] = [:]
         let buckets: [(EquipmentCategory, [String])] = [
@@ -370,7 +370,7 @@ enum SeedData {
                 "Suspension Trainer", "Gymnastic Rings", "Resistance Band",
                 "Climbing Rope",
             ]),
-            (.bodyweightAnchors, [
+            (.bodyweightGear, [
                 "Squat Rack", "Bench", "Incline Bench", "Decline Bench",
                 "Preacher Bench", "Dip Station", "Pull-Up Bar",
                 "Back Extension Bench", "Glute-Ham Developer", "Nordic Bench",
