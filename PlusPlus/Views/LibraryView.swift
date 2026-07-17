@@ -45,7 +45,7 @@ struct ExercisesTabView: View {
                     LibraryEmptyState(
                         title: "No Exercises",
                         systemImage: "list.bullet",
-                        message: "Your library is the short list you actually do. Pick from the catalog — anything you use in a routine joins on its own.",
+                        message: "Your library is the short list you actually do. Pick from the catalog. Anything you use in a routine joins on its own.",
                         ctaIdentifier: "emptyExercisesCatalogButton"
                     ) { showingCatalog = true }
                 } else {
@@ -204,7 +204,7 @@ struct EquipmentTabView: View {
                     LibraryEmptyState(
                         title: "No Equipment",
                         systemImage: "dumbbell",
-                        message: "Pick what you have access to. Exercises and routines then match to the gear in this library.",
+                        message: "Pick what you have. Exercises and routines then match to the gear in this library.",
                         ctaIdentifier: "emptyEquipmentCatalogButton"
                     ) { showingCatalog = true }
                 } else {
@@ -599,7 +599,7 @@ struct CatalogBrowseScreen: View {
                     // The availability escape hatch as a quiet key (Quiet
                     // Arcade retired selection blue as a link color).
                     QuietKey(
-                        label: "\(hiddenByAvailability) more need equipment you don't have — show",
+                        label: "\(hiddenByAvailability) more need equipment you don't have · show",
                         identifier: "showUnavailableToggle"
                     ) {
                         filterState.showUnavailable = true

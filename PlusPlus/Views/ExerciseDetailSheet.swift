@@ -66,7 +66,7 @@ struct ExerciseDetailSheet: View {
                     // quiet key, like every escape hatch (build-43 rule).
                     if group?.restSecondsOverride != nil {
                         QuietKey(
-                            label: "rest is set for this block — use the workout default (\(WorkoutMetric.rest.displayText(Double(routine.restSeconds))))",
+                            label: "rest is set for this block · use the workout default (\(WorkoutMetric.rest.displayText(Double(routine.restSeconds))))",
                             identifier: "clearRestOverrideButton"
                         ) {
                             group?.restSecondsOverride = nil
@@ -79,7 +79,7 @@ struct ExerciseDetailSheet: View {
                             Image(systemName: "square.on.square")
                                 .font(.system(.caption))
                                 .foregroundStyle(Theme.textSecondary)
-                            Text("Sets count applies to the whole superset — one round runs every exercise once.")
+                            Text("Sets count applies to the whole superset. One round runs every exercise once.")
                                 .font(.system(.caption))
                                 .foregroundStyle(Theme.textSecondary)
                         }

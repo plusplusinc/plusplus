@@ -50,7 +50,7 @@ struct ShareImportSheet: View {
                 action: { importRoutine() }
             )
 
-            Text("Someone sent you this — it came inside the link itself, nothing was uploaded.")
+            Text("Someone sent you this. It came inside the link itself, nothing was uploaded.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textFaint)
                 .padding(.top, 6)
@@ -85,7 +85,7 @@ struct ShareImportSheet: View {
                             .padding(.top, 12)
                     }
                     if replacesExisting {
-                        Text("You already have a routine named \"\(routine.name)\" — importing replaces its plan. Logged history is untouched.")
+                        Text("You already have a routine named \"\(routine.name)\". Importing replaces its plan. Logged history is untouched.")
                             .font(.system(.caption))
                             .foregroundStyle(Theme.notes)
                             .padding(.top, 8)

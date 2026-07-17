@@ -226,7 +226,7 @@ struct AppMenuKey: View {
         }
         .buttonStyle(.raisedKey())
         .accessibilityLabel("Menu")
-        .accessibilityHint(reveal.isOpen ? "Closes the app menu" : "Opens the app menu and settings")
+        .accessibilityHint(reveal.isOpen ? "Closes the menu" : "Opens the menu and settings")
         .accessibilityIdentifier("appMenuButton")
     }
 }

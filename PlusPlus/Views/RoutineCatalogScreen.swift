@@ -211,7 +211,7 @@ struct RoutineCatalogScreen: View {
                     // Quiet key (Quiet Arcade): the escape hatch reads
                     // as pressable without the retired link blue.
                     QuietKey(
-                        label: "\(hiddenByGear) more need gear you don't have — show",
+                        label: "\(hiddenByGear) more need gear you don't have · show",
                         identifier: "showUnavailableTemplates"
                     ) {
                         gearFilter = nil
@@ -228,7 +228,7 @@ struct RoutineCatalogScreen: View {
                             .foregroundStyle(Theme.textFaint)
                         if gearFilter == .mine, hiddenByGear > 0 {
                             QuietKey(
-                                label: "\(hiddenByGear) match\(hiddenByGear == 1 ? "es" : "") need gear you don't have — show",
+                                label: "\(hiddenByGear) match\(hiddenByGear == 1 ? "es" : "") need gear you don't have · show",
                                 identifier: "showUnavailableTemplatesEmpty"
                             ) {
                                 gearFilter = nil
@@ -522,7 +522,7 @@ struct RoutineTemplateDetailScreen: View {
                     SheetSectionLabel("EQUIPMENT")
                         .padding(.top, 24)
                     if template.equipmentNames.isEmpty {
-                        Text("None — bodyweight only.")
+                        Text("None · bodyweight only.")
                             .font(.system(.caption))
                             .foregroundStyle(Theme.textFaint)
                     } else {

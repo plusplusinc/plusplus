@@ -112,7 +112,7 @@ struct ExerciseEditorView: View {
                         .disabled(isBuiltIn)
                         .accessibilityIdentifier("exerciseNameField")
                     if isBuiltIn {
-                        Text("Built-in names are fixed — history and sync key on them. Create a custom exercise for a different name.")
+                        Text("Built-in names are fixed. History and sync key on them. Create a custom exercise for a different name.")
                             .font(.system(.caption))
                             .foregroundStyle(Theme.textFaint)
                             .padding(.top, 6)
@@ -137,7 +137,7 @@ struct ExerciseEditorView: View {
                         }
                     }
                     if !draft.metricProfile.isValid {
-                        Text("Track at least one of reps, duration, distance, or calories — something has to say what a set is.")
+                        Text("Track at least one of reps, duration, distance, or calories. Something has to say what a set is.")
                             .font(.system(.caption))
                             .foregroundStyle(Theme.destructive)
                             .padding(.top, 6)
@@ -158,7 +158,7 @@ struct ExerciseEditorView: View {
                                 set: { draft.distanceUnit = DistanceUnit.allCases[$0] }
                             )
                         )
-                        Text("A declaration, not a conversion — numbers keep their value if you change it. Pace follows: \(draft.distanceUnit.paceLabel).")
+                        Text("A declaration, not a conversion. Numbers keep their value if you change it. Pace follows: \(draft.distanceUnit.paceLabel).")
                             .font(.system(.caption))
                             .foregroundStyle(Theme.textFaint)
                             .padding(.top, 6)
@@ -191,7 +191,7 @@ struct ExerciseEditorView: View {
                         .padding(.top, 24)
                     defaultsCard
                     HStack {
-                        Text("Optional — new routine entries start from these. Routine edits keep them current.")
+                        Text("Optional. New routine entries start from these. Routine edits keep them current.")
                             .font(.system(.caption))
                             .foregroundStyle(Theme.textFaint)
                         if draft.hasDefaultTargets {
@@ -223,7 +223,7 @@ struct ExerciseEditorView: View {
                         addEquipmentChip
                     }
                     Text(draft.selectedEquipment.isEmpty
-                         ? "Bodyweight — no equipment required."
+                         ? "Bodyweight. No equipment required."
                          : "Needs all of these.")
                         .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
@@ -262,7 +262,7 @@ struct ExerciseEditorView: View {
                             revertToDefault()
                         }
                         .padding(.top, 20)
-                        Text("Restores the catalog definition — equipment, muscle group, tracked values — and clears notes and video.")
+                        Text("Restores the catalog definition (equipment, muscle group, tracked values) and clears notes and video.")
                             .font(.system(.caption))
                             .foregroundStyle(Theme.textFaint)
                             .padding(.top, 6)

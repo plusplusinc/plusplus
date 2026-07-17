@@ -740,9 +740,9 @@ struct ActiveSessionView: View {
                 .font(.system(.footnote, design: .monospaced, weight: .semibold))
                 .kerning(0.7)
                 .foregroundStyle(Theme.textSecondary)
-            Text("Nothing on the bar yet")
+            Text("Nothing logged yet")
                 .font(.system(.title3, weight: .bold))
-            Text("Add exercises as you go — when you finish, the whole thing can become a routine.")
+            Text("Add exercises as you go. When you finish, the whole thing can become a routine.")
                 .font(.system(.footnote))
                 .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
@@ -842,7 +842,7 @@ struct ActiveSessionView: View {
                         next.font(.system(.caption, design: .monospaced))
                     }
                     if isFirstEverFinish {
-                        Text("widgets can show your schedule without opening the app — long-press the home screen to add one")
+                        Text("widgets can show your schedule right on the home screen · long-press there to add one")
                             .font(.system(.caption))
                             .foregroundStyle(Theme.textFaint)
                             .multilineTextAlignment(.center)
@@ -1098,7 +1098,7 @@ struct ActiveSessionView: View {
             }
         }
         guard let best else { return nil }
-        return "★ \(best.name.lowercased()) \(WorkoutMetric.weight.displayText(best.weight, weightUnit: weightUnit)) — new best"
+        return "★ \(best.name.lowercased()) \(WorkoutMetric.weight.displayText(best.weight, weightUnit: weightUnit)) · new best"
     }
 
     /// The soonest next occurrence across every scheduled routine —
@@ -1134,7 +1134,7 @@ struct ActiveSessionView: View {
         // Beyond the coming week the bare weekday would lie by
         // omission — add the plain date (mirrors Today's rest-day
         // caption, #267).
-        var fact = "\(best.name) — \(day)"
+        var fact = "\(best.name) · \(day)"
         if let weekBoundary = calendar.date(byAdding: .day, value: 7, to: calendar.startOfDay(for: today)),
            best.date > weekBoundary {
             fact += " · " + best.date.formatted(.dateTime.month(.abbreviated).day()).lowercased()
