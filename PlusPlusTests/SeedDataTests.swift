@@ -111,6 +111,34 @@ struct SeedDataTests {
         #expect(!pullUp.isFavorite, "the one-shot fires once")
     }
 
+    /// Regression (swift-reviewer, 2026-07-17, on-device-only class): a
+    /// catalog TOP-UP on the same launch as the adopt one-shot must NOT
+    /// favorite the newly-inserted exercises — only the user's genuinely
+    /// curated built-ins adopt. (The seed loop must stamp top-ups
+    /// `inLibrary = false`; the model default `true` would make adopt
+    /// favorite every catalog addition an upgrader never chose.)
+    @Test func adoptDoesNotFavoriteCatalogTopUps() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        defer { UserDefaults.standard.removeObject(forKey: SeedData.libraryToFavoritesKey) }
+        UserDefaults.standard.removeObject(forKey: SeedData.libraryToFavoritesKey)
+
+        // An "old" store predating catalog growth: one curated built-in
+        // in the library, the rest of the catalog absent.
+        let curated = Exercise(name: "Bench Press", muscleGroup: .chest, isBuiltIn: true)
+        curated.inLibrary = true
+        context.insert(curated)
+        try context.save()
+
+        // The build's launch order: top-up inserts the rest, then adopt.
+        SeedData.loadIfNeeded(context: context)
+        SeedData.adoptLibraryAsFavoritesIfNeeded(context: context)
+
+        let exercises = try context.fetch(FetchDescriptor<Exercise>())
+        let favorited = exercises.filter(\.isFavorite).map(\.name).sorted()
+        #expect(favorited == ["Bench Press"], "only the curated built-in adopts; top-ups do not — got \(favorited)")
+    }
+
     /// The all-in-library case (the pre-#185 default) is noise, not
     /// curation — the one-shot favorites nothing.
     @Test func adoptSkipsAllInLibraryDefaultNoise() throws {

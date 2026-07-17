@@ -49,11 +49,17 @@ enum SeedData {
                 exerciseType: def.exerciseType,
                 isBuiltIn: true
             )
-            // The whole catalog is always browsable (2026-07-17): an
-            // exercise is a thing you choose to do, so there is no
-            // library to join and nothing to populate. `inLibrary` is
-            // frozen at its default; curation is `isFavorite`, and a
-            // fresh install starts with none.
+            // The whole catalog is browsable regardless (2026-07-17):
+            // `inLibrary` is frozen for browsing and curation is
+            // `isFavorite`. But this MUST stay accurate — it is the sole
+            // input to `adoptLibraryAsFavoritesIfNeeded`, which runs once
+            // on the same launch as this top-up. A newly inserted
+            // built-in is NOT curation, so it must arrive `false` (like
+            // the equipment loop above); leaving the model default
+            // `true` would make the adopt bridge favorite every catalog
+            // addition an upgrader never chose, and export it (swift-
+            // reviewer catch, on-device-only class).
+            exercise.inLibrary = isFreshStore && populateLibrary
             context.insert(exercise)
             exercise.equipment = def.equipmentNames.compactMap { equipmentByName[$0.lowercased()] }
         }
