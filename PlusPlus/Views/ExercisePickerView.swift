@@ -184,7 +184,7 @@ struct ExercisePickerView: View {
             // there updates the @Query-driven list live on return.
             .sheet(isPresented: $showingCatalog) {
                 NavigationStack {
-                    CatalogBrowseScreen(kind: .exercises)
+                    CatalogBrowseScreen()
                 }
             }
             .sheet(item: $editingExercise) { exercise in
@@ -433,7 +433,7 @@ struct EquipmentFilterSheet: View {
                         // An empty active library is the fresh-install
                         // default (#232) — say why the tray is empty
                         // instead of rendering a bare toggle under nothing.
-                        Text("This filters by the gear in your library. Add what you have on the Equipment tab and it shows up here.")
+                        Text("This filters by the gear in your kit. Add what you have on the Equipment tab and it shows up here.")
                             .font(.system(.footnote))
                             .foregroundStyle(Theme.textSecondary)
                             .padding(.vertical, 14)
@@ -478,87 +478,12 @@ struct EquipmentFilterSheet: View {
             }
             .sheet(isPresented: $showingEquipmentEditor) {
                 NavigationStack {
-                    CatalogBrowseScreen(kind: .equipment)
+                    EquipmentCatalogScreen()
                 }
             }
         }
         .padding(.horizontal, 18)
         .presentationBackground(Theme.surface)
-    }
-}
-
-// MARK: - Selectable Chip
-
-private struct SelectableChip: View {
-    let label: String
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            // Solid selected blue (#210): one prominent toggled-on look
-            // everywhere; ink fills stay reserved for actions.
-            Text(label)
-                .font(.system(.footnote, weight: .semibold))
-                .padding(.horizontal, 14)
-                .frame(height: 36)
-                .background(isSelected ? Theme.selected : Color.clear)
-                .foregroundStyle(isSelected ? Theme.onSelected : Theme.textPrimary)
-                .clipShape(Capsule())
-                .overlay(Capsule().strokeBorder(isSelected ? Color.clear : Theme.borderStrong, lineWidth: 1))
-                .padding(4)
-                .contentShape(Rectangle())
-        }
-        .animation(Theme.Anim.selection, value: isSelected)
-        .sensoryFeedback(.selection, trigger: isSelected)
-    }
-}
-
-// MARK: - Flow Layout
-
-private struct FlowLayout: Layout {
-    var spacing: CGFloat = 8
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let rows = computeRows(proposal: proposal, subviews: subviews)
-        var height: CGFloat = 0
-        for (index, row) in rows.enumerated() {
-            height += row.map { $0.sizeThatFits(.unspecified).height }.max() ?? 0
-            if index < rows.count - 1 { height += spacing }
-        }
-        return CGSize(width: proposal.width ?? 0, height: height)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let rows = computeRows(proposal: proposal, subviews: subviews)
-        var y = bounds.minY
-        for row in rows {
-            let rowHeight = row.map { $0.sizeThatFits(.unspecified).height }.max() ?? 0
-            var x = bounds.minX
-            for subview in row {
-                let size = subview.sizeThatFits(.unspecified)
-                subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
-                x += size.width + spacing
-            }
-            y += rowHeight + spacing
-        }
-    }
-
-    private func computeRows(proposal: ProposedViewSize, subviews: Subviews) -> [[LayoutSubviews.Element]] {
-        let maxWidth = proposal.width ?? .infinity
-        var rows: [[LayoutSubviews.Element]] = [[]]
-        var currentWidth: CGFloat = 0
-
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if currentWidth + size.width > maxWidth && !rows[rows.count - 1].isEmpty {
-                rows.append([])
-                currentWidth = 0
-            }
-            rows[rows.count - 1].append(subview)
-            currentWidth += size.width + spacing
-        }
-        return rows
     }
 }
 

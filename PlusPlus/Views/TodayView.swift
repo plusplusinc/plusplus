@@ -466,7 +466,7 @@ struct TodayView: View {
             // The one-time Health ask, in front of the first workout start.
             .healthStartPrimer($healthStartRequest)
             .navigationDestination(isPresented: $showingEquipmentSetup) {
-                CatalogBrowseScreen(kind: .equipment, setupMode: true, offersPopulateOnDone: true)
+                EquipmentCatalogScreen(setupMode: true, offersPopulateOnDone: true)
             }
             // The populate offer, asked from home ground (#204): the
             // catalog's Done raises a one-shot flag and dismisses; the

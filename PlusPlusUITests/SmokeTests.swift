@@ -137,6 +137,95 @@ final class SmokeTests: XCTestCase {
     /// shipped with the RoutineTemplate destination registered inside
     /// the pushed catalog screen — Today's path resolved it, the
     /// Routines tab hit SwiftUI's missing-destination placeholder.
+    /// The leading (swipe-right) quick-add on the equipment catalog
+    /// (2026-07-17): a rightward drag reveals ADD, tapping it joins the
+    /// gear to the kit — visible in the setup Done bar's live count.
+    /// Same jitter-absorbing shape as `revealDelete`, mirrored: a
+    /// deterministic leading-reveal bug fails every attempt.
+    func testEquipmentQuickAddLeadingSwipe() throws {
+        app.terminate()
+        app.launchArguments += ["--uitest-onboarding"]
+        app.launch()
+
+        let equipCTA = app.buttons["setupEquipmentStep"]
+        XCTAssertTrue(equipCTA.waitForExistence(timeout: 10))
+        equipCTA.tap()
+
+        let setEquipment = app.buttons["setEquipmentButton"]
+        XCTAssertTrue(setEquipment.waitForExistence(timeout: 5))
+        XCTAssertEqual(setEquipment.label, "Done · bodyweight only", "fresh store starts gearless")
+
+        // Black-box test of the leading quick-add. The revealed ADD
+        // button lives BELOW content in the row's ZStack, opacity- and
+        // hit-test-gated; XCUITest never surfaces it in the a11y tree
+        // even when revealed (CI-proven across six runs: the row slides
+        // open — the card's frame shifts +58 — yet the button element
+        // reads exists=false). So we don't query the button. Instead:
+        // (1) drag the row right and confirm the reveal by the card's
+        // frame delta (the offset the reveal produces IS observable),
+        // then (2) tap the now-uncovered left region by coordinate — a
+        // synthetic touch dispatches through UIKit hit-testing, not the
+        // a11y tree, so it reaches the revealed ADD that queries can't
+        // see — and (3) assert the real outcome: the Done bar's count.
+        //
+        // Alphabetically-first cards, first-screen-realized (#222 rule).
+        // Drags start from the row's MIDDLE: within 44 pt of the screen
+        // edge the narrowed back-swipe owns rightward drags by design,
+        // so an edge-adjacent start would hand the touch to the pop.
+        var revealedCard: XCUIElement?
+        var attempts: [String] = []
+        for name in ["Ab Crunch Machine", "Ab Wheel"] where revealedCard == nil {
+            let card = app.staticTexts[name]
+            XCTAssertTrue(card.waitForExistence(timeout: 5), "missing card \(name)")
+            for form in ["slowDrag", "slowDrag", "swipeRight"] where revealedCard == nil {
+                let before = card.frame.minX
+                if form == "slowDrag" {
+                    let start = card.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                    start.press(
+                        forDuration: 0.05,
+                        thenDragTo: start.withOffset(CGVector(dx: 150, dy: 0)),
+                        withVelocity: .slow,
+                        thenHoldForDuration: 0.4
+                    )
+                } else {
+                    card.swipeRight()
+                }
+                // A ≥40 pt rightward shift = the leading edge revealed
+                // (full open is +58; the threshold absorbs mid-commit
+                // and runner jitter). An unmoved frame = the drag never
+                // reached the reveal gesture.
+                let shifted = card.frame.minX - before
+                attempts.append("\(name)/\(form): Δx=\(Int(shifted))")
+                if shifted >= 40 { revealedCard = card }
+            }
+        }
+        guard let card = revealedCard else {
+            snap("quick-add-failed")
+            return XCTFail("leading reveal never opened the row — \(attempts.joined(separator: " · "))")
+        }
+        snap("equipment-quick-add-revealed")
+
+        // Tap the revealed ADD: it occupies the leftmost 58 pt of the
+        // row after the reveal, and content (opaque) has slid clear of
+        // it. Absolute window coordinate at the row's vertical center,
+        // x=28 (safely inside the 58 pt ADD block past any list inset).
+        let addPoint = app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: 28, dy: card.frame.midY))
+        addPoint.tap()
+
+        // Membership landed: the Done bar's count is the real assertion.
+        XCTAssertTrue(waitForLabel(setEquipment, "Done · 1 item"),
+                      "quick add should join the gear to the kit — reveal path: \(attempts.joined(separator: " · "))")
+    }
+
+    private func waitForLabel(_ element: XCUIElement, _ label: String, timeout: TimeInterval = 10) -> Bool {
+        let predicate = NSPredicate(format: "label == %@", label)
+        return XCTWaiter().wait(
+            for: [XCTNSPredicateExpectation(predicate: predicate, object: element)],
+            timeout: timeout
+        ) == .completed
+    }
+
     func testRoutinesTabOpensTemplateDetail() throws {
         let routinesTab = app.tabBars.buttons["Routines"]
         XCTAssertTrue(routinesTab.waitForExistence(timeout: 10))
@@ -301,20 +390,29 @@ final class SmokeTests: XCTestCase {
         equipCTA.tap()
 
         // Step 1: the real catalog in setup mode (v4 SSF) — the preset
-        // strip died (#203). A fresh store owns NOTHING (#232) —
-        // ownership is opt-in, so pick the way users do: toggle ON gear
-        // you have. First-screen rows only (lazy List rows below the
-        // fold aren't realized) — use the two alphabetically-FIRST
-        // catalog names so catalog growth can't push them under the
-        // fold again (#222 moved Battle Ropes to row 11 and broke this).
+        // strip died (#203), and the toggle rows died with the card
+        // rebuild (2026-07-17): a row now pushes the gear's DETAIL,
+        // where "Add to kit" is the membership write. A fresh store
+        // owns NOTHING (#232) — ownership is opt-in, so pick the way
+        // users do: open a card, add it, come back, keep moving.
+        // First-screen rows only (lazy List rows below the fold aren't
+        // realized) — the two alphabetically-FIRST catalog names, so
+        // catalog growth can't push them under the fold (#222).
         let setEquipment = app.buttons["setEquipmentButton"]
         XCTAssertTrue(setEquipment.waitForExistence(timeout: 5))
         for name in ["Ab Crunch Machine", "Ab Wheel"] {
-            let row = app.switches["toggle-\(name)"]
-            XCTAssertTrue(row.waitForExistence(timeout: 5), "missing equipment toggle for \(name)")
-            XCTAssertEqual(row.value as? String, "0", "\(name) should start un-owned on a fresh store")
-            row.switches.firstMatch.tap()
-            XCTAssertEqual(row.value as? String, "1", "tapping \(name) should own it")
+            let card = app.otherElements["equipmentCard-\(name)"].firstMatch
+            let fallback = app.staticTexts[name].firstMatch
+            let row = card.waitForExistence(timeout: 2) ? card : fallback
+            XCTAssertTrue(row.waitForExistence(timeout: 5), "missing equipment card for \(name)")
+            row.tap()
+            let add = app.buttons["addToMyEquipment"]
+            XCTAssertTrue(add.waitForExistence(timeout: 5), "\(name) detail should offer Add to kit on a fresh store")
+            add.tap()
+            // In-kit state replaces the add key once membership lands.
+            XCTAssertTrue(app.staticTexts["IN YOUR KIT ✓"].waitForExistence(timeout: 5), "adding \(name) should read as in the kit")
+            app.buttons["backButton"].firstMatch.tap()
+            XCTAssertTrue(setEquipment.waitForExistence(timeout: 5), "back from \(name) detail should land on the catalog")
         }
         setEquipment.tap()
         // The optional populate offer now asks from Today (#204): take

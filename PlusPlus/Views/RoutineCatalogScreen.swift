@@ -105,7 +105,7 @@ struct RoutineCatalogScreen: View {
             ("Edit my equipment…", { showingEquipmentEditor = true })
         ]
         if libraries.count > 1 {
-            rows.append(("Switch library…", { showingLibraryTray = true }))
+            rows.append(("Switch kit…", { showingLibraryTray = true }))
         }
         return rows
     }
@@ -268,7 +268,7 @@ struct RoutineCatalogScreen: View {
         // ownership edits reflect in the filter live on return.
         .sheet(isPresented: $showingEquipmentEditor) {
             NavigationStack {
-                CatalogBrowseScreen(kind: .equipment)
+                EquipmentCatalogScreen()
             }
         }
         .sheet(isPresented: $showingLibraryTray) {
@@ -676,7 +676,7 @@ struct GearCheckTray: View {
         VStack(alignment: .leading, spacing: 0) {
             SheetHeader(title: "Gear check", closeOnly: true, action: { dismiss() })
 
-            Text("Mark what you have. It counts toward the gear check and the library filter everywhere.")
+            Text("Mark what you have. It counts toward the gear check and the kit filter everywhere.")
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
                 .padding(.top, 6)
@@ -718,7 +718,7 @@ struct GearCheckTray: View {
         .presentationDetents([.medium, .large])
         .sheet(isPresented: $showingCatalog) {
             NavigationStack {
-                CatalogBrowseScreen(kind: .equipment)
+                EquipmentCatalogScreen()
             }
         }
     }

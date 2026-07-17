@@ -308,6 +308,106 @@ enum SeedData {
         ].map { Equipment(name: $0, isBuiltIn: true) }
     }
 
+    // MARK: - Equipment categories (the catalog's type facet, 2026-07-17)
+
+    /// The equipment catalog's type buckets — user-facing chip labels.
+    /// App-side static data like `equipmentProfiles`: no model column,
+    /// no migration, no interchange ripple. Customs carry no category
+    /// and drop out under a type chip.
+    enum EquipmentCategory: String, CaseIterable {
+        case freeWeights = "Free weights"
+        case machines = "Machines"
+        case bandsStraps = "Bands & straps"
+        case cardio = "Cardio"
+        case bodyweightAnchors = "Bodyweight anchors"
+    }
+
+    /// Every built-in name maps to exactly one category (accounting
+    /// enforced by `SeedDataTests` so catalog growth can't silently
+    /// skip the facet). Findability rules: a name containing "Machine"
+    /// buckets under Machines EXCEPT the Rowing Machine (purpose wins —
+    /// it's cardio); strongman implements, thrown/carried loads, and
+    /// loading accessories are Free weights; climbing/hanging/support
+    /// structures are Bodyweight anchors.
+    static let equipmentCategories: [String: EquipmentCategory] = {
+        var table: [String: EquipmentCategory] = [:]
+        let buckets: [(EquipmentCategory, [String])] = [
+            (.freeWeights, [
+                "Barbell", "EZ Bar", "Trap Bar", "Dumbbells", "Kettlebell",
+                "Weight Plate", "Sandbag", "Safety Squat Bar", "Swiss Bar",
+                "Cambered Squat Bar", "Axle Bar", "Landmine",
+                "Sled", "Yoke", "Farmers Walk Handles", "Log Bar",
+                "Atlas Stone", "Circus Dumbbell", "Husafell Stone", "Tire",
+                "Sledgehammer", "Weightlifting Chains", "Macebell",
+                "Steel Club", "Bulgarian Bag", "Medicine Ball", "Slam Ball",
+                "Dip Belt", "Weight Vest", "Wrist Roller",
+            ]),
+            (.machines, [
+                "Smith Machine", "T-Bar Row Machine", "Belt Squat Machine",
+                "Pendulum Squat Machine", "Pullover Machine", "Cable Machine",
+                "Leg Press Machine", "Lat Pulldown Machine",
+                "Leg Extension Machine", "Leg Curl Machine",
+                "Calf Raise Machine", "Hack Squat Machine",
+                "Hip Thrust Machine", "Pec Deck Machine",
+                "Chest Press Machine", "Shoulder Press Machine",
+                "Seated Row Machine", "Hip Abduction Machine",
+                "Hip Adduction Machine", "Assisted Pull-Up Machine",
+                "Ab Crunch Machine", "Torso Rotation Machine",
+                "Lateral Raise Machine", "Bicep Curl Machine",
+                "Tricep Extension Machine", "Low Back Extension Machine",
+                "Multi-Hip Machine", "Glute Kickback Machine",
+                "Reverse Hyper Machine",
+            ]),
+            (.cardio, [
+                "Rowing Machine", "Stationary Bike", "Treadmill", "Air Bike",
+                "Ski Erg", "Elliptical", "Stair Climber", "Vertical Climber",
+                "Upper Body Ergometer", "Bicycle", "Jump Rope",
+                "Battle Ropes", "Agility Ladder", "Heavy Bag",
+            ]),
+            (.bandsStraps, [
+                "Suspension Trainer", "Gymnastic Rings", "Resistance Band",
+                "Climbing Rope",
+            ]),
+            (.bodyweightAnchors, [
+                "Squat Rack", "Bench", "Incline Bench", "Decline Bench",
+                "Preacher Bench", "Dip Station", "Pull-Up Bar",
+                "Back Extension Bench", "Glute-Ham Developer", "Nordic Bench",
+                "Sissy Squat Bench", "Captain's Chair", "Plyo Box",
+                "Parallettes", "Peg Board", "Stall Bars", "Stability Ball",
+                "Balance Trainer", "Ab Wheel", "Sliders", "Neck Harness",
+                "Hand Gripper", "Tibialis Bar", "Slant Board",
+            ]),
+        ]
+        for (category, names) in buckets {
+            for name in names { table[name] = category }
+        }
+        return table
+    }()
+
+    static func equipmentCategory(named name: String) -> EquipmentCategory? {
+        equipmentCategories[name]
+    }
+
+    // MARK: - Default kit rename ("Home" → "main", 2026-07-17)
+
+    /// One-shot: the default equipment kit is named `main` now (plain
+    /// first reading, git second reading; also activity-neutral where
+    /// "Home" wasn't). Renames an existing store's LONE, untouched
+    /// default only — a store with multiple kits, or a lone kit not
+    /// named "Home", is deliberate curation and is never touched.
+    /// Fresh installs get `main` straight from `ensureEquipmentLibrary`
+    /// via the renamed constant.
+    static let defaultKitRenameKey = "defaultKitRename1"
+
+    static func renameDefaultKitIfNeeded(context: ModelContext) {
+        guard !UserDefaults.standard.bool(forKey: defaultKitRenameKey) else { return }
+        UserDefaults.standard.set(true, forKey: defaultKitRenameKey)
+        let libraries = (try? context.fetch(FetchDescriptor<EquipmentLibrary>())) ?? []
+        guard libraries.count == 1, let lone = libraries.first, lone.name == "Home" else { return }
+        lone.name = EquipmentLibrary.defaultName
+        try? context.save()
+    }
+
     // MARK: - Exercises
 
     // Exposed as internal for testing; use loadIfNeeded for production

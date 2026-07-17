@@ -94,9 +94,10 @@ struct SeedDataTests {
     }
 
     /// The equipment-libraries migration: a store with no library gets a
-    /// "Home" holding the legacy in-library built-ins plus every custom
-    /// (customs were always available before libraries). Content-keyed
-    /// (zero libraries), so it fires once and never re-clobbers.
+    /// default kit (`main` since 2026-07-17) holding the legacy
+    /// in-library built-ins plus every custom (customs were always
+    /// available before libraries). Content-keyed (zero libraries), so
+    /// it fires once and never re-clobbers.
     @Test func ensureEquipmentLibraryFoldsLegacyState() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
@@ -113,15 +114,74 @@ struct SeedDataTests {
 
         let libraries = try context.fetch(FetchDescriptor<EquipmentLibrary>())
         #expect(libraries.count == 1)
-        let home = try #require(libraries.first)
-        #expect(home.name == "Home")
-        #expect(home.memberNames.contains("Bench"), "in-library built-ins fold in")
-        #expect(home.memberNames.contains("Probe Home Rig"), "customs were always available")
-        #expect(!home.memberNames.contains("Barbell"), "un-owned built-ins stay out")
+        let kit = try #require(libraries.first)
+        #expect(kit.name == "main")
+        #expect(kit.name == EquipmentLibrary.defaultName)
+        #expect(kit.memberNames.contains("Bench"), "in-library built-ins fold in")
+        #expect(kit.memberNames.contains("Probe Home Rig"), "customs were always available")
+        #expect(!kit.memberNames.contains("Barbell"), "un-owned built-ins stay out")
 
         // Idempotent: a second run with a library present is a no-op.
         SeedData.ensureEquipmentLibrary(context: context)
         #expect((try context.fetch(FetchDescriptor<EquipmentLibrary>())).count == 1)
+    }
+
+    /// The Home→main one-shot (2026-07-17): renames ONLY a lone,
+    /// untouched "Home" default. Multi-kit stores and renamed kits are
+    /// deliberate curation — never touched — and the UserDefaults key
+    /// makes the pass fire once.
+    @Test func renameDefaultKitOneShot() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        defer { UserDefaults.standard.removeObject(forKey: SeedData.defaultKitRenameKey) }
+
+        // Lone untouched "Home" → renamed.
+        UserDefaults.standard.removeObject(forKey: SeedData.defaultKitRenameKey)
+        let home = EquipmentLibrary(name: "Home", order: 0)
+        context.insert(home)
+        try context.save()
+        SeedData.renameDefaultKitIfNeeded(context: context)
+        #expect(home.name == "main")
+
+        // Keyed once: a later "Home" (user-created) is never touched.
+        let recreated = EquipmentLibrary(name: "Home", order: 1)
+        context.insert(recreated)
+        try context.save()
+        SeedData.renameDefaultKitIfNeeded(context: context)
+        #expect(recreated.name == "Home")
+    }
+
+    @Test func renameDefaultKitSkipsCuratedStores() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        defer { UserDefaults.standard.removeObject(forKey: SeedData.defaultKitRenameKey) }
+
+        // A renamed lone kit is curation.
+        UserDefaults.standard.removeObject(forKey: SeedData.defaultKitRenameKey)
+        let named = EquipmentLibrary(name: "Garage", order: 0)
+        context.insert(named)
+        try context.save()
+        SeedData.renameDefaultKitIfNeeded(context: context)
+        #expect(named.name == "Garage")
+
+        // Multi-kit stores keep their "Home" even when one exists.
+        UserDefaults.standard.removeObject(forKey: SeedData.defaultKitRenameKey)
+        let home = EquipmentLibrary(name: "Home", order: 1)
+        context.insert(home)
+        try context.save()
+        SeedData.renameDefaultKitIfNeeded(context: context)
+        #expect(home.name == "Home")
+    }
+
+    /// Full accounting for the catalog's type facet (the FormCues
+    /// pattern): every built-in name has exactly one category, and the
+    /// table names no phantom gear — catalog growth can't silently skip
+    /// the facet or orphan a row.
+    @Test func equipmentCategoryTableCoversTheCatalog() {
+        let names = Set(SeedData.builtInEquipment.map(\.name))
+        let categorized = Set(SeedData.equipmentCategories.keys)
+        #expect(names.subtracting(categorized).isEmpty, "uncategorized gear: \(names.subtracting(categorized).sorted())")
+        #expect(categorized.subtracting(names).isEmpty, "phantom table entries: \(categorized.subtracting(names).sorted())")
     }
 
     /// What the store actually holds vs what this context's graph says —

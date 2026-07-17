@@ -38,7 +38,10 @@ extension EquipmentLibrary {
     static let activeIDKey = "activeEquipmentLibraryID"
 
     /// The migration folds the legacy single-library state into this.
-    static let defaultName = "Home"
+    /// `main` since 2026-07-17 (the git wink; activity-neutral where
+    /// "Home" wasn't) — `SeedData.renameDefaultKitIfNeeded` upgrades an
+    /// existing store's lone untouched "Home".
+    static let defaultName = "main"
 
     /// Resolve the active library from an already-fetched list. Views
     /// pass their @AppStorage value as `storedID` so switching re-renders

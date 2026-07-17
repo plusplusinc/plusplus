@@ -27,9 +27,9 @@ struct EquipmentLibraryTray: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "Equipment libraries", closeOnly: true, action: { dismiss() })
+            SheetHeader(title: "Kits", closeOnly: true, action: { dismiss() })
 
-            Text("One list per place you train. Switching changes what counts as your gear everywhere.")
+            Text("One kit per place you train. Switching changes what counts as your gear everywhere.")
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
                 .padding(.top, 6)
@@ -59,7 +59,7 @@ struct EquipmentLibraryTray: View {
                     HStack(spacing: 8) {
                         Image(systemName: "plus")
                             .font(.system(.caption, weight: .semibold))
-                        Text("New library…")
+                        Text("New kit…")
                             .font(.system(.footnote, weight: .semibold))
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
@@ -84,14 +84,14 @@ struct EquipmentLibraryTray: View {
         .padding(.horizontal, 18)
         .presentationBackground(Theme.background)
         .presentationDetents([.medium, .large])
-        .alert("New library", isPresented: $promptingNew) {
+        .alert("New kit", isPresented: $promptingNew) {
             TextField("Hotel, Garage, Office…", text: $newName)
             Button("Cancel", role: .cancel) {}
             Button("Create") { createLibrary() }
         } message: {
             Text("Starts empty. Pick its gear from the catalog.")
         }
-        .alert("Rename library", isPresented: Binding(
+        .alert("Rename kit", isPresented: Binding(
             get: { renaming != nil },
             set: { if !$0 { renaming = nil } }
         )) {
@@ -107,10 +107,10 @@ struct EquipmentLibraryTray: View {
             ),
             titleVisibility: .visible
         ) {
-            Button("Delete library", role: .destructive) { deleteLibrary() }
+            Button("Delete kit", role: .destructive) { deleteLibrary() }
             Button("Cancel", role: .cancel) { deleting = nil }
         } message: {
-            Text("The gear itself stays in the catalog and in your other libraries.")
+            Text("The gear itself stays in the catalog and in your other kits.")
         }
     }
 

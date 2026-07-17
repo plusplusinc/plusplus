@@ -14,7 +14,7 @@ struct ExercisesTabView: View {
     @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
     @State private var showingCatalog = false
-    @State private var openSwipeRow: PersistentIdentifier?
+    @State private var openSwipeRow: SwipeRevealOpen<PersistentIdentifier>?
     @State private var path = NavigationPath()
 
     private var availableEquipmentNames: Set<String> {
@@ -67,7 +67,7 @@ struct ExercisesTabView: View {
             // isPresented is safe here (unlike the routine catalog):
             // nothing appends to the path beneath these screens.
             .navigationDestination(isPresented: $showingCatalog) {
-                CatalogBrowseScreen(kind: .exercises)
+                CatalogBrowseScreen()
             }
         }
         // The catalog pushes via isPresented (not the path); include it so
@@ -174,7 +174,7 @@ struct EquipmentTabView: View {
 
     @State private var showingCatalog = false
     @State private var showingLibraryTray = false
-    @State private var openSwipeRow: PersistentIdentifier?
+    @State private var openSwipeRow: SwipeRevealOpen<PersistentIdentifier>?
     @State private var path = NavigationPath()
 
     private var activeLibrary: EquipmentLibrary? {
@@ -204,7 +204,7 @@ struct EquipmentTabView: View {
                     LibraryEmptyState(
                         title: "No Equipment",
                         systemImage: "dumbbell",
-                        message: "Pick what you have. Exercises and routines then match to the gear in this library.",
+                        message: "Pick what you have. Exercises and routines then match to the gear in this kit.",
                         ctaIdentifier: "emptyEquipmentCatalogButton"
                     ) { showingCatalog = true }
                 } else {
@@ -221,7 +221,7 @@ struct EquipmentTabView: View {
                 EquipmentDetailScreen(equipment: equipment)
             }
             .navigationDestination(isPresented: $showingCatalog) {
-                CatalogBrowseScreen(kind: .equipment)
+                EquipmentCatalogScreen()
             }
             .sheet(isPresented: $showingLibraryTray) {
                 EquipmentLibraryTray()
@@ -415,30 +415,19 @@ struct LibrarySwitcherKey: View {
 
 // MARK: - Add from catalog
 
-/// The catalog browser, rethought as a curation surface (#139): the
-/// whole catalog stays listed, membership is a Toggle per row — nothing
+/// The EXERCISE catalog browser, a curation surface (#139): the whole
+/// catalog stays listed, membership is a Toggle per row — nothing
 /// vanishes when you flip one. A full pushed page, not a tray (Dave):
-/// browsing surfaces push, sheets are for forms. For EQUIPMENT the
-/// toggle is membership in the ACTIVE library, and customs list here too
-/// (they belong to specific libraries now, so this is where you add one
-/// to another). For EXERCISES the toggle is the personal exercise
-/// library, and customs live in the library list, not here (#113).
+/// browsing surfaces push, sheets are for forms. Customs live in the
+/// library list, not here (#113). The EQUIPMENT catalog is its own
+/// surface now — `EquipmentCatalogScreen` (2026-07-17), cards + detail
+/// instead of toggles.
 struct CatalogBrowseScreen: View {
-    enum Kind: String, Identifiable {
-        case exercises
-        case equipment
-
-        var id: String { rawValue }
-    }
-
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Exercise.name) private var allExercises: [Exercise]
-    @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
     @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
     @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
-
-    let kind: Kind
 
     private var activeLibrary: EquipmentLibrary? {
         EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)
@@ -456,21 +445,6 @@ struct CatalogBrowseScreen: View {
     /// Prefill for the custom-exercise editor sheet (create/edit forms
     /// are the one thing that stays modal here).
     @State private var customPrefill: String?
-    /// Custom gear is just a name, so an empty-query create prompts for
-    /// one here instead of silently doing nothing (#170).
-    @State private var promptingEquipmentName = false
-    @State private var newEquipmentName = ""
-
-    /// §F: onboarding + the Settings re-run ride the REAL catalog with
-    /// a pinned confirm bar — the limited tray (and the preset strip,
-    /// #203) died.
-    var setupMode = false
-    /// Only Today's onboarding step offers population on Done (#204) —
-    /// Settings/Library re-runs are curation, not setup.
-    var offersPopulateOnDone = false
-    /// Any toggle touch counts as engagement: plain back then still
-    /// marks setup done (never trap the user in a step).
-    @State private var touchedSetup = false
 
     private var query: String { filterState.searchText }
 
@@ -513,16 +487,14 @@ struct CatalogBrowseScreen: View {
                         selection: membershipBinding,
                         options: [(1, "In library"), (2, "Not in library")]
                     )
-                    if kind == .exercises {
-                        TrayFilterChip(
-                            facet: "MUSCLE",
-                            count: filterState.selectedMuscleGroups.count
-                        ) { showingMuscleFilter = true }
-                        TrayFilterChip(
-                            facet: "EQUIPMENT",
-                            count: filterState.selectedEquipment.count
-                        ) { showingEquipmentFilter = true }
-                    }
+                    TrayFilterChip(
+                        facet: "MUSCLE",
+                        count: filterState.selectedMuscleGroups.count
+                    ) { showingMuscleFilter = true }
+                    TrayFilterChip(
+                        facet: "EQUIPMENT",
+                        count: filterState.selectedEquipment.count
+                    ) { showingEquipmentFilter = true }
                     Spacer(minLength: 0)
                 }
                 .animation(Theme.Anim.standard, value: anyFilterActive)
@@ -559,43 +531,24 @@ struct CatalogBrowseScreen: View {
             .padding(.top, 8)
 
             List {
-                if kind == .exercises {
-                    ForEach(candidateExercises) { exercise in
-                        toggleRow(
-                            name: exercise.name,
-                            sub: exerciseSubtitleText(exercise),
-                            isOn: Binding(
-                                get: { exercise.inLibrary },
-                                set: {
-                                    exercise.inLibrary = $0
-                                    touchedSetup = true
-                                }
-                            )
+                ForEach(candidateExercises) { exercise in
+                    toggleRow(
+                        name: exercise.name,
+                        sub: exerciseSubtitleText(exercise),
+                        isOn: Binding(
+                            get: { exercise.inLibrary },
+                            set: { exercise.inLibrary = $0 }
                         )
-                    }
-                } else {
-                    ForEach(candidateEquipment) { equipment in
-                        toggleRow(
-                            name: equipment.name,
-                            sub: Text(equipmentSubtitle(equipment)).foregroundStyle(Theme.textSecondary),
-                            isOn: Binding(
-                                get: { activeLibrary?.contains(equipment) ?? false },
-                                set: {
-                                    activeLibrary?.setMembership(equipment, $0)
-                                    touchedSetup = true
-                                }
-                            )
-                        )
-                    }
+                    )
                 }
-                if candidatesEmpty {
+                if candidateExercises.isEmpty {
                     Text("Nothing matches these filters.")
                         .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                 }
-                if kind == .exercises, !filterState.showUnavailable, hiddenByAvailability > 0 {
+                if !filterState.showUnavailable, hiddenByAvailability > 0 {
                     // The availability escape hatch as a quiet key (Quiet
                     // Arcade retired selection blue as a link color).
                     QuietKey(
@@ -617,7 +570,7 @@ struct CatalogBrowseScreen: View {
         // Custom key chrome (build-42 call): centered title, in-header
         // expanding search.
         .pushedScreenChrome(
-            title: kind == .exercises ? "Exercise catalog" : "Equipment catalog",
+            title: "Exercise catalog",
             search: HeaderSearchConfig(
                 text: Bindable(filterState).searchText,
                 prompt: "Search the catalog",
@@ -625,48 +578,6 @@ struct CatalogBrowseScreen: View {
             ),
             onBack: { dismiss() }
         )
-        .safeAreaInset(edge: .bottom) {
-            if setupMode {
-                Button {
-                    touchedSetup = true
-                    SetupState.markEquipmentDone()
-                    // Population stays the user's call (#185), but the
-                    // ask moved to Today (#204) — a popover here floated
-                    // anchored to nothing while the screen was leaving.
-                    if kind == .equipment && offersPopulateOnDone {
-                        SetupState.requestPopulateOffer()
-                    }
-                    dismiss()
-                } label: {
-                    Text(availableNames.isEmpty ? "Done · bodyweight only" : "Done · \(availableNames.count) item\(availableNames.count == 1 ? "" : "s")")
-                        .font(.system(.subheadline, weight: .bold))
-                        .foregroundStyle(Theme.onPrimary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: 52)
-                        .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
-                }
-                .buttonStyle(.raisedPrimaryKey(cornerRadius: 12))
-                .accessibilityIdentifier("setEquipmentButton")
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(.bar)
-            }
-        }
-        .onDisappear {
-            // Plain back after engaging still counts as done — never
-            // trap the user in a setup step (§F). And the exits must be
-            // EQUIVALENT: the swipe-back that marks done also carries
-            // the populate offer the Done button would have (FTUE
-            // audit — the offer had no re-ask anywhere).
-            if setupMode && touchedSetup && !SetupState.equipmentDone {
-                SetupState.markEquipmentDone()
-                if kind == .equipment && offersPopulateOnDone {
-                    SetupState.requestPopulateOffer()
-                }
-            }
-        }
         // Membership toggles + catalog adds reach GitHub when the browse
         // surface closes. Debounced + dirty-gated (see requestSync).
         .syncsProgramOnClose()
@@ -683,14 +594,6 @@ struct CatalogBrowseScreen: View {
                 prefillMuscleGroup: filterState.prefillMuscleGroup,
                 prefillEquipment: filterState.prefillEquipment
             )
-        }
-        .alert("New equipment", isPresented: $promptingEquipmentName) {
-            TextField("Name", text: $newEquipmentName)
-            Button("Create") {
-                let name = newEquipmentName.trimmingCharacters(in: .whitespaces)
-                if !name.isEmpty { createEquipment(named: name) }
-            }
-            Button("Cancel", role: .cancel) {}
         }
         .sheet(isPresented: $showingMuscleFilter) {
             MuscleGroupFilterSheet(filterState: filterState)
@@ -729,10 +632,6 @@ struct CatalogBrowseScreen: View {
 
     // MARK: - Candidates
 
-    private var candidatesEmpty: Bool {
-        kind == .exercises ? candidateExercises.isEmpty : candidateEquipment.isEmpty
-    }
-
     private func matchesLibraryFilter(_ inLibrary: Bool) -> Bool {
         switch libraryFilter {
         case 1: inLibrary
@@ -744,26 +643,6 @@ struct CatalogBrowseScreen: View {
     private var candidateExercises: [Exercise] {
         filterState.filteredExercises(from: allExercises.filter(\.isBuiltIn), available: availableEquipmentNames)
             .filter { matchesLibraryFilter($0.inLibrary) }
-    }
-
-    /// Built-ins AND customs: a custom belongs to specific libraries now,
-    /// so the catalog is where you add it to another one. Membership is
-    /// active-library membership.
-    private var candidateEquipment: [Equipment] {
-        // Forgiving search, best match first (blank passes all through
-        // in @Query's alphabetical order).
-        FuzzySearch.ranked(allEquipment, query: query) { $0.name }
-            .filter { matchesLibraryFilter(activeLibrary?.contains($0) ?? false) }
-    }
-
-    // The §F preset strip died here (#203): three bulk buttons that
-    // could silently overwrite a curated equipment set in one tap, and
-    // they crammed the top. Search + per-row toggles are the tool; a
-    // bulk affordance returns only if real setup friction demands one,
-    // and additive-only when it does.
-
-    private var availableNames: Set<String> {
-        availableEquipmentNames
     }
 
     /// Exercises the availability filter is currently hiding (§H escape
@@ -781,7 +660,7 @@ struct CatalogBrowseScreen: View {
     private var createLabel: String {
         let trimmed = query.trimmingCharacters(in: .whitespaces)
         if !trimmed.isEmpty { return "Create “\(trimmed)”" }
-        return kind == .exercises ? "Create custom exercise…" : "Create custom equipment…"
+        return "Create custom exercise…"
     }
 
     /// The gear gap in notes amber (mock 03), same as the library rows.
@@ -797,41 +676,7 @@ struct CatalogBrowseScreen: View {
         return text
     }
 
-    private func equipmentSubtitle(_ equipment: Equipment) -> String {
-        let used = allExercises.filter { exercise in
-            exercise.equipment.contains { $0 === equipment }
-        }.count
-        return used == 0 ? "No catalog exercise uses it" : "\(used) exercise\(used == 1 ? "" : "s") in the catalog"
-    }
-
     private func createCustom() {
-        let trimmed = query.trimmingCharacters(in: .whitespaces)
-        if kind == .equipment {
-            // Custom gear is just a name; with an empty query, ask for
-            // one — the row used to silently do nothing here (#170).
-            guard !trimmed.isEmpty else {
-                newEquipmentName = ""
-                promptingEquipmentName = true
-                return
-            }
-            createEquipment(named: trimmed)
-        } else {
-            customPrefill = trimmed
-        }
-    }
-
-    /// Creating custom gear adds it to the active library and pops back
-    /// to the tab, where the new item is now visible.
-    private func createEquipment(named name: String) {
-        let item: Equipment
-        if let existing = allEquipment.first(where: { $0.name.lowercased() == name.lowercased() }) {
-            item = existing
-        } else {
-            let created = Equipment(name: name, isBuiltIn: false)
-            modelContext.insert(created)
-            item = created
-        }
-        activeLibrary?.setMembership(item, true)
-        dismiss()
+        customPrefill = query.trimmingCharacters(in: .whitespaces)
     }
 }
