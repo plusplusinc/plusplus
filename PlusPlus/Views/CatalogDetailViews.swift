@@ -153,7 +153,7 @@ struct ExerciseDetailScreen: View {
                             ForEach(Array(items.enumerated()), id: \.element.persistentModelID) { index, equipment in
                                 CrossRefRow(
                                     title: equipment.name,
-                                    meta: availableEquipmentNames.contains(equipment.name) ? "" : "not in library"
+                                    meta: availableEquipmentNames.contains(equipment.name) ? "" : "not in kit"
                                 ) {
                                     path = .equipment(equipment)
                                 }

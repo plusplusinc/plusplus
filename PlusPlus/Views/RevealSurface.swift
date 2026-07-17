@@ -559,7 +559,7 @@ struct RevealSurface: View {
             lines.append("Equipment: \(summary.equipmentConfigured) configured")
         }
         if summary.librariesCreated + summary.librariesReplaced > 0 {
-            lines.append("Kits: \(summary.librariesCreated) added, \(summary.librariesReplaced) updated")
+            lines.append("Kits: \(summary.librariesCreated) added, \(summary.librariesReplaced) replaced")
         }
         lines.append("Sessions: \(summary.sessionsAdded) added, \(summary.sessionsSkipped) already present")
         return lines.joined(separator: "\n")
@@ -592,7 +592,7 @@ private struct LibraryTray: View {
         VStack(alignment: .leading, spacing: 0) {
             SheetHeader(title: "Kit", closeOnly: true, action: { dismiss() })
             // Pithy line (no em dash, per the copy law).
-            Text("What you have decides what you can train. Switch sets any time, without touching your history.")
+            Text("What you have decides what you can train. Switch kits any time, without touching your history.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textSecondary)
                 .padding(.top, 4)
