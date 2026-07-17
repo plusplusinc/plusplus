@@ -172,6 +172,7 @@ final class SmokeTests: XCTestCase {
             XCTAssertTrue(card.waitForExistence(timeout: 5), "missing card \(name)")
             let start = card.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             for form in ["slowDrag", "slowDrag", "swipeRight", "swipeRight"] where !revealed {
+                let before = card.frame.minX
                 if form == "slowDrag" {
                     start.press(
                         forDuration: 0.05,
@@ -186,7 +187,13 @@ final class SmokeTests: XCTestCase {
                     for: [XCTNSPredicateExpectation(predicate: hittable, object: add)],
                     timeout: 4
                 ) == .completed
-                attempts.append("\(name)/\(form): exists=\(add.exists) hittable=\(revealed)")
+                // The card's a11y frame rides the row offset: an
+                // unmoved frame means the rightward touch never reached
+                // the reveal gesture; a +58 shift with ADD unhittable
+                // means a leading-layer layout/a11y bug. This is the
+                // discriminator the exists/hittable pair can't provide.
+                let after = card.frame.minX
+                attempts.append("\(name)/\(form): exists=\(add.exists) hittable=\(revealed) frame=\(Int(before))→\(Int(after))\(add.exists ? " addFrame=\(add.frame.integral)" : "")")
             }
         }
         if !revealed { snap("quick-add-failed") }
