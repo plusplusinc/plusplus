@@ -312,6 +312,11 @@ struct EquipmentCatalogScreen: View {
                 openSwipeRow = nil
                 setMembership(equipment, !inKit)
             }
+            // Unique per row: every realized row's hidden action lives
+            // in the accessibility tree (opacity 0 removes nothing —
+            // the component's own law), so a bare "ADD" query matches
+            // a dozen rows at once. The `toggle-\(name)` precedent.
+            .accessibilityIdentifier("quickAdd-\(equipment.name)")
         }
         .accessibilityIdentifier("equipmentCard-\(equipment.name)")
         .listRowBackground(Color.clear)

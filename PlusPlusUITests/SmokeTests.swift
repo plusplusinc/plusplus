@@ -163,11 +163,17 @@ final class SmokeTests: XCTestCase {
         // (the halfway-commit path) and swipeRight (the flick path —
         // XCUITest's most reliably synthesized gesture); a real
         // leading-reveal bug fails BOTH on BOTH rows.
-        let add = app.buttons["ADD"]
+        // Per-row identifier, NOT app.buttons["ADD"]: every realized
+        // row's hidden leading action exists in the accessibility tree
+        // (opacity 0 removes nothing), so the bare label matches a
+        // dozen elements at once — the earlier runs' "never hittable"
+        // verdicts were this ambiguous query, not the gesture.
         let hittable = NSPredicate(format: "hittable == 1")
         var revealed = false
+        var tappedAdd: XCUIElement?
         var attempts: [String] = []
         for name in ["Ab Crunch Machine", "Ab Wheel"] where !revealed {
+            let add = app.buttons["quickAdd-\(name)"]
             let card = app.staticTexts[name]
             XCTAssertTrue(card.waitForExistence(timeout: 5), "missing card \(name)")
             let start = card.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
@@ -195,11 +201,12 @@ final class SmokeTests: XCTestCase {
                 let after = card.frame.minX
                 attempts.append("\(name)/\(form): exists=\(add.exists) hittable=\(revealed) frame=\(Int(before))→\(Int(after))\(add.exists ? " addFrame=\(add.frame.integral)" : "")")
             }
+            if revealed { tappedAdd = add }
         }
         if !revealed { snap("quick-add-failed") }
         XCTAssertTrue(revealed, "leading ADD never hittable — \(attempts.joined(separator: " · "))")
         snap("equipment-quick-add-revealed")
-        add.tap()
+        tappedAdd?.tap()
 
         // Membership landed: the Done bar's count is the assertion.
         XCTAssertTrue(waitForLabel(setEquipment, "Done · 1 item"), "quick add should join the gear to the kit")
