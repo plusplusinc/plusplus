@@ -30,9 +30,6 @@ struct EquipmentCatalogScreen: View {
     /// a pinned confirm bar — the limited tray (and the preset strip,
     /// #203) died.
     var setupMode = false
-    /// Only Today's onboarding step offers population on Done (#204) —
-    /// Settings/Library re-runs are curation, not setup.
-    var offersPopulateOnDone = false
 
     private var activeLibrary: EquipmentLibrary? {
         EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)
@@ -138,12 +135,6 @@ struct EquipmentCatalogScreen: View {
                 Button {
                     touchedSetup = true
                     SetupState.markEquipmentDone()
-                    // Population stays the user's call (#185), but the
-                    // ask moved to Today (#204) — a popover here floated
-                    // anchored to nothing while the screen was leaving.
-                    if offersPopulateOnDone {
-                        SetupState.requestPopulateOffer()
-                    }
                     dismiss()
                 } label: {
                     Text(availableNames.isEmpty ? "Done · bodyweight only" : "Done · \(availableNames.count) item\(availableNames.count == 1 ? "" : "s")")
@@ -164,15 +155,9 @@ struct EquipmentCatalogScreen: View {
         }
         .onDisappear {
             // Plain back after engaging still counts as done — never
-            // trap the user in a setup step (§F). And the exits must be
-            // EQUIVALENT: the swipe-back that marks done also carries
-            // the populate offer the Done button would have (FTUE
-            // audit — the offer had no re-ask anywhere).
+            // trap the user in a setup step (§F).
             if setupMode && touchedSetup && !SetupState.equipmentDone {
                 SetupState.markEquipmentDone()
-                if offersPopulateOnDone {
-                    SetupState.requestPopulateOffer()
-                }
             }
         }
         // Membership changes + catalog adds reach GitHub when the browse

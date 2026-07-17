@@ -95,6 +95,10 @@ struct PlusPlusApp: App {
             // at "Get started", before a fresh user's first workout).
             let hasHistory = ((try? modelContainer.mainContext.fetchCount(FetchDescriptor<WorkoutSession>())) ?? 0) > 0
             SetupState.backfillHealthPrimerForExistingInstalls(hasWorkoutHistory: hasHistory)
+            // The exercise library became favorites: carry an upgrading
+            // store's curated built-ins across so the repo export basis
+            // (favorited, not in-library) stays continuous.
+            SeedData.adoptLibraryAsFavoritesIfNeeded(context: modelContainer.mainContext)
         }
         // AFTER the legacy one-shots: the libraries migration snapshots
         // the inLibrary flags the reset may have just rewritten.

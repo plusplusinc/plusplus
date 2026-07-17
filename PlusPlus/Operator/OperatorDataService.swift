@@ -18,7 +18,7 @@ struct OperatorDataService {
         kind: ChangeEntity,
         nameContains: String? = nil,
         muscleGroup: MuscleGroup? = nil,
-        inLibraryOnly: Bool = false,
+        favoritesOnly: Bool = false,
         limit: Int = 8
     ) -> String {
         let cap = max(1, min(limit, 15))
@@ -38,7 +38,7 @@ struct OperatorDataService {
                 let all = try context.fetch(FetchDescriptor<Exercise>(sortBy: [SortDescriptor(\.name)]))
                 let filtered = all.filter { exercise in
                     if let muscleGroup, exercise.muscleGroup != muscleGroup { return false }
-                    if inLibraryOnly, !exercise.inLibrary { return false }
+                    if favoritesOnly, !exercise.isFavorite { return false }
                     return true
                 }
                 let matched = fragment.map { q in FuzzySearch.ranked(filtered, query: q) { $0.name } } ?? filtered
@@ -104,7 +104,7 @@ struct OperatorDataService {
         let tracked = TrackMode.allCases.first { $0.matches(profile) }
         let trackedText = tracked?.spokenName ?? profile.metrics.map(\.rawValue).joined(separator: "+")
         var parts = [exercise.name, exercise.muscleGroup.displayName.lowercased(), trackedText]
-        if !exercise.inLibrary { parts.append("catalog only") }
+        if exercise.isFavorite { parts.append("favorite") }
         return parts.joined(separator: " · ")
     }
 

@@ -229,13 +229,16 @@ struct HeaderIconButton: View {
     /// as its raw SF Symbol name, e.g. "slider horizontal 3").
     let accessibilityLabel: String
     var identifier: String?
+    /// Glyph tint; defaults to the neutral header ink. The favorite star
+    /// passes `Theme.accent` when lit (green = the user's own data).
+    var tint: Color = Theme.textSecondary
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.system(.body, weight: .medium))
-                .foregroundStyle(Theme.textSecondary)
+                .foregroundStyle(tint)
                 .frame(width: 44, height: 44)
                 .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
                 .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))

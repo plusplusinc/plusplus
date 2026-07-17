@@ -9,11 +9,19 @@ final class Exercise {
     @Relationship(inverse: \Equipment.exercises) var equipment: [Equipment] = []
     var exerciseType: ExerciseType
     var isBuiltIn: Bool
-    /// Personal-library membership (v2 Library, #63). Built-ins default
-    /// to true so existing stores show everything until the user prunes;
-    /// removing a built-in from the library sets this false (the catalog
-    /// keeps it). Customs are always in the library.
+    /// LEGACY personal-library membership (v2 Library, #63). FROZEN
+    /// since the whole-catalog restructure (2026-07-17): an exercise is
+    /// a thing you choose to do, not a thing you own, so the Exercises
+    /// surface is the whole catalog and membership stopped gating
+    /// browsing. No live read or write remains (the Equipment.inLibrary
+    /// precedent) — kept for store compatibility and parsed-but-ignored
+    /// on import. Curation is `isFavorite` now.
     var inLibrary: Bool = true
+    /// Whether the user has favorited this exercise (the whole-catalog
+    /// curation flag, 2026-07-17). A filter, a row/detail star, and the
+    /// interchange's "what's yours" basis. Literal default migrates
+    /// lightweight, exactly as `inLibrary` did; no backfill.
+    var isFavorite: Bool = false
     var notes: String?
     var videoURL: String?
     /// Default targets (#187): what a fresh routine entry starts from.

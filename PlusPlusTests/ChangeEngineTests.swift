@@ -311,12 +311,16 @@ struct ChangeEngineTests {
         #expect(try context.fetch(FetchDescriptor<Exercise>()).count == 1)
     }
 
-    @Test("Custom delete removes entries; built-in delete leaves the library")
+    @Test("Custom delete removes entries; deleting a favorited built-in unfavorites it")
     func deleteExercises() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let custom = makeExercise("Probe Custom Curl", profile: .weightReps, in: context)
         let builtIn = makeExercise("Probe Built-In Row", profile: .weightReps, builtIn: true, in: context)
+        // A favorited built-in: "delete" means remove from favorites (the
+        // catalog keeps it) — the whole-catalog successor to leaving the
+        // library.
+        builtIn.isFavorite = true
         let routine = Routine(name: "Probe Arms", order: 0)
         context.insert(routine)
         routine.addExerciseInNewGroup(custom, context: context)
@@ -327,16 +331,17 @@ struct ChangeEngineTests {
             operation: .delete, entity: .exercise,
             targets: ["Probe Custom Curl", "Probe Built-In Row"]
         )))
-        // The custom is gone and left no ghost entry behind.
+        // The custom is gone and left no ghost entry behind; the built-in
+        // stays in the catalog, unfavorited.
         let exercises = try context.fetch(FetchDescriptor<Exercise>())
         #expect(exercises.map(\.name) == ["Probe Built-In Row"])
-        #expect(builtIn.inLibrary == false)
+        #expect(builtIn.isFavorite == false)
         #expect(routine.sortedGroups.isEmpty)
 
         _ = try applied(engine.undo(change.inverse))
         let names = try context.fetch(FetchDescriptor<Exercise>(sortBy: [SortDescriptor(\.name)])).map(\.name)
         #expect(names == ["Probe Built-In Row", "Probe Custom Curl"])
-        #expect(builtIn.inLibrary == true)
+        #expect(builtIn.isFavorite == true)
         #expect(routine.sortedGroups.first?.sortedExercises.compactMap { $0.exercise?.name } == ["Probe Custom Curl"])
     }
 

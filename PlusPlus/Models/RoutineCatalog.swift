@@ -156,7 +156,9 @@ struct RoutineTemplate: Identifiable, Hashable {
             var group: ExerciseGroup?
             for entry in block.entries {
                 guard let exercise = byName[entry.exercise.lowercased()] else { continue }
-                exercise.inLibrary = true
+                // No library to join (2026-07-17, whole catalog): the
+                // exercise is already browsable; using it in a routine
+                // doesn't favorite it.
                 let routineExercise: RoutineExercise?
                 if let existing = group {
                     routineExercise = routine.addExercise(exercise, to: existing, context: context)

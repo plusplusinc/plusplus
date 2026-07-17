@@ -55,9 +55,6 @@ struct TodayView: View {
     /// back to the system transition on their own.
     @Namespace private var zoomNamespace
     @State private var showingEquipmentSetup = false
-    /// Nonzero presents the populate-offer alert (#204); computed at
-    /// present time from the store, never carried stale.
-    @State private var populateOfferCount = 0
     @State private var scheduleEditTarget: IdentifiedUUID?
     @State private var activeSession: WorkoutSession?
     /// The first-workout Health primer, raised by the start gate.
@@ -466,40 +463,7 @@ struct TodayView: View {
             // The one-time Health ask, in front of the first workout start.
             .healthStartPrimer($healthStartRequest)
             .navigationDestination(isPresented: $showingEquipmentSetup) {
-                EquipmentCatalogScreen(setupMode: true, offersPopulateOnDone: true)
-            }
-            // The populate offer, asked from home ground (#204): the
-            // catalog's Done raises a one-shot flag and dismisses; the
-            // question waits here, anchored, with a live count.
-            .onChange(of: showingEquipmentSetup) { _, showing in
-                guard !showing, SetupState.consumePopulateOffer() else { return }
-                // Next runloop, not mid-pop-transition: presenting in
-                // the same transaction as a navigation change is the
-                // documented drop class (see the swap-in sheet note).
-                Task { @MainActor in
-                    populateOfferCount = SeedData.populateCandidateCount(context: modelContext)
-                }
-            }
-            .alert(
-                // "your equipment supports" right after "Done ·
-                // bodyweight only" reads as a mistake (FTUE audit).
-                !(activeLibrary?.members.isEmpty ?? true)
-                    ? "Add \(populateOfferCount) exercise\(populateOfferCount == 1 ? "" : "s") your equipment supports?"
-                    : "Add \(populateOfferCount) exercise\(populateOfferCount == 1 ? " that needs" : "s that need") no equipment?",
-                isPresented: Binding(
-                    get: { populateOfferCount > 0 },
-                    set: { if !$0 { populateOfferCount = 0 } }
-                )
-            ) {
-                Button("Add them") {
-                    SeedData.populateLibraryFromEquipment(context: modelContext)
-                    populateOfferCount = 0
-                }
-                Button("Start empty", role: .cancel) {
-                    populateOfferCount = 0
-                }
-            } message: {
-                Text("Skipping is fine. The catalog stays a tap away, and anything you use joins your library on its own.")
+                EquipmentCatalogScreen(setupMode: true)
             }
             // Step 2 IS the routine catalog (#246): search, facets,
             // honest gear checks, blank creation as its first row, and

@@ -59,38 +59,74 @@ struct SeedDataTests {
         requires("Burpee", [])
     }
 
-    /// #185: fresh installs seed the catalog, not the library — and the
-    /// populate step adds exactly what the ACTIVE library's gear supports.
-    @Test func freshSeedStartsOutOfLibraryAndPopulateRespectsAvailability() throws {
+    /// Whole-catalog successor to #185 (2026-07-17): a fresh install seeds
+    /// the entire catalog and favorites nothing, and the seed keeps the
+    /// exercise↔equipment relationships intact.
+    @Test func freshSeedStartsWithNoFavorites() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         SeedData.loadIfNeeded(context: context)
 
         let exercises = try context.fetch(FetchDescriptor<Exercise>())
-        #expect(exercises.allSatisfy { !$0.inLibrary })
+        #expect(!exercises.isEmpty)
+        let noFavorites = exercises.allSatisfy { !$0.isFavorite }
+        #expect(noFavorites, "a fresh install favorites nothing")
 
-        // Diagnostics for the CI-only corruption: point A failing means
-        // the seed itself lost the relationship.
+        // Diagnostics for the CI-only corruption: this failing means the
+        // seed itself lost the relationship.
         let bench = try #require(exercises.first { $0.name == "Bench Press" })
-        #expect(!bench.equipment.isEmpty, "A: corrupted at seed time — \(diagnostics(context: context))")
+        #expect(!bench.equipment.isEmpty, "corrupted at seed time — \(diagnostics(context: context))")
+    }
 
-        // A library holding only a pull-up bar: bodyweight + pull-up
-        // work populates, barbell work doesn't.
-        let equipment = try context.fetch(FetchDescriptor<Equipment>())
-        let pullUpBar = try #require(equipment.first { $0.name == "Pull-Up Bar" })
-        let library = EquipmentLibrary(name: "Home", order: 0)
-        context.insert(library)
-        library.equipment = [pullUpBar]
-        UserDefaults.standard.removeObject(forKey: EquipmentLibrary.activeIDKey)
-        defer { UserDefaults.standard.removeObject(forKey: EquipmentLibrary.activeIDKey) }
+    /// The library→favorites one-shot (2026-07-17): an upgrading store's
+    /// in-library built-ins become favorites so the user's curation and
+    /// their synced repo's exercise files stay continuous. Keyed, so it
+    /// fires once.
+    @Test func adoptLibraryAsFavoritesCarriesCuration() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        defer { UserDefaults.standard.removeObject(forKey: SeedData.libraryToFavoritesKey) }
+        UserDefaults.standard.removeObject(forKey: SeedData.libraryToFavoritesKey)
+        SeedData.loadIfNeeded(context: context)
 
-        #expect(!bench.equipment.isEmpty, "B: corrupted by the membership mutation — \(diagnostics(context: context))")
-        let added = SeedData.populateLibraryFromEquipment(context: context)
-        #expect(added > 0)
-        let byName = Dictionary(uniqueKeysWithValues: exercises.map { ($0.name, $0) })
-        #expect(byName["Pull-Up"]?.inLibrary == true)
-        #expect(byName["Push-Up"]?.inLibrary == true)
-        #expect(byName["Bench Press"]?.inLibrary == false)
+        let exercises = try context.fetch(FetchDescriptor<Exercise>())
+        // Simulate an upgrading store: two built-ins were in the library.
+        for e in exercises { e.inLibrary = false }
+        let press = try #require(exercises.first { $0.name == "Bench Press" })
+        let pushUp = try #require(exercises.first { $0.name == "Push-Up" })
+        press.inLibrary = true
+        pushUp.inLibrary = true
+        try context.save()
+
+        SeedData.adoptLibraryAsFavoritesIfNeeded(context: context)
+        #expect(press.isFavorite)
+        #expect(pushUp.isFavorite)
+        let favCount = exercises.filter(\.isFavorite).count
+        #expect(favCount == 2, "only the in-library built-ins adopt")
+
+        // Keyed once: a later in-library flag doesn't re-adopt.
+        let pullUp = try #require(exercises.first { $0.name == "Pull-Up" })
+        pullUp.inLibrary = true
+        SeedData.adoptLibraryAsFavoritesIfNeeded(context: context)
+        #expect(!pullUp.isFavorite, "the one-shot fires once")
+    }
+
+    /// The all-in-library case (the pre-#185 default) is noise, not
+    /// curation — the one-shot favorites nothing.
+    @Test func adoptSkipsAllInLibraryDefaultNoise() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        defer { UserDefaults.standard.removeObject(forKey: SeedData.libraryToFavoritesKey) }
+        UserDefaults.standard.removeObject(forKey: SeedData.libraryToFavoritesKey)
+        SeedData.loadIfNeeded(context: context)
+
+        let exercises = try context.fetch(FetchDescriptor<Exercise>())
+        for e in exercises { e.inLibrary = true }
+        try context.save()
+
+        SeedData.adoptLibraryAsFavoritesIfNeeded(context: context)
+        let noFavorites = exercises.allSatisfy { !$0.isFavorite }
+        #expect(noFavorites, "all-in-library is default noise, not curation")
     }
 
     /// The equipment-libraries migration: a store with no library gets a
@@ -401,7 +437,7 @@ struct SeedDataTests {
         let barbell = Equipment(name: "Barbell", isBuiltIn: true)
         context.insert(barbell)
         let press = Exercise(name: "Bench Press", muscleGroup: .chest, isBuiltIn: true)
-        press.inLibrary = true
+        press.isFavorite = true
         context.insert(press)
         press.equipment = [barbell, bench]
 
@@ -411,10 +447,11 @@ struct SeedDataTests {
         let equipment = try context.fetch(FetchDescriptor<Equipment>())
         #expect(exercises.count == SeedData.builtInExerciseCount)
         #expect(equipment.count == SeedData.builtInEquipment.count)
-        // Curation untouched; arrivals join catalog-only and un-owned.
+        // Favorites untouched; arrivals join unfavorited; equipment
+        // top-up stays catalog-only and un-owned (the kept channel).
         let byName = Dictionary(uniqueKeysWithValues: exercises.map { ($0.name, $0) })
-        #expect(byName["Bench Press"]?.inLibrary == true)
-        #expect(byName["Squat"]?.inLibrary == false)
+        #expect(byName["Bench Press"]?.isFavorite == true)
+        #expect(byName["Squat"]?.isFavorite == false)
         #expect(equipment.first { $0.name == "Bench" }?.inLibrary == true)
         #expect(equipment.first { $0.name == "Hack Squat Machine" }?.inLibrary == false)
         // And the newcomers carry their requirements.

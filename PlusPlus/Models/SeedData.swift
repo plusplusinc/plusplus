@@ -49,10 +49,11 @@ enum SeedData {
                 exerciseType: def.exerciseType,
                 isBuiltIn: true
             )
-            // Catalog, not library (#185) — the populate offer or plain
-            // usage grows the library. `populateLibrary` is the smoke
-            // tests' shortcut and only meaningful on a fresh store.
-            exercise.inLibrary = isFreshStore && populateLibrary
+            // The whole catalog is always browsable (2026-07-17): an
+            // exercise is a thing you choose to do, so there is no
+            // library to join and nothing to populate. `inLibrary` is
+            // frozen at its default; curation is `isFavorite`, and a
+            // fresh install starts with none.
             context.insert(exercise)
             exercise.equipment = def.equipmentNames.compactMap { equipmentByName[$0.lowercased()] }
         }
@@ -60,37 +61,32 @@ enum SeedData {
         try? context.save()
     }
 
-    /// What the populate offer would add — computed at ask time (#204),
-    /// so a stale flag can never overstate. Availability is the ACTIVE
-    /// equipment library's membership.
-    static func populateCandidateCount(context: ModelContext) -> Int {
-        let available = EquipmentLibrary.active(context: context)?.memberNames ?? []
-        let exercises = (try? context.fetch(
-            FetchDescriptor<Exercise>(predicate: #Predicate { $0.isBuiltIn == true })
-        )) ?? []
-        return exercises.filter { exercise in
-            !exercise.inLibrary
-                && !exercise.equipment.contains { !$0.isDeleted && !available.contains($0.name) }
-        }.count
-    }
+    // MARK: - Library → favorites adoption (whole-catalog upgrade, 2026-07-17)
 
-    /// The optional population step (#185): everything the available
-    /// equipment supports joins the library. Returns the count added.
-    @discardableResult
-    static func populateLibraryFromEquipment(context: ModelContext) -> Int {
-        let available = EquipmentLibrary.active(context: context)?.memberNames ?? []
-        let exercises = (try? context.fetch(
+    /// One-shot: the exercise library became favorites. An existing
+    /// store that had curated a library (adopted built-ins) keeps that
+    /// curation — each in-library built-in becomes a favorite — so the
+    /// user's picks and their synced repo's exercise files stay
+    /// continuous across the export-basis change (the repo now exports
+    /// favorited built-ins, not in-library ones). Skips the pre-#185
+    /// default-noise case where EVERY built-in is in-library (favoriting
+    /// all 247 would say nothing); a fresh install has none in-library
+    /// so it no-ops there too.
+    static let libraryToFavoritesKey = "libraryToFavorites1"
+
+    static func adoptLibraryAsFavoritesIfNeeded(context: ModelContext) {
+        guard !UserDefaults.standard.bool(forKey: libraryToFavoritesKey) else { return }
+        UserDefaults.standard.set(true, forKey: libraryToFavoritesKey)
+        let builtIns = (try? context.fetch(
             FetchDescriptor<Exercise>(predicate: #Predicate { $0.isBuiltIn == true })
         )) ?? []
-        var added = 0
-        for exercise in exercises where !exercise.inLibrary {
-            let missing = exercise.equipment.contains { !$0.isDeleted && !available.contains($0.name) }
-            if !missing {
-                exercise.inLibrary = true
-                added += 1
-            }
+        guard !builtIns.isEmpty else { return }
+        // All-in-library = the pre-#185 default, not real curation.
+        guard !builtIns.allSatisfy(\.inLibrary) else { return }
+        for exercise in builtIns where exercise.inLibrary {
+            exercise.isFavorite = true
         }
-        return added
+        try? context.save()
     }
 
     /// Equipment-libraries migration: a store that predates

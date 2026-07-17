@@ -168,21 +168,36 @@ struct InterchangeTests {
         #expect(strict.contains { $0.message.contains("unresolved exercise reference") })
     }
 
-    @Test("inLibrary round-trips and is written only when false (#328)")
-    func inLibraryRoundTrips() throws {
-        // Not in library → explicit false in the file.
-        let notInLib = ExerciseDTO(name: "Probe A", muscleGroup: .core, exerciseType: .weightReps,
-                                   equipment: [], isBuiltIn: true, inLibrary: false)
-        let dataFalse = try InterchangeCodec.encode(ExerciseDocument(exercise: notInLib))
-        #expect(String(decoding: dataFalse, as: UTF8.self).contains("\"inLibrary\" : false"))
-        #expect(try InterchangeCodec.decode(ExerciseDocument.self, from: dataFalse).exercise.inLibrary == false)
+    @Test("isFavorite round-trips and is written only when true")
+    func isFavoriteRoundTrips() throws {
+        // Favorited → explicit true in the file.
+        let fav = ExerciseDTO(name: "Probe A", muscleGroup: .core, exerciseType: .weightReps,
+                              equipment: [], isBuiltIn: true, isFavorite: true)
+        let dataTrue = try InterchangeCodec.encode(ExerciseDocument(exercise: fav))
+        #expect(String(decoding: dataTrue, as: UTF8.self).contains("\"isFavorite\" : true"))
+        #expect(try InterchangeCodec.decode(ExerciseDocument.self, from: dataTrue).exercise.isFavorite == true)
 
-        // In library (nil) → omitted, keeping files byte-clean; decodes to nil.
-        let inLib = ExerciseDTO(name: "Probe B", muscleGroup: .core, exerciseType: .weightReps,
-                                equipment: [], inLibrary: nil)
-        let dataNil = try InterchangeCodec.encode(ExerciseDocument(exercise: inLib))
-        #expect(!String(decoding: dataNil, as: UTF8.self).contains("inLibrary"))
-        #expect(try InterchangeCodec.decode(ExerciseDocument.self, from: dataNil).exercise.inLibrary == nil)
+        // Not favorited (nil) → omitted, keeping files byte-clean; decodes to nil.
+        let plain = ExerciseDTO(name: "Probe B", muscleGroup: .core, exerciseType: .weightReps,
+                                equipment: [], isFavorite: nil)
+        let dataNil = try InterchangeCodec.encode(ExerciseDocument(exercise: plain))
+        #expect(!String(decoding: dataNil, as: UTF8.self).contains("isFavorite"))
+        #expect(try InterchangeCodec.decode(ExerciseDocument.self, from: dataNil).exercise.isFavorite == nil)
+    }
+
+    @Test("Deprecated inLibrary still decodes from older files (parse-and-ignore)")
+    func inLibraryDecodeTolerance() throws {
+        // A file written by an older build carried `inLibrary`. It must
+        // still decode cleanly — the field is frozen, not removed. Encode
+        // a DTO that sets it (the init param survives for exactly this)
+        // and confirm it round-trips through the document envelope.
+        let legacy = ExerciseDTO(name: "Probe Legacy", muscleGroup: .core, exerciseType: .weightReps,
+                                 equipment: [], isBuiltIn: true, inLibrary: false)
+        let data = try InterchangeCodec.encode(ExerciseDocument(exercise: legacy))
+        #expect(String(decoding: data, as: UTF8.self).contains("\"inLibrary\" : false"))
+        let decoded = try InterchangeCodec.decode(ExerciseDocument.self, from: data)
+        #expect(decoded.exercise.name == "Probe Legacy")
+        #expect(decoded.exercise.inLibrary == false)
     }
 
     @Test("Schedule + heart-rate + session-HR fields round-trip through the codec")

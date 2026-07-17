@@ -212,20 +212,6 @@ struct ExerciseDetailScreen: View {
                         }
                         .padding(.bottom, 7)
                     }
-                    // Membership as a visible primary action (#265):
-                    // buried in the … menu, adding a catalog exercise
-                    // read as impossible. Adjacent to — not replacing —
-                    // the create row (different intents, and routine
-                    // use auto-joins the library anyway); the row
-                    // disappearing on tap IS the confirmation. Removal
-                    // stays in the … menu: destructive actions live
-                    // there (#241).
-                    if exercise.isBuiltIn && !exercise.inLibrary {
-                        CreateRow(label: "Add to my exercises", identifier: "addToMyExercises") {
-                            exercise.inLibrary = true
-                        }
-                        .padding(.bottom, 7)
-                    }
                     CreateRow(label: "New routine with \(exercise.name)", identifier: "newRoutineWithExercise") {
                         newRoutineName = ""
                         showingNewRoutine = true
@@ -244,20 +230,25 @@ struct ExerciseDetailScreen: View {
         // built-in outside the library leaves nothing for the menu, so
         // it hides instead of rendering empty (#265).
         .pushedScreenChrome(title: exercise.name, onBack: { dismiss() }) {
+            // Favorite is the curation now (whole catalog, 2026-07-17):
+            // a star for everything, accent when lit. Removal/deletion of
+            // the old library membership is gone; only a custom keeps a
+            // destructive action.
+            HeaderIconButton(
+                systemImage: exercise.isFavorite ? "star.fill" : "star",
+                accessibilityLabel: exercise.isFavorite ? "Unfavorite exercise" : "Favorite exercise",
+                identifier: "favoriteExerciseButton",
+                tint: exercise.isFavorite ? Theme.accent : Theme.textSecondary
+            ) {
+                exercise.isFavorite.toggle()
+            }
             HeaderIconButton(systemImage: "pencil", accessibilityLabel: "Edit exercise", identifier: "editExerciseButton") {
                 showingEditor = true
             }
-            if !exercise.isBuiltIn || exercise.inLibrary {
+            if !exercise.isBuiltIn {
                 HeaderMenuKey(systemImage: "ellipsis", accessibilityLabel: "Exercise options", identifier: "exerciseDetailMenu") {
-                    if exercise.isBuiltIn {
-                        Button("Remove from my exercises", role: .destructive) {
-                            exercise.inLibrary = false
-                            dismiss()
-                        }
-                    } else {
-                        Button("Delete custom exercise", role: .destructive) {
-                            showingDeleteConfirm = true
-                        }
+                    Button("Delete custom exercise", role: .destructive) {
+                        showingDeleteConfirm = true
                     }
                 }
             }
@@ -460,9 +451,7 @@ struct EquipmentDetailScreen: View {
                             ForEach(Array(usedByExercises.enumerated()), id: \.element.persistentModelID) { index, exercise in
                                 CrossRefRow(
                                     title: exercise.name,
-                                    meta: exercise.inLibrary || !exercise.isBuiltIn
-                                        ? exercise.muscleGroup.displayName.lowercased()
-                                        : "not in library"
+                                    meta: exercise.muscleGroup.displayName.lowercased()
                                 ) {
                                     path = .exercise(exercise)
                                 }
