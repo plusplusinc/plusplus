@@ -88,6 +88,42 @@ struct TodayView: View {
     /// content top-aligns here, with the week ahead above it (#267).
     private static let todayAnchorID = "todayAnchor"
 
+    /// Per-step scroll anchors for the setup scaffold. The timeline reveals
+    /// the steps upward (Dave, 2026-07-16): a fresh install lands on step 1
+    /// (equipment, the bottom-most / first-to-do) with steps 2 and 3 above
+    /// it off-screen, and completing a step scrolls the next one — which
+    /// sits above — up to the top of the scroll area on return to Today.
+    private static let setupEquipmentAnchor = "setupAnchor.equipment"
+    private static let setupRoutineAnchor = "setupAnchor.routine"
+    private static let setupScheduleAnchor = "setupAnchor.schedule"
+
+    /// The step the setup scroll should seat at the top: the lowest
+    /// incomplete step (equipment → routine → schedule). Nil once setup is
+    /// past or every step is done — nothing left to reveal.
+    private var activeSetupAnchor: String? {
+        guard setupActive else { return nil }
+        if !equipmentStepDone { return Self.setupEquipmentAnchor }
+        if !routineStepDone { return Self.setupRoutineAnchor }
+        if !scheduleStepDone { return Self.setupScheduleAnchor }
+        return nil
+    }
+
+    /// The opening scroll target: the active setup step during onboarding,
+    /// else today's content. Keeps the returning-user path (#267) unchanged.
+    private var openingScrollTarget: String {
+        activeSetupAnchor ?? Self.todayAnchorID
+    }
+
+    /// True only when Today's own timeline is the visible surface — no
+    /// pushed routine/catalog, no equipment setup, no schedule editor, no
+    /// live session covering it. A setup step completes behind one of these
+    /// (the equipment screen, the routine catalog, the schedule editor), so
+    /// this going true again is the "sent back to Today" moment that reveals
+    /// the next step.
+    private var isTodayRootVisible: Bool {
+        todayPath.isEmpty && !showingEquipmentSetup && scheduleEditTarget == nil && activeSession == nil
+    }
+
     private var weightUnit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .lb }
     private var calendar: Calendar { Calendar.current }
 
@@ -220,6 +256,20 @@ struct TodayView: View {
                                                 .scaleEffect(converting && !completionConverted ? 0.97 : 1.0)
                                         }
                                     }
+                                    // Reveal-upward headroom (2026-07-16): the
+                                    // setup scaffold reveals its steps by
+                                    // scrolling the active one to the top, with
+                                    // the others above it off-screen. The bottom
+                                    // step (equipment) can only reach the top if
+                                    // a screen of scrollable space sits below it,
+                                    // so during onboarding we add one. It sits
+                                    // below the fold — the user never lands on
+                                    // the emptiness — and vanishes with the
+                                    // scaffold at the first logged session.
+                                    if setupActive {
+                                        Color.clear
+                                            .frame(height: viewport.size.height)
+                                    }
                                 }
                                 // Pad the below-anchor region to at least a
                                 // screen so today can always scroll to the
@@ -270,19 +320,38 @@ struct TodayView: View {
                             // pending, the onChange below fires the anchor.
                             guard !hasAnchoredToday, viewport.size.height > 0 else { return }
                             hasAnchoredToday = true
-                            // Unanimated: Today OPENS at today; the week
-                            // above is something you go looking for.
-                            proxy.scrollTo(Self.todayAnchorID, anchor: .top)
+                            // Unanimated: Today OPENS at its target. During
+                            // onboarding that's the active setup step (step 1
+                            // at first, its siblings above it off-screen);
+                            // otherwise today's content, with the week above
+                            // it something you go looking for.
+                            proxy.scrollTo(openingScrollTarget, anchor: .top)
                         }
                         .onChange(of: viewport.size.height) { _, height in
                             // GeometryReader can publish the real height a
-                            // beat after onAppear; seat today the instant we
-                            // have room. One-shot via hasAnchoredToday, so a
-                            // later height change (rotation, keyboard) never
-                            // yanks a scroll the user has since moved.
+                            // beat after onAppear; seat the opening target the
+                            // instant we have room. One-shot via
+                            // hasAnchoredToday, so a later height change
+                            // (rotation, keyboard) never yanks a scroll the
+                            // user has since moved.
                             guard !hasAnchoredToday, height > 0 else { return }
                             hasAnchoredToday = true
-                            proxy.scrollTo(Self.todayAnchorID, anchor: .top)
+                            proxy.scrollTo(openingScrollTarget, anchor: .top)
+                        }
+                        .onChange(of: isTodayRootVisible) { _, visible in
+                            // Sent back to Today after finishing a setup step
+                            // (the equipment screen, routine catalog, or
+                            // schedule editor each complete a step behind a
+                            // push): reveal the NEXT step, which sits above,
+                            // by smoothly scrolling it up to the top. Deferred
+                            // a runloop so the pop settles and the newly-active
+                            // step has laid out before we aim at its anchor.
+                            guard visible, setupActive, let anchor = activeSetupAnchor else { return }
+                            Task { @MainActor in
+                                withAnimation(Theme.Anim.flourish(.easeInOut(duration: 0.5))) {
+                                    proxy.scrollTo(anchor, anchor: .top)
+                                }
+                            }
                         }
                         .onChange(of: dayToken) {
                             // A new day moves "today" — re-anchor. (This
@@ -1091,9 +1160,10 @@ struct TodayView: View {
     /// item, and now rides the timeline's TODAY marker. Nil when there's
     /// nothing to say (no plan, past setup) so the line drops entirely.
     private func caption(plan: (completed: Int, planned: Int)) -> String? {
-        if setupActive && !allSetupDone {
-            return "setup \(setupDoneCount) of 3"
-        }
+        // No "setup N of 3" line under the title (Dave, 2026-07-17): the
+        // timeline's own steps already carry their "N of 3" badges, so a
+        // header echo was redundant — during setup the caption simply drops.
+        guard !(setupActive && !allSetupDone) else { return nil }
         // The week tally is calendar fact, not obligation (#172-safe:
         // it never says what's LEFT, only what the plan holds and what
         // has landed). No "N due" tally — the staged cards ARE that.
@@ -1322,10 +1392,6 @@ struct TodayView: View {
 
     private var allSetupDone: Bool { equipmentStepDone && routineStepDone && scheduleStepDone }
 
-    private var setupDoneCount: Int {
-        [equipmentStepDone, routineStepDone, scheduleStepDone].filter { $0 }.count
-    }
-
     /// Bottom-up like commits: equipment is the first entry (bottom),
     /// schedule the last (top). Each step gates on the one below it.
     private var setupSection: some View {
@@ -1342,6 +1408,10 @@ struct TodayView: View {
                 action: { scheduleEditTarget = scheduleEditRoutine?.uuid.map(IdentifiedUUID.init)},
                 edit: { scheduleEditTarget = scheduleEditRoutine?.uuid.map(IdentifiedUUID.init)}
             )
+            // Stable per-step scroll anchor (constant across the step's
+            // gated/ready/done states, so identity never churns): the
+            // reveal-upward scroll seats the active step here.
+            .id(Self.setupScheduleAnchor)
             SetupRow(
                 state: routineStepDone ? .done : (equipmentStepDone ? .ready : .gated),
                 badge: "2 of 3",
@@ -1356,6 +1426,7 @@ struct TodayView: View {
                 action: { if todayPath.isEmpty { todayPath.append(RoutineCatalogDestination()) } },
                 edit: { onGoToRoutines() }
             )
+            .id(Self.setupRoutineAnchor)
             SetupRow(
                 state: equipmentStepDone ? .done : .ready,
                 badge: "1 of 3",
@@ -1368,6 +1439,7 @@ struct TodayView: View {
                 action: { showingEquipmentSetup = true },
                 edit: { showingEquipmentSetup = true }
             )
+            .id(Self.setupEquipmentAnchor)
         }
     }
 
