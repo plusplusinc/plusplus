@@ -68,9 +68,9 @@ struct DueTodayIntent: AppIntent {
         let dialog: IntentDialog
         switch due.count {
         case 0:
-            dialog = "Rest day — nothing scheduled."
+            dialog = "Rest day. Nothing scheduled."
         case 1:
-            dialog = "Today: \(due[0].name) — \(due[0].exerciseCount) exercises."
+            dialog = "Today: \(due[0].name), \(due[0].exerciseCount) exercises."
         default:
             dialog = "Today: \(due.map(\.name).joined(separator: ", "))."
         }

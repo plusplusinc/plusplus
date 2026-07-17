@@ -1188,7 +1188,7 @@ private struct AboutTray: View {
             .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
             .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.border))
 
-            Text("Opens GitHub or Mail. The app itself never phones home.")
+            Text("Opens GitHub or Mail. PlusPlus never phones home.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textFaint)
                 .padding(.top, 10)
@@ -1231,7 +1231,7 @@ enum WhatsNew {
         ("46", "Cardio speaks its own numbers · splits, watts, damper, incline · intervals with their own rest · choose what any exercise tracks · heart rate on screen"),
         ("45", "The ++ key on every tab · catalog pages push and pop one step at a time"),
         ("44", "The ++ wears its key"),
-        ("43", "Keys travel deeper · the +1 gets its moment · swipe actions in full color · our own chrome, corner to corner"),
+        ("43", "Keys travel deeper · the +1 gets its moment · swipe actions in full color · custom chrome, corner to corner"),
         ("42", "Quiet Arcade: buttons press like real keys · your week as blocks on Today · Log set pops a +1 · rest gains +30s"),
     ]
 }

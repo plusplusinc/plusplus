@@ -1526,7 +1526,7 @@ struct RoutineSettingsScreen: View {
                     // the user's live pace, and a hardcoded example
                     // would mismatch it.
                     if scheduleMode == 2 {
-                        Text("Pace counts from your last completion, not the calendar week — miss a day and nothing stacks up.")
+                        Text("Pace counts from your last completion, not the calendar week. Miss a day and nothing stacks up.")
                             .font(.system(.caption))
                             .foregroundStyle(Theme.textFaint)
                             .padding(.top, 4)
@@ -1776,7 +1776,7 @@ struct RoutineSettingsScreen: View {
             let interval = (schedulePerDays + scheduleTimes - 1) / scheduleTimes
             return "\(scheduleTimes)×/\(schedulePerDays)d comes around every ~\(interval) day\(interval == 1 ? "" : "s")."
         default:
-            return "No schedule — this routine never appears on Today by itself. Swap it in whenever."
+            return "No schedule. This routine never appears on Today by itself. Swap it in whenever."
         }
     }
 

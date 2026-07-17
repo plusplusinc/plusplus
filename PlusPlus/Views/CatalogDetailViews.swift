@@ -144,7 +144,7 @@ struct ExerciseDetailScreen: View {
                     SheetSectionLabel("EQUIPMENT")
                         .padding(.top, 24)
                     if exercise.equipment.isEmpty {
-                        Text("Bodyweight — no equipment needed.")
+                        Text("Bodyweight. No equipment needed.")
                             .font(.system(.caption))
                             .foregroundStyle(Theme.textFaint)
                     } else {
@@ -291,7 +291,7 @@ struct ExerciseDetailScreen: View {
             Button("Delete", role: .destructive) { deleteCustom() }
         } message: {
             if !usedInRoutines.isEmpty {
-                Text("It appears in \(usedInRoutines.count) routine\(usedInRoutines.count == 1 ? "" : "s") — it will be removed from them. Logged history keeps its name.")
+                Text("It appears in \(usedInRoutines.count) routine\(usedInRoutines.count == 1 ? "" : "s") and will be removed from them. Logged history keeps its name.")
             } else {
                 Text("Logged history keeps its name.")
             }
@@ -436,7 +436,7 @@ struct EquipmentDetailScreen: View {
                                 configMetricChip(metric)
                             }
                         }
-                        Text("What exercises on this gear typically track — new exercises with it start from this set. Leave everything off for plain strength gear.")
+                        Text("What exercises on this gear typically track. New exercises with it start from this set. Leave everything off for plain strength gear.")
                             .font(.system(.caption))
                             .foregroundStyle(Theme.textFaint)
                             .padding(.top, 6)

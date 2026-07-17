@@ -78,7 +78,7 @@ struct ExercisePickerView: View {
                         Text(anyNarrowingActive ? "Nothing in your library matches" : "Your library is empty")
                             .font(.system(.subheadline, weight: .semibold))
                             .foregroundStyle(Theme.textPrimary)
-                        Text("Pick from the catalog — anything you use joins your library on its own.")
+                        Text("Pick from the catalog. Anything you use joins your library on its own.")
                             .font(.system(.footnote))
                             .foregroundStyle(Theme.textSecondary)
                     }

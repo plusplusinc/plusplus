@@ -499,7 +499,7 @@ struct TodayView: View {
                     populateOfferCount = 0
                 }
             } message: {
-                Text("Skipping is fine — the catalog stays a tap away, and anything you use joins your library on its own.")
+                Text("Skipping is fine. The catalog stays a tap away, and anything you use joins your library on its own.")
             }
             // Step 2 IS the routine catalog (#246): search, facets,
             // honest gear checks, blank creation as its first row, and
@@ -886,7 +886,7 @@ struct TodayView: View {
                 .frame(width: 20)
             VStack(alignment: .leading, spacing: 3) {
                 SheetSectionLabel("CARRIED OVER")
-                Text("still open from earlier — do them whenever")
+                Text("still open from earlier · do them whenever")
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(Theme.textFaint)
                     .lineLimit(1)
@@ -1183,7 +1183,7 @@ struct TodayView: View {
         // the diff grammar unlearnable exactly when it was legible.
         let segments: [RoutineDiff.Segment]
         if !lines.isEmpty && lines.allSatisfy({ $0.delta == .new }) {
-            segments = [RoutineDiff.Segment(kind: .new, text: "first time — sets the baseline")]
+            segments = [RoutineDiff.Segment(kind: .new, text: "first time · sets the baseline")]
         } else if summary.contains(where: { $0.kind != .unchanged }) {
             segments = summary.filter { $0.kind != .unchanged }
         } else {
@@ -1401,9 +1401,9 @@ struct TodayView: View {
                 badge: "3 of 3",
                 title: "Schedule it",
                 doneTitle: "Schedule set",
-                sub: scheduleStepDone ? scheduleDoneSub : "Days or a pace — routines appear here on their day",
+                sub: scheduleStepDone ? scheduleDoneSub : "Days or a pace. It shows up here on its day.",
                 gatedSub: "Needs a routine first",
-                cta: "Choose days or pace",
+                cta: "Choose days or a pace",
                 identifier: "setupScheduleStep",
                 action: { scheduleEditTarget = scheduleEditRoutine?.uuid.map(IdentifiedUUID.init)},
                 edit: { scheduleEditTarget = scheduleEditRoutine?.uuid.map(IdentifiedUUID.init)}
@@ -1417,8 +1417,8 @@ struct TodayView: View {
                 badge: "2 of 3",
                 title: "Create your first routine",
                 doneTitle: routines.count == 1 ? "Routine created" : "Routines created",
-                sub: routineStepDone ? routineDoneSub : "Browse the catalog, or start from a blank slate",
-                gatedSub: "Needs your equipment first",
+                sub: routineStepDone ? routineDoneSub : "From the catalog, or from scratch.",
+                gatedSub: "Needs your gear first",
                 cta: "Pick a routine",
                 identifier: "setupRoutineStep",
                 // Root-only affordance: emptiness doubles as the
@@ -1430,11 +1430,14 @@ struct TodayView: View {
             SetupRow(
                 state: equipmentStepDone ? .done : .ready,
                 badge: "1 of 3",
-                title: "What do you have access to?",
+                // The first card is title + key only — no sub (Dave,
+                // 2026-07-17: the question carries it; explaining the
+                // mechanism here was noise).
+                title: "What do you train with?",
                 doneTitle: "Equipment set",
-                sub: equipmentStepDone ? equipmentDoneSub : "Your equipment filters the catalog everywhere",
+                sub: equipmentStepDone ? equipmentDoneSub : "",
                 gatedSub: "",
-                cta: "Pick equipment",
+                cta: "Pick your equipment",
                 identifier: "setupEquipmentStep",
                 action: { showingEquipmentSetup = true },
                 edit: { showingEquipmentSetup = true }
@@ -1558,7 +1561,7 @@ struct TodayView: View {
                 if !setupActive, !scheduledRoutinesExist,
                    let target = swapInCandidates.first {
                     QuietKey(
-                        label: "schedule a routine — it appears here on its day",
+                        label: "schedule a routine · it appears here on its day",
                         identifier: "scheduleOfferButton"
                     ) {
                         scheduleEditTarget = target.uuid.map(IdentifiedUUID.init)
@@ -1579,7 +1582,7 @@ struct TodayView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(routine.name)
                 .font(.system(.body, weight: .semibold))
-            Text("no exercises yet — it can start once it has some")
+            Text("no exercises yet · it can start once it has some")
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textSecondary)
             Button {
@@ -1636,7 +1639,7 @@ struct TodayView: View {
     /// set" step); everyone else gets the calendar facts.
     private var restDayItemCaption: String {
         if setupActive && !allSetupDone && !scheduledRoutinesExist {
-            return "Scheduling is optional — start whenever you like"
+            return "Scheduling is optional. Start whenever you like."
         }
         return restDayCaption
     }
@@ -1657,7 +1660,7 @@ struct TodayView: View {
         guard let best else {
             return scheduledRoutinesExist
                 ? "start whenever you like"
-                : "No routine on the calendar — start one whenever"
+                : "No routine on the calendar. Start one whenever."
         }
         let day = best.date.formatted(.dateTime.weekday(.abbreviated)).lowercased()
         // Within the week "next thu" is unambiguous; further out the
@@ -1666,9 +1669,9 @@ struct TodayView: View {
         if let weekBoundary = calendar.date(byAdding: .day, value: 7, to: calendar.startOfDay(for: today)),
            best.date > weekBoundary {
             let monthDay = best.date.formatted(.dateTime.month(.abbreviated).day()).lowercased()
-            return "on pace · next \(day) · \(monthDay) — \(best.name)"
+            return "on pace · next \(day) · \(monthDay) · \(best.name)"
         }
-        return "on pace · next \(day) — \(best.name)"
+        return "on pace · next \(day) · \(best.name)"
     }
 }
 
@@ -1833,10 +1836,15 @@ private struct SetupRow: View {
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(Theme.textFaint)
                 }
-                Text(sub)
-                    .font(.system(.footnote, design: .monospaced))
-                    .foregroundStyle(Theme.textSecondary)
-                    .padding(.top, 5)
+                // A step may carry no sub at all (the equipment card is
+                // title + key only) — skip the row entirely so no orphan
+                // padding survives.
+                if !sub.isEmpty {
+                    Text(sub)
+                        .font(.system(.footnote, design: .monospaced))
+                        .foregroundStyle(Theme.textSecondary)
+                        .padding(.top, 5)
+                }
                 Button(action: action) {
                     Text(cta)
                         .font(.system(.subheadline, weight: .bold))
@@ -2086,7 +2094,7 @@ private struct SwapInSheet: View {
                 if routines.isEmpty {
                     // Only empty routines (or none) exist — name the
                     // state; the creation key below is the fix.
-                    Text("nothing startable yet — a routine needs at least one exercise")
+                    Text("nothing startable yet · a routine needs at least one exercise")
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(Theme.textFaint)
                         .padding(.vertical, 10)
@@ -2161,7 +2169,7 @@ private struct SwapInSheet: View {
                 // Only when something IS scheduled today — on a rest
                 // day there's no swap to explain.
                 if !dueIDs.isEmpty {
-                    Text("picking a different routine here IS the swap — it runs today without rescheduling")
+                    Text("picking a different routine here IS the swap · it runs today without rescheduling")
                         .font(.system(.caption2, design: .monospaced))
                         .foregroundStyle(Theme.textFaint)
                         .padding(.top, 10)
