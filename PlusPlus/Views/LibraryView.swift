@@ -132,7 +132,7 @@ struct ExercisesTabView: View {
                     filterState.favoritesOnly.toggle()
                 }
                 FacetChip(
-                    facet: "GEAR",
+                    facet: "Gear",
                     selection: gearBinding,
                     options: [
                         (ExerciseFilterState.GearMode.withKit, "Can do now"),
@@ -141,7 +141,7 @@ struct ExercisesTabView: View {
                     ]
                 )
                 TrayFilterChip(
-                    facet: "MUSCLE",
+                    facet: "Muscle",
                     count: filterState.selectedMuscleGroups.count
                 ) { showingMuscleFilter = true }
                 Spacer(minLength: 0)
@@ -182,38 +182,9 @@ struct ExercisesTabView: View {
             onTap: { path.append(exercise) },
             accessibilityActions: accessibilityActions(exercise)
         ) {
-            HStack(spacing: 10) {
-                if exercise.isFavorite {
-                    Image(systemName: "star.fill")
-                        .font(.system(.caption, weight: .semibold))
-                        .foregroundStyle(Theme.accent)
-                        .accessibilityHidden(true)
-                }
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(exercise.name)
-                        .font(.system(.subheadline, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
-                        .lineLimit(1)
-                    subtitleText(for: exercise)
-                        .font(.system(.caption))
-                        .lineLimit(2)
-                }
-                Spacer()
-                if !exercise.isBuiltIn {
-                    Text("CUSTOM")
-                        .font(.system(.caption2, design: .monospaced, weight: .semibold))
-                        .foregroundStyle(Theme.accent)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 2)
-                        .overlay(Capsule().strokeBorder(Theme.accent.opacity(0.4)))
-                }
-                Image(systemName: "chevron.right")
-                    .font(.system(.caption, weight: .bold))
-                    .foregroundStyle(Theme.textFaint)
-                    .accessibilityHidden(true)
-            }
-            .padding(.vertical, 10)
-            .contentShape(Rectangle())
+            // Shared representation (2026-07-18): the catalog row and the
+            // picker render the same body; the picker drops the chevron.
+            ExerciseRowContent(exercise: exercise, available: availableEquipmentNames)
         } actions: {
             if !exercise.isBuiltIn {
                 SwipeActionButton(label: "DELETE", color: Theme.destructive) {
@@ -253,20 +224,6 @@ struct ExercisesTabView: View {
         return actions
     }
 
-    /// Muscle · gear, with the missing-gear gap flagged in notes amber
-    /// (mock 03: "needs Bench" is attention, not chrome), relative to the
-    /// active kit.
-    private func subtitleText(for exercise: Exercise) -> Text {
-        let equipment = exercise.equipment.map(\.name).sorted().joined(separator: ", ")
-        var text = Text("\(exercise.muscleGroup.displayName) · \(equipment.isEmpty ? "Bodyweight" : equipment)")
-            .foregroundStyle(Theme.textSecondary)
-        let missing = ExerciseFilterState.missingEquipment(for: exercise, available: availableEquipmentNames)
-        if !missing.isEmpty {
-            text = text + Text(" · ").foregroundStyle(Theme.textSecondary)
-                + Text("needs \(missing.joined(separator: ", "))").foregroundStyle(Theme.notes)
-        }
-        return text
-    }
 
     // MARK: - Filter persistence
 
@@ -435,23 +392,13 @@ struct EquipmentTabView: View {
                     }
                 ]
             ) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(equipment.name)
-                            .font(.system(.subheadline, weight: .semibold))
-                            .foregroundStyle(Theme.textPrimary)
-                        Text(equipmentSubtitle(for: equipment))
-                            .font(.system(.caption2, design: .monospaced))
-                            .foregroundStyle(Theme.textFaint)
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(.caption, weight: .bold))
-                        .foregroundStyle(Theme.textFaint)
-                        .accessibilityHidden(true)
-                }
-                .padding(.vertical, 10)
-                .contentShape(Rectangle())
+                // Same representation as the catalog card (2026-07-18);
+                // the kit list omits the in-kit glyph (every row is in it).
+                EquipmentRowContent(
+                    equipment: equipment,
+                    unlockedCount: unlockedCount(for: equipment),
+                    inKit: nil
+                )
             } actions: {
                 SwipeActionButton(label: equipment.isBuiltIn ? "REMOVE" : "DELETE", color: Theme.destructive) {
                     openSwipeRow = nil
@@ -463,11 +410,8 @@ struct EquipmentTabView: View {
         }
     }
 
-    private func equipmentSubtitle(for equipment: Equipment) -> String {
-        let used = allExercises.filter { $0.equipment.contains(where: { $0 === equipment }) }.count
-        var text = used == 0 ? "unused" : (used == 1 ? "1 exercise" : "\(used) exercises")
-        if !equipment.isBuiltIn { text += " · custom" }
-        return text
+    private func unlockedCount(for equipment: Equipment) -> Int {
+        allExercises.filter { $0.equipment.contains(where: { $0 === equipment }) }.count
     }
 
     private func remove(_ equipment: Equipment) {

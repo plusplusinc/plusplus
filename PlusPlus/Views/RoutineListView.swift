@@ -397,16 +397,16 @@ private struct RoutineCard: View {
                 if showsGear {
                     ForEach(pills, id: \.self) { pill in
                         let unavailable = pillUnavailable(pill)
-                        Text(pill)
-                            .font(.system(.caption2, design: .monospaced))
-                            .foregroundStyle(unavailable ? Theme.notes : Theme.textSecondary)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2.5)
-                            .background(
-                                unavailable ? Theme.notes.opacity(0.14) : Theme.surfaceRaised,
-                                in: Capsule()
-                            )
-                            .lineLimit(1)
+                        // The shared data-capsule (2026-07-18): gear as a
+                        // soft tag, amber-washed when the active kit lacks it.
+                        // holdsWidth off so a row of pills compresses together
+                        // as it did before, not push past the card edge.
+                        CardTagCapsule(
+                            text: pill,
+                            tint: unavailable ? Theme.notes : Theme.textSecondary,
+                            fill: unavailable ? Theme.notes.opacity(0.14) : Theme.surfaceRaised,
+                            holdsWidth: false
+                        )
                     }
                 }
                 Spacer(minLength: 0)

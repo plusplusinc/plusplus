@@ -205,16 +205,16 @@ struct EquipmentCatalogScreen: View {
                     }
                 }
                 FacetChip(
-                    facet: "KIT",
+                    facet: "Kit",
                     selection: $kitFilter,
                     options: [(true, "In kit"), (false, "Not in kit")]
                 )
                 TrayFilterChip(
-                    facet: "TYPE",
+                    facet: "Type",
                     count: typeFilter.count
                 ) { showingTypeFilter = true }
                 TrayFilterChip(
-                    facet: "MUSCLE",
+                    facet: "Muscle",
                     count: filterState.selectedMuscleGroups.count
                 ) { showingMuscleFilter = true }
                 SortChip(
@@ -286,47 +286,10 @@ struct EquipmentCatalogScreen: View {
                 }
             ]
         ) {
-            HStack(spacing: 10) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(equipment.name)
-                        .font(.system(.subheadline, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
-                        .lineLimit(1)
-                    // Meta line: category · Custom, then the "N exercises"
-                    // capsule (Dave, 2026-07-17: moved in from the right so
-                    // it no longer reads as the thing you tap into).
-                    HStack(spacing: 6) {
-                        subtitle(for: equipment)
-                            .font(.system(.caption))
-                            .lineLimit(1)
-                        if unlocked > 0 {
-                            Text("\(unlocked) exercise\(unlocked == 1 ? "" : "s")")
-                                .font(.system(.caption2, design: .monospaced))
-                                .foregroundStyle(Theme.textFaint)
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 2)
-                                .overlay(Capsule().strokeBorder(Theme.border))
-                                .fixedSize()
-                        }
-                    }
-                }
-                Spacer(minLength: 8)
-                if inKit {
-                    // In-kit is a glyph now, in the slot the capsule left
-                    // (Dave, 2026-07-17: drop the "in kit ✓" words). Accent
-                    // green = you have this gear.
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(.body))
-                        .foregroundStyle(Theme.accent)
-                        .accessibilityLabel("In kit")
-                }
-                Image(systemName: "chevron.right")
-                    .font(.system(.caption, weight: .bold))
-                    .foregroundStyle(Theme.textFaint)
-                    .accessibilityHidden(true)
-            }
-            .padding(.vertical, 10)
-            .contentShape(Rectangle())
+            // Shared representation (2026-07-18): the catalog card and the
+            // kit list render the same body; the catalog shows the in-kit
+            // glyph, the kit list omits it (every row is in the kit there).
+            EquipmentRowContent(equipment: equipment, unlockedCount: unlocked, inKit: inKit)
         } actions: {
             EmptyView()
         } leadingActions: {
@@ -350,23 +313,6 @@ struct EquipmentCatalogScreen: View {
         .accessibilityIdentifier("equipmentCard-\(equipment.name)")
         .listRowBackground(Color.clear)
         .listRowSeparatorTint(Theme.border)
-    }
-
-    private func subtitle(for equipment: Equipment) -> Text {
-        var parts: [Text] = []
-        if let category = SeedData.equipmentCategory(named: equipment.name) {
-            parts.append(Text(category.rawValue).foregroundStyle(Theme.textSecondary))
-        }
-        if !equipment.isBuiltIn {
-            parts.append(Text("Custom").foregroundStyle(Theme.textSecondary))
-        }
-        guard var text = parts.first else {
-            return Text(" ").foregroundStyle(Theme.textSecondary)
-        }
-        for part in parts.dropFirst() {
-            text = text + Text(" · ").foregroundStyle(Theme.textFaint) + part
-        }
-        return text
     }
 
     private func setMembership(_ equipment: Equipment, _ included: Bool) {

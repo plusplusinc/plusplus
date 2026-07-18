@@ -215,31 +215,10 @@ private struct ExerciseRow: View {
     let available: Set<String>
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(exercise.name)
-            Text(subtitle)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            // The flag half of #113's "flagged, never hidden": library
-            // rows always list; this line carries the gear gap relative
-            // to the active library.
-            if !missing.isEmpty {
-                Text("needs \(missing.joined(separator: ", "))")
-                    .font(.system(.caption2, design: .monospaced))
-                    .foregroundStyle(Theme.notes)
-            }
-        }
-    }
-
-    private var missing: [String] {
-        ExerciseFilterState.missingEquipment(for: exercise, available: available)
-    }
-
-    private var subtitle: String {
-        let muscle = exercise.muscleGroup.displayName
-        let equipmentNames = exercise.equipment.map(\.name).sorted()
-        let equipmentText = equipmentNames.isEmpty ? "Bodyweight" : equipmentNames.joined(separator: ", ")
-        return "\(muscle) · \(equipmentText)"
+        // The picker shares the catalog's row body (2026-07-18) so an
+        // exercise reads the same wherever it appears; no chevron here —
+        // a tap selects, it doesn't push to detail.
+        ExerciseRowContent(exercise: exercise, available: available, showsChevron: false)
     }
 }
 
@@ -270,11 +249,11 @@ private struct FilterBar: View {
                     filterState.favoritesOnly.toggle()
                 }
                 TrayFilterChip(
-                    facet: "MUSCLE",
+                    facet: "Muscle",
                     count: filterState.selectedMuscleGroups.count
                 ) { showingMuscleGroupFilter = true }
                 TrayFilterChip(
-                    facet: "EQUIPMENT",
+                    facet: "Equipment",
                     count: filterState.selectedEquipment.count
                 ) { showingEquipmentFilter = true }
                 Spacer(minLength: 0)
