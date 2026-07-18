@@ -53,6 +53,15 @@ struct ExercisesTabView: View {
                     addLabel: "Add exercise",
                     onAdd: { creatingExercise = true }
                 )
+                // Search + filters sit UNDER the header, pinned above the
+                // scrolling list (Dave, 2026-07-18: a top `safeAreaInset`
+                // floated them ABOVE the ++/title chrome — every other tab
+                // root wears the ++ key topmost).
+                VStack(spacing: 8) {
+                    SearchField(prompt: "Search exercises", text: Bindable(filterState).searchText)
+                        .padding(.horizontal, 16)
+                    filterRow
+                }
                 List {
                     ForEach(candidates) { exercise in
                         exerciseRow(exercise)
@@ -71,15 +80,6 @@ struct ExercisesTabView: View {
             }
             .background(Theme.background)
             .toolbar(.hidden, for: .navigationBar)
-            .safeAreaInset(edge: .top, spacing: 0) {
-                VStack(spacing: 8) {
-                    SearchField(prompt: "Search exercises", text: Bindable(filterState).searchText)
-                        .padding(.horizontal, 16)
-                    filterRow
-                }
-                .padding(.top, 8)
-                .background(.bar)
-            }
             .navigationDestination(for: Exercise.self) { exercise in
                 ExerciseDetailScreen(exercise: exercise)
             }
