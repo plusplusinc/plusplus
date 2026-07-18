@@ -436,6 +436,24 @@ struct RoutineDetailView: View {
                 openSwipeRow = nil
                 routine.splitExercise(routineExercise, context: modelContext)
             })
+            // The drag equivalent (ring-into-ring merge) has no gesture-free
+            // path otherwise (#164 parity): offer it when the neighbour in
+            // that direction is also a superset. This row's group survives.
+            let allGroups = routine.sortedGroups
+            if g > 0, allGroups[g - 1].isSuperset {
+                let above = allGroups[g - 1]
+                a11yActions.append(SwipeRowAction(name: "Merge with superset above") {
+                    openSwipeRow = nil
+                    routine.mergeGroup(above, direction: 1, context: modelContext)
+                })
+            }
+            if g < lastGroup, allGroups[g + 1].isSuperset {
+                let below = allGroups[g + 1]
+                a11yActions.append(SwipeRowAction(name: "Merge with superset below") {
+                    openSwipeRow = nil
+                    routine.mergeGroup(below, direction: -1, context: modelContext)
+                })
+            }
         } else {
             if g > 0 {
                 a11yActions.append(SwipeRowAction(name: "Superset with exercise above") {
@@ -540,13 +558,12 @@ struct RoutineDetailView: View {
               let (g, i) = layout.exercise(at: y) else { return }
 
         if x < Self.dotZoneWidth {
-            // Superset rows grab their nearest ring edge immediately; a
-            // solo waits for the first movement so dragging UP can extend
-            // the ring upward too (#87).
-            let edge: RingEdge? = sizes[g] > 1
-                ? RailRing.grabbedEdge(groupSizes: sizes, group: g, pressedIndex: i)
-                : nil
-            railGesture = .ring(group: g, edge: edge, pressY: y, fingerY: y)
+            // Every ring press waits for the first movement to pick its edge
+            // from the drag DIRECTION (not the nearest edge): dragging down
+            // works the bottom, up works the top, from ANY pressed row. That
+            // is what lets a press anywhere in the list gather everything
+            // from here to the top/bottom into one superset.
+            railGesture = .ring(group: g, edge: nil, pressY: y, fingerY: y)
         } else {
             let rowY = layout.row(for: .exercise(group: g, index: i))?.y ?? 0
             railGesture = .dragging(group: g, index: i, fingerY: y, grabOffset: y - rowY)
@@ -563,7 +580,14 @@ struct RoutineDetailView: View {
         case .ring(let g, let heldEdge, let pressY, _):
             var edge = heldEdge
             if edge == nil, abs(y - pressY) > 10 {
-                edge = y < pressY ? .top : .bottom
+                // Latch the EJECT edge from the pressed member (not the drag
+                // direction): the unite direction comes from the finger's
+                // position in `span`, so this only decides which end an
+                // inward drag trims. Deferred to first movement so the
+                // pre-move highlight still reads as the whole pressed group.
+                let layout = RailLayout.build(groupSizes: groupSizes, metrics: railMetrics)
+                let pressedIndex = layout.exercise(at: pressY).map { $0.group == g ? $0.index : 0 } ?? 0
+                edge = RailRing.grabbedEdge(groupSizes: groupSizes, group: g, pressedIndex: pressedIndex)
             }
             railGesture = .ring(group: g, edge: edge, pressY: pressY, fingerY: y)
         }
@@ -784,22 +808,27 @@ struct RoutineDetailView: View {
         let span = RailRing.span(groupSizes: sizes, group: g, edge: edge, fingerY: fingerY, metrics: railMetrics)
         guard !span.isNoOp else { return }
         let group = routine.sortedGroups[g]
+
         // Captured BEFORE the merges: did this landing grow an existing
         // superset, or form a fresh one? Drives whether the loop is kept
         // through the reshape or revealed.
         let wasExistingSuperset = group.sortedExercises.count > 1
 
+        // Unite: pull each whole group above/below (solo OR superset) into
+        // the pressed group, which survives and keeps its block config. One
+        // merge per spanned group; re-reading the index each pass follows
+        // the shift as neighbours collapse in.
         for _ in 0..<span.absorbAfter {
             let groups = routine.sortedGroups
             guard let index = groups.firstIndex(where: { $0 === group }),
                   groups.indices.contains(index + 1) else { break }
-            routine.mergeSoloGroup(groups[index + 1], direction: -1, context: modelContext)
+            routine.mergeGroup(groups[index + 1], direction: -1, context: modelContext)
         }
         for _ in 0..<span.absorbBefore {
             let groups = routine.sortedGroups
             guard let index = groups.firstIndex(where: { $0 === group }),
                   index > 0 else { break }
-            routine.mergeSoloGroup(groups[index - 1], direction: 1, context: modelContext)
+            routine.mergeGroup(groups[index - 1], direction: 1, context: modelContext)
         }
         for _ in 0..<span.ejectLast {
             guard group.isSuperset, let last = group.sortedExercises.last else { break }
