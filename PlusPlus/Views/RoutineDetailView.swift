@@ -436,6 +436,24 @@ struct RoutineDetailView: View {
                 openSwipeRow = nil
                 routine.splitExercise(routineExercise, context: modelContext)
             })
+            // The drag equivalent (ring-into-ring merge) has no gesture-free
+            // path otherwise (#164 parity): offer it when the neighbour in
+            // that direction is also a superset. This row's group survives.
+            let allGroups = routine.sortedGroups
+            if g > 0, allGroups[g - 1].isSuperset {
+                let above = allGroups[g - 1]
+                a11yActions.append(SwipeRowAction(name: "Merge with superset above") {
+                    openSwipeRow = nil
+                    routine.mergeGroup(above, direction: 1, context: modelContext)
+                })
+            }
+            if g < lastGroup, allGroups[g + 1].isSuperset {
+                let below = allGroups[g + 1]
+                a11yActions.append(SwipeRowAction(name: "Merge with superset below") {
+                    openSwipeRow = nil
+                    routine.mergeGroup(below, direction: -1, context: modelContext)
+                })
+            }
         } else {
             if g > 0 {
                 a11yActions.append(SwipeRowAction(name: "Superset with exercise above") {
