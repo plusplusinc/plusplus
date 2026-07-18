@@ -133,6 +133,22 @@ struct OperatorControllerTests {
         #expect(model.prompts[0].hasSuffix("When is Push Day?"))
     }
 
+    @Test("A topic-matched turn carries a recipe line in the prompt")
+    func recipeInjection() async throws {
+        let container = try makeContainer()
+        let model = ScriptedOperatorModel(steps: [.reply(["Noted."])])
+        let controller = makeController(context: ModelContext(container), model: model)
+
+        controller.send("What equipment do I have?")
+        try await waitForIdle(controller)
+
+        // The recipe rides the PROMPT channel between the context line
+        // and the user's text — never the instructions.
+        #expect(model.prompts.count == 1)
+        #expect(model.prompts[0].contains("[recipe: gear lives in libraries"))
+        #expect(model.prompts[0].hasSuffix("What equipment do I have?"))
+    }
+
     @Test("Sends while busy bounce with a notice, not a second turn")
     func turnSerialization() async throws {
         let container = try makeContainer()
@@ -551,6 +567,28 @@ struct OperatorChipsTests {
         let a = OperatorChips.chips(tab: "exercises", detail: nil, hasHistory: true)
         let b = OperatorChips.chips(tab: "exercises", detail: nil, hasHistory: true)
         #expect(a == b)
+    }
+}
+
+@Suite("Operator recipes")
+struct OperatorRecipesTests {
+    @Test("Topics map to their recipes; earlier table rows outrank later")
+    func matching() {
+        #expect(OperatorRecipes.recipe(for: "What equipment do I have?")?.contains("find_items kind library") == true)
+        #expect(OperatorRecipes.recipe(for: "add a jump rope to my kit")?.contains("add_gear") == true)
+        #expect(OperatorRecipes.recipe(for: "Make my rep-based stretches duration-based")?.contains("convert_tracking") == true)
+        #expect(OperatorRecipes.recipe(for: "superset bench and rows in Push Day")?.contains("form_superset") == true)
+        // "how many workouts last week" is a stats question, not a
+        // schedule one: stats sits above schedule in the table.
+        #expect(OperatorRecipes.recipe(for: "How many workouts last week?")?.contains("get_stats") == true)
+        #expect(OperatorRecipes.recipe(for: "What's my week look like?")?.contains("set_schedule") == true)
+    }
+
+    @Test("Unmatched turns inject nothing")
+    func unmatched() {
+        #expect(OperatorRecipes.recipe(for: "Add two stretches to Push Day") == nil)
+        #expect(OperatorRecipes.recipe(for: "Rename Push Day to Push") == nil)
+        #expect(OperatorRecipes.recipe(for: "When is Push Day?") == nil)
     }
 }
 
