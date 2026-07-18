@@ -231,6 +231,12 @@ final class OperatorController {
             prompt += "\n[earlier: \(carryover)]"
             pendingCarryover = nil
         }
+        // The skills layer, sized for a 4k window: a topic-matched turn
+        // carries one fixed recipe line steering the FIRST tool pick;
+        // unmatched turns carry nothing.
+        if let recipe = OperatorRecipes.recipe(for: userText) {
+            prompt += "\n[recipe: \(recipe)]"
+        }
         prompt += "\n\(userText)"
         sessionCharacters += prompt.count
 

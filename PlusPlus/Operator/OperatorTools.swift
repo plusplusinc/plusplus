@@ -95,6 +95,7 @@ final class FindItemsTool: Tool {
 
     @Generable
     struct Arguments {
+        @Guide(description: "Libraries hold the user's gear")
         var kind: ChangeKindArg
         @Guide(description: "Name fragment; forgiving, typos still match")
         var nameContains: String? = nil
