@@ -65,16 +65,16 @@ private struct PushedScreenChrome<Trailing: View>: ViewModifier {
                     onBack()
                 }
                 if let search {
-                    // Expanded, the field + its collapse key fill the row
-                    // (the title is hidden); collapsed, only the magnifier
-                    // shows, with the trailing keys after it.
-                    if searchExpanded {
-                        HeaderSearchField(config: search, isExpanded: $searchExpanded)
-                    } else {
-                        Spacer(minLength: 0)
-                        HeaderSearchField(config: search, isExpanded: $searchExpanded)
-                        trailing
-                    }
+                    // `HeaderSearchField` stays a SINGLE stable instance —
+                    // its Spacer + trailing keys are conditionalized around
+                    // it, NOT placed in a rival if/else arm. Splitting it
+                    // across two arms gave the collapsed and expanded copies
+                    // different identities, so the one-shot focus intent was
+                    // dropped on expand and the keyboard never rose (#233,
+                    // swift-reviewer catch 2026-07-18).
+                    if !searchExpanded { Spacer(minLength: 0) }
+                    HeaderSearchField(config: search, isExpanded: $searchExpanded)
+                    if !searchExpanded { trailing }
                 } else {
                     Spacer(minLength: 0)
                     trailing

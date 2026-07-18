@@ -188,16 +188,17 @@ struct ExercisePickerView: View {
         HStack(spacing: 10) {
             // Dismiss is a word, never a ✕ (✕ collapses search) — §9.
             SheetDismissKey(label: "Cancel") { dismiss() }
-            if searchExpanded {
-                HeaderSearchField(config: searchConfig, isExpanded: $searchExpanded)
-            } else {
+            // Single stable `HeaderSearchField`; the title + Spacer are
+            // conditionalized around it so it keeps its focus intent across
+            // expand/collapse (see PushedHeader's note).
+            if !searchExpanded {
                 Text("Add exercise")
                     .font(.system(.title3, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
                 Spacer(minLength: 0)
-                HeaderSearchField(config: searchConfig, isExpanded: $searchExpanded)
             }
+            HeaderSearchField(config: searchConfig, isExpanded: $searchExpanded)
         }
         .padding(.horizontal, 16)
     }

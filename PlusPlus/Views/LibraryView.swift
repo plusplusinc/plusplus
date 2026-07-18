@@ -571,9 +571,20 @@ struct CatalogTabHeader<Accessory: View>: View {
                 // Every root header wears the ++ key (Dave, build 44); it
                 // toggles the shared reveal drawer.
                 AppMenuKey()
-                if let search, searchExpanded {
-                    // Expanded: the field + its collapse key fill the row,
-                    // the collapse ✕ landing where the magnifier was.
+                if let search {
+                    // `HeaderSearchField` is a SINGLE stable instance; its
+                    // Spacer/accessory/add key are conditionalized around it
+                    // so it keeps identity (and its one-shot focus intent)
+                    // across expand/collapse — see PushedHeader's note.
+                    if !searchExpanded {
+                        Spacer(minLength: 0)
+                        accessory()
+                        if let onAdd {
+                            HeaderIconButton(systemImage: "plus", accessibilityLabel: addLabel ?? "Add \(title)", identifier: addIdentifier) {
+                                onAdd()
+                            }
+                        }
+                    }
                     HeaderSearchField(config: search, isExpanded: $searchExpanded)
                 } else {
                     Spacer(minLength: 0)
@@ -582,9 +593,6 @@ struct CatalogTabHeader<Accessory: View>: View {
                         HeaderIconButton(systemImage: "plus", accessibilityLabel: addLabel ?? "Add \(title)", identifier: addIdentifier) {
                             onAdd()
                         }
-                    }
-                    if let search {
-                        HeaderSearchField(config: search, isExpanded: $searchExpanded)
                     }
                 }
             }
