@@ -50,6 +50,10 @@ struct SheetHeader: View {
                 Text(title)
                     .font(.system(.title3, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
+                    // Wrap to two lines rather than growing the row unbounded
+                    // (2026-07-18): a long sheet title used to have no limit.
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 12)
                 headerButtons
             }
@@ -67,21 +71,10 @@ struct SheetHeader: View {
     private var headerButtons: some View {
         Group {
             if closeOnly {
-                Button(action: action) {
-                    Image(systemName: "xmark")
-                        .font(.system(.footnote, weight: .bold))
-                        .foregroundStyle(Theme.textSecondary)
-                        .frame(width: 32, height: 32)
-                        .background(Theme.surface, in: Circle())
-                        .overlay(Circle().strokeBorder(Theme.border))
-                        .padding(6)
-                        .contentShape(Circle())
-                }
-                .accessibilityLabel("Close")
-                // Escape dismisses the sheet for external-keyboard users (WCAG
-                // 2.1.1); a no-op without a hardware keyboard.
-                .keyboardShortcut(.cancelAction)
-                .accessibilityIdentifier(actionIdentifier ?? "")
+                // A view-only sheet dismisses with a text key, never a ✕:
+                // ✕ is reserved for collapsing an expanded search, so the two
+                // never read alike (2026-07-18). Label defaults to "Done".
+                SheetDismissKey(label: actionLabel ?? "Done", identifier: actionIdentifier, action: action)
             } else {
                 if let onCancel {
                     Button(cancelLabel, action: onCancel)
@@ -109,6 +102,27 @@ struct SheetHeader: View {
                 }
             }
         }
+    }
+}
+
+/// The one sheet/tray dismissal key (2026-07-18): a plain text key —
+/// "Cancel" to abandon edits, "Done"/"Close" to leave a view-only sheet.
+/// Retires the circular ✕ close so every top-of-sheet button reads the
+/// same, and so ✕ can mean ONLY "collapse the expanded search". Matches
+/// `SheetHeader`'s cancel styling; reused by the hand-built trays
+/// (Operator, GitHub, the start tray) so they stop drifting.
+struct SheetDismissKey: View {
+    var label: String = "Done"
+    var identifier: String?
+    let action: () -> Void
+
+    var body: some View {
+        Button(label, action: action)
+            .font(.system(.subheadline))
+            .foregroundStyle(Theme.textSecondary)
+            .frame(minHeight: 44)
+            .keyboardShortcut(.cancelAction)
+            .accessibilityIdentifier(identifier ?? "")
     }
 }
 

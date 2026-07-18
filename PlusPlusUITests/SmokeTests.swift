@@ -610,7 +610,7 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(createRow.waitForExistence(timeout: 5))
         createRow.tap()
 
-        let alert = app.alerts["New Routine"]
+        let alert = app.alerts["New routine"]
         XCTAssertTrue(alert.waitForExistence(timeout: 5))
         let field = alert.textFields.firstMatch
         field.tap()
@@ -624,7 +624,12 @@ final class SmokeTests: XCTestCase {
     }
 
     private func search(for text: String) {
-        let searchField = app.textFields["searchField"].firstMatch
+        // The picker's search is the expanding in-header field now: tap the
+        // magnifier toggle, then type into the revealed field.
+        let toggle = app.buttons["exercisePickerSearchFieldToggle"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        toggle.tap()
+        let searchField = app.textFields["exercisePickerSearchField"].firstMatch
         XCTAssertTrue(searchField.waitForExistence(timeout: 5))
         searchField.tap()
         searchField.typeText(text)

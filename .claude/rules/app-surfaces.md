@@ -42,7 +42,35 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   cap depressing onto a fixed base plate (4 pt standard / 3 pt quiet, 0.06 s
   ease-out); flat controls (chips, toggles, segments, rows) stay flat.
   Custom key chrome everywhere — `pushedScreenChrome(...)` replaces system
-  toolbars on pushed screens.
+  toolbars on pushed screens. **Icon-only keys are CIRCLES** (2026-07-18): a
+  glyph-only cap (`HeaderIconButton`/`HeaderMenuKey`/`AppMenuKey`, the Operator
+  send/stop, `ConfigIconButton`) uses `Circle()` with the plate radius = side/2
+  (`RaisedKeyStyle.cornerRadius`, unchanged — 44→22, 40→20, 30→15). Keys that
+  carry TEXT keep the rounded-rect pill (the width needs it): `QuietKey`,
+  `LibrarySwitcherKey`, `SheetDismissKey`, create rows, the primary action bars.
+- **One search UI + one sheet-dismissal, and ✕ means only "collapse search"**
+  (2026-07-18): search everywhere is the expanding in-header field
+  (`HeaderSearchField`) — a top-right magnifier that expands into a field
+  spanning the row, an in-field `delete.left` CLEAR that keeps focus, and a
+  separate `xmark` COLLAPSE key where the magnifier was; the big title (tab
+  root) or centered title (pushed) hides while searching. Because `xmark` is
+  the collapse glyph, a sheet/tray NEVER dismisses with a ✕ — it uses a text
+  `SheetDismissKey` ("Cancel" to abandon edits, "Done" view-only). Creation is
+  the TOP list row, verb-keyed: **Create** (`New <object>` / `Create "<query>"`)
+  when it makes a custom object inline, **Add** (`Add <object>` / `Add "<query>"`)
+  when it navigates to a catalog. Query casing is `String.sentenceCasedFirst`.
+  Empty results NEVER dead-end: the create/add row is always present + a "Clear
+  filters" `QuietKey` when facets are active.
+- **Heading treatment follows the nature of the title** (2026-07-18): a **tab
+  root** wears a large left title below the icon row; a **pushed utility/catalog
+  screen** with a fixed label keeps the small centered `pushedScreenChrome`
+  title; a **pushed detail screen showing a dynamic name** clears its chrome
+  title (`title: ""`) and leads the body with a large left header that wraps to
+  two lines (`.lineLimit(2)` + `.fixedSize` + `.isHeader`) — Exercise / Equipment
+  / Template / Routine detail. `SheetHeader` titles wrap to two lines. The record
+  screen (`SessionDetailView`) is the deliberate exception: it keeps the centered
+  title + mono subtitle, since routine names are short and the facts ride the
+  subtitle slot.
 - **Motion carries meaning, one mechanism each**: selection slides, data
   rolls, completion thuds (impact per set, `.success` only at the purple
   finish), navigation zooms. The tempo lives in `Theme.Anim` tokens, never

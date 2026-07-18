@@ -69,6 +69,16 @@ struct EquipmentCatalogScreen: View {
     /// user in a step).
     @State private var touchedSetup = false
 
+    /// `initialQuery` seeds the search once (the Equipment-kit tab's "Add
+    /// <query>" threads its query straight through, 2026-07-18); the pushed
+    /// chrome auto-expands the field when it arrives non-empty.
+    init(setupMode: Bool = false, initialQuery: String = "") {
+        self.setupMode = setupMode
+        let state = ExerciseFilterState()
+        state.searchText = initialQuery
+        self._filterState = State(initialValue: state)
+    }
+
     private var query: String { filterState.searchText }
 
     private var availableNames: Set<String> {
@@ -104,17 +114,15 @@ struct EquipmentCatalogScreen: View {
         VStack(spacing: 0) {
             filterRow
             List {
+                // Creation is the top row everywhere (2026-07-18): New
+                // equipment, or Create "<query>" when searching.
+                createRow
                 ForEach(candidateEquipment(index: index)) { equipment in
                     equipmentCard(equipment, index: index)
                 }
                 if candidateEquipment(index: index).isEmpty {
-                    Text("Nothing matches these filters.")
-                        .font(.system(.caption))
-                        .foregroundStyle(Theme.textFaint)
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
+                    emptyResults
                 }
-                createRow
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
@@ -320,7 +328,33 @@ struct EquipmentCatalogScreen: View {
         touchedSetup = true
     }
 
-    // MARK: - Create
+    // MARK: - Create + empty
+
+    private var createLabel: String {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        return q.isEmpty ? "New equipment" : "Create \u{201C}\(q.sentenceCasedFirst)\u{201D}"
+    }
+
+    /// Empty results never dead-end: the create row is always at the top
+    /// (so "not here" becomes "make it"), and Clear filters is the escape.
+    private var emptyResults: some View {
+        VStack(spacing: 10) {
+            Text("Nothing matches.")
+                .font(.system(.footnote))
+                .foregroundStyle(Theme.textFaint)
+            if anyFilterActive {
+                QuietKey(label: "Clear filters", identifier: "clearEquipmentFilters") {
+                    kitFilter = nil
+                    typeFilter = []
+                    filterState.selectedMuscleGroups = []
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 24)
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+    }
 
     private var createRow: some View {
         Button {
@@ -335,9 +369,7 @@ struct EquipmentCatalogScreen: View {
             HStack(spacing: 8) {
                 Image(systemName: "plus")
                     .font(.system(.caption, weight: .semibold))
-                Text(query.trimmingCharacters(in: .whitespaces).isEmpty
-                     ? "Create custom equipment…"
-                     : "Create “\(query.trimmingCharacters(in: .whitespaces))”")
+                Text(createLabel)
                     .font(.system(.footnote, weight: .semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)

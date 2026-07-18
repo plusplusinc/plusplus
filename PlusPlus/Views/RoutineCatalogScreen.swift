@@ -9,7 +9,11 @@ import PlusPlusKit
 /// it without a transition and double-pops on back (Dave, build 44).
 /// Rule of thumb: a pushed screen that itself appends to the path must
 /// itself be a path entry.
-struct RoutineCatalogDestination: Hashable {}
+struct RoutineCatalogDestination: Hashable {
+    /// Seeds the catalog's search (owned-tab "Add <query>" threads the
+    /// Routines-tab query straight through, 2026-07-18); empty = fresh.
+    var query: String = ""
+}
 
 /// The routine catalog (#223): a pushed browse surface off the
 /// Routines tab, mirroring CatalogBrowseScreen's shape — top search,
@@ -56,6 +60,14 @@ struct RoutineCatalogScreen: View {
     /// template row would stack two detail screens. Reset on pop-back
     /// via onAppear (fires on return — the #233 lesson proves it).
     @State private var pushedTemplate = false
+
+    /// `initialQuery` seeds the search once at construction (owned-tab
+    /// "Add <query>" threading); the pushed chrome auto-expands the field
+    /// when it arrives non-empty, so the active query is visible.
+    init(path: Binding<NavigationPath>, initialQuery: String = "") {
+        self._path = path
+        self._search = State(initialValue: initialQuery)
+    }
 
     enum TimeBand: String, CaseIterable, Hashable {
         case short = "Under 20 min"
@@ -274,7 +286,7 @@ struct RoutineCatalogScreen: View {
         .sheet(isPresented: $showingLibraryTray) {
             EquipmentLibraryTray()
         }
-        .alert("New Routine", isPresented: $showingNewRoutine) {
+        .alert("New routine", isPresented: $showingNewRoutine) {
             TextField("Name", text: $newRoutineName)
             Button("Cancel", role: .cancel) { newRoutineName = "" }
             Button("Create") { createBlankRoutine() }
@@ -333,8 +345,8 @@ struct RoutineCatalogScreen: View {
     /// live, the label telegraphs the prefilled name.
     private var createLabel: String {
         let trimmed = search.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty { return "Create “\(trimmed)”" }
-        return "New blank routine"
+        if !trimmed.isEmpty { return "Create \u{201C}\(trimmed.sentenceCasedFirst)\u{201D}" }
+        return "New routine"
     }
 
     private var createRow: some View {
@@ -498,6 +510,16 @@ struct RoutineTemplateDetailScreen: View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
+                    // Name as a large, left-aligned wrapping body header
+                    // (2026-07-18) — consistent with every other detail screen.
+                    Text(template.name)
+                        .font(.system(.title, weight: .bold))
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityAddTraits(.isHeader)
+                        .padding(.top, 4)
+                        .padding(.bottom, 12)
                     Text("\(template.focus.rawValue.lowercased()) · \(template.effort.rawValue.lowercased()) · \(template.style.rawValue.lowercased()) · \(template.estimatedMinutesText)")
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(Theme.textFaint)
@@ -594,7 +616,7 @@ struct RoutineTemplateDetailScreen: View {
         }
         .scrollDismissesKeyboard(.immediately)
         .background(Theme.background)
-        .pushedScreenChrome(title: template.name, onBack: { dismiss() })
+        .pushedScreenChrome(title: "", onBack: { dismiss() })
         .sheet(isPresented: $showingGearCheck) {
             GearCheckTray(names: missingNames)
         }

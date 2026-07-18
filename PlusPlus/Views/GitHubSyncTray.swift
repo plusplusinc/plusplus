@@ -126,19 +126,11 @@ struct GitHubSyncTray: View {
                 .foregroundStyle(Theme.textPrimary)
                 .lineLimit(1)
             Spacer(minLength: 12)
-            Button { dismiss() } label: {
-                Image(systemName: "xmark")
-                    .font(.system(.footnote, weight: .bold))
-                    .foregroundStyle(Theme.textSecondary)
-                    .frame(width: 32, height: 32)
-                    .background(Theme.surface, in: Circle())
-                    .overlay(Circle().strokeBorder(Theme.border))
-                    // 32 pt visual carried to a 44 pt hit target (#130 floor).
-                    .padding(6)
-                    .contentShape(Circle())
+            // One dismissal vocabulary across every tray (2026-07-18): a
+            // text key, never a ✕ (✕ is the search-collapse glyph).
+            SheetDismissKey(label: "Done", identifier: "closeGitHubSync") {
+                dismiss()
             }
-            .accessibilityLabel("Close")
-            .accessibilityIdentifier("closeGitHubSync")
         }
         .padding(.top, 14)
     }

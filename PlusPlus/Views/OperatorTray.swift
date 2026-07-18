@@ -71,24 +71,11 @@ struct OperatorTray: View {
                     .foregroundStyle(Theme.textFaint)
             }
             Spacer(minLength: 12)
-            Button {
+            // One dismissal vocabulary across every tray (2026-07-18): a
+            // text key, never a ✕ (✕ is the search-collapse glyph).
+            SheetDismissKey(label: "Done", identifier: "closeOperator") {
                 dismiss()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(.footnote, weight: .bold))
-                    .foregroundStyle(Theme.textSecondary)
-                    .frame(width: 32, height: 32)
-                    // Theme.background, not SheetHeader's Theme.surface:
-                    // this tray's body IS surface, so a surface circle
-                    // would vanish into it.
-                    .background(Theme.background, in: Circle())
-                    .overlay(Circle().strokeBorder(Theme.border))
-                    .padding(6)
-                    .contentShape(Circle())
             }
-            .accessibilityLabel("Close")
-            .accessibilityIdentifier("closeOperator")
-            .keyboardShortcut(.cancelAction)
         }
         .padding(.top, 14)
         .padding(.bottom, 6)
@@ -225,9 +212,9 @@ struct OperatorTray: View {
                     .font(.system(.subheadline, weight: .bold))
                     .foregroundStyle(Theme.onPrimary)
                     .frame(width: 40, height: 40)
-                    .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 11))
+                    .background(Theme.primaryFill, in: Circle())
             }
-            .buttonStyle(.raisedPrimaryKey())
+            .buttonStyle(.raisedPrimaryKey(cornerRadius: 20))
             .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             .accessibilityLabel("Send")
             .accessibilityIdentifier("operatorSend")
@@ -239,10 +226,10 @@ struct OperatorTray: View {
                     .font(.system(.subheadline, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
                     .frame(width: 40, height: 40)
-                    .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
-                    .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
+                    .background(Theme.background, in: Circle())
+                    .overlay(Circle().strokeBorder(Theme.borderStrong))
             }
-            .buttonStyle(.raisedKey())
+            .buttonStyle(.raisedKey(cornerRadius: 20))
             .accessibilityLabel("Stop")
             .accessibilityIdentifier("operatorStop")
         }

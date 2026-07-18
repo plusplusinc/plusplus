@@ -53,7 +53,7 @@ struct SessionOverviewSheet: View {
                 .padding(.top, 8)
 
             HStack(alignment: .firstTextBaseline) {
-                Text("Session").font(.system(.body, weight: .bold))
+                Text("Session").font(.system(.title3, weight: .bold))
                 Spacer()
                 // Live: the tray stays open across sets, so its clock
                 // ticks instead of freezing at open time (Dave).
