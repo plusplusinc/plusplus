@@ -286,7 +286,7 @@ struct RoutineCatalogScreen: View {
         .sheet(isPresented: $showingLibraryTray) {
             EquipmentLibraryTray()
         }
-        .alert("New Routine", isPresented: $showingNewRoutine) {
+        .alert("New routine", isPresented: $showingNewRoutine) {
             TextField("Name", text: $newRoutineName)
             Button("Cancel", role: .cancel) { newRoutineName = "" }
             Button("Create") { createBlankRoutine() }

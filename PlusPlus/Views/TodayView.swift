@@ -486,7 +486,7 @@ struct TodayView: View {
             .navigationDestination(for: RoutineCatalogDestination.self) { _ in
                 RoutineCatalogScreen(path: $todayPath)
             }
-            .alert("New Routine", isPresented: $showingNewRoutine) {
+            .alert("New routine", isPresented: $showingNewRoutine) {
                 TextField("Name", text: $newRoutineName)
                 Button("Cancel", role: .cancel) { newRoutineName = "" }
                 Button("Create") { createRoutine() }

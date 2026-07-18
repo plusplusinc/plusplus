@@ -610,7 +610,7 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(createRow.waitForExistence(timeout: 5))
         createRow.tap()
 
-        let alert = app.alerts["New Routine"]
+        let alert = app.alerts["New routine"]
         XCTAssertTrue(alert.waitForExistence(timeout: 5))
         let field = alert.textFields.firstMatch
         field.tap()

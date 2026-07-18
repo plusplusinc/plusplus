@@ -475,7 +475,7 @@ struct EquipmentTabView: View {
             // A fresh install seeds an empty kit (#232) — say what the list
             // is for; a zeroed search just says nothing matched.
             Text(searchText.trimmingCharacters(in: .whitespaces).isEmpty
-                 ? "Your kit is empty. Add what you have and exercises and routines match to it."
+                 ? "Your kit is empty. Add equipment to unlock exercises and routines."
                  : "Nothing in your kit matches.")
                 .font(.system(.footnote))
                 .foregroundStyle(Theme.textSecondary)
