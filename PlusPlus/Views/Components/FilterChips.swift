@@ -60,8 +60,7 @@ struct FacetChip<Value: Hashable>: View {
             }
         } label: {
             Text(activeLabel)
-                .font(.system(.caption2, design: .monospaced, weight: .semibold))
-                .kerning(0.5)
+                .font(.system(.footnote, weight: .semibold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .foregroundStyle(selection == nil ? Theme.textSecondary : Theme.onSelected)
@@ -80,11 +79,13 @@ struct FacetChip<Value: Hashable>: View {
         .accessibilityIdentifier("facet\(facet.capitalized)")
     }
 
+    // Sentence case, not all-caps: all-caps is reserved for section labels
+    // (Dave, 2026-07-18); chips are capsules and read as controls.
     private var activeLabel: String {
         guard let selection, let match = options.first(where: { $0.0 == selection }) else {
             return facet
         }
-        return match.1.uppercased()
+        return match.1
     }
 }
 
@@ -127,8 +128,7 @@ struct MultiFacetChip<Value: Hashable>: View {
             }
         } label: {
             Text(activeLabel)
-                .font(.system(.caption2, design: .monospaced, weight: .semibold))
-                .kerning(0.5)
+                .font(.system(.footnote, weight: .semibold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .foregroundStyle(selection.isEmpty ? Theme.textSecondary : Theme.onSelected)
@@ -147,14 +147,15 @@ struct MultiFacetChip<Value: Hashable>: View {
         .accessibilityIdentifier("facet\(facet.capitalized)")
     }
 
-    /// Picked values in option order (stable, not Set order).
+    /// Picked values in option order (stable, not Set order). Sentence
+    /// case, not all-caps (Dave, 2026-07-18).
     private var activeLabel: String {
         let picked = options.filter { selection.contains($0.0) }.map(\.1)
         switch picked.count {
         case 0: return facet
-        case 1: return picked[0].uppercased()
-        case 2: return "\(picked[0]) or \(picked[1])".uppercased()
-        default: return "\(picked[0]) +\(picked.count - 1)".uppercased()
+        case 1: return picked[0]
+        case 2: return "\(picked[0]) or \(picked[1])"
+        default: return "\(picked[0]) +\(picked.count - 1)"
         }
     }
 }
@@ -174,13 +175,12 @@ struct TrayFilterChip: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Text(facet)
-                    .font(.system(.caption2, design: .monospaced, weight: .semibold))
-                    .kerning(0.5)
+                    .font(.system(.footnote, weight: .semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
                 if active {
                     Text("\(count)")
-                        .font(.system(.caption2, design: .monospaced, weight: .bold))
+                        .font(.system(.caption2, weight: .bold))
                         .foregroundStyle(Theme.selected)
                         .padding(.horizontal, 6)
                         .frame(minWidth: 18, minHeight: 18)
@@ -246,9 +246,8 @@ struct SortChip<Value: Hashable>: View {
                 Image(systemName: "arrow.up.arrow.down")
                     .font(.system(.caption2, weight: .semibold))
                     .accessibilityHidden(true)
-                Text(currentLabel.uppercased())
-                    .font(.system(.caption2, design: .monospaced, weight: .semibold))
-                    .kerning(0.5)
+                Text(currentLabel)
+                    .font(.system(.footnote, weight: .semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
             }

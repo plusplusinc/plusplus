@@ -70,6 +70,22 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   the term for a named equipment set is **"kit"**, default kit **`main`**.
 - Warm charcoal dark (`#201F1D` family); the watch keeps system black.
 - Draw every color from `Theme` — never ad-hoc literals.
+- **Two capsule tiers, and all-caps is section-labels-only** (2026-07-18):
+  a **filter chip** is a button — sentence-case plain font, a border when
+  unselected, a solid blue fill when selected (`FacetChip`/`MultiFacetChip`/
+  `TrayFilterChip`/`SortChip`, facet names passed sentence-case). A **card
+  data capsule** is not a button — it shows an item's property, so it wears
+  the soft `surfaceRaised` fill with NO stroke (a stroked capsule reads as a
+  button). That style is the shared `CardTagCapsule` (the routine gear pills
+  use it too). ALL-CAPS mono is reserved for section labels, never a capsule.
+  The property a filter/sort controls appears as a `CardTagCapsule` on the
+  cards it narrows, so the two connect (muscle ↔ Muscle filter; category +
+  "N exercises" ↔ Type filter / Most-exercises sort). One item reads the same
+  everywhere via shared bodies — `ExerciseRowContent` (Exercises catalog +
+  picker) and `EquipmentRowContent` (equipment catalog card + kit list),
+  in `Views/Components/CatalogItemRow.swift` — with only parameterized
+  exceptions (the picker drops the chevron; the kit list drops the in-kit
+  glyph). See docs/DECISIONS.md 2026-07-18.
 - **Equipment is availability, not ownership** (2026-07-11): what gear you
   "have" is membership in the ACTIVE `EquipmentLibrary` (Home, Hotel…),
   switched from a tray off the Equipment-tab header (left of the +) and via
