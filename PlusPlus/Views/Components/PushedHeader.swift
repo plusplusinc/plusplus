@@ -126,7 +126,11 @@ private struct PushedScreenChrome<Trailing: View>: ViewModifier {
                     Image(systemName: "delete.left")
                         .font(.system(.footnote))
                         .foregroundStyle(Theme.textFaint)
-                        .frame(width: 30, height: 44)
+                        // A full 44 pt tap target (HIG floor); the glyph sits
+                        // at its trailing edge so it still reads near the
+                        // field border, the tap area extending back over the
+                        // text tail.
+                        .frame(width: 44, height: 44, alignment: .trailing)
                         .contentShape(Rectangle())
                 }
                 .accessibilityLabel("Clear text")
@@ -134,7 +138,7 @@ private struct PushedScreenChrome<Trailing: View>: ViewModifier {
             }
         }
         .padding(.leading, 13)
-        .padding(.trailing, hasText ? 3 : 13)
+        .padding(.trailing, hasText ? 10 : 13)
         .frame(height: 44)
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: 11))
         .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
