@@ -150,6 +150,63 @@ struct SupersetTests {
         #expect(bottom.sortedExercises.map { $0.exercise?.name } == ["A", "B", "C"])
     }
 
+    @Test("Two supersets merge into one, order preserved (down)")
+    func mergeRingDown() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let routine = Routine(name: "PT")
+        context.insert(routine)
+
+        let top = routine.addExerciseInNewGroup(makeExercise("A", in: context), context: context)
+        routine.addExercise(makeExercise("B", in: context), to: top, context: context)
+        let bottom = routine.addExerciseInNewGroup(makeExercise("C", in: context), context: context)
+        routine.addExercise(makeExercise("D", in: context), to: bottom, context: context)
+
+        // The top ring absorbs the bottom ring (bottom merges up into top).
+        routine.mergeGroup(bottom, direction: -1, context: context)
+
+        #expect(routine.sortedGroups.count == 1)
+        #expect(top.sortedExercises.map { $0.exercise?.name } == ["A", "B", "C", "D"])
+        #expect(top.sortedExercises.map(\.order) == [0, 1, 2, 3])
+    }
+
+    @Test("Two supersets merge into one, order preserved (up)")
+    func mergeRingUp() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let routine = Routine(name: "PT")
+        context.insert(routine)
+
+        let top = routine.addExerciseInNewGroup(makeExercise("A", in: context), context: context)
+        routine.addExercise(makeExercise("B", in: context), to: top, context: context)
+        let bottom = routine.addExerciseInNewGroup(makeExercise("C", in: context), context: context)
+        routine.addExercise(makeExercise("D", in: context), to: bottom, context: context)
+
+        // The bottom ring absorbs the top ring (top merges down into bottom).
+        routine.mergeGroup(top, direction: 1, context: context)
+
+        #expect(routine.sortedGroups.count == 1)
+        #expect(bottom.sortedExercises.map { $0.exercise?.name } == ["A", "B", "C", "D"])
+        #expect(bottom.sortedExercises.map(\.order) == [0, 1, 2, 3])
+    }
+
+    @Test("mergeGroup refuses when there is no neighbor")
+    func mergeRingGuards() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let routine = Routine(name: "PT")
+        context.insert(routine)
+
+        let only = routine.addExerciseInNewGroup(makeExercise("A", in: context), context: context)
+        routine.addExercise(makeExercise("B", in: context), to: only, context: context)
+
+        routine.mergeGroup(only, direction: 1, context: context)   // no neighbor below
+        routine.mergeGroup(only, direction: -1, context: context)  // no neighbor above
+
+        #expect(routine.sortedGroups.count == 1)
+        #expect(only.sortedExercises.count == 2)
+    }
+
     @Test("Merging refuses supersets and missing neighbors")
     func mergeGuards() throws {
         let container = try makeContainer()

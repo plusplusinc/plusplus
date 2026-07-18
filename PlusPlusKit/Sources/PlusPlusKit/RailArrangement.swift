@@ -220,6 +220,14 @@ public struct RingSpan: Equatable, Sendable {
     /// solo, a solo reaches into a neighbouring ring. Mutually exclusive
     /// with the absorb/eject counts (all zero when this is non-zero).
     public let mergeSoloInto: Int
+    /// The pressed SUPERSET absorbs the ADJACENT superset in this
+    /// direction (−1 = the ring above, +1 = the ring below, 0 = none),
+    /// combining the two into one ring. The pressed group survives (it
+    /// keeps its block config); the neighbour ring is emptied into it.
+    /// Distinct from `absorbBefore`/`absorbAfter`, which pull in adjacent
+    /// SOLO groups one at a time — this swallows a whole neighbouring
+    /// ring. Mutually exclusive with the other deltas.
+    public let absorbRing: Int
 
     public init(
         firstFlat: Int,
@@ -228,7 +236,8 @@ public struct RingSpan: Equatable, Sendable {
         absorbAfter: Int,
         ejectFirst: Int,
         ejectLast: Int,
-        mergeSoloInto: Int = 0
+        mergeSoloInto: Int = 0,
+        absorbRing: Int = 0
     ) {
         self.firstFlat = firstFlat
         self.lastFlat = lastFlat
@@ -237,10 +246,12 @@ public struct RingSpan: Equatable, Sendable {
         self.ejectFirst = ejectFirst
         self.ejectLast = ejectLast
         self.mergeSoloInto = mergeSoloInto
+        self.absorbRing = absorbRing
     }
 
     public var isNoOp: Bool {
-        absorbBefore == 0 && absorbAfter == 0 && ejectFirst == 0 && ejectLast == 0 && mergeSoloInto == 0
+        absorbBefore == 0 && absorbAfter == 0 && ejectFirst == 0 && ejectLast == 0
+            && mergeSoloInto == 0 && absorbRing == 0
     }
 }
 
@@ -324,6 +335,32 @@ public enum RailRing {
                 // Neighbour is a ring but the finger hasn't reached it yet:
                 // just the solo is tentatively highlighted (a no-op).
                 return RingSpan(firstFlat: start, lastFlat: end, absorbBefore: 0, absorbAfter: 0, ejectFirst: 0, ejectLast: 0)
+            }
+        }
+
+        // Ring-to-ring merge: dragging a superset's edge OUT into an
+        // ADJACENT superset absorbs that whole ring, combining the two.
+        // The pressed group survives. Only the immediate neighbour is
+        // eligible, and only once the finger reaches into it; short of
+        // that (or on an inward drag) we fall through to the eject/no-op
+        // logic below.
+        if groupSizes[group] > 1 {
+            let neighbor = edge == .bottom ? group + 1 : group - 1
+            if groupSizes.indices.contains(neighbor), groupSizes[neighbor] > 1 {
+                let neighborFirst = RailLayout.flatIndex(groupSizes: groupSizes, group: neighbor, index: 0)
+                let neighborLast = neighborFirst + groupSizes[neighbor] - 1
+                let reached = edge == .bottom ? finger >= neighborFirst : finger <= neighborLast
+                if reached {
+                    return RingSpan(
+                        firstFlat: min(start, neighborFirst),
+                        lastFlat: max(end, neighborLast),
+                        absorbBefore: 0,
+                        absorbAfter: 0,
+                        ejectFirst: 0,
+                        ejectLast: 0,
+                        absorbRing: edge == .bottom ? 1 : -1
+                    )
+                }
             }
         }
 

@@ -221,6 +221,45 @@ final class Routine {
         reindexGroups()
     }
 
+    /// Merges an entire group (solo OR superset) into the adjacent group
+    /// (direction -1 = above, +1 = below), forming one combined superset.
+    /// The neighbour survives and keeps its block config; `group` is
+    /// emptied into it and deleted. Members keep their order — the moved
+    /// group's members land after the target's when merging up, before
+    /// them when merging down, so the visual order is preserved. No-op
+    /// when there is no neighbour in that direction or `group` is empty.
+    /// (`mergeSoloGroup` is the solo-only special case, kept for the
+    /// existing solo callers; this is the ring-into-ring generalisation.)
+    func mergeGroup(_ group: ExerciseGroup, direction: Int, context: ModelContext) {
+        let sorted = sortedGroups
+        guard let index = sorted.firstIndex(where: { $0 === group }),
+              sorted.indices.contains(index + direction)
+        else { return }
+        let movers = group.sortedExercises
+        guard !movers.isEmpty else { return }
+
+        let target = sorted[index + direction]
+        if direction < 0 {
+            // Target is above: the moved members follow its existing ones.
+            let base = target.sortedExercises.count
+            for (offset, mover) in movers.enumerated() {
+                mover.order = base + offset
+                mover.group = target
+            }
+        } else {
+            // Target is below: the moved members precede its existing ones.
+            let shift = movers.count
+            for member in target.sortedExercises { member.order += shift }
+            for (offset, mover) in movers.enumerated() {
+                mover.order = offset
+                mover.group = target
+            }
+        }
+        target.reindexExercises()
+        context.delete(group)
+        reindexGroups()
+    }
+
     /// Moves a superset member out into its own group, placed immediately
     /// after (or, with `placeAbove`, immediately before) the group it
     /// came from. No-op for a solo exercise. `placeAbove` is the ring

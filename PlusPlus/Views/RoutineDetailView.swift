@@ -802,6 +802,22 @@ struct RoutineDetailView: View {
             return
         }
 
+        // Ring-to-ring merge (a superset dragged into an adjacent superset):
+        // the pressed group survives and absorbs the neighbour ring. The
+        // neighbour merges toward the pressed group (the opposite of
+        // `absorbRing`'s direction, which points at the neighbour).
+        if span.absorbRing != 0 {
+            let groups = routine.sortedGroups
+            guard let index = groups.firstIndex(where: { $0 === group }),
+                  groups.indices.contains(index + span.absorbRing) else { return }
+            let neighbor = groups[index + span.absorbRing]
+            routine.mergeGroup(neighbor, direction: -span.absorbRing, context: modelContext)
+            SupersetCreationTip().invalidate(reason: .actionPerformed)
+            SupersetLoopTip().invalidate(reason: .actionPerformed)
+            flashSupersetLanding(group, grew: true)
+            return
+        }
+
         // Captured BEFORE the merges: did this landing grow an existing
         // superset, or form a fresh one? Drives whether the loop is kept
         // through the reshape or revealed.
