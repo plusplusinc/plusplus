@@ -62,7 +62,7 @@ struct ExerciseRowContent: View {
                 Text(exercise.name)
                     .font(.system(.subheadline, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
-                    .lineLimit(1)
+                    .lineLimit(2)
                 HStack(spacing: 6) {
                     CardTagCapsule(text: exercise.muscleGroup.displayName)
                     Text(gearText)
@@ -126,7 +126,7 @@ struct EquipmentRowContent: View {
                 Text(equipment.name)
                     .font(.system(.subheadline, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
-                    .lineLimit(1)
+                    .lineLimit(2)
                 HStack(spacing: 6) {
                     kindCapsule
                     if unlockedCount > 0 {
