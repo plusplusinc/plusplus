@@ -321,6 +321,10 @@ struct EquipmentDetailScreen: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Bindable var equipment: Equipment
+    /// Setup context (onboarding + the Settings re-run) strips the screen
+    /// to the add-and-configure task: the exercises/routines cross-links
+    /// distract from it (Dave, 2026-07-17). Off in the Equipment tab.
+    var isOnboarding = false
 
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
     @Query(sort: \Exercise.name) private var allExercises: [Exercise]
@@ -335,7 +339,6 @@ struct EquipmentDetailScreen: View {
     @State private var confirmingDelete = false
     @State private var renameText = ""
     @State private var showingStepSheet = false
-    @State private var showingMetricsSheet = false
 
     private enum PushTarget: Hashable {
         case exercise(Exercise)
@@ -388,98 +391,77 @@ struct EquipmentDetailScreen: View {
                         }
                     }
 
-                    // Adding is the PRIMARY act on gear that isn't in the
-                    // kit yet (pick → tune → keep moving), so it sits
-                    // right under the identity — not below the fold.
-                    // In-kit state is a quiet fact; removal stays in the
-                    // … menu (#241/#265).
-                    if inActiveLibrary {
-                        Text("IN YOUR KIT ✓")
-                            .font(.system(.caption, design: .monospaced, weight: .semibold))
-                            .kerning(0.7)
-                            .foregroundStyle(Theme.textFaint)
-                            .padding(.top, 14)
-                    } else {
-                        CreateRow(label: "Add to kit", identifier: "addToMyEquipment") {
-                            activeLibrary?.setMembership(equipment, true)
-                        }
+                    // The whole point of the screen: do you have this gear?
+                    // A prominent toggle card (Dave, 2026-07-17) so the
+                    // action is unmistakable — flip it on to add, off to
+                    // remove. Removal no longer hides in the … menu.
+                    kitToggleCard
                         .padding(.top, 14)
-                    }
 
-                    // Sheet-per-configurable (2026-07-17): each row is one
-                    // adjustable fact — label, the resolved value, and the
-                    // app's one configuration glyph opening a small sheet.
-                    // Config adapts to the gear (#236): a bench holds you,
-                    // a barbell holds plates — only loadables get a weight
-                    // step. Built-ins are configurable too now (the
-                    // setter always supported the override; the read-only
-                    // rendering was legacy) — the sheet carries a reset.
-                    SheetSectionLabel("CONFIGURE")
-                        .padding(.top, 24)
-                    VStack(spacing: 0) {
-                        if SeedData.isLoadable(equipment) {
-                            configRow(
-                                label: "Weight step",
-                                value: WorkoutMetric.weight.displayText(resolvedStep, weightUnit: weightUnit),
-                                identifier: "configWeightStepRow"
-                            ) { showingStepSheet = true }
-                            Divider().overlay(Theme.border)
-                        }
+                    // Weight step is the only per-gear configurable now
+                    // (Tracks removed, 2026-07-17: metrics belong to the
+                    // exercise, not the gear). Only loadable gear carries
+                    // it (#236: a bench holds you, a barbell holds plates),
+                    // so non-loadables show no CONFIGURE section at all.
+                    if SeedData.isLoadable(equipment) {
+                        SheetSectionLabel("CONFIGURE")
+                            .padding(.top, 24)
                         configRow(
-                            label: "Tracks",
-                            value: equipment.suggestedProfile.map { $0.metrics.map(\.label).joined(separator: " · ") } ?? "not set",
-                            identifier: "configTracksRow"
-                        ) { showingMetricsSheet = true }
+                            label: "Weight step",
+                            value: WorkoutMetric.weight.displayText(resolvedStep, weightUnit: weightUnit),
+                            identifier: "configWeightStepRow"
+                        ) { showingStepSheet = true }
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
+                        .padding(.top, 7)
                     }
-                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
-                    .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
-                    .padding(.top, 7)
-                    Text("New exercises with this gear start from these. Each exercise can change its own set in the editor.")
-                        .font(.system(.caption))
-                        .foregroundStyle(Theme.textFaint)
-                        .padding(.top, 6)
 
-                    SheetSectionLabel("EXERCISES (\(usedByExercises.count))")
-                        .padding(.top, 24)
-                    if usedByExercises.isEmpty {
-                        Text("No exercise needs this yet.")
-                            .font(.system(.caption))
-                            .foregroundStyle(Theme.textFaint)
-                            .padding(.bottom, 7)
-                    } else {
-                        crossRefBlock {
-                            ForEach(Array(usedByExercises.enumerated()), id: \.element.persistentModelID) { index, exercise in
-                                CrossRefRow(
-                                    title: exercise.name,
-                                    meta: exercise.muscleGroup.displayName.lowercased()
-                                ) {
-                                    path = .exercise(exercise)
-                                }
-                                if index < usedByExercises.count - 1 {
-                                    Divider().overlay(Theme.border)
+                    // The exercise/routine graph (#137) is exploration, not
+                    // the setup task — hidden during onboarding, present in
+                    // the Equipment tab (Dave, 2026-07-17).
+                    if !isOnboarding {
+                        SheetSectionLabel("EXERCISES (\(usedByExercises.count))")
+                            .padding(.top, 24)
+                        if usedByExercises.isEmpty {
+                            Text("No exercise needs this yet.")
+                                .font(.system(.caption))
+                                .foregroundStyle(Theme.textFaint)
+                                .padding(.bottom, 7)
+                        } else {
+                            crossRefBlock {
+                                ForEach(Array(usedByExercises.enumerated()), id: \.element.persistentModelID) { index, exercise in
+                                    CrossRefRow(
+                                        title: exercise.name,
+                                        meta: exercise.muscleGroup.displayName.lowercased()
+                                    ) {
+                                        path = .exercise(exercise)
+                                    }
+                                    if index < usedByExercises.count - 1 {
+                                        Divider().overlay(Theme.border)
+                                    }
                                 }
                             }
+                            .padding(.bottom, 7)
                         }
-                        .padding(.bottom, 7)
-                    }
-                    CreateRow(label: "New exercise with \(equipment.name)", identifier: "newExerciseWithEquipment") {
-                        showingAddExercise = true
-                    }
+                        CreateRow(label: "New exercise with \(equipment.name)", identifier: "newExerciseWithEquipment") {
+                            showingAddExercise = true
+                        }
 
-                    SheetSectionLabel("ROUTINES (\(usedInRoutines.count))")
-                        .padding(.top, 24)
-                    if usedInRoutines.isEmpty {
-                        Text("Not used in any routine yet.")
-                            .font(.system(.caption))
-                            .foregroundStyle(Theme.textFaint)
-                    } else {
-                        crossRefBlock {
-                            ForEach(Array(usedInRoutines.enumerated()), id: \.element.persistentModelID) { index, routine in
-                                CrossRefRow(title: routine.name, meta: routine.schedule.shortLabel) {
-                                    routine.uuid.map { path = .routine($0) }
-                                }
-                                if index < usedInRoutines.count - 1 {
-                                    Divider().overlay(Theme.border)
+                        SheetSectionLabel("ROUTINES (\(usedInRoutines.count))")
+                            .padding(.top, 24)
+                        if usedInRoutines.isEmpty {
+                            Text("Not used in any routine yet.")
+                                .font(.system(.caption))
+                                .foregroundStyle(Theme.textFaint)
+                        } else {
+                            crossRefBlock {
+                                ForEach(Array(usedInRoutines.enumerated()), id: \.element.persistentModelID) { index, routine in
+                                    CrossRefRow(title: routine.name, meta: routine.schedule.shortLabel) {
+                                        routine.uuid.map { path = .routine($0) }
+                                    }
+                                    if index < usedInRoutines.count - 1 {
+                                        Divider().overlay(Theme.border)
+                                    }
                                 }
                             }
                         }
@@ -499,20 +481,12 @@ struct EquipmentDetailScreen: View {
                     showingRename = true
                 }
             }
-            // "Remove" is membership in the active library; "Delete" is
-            // the custom's full removal (#265 — destructive in the menu).
-            if inActiveLibrary || !equipment.isBuiltIn {
+            // Membership is the toggle card now; the menu is only the
+            // custom's destructive delete (built-ins have nothing here).
+            if !equipment.isBuiltIn {
                 HeaderMenuKey(systemImage: "ellipsis", accessibilityLabel: "Equipment options", identifier: "equipmentDetailMenu") {
-                    if inActiveLibrary {
-                        Button("Remove from kit", role: .destructive) {
-                            activeLibrary?.setMembership(equipment, false)
-                            dismiss()
-                        }
-                    }
-                    if !equipment.isBuiltIn {
-                        Button("Delete custom equipment", role: .destructive) {
-                            confirmingDelete = true
-                        }
+                    Button("Delete custom equipment", role: .destructive) {
+                        confirmingDelete = true
                     }
                 }
             }
@@ -559,14 +533,56 @@ struct EquipmentDetailScreen: View {
                 onPick: { equipment.weightStep = $0 }
             )
         }
-        .sheet(isPresented: $showingMetricsSheet) {
-            EquipmentMetricsSheet(equipment: equipment)
-        }
         .alert("Rename equipment", isPresented: $showingRename) {
             TextField("Name", text: $renameText)
             Button("Cancel", role: .cancel) {}
             Button("Rename") { rename() }
         }
+    }
+
+    /// Membership as a Binding so the toggle drives it directly.
+    private var membershipBinding: Binding<Bool> {
+        Binding(
+            get: { inActiveLibrary },
+            set: { activeLibrary?.setMembership(equipment, $0) }
+        )
+    }
+
+    /// The prominent "do you have this?" card (Dave, 2026-07-17): a toggle
+    /// in an obvious card so it's unmistakable that adding gear takes an
+    /// action, and removal lives in the same spot. Accent green = you have
+    /// it (matches the catalog's in-kit glyph + the quick-add).
+    private var kitToggleCard: some View {
+        let inKit = inActiveLibrary
+        return HStack(spacing: 14) {
+            Image(systemName: inKit ? "checkmark.circle.fill" : "plus.circle")
+                .font(.system(.title2))
+                .foregroundStyle(inKit ? Theme.accent : Theme.textSecondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(inKit ? "In your kit" : "Add to your kit")
+                    .font(.system(.headline))
+                    .foregroundStyle(Theme.textPrimary)
+                Text(inKit ? "You have this gear." : "Add it if you train with it.")
+                    .font(.system(.caption))
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            Spacer(minLength: 8)
+            Toggle("", isOn: membershipBinding)
+                .labelsHidden()
+                .tint(Theme.accent)
+                .accessibilityIdentifier("addToMyEquipment")
+                .accessibilityLabel(inKit ? "Remove from kit" : "Add to kit")
+        }
+        .padding(16)
+        .background(
+            inKit ? Theme.accent.opacity(0.08) : Theme.surface,
+            in: RoundedRectangle(cornerRadius: Theme.controlRadius)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.controlRadius)
+                .strokeBorder(inKit ? Theme.accent.opacity(0.4) : Theme.borderStrong)
+        )
+        .animation(Theme.Anim.selection, value: inKit)
     }
 
     /// One configurable fact per row: label, the resolved value, and the

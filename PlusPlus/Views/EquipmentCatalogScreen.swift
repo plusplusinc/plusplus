@@ -40,9 +40,17 @@ struct EquipmentCatalogScreen: View {
     @State private var filterState = ExerciseFilterState()
     /// nil = All · true = In kit · false = Not in kit.
     @State private var kitFilter: Bool?
-    /// Single-select type chip; categories don't overlap.
-    @State private var typeFilter: SeedData.EquipmentCategory?
+    /// Multi-select TYPE facet in a tray now (2026-07-17 feedback: one
+    /// filter-row vocabulary — the inline type chips were a second chip
+    /// shape next to the mono facet chips, which read as uneven spacing).
+    /// Union within the facet; categories don't overlap, so union reads
+    /// as "any of these types".
+    @State private var typeFilter: Set<SeedData.EquipmentCategory> = []
+    @State private var showingTypeFilter = false
     @State private var showingMuscleFilter = false
+    /// Alphabetical by default, or by how many exercises the gear unlocks
+    /// (Dave's ask — the count is a sortable property, not just a capsule).
+    @State private var sortOrder: EquipmentSort = .name
     /// Detail push — an ITEM destination on this screen deliberately
     /// (#291): the browse itself is presented as a boolean/isPresented
     /// destination from the tabs, Today's setup step, the reveal
@@ -88,7 +96,7 @@ struct EquipmentCatalogScreen: View {
     }
 
     private var anyFilterActive: Bool {
-        kitFilter != nil || typeFilter != nil || !filterState.selectedMuscleGroups.isEmpty
+        kitFilter != nil || !typeFilter.isEmpty || !filterState.selectedMuscleGroups.isEmpty
     }
 
     var body: some View {
@@ -128,7 +136,10 @@ struct EquipmentCatalogScreen: View {
         // width back the moment detail is pushed.
         .leadingRevealHost(active: pushedEquipment == nil)
         .navigationDestination(item: $pushedEquipment) { equipment in
-            EquipmentDetailScreen(equipment: equipment)
+            // Setup context strips the detail to add + configure (Dave,
+            // 2026-07-17): the exercises/routines cross-links distract from
+            // the onboarding task. The Equipment tab keeps the full graph.
+            EquipmentDetailScreen(equipment: equipment, isOnboarding: setupMode)
         }
         .safeAreaInset(edge: .bottom) {
             if setupMode {
@@ -171,6 +182,10 @@ struct EquipmentCatalogScreen: View {
             }
             Button("Cancel", role: .cancel) {}
         }
+        .sheet(isPresented: $showingTypeFilter) {
+            EquipmentTypeFilterSheet(selection: $typeFilter)
+                .presentationDetents([.medium])
+        }
         .sheet(isPresented: $showingMuscleFilter) {
             MuscleGroupFilterSheet(filterState: filterState)
                 .presentationDetents([.medium])
@@ -185,7 +200,7 @@ struct EquipmentCatalogScreen: View {
                 if anyFilterActive {
                     ClearAllChip {
                         kitFilter = nil
-                        typeFilter = nil
+                        typeFilter = []
                         filterState.selectedMuscleGroups = []
                     }
                 }
@@ -195,17 +210,17 @@ struct EquipmentCatalogScreen: View {
                     options: [(true, "In kit"), (false, "Not in kit")]
                 )
                 TrayFilterChip(
+                    facet: "TYPE",
+                    count: typeFilter.count
+                ) { showingTypeFilter = true }
+                TrayFilterChip(
                     facet: "MUSCLE",
                     count: filterState.selectedMuscleGroups.count
                 ) { showingMuscleFilter = true }
-                ForEach(SeedData.EquipmentCategory.allCases, id: \.self) { category in
-                    SelectableChip(
-                        label: category.rawValue,
-                        isSelected: typeFilter == category
-                    ) {
-                        typeFilter = typeFilter == category ? nil : category
-                    }
-                }
+                SortChip(
+                    selection: $sortOrder,
+                    options: [(.name, "Name"), (.mostExercises, "Most exercises")]
+                )
                 Spacer(minLength: 0)
             }
             .animation(Theme.Anim.standard, value: anyFilterActive)
@@ -219,13 +234,14 @@ struct EquipmentCatalogScreen: View {
     private func candidateEquipment(index: [PersistentIdentifier: (count: Int, muscles: Set<MuscleGroup>)]) -> [Equipment] {
         // Forgiving search, best match first (blank passes all through
         // in @Query's alphabetical order).
-        FuzzySearch.ranked(allEquipment, query: query) { $0.name }
+        let matched = FuzzySearch.ranked(allEquipment, query: query) { $0.name }
             .filter { equipment in
                 if let kitFilter, (activeLibrary?.contains(equipment) ?? false) != kitFilter {
                     return false
                 }
-                if let typeFilter, SeedData.equipmentCategory(named: equipment.name) != typeFilter {
-                    return false
+                if !typeFilter.isEmpty {
+                    guard let category = SeedData.equipmentCategory(named: equipment.name),
+                          typeFilter.contains(category) else { return false }
                 }
                 if !filterState.selectedMuscleGroups.isEmpty {
                     let trained = index[equipment.persistentModelID]?.muscles ?? []
@@ -235,6 +251,18 @@ struct EquipmentCatalogScreen: View {
                 }
                 return true
             }
+        switch sortOrder {
+        case .name:
+            // Leave the search rank (best-match-first when searching,
+            // alphabetical when blank) — the default order is unchanged.
+            return matched
+        case .mostExercises:
+            return matched.sorted {
+                let a = index[$0.persistentModelID]?.count ?? 0
+                let b = index[$1.persistentModelID]?.count ?? 0
+                return a != b ? a > b : $0.name < $1.name
+            }
+        }
     }
 
     // MARK: - Rows
@@ -259,23 +287,38 @@ struct EquipmentCatalogScreen: View {
             ]
         ) {
             HStack(spacing: 10) {
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text(equipment.name)
                         .font(.system(.subheadline, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                         .lineLimit(1)
-                    subtitle(for: equipment, inKit: inKit)
-                        .font(.system(.caption))
-                        .lineLimit(1)
+                    // Meta line: category · Custom, then the "N exercises"
+                    // capsule (Dave, 2026-07-17: moved in from the right so
+                    // it no longer reads as the thing you tap into).
+                    HStack(spacing: 6) {
+                        subtitle(for: equipment)
+                            .font(.system(.caption))
+                            .lineLimit(1)
+                        if unlocked > 0 {
+                            Text("\(unlocked) exercise\(unlocked == 1 ? "" : "s")")
+                                .font(.system(.caption2, design: .monospaced))
+                                .foregroundStyle(Theme.textFaint)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2)
+                                .overlay(Capsule().strokeBorder(Theme.border))
+                                .fixedSize()
+                        }
+                    }
                 }
-                Spacer()
-                if unlocked > 0 {
-                    Text("\(unlocked) exercise\(unlocked == 1 ? "" : "s")")
-                        .font(.system(.caption2, design: .monospaced))
-                        .foregroundStyle(Theme.textFaint)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 2)
-                        .overlay(Capsule().strokeBorder(Theme.border))
+                Spacer(minLength: 8)
+                if inKit {
+                    // In-kit is a glyph now, in the slot the capsule left
+                    // (Dave, 2026-07-17: drop the "in kit ✓" words). Accent
+                    // green = you have this gear.
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(.body))
+                        .foregroundStyle(Theme.accent)
+                        .accessibilityLabel("In kit")
                 }
                 Image(systemName: "chevron.right")
                     .font(.system(.caption, weight: .bold))
@@ -309,16 +352,13 @@ struct EquipmentCatalogScreen: View {
         .listRowSeparatorTint(Theme.border)
     }
 
-    private func subtitle(for equipment: Equipment, inKit: Bool) -> Text {
+    private func subtitle(for equipment: Equipment) -> Text {
         var parts: [Text] = []
         if let category = SeedData.equipmentCategory(named: equipment.name) {
             parts.append(Text(category.rawValue).foregroundStyle(Theme.textSecondary))
         }
         if !equipment.isBuiltIn {
             parts.append(Text("Custom").foregroundStyle(Theme.textSecondary))
-        }
-        if inKit {
-            parts.append(Text("in kit ✓").foregroundStyle(Theme.accent))
         }
         guard var text = parts.first else {
             return Text(" ").foregroundStyle(Theme.textSecondary)
@@ -387,5 +427,58 @@ struct EquipmentCatalogScreen: View {
         touchedSetup = true
         try? modelContext.save()
         pushedEquipment = item
+    }
+}
+
+/// Catalog sort (2026-07-17): alphabetical, or by how many exercises the
+/// gear unlocks. Ordering is not filter state, so it rides the neutral
+/// `SortChip` in the same row.
+enum EquipmentSort: Hashable {
+    case name
+    case mostExercises
+}
+
+/// The TYPE facet's tray, modeled on `MuscleGroupFilterSheet` (2026-07-17
+/// feedback: the type filter moved off the inline chip row into a single
+/// tray trigger, so the whole filter row speaks one chip vocabulary).
+/// Multi-select; categories don't overlap, so the selection reads as "any
+/// of these types".
+struct EquipmentTypeFilterSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var selection: Set<SeedData.EquipmentCategory>
+
+    /// Clear appears only while a selection exists (v4 §C table).
+    private var clearAction: (() -> Void)? {
+        selection.isEmpty ? nil : { selection.removeAll() }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SheetHeader(
+                title: "Equipment type",
+                onCancel: clearAction,
+                cancelLabel: "Clear",
+                action: { dismiss() }
+            )
+            ScrollView {
+                FlowLayout(spacing: 8) {
+                    ForEach(SeedData.EquipmentCategory.allCases, id: \.self) { category in
+                        SelectableChip(
+                            label: category.rawValue,
+                            isSelected: selection.contains(category)
+                        ) {
+                            if selection.contains(category) {
+                                selection.remove(category)
+                            } else {
+                                selection.insert(category)
+                            }
+                        }
+                    }
+                }
+                .padding(.vertical)
+            }
+        }
+        .padding(.horizontal, 18)
+        .presentationBackground(Theme.surface)
     }
 }

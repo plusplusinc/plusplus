@@ -72,6 +72,12 @@ struct TodayView: View {
     /// from a workout cover, tab hops) must not yank the scroll
     /// position. Day changes re-anchor separately via dayToken.
     @State private var hasAnchoredToday = false
+    /// Measured height of the first setup step (equipment), fed back into
+    /// the reveal-upward headroom so step 1 seats at the top of the scroll
+    /// container AND can't be scrolled off the top (Dave, 2026-07-17):
+    /// the headroom below it is capped to exactly one viewport minus the
+    /// step, so "step 1 at top" is the maximum downward scroll.
+    @State private var equipmentStepHeight: CGFloat = 0
     /// The workout just finished (its recap closed), awaiting the
     /// pending→done conversion flourish on its committed card. Nil
     /// outside the beat.
@@ -258,14 +264,17 @@ struct TodayView: View {
                                     // scrolling the active one to the top, with
                                     // the others above it off-screen. The bottom
                                     // step (equipment) can only reach the top if
-                                    // a screen of scrollable space sits below it,
-                                    // so during onboarding we add one. It sits
-                                    // below the fold — the user never lands on
-                                    // the emptiness — and vanishes with the
-                                    // scaffold at the first logged session.
+                                    // scrollable space sits below it, so during
+                                    // onboarding we add some. Capped (2026-07-17)
+                                    // to exactly one viewport minus the step's own
+                                    // height + bottom pad, so step 1 seats at the
+                                    // top AND that IS the maximum downward scroll —
+                                    // it can't be pushed off the top. It sits below
+                                    // the fold and vanishes with the scaffold at
+                                    // the first logged session.
                                     if setupActive {
                                         Color.clear
-                                            .frame(height: viewport.size.height)
+                                            .frame(height: max(0, viewport.size.height - equipmentStepHeight - 24))
                                     }
                                 }
                                 // Pad the below-anchor region to at least a
@@ -1407,6 +1416,9 @@ struct TodayView: View {
                 edit: { showingEquipmentSetup = true }
             )
             .id(Self.setupEquipmentAnchor)
+            // Feed the row's height back so the reveal-upward headroom can
+            // pin it at the top (see equipmentStepHeight).
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { equipmentStepHeight = $0 }
         }
     }
 
