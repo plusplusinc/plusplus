@@ -558,13 +558,12 @@ struct RoutineDetailView: View {
               let (g, i) = layout.exercise(at: y) else { return }
 
         if x < Self.dotZoneWidth {
-            // Superset rows grab their nearest ring edge immediately; a
-            // solo waits for the first movement so dragging UP can extend
-            // the ring upward too (#87).
-            let edge: RingEdge? = sizes[g] > 1
-                ? RailRing.grabbedEdge(groupSizes: sizes, group: g, pressedIndex: i)
-                : nil
-            railGesture = .ring(group: g, edge: edge, pressY: y, fingerY: y)
+            // Every ring press waits for the first movement to pick its edge
+            // from the drag DIRECTION (not the nearest edge): dragging down
+            // works the bottom, up works the top, from ANY pressed row. That
+            // is what lets a press anywhere in the list gather everything
+            // from here to the top/bottom into one superset.
+            railGesture = .ring(group: g, edge: nil, pressY: y, fingerY: y)
         } else {
             let rowY = layout.row(for: .exercise(group: g, index: i))?.y ?? 0
             railGesture = .dragging(group: g, index: i, fingerY: y, grabOffset: y - rowY)
@@ -803,55 +802,26 @@ struct RoutineDetailView: View {
         guard !span.isNoOp else { return }
         let group = routine.sortedGroups[g]
 
-        // Reverse-direction join (a solo dragged into an adjacent superset):
-        // the pressed group is the SOLO and it merges into the neighbouring
-        // ring, which grows to include it. Mutually exclusive with the
-        // absorb/eject deltas below.
-        if span.mergeSoloInto != 0 {
-            let groups = routine.sortedGroups
-            guard let index = groups.firstIndex(where: { $0 === group }),
-                  groups.indices.contains(index + span.mergeSoloInto) else { return }
-            // The surviving ring — captured before the merge deletes the solo.
-            let targetGroup = groups[index + span.mergeSoloInto]
-            routine.mergeSoloGroup(group, direction: span.mergeSoloInto, context: modelContext)
-            SupersetCreationTip().invalidate(reason: .actionPerformed)
-            SupersetLoopTip().invalidate(reason: .actionPerformed)
-            flashSupersetLanding(targetGroup, grew: true)
-            return
-        }
-
-        // Ring-to-ring merge (a superset dragged into an adjacent superset):
-        // the pressed group survives and absorbs the neighbour ring. The
-        // neighbour merges toward the pressed group (the opposite of
-        // `absorbRing`'s direction, which points at the neighbour).
-        if span.absorbRing != 0 {
-            let groups = routine.sortedGroups
-            guard let index = groups.firstIndex(where: { $0 === group }),
-                  groups.indices.contains(index + span.absorbRing) else { return }
-            let neighbor = groups[index + span.absorbRing]
-            routine.mergeGroup(neighbor, direction: -span.absorbRing, context: modelContext)
-            SupersetCreationTip().invalidate(reason: .actionPerformed)
-            SupersetLoopTip().invalidate(reason: .actionPerformed)
-            flashSupersetLanding(group, grew: true)
-            return
-        }
-
         // Captured BEFORE the merges: did this landing grow an existing
         // superset, or form a fresh one? Drives whether the loop is kept
         // through the reshape or revealed.
         let wasExistingSuperset = group.sortedExercises.count > 1
 
+        // Unite: pull each whole group above/below (solo OR superset) into
+        // the pressed group, which survives and keeps its block config. One
+        // merge per spanned group; re-reading the index each pass follows
+        // the shift as neighbours collapse in.
         for _ in 0..<span.absorbAfter {
             let groups = routine.sortedGroups
             guard let index = groups.firstIndex(where: { $0 === group }),
                   groups.indices.contains(index + 1) else { break }
-            routine.mergeSoloGroup(groups[index + 1], direction: -1, context: modelContext)
+            routine.mergeGroup(groups[index + 1], direction: -1, context: modelContext)
         }
         for _ in 0..<span.absorbBefore {
             let groups = routine.sortedGroups
             guard let index = groups.firstIndex(where: { $0 === group }),
                   index > 0 else { break }
-            routine.mergeSoloGroup(groups[index - 1], direction: 1, context: modelContext)
+            routine.mergeGroup(groups[index - 1], direction: 1, context: modelContext)
         }
         for _ in 0..<span.ejectLast {
             guard group.isSuperset, let last = group.sortedExercises.last else { break }

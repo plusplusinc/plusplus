@@ -204,30 +204,20 @@ public enum RingEdge: Sendable, Equatable {
 
 /// The tentative membership span while a ring edge is being dragged,
 /// expressed both as flat exercise indices (for highlighting) and as the
-/// structural delta to commit (counts of adjacent solo groups to absorb
-/// or edge members to eject).
+/// structural delta to commit. `absorbBefore`/`absorbAfter` are counts of
+/// WHOLE adjacent groups (solo OR superset) to unite into the pressed
+/// group's ring; `ejectFirst`/`ejectLast` are edge members to split back
+/// out. The drag direction chose the edge, so exactly one of the two
+/// directions is ever non-zero.
 public struct RingSpan: Equatable, Sendable {
     public let firstFlat: Int
     public let lastFlat: Int
+    /// Whole groups directly above the pressed group to unite into it.
     public let absorbBefore: Int
+    /// Whole groups directly below the pressed group to unite into it.
     public let absorbAfter: Int
     public let ejectFirst: Int
     public let ejectLast: Int
-    /// The pressed group is a SOLO that joins an adjacent superset by
-    /// being dragged into it (−1 = the superset above, +1 = the superset
-    /// below, 0 = not a join). This is the reverse of `absorbBefore`/
-    /// `absorbAfter`: instead of a superset reaching out to a neighbouring
-    /// solo, a solo reaches into a neighbouring ring. Mutually exclusive
-    /// with the absorb/eject counts (all zero when this is non-zero).
-    public let mergeSoloInto: Int
-    /// The pressed SUPERSET absorbs the ADJACENT superset in this
-    /// direction (−1 = the ring above, +1 = the ring below, 0 = none),
-    /// combining the two into one ring. The pressed group survives (it
-    /// keeps its block config); the neighbour ring is emptied into it.
-    /// Distinct from `absorbBefore`/`absorbAfter`, which pull in adjacent
-    /// SOLO groups one at a time — this swallows a whole neighbouring
-    /// ring. Mutually exclusive with the other deltas.
-    public let absorbRing: Int
 
     public init(
         firstFlat: Int,
@@ -235,9 +225,7 @@ public struct RingSpan: Equatable, Sendable {
         absorbBefore: Int,
         absorbAfter: Int,
         ejectFirst: Int,
-        ejectLast: Int,
-        mergeSoloInto: Int = 0,
-        absorbRing: Int = 0
+        ejectLast: Int
     ) {
         self.firstFlat = firstFlat
         self.lastFlat = lastFlat
@@ -245,53 +233,23 @@ public struct RingSpan: Equatable, Sendable {
         self.absorbAfter = absorbAfter
         self.ejectFirst = ejectFirst
         self.ejectLast = ejectLast
-        self.mergeSoloInto = mergeSoloInto
-        self.absorbRing = absorbRing
     }
 
     public var isNoOp: Bool {
         absorbBefore == 0 && absorbAfter == 0 && ejectFirst == 0 && ejectLast == 0
-            && mergeSoloInto == 0 && absorbRing == 0
     }
 }
 
 public enum RailRing {
-    /// Which loop edge a press on (group, index) grabs: the first member
-    /// grabs the top, the last (or a solo row) the bottom, middle
-    /// members whichever edge is nearer (ties go down).
-    public static func grabbedEdge(groupSizes: [Int], group: Int, pressedIndex: Int) -> RingEdge {
-        let size = groupSizes[group]
-        guard size > 1 else { return .bottom }
-        if pressedIndex == 0 { return .top }
-        if pressedIndex == size - 1 { return .bottom }
-        return pressedIndex < size - 1 - pressedIndex ? .top : .bottom
-    }
-
-    /// Consecutive solo groups directly after `group` — the extension
-    /// budget for the bottom edge (rings never swallow other rings).
-    static func soloRunAfter(groupSizes: [Int], group: Int) -> Int {
-        var count = 0
-        var next = group + 1
-        while next < groupSizes.count, groupSizes[next] == 1 {
-            count += 1
-            next += 1
-        }
-        return count
-    }
-
-    static func soloRunBefore(groupSizes: [Int], group: Int) -> Int {
-        var count = 0
-        var previous = group - 1
-        while previous >= 0, groupSizes[previous] == 1 {
-            count += 1
-            previous -= 1
-        }
-        return count
-    }
-
-    /// The tentative span for a finger at `fingerY`, clamped to the
-    /// rules: extension absorbs only the adjacent solo run, contraction
-    /// stops at a single remaining row.
+    /// The tentative span for a finger at `fingerY`. The pressed group is
+    /// the anchor and always survives; the drag direction is the `edge`.
+    /// Dragging OUT (the finger leaves the pressed group into a neighbour
+    /// above or below) unites every whole group spanned — solos AND
+    /// existing supersets alike, all the way to the list end if the finger
+    /// goes there — into one ring. Dragging IN (the finger stays inside the
+    /// pressed group) contracts, ejecting the members past the finger. So
+    /// from ANY pressed row, a drag to the top or bottom gathers everything
+    /// between into a superset, and a drag back inward trims one.
     public static func span(
         groupSizes: [Int],
         group: Int,
@@ -308,81 +266,54 @@ public enum RailRing {
         }
         let finger = RailLayout.flatIndex(groupSizes: groupSizes, group: hit.group, index: hit.index)
 
-        // Reverse-direction join: a SOLO dragged into an ADJACENT superset
-        // becomes part of that ring (the mirror of the absorb path below,
-        // where a superset reaches out to a solo). Only the immediate
-        // neighbour in the drag direction is eligible — a solo run is still
-        // absorbed the old way, so fall through when the neighbour isn't a
-        // superset. The tentative span covers the union (solo + ring) so the
-        // highlight reads as the loop it will become.
-        if groupSizes[group] == 1 {
-            let neighbor = edge == .bottom ? group + 1 : group - 1
-            if groupSizes.indices.contains(neighbor), groupSizes[neighbor] > 1 {
-                let neighborFirst = RailLayout.flatIndex(groupSizes: groupSizes, group: neighbor, index: 0)
-                let neighborLast = neighborFirst + groupSizes[neighbor] - 1
-                let reached = edge == .bottom ? finger >= neighborFirst : finger <= neighborLast
-                if reached {
-                    return RingSpan(
-                        firstFlat: min(start, neighborFirst),
-                        lastFlat: max(end, neighborLast),
-                        absorbBefore: 0,
-                        absorbAfter: 0,
-                        ejectFirst: 0,
-                        ejectLast: 0,
-                        mergeSoloInto: edge == .bottom ? 1 : -1
-                    )
-                }
-                // Neighbour is a ring but the finger hasn't reached it yet:
-                // just the solo is tentatively highlighted (a no-op).
-                return RingSpan(firstFlat: start, lastFlat: end, absorbBefore: 0, absorbAfter: 0, ejectFirst: 0, ejectLast: 0)
-            }
-        }
-
-        // Ring-to-ring merge: dragging a superset's edge OUT into an
-        // ADJACENT superset absorbs that whole ring, combining the two.
-        // The pressed group survives. Only the immediate neighbour is
-        // eligible, and only once the finger reaches into it; short of
-        // that (or on an inward drag) we fall through to the eject/no-op
-        // logic below.
-        if groupSizes[group] > 1 {
-            let neighbor = edge == .bottom ? group + 1 : group - 1
-            if groupSizes.indices.contains(neighbor), groupSizes[neighbor] > 1 {
-                let neighborFirst = RailLayout.flatIndex(groupSizes: groupSizes, group: neighbor, index: 0)
-                let neighborLast = neighborFirst + groupSizes[neighbor] - 1
-                let reached = edge == .bottom ? finger >= neighborFirst : finger <= neighborLast
-                if reached {
-                    return RingSpan(
-                        firstFlat: min(start, neighborFirst),
-                        lastFlat: max(end, neighborLast),
-                        absorbBefore: 0,
-                        absorbAfter: 0,
-                        ejectFirst: 0,
-                        ejectLast: 0,
-                        absorbRing: edge == .bottom ? 1 : -1
-                    )
-                }
-            }
-        }
-
         switch edge {
         case .bottom:
-            let newLast = min(max(finger, start), end + soloRunAfter(groupSizes: groupSizes, group: group))
+            if hit.group > group {
+                // Unite downward: swallow every whole group from the one
+                // below the anchor down to the finger's group.
+                let hitGroupLast = RailLayout.flatIndex(groupSizes: groupSizes, group: hit.group, index: 0)
+                    + groupSizes[hit.group] - 1
+                return RingSpan(
+                    firstFlat: start,
+                    lastFlat: hitGroupLast,
+                    absorbBefore: 0,
+                    absorbAfter: hit.group - group,
+                    ejectFirst: 0,
+                    ejectLast: 0
+                )
+            }
+            // Contract from the bottom (finger inside the pressed group, or
+            // dragged above it — clamp to a single remaining row).
+            let newLast = max(finger, start)
             return RingSpan(
                 firstFlat: start,
                 lastFlat: newLast,
                 absorbBefore: 0,
-                absorbAfter: max(0, newLast - end),
+                absorbAfter: 0,
                 ejectFirst: 0,
-                ejectLast: max(0, end - newLast)
+                ejectLast: end - newLast
             )
         case .top:
-            let newFirst = max(min(finger, end), start - soloRunBefore(groupSizes: groupSizes, group: group))
+            if hit.group < group {
+                // Unite upward.
+                let hitGroupFirst = RailLayout.flatIndex(groupSizes: groupSizes, group: hit.group, index: 0)
+                return RingSpan(
+                    firstFlat: hitGroupFirst,
+                    lastFlat: end,
+                    absorbBefore: group - hit.group,
+                    absorbAfter: 0,
+                    ejectFirst: 0,
+                    ejectLast: 0
+                )
+            }
+            // Contract from the top.
+            let newFirst = min(finger, end)
             return RingSpan(
                 firstFlat: newFirst,
                 lastFlat: end,
-                absorbBefore: max(0, start - newFirst),
+                absorbBefore: 0,
                 absorbAfter: 0,
-                ejectFirst: max(0, newFirst - start),
+                ejectFirst: newFirst - start,
                 ejectLast: 0
             )
         }
