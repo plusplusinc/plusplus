@@ -548,9 +548,14 @@ struct EquipmentDetailScreen: View {
         )
     }
 
-    /// The prominent "do you have this?" card (Dave, 2026-07-17): a toggle
-    /// in an obvious card so it's unmistakable that adding gear takes an
-    /// action, and removal lives in the same spot. Accent green = you have
+    /// The prominent "do you have this?" card (Dave, 2026-07-17): an obvious
+    /// card so it's unmistakable that adding gear takes an action, and
+    /// removal lives in the same spot. The WHOLE card is the tap target
+    /// (Dave, 2026-07-18): the `Toggle` stays the interactive control (so
+    /// the switch is directly usable and VoiceOver-idiomatic), and an
+    /// `.onTapGesture` on the card flips the SAME binding from anywhere
+    /// else on it — both paths drive `membershipBinding`, so a tap resolves
+    /// to exactly one flip whichever gesture wins. Accent green = you have
     /// it (matches the catalog's in-kit glyph + the quick-add).
     private var kitToggleCard: some View {
         let inKit = inActiveLibrary
@@ -582,6 +587,8 @@ struct EquipmentDetailScreen: View {
             RoundedRectangle(cornerRadius: Theme.controlRadius)
                 .strokeBorder(inKit ? Theme.accent.opacity(0.4) : Theme.borderStrong)
         )
+        .contentShape(Rectangle())
+        .onTapGesture { membershipBinding.wrappedValue.toggle() }
         .animation(Theme.Anim.selection, value: inKit)
     }
 

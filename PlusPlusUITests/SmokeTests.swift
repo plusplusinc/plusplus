@@ -406,7 +406,8 @@ final class SmokeTests: XCTestCase {
             let row = card.waitForExistence(timeout: 2) ? card : fallback
             XCTAssertTrue(row.waitForExistence(timeout: 5), "missing equipment card for \(name)")
             row.tap()
-            // Add to kit is a prominent toggle now (2026-07-17): flip it on.
+            // Add to kit is a prominent card whose whole surface is the tap
+            // target (2026-07-18); the switch stays the identified control.
             let add = app.switches["addToMyEquipment"]
             XCTAssertTrue(add.waitForExistence(timeout: 5), "\(name) detail should show the kit toggle")
             if (add.value as? String) != "1" { add.tap() }
