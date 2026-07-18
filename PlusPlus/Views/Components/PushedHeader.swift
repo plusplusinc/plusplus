@@ -6,7 +6,8 @@ import SwiftUI
 /// `safeAreaInset` — a 44 pt raised back key, the title (+ optional
 /// mono subtitle) truly centered, trailing raised keys, and on catalog
 /// surfaces a search key that expands into a field replacing the title
-/// (mock 06). Supersedes #198's glass chevron and #233's toolbar
+/// (mock 06 — the expanded field carries an in-field clear, and
+/// closing is a separate key beside it). Supersedes #198's glass chevron and #233's toolbar
 /// search button; the full-width swipe-back is untouched — the #198
 /// pan drives the navigation controller directly and never depended
 /// on the bar being visible.
@@ -61,6 +62,15 @@ private struct PushedScreenChrome<Trailing: View>: ViewModifier {
                 }
                 if searchExpanded, let search {
                     searchField(search)
+                    // Closing the search is its own key, outside the field —
+                    // separate from the in-field clear, so emptying the query
+                    // and collapsing back to the icon are two distinct acts
+                    // (2026-07-18, Apple's search pattern).
+                    HeaderIconButton(systemImage: "xmark", accessibilityLabel: "Close search", identifier: "dismissSearchButton") {
+                        search.text.wrappedValue = ""
+                        searchFocused = false
+                        withAnimation(Theme.Anim.standard) { searchExpanded = false }
+                    }
                 } else {
                     Spacer(minLength: 0)
                     if let search {
@@ -79,10 +89,15 @@ private struct PushedScreenChrome<Trailing: View>: ViewModifier {
         .background(Theme.background)
     }
 
-    /// Mock 06: a 44 pt field where the title was — magnifier, mono
-    /// text, ✕ inside the field (clears, unfocuses, collapses).
+    /// Mock 06, clear/close split (2026-07-18): a 44 pt field where the
+    /// title was — magnifier, mono text, and an in-field CLEAR key
+    /// (`delete.left`, a backspace glyph read as "erase what I typed" —
+    /// deliberately NOT an ✕, so it never reads as a duplicate of the
+    /// close key beside it). It empties the query and keeps you typing;
+    /// collapsing the search is the separate close key.
     private func searchField(_ search: HeaderSearchConfig) -> some View {
-        HStack(spacing: 8) {
+        let hasText = !search.text.wrappedValue.isEmpty
+        return HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
                 .font(.system(.footnote))
                 .foregroundStyle(Theme.textFaint)
@@ -101,21 +116,25 @@ private struct PushedScreenChrome<Trailing: View>: ViewModifier {
                 // A push while focused must not strand the keyboard
                 // (the #213 lesson, inherited through two components).
                 .onDisappear { searchFocused = false }
-            Button {
-                search.text.wrappedValue = ""
-                searchFocused = false
-                withAnimation(Theme.Anim.standard) { searchExpanded = false }
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(.caption, weight: .semibold))
-                    .foregroundStyle(Theme.textFaint)
-                    .frame(width: 32, height: 44)
-                    .contentShape(Rectangle())
+            if hasText {
+                Button {
+                    search.text.wrappedValue = ""
+                    // Clearing is a within-field refinement, not an exit —
+                    // keep focus so the keyboard stays up and typing resumes.
+                    searchFocused = true
+                } label: {
+                    Image(systemName: "delete.left")
+                        .font(.system(.footnote))
+                        .foregroundStyle(Theme.textFaint)
+                        .frame(width: 30, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel("Clear text")
+                .accessibilityIdentifier("clearSearchButton")
             }
-            .accessibilityLabel("Clear search")
-            .accessibilityIdentifier("dismissSearchButton")
         }
         .padding(.leading, 13)
+        .padding(.trailing, hasText ? 3 : 13)
         .frame(height: 44)
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: 11))
         .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
