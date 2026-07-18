@@ -139,6 +139,9 @@ struct RoutineTemplate: Identifiable, Hashable {
             restSeconds: restSeconds
         )
         context.insert(routine)
+        // Carry the curated one-liner onto the routine so its description
+        // survives into the library (the catalog voice, editable after).
+        routine.summary = summary
         for other in existingRoutines {
             other.order += 1
         }
@@ -153,7 +156,9 @@ struct RoutineTemplate: Identifiable, Hashable {
             var group: ExerciseGroup?
             for entry in block.entries {
                 guard let exercise = byName[entry.exercise.lowercased()] else { continue }
-                exercise.inLibrary = true
+                // No library to join (2026-07-17, whole catalog): the
+                // exercise is already browsable; using it in a routine
+                // doesn't favorite it.
                 let routineExercise: RoutineExercise?
                 if let existing = group {
                     routineExercise = routine.addExercise(exercise, to: existing, context: context)
@@ -199,7 +204,7 @@ enum RoutineCatalog {
         // MARK: Strength foundations
         .init(
             name: "Full Body Strength A",
-            summary: "The classic squat-bench-row session — half of a simple alternating pair.",
+            summary: "The classic squat-bench-row session. Half of a simple alternating pair.",
             focus: .fullBody, effort: .moderate, style: .strength, restSeconds: 150,
             blocks: [
                 b(3, r("Squat", 5)),
@@ -210,7 +215,7 @@ enum RoutineCatalog {
         ),
         .init(
             name: "Full Body Strength B",
-            summary: "Deadlift, press, and pull-ups — the other half of the pair.",
+            summary: "Deadlift, press, and pull-ups. The other half of the pair.",
             focus: .fullBody, effort: .moderate, style: .strength, restSeconds: 150,
             blocks: [
                 b(3, r("Deadlift", 5)),
@@ -221,7 +226,7 @@ enum RoutineCatalog {
         ),
         .init(
             name: "Upper Body A",
-            summary: "Heavy horizontal push and pull, then volume — half of an upper/lower.",
+            summary: "Heavy horizontal push and pull, then volume. Half of an upper/lower.",
             focus: .upper, effort: .moderate, style: .build, restSeconds: 90,
             blocks: [
                 b(4, r("Bench Press", 6, 8)),
@@ -271,7 +276,7 @@ enum RoutineCatalog {
         // MARK: Push / Pull / Legs
         .init(
             name: "Push Day A",
-            summary: "Chest, shoulders, triceps — heavy first, isolation after.",
+            summary: "Chest, shoulders, triceps. Heavy first, isolation after.",
             focus: .push, effort: .moderate, style: .build, restSeconds: 90,
             blocks: [
                 b(4, r("Bench Press", 6, 8)),
@@ -455,7 +460,7 @@ enum RoutineCatalog {
         // MARK: Bodyweight + minimal gear
         .init(
             name: "Bodyweight Basics",
-            summary: "No equipment, all fundamentals — squat, push, hinge, brace.",
+            summary: "No equipment, all fundamentals: squat, push, hinge, brace.",
             focus: .fullBody, effort: .light, style: .build, restSeconds: 60,
             blocks: [
                 b(3, r("Bodyweight Squat", 15)),
@@ -503,7 +508,7 @@ enum RoutineCatalog {
         // MARK: Kettlebell
         .init(
             name: "Kettlebell Full Body",
-            summary: "Squat, swing, press, carry — one bell does it all.",
+            summary: "Squat, swing, press, carry. One bell does it all.",
             focus: .fullBody, effort: .moderate, style: .build, restSeconds: 90,
             blocks: [
                 b(4, r("Kettlebell Goblet Squat", 10)),
@@ -551,7 +556,7 @@ enum RoutineCatalog {
         ),
         .init(
             name: "Machine Lower",
-            summary: "Legs on rails — press, extend, curl, raise.",
+            summary: "Legs on rails: press, extend, curl, raise.",
             focus: .lower, effort: .light, style: .build, restSeconds: 90,
             blocks: [
                 b(4, r("Leg Press", 12)),
@@ -616,7 +621,7 @@ enum RoutineCatalog {
         // MARK: Core
         .init(
             name: "Core Foundations",
-            summary: "Anti-extension, anti-rotation, and holds — the quiet work.",
+            summary: "Anti-extension, anti-rotation, and holds. The quiet work.",
             focus: .core, effort: .light, style: .build, restSeconds: 60,
             blocks: [
                 b(3, d("Plank", 40)),

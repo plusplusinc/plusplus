@@ -35,13 +35,18 @@ final class Routine {
     /// Freeform intent for the whole routine ("keep it under an hour",
     /// "finisher optional") — shown at session start.
     var notes: String?
+    /// A one-line description (the routine's voice), seeded from a catalog
+    /// template's summary on add and editable after. Optional additive
+    /// column: existing rows migrate in as nil (no description), blank and
+    /// custom routines start nil until the user writes one.
+    var summary: String?
     /// Encoded RoutineSchedule (#83); nil means unscheduled. Stored as
     /// JSON Data (with a default) so the SwiftData migration is additive.
     var scheduleData: Data?
     @Relationship(deleteRule: .cascade, inverse: \ExerciseGroup.routine)
     var groups: [ExerciseGroup] = []
 
-    init(name: String, order: Int = 0, restSeconds: Int = 45, transitionSeconds: Int = 15, notes: String? = nil) {
+    init(name: String, order: Int = 0, restSeconds: Int = 45, transitionSeconds: Int = 15, notes: String? = nil, summary: String? = nil) {
         self.uuid = UUID()
         self.name = name
         self.createdAt = Date()
@@ -49,6 +54,7 @@ final class Routine {
         self.restSeconds = restSeconds
         self.transitionSeconds = transitionSeconds
         self.notes = notes
+        self.summary = summary
     }
 
     /// #189's invariant applied at creation: routine names are unique

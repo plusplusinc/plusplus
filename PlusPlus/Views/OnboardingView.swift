@@ -113,19 +113,7 @@ enum SetupState {
         UserDefaults.standard.removeObject(forKey: storeResetBackupPathKey)
     }
 
-    // The populate offer rides Today, not the catalog (#204): Done just
-    // raises this flag and dismisses; Today consumes it and asks from an
-    // anchored alert. One-shot; the count is computed at ask time.
-    static let populateOfferPendingKey = "setupPopulateOfferPending"
-
-    static func requestPopulateOffer() {
-        UserDefaults.standard.set(true, forKey: populateOfferPendingKey)
-    }
-
-    /// Returns whether an offer was pending, clearing it either way.
-    static func consumePopulateOffer() -> Bool {
-        let pending = UserDefaults.standard.bool(forKey: populateOfferPendingKey)
-        UserDefaults.standard.removeObject(forKey: populateOfferPendingKey)
-        return pending
-    }
+    // The populate offer died with the whole-catalog restructure
+    // (2026-07-17): the exercise catalog is always fully visible, so
+    // there is nothing to populate. Equipment setup just marks done.
 }

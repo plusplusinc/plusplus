@@ -43,7 +43,7 @@ struct ExerciseSnapshot: Equatable {
     let exerciseType: ExerciseType
     let metricsData: Data?
     let notes: String?
-    let inLibrary: Bool
+    let isFavorite: Bool
     let defaultWeight: Double?
     let defaultReps: Int?
     let defaultRepsUpper: Int?
@@ -59,7 +59,7 @@ struct ExerciseSnapshot: Equatable {
         exerciseType = exercise.exerciseType
         metricsData = exercise.metricsData
         notes = exercise.notes
-        inLibrary = exercise.inLibrary
+        isFavorite = exercise.isFavorite
         defaultWeight = exercise.defaultWeight
         defaultReps = exercise.defaultReps
         defaultRepsUpper = exercise.defaultRepsUpper
@@ -256,7 +256,7 @@ extension ChangeEngine {
             )
         }
         exercise.extraDefaults = MetricValues.fromRaw(dto.extraDefaults)
-        exercise.inLibrary = dto.inLibrary ?? true
+        exercise.isFavorite = dto.isFavorite ?? false
         exercise.defaultHeartRateTargetData = InterchangeMapping.encodeHeartRate(dto.defaultHeartRateTarget)
         return true
     }
@@ -357,7 +357,7 @@ extension ChangeEngine {
         exercise.exerciseType = snapshot.exerciseType
         exercise.metricsData = snapshot.metricsData
         exercise.notes = snapshot.notes
-        exercise.inLibrary = snapshot.inLibrary
+        exercise.isFavorite = snapshot.isFavorite
         exercise.defaultWeight = snapshot.defaultWeight
         exercise.defaultReps = snapshot.defaultReps
         exercise.defaultRepsUpper = snapshot.defaultRepsUpper

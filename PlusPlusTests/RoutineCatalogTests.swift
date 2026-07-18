@@ -62,7 +62,7 @@ struct RoutineCatalogTests {
         }
     }
 
-    @Test func instantiateBuildsTheRoutineAndJoinsTheLibrary() throws {
+    @Test func instantiateBuildsTheRoutine() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         SeedData.loadIfNeeded(context: context)
@@ -78,7 +78,6 @@ struct RoutineCatalogTests {
             #expect(group.sortedExercises.count == block.entries.count)
             for (routineExercise, entry) in zip(group.sortedExercises, block.entries) {
                 #expect(routineExercise.exercise?.name == entry.exercise)
-                #expect(routineExercise.exercise?.inLibrary == true)
                 if let reps = entry.reps {
                     #expect(routineExercise.reps == reps)
                     #expect(routineExercise.repsUpper == entry.repsUpper)

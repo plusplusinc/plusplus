@@ -112,7 +112,7 @@ struct RevealSurface: View {
         .sheet(item: $activePush) { push in
             NavigationStack {
                 switch push {
-                case .equipment: CatalogBrowseScreen(kind: .equipment, setupMode: true)
+                case .equipment: EquipmentCatalogScreen(setupMode: true)
                 }
             }
         }
@@ -159,39 +159,35 @@ struct RevealSurface: View {
     /// Operator takes the hero slot (Dave, 2026-07-15); the active
     /// library demotes to a row below. Always visible — unavailable
     /// states show a quiet status word here and explain themselves
-    /// inside the tray, in Operator's voice.
+    /// inside the tray, in Operator's voice. Redesigned in the build-85
+    /// round (Dave: caption + title + snippet read "operator operator
+    /// operator"): one face glyph with ++ eyes, the name once, and the
+    /// designed tagline wrapping beneath — no dot (dots mean sync
+    /// state), no last-reply snippet.
     private var operatorHero: some View {
         Button { openOperator() } label: {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 7) {
-                    Circle()
-                        .fill(operatorAvailability == .ready ? Theme.accent : Theme.textFaint)
-                        .frame(width: 8, height: 8)
-                        .accessibilityHidden(true)
-                    Text("OPERATOR")
-                        .font(.system(.caption2, design: .monospaced, weight: .semibold))
-                        .foregroundStyle(operatorAvailability == .ready ? Theme.accent : Theme.textFaint)
-                        .kerning(0.5)
-                    Spacer()
-                    if let word = operatorAvailability.statusWord {
-                        Text(word)
-                            .font(.system(.caption2, design: .monospaced))
-                            .foregroundStyle(Theme.textFaint)
+            HStack(alignment: .center, spacing: 12) {
+                OperatorFaceGlyph(size: 38, ready: operatorAvailability == .ready)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text("Operator")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundStyle(Theme.textPrimary)
+                        if let word = operatorAvailability.statusWord {
+                            Text(word)
+                                .font(.system(.caption2, design: .monospaced))
+                                .foregroundStyle(Theme.textFaint)
+                        }
                     }
-                }
-                HStack(alignment: .center, spacing: 6) {
-                    Text("Operator")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundStyle(Theme.textPrimary)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(.caption, weight: .bold))
+                    Text(OperatorPersona.heroTagline)
+                        .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(Theme.textFaint)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                Text(operatorSnippet)
-                    .font(.system(.caption2, design: .monospaced))
+                Spacer(minLength: 6)
+                Image(systemName: "chevron.right")
+                    .font(.system(.caption, weight: .bold))
                     .foregroundStyle(Theme.textFaint)
-                    .lineLimit(1)
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -212,25 +208,6 @@ struct RevealSurface: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { operatorAvailability = .current() }
         }
-    }
-
-    /// The hero's one-line sub: the last thing Operator said, else the
-    /// tagline. Reads from the loaded controller only — the hero never
-    /// forces the thread off disk just to render.
-    private var operatorSnippet: String {
-        guard let controller = operatorController else { return OperatorPersona.heroTagline }
-        for message in controller.messages.reversed() {
-            switch message.kind {
-            case .reply(let text):
-                let line = text.split(separator: "\n").first.map(String.init) ?? text
-                if !line.isEmpty { return line }
-            case .receipt(let payload):
-                return payload.summary
-            default:
-                continue
-            }
-        }
-        return OperatorPersona.heroTagline
     }
 
     @discardableResult
@@ -256,16 +233,16 @@ struct RevealSurface: View {
         let items = activeLibrary?.members.count ?? 0
         let itemsText = items == 0 ? "bodyweight" : "\(items) item\(items == 1 ? "" : "s")"
         return VStack(alignment: .leading, spacing: 10) {
-            SheetSectionLabel("LIBRARY")
+            SheetSectionLabel("KIT")
             statusRow(
-                dot: Theme.accent,
+                dot: nil,
                 icon: {
                     Image(systemName: "dumbbell")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(Theme.textPrimary)
                         .frame(width: 16, height: 16)
                 },
-                title: activeLibrary?.name ?? "Home",
+                title: activeLibrary?.name ?? EquipmentLibrary.defaultName,
                 status: itemsText,
                 identifier: "revealLibraryRow"
             ) { openTray(.library) }
@@ -361,11 +338,13 @@ struct RevealSurface: View {
         ) { openTray(.calendar) }
     }
 
-    /// A SYNC trigger row: status dot, a leading icon (GitHub mark / SF Symbol),
+    /// A trigger row: an optional status dot (SYNC rows only — a dot means
+    /// "state of a connection", so Operator/Library rows pass nil; Dave,
+    /// build-85 design round), a leading icon (GitHub mark / SF Symbol),
     /// the name, then a right-aligned status word before the chevron. `status`
     /// is optional so a never-connected GitHub row shows no trailing word.
     private func statusRow<Icon: View>(
-        dot: Color,
+        dot: Color?,
         @ViewBuilder icon: () -> Icon,
         title: String,
         status: String?,
@@ -374,7 +353,9 @@ struct RevealSurface: View {
     ) -> some View {
         Button(action: action) {
             HStack(spacing: 9) {
-                Circle().fill(dot).frame(width: 8, height: 8)
+                if let dot {
+                    Circle().fill(dot).frame(width: 8, height: 8)
+                }
                 icon()
                 Text(title)
                     .font(.system(.subheadline, weight: .semibold))
@@ -578,7 +559,7 @@ struct RevealSurface: View {
             lines.append("Equipment: \(summary.equipmentConfigured) configured")
         }
         if summary.librariesCreated + summary.librariesReplaced > 0 {
-            lines.append("Libraries: \(summary.librariesCreated) added, \(summary.librariesReplaced) updated")
+            lines.append("Kits: \(summary.librariesCreated) added, \(summary.librariesReplaced) replaced")
         }
         lines.append("Sessions: \(summary.sessionsAdded) added, \(summary.sessionsSkipped) already present")
         return lines.joined(separator: "\n")
@@ -609,9 +590,9 @@ private struct LibraryTray: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "Equipment library", closeOnly: true, action: { dismiss() })
+            SheetHeader(title: "Kit", closeOnly: true, action: { dismiss() })
             // Pithy line (no em dash, per the copy law).
-            Text("What you have decides what you can train. Switch sets any time, without touching your history.")
+            Text("What you have decides what you can train. Switch kits any time, without touching your history.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textSecondary)
                 .padding(.top, 4)
@@ -629,7 +610,7 @@ private struct LibraryTray: View {
                         HStack(spacing: 9) {
                             Text("+")
                                 .font(.system(size: 17, weight: .bold, design: .monospaced))
-                            Text("New library")
+                            Text("New kit")
                                 .font(.system(.subheadline, weight: .semibold))
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.6)
@@ -674,7 +655,7 @@ private struct LibraryTray: View {
         }
         .padding(.horizontal, 18)
         .presentationDetents([.medium, .large])
-        .alert("New library", isPresented: $promptingNew) {
+        .alert("New kit", isPresented: $promptingNew) {
             TextField("Hotel, Garage, Office…", text: $newName)
             Button("Cancel", role: .cancel) {}
             Button("Create") { createLibrary() }
@@ -1182,7 +1163,7 @@ private struct AboutTray: View {
                 .font(.system(.caption, design: .monospaced, weight: .semibold))
                 .foregroundStyle(Theme.textSecondary)
                 .padding(.top, 4)
-            Text("The hackable workout tracker for incrementing yourself. Your training data is a git repo you own.")
+            Text("A hackable workout tracker for incrementing yourself. Your training data is a git repo you own.")
                 .font(.system(.footnote))
                 .foregroundStyle(Theme.textSecondary)
                 .padding(.top, 6)
@@ -1207,7 +1188,7 @@ private struct AboutTray: View {
             .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
             .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.border))
 
-            Text("Opens GitHub or Mail. The app itself never phones home.")
+            Text("Opens GitHub or Mail. PlusPlus never phones home.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textFaint)
                 .padding(.top, 10)
@@ -1246,11 +1227,11 @@ enum WhatsNew {
         ("84", "Operator: chat with your training data behind the ++ key · ask anything, change anything · bulk edits preview before they touch a thing, small ones undo in a tap · the model runs entirely on this phone · and outdoor runs now keep their route: map, splits, and stats on the record"),
         ("61", "Scheduled workouts on your calendar · one tap on the event starts the session · works with Apple and Google"),
         ("55", "Sync your program and history to a GitHub repo you own · restore-safe on a new phone"),
-        ("48", "Equipment libraries: keep a set for home and another for the road · switch and the whole app follows · your gear travels with you to a new phone"),
+        ("48", "Kits: keep one set of gear for home and another for the road · switch and the whole app follows · your gear travels with you to a new phone"),
         ("46", "Cardio speaks its own numbers · splits, watts, damper, incline · intervals with their own rest · choose what any exercise tracks · heart rate on screen"),
         ("45", "The ++ key on every tab · catalog pages push and pop one step at a time"),
         ("44", "The ++ wears its key"),
-        ("43", "Keys travel deeper · the +1 gets its moment · swipe actions in full color · our own chrome, corner to corner"),
+        ("43", "Keys travel deeper · the +1 gets its moment · swipe actions in full color · custom chrome, corner to corner"),
         ("42", "Quiet Arcade: buttons press like real keys · your week as blocks on Today · Log set pops a +1 · rest gains +30s"),
     ]
 }

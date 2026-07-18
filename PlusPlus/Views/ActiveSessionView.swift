@@ -740,9 +740,9 @@ struct ActiveSessionView: View {
                 .font(.system(.footnote, design: .monospaced, weight: .semibold))
                 .kerning(0.7)
                 .foregroundStyle(Theme.textSecondary)
-            Text("Nothing on the bar yet")
+            Text("Nothing logged yet")
                 .font(.system(.title3, weight: .bold))
-            Text("Add exercises as you go — when you finish, the whole thing can become a routine.")
+            Text("Add exercises as you go. When you finish, the whole thing can become a routine.")
                 .font(.system(.footnote))
                 .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
@@ -842,7 +842,7 @@ struct ActiveSessionView: View {
                         next.font(.system(.caption, design: .monospaced))
                     }
                     if isFirstEverFinish {
-                        Text("widgets can show your schedule without opening the app — long-press the home screen to add one")
+                        Text("widgets can show your schedule right on the home screen · long-press there to add one")
                             .font(.system(.caption))
                             .foregroundStyle(Theme.textFaint)
                             .multilineTextAlignment(.center)
@@ -1098,7 +1098,7 @@ struct ActiveSessionView: View {
             }
         }
         guard let best else { return nil }
-        return "★ \(best.name.lowercased()) \(WorkoutMetric.weight.displayText(best.weight, weightUnit: weightUnit)) — new best"
+        return "★ \(best.name.lowercased()) \(WorkoutMetric.weight.displayText(best.weight, weightUnit: weightUnit)) · new best"
     }
 
     /// The soonest next occurrence across every scheduled routine —
@@ -1134,7 +1134,7 @@ struct ActiveSessionView: View {
         // Beyond the coming week the bare weekday would lie by
         // omission — add the plain date (mirrors Today's rest-day
         // caption, #267).
-        var fact = "\(best.name) — \(day)"
+        var fact = "\(best.name) · \(day)"
         if let weekBoundary = calendar.date(byAdding: .day, value: 7, to: calendar.startOfDay(for: today)),
            best.date > weekBoundary {
             fact += " · " + best.date.formatted(.dateTime.month(.abbreviated).day()).lowercased()
@@ -1174,7 +1174,8 @@ private struct SetLoggingView: View {
 
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
     @State private var wheel: WorkoutMetric?
-    @State private var showingRepsWheel = false
+    /// The metric whose stepper-increment sheet is open (load metrics only).
+    @State private var incrementMetric: WorkoutMetric?
 
     private var weightUnit: WeightUnit {
         WeightUnit(rawValue: weightUnitRaw) ?? .lb
@@ -1239,8 +1240,75 @@ private struct SetLoggingView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
+            if driver == .duration {
+                // Duration is driven by the auto-timer dock; its secondary
+                // metrics (a treadmill's incline) ride the header scroll as
+                // cards, above the timer.
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        exerciseHeader
+                            .padding(.horizontal, 20)
+                        if !secondaryMetricsList.isEmpty {
+                            VStack(spacing: 12) {
+                                ForEach(secondaryMetricsList) { metricCard($0) }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.top, 16)
+                        }
+                    }
+                }
+                durationDock
+            } else {
+                // Rep/cardio work: the header scrolls up top, the metric
+                // cards bottom-anchor just above Log set (the pausedView /
+                // RestView pattern), so short content hugs the CTA and a tall
+                // stack (big Dynamic Type, many metrics) scrolls instead of
+                // shoving Log set off-screen (#391).
+                GeometryReader { proxy in
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            exerciseHeader
+                                .padding(.horizontal, 20)
+                            Spacer(minLength: 20)
+                            stage
+                        }
+                        .frame(minHeight: proxy.size.height)
+                    }
+                }
+                logDock
+            }
+        }
+        .sheet(item: $wheel) { metric in
+            MetricWheelSheet(
+                metric: metric,
+                weightUnit: weightUnit,
+                distanceUnit: profile.distanceUnit,
+                value: Binding(
+                    get: { log.actual(metric) ?? log.target(metric) },
+                    set: { log.setActual(metric, to: $0) }
+                )
+            )
+        }
+        // The increment sheet edits the load stride on the exercise's gear
+        // (#391) — presented only for metrics that can hold one.
+        .sheet(item: $incrementMetric) { metric in
+            IncrementSheet(
+                metric: metric,
+                weightUnit: weightUnit,
+                distanceUnit: profile.distanceUnit,
+                current: stepValue(metric)
+            ) { choice in
+                log.exercise?.setStep(choice, for: metric)
+            }
+        }
+    }
+
+    /// The scrolling exercise header — set kicker, name, what's next, the
+    /// cardio prescription lines, and notes. Extracted (#391) so both the
+    /// duration and rep/cardio layouts mount it above their docks. Carries no
+    /// horizontal padding of its own; call sites inset it by 20.
+    private var exerciseHeader: some View {
+        VStack(alignment: .leading, spacing: 0) {
                     // The kicker keeps the set count alone. Cardio work
                     // (a timed piece, a distance repeat) counts ROUNDS:
                     // "round 3 of 8" is the honest name for an interval.
@@ -1345,64 +1413,23 @@ private struct SetLoggingView: View {
                             .padding(.top, 14)
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 20)
-            }
-
-            if driver == .duration {
-                if !secondaryMetricsList.isEmpty {
-                    VStack(spacing: 10) {
-                        ForEach(secondaryMetricsList) { metric in
-                            secondaryRow(metric)
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 6)
-                }
-                durationDock
-            } else {
-                stage
-                logDock
-            }
-        }
-        .sheet(item: $wheel) { metric in
-            MetricWheelSheet(
-                metric: metric,
-                weightUnit: weightUnit,
-                distanceUnit: profile.distanceUnit,
-                value: Binding(
-                    get: { log.actual(metric) ?? log.target(metric) },
-                    set: { log.setActual(metric, to: $0) }
-                )
-            )
-        }
-        .sheet(isPresented: $showingRepsWheel) {
-            // Logging is a scalar — the range editor's "Up to"
-            // wheel was a dead control here (#246).
-            RepTargetWheelSheet(
-                target: RepTarget(lower: log.actualReps ?? log.targetRepsLower, upper: nil),
-                showsUpperWheel: false
-            ) { newTarget in
-                log.actualReps = newTarget.lower
-            }
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    // MARK: - Stage (mock 08)
-    // One dominant card owns the stage — the load for rep work (WEIGHT,
-    // or ASSIST on an assisted machine), the work target for cardio
-    // (DISTANCE, CALORIES), bare REPS for bodyweight — with big value,
-    // live delta, and two full-width stepper keys. Everything else the
-    // profile tracks rides beneath as compact rows with square ± keys.
+    // MARK: - Stage (mock 08, #391)
+    // EVERY configurable metric gets the same card — big value opening the
+    // wheel, live "last · Δ", two full-width hold-to-repeat stepper keys, and
+    // (on the load metrics) a `slider.horizontal.3` key opening the increment
+    // sheet. Rep work stacks WEIGHT/ASSIST then REPS; cardio leads with its
+    // driver; anything else the profile tracks follows as more cards. Reps and
+    // secondaries used to be cramped rows — Dave asked for full cards (2026-07-16).
 
     /// The effective stepper increment for a metric, for the key labels
-    /// ("−5" / "+5"): per-equipment override first (loads only), then
-    /// the metric's own step.
+    /// ("−5" / "+5"): the exercise's per-gear override first (loads only,
+    /// via `stepOverride`), then the metric's own unit step.
     private func stepValue(_ metric: WorkoutMetric) -> Double {
-        if metric == .weight || metric == .assistance {
-            return log.exercise?.weightStepOverride ?? weightUnit.step
-        }
-        return metric.step(weightUnit: weightUnit, distanceUnit: profile.distanceUnit)
+        log.exercise?.stepOverride(for: metric)
+            ?? metric.step(weightUnit: weightUnit, distanceUnit: profile.distanceUnit)
     }
 
     /// "last 130 · +5" — the previous set's value and the live delta
@@ -1428,40 +1455,59 @@ private struct SetLoggingView: View {
         )
     }
 
-    @ViewBuilder
+    /// The metrics shown as cards, in order: the load (or bare reps / the
+    /// cardio driver) first, then everything else the profile tracks. The
+    /// driver/load are already excluded from `secondaryMetricsList`, so no
+    /// metric appears twice.
+    private var stageMetrics: [WorkoutMetric] {
+        var metrics: [WorkoutMetric] = []
+        if driver == .reps {
+            if let loadMetric { metrics.append(loadMetric) }
+            metrics.append(.reps)
+        } else {
+            metrics.append(driver)
+        }
+        metrics += secondaryMetricsList
+        return metrics
+    }
+
     private var stage: some View {
         VStack(spacing: 12) {
-            if driver == .reps {
-                if let loadMetric {
-                    bigMetricCard(loadMetric)
-                    repsRow
-                } else {
-                    bigMetricCard(.reps)
-                }
-            } else {
-                bigMetricCard(driver)
-            }
-            ForEach(secondaryMetricsList) { metric in
-                secondaryRow(metric)
-            }
+            ForEach(stageMetrics) { metricCard($0) }
         }
         .padding(.horizontal, 16)
         .padding(.top, 6)
     }
 
-    /// Mock 08's dominant card, generalized to any metric: mono label,
-    /// big value opening the wheel, the live "last · Δ" in data green
-    /// at the value's side, two full-width 56 pt stepper keys, and the
-    /// carry-forward note inside the card (faint — a mechanic note, not
-    /// a delta; rendered only while it's true).
-    private func bigMetricCard(_ metric: WorkoutMetric) -> some View {
+    /// The unified metric card (#391): mono label with the increment key on
+    /// its right (load metrics only — the rest have no gear stride to edit),
+    /// the big value opening the wheel, the live "last · Δ" in data green, two
+    /// full-width hold-to-repeat stepper keys, and the carry-forward note
+    /// (faint — a mechanic note, not a delta).
+    private func metricCard(_ metric: WorkoutMetric) -> some View {
         let current = log.actual(metric) ?? log.target(metric)
         let unitText = metric.unit(for: current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit)
+        let canAdjust = log.exercise?.canAdjustStep(for: metric) ?? false
         return VStack(alignment: .leading, spacing: 12) {
-            Text(metric.label.uppercased())
-                .font(.system(.footnote, design: .monospaced, weight: .semibold))
-                .foregroundStyle(Theme.textFaint)
-                .kerning(0.7)
+            HStack(spacing: 8) {
+                Text(metric.label.uppercased())
+                    .font(.system(.footnote, design: .monospaced, weight: .semibold))
+                    .foregroundStyle(Theme.textFaint)
+                    .kerning(0.7)
+                Spacer(minLength: 8)
+                if canAdjust {
+                    ConfigIconButton(
+                        accessibilityLabel: "Change \(metric.label.lowercased()) increment",
+                        identifier: "configIncrement-\(metric.rawValue)"
+                    ) {
+                        incrementMetric = metric
+                    }
+                    // Pull the 44 pt hit frame back into the corner so it
+                    // doesn't bloat the compact label row.
+                    .padding(.trailing, -7)
+                    .padding(.vertical, -7)
+                }
+            }
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Button {
                     wheel = metric
@@ -1492,16 +1538,14 @@ private struct SetLoggingView: View {
                 }
             }
             HStack(spacing: 10) {
-                stepperKey(
-                    "−\(metric.formatted(stepValue(metric)))",
-                    height: 56,
+                HoldRepeatKey(
+                    label: "−\(metric.formatted(stepValue(metric)))",
                     identifier: metric == .weight ? "logWeightDecrement" : "log-\(metric.rawValue)-decrement"
                 ) {
                     stepActual(metric, -1)
                 }
-                stepperKey(
-                    "+\(metric.formatted(stepValue(metric)))",
-                    height: 56,
+                HoldRepeatKey(
+                    label: "+\(metric.formatted(stepValue(metric)))",
                     identifier: metric == .weight ? "logWeightIncrement" : "log-\(metric.rawValue)-increment"
                 ) {
                     stepActual(metric, 1)
@@ -1520,106 +1564,24 @@ private struct SetLoggingView: View {
     }
 
     private func stepActual(_ metric: WorkoutMetric, _ direction: Double) {
+        // The stride: the exercise's per-gear override (loads only) or the
+        // metric's own unit step — the same value the key label shows.
+        let override = log.exercise?.stepOverride(for: metric)
         if metric == .reps {
-            // Reps keep their bare-number semantics (no unit clamping
-            // surprises at 1).
-            let current = log.actualReps ?? log.targetRepsLower
-            log.actualReps = direction > 0 ? (current ?? 9) + 1 : max(1, (current ?? 11) - 1)
+            // Reps stay integer; step by the (possibly overridden) stride,
+            // clamped to the reps range by the Kit.
+            let current = (log.actualReps ?? log.targetRepsLower).map(Double.init)
+            let stepped = direction > 0
+                ? metric.incremented(current, stepOverride: override)
+                : metric.decremented(current, stepOverride: override)
+            log.actualReps = Int(stepped)
             return
         }
-        let override = (metric == .weight || metric == .assistance) ? log.exercise?.weightStepOverride : nil
         let current = log.actual(metric) ?? log.target(metric)
         let stepped = direction > 0
             ? metric.incremented(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, stepOverride: override)
             : metric.decremented(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, stepOverride: override)
         log.setActual(metric, to: stepped)
-    }
-
-    /// Mock 08's compact REPS row: label · value · plain-ink target
-    /// (green never colors a prescription), square ±1 keys trailing.
-    /// No card — the load owns the stage.
-    private var repsRow: some View {
-        HStack(spacing: 12) {
-            Text("REPS")
-                .font(.system(.footnote, design: .monospaced, weight: .semibold))
-                .foregroundStyle(Theme.textFaint)
-                .kerning(0.7)
-            Button {
-                showingRepsWheel = true
-            } label: {
-                Text((log.actualReps ?? log.targetRepsLower).map(String.init) ?? "—")
-                    .font(.system(.title3, design: .monospaced, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary)
-                    .contentTransition(.numericText(value: Double(log.actualReps ?? log.targetRepsLower ?? 0)))
-                    .animation(Theme.Anim.standard, value: log.actualReps ?? log.targetRepsLower)
-            }
-            .accessibilityIdentifier("logRepsValue")
-            if log.targetReps.lower != nil {
-                Text("target \(log.targetReps.display)")
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(Theme.textFaint)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 8)
-            stepperKey("−1", height: 48, width: 48, identifier: "logRepsDecrement") {
-                log.actualReps = max(1, (log.actualReps ?? log.targetRepsLower ?? 11) - 1)
-            }
-            stepperKey("+1", height: 48, width: 48, identifier: "logRepsIncrement") {
-                log.actualReps = (log.actualReps ?? log.targetRepsLower ?? 9) + 1
-            }
-        }
-        .padding(.horizontal, 2)
-    }
-
-    /// A compact row for any other tracked metric (the rower's damper,
-    /// the treadmill's incline, the row's finish time): label · value
-    /// (tap for wheel) · square ± keys. Edits the ACTUAL, prefilled
-    /// from the target — the plan lives in the planning sheet.
-    private func secondaryRow(_ metric: WorkoutMetric) -> some View {
-        let current = log.actual(metric) ?? log.target(metric)
-        return HStack(spacing: 12) {
-            Text(metric.label.uppercased())
-                .font(.system(.footnote, design: .monospaced, weight: .semibold))
-                .foregroundStyle(Theme.textFaint)
-                .kerning(0.7)
-            Button {
-                wheel = metric
-            } label: {
-                Text(metric.displayText(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit))
-                    .font(.system(.title3, design: .monospaced, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary)
-                    .contentTransition(.numericText(value: current ?? 0))
-                    .animation(Theme.Anim.standard, value: current)
-            }
-            .accessibilityIdentifier("log-\(metric.rawValue)-value")
-            Spacer(minLength: 8)
-            stepperKey("−", height: 48, width: 48, identifier: "log-\(metric.rawValue)-decrement") {
-                stepActual(metric, -1)
-            }
-            stepperKey("+", height: 48, width: 48, identifier: "log-\(metric.rawValue)-increment") {
-                stepActual(metric, 1)
-            }
-        }
-        .padding(.horizontal, 2)
-    }
-
-    /// One raised stepper key with a mono step label ("−5"/"+5" say
-    /// what one press buys — the ± icons didn't). Full-width when no
-    /// width is given.
-    private func stepperKey(_ label: String, height: CGFloat, width: CGFloat? = nil, identifier: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(label)
-                .font(.system(.body, design: .monospaced, weight: .bold))
-                .foregroundStyle(Theme.textPrimary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .frame(maxWidth: width == nil ? .infinity : nil)
-                .frame(width: width, height: height)
-                .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.borderStrong))
-        }
-        .buttonStyle(.raisedKey(cornerRadius: 12))
-        .accessibilityIdentifier(identifier)
     }
 
     // MARK: - Log dock

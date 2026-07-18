@@ -49,9 +49,16 @@ enum SeedData {
                 exerciseType: def.exerciseType,
                 isBuiltIn: true
             )
-            // Catalog, not library (#185) — the populate offer or plain
-            // usage grows the library. `populateLibrary` is the smoke
-            // tests' shortcut and only meaningful on a fresh store.
+            // The whole catalog is browsable regardless (2026-07-17):
+            // `inLibrary` is frozen for browsing and curation is
+            // `isFavorite`. But this MUST stay accurate — it is the sole
+            // input to `adoptLibraryAsFavoritesIfNeeded`, which runs once
+            // on the same launch as this top-up. A newly inserted
+            // built-in is NOT curation, so it must arrive `false` (like
+            // the equipment loop above); leaving the model default
+            // `true` would make the adopt bridge favorite every catalog
+            // addition an upgrader never chose, and export it (swift-
+            // reviewer catch, on-device-only class).
             exercise.inLibrary = isFreshStore && populateLibrary
             context.insert(exercise)
             exercise.equipment = def.equipmentNames.compactMap { equipmentByName[$0.lowercased()] }
@@ -60,37 +67,32 @@ enum SeedData {
         try? context.save()
     }
 
-    /// What the populate offer would add — computed at ask time (#204),
-    /// so a stale flag can never overstate. Availability is the ACTIVE
-    /// equipment library's membership.
-    static func populateCandidateCount(context: ModelContext) -> Int {
-        let available = EquipmentLibrary.active(context: context)?.memberNames ?? []
-        let exercises = (try? context.fetch(
-            FetchDescriptor<Exercise>(predicate: #Predicate { $0.isBuiltIn == true })
-        )) ?? []
-        return exercises.filter { exercise in
-            !exercise.inLibrary
-                && !exercise.equipment.contains { !$0.isDeleted && !available.contains($0.name) }
-        }.count
-    }
+    // MARK: - Library → favorites adoption (whole-catalog upgrade, 2026-07-17)
 
-    /// The optional population step (#185): everything the available
-    /// equipment supports joins the library. Returns the count added.
-    @discardableResult
-    static func populateLibraryFromEquipment(context: ModelContext) -> Int {
-        let available = EquipmentLibrary.active(context: context)?.memberNames ?? []
-        let exercises = (try? context.fetch(
+    /// One-shot: the exercise library became favorites. An existing
+    /// store that had curated a library (adopted built-ins) keeps that
+    /// curation — each in-library built-in becomes a favorite — so the
+    /// user's picks and their synced repo's exercise files stay
+    /// continuous across the export-basis change (the repo now exports
+    /// favorited built-ins, not in-library ones). Skips the pre-#185
+    /// default-noise case where EVERY built-in is in-library (favoriting
+    /// all 247 would say nothing); a fresh install has none in-library
+    /// so it no-ops there too.
+    static let libraryToFavoritesKey = "libraryToFavorites1"
+
+    static func adoptLibraryAsFavoritesIfNeeded(context: ModelContext) {
+        guard !UserDefaults.standard.bool(forKey: libraryToFavoritesKey) else { return }
+        UserDefaults.standard.set(true, forKey: libraryToFavoritesKey)
+        let builtIns = (try? context.fetch(
             FetchDescriptor<Exercise>(predicate: #Predicate { $0.isBuiltIn == true })
         )) ?? []
-        var added = 0
-        for exercise in exercises where !exercise.inLibrary {
-            let missing = exercise.equipment.contains { !$0.isDeleted && !available.contains($0.name) }
-            if !missing {
-                exercise.inLibrary = true
-                added += 1
-            }
+        guard !builtIns.isEmpty else { return }
+        // All-in-library = the pre-#185 default, not real curation.
+        guard !builtIns.allSatisfy(\.inLibrary) else { return }
+        for exercise in builtIns where exercise.inLibrary {
+            exercise.isFavorite = true
         }
-        return added
+        try? context.save()
     }
 
     /// Equipment-libraries migration: a store that predates
@@ -306,6 +308,106 @@ enum SeedData {
             "Hand Gripper", "Heavy Bag", "Agility Ladder",
             "Tibialis Bar", "Slant Board",
         ].map { Equipment(name: $0, isBuiltIn: true) }
+    }
+
+    // MARK: - Equipment categories (the catalog's type facet, 2026-07-17)
+
+    /// The equipment catalog's type buckets — user-facing chip labels.
+    /// App-side static data like `equipmentProfiles`: no model column,
+    /// no migration, no interchange ripple. Customs carry no category
+    /// and drop out under a type chip.
+    enum EquipmentCategory: String, CaseIterable {
+        case freeWeights = "Free weights"
+        case machines = "Machines"
+        case bandsStraps = "Bands & straps"
+        case cardio = "Cardio"
+        case bodyweightGear = "Bodyweight gear"
+    }
+
+    /// Every built-in name maps to exactly one category (accounting
+    /// enforced by `SeedDataTests` so catalog growth can't silently
+    /// skip the facet). Findability rules: a name containing "Machine"
+    /// buckets under Machines EXCEPT the Rowing Machine (purpose wins —
+    /// it's cardio); strongman implements, thrown/carried loads, and
+    /// loading accessories are Free weights; benches, racks, stations,
+    /// and bodyweight floor tools are Bodyweight gear.
+    static let equipmentCategories: [String: EquipmentCategory] = {
+        var table: [String: EquipmentCategory] = [:]
+        let buckets: [(EquipmentCategory, [String])] = [
+            (.freeWeights, [
+                "Barbell", "EZ Bar", "Trap Bar", "Dumbbells", "Kettlebell",
+                "Weight Plate", "Sandbag", "Safety Squat Bar", "Swiss Bar",
+                "Cambered Squat Bar", "Axle Bar", "Landmine",
+                "Sled", "Yoke", "Farmers Walk Handles", "Log Bar",
+                "Atlas Stone", "Circus Dumbbell", "Husafell Stone", "Tire",
+                "Sledgehammer", "Weightlifting Chains", "Macebell",
+                "Steel Club", "Bulgarian Bag", "Medicine Ball", "Slam Ball",
+                "Dip Belt", "Weight Vest", "Wrist Roller",
+            ]),
+            (.machines, [
+                "Smith Machine", "T-Bar Row Machine", "Belt Squat Machine",
+                "Pendulum Squat Machine", "Pullover Machine", "Cable Machine",
+                "Leg Press Machine", "Lat Pulldown Machine",
+                "Leg Extension Machine", "Leg Curl Machine",
+                "Calf Raise Machine", "Hack Squat Machine",
+                "Hip Thrust Machine", "Pec Deck Machine",
+                "Chest Press Machine", "Shoulder Press Machine",
+                "Seated Row Machine", "Hip Abduction Machine",
+                "Hip Adduction Machine", "Assisted Pull-Up Machine",
+                "Ab Crunch Machine", "Torso Rotation Machine",
+                "Lateral Raise Machine", "Bicep Curl Machine",
+                "Tricep Extension Machine", "Low Back Extension Machine",
+                "Multi-Hip Machine", "Glute Kickback Machine",
+                "Reverse Hyper Machine",
+            ]),
+            (.cardio, [
+                "Rowing Machine", "Stationary Bike", "Treadmill", "Air Bike",
+                "Ski Erg", "Elliptical", "Stair Climber", "Vertical Climber",
+                "Upper Body Ergometer", "Bicycle", "Jump Rope",
+                "Battle Ropes", "Agility Ladder", "Heavy Bag",
+            ]),
+            (.bandsStraps, [
+                "Suspension Trainer", "Gymnastic Rings", "Resistance Band",
+                "Climbing Rope",
+            ]),
+            (.bodyweightGear, [
+                "Squat Rack", "Bench", "Incline Bench", "Decline Bench",
+                "Preacher Bench", "Dip Station", "Pull-Up Bar",
+                "Back Extension Bench", "Glute-Ham Developer", "Nordic Bench",
+                "Sissy Squat Bench", "Captain's Chair", "Plyo Box",
+                "Parallettes", "Peg Board", "Stall Bars", "Stability Ball",
+                "Balance Trainer", "Ab Wheel", "Sliders", "Neck Harness",
+                "Hand Gripper", "Tibialis Bar", "Slant Board",
+            ]),
+        ]
+        for (category, names) in buckets {
+            for name in names { table[name] = category }
+        }
+        return table
+    }()
+
+    static func equipmentCategory(named name: String) -> EquipmentCategory? {
+        equipmentCategories[name]
+    }
+
+    // MARK: - Default kit rename ("Home" → "main", 2026-07-17)
+
+    /// One-shot: the default equipment kit is named `main` now (plain
+    /// first reading, git second reading; also activity-neutral where
+    /// "Home" wasn't). Renames an existing store's LONE, untouched
+    /// default only — a store with multiple kits, or a lone kit not
+    /// named "Home", is deliberate curation and is never touched.
+    /// Fresh installs get `main` straight from `ensureEquipmentLibrary`
+    /// via the renamed constant.
+    static let defaultKitRenameKey = "defaultKitRename1"
+
+    static func renameDefaultKitIfNeeded(context: ModelContext) {
+        guard !UserDefaults.standard.bool(forKey: defaultKitRenameKey) else { return }
+        UserDefaults.standard.set(true, forKey: defaultKitRenameKey)
+        let libraries = (try? context.fetch(FetchDescriptor<EquipmentLibrary>())) ?? []
+        guard libraries.count == 1, let lone = libraries.first, lone.name == "Home" else { return }
+        lone.name = EquipmentLibrary.defaultName
+        try? context.save()
     }
 
     // MARK: - Exercises

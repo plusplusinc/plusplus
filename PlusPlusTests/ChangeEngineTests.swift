@@ -311,12 +311,16 @@ struct ChangeEngineTests {
         #expect(try context.fetch(FetchDescriptor<Exercise>()).count == 1)
     }
 
-    @Test("Custom delete removes entries; built-in delete leaves the library")
+    @Test("Custom delete removes entries; deleting a favorited built-in unfavorites it")
     func deleteExercises() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let custom = makeExercise("Probe Custom Curl", profile: .weightReps, in: context)
         let builtIn = makeExercise("Probe Built-In Row", profile: .weightReps, builtIn: true, in: context)
+        // A favorited built-in: "delete" means remove from favorites (the
+        // catalog keeps it) — the whole-catalog successor to leaving the
+        // library.
+        builtIn.isFavorite = true
         let routine = Routine(name: "Probe Arms", order: 0)
         context.insert(routine)
         routine.addExerciseInNewGroup(custom, context: context)
@@ -327,16 +331,17 @@ struct ChangeEngineTests {
             operation: .delete, entity: .exercise,
             targets: ["Probe Custom Curl", "Probe Built-In Row"]
         )))
-        // The custom is gone and left no ghost entry behind.
+        // The custom is gone and left no ghost entry behind; the built-in
+        // stays in the catalog, unfavorited.
         let exercises = try context.fetch(FetchDescriptor<Exercise>())
         #expect(exercises.map(\.name) == ["Probe Built-In Row"])
-        #expect(builtIn.inLibrary == false)
+        #expect(builtIn.isFavorite == false)
         #expect(routine.sortedGroups.isEmpty)
 
         _ = try applied(engine.undo(change.inverse))
         let names = try context.fetch(FetchDescriptor<Exercise>(sortBy: [SortDescriptor(\.name)])).map(\.name)
         #expect(names == ["Probe Built-In Row", "Probe Custom Curl"])
-        #expect(builtIn.inLibrary == true)
+        #expect(builtIn.isFavorite == true)
         #expect(routine.sortedGroups.first?.sortedExercises.compactMap { $0.exercise?.name } == ["Probe Custom Curl"])
     }
 
@@ -381,6 +386,120 @@ struct ChangeEngineTests {
         // The active-library pointer stores the uuid; the undone library
         // must come back under its ORIGINAL identity.
         #expect(libraries.last?.uuid == originalUUID)
+    }
+
+    @Test("Gear deltas edit membership without a replace, and undo restores")
+    func libraryGearDeltas() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let home = EquipmentLibrary(name: "Probe Home", order: 0)
+        context.insert(home)
+        let band = Equipment(name: "Probe Band")
+        let rope = Equipment(name: "Probe Rope")
+        context.insert(band)
+        context.insert(rope)
+        home.setMembership(band, true)
+        try context.save()
+        let engine = ChangeEngine(context: context)
+
+        // "add the rope" arrives in the model's casing; the receipt
+        // speaks the catalog's, and the untouched member stays put.
+        let change = try applied(engine.propose(ChangeSpec(
+            operation: .update, entity: .library, targets: ["Probe Home"],
+            values: ChangeValues(addEquipment: ["probe rope"])
+        )))
+        #expect(change.receipt.summary == "Probe Home: added Probe Rope.")
+        #expect(home.members.map(\.name).sorted() == ["Probe Band", "Probe Rope"])
+
+        _ = try applied(engine.undo(change.inverse))
+        #expect(home.members.map(\.name) == ["Probe Band"])
+
+        let removal = try applied(engine.propose(ChangeSpec(
+            operation: .update, entity: .library, targets: ["Probe Home"],
+            values: ChangeValues(removeEquipment: ["Probe Band"])
+        )))
+        #expect(removal.receipt.summary == "Probe Home: removed Probe Band.")
+        #expect(home.members.isEmpty)
+    }
+
+    @Test("A library update naming no target lands on the ACTIVE library")
+    func libraryUpdateDefaultsToActive() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let home = EquipmentLibrary(name: "Probe Home", order: 0)
+        let hotel = EquipmentLibrary(name: "Probe Hotel", order: 1)
+        context.insert(home)
+        context.insert(hotel)
+        let rope = Equipment(name: "Probe Rope")
+        context.insert(rope)
+        try context.save()
+        let engine = ChangeEngine(context: context)
+        // The SECOND library is active (proving "active", not "first by
+        // order") via the injection seam — the real resolver reads
+        // process-global UserDefaults, which parallel suites race on.
+        engine.activeLibrary = { all in all.first { $0.name == "Probe Hotel" } }
+
+        // "Remove the barbell from my equipment" never names a library;
+        // the spec arrives target-less and must land on the active one.
+        let change = try applied(engine.propose(ChangeSpec(
+            operation: .update, entity: .library,
+            values: ChangeValues(addEquipment: ["Probe Rope"])
+        )))
+        #expect(change.receipt.summary == "Probe Hotel: added Probe Rope.")
+        #expect(hotel.members.map(\.name) == ["Probe Rope"])
+        #expect(home.members.isEmpty)
+
+        // A target-less membership REPLACE stages — and the preview's
+        // spec must carry the resolved library PINNED into targets, so
+        // Apply hits the subject the card named even if the active
+        // pointer moves between staging and tapping.
+        let preview = try staged(engine.propose(ChangeSpec(
+            operation: .update, entity: .library,
+            values: ChangeValues(equipment: ["Probe Rope"])
+        )))
+        #expect(preview.spec.targets == ["Probe Hotel"])
+
+        // A target-less DELETE stays invalid — the default is for
+        // updates only.
+        let outcome = engine.propose(ChangeSpec(operation: .delete, entity: .library))
+        guard case .invalid = outcome else {
+            Issue.record("expected invalid, got \(outcome)")
+            return
+        }
+    }
+
+    @Test("Replacing a library's gear list previews, names the after state, applies on confirm")
+    func libraryGearReplacePreviews() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let home = EquipmentLibrary(name: "Probe Home", order: 0)
+        context.insert(home)
+        let band = Equipment(name: "Probe Band")
+        let rope = Equipment(name: "Probe Rope")
+        let bench = Equipment(name: "Probe Bench")
+        context.insert(band)
+        context.insert(rope)
+        context.insert(bench)
+        home.setMembership(band, true)
+        home.setMembership(rope, true)
+        try context.save()
+        let engine = ChangeEngine(context: context)
+
+        // A whole-list restatement removes whatever it omits, so even
+        // one library previews — and the card says what the list BECOMES.
+        let preview = try staged(engine.propose(ChangeSpec(
+            operation: .update, entity: .library, targets: ["Probe Home"],
+            values: ChangeValues(equipment: ["Probe Bench"])
+        )))
+        #expect(preview.headline == "Changes 1 library")
+        #expect(preview.lines.contains("gear becomes Probe Bench"))
+        #expect(home.members.map(\.name).sorted() == ["Probe Band", "Probe Rope"])
+
+        let change = try applied(engine.applyStaged(preview.spec))
+        #expect(home.members.map(\.name) == ["Probe Bench"])
+
+        _ = try applied(engine.undo(change.inverse))
+        #expect(home.members.map(\.name).sorted() == ["Probe Band", "Probe Rope"])
     }
 
     // MARK: - Supersets

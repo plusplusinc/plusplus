@@ -251,6 +251,37 @@ public enum WorkoutMetric: String, Codable, CaseIterable, Sendable, Identifiable
         return clamped(value - (stepOverride ?? step(weightUnit: weightUnit, distanceUnit: distanceUnit)), weightUnit: weightUnit, distanceUnit: distanceUnit)
     }
 
+    /// Preset per-tap increments offered when someone changes a metric's
+    /// stepper stride mid-workout (the increment sheet). Real, plate-shaped
+    /// numbers, unit-aware — weight/assist span microplate to full-plate
+    /// loads; the rest bracket their own default `step`. The current
+    /// resolved step is folded in by the caller when it isn't already here
+    /// (a custom gear stride like 1.25), so the list never hides the value
+    /// that's actually in force. Every entry is finite and positive.
+    public func stepChoices(weightUnit: WeightUnit = .lb, distanceUnit: DistanceUnit = .meters) -> [Double] {
+        switch self {
+        case .weight, .assistance:
+            return weightUnit == .kg ? [0.5, 1, 1.25, 2.5, 5, 10, 20] : [1, 2.5, 5, 10, 25, 45]
+        case .reps: return [1, 2, 5]
+        case .height: return weightUnit == .kg ? [1, 2.5, 5] : [1, 2, 5]
+        case .distance:
+            switch distanceUnit {
+            case .meters: return [25, 50, 100, 250, 500]
+            case .kilometers, .miles: return [0.1, 0.25, 0.5, 1]
+            }
+        case .calories: return [1, 5, 10, 25]
+        case .duration: return [5, 15, 30, 60]
+        case .pace: return distanceUnit == .meters ? [1, 2, 5] : [5, 10, 15]
+        case .speed: return [0.1, 0.5, 1]
+        case .incline: return [0.5, 1, 2]
+        case .resistance: return [1, 2, 5]
+        case .power: return [5, 10, 25]
+        case .cadence: return [1, 5, 10]
+        case .rpe: return [0.5, 1]
+        case .rest, .transition: return [5, 15, 30]
+        }
+    }
+
     /// Duration covers a full hour, so its wheel coarsens as values grow:
     /// 5 s steps for short holds, 15 s steps to ten minutes, then whole
     /// minutes. A uniform 5 s stride to 3600 would be a 720-row wheel.

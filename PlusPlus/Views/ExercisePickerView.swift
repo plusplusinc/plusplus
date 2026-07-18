@@ -33,57 +33,37 @@ struct ExercisePickerView: View {
     @State private var showingMuscleGroupFilter = false
     @State private var showingEquipmentFilter = false
     @State private var showingCreateSheet = false
-    @State private var showingCatalog = false
     @State private var editingExercise: Exercise?
     @State private var deletionCandidate: Exercise?
 
-    /// Every row here is a library/custom row, and curated rows are
-    /// never hidden, only flagged (#113) — so the ownership hide does
-    /// NOT apply in the picker. Before #232 this was dormant (fresh
-    /// stores owned everything); with opt-in ownership it would have
-    /// hidden the user's own exercises behind gear they hadn't picked
-    /// yet (swift-reviewer catch on the #232 diff).
+    /// The whole catalog (2026-07-17), favorites first so what you reach
+    /// for surfaces when building a routine. Never availability-hides —
+    /// missing gear is flagged on the row, not hidden.
     private var candidates: [Exercise] {
-        filterState.filteredExercises(
-            from: allExercises.filter { $0.inLibrary || !$0.isBuiltIn },
-            available: availableEquipmentNames,
-            overridingShowUnavailable: true
-        )
-    }
-
-    private var libraryCount: Int {
-        allExercises.count { $0.inLibrary || !$0.isBuiltIn }
+        let base = filterState.filteredExercises(from: allExercises, kitNames: availableEquipmentNames)
+        // Stable favorites-first partition (Swift's sort isn't stable).
+        return base.filter(\.isFavorite) + base.filter { !$0.isFavorite }
     }
 
     private var anyNarrowingActive: Bool {
         !filterState.searchText.isEmpty
             || !filterState.selectedMuscleGroups.isEmpty
             || !filterState.selectedEquipment.isEmpty
+            || filterState.favoritesOnly
     }
 
     var body: some View {
         NavigationStack {
             List {
-                // Post-#232 an empty library is the fresh-install
-                // default, and this sheet was its dead end (#246 —
-                // both audits' top finding): say where exercises come
-                // from instead of rendering a blank list whose only
-                // action authors a custom from scratch.
+                // The whole catalog is always here, so an empty list is
+                // only ever a zeroed filter/search — say so, and the
+                // New Exercise toolbar key covers "not in the catalog".
                 if candidates.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        // "Empty" only when it truly is — filters and
-                        // search zeroing the list get their own words
-                        // (swift-reviewer catch: a muscle chip could
-                        // make a 150-exercise library claim emptiness).
-                        Text(anyNarrowingActive ? "Nothing in your library matches" : "Your library is empty")
-                            .font(.system(.subheadline, weight: .semibold))
-                            .foregroundStyle(Theme.textPrimary)
-                        Text("Pick from the catalog — anything you use joins your library on its own.")
-                            .font(.system(.footnote))
-                            .foregroundStyle(Theme.textSecondary)
-                    }
-                    .padding(.vertical, 8)
-                    .listRowSeparator(.hidden)
+                    Text("Nothing matches these filters.")
+                        .font(.system(.footnote))
+                        .foregroundStyle(Theme.textSecondary)
+                        .padding(.vertical, 8)
+                        .listRowSeparator(.hidden)
                 }
                 ForEach(candidates) { exercise in
                     Button {
@@ -110,39 +90,6 @@ struct ExercisePickerView: View {
                             }
                         }
                     }
-                }
-                // The catalog escape (#246): persistent while the
-                // LIBRARY is thin (unfiltered — the contract is about
-                // the library, not the current search), and on any
-                // zero state (a searched-for exercise may live in the
-                // catalog un-added). The picker's library contract
-                // holds: catalog rows never mix in.
-                if libraryCount < 5 || candidates.isEmpty {
-                    Button {
-                        showingCatalog = true
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "plus")
-                                .font(.system(.caption, weight: .semibold))
-                            Text("From the catalog…")
-                                .font(.system(.footnote, weight: .semibold))
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.6)
-                        }
-                        // Creation is green (#202).
-                        .foregroundStyle(Theme.accent)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 12)
-                        .frame(minHeight: 48)
-                        .contentShape(Rectangle())
-                        .overlay(
-                            RoundedRectangle(cornerRadius: Theme.controlRadius)
-                                .strokeBorder(Theme.borderStrong)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("pickerCatalogButton")
-                    .listRowSeparator(.hidden)
                 }
             }
             // Plain list on the warm background, matching the Library
@@ -178,14 +125,6 @@ struct ExercisePickerView: View {
                     prefillMuscleGroup: filterState.prefillMuscleGroup,
                     prefillEquipment: filterState.prefillEquipment
                 )
-            }
-            // The catalog browser is a pushed page by design; inside
-            // this sheet it gets its own stack. Toggling membership
-            // there updates the @Query-driven list live on return.
-            .sheet(isPresented: $showingCatalog) {
-                NavigationStack {
-                    CatalogBrowseScreen(kind: .exercises)
-                }
             }
             .sheet(item: $editingExercise) { exercise in
                 ExerciseEditorView(editing: exercise)
@@ -243,8 +182,7 @@ struct ExercisePickerView: View {
                 // escape hatch would be a dead switch.
                 EquipmentFilterSheet(
                     filterState: filterState,
-                    allEquipment: EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.members.sorted { $0.name < $1.name } ?? [],
-                    showsAvailabilityToggle: false
+                    allEquipment: EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.members.sorted { $0.name < $1.name } ?? []
                 )
                 .presentationDetents([.medium, .large])
             }
@@ -313,7 +251,9 @@ private struct FilterBar: View {
     @Binding var showingEquipmentFilter: Bool
 
     private var anyFilterActive: Bool {
-        !filterState.selectedMuscleGroups.isEmpty || !filterState.selectedEquipment.isEmpty
+        !filterState.selectedMuscleGroups.isEmpty
+            || !filterState.selectedEquipment.isEmpty
+            || filterState.favoritesOnly
     }
 
     var body: some View {
@@ -323,7 +263,11 @@ private struct FilterBar: View {
                     ClearAllChip {
                         filterState.selectedMuscleGroups = []
                         filterState.selectedEquipment = []
+                        filterState.favoritesOnly = false
                     }
+                }
+                SelectableChip(label: "Favorites", isSelected: filterState.favoritesOnly) {
+                    filterState.favoritesOnly.toggle()
                 }
                 TrayFilterChip(
                     facet: "MUSCLE",
@@ -405,10 +349,6 @@ struct EquipmentFilterSheet: View {
     @Environment(\.dismiss) private var dismiss
     var filterState: ExerciseFilterState
     let allEquipment: [Equipment]
-    /// The catalog browser availability-hides and needs the escape
-    /// hatch; the picker doesn't hide, so it passes false (a toggle that
-    /// does nothing reads as broken).
-    var showsAvailabilityToggle = true
 
     @State private var showingEquipmentEditor = false
 
@@ -433,7 +373,7 @@ struct EquipmentFilterSheet: View {
                         // An empty active library is the fresh-install
                         // default (#232) — say why the tray is empty
                         // instead of rendering a bare toggle under nothing.
-                        Text("This filters by the gear in your library. Add what you have on the Equipment tab and it shows up here.")
+                        Text("This filters by the gear in your kit. Add what you have on the Equipment tab and it shows up here.")
                             .font(.system(.footnote))
                             .foregroundStyle(Theme.textSecondary)
                             .padding(.vertical, 14)
@@ -451,22 +391,6 @@ struct EquipmentFilterSheet: View {
                         .padding(.vertical)
                     }
 
-                    // The availability escape hatch lives here now (§H) —
-                    // it left the crowded catalog top area.
-                    if showsAvailabilityToggle {
-                        Toggle(isOn: Bindable(filterState).showUnavailable) {
-                            Text("Include gear I don't have")
-                                .font(.system(.footnote))
-                                .foregroundStyle(Theme.textPrimary)
-                        }
-                        .tint(Theme.selected)
-                        .padding(.horizontal, 14)
-                        .frame(minHeight: 52)
-                        .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
-                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
-                        .accessibilityIdentifier("showUnavailableToggle")
-                    }
-
                     // Fix the filter's basis in place (#260): the
                     // options above ARE your equipment — edit it here
                     // instead of backing out to the Equipment tab.
@@ -478,87 +402,12 @@ struct EquipmentFilterSheet: View {
             }
             .sheet(isPresented: $showingEquipmentEditor) {
                 NavigationStack {
-                    CatalogBrowseScreen(kind: .equipment)
+                    EquipmentCatalogScreen()
                 }
             }
         }
         .padding(.horizontal, 18)
         .presentationBackground(Theme.surface)
-    }
-}
-
-// MARK: - Selectable Chip
-
-private struct SelectableChip: View {
-    let label: String
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            // Solid selected blue (#210): one prominent toggled-on look
-            // everywhere; ink fills stay reserved for actions.
-            Text(label)
-                .font(.system(.footnote, weight: .semibold))
-                .padding(.horizontal, 14)
-                .frame(height: 36)
-                .background(isSelected ? Theme.selected : Color.clear)
-                .foregroundStyle(isSelected ? Theme.onSelected : Theme.textPrimary)
-                .clipShape(Capsule())
-                .overlay(Capsule().strokeBorder(isSelected ? Color.clear : Theme.borderStrong, lineWidth: 1))
-                .padding(4)
-                .contentShape(Rectangle())
-        }
-        .animation(Theme.Anim.selection, value: isSelected)
-        .sensoryFeedback(.selection, trigger: isSelected)
-    }
-}
-
-// MARK: - Flow Layout
-
-private struct FlowLayout: Layout {
-    var spacing: CGFloat = 8
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let rows = computeRows(proposal: proposal, subviews: subviews)
-        var height: CGFloat = 0
-        for (index, row) in rows.enumerated() {
-            height += row.map { $0.sizeThatFits(.unspecified).height }.max() ?? 0
-            if index < rows.count - 1 { height += spacing }
-        }
-        return CGSize(width: proposal.width ?? 0, height: height)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let rows = computeRows(proposal: proposal, subviews: subviews)
-        var y = bounds.minY
-        for row in rows {
-            let rowHeight = row.map { $0.sizeThatFits(.unspecified).height }.max() ?? 0
-            var x = bounds.minX
-            for subview in row {
-                let size = subview.sizeThatFits(.unspecified)
-                subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
-                x += size.width + spacing
-            }
-            y += rowHeight + spacing
-        }
-    }
-
-    private func computeRows(proposal: ProposedViewSize, subviews: Subviews) -> [[LayoutSubviews.Element]] {
-        let maxWidth = proposal.width ?? .infinity
-        var rows: [[LayoutSubviews.Element]] = [[]]
-        var currentWidth: CGFloat = 0
-
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if currentWidth + size.width > maxWidth && !rows[rows.count - 1].isEmpty {
-                rows.append([])
-                currentWidth = 0
-            }
-            rows[rows.count - 1].append(subview)
-            currentWidth += size.width + spacing
-        }
-        return rows
     }
 }
 

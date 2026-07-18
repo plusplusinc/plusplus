@@ -21,6 +21,11 @@ final class ChangeEngine {
     /// reconcile). Injected so unit tests observe invocations without
     /// the live singletons; the chat surface wires the real ones.
     var afterApply: (ModelContext) -> Void
+    /// Active-library resolution seam: production reads the device
+    /// pointer, tests inject — the pointer lives in process-global
+    /// UserDefaults, and parallel test suites racing on that key made
+    /// the default's receipt flake (reviewer finding, 2026-07-16).
+    var activeLibrary: ([EquipmentLibrary]) -> EquipmentLibrary? = { EquipmentLibrary.active(in: $0) }
 
     init(context: ModelContext, afterApply: @escaping (ModelContext) -> Void = { _ in }) {
         self.context = context
@@ -91,7 +96,11 @@ final class ChangeEngine {
                 let summary = resolution.previewSummary()
                 return .staged(ChangePreview(
                     id: UUID(),
-                    spec: spec,
+                    // The RESOLUTION's spec, not the raw one: resolve
+                    // may have pinned an ambient default (the active
+                    // library) into targets so Apply hits the same
+                    // subject the card names.
+                    spec: resolution.spec,
                     headline: summary.headline,
                     lines: summary.lines,
                     affectedCount: resolution.affectedCount
@@ -179,7 +188,10 @@ final class ChangeEngine {
     /// Everything an apply needs, computed up front so tiering and
     /// previews describe exactly what apply would touch.
     private struct Resolution {
-        let spec: ChangeSpec
+        /// var, not let: resolving an ambient default (the active
+        /// library) PINS the resolved name into the spec so a staged
+        /// copy re-resolves to the same subject at Apply time.
+        var spec: ChangeSpec
         var routines: [Routine] = []
         var exercises: [Exercise] = []
         var libraries: [EquipmentLibrary] = []
@@ -192,6 +204,9 @@ final class ChangeEngine {
         var cascadeEntries: [RoutineExercise] = []
         /// Resolved gear for values.equipment.
         var equipment: [Equipment] = []
+        /// Resolved gear for the library membership deltas.
+        var equipmentToAdd: [Equipment] = []
+        var equipmentToRemove: [Equipment] = []
         /// Resolved exercises for routine addExercises.
         var exercisesToAdd: [Exercise] = []
 
@@ -214,7 +229,8 @@ final class ChangeEngine {
                 entity: spec.entity,
                 affectedCount: affectedCount,
                 changesTracking: values.trackBy != nil,
-                cascadesToEntries: !cascadeEntries.isEmpty
+                cascadesToEntries: !cascadeEntries.isEmpty,
+                replacesMembership: spec.entity == .library && values.equipment != nil
             )
         }
 
@@ -242,6 +258,16 @@ final class ChangeEngine {
             if let name = values.name { changes.append("renamed to \(name)") }
             if let rest = values.restSeconds { changes.append("rest \(rest) s") }
             if let sets = values.sets { changes.append("\(sets) sets") }
+            // A membership replacement previews with the FULL after
+            // state: what the spec omitted is exactly what leaves.
+            if spec.entity == .library, spec.operation == .update, values.equipment != nil {
+                let newNames = equipment.map(\.name)
+                if let line = ChangePreviewSummary.samplesLine(names: newNames, total: newNames.count) {
+                    changes.append("gear becomes \(line)")
+                } else {
+                    changes.append("gear list cleared")
+                }
+            }
             if spec.operation == .delete, spec.entity == .exercise {
                 let builtIns = exercises.filter(\.isBuiltIn).count
                 let customs = exercises.count - builtIns
@@ -269,22 +295,36 @@ final class ChangeEngine {
         var resolution = Resolution(spec: spec)
         let values = spec.values ?? ChangeValues()
 
-        // values.equipment resolves against existing gear for exercises
-        // and libraries alike — Operator references gear, it doesn't
-        // invent it.
-        if let gearNames = values.equipment {
+        // Gear name lists (the replace AND the membership deltas)
+        // resolve against existing equipment — Operator references gear,
+        // it doesn't invent it.
+        if values.equipment != nil || values.addEquipment != nil || values.removeEquipment != nil {
             let allGear = try context.fetch(FetchDescriptor<Equipment>())
-            var resolvedGear: [Equipment] = []
-            for name in gearNames {
-                switch match(name: name, in: allGear, by: \.name) {
-                case .one(let item): resolvedGear.append(item)
-                case .many:
-                    return .failure("equipment \(name) is ambiguous")
-                case .none:
-                    return .failure("no equipment named \(name)\(closestText(name, in: allGear.map(\.name)))")
+            func resolveGear(_ names: [String]) -> Selection<[Equipment]> {
+                var resolvedGear: [Equipment] = []
+                for name in names {
+                    switch match(name: name, in: allGear, by: \.name) {
+                    case .one(let item): resolvedGear.append(item)
+                    case .many:
+                        return .failure("equipment \(name) is ambiguous")
+                    case .none:
+                        return .failure("no equipment named \(name)\(closestText(name, in: allGear.map(\.name)))")
+                    }
+                }
+                return .success(resolvedGear)
+            }
+            let gearFields: [([String]?, WritableKeyPath<Resolution, [Equipment]>)] = [
+                (values.equipment, \.equipment),
+                (values.addEquipment, \.equipmentToAdd),
+                (values.removeEquipment, \.equipmentToRemove),
+            ]
+            for (names, keyPath) in gearFields {
+                guard let names else { continue }
+                switch resolveGear(names) {
+                case .failure(let reason): return .failure(reason)
+                case .success(let gear): resolution[keyPath: keyPath] = gear
                 }
             }
-            resolution.equipment = resolvedGear
         }
 
         switch spec.entity {
@@ -405,12 +445,29 @@ final class ChangeEngine {
                 }
                 return .success(resolution)
             }
-            switch selectNamed(spec: spec, from: all, by: \.name, matchesFilter: { library, filter in
-                guard let fragment = filter.normalizedNameContains else { return !filter.isEmpty }
-                return library.name.localizedCaseInsensitiveContains(fragment)
-            }) {
-            case .failure(let reason): return .failure(reason)
-            case .success(let matched): resolution.libraries = matched
+            // An update naming no library means "my equipment": it
+            // resolves to the ACTIVE library, the scope every other
+            // gear read in the app already uses. Deletes never default.
+            if spec.operation == .update, spec.targets.isEmpty, spec.filter?.isEmpty != false {
+                guard let active = activeLibrary(all) else {
+                    return .failure("no libraries yet")
+                }
+                resolution.libraries = [active]
+                // PIN the resolved subject into the spec: a staged
+                // membership replace re-resolves at Apply time, and an
+                // ambient-state default re-read then could land on a
+                // DIFFERENT library than the preview named (switch the
+                // active library mid-preview). Named targets re-resolve
+                // to the same subject; ambient defaults don't.
+                resolution.spec.targets = [active.name]
+            } else {
+                switch selectNamed(spec: spec, from: all, by: \.name, matchesFilter: { library, filter in
+                    guard let fragment = filter.normalizedNameContains else { return !filter.isEmpty }
+                    return library.name.localizedCaseInsensitiveContains(fragment)
+                }) {
+                case .failure(let reason): return .failure(reason)
+                case .success(let matched): resolution.libraries = matched
+                }
             }
             if resolution.libraries.isEmpty { return .failure("no matching libraries") }
             if spec.operation == .delete, resolution.libraries.count >= all.count {
@@ -602,14 +659,36 @@ final class ChangeEngine {
             for library in resolution.libraries {
                 inverse.librarySnapshots.append(LibrarySnapshot(library: library))
             }
+            // The receipt reports what actually FLIPPED, not what was
+            // asked: adding gear a library already has is a no-op, and
+            // a receipt claiming "added" for it would overstate.
+            var addedNames: [String] = []
+            var removedNames: [String] = []
             for library in resolution.libraries {
                 if let newName = ChangeFilter.normalized(values.name) { library.name = newName }
                 if values.equipment != nil {
                     for member in library.members { library.setMembership(member, false) }
                     for item in resolution.equipment { library.setMembership(item, true) }
                 }
+                // Deltas after the replace, so a (validated-against, but
+                // defensively ordered) combination still lands additive.
+                for item in resolution.equipmentToAdd {
+                    if !library.contains(item), !addedNames.contains(item.name) { addedNames.append(item.name) }
+                    library.setMembership(item, true)
+                }
+                for item in resolution.equipmentToRemove {
+                    if library.contains(item), !removedNames.contains(item.name) { removedNames.append(item.name) }
+                    library.setMembership(item, false)
+                }
             }
-            summary = updateSummary(names: subjectNames, values: values)
+            let deltaRequested = values.addEquipment != nil || values.removeEquipment != nil
+            summary = updateSummary(
+                names: subjectNames,
+                values: values,
+                addedGear: addedNames,
+                removedGear: removedNames,
+                deltaWasNoOp: deltaRequested && addedNames.isEmpty && removedNames.isEmpty
+            )
             destinations = [.equipmentTab]
 
         case (.delete, .routine):
@@ -623,10 +702,13 @@ final class ChangeEngine {
             summary = "Deleted \(names.joined(separator: ", "))."
 
         case (.delete, .exercise):
-            // Built-ins leave the library (the catalog keeps them);
-            // customs actually delete, taking their routine entries along
-            // rather than leaving ghost rows.
-            var removedFromLibrary = 0
+            // A built-in can't be deleted — the whole catalog is always
+            // there. If it's favorited, honor the delete as "remove from
+            // favorites"; otherwise there is nothing to do. Customs
+            // actually delete, taking their routine entries along rather
+            // than leaving ghost rows.
+            var unfavorited = 0
+            var keptBuiltIns = 0
             var deleted = 0
             let customIDs = Set(resolution.exercises.filter { !$0.isBuiltIn }.map(\.persistentModelID))
             let affectedRoutines = orderedUnique(resolution.cascadeEntries.compactMap { entry -> Routine? in
@@ -638,9 +720,13 @@ final class ChangeEngine {
             }
             for exercise in resolution.exercises {
                 if exercise.isBuiltIn {
-                    inverse.exerciseSnapshots.append(ExerciseSnapshot(exercise: exercise))
-                    exercise.inLibrary = false
-                    removedFromLibrary += 1
+                    if exercise.isFavorite {
+                        inverse.exerciseSnapshots.append(ExerciseSnapshot(exercise: exercise))
+                        exercise.isFavorite = false
+                        unfavorited += 1
+                    } else {
+                        keptBuiltIns += 1
+                    }
                 } else {
                     inverse.recreateExercises.append(InterchangeMapping.makeDTO(exercise))
                     for entry in resolution.cascadeEntries where entry.exercise === exercise {
@@ -652,8 +738,9 @@ final class ChangeEngine {
             }
             var parts: [String] = []
             if deleted > 0 { parts.append("deleted \(deleted) custom\(deleted == 1 ? "" : "s")") }
-            if removedFromLibrary > 0 { parts.append("\(removedFromLibrary) built-in\(removedFromLibrary == 1 ? "" : "s") left the library") }
-            summary = capitalizedFirst(parts.joined(separator: " · ")) + "."
+            if unfavorited > 0 { parts.append("removed \(unfavorited) built-in\(unfavorited == 1 ? "" : "s") from favorites") }
+            if keptBuiltIns > 0 { parts.append("\(keptBuiltIns) built-in\(keptBuiltIns == 1 ? "" : "s") stayed in the catalog") }
+            summary = parts.isEmpty ? "Nothing to delete." : capitalizedFirst(parts.joined(separator: " · ")) + "."
             destinations = [.exercisesTab]
 
         case (.delete, .library):
@@ -807,8 +894,10 @@ final class ChangeEngine {
     }
 
     /// `names` are the PRE-mutation names, captured before the apply
-    /// loop, so a rename can say what the thing was called.
-    private func updateSummary(names: [String], values: ChangeValues) -> String {
+    /// loop, so a rename can say what the thing was called. Gear deltas
+    /// arrive RESOLVED (canonical casing), so the receipt speaks the
+    /// catalog's name for the thing, not the model's.
+    private func updateSummary(names: [String], values: ChangeValues, addedGear: [String] = [], removedGear: [String] = [], deltaWasNoOp: Bool = false) -> String {
         if let name = ChangeFilter.normalized(values.name), names.count == 1 {
             return names[0].compare(name, options: .caseInsensitive) == .orderedSame
                 ? "Renamed to \(name)."
@@ -823,6 +912,13 @@ final class ChangeEngine {
         if let rest = values.restSeconds { parts.append("rest \(rest) s") }
         if let sets = values.sets { parts.append("\(sets) sets") }
         if values.equipment != nil { parts.append("gear updated") }
+        if let line = ChangePreviewSummary.samplesLine(names: addedGear, total: addedGear.count) {
+            parts.append("added \(line)")
+        }
+        if let line = ChangePreviewSummary.samplesLine(names: removedGear, total: removedGear.count) {
+            parts.append("removed \(line)")
+        }
+        if deltaWasNoOp { parts.append("already set that way") }
         if values.notes != nil { parts.append("notes updated") }
         if let added = values.addExercises, !added.isEmpty { parts.append("added \(added.count)") }
         if let removed = values.removeExercises, !removed.isEmpty { parts.append("removed \(removed.count)") }

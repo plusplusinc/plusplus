@@ -305,7 +305,6 @@ struct SessionTests {
         #expect(entry.weight == 100)
         #expect(entry.reps == 8)
         #expect(entry.repsUpper == nil)
-        #expect(press.inLibrary, "referenced exercises join the library")
         #expect(session.routine === routine)
         #expect(session.routineName == "Scratch workout 2")
         #expect(sibling.order == 1, "siblings shift down like every other creation path")

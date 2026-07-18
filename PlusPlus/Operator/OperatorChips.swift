@@ -4,10 +4,13 @@ import Foundation
 /// chosen DETERMINISTICALLY from app state — no model call, no
 /// hallucination surface; the chips teach what Operator can do and
 /// make the view-context feature visible.
+///
+/// The pill's text IS the prompt it sends, verbatim (Dave, build-85
+/// design round: what you tap is what you say) — so every string here
+/// must read well on a pill AND dispatch well on the 3B model.
 struct OperatorChip: Identifiable, Equatable {
-    let label: String
-    let prompt: String
-    var id: String { label }
+    let text: String
+    var id: String { text }
 }
 
 enum OperatorChips {
@@ -19,55 +22,28 @@ enum OperatorChips {
         // The visible screen gets the first, most specific slot.
         if let detail, detail.hasPrefix("routines/") {
             let name = String(detail.dropFirst("routines/".count))
-            chips.append(OperatorChip(
-                label: "Balance this routine",
-                prompt: "Which muscle groups does \(name) miss?"
-            ))
-            chips.append(OperatorChip(
-                label: "Add a stretch block",
-                prompt: "Add two stretches to \(name)"
-            ))
+            chips.append(OperatorChip(text: "Which muscle groups does \(name) miss?"))
+            chips.append(OperatorChip(text: "Add two stretches to \(name)"))
         } else {
             switch tab {
             case "routines":
-                chips.append(OperatorChip(
-                    label: "Build a routine",
-                    prompt: "Create a 30 minute full body routine from my exercises"
-                ))
+                chips.append(OperatorChip(text: "Create a full body routine from my exercises"))
             case "exercises":
-                chips.append(OperatorChip(
-                    label: "Stretches to duration",
-                    prompt: "Make all my rep-based stretches duration-based instead"
-                ))
+                chips.append(OperatorChip(text: "Make my rep-based stretches duration-based"))
             case "equipment":
-                chips.append(OperatorChip(
-                    label: "New gear list",
-                    prompt: "Create an equipment library called Travel"
-                ))
+                chips.append(OperatorChip(text: "Create an equipment library called Travel"))
             default:
-                chips.append(OperatorChip(
-                    label: "What's my week look like?",
-                    prompt: "Which routines are scheduled this week?"
-                ))
+                chips.append(OperatorChip(text: "What's scheduled this week?"))
             }
         }
 
         if hasHistory {
-            chips.append(OperatorChip(
-                label: "Last 30 days",
-                prompt: "How many workouts did I do in the last 30 days?"
-            ))
+            chips.append(OperatorChip(text: "How many workouts in the last 30 days?"))
             if chips.count < 3 {
-                chips.append(OperatorChip(
-                    label: "Streak check",
-                    prompt: "What's my current streak?"
-                ))
+                chips.append(OperatorChip(text: "What's my current streak?"))
             }
         } else {
-            chips.append(OperatorChip(
-                label: "What can you do?",
-                prompt: "What can you help me with?"
-            ))
+            chips.append(OperatorChip(text: "What can you help me with?"))
         }
 
         return Array(chips.prefix(3))

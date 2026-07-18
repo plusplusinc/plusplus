@@ -144,7 +144,7 @@ struct ExerciseDetailScreen: View {
                     SheetSectionLabel("EQUIPMENT")
                         .padding(.top, 24)
                     if exercise.equipment.isEmpty {
-                        Text("Bodyweight — no equipment needed.")
+                        Text("Bodyweight. No equipment needed.")
                             .font(.system(.caption))
                             .foregroundStyle(Theme.textFaint)
                     } else {
@@ -153,7 +153,7 @@ struct ExerciseDetailScreen: View {
                             ForEach(Array(items.enumerated()), id: \.element.persistentModelID) { index, equipment in
                                 CrossRefRow(
                                     title: equipment.name,
-                                    meta: availableEquipmentNames.contains(equipment.name) ? "" : "not in library"
+                                    meta: availableEquipmentNames.contains(equipment.name) ? "" : "not in kit"
                                 ) {
                                     path = .equipment(equipment)
                                 }
@@ -220,20 +220,6 @@ struct ExerciseDetailScreen: View {
                         }
                         .padding(.bottom, 7)
                     }
-                    // Membership as a visible primary action (#265):
-                    // buried in the … menu, adding a catalog exercise
-                    // read as impossible. Adjacent to — not replacing —
-                    // the create row (different intents, and routine
-                    // use auto-joins the library anyway); the row
-                    // disappearing on tap IS the confirmation. Removal
-                    // stays in the … menu: destructive actions live
-                    // there (#241).
-                    if exercise.isBuiltIn && !exercise.inLibrary {
-                        CreateRow(label: "Add to my exercises", identifier: "addToMyExercises") {
-                            exercise.inLibrary = true
-                        }
-                        .padding(.bottom, 7)
-                    }
                     CreateRow(label: "New routine with \(exercise.name)", identifier: "newRoutineWithExercise") {
                         newRoutineName = ""
                         showingNewRoutine = true
@@ -252,20 +238,25 @@ struct ExerciseDetailScreen: View {
         // built-in outside the library leaves nothing for the menu, so
         // it hides instead of rendering empty (#265).
         .pushedScreenChrome(title: exercise.name, onBack: { dismiss() }) {
+            // Favorite is the curation now (whole catalog, 2026-07-17):
+            // a star for everything, accent when lit. Removal/deletion of
+            // the old library membership is gone; only a custom keeps a
+            // destructive action.
+            HeaderIconButton(
+                systemImage: exercise.isFavorite ? "star.fill" : "star",
+                accessibilityLabel: exercise.isFavorite ? "Unfavorite exercise" : "Favorite exercise",
+                identifier: "favoriteExerciseButton",
+                tint: exercise.isFavorite ? Theme.accent : Theme.textSecondary
+            ) {
+                exercise.isFavorite.toggle()
+            }
             HeaderIconButton(systemImage: "pencil", accessibilityLabel: "Edit exercise", identifier: "editExerciseButton") {
                 showingEditor = true
             }
-            if !exercise.isBuiltIn || exercise.inLibrary {
+            if !exercise.isBuiltIn {
                 HeaderMenuKey(systemImage: "ellipsis", accessibilityLabel: "Exercise options", identifier: "exerciseDetailMenu") {
-                    if exercise.isBuiltIn {
-                        Button("Remove from my exercises", role: .destructive) {
-                            exercise.inLibrary = false
-                            dismiss()
-                        }
-                    } else {
-                        Button("Delete custom exercise", role: .destructive) {
-                            showingDeleteConfirm = true
-                        }
+                    Button("Delete custom exercise", role: .destructive) {
+                        showingDeleteConfirm = true
                     }
                 }
             }
@@ -299,7 +290,7 @@ struct ExerciseDetailScreen: View {
             Button("Delete", role: .destructive) { deleteCustom() }
         } message: {
             if !usedInRoutines.isEmpty {
-                Text("It appears in \(usedInRoutines.count) routine\(usedInRoutines.count == 1 ? "" : "s") — it will be removed from them. Logged history keeps its name.")
+                Text("It appears in \(usedInRoutines.count) routine\(usedInRoutines.count == 1 ? "" : "s") and will be removed from them. Logged history keeps its name.")
             } else {
                 Text("Logged history keeps its name.")
             }
@@ -338,6 +329,10 @@ struct EquipmentDetailScreen: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Bindable var equipment: Equipment
+    /// Setup context (onboarding + the Settings re-run) strips the screen
+    /// to the add-and-configure task: the exercises/routines cross-links
+    /// distract from it (Dave, 2026-07-17). Off in the Equipment tab.
+    var isOnboarding = false
 
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
     @Query(sort: \Exercise.name) private var allExercises: [Exercise]
@@ -351,6 +346,7 @@ struct EquipmentDetailScreen: View {
     @State private var showingRename = false
     @State private var confirmingDelete = false
     @State private var renameText = ""
+    @State private var showingStepSheet = false
 
     private enum PushTarget: Hashable {
         case exercise(Exercise)
@@ -367,10 +363,6 @@ struct EquipmentDetailScreen: View {
     }
 
     private var weightUnit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .lb }
-
-    /// No opaque "default" (#135): the chips are real numbers, and with
-    /// no stored override the unit default's chip reads as selected.
-    private static let stepChoices: [Double] = [1, 2.5, 5, 10]
 
     private var resolvedStep: Double {
         equipment.weightStep ?? weightUnit.step
@@ -397,113 +389,87 @@ struct EquipmentDetailScreen: View {
                             .padding(.horizontal, 7)
                             .padding(.vertical, 2)
                             .overlay(Capsule().strokeBorder(equipment.isBuiltIn ? Theme.borderStrong : Theme.accent.opacity(0.4)))
-                    }
-
-                    // Config adapts to the gear (#236): a bench holds
-                    // you, a barbell holds plates — only loadables get
-                    // a weight step. For customs, the declared exercise
-                    // config decides (undeclared customs keep the old
-                    // always-loadable default).
-                    if SeedData.isLoadable(equipment) {
-                        SheetSectionLabel("WEIGHT STEP")
-                            .padding(.top, 24)
-                        HStack(spacing: 7) {
-                            ForEach(Self.stepChoices, id: \.self) { choice in
-                                stepChip(choice)
-                            }
-                        }
-                        Text("Per-tap increment for weight exercises using this gear. The wheel picker stays fine-grained.")
-                            .font(.system(.caption))
-                            .foregroundStyle(Theme.textFaint)
-                            .padding(.top, 6)
-                    }
-
-                    // What exercises on this gear track (flexible
-                    // metrics): built-in cardio machines carry curated
-                    // profiles (shown as facts); custom gear is the
-                    // user's to declare — it prefills new exercises and
-                    // decides whether the weight step above applies.
-                    if equipment.isBuiltIn {
-                        if let profile = equipment.suggestedProfile {
-                            SheetSectionLabel("EXERCISE CONFIG")
-                                .padding(.top, 24)
-                            Text(profile.metrics.map(\.label).joined(separator: " · "))
-                                .font(.system(.footnote, design: .monospaced))
+                        if let category = SeedData.equipmentCategory(named: equipment.name) {
+                            Text(category.rawValue.uppercased())
+                                .font(.system(.caption2, design: .monospaced, weight: .semibold))
                                 .foregroundStyle(Theme.textSecondary)
-                                .padding(.top, 2)
-                            Text("New exercises with this gear start tracking these. Each exercise can change its own set in the editor.")
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2)
+                                .overlay(Capsule().strokeBorder(Theme.borderStrong))
+                        }
+                    }
+
+                    // The whole point of the screen: do you have this gear?
+                    // A prominent toggle card (Dave, 2026-07-17) so the
+                    // action is unmistakable — flip it on to add, off to
+                    // remove. Removal no longer hides in the … menu.
+                    kitToggleCard
+                        .padding(.top, 14)
+
+                    // Weight step is the only per-gear configurable now
+                    // (Tracks removed, 2026-07-17: metrics belong to the
+                    // exercise, not the gear). Only loadable gear carries
+                    // it (#236: a bench holds you, a barbell holds plates),
+                    // so non-loadables show no CONFIGURE section at all.
+                    if SeedData.isLoadable(equipment) {
+                        SheetSectionLabel("CONFIGURE")
+                            .padding(.top, 24)
+                        configRow(
+                            label: "Weight step",
+                            value: WorkoutMetric.weight.displayText(resolvedStep, weightUnit: weightUnit),
+                            identifier: "configWeightStepRow"
+                        ) { showingStepSheet = true }
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
+                        .padding(.top, 7)
+                    }
+
+                    // The exercise/routine graph (#137) is exploration, not
+                    // the setup task — hidden during onboarding, present in
+                    // the Equipment tab (Dave, 2026-07-17).
+                    if !isOnboarding {
+                        SheetSectionLabel("EXERCISES (\(usedByExercises.count))")
+                            .padding(.top, 24)
+                        if usedByExercises.isEmpty {
+                            Text("No exercise needs this yet.")
                                 .font(.system(.caption))
                                 .foregroundStyle(Theme.textFaint)
-                                .padding(.top, 6)
-                        }
-                    } else {
-                        SheetSectionLabel("EXERCISE CONFIG")
-                            .padding(.top, 24)
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 7)], spacing: 7) {
-                            ForEach(WorkoutMetric.allCases.filter { !$0.isBlockConfiguration }) { metric in
-                                configMetricChip(metric)
+                                .padding(.bottom, 7)
+                        } else {
+                            crossRefBlock {
+                                ForEach(Array(usedByExercises.enumerated()), id: \.element.persistentModelID) { index, exercise in
+                                    CrossRefRow(
+                                        title: exercise.name,
+                                        meta: exercise.muscleGroup.displayName.lowercased()
+                                    ) {
+                                        path = .exercise(exercise)
+                                    }
+                                    if index < usedByExercises.count - 1 {
+                                        Divider().overlay(Theme.border)
+                                    }
+                                }
                             }
-                        }
-                        Text("What exercises on this gear typically track — new exercises with it start from this set. Leave everything off for plain strength gear.")
-                            .font(.system(.caption))
-                            .foregroundStyle(Theme.textFaint)
-                            .padding(.top, 6)
-                    }
-
-                    SheetSectionLabel("EXERCISES (\(usedByExercises.count))")
-                        .padding(.top, 24)
-                    if usedByExercises.isEmpty {
-                        Text("No exercise needs this yet.")
-                            .font(.system(.caption))
-                            .foregroundStyle(Theme.textFaint)
                             .padding(.bottom, 7)
-                    } else {
-                        crossRefBlock {
-                            ForEach(Array(usedByExercises.enumerated()), id: \.element.persistentModelID) { index, exercise in
-                                CrossRefRow(
-                                    title: exercise.name,
-                                    meta: exercise.inLibrary || !exercise.isBuiltIn
-                                        ? exercise.muscleGroup.displayName.lowercased()
-                                        : "not in library"
-                                ) {
-                                    path = .exercise(exercise)
-                                }
-                                if index < usedByExercises.count - 1 {
-                                    Divider().overlay(Theme.border)
-                                }
-                            }
                         }
-                        .padding(.bottom, 7)
-                    }
-                    // Same shape as the exercise screen (#265): adding
-                    // gear to this library is the primary act on a type
-                    // that isn't in it — especially now that the library
-                    // gates the catalogs (#260) — so it doesn't hide in
-                    // the … menu. Applies to customs too now.
-                    if !inActiveLibrary {
-                        CreateRow(label: "Add to my equipment", identifier: "addToMyEquipment") {
-                            activeLibrary?.setMembership(equipment, true)
+                        CreateRow(label: "New exercise with \(equipment.name)", identifier: "newExerciseWithEquipment") {
+                            showingAddExercise = true
                         }
-                        .padding(.bottom, 7)
-                    }
-                    CreateRow(label: "New exercise with \(equipment.name)", identifier: "newExerciseWithEquipment") {
-                        showingAddExercise = true
-                    }
 
-                    SheetSectionLabel("ROUTINES (\(usedInRoutines.count))")
-                        .padding(.top, 24)
-                    if usedInRoutines.isEmpty {
-                        Text("Not used in any routine yet.")
-                            .font(.system(.caption))
-                            .foregroundStyle(Theme.textFaint)
-                    } else {
-                        crossRefBlock {
-                            ForEach(Array(usedInRoutines.enumerated()), id: \.element.persistentModelID) { index, routine in
-                                CrossRefRow(title: routine.name, meta: routine.schedule.shortLabel) {
-                                    routine.uuid.map { path = .routine($0) }
-                                }
-                                if index < usedInRoutines.count - 1 {
-                                    Divider().overlay(Theme.border)
+                        SheetSectionLabel("ROUTINES (\(usedInRoutines.count))")
+                            .padding(.top, 24)
+                        if usedInRoutines.isEmpty {
+                            Text("Not used in any routine yet.")
+                                .font(.system(.caption))
+                                .foregroundStyle(Theme.textFaint)
+                        } else {
+                            crossRefBlock {
+                                ForEach(Array(usedInRoutines.enumerated()), id: \.element.persistentModelID) { index, routine in
+                                    CrossRefRow(title: routine.name, meta: routine.schedule.shortLabel) {
+                                        routine.uuid.map { path = .routine($0) }
+                                    }
+                                    if index < usedInRoutines.count - 1 {
+                                        Divider().overlay(Theme.border)
+                                    }
                                 }
                             }
                         }
@@ -523,20 +489,12 @@ struct EquipmentDetailScreen: View {
                     showingRename = true
                 }
             }
-            // "Remove" is membership in the active library; "Delete" is
-            // the custom's full removal (#265 — destructive in the menu).
-            if inActiveLibrary || !equipment.isBuiltIn {
+            // Membership is the toggle card now; the menu is only the
+            // custom's destructive delete (built-ins have nothing here).
+            if !equipment.isBuiltIn {
                 HeaderMenuKey(systemImage: "ellipsis", accessibilityLabel: "Equipment options", identifier: "equipmentDetailMenu") {
-                    if inActiveLibrary {
-                        Button("Remove from my equipment", role: .destructive) {
-                            activeLibrary?.setMembership(equipment, false)
-                            dismiss()
-                        }
-                    }
-                    if !equipment.isBuiltIn {
-                        Button("Delete custom equipment", role: .destructive) {
-                            confirmingDelete = true
-                        }
+                    Button("Delete custom equipment", role: .destructive) {
+                        confirmingDelete = true
                     }
                 }
             }
@@ -574,6 +532,15 @@ struct EquipmentDetailScreen: View {
         .sheet(isPresented: $showingAddExercise) {
             ExerciseEditorView(prefillEquipment: [equipment])
         }
+        .sheet(isPresented: $showingStepSheet) {
+            IncrementSheet(
+                metric: .weight,
+                weightUnit: weightUnit,
+                distanceUnit: equipment.suggestedProfile?.distanceUnit ?? .meters,
+                current: resolvedStep,
+                onPick: { equipment.weightStep = $0 }
+            )
+        }
         .alert("Rename equipment", isPresented: $showingRename) {
             TextField("Name", text: $renameText)
             Button("Cancel", role: .cancel) {}
@@ -581,58 +548,83 @@ struct EquipmentDetailScreen: View {
         }
     }
 
-    private func stepChip(_ choice: Double) -> some View {
-        let active = resolvedStep == choice
-        // Accent-tinted when active: the step is training data (what
-        // your plates allow), not chrome.
-        return Button {
-            equipment.weightStep = choice
-        } label: {
-            Text(WorkoutMetric.weight.formatted(choice))
-                .font(.system(.footnote, design: .monospaced, weight: .semibold))
-                .foregroundStyle(active ? Theme.accent : Theme.textSecondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-                .frame(maxWidth: .infinity)
-                .frame(minHeight: 44)
-                .contentShape(Rectangle())
-                .background(active ? Theme.accent.opacity(0.16) : Theme.surface, in: RoundedRectangle(cornerRadius: 9))
-                .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(active ? Theme.accent.opacity(0.55) : Theme.border))
-        }
-        .buttonStyle(.plain)
+    /// Membership as a Binding so the toggle drives it directly.
+    private var membershipBinding: Binding<Bool> {
+        Binding(
+            get: { inActiveLibrary },
+            set: { activeLibrary?.setMembership(equipment, $0) }
+        )
     }
 
-    /// EXERCISE CONFIG chip (custom gear): toggles a metric in the
-    /// equipment's suggested profile. Selection blue like every
-    /// selected state (#210). An emptied set clears the declaration —
-    /// back to "plain strength gear, we can't classify intent".
-    private func configMetricChip(_ metric: WorkoutMetric) -> some View {
-        let profile = equipment.suggestedProfile
-        let selected = profile?.contains(metric) == true
-        return Button {
-            var metrics = profile?.metrics ?? []
-            if let index = metrics.firstIndex(of: metric) {
-                metrics.remove(at: index)
-            } else {
-                metrics.append(metric)
+    /// The prominent "do you have this?" card (Dave, 2026-07-17): an obvious
+    /// card so it's unmistakable that adding gear takes an action, and
+    /// removal lives in the same spot. The WHOLE card is the tap target
+    /// (Dave, 2026-07-18): the `Toggle` stays the interactive control (so
+    /// the switch is directly usable and VoiceOver-idiomatic), and an
+    /// `.onTapGesture` on the card flips the SAME binding from anywhere
+    /// else on it — both paths drive `membershipBinding`, so a tap resolves
+    /// to exactly one flip whichever gesture wins. Accent green = you have
+    /// it (matches the catalog's in-kit glyph + the quick-add).
+    private var kitToggleCard: some View {
+        let inKit = inActiveLibrary
+        return HStack(spacing: 14) {
+            Image(systemName: inKit ? "checkmark.circle.fill" : "plus.circle")
+                .font(.system(.title2))
+                .foregroundStyle(inKit ? Theme.accent : Theme.textSecondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(inKit ? "In your kit" : "Add to your kit")
+                    .font(.system(.headline))
+                    .foregroundStyle(Theme.textPrimary)
+                Text(inKit ? "You have this gear." : "Add it if you train with it.")
+                    .font(.system(.caption))
+                    .foregroundStyle(Theme.textSecondary)
             }
-            equipment.suggestedProfile = metrics.isEmpty
-                ? nil
-                : MetricProfile(metrics, distanceUnit: profile?.distanceUnit ?? .meters)
-        } label: {
-            Text(metric.label)
-                .font(.system(.footnote, weight: .semibold))
-                .foregroundStyle(selected ? Theme.onSelected : Theme.textSecondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 7)
-                .background(selected ? Theme.selected : Theme.background, in: Capsule())
-                .overlay(Capsule().strokeBorder(selected ? Color.clear : Theme.border))
+            Spacer(minLength: 8)
+            Toggle("", isOn: membershipBinding)
+                .labelsHidden()
+                .tint(Theme.accent)
+                .accessibilityIdentifier("addToMyEquipment")
+                .accessibilityLabel(inKit ? "Remove from kit" : "Add to kit")
+        }
+        .padding(16)
+        .background(
+            inKit ? Theme.accent.opacity(0.08) : Theme.surface,
+            in: RoundedRectangle(cornerRadius: Theme.controlRadius)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.controlRadius)
+                .strokeBorder(inKit ? Theme.accent.opacity(0.4) : Theme.borderStrong)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture { membershipBinding.wrappedValue.toggle() }
+        .animation(Theme.Anim.selection, value: inKit)
+    }
+
+    /// One configurable fact per row: label, the resolved value, and the
+    /// app's one configuration glyph (ConfigIconButton) opening its
+    /// sheet. The whole row is tappable — the glyph is the signpost.
+    private func configRow(label: String, value: String, identifier: String, open: @escaping () -> Void) -> some View {
+        Button(action: open) {
+            HStack(spacing: 8) {
+                Text(label)
+                    .font(.system(.subheadline, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                Spacer(minLength: 8)
+                Text(value)
+                    .font(.system(.footnote, design: .monospaced))
+                    .foregroundStyle(Theme.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(.caption, weight: .semibold))
+                    .foregroundStyle(Theme.textFaint)
+            }
+            .padding(.horizontal, 12)
+            .frame(minHeight: 48)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier("equipmentMetricChip-\(metric.rawValue)")
-        .animation(Theme.Anim.selection, value: selected)
+        .accessibilityIdentifier(identifier)
     }
 
     private func rename() {

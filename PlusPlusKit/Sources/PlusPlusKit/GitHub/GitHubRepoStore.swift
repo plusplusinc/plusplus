@@ -152,7 +152,7 @@ public struct GitHubRepoStore: RepoStore {
     /// PlusPlus link so a public sync repo is a discovery surface (Dave).
     private func seedInitialCommit() async throws {
         let readme = Data(
-            "# PlusPlus data\n\nWorkout program and history, synced from [PlusPlus](https://plusplus.fit), the hackable workout tracker for incrementing yourself.\n".utf8
+            "# PlusPlus data\n\nWorkout program and history, synced from [PlusPlus](https://plusplus.fit), a hackable workout tracker for incrementing yourself.\n".utf8
         )
         let body = try JSONEncoder().encode(ContentsPutInput(
             message: "Initialize repository",

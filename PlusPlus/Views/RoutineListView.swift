@@ -12,12 +12,18 @@ struct RoutineListView: View {
     private var routines: [Routine]
 
     @State private var path = NavigationPath()
-    @State private var openSwipeRow: PersistentIdentifier?
+    @State private var openSwipeRow: SwipeRevealOpen<PersistentIdentifier>?
     /// The routine just added from a template — scrolled into view and
     /// given an entrance flash when we land back on the library, then
     /// released (Dave, 2026-07-15). Permanent id (set post-save), so it is
     /// safe as list/scroll identity.
     @State private var newlyAdded: PersistentIdentifier?
+    /// Held false for one beat after an add so the new card is ABSENT from
+    /// the list, then flipped true inside `withAnimation` so it fades in and
+    /// the cards below slide down to make room (Dave, 2026-07-16). Reset to
+    /// false where the add lands, before the list re-renders.
+    @State private var revealNewCard = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -26,7 +32,7 @@ struct RoutineListView: View {
 
                 ScrollViewReader { proxy in
                     List {
-                    ForEach(routines) { routine in
+                    ForEach(displayedRoutines) { routine in
                         SwipeRevealRow(
                             id: routine.persistentModelID,
                             openRow: $openSwipeRow,
@@ -49,6 +55,7 @@ struct RoutineListView: View {
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                        .transition(.opacity)
                     }
                         .onMove(perform: moveRoutines)
                     }
@@ -67,12 +74,24 @@ struct RoutineListView: View {
                     .task(id: newlyAdded) {
                         guard let id = newlyAdded else { return }
                         do {
-                            try await Task.sleep(for: .milliseconds(350))
+                            // Beat of absence: the card is held out of the
+                            // list (revealNewCard == false) so the eye sees
+                            // the row OPEN, not one that was already sitting
+                            // there.
+                            try await Task.sleep(for: .milliseconds(300))
+                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
+                                revealNewCard = true      // fade in + push the rest down
+                            }
+                            // Let the fade begin, then bring the card into view.
+                            try await Task.sleep(for: .milliseconds(60))
                             withAnimation(Theme.Anim.standard) {
                                 proxy.scrollTo(id, anchor: .top)
                             }
-                            try await Task.sleep(for: .milliseconds(1500))
+                            try await Task.sleep(for: .milliseconds(1600))
                         } catch {
+                            // Cancelled (tab left, or a superseding add whose
+                            // callback already reset the flags): leave state
+                            // alone so the newer add keeps its own entrance.
                             return
                         }
                         newlyAdded = nil
@@ -105,6 +124,7 @@ struct RoutineListView: View {
                     // pushing into an empty-feeling detail (Dave,
                     // 2026-07-15). Popping the whole path also clears the
                     // catalog beneath, so Back is never stranded.
+                    revealNewCard = false     // hold the card out for the entrance beat
                     newlyAdded = routine.persistentModelID
                     path = NavigationPath()
                 }
@@ -168,13 +188,24 @@ struct RoutineListView: View {
         .padding(.bottom, 12)
     }
 
+    /// The list, minus the just-added card while it's still held out for its
+    /// entrance (revealNewCard == false). Once `newlyAdded` clears, the
+    /// filter is a no-op, so the steady state shows everything.
+    private var displayedRoutines: [Routine] {
+        routines.filter { $0.persistentModelID != newlyAdded || revealNewCard }
+    }
+
     private func deleteRoutine(_ routine: Routine) {
         modelContext.delete(routine)
         reindexRoutines()
     }
 
     private func moveRoutines(from source: IndexSet, to destination: Int) {
-        var reordered = Array(routines)
+        // Reorder over the SAME collection the ForEach displays: `.onMove`
+        // hands indices into `displayedRoutines`, so basing the move on the
+        // full `routines` would mis-map during the brief entrance window
+        // where the two diverge. In the steady state they're identical.
+        var reordered = displayedRoutines
         reordered.move(fromOffsets: source, toOffset: destination)
         for (index, routine) in reordered.enumerated() {
             routine.order = index
@@ -198,13 +229,16 @@ struct HeaderIconButton: View {
     /// as its raw SF Symbol name, e.g. "slider horizontal 3").
     let accessibilityLabel: String
     var identifier: String?
+    /// Glyph tint; defaults to the neutral header ink. The favorite star
+    /// passes `Theme.accent` when lit (green = the user's own data).
+    var tint: Color = Theme.textSecondary
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.system(.body, weight: .medium))
-                .foregroundStyle(Theme.textSecondary)
+                .foregroundStyle(tint)
                 .frame(width: 44, height: 44)
                 .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
                 .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
@@ -223,9 +257,11 @@ private struct RoutineCard: View {
     /// True for the routine just added from a template — plays a one-shot
     /// entrance flash so the eye lands on it (Dave, 2026-07-15).
     var justAdded: Bool = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// 1 at the peak of the entrance flash, animating to 0 at rest.
     @State private var entrance: Double = 0
+    /// The deferred flash beat (it fires just after the card fades in);
+    /// cancelled on disappear so it can't light onto a recycled row.
+    @State private var flashTask: Task<Void, Never>?
     @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
     @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
@@ -257,28 +293,75 @@ private struct RoutineCard: View {
         return !availableEquipmentNames.contains(pill)
     }
 
+    /// The routine's exercises, resolved (a broken reference drops out).
+    private var exercises: [Exercise] {
+        routine.sortedGroups.flatMap(\.sortedExercises).compactMap(\.exercise)
+    }
+    private var hasExercises: Bool { !exercises.isEmpty }
+
+    /// A cardio routine tracks distance or pace throughout (Running,
+    /// Walking, Cycling, Rowing, the console machines) — where a muscle line
+    /// would only say "full body". Stretches and strength keep their real
+    /// muscles.
+    private var isCardio: Bool {
+        hasExercises && exercises.allSatisfy {
+            $0.metricProfile.contains(.distance) || $0.metricProfile.contains(.pace)
+        }
+    }
+
+    /// Row 2's trailing text: the trained muscles, "cardio" for a pure
+    /// cardio routine, or an empty-state note.
+    private var descriptor: String {
+        guard hasExercises else { return "no exercises yet" }
+        return isCardio ? "cardio" : musclesLine
+    }
+
     private var musclesLine: String {
-        let present = Set(
-            routine.sortedGroups.flatMap(\.sortedExercises).compactMap { $0.exercise?.muscleGroup }
-        )
+        let present = Set(exercises.map(\.muscleGroup))
         let ordered = MuscleGroup.allCases.filter { present.contains($0) }
-        guard !ordered.isEmpty else { return "no exercises yet" }
+        guard !ordered.isEmpty else { return "full body" }
         return ordered.map { $0.displayName.lowercased() }.joined(separator: " · ")
     }
 
-    /// Empty routines show nothing here — a "~5 min · 0 sets" claim
-    /// above "no exercises yet" described a workout that doesn't exist.
-    private var headerMeta: String {
-        let exercises = routine.sortedGroups.flatMap(\.sortedExercises).count
-        guard exercises > 0 else { return "" }
-        let sets = routine.sortedGroups.reduce(0) { $0 + $1.sets * $1.sortedExercises.count }
-        return "\(estimateText) · \(exercises) exercise\(exercises == 1 ? "" : "s") · \(sets) set\(sets == 1 ? "" : "s")"
+    private var isUnscheduled: Bool { routine.schedule.normalized == .unscheduled }
+    private var cadenceLabel: String { isUnscheduled ? "anytime" : routine.schedule.shortLabel }
+    private var scheduleColor: Color { isUnscheduled ? Theme.textFaint : Theme.textSecondary }
+
+    /// Gear rides its own row as soft tags. Suppressed for a gearless card:
+    /// an empty routine, or a run/walk whose only "gear" is bodyweight
+    /// (Dave, 2026-07-16).
+    private var showsGear: Bool {
+        hasExercises && !(isCardio && routine.equipmentNames.isEmpty)
+    }
+
+    /// The routine's own one-line description, when it has a non-empty one
+    /// (seeded from a catalog template on add). This takes the card's
+    /// description row; without it the row falls back to `descriptor`.
+    private var routineSummary: String? {
+        guard let s = routine.summary?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !s.isEmpty else { return nil }
+        return s
+    }
+
+    /// The facts line: calendar cadence · time estimate. One `Text` so it
+    /// truncates as a unit; the description and gear ride their own rows.
+    private var factsLine: Text {
+        let line = Text(Image(systemName: "calendar")).foregroundStyle(scheduleColor)
+            + Text(" \(cadenceLabel)").foregroundStyle(scheduleColor)
+        guard hasExercises else { return line }
+        return line + Text(" · \(estimateText)").foregroundStyle(Theme.textFaint)
+    }
+
+    /// A clean spoken label for the facts line — the raw concatenated `Text`
+    /// would have VoiceOver read the calendar glyph and the "·"/"~" aloud.
+    private var factsAccessibilityLabel: String {
+        hasExercises ? "\(cadenceLabel), \(estimateText)" : cadenceLabel
     }
 
     var body: some View {
-        // Up to four lines when populated (#238 gave the card room; the
-        // workload facts then earned their own line to stop truncating):
-        // identity, workload, what it hits, what it needs.
+        // Three rows (Dave, 2026-07-16): identity; the description (the
+        // routine's own summary if it has one, else what it works); then
+        // the facts line (calendar cadence · estimate) with gear soft tags.
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(routine.name)
@@ -290,41 +373,41 @@ private struct RoutineCard: View {
                     .font(.system(.footnote, weight: .bold))
                     .foregroundStyle(Theme.textFaint)
             }
-            // Workload facts on their own full-width line. Sharing line
-            // one with the name (even at layoutPriority(-1)) crushed
-            // "~30 min · 5 exercises · 6 sets" to "~30 min · 5 e…"
-            // whenever the name ran long — the same squeeze the detail
-            // chrome hit in build-48, fixed the same way: give the facts
-            // the full width instead of what's left beside the title.
-            if !headerMeta.isEmpty {
-                Text(headerMeta)
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(Theme.textFaint)
+            // Description row: the routine's own line if it has one (the
+            // catalog voice, carried into the library), else what it works.
+            if let summary = routineSummary {
+                Text(summary)
+                    .font(.system(.caption))
+                    .foregroundStyle(Theme.textSecondary)
+                    .lineLimit(2)
+            } else {
+                Text(descriptor)
+                    .font(.system(.caption))
+                    .foregroundStyle(Theme.textSecondary)
                     .lineLimit(1)
             }
-            Text(musclesLine)
-                .font(.system(.caption))
-                .foregroundStyle(Theme.textSecondary)
-                .lineLimit(1)
-            HStack(spacing: 5) {
-                // Schedule pill first (#112): the cadence at a glance,
-                // faint when the routine is unscheduled.
-                Text(routine.schedule.shortLabel)
-                    .font(.system(.caption2, design: .monospaced))
-                    .foregroundStyle(routine.schedule.normalized == .unscheduled ? Theme.textFaint : Theme.textSecondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2.5)
-                    .overlay(Capsule().strokeBorder(Theme.border))
+            // Facts + gear on one row: calendar cadence · estimate, then the
+            // gear as soft tags (filled, no stroke — a stroked capsule read
+            // as a button; amber still flags gear you don't have).
+            HStack(spacing: 8) {
+                factsLine
+                    .font(.system(.caption))
                     .lineLimit(1)
-                ForEach(pills, id: \.self) { pill in
-                    let unavailable = pillUnavailable(pill)
-                    Text(pill)
-                        .font(.system(.caption2, design: .monospaced))
-                        .foregroundStyle(unavailable ? Theme.notes : Theme.textSecondary)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2.5)
-                        .overlay(Capsule().strokeBorder(unavailable ? Theme.notes.opacity(0.5) : Theme.borderStrong))
-                        .lineLimit(1)
+                    .accessibilityLabel(factsAccessibilityLabel)
+                if showsGear {
+                    ForEach(pills, id: \.self) { pill in
+                        let unavailable = pillUnavailable(pill)
+                        Text(pill)
+                            .font(.system(.caption2, design: .monospaced))
+                            .foregroundStyle(unavailable ? Theme.notes : Theme.textSecondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2.5)
+                            .background(
+                                unavailable ? Theme.notes.opacity(0.14) : Theme.surfaceRaised,
+                                in: Capsule()
+                            )
+                            .lineLimit(1)
+                    }
                 }
                 Spacer(minLength: 0)
             }
@@ -334,21 +417,26 @@ private struct RoutineCard: View {
         .contentShape(Rectangle())
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
         .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
-        // Entrance flash: a green (creation) ring plus a gentle pop that
-        // settles to rest, so a template-added card announces itself. Green
-        // is the creation hue (Theme.accent, the ++ grammar); no banner
-        // needed. Set to full instantly, then eased to 0. The pop is
-        // suppressed under Reduce Motion; the color fade is not vestibular.
+        // Entrance: the green (creation) ring lights just AFTER the card has
+        // faded into the list (the list handles the fade + push-down), then
+        // fades out. No scaling — a card scaled past its row width clipped
+        // its own edges until it settled (Dave, 2026-07-16).
         .overlay(
             RoundedRectangle(cornerRadius: Theme.cardRadius)
                 .strokeBorder(Theme.accent, lineWidth: 2)
                 .opacity(entrance)
         )
-        .scaleEffect(reduceMotion ? 1 : 1 + 0.03 * entrance)
         .onChange(of: justAdded, initial: true) { _, isNew in
             guard isNew else { return }
-            entrance = 1
-            withAnimation(.easeOut(duration: 0.9).delay(0.3)) { entrance = 0 }
+            flashTask?.cancel()
+            flashTask = Task { @MainActor in
+                // Let the fade-in land before the ring lights.
+                try? await Task.sleep(for: .milliseconds(340))
+                guard !Task.isCancelled else { return }
+                entrance = 1
+                withAnimation(.easeOut(duration: 0.9)) { entrance = 0 }
+            }
         }
+        .onDisappear { flashTask?.cancel() }
     }
 }

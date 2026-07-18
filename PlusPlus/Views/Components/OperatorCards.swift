@@ -6,6 +6,64 @@ import PlusPlusKit
 /// an alarm); a receipt accents in data green (the change IS data);
 /// option rows are a genuine selection moment, the one legitimate blue.
 
+// MARK: - The face
+
+/// Operator's mark: a small face whose eyes are the ++ glyph (Dave,
+/// build-85 design round). Green eyes when the model is ready — the ++
+/// is the brand's data green; the face itself is quiet chrome.
+struct OperatorFaceGlyph: View {
+    var size: CGFloat = 32
+    var ready: Bool = true
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: size * 0.32)
+                .fill(Theme.background)
+            RoundedRectangle(cornerRadius: size * 0.32)
+                .strokeBorder(Theme.borderStrong, lineWidth: 1.5)
+            HStack(spacing: size * 0.13) {
+                Text("+")
+                Text("+")
+            }
+            .font(.system(size: size * 0.44, weight: .bold, design: .monospaced))
+            .foregroundStyle(ready ? Theme.accent : Theme.textFaint)
+            .offset(y: -size * 0.05)
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+}
+
+// MARK: - Sentence-case display
+
+extension String {
+    /// Display-time sentence casing for MODEL-authored text: the 3B
+    /// writes "want to check them out?" no matter how firmly the
+    /// instructions ask for sentence case (Dave, build-85 round). This
+    /// only ever UPPERCASES a letter opening a sentence — names keep
+    /// their casing, and the stored thread plus everything echoed back
+    /// to the model stay verbatim.
+    var operatorSentenceCased: String {
+        var result = ""
+        result.reserveCapacity(count)
+        var atSentenceStart = true
+        for character in self {
+            if atSentenceStart, character.isLetter {
+                result.append(contentsOf: character.uppercased())
+                atSentenceStart = false
+            } else {
+                result.append(character)
+                if character == "." || character == "?" || character == "!" || character.isNewline {
+                    atSentenceStart = true
+                } else if !character.isWhitespace {
+                    atSentenceStart = false
+                }
+            }
+        }
+        return result
+    }
+}
+
 // MARK: - Text rows
 
 struct OperatorUserBubble: View {
@@ -31,7 +89,7 @@ struct OperatorReplyView: View {
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 0) {
-            (Text(text) + Text(streaming ? " ▍" : "").foregroundStyle(Theme.accent))
+            (Text(text.operatorSentenceCased) + Text(streaming ? " ▍" : "").foregroundStyle(Theme.accent))
                 .font(.system(.subheadline))
                 .foregroundStyle(Theme.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -170,7 +228,7 @@ struct OperatorOptionsCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(payload.question)
+            Text(payload.question.operatorSentenceCased)
                 .font(.system(.subheadline, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
             ForEach(payload.options, id: \.self) { option in
@@ -217,7 +275,9 @@ struct OperatorOptionsCard: View {
                     : (chosen ? "largecircle.fill.circle" : "circle"))
                     .font(.system(.subheadline))
                     .foregroundStyle(chosen ? Theme.selected : Theme.textSecondary)
-                Text(option)
+                // Display casing only — the tap still sends the raw
+                // option string so the model recognizes its own words.
+                Text(option.operatorSentenceCased)
                     .font(.system(.subheadline))
                     .foregroundStyle(Theme.textPrimary)
                 Spacer(minLength: 0)
@@ -238,30 +298,93 @@ struct OperatorOptionsCard: View {
 
 // MARK: - Chips row
 
+/// Suggested prompts, WRAPPING to as many lines as they need — a
+/// horizontal scroll cut pills off at the screen edge (Dave, build-85
+/// round: wrap, don't overflow). The pill's text IS the prompt it
+/// sends, verbatim.
 struct OperatorChipRow: View {
     let chips: [OperatorChip]
     let onTap: (OperatorChip) -> Void
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(chips) { chip in
-                    Button {
-                        onTap(chip)
-                    } label: {
-                        Text(chip.label)
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundStyle(Theme.textSecondary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 7)
-                            .background(Theme.background, in: Capsule())
-                            .overlay(Capsule().strokeBorder(Theme.border))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("operatorChip-\(chip.label)")
+        OperatorFlowLayout(spacing: 8) {
+            ForEach(chips) { chip in
+                Button {
+                    onTap(chip)
+                } label: {
+                    Text(chip.text)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(Theme.textSecondary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(Theme.background, in: Capsule())
+                        .overlay(Capsule().strokeBorder(Theme.border))
                 }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("operatorChip-\(chip.text)")
             }
-            .padding(.horizontal, 1)
         }
+    }
+}
+
+/// Minimal leading-aligned flow layout: rows fill left to right and
+/// wrap. Only what the chip row needs — not a general grid.
+struct OperatorFlowLayout: Layout {
+    var spacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let rows = arrange(maxWidth: proposal.width ?? .infinity, subviews: subviews)
+        guard let last = rows.last else { return .zero }
+        return CGSize(
+            width: proposal.width ?? rows.map(\.width).max() ?? 0,
+            height: last.y + last.height
+        )
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let rows = arrange(maxWidth: bounds.width, subviews: subviews)
+        for row in rows {
+            var x = bounds.minX
+            for index in row.indices {
+                let size = subviews[index].sizeThatFits(.unspecified)
+                subviews[index].place(
+                    at: CGPoint(x: x, y: bounds.minY + row.y),
+                    proposal: .unspecified
+                )
+                x += size.width + spacing
+            }
+        }
+    }
+
+    private struct Row {
+        var indices: [Int] = []
+        var y: CGFloat = 0
+        var height: CGFloat = 0
+        var width: CGFloat = 0
+    }
+
+    private func arrange(maxWidth: CGFloat, subviews: Subviews) -> [Row] {
+        var rows: [Row] = []
+        var current = Row()
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        for (index, subview) in subviews.enumerated() {
+            let size = subview.sizeThatFits(.unspecified)
+            if !current.indices.isEmpty, x + size.width > maxWidth {
+                current.width = max(0, x - spacing)
+                rows.append(current)
+                y += current.height + spacing
+                current = Row(y: y)
+                x = 0
+            }
+            current.indices.append(index)
+            current.height = max(current.height, size.height)
+            x += size.width + spacing
+        }
+        if !current.indices.isEmpty {
+            current.width = max(0, x - spacing)
+            rows.append(current)
+        }
+        return rows
     }
 }

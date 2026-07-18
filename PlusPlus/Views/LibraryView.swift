@@ -2,144 +2,260 @@ import SwiftUI
 import SwiftData
 import PlusPlusKit
 
-/// The personal catalog, v3 (#109): LibraryView split into two tabs —
-/// Exercises and Equipment — curated lists with a contextual header +
-/// (no search here, #233: search lives on the catalogs). Built-ins
-/// removed here leave the library but stay in the catalog; customs
-/// are edited or deleted here.
+/// The Exercises tab IS the whole catalog now (2026-07-17): an exercise
+/// is a thing you choose to do, not a thing you own, so there is no
+/// library to fill — every exercise is listed, always, narrowed by
+/// persistent filters (favorites, gear availability, muscle) and curated
+/// by favoriting. Rows favorite on a leading swipe, delete customs on a
+/// trailing swipe, and tap into detail. Replaces the old two-surface
+/// library + `CatalogBrowseScreen` split.
 struct ExercisesTabView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Exercise.name) private var allExercises: [Exercise]
     @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
     @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
-    @State private var showingCatalog = false
-    @State private var openSwipeRow: PersistentIdentifier?
+    // Persisted filters (device-local; the tab is the source of truth
+    // during a session and mirrors to these).
+    @AppStorage(ExerciseFilterState.Prefs.favoritesOnly) private var prefFavoritesOnly = false
+    @AppStorage(ExerciseFilterState.Prefs.gearMode) private var prefGearMode = ""
+    @AppStorage(ExerciseFilterState.Prefs.pickedGear) private var prefPickedGear = "[]"
+    @AppStorage(ExerciseFilterState.Prefs.muscleGroups) private var prefMuscleGroups = "[]"
+
+    @State private var filterState = ExerciseFilterState()
+    @State private var openSwipeRow: SwipeRevealOpen<PersistentIdentifier>?
     @State private var path = NavigationPath()
+    @State private var showingMuscleFilter = false
+    @State private var showingGearPicker = false
+    @State private var creatingExercise = false
+    @State private var loadedPrefs = false
 
     private var availableEquipmentNames: Set<String> {
         EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.memberNames ?? []
     }
 
-    private var libraryExercises: [Exercise] {
-        allExercises.filter { $0.inLibrary || !$0.isBuiltIn }
+    private var candidates: [Exercise] {
+        filterState.filteredExercises(from: allExercises, kitNames: availableEquipmentNames)
+    }
+
+    private var anyFilterActive: Bool {
+        filterState.favoritesOnly
+            || filterState.gearMode != nil
+            || !filterState.selectedMuscleGroups.isEmpty
     }
 
     var body: some View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
-                // No search here (#233): the curated list is short by
-                // definition; search lives on the catalogs. The + is
-                // back in the header.
                 CatalogTabHeader(
                     title: "Exercises",
                     addIdentifier: "addExercisesButton",
                     addLabel: "Add exercise",
-                    onAdd: { showingCatalog = true }
+                    onAdd: { creatingExercise = true }
                 )
-
-                if libraryExercises.isEmpty {
-                    // Empty is the fresh-install default (#185/#232) —
-                    // say what the library is FOR, then point at the
-                    // catalog (same voice as the Routines empty state).
-                    LibraryEmptyState(
-                        title: "No Exercises",
-                        systemImage: "list.bullet",
-                        message: "Your library is the short list you actually do. Pick from the catalog — anything you use in a routine joins on its own.",
-                        ctaIdentifier: "emptyExercisesCatalogButton"
-                    ) { showingCatalog = true }
-                } else {
-                    List {
-                        exerciseRows
-                    }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
+                // Search + filters sit UNDER the header, pinned above the
+                // scrolling list (Dave, 2026-07-18: a top `safeAreaInset`
+                // floated them ABOVE the ++/title chrome — every other tab
+                // root wears the ++ key topmost).
+                VStack(spacing: 8) {
+                    SearchField(prompt: "Search exercises", text: Bindable(filterState).searchText)
+                        .padding(.horizontal, 16)
+                    filterRow
                 }
+                List {
+                    ForEach(candidates) { exercise in
+                        exerciseRow(exercise)
+                    }
+                    if candidates.isEmpty {
+                        Text("Nothing matches these filters.")
+                            .font(.system(.footnote))
+                            .foregroundStyle(Theme.textSecondary)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                    }
+                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .scrollDismissesKeyboard(.immediately)
             }
             .background(Theme.background)
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: Exercise.self) { exercise in
                 ExerciseDetailScreen(exercise: exercise)
             }
-            // Full-page push, not a tray (#139 follow-up): the catalog
-            // browser is a browsing surface — search, filters, a long
-            // toggle list. Sheets stay for create/edit forms only.
-            // isPresented is safe here (unlike the routine catalog):
-            // nothing appends to the path beneath these screens.
-            .navigationDestination(isPresented: $showingCatalog) {
-                CatalogBrowseScreen(kind: .exercises)
+            .sheet(isPresented: $creatingExercise) {
+                ExerciseEditorView(
+                    prefillName: filterState.prefillName,
+                    prefillMuscleGroup: filterState.prefillMuscleGroup
+                )
+            }
+            .sheet(isPresented: $showingMuscleFilter) {
+                MuscleGroupFilterSheet(filterState: filterState)
+                    .presentationDetents([.medium])
+            }
+            .sheet(isPresented: $showingGearPicker) {
+                GearPickSheet(filterState: filterState, allEquipment: allEquipmentSorted)
+                    .presentationDetents([.medium, .large])
             }
         }
-        // The catalog pushes via isPresented (not the path); include it so
-        // swipe-to-open yields to its swipe-back.
-        .revealRoot(tab: "exercises", atRoot: path.isEmpty && !showingCatalog)
-        // Swipe-removes / deletes here reach GitHub when you leave the tab.
+        .revealRoot(tab: "exercises", atRoot: path.isEmpty)
+        // Favorites + custom deletes reach GitHub when you leave the tab.
         .syncsProgramOnClose()
+        .onAppear {
+            guard !loadedPrefs else { return }
+            loadedPrefs = true
+            loadPrefs()
+        }
+        // Mirror in-session filter changes back to storage.
+        .onChange(of: filterState.favoritesOnly) { persistPrefs() }
+        .onChange(of: filterState.gearMode) { persistPrefs() }
+        .onChange(of: filterState.pickedGearNames) { persistPrefs() }
+        .onChange(of: filterState.selectedMuscleGroups) { persistPrefs() }
+    }
+
+    @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
+    private var allEquipmentSorted: [Equipment] { allEquipment }
+
+    // MARK: - Filter row
+
+    private var filterRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 7) {
+                if anyFilterActive {
+                    ClearAllChip {
+                        filterState.favoritesOnly = false
+                        filterState.gearMode = nil
+                        filterState.selectedMuscleGroups = []
+                    }
+                }
+                SelectableChip(label: "Favorites", isSelected: filterState.favoritesOnly) {
+                    filterState.favoritesOnly.toggle()
+                }
+                FacetChip(
+                    facet: "GEAR",
+                    selection: gearBinding,
+                    options: [
+                        (ExerciseFilterState.GearMode.withKit, "Can do now"),
+                        (.withoutKit, "Can't yet"),
+                        (.handPicked, pickedGearLabel),
+                    ]
+                )
+                TrayFilterChip(
+                    facet: "MUSCLE",
+                    count: filterState.selectedMuscleGroups.count
+                ) { showingMuscleFilter = true }
+                Spacer(minLength: 0)
+            }
+            .animation(Theme.Anim.standard, value: anyFilterActive)
+            .padding(.horizontal, 16)
+        }
+        .padding(.bottom, 8)
+    }
+
+    private var pickedGearLabel: String {
+        let n = filterState.pickedGearNames.count
+        return n > 0 ? "Picked gear (\(n))" : "Picked gear"
+    }
+
+    /// Selecting "Picked gear" opens the picker AND lights the mode; the
+    /// other modes commit directly. (The binding interceptor pattern from
+    /// the equipment catalog's gear facet.)
+    private var gearBinding: Binding<ExerciseFilterState.GearMode?> {
+        Binding(
+            get: { filterState.gearMode },
+            set: { newValue in
+                filterState.gearMode = newValue
+                if newValue == .handPicked { showingGearPicker = true }
+            }
+        )
     }
 
     // MARK: - Rows
 
-    @ViewBuilder
-    private var exerciseRows: some View {
-        ForEach(libraryExercises) { exercise in
-            // Custom reveal everywhere (Dave reversed the native call:
-            // no mixed affordances). Activation is the component's
-            // onTap — no Button in content (see the component contract).
-            SwipeRevealRow(
-                id: exercise.persistentModelID,
-                openRow: $openSwipeRow,
-                actionsWidth: 58,
-                onTap: { path.append(exercise) },
-                accessibilityActions: [
-                    SwipeRowAction(name: exercise.isBuiltIn ? "Remove" : "Delete") {
-                        openSwipeRow = nil
-                        remove(exercise)
-                    }
-                ]
-            ) {
-                HStack(spacing: 10) {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(exercise.name)
-                            .font(.system(.subheadline, weight: .semibold))
-                            .foregroundStyle(Theme.textPrimary)
-                            .lineLimit(1)
-                        subtitleText(for: exercise)
-                            .font(.system(.caption))
-                            .lineLimit(2)
-                    }
-                    Spacer()
-                    if !exercise.isBuiltIn {
-                        Text("CUSTOM")
-                            .font(.system(.caption2, design: .monospaced, weight: .semibold))
-                            .foregroundStyle(Theme.accent)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 2)
-                            .overlay(Capsule().strokeBorder(Theme.accent.opacity(0.4)))
-                    }
-                    Image(systemName: "chevron.right")
-                        .font(.system(.caption, weight: .bold))
-                        .foregroundStyle(Theme.textFaint)
+    private func exerciseRow(_ exercise: Exercise) -> some View {
+        SwipeRevealRow(
+            id: exercise.persistentModelID,
+            openRow: $openSwipeRow,
+            // Trailing DELETE only for customs; built-ins can't be deleted.
+            actionsWidth: exercise.isBuiltIn ? 0 : 58,
+            leadingActionsWidth: 58,
+            onTap: { path.append(exercise) },
+            accessibilityActions: accessibilityActions(exercise)
+        ) {
+            HStack(spacing: 10) {
+                if exercise.isFavorite {
+                    Image(systemName: "star.fill")
+                        .font(.system(.caption, weight: .semibold))
+                        .foregroundStyle(Theme.accent)
                         .accessibilityHidden(true)
                 }
-                .padding(.vertical, 10)
-                .contentShape(Rectangle())
-            } actions: {
-                // Reveal-then-tap always; the label says what it does
-                // (a custom's removal is a permanent DELETE).
-                SwipeActionButton(label: exercise.isBuiltIn ? "REMOVE" : "DELETE", color: Theme.destructive) {
-                    openSwipeRow = nil
-                    remove(exercise)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(exercise.name)
+                        .font(.system(.subheadline, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(1)
+                    subtitleText(for: exercise)
+                        .font(.system(.caption))
+                        .lineLimit(2)
                 }
+                Spacer()
+                if !exercise.isBuiltIn {
+                    Text("CUSTOM")
+                        .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                        .foregroundStyle(Theme.accent)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .overlay(Capsule().strokeBorder(Theme.accent.opacity(0.4)))
+                }
+                Image(systemName: "chevron.right")
+                    .font(.system(.caption, weight: .bold))
+                    .foregroundStyle(Theme.textFaint)
+                    .accessibilityHidden(true)
             }
-            .listRowBackground(Color.clear)
-            .listRowSeparatorTint(Theme.border)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+        } actions: {
+            if !exercise.isBuiltIn {
+                SwipeActionButton(label: "DELETE", color: Theme.destructive) {
+                    openSwipeRow = nil
+                    modelContext.delete(exercise)
+                }
+            } else {
+                EmptyView()
+            }
+        } leadingActions: {
+            // Favorite is creation-of-yours → green; toggles off to a
+            // neutral UNFAVORITE when already lit.
+            SwipeActionButton(
+                label: exercise.isFavorite ? "UNFAV" : "FAV",
+                color: exercise.isFavorite ? Theme.textFaint : Theme.accent,
+                identifier: "favSwipe-\(exercise.name)"
+            ) {
+                openSwipeRow = nil
+                exercise.isFavorite.toggle()
+            }
         }
+        .listRowBackground(Color.clear)
+        .listRowSeparatorTint(Theme.border)
     }
 
-    /// Curated items are never hidden by availability (#113) — your
-    /// library is yours — but the gap is flagged, in notes amber
-    /// (mock 03: "needs Bench" is attention, not chrome). "Missing" is
-    /// relative to the ACTIVE equipment library.
+    private func accessibilityActions(_ exercise: Exercise) -> [SwipeRowAction] {
+        var actions = [SwipeRowAction(name: exercise.isFavorite ? "Unfavorite" : "Favorite") {
+            openSwipeRow = nil
+            exercise.isFavorite.toggle()
+        }]
+        if !exercise.isBuiltIn {
+            actions.append(SwipeRowAction(name: "Delete") {
+                openSwipeRow = nil
+                modelContext.delete(exercise)
+            })
+        }
+        return actions
+    }
+
+    /// Muscle · gear, with the missing-gear gap flagged in notes amber
+    /// (mock 03: "needs Bench" is attention, not chrome), relative to the
+    /// active kit.
     private func subtitleText(for exercise: Exercise) -> Text {
         let equipment = exercise.equipment.map(\.name).sorted().joined(separator: ", ")
         var text = Text("\(exercise.muscleGroup.displayName) · \(equipment.isEmpty ? "Bodyweight" : equipment)")
@@ -152,12 +268,84 @@ struct ExercisesTabView: View {
         return text
     }
 
-    private func remove(_ exercise: Exercise) {
-        if exercise.isBuiltIn {
-            exercise.inLibrary = false
-        } else {
-            modelContext.delete(exercise)
+    // MARK: - Filter persistence
+
+    private func loadPrefs() {
+        filterState.favoritesOnly = prefFavoritesOnly
+        filterState.gearMode = ExerciseFilterState.GearMode(rawValue: prefGearMode)
+        filterState.pickedGearNames = decodeNames(prefPickedGear)
+        filterState.selectedMuscleGroups = Set(
+            decodeNames(prefMuscleGroups).compactMap(MuscleGroup.init(rawValue:))
+        )
+    }
+
+    private func persistPrefs() {
+        prefFavoritesOnly = filterState.favoritesOnly
+        prefGearMode = filterState.gearMode?.rawValue ?? ""
+        prefPickedGear = encodeNames(filterState.pickedGearNames)
+        prefMuscleGroups = encodeNames(Set(filterState.selectedMuscleGroups.map(\.rawValue)))
+    }
+
+    private func decodeNames(_ json: String) -> Set<String> {
+        guard let data = json.data(using: .utf8),
+              let array = try? JSONDecoder().decode([String].self, from: data)
+        else { return [] }
+        return Set(array)
+    }
+
+    private func encodeNames(_ names: Set<String>) -> String {
+        guard let data = try? JSONEncoder().encode(names.sorted()),
+              let json = String(data: data, encoding: .utf8)
+        else { return "[]" }
+        return json
+    }
+}
+
+/// The hand-picked gear set for the GEAR facet's "Picked gear" mode:
+/// pick from ALL equipment (not just the active kit) — the point is to
+/// ask "what could I do with X and Y", regardless of what's in the kit.
+/// Writes `pickedGearNames` (names, so imports/reinstalls resolve).
+struct GearPickSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    var filterState: ExerciseFilterState
+    let allEquipment: [Equipment]
+
+    private var clearAction: (() -> Void)? {
+        filterState.pickedGearNames.isEmpty ? nil : { filterState.pickedGearNames.removeAll() }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SheetHeader(
+                title: "Picked gear",
+                onCancel: clearAction,
+                cancelLabel: "Clear",
+                action: { dismiss() }
+            )
+            Text("Show exercises you could do with any of these, whatever's in your kit.")
+                .font(.system(.footnote))
+                .foregroundStyle(Theme.textSecondary)
+                .padding(.top, 6)
+            ScrollView {
+                FlowLayout(spacing: 8) {
+                    ForEach(allEquipment) { equipment in
+                        SelectableChip(
+                            label: equipment.name,
+                            isSelected: filterState.pickedGearNames.contains(equipment.name)
+                        ) {
+                            if filterState.pickedGearNames.contains(equipment.name) {
+                                filterState.pickedGearNames.remove(equipment.name)
+                            } else {
+                                filterState.pickedGearNames.insert(equipment.name)
+                            }
+                        }
+                    }
+                }
+                .padding(.vertical)
+            }
         }
+        .padding(.horizontal, 18)
+        .presentationBackground(Theme.surface)
     }
 }
 
@@ -174,7 +362,7 @@ struct EquipmentTabView: View {
 
     @State private var showingCatalog = false
     @State private var showingLibraryTray = false
-    @State private var openSwipeRow: PersistentIdentifier?
+    @State private var openSwipeRow: SwipeRevealOpen<PersistentIdentifier>?
     @State private var path = NavigationPath()
 
     private var activeLibrary: EquipmentLibrary? {
@@ -204,7 +392,7 @@ struct EquipmentTabView: View {
                     LibraryEmptyState(
                         title: "No Equipment",
                         systemImage: "dumbbell",
-                        message: "Pick what you have access to. Exercises and routines then match to the gear in this library.",
+                        message: "Pick what you have. Exercises and routines then match to the gear in this kit.",
                         ctaIdentifier: "emptyEquipmentCatalogButton"
                     ) { showingCatalog = true }
                 } else {
@@ -221,7 +409,7 @@ struct EquipmentTabView: View {
                 EquipmentDetailScreen(equipment: equipment)
             }
             .navigationDestination(isPresented: $showingCatalog) {
-                CatalogBrowseScreen(kind: .equipment)
+                EquipmentCatalogScreen()
             }
             .sheet(isPresented: $showingLibraryTray) {
                 EquipmentLibraryTray()
@@ -413,425 +601,3 @@ struct LibrarySwitcherKey: View {
     }
 }
 
-// MARK: - Add from catalog
-
-/// The catalog browser, rethought as a curation surface (#139): the
-/// whole catalog stays listed, membership is a Toggle per row — nothing
-/// vanishes when you flip one. A full pushed page, not a tray (Dave):
-/// browsing surfaces push, sheets are for forms. For EQUIPMENT the
-/// toggle is membership in the ACTIVE library, and customs list here too
-/// (they belong to specific libraries now, so this is where you add one
-/// to another). For EXERCISES the toggle is the personal exercise
-/// library, and customs live in the library list, not here (#113).
-struct CatalogBrowseScreen: View {
-    enum Kind: String, Identifiable {
-        case exercises
-        case equipment
-
-        var id: String { rawValue }
-    }
-
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Exercise.name) private var allExercises: [Exercise]
-    @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
-    @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
-    @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
-
-    let kind: Kind
-
-    private var activeLibrary: EquipmentLibrary? {
-        EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)
-    }
-
-    private var availableEquipmentNames: Set<String> {
-        activeLibrary?.memberNames ?? []
-    }
-
-    @State private var filterState = ExerciseFilterState()
-    /// 0 = All · 1 = In library · 2 = Not in library.
-    @State private var libraryFilter = 0
-    @State private var showingMuscleFilter = false
-    @State private var showingEquipmentFilter = false
-    /// Prefill for the custom-exercise editor sheet (create/edit forms
-    /// are the one thing that stays modal here).
-    @State private var customPrefill: String?
-    /// Custom gear is just a name, so an empty-query create prompts for
-    /// one here instead of silently doing nothing (#170).
-    @State private var promptingEquipmentName = false
-    @State private var newEquipmentName = ""
-
-    /// §F: onboarding + the Settings re-run ride the REAL catalog with
-    /// a pinned confirm bar — the limited tray (and the preset strip,
-    /// #203) died.
-    var setupMode = false
-    /// Only Today's onboarding step offers population on Done (#204) —
-    /// Settings/Library re-runs are curation, not setup.
-    var offersPopulateOnDone = false
-    /// Any toggle touch counts as engagement: plain back then still
-    /// marks setup done (never trap the user in a step).
-    @State private var touchedSetup = false
-
-    private var query: String { filterState.searchText }
-
-    /// LIBRARY chip binding over the legacy 0/1/2 segmented value:
-    /// nil = All.
-    private var membershipBinding: Binding<Int?> {
-        Binding(
-            get: { libraryFilter == 0 ? nil : libraryFilter },
-            set: { libraryFilter = $0 ?? 0 }
-        )
-    }
-
-    private var anyFilterActive: Bool {
-        libraryFilter != 0
-            || !filterState.selectedMuscleGroups.isEmpty
-            || !filterState.selectedEquipment.isEmpty
-    }
-
-    private func clearAllFilters() {
-        libraryFilter = 0
-        filterState.selectedMuscleGroups = []
-        filterState.selectedEquipment = []
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            // One row for all narrowing (#237): membership as a
-            // single-select chip, muscle/equipment as tray chips with
-            // count pills, leading ✕ to clear.
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 7) {
-                    if anyFilterActive {
-                        ClearAllChip { clearAllFilters() }
-                    }
-                    // One name for membership across both kinds: gear is
-                    // "in library" (the active equipment library), same
-                    // word as exercises — availability, not ownership.
-                    FacetChip(
-                        facet: "LIBRARY",
-                        selection: membershipBinding,
-                        options: [(1, "In library"), (2, "Not in library")]
-                    )
-                    if kind == .exercises {
-                        TrayFilterChip(
-                            facet: "MUSCLE",
-                            count: filterState.selectedMuscleGroups.count
-                        ) { showingMuscleFilter = true }
-                        TrayFilterChip(
-                            facet: "EQUIPMENT",
-                            count: filterState.selectedEquipment.count
-                        ) { showingEquipmentFilter = true }
-                    }
-                    Spacer(minLength: 0)
-                }
-                .animation(Theme.Anim.standard, value: anyFilterActive)
-                .padding(.horizontal, 16)
-            }
-            .padding(.top, 6)
-
-            Button {
-                createCustom()
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "plus")
-                        .font(.system(.caption, weight: .semibold))
-                    Text(createLabel).font(.system(.footnote, weight: .semibold))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                }
-                // Creation is green (#202) — a future increment, same
-                // voice as the catalog dead-end create rows; the key
-                // anatomy says "this makes something happen" (Quiet
-                // Arcade: in-list creation rows are secondary keys).
-                .foregroundStyle(Theme.accent)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 12)
-                .frame(minHeight: 48)
-                .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
-                .overlay(
-                    RoundedRectangle(cornerRadius: Theme.controlRadius)
-                        .strokeBorder(Theme.borderStrong)
-                )
-            }
-            .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-
-            List {
-                if kind == .exercises {
-                    ForEach(candidateExercises) { exercise in
-                        toggleRow(
-                            name: exercise.name,
-                            sub: exerciseSubtitleText(exercise),
-                            isOn: Binding(
-                                get: { exercise.inLibrary },
-                                set: {
-                                    exercise.inLibrary = $0
-                                    touchedSetup = true
-                                }
-                            )
-                        )
-                    }
-                } else {
-                    ForEach(candidateEquipment) { equipment in
-                        toggleRow(
-                            name: equipment.name,
-                            sub: Text(equipmentSubtitle(equipment)).foregroundStyle(Theme.textSecondary),
-                            isOn: Binding(
-                                get: { activeLibrary?.contains(equipment) ?? false },
-                                set: {
-                                    activeLibrary?.setMembership(equipment, $0)
-                                    touchedSetup = true
-                                }
-                            )
-                        )
-                    }
-                }
-                if candidatesEmpty {
-                    Text("Nothing matches these filters.")
-                        .font(.system(.caption))
-                        .foregroundStyle(Theme.textFaint)
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                }
-                if kind == .exercises, !filterState.showUnavailable, hiddenByAvailability > 0 {
-                    // The availability escape hatch as a quiet key (Quiet
-                    // Arcade retired selection blue as a link color).
-                    QuietKey(
-                        label: "\(hiddenByAvailability) more need equipment you don't have — show",
-                        identifier: "showUnavailableToggle"
-                    ) {
-                        filterState.showUnavailable = true
-                    }
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                }
-            }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .scrollDismissesKeyboard(.immediately)
-            .padding(.top, 2)
-        }
-        .background(Theme.background)
-        // Custom key chrome (build-42 call): centered title, in-header
-        // expanding search.
-        .pushedScreenChrome(
-            title: kind == .exercises ? "Exercise catalog" : "Equipment catalog",
-            search: HeaderSearchConfig(
-                text: Bindable(filterState).searchText,
-                prompt: "Search the catalog",
-                identifier: "catalogSearchField"
-            ),
-            onBack: { dismiss() }
-        )
-        .safeAreaInset(edge: .bottom) {
-            if setupMode {
-                Button {
-                    touchedSetup = true
-                    SetupState.markEquipmentDone()
-                    // Population stays the user's call (#185), but the
-                    // ask moved to Today (#204) — a popover here floated
-                    // anchored to nothing while the screen was leaving.
-                    if kind == .equipment && offersPopulateOnDone {
-                        SetupState.requestPopulateOffer()
-                    }
-                    dismiss()
-                } label: {
-                    Text(availableNames.isEmpty ? "Done · bodyweight only" : "Done · \(availableNames.count) item\(availableNames.count == 1 ? "" : "s")")
-                        .font(.system(.subheadline, weight: .bold))
-                        .foregroundStyle(Theme.onPrimary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: 52)
-                        .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
-                }
-                .buttonStyle(.raisedPrimaryKey(cornerRadius: 12))
-                .accessibilityIdentifier("setEquipmentButton")
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(.bar)
-            }
-        }
-        .onDisappear {
-            // Plain back after engaging still counts as done — never
-            // trap the user in a setup step (§F). And the exits must be
-            // EQUIVALENT: the swipe-back that marks done also carries
-            // the populate offer the Done button would have (FTUE
-            // audit — the offer had no re-ask anywhere).
-            if setupMode && touchedSetup && !SetupState.equipmentDone {
-                SetupState.markEquipmentDone()
-                if kind == .equipment && offersPopulateOnDone {
-                    SetupState.requestPopulateOffer()
-                }
-            }
-        }
-        // Membership toggles + catalog adds reach GitHub when the browse
-        // surface closes. Debounced + dirty-gated (see requestSync).
-        .syncsProgramOnClose()
-        .sheet(isPresented: Binding(
-            get: { customPrefill != nil },
-            set: { if !$0 { customPrefill = nil } }
-        )) {
-            // Creating from a narrowed list carries the narrowing in:
-            // the filters describe the exercise being looked for, so
-            // the missing one starts from them. Reading filterState
-            // live is safe — the filters sit behind this sheet.
-            ExerciseEditorView(
-                prefillName: customPrefill ?? "",
-                prefillMuscleGroup: filterState.prefillMuscleGroup,
-                prefillEquipment: filterState.prefillEquipment
-            )
-        }
-        .alert("New equipment", isPresented: $promptingEquipmentName) {
-            TextField("Name", text: $newEquipmentName)
-            Button("Create") {
-                let name = newEquipmentName.trimmingCharacters(in: .whitespaces)
-                if !name.isEmpty { createEquipment(named: name) }
-            }
-            Button("Cancel", role: .cancel) {}
-        }
-        .sheet(isPresented: $showingMuscleFilter) {
-            MuscleGroupFilterSheet(filterState: filterState)
-                .presentationDetents([.medium])
-        }
-        .sheet(isPresented: $showingEquipmentFilter) {
-            EquipmentFilterSheet(filterState: filterState, allEquipment: activeLibrary?.members.sorted { $0.name < $1.name } ?? [])
-                .presentationDetents([.medium, .large])
-        }
-    }
-
-    // MARK: - Rows
-
-    private func toggleRow(name: String, sub: Text, isOn: Binding<Bool>) -> some View {
-        // Toggle wraps the whole label: the full row flips it. Under the
-        // default (All) membership filter the row stays put on flip —
-        // visible state, not a disappearing act (#139); under an explicit
-        // In/Not-in-library filter it correctly leaves the filtered set.
-        Toggle(isOn: isOn) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(name)
-                    .font(.system(.subheadline, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-                    .lineLimit(1)
-                sub
-                    .font(.system(.caption))
-                    .lineLimit(2)
-            }
-        }
-        .tint(Theme.selected)
-        .accessibilityIdentifier("toggle-\(name)")
-        .padding(.vertical, 4)
-        .listRowBackground(Color.clear)
-        .listRowSeparatorTint(Theme.border)
-    }
-
-    // MARK: - Candidates
-
-    private var candidatesEmpty: Bool {
-        kind == .exercises ? candidateExercises.isEmpty : candidateEquipment.isEmpty
-    }
-
-    private func matchesLibraryFilter(_ inLibrary: Bool) -> Bool {
-        switch libraryFilter {
-        case 1: inLibrary
-        case 2: !inLibrary
-        default: true
-        }
-    }
-
-    private var candidateExercises: [Exercise] {
-        filterState.filteredExercises(from: allExercises.filter(\.isBuiltIn), available: availableEquipmentNames)
-            .filter { matchesLibraryFilter($0.inLibrary) }
-    }
-
-    /// Built-ins AND customs: a custom belongs to specific libraries now,
-    /// so the catalog is where you add it to another one. Membership is
-    /// active-library membership.
-    private var candidateEquipment: [Equipment] {
-        // Forgiving search, best match first (blank passes all through
-        // in @Query's alphabetical order).
-        FuzzySearch.ranked(allEquipment, query: query) { $0.name }
-            .filter { matchesLibraryFilter(activeLibrary?.contains($0) ?? false) }
-    }
-
-    // The §F preset strip died here (#203): three bulk buttons that
-    // could silently overwrite a curated equipment set in one tap, and
-    // they crammed the top. Search + per-row toggles are the tool; a
-    // bulk affordance returns only if real setup friction demands one,
-    // and additive-only when it does.
-
-    private var availableNames: Set<String> {
-        availableEquipmentNames
-    }
-
-    /// Exercises the availability filter is currently hiding (§H escape
-    /// hatch) — matches every OTHER active filter first.
-    private var hiddenByAvailability: Int {
-        let shown = candidateExercises.count
-        let all = filterState.filteredExercises(
-            from: allExercises.filter(\.isBuiltIn),
-            available: availableEquipmentNames,
-            overridingShowUnavailable: true
-        ).filter { matchesLibraryFilter($0.inLibrary) }.count
-        return max(0, all - shown)
-    }
-
-    private var createLabel: String {
-        let trimmed = query.trimmingCharacters(in: .whitespaces)
-        if !trimmed.isEmpty { return "Create “\(trimmed)”" }
-        return kind == .exercises ? "Create custom exercise…" : "Create custom equipment…"
-    }
-
-    /// The gear gap in notes amber (mock 03), same as the library rows.
-    private func exerciseSubtitleText(_ exercise: Exercise) -> Text {
-        let equipment = exercise.equipment.map(\.name).sorted().joined(separator: ", ")
-        var text = Text("\(exercise.muscleGroup.displayName) · \(equipment.isEmpty ? "Bodyweight" : equipment)")
-            .foregroundStyle(Theme.textSecondary)
-        let missing = ExerciseFilterState.missingEquipment(for: exercise, available: availableEquipmentNames)
-        if !missing.isEmpty {
-            text = text + Text(" · ").foregroundStyle(Theme.textSecondary)
-                + Text("needs \(missing.joined(separator: ", "))").foregroundStyle(Theme.notes)
-        }
-        return text
-    }
-
-    private func equipmentSubtitle(_ equipment: Equipment) -> String {
-        let used = allExercises.filter { exercise in
-            exercise.equipment.contains { $0 === equipment }
-        }.count
-        return used == 0 ? "No catalog exercise uses it" : "\(used) exercise\(used == 1 ? "" : "s") in the catalog"
-    }
-
-    private func createCustom() {
-        let trimmed = query.trimmingCharacters(in: .whitespaces)
-        if kind == .equipment {
-            // Custom gear is just a name; with an empty query, ask for
-            // one — the row used to silently do nothing here (#170).
-            guard !trimmed.isEmpty else {
-                newEquipmentName = ""
-                promptingEquipmentName = true
-                return
-            }
-            createEquipment(named: trimmed)
-        } else {
-            customPrefill = trimmed
-        }
-    }
-
-    /// Creating custom gear adds it to the active library and pops back
-    /// to the tab, where the new item is now visible.
-    private func createEquipment(named name: String) {
-        let item: Equipment
-        if let existing = allEquipment.first(where: { $0.name.lowercased() == name.lowercased() }) {
-            item = existing
-        } else {
-            let created = Equipment(name: name, isBuiltIn: false)
-            modelContext.insert(created)
-            item = created
-        }
-        activeLibrary?.setMembership(item, true)
-        dismiss()
-    }
-}

@@ -105,7 +105,7 @@ struct RoutineCatalogScreen: View {
             ("Edit my equipment…", { showingEquipmentEditor = true })
         ]
         if libraries.count > 1 {
-            rows.append(("Switch library…", { showingLibraryTray = true }))
+            rows.append(("Switch kit…", { showingLibraryTray = true }))
         }
         return rows
     }
@@ -127,7 +127,14 @@ struct RoutineCatalogScreen: View {
 
     private func filtered(gearOverride: GearFit?) -> [RoutineTemplate] {
         let owned = ownedEquipmentNames
+        // A template already in the library drops out of the catalog: the
+        // detail's "Add" was only local view state, so an added routine
+        // still read as addable (Dave, 2026-07-16). Matched by name — the
+        // same key `instantiate`'s uniqueName dedups on; a routine renamed
+        // away from its template frees the template to be added fresh again.
+        let inLibrary = Set(routines.map { $0.name.lowercased() })
         var result = RoutineCatalog.all.filter { template in
+            if inLibrary.contains(template.name.lowercased()) { return false }
             if !focusFilter.isEmpty, !focusFilter.contains(template.focus) { return false }
             if !effortFilter.isEmpty, !effortFilter.contains(template.effort) { return false }
             if !timeFilter.isEmpty, !timeFilter.contains(where: { $0.contains(template.estimatedSeconds) }) { return false }
@@ -204,7 +211,7 @@ struct RoutineCatalogScreen: View {
                     // Quiet key (Quiet Arcade): the escape hatch reads
                     // as pressable without the retired link blue.
                     QuietKey(
-                        label: "\(hiddenByGear) more need gear you don't have — show",
+                        label: "\(hiddenByGear) more need gear you don't have · show",
                         identifier: "showUnavailableTemplates"
                     ) {
                         gearFilter = nil
@@ -221,7 +228,7 @@ struct RoutineCatalogScreen: View {
                             .foregroundStyle(Theme.textFaint)
                         if gearFilter == .mine, hiddenByGear > 0 {
                             QuietKey(
-                                label: "\(hiddenByGear) match\(hiddenByGear == 1 ? "es" : "") need gear you don't have — show",
+                                label: "\(hiddenByGear) match\(hiddenByGear == 1 ? "es" : "") need gear you don't have · show",
                                 identifier: "showUnavailableTemplatesEmpty"
                             ) {
                                 gearFilter = nil
@@ -261,7 +268,7 @@ struct RoutineCatalogScreen: View {
         // ownership edits reflect in the filter live on return.
         .sheet(isPresented: $showingEquipmentEditor) {
             NavigationStack {
-                CatalogBrowseScreen(kind: .equipment)
+                EquipmentCatalogScreen()
             }
         }
         .sheet(isPresented: $showingLibraryTray) {
@@ -515,7 +522,7 @@ struct RoutineTemplateDetailScreen: View {
                     SheetSectionLabel("EQUIPMENT")
                         .padding(.top, 24)
                     if template.equipmentNames.isEmpty {
-                        Text("None — bodyweight only.")
+                        Text("None · bodyweight only.")
                             .font(.system(.caption))
                             .foregroundStyle(Theme.textFaint)
                     } else {
@@ -621,7 +628,9 @@ struct RoutineTemplateDetailScreen: View {
 
     private func targetText(block: RoutineTemplate.Block, entry: RoutineTemplate.Entry) -> String {
         if let seconds = entry.durationSeconds {
-            return "\(block.sets)×\(seconds)s"
+            // Same compact label the scrubber and detail rows speak —
+            // a 90 s hold reads "1:30", not "90s".
+            return "\(block.sets)×\(DurationTape.label(for: seconds))"
         }
         if let reps = entry.reps {
             if let upper = entry.repsUpper {
@@ -667,7 +676,7 @@ struct GearCheckTray: View {
         VStack(alignment: .leading, spacing: 0) {
             SheetHeader(title: "Gear check", closeOnly: true, action: { dismiss() })
 
-            Text("Mark what you have. It counts toward the gear check and the library filter everywhere.")
+            Text("Mark what you have. It counts toward the gear check and the kit filter everywhere.")
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
                 .padding(.top, 6)
@@ -709,7 +718,7 @@ struct GearCheckTray: View {
         .presentationDetents([.medium, .large])
         .sheet(isPresented: $showingCatalog) {
             NavigationStack {
-                CatalogBrowseScreen(kind: .equipment)
+                EquipmentCatalogScreen()
             }
         }
     }

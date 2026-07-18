@@ -14,12 +14,17 @@ struct OperatorTray: View {
     let controller: OperatorController
 
     @State private var draft = ""
+    /// Opens tall (chat + keyboard want the height); draggable to half
+    /// height so navigation and applied changes show behind it (Dave,
+    /// build-85 round) — background stays interactive at medium.
+    @State private var detent: PresentationDetent = .large
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
                 .padding(.horizontal, 20)
             if controller.availability == .ready {
+                scrollTopBorder
                 transcript
                 inputBar
                     .padding(.horizontal, 20)
@@ -32,21 +37,31 @@ struct OperatorTray: View {
             }
         }
         .background(Theme.surface)
-        .presentationDetents([.large])
+        .presentationDetents([.medium, .large], selection: $detent)
+        .presentationBackgroundInteraction(.enabled(upThrough: .medium))
         .onAppear {
             controller.refresh()
             controller.prewarmIfReady()
         }
     }
 
+    /// The subtle seam between the fixed header and the scrolling
+    /// transcript (Dave, build-85 round).
+    private var scrollTopBorder: some View {
+        Rectangle()
+            .fill(Theme.border)
+            .frame(height: 1)
+            .padding(.top, 6)
+    }
+
     // MARK: - Header
 
     private var header: some View {
         HStack(alignment: .center, spacing: 9) {
-            Circle()
-                .fill(controller.availability == .ready ? Theme.accent : Theme.textFaint)
-                .frame(width: 8, height: 8)
-                .accessibilityHidden(true)
+            // The face, not a status dot — dots mean sync state (Dave,
+            // build-85 round); readiness reads from the eyes' tint and
+            // the status word.
+            OperatorFaceGlyph(size: 26, ready: controller.availability == .ready)
             Text("Operator")
                 .font(.system(.title3, weight: .bold))
                 .foregroundStyle(Theme.textPrimary)
@@ -178,7 +193,7 @@ struct OperatorTray: View {
         VStack(alignment: .leading, spacing: 8) {
             if !controller.chips.isEmpty, controller.turnState == .idle {
                 OperatorChipRow(chips: controller.chips) { chip in
-                    controller.send(chip.prompt)
+                    controller.send(chip.text)
                 }
             }
             HStack(alignment: .bottom, spacing: 10) {

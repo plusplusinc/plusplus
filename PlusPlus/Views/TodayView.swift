@@ -55,9 +55,6 @@ struct TodayView: View {
     /// back to the system transition on their own.
     @Namespace private var zoomNamespace
     @State private var showingEquipmentSetup = false
-    /// Nonzero presents the populate-offer alert (#204); computed at
-    /// present time from the store, never carried stale.
-    @State private var populateOfferCount = 0
     @State private var scheduleEditTarget: IdentifiedUUID?
     @State private var activeSession: WorkoutSession?
     /// The first-workout Health primer, raised by the start gate.
@@ -75,6 +72,12 @@ struct TodayView: View {
     /// from a workout cover, tab hops) must not yank the scroll
     /// position. Day changes re-anchor separately via dayToken.
     @State private var hasAnchoredToday = false
+    /// Measured height of the first setup step (equipment), fed back into
+    /// the reveal-upward headroom so step 1 seats at the top of the scroll
+    /// container AND can't be scrolled off the top (Dave, 2026-07-17):
+    /// the headroom below it is capped to exactly one viewport minus the
+    /// step, so "step 1 at top" is the maximum downward scroll.
+    @State private var equipmentStepHeight: CGFloat = 0
     /// The workout just finished (its recap closed), awaiting the
     /// pending→done conversion flourish on its committed card. Nil
     /// outside the beat.
@@ -87,6 +90,42 @@ struct TodayView: View {
     /// The zero-height marker the opening scroll anchors to — today's
     /// content top-aligns here, with the week ahead above it (#267).
     private static let todayAnchorID = "todayAnchor"
+
+    /// Per-step scroll anchors for the setup scaffold. The timeline reveals
+    /// the steps upward (Dave, 2026-07-16): a fresh install lands on step 1
+    /// (equipment, the bottom-most / first-to-do) with steps 2 and 3 above
+    /// it off-screen, and completing a step scrolls the next one — which
+    /// sits above — up to the top of the scroll area on return to Today.
+    private static let setupEquipmentAnchor = "setupAnchor.equipment"
+    private static let setupRoutineAnchor = "setupAnchor.routine"
+    private static let setupScheduleAnchor = "setupAnchor.schedule"
+
+    /// The step the setup scroll should seat at the top: the lowest
+    /// incomplete step (equipment → routine → schedule). Nil once setup is
+    /// past or every step is done — nothing left to reveal.
+    private var activeSetupAnchor: String? {
+        guard setupActive else { return nil }
+        if !equipmentStepDone { return Self.setupEquipmentAnchor }
+        if !routineStepDone { return Self.setupRoutineAnchor }
+        if !scheduleStepDone { return Self.setupScheduleAnchor }
+        return nil
+    }
+
+    /// The opening scroll target: the active setup step during onboarding,
+    /// else today's content. Keeps the returning-user path (#267) unchanged.
+    private var openingScrollTarget: String {
+        activeSetupAnchor ?? Self.todayAnchorID
+    }
+
+    /// True only when Today's own timeline is the visible surface — no
+    /// pushed routine/catalog, no equipment setup, no schedule editor, no
+    /// live session covering it. A setup step completes behind one of these
+    /// (the equipment screen, the routine catalog, the schedule editor), so
+    /// this going true again is the "sent back to Today" moment that reveals
+    /// the next step.
+    private var isTodayRootVisible: Bool {
+        todayPath.isEmpty && !showingEquipmentSetup && scheduleEditTarget == nil && activeSession == nil
+    }
 
     private var weightUnit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .lb }
     private var calendar: Calendar { Calendar.current }
@@ -220,6 +259,23 @@ struct TodayView: View {
                                                 .scaleEffect(converting && !completionConverted ? 0.97 : 1.0)
                                         }
                                     }
+                                    // Reveal-upward headroom (2026-07-16): the
+                                    // setup scaffold reveals its steps by
+                                    // scrolling the active one to the top, with
+                                    // the others above it off-screen. The bottom
+                                    // step (equipment) can only reach the top if
+                                    // scrollable space sits below it, so during
+                                    // onboarding we add some. Capped (2026-07-17)
+                                    // to exactly one viewport minus the step's own
+                                    // height + bottom pad, so step 1 seats at the
+                                    // top AND that IS the maximum downward scroll —
+                                    // it can't be pushed off the top. It sits below
+                                    // the fold and vanishes with the scaffold at
+                                    // the first logged session.
+                                    if setupActive {
+                                        Color.clear
+                                            .frame(height: max(0, viewport.size.height - equipmentStepHeight - 24))
+                                    }
                                 }
                                 // Pad the below-anchor region to at least a
                                 // screen so today can always scroll to the
@@ -270,19 +326,38 @@ struct TodayView: View {
                             // pending, the onChange below fires the anchor.
                             guard !hasAnchoredToday, viewport.size.height > 0 else { return }
                             hasAnchoredToday = true
-                            // Unanimated: Today OPENS at today; the week
-                            // above is something you go looking for.
-                            proxy.scrollTo(Self.todayAnchorID, anchor: .top)
+                            // Unanimated: Today OPENS at its target. During
+                            // onboarding that's the active setup step (step 1
+                            // at first, its siblings above it off-screen);
+                            // otherwise today's content, with the week above
+                            // it something you go looking for.
+                            proxy.scrollTo(openingScrollTarget, anchor: .top)
                         }
                         .onChange(of: viewport.size.height) { _, height in
                             // GeometryReader can publish the real height a
-                            // beat after onAppear; seat today the instant we
-                            // have room. One-shot via hasAnchoredToday, so a
-                            // later height change (rotation, keyboard) never
-                            // yanks a scroll the user has since moved.
+                            // beat after onAppear; seat the opening target the
+                            // instant we have room. One-shot via
+                            // hasAnchoredToday, so a later height change
+                            // (rotation, keyboard) never yanks a scroll the
+                            // user has since moved.
                             guard !hasAnchoredToday, height > 0 else { return }
                             hasAnchoredToday = true
-                            proxy.scrollTo(Self.todayAnchorID, anchor: .top)
+                            proxy.scrollTo(openingScrollTarget, anchor: .top)
+                        }
+                        .onChange(of: isTodayRootVisible) { _, visible in
+                            // Sent back to Today after finishing a setup step
+                            // (the equipment screen, routine catalog, or
+                            // schedule editor each complete a step behind a
+                            // push): reveal the NEXT step, which sits above,
+                            // by smoothly scrolling it up to the top. Deferred
+                            // a runloop so the pop settles and the newly-active
+                            // step has laid out before we aim at its anchor.
+                            guard visible, setupActive, let anchor = activeSetupAnchor else { return }
+                            Task { @MainActor in
+                                withAnimation(Theme.Anim.flourish(.easeInOut(duration: 0.5))) {
+                                    proxy.scrollTo(anchor, anchor: .top)
+                                }
+                            }
                         }
                         .onChange(of: dayToken) {
                             // A new day moves "today" — re-anchor. (This
@@ -397,40 +472,7 @@ struct TodayView: View {
             // The one-time Health ask, in front of the first workout start.
             .healthStartPrimer($healthStartRequest)
             .navigationDestination(isPresented: $showingEquipmentSetup) {
-                CatalogBrowseScreen(kind: .equipment, setupMode: true, offersPopulateOnDone: true)
-            }
-            // The populate offer, asked from home ground (#204): the
-            // catalog's Done raises a one-shot flag and dismisses; the
-            // question waits here, anchored, with a live count.
-            .onChange(of: showingEquipmentSetup) { _, showing in
-                guard !showing, SetupState.consumePopulateOffer() else { return }
-                // Next runloop, not mid-pop-transition: presenting in
-                // the same transaction as a navigation change is the
-                // documented drop class (see the swap-in sheet note).
-                Task { @MainActor in
-                    populateOfferCount = SeedData.populateCandidateCount(context: modelContext)
-                }
-            }
-            .alert(
-                // "your equipment supports" right after "Done ·
-                // bodyweight only" reads as a mistake (FTUE audit).
-                !(activeLibrary?.members.isEmpty ?? true)
-                    ? "Add \(populateOfferCount) exercise\(populateOfferCount == 1 ? "" : "s") your equipment supports?"
-                    : "Add \(populateOfferCount) exercise\(populateOfferCount == 1 ? " that needs" : "s that need") no equipment?",
-                isPresented: Binding(
-                    get: { populateOfferCount > 0 },
-                    set: { if !$0 { populateOfferCount = 0 } }
-                )
-            ) {
-                Button("Add them") {
-                    SeedData.populateLibraryFromEquipment(context: modelContext)
-                    populateOfferCount = 0
-                }
-                Button("Start empty", role: .cancel) {
-                    populateOfferCount = 0
-                }
-            } message: {
-                Text("Skipping is fine — the catalog stays a tap away, and anything you use joins your library on its own.")
+                EquipmentCatalogScreen(setupMode: true)
             }
             // Step 2 IS the routine catalog (#246): search, facets,
             // honest gear checks, blank creation as its first row, and
@@ -817,7 +859,7 @@ struct TodayView: View {
                 .frame(width: 20)
             VStack(alignment: .leading, spacing: 3) {
                 SheetSectionLabel("CARRIED OVER")
-                Text("still open from earlier — do them whenever")
+                Text("still open from earlier · do them whenever")
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(Theme.textFaint)
                     .lineLimit(1)
@@ -1091,9 +1133,10 @@ struct TodayView: View {
     /// item, and now rides the timeline's TODAY marker. Nil when there's
     /// nothing to say (no plan, past setup) so the line drops entirely.
     private func caption(plan: (completed: Int, planned: Int)) -> String? {
-        if setupActive && !allSetupDone {
-            return "setup \(setupDoneCount) of 3"
-        }
+        // No "setup N of 3" line under the title (Dave, 2026-07-17): the
+        // timeline's own steps already carry their "N of 3" badges, so a
+        // header echo was redundant — during setup the caption simply drops.
+        guard !(setupActive && !allSetupDone) else { return nil }
         // The week tally is calendar fact, not obligation (#172-safe:
         // it never says what's LEFT, only what the plan holds and what
         // has landed). No "N due" tally — the staged cards ARE that.
@@ -1113,7 +1156,7 @@ struct TodayView: View {
         // the diff grammar unlearnable exactly when it was legible.
         let segments: [RoutineDiff.Segment]
         if !lines.isEmpty && lines.allSatisfy({ $0.delta == .new }) {
-            segments = [RoutineDiff.Segment(kind: .new, text: "first time — sets the baseline")]
+            segments = [RoutineDiff.Segment(kind: .new, text: "first time · sets the baseline")]
         } else if summary.contains(where: { $0.kind != .unchanged }) {
             segments = summary.filter { $0.kind != .unchanged }
         } else {
@@ -1322,10 +1365,6 @@ struct TodayView: View {
 
     private var allSetupDone: Bool { equipmentStepDone && routineStepDone && scheduleStepDone }
 
-    private var setupDoneCount: Int {
-        [equipmentStepDone, routineStepDone, scheduleStepDone].filter { $0 }.count
-    }
-
     /// Bottom-up like commits: equipment is the first entry (bottom),
     /// schedule the last (top). Each step gates on the one below it.
     private var setupSection: some View {
@@ -1335,20 +1374,24 @@ struct TodayView: View {
                 badge: "3 of 3",
                 title: "Schedule it",
                 doneTitle: "Schedule set",
-                sub: scheduleStepDone ? scheduleDoneSub : "Days or a pace — routines appear here on their day",
+                sub: scheduleStepDone ? scheduleDoneSub : "Days or a pace. It shows up here on its day.",
                 gatedSub: "Needs a routine first",
-                cta: "Choose days or pace",
+                cta: "Choose days or a pace",
                 identifier: "setupScheduleStep",
                 action: { scheduleEditTarget = scheduleEditRoutine?.uuid.map(IdentifiedUUID.init)},
                 edit: { scheduleEditTarget = scheduleEditRoutine?.uuid.map(IdentifiedUUID.init)}
             )
+            // Stable per-step scroll anchor (constant across the step's
+            // gated/ready/done states, so identity never churns): the
+            // reveal-upward scroll seats the active step here.
+            .id(Self.setupScheduleAnchor)
             SetupRow(
                 state: routineStepDone ? .done : (equipmentStepDone ? .ready : .gated),
                 badge: "2 of 3",
                 title: "Create your first routine",
                 doneTitle: routines.count == 1 ? "Routine created" : "Routines created",
-                sub: routineStepDone ? routineDoneSub : "Browse the catalog, or start from a blank slate",
-                gatedSub: "Needs your equipment first",
+                sub: routineStepDone ? routineDoneSub : "From the catalog, or from scratch.",
+                gatedSub: "Needs your gear first",
                 cta: "Pick a routine",
                 identifier: "setupRoutineStep",
                 // Root-only affordance: emptiness doubles as the
@@ -1356,18 +1399,26 @@ struct TodayView: View {
                 action: { if todayPath.isEmpty { todayPath.append(RoutineCatalogDestination()) } },
                 edit: { onGoToRoutines() }
             )
+            .id(Self.setupRoutineAnchor)
             SetupRow(
                 state: equipmentStepDone ? .done : .ready,
                 badge: "1 of 3",
-                title: "What do you have access to?",
+                // The first card is title + key only — no sub (Dave,
+                // 2026-07-17: the question carries it; explaining the
+                // mechanism here was noise).
+                title: "What do you train with?",
                 doneTitle: "Equipment set",
-                sub: equipmentStepDone ? equipmentDoneSub : "Your equipment filters the catalog everywhere",
+                sub: equipmentStepDone ? equipmentDoneSub : "",
                 gatedSub: "",
-                cta: "Pick equipment",
+                cta: "Pick your equipment",
                 identifier: "setupEquipmentStep",
                 action: { showingEquipmentSetup = true },
                 edit: { showingEquipmentSetup = true }
             )
+            .id(Self.setupEquipmentAnchor)
+            // Feed the row's height back so the reveal-upward headroom can
+            // pin it at the top (see equipmentStepHeight).
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { equipmentStepHeight = $0 }
         }
     }
 
@@ -1486,7 +1537,7 @@ struct TodayView: View {
                 if !setupActive, !scheduledRoutinesExist,
                    let target = swapInCandidates.first {
                     QuietKey(
-                        label: "schedule a routine — it appears here on its day",
+                        label: "schedule a routine · it appears here on its day",
                         identifier: "scheduleOfferButton"
                     ) {
                         scheduleEditTarget = target.uuid.map(IdentifiedUUID.init)
@@ -1507,7 +1558,7 @@ struct TodayView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(routine.name)
                 .font(.system(.body, weight: .semibold))
-            Text("no exercises yet — it can start once it has some")
+            Text("no exercises yet · it can start once it has some")
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textSecondary)
             Button {
@@ -1564,7 +1615,7 @@ struct TodayView: View {
     /// set" step); everyone else gets the calendar facts.
     private var restDayItemCaption: String {
         if setupActive && !allSetupDone && !scheduledRoutinesExist {
-            return "Scheduling is optional — start whenever you like"
+            return "Scheduling is optional. Start whenever you like."
         }
         return restDayCaption
     }
@@ -1585,7 +1636,7 @@ struct TodayView: View {
         guard let best else {
             return scheduledRoutinesExist
                 ? "start whenever you like"
-                : "No routine on the calendar — start one whenever"
+                : "No routine on the calendar. Start one whenever."
         }
         let day = best.date.formatted(.dateTime.weekday(.abbreviated)).lowercased()
         // Within the week "next thu" is unambiguous; further out the
@@ -1594,9 +1645,9 @@ struct TodayView: View {
         if let weekBoundary = calendar.date(byAdding: .day, value: 7, to: calendar.startOfDay(for: today)),
            best.date > weekBoundary {
             let monthDay = best.date.formatted(.dateTime.month(.abbreviated).day()).lowercased()
-            return "on pace · next \(day) · \(monthDay) — \(best.name)"
+            return "on pace · next \(day) · \(monthDay) · \(best.name)"
         }
-        return "on pace · next \(day) — \(best.name)"
+        return "on pace · next \(day) · \(best.name)"
     }
 }
 
@@ -1761,10 +1812,15 @@ private struct SetupRow: View {
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(Theme.textFaint)
                 }
-                Text(sub)
-                    .font(.system(.footnote, design: .monospaced))
-                    .foregroundStyle(Theme.textSecondary)
-                    .padding(.top, 5)
+                // A step may carry no sub at all (the equipment card is
+                // title + key only) — skip the row entirely so no orphan
+                // padding survives.
+                if !sub.isEmpty {
+                    Text(sub)
+                        .font(.system(.footnote, design: .monospaced))
+                        .foregroundStyle(Theme.textSecondary)
+                        .padding(.top, 5)
+                }
                 Button(action: action) {
                     Text(cta)
                         .font(.system(.subheadline, weight: .bold))
@@ -2014,7 +2070,7 @@ private struct SwapInSheet: View {
                 if routines.isEmpty {
                     // Only empty routines (or none) exist — name the
                     // state; the creation key below is the fix.
-                    Text("nothing startable yet — a routine needs at least one exercise")
+                    Text("nothing startable yet · a routine needs at least one exercise")
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(Theme.textFaint)
                         .padding(.vertical, 10)
@@ -2089,7 +2145,7 @@ private struct SwapInSheet: View {
                 // Only when something IS scheduled today — on a rest
                 // day there's no swap to explain.
                 if !dueIDs.isEmpty {
-                    Text("picking a different routine here IS the swap — it runs today without rescheduling")
+                    Text("picking a different routine here IS the swap · it runs today without rescheduling")
                         .font(.system(.caption2, design: .monospaced))
                         .foregroundStyle(Theme.textFaint)
                         .padding(.top, 10)

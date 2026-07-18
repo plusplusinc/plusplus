@@ -103,14 +103,21 @@ usable outside PlusPlus by construction. Sidecar bytes are preserved verbatim
 through sync; a missing sidecar degrades gracefully (the session JSON's `run`
 summary stands alone).
 
-An exercise file is written for everything in the user's **library** — all
-custom exercises, plus any built-in the user has adopted (the equipment-driven
-populate offer, a manual add) or customized. Un-adopted catalog built-ins are
-NOT written; routine files may reference them by name, and the app resolves
-them against its seed library on import (#328). Membership rides an additive
-`inLibrary` field, written only when `false` (an exported exercise NOT in the
-library, e.g. a removed custom) so the common case stays byte-clean and every
-pre-existing file reads as in-library.
+An exercise file is written for everything that is **yours** — all custom
+exercises, plus any built-in you have favorited or customized (notes, video,
+default targets, an explicit tracked-metric profile). Un-favorited, untouched
+catalog built-ins are NOT written; routine files may reference them by name,
+and the app resolves them against its seed catalog on import (#328). Curation
+rides an additive `isFavorite` field, written only when `true` (the common
+un-favorited case stays byte-clean and every pre-field file reads as not
+favorited).
+
+> **Deprecated:** `inLibrary` (was exercise-library membership) is frozen as of
+> the 2026-07-17 whole-catalog restructure — an exercise is a thing you choose
+> to do, so there is no library to belong to. The field is still accepted on
+> import (parse-and-ignore) so files written by older builds decode cleanly,
+> but the app no longer writes or reads it. Favorites (`isFavorite`) are the
+> curation now.
 
 ## Interchange schema v1
 
@@ -207,6 +214,7 @@ The app's single-file export (backup / manual transport) is a bundle:
       "name": "Erg Intervals",
       "restSeconds": 90,
       "schedule": { "mode": "frequency", "perDays": 7, "times": 3 },
+      "summary": "Six hard two-minute pieces on the erg.",
       "transitionSeconds": 30
     },
     {
@@ -348,6 +356,11 @@ Semantics worth writing down:
   `transition` is block configuration like `rest`: neither identifier may
   appear in `metrics` or the extras maps. Sessions don't carry it — a
   finished record's real gaps live in `completedAt`.
+- **Routine `summary`** (additive to schema v1): an optional one-line
+  description, the routine's own voice, seeded from a curated catalog
+  template on add and editable after. Absent means no description, so
+  pre-field files round-trip unchanged. Distinct from `notes`, which is
+  freeform intent shown at session start.
 - **Sessions snapshot everything** (names, types, targets) exactly like the app's
   data model, so history files stand alone even if templates change. A session
   also carries `activeSeconds` (running-clock duration, excluding pauses and
@@ -446,10 +459,10 @@ The contract has grown a lot without a version bump, on purpose. The rule:
 
 - **Additive optional fields don't bump `schemaVersion`.** Everything added
   since v1 shipped — default targets, flexible metrics, equipment records,
-  equipment libraries, library membership (`inLibrary`), schedules, heart-rate
-  targets, per-set metric snapshots, session `activeSeconds` / heart-rate
-  summary, routine `transitionSeconds` — is an *optional* field that is
-  **omitted when it carries no signal**. That buys two-way compatibility for free: an old reader ignores a
+  equipment libraries, exercise favorites (`isFavorite`; `inLibrary` before it,
+  now deprecated), schedules, heart-rate targets, per-set metric snapshots,
+  session `activeSeconds` / heart-rate summary, routine `transitionSeconds` —
+  is an *optional* field that is **omitted when it carries no signal**. That buys two-way compatibility for free: an old reader ignores a
   field it doesn't know, and a new reader treats an absent field as its
   documented default (which is exactly what the old file meant). Determinism
   holds because omitted-when-default keeps unrelated files byte-identical.

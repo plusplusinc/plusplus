@@ -16,7 +16,7 @@ import TipKit
 /// the glyph means.
 struct SupersetLoopTip: Tip {
     var title: Text { Text("The loop is a superset") }
-    var message: Text? { Text("Its exercises alternate — each round runs them all once.") }
+    var message: Text? { Text("Its exercises alternate. Each round runs them all once.") }
     var image: Image? { Image(systemName: "repeat") }
     var options: [any TipOption] { [Tips.MaxDisplayCount(1)] }
 }

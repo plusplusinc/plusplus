@@ -15,9 +15,14 @@ import PlusPlusKit
 /// Computed properties (no storage) are never listed — they carry nothing.
 ///
 /// Exercise           name·muscleGroup·equipment·exerciseType·isBuiltIn·
-///                    inLibrary·notes·videoURL·defaultWeight·defaultReps·
+///                    isFavorite·notes·videoURL·defaultWeight·defaultReps·
 ///                    defaultRepsUpper·defaultDurationSeconds·
 ///                    defaultHeartRateTargetData·metricsData·extraDefaultsData  → all EXPORTED
+///                    isFavorite → EXPORTED (the whole-catalog curation, 2026-07-17;
+///                    ExerciseDTO.isFavorite, written only when true — the "what's
+///                    yours" basis that inLibrary used to carry)
+///                    inLibrary → EXCLUDED (frozen legacy; the DTO field is kept for
+///                    decode tolerance of older files but never written or read here)
 ///                    metricsData.isOutdoor → EXPORTED (#378: ExerciseDTO.isOutdoor,
 ///                    riding the explicit-profile gate, written only when true —
 ///                    the user-facing toggle the old exclusion waited on ships
@@ -29,7 +34,7 @@ import PlusPlusKit
 /// EquipmentLibrary   name·equipment(members) → EXPORTED
 ///                    order → EXCLUDED (device ordering; import appends)
 ///                    uuid → EXCLUDED (active-pointer identity, device state)
-/// Routine            name·restSeconds·transitionSeconds·notes·scheduleData·groups → EXPORTED
+/// Routine            name·restSeconds·transitionSeconds·notes·summary·scheduleData·groups → EXPORTED
 ///                    createdAt → EXCLUDED (device metadata)
 ///                    order → EXCLUDED (device ordering; import appends)
 ///                    uuid → EXCLUDED (presentation identity, device state, like EquipmentLibrary.uuid)
@@ -99,12 +104,15 @@ enum InterchangeMapping {
         }
         return ExportBundle(
             units: units,
-            // Export the user's LIBRARY: all customs, plus any built-in that's
-            // in the library (the populate offer / manual adds — #328) or
-            // that the user has annotated. Un-adopted catalog built-ins ship
-            // with the app and resolve on import, so they stay out.
+            // Export what's YOURS (#328 thesis, whole-catalog basis
+            // 2026-07-17): all customs, plus any built-in you've
+            // favorited or annotated (notes / video / default targets /
+            // an explicit profile). Un-adopted, untouched catalog
+            // built-ins ship with the app and resolve on import, so they
+            // stay out. (Membership `inLibrary` was the old basis; it's
+            // frozen, and favorites are the curation now.)
             exercises: exercises
-                .filter { !$0.isBuiltIn || $0.inLibrary || $0.notes != nil || $0.videoURL != nil || $0.hasDefaultTargets || $0.metricsData != nil }
+                .filter { !$0.isBuiltIn || $0.isFavorite || $0.notes != nil || $0.videoURL != nil || $0.hasDefaultTargets || $0.metricsData != nil }
                 .map(makeDTO),
             routines: routines.map(makeDTO),
             sessions: sessions.map(makeDTO),
@@ -155,10 +163,12 @@ enum InterchangeMapping {
             // gate like metrics/distanceUnit — indoor files stay byte-clean.
             isOutdoor: explicitProfile?.isOutdoor == true ? true : nil,
             extraDefaults: MetricValues.toRaw(exercise.extraDefaults),
-            // Carry library membership so it round-trips. Written only when
-            // NOT in the library (the exception) — the common in-library case
-            // stays absent, keeping files byte-clean.
-            inLibrary: exercise.inLibrary ? nil : false,
+            // inLibrary is frozen: never written (older files may still
+            // carry it; it's parsed-and-ignored on import).
+            // Favorites carry the curation now — written only when TRUE
+            // (the isOutdoor precedent), so an unfavorited exercise stays
+            // byte-clean.
+            isFavorite: exercise.isFavorite ? true : nil,
             defaultHeartRateTarget: decodeHeartRate(exercise.defaultHeartRateTargetData)
         )
     }
@@ -183,6 +193,7 @@ enum InterchangeMapping {
             transitionSeconds: routine.transitionSeconds == Int(WorkoutMetric.transition.defaultValue)
                 ? nil : routine.transitionSeconds,
             notes: routine.notes,
+            summary: routine.summary,
             // Omit when unscheduled so pre-schedule files stay byte-identical.
             schedule: routine.schedule == .unscheduled ? nil : routine.schedule,
             groups: routine.sortedGroups.map { group in
@@ -322,9 +333,9 @@ enum InterchangeMapping {
                 // means "derive" (table/type), not "keep mine".
                 existing.metricsData = profileData(from: dto)
                 existing.extraDefaults = MetricValues.fromRaw(dto.extraDefaults)
-                // Restore library membership (#328). Absent means in-library
-                // (the common case + every pre-inLibrary file).
-                existing.inLibrary = dto.inLibrary ?? true
+                // Restore favorites (absent means not favorited). inLibrary
+                // is frozen: parsed-and-ignored, never written back.
+                existing.isFavorite = dto.isFavorite ?? false
                 existing.defaultHeartRateTargetData = encodeHeartRate(dto.defaultHeartRateTarget)
                 summary.exercisesUpdated += 1
             } else {
@@ -342,7 +353,7 @@ enum InterchangeMapping {
                 exercise.defaultDurationSeconds = dto.defaultDurationSeconds
                 exercise.metricsData = profileData(from: dto)
                 exercise.extraDefaults = MetricValues.fromRaw(dto.extraDefaults)
-                exercise.inLibrary = dto.inLibrary ?? true
+                exercise.isFavorite = dto.isFavorite ?? false
                 exercise.defaultHeartRateTargetData = encodeHeartRate(dto.defaultHeartRateTarget)
                 context.insert(exercise)
                 // Post-insert, like the seeder: pre-insert relationship
@@ -412,6 +423,7 @@ enum InterchangeMapping {
             // same value migration stamps existing stores (#369).
             target.transitionSeconds = dto.transitionSeconds ?? Int(WorkoutMetric.transition.defaultValue)
             target.notes = dto.notes
+            target.summary = dto.summary
             // Restore recurrence; absent means unscheduled (pre-schedule files).
             target.schedule = dto.schedule ?? .unscheduled
 

@@ -14,9 +14,11 @@ import SwiftUI
 ///
 /// Tapping "Start building" plays the ignition: the key wipes green
 /// left-to-right (the app's commit-landed grammar), its label morphs to
-/// "let's go", the chevron takes off, a `.success` fires, and the intro
-/// zooms through into Today. Shown once per install; `instant` collapses
-/// every dwell/flourish for the smoke suite.
+/// "let's go", and the lone chevron blooms into a three-chevron forward
+/// march (two more slide out to the right, then a lit highlight travels
+/// across them). Then a `.success` fires and the intro zooms through into
+/// Today. Shown once per install; `instant` collapses every dwell/flourish
+/// for the smoke suite.
 struct IntroView: View {
     /// First launch lands on the welcome content; a returning user just
     /// gets the mark, then the tabs.
@@ -27,13 +29,19 @@ struct IntroView: View {
     let onFinished: () -> Void
 
     @Namespace private var glyph
+    /// Reduce Motion quiets the ignition flourish (the chevron march is
+    /// opacity, gentle, but the emerge slide is positional) — WCAG 2.3.3.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// false = the mark rests centered (splash); true = it has settled
     /// into its welcome slot above the name.
     @State private var atWelcome = false
     /// The name, tagline, and button fade in as the mark settles.
     @State private var contentVisible = false
-    /// The tap is fired: green wipe + label morph + chevron takeoff.
+    /// The tap is fired: green wipe + label morph + the chevron march.
     @State private var launching = false
+    /// Which of the three chevrons is lit as the highlight travels
+    /// left→right (forward motion) once the key ignites.
+    @State private var chevronActive = 0
     /// The final dive — the intro scales up and dissolves into Today.
     @State private var divingIn = false
     @State private var launchTask: Task<Void, Never>?
@@ -92,7 +100,7 @@ struct IntroView: View {
                     .accessibilityHidden(true)
                 Text("PlusPlus")
                     .font(.system(.title2, weight: .bold))
-                Text("The hackable workout tracker for incrementing yourself.")
+                Text("A hackable workout tracker for incrementing yourself")
                     .font(.system(.subheadline))
                     .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
@@ -117,13 +125,24 @@ struct IntroView: View {
             beginLaunch()
         } label: {
             HStack(spacing: 8) {
-                Text(launching ? "let's go" : "Start building")
-                    .contentTransition(.opacity)
+                // Reserve the width of the LONGER label so swapping
+                // "Start building" for "let's go" can't change the text
+                // box's width and shove the chevron (Dave): a hidden
+                // placeholder fixes the box to "Start building", and the
+                // live label rides inside it trailing-aligned, staying
+                // snug against the chevron while its left edge does the
+                // moving.
+                Text("Start building")
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
-                Image(systemName: "chevron.right")
-                    .offset(x: launching ? 44 : 0)
-                    .opacity(launching ? 0 : 1)
+                    .hidden()
+                    .overlay(alignment: .trailing) {
+                        Text(launching ? "let's go" : "Start building")
+                            .contentTransition(.opacity)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                    }
+                chevronRun
             }
             .font(.system(.body, weight: .bold))
             .foregroundStyle(Theme.onPrimary)
@@ -146,6 +165,35 @@ struct IntroView: View {
         .padding(.bottom, edgeInset)
     }
 
+    /// At rest the key carries one chevron. When it ignites, two more
+    /// slide out to its right and a lit highlight marches left→right
+    /// across the trio (the others dimmed, not gone), so the tap reads
+    /// as forward momentum before the dive to Today. Reduce Motion keeps
+    /// the single static chevron.
+    private var chevronRun: some View {
+        HStack(spacing: 3) {
+            Image(systemName: "chevron.right")
+                .opacity(chevronOpacity(0))
+            if launching && !reduceMotion {
+                ForEach(1..<3, id: \.self) { index in
+                    Image(systemName: "chevron.right")
+                        .opacity(chevronOpacity(index))
+                        // Emerge from behind the resting chevron (leading
+                        // edge) so they read as coming out of it rightward.
+                        .transition(.move(edge: .leading).combined(with: .opacity))
+                }
+            }
+        }
+    }
+
+    /// The lit chevron is full; its neighbours rest dim so the two that
+    /// emerged stay visible as a track the highlight travels. Off-launch
+    /// (or Reduce Motion) only the first chevron shows.
+    private func chevronOpacity(_ index: Int) -> Double {
+        guard launching && !reduceMotion else { return index == 0 ? 1 : 0 }
+        return chevronActive == index ? 1 : 0.25
+    }
+
     /// Splash dwell, then either settle into the welcome content or, for a
     /// returning user, hand straight off to the tabs.
     private func run() async {
@@ -162,7 +210,7 @@ struct IntroView: View {
         }
     }
 
-    /// The ignition (see the type doc): wipe → morph → takeoff → dive.
+    /// The ignition (see the type doc): wipe → morph → chevron march → dive.
     private func beginLaunch() {
         guard !launching else { return }
         SetupState.markWelcomeSeen()
@@ -175,9 +223,28 @@ struct IntroView: View {
             launching = true
         }
         launchTask = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(0.32))
-            guard !Task.isCancelled else { return }
-            // The wipe has landed — the commit "thud".
+            if !reduceMotion {
+                // Let the green wipe land and the two extra chevrons
+                // emerge before the highlight starts travelling.
+                try? await Task.sleep(for: .seconds(0.32))
+                guard !Task.isCancelled else { return }
+                // The forward march: the lit chevron sweeps left→right
+                // across the trio twice (ending on the rightmost, aimed
+                // at Today) — a beat's worth of momentum before the dive.
+                for hop in 0..<6 {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        chevronActive = hop % 3
+                    }
+                    try? await Task.sleep(for: .seconds(0.15))
+                    guard !Task.isCancelled else { return }
+                }
+            } else {
+                // No march under Reduce Motion — just hold a beat so the
+                // green wipe registers before the dive.
+                try? await Task.sleep(for: .seconds(0.5))
+                guard !Task.isCancelled else { return }
+            }
+            // The commit "thud", landing as the dive kicks off.
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             withAnimation(.easeIn(duration: 0.3)) {
                 divingIn = true

@@ -221,7 +221,7 @@ struct OperatorControllerTests {
 
     // MARK: - Tools → cards
 
-    @Test("propose_change stages a preview card; Apply lands a receipt")
+    @Test("A staged edit tool posts a preview card; Apply lands a receipt")
     func previewApplyFlow() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)
@@ -229,10 +229,9 @@ struct OperatorControllerTests {
         try context.save()
         let controller = makeController(context: context, model: ScriptedOperatorModel())
 
-        let tool = ProposeChangeTool(services: controller)
-        let digest = try await tool.call(arguments: ChangeArgs(
-            operation: .delete, entity: .routine,
-            targets: ["Probe Push"], filter: nil, values: nil
+        let tool = DeleteItemTool(services: controller)
+        let digest = try await tool.call(arguments: DeleteItemTool.Arguments(
+            kind: .routine, names: ["Probe Push"]
         ))
         #expect(digest.hasPrefix("STAGED:"))
 
@@ -269,11 +268,9 @@ struct OperatorControllerTests {
         let context = ModelContext(container)
         let controller = makeController(context: context, model: ScriptedOperatorModel())
 
-        let tool = ProposeChangeTool(services: controller)
-        let digest = try await tool.call(arguments: ChangeArgs(
-            operation: .create, entity: .routine,
-            targets: [], filter: nil,
-            values: ValuesArgs(name: "Probe Legs", scheduleDays: ["mon", "thu"])
+        let tool = CreateRoutineTool(services: controller)
+        let digest = try await tool.call(arguments: CreateRoutineTool.Arguments(
+            name: "Probe Legs", days: ["mon", "thu"]
         ))
         #expect(digest.hasPrefix("APPLIED:"))
         guard case .receipt(let receipt) = controller.messages.last?.kind else {
@@ -290,17 +287,11 @@ struct OperatorControllerTests {
         let container = try makeContainer()
         let context = ModelContext(container)
         let controller = makeController(context: context, model: ScriptedOperatorModel())
-        let tool = ProposeChangeTool(services: controller)
+        let tool = CreateRoutineTool(services: controller)
 
-        _ = try await tool.call(arguments: ChangeArgs(
-            operation: .create, entity: .routine,
-            targets: ["Probe A"], filter: nil, values: nil
-        ))
+        _ = try await tool.call(arguments: CreateRoutineTool.Arguments(name: "Probe A"))
         let firstReceiptID = try #require(controller.messages.last?.id)
-        _ = try await tool.call(arguments: ChangeArgs(
-            operation: .create, entity: .routine,
-            targets: ["Probe B"], filter: nil, values: nil
-        ))
+        _ = try await tool.call(arguments: CreateRoutineTool.Arguments(name: "Probe B"))
 
         // The first receipt lost its undo; poking it does nothing.
         controller.undoReceipt(messageID: firstReceiptID)
@@ -316,17 +307,16 @@ struct OperatorControllerTests {
     func argumentMappingFailures() async throws {
         let container = try makeContainer()
         let controller = makeController(context: ModelContext(container), model: ScriptedOperatorModel())
-        let tool = ProposeChangeTool(services: controller)
 
-        let badDay = try await tool.call(arguments: ChangeArgs(
-            operation: .update, entity: .routine, targets: ["Anything"],
-            filter: nil, values: ValuesArgs(scheduleDays: ["someday"])
+        let schedule = SetScheduleTool(services: controller)
+        let badDay = try await schedule.call(arguments: SetScheduleTool.Arguments(
+            routine: "Anything", days: ["someday"]
         ))
         #expect(badDay == "INVALID: unknown weekday someday; use names like mon, thu")
 
-        let badMode = try await tool.call(arguments: ChangeArgs(
-            operation: .update, entity: .exercise, targets: ["Anything"],
-            filter: nil, values: ValuesArgs(trackBy: "sideways")
+        let convert = ConvertTrackingTool(services: controller)
+        let badMode = try await convert.call(arguments: ConvertTrackingTool.Arguments(
+            to: "sideways", exercises: ["Anything"]
         ))
         #expect(badMode.hasPrefix("INVALID: unknown trackBy"))
     }
@@ -372,7 +362,7 @@ struct OperatorControllerTests {
 
         let find = FindItemsTool(services: controller)
         let findDigest = try await find.call(arguments: FindItemsTool.Arguments(
-            kind: .routine, nameContains: nil, muscleGroup: nil, inLibraryOnly: nil, limit: nil
+            kind: .routine, nameContains: nil, muscleGroup: nil, favoritesOnly: nil, limit: nil
         ))
         #expect(findDigest.contains("Probe Push"))
 
@@ -457,11 +447,8 @@ struct OperatorControllerTests {
         }
         defer { NotificationCenter.default.removeObserver(observer) }
 
-        let tool = ProposeChangeTool(services: controller)
-        _ = try await tool.call(arguments: ChangeArgs(
-            operation: .create, entity: .routine,
-            targets: ["Probe Nav"], filter: nil, values: nil
-        ))
+        let tool = CreateRoutineTool(services: controller)
+        _ = try await tool.call(arguments: CreateRoutineTool.Arguments(name: "Probe Nav"))
 
         let routine = try #require(try context.fetch(FetchDescriptor<Routine>()).first)
         #expect(received.count == 1)
@@ -549,14 +536,14 @@ struct OperatorChipsTests {
     func routineDetailChips() {
         let chips = OperatorChips.chips(tab: "routines", detail: "routines/Push Day", hasHistory: true)
         #expect(chips.count <= 3)
-        #expect(chips.contains { $0.prompt.contains("Push Day") })
+        #expect(chips.contains { $0.text.contains("Push Day") })
     }
 
     @Test("A fresh install teaches instead of querying empty history")
     func freshInstallChips() {
         let chips = OperatorChips.chips(tab: "today", detail: nil, hasHistory: false)
-        #expect(chips.contains { $0.label == "What can you do?" })
-        #expect(!chips.contains { $0.label == "Last 30 days" })
+        #expect(chips.contains { $0.text == "What can you help me with?" })
+        #expect(!chips.contains { $0.text.contains("30 days") })
     }
 
     @Test("Deterministic for the same inputs")
@@ -564,5 +551,21 @@ struct OperatorChipsTests {
         let a = OperatorChips.chips(tab: "exercises", detail: nil, hasHistory: true)
         let b = OperatorChips.chips(tab: "exercises", detail: nil, hasHistory: true)
         #expect(a == b)
+    }
+}
+
+@Suite("Operator sentence casing")
+struct OperatorSentenceCasingTests {
+    @Test("Sentence openers uppercase; nothing ever lowercases")
+    func casing() {
+        #expect("want to check them out?".operatorSentenceCased == "Want to check them out?")
+        #expect("done. want more? try again!".operatorSentenceCased == "Done. Want more? Try again!")
+        #expect("first line\nsecond line".operatorSentenceCased == "First line\nSecond line")
+        // Names and mid-sentence casing survive untouched.
+        #expect("remove Probe Bar from Home".operatorSentenceCased == "Remove Probe Bar from Home")
+        #expect("iPhone stays iPhone. iPad too.".operatorSentenceCased == "IPhone stays iPhone. IPad too.")
+        // A non-letter opener leaves the following word alone.
+        #expect("3 sets logged. 2 remain.".operatorSentenceCased == "3 sets logged. 2 remain.")
+        #expect("".operatorSentenceCased == "")
     }
 }

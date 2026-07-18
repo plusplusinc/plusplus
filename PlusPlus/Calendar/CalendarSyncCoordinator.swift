@@ -379,7 +379,7 @@ final class CalendarSyncCoordinator {
         // user opted into, not a nag.
         event.title = "++ \(spec.routineName)"
         event.url = WorkoutCalendarLink.webURL(forRoutineNamed: spec.routineName)
-        event.notes = "Tap the link to start this workout in PlusPlus. Managed by the app — turn off in Settings, or delete the \u{201C}\(CalendarSyncSettings.calendarTitle)\u{201D} calendar."
+        event.notes = "Tap the link to start this workout in PlusPlus. These events are managed automatically. To stop them, turn off Calendar in PlusPlus, or delete the \u{201C}\(CalendarSyncSettings.calendarTitle)\u{201D} calendar."
         event.startDate = start
         event.endDate = start.addingTimeInterval(TimeInterval(spec.durationMinutes * 60))
         event.recurrenceRules = [Self.recurrenceRule(weekdays: spec.weekdays)]
