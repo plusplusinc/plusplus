@@ -91,6 +91,13 @@ struct ExerciseDetailSheet: View {
                             .padding(.top, 13)
                     }
 
+                    if let name = exercise?.name,
+                       let animation = MascotMoves.animation(forExerciseNamed: name) {
+                        SheetSectionLabel("FORM")
+                            .padding(.top, 16)
+                        MascotFormCard(exerciseName: name, animation: animation)
+                    }
+
                     if !recentLines.isEmpty {
                         SheetSectionLabel("RECENT")
                             .padding(.top, 16)
