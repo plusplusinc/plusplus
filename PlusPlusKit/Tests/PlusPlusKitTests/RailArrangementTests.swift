@@ -130,6 +130,55 @@ import Testing
         #expect(positions[.exercise(group: 0, index: 2)] == 48)
     }
 
+    // MARK: - Ring eject edge (from the pressed member, not the drag)
+
+    @Test func grabbedEjectEdgeFromPressedMember() {
+        #expect(RailRing.grabbedEdge(groupSizes: [1], group: 0, pressedIndex: 0) == .bottom) // solo default
+        #expect(RailRing.grabbedEdge(groupSizes: [2], group: 0, pressedIndex: 0) == .top)
+        #expect(RailRing.grabbedEdge(groupSizes: [2], group: 0, pressedIndex: 1) == .bottom)
+        #expect(RailRing.grabbedEdge(groupSizes: [3], group: 0, pressedIndex: 0) == .top)
+        #expect(RailRing.grabbedEdge(groupSizes: [3], group: 0, pressedIndex: 2) == .bottom)
+        #expect(RailRing.grabbedEdge(groupSizes: [3], group: 0, pressedIndex: 1) == .bottom) // tie goes down
+        #expect(RailRing.grabbedEdge(groupSizes: [4], group: 0, pressedIndex: 1) == .top)    // nearer top
+    }
+
+    @Test func uniteDirectionIgnoresTheEjectEdge() {
+        // Regression: with a .bottom eject edge (pressed the ring's last
+        // member) but the finger dragged UP into the group above, the span
+        // must UNITE UPWARD — not contract and silently disband. The unite
+        // direction is the finger's, never the edge's.
+        let sizes = [1, 2]   // a solo above a ring
+        let layout = RailLayout.build(groupSizes: sizes, metrics: metrics)
+        let soloY = layout.row(for: .exercise(group: 0, index: 0))!.midY
+        let span = RailRing.span(groupSizes: sizes, group: 1, edge: .bottom, fingerY: soloY, metrics: metrics)
+        #expect(span.absorbBefore == 1)
+        #expect(span.firstFlat == 0)
+        #expect(span.lastFlat == 2)
+        #expect(span.ejectFirst == 0)
+        #expect(span.ejectLast == 0)
+    }
+
+    @Test func twoMemberSupersetDisbandsFromEitherEnd() {
+        // [2]: pressing the last member (bottom edge) and dragging onto the
+        // first ejects the tail → [first]; pressing the first (top edge) and
+        // dragging onto the last ejects the head → [last]. Both are no-ops
+        // under a direction-latched edge, which is the bug this guards.
+        let sizes = [2]
+        let layout = RailLayout.build(groupSizes: sizes, metrics: metrics)
+        let firstY = layout.row(for: .exercise(group: 0, index: 0))!.midY
+        let lastY = layout.row(for: .exercise(group: 0, index: 1))!.midY
+
+        let fromBottom = RailRing.span(groupSizes: sizes, group: 0, edge: .bottom, fingerY: firstY, metrics: metrics)
+        #expect(fromBottom.ejectLast == 1)
+        #expect(fromBottom.firstFlat == 0)
+        #expect(fromBottom.lastFlat == 0)
+
+        let fromTop = RailRing.span(groupSizes: sizes, group: 0, edge: .top, fingerY: lastY, metrics: metrics)
+        #expect(fromTop.ejectFirst == 1)
+        #expect(fromTop.firstFlat == 1)
+        #expect(fromTop.lastFlat == 1)
+    }
+
     // MARK: - Ring span: contract (drag an edge inward to eject)
 
     @Test func bottomEdgeContractsEjectingTail() {

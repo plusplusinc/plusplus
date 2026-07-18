@@ -241,15 +241,32 @@ public struct RingSpan: Equatable, Sendable {
 }
 
 public enum RailRing {
+    /// Which loop edge a press on (group, index) contracts from: the first
+    /// member grabs the top, the last (or a solo) the bottom, middle
+    /// members whichever edge is nearer (ties go down). This is the EJECT
+    /// edge — fixed by the pressed member, not the drag direction — so
+    /// "press an end, drag inward" always trims from that end.
+    public static func grabbedEdge(groupSizes: [Int], group: Int, pressedIndex: Int) -> RingEdge {
+        let size = groupSizes[group]
+        guard size > 1 else { return .bottom }
+        if pressedIndex == 0 { return .top }
+        if pressedIndex == size - 1 { return .bottom }
+        return pressedIndex < size - 1 - pressedIndex ? .top : .bottom
+    }
+
     /// The tentative span for a finger at `fingerY`. The pressed group is
-    /// the anchor and always survives; the drag direction is the `edge`.
-    /// Dragging OUT (the finger leaves the pressed group into a neighbour
-    /// above or below) unites every whole group spanned — solos AND
-    /// existing supersets alike, all the way to the list end if the finger
-    /// goes there — into one ring. Dragging IN (the finger stays inside the
-    /// pressed group) contracts, ejecting the members past the finger. So
-    /// from ANY pressed row, a drag to the top or bottom gathers everything
-    /// between into a superset, and a drag back inward trims one.
+    /// the anchor and always survives. Two independent axes:
+    ///
+    /// - **Unite** is driven by the finger's POSITION, not `edge`: once the
+    ///   finger leaves the pressed group (into a neighbour above or below)
+    ///   every whole group spanned — solos AND existing supersets, to the
+    ///   list end if the finger goes there — unites into one ring. So a drag
+    ///   to the top or bottom from ANY pressed member gathers that way.
+    /// - **Eject** happens only while the finger stays INSIDE the pressed
+    ///   group, and contracts from `edge` (the pressed member's nearest
+    ///   edge). This is why "press the end, drag inward" trims the ring —
+    ///   and why a drag that reverses out of the group unites instead of
+    ///   silently disbanding.
     public static func span(
         groupSizes: [Int],
         group: Int,
@@ -266,25 +283,36 @@ public enum RailRing {
         }
         let finger = RailLayout.flatIndex(groupSizes: groupSizes, group: hit.group, index: hit.index)
 
+        // Unite downward: the finger is in a group below the anchor.
+        if hit.group > group {
+            let hitGroupLast = RailLayout.flatIndex(groupSizes: groupSizes, group: hit.group, index: 0)
+                + groupSizes[hit.group] - 1
+            return RingSpan(
+                firstFlat: start,
+                lastFlat: hitGroupLast,
+                absorbBefore: 0,
+                absorbAfter: hit.group - group,
+                ejectFirst: 0,
+                ejectLast: 0
+            )
+        }
+        // Unite upward: the finger is in a group above the anchor.
+        if hit.group < group {
+            let hitGroupFirst = RailLayout.flatIndex(groupSizes: groupSizes, group: hit.group, index: 0)
+            return RingSpan(
+                firstFlat: hitGroupFirst,
+                lastFlat: end,
+                absorbBefore: group - hit.group,
+                absorbAfter: 0,
+                ejectFirst: 0,
+                ejectLast: 0
+            )
+        }
+
+        // Finger inside the pressed group → contract from the grabbed edge.
         switch edge {
         case .bottom:
-            if hit.group > group {
-                // Unite downward: swallow every whole group from the one
-                // below the anchor down to the finger's group.
-                let hitGroupLast = RailLayout.flatIndex(groupSizes: groupSizes, group: hit.group, index: 0)
-                    + groupSizes[hit.group] - 1
-                return RingSpan(
-                    firstFlat: start,
-                    lastFlat: hitGroupLast,
-                    absorbBefore: 0,
-                    absorbAfter: hit.group - group,
-                    ejectFirst: 0,
-                    ejectLast: 0
-                )
-            }
-            // Contract from the bottom (finger inside the pressed group, or
-            // dragged above it — clamp to a single remaining row).
-            let newLast = max(finger, start)
+            let newLast = min(max(finger, start), end)
             return RingSpan(
                 firstFlat: start,
                 lastFlat: newLast,
@@ -294,20 +322,7 @@ public enum RailRing {
                 ejectLast: end - newLast
             )
         case .top:
-            if hit.group < group {
-                // Unite upward.
-                let hitGroupFirst = RailLayout.flatIndex(groupSizes: groupSizes, group: hit.group, index: 0)
-                return RingSpan(
-                    firstFlat: hitGroupFirst,
-                    lastFlat: end,
-                    absorbBefore: group - hit.group,
-                    absorbAfter: 0,
-                    ejectFirst: 0,
-                    ejectLast: 0
-                )
-            }
-            // Contract from the top.
-            let newFirst = min(finger, end)
+            let newFirst = min(max(finger, start), end)
             return RingSpan(
                 firstFlat: newFirst,
                 lastFlat: end,

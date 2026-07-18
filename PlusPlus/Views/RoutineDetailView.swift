@@ -580,7 +580,14 @@ struct RoutineDetailView: View {
         case .ring(let g, let heldEdge, let pressY, _):
             var edge = heldEdge
             if edge == nil, abs(y - pressY) > 10 {
-                edge = y < pressY ? .top : .bottom
+                // Latch the EJECT edge from the pressed member (not the drag
+                // direction): the unite direction comes from the finger's
+                // position in `span`, so this only decides which end an
+                // inward drag trims. Deferred to first movement so the
+                // pre-move highlight still reads as the whole pressed group.
+                let layout = RailLayout.build(groupSizes: groupSizes, metrics: railMetrics)
+                let pressedIndex = layout.exercise(at: pressY).map { $0.group == g ? $0.index : 0 } ?? 0
+                edge = RailRing.grabbedEdge(groupSizes: groupSizes, group: g, pressedIndex: pressedIndex)
             }
             railGesture = .ring(group: g, edge: edge, pressY: pressY, fingerY: y)
         }
