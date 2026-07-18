@@ -1969,17 +1969,10 @@ private struct SwapInSheet: View {
                 .font(.system(.title3, weight: .bold))
                 .foregroundStyle(Theme.textPrimary)
             Spacer(minLength: 12)
-            Button {
+            // One dismissal vocabulary across every tray (2026-07-18): a
+            // text key, never a ✕ (✕ is the search-collapse glyph).
+            SheetDismissKey(label: "Done") {
                 dismiss()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(.footnote, weight: .bold))
-                    .foregroundStyle(Theme.textSecondary)
-                    .frame(width: 32, height: 32)
-                    .background(Theme.surface, in: Circle())
-                    .overlay(Circle().strokeBorder(Theme.border))
-                    .padding(6)
-                    .contentShape(Circle())
             }
         }
         .padding(.top, 14)

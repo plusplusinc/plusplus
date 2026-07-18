@@ -130,6 +130,18 @@ struct ExerciseDetailScreen: View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
+                    // The name is a large, left-aligned body header that wraps
+                    // to two lines (2026-07-18) — the centered chrome title
+                    // truncated long names; every detail screen now leads with
+                    // the name in the body, matching RoutineDetailView.
+                    Text(exercise.name)
+                        .font(.system(.title, weight: .bold))
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityAddTraits(.isHeader)
+                        .padding(.top, 4)
+                        .padding(.bottom, 14)
                     HStack(spacing: 6) {
                         Text(exercise.isBuiltIn ? "BUILT-IN" : "CUSTOM")
                             .font(.system(.caption2, design: .monospaced, weight: .semibold))
@@ -237,7 +249,7 @@ struct ExerciseDetailScreen: View {
         // what they touch; edit rides beside it as its own key. A
         // built-in outside the library leaves nothing for the menu, so
         // it hides instead of rendering empty (#265).
-        .pushedScreenChrome(title: exercise.name, onBack: { dismiss() }) {
+        .pushedScreenChrome(title: "", onBack: { dismiss() }) {
             // Favorite is the curation now (whole catalog, 2026-07-17):
             // a star for everything, accent when lit. Removal/deletion of
             // the old library membership is gone; only a custom keeps a
@@ -382,6 +394,16 @@ struct EquipmentDetailScreen: View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
+                    // Name as a large, left-aligned wrapping body header
+                    // (2026-07-18) — consistent with every other detail screen.
+                    Text(equipment.name)
+                        .font(.system(.title, weight: .bold))
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityAddTraits(.isHeader)
+                        .padding(.top, 4)
+                        .padding(.bottom, 14)
                     HStack(spacing: 6) {
                         Text(equipment.isBuiltIn ? "BUILT-IN" : "CUSTOM")
                             .font(.system(.caption2, design: .monospaced, weight: .semibold))
@@ -482,7 +504,7 @@ struct EquipmentDetailScreen: View {
         }
         .background(Theme.background)
         .scrollDismissesKeyboard(.immediately)
-        .pushedScreenChrome(title: equipment.name, onBack: { dismiss() }) {
+        .pushedScreenChrome(title: "", onBack: { dismiss() }) {
             if !equipment.isBuiltIn {
                 HeaderIconButton(systemImage: "pencil", accessibilityLabel: "Rename equipment", identifier: "renameEquipmentButton") {
                     renameText = equipment.name

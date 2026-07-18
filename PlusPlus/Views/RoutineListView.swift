@@ -12,6 +12,9 @@ struct RoutineListView: View {
     private var routines: [Routine]
 
     @State private var path = NavigationPath()
+    /// Filters your routines by name (2026-07-18); the add row threads it
+    /// into the catalog's search so "Add <query>" lands ready.
+    @State private var searchText = ""
     @State private var openSwipeRow: SwipeRevealOpen<PersistentIdentifier>?
     /// The routine just added from a template — scrolled into view and
     /// given an entrance flash when we land back on the library, then
@@ -28,10 +31,20 @@ struct RoutineListView: View {
     var body: some View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
-                header
+                CatalogTabHeader(
+                    title: "Routines",
+                    // Creation moved into the list (a top row that opens the
+                    // catalog); the header's top-right is the expanding search.
+                    search: HeaderSearchConfig(
+                        text: $searchText,
+                        prompt: "Search routines",
+                        identifier: "routinesSearchField"
+                    )
+                )
 
                 ScrollViewReader { proxy in
                     List {
+                    addRoutineRow
                     ForEach(displayedRoutines) { routine in
                         SwipeRevealRow(
                             id: routine.persistentModelID,
@@ -58,6 +71,9 @@ struct RoutineListView: View {
                         .transition(.opacity)
                     }
                         .onMove(perform: moveRoutines)
+                    if displayedRoutines.isEmpty {
+                        routinesEmptyHint
+                    }
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
@@ -129,15 +145,8 @@ struct RoutineListView: View {
                     path = NavigationPath()
                 }
             }
-            .overlay {
-                if routines.isEmpty {
-                    ContentUnavailableView(
-                        "No Routines",
-                        systemImage: "figure.strengthtraining.traditional",
-                        description: Text("Create your first routine to get started.")
-                    )
-                }
-            }
+            // No dead-end empty overlay: the add row is always the first
+            // list row, and an empty list shows an inline hint beneath it.
             // The + pushes the routine catalog (#223) — the same
             // grammar as the library tabs: adding starts from a
             // browsable catalog, with blank creation as its first row.
@@ -145,8 +154,8 @@ struct RoutineListView: View {
             // catalog appends templates/routines to this same path,
             // and a value appended beneath a boolean-presented screen
             // replaces it transition-less and double-pops on back.
-            .navigationDestination(for: RoutineCatalogDestination.self) { _ in
-                RoutineCatalogScreen(path: $path)
+            .navigationDestination(for: RoutineCatalogDestination.self) { dest in
+                RoutineCatalogScreen(path: $path, initialQuery: dest.query)
             }
         }
         .revealRoot(tab: "routines", atRoot: path.isEmpty)
@@ -166,33 +175,67 @@ struct RoutineListView: View {
         .syncsProgramOnClose()
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                AppMenuKey()
-                Spacer()
-                HeaderIconButton(systemImage: "plus", accessibilityLabel: "New routine", identifier: "newRoutineButton") {
-                    // Root-only affordance, so emptiness doubles as the
-                    // double-tap guard (the addTemplateButton class): a
-                    // second tap during the push must not stack a
-                    // second catalog.
-                    guard path.isEmpty else { return }
-                    path.append(RoutineCatalogDestination())
-                }
+    /// The Add row (Add family): it NAVIGATES to the catalog (browse
+    /// templates + blank create), so "Add routine" / Add "<query>", never
+    /// "New" (which would imply an inline create). Keeps the
+    /// `newRoutineButton` id so the smoke flows still open the catalog here.
+    private var addRoutineLabel: String {
+        let q = searchText.trimmingCharacters(in: .whitespaces)
+        return q.isEmpty ? "Add routine" : "Add \u{201C}\(q.sentenceCasedFirst)\u{201D}"
+    }
+
+    private var addRoutineRow: some View {
+        Button {
+            // Root-only affordance, so emptiness doubles as the double-tap
+            // guard: a second tap during the push must not stack a second
+            // catalog.
+            guard path.isEmpty else { return }
+            path.append(RoutineCatalogDestination(query: searchText.trimmingCharacters(in: .whitespaces)))
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "plus")
+                    .font(.system(.caption, weight: .semibold))
+                Text(addRoutineLabel)
+                    .font(.system(.footnote, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
             }
-            Text("Routines")
-                .font(.system(.title, weight: .bold))
-                .padding(.top, 10)
+            // Creation/adding is green (#202).
+            .foregroundStyle(Theme.accent)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
         }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 12)
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("newRoutineButton")
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
+    }
+
+    private var routinesEmptyHint: some View {
+        VStack(spacing: 10) {
+            Text(searchText.trimmingCharacters(in: .whitespaces).isEmpty
+                 ? "No routines yet. Add one to get started."
+                 : "Nothing matches.")
+                .font(.system(.footnote))
+                .foregroundStyle(Theme.textFaint)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 24)
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
     }
 
     /// The list, minus the just-added card while it's still held out for its
-    /// entrance (revealNewCard == false). Once `newlyAdded` clears, the
-    /// filter is a no-op, so the steady state shows everything.
+    /// entrance (revealNewCard == false), narrowed by the header search.
+    /// Once `newlyAdded` clears and the query is empty, both filters are a
+    /// no-op, so the steady state shows everything.
     private var displayedRoutines: [Routine] {
-        routines.filter { $0.persistentModelID != newlyAdded || revealNewCard }
+        let base = routines.filter { $0.persistentModelID != newlyAdded || revealNewCard }
+        let q = searchText.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { return base }
+        return FuzzySearch.ranked(base, query: q) { $0.name }
     }
 
     private func deleteRoutine(_ routine: Routine) {
@@ -201,6 +244,9 @@ struct RoutineListView: View {
     }
 
     private func moveRoutines(from source: IndexSet, to destination: Int) {
+        // Reordering a fuzzy-ranked search result would scramble `order`;
+        // manual arrangement only makes sense on the full, unsearched list.
+        guard searchText.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         // Reorder over the SAME collection the ForEach displays: `.onMove`
         // hands indices into `displayedRoutines`, so basing the move on the
         // full `routines` would mis-map during the brief entrance window
@@ -219,10 +265,13 @@ struct RoutineListView: View {
     }
 }
 
-/// 44 pt square raised icon key used in tab headers (Quiet Arcade:
-/// header icon buttons are neutral secondary keys — supersedes #202's
-/// green header +; green's scope tightened to true data and in-list
-/// creation rows).
+/// 44 pt CIRCULAR raised icon key used in tab/pushed headers (Quiet
+/// Arcade: header icon buttons are neutral secondary keys — supersedes
+/// #202's green header +; green's scope tightened to true data and
+/// in-list creation rows). Round caps (2026-07-18, Dave): icon-only
+/// keys are circles everywhere so they seat cleanly in sheet corners;
+/// the plate radius matches (44/2 = 22) so the raised underside stays
+/// the same shape as the cap.
 struct HeaderIconButton: View {
     let systemImage: String
     /// Spoken VoiceOver name for the action (required — the glyph alone reads
@@ -240,10 +289,10 @@ struct HeaderIconButton: View {
                 .font(.system(.body, weight: .medium))
                 .foregroundStyle(tint)
                 .frame(width: 44, height: 44)
-                .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
-                .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
+                .background(Theme.background, in: Circle())
+                .overlay(Circle().strokeBorder(Theme.borderStrong))
         }
-        .buttonStyle(.raisedKey())
+        .buttonStyle(.raisedKey(cornerRadius: 22))
         .accessibilityLabel(accessibilityLabel)
         .accessibilityIdentifier(identifier ?? systemImage)
     }

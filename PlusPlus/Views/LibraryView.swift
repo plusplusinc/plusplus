@@ -49,29 +49,24 @@ struct ExercisesTabView: View {
             VStack(spacing: 0) {
                 CatalogTabHeader(
                     title: "Exercises",
-                    addIdentifier: "addExercisesButton",
-                    addLabel: "Add exercise",
-                    onAdd: { creatingExercise = true }
+                    // Creation moved into the list (a top create row), so the
+                    // header's top-right is the expanding search (2026-07-18).
+                    search: HeaderSearchConfig(
+                        text: Bindable(filterState).searchText,
+                        prompt: "Search exercises",
+                        identifier: "exercisesSearchField"
+                    )
                 )
-                // Search + filters sit UNDER the header, pinned above the
-                // scrolling list (Dave, 2026-07-18: a top `safeAreaInset`
-                // floated them ABOVE the ++/title chrome — every other tab
-                // root wears the ++ key topmost).
-                VStack(spacing: 8) {
-                    SearchField(prompt: "Search exercises", text: Bindable(filterState).searchText)
-                        .padding(.horizontal, 16)
-                    filterRow
-                }
+                filterRow
                 List {
+                    // Creation is the top row everywhere (2026-07-18): New
+                    // exercise, or Create "<query>" when searching.
+                    createExerciseRow
                     ForEach(candidates) { exercise in
                         exerciseRow(exercise)
                     }
                     if candidates.isEmpty {
-                        Text("Nothing matches these filters.")
-                            .font(.system(.footnote))
-                            .foregroundStyle(Theme.textSecondary)
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
+                        emptyResults
                     }
                 }
                 .listStyle(.plain)
@@ -115,6 +110,59 @@ struct ExercisesTabView: View {
 
     @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
     private var allEquipmentSorted: [Equipment] { allEquipment }
+
+    // MARK: - Create row + empty state
+
+    /// The whole catalog is here, so an empty list is only ever a zeroed
+    /// filter/search — the create row (always at the top) turns "not here"
+    /// into "make it", and Clear filters is the escape. Never a dead end.
+    private var createLabel: String {
+        let q = filterState.searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return q.isEmpty ? "New exercise" : "Create \u{201C}\(q.sentenceCasedFirst)\u{201D}"
+    }
+
+    private var createExerciseRow: some View {
+        Button {
+            creatingExercise = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "plus")
+                    .font(.system(.caption, weight: .semibold))
+                Text(createLabel)
+                    .font(.system(.footnote, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+            // Creation is green (#202).
+            .foregroundStyle(Theme.accent)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("createExerciseRow")
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+    }
+
+    private var emptyResults: some View {
+        VStack(spacing: 10) {
+            Text("Nothing matches.")
+                .font(.system(.footnote))
+                .foregroundStyle(Theme.textFaint)
+            if anyFilterActive {
+                QuietKey(label: "Clear filters", identifier: "clearExerciseFilters") {
+                    filterState.favoritesOnly = false
+                    filterState.gearMode = nil
+                    filterState.selectedMuscleGroups = []
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 24)
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+    }
 
     // MARK: - Filter row
 
@@ -321,6 +369,10 @@ struct EquipmentTabView: View {
     @State private var showingLibraryTray = false
     @State private var openSwipeRow: SwipeRevealOpen<PersistentIdentifier>?
     @State private var path = NavigationPath()
+    /// Filters the kit list by name (2026-07-18); the add row threads it
+    /// into the catalog's own search so "Add <query>" lands ready to add.
+    @State private var searchText = ""
+    @State private var pendingCatalogQuery = ""
 
     private var activeLibrary: EquipmentLibrary? {
         EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)
@@ -331,34 +383,45 @@ struct EquipmentTabView: View {
         (activeLibrary?.members ?? []).sorted { $0.name < $1.name }
     }
 
+    /// Narrowed by the header search (forgiving, best-match-first), the
+    /// same fuzzy match the catalogs use.
+    private var filteredEquipment: [Equipment] {
+        let q = searchText.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { return libraryEquipment }
+        return FuzzySearch.ranked(libraryEquipment, query: q) { $0.name }
+    }
+
     var body: some View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
                 CatalogTabHeader(
                     title: "Equipment",
-                    addIdentifier: "addEquipmentButton",
-                    addLabel: "Add equipment",
-                    onAdd: { showingCatalog = true }
+                    // Adding gear happens in the catalog, so the top row
+                    // NAVIGATES there (Add family); the header's top-right
+                    // is the expanding search over your kit (2026-07-18).
+                    search: HeaderSearchConfig(
+                        text: $searchText,
+                        prompt: "Search your kit",
+                        identifier: "equipmentKitSearchField"
+                    )
                 ) {
                     LibrarySwitcherKey(name: activeLibrary?.name ?? EquipmentLibrary.defaultName) {
                         showingLibraryTray = true
                     }
                 }
 
-                if libraryEquipment.isEmpty {
-                    LibraryEmptyState(
-                        title: "No Equipment",
-                        systemImage: "dumbbell",
-                        message: "Pick what you have. Exercises and routines then match to the gear in this kit.",
-                        ctaIdentifier: "emptyEquipmentCatalogButton"
-                    ) { showingCatalog = true }
-                } else {
-                    List {
-                        equipmentRows
+                List {
+                    // Top row navigates to the catalog to add gear; New/Add
+                    // never dead-ends an empty kit or a zeroed search.
+                    addEquipmentRow
+                    equipmentRows
+                    if filteredEquipment.isEmpty {
+                        equipmentEmptyHint
                     }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
                 }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .scrollDismissesKeyboard(.immediately)
             }
             .background(Theme.background)
             .toolbar(.hidden, for: .navigationBar)
@@ -366,7 +429,7 @@ struct EquipmentTabView: View {
                 EquipmentDetailScreen(equipment: equipment)
             }
             .navigationDestination(isPresented: $showingCatalog) {
-                EquipmentCatalogScreen()
+                EquipmentCatalogScreen(initialQuery: pendingCatalogQuery)
             }
             .sheet(isPresented: $showingLibraryTray) {
                 EquipmentLibraryTray()
@@ -377,9 +440,57 @@ struct EquipmentTabView: View {
         .syncsProgramOnClose()
     }
 
+    private var addLabel: String {
+        let q = searchText.trimmingCharacters(in: .whitespaces)
+        return q.isEmpty ? "Add equipment" : "Add \u{201C}\(q.sentenceCasedFirst)\u{201D}"
+    }
+
+    private var addEquipmentRow: some View {
+        Button {
+            pendingCatalogQuery = searchText.trimmingCharacters(in: .whitespaces)
+            showingCatalog = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "plus")
+                    .font(.system(.caption, weight: .semibold))
+                Text(addLabel)
+                    .font(.system(.footnote, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+            // Creation/adding is green (#202).
+            .foregroundStyle(Theme.accent)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("addEquipmentRow")
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+    }
+
+    private var equipmentEmptyHint: some View {
+        VStack(spacing: 10) {
+            // A fresh install seeds an empty kit (#232) — say what the list
+            // is for; a zeroed search just says nothing matched.
+            Text(searchText.trimmingCharacters(in: .whitespaces).isEmpty
+                 ? "Your kit is empty. Add what you have and exercises and routines match to it."
+                 : "Nothing in your kit matches.")
+                .font(.system(.footnote))
+                .foregroundStyle(Theme.textSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 24)
+        .padding(.horizontal, 24)
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+    }
+
     @ViewBuilder
     private var equipmentRows: some View {
-        ForEach(libraryEquipment) { equipment in
+        ForEach(filteredEquipment) { equipment in
             SwipeRevealRow(
                 id: equipment.persistentModelID,
                 openRow: $openSwipeRow,
@@ -431,59 +542,28 @@ struct EquipmentTabView: View {
     }
 }
 
-/// Empty state for the two library tabs (#232): fresh installs seed
-/// NOTHING into the library, so this is the first thing a new user
-/// sees here — it explains what the list is for and points at the
-/// catalog. The CTA is green: it leads to adding (#202).
-struct LibraryEmptyState: View {
-    let title: String
-    let systemImage: String
-    let message: String
-    let ctaIdentifier: String
-    let onBrowse: () -> Void
-
-    var body: some View {
-        ContentUnavailableView {
-            Label(title, systemImage: systemImage)
-        } description: {
-            Text(message)
-        } actions: {
-            Button(action: onBrowse) {
-                HStack(spacing: 8) {
-                    Image(systemName: "plus")
-                        .font(.system(.caption, weight: .semibold))
-                    Text("Browse the catalog")
-                        .font(.system(.footnote, weight: .semibold))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                }
-                .foregroundStyle(Theme.accent)
-                .padding(.horizontal, 16)
-                .frame(minHeight: 48)
-                .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
-                .overlay(
-                    RoundedRectangle(cornerRadius: Theme.controlRadius)
-                        .strokeBorder(Theme.borderStrong)
-                )
-            }
-            .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
-            .accessibilityIdentifier(ctaIdentifier)
-        }
-        .frame(maxHeight: .infinity)
-    }
-}
-
 /// Shared header for the two catalog tabs: the ++ key, title, and the
 /// contextual + button. An optional `accessory` rides just left of the +
 /// (the Equipment tab's library switcher).
 struct CatalogTabHeader<Accessory: View>: View {
     let title: String
     // The tab's create action; optional so title-only headers work.
-    var addIdentifier: String?
+    // Explicit `= nil` so the accessory-form memberwise init can omit these
+    // (both catalog tabs moved creation into a list row, 2026-07-18).
+    var addIdentifier: String? = nil
     /// Spoken VoiceOver name for the add key; falls back to "Add <title>".
     var addLabel: String? = nil
-    var onAdd: (() -> Void)?
+    var onAdd: (() -> Void)? = nil
+    /// Optional expanding search (2026-07-18): the magnifier rides the
+    /// top-right of the icon row and expands into a field that spans the
+    /// row (the big title hides while searching), the same affordance the
+    /// pushed catalogs use — one search UI everywhere.
+    var search: HeaderSearchConfig? = nil
     @ViewBuilder var accessory: () -> Accessory
+
+    @State private var searchExpanded = false
+
+    private var searching: Bool { search != nil && searchExpanded }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -491,17 +571,28 @@ struct CatalogTabHeader<Accessory: View>: View {
                 // Every root header wears the ++ key (Dave, build 44); it
                 // toggles the shared reveal drawer.
                 AppMenuKey()
-                Spacer(minLength: 0)
-                accessory()
-                if let onAdd {
-                    HeaderIconButton(systemImage: "plus", accessibilityLabel: addLabel ?? "Add \(title)", identifier: addIdentifier) {
-                        onAdd()
+                if let search, searchExpanded {
+                    // Expanded: the field + its collapse key fill the row,
+                    // the collapse ✕ landing where the magnifier was.
+                    HeaderSearchField(config: search, isExpanded: $searchExpanded)
+                } else {
+                    Spacer(minLength: 0)
+                    accessory()
+                    if let onAdd {
+                        HeaderIconButton(systemImage: "plus", accessibilityLabel: addLabel ?? "Add \(title)", identifier: addIdentifier) {
+                            onAdd()
+                        }
+                    }
+                    if let search {
+                        HeaderSearchField(config: search, isExpanded: $searchExpanded)
                     }
                 }
             }
-            Text(title)
-                .font(.system(.title, weight: .bold))
-                .padding(.top, 10)
+            if !searching {
+                Text(title)
+                    .font(.system(.title, weight: .bold))
+                    .padding(.top, 10)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
@@ -510,8 +601,8 @@ struct CatalogTabHeader<Accessory: View>: View {
 }
 
 extension CatalogTabHeader where Accessory == EmptyView {
-    init(title: String, addIdentifier: String? = nil, addLabel: String? = nil, onAdd: (() -> Void)? = nil) {
-        self.init(title: title, addIdentifier: addIdentifier, addLabel: addLabel, onAdd: onAdd, accessory: { EmptyView() })
+    init(title: String, addIdentifier: String? = nil, addLabel: String? = nil, onAdd: (() -> Void)? = nil, search: HeaderSearchConfig? = nil) {
+        self.init(title: title, addIdentifier: addIdentifier, addLabel: addLabel, onAdd: onAdd, search: search, accessory: { EmptyView() })
     }
 }
 

@@ -35,6 +35,9 @@ struct ExercisePickerView: View {
     @State private var showingCreateSheet = false
     @State private var editingExercise: Exercise?
     @State private var deletionCandidate: Exercise?
+    /// The picker now wears the app's custom chrome (2026-07-18): a text
+    /// Cancel key + the expanding search, no system toolbar.
+    @State private var searchExpanded = false
 
     /// The whole catalog (2026-07-17), favorites first so what you reach
     /// for surfaces when building a routine. Never availability-hides —
@@ -55,16 +58,9 @@ struct ExercisePickerView: View {
     var body: some View {
         NavigationStack {
             List {
-                // The whole catalog is always here, so an empty list is
-                // only ever a zeroed filter/search — say so, and the
-                // New Exercise toolbar key covers "not in the catalog".
-                if candidates.isEmpty {
-                    Text("Nothing matches these filters.")
-                        .font(.system(.footnote))
-                        .foregroundStyle(Theme.textSecondary)
-                        .padding(.vertical, 8)
-                        .listRowSeparator(.hidden)
-                }
+                // Creation is the top row (2026-07-18): New exercise, or
+                // Create "<query>" when searching — never a dead end.
+                createExerciseRow
                 ForEach(candidates) { exercise in
                     Button {
                         if onConfigured != nil {
@@ -91,6 +87,9 @@ struct ExercisePickerView: View {
                         }
                     }
                 }
+                if candidates.isEmpty {
+                    emptyResults
+                }
             }
             // Plain list on the warm background, matching the Library
             // (the sibling exercise list). The default grouped style's
@@ -99,22 +98,8 @@ struct ExercisePickerView: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .background(Theme.background)
-            .navigationTitle("Add Exercise")
-            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
             .scrollDismissesKeyboard(.immediately)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Button("New Exercise", systemImage: "plus") {
-                        showingCreateSheet = true
-                    }
-                    // Creation is green (#202).
-                    .tint(Theme.accent)
-                    .accessibilityIdentifier("newExerciseButton")
-                }
-            }
             .sheet(isPresented: $showingCreateSheet) {
                 // Whatever narrowed the picker seeds the new exercise
                 // (the searched-for name, the filtered muscle/gear) —
@@ -157,12 +142,12 @@ struct ExercisePickerView: View {
                 }
             }
             .safeAreaInset(edge: .top, spacing: 0) {
-                // One continuous bar behind search AND filters: the two
-                // used to carry separate backgrounds, leaving a transparent
-                // band between them that let scrolled-up rows peek through.
+                // Custom chrome, one continuous bar behind the header AND
+                // filters (a transparent band used to let scrolled rows peek
+                // through). The header carries the text Cancel + the
+                // expanding search; the ✕ collapses search, never dismisses.
                 VStack(spacing: 8) {
-                    SearchField(prompt: "Search exercises", text: Bindable(filterState).searchText)
-                        .padding(.horizontal, 16)
+                    pickerHeader
                     FilterBar(
                         filterState: filterState,
                         showingMuscleGroupFilter: $showingMuscleGroupFilter,
@@ -187,6 +172,87 @@ struct ExercisePickerView: View {
                 .presentationDetents([.medium, .large])
             }
         }
+    }
+
+    // MARK: - Header + create + empty
+
+    private var searchConfig: HeaderSearchConfig {
+        HeaderSearchConfig(
+            text: Bindable(filterState).searchText,
+            prompt: "Search exercises",
+            identifier: "exercisePickerSearchField"
+        )
+    }
+
+    private var pickerHeader: some View {
+        HStack(spacing: 10) {
+            // Dismiss is a word, never a ✕ (✕ collapses search) — §9.
+            SheetDismissKey(label: "Cancel") { dismiss() }
+            if searchExpanded {
+                HeaderSearchField(config: searchConfig, isExpanded: $searchExpanded)
+            } else {
+                Text("Add exercise")
+                    .font(.system(.title3, weight: .bold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                HeaderSearchField(config: searchConfig, isExpanded: $searchExpanded)
+            }
+        }
+        .padding(.horizontal, 16)
+    }
+
+    private var createLabel: String {
+        let q = filterState.searchText.trimmingCharacters(in: .whitespaces)
+        return q.isEmpty ? "New exercise" : "Create \u{201C}\(q.sentenceCasedFirst)\u{201D}"
+    }
+
+    /// The whole catalog is here, so an empty list is only ever a zeroed
+    /// filter/search — the create row (id `newExerciseButton`, kept for the
+    /// smoke flows) turns "not here" into "make it", Clear filters is the
+    /// escape. Never a dead end.
+    private var createExerciseRow: some View {
+        Button {
+            showingCreateSheet = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "plus")
+                    .font(.system(.caption, weight: .semibold))
+                Text(createLabel)
+                    .font(.system(.footnote, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+            // Creation is green (#202).
+            .foregroundStyle(Theme.accent)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("newExerciseButton")
+        .listRowSeparator(.hidden)
+    }
+
+    private var emptyResults: some View {
+        let facetsActive = !filterState.selectedMuscleGroups.isEmpty
+            || !filterState.selectedEquipment.isEmpty
+            || filterState.favoritesOnly
+        return VStack(spacing: 10) {
+            Text("Nothing matches.")
+                .font(.system(.footnote))
+                .foregroundStyle(Theme.textFaint)
+            if facetsActive {
+                QuietKey(label: "Clear filters", identifier: "clearPickerFilters") {
+                    filterState.selectedMuscleGroups = []
+                    filterState.selectedEquipment = []
+                    filterState.favoritesOnly = false
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 24)
+        .listRowSeparator(.hidden)
     }
 
     private var deletionTitle: String {
