@@ -784,6 +784,24 @@ struct RoutineDetailView: View {
         let span = RailRing.span(groupSizes: sizes, group: g, edge: edge, fingerY: fingerY, metrics: railMetrics)
         guard !span.isNoOp else { return }
         let group = routine.sortedGroups[g]
+
+        // Reverse-direction join (a solo dragged into an adjacent superset):
+        // the pressed group is the SOLO and it merges into the neighbouring
+        // ring, which grows to include it. Mutually exclusive with the
+        // absorb/eject deltas below.
+        if span.mergeSoloInto != 0 {
+            let groups = routine.sortedGroups
+            guard let index = groups.firstIndex(where: { $0 === group }),
+                  groups.indices.contains(index + span.mergeSoloInto) else { return }
+            // The surviving ring — captured before the merge deletes the solo.
+            let targetGroup = groups[index + span.mergeSoloInto]
+            routine.mergeSoloGroup(group, direction: span.mergeSoloInto, context: modelContext)
+            SupersetCreationTip().invalidate(reason: .actionPerformed)
+            SupersetLoopTip().invalidate(reason: .actionPerformed)
+            flashSupersetLanding(targetGroup, grew: true)
+            return
+        }
+
         // Captured BEFORE the merges: did this landing grow an existing
         // superset, or form a fresh one? Drives whether the loop is kept
         // through the reshape or revealed.

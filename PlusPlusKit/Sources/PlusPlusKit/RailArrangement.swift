@@ -213,9 +213,34 @@ public struct RingSpan: Equatable, Sendable {
     public let absorbAfter: Int
     public let ejectFirst: Int
     public let ejectLast: Int
+    /// The pressed group is a SOLO that joins an adjacent superset by
+    /// being dragged into it (−1 = the superset above, +1 = the superset
+    /// below, 0 = not a join). This is the reverse of `absorbBefore`/
+    /// `absorbAfter`: instead of a superset reaching out to a neighbouring
+    /// solo, a solo reaches into a neighbouring ring. Mutually exclusive
+    /// with the absorb/eject counts (all zero when this is non-zero).
+    public let mergeSoloInto: Int
+
+    public init(
+        firstFlat: Int,
+        lastFlat: Int,
+        absorbBefore: Int,
+        absorbAfter: Int,
+        ejectFirst: Int,
+        ejectLast: Int,
+        mergeSoloInto: Int = 0
+    ) {
+        self.firstFlat = firstFlat
+        self.lastFlat = lastFlat
+        self.absorbBefore = absorbBefore
+        self.absorbAfter = absorbAfter
+        self.ejectFirst = ejectFirst
+        self.ejectLast = ejectLast
+        self.mergeSoloInto = mergeSoloInto
+    }
 
     public var isNoOp: Bool {
-        absorbBefore == 0 && absorbAfter == 0 && ejectFirst == 0 && ejectLast == 0
+        absorbBefore == 0 && absorbAfter == 0 && ejectFirst == 0 && ejectLast == 0 && mergeSoloInto == 0
     }
 }
 
@@ -271,6 +296,36 @@ public enum RailRing {
             return RingSpan(firstFlat: start, lastFlat: end, absorbBefore: 0, absorbAfter: 0, ejectFirst: 0, ejectLast: 0)
         }
         let finger = RailLayout.flatIndex(groupSizes: groupSizes, group: hit.group, index: hit.index)
+
+        // Reverse-direction join: a SOLO dragged into an ADJACENT superset
+        // becomes part of that ring (the mirror of the absorb path below,
+        // where a superset reaches out to a solo). Only the immediate
+        // neighbour in the drag direction is eligible — a solo run is still
+        // absorbed the old way, so fall through when the neighbour isn't a
+        // superset. The tentative span covers the union (solo + ring) so the
+        // highlight reads as the loop it will become.
+        if groupSizes[group] == 1 {
+            let neighbor = edge == .bottom ? group + 1 : group - 1
+            if groupSizes.indices.contains(neighbor), groupSizes[neighbor] > 1 {
+                let neighborFirst = RailLayout.flatIndex(groupSizes: groupSizes, group: neighbor, index: 0)
+                let neighborLast = neighborFirst + groupSizes[neighbor] - 1
+                let reached = edge == .bottom ? finger >= neighborFirst : finger <= neighborLast
+                if reached {
+                    return RingSpan(
+                        firstFlat: min(start, neighborFirst),
+                        lastFlat: max(end, neighborLast),
+                        absorbBefore: 0,
+                        absorbAfter: 0,
+                        ejectFirst: 0,
+                        ejectLast: 0,
+                        mergeSoloInto: edge == .bottom ? 1 : -1
+                    )
+                }
+                // Neighbour is a ring but the finger hasn't reached it yet:
+                // just the solo is tentatively highlighted (a no-op).
+                return RingSpan(firstFlat: start, lastFlat: end, absorbBefore: 0, absorbAfter: 0, ejectFirst: 0, ejectLast: 0)
+            }
+        }
 
         switch edge {
         case .bottom:

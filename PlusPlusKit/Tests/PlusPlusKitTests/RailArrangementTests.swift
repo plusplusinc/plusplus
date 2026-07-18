@@ -206,4 +206,76 @@ import Testing
         let span = RailRing.span(groupSizes: sizes, group: 1, edge: .bottom, fingerY: lastMemberY, metrics: metrics)
         #expect(span.isNoOp)
     }
+
+    // MARK: - Solo joins an adjacent superset (reverse-direction drag)
+
+    @Test func soloBottomEdgeJoinsSupersetBelow() {
+        // [1, 2]: a solo (flat 0) above a superset (flat 1-2). Dragging the
+        // solo down into the ring joins it — the reverse of the ring
+        // reaching up to absorb the solo.
+        let sizes = [1, 2]
+        let layout = RailLayout.build(groupSizes: sizes, metrics: metrics)
+        let ringFirstY = layout.row(for: .exercise(group: 1, index: 0))!.midY
+        let span = RailRing.span(groupSizes: sizes, group: 0, edge: .bottom, fingerY: ringFirstY, metrics: metrics)
+        #expect(span.mergeSoloInto == 1)
+        #expect(span.firstFlat == 0)      // highlight spans solo + whole ring
+        #expect(span.lastFlat == 2)
+        #expect(span.absorbAfter == 0)
+        #expect(!span.isNoOp)
+    }
+
+    @Test func soloTopEdgeJoinsSupersetAbove() {
+        // [2, 1]: a superset (flat 0-1) above a solo (flat 2). Dragging the
+        // solo up into the ring joins it.
+        let sizes = [2, 1]
+        let layout = RailLayout.build(groupSizes: sizes, metrics: metrics)
+        let ringLastY = layout.row(for: .exercise(group: 0, index: 1))!.midY
+        let span = RailRing.span(groupSizes: sizes, group: 1, edge: .top, fingerY: ringLastY, metrics: metrics)
+        #expect(span.mergeSoloInto == -1)
+        #expect(span.firstFlat == 0)      // highlight spans whole ring + solo
+        #expect(span.lastFlat == 2)
+        #expect(span.absorbBefore == 0)
+        #expect(!span.isNoOp)
+    }
+
+    @Test func soloNotYetReachingSupersetIsANoOp() {
+        // The join engages only once the finger reaches the ring; before
+        // that only the solo is tentatively highlighted.
+        let sizes = [1, 2]
+        let layout = RailLayout.build(groupSizes: sizes, metrics: metrics)
+        let soloY = layout.row(for: .exercise(group: 0, index: 0))!.midY
+        let span = RailRing.span(groupSizes: sizes, group: 0, edge: .bottom, fingerY: soloY, metrics: metrics)
+        #expect(span.mergeSoloInto == 0)
+        #expect(span.isNoOp)
+    }
+
+    @Test func soloBetweenSupersetsJoinsTheOneItIsDraggedInto() {
+        // [2, 1, 2]: the middle solo (flat 2) joins the ring below when
+        // dragged down, the ring above when dragged up.
+        let sizes = [2, 1, 2]
+        let layout = RailLayout.build(groupSizes: sizes, metrics: metrics)
+        let downY = layout.row(for: .exercise(group: 2, index: 0))!.midY
+        let down = RailRing.span(groupSizes: sizes, group: 1, edge: .bottom, fingerY: downY, metrics: metrics)
+        #expect(down.mergeSoloInto == 1)
+        #expect(down.firstFlat == 2)
+        #expect(down.lastFlat == 4)
+
+        let upY = layout.row(for: .exercise(group: 0, index: 1))!.midY
+        let up = RailRing.span(groupSizes: sizes, group: 1, edge: .top, fingerY: upY, metrics: metrics)
+        #expect(up.mergeSoloInto == -1)
+        #expect(up.firstFlat == 0)
+        #expect(up.lastFlat == 2)
+    }
+
+    @Test func soloRunStillAbsorbsWhenNeighbourIsNotARing() {
+        // [1, 1, 2]: the first solo's immediate neighbour is another solo,
+        // not the ring — so the old absorb-the-solo-run behaviour stands
+        // (a solo run is never a merge-into-ring).
+        let sizes = [1, 1, 2]
+        let layout = RailLayout.build(groupSizes: sizes, metrics: metrics)
+        let secondSoloY = layout.row(for: .exercise(group: 1, index: 0))!.midY
+        let span = RailRing.span(groupSizes: sizes, group: 0, edge: .bottom, fingerY: secondSoloY, metrics: metrics)
+        #expect(span.mergeSoloInto == 0)
+        #expect(span.absorbAfter == 1)
+    }
 }
