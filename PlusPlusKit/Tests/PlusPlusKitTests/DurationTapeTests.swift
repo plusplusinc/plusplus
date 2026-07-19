@@ -149,4 +149,14 @@ struct MetricTapeTests {
         #expect(!WorkoutMetric.distance.isTimeSpan)
         #expect(!WorkoutMetric.calories.isTimeSpan)
     }
+
+    @Test("Every metric: usesTapeScrubber iff scrubberTape is non-nil (the two switches can't drift)")
+    func scrubberSwitchParity() {
+        for m in WorkoutMetric.allCases {
+            for unit in DistanceUnit.allCases {
+                let parity = m.usesTapeScrubber == (m.scrubberTape(distanceUnit: unit) != nil)
+                #expect(parity, "\(m) disagrees for \(unit)")
+            }
+        }
+    }
 }

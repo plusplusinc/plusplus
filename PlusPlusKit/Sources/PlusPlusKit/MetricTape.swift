@@ -113,7 +113,9 @@ public extension WorkoutMetric {
             return (1, MetricTape(range: Int(r.lowerBound)...Int(r.upperBound),
                                   pointsPerUnit: 3, minorStride: 5, labelStride: 30))
         case .calories:
-            return (1, MetricTape(range: 1...2000, pointsPerUnit: 3, minorStride: 5, labelStride: 25))
+            let r = range
+            return (1, MetricTape(range: Int(r.lowerBound)...Int(r.upperBound),
+                                  pointsPerUnit: 3, minorStride: 5, labelStride: 25))
         case .distance:
             switch distanceUnit {
             case .meters:
