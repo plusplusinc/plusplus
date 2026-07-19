@@ -142,11 +142,11 @@ struct ExercisePickerView: View {
                 }
             }
             .safeAreaInset(edge: .top, spacing: 0) {
-                // Custom chrome, one continuous bar behind the header AND
-                // filters (a transparent band used to let scrolled rows peek
-                // through). The header carries the text Cancel + the
-                // expanding search; the ✕ collapses search, never dismisses.
-                VStack(spacing: 8) {
+                // Custom chrome matching the pushed catalogs: an OPAQUE
+                // background (not a translucent `.bar` band, which read as a
+                // heavy panel with a hard bottom edge) so the header + filters
+                // sit seamlessly on the sheet and scrolled rows stay covered.
+                VStack(spacing: 10) {
                     pickerHeader
                     FilterBar(
                         filterState: filterState,
@@ -154,8 +154,9 @@ struct ExercisePickerView: View {
                         showingEquipmentFilter: $showingEquipmentFilter
                     )
                 }
-                .padding(.top, 8)
-                .background(.bar)
+                .padding(.top, 14)
+                .padding(.bottom, 6)
+                .background(Theme.background)
             }
             .sheet(isPresented: $showingMuscleGroupFilter) {
                 MuscleGroupFilterSheet(filterState: filterState)
@@ -185,22 +186,28 @@ struct ExercisePickerView: View {
     }
 
     private var pickerHeader: some View {
-        HStack(spacing: 10) {
-            // Dismiss is a word, never a ✕ (✕ collapses search) — §9.
-            SheetDismissKey(label: "Cancel") { dismiss() }
-            // Single stable `HeaderSearchField`; the title + Spacer are
-            // conditionalized around it so it keeps its focus intent across
-            // expand/collapse (see PushedHeader's note).
+        // Mirrors the pushed catalogs' chrome (centered title flanked by keys)
+        // so the picker reads as one of the catalog family — just with a text
+        // "Cancel" where a pushed screen has its back key.
+        ZStack {
             if !searchExpanded {
                 Text("Add exercise")
-                    .font(.system(.title3, weight: .bold))
+                    .font(.system(.subheadline, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
-                Spacer(minLength: 0)
+                    .padding(.horizontal, 90)
             }
-            // This is a SHEET's top-right corner, so its search key rounds
-            // concentric with the sheet's own corners (iOS 26).
-            HeaderSearchField(config: searchConfig, isExpanded: $searchExpanded, concentricAtSheetCorner: true)
+            HStack(spacing: 10) {
+                // Dismiss is a word, never a ✕ (✕ collapses search) — §9.
+                SheetDismissKey(label: "Cancel") { dismiss() }
+                // Single stable `HeaderSearchField`; only the Spacer is
+                // conditionalized around it, so it keeps its focus intent
+                // across expand/collapse (see PushedHeader's note). At a
+                // SHEET's top-right corner it rounds concentric with the
+                // sheet's own corners (iOS 26).
+                if !searchExpanded { Spacer(minLength: 0) }
+                HeaderSearchField(config: searchConfig, isExpanded: $searchExpanded, concentricAtSheetCorner: true)
+            }
         }
         .padding(.horizontal, 16)
     }
