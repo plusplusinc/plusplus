@@ -249,13 +249,13 @@ struct RoutineListView: View {
     }
 }
 
-/// 44 pt rounded-square raised icon key used in tab/pushed headers (Quiet
-/// Arcade: header icon buttons are neutral secondary keys — supersedes
-/// #202's green header +; green's scope tightened to true data and
-/// in-list creation rows). Rounded squares are the app's key shape (Dave
-/// reverted the brief all-circles round, 2026-07-19); the ONE exception is
-/// a key sitting in a SHEET's top corner, which opts into concentric
-/// corners so its curve continues the sheet's own (see `concentricAtSheetCorner`).
+/// 44 pt rounded-square raised icon key used in tab/pushed/sheet headers
+/// (Quiet Arcade: header icon buttons are neutral secondary keys —
+/// supersedes #202's green header +; green's scope tightened to true data
+/// and in-list creation rows). Rounded squares (radius 11) are the app's
+/// one key shape everywhere — Dave reverted the brief all-circles round
+/// (2026-07-19) and the sheet-corner concentric experiment (2026-07-19,
+/// the uneven corners read wrong).
 struct HeaderIconButton: View {
     let systemImage: String
     /// Spoken VoiceOver name for the action (required — the glyph alone reads
@@ -265,35 +265,10 @@ struct HeaderIconButton: View {
     /// Glyph tint; defaults to the neutral header ink. The favorite star
     /// passes `Theme.accent` when lit (green = the user's own data).
     var tint: Color = Theme.textSecondary
-    /// Pass true ONLY for a key that sits in a SHEET's top corner (e.g. the
-    /// exercise picker's search key): its cap corners resolve CONCENTRIC with
-    /// the sheet's rounded corners (iOS 26 `ConcentricRectangle`), the floor
-    /// keeping it never tighter than the plain 11-pt rounded square. On a
-    /// pushed screen or tab root (no rounded container) it renders as the
-    /// square anyway, so the flag is harmless if mis-set — but only the
-    /// picker sets it today.
-    var concentricAtSheetCorner: Bool = false
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            cap
-        }
-        .buttonStyle(.raisedKey(cornerRadius: 11))
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityIdentifier(identifier ?? systemImage)
-    }
-
-    @ViewBuilder
-    private var cap: some View {
-        if concentricAtSheetCorner {
-            Image(systemName: systemImage)
-                .font(.system(.body, weight: .medium))
-                .foregroundStyle(tint)
-                .frame(width: 44, height: 44)
-                .background(Theme.background, in: ConcentricRectangle(corners: .concentric(minimum: .fixed(11))))
-                .overlay(ConcentricRectangle(corners: .concentric(minimum: .fixed(11))).stroke(Theme.borderStrong, lineWidth: 1))
-        } else {
             Image(systemName: systemImage)
                 .font(.system(.body, weight: .medium))
                 .foregroundStyle(tint)
@@ -301,6 +276,9 @@ struct HeaderIconButton: View {
                 .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
                 .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
         }
+        .buttonStyle(.raisedKey())
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityIdentifier(identifier ?? systemImage)
     }
 }
 

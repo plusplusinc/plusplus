@@ -202,11 +202,9 @@ struct ExercisePickerView: View {
                 SheetDismissKey(label: "Cancel") { dismiss() }
                 // Single stable `HeaderSearchField`; only the Spacer is
                 // conditionalized around it, so it keeps its focus intent
-                // across expand/collapse (see PushedHeader's note). At a
-                // SHEET's top-right corner it rounds concentric with the
-                // sheet's own corners (iOS 26).
+                // across expand/collapse (see PushedHeader's note).
                 if !searchExpanded { Spacer(minLength: 0) }
-                HeaderSearchField(config: searchConfig, isExpanded: $searchExpanded, concentricAtSheetCorner: true)
+                HeaderSearchField(config: searchConfig, isExpanded: $searchExpanded)
             }
         }
         .padding(.horizontal, 16)

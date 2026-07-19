@@ -111,10 +111,6 @@ struct HeaderSearchConfig {
 struct HeaderSearchField: View {
     let config: HeaderSearchConfig
     @Binding var isExpanded: Bool
-    /// Passed through to the magnifier / collapse keys: true only when this
-    /// field lives in a SHEET's top corner (the exercise picker), so those
-    /// keys round concentric with the sheet's corners.
-    var concentricAtSheetCorner: Bool = false
 
     /// One-shot focus intent, consumed by the field's onAppear — a focus
     /// request made before the view exists is silently dropped, and an
@@ -129,14 +125,14 @@ struct HeaderSearchField: View {
                 // Closing the search is its own key, outside the field —
                 // separate from the in-field clear, so emptying the query
                 // and collapsing back to the icon are two distinct acts.
-                HeaderIconButton(systemImage: "xmark", accessibilityLabel: "Close search", identifier: "dismissSearchButton", concentricAtSheetCorner: concentricAtSheetCorner) {
+                HeaderIconButton(systemImage: "xmark", accessibilityLabel: "Close search", identifier: "dismissSearchButton") {
                     config.text.wrappedValue = ""
                     focused = false
                     withAnimation(Theme.Anim.standard) { isExpanded = false }
                 }
             }
         } else {
-            HeaderIconButton(systemImage: "magnifyingglass", accessibilityLabel: "Search", identifier: "\(config.identifier)Toggle", concentricAtSheetCorner: concentricAtSheetCorner) {
+            HeaderIconButton(systemImage: "magnifyingglass", accessibilityLabel: "Search", identifier: "\(config.identifier)Toggle") {
                 wantsFocus = true
                 withAnimation(Theme.Anim.standard) { isExpanded = true }
             }
