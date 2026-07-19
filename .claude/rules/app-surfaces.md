@@ -65,8 +65,21 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   when it navigates to a catalog. Query casing is `String.sentenceCasedFirst`.
   Empty results NEVER dead-end: the create/add row is always present + a "Clear
   filters" `QuietKey` when facets are active.
-- **Heading treatment follows the nature of the title** (2026-07-18): a **tab
-  root** wears a large left title below the icon row; a **pushed utility/catalog
+- **Heading treatment follows the nature of the title** (2026-07-18, updated
+  2026-07-19): a **tab root** wears a large left `.title` heading ON the icon
+  row, just right of the ++ key (`AppMenuKey`) — single-line, `.layoutPriority(1)`
+  so it claims its space first and all four roots (Today · Routines · Exercises ·
+  Equipment) read at one font size; any squeeze from a trailing accessory (the
+  Equipment kit switcher) falls on THAT key (its own `minimumScaleFactor`), never
+  ejecting a fixed key off the row. **Do NOT use `.fixedSize` here** — a fixed
+  Dynamic-Type title shoves the trailing search/switcher keys off-screen at large
+  text sizes (swift-reviewer/axiom catch). **At `dynamicTypeSize.isAccessibilitySize`
+  the heading reflows to its own line BELOW the icon row** (`.lineLimit(2)` +
+  `.fixedSize(vertical:)`, wraps at full size), the canonical "reflow, don't cap"
+  fix (#164), so every icon-row key stays reachable. The title hides while the
+  header's expanding search field is open. Shared: `CatalogTabHeader`
+  (Routines/Exercises/Equipment); Today has a hand-rolled twin. A **pushed
+  utility/catalog
   screen** with a fixed label keeps the small centered `pushedScreenChrome`
   title; a **pushed detail screen showing a dynamic name** clears its chrome
   title (`title: ""`) and leads the body with a large left header that wraps to
