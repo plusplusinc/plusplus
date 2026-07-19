@@ -13,6 +13,10 @@ struct ExercisePickerView: View {
     @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
     var filterState: ExerciseFilterState
+    /// Routine building PUSHES the picker onto its NavigationStack (clean
+    /// pushed-catalog chrome); session adds present it as a sheet. Default
+    /// sheet so the session call sites are unchanged.
+    var pushed = false
     /// The configured-selection path (session adds): a row tap opens a
     /// configure sheet — set count + targets — stacked on the picker,
     /// and Add hands back the finished `SessionExerciseConfig`. When set,
@@ -56,126 +60,169 @@ struct ExercisePickerView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            List {
-                // Creation is the top row (2026-07-18): New exercise, or
-                // Create "<query>" when searching — never a dead end.
-                createExerciseRow
-                ForEach(candidates) { exercise in
-                    Button {
-                        if onConfigured != nil {
-                            // Stack the configure sheet on the picker —
-                            // no dismiss-then-present handoff (the
-                            // documented presentation-drop class).
-                            pendingConfig = SessionExerciseConfig(exercise: exercise)
-                        } else {
-                            onSelect?(exercise)
-                            dismiss()
-                        }
-                    } label: {
-                        ExerciseRow(exercise: exercise, available: availableEquipmentNames)
-                    }
-                    .tint(.primary)
-                    .contextMenu {
-                        if !exercise.isBuiltIn {
-                            Button("Edit", systemImage: "pencil") {
-                                editingExercise = exercise
-                            }
-                            Button("Delete", systemImage: "trash", role: .destructive) {
-                                deletionCandidate = exercise
-                            }
-                        }
-                    }
-                }
-                if candidates.isEmpty {
-                    emptyResults
-                }
+        if pushed {
+            // Routine building PUSHES the picker (Dave, 2026-07-19): it reads
+            // as a drill-down and reuses the pushed catalogs' clean chrome
+            // (back + centered title + expanding search) instead of a sheet's
+            // custom top. Same List, same modals.
+            VStack(spacing: 0) {
+                filterBar
+                pickerList
             }
-            // Plain list on the warm background, matching the Library
-            // (the sibling exercise list). The default grouped style's
-            // generous top inset was the oversized gap under the filter
-            // row; plain seats the first exercise right below it.
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
             .background(Theme.background)
-            .toolbar(.hidden, for: .navigationBar)
-            .scrollDismissesKeyboard(.immediately)
-            .sheet(isPresented: $showingCreateSheet) {
-                // Whatever narrowed the picker seeds the new exercise
-                // (the searched-for name, the filtered muscle/gear) —
-                // the create path from a zeroed search starts from
-                // what was being looked for, not from scratch.
-                ExerciseEditorView(
-                    prefillName: filterState.prefillName,
-                    prefillMuscleGroup: filterState.prefillMuscleGroup,
-                    prefillEquipment: filterState.prefillEquipment
-                )
-            }
-            .sheet(item: $editingExercise) { exercise in
-                ExerciseEditorView(editing: exercise)
-            }
-            // Configure-before-add (session picks): the sheet stacks on
-            // the picker; Add commits the config and dismisses the picker
-            // (iOS tears the stacked sheet down with its parent).
-            .sheet(item: $pendingConfig) { config in
-                ExerciseConfigSheet(config: config) {
-                    onConfigured?(config)
-                    dismiss()
-                }
-            }
-            .confirmationDialog(
-                deletionTitle,
-                isPresented: Binding(
-                    get: { deletionCandidate != nil },
-                    set: { if !$0 { deletionCandidate = nil } }
-                ),
-                titleVisibility: .visible
-            ) {
-                Button("Delete Exercise", role: .destructive) {
-                    if let exercise = deletionCandidate {
-                        deleteExercise(exercise)
+            .pushedScreenChrome(
+                title: "Add exercise",
+                search: searchConfig,
+                onBack: { dismiss() }
+            )
+        } else {
+            // Session adds stay a modal sheet (mid-workout / session overview):
+            // a text Cancel where a pushed screen has its back key.
+            NavigationStack {
+                pickerList
+                    .toolbar(.hidden, for: .navigationBar)
+                    .safeAreaInset(edge: .top, spacing: 0) {
+                        // OPAQUE background (not a translucent `.bar` band) so
+                        // the header + filters sit seamlessly on the sheet.
+                        VStack(spacing: 10) {
+                            pickerHeader
+                            filterBar
+                        }
+                        .padding(.top, 14)
+                        .padding(.bottom, 6)
+                        .background(Theme.background)
                     }
-                    deletionCandidate = nil
-                }
-                Button("Cancel", role: .cancel) {
-                    deletionCandidate = nil
-                }
-            }
-            .safeAreaInset(edge: .top, spacing: 0) {
-                // Custom chrome matching the pushed catalogs: an OPAQUE
-                // background (not a translucent `.bar` band, which read as a
-                // heavy panel with a hard bottom edge) so the header + filters
-                // sit seamlessly on the sheet and scrolled rows stay covered.
-                VStack(spacing: 10) {
-                    pickerHeader
-                    FilterBar(
-                        filterState: filterState,
-                        showingMuscleGroupFilter: $showingMuscleGroupFilter,
-                        showingEquipmentFilter: $showingEquipmentFilter
-                    )
-                }
-                .padding(.top, 14)
-                .padding(.bottom, 6)
-                .background(Theme.background)
-            }
-            .sheet(isPresented: $showingMuscleGroupFilter) {
-                MuscleGroupFilterSheet(filterState: filterState)
-                    .presentationDetents([.medium])
-            }
-            .sheet(isPresented: $showingEquipmentFilter) {
-                // No ownership toggle here: the picker never
-                // ownership-hides (see the list comment above), so the
-                // escape hatch would be a dead switch.
-                EquipmentFilterSheet(
-                    filterState: filterState,
-                    allEquipment: EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.members.sorted { $0.name < $1.name } ?? []
-                )
-                .presentationDetents([.medium, .large])
             }
         }
     }
 
+    private var filterBar: some View {
+        FilterBar(
+            filterState: filterState,
+            showingMuscleGroupFilter: $showingMuscleGroupFilter,
+            showingEquipmentFilter: $showingEquipmentFilter
+        )
+    }
+
+    /// The shared list + its modals, presented either pushed or as a sheet.
+    private var pickerList: some View {
+        List {
+            // Creation is the top row (2026-07-18): New exercise, or
+            // Create "<query>" when searching — never a dead end.
+            createExerciseRow
+            ForEach(candidates) { exercise in
+                Button {
+                    if onConfigured != nil {
+                        // Stack the configure sheet on the picker —
+                        // no dismiss-then-present handoff (the
+                        // documented presentation-drop class).
+                        pendingConfig = SessionExerciseConfig(exercise: exercise)
+                    } else {
+                        onSelect?(exercise)
+                        dismiss()
+                    }
+                } label: {
+                    ExerciseRow(exercise: exercise, available: availableEquipmentNames)
+                }
+                .tint(.primary)
+                .contextMenu {
+                    if !exercise.isBuiltIn {
+                        Button("Edit", systemImage: "pencil") {
+                            editingExercise = exercise
+                        }
+                        Button("Delete", systemImage: "trash", role: .destructive) {
+                            deletionCandidate = exercise
+                        }
+                    }
+                }
+            }
+            if candidates.isEmpty {
+                emptyResults
+            }
+        }
+        // Plain list on the warm background, matching the Library
+        // (the sibling exercise list). The default grouped style's
+        // generous top inset was the oversized gap under the filter
+        // row; plain seats the first exercise right below it.
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(Theme.background)
+        .scrollDismissesKeyboard(.immediately)
+        .sheet(isPresented: $showingCreateSheet) {
+            // Whatever narrowed the picker seeds the new exercise
+            // (the searched-for name, the filtered muscle/gear) —
+            // the create path from a zeroed search starts from
+            // what was being looked for, not from scratch.
+            ExerciseEditorView(
+                prefillName: filterState.prefillName,
+                prefillMuscleGroup: filterState.prefillMuscleGroup,
+                prefillEquipment: filterState.prefillEquipment,
+                onCreated: createdRouter
+            )
+        }
+        .sheet(item: $editingExercise) { exercise in
+            ExerciseEditorView(editing: exercise)
+        }
+        // Configure-before-add (session picks): the sheet stacks on
+        // the picker; Add commits the config and dismisses the picker
+        // (iOS tears the stacked sheet down with its parent).
+        .sheet(item: $pendingConfig) { config in
+            ExerciseConfigSheet(config: config) {
+                onConfigured?(config)
+                dismiss()
+            }
+        }
+        .confirmationDialog(
+            deletionTitle,
+            isPresented: Binding(
+                get: { deletionCandidate != nil },
+                set: { if !$0 { deletionCandidate = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete Exercise", role: .destructive) {
+                if let exercise = deletionCandidate {
+                    deleteExercise(exercise)
+                }
+                deletionCandidate = nil
+            }
+            Button("Cancel", role: .cancel) {
+                deletionCandidate = nil
+            }
+        }
+        .sheet(isPresented: $showingMuscleGroupFilter) {
+            MuscleGroupFilterSheet(filterState: filterState)
+                .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showingEquipmentFilter) {
+            // No ownership toggle here: the picker never
+            // ownership-hides (see the list comment above), so the
+            // escape hatch would be a dead switch.
+            EquipmentFilterSheet(
+                filterState: filterState,
+                allEquipment: EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.members.sorted { $0.name < $1.name } ?? []
+            )
+            .presentationDetents([.medium, .large])
+        }
+    }
+
     // MARK: - Header + create + empty
+
+    /// Routine build (select path): a freshly created custom exercise goes
+    /// STRAIGHT into the routine and pops back, skipping the return to the
+    /// picker. Session adds (onConfigured) keep the return-to-picker — a new
+    /// exercise there configures next, so nil disables the shortcut.
+    private var createdRouter: ((Exercise) -> Void)? {
+        guard onConfigured == nil else { return nil }
+        return { exercise in
+            onSelect?(exercise)
+            // Pop on the NEXT main-actor turn, after the editor sheet's own
+            // dismissal has committed — popping this pushed picker in the SAME
+            // turn the editor dismisses coalesces two teardowns and can drop
+            // the pop, stranding the user on the picker (swift-reviewer catch).
+            Task { @MainActor in dismiss() }
+        }
+    }
 
     private var searchConfig: HeaderSearchConfig {
         HeaderSearchConfig(
