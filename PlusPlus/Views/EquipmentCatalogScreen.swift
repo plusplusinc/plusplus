@@ -357,7 +357,7 @@ struct EquipmentCatalogScreen: View {
     }
 
     private var createRow: some View {
-        Button {
+        CreateRow(label: createLabel, identifier: "createEquipmentRow") {
             let trimmed = query.trimmingCharacters(in: .whitespaces)
             guard !trimmed.isEmpty else {
                 newEquipmentName = ""
@@ -365,25 +365,10 @@ struct EquipmentCatalogScreen: View {
                 return
             }
             createEquipment(named: trimmed)
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "plus")
-                    .font(.system(.caption, weight: .semibold))
-                Text(createLabel)
-                    .font(.system(.footnote, weight: .semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-            }
-            // Creation is green (#202).
-            .foregroundStyle(Theme.accent)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 12)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("createEquipmentRow")
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
+        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
     }
 
     /// Creating custom gear adds it to the active kit and pushes its

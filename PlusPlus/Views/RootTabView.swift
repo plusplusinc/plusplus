@@ -221,10 +221,10 @@ struct AppMenuKey: View {
         Button { reveal.toggle() } label: {
             HeaderGlyph()
                 .frame(width: 44, height: 44)
-                .background(Theme.background, in: Circle())
-                .overlay(Circle().strokeBorder(Theme.borderStrong))
+                .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
+                .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
         }
-        .buttonStyle(.raisedKey(cornerRadius: 22))
+        .buttonStyle(.raisedKey())
         .accessibilityLabel("Menu")
         .accessibilityHint(reveal.isOpen ? "Closes the menu" : "Opens the menu and settings")
         .accessibilityIdentifier("appMenuButton")

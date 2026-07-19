@@ -122,27 +122,12 @@ struct ExercisesTabView: View {
     }
 
     private var createExerciseRow: some View {
-        Button {
+        CreateRow(label: createLabel, identifier: "createExerciseRow") {
             creatingExercise = true
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "plus")
-                    .font(.system(.caption, weight: .semibold))
-                Text(createLabel)
-                    .font(.system(.footnote, weight: .semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-            }
-            // Creation is green (#202).
-            .foregroundStyle(Theme.accent)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 12)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("createExerciseRow")
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
+        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
     }
 
     private var emptyResults: some View {
@@ -446,28 +431,13 @@ struct EquipmentTabView: View {
     }
 
     private var addEquipmentRow: some View {
-        Button {
+        CreateRow(label: addLabel, identifier: "addEquipmentRow") {
             pendingCatalogQuery = searchText.trimmingCharacters(in: .whitespaces)
             showingCatalog = true
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "plus")
-                    .font(.system(.caption, weight: .semibold))
-                Text(addLabel)
-                    .font(.system(.footnote, weight: .semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-            }
-            // Creation/adding is green (#202).
-            .foregroundStyle(Theme.accent)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 12)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("addEquipmentRow")
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
+        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
     }
 
     private var equipmentEmptyHint: some View {

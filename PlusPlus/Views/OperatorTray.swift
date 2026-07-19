@@ -212,9 +212,9 @@ struct OperatorTray: View {
                     .font(.system(.subheadline, weight: .bold))
                     .foregroundStyle(Theme.onPrimary)
                     .frame(width: 40, height: 40)
-                    .background(Theme.primaryFill, in: Circle())
+                    .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 11))
             }
-            .buttonStyle(.raisedPrimaryKey(cornerRadius: 20))
+            .buttonStyle(.raisedPrimaryKey())
             .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             .accessibilityLabel("Send")
             .accessibilityIdentifier("operatorSend")
@@ -226,10 +226,10 @@ struct OperatorTray: View {
                     .font(.system(.subheadline, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
                     .frame(width: 40, height: 40)
-                    .background(Theme.background, in: Circle())
-                    .overlay(Circle().strokeBorder(Theme.borderStrong))
+                    .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
+                    .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
             }
-            .buttonStyle(.raisedKey(cornerRadius: 20))
+            .buttonStyle(.raisedKey())
             .accessibilityLabel("Stop")
             .accessibilityIdentifier("operatorStop")
         }

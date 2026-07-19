@@ -96,6 +96,44 @@ struct QuietKey: View {
     }
 }
 
+/// The app's ONE create-affordance row (2026-07-19, promoted from the
+/// catalog-detail cross-ref blocks): green "+ <label>" content on a
+/// bordered raised key, so every "New …" / "Add …" / "Create …" row reads
+/// as a pressable button rather than floating text in a list. Full-width,
+/// left-aligned; callers add the list-row insets/background.
+struct CreateRow: View {
+    let label: String
+    var identifier: String?
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: "plus")
+                    .font(.system(.caption, weight: .semibold))
+                Text(label)
+                    .font(.system(.footnote, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+            // Green content on a raised key (Quiet Arcade): creation
+            // stays in the data-green voice, the key anatomy carries
+            // "this commits".
+            .foregroundStyle(Theme.accent)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 48)
+            .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.controlRadius)
+                    .strokeBorder(Theme.borderStrong)
+            )
+        }
+        .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
+        .accessibilityIdentifier(identifier ?? label)
+    }
+}
+
 /// A primary key whose tap plays the commit flourish — the cap
 /// flashes `accent` green with "let's go ▸" for ~0.85 s — before the
 /// action runs (Start is the app's biggest commit; this is its
