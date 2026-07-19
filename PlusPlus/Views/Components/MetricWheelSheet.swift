@@ -1,9 +1,11 @@
 import SwiftUI
 import PlusPlusKit
 
-/// Picker sheet for any stepped metric, v2 styling. Time spans
-/// (duration, rest) open the tape scrubber — every whole second is
-/// reachable; everything else keeps the single tiered wheel. Lived
+/// Picker sheet for any stepped metric, v2 styling. Wide continuous
+/// metrics — the time spans (duration, rest, transition) plus distance
+/// and calories — open the horizontal tape scrubber, where every whole
+/// unit is reachable; loads, short lists (reps), and machine dials keep
+/// the single tiered wheel (`usesTapeScrubber` owns the split). Lived
 /// inside ExerciseDetailSheet.swift until the scrubber split
 /// (2026-07-15); it is presented from four screens, so it belongs here.
 struct MetricWheelSheet: View {
@@ -16,8 +18,8 @@ struct MetricWheelSheet: View {
     var body: some View {
         NavigationStack {
             Group {
-                if metric.isTimeSpan {
-                    DurationScrubberPane(metric: metric, value: $value)
+                if metric.usesTapeScrubber {
+                    MetricScrubberPane(metric: metric, weightUnit: weightUnit, distanceUnit: distanceUnit, value: $value)
                 } else {
                     wheel
                 }
