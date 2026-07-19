@@ -15,12 +15,17 @@ struct ExerciseEditorView: View {
     @Query private var allExercises: [Exercise]
 
     private let editingExercise: Exercise?
+    /// Fired with the freshly CREATED exercise (create path only) so a
+    /// caller can route it onward — the routine picker adds it straight to
+    /// the routine and pops back, instead of returning to the picker.
+    private let onCreated: ((Exercise) -> Void)?
     @State private var draft: ExerciseDraft
     @State private var defaultsWheel: WorkoutMetric?
     @State private var showingDefaultRepsWheel = false
 
     init(editing exercise: Exercise) {
         editingExercise = exercise
+        onCreated = nil
         _draft = State(initialValue: ExerciseDraft(from: exercise))
     }
 
@@ -31,8 +36,9 @@ struct ExerciseEditorView: View {
     /// path (#137). Gear brings its suggested profile (a rower
     /// exercise starts with the rower's metrics); everything is an
     /// editable starting point, not a commitment.
-    init(prefillName: String = "", prefillMuscleGroup: MuscleGroup? = nil, prefillEquipment: Set<Equipment> = []) {
+    init(prefillName: String = "", prefillMuscleGroup: MuscleGroup? = nil, prefillEquipment: Set<Equipment> = [], onCreated: ((Exercise) -> Void)? = nil) {
         editingExercise = nil
+        self.onCreated = onCreated
         let draft = ExerciseDraft()
         draft.name = prefillName
         if let prefillMuscleGroup {
@@ -462,14 +468,20 @@ struct ExerciseEditorView: View {
     }
 
     private func save() {
+        var created: Exercise?
         if let exercise = editingExercise {
             draft.apply(to: exercise)
         } else {
             let exercise = Exercise(name: draft.trimmedName, muscleGroup: draft.muscleGroup)
             modelContext.insert(exercise)
             draft.apply(to: exercise)
+            created = exercise
         }
         dismiss()
+        // Route a freshly created exercise onward (the routine picker adds it
+        // and pops back). After the editor dismisses, so the presenter is the
+        // one that acts next.
+        if let created { onCreated?(created) }
         // Push the saved exercise to GitHub at this boundary (debounced,
         // dirty-gated). No-op unless connected and something changed.
         GitHubSyncCoordinator.shared.requestSync(

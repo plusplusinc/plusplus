@@ -285,12 +285,14 @@ final class SmokeTests: XCTestCase {
 
         app.buttons["saveExerciseButton"].tap()
 
-        // Back in the picker: the custom exercise is in the list; add it.
-        search(for: "Band Pulses")
-        let row = app.cells.staticTexts["Band Pulses"]
-        XCTAssertTrue(row.waitForExistence(timeout: 5))
-        row.tap()
-
+        // Creating a custom exercise in the routine picker adds it STRAIGHT to
+        // the routine and pops back (2026-07-19) — no return to the picker, no
+        // second tap. Prove we actually landed on the routine detail: the
+        // routine's own Add button is back and the picker's create row is gone
+        // (asserting only that "Band Pulses" exists would pass even stranded on
+        // the picker, where it also shows as a row — swift-reviewer catch).
+        XCTAssertTrue(app.buttons["addExerciseButton"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["newExerciseButton"].exists)
         XCTAssertTrue(app.staticTexts["Band Pulses"].waitForExistence(timeout: 5))
         snap("custom-exercise-in-routine")
     }
