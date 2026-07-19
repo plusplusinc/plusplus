@@ -350,33 +350,13 @@ struct RoutineCatalogScreen: View {
     }
 
     private var createRow: some View {
-        Button {
-            // A searched-for routine that isn't in the catalog is
-            // probably the one being created — the query seeds the
-            // name prompt (still fully editable; Cancel clears it).
+        // A searched-for routine that isn't in the catalog is probably the
+        // one being created — the query seeds the name prompt (still fully
+        // editable; Cancel clears it).
+        CreateRow(label: createLabel, identifier: "createBlankRoutine") {
             newRoutineName = search.trimmingCharacters(in: .whitespacesAndNewlines)
             showingNewRoutine = true
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "plus")
-                    .font(.system(.caption, weight: .semibold))
-                Text(createLabel)
-                    .font(.system(.footnote, weight: .semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-            }
-            .foregroundStyle(Theme.accent)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 12)
-            .frame(minHeight: 48)
-            .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.controlRadius)
-                    .strokeBorder(Theme.borderStrong)
-            )
         }
-        .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
-        .accessibilityIdentifier("createBlankRoutine")
     }
 
     private func templateRow(_ template: RoutineTemplate) -> some View {

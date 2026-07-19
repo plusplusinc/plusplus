@@ -198,7 +198,9 @@ struct ExercisePickerView: View {
                     .lineLimit(1)
                 Spacer(minLength: 0)
             }
-            HeaderSearchField(config: searchConfig, isExpanded: $searchExpanded)
+            // This is a SHEET's top-right corner, so its search key rounds
+            // concentric with the sheet's own corners (iOS 26).
+            HeaderSearchField(config: searchConfig, isExpanded: $searchExpanded, concentricAtSheetCorner: true)
         }
         .padding(.horizontal, 16)
     }
@@ -213,26 +215,12 @@ struct ExercisePickerView: View {
     /// smoke flows) turns "not here" into "make it", Clear filters is the
     /// escape. Never a dead end.
     private var createExerciseRow: some View {
-        Button {
+        CreateRow(label: createLabel, identifier: "newExerciseButton") {
             showingCreateSheet = true
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "plus")
-                    .font(.system(.caption, weight: .semibold))
-                Text(createLabel)
-                    .font(.system(.footnote, weight: .semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-            }
-            // Creation is green (#202).
-            .foregroundStyle(Theme.accent)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 12)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("newExerciseButton")
+        .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
+        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
     }
 
     private var emptyResults: some View {

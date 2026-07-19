@@ -185,29 +185,13 @@ struct RoutineListView: View {
     }
 
     private var addRoutineRow: some View {
-        Button {
+        CreateRow(label: addRoutineLabel, identifier: "newRoutineButton") {
             // Root-only affordance, so emptiness doubles as the double-tap
             // guard: a second tap during the push must not stack a second
             // catalog.
             guard path.isEmpty else { return }
             path.append(RoutineCatalogDestination(query: searchText.trimmingCharacters(in: .whitespaces)))
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "plus")
-                    .font(.system(.caption, weight: .semibold))
-                Text(addRoutineLabel)
-                    .font(.system(.footnote, weight: .semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-            }
-            // Creation/adding is green (#202).
-            .foregroundStyle(Theme.accent)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 12)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("newRoutineButton")
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
         .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
@@ -265,13 +249,13 @@ struct RoutineListView: View {
     }
 }
 
-/// 44 pt CIRCULAR raised icon key used in tab/pushed headers (Quiet
+/// 44 pt rounded-square raised icon key used in tab/pushed headers (Quiet
 /// Arcade: header icon buttons are neutral secondary keys — supersedes
 /// #202's green header +; green's scope tightened to true data and
-/// in-list creation rows). Round caps (2026-07-18, Dave): icon-only
-/// keys are circles everywhere so they seat cleanly in sheet corners;
-/// the plate radius matches (44/2 = 22) so the raised underside stays
-/// the same shape as the cap.
+/// in-list creation rows). Rounded squares are the app's key shape (Dave
+/// reverted the brief all-circles round, 2026-07-19); the ONE exception is
+/// a key sitting in a SHEET's top corner, which opts into concentric
+/// corners so its curve continues the sheet's own (see `concentricAtSheetCorner`).
 struct HeaderIconButton: View {
     let systemImage: String
     /// Spoken VoiceOver name for the action (required — the glyph alone reads
@@ -281,20 +265,42 @@ struct HeaderIconButton: View {
     /// Glyph tint; defaults to the neutral header ink. The favorite star
     /// passes `Theme.accent` when lit (green = the user's own data).
     var tint: Color = Theme.textSecondary
+    /// Pass true ONLY for a key that sits in a SHEET's top corner (e.g. the
+    /// exercise picker's search key): its cap corners resolve CONCENTRIC with
+    /// the sheet's rounded corners (iOS 26 `ConcentricRectangle`), the floor
+    /// keeping it never tighter than the plain 11-pt rounded square. On a
+    /// pushed screen or tab root (no rounded container) it renders as the
+    /// square anyway, so the flag is harmless if mis-set — but only the
+    /// picker sets it today.
+    var concentricAtSheetCorner: Bool = false
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
+            cap
+        }
+        .buttonStyle(.raisedKey(cornerRadius: 11))
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityIdentifier(identifier ?? systemImage)
+    }
+
+    @ViewBuilder
+    private var cap: some View {
+        if concentricAtSheetCorner {
             Image(systemName: systemImage)
                 .font(.system(.body, weight: .medium))
                 .foregroundStyle(tint)
                 .frame(width: 44, height: 44)
-                .background(Theme.background, in: Circle())
-                .overlay(Circle().strokeBorder(Theme.borderStrong))
+                .background(Theme.background, in: ConcentricRectangle(corners: .concentric(minimum: .fixed(11))))
+                .overlay(ConcentricRectangle(corners: .concentric(minimum: .fixed(11))).stroke(Theme.borderStrong, lineWidth: 1))
+        } else {
+            Image(systemName: systemImage)
+                .font(.system(.body, weight: .medium))
+                .foregroundStyle(tint)
+                .frame(width: 44, height: 44)
+                .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
+                .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
         }
-        .buttonStyle(.raisedKey(cornerRadius: 22))
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityIdentifier(identifier ?? systemImage)
     }
 }
 

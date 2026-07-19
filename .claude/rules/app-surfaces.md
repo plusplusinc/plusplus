@@ -42,12 +42,20 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   cap depressing onto a fixed base plate (4 pt standard / 3 pt quiet, 0.06 s
   ease-out); flat controls (chips, toggles, segments, rows) stay flat.
   Custom key chrome everywhere — `pushedScreenChrome(...)` replaces system
-  toolbars on pushed screens. **Icon-only keys are CIRCLES** (2026-07-18): a
-  glyph-only cap (`HeaderIconButton`/`HeaderMenuKey`/`AppMenuKey`, the Operator
-  send/stop, `ConfigIconButton`) uses `Circle()` with the plate radius = side/2
-  (`RaisedKeyStyle.cornerRadius`, unchanged — 44→22, 40→20, 30→15). Keys that
-  carry TEXT keep the rounded-rect pill (the width needs it): `QuietKey`,
-  `LibrarySwitcherKey`, `SheetDismissKey`, create rows, the primary action bars.
+  toolbars on pushed screens. **Icon-only keys are 11-pt ROUNDED SQUARES**
+  (2026-07-19; the brief all-circles round of 2026-07-18 was reverted by Dave):
+  `HeaderIconButton`/`HeaderMenuKey`/`AppMenuKey`/Operator send-stop use
+  `RoundedRectangle(cornerRadius: 11)` (`ConfigIconButton` 8) + `.raisedKey()`.
+  The ONE exception: a key in a SHEET's top corner passes
+  `concentricAtSheetCorner: true`, rounding its cap CONCENTRIC with the sheet's
+  own corners via iOS 26 `ConcentricRectangle(corners: .concentric(minimum:
+  .fixed(11)))` — the floor keeps it never tighter than the square, and it
+  degrades to the square where no rounded container shape is provided (pushed
+  screens, tab roots). Only the exercise picker's search key sets it today.
+  Every "New …" / "Add …" / "Create …" list row is the shared `CreateRow` (a
+  green bordered raised key), so creation reads as a button, not floating text.
+  Keys that carry TEXT keep the rounded-rect pill: `QuietKey`,
+  `LibrarySwitcherKey`, `SheetDismissKey`, the primary action bars.
 - **One search UI + one sheet-dismissal, and ✕ means only "collapse search"**
   (2026-07-18): search everywhere is the expanding in-header field
   (`HeaderSearchField`) — a top-right magnifier that expands into a field

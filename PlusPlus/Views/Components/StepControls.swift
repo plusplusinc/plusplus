@@ -25,8 +25,8 @@ struct ConfigIconButton: View {
                 .font(.system(.footnote, weight: .semibold))
                 .foregroundStyle(Theme.textSecondary)
                 .frame(width: 30, height: 30)
-                .background(Theme.background, in: Circle())
-                .overlay(Circle().strokeBorder(Theme.border))
+                .background(Theme.background, in: RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.border))
                 // Visual 30 pt, hit target 44 pt (the excess falls into the
                 // card's corner padding, so the row never inflates).
                 .frame(width: 44, height: 44)

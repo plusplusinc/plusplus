@@ -41,40 +41,6 @@ private struct CrossRefRow: View {
     }
 }
 
-/// Dashed create-affordance row used at the bottom of cross-ref blocks.
-private struct CreateRow: View {
-    let label: String
-    var identifier: String?
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: "plus")
-                    .font(.system(.caption, weight: .semibold))
-                Text(label)
-                    .font(.system(.footnote, weight: .semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-            }
-            // Green content on a raised key (Quiet Arcade): creation
-            // stays in the data-green voice, the key anatomy carries
-            // "this commits".
-            .foregroundStyle(Theme.accent)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 12)
-            .frame(minHeight: 48)
-            .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.controlRadius)
-                    .strokeBorder(Theme.borderStrong)
-            )
-        }
-        .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
-        .accessibilityIdentifier(identifier ?? label)
-    }
-}
-
 private func crossRefBlock<Content: View>(@ViewBuilder rows: () -> Content) -> some View {
     VStack(spacing: 0) {
         rows()
