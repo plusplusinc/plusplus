@@ -1103,6 +1103,10 @@ struct TodayView: View {
                         .font(.system(.title, weight: .bold))
                         .lineLimit(1)
                         .layoutPriority(1)
+                        // +8 on top of the HStack's 8 pt spacing = a 16 pt gap
+                        // from the ++ key, matching the key's own inset from
+                        // the screen edge (Dave, 2026-07-19).
+                        .padding(.leading, 8)
                 }
                 Spacer(minLength: 8)
                 // Settings' old seat starts workouts instead (#266):

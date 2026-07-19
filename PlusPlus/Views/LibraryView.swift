@@ -559,6 +559,10 @@ struct CatalogTabHeader<Accessory: View>: View {
                         .font(.system(.title, weight: .bold))
                         .lineLimit(1)
                         .layoutPriority(1)
+                        // +8 on top of the HStack's 8 pt spacing = a 16 pt gap
+                        // from the ++ key, matching the key's own inset from
+                        // the screen edge (Dave, 2026-07-19).
+                        .padding(.leading, 8)
                 }
                 if let search {
                     // `HeaderSearchField` is a SINGLE stable instance; its
