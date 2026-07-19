@@ -24,6 +24,9 @@ struct TodayView: View {
     /// Pending (today's) card sits on a translucent surface; under Reduce
     /// Transparency it goes opaque so its caption text keeps contrast.
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    /// The header title rides the icon row except at accessibility text
+    /// sizes, where it reflows to its own line below (#164 / axiom).
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
     @Query(sort: [SortDescriptor(\Routine.order), SortDescriptor(\Routine.createdAt, order: .reverse)])
     private var routines: [Routine]
@@ -1087,12 +1090,25 @@ struct TodayView: View {
     private var header: some View {
         let plan = weekPlan
         return VStack(alignment: .leading, spacing: 0) {
-            HStack {
+            HStack(spacing: 8) {
                 // The ++ is a button (#266): the app-level page —
                 // Settings, About, What's new, links, feedback. Since
                 // build 44 every root header wears it (AppMenuKey).
                 AppMenuKey()
-                Spacer()
+                // The big title rides the icon row, left-aligned just right
+                // of the ++ key (2026-07-19). `layoutPriority` keeps it at
+                // full `.title` size without shoving the start key off-row.
+                if !dynamicTypeSize.isAccessibilitySize {
+                    Text("Today")
+                        .font(.system(.title, weight: .bold))
+                        .lineLimit(1)
+                        .layoutPriority(1)
+                        // +8 on top of the HStack's 8 pt spacing = a 16 pt gap
+                        // from the ++ key, matching the key's own inset from
+                        // the screen edge (Dave, 2026-07-19).
+                        .padding(.leading, 8)
+                }
+                Spacer(minLength: 8)
                 // Settings' old seat starts workouts instead (#266):
                 // the one action that should never be more than a tap
                 // away, via the existing start tray. Neutral like every
@@ -1102,9 +1118,15 @@ struct TodayView: View {
                     showingSwapIn = true
                 }
             }
-            Text("Today")
-                .font(.system(.title, weight: .bold))
-                .padding(.top, 10)
+            // At accessibility sizes the title reflows to its own line below
+            // the icon row so it can wrap at full size (#164 / axiom).
+            if dynamicTypeSize.isAccessibilitySize {
+                Text("Today")
+                    .font(.system(.title, weight: .bold))
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 10)
+            }
             if let caption = caption(plan: plan) {
                 Text(caption)
                     .font(.system(.caption, design: .monospaced))

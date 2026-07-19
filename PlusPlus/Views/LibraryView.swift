@@ -532,8 +532,15 @@ struct CatalogTabHeader<Accessory: View>: View {
     @ViewBuilder var accessory: () -> Accessory
 
     @State private var searchExpanded = false
+    /// At accessibility text sizes the heading can't share the icon row
+    /// without shoving the trailing keys (search, +, kit switcher) off the
+    /// edge, so it reflows to its own line below (#164 / axiom: reflow, don't
+    /// cap the size).
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var searching: Bool { search != nil && searchExpanded }
+    private var titleOnRow: Bool { !searching && !dynamicTypeSize.isAccessibilitySize }
+    private var titleBelowRow: Bool { !searching && dynamicTypeSize.isAccessibilitySize }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -541,13 +548,29 @@ struct CatalogTabHeader<Accessory: View>: View {
                 // Every root header wears the ++ key (Dave, build 44); it
                 // toggles the shared reveal drawer.
                 AppMenuKey()
+                // The big title rides the icon row, left-aligned just right
+                // of the ++ key (2026-07-19). `layoutPriority` (not
+                // `fixedSize`) lets it claim its space first so all four tab
+                // roots read at one full `.title` size, while the fixed
+                // trailing keys stay reachable — any squeeze falls on the
+                // variable-width kit switcher (its own `minimumScaleFactor`).
+                if titleOnRow {
+                    Text(title)
+                        .font(.system(.title, weight: .bold))
+                        .lineLimit(1)
+                        .layoutPriority(1)
+                        // +8 on top of the HStack's 8 pt spacing = a 16 pt gap
+                        // from the ++ key, matching the key's own inset from
+                        // the screen edge (Dave, 2026-07-19).
+                        .padding(.leading, 8)
+                }
                 if let search {
                     // `HeaderSearchField` is a SINGLE stable instance; its
                     // Spacer/accessory/add key are conditionalized around it
                     // so it keeps identity (and its one-shot focus intent)
                     // across expand/collapse — see PushedHeader's note.
                     if !searchExpanded {
-                        Spacer(minLength: 0)
+                        Spacer(minLength: 8)
                         accessory()
                         if let onAdd {
                             HeaderIconButton(systemImage: "plus", accessibilityLabel: addLabel ?? "Add \(title)", identifier: addIdentifier) {
@@ -557,7 +580,7 @@ struct CatalogTabHeader<Accessory: View>: View {
                     }
                     HeaderSearchField(config: search, isExpanded: $searchExpanded)
                 } else {
-                    Spacer(minLength: 0)
+                    Spacer(minLength: 8)
                     accessory()
                     if let onAdd {
                         HeaderIconButton(systemImage: "plus", accessibilityLabel: addLabel ?? "Add \(title)", identifier: addIdentifier) {
@@ -566,9 +589,13 @@ struct CatalogTabHeader<Accessory: View>: View {
                     }
                 }
             }
-            if !searching {
+            // At accessibility sizes the heading takes its own line below the
+            // icon row, where it can wrap to full size instead of clipping.
+            if titleBelowRow {
                 Text(title)
                     .font(.system(.title, weight: .bold))
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 10)
             }
         }
