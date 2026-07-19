@@ -302,51 +302,18 @@ private struct RoutineCard: View {
         EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.memberNames ?? []
     }
 
-    private var estimateText: String {
-        let minutes = max(5, Int((Double(routine.estimatedSeconds) / 300).rounded()) * 5)
-        return "~\(minutes) min"
-    }
-
-    /// Up to three equipment pills plus a "+N" overflow — the taller
-    /// card (#238) affords more than the old single row did.
-    private var pills: [String] {
-        let names = routine.equipmentNames
-        guard !names.isEmpty else { return ["bodyweight"] }
-        if names.count > 3 {
-            return Array(names.prefix(3)) + ["+\(names.count - 3)"]
-        }
-        return names
-    }
-
-    /// A gear pill the active library doesn't have renders in notes
-    /// amber (flag-don't-hide): the card still shows, but a glance says
-    /// "not here". The synthetic "+N" and "bodyweight" pills are neutral.
-    private func pillUnavailable(_ pill: String) -> Bool {
-        guard pill != "bodyweight", !pill.hasPrefix("+") else { return false }
-        return !availableEquipmentNames.contains(pill)
-    }
-
     /// The routine's exercises, resolved (a broken reference drops out).
     private var exercises: [Exercise] {
         routine.sortedGroups.flatMap(\.sortedExercises).compactMap(\.exercise)
     }
     private var hasExercises: Bool { !exercises.isEmpty }
 
-    /// A cardio routine tracks distance or pace throughout (Running,
-    /// Walking, Cycling, Rowing, the console machines) — where a muscle line
-    /// would only say "full body". Stretches and strength keep their real
-    /// muscles.
-    private var isCardio: Bool {
-        hasExercises && exercises.allSatisfy {
-            $0.metricProfile.contains(.distance) || $0.metricProfile.contains(.pace)
-        }
-    }
-
-    /// Row 2's trailing text: the trained muscles, "cardio" for a pure
-    /// cardio routine, or an empty-state note.
+    /// Row 2's fallback prose when the routine carries no summary of its own:
+    /// the trained muscles, "cardio" for a pure cardio routine, or an
+    /// empty-state note.
     private var descriptor: String {
         guard hasExercises else { return "no exercises yet" }
-        return isCardio ? "cardio" : musclesLine
+        return routine.isCardio ? "cardio" : musclesLine
     }
 
     private var musclesLine: String {
@@ -358,93 +325,46 @@ private struct RoutineCard: View {
 
     private var isUnscheduled: Bool { routine.schedule.normalized == .unscheduled }
     private var cadenceLabel: String { isUnscheduled ? "anytime" : routine.schedule.shortLabel }
-    private var scheduleColor: Color { isUnscheduled ? Theme.textFaint : Theme.textSecondary }
-
-    /// Gear rides its own row as soft tags. Suppressed for a gearless card:
-    /// an empty routine, or a run/walk whose only "gear" is bodyweight
-    /// (Dave, 2026-07-16).
-    private var showsGear: Bool {
-        hasExercises && !(isCardio && routine.equipmentNames.isEmpty)
-    }
 
     /// The routine's own one-line description, when it has a non-empty one
-    /// (seeded from a catalog template on add). This takes the card's
-    /// description row; without it the row falls back to `descriptor`.
+    /// (seeded from a catalog template on add). This takes the prose row;
+    /// without it the row falls back to `descriptor`.
     private var routineSummary: String? {
         guard let s = routine.summary?.trimmingCharacters(in: .whitespacesAndNewlines),
               !s.isEmpty else { return nil }
         return s
     }
 
-    /// The facts line: calendar cadence · time estimate. One `Text` so it
-    /// truncates as a unit; the description and gear ride their own rows.
-    private var factsLine: Text {
-        let line = Text(Image(systemName: "calendar")).foregroundStyle(scheduleColor)
-            + Text(" \(cadenceLabel)").foregroundStyle(scheduleColor)
-        guard hasExercises else { return line }
-        return line + Text(" · \(estimateText)").foregroundStyle(Theme.textFaint)
+    /// Gear as soft tags. A bodyweight routine shows one neutral "Bodyweight"
+    /// tag, unless it's pure cardio whose only "gear" is the body (suppressed,
+    /// Dave 2026-07-16).
+    private var gear: [(name: String, available: Bool)] {
+        guard !routine.equipmentNames.isEmpty else {
+            return (hasExercises && !routine.isCardio) ? [(name: "Bodyweight", available: true)] : []
+        }
+        return routine.gearAvailability(activeNames: availableEquipmentNames)
     }
 
-    /// A clean spoken label for the facts line — the raw concatenated `Text`
-    /// would have VoiceOver read the calendar glyph and the "·"/"~" aloud.
-    private var factsAccessibilityLabel: String {
-        hasExercises ? "\(cadenceLabel), \(estimateText)" : cadenceLabel
+    /// The shared routine-card model: identity, prose, then the capsule row
+    /// (schedule · focus · effort · estimate · gear). The schedule capsule is
+    /// the one library-only element — a template has none.
+    private var cardModel: RoutineCardModel {
+        RoutineCardModel(
+            title: routine.name,
+            prose: routineSummary ?? descriptor,
+            schedule: CardCapsule(text: cadenceLabel, systemImage: "calendar"),
+            focus: hasExercises ? routine.focusLabel : nil,
+            effort: hasExercises ? routine.effortLabel : nil,
+            estimate: hasExercises ? routine.estimateText : nil,
+            gear: gear
+        )
     }
 
     var body: some View {
-        // Three rows (Dave, 2026-07-16): identity; the description (the
-        // routine's own summary if it has one, else what it works); then
-        // the facts line (calendar cadence · estimate) with gear soft tags.
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(routine.name)
-                    .font(.system(.body, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-                    .lineLimit(1)
-                Spacer(minLength: 8)
-                Image(systemName: "chevron.right")
-                    .font(.system(.footnote, weight: .bold))
-                    .foregroundStyle(Theme.textFaint)
-            }
-            // Description row: the routine's own line if it has one (the
-            // catalog voice, carried into the library), else what it works.
-            if let summary = routineSummary {
-                Text(summary)
-                    .font(.system(.caption))
-                    .foregroundStyle(Theme.textSecondary)
-                    .lineLimit(2)
-            } else {
-                Text(descriptor)
-                    .font(.system(.caption))
-                    .foregroundStyle(Theme.textSecondary)
-                    .lineLimit(1)
-            }
-            // Facts + gear on one row: calendar cadence · estimate, then the
-            // gear as soft tags (filled, no stroke — a stroked capsule read
-            // as a button; amber still flags gear you don't have).
-            HStack(spacing: 8) {
-                factsLine
-                    .font(.system(.caption))
-                    .lineLimit(1)
-                    .accessibilityLabel(factsAccessibilityLabel)
-                if showsGear {
-                    ForEach(pills, id: \.self) { pill in
-                        let unavailable = pillUnavailable(pill)
-                        // The shared data-capsule (2026-07-18): gear as a
-                        // soft tag, amber-washed when the active kit lacks it.
-                        // holdsWidth off so a row of pills compresses together
-                        // as it did before, not push past the card edge.
-                        CardTagCapsule(
-                            text: pill,
-                            tint: unavailable ? Theme.notes : Theme.textSecondary,
-                            fill: unavailable ? Theme.notes.opacity(0.14) : Theme.surfaceRaised,
-                            holdsWidth: false
-                        )
-                    }
-                }
-                Spacer(minLength: 0)
-            }
-        }
+        // Identity, prose (2 lines), and the shared capsule row — the same
+        // body the catalog card renders (2026-07-19), so a routine reads the
+        // same before and after you add it.
+        RoutineCardContent(model: cardModel)
         .padding(.vertical, 14)
         .padding(.horizontal, 14)
         .contentShape(Rectangle())

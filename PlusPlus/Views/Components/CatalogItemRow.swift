@@ -25,16 +25,30 @@ struct CardTagCapsule: View {
     /// instead of squishing the tag. The routine-card pill row passes false
     /// so its several pills compress together, as they did before.
     var holdsWidth: Bool = true
+    /// An optional leading SF Symbol (the schedule capsule's calendar glyph).
+    /// Sits inside the same capsule so the tag reads as one unit.
+    var systemImage: String? = nil
+
+    /// The capsule's horizontal padding, shared with `CardCapsule`'s width
+    /// measurement so the single-line overflow row can predict the fit.
+    static let horizontalPadding: CGFloat = 8
 
     var body: some View {
-        Text(text)
-            .font(.system(.caption2, design: .monospaced))
-            .foregroundStyle(tint)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 2.5)
-            .background(fill, in: Capsule())
-            .lineLimit(1)
-            .fixedSize(horizontal: holdsWidth, vertical: false)
+        HStack(spacing: 3) {
+            if let systemImage {
+                Image(systemName: systemImage)
+                    .font(.system(.caption2, design: .monospaced))
+                    .accessibilityHidden(true)
+            }
+            Text(text)
+        }
+        .font(.system(.caption2, design: .monospaced))
+        .foregroundStyle(tint)
+        .padding(.horizontal, Self.horizontalPadding)
+        .padding(.vertical, 2.5)
+        .background(fill, in: Capsule())
+        .lineLimit(1)
+        .fixedSize(horizontal: holdsWidth, vertical: false)
     }
 }
 
@@ -58,28 +72,26 @@ struct ExerciseRowContent: View {
                     .foregroundStyle(Theme.accent)
                     .accessibilityHidden(true)
             }
-            VStack(alignment: .leading, spacing: 3) {
+            // The VStack claims the row's free width (maxWidth: .infinity) so
+            // the capsule row inside gets a real width to fit against — a
+            // trailing Spacer would otherwise split that width with it and
+            // halve the capsule room. The trailing Custom tag + chevron keep
+            // their intrinsic size and ride the right edge.
+            VStack(alignment: .leading, spacing: 4) {
                 Text(exercise.name)
                     .font(.system(.subheadline, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(2)
-                HStack(spacing: 6) {
-                    CardTagCapsule(text: exercise.muscleGroup.displayName)
-                    Text(gearText)
-                        .font(.system(.caption))
-                        .foregroundStyle(Theme.textSecondary)
-                        .lineLimit(1)
-                }
-                // The missing-gear flag rides its OWN line so it can't be
-                // truncated off the end of the gear list (#113 flag-don't-hide).
-                if !missing.isEmpty {
-                    Text("needs \(missing.joined(separator: ", "))")
-                        .font(.system(.caption))
-                        .foregroundStyle(Theme.notes)
-                        .lineLimit(2)
-                }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                // Muscle + gear as one capsule row (2026-07-19): gear reads
+                // the same soft tag as everywhere else, amber-washed when the
+                // active kit lacks it. Amber sorts first, so the "N more"
+                // overflow can only ever drop an available piece — the
+                // missing-gear flag stays visible (#113 flag-don't-hide).
+                OverflowCapsuleRow(capsules: [CardCapsule(text: exercise.muscleGroup.displayName)]
+                    + RoutineCardCapsules.gearCapsules(gear))
             }
-            Spacer(minLength: 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
             if !exercise.isBuiltIn {
                 CardTagCapsule(text: "Custom", tint: Theme.accent)
             }
@@ -94,15 +106,13 @@ struct ExerciseRowContent: View {
         .contentShape(Rectangle())
     }
 
-    /// The gear an exercise needs (or "Bodyweight"); truncates on its line.
-    private var gearText: String {
-        let names = exercise.equipment.map(\.name).sorted().joined(separator: ", ")
-        return names.isEmpty ? "Bodyweight" : names
-    }
-
-    /// Active-kit gear gap, flagged in notes amber (flag-don't-hide, #113).
-    private var missing: [String] {
-        ExerciseFilterState.missingEquipment(for: exercise, available: available)
+    /// The gear an exercise needs, paired with whether the active kit has
+    /// each (amber-flag input). A bodyweight exercise shows one neutral
+    /// "Bodyweight" tag.
+    private var gear: [(name: String, available: Bool)] {
+        let items = exercise.equipment.filter { !$0.isDeleted }.map(\.name)
+        guard !items.isEmpty else { return [(name: "Bodyweight", available: true)] }
+        return items.map { (name: $0, available: available.contains($0)) }
     }
 }
 

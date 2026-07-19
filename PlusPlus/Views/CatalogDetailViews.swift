@@ -108,16 +108,20 @@ struct ExerciseDetailScreen: View {
                         .accessibilityAddTraits(.isHeader)
                         .padding(.top, 4)
                         .padding(.bottom, 14)
-                    HStack(spacing: 6) {
-                        Text(exercise.isBuiltIn ? "BUILT-IN" : "CUSTOM")
-                            .font(.system(.caption2, design: .monospaced, weight: .semibold))
-                            .foregroundStyle(exercise.isBuiltIn ? Theme.textSecondary : Theme.accent)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 2)
-                            .overlay(Capsule().strokeBorder(exercise.isBuiltIn ? Theme.borderStrong : Theme.accent.opacity(0.4)))
-                        ChipLabel(exercise.muscleGroup.displayName)
-                        ChipLabel(typeLabel)
-                    }
+                    // The shared card capsule vocabulary (2026-07-19): soft
+                    // tags in natural case (no stroked ALL-CAPS), the same as
+                    // the rows and the routine header. Muscle ↔ the Muscle
+                    // filter; type = what it tracks; a Custom tag for customs.
+                    DetailHeaderCapsules(capsules: {
+                        var caps = [
+                            CardCapsule(text: exercise.muscleGroup.displayName),
+                            CardCapsule(text: typeLabel),
+                        ]
+                        if !exercise.isBuiltIn {
+                            caps.append(CardCapsule(text: "Custom", tint: Theme.accent))
+                        }
+                        return caps
+                    }())
 
                     SheetSectionLabel("EQUIPMENT")
                         .padding(.top, 24)
@@ -370,22 +374,19 @@ struct EquipmentDetailScreen: View {
                         .accessibilityAddTraits(.isHeader)
                         .padding(.top, 4)
                         .padding(.bottom, 14)
-                    HStack(spacing: 6) {
-                        Text(equipment.isBuiltIn ? "BUILT-IN" : "CUSTOM")
-                            .font(.system(.caption2, design: .monospaced, weight: .semibold))
-                            .foregroundStyle(equipment.isBuiltIn ? Theme.textSecondary : Theme.accent)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 2)
-                            .overlay(Capsule().strokeBorder(equipment.isBuiltIn ? Theme.borderStrong : Theme.accent.opacity(0.4)))
+                    // The shared card capsule vocabulary (2026-07-19): soft
+                    // tags in natural case, matching the equipment row (category
+                    // ↔ the Type filter; a Custom tag for customs).
+                    DetailHeaderCapsules(capsules: {
+                        var caps: [CardCapsule] = []
                         if let category = SeedData.equipmentCategory(named: equipment.name) {
-                            Text(category.rawValue.uppercased())
-                                .font(.system(.caption2, design: .monospaced, weight: .semibold))
-                                .foregroundStyle(Theme.textSecondary)
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 2)
-                                .overlay(Capsule().strokeBorder(Theme.borderStrong))
+                            caps.append(CardCapsule(text: category.rawValue))
                         }
-                    }
+                        if !equipment.isBuiltIn {
+                            caps.append(CardCapsule(text: "Custom", tint: Theme.accent))
+                        }
+                        return caps
+                    }())
 
                     // The whole point of the screen: do you have this gear?
                     // A prominent toggle card (Dave, 2026-07-17) so the

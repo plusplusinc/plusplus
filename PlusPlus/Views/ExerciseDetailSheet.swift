@@ -52,8 +52,8 @@ struct ExerciseDetailSheet: View {
                         .padding(.top, 10)
 
                     HStack(spacing: 6) {
-                        ChipLabel(exercise?.muscleGroup.displayName ?? "")
-                        ChipLabel(equipmentText)
+                        CardTagCapsule(text: exercise?.muscleGroup.displayName ?? "")
+                        CardTagCapsule(text: equipmentText)
                     }
                     .padding(.top, 8)
 
@@ -458,24 +458,10 @@ struct ExerciseDetailSheet: View {
 }
 
 // MARK: - Shared v2 sheet components
-
-/// Small outlined chip ("Shoulders", "Resistance Band").
-struct ChipLabel: View {
-    let text: String
-
-    init(_ text: String) {
-        self.text = text
-    }
-
-    var body: some View {
-        Text(text)
-            .font(.system(.caption2))
-            .foregroundStyle(Theme.textSecondary)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 2.5)
-            .overlay(Capsule().strokeBorder(Theme.borderStrong))
-    }
-}
+//
+// `ChipLabel` (a stroked outlined chip) was retired 2026-07-19 — the app has
+// ONE card capsule style now, the soft `CardTagCapsule` (Components/
+// CatalogItemRow.swift). Its former call sites use that instead.
 
 /// Amber-left-border notes block (form cues).
 struct NotesBlock: View {

@@ -23,6 +23,26 @@ struct RoutineTemplate: Identifiable, Hashable {
         case pull = "Pull"
         case core = "Core"
         case conditioning = "Conditioning"
+
+        /// A best-effort focus for a routine that carries no authored one (a
+        /// custom or heavily edited routine). Push/pull can't be told from
+        /// muscles alone, so this only reaches Upper/Lower/Core/Conditioning/
+        /// Full body — the coarse read is fine, since a routine added from a
+        /// template shows the template's AUTHORED focus instead.
+        static func derived(fromMuscles muscles: [MuscleGroup], isCardio: Bool) -> Focus {
+            if isCardio { return .conditioning }
+            let present = Set(muscles)
+            guard !present.isEmpty else { return .fullBody }
+            let upper: Set<MuscleGroup> = [.chest, .back, .shoulders, .biceps, .triceps]
+            let lower: Set<MuscleGroup> = [.quads, .hamstrings, .glutes, .calves]
+            let hasUpper = !present.isDisjoint(with: upper)
+            let hasLower = !present.isDisjoint(with: lower)
+            if present == [.core] { return .core }
+            if hasUpper && hasLower { return .fullBody }
+            if hasLower { return .lower }
+            if hasUpper { return .upper }
+            return .fullBody
+        }
     }
 
     /// Names the SESSION, never the user — "Beginner" labels a person

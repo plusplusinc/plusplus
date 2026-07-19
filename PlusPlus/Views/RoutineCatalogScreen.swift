@@ -365,57 +365,37 @@ struct RoutineCatalogScreen: View {
             pushedTemplate = true
             path.append(template)
         } label: {
-            VStack(alignment: .leading, spacing: 5) {
-                HStack(spacing: 8) {
-                    Text(template.name)
-                        .font(.system(.subheadline, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
-                        .lineLimit(1)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(.caption, weight: .bold))
-                        .foregroundStyle(Theme.textFaint)
-                }
-                Text(template.summary)
-                    .font(.system(.caption))
-                    .foregroundStyle(Theme.textSecondary)
-                    .lineLimit(2)
-                metaText(for: template)
-                    .font(.system(.caption2, design: .monospaced))
-                    .lineLimit(1)
-            }
-            .padding(12)
-            .contentShape(Rectangle())
-            .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
-            .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
+            // The shared routine-card body (2026-07-19): identity, prose,
+            // then the capsule row (focus · effort · estimate · gear). No
+            // schedule capsule — a template isn't scheduled, the one
+            // necessary catalog↔library difference.
+            RoutineCardContent(model: templateModel(template))
+                .padding(.vertical, 14)
+                .padding(.horizontal, 14)
+                .contentShape(Rectangle())
+                .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+                .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
         }
         .buttonStyle(.plain)
     }
 
-    /// The meta line with the gear verdict colored: "NEEDS <gear>" in
-    /// notes amber (Quiet Arcade — attention, not selection), the rest
-    /// faint.
-    private func metaText(for template: RoutineTemplate) -> Text {
-        let prefix = [
-            template.focus.rawValue.uppercased(),
-            template.effort.rawValue.uppercased(),
-            template.estimatedMinutesText.uppercased(),
-        ].joined(separator: " · ")
-        let gear = template.equipmentNames
-        // Once more than one library exists the ✓ names the active one
-        // ("HOME ✓"), so the verdict itself shows which library it judged.
-        let haveLabel = libraries.count > 1 ? "\(activeLibrary?.name.uppercased() ?? "MY GEAR") ✓" : "YOUR GEAR ✓"
-        let gearPart: Text
-        if gear.isEmpty {
-            gearPart = Text("NO GEAR").foregroundStyle(Theme.textFaint)
-        } else if gear.allSatisfy(ownedEquipmentNames.contains) {
-            gearPart = Text(haveLabel).foregroundStyle(Theme.textFaint)
-        } else {
-            let missing = gear.filter { !ownedEquipmentNames.contains($0) }
-            gearPart = Text("NEEDS \(missing.prefix(2).joined(separator: ", ").uppercased())\(missing.count > 2 ? "…" : "")")
-                .foregroundStyle(Theme.notes)
-        }
-        return Text("\(prefix) · ").foregroundStyle(Theme.textFaint) + gearPart
+    /// Gear reads exactly like the library card: each piece a soft tag,
+    /// amber-washed when the active kit lacks it (no more "NEEDS X" verdict
+    /// line). A gearless template shows one neutral "Bodyweight" tag.
+    private func templateModel(_ template: RoutineTemplate) -> RoutineCardModel {
+        let names = template.equipmentNames
+        let gear: [(name: String, available: Bool)] = names.isEmpty
+            ? [(name: "Bodyweight", available: true)]
+            : names.map { (name: $0, available: ownedEquipmentNames.contains($0)) }
+        return RoutineCardModel(
+            title: template.name,
+            prose: template.summary,
+            schedule: nil,
+            focus: template.focus.rawValue,
+            effort: template.effort.rawValue,
+            estimate: template.estimatedMinutesText,
+            gear: gear
+        )
     }
 
     private func createBlankRoutine() {

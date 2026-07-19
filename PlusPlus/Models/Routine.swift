@@ -137,6 +137,52 @@ final class Routine {
         return "~\(minutes) min"
     }
 
+    /// The routine's exercises, resolved (a broken reference drops out).
+    private var resolvedExercises: [Exercise] {
+        sortedGroups.flatMap(\.sortedExercises).compactMap(\.exercise)
+    }
+
+    /// A cardio routine tracks distance or pace throughout (Running, Cycling,
+    /// the console machines) — where a muscle line would only say "full body".
+    var isCardio: Bool {
+        let exercises = resolvedExercises
+        return !exercises.isEmpty && exercises.allSatisfy {
+            $0.metricProfile.contains(.distance) || $0.metricProfile.contains(.pace)
+        }
+    }
+
+    /// The catalog template this routine was added from, matched on the
+    /// verbatim `summary` copied at `instantiate`. Recovers the AUTHORED
+    /// focus/effort for card display without persisting new fields — a
+    /// heavily edited routine (or one whose summary was rewritten) simply
+    /// falls back to a derived focus and no effort.
+    var catalogTemplate: RoutineTemplate? {
+        guard let summary, !summary.isEmpty else { return nil }
+        return RoutineCatalog.all.first { $0.summary == summary }
+    }
+
+    /// The routine's focus for a card capsule: the authored template value
+    /// when known, else derived from the muscles it trains.
+    var focusLabel: String {
+        if let authored = catalogTemplate?.focus { return authored.rawValue }
+        let muscles = Set(resolvedExercises.map(\.muscleGroup))
+        let ordered = MuscleGroup.allCases.filter { muscles.contains($0) }
+        return RoutineTemplate.Focus.derived(fromMuscles: ordered, isCardio: isCardio).rawValue
+    }
+
+    /// The routine's effort for a card capsule: the authored template value,
+    /// or nil for a hand-built routine (no curated effort — the capsule is
+    /// simply omitted rather than invented).
+    var effortLabel: String? {
+        catalogTemplate?.effort.rawValue
+    }
+
+    /// Gear names paired with whether the given active-kit names include each
+    /// — the amber-flag input for the shared card/detail capsule builder.
+    func gearAvailability(activeNames: Set<String>) -> [(name: String, available: Bool)] {
+        equipmentNames.map { (name: $0, available: activeNames.contains($0)) }
+    }
+
     func reindexGroups() {
         for (index, group) in sortedGroups.filter({ !$0.isDeleted }).enumerated() {
             group.order = index

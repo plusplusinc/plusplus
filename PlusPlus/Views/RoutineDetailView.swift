@@ -13,6 +13,15 @@ struct RoutineDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Bindable var routine: Routine
 
+    @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
+    @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
+
+    /// Active-kit gear names, so the header's gear capsules can amber-flag a
+    /// piece the kit lacks (flag-don't-hide, #113).
+    private var availableEquipmentNames: Set<String> {
+        EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.memberNames ?? []
+    }
+
     @State private var filterState = ExerciseFilterState()
     @State private var pickerDestination: PickerDestination?
     @State private var activeSession: WorkoutSession?
@@ -205,16 +214,6 @@ struct RoutineDetailView: View {
 
     // MARK: - Header
 
-    /// "~40 min · 6 exercises · 18 sets" — the workload facts, now the
-    /// body header's top line (moved out of the cramped chrome subtitle,
-    /// build-48). Nil until the routine has an exercise.
-    private var workloadFacts: String? {
-        let exercises = routine.sortedGroups.reduce(0) { $0 + $1.sortedExercises.count }
-        guard exercises > 0 else { return nil }
-        let sets = routine.sortedGroups.reduce(0) { $0 + $1.sets * $1.sortedExercises.count }
-        return "\(routine.estimateText) · \(exercises) exercise\(exercises == 1 ? "" : "s") · \(sets) set\(sets == 1 ? "" : "s")"
-    }
-
     private var header: some View {
         VStack(alignment: .leading, spacing: 0) {
             // The routine name is the screen's heading, below the back
@@ -229,27 +228,13 @@ struct RoutineDetailView: View {
                 .accessibilityAddTraits(.isHeader)
                 .padding(.top, 4)
 
-            // Facts, not inputs (v4 §A). The chrome carries no title now;
-            // the name (above) plus the workload summary and cadence live
-            // here at full width. Nothing is tappable — the settings key is
-            // the single edit entry.
+            // Facts, not inputs (v4 §A). The chrome carries no title now; the
+            // name (above) plus the same capsule vocabulary the cards use live
+            // here (2026-07-19) — but the detail shows the FULL set, wrapping
+            // as needed with no "N more" cap. Nothing is tappable.
             if !routine.groups.isEmpty {
-                // Workload first — "what is this session" (estimate +
-                // counts), full-width so it never truncates the way the
-                // chrome subtitle did.
-                if let facts = workloadFacts {
-                    Text(facts)
-                        .font(.system(.footnote, design: .monospaced))
-                        .foregroundStyle(Theme.textSecondary)
-                        .padding(.top, 8)
-                }
-                // Cadence next: schedule value (ink, semibold) then rest
-                // as secondary meta.
-                (scheduleFactText
-                    + Text("  ·  rest \(restText)")
-                    .font(.system(.footnote, design: .monospaced))
-                    .foregroundStyle(Theme.textSecondary))
-                    .padding(.top, workloadFacts == nil ? 8 : 3)
+                DetailHeaderCapsules(capsules: headerCapsules)
+                    .padding(.top, 10)
 
                 if let notes = routine.notes {
                     Text(notes)
@@ -257,7 +242,7 @@ struct RoutineDetailView: View {
                         .foregroundStyle(Theme.textSecondary)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
-                        .padding(.top, 7)
+                        .padding(.top, 9)
                 }
             }
         }
@@ -266,17 +251,39 @@ struct RoutineDetailView: View {
         .padding(.bottom, 4)
     }
 
+    /// The full fact set as capsules (schedule · focus · effort · estimate ·
+    /// N exercises · M sets · rest · all gear) — the cards' vocabulary, but
+    /// complete and wrapping (no cap), per the detail-header rule.
+    private var headerCapsules: [CardCapsule] {
+        var caps: [CardCapsule] = []
+        let unscheduled = routine.schedule.normalized == .unscheduled
+        caps.append(CardCapsule(
+            text: unscheduled ? "unscheduled" : routine.schedule.shortLabel,
+            systemImage: "calendar"
+        ))
+        let exercises = routine.sortedGroups.reduce(0) { $0 + $1.sortedExercises.count }
+        if exercises > 0 {
+            caps.append(CardCapsule(text: routine.focusLabel))
+            if let effort = routine.effortLabel { caps.append(CardCapsule(text: effort)) }
+            caps.append(CardCapsule(text: routine.estimateText))
+            caps.append(CardCapsule(text: "\(exercises) exercise\(exercises == 1 ? "" : "s")"))
+            let sets = routine.sortedGroups.reduce(0) { $0 + $1.sets * $1.sortedExercises.count }
+            caps.append(CardCapsule(text: "\(sets) set\(sets == 1 ? "" : "s")"))
+        }
+        caps.append(CardCapsule(text: "rest \(restText)"))
+        let gear: [(name: String, available: Bool)]
+        if routine.equipmentNames.isEmpty {
+            gear = (exercises > 0 && !routine.isCardio) ? [(name: "Bodyweight", available: true)] : []
+        } else {
+            gear = routine.gearAvailability(activeNames: availableEquipmentNames)
+        }
+        caps.append(contentsOf: RoutineCardCapsules.gearCapsules(gear))
+        return caps
+    }
+
     private var restText: String {
         WorkoutMetric.duration.formatted(Double(routine.restSeconds))
             + (routine.restSeconds < 60 ? "s" : "")
-    }
-
-    /// Schedule value in ink semibold; "unscheduled" recedes to faint.
-    private var scheduleFactText: Text {
-        let unscheduled = routine.schedule.normalized == .unscheduled
-        return Text(unscheduled ? "unscheduled" : routine.schedule.shortLabel)
-            .font(.system(.footnote, design: .monospaced, weight: unscheduled ? .regular : .semibold))
-            .foregroundStyle(unscheduled ? Theme.textFaint : Theme.textPrimary)
     }
 
     // The "No exercises yet" empty hint died (#209): the rail's
