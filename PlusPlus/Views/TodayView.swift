@@ -1131,7 +1131,11 @@ struct TodayView: View {
                 Text(caption)
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(Theme.textFaint)
-                    .padding(.top, 3)
+                    // 10 pt below the heading row, matching the space the
+                    // other three tab headers leave below their heading
+                    // (`CatalogTabHeader`'s `.padding(.bottom, 10)`) — Dave,
+                    // 2026-07-19.
+                    .padding(.top, 10)
             }
             // The week block bar: one block per scheduled session this
             // week, filled purple as sessions land. Purple, not green —
