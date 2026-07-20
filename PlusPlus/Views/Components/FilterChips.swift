@@ -17,6 +17,16 @@ import SwiftUI
 /// up/down glyph — ordering is not filter state, and users conflate
 /// the two when they look alike.
 
+/// Filter-row controls are rounded rectangles, not capsules (Dave,
+/// 2026-07-20): every interactive key in the app is a rounded rect (the
+/// r11 raised keys, the header icon squares), so the chips join that family
+/// — and shape now carries role, rounded-rect = control vs the capsule
+/// `CardTagCapsule` = inert data tag. One radius, matching the keys they
+/// sit beside.
+enum FilterChipShape {
+    static let cornerRadius: CGFloat = 11
+}
+
 /// One facet, single-select. Tapping anchors a native Menu with a
 /// checkmark on the current value and "Any" to clear — never
 /// value-cycling, which is undiscoverable and punishes overshoot.
@@ -86,9 +96,10 @@ struct FacetChip<Value: Hashable>: View {
             .frame(height: 36)
             .background(
                 selection == nil ? Theme.surface : Theme.selected,
-                in: Capsule()
+                in: RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius)
             )
-            .overlay(Capsule().strokeBorder(selection == nil ? Theme.border : Color.clear))
+            .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius)
+                .strokeBorder(selection == nil ? Theme.border : Color.clear))
             .frame(height: 44)
             .contentShape(Rectangle())
         }
@@ -98,7 +109,7 @@ struct FacetChip<Value: Hashable>: View {
     }
 
     // Sentence case, not all-caps: all-caps is reserved for section labels
-    // (Dave, 2026-07-18); chips are capsules and read as controls.
+    // (Dave, 2026-07-18); chips are rounded-rect controls (2026-07-20).
     private var activeLabel: String {
         guard let selection, let match = options.first(where: { $0.0 == selection }) else {
             return facet
@@ -174,9 +185,10 @@ struct MultiFacetChip<Value: Hashable>: View {
             .frame(height: 36)
             .background(
                 selection.isEmpty ? Theme.surface : Theme.selected,
-                in: Capsule()
+                in: RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius)
             )
-            .overlay(Capsule().strokeBorder(selection.isEmpty ? Theme.border : Color.clear))
+            .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius)
+                .strokeBorder(selection.isEmpty ? Theme.border : Color.clear))
             .frame(height: 44)
             .contentShape(Rectangle())
         }
@@ -240,8 +252,8 @@ struct TrayFilterChip: View {
             .foregroundStyle(active ? Theme.onSelected : Theme.textSecondary)
             .padding(.horizontal, 13)
             .frame(height: 36)
-            .background(active ? Theme.selected : Theme.surface, in: Capsule())
-            .overlay(Capsule().strokeBorder(active ? Color.clear : Theme.border))
+            .background(active ? Theme.selected : Theme.surface, in: RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius))
+            .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius).strokeBorder(active ? Color.clear : Theme.border))
             .frame(height: 44)
             .contentShape(Rectangle())
         }
@@ -263,8 +275,8 @@ struct ClearAllChip: View {
                 .font(.system(.caption2, weight: .bold))
                 .foregroundStyle(Theme.textSecondary)
                 .frame(width: 36, height: 36)
-                .background(Theme.surface, in: Circle())
-                .overlay(Circle().strokeBorder(Theme.border))
+                .background(Theme.surface, in: RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius))
+                .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius).strokeBorder(Theme.border))
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }
@@ -304,8 +316,8 @@ struct SortChip<Value: Hashable>: View {
             .accessibilityValue(currentLabel)
             .padding(.horizontal, 13)
             .frame(height: 36)
-            .background(Theme.surface, in: Capsule())
-            .overlay(Capsule().strokeBorder(Theme.border))
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius))
+            .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius).strokeBorder(Theme.border))
             .frame(height: 44)
             .contentShape(Rectangle())
         }
@@ -345,8 +357,8 @@ struct KitFilterChip: View {
             .foregroundStyle(isActive ? Theme.onSelected : Theme.textSecondary)
             .padding(.horizontal, 13)
             .frame(height: 36)
-            .background(isActive ? Theme.selected : Theme.surface, in: Capsule())
-            .overlay(Capsule().strokeBorder(isActive ? Color.clear : Theme.border))
+            .background(isActive ? Theme.selected : Theme.surface, in: RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius))
+            .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius).strokeBorder(isActive ? Color.clear : Theme.border))
             .frame(height: 44)
             .contentShape(Rectangle())
         }
