@@ -673,7 +673,7 @@ struct GearCheckTray: View {
 
             // Name the kit these toggles write to: the marks land in the
             // ACTIVE kit, so say which one (shared prose rule).
-            Text("Marking what you have in \(EquipmentLibrary.activeNamePhrase(in: libraries, storedID: activeLibraryID)). It counts toward the kit filter everywhere.")
+            Text("Marking what you have in \(EquipmentLibrary.activeNamePhrase(in: libraries, storedID: activeLibraryID)). It determines which exercises your routines can include.")
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
                 .padding(.top, 6)
