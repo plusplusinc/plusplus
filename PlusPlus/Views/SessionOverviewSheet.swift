@@ -11,11 +11,19 @@ struct SessionOverviewSheet: View {
     /// When on, the done/pending set pips gain a fill-vs-outline shape cue so
     /// completion doesn't read by color alone (a11y audit 2026-07-13).
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+    /// A pulsing "up next" cue on the not-yet-done rows must fall back to a
+    /// static green under Reduce Motion (WCAG 2.3.3, app-surfaces discipline).
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Bindable var session: WorkoutSession
+    /// True while a rest/transition countdown is running — the not-yet-done
+    /// exercises pulse green then, and read plain grey while working (#421).
+    var isResting: Bool = false
     /// Called after any jump so the presenter can clear a running rest.
     let onJumped: () -> Void
 
     @State private var selectedBlockKey: String?
+    /// Drives the up-next pulse; toggled under a repeatForever animation.
+    @State private var pulseUp = false
     // Mid-session additions (#239): the picker stacks on this sheet so
     // the new block appears right here when it closes — no dismiss-
     // then-present handoff (the documented presentation-drop class).
@@ -158,6 +166,19 @@ struct SessionOverviewSheet: View {
         .onChange(of: session.isFinished) { _, finished in
             if finished { showingAddExercise = false }
         }
+        // Start/stop the up-next pulse with the countdown. Reduce Motion keeps
+        // the static green from nameColor/rowWash and never animates (#421).
+        .onChange(of: isResting, initial: true) { _, resting in
+            guard !reduceMotion else { pulseUp = false; return }
+            if resting {
+                pulseUp = false
+                withAnimation(.easeInOut(duration: 0.85).repeatForever(autoreverses: true)) {
+                    pulseUp = true
+                }
+            } else {
+                withAnimation(.easeOut(duration: 0.2)) { pulseUp = false }
+            }
+        }
     }
 
     private var selectedBlockBinding: Binding<Block?> {
@@ -185,11 +206,35 @@ struct SessionOverviewSheet: View {
         return "\(current.exerciseName) · set \(current.setNumber)"
     }
 
+    /// A block's status in the running session, driving its row color:
+    /// done → purple ("landed"), live → green ("in motion"), upcoming → grey
+    /// while working / pulsing green while a rest or transition runs (#421).
+    private enum BlockStatus { case done, live, upcoming }
+
+    private func status(isLive: Bool, allDone: Bool) -> BlockStatus {
+        if allDone { return .done }
+        return isLive ? .live : .upcoming
+    }
+
+    private func nameColor(_ status: BlockStatus) -> Color {
+        switch status {
+        case .done: return Theme.done
+        case .live: return Theme.accent
+        // Upcoming reads plain while working; green while a countdown runs so
+        // the whole "up next" stack lights up between sets.
+        case .upcoming: return isResting ? Theme.accent : Theme.textSecondary
+        }
+    }
+
     private func blockRow(_ block: Block, index: Int) -> some View {
         let isLive = session.currentLog.map { current in
             block.logs.contains { $0.order == current.order }
         } ?? false
         let allDone = block.logs.allSatisfy(\.isCompleted)
+        let status = status(isLive: isLive, allDone: allDone)
+        // Only the not-yet-done rows pulse, and only during a countdown; the
+        // live row already reads solid green.
+        let pulsing = status == .upcoming && isResting && !reduceMotion
 
         return Button {
             selectedBlockKey = block.key
@@ -201,7 +246,8 @@ struct SessionOverviewSheet: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(block.name)
                         .font(.system(.subheadline, weight: .semibold))
-                        .foregroundStyle(allDone ? Theme.textSecondary : Theme.textPrimary)
+                        .foregroundStyle(nameColor(status))
+                        .opacity(pulsing ? (pulseUp ? 1.0 : 0.4) : 1.0)
                         .lineLimit(1)
                     Text(subText(for: block, isLive: isLive))
                         .font(.system(.caption, design: .monospaced))
@@ -228,7 +274,17 @@ struct SessionOverviewSheet: View {
                 }
             }
             .frame(minHeight: 52)
-            .background(isLive ? Theme.accent.opacity(0.09) : .clear)
+            .background {
+                if isLive {
+                    Theme.accent.opacity(0.09)
+                } else if status == .upcoming && isResting {
+                    // Breathing green wash while a countdown runs; a static
+                    // faint green under Reduce Motion.
+                    Theme.accent.opacity(reduceMotion ? 0.06 : (pulseUp ? 0.10 : 0.02))
+                } else {
+                    Color.clear
+                }
+            }
         }
         .buttonStyle(.plain)
     }
@@ -326,7 +382,9 @@ struct SessionExerciseSheet: View {
                 VStack(alignment: .leading, spacing: 0) {
                     Text(statusText)
                         .font(.system(.caption2, design: .monospaced, weight: .semibold))
-                        .foregroundStyle(isLive ? Theme.accent : Theme.textSecondary)
+                        // LIVE green, DONE purple, UPCOMING quiet — matches the
+                        // overview row grammar (#421).
+                        .foregroundStyle(isLive ? Theme.accent : (logs.allSatisfy(\.isCompleted) ? Theme.done : Theme.textSecondary))
                         .kerning(0.7)
                         .padding(.top, 10)
                     Text(block.name)
