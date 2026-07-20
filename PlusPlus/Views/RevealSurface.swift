@@ -22,7 +22,6 @@ struct RevealSurface: View {
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw = WeightUnit.lb.rawValue
     @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
-    @Query(sort: \Exercise.name) private var allExercises: [Exercise]
     @Query(sort: \Routine.order) private var routines: [Routine]
     @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
 
@@ -447,11 +446,10 @@ struct RevealSurface: View {
                 Color.clear
             }
         case .library:
-            LibraryTray(
-                exerciseCount: { exerciseCount(for: $0) },
-                routineCount: { routineCount(for: $0) },
-                onEditGear: { queuePush(.equipment) }
-            )
+            // One canonical kit tray everywhere (switch · create · rename ·
+            // delete), with the curation shortcut the drawer needs since it
+            // is remote from the catalog.
+            EquipmentLibraryTray(onEditContents: { queuePush(.equipment) })
         case .sync:
             GitHubSyncTray()
         case .health:
@@ -483,28 +481,6 @@ struct RevealSurface: View {
     private func queuePush(_ push: Push) {
         pendingPush = push
         activeTray = nil
-    }
-
-    // MARK: - Downstream counts (equipment → exercises → routines)
-
-    /// Exercises performable with a library's gear (bodyweight always
-    /// counts). Availability = the ExerciseFilterState rule, so this reads
-    /// the same as the catalog.
-    private func exerciseCount(for library: EquipmentLibrary?) -> Int {
-        let names = library?.memberNames ?? []
-        return allExercises.filter { ExerciseFilterState.missingEquipment(for: $0, available: names).isEmpty }.count
-    }
-
-    /// Routines every exercise of which is performable with the gear —
-    /// "what this library unlocks". Empty routines don't count.
-    private func routineCount(for library: EquipmentLibrary?) -> Int {
-        let names = library?.memberNames ?? []
-        return routines.filter { routine in
-            let exercises = routine.sortedGroups.flatMap { $0.sortedExercises }.compactMap { $0.exercise }
-            return !exercises.isEmpty && exercises.allSatisfy {
-                ExerciseFilterState.missingEquipment(for: $0, available: names).isEmpty
-            }
-        }.count
     }
 
     // MARK: - Data (moved from SettingsScreen)
@@ -563,153 +539,6 @@ struct RevealSurface: View {
         }
         lines.append("Sessions: \(summary.sessionsAdded) added, \(summary.sessionsSkipped) already present")
         return lines.joined(separator: "\n")
-    }
-}
-
-// MARK: - Equipment-library tray (switch + create + curate)
-
-/// The reveal's library tray: pick the active library (radio rows with the
-/// downstream cascade), create a new one, or jump to gear curation. Rename
-/// and delete stay on the Equipment tab's fuller tray (`EquipmentLibraryTray`).
-private struct LibraryTray: View {
-    let exerciseCount: (EquipmentLibrary?) -> Int
-    let routineCount: (EquipmentLibrary?) -> Int
-    let onEditGear: () -> Void
-
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
-    @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
-    @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
-
-    @State private var promptingNew = false
-    @State private var newName = ""
-
-    private var activeLibrary: EquipmentLibrary? {
-        EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "Kit", closeOnly: true, action: { dismiss() })
-            // The one canonical kit explainer — see EquipmentLibrary.switchingBlurb.
-            Text(EquipmentLibrary.switchingBlurb)
-                .font(.system(.caption))
-                .foregroundStyle(Theme.textSecondary)
-                .padding(.top, 4)
-
-            ScrollView {
-                VStack(spacing: 8) {
-                    ForEach(libraries) { library in
-                        libraryRow(library)
-                    }
-                    // Creation is green (the theme's creation-affordance rule).
-                    Button {
-                        newName = ""
-                        promptingNew = true
-                    } label: {
-                        HStack(spacing: 9) {
-                            Text("+")
-                                .font(.system(size: 17, weight: .bold, design: .monospaced))
-                            Text("New kit")
-                                .font(.system(.subheadline, weight: .semibold))
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.6)
-                        }
-                        .foregroundStyle(Theme.accent)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 14)
-                        .frame(minHeight: 50)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .strokeBorder(Theme.borderStrong, style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
-                        )
-                    }
-                    .accessibilityIdentifier("revealNewLibrary")
-
-                    // Equipment curation for the active kit (the old
-                    // "My equipment"), kept a tap away here.
-                    Button(action: onEditGear) {
-                        HStack {
-                            Text("Choose your equipment")
-                                .font(.system(.footnote, weight: .semibold))
-                                .foregroundStyle(Theme.textPrimary)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.6)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.system(.caption2, weight: .bold))
-                                .foregroundStyle(Theme.textFaint)
-                        }
-                        .padding(.horizontal, 14)
-                        .frame(minHeight: 48)
-                        .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
-                        .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.borderStrong))
-                    }
-                    .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
-                    .accessibilityIdentifier("revealChooseGear")
-                    .padding(.top, 2)
-                }
-                .padding(.top, 14)
-                .sensoryFeedback(.selection, trigger: activeLibraryID)
-            }
-        }
-        .padding(.horizontal, 18)
-        .presentationDetents([.medium, .large])
-        .alert("New kit", isPresented: $promptingNew) {
-            TextField("Hotel, Garage, Office…", text: $newName)
-            Button("Cancel", role: .cancel) {}
-            Button("Create") { createLibrary() }
-        } message: {
-            Text("Starts empty. Pick its equipment from the catalog.")
-        }
-    }
-
-    private func libraryRow(_ library: EquipmentLibrary) -> some View {
-        let selected = library === activeLibrary
-        let items = library.members.count
-        let itemsText = items == 0 ? "bodyweight only" : "\(items) item\(items == 1 ? "" : "s")"
-        return Button {
-            activeLibraryID = library.uuid.uuidString
-        } label: {
-            HStack(spacing: 10) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(library.name)
-                        .font(.system(.subheadline, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
-                        .lineLimit(1)
-                    Text("\(itemsText) · \(exerciseCount(library)) exercises · \(routineCount(library)) routines")
-                        .font(.system(.caption2, design: .monospaced))
-                        .foregroundStyle(Theme.textFaint)
-                }
-                Spacer(minLength: 0)
-                if selected {
-                    Image(systemName: "checkmark")
-                        .font(.system(.footnote, weight: .bold))
-                        .foregroundStyle(Theme.selected)
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .background(selected ? Theme.selectedTint : Theme.background, in: RoundedRectangle(cornerRadius: 12))
-            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(selected ? Theme.selectedRing : Theme.border))
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("revealLibraryRow-\(library.name)")
-    }
-
-    private func createLibrary() {
-        let base = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-        newName = ""
-        guard !base.isEmpty else { return }
-        var name = base
-        var suffix = 2
-        while libraries.contains(where: { $0.name.lowercased() == name.lowercased() }) {
-            name = "\(base) \(suffix)"
-            suffix += 1
-        }
-        let library = EquipmentLibrary(name: name, order: (libraries.map(\.order).max() ?? -1) + 1)
-        modelContext.insert(library)
-        activeLibraryID = library.uuid.uuidString
     }
 }
 
