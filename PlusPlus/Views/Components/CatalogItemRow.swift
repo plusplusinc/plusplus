@@ -132,11 +132,18 @@ struct EquipmentRowContent: View {
 
     var body: some View {
         HStack(spacing: 10) {
+            // The VStack claims the row's free width (maxWidth: .infinity) so
+            // the name has full room and short names don't wrap. A trailing
+            // Spacer instead let the name size to its ideal, and the in-kit
+            // checkmark tightened the width proposal enough to tip a
+            // medium-length name (e.g. "Resistance Band") onto two lines while
+            // longer checkmark-less rows stayed on one. Matches ExerciseRowContent.
             VStack(alignment: .leading, spacing: 3) {
                 Text(equipment.name)
                     .font(.system(.subheadline, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 HStack(spacing: 6) {
                     kindCapsule
                     if unlockedCount > 0 {
@@ -144,7 +151,7 @@ struct EquipmentRowContent: View {
                     }
                 }
             }
-            Spacer(minLength: 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
             if inKit == true {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(.body))

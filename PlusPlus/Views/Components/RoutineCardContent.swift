@@ -158,7 +158,10 @@ struct RoutineCardContent: View {
                     .font(.system(.subheadline, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(2)
-                Spacer(minLength: 8)
+                    // Claim the row width (rather than lean on a trailing
+                    // Spacer) so a medium-length name isn't tipped onto two
+                    // lines by the chevron's width proposal.
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 Image(systemName: "chevron.right")
                     .font(.system(.caption, weight: .bold))
                     .foregroundStyle(Theme.textFaint)
