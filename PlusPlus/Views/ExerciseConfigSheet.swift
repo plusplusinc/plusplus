@@ -43,8 +43,8 @@ struct ExerciseConfigSheet: View {
                         .padding(.top, 10)
 
                     HStack(spacing: 6) {
-                        ChipLabel(exercise.muscleGroup.displayName)
-                        ChipLabel(equipmentText)
+                        CardTagCapsule(text: exercise.muscleGroup.displayName)
+                        CardTagCapsule(text: equipmentText)
                     }
                     .padding(.top, 8)
 

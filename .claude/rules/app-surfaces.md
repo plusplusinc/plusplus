@@ -115,14 +115,21 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   the term for a named equipment set is **"kit"**, default kit **`main`**.
 - Warm charcoal dark (`#201F1D` family); the watch keeps system black.
 - Draw every color from `Theme` — never ad-hoc literals.
-- **Two capsule tiers, and all-caps is section-labels-only** (2026-07-18):
-  a **filter chip** is a button — sentence-case plain font, a border when
-  unselected, a solid blue fill when selected (`FacetChip`/`MultiFacetChip`/
-  `TrayFilterChip`/`SortChip`, facet names passed sentence-case). A **card
-  data capsule** is not a button — it shows an item's property, so it wears
-  the soft `surfaceRaised` fill with NO stroke (a stroked capsule reads as a
-  button). That style is the shared `CardTagCapsule` (the routine gear pills
-  use it too). ALL-CAPS mono is reserved for section labels, never a capsule.
+- **Two tag tiers, rounded rects not pills, all-caps is section-labels-only**
+  (2026-07-18, shapes/mono revised 2026-07-20): a **filter chip** is a button
+  — sentence-case plain font, a border when unselected, a solid blue fill when
+  selected (`FacetChip`/`MultiFacetChip`/`TrayFilterChip`/`SortChip`/
+  `SelectableChip`/`KitFilterChip`, facet names passed sentence-case). A **card
+  data tag** is not a button — it shows an item's property, so it wears the
+  soft `surfaceRaised` fill with NO stroke (a stroked tag reads as a button).
+  That style is the shared `CardTagCapsule` (the routine gear pills use it too).
+  **Both tiers are ROUNDED RECTANGLES, not capsules** (2026-07-20): every
+  interactive key in the app is a rounded rect, so the filter controls joined
+  them at `FilterChipShape.cornerRadius` (11) and the data tags followed at a
+  smaller r6 (a pill on a short tag; ~6 keeps the controls' corner-to-height
+  proportion) — shape carries role by radius, control vs data, not pill vs
+  rect. Data-tag text is sentence-case, standard (non-mono) caption (the mono
+  was retired 2026-07-20). ALL-CAPS mono stays reserved for section labels.
   The property a filter/sort controls appears as a `CardTagCapsule` on the
   cards it narrows, so the two connect (muscle ↔ Muscle filter; category +
   "N exercises" ↔ Type filter / Most-exercises sort). One item reads the same

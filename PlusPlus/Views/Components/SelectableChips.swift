@@ -20,8 +20,11 @@ struct SelectableChip: View {
                 .frame(height: 36)
                 .background(isSelected ? Theme.selected : Color.clear)
                 .foregroundStyle(isSelected ? Theme.onSelected : Theme.textPrimary)
-                .clipShape(Capsule())
-                .overlay(Capsule().strokeBorder(isSelected ? Color.clear : Theme.borderStrong, lineWidth: 1))
+                // Rounded rect, matching the filter-row control shape (Dave,
+                // 2026-07-20) — see FilterChipShape.
+                .clipShape(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius))
+                .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius)
+                    .strokeBorder(isSelected ? Color.clear : Theme.borderStrong, lineWidth: 1))
                 .padding(4)
                 .contentShape(Rectangle())
         }

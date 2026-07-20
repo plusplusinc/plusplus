@@ -9,12 +9,13 @@ import PlusPlusKit
 /// - `ExerciseRowContent` — the exercise row body (catalog + picker).
 /// - `EquipmentRowContent` — the equipment row body (catalog + kit list).
 
-/// A soft, non-interactive data capsule for cards and rows: the property a
-/// filter or sort controls appears on the items it narrows, in the SAME
-/// capsule so the two visibly connect. It wears the routine cards' gear-pill
-/// style — a soft `surfaceRaised` fill and NO stroke, because a stroked
-/// capsule reads as a button and these aren't buttons. (All-caps is reserved
-/// for section labels; this is natural-case mono metadata.)
+/// A soft, non-interactive data tag for cards and rows: the property a filter
+/// or sort controls appears on the items it narrows, in the SAME tag so the
+/// two visibly connect. A soft `surfaceRaised` fill and NO stroke, because a
+/// stroked tag reads as a button and these aren't buttons; a soft rounded
+/// rectangle, not a pill, so it shares the filter controls' shape language
+/// (Dave, 2026-07-20). Natural-case, standard (non-mono) caption text — the
+/// mono was retired 2026-07-20; all-caps stays reserved for section labels.
 struct CardTagCapsule: View {
     let text: String
     var tint: Color = Theme.textSecondary
@@ -25,16 +26,36 @@ struct CardTagCapsule: View {
     /// instead of squishing the tag. The routine-card pill row passes false
     /// so its several pills compress together, as they did before.
     var holdsWidth: Bool = true
+    /// An optional leading SF Symbol (the schedule capsule's calendar glyph).
+    /// Sits inside the same capsule so the tag reads as one unit.
+    var systemImage: String? = nil
+
+    /// The tag's horizontal padding, shared with `CardCapsule`'s width
+    /// measurement so the single-line overflow row can predict the fit.
+    static let horizontalPadding: CGFloat = 8
+    /// A soft rounded rectangle, not a pill (Dave, 2026-07-20): the filter
+    /// controls became rounded rects, so the data tags follow into one shape
+    /// language. The radius is smaller than the r11 controls because the tag
+    /// is short — r11 on a ~19 pt tag would render as a full capsule; ~6
+    /// keeps the controls' corner-to-height proportion.
+    static let cornerRadius: CGFloat = 6
 
     var body: some View {
-        Text(text)
-            .font(.system(.caption2, design: .monospaced))
-            .foregroundStyle(tint)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 2.5)
-            .background(fill, in: Capsule())
-            .lineLimit(1)
-            .fixedSize(horizontal: holdsWidth, vertical: false)
+        HStack(spacing: 3) {
+            if let systemImage {
+                Image(systemName: systemImage)
+                    .font(.system(.caption2))
+                    .accessibilityHidden(true)
+            }
+            Text(text)
+        }
+        .font(.system(.caption2))
+        .foregroundStyle(tint)
+        .padding(.horizontal, Self.horizontalPadding)
+        .padding(.vertical, 2.5)
+        .background(fill, in: RoundedRectangle(cornerRadius: Self.cornerRadius))
+        .lineLimit(1)
+        .fixedSize(horizontal: holdsWidth, vertical: false)
     }
 }
 
@@ -58,28 +79,26 @@ struct ExerciseRowContent: View {
                     .foregroundStyle(Theme.accent)
                     .accessibilityHidden(true)
             }
-            VStack(alignment: .leading, spacing: 3) {
+            // The VStack claims the row's free width (maxWidth: .infinity) so
+            // the capsule row inside gets a real width to fit against — a
+            // trailing Spacer would otherwise split that width with it and
+            // halve the capsule room. The trailing Custom tag + chevron keep
+            // their intrinsic size and ride the right edge.
+            VStack(alignment: .leading, spacing: 6) {
                 Text(exercise.name)
                     .font(.system(.subheadline, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(2)
-                HStack(spacing: 6) {
-                    CardTagCapsule(text: exercise.muscleGroup.displayName)
-                    Text(gearText)
-                        .font(.system(.caption))
-                        .foregroundStyle(Theme.textSecondary)
-                        .lineLimit(1)
-                }
-                // The missing-gear flag rides its OWN line so it can't be
-                // truncated off the end of the gear list (#113 flag-don't-hide).
-                if !missing.isEmpty {
-                    Text("needs \(missing.joined(separator: ", "))")
-                        .font(.system(.caption))
-                        .foregroundStyle(Theme.notes)
-                        .lineLimit(2)
-                }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                // Muscle + gear as one capsule row (2026-07-19): gear reads
+                // the same soft tag as everywhere else, amber-washed when the
+                // active kit lacks it. Amber sorts first, so the "N more"
+                // overflow can only ever drop an available piece — the
+                // missing-gear flag stays visible (#113 flag-don't-hide).
+                OverflowCapsuleRow(capsules: [CardCapsule(text: exercise.muscleGroup.displayName)]
+                    + RoutineCardCapsules.gearCapsules(gear))
             }
-            Spacer(minLength: 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
             if !exercise.isBuiltIn {
                 CardTagCapsule(text: "Custom", tint: Theme.accent)
             }
@@ -94,15 +113,13 @@ struct ExerciseRowContent: View {
         .contentShape(Rectangle())
     }
 
-    /// The gear an exercise needs (or "Bodyweight"); truncates on its line.
-    private var gearText: String {
-        let names = exercise.equipment.map(\.name).sorted().joined(separator: ", ")
-        return names.isEmpty ? "Bodyweight" : names
-    }
-
-    /// Active-kit gear gap, flagged in notes amber (flag-don't-hide, #113).
-    private var missing: [String] {
-        ExerciseFilterState.missingEquipment(for: exercise, available: available)
+    /// The gear an exercise needs, paired with whether the active kit has
+    /// each (amber-flag input). A bodyweight exercise shows one neutral
+    /// "Bodyweight" tag.
+    private var gear: [(name: String, available: Bool)] {
+        let items = exercise.equipment.filter { !$0.isDeleted }.map(\.name)
+        guard !items.isEmpty else { return [(name: "Bodyweight", available: true)] }
+        return items.map { (name: $0, available: available.contains($0)) }
     }
 }
 
@@ -122,11 +139,18 @@ struct EquipmentRowContent: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 3) {
+            // The VStack claims the row's free width (maxWidth: .infinity) so
+            // the name has full room and short names don't wrap. A trailing
+            // Spacer instead let the name size to its ideal, and the in-kit
+            // checkmark tightened the width proposal enough to tip a
+            // medium-length name (e.g. "Resistance Band") onto two lines while
+            // longer checkmark-less rows stayed on one. Matches ExerciseRowContent.
+            VStack(alignment: .leading, spacing: 6) {
                 Text(equipment.name)
                     .font(.system(.subheadline, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 HStack(spacing: 6) {
                     kindCapsule
                     if unlockedCount > 0 {
@@ -134,7 +158,7 @@ struct EquipmentRowContent: View {
                     }
                 }
             }
-            Spacer(minLength: 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
             if inKit == true {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(.body))
