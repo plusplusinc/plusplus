@@ -10,6 +10,14 @@ import SwiftData
 /// EMPTY library by design: the value is a curated short list of what
 /// you'd use there, so there is deliberately no "copy" or "add all".
 struct EquipmentLibraryTray: View {
+    /// When provided, the tray shows a shortcut into equipment curation.
+    /// Only callers that are NOT themselves an edit surface pass one (the
+    /// reveal drawer, which is remote from the catalog); the Kit tab and the
+    /// catalog pass nil, since editing is already right there. The full
+    /// switch / create / rename / delete capability set is always present
+    /// regardless — this is the one contextual extra.
+    var onEditContents: (() -> Void)? = nil
+
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
@@ -78,6 +86,31 @@ struct EquipmentLibraryTray: View {
                 .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
                 .accessibilityIdentifier("newLibraryButton")
                 .padding(.top, 10)
+
+                // Curation shortcut for a caller that isn't itself an edit
+                // surface (the reveal drawer). Absent everywhere else.
+                if let onEditContents {
+                    Button(action: onEditContents) {
+                        HStack(spacing: 8) {
+                            Text("Choose your equipment")
+                                .font(.system(.footnote, weight: .semibold))
+                                .foregroundStyle(Theme.textPrimary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
+                            Spacer(minLength: 0)
+                            Image(systemName: "chevron.right")
+                                .font(.system(.caption2, weight: .bold))
+                                .foregroundStyle(Theme.textFaint)
+                        }
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: 48)
+                        .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.borderStrong))
+                    }
+                    .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
+                    .accessibilityIdentifier("libraryEditContents")
+                    .padding(.top, 10)
+                }
             }
 
             Spacer(minLength: 0)
