@@ -563,7 +563,7 @@ struct EquipmentDetailScreen: View {
                 Text(inKit ? "In your kit" : "Add to your kit")
                     .font(.system(.headline))
                     .foregroundStyle(Theme.textPrimary)
-                Text(inKit ? "You have this gear." : "Add it if you train with it.")
+                Text(inKit ? "You have this equipment." : "Add it if you train with it.")
                     .font(.system(.caption))
                     .foregroundStyle(Theme.textSecondary)
             }

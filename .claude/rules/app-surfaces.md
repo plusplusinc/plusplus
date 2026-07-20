@@ -145,12 +145,15 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   set) are the opt-in availability filter that replaced the old
   hide-by-default. Filters persist device-locally. Copy says "have"/"in your kit",
   never "own" (that word survives only for data ownership and "My
-  equipment"/"YOUR GEAR ✓" selection possessives) and never "have access
+  equipment"/"YOUR KIT ✓" selection possessives) and never "have access
   to" (retired 2026-07-17; permission-grant copy keeps "access" — Apple's
-  word). The GEAR facet + template verdict name the active kit once more
-  than one exists (a lit chip, "MAIN ✓"). The user-facing term is "kit"
-  (the in-app rename lands with the equipment-catalog redesign PR);
-  `EquipmentLibrary` the type and the interchange's
+  word). The Equipment facet + template verdict name the active kit once more
+  than one exists (a lit chip, "MAIN ✓"). The user-facing term is "kit",
+  and the fourth tab is labeled **Kit** (2026-07-20); the word **"gear" is
+  retired** from user-facing copy (2026-07-20) — use **kit** for the
+  your-set sense, **equipment** for the single-item / catalog sense
+  ("Equipment catalog" keeps its name). `EquipmentLibrary` the type, the
+  `AppTab.equipment` case, and the interchange's
   `program/equipment-libraries/` path are frozen internals.
 
 ## What the app is, surface by surface

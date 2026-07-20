@@ -62,8 +62,8 @@ extension ButtonStyle where Self == RaisedKeyStyle {
     }
 }
 
-/// Escape hatches as quiet keys ("N more need gear you don't own —
-/// show", "Gear check…", "build as you go"): `Theme.selected` is
+/// Escape hatches as quiet keys ("N more need equipment you don't have ·
+/// show", "Equipment check…", "build as you go"): `Theme.selected` is
 /// retired as a text/link color — a low-travel key reads as pressable
 /// without borrowing the selection hue or an underline. An optional
 /// `systemImage` rides at the leading edge in the same quiet ink.

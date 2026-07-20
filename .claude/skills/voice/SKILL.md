@@ -13,7 +13,7 @@ description: The PlusPlus brand voice — principles, vocabulary, and rewrite ch
 2. **The app doesn't refer to itself unless absolutely necessary.** No "the app", no "it/itself" meaning the app. Usually the fix is restructuring so the subject is the user's stuff ("What you have decides what you can train"), not the software. Where self-reference is unavoidable — privacy statements, permission asks — the name is **PlusPlus**: "PlusPlus never phones home."
 3. **Consequence first, mechanism second.** Say what it means for the user; explain implementation only where it buys trust (privacy, data ownership). "Your equipment filters the catalog everywhere" is mechanics-first; "What you have decides what you can train" is the same fact, consequence-first.
 4. **Deadpan is welcome anywhere it rides a fact.** The test: delete the joke — if information is lost, the line was good; if nothing is lost, the wit was decoration, cut it. Wit must land on first read with no frame required (a line needing a lifter's or a dev's context to parse is out). Anti-shame outranks funny. No jokes on destructive confirms.
-5. **Two short sentences beat one long one.** Fragments are house style ("Starts empty. Pick its gear from the catalog."). No em dashes — split the sentence, or use "·".
+5. **Two short sentences beat one long one.** Fragments are house style ("Starts empty. Pick its equipment from the catalog."). No em dashes — split the sentence, or use "·".
 6. **Anti-shame is voice, not just law.** Every fork with a "lesser" option names it as fully valid ("bodyweight only" is a real answer, not a fallback). No obligation words — "due" is banned. Regressions render neutral.
 7. **The ++/git streak is identity, spent sparingly.** Commit/increment vocabulary belongs to identity moments — completion beats, quips, the streak, the tagline, the kit named `main`. The working path speaks plain training English.
 8. **Write for anyone training, wink at the dev.** PlusPlus serves lifting, bodyweight, HIIT, and cardio — never assume a barbell or a gym membership on a generic surface. The git layer is a second reading, never load-bearing: every line must land for someone who has never used git.
@@ -26,15 +26,15 @@ description: The PlusPlus brand voice — principles, vocabulary, and rewrite ch
 |---|---|---|
 | routine (template) / workout (performed) | mixing the two | #144 |
 | have, in your kit | own, have access to | availability, not ownership; access-to is hedge-speak |
-| kit (a named equipment set; the default kit is `main`) | library | settled 2026-07-17 |
-| equipment (formal: tab names, headers) / gear (spoken: sentences, CTAs) | — | the de facto split, kept deliberate |
+| kit (a named equipment set; the default kit is `main`; the tab is labeled **Kit**) | library | settled 2026-07-17; tab renamed 2026-07-20 |
+| kit (your set) / equipment (the individual items + the catalog) | gear | "gear" retired 2026-07-20 — context mix: the your-set sense → **kit**, the single-item / catalog sense → **equipment** |
 | PlusPlus (unavoidable self-reference only) | the app, it/itself | principle 2 |
 
 ## Calibration examples
 
 Good (ship-quality, from the app):
-- "Starts empty. Pick its gear from the catalog."
-- "What you have decides what you can train. Switch sets any time, without touching your history."
+- "Starts empty. Pick its equipment from the catalog."
+- "Your selected kit determines which exercises your routines can include. Switch kits when you travel, and add to your kit to unlock more exercises." (the canonical kit explainer — lives once, as `EquipmentLibrary.switchingBlurb`; every kit-switcher caption references it, so never restate it.)
 - "Logged history keeps its name."
 - "PlusPlus never phones home."
 - "Nothing logged yet." — the dry fact; its predecessor "Nothing on the bar yet" failed principle 8 (assumes a bar) and principle 4 (needed a lifter's frame).

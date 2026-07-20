@@ -263,9 +263,9 @@ final class ChangeEngine {
             if spec.entity == .library, spec.operation == .update, values.equipment != nil {
                 let newNames = equipment.map(\.name)
                 if let line = ChangePreviewSummary.samplesLine(names: newNames, total: newNames.count) {
-                    changes.append("gear becomes \(line)")
+                    changes.append("equipment becomes \(line)")
                 } else {
-                    changes.append("gear list cleared")
+                    changes.append("equipment list cleared")
                 }
             }
             if spec.operation == .delete, spec.entity == .exercise {
@@ -911,7 +911,7 @@ final class ChangeEngine {
         if let mode = values.trackBy { parts.append("tracks \(mode.spokenName) now") }
         if let rest = values.restSeconds { parts.append("rest \(rest) s") }
         if let sets = values.sets { parts.append("\(sets) sets") }
-        if values.equipment != nil { parts.append("gear updated") }
+        if values.equipment != nil { parts.append("equipment updated") }
         if let line = ChangePreviewSummary.samplesLine(names: addedGear, total: addedGear.count) {
             parts.append("added \(line)")
         }
