@@ -679,8 +679,10 @@ struct GearCheckTray: View {
             SheetHeader(title: "Equipment check", closeOnly: true, action: { dismiss() })
 
             // Name the kit these toggles write to (Dave, 2026-07-20): the
-            // marks land in the ACTIVE kit, so say which one.
-            Text("Marking what you have in \(activeLibrary?.name ?? EquipmentLibrary.defaultName). It counts toward the kit filter everywhere.")
+            // marks land in the ACTIVE kit, so say which one — but only
+            // once more than one kit exists, since a lone default kit reads
+            // better as "your kit" than the bare lowercase "main".
+            Text("Marking what you have in \(libraries.count > 1 ? (activeLibrary?.name ?? EquipmentLibrary.defaultName) : "your kit"). It counts toward the kit filter everywhere.")
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
                 .padding(.top, 6)
