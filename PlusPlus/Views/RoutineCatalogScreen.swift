@@ -678,7 +678,9 @@ struct GearCheckTray: View {
         VStack(alignment: .leading, spacing: 0) {
             SheetHeader(title: "Equipment check", closeOnly: true, action: { dismiss() })
 
-            Text("Mark what you have. It counts toward the equipment check and the kit filter everywhere.")
+            // Name the kit these toggles write to (Dave, 2026-07-20): the
+            // marks land in the ACTIVE kit, so say which one.
+            Text("Marking what you have in \(activeLibrary?.name ?? EquipmentLibrary.defaultName). It counts toward the kit filter everywhere.")
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
                 .padding(.top, 6)
