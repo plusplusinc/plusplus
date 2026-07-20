@@ -1,7 +1,10 @@
 import Foundation
+import OSLog
 #if canImport(ActivityKit)
 import ActivityKit
 #endif
+
+private let activityLog = Logger(subsystem: "com.davidcole.plusplus", category: "live-activity")
 
 /// Owns the whole-session workout Live Activity (#322). One activity
 /// starts when the session begins and ends when it finishes/discards; in
@@ -27,9 +30,22 @@ final class WorkoutActivityController {
 
     func begin(routineName: String, exerciseName: String, setNumber: Int, setsCompleted: Int, totalSets: Int, startedAt: Date) {
         #if canImport(ActivityKit)
-        guard !disabled, ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        guard !disabled else { return }
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
+            // Live Activities disabled for PlusPlus in Settings — nothing will
+            // show on the island/lock screen. Logged so a silent no-op is
+            // visible in a device sysdiagnose (the pre-fix invisibility, #419).
+            activityLog.notice("workout Live Activity not started: activities disabled in Settings")
+            return
+        }
         sessionStart = startedAt
-        endAll() // never stack two workout activities
+        // Snapshot any pre-existing activities BEFORE requesting the new one, so
+        // the teardown ends only stale activities and can never reap the one we
+        // just created. `endAll()` inside a Task raced `Activity.request` here —
+        // the new activity landed in `.activities` before the loop ran and was
+        // immediately dismissed, suppressing the island/lock screen all session
+        // (#419). Ending a captured value array is race-free by construction.
+        let stale = Activity<WorkoutActivityAttributes>.activities
         let state = WorkoutActivityAttributes.ContentState(
             phase: .working,
             exerciseName: exerciseName,
@@ -43,6 +59,7 @@ final class WorkoutActivityController {
             attributes: WorkoutActivityAttributes(routineName: routineName),
             content: ActivityContent(state: state, staleDate: nil)
         )
+        end(stale) // never stack two workout activities
         #endif
     }
 
@@ -94,8 +111,15 @@ final class WorkoutActivityController {
     }
 
     private func endAll() {
+        end(Activity<WorkoutActivityAttributes>.activities)
+    }
+
+    /// End a captured set of activities. Callers snapshot `.activities` first so
+    /// an activity created after the snapshot is never dismissed by this loop.
+    private func end(_ activities: [Activity<WorkoutActivityAttributes>]) {
+        guard !activities.isEmpty else { return }
         Task {
-            for activity in Activity<WorkoutActivityAttributes>.activities {
+            for activity in activities {
                 await activity.end(nil, dismissalPolicy: .immediate)
             }
         }

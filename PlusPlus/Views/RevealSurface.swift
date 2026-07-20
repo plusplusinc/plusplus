@@ -949,6 +949,7 @@ private struct SettingsTray: View {
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw = WeightUnit.lb.rawValue
     @AppStorage(VoiceCueMode.key) private var voiceCueRaw = VoiceCueMode.off.rawValue
     @AppStorage(VoiceCueVoice.key) private var voiceCueVoiceRaw = ""
+    @AppStorage(CountdownCueSetting.key) private var countdownCuesEnabled = true
     /// Enumerating system voices has real cost — snapshot per tray
     /// appearance, not per render.
     @State private var voiceOptions: [VoiceCueVoice.Option] = []
@@ -1038,6 +1039,21 @@ private struct SettingsTray: View {
             }
             .padding(.top, 22)
             .onAppear { voiceOptions = VoiceCueVoice.options() }
+
+            VStack(alignment: .leading, spacing: 7) {
+                SheetSectionLabel("COUNTDOWN CUES")
+                Toggle(isOn: $countdownCuesEnabled) {
+                    Text("Rest countdown beeps")
+                        .font(.system(.subheadline, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                }
+                .tint(Theme.accent)
+                .accessibilityIdentifier("countdownCuesToggle")
+                Text("A soft beep on the last three seconds of a rest or switch, and a higher tone as the next exercise begins. Plays over the silent switch, and ducks music.")
+                    .font(.system(.caption))
+                    .foregroundStyle(Theme.textFaint)
+            }
+            .padding(.top, 22)
 
             Spacer(minLength: 0)
         }
@@ -1224,6 +1240,7 @@ private struct AboutTray: View {
 /// dispatch (one line each, no obligation words).
 enum WhatsNew {
     static let entries: [(build: String, notes: String)] = [
+        ("108", "Rest countdowns beep the last three seconds, a higher tone starts the next move · the live workout is back on the Dynamic Island and Lock Screen · the set overview colors every exercise: done, now, and up next"),
         ("84", "Operator: chat with your training data behind the ++ key · ask anything, change anything · bulk edits preview before they touch a thing, small ones undo in a tap · the model runs entirely on this phone · and outdoor runs now keep their route: map, splits, and stats on the record"),
         ("61", "Scheduled workouts on your calendar · one tap on the event starts the session · works with Apple and Google"),
         ("55", "Sync your program and history to a GitHub repo you own · restore-safe on a new phone"),

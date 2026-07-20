@@ -193,7 +193,9 @@ struct ActiveSessionView: View {
             }
         }
         .sheet(isPresented: $showingOverview) {
-            SessionOverviewSheet(session: session) {
+            // A live rest/transition countdown (either sets restEndDate) makes
+            // the not-yet-done exercises pulse green in the overview (#421).
+            SessionOverviewSheet(session: session, isResting: restEndDate != nil) {
                 endRest()
             }
             .presentationDetents([.fraction(0.88)])
@@ -249,6 +251,7 @@ struct ActiveSessionView: View {
             heartRate.stop()
             location.stop()
             VoiceCueSpeaker.shared.stop()
+            CountdownCue.shared.stop()
         }
         // GPS pauses with the workout clock (HR keeps its passive query) —
         // no distance banked across a pause, and the battery rests.
@@ -270,7 +273,10 @@ struct ActiveSessionView: View {
         // stops speech inside finishSession, but the mirror path never
         // passes through there (swift-reviewer).
         .onChange(of: session.isFinished) { _, finished in
-            if finished { VoiceCueSpeaker.shared.stop() }
+            if finished {
+                VoiceCueSpeaker.shared.stop()
+                CountdownCue.shared.stop()
+            }
         }
         // Island / Lock Screen rest controls (#157): LiveActivityIntents
         // run in this process and post here — same mutations as the
@@ -674,8 +680,9 @@ struct ActiveSessionView: View {
 
     private func finishSession(dismissAfter: Bool = true) {
         WorkoutActivityController.shared.end()
-        // A cue still talking over the purple finish would be noise.
+        // A cue still talking (or beeping) over the purple finish is noise.
         VoiceCueSpeaker.shared.stop()
+        CountdownCue.shared.stop()
         if !session.isFinished {
             isFirstEverFinish = finishedSessions.isEmpty
             session.finish()
@@ -2099,8 +2106,18 @@ private struct RestView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: screen.size.height)
-                .onChange(of: remaining) { _, newValue in
-                    if newValue <= 0 { onEnd() }
+                .onChange(of: remaining) { oldValue, newValue in
+                    // Beep the last three seconds; guard on a decrement so a
+                    // +30s extension (which raises `remaining`) never beeps,
+                    // and the higher "go" tone fires as the countdown lands on
+                    // zero and the next exercise/set begins (#420).
+                    if newValue < oldValue, (1...3).contains(newValue) {
+                        CountdownCue.shared.tick()
+                    }
+                    if newValue <= 0 {
+                        CountdownCue.shared.start()
+                        onEnd()
+                    }
                 }
                 .onAppear {
                     if remaining <= 0 { onEnd() }
