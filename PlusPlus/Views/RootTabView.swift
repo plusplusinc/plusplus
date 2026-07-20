@@ -87,7 +87,11 @@ struct RootTabView: View {
             Tab("Exercises", systemImage: "list.bullet", value: AppTab.exercises) {
                 ExercisesTabView()
             }
-            Tab("Equipment", systemImage: "dumbbell", value: AppTab.equipment) {
+            // Labeled "Kit" (2026-07-20): the tab shows your ACTIVE kit, and
+            // the short word is guaranteed to fit the on-row heading beside
+            // the switcher. The enum case / reveal signal stay `.equipment`
+            // (frozen internal — see the vocabulary note).
+            Tab("Kit", systemImage: "dumbbell", value: AppTab.equipment) {
                 EquipmentTabView()
             }
         }

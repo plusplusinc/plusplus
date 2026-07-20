@@ -165,7 +165,7 @@ struct ExercisesTabView: View {
                     filterState.favoritesOnly.toggle()
                 }
                 FacetChip(
-                    facet: "Gear",
+                    facet: "Equipment",
                     selection: gearBinding,
                     options: [
                         (ExerciseFilterState.GearMode.withKit, "Can do now"),
@@ -187,10 +187,10 @@ struct ExercisesTabView: View {
 
     private var pickedGearLabel: String {
         let n = filterState.pickedGearNames.count
-        return n > 0 ? "Picked gear (\(n))" : "Picked gear"
+        return n > 0 ? "Picked equipment (\(n))" : "Picked equipment"
     }
 
-    /// Selecting "Picked gear" opens the picker AND lights the mode; the
+    /// Selecting "Picked equipment" opens the picker AND lights the mode; the
     /// other modes commit directly. (The binding interceptor pattern from
     /// the equipment catalog's gear facet.)
     private var gearBinding: Binding<ExerciseFilterState.GearMode?> {
@@ -291,7 +291,7 @@ struct ExercisesTabView: View {
     }
 }
 
-/// The hand-picked gear set for the GEAR facet's "Picked gear" mode:
+/// The hand-picked set for the Equipment facet's "Picked equipment" mode:
 /// pick from ALL equipment (not just the active kit) — the point is to
 /// ask "what could I do with X and Y", regardless of what's in the kit.
 /// Writes `pickedGearNames` (names, so imports/reinstalls resolve).
@@ -307,7 +307,7 @@ struct GearPickSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             SheetHeader(
-                title: "Picked gear",
+                title: "Picked equipment",
                 onCancel: clearAction,
                 cancelLabel: "Clear",
                 action: { dismiss() }
@@ -380,8 +380,11 @@ struct EquipmentTabView: View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
                 CatalogTabHeader(
-                    title: "Equipment",
-                    // Adding gear happens in the catalog, so the top row
+                    // "Kit": the tab IS your active kit (2026-07-20). Short
+                    // enough to always fit the on-row heading next to the
+                    // switcher, whatever the kit is named.
+                    title: "Kit",
+                    // Adding equipment happens in the catalog, so the top row
                     // NAVIGATES there (Add family); the header's top-right
                     // is the expanding search over your kit (2026-07-18).
                     search: HeaderSearchConfig(
@@ -626,6 +629,15 @@ struct LibrarySwitcherKey: View {
                     .font(.system(.footnote, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
+                    // A long kit name shrinks a touch, then TRUNCATES here
+                    // rather than crowding the tab heading off the row (Dave,
+                    // 2026-07-20). The heading claims its space first
+                    // (`layoutPriority(1)` in CatalogTabHeader), so the
+                    // switcher is what yields. NO hard `maxWidth` cap: that
+                    // frame is greedy in this HStack (it competes with the
+                    // Spacer) and would leave a gap before the chevron for
+                    // short names like the default "main" (swift-reviewer catch).
+                    .truncationMode(.tail)
                     .minimumScaleFactor(0.6)
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.system(.caption2, weight: .bold))

@@ -321,7 +321,7 @@ enum SeedData {
         case machines = "Machines"
         case bandsStraps = "Bands & straps"
         case cardio = "Cardio"
-        case bodyweightGear = "Bodyweight gear"
+        case bodyweightGear = "Bodyweight equipment"
     }
 
     /// Every built-in name maps to exactly one category (accounting
@@ -330,7 +330,7 @@ enum SeedData {
     /// buckets under Machines EXCEPT the Rowing Machine (purpose wins —
     /// it's cardio); strongman implements, thrown/carried loads, and
     /// loading accessories are Free weights; benches, racks, stations,
-    /// and bodyweight floor tools are Bodyweight gear.
+    /// and bodyweight floor tools are Bodyweight equipment.
     static let equipmentCategories: [String: EquipmentCategory] = {
         var table: [String: EquipmentCategory] = [:]
         let buckets: [(EquipmentCategory, [String])] = [

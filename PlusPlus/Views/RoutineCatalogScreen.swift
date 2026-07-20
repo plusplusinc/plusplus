@@ -223,7 +223,7 @@ struct RoutineCatalogScreen: View {
                     // Quiet key (Quiet Arcade): the escape hatch reads
                     // as pressable without the retired link blue.
                     QuietKey(
-                        label: "\(hiddenByGear) more need gear you don't have · show",
+                        label: "\(hiddenByGear) more need equipment you don't have · show",
                         identifier: "showUnavailableTemplates"
                     ) {
                         gearFilter = nil
@@ -240,7 +240,7 @@ struct RoutineCatalogScreen: View {
                             .foregroundStyle(Theme.textFaint)
                         if gearFilter == .mine, hiddenByGear > 0 {
                             QuietKey(
-                                label: "\(hiddenByGear) match\(hiddenByGear == 1 ? "es" : "") need gear you don't have · show",
+                                label: "\(hiddenByGear) match\(hiddenByGear == 1 ? "es" : "") need equipment you don't have · show",
                                 identifier: "showUnavailableTemplatesEmpty"
                             ) {
                                 gearFilter = nil
@@ -392,8 +392,8 @@ struct RoutineCatalogScreen: View {
         .buttonStyle(.plain)
     }
 
-    /// The meta line with the gear verdict colored: "NEEDS <gear>" in
-    /// notes amber (Quiet Arcade — attention, not selection), the rest
+    /// The meta line with the equipment verdict colored: "NEEDS <equipment>"
+    /// in notes amber (Quiet Arcade — attention, not selection), the rest
     /// faint.
     private func metaText(for template: RoutineTemplate) -> Text {
         let prefix = [
@@ -402,12 +402,12 @@ struct RoutineCatalogScreen: View {
             template.estimatedMinutesText.uppercased(),
         ].joined(separator: " · ")
         let gear = template.equipmentNames
-        // Once more than one library exists the ✓ names the active one
-        // ("HOME ✓"), so the verdict itself shows which library it judged.
-        let haveLabel = libraries.count > 1 ? "\(activeLibrary?.name.uppercased() ?? "MY GEAR") ✓" : "YOUR GEAR ✓"
+        // Once more than one kit exists the ✓ names the active one
+        // ("HOME ✓"), so the verdict itself shows which kit it judged.
+        let haveLabel = libraries.count > 1 ? "\(activeLibrary?.name.uppercased() ?? "MY KIT") ✓" : "YOUR KIT ✓"
         let gearPart: Text
         if gear.isEmpty {
-            gearPart = Text("NO GEAR").foregroundStyle(Theme.textFaint)
+            gearPart = Text("NO EQUIPMENT").foregroundStyle(Theme.textFaint)
         } else if gear.allSatisfy(ownedEquipmentNames.contains) {
             gearPart = Text(haveLabel).foregroundStyle(Theme.textFaint)
         } else {
@@ -544,7 +544,7 @@ struct RoutineTemplateDetailScreen: View {
                         // "turns out I do have a bench" is two taps,
                         // not a tab-switch expedition.
                         if !missingNames.isEmpty {
-                            QuietKey(label: "Gear check · mark what you have", identifier: "gearCheckButton") {
+                            QuietKey(label: "Equipment check · mark what you have", identifier: "gearCheckButton") {
                                 showingGearCheck = true
                             }
                             .padding(.top, 8)
@@ -676,9 +676,9 @@ struct GearCheckTray: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "Gear check", closeOnly: true, action: { dismiss() })
+            SheetHeader(title: "Equipment check", closeOnly: true, action: { dismiss() })
 
-            Text("Mark what you have. It counts toward the gear check and the kit filter everywhere.")
+            Text("Mark what you have. It counts toward the equipment check and the kit filter everywhere.")
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
                 .padding(.top, 6)

@@ -1417,7 +1417,7 @@ struct TodayView: View {
                 title: "Create your first routine",
                 doneTitle: routines.count == 1 ? "Routine created" : "Routines created",
                 sub: routineStepDone ? routineDoneSub : "From the catalog, or from scratch.",
-                gatedSub: "Needs your gear first",
+                gatedSub: "Needs your equipment first",
                 cta: "Pick a routine",
                 identifier: "setupRoutineStep",
                 // Root-only affordance: emptiness doubles as the

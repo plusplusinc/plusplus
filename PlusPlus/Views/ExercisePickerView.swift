@@ -459,7 +459,7 @@ struct EquipmentFilterSheet: View {
                         // An empty active library is the fresh-install
                         // default (#232) — say why the tray is empty
                         // instead of rendering a bare toggle under nothing.
-                        Text("This filters by the gear in your kit. Add what you have on the Equipment tab and it shows up here.")
+                        Text("This filters by the equipment in your kit. Add what you have on the Kit tab and it shows up here.")
                             .font(.system(.footnote))
                             .foregroundStyle(Theme.textSecondary)
                             .padding(.vertical, 14)
