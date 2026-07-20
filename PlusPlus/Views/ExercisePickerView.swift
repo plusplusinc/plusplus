@@ -480,7 +480,7 @@ struct EquipmentFilterSheet: View {
                     // Fix the filter's basis in place (#260): the
                     // options above ARE your equipment — edit it here
                     // instead of backing out to the Equipment tab.
-                    QuietKey(label: "Edit my equipment…", identifier: "editEquipmentFromFilter") {
+                    QuietKey(label: "Edit your kit…", identifier: "editEquipmentFromFilter") {
                         showingEquipmentEditor = true
                     }
                     .padding(.top, 8)

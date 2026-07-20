@@ -92,7 +92,7 @@ struct EquipmentLibraryTray: View {
                 if let onEditContents {
                     Button(action: onEditContents) {
                         HStack(spacing: 8) {
-                            Text("Choose your equipment")
+                            Text("Edit your kit…")
                                 .font(.system(.footnote, weight: .semibold))
                                 .foregroundStyle(Theme.textPrimary)
                                 .lineLimit(1)

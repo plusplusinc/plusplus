@@ -151,11 +151,16 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   facet's four modes (All / can do with the kit / can't / a hand-picked
   set) are the opt-in availability filter that replaced the old
   hide-by-default. Filters persist device-locally. Copy says "have"/"in your kit",
-  never "own" (that word survives only for data ownership and "My
-  equipment"/"YOUR KIT ✓" selection possessives) and never "have access
+  never "own" (that word survives only for data ownership) and never "have access
   to" (retired 2026-07-17; permission-grant copy keeps "access" — Apple's
-  word). The Equipment facet + template verdict name the active kit once more
-  than one exists (a lit chip, "MAIN ✓"). The user-facing term is "kit",
+  word). **One possessive for the active kit: “your kit”** (2026-07-20;
+  “My equipment”/“YOUR KIT ✓” retired as user-facing possessives — `GearFit.mine`’s
+  raw value stays internal). **Naming the active kit follows one rule** (2026-07-20):
+  a switcher CONTROL (the Kit-tab pill, the catalog “Adding to” strip, the routine
+  Kit chip) always shows the raw kit name, since a control needs a label even with one
+  kit; PROSE and verdicts use `EquipmentLibrary.activeNamePhrase` (name the kit once
+  more than one exists, else “your kit”) so the rule lives in one place. Opening the
+  catalog to change kit membership is always labeled **“Edit your kit…”**. The user-facing term is "kit",
   and the fourth tab is labeled **Kit** (2026-07-20); the word **"gear" is
   retired** from user-facing copy (2026-07-20) — use **kit** for the
   your-set sense, **equipment** for the single-item / catalog sense
