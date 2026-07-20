@@ -949,6 +949,7 @@ private struct SettingsTray: View {
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw = WeightUnit.lb.rawValue
     @AppStorage(VoiceCueMode.key) private var voiceCueRaw = VoiceCueMode.off.rawValue
     @AppStorage(VoiceCueVoice.key) private var voiceCueVoiceRaw = ""
+    @AppStorage(CountdownCueSetting.key) private var countdownCuesEnabled = false
     /// Enumerating system voices has real cost — snapshot per tray
     /// appearance, not per render.
     @State private var voiceOptions: [VoiceCueVoice.Option] = []
@@ -1038,6 +1039,21 @@ private struct SettingsTray: View {
             }
             .padding(.top, 22)
             .onAppear { voiceOptions = VoiceCueVoice.options() }
+
+            VStack(alignment: .leading, spacing: 7) {
+                SheetSectionLabel("COUNTDOWN CUES")
+                Toggle(isOn: $countdownCuesEnabled) {
+                    Text("Rest countdown beeps")
+                        .font(.system(.subheadline, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                }
+                .tint(Theme.accent)
+                .accessibilityIdentifier("countdownCuesToggle")
+                Text("A soft beep on the last three seconds of a rest or switch, and a higher tone as the next exercise begins. Plays over the silent switch, and ducks music.")
+                    .font(.system(.caption))
+                    .foregroundStyle(Theme.textFaint)
+            }
+            .padding(.top, 22)
 
             Spacer(minLength: 0)
         }

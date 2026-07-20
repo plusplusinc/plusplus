@@ -2101,8 +2101,18 @@ private struct RestView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: screen.size.height)
-                .onChange(of: remaining) { _, newValue in
-                    if newValue <= 0 { onEnd() }
+                .onChange(of: remaining) { oldValue, newValue in
+                    // Beep the last three seconds; guard on a decrement so a
+                    // +30s extension (which raises `remaining`) never beeps,
+                    // and the higher "go" tone fires as the countdown lands on
+                    // zero and the next exercise/set begins (#420).
+                    if newValue < oldValue, (1...3).contains(newValue) {
+                        CountdownCue.shared.tick()
+                    }
+                    if newValue <= 0 {
+                        CountdownCue.shared.start()
+                        onEnd()
+                    }
                 }
                 .onAppear {
                     if remaining <= 0 { onEnd() }
