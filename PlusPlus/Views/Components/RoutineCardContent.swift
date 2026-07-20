@@ -31,19 +31,18 @@ struct CardCapsule {
 
     var spokenText: String { accessibilityText ?? text }
 
-    /// The rendered capsule width, so `OverflowCapsuleRow` can predict the
-    /// fit without a measurement pass. Mirrors `CardTagCapsule`'s font
-    /// (caption2 monospaced) + horizontal padding; Dynamic-Type aware via the
-    /// scaled point size.
+    /// The rendered tag width, so `OverflowCapsuleRow` can predict the fit
+    /// without a measurement pass. Mirrors `CardTagCapsule`'s font (the
+    /// standard caption2, no longer monospaced) + horizontal padding;
+    /// Dynamic-Type aware via the preferred font.
     func measuredWidth() -> CGFloat {
-        let pointSize = UIFont.preferredFont(forTextStyle: .caption2).pointSize
-        let font = UIFont.monospacedSystemFont(ofSize: pointSize, weight: .regular)
+        let font = UIFont.preferredFont(forTextStyle: .caption2)
         var width = (text as NSString).size(withAttributes: [.font: font]).width
         if systemImage != nil {
             // The glyph is roughly square at the cap height, plus the HStack's
             // 3 pt spacing. An estimate is fine — only the leading schedule
             // capsule carries a glyph, and it always shows.
-            width += pointSize * 1.2 + 3
+            width += font.pointSize * 1.2 + 3
         }
         width += CardTagCapsule.horizontalPadding * 2
         return ceil(width)
