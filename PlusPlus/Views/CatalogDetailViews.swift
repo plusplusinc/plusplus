@@ -554,17 +554,28 @@ struct EquipmentDetailScreen: View {
     /// else on it — both paths drive `membershipBinding`, so a tap resolves
     /// to exactly one flip whichever gesture wins. Accent green = you have
     /// it (matches the catalog's in-kit glyph + the quick-add).
+    /// The active kit's name for prose, but only once more than one kit
+    /// exists — a lone default kit reads better as "your kit" than the bare
+    /// lowercase "main" (copy + swift review, 2026-07-20). Matches the
+    /// app's "name the active kit once more than one exists" grammar.
+    private var kitPhrase: String {
+        libraries.count > 1 ? (activeLibrary?.name ?? EquipmentLibrary.defaultName) : "your kit"
+    }
+
     private var kitToggleCard: some View {
         let inKit = inActiveLibrary
+        // Name the target kit right in the card (Dave, 2026-07-20) so the
+        // add is never a guess about which kit is active.
+        let kitName = kitPhrase
         return HStack(spacing: 14) {
             Image(systemName: inKit ? "checkmark.circle.fill" : "plus.circle")
                 .font(.system(.title2))
                 .foregroundStyle(inKit ? Theme.accent : Theme.textSecondary)
             VStack(alignment: .leading, spacing: 2) {
-                Text(inKit ? "In your kit" : "Add to your kit")
+                Text(inKit ? "In \(kitName)" : "Add to \(kitName)")
                     .font(.system(.headline))
                     .foregroundStyle(Theme.textPrimary)
-                Text(inKit ? "You have this gear." : "Add it if you train with it.")
+                Text(inKit ? "You have this equipment." : "Add it if you train with it.")
                     .font(.system(.caption))
                     .foregroundStyle(Theme.textSecondary)
             }
@@ -573,7 +584,7 @@ struct EquipmentDetailScreen: View {
                 .labelsHidden()
                 .tint(Theme.accent)
                 .accessibilityIdentifier("addToMyEquipment")
-                .accessibilityLabel(inKit ? "Remove from kit" : "Add to kit")
+                .accessibilityLabel(inKit ? "Remove from \(kitName)" : "Add to \(kitName)")
         }
         .padding(16)
         .background(

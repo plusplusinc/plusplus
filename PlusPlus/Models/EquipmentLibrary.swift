@@ -43,6 +43,12 @@ extension EquipmentLibrary {
     /// existing store's lone untouched "Home".
     static let defaultName = "main"
 
+    /// The ONE canonical line explaining what a kit is and what switching
+    /// does (2026-07-20, Dave's wording). Every surface that captions the
+    /// kit switcher references THIS — don't restate it, or the app grows
+    /// competing versions. The blank line is deliberate (two beats).
+    static let switchingBlurb = "Your selected kit determines which exercises your routines can include.\n\nSwitch kits when you travel, and add to your kit to unlock more exercises."
+
     /// Resolve the active library from an already-fetched list. Views
     /// pass their @AppStorage value as `storedID` so switching re-renders
     /// them; a pointer that matches nothing (stale UUID, fresh install)

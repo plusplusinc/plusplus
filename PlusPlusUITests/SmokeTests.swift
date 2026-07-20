@@ -428,7 +428,7 @@ final class SmokeTests: XCTestCase {
         // above it are gated.
         let equipCTA = app.buttons["setupEquipmentStep"]
         XCTAssertTrue(equipCTA.waitForExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts["Needs your gear first"].exists)
+        XCTAssertTrue(app.staticTexts["Needs your equipment first"].exists)
         snap("setup-fresh")
         equipCTA.tap()
 

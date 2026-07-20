@@ -29,7 +29,8 @@ struct EquipmentLibraryTray: View {
         VStack(alignment: .leading, spacing: 0) {
             SheetHeader(title: "Kits", closeOnly: true, action: { dismiss() })
 
-            Text("One kit per place you train. Switching changes what counts as your gear everywhere.")
+            // The one canonical kit explainer — see EquipmentLibrary.switchingBlurb.
+            Text(EquipmentLibrary.switchingBlurb)
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
                 .padding(.top, 6)
@@ -89,7 +90,7 @@ struct EquipmentLibraryTray: View {
             Button("Cancel", role: .cancel) {}
             Button("Create") { createLibrary() }
         } message: {
-            Text("Starts empty. Pick its gear from the catalog.")
+            Text("Starts empty. Pick its equipment from the catalog.")
         }
         .alert("Rename kit", isPresented: Binding(
             get: { renaming != nil },
@@ -110,7 +111,7 @@ struct EquipmentLibraryTray: View {
             Button("Delete kit", role: .destructive) { deleteLibrary() }
             Button("Cancel", role: .cancel) { deleting = nil }
         } message: {
-            Text("The gear itself stays in the catalog and in your other kits.")
+            Text("The equipment itself stays in the catalog and in your other kits.")
         }
     }
 

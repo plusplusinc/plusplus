@@ -591,8 +591,8 @@ private struct LibraryTray: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             SheetHeader(title: "Kit", closeOnly: true, action: { dismiss() })
-            // Pithy line (no em dash, per the copy law).
-            Text("What you have decides what you can train. Switch kits any time, without touching your history.")
+            // The one canonical kit explainer — see EquipmentLibrary.switchingBlurb.
+            Text(EquipmentLibrary.switchingBlurb)
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textSecondary)
                 .padding(.top, 4)
@@ -626,11 +626,11 @@ private struct LibraryTray: View {
                     }
                     .accessibilityIdentifier("revealNewLibrary")
 
-                    // Gear curation for the active library (the old
+                    // Equipment curation for the active kit (the old
                     // "My equipment"), kept a tap away here.
                     Button(action: onEditGear) {
                         HStack {
-                            Text("Choose your gear")
+                            Text("Choose your equipment")
                                 .font(.system(.footnote, weight: .semibold))
                                 .foregroundStyle(Theme.textPrimary)
                                 .lineLimit(1)
@@ -660,7 +660,7 @@ private struct LibraryTray: View {
             Button("Cancel", role: .cancel) {}
             Button("Create") { createLibrary() }
         } message: {
-            Text("Starts empty. Pick its gear from the catalog.")
+            Text("Starts empty. Pick its equipment from the catalog.")
         }
     }
 
@@ -1227,7 +1227,7 @@ enum WhatsNew {
         ("84", "Operator: chat with your training data behind the ++ key · ask anything, change anything · bulk edits preview before they touch a thing, small ones undo in a tap · the model runs entirely on this phone · and outdoor runs now keep their route: map, splits, and stats on the record"),
         ("61", "Scheduled workouts on your calendar · one tap on the event starts the session · works with Apple and Google"),
         ("55", "Sync your program and history to a GitHub repo you own · restore-safe on a new phone"),
-        ("48", "Kits: keep one set of gear for home and another for the road · switch and the whole app follows · your gear travels with you to a new phone"),
+        ("48", "Kits: keep one set of equipment for home and another for the road · switch and the whole app follows · your kit travels with you to a new phone"),
         ("46", "Cardio speaks its own numbers · splits, watts, damper, incline · intervals with their own rest · choose what any exercise tracks · heart rate on screen"),
         ("45", "The ++ key on every tab · catalog pages push and pop one step at a time"),
         ("44", "The ++ wears its key"),

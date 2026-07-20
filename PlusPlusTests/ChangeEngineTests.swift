@@ -492,7 +492,7 @@ struct ChangeEngineTests {
             values: ChangeValues(equipment: ["Probe Bench"])
         )))
         #expect(preview.headline == "Changes 1 library")
-        #expect(preview.lines.contains("gear becomes Probe Bench"))
+        #expect(preview.lines.contains("equipment becomes Probe Bench"))
         #expect(home.members.map(\.name).sorted() == ["Probe Band", "Probe Rope"])
 
         let change = try applied(engine.applyStaged(preview.spec))

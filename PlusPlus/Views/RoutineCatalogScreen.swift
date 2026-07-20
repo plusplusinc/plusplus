@@ -229,7 +229,7 @@ struct RoutineCatalogScreen: View {
                     // Quiet key (Quiet Arcade): the escape hatch reads
                     // as pressable without the retired link blue.
                     QuietKey(
-                        label: "\(hiddenByGear) more need gear you don't have · show",
+                        label: "\(hiddenByGear) more need equipment you don't have · show",
                         identifier: "showUnavailableTemplates"
                     ) {
                         gearFilter = nil
@@ -246,7 +246,7 @@ struct RoutineCatalogScreen: View {
                             .foregroundStyle(Theme.textFaint)
                         if gearFilter == .mine, hiddenByGear > 0 {
                             QuietKey(
-                                label: "\(hiddenByGear) match\(hiddenByGear == 1 ? "es" : "") need gear you don't have · show",
+                                label: "\(hiddenByGear) match\(hiddenByGear == 1 ? "es" : "") need equipment you don't have · show",
                                 identifier: "showUnavailableTemplatesEmpty"
                             ) {
                                 gearFilter = nil
@@ -537,7 +537,7 @@ struct RoutineTemplateDetailScreen: View {
                         // "turns out I do have a bench" is two taps,
                         // not a tab-switch expedition.
                         if !missingNames.isEmpty {
-                            QuietKey(label: "Gear check · mark what you have", identifier: "gearCheckButton") {
+                            QuietKey(label: "Equipment check · mark what you have", identifier: "gearCheckButton") {
                                 showingGearCheck = true
                             }
                             .padding(.top, 8)
@@ -669,9 +669,13 @@ struct GearCheckTray: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "Gear check", closeOnly: true, action: { dismiss() })
+            SheetHeader(title: "Equipment check", closeOnly: true, action: { dismiss() })
 
-            Text("Mark what you have. It counts toward the gear check and the kit filter everywhere.")
+            // Name the kit these toggles write to (Dave, 2026-07-20): the
+            // marks land in the ACTIVE kit, so say which one — but only
+            // once more than one kit exists, since a lone default kit reads
+            // better as "your kit" than the bare lowercase "main".
+            Text("Marking what you have in \(libraries.count > 1 ? (activeLibrary?.name ?? EquipmentLibrary.defaultName) : "your kit"). It counts toward the kit filter everywhere.")
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
                 .padding(.top, 6)

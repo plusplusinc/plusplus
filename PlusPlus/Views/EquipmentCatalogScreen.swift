@@ -68,6 +68,10 @@ struct EquipmentCatalogScreen: View {
     /// counts: plain back then still marks setup done (never trap the
     /// user in a step).
     @State private var touchedSetup = false
+    /// The active-kit switcher opens here too (2026-07-20): the catalog is
+    /// where you ADD, so the target kit has to be nameable + switchable
+    /// without backing out to the Kit tab.
+    @State private var showingLibraryTray = false
 
     /// `initialQuery` seeds the search once (the Equipment-kit tab's "Add
     /// <query>" threads its query straight through, 2026-07-18); the pushed
@@ -112,6 +116,12 @@ struct EquipmentCatalogScreen: View {
     var body: some View {
         let index = exerciseIndex
         VStack(spacing: 0) {
+            // Onboarding is a guided single-kit setup with its own Done
+            // bar; a switch-kits control there is out of place. Everywhere
+            // else, name the kit these adds land in (Dave, 2026-07-20).
+            if !setupMode {
+                activeKitBar
+            }
             filterRow
             List {
                 // Creation is the top row everywhere (2026-07-18): New
@@ -198,6 +208,30 @@ struct EquipmentCatalogScreen: View {
             MuscleGroupFilterSheet(filterState: filterState)
                 .presentationDetents([.medium])
         }
+        .sheet(isPresented: $showingLibraryTray) {
+            EquipmentLibraryTray()
+        }
+    }
+
+    // MARK: - Active kit
+
+    /// Which kit these adds land in, named and switchable right here (Dave,
+    /// 2026-07-20): the catalog is the ADD surface, but the active kit was
+    /// only legible back on the Kit tab, so a run of quick-adds could pour
+    /// into the wrong kit unnoticed. Reuses the tab's `LibrarySwitcherKey`;
+    /// switching re-renders the cards' in-kit glyphs behind the tray.
+    private var activeKitBar: some View {
+        HStack(spacing: 8) {
+            Text("Adding to")
+                .font(.system(.footnote))
+                .foregroundStyle(Theme.textSecondary)
+            LibrarySwitcherKey(name: activeLibrary?.name ?? EquipmentLibrary.defaultName) {
+                showingLibraryTray = true
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
     }
 
     // MARK: - Filters
