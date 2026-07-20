@@ -104,28 +104,25 @@ enum VoiceCueVoice {
 /// phone feature (v1; the watch has its own haptic language).
 ///
 /// ALL audio work — activation, speaking, deactivation — runs on one
-/// private serial queue: `AVAudioSession.setActive` is a blocking IPC
-/// to mediaserverd (up to hundreds of ms on first activation) and the
+/// shared serial queue (`WorkoutAudioSession`'s, also used by
+/// `CountdownCue`): `AVAudioSession.setActive` is a blocking IPC to
+/// mediaserverd (up to hundreds of ms on first activation) and the
 /// announce trigger fires in the same render pass that animates the
 /// SWITCH screen in, so none of it may run on the main thread (the
 /// "always feels fast" law). The queue also makes cue replacement
 /// race-free: end-of-utterance bookkeeping hops onto it, so it is
-/// ordered AFTER the replacement `speak`, and deactivation is decided
-/// by an outstanding-utterance count — never by delegate delivery
-/// timing, which differs across iOS releases.
+/// ordered AFTER the replacement `speak`, and session activation is
+/// refcounted in `WorkoutAudioSession` (a shared hold count across both
+/// cue sources) — never decided by delegate delivery timing, which
+/// differs across iOS releases.
 final class VoiceCueSpeaker: NSObject, AVSpeechSynthesizerDelegate {
     static let shared = VoiceCueSpeaker()
 
-    private let queue = DispatchQueue(label: "com.davidcole.plusplus.voicecues")
+    /// Shared with CountdownCue via WorkoutAudioSession, so the two audio
+    /// sources own one process session and can't race its activation.
+    private var queue: DispatchQueue { WorkoutAudioSession.shared.queue }
     /// Queue-confined after init (delegate assignment precedes any use).
     private let synthesizer = AVSpeechSynthesizer()
-
-    /// Utterances handed to the synthesizer whose end callback hasn't
-    /// been processed yet — queue-confined. The session deactivates
-    /// only at zero, so ducked music comes back exactly once, and a
-    /// replacement cue can never have the session pulled out from
-    /// under it by its predecessor's cancellation.
-    private var outstanding = 0
 
     /// Exercise blocks already announced this app run — keyed on
     /// session identity + block, so a view remount (overview sheet,
@@ -174,19 +171,18 @@ final class VoiceCueSpeaker: NSObject, AVSpeechSynthesizerDelegate {
         utterance.preUtteranceDelay = 0.1
         utterance.voice = VoiceCueVoice.selected
         queue.async { [self] in
-            let audio = AVAudioSession.sharedInstance()
-            try? audio.setCategory(
-                .playback,
-                mode: .spokenAudio,
-                options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers]
-            )
-            try? audio.setActive(true)
-            outstanding += 1
-            // A rapid jump (session overview) replaces the current cue —
-            // two voices at once is worse than a clipped sentence. The
-            // cancelled cue's bookkeeping lands on this queue AFTER this
-            // block, so the count can't dip to zero mid-replacement no
-            // matter when the delegate callback is delivered.
+            // Take the shared hold BEFORE cancelling any current cue, so a
+            // replacement (a rapid session-overview jump) can't dip the hold
+            // count to zero mid-swap — the cancelled cue's release lands on
+            // this queue AFTER this block. Two voices at once is worse than a
+            // clipped sentence.
+            WorkoutAudioSession.shared.hold { audio in
+                try? audio.setCategory(
+                    .playback,
+                    mode: .spokenAudio,
+                    options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers]
+                )
+            }
             if synthesizer.isSpeaking {
                 synthesizer.stopSpeaking(at: .immediate)
             }
@@ -202,10 +198,11 @@ final class VoiceCueSpeaker: NSObject, AVSpeechSynthesizerDelegate {
         guard !disabled else { return }
         queue.async { [self] in
             if synthesizer.isSpeaking {
-                synthesizer.stopSpeaking(at: .immediate) // bookkeeping deactivates
-            } else {
-                deactivateIfIdle()
+                synthesizer.stopSpeaking(at: .immediate)
             }
+            // Force the shared session down — the workout is ending or the
+            // screen is leaving, so any outstanding hold is being abandoned.
+            WorkoutAudioSession.shared.sweep()
         }
     }
 
@@ -223,26 +220,9 @@ final class VoiceCueSpeaker: NSObject, AVSpeechSynthesizerDelegate {
         queue.async { [self] in utteranceEnded() }
     }
 
-    /// Queue-confined.
+    /// Queue-confined. Drops this utterance's shared hold; the session
+    /// deactivates once no cue (voice or countdown) holds it.
     private func utteranceEnded() {
-        outstanding = max(0, outstanding - 1)
-        deactivateIfIdle()
-    }
-
-    /// Queue-confined. Deactivation can throw while the output IO is
-    /// still winding down (the "session is busy" OSStatus); a swallowed
-    /// failure would leave the user's music ducked for good, so it
-    /// retries on a short backoff — re-checking idleness each attempt,
-    /// since a new cue may have started in the meantime.
-    private func deactivateIfIdle(attempt: Int = 0) {
-        guard outstanding == 0 else { return }
-        do {
-            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-        } catch {
-            guard attempt < 3 else { return }
-            queue.asyncAfter(deadline: .now() + 0.4) { [self] in
-                deactivateIfIdle(attempt: attempt + 1)
-            }
-        }
+        WorkoutAudioSession.shared.release()
     }
 }

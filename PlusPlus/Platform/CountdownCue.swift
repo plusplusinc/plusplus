@@ -12,24 +12,27 @@ enum CountdownCueSetting {
 
 /// Plays the rest/transition countdown tones: a short tick on each of the
 /// last three seconds, and a distinct higher tone as the next exercise
-/// begins. The app's second audio source after `VoiceCueSpeaker`, and it
-/// mirrors that class's session discipline exactly:
+/// begins. The app's second audio source after `VoiceCueSpeaker`; both drive
+/// activation through the shared `WorkoutAudioSession` so they can't race the
+/// shared AVAudioSession (the go-tone fires the very instant the next
+/// exercise's voice cue speaks).
 ///
-/// `.playback` so the silent switch can't mute the cue mid-gym (a dead
-/// setting reads as broken), `.duckOthers` so music dips instead of
-/// stopping. ALL audio work — activation, playback, deactivation — runs on
-/// one private serial queue, because `AVAudioSession.setActive` is a
-/// blocking IPC to mediaserverd and the tick fires inside the rest screen's
-/// per-second render pass (the "always feels fast" law). Deactivation is
-/// decided by an outstanding-player count and DEFERRED, so the 3·2·1·go
-/// tones (about a second apart) don't duck-and-restore the user's music
-/// between each beep. No `audio` background mode: backgrounded, the beep
-/// simply doesn't sound (v1; the watch keeps its own haptics). Inert under
-/// UI tests, the same gate as the other system surfaces.
+/// Tones are sine waves synthesized in memory (no bundled assets) and played
+/// through `AVAudioPlayer`. All work runs on `WorkoutAudioSession`'s serial
+/// queue: `setActive` is a blocking mediaserverd IPC and the tick fires in
+/// the rest screen's per-second render pass (the "always feels fast" law).
+/// The session is held per beep and released with a defer, so the 3·2·1·go
+/// run (tones ~1 s apart) keeps it up instead of thrashing the user's music
+/// between beeps. A failed `play()` releases its hold at once, and `stop()`
+/// sweeps at workout end, so a dropped or interrupted beep can never strand
+/// the session active (ducking the user's music for good). No `audio`
+/// background mode: backgrounded, the beep simply doesn't sound (v1; the
+/// watch keeps its haptics). Inert under UI tests.
 final class CountdownCue: NSObject, AVAudioPlayerDelegate {
     static let shared = CountdownCue()
 
-    private let queue = DispatchQueue(label: "com.davidcole.plusplus.countdowncue")
+    /// Shared with VoiceCueSpeaker (one owner of the process audio session).
+    private var queue: DispatchQueue { WorkoutAudioSession.shared.queue }
     private let disabled = CommandLine.arguments.contains("--uitest-reset")
 
     /// Which tone to play. Resolved to a player ON the queue so the lazy
@@ -42,16 +45,6 @@ final class CountdownCue: NSObject, AVAudioPlayerDelegate {
     private lazy var tickPlayer = Self.makePlayer(frequency: 784, duration: 0.09)
     private lazy var startPlayer = Self.makePlayer(frequency: 1175, duration: 0.16)
 
-    /// Players handed to the system whose finish callback hasn't landed yet
-    /// — queue-confined. The session deactivates only at zero so ducked
-    /// music comes back exactly once.
-    private var outstanding = 0
-
-    /// Bumped on every beep; a deferred deactivate only proceeds if it is
-    /// still the latest, so an earlier tick's timer can't tear the session
-    /// down in the gap before the next tick in the same 3·2·1·go run.
-    private var generation = 0
-
     private override init() { super.init() }
 
     /// A last-three-seconds countdown tick (call at remaining == 3, 2, 1).
@@ -60,52 +53,42 @@ final class CountdownCue: NSObject, AVAudioPlayerDelegate {
     /// The higher "go" tone as the next exercise/set begins.
     func start() { play(.start) }
 
+    /// Sweep any active session at workout end (wired next to
+    /// `VoiceCueSpeaker.stop()`); idempotent with the voice cue's own sweep.
+    func stop() {
+        guard !disabled else { return }
+        queue.async { [self] in
+            tickPlayer?.stop()
+            startPlayer?.stop()
+            WorkoutAudioSession.shared.sweep()
+        }
+    }
+
     private func play(_ tone: Tone) {
         guard !disabled, CountdownCueSetting.isEnabled else { return }
         queue.async { [self] in
             guard let player = (tone == .tick ? tickPlayer : startPlayer) else { return }
-            let audio = AVAudioSession.sharedInstance()
-            try? audio.setCategory(.playback, options: [.duckOthers])
-            try? audio.setActive(true)
-            outstanding += 1
-            generation += 1
+            WorkoutAudioSession.shared.hold { audio in
+                try? audio.setCategory(.playback, options: [.duckOthers])
+            }
             player.delegate = self
             player.currentTime = 0
-            player.play()
+            // A failed start never fires audioPlayerDidFinishPlaying, so drop
+            // the hold now or the session stays active (the user's music
+            // ducked with no recovery).
+            if !player.play() {
+                WorkoutAudioSession.shared.release()
+            }
         }
     }
 
     // MARK: - AVAudioPlayerDelegate
 
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        queue.async { [self] in
-            outstanding = max(0, outstanding - 1)
-            scheduleDeactivate()
-        }
-    }
-
-    /// Defer deactivation so a run of beeps a second apart keeps the session
-    /// active across the whole 3·2·1·go sequence instead of thrashing the
-    /// user's music up and down.
-    private func scheduleDeactivate() {
-        let g = generation
-        queue.asyncAfter(deadline: .now() + 1.5) { [self] in
-            guard g == generation else { return } // a newer beep superseded this
-            deactivateIfIdle()
-        }
-    }
-
-    /// Queue-confined. Deactivation can throw while the output IO is still
-    /// winding down (the "session is busy" OSStatus); a swallowed failure
-    /// would leave the user's music ducked for good, so it retries on a
-    /// short backoff, re-checking idleness each attempt.
-    private func deactivateIfIdle(attempt: Int = 0) {
-        guard outstanding == 0 else { return }
-        do {
-            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-        } catch {
-            guard attempt < 3 else { return }
-            queue.asyncAfter(deadline: .now() + 0.4) { [self] in deactivateIfIdle(attempt: attempt + 1) }
+        queue.async {
+            // Defer so the 3·2·1·go tones (about a second apart) don't
+            // duck-and-restore the user's music between each beep.
+            WorkoutAudioSession.shared.release(after: 1.5)
         }
     }
 

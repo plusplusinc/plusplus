@@ -251,6 +251,7 @@ struct ActiveSessionView: View {
             heartRate.stop()
             location.stop()
             VoiceCueSpeaker.shared.stop()
+            CountdownCue.shared.stop()
         }
         // GPS pauses with the workout clock (HR keeps its passive query) —
         // no distance banked across a pause, and the battery rests.
@@ -272,7 +273,10 @@ struct ActiveSessionView: View {
         // stops speech inside finishSession, but the mirror path never
         // passes through there (swift-reviewer).
         .onChange(of: session.isFinished) { _, finished in
-            if finished { VoiceCueSpeaker.shared.stop() }
+            if finished {
+                VoiceCueSpeaker.shared.stop()
+                CountdownCue.shared.stop()
+            }
         }
         // Island / Lock Screen rest controls (#157): LiveActivityIntents
         // run in this process and post here — same mutations as the
@@ -676,8 +680,9 @@ struct ActiveSessionView: View {
 
     private func finishSession(dismissAfter: Bool = true) {
         WorkoutActivityController.shared.end()
-        // A cue still talking over the purple finish would be noise.
+        // A cue still talking (or beeping) over the purple finish is noise.
         VoiceCueSpeaker.shared.stop()
+        CountdownCue.shared.stop()
         if !session.isFinished {
             isFirstEverFinish = finishedSessions.isEmpty
             session.finish()
