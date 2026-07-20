@@ -193,7 +193,9 @@ struct ActiveSessionView: View {
             }
         }
         .sheet(isPresented: $showingOverview) {
-            SessionOverviewSheet(session: session) {
+            // A live rest/transition countdown (either sets restEndDate) makes
+            // the not-yet-done exercises pulse green in the overview (#421).
+            SessionOverviewSheet(session: session, isResting: restEndDate != nil) {
                 endRest()
             }
             .presentationDetents([.fraction(0.88)])
