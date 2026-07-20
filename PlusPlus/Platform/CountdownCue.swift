@@ -2,12 +2,15 @@ import Foundation
 import AVFoundation
 
 /// The countdown-cue setting (Settings tray → COUNTDOWN CUES): a plain
-/// on/off. Default OFF — like the voice cues, an app that starts making
-/// noise unasked is a surprise, so the beeps are opt-in.
+/// on/off. Default ON — unlike the voice cues (an unasked talking coach is a
+/// surprise, so those opt in), a rest countdown beep is a conventional,
+/// expected timer affordance, so it ships on and the user can silence it.
 enum CountdownCueSetting {
     static let key = "countdownCuesEnabled"
 
-    static var isEnabled: Bool { UserDefaults.standard.bool(forKey: key) }
+    /// Unset reads as ON, so the stored `false` from an explicit toggle-off
+    /// is the only way it's silent — must match the `@AppStorage` default.
+    static var isEnabled: Bool { UserDefaults.standard.object(forKey: key) as? Bool ?? true }
 }
 
 /// Plays the rest/transition countdown tones: a short tick on each of the
