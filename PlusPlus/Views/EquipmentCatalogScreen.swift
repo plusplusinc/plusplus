@@ -215,15 +215,19 @@ struct EquipmentCatalogScreen: View {
                 FacetChip(
                     facet: "Kit",
                     selection: $kitFilter,
-                    options: [(true, "In kit"), (false, "Not in kit")]
+                    options: [(true, "In kit"), (false, "Not in kit")],
+                    attributeSymbol: "dumbbell.fill",
+                    valueSymbols: [true: "checkmark.circle.fill", false: "circle"]
                 )
                 TrayFilterChip(
                     facet: "Type",
-                    count: typeFilter.count
+                    count: typeFilter.count,
+                    activeSymbol: "tag.fill"
                 ) { showingTypeFilter = true }
                 TrayFilterChip(
                     facet: "Muscle",
-                    count: filterState.selectedMuscleGroups.count
+                    count: filterState.selectedMuscleGroups.count,
+                    activeSymbol: "figure.arms.open"
                 ) { showingMuscleFilter = true }
                 SortChip(
                     selection: $sortOrder,

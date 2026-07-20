@@ -29,6 +29,17 @@ struct FacetChip<Value: Hashable>: View {
     /// equipment libraries exist) — the no-dead-ends law applied to
     /// availability.
     var footers: [(label: String, action: () -> Void)] = []
+    /// A meaningful SF Symbol shown leading the label when the facet is
+    /// active (Dave, 2026-07-20). `valueSymbols` maps a selected value to a
+    /// symbol particular to it; `attributeSymbol` is the fallback for the
+    /// facet as a whole.
+    var attributeSymbol: String? = nil
+    var valueSymbols: [Value: String] = [:]
+
+    private var activeSymbol: String? {
+        guard let selection else { return nil }
+        return valueSymbols[selection] ?? attributeSymbol
+    }
 
     var body: some View {
         Menu {
@@ -59,20 +70,27 @@ struct FacetChip<Value: Hashable>: View {
                 }
             }
         } label: {
-            Text(activeLabel)
-                .font(.system(.footnote, weight: .semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-                .foregroundStyle(selection == nil ? Theme.textSecondary : Theme.onSelected)
-                .padding(.horizontal, 13)
-                .frame(height: 36)
-                .background(
-                    selection == nil ? Theme.surface : Theme.selected,
-                    in: Capsule()
-                )
-                .overlay(Capsule().strokeBorder(selection == nil ? Theme.border : Color.clear))
-                .frame(height: 44)
-                .contentShape(Rectangle())
+            HStack(spacing: 5) {
+                if let activeSymbol {
+                    Image(systemName: activeSymbol)
+                        .font(.system(.caption2, weight: .semibold))
+                        .accessibilityHidden(true)
+                }
+                Text(activeLabel)
+                    .font(.system(.footnote, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+            .foregroundStyle(selection == nil ? Theme.textSecondary : Theme.onSelected)
+            .padding(.horizontal, 13)
+            .frame(height: 36)
+            .background(
+                selection == nil ? Theme.surface : Theme.selected,
+                in: Capsule()
+            )
+            .overlay(Capsule().strokeBorder(selection == nil ? Theme.border : Color.clear))
+            .frame(height: 44)
+            .contentShape(Rectangle())
         }
         .animation(Theme.Anim.selection, value: selection == nil)
         .sensoryFeedback(.selection, trigger: selection)
@@ -99,6 +117,19 @@ struct MultiFacetChip<Value: Hashable>: View {
     let facet: String
     @Binding var selection: Set<Value>
     let options: [(Value, String)]
+    /// A meaningful SF Symbol when active (Dave, 2026-07-20): the selected
+    /// value's own symbol when exactly one is picked, else the facet's
+    /// `attributeSymbol` (a union has no single value to speak for).
+    var attributeSymbol: String? = nil
+    var valueSymbols: [Value: String] = [:]
+
+    private var activeSymbol: String? {
+        guard !selection.isEmpty else { return nil }
+        if selection.count == 1, let only = selection.first, let symbol = valueSymbols[only] {
+            return symbol
+        }
+        return attributeSymbol
+    }
 
     var body: some View {
         Menu {
@@ -127,20 +158,27 @@ struct MultiFacetChip<Value: Hashable>: View {
                 }
             }
         } label: {
-            Text(activeLabel)
-                .font(.system(.footnote, weight: .semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-                .foregroundStyle(selection.isEmpty ? Theme.textSecondary : Theme.onSelected)
-                .padding(.horizontal, 13)
-                .frame(height: 36)
-                .background(
-                    selection.isEmpty ? Theme.surface : Theme.selected,
-                    in: Capsule()
-                )
-                .overlay(Capsule().strokeBorder(selection.isEmpty ? Theme.border : Color.clear))
-                .frame(height: 44)
-                .contentShape(Rectangle())
+            HStack(spacing: 5) {
+                if let activeSymbol {
+                    Image(systemName: activeSymbol)
+                        .font(.system(.caption2, weight: .semibold))
+                        .accessibilityHidden(true)
+                }
+                Text(activeLabel)
+                    .font(.system(.footnote, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+            .foregroundStyle(selection.isEmpty ? Theme.textSecondary : Theme.onSelected)
+            .padding(.horizontal, 13)
+            .frame(height: 36)
+            .background(
+                selection.isEmpty ? Theme.surface : Theme.selected,
+                in: Capsule()
+            )
+            .overlay(Capsule().strokeBorder(selection.isEmpty ? Theme.border : Color.clear))
+            .frame(height: 44)
+            .contentShape(Rectangle())
         }
         .animation(Theme.Anim.selection, value: selection.isEmpty)
         .sensoryFeedback(.selection, trigger: selection)
@@ -167,6 +205,10 @@ struct MultiFacetChip<Value: Hashable>: View {
 struct TrayFilterChip: View {
     let facet: String
     let count: Int
+    /// A meaningful SF Symbol shown leading the facet name when active
+    /// (Dave, 2026-07-20). A tray's values don't fit the chip, so this is
+    /// the facet's attribute symbol, not a per-value one.
+    var activeSymbol: String? = nil
     let action: () -> Void
 
     private var active: Bool { count > 0 }
@@ -174,6 +216,11 @@ struct TrayFilterChip: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
+                if active, let activeSymbol {
+                    Image(systemName: activeSymbol)
+                        .font(.system(.caption2, weight: .semibold))
+                        .accessibilityHidden(true)
+                }
                 Text(facet)
                     .font(.system(.footnote, weight: .semibold))
                     .lineLimit(1)
@@ -267,5 +314,46 @@ struct SortChip<Value: Hashable>: View {
 
     private var currentLabel: String {
         options.first(where: { $0.0 == selection })?.1 ?? ""
+    }
+}
+
+/// A filter chip that opens a SHEET rather than an anchored menu — the
+/// routine catalog's Kit filter (Dave, 2026-07-20), which combines kit
+/// switching with the fit mode and doesn't fit a menu. Its icon and label
+/// speak the current mode; it reads active (blue) while narrowing to a kit
+/// or to bodyweight, neutral while showing all routines.
+struct KitFilterChip: View {
+    let symbol: String
+    let label: String
+    let isActive: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: symbol)
+                    .font(.system(.caption2, weight: .semibold))
+                    .accessibilityHidden(true)
+                Text(label)
+                    .font(.system(.footnote, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                Image(systemName: "chevron.down")
+                    .font(.system(.caption2, weight: .semibold))
+                    .accessibilityHidden(true)
+            }
+            .foregroundStyle(isActive ? Theme.onSelected : Theme.textSecondary)
+            .padding(.horizontal, 13)
+            .frame(height: 36)
+            .background(isActive ? Theme.selected : Theme.surface, in: Capsule())
+            .overlay(Capsule().strokeBorder(isActive ? Color.clear : Theme.border))
+            .frame(height: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .animation(Theme.Anim.selection, value: isActive)
+        .accessibilityLabel("Kit filter")
+        .accessibilityValue(label)
+        .accessibilityIdentifier("facetKit")
     }
 }

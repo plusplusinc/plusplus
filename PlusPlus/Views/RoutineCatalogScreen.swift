@@ -29,7 +29,6 @@ struct RoutineCatalogScreen: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: [SortDescriptor(\Routine.order), SortDescriptor(\Routine.createdAt, order: .reverse)])
     private var routines: [Routine]
-    @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
     @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
     @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
@@ -51,8 +50,7 @@ struct RoutineCatalogScreen: View {
     /// below the list all make the narrowing visible and reversible.
     @State private var gearFilter: GearFit? = .mine
     @State private var sort: CatalogSort = .featured
-    @State private var showingEquipmentEditor = false
-    @State private var showingLibraryTray = false
+    @State private var showingKitSheet = false
     @State private var showingNewRoutine = false
     @State private var newRoutineName = ""
     /// One-shot per appearance: path.append isn't idempotent the way
@@ -105,25 +103,33 @@ struct RoutineCatalogScreen: View {
         activeLibrary?.memberNames ?? []
     }
 
-    /// The GEAR facet's "mine" option reads as the library's name once
-    /// more than one exists, so a lit HOME / HOTEL chip IS the visible
-    /// library state (Dave). One library: the plain "My equipment".
-    private var mineLabel: String {
-        libraries.count > 1 ? (activeLibrary?.name ?? "My equipment") : "My equipment"
-    }
-
-    private var gearFooters: [(label: String, action: () -> Void)] {
-        var rows: [(label: String, action: () -> Void)] = [
-            ("Edit my equipment…", { showingEquipmentEditor = true })
-        ]
-        if libraries.count > 1 {
-            rows.append(("Switch kit…", { showingLibraryTray = true }))
+    /// The Kit chip (leftmost) speaks the current fit mode: the active kit's
+    /// name while narrowing to it, "No equipment" for bodyweight-only, "All
+    /// kits" while the lens is dropped. It reads active (blue) while narrowing,
+    /// neutral while showing all (`.mine` is the default, so it's blue by
+    /// default — the kit lens is the resting scope, not a transient filter).
+    private var kitChipLabel: String {
+        switch gearFilter {
+        case .mine: activeLibrary?.name ?? "My kit"
+        case .bodyweightOnly: "No equipment"
+        case nil: "All kits"
         }
-        return rows
     }
 
+    private var kitChipSymbol: String {
+        switch gearFilter {
+        case .mine: "dumbbell.fill"
+        case .bodyweightOnly: "figure.strengthtraining.functional"
+        case nil: "dumbbell"
+        }
+    }
+
+    private var kitChipActive: Bool { gearFilter != nil }
+
+    /// The ✕ appears only once the browse is narrowed past its default (your
+    /// kit, no facets): a facet is set, or the kit lens is off-default.
     private var anyFilterActive: Bool {
-        !focusFilter.isEmpty || !effortFilter.isEmpty || !timeFilter.isEmpty || gearFilter != nil
+        !focusFilter.isEmpty || !effortFilter.isEmpty || !timeFilter.isEmpty || gearFilter != .mine
     }
 
     private var filteredTemplates: [RoutineTemplate] {
@@ -276,15 +282,11 @@ struct RoutineCatalogScreen: View {
         // resolve in production (build 33: template taps hit SwiftUI's
         // missing-destination placeholder). The registration lives at each
         // owning stack's root — RoutineListView and TodayView.
-        // The equipment catalog as a stacked sheet (the #254 pattern):
-        // ownership edits reflect in the filter live on return.
-        .sheet(isPresented: $showingEquipmentEditor) {
-            NavigationStack {
-                EquipmentCatalogScreen()
-            }
-        }
-        .sheet(isPresented: $showingLibraryTray) {
-            EquipmentLibraryTray()
+        // The Kit filter sheet: switch the kit the catalog judges against
+        // (app-wide) or drop the lens. Kit switching here re-renders the list
+        // live on return, the same as the old footer's "Switch kit…".
+        .sheet(isPresented: $showingKitSheet) {
+            RoutineKitFilterSheet(mode: $gearFilter)
         }
         .alert("New routine", isPresented: $showingNewRoutine) {
             TextField("Name", text: $newRoutineName)
@@ -300,29 +302,38 @@ struct RoutineCatalogScreen: View {
             if anyFilterActive {
                 ClearAllChip { clearFilters() }
             }
+            // Kit is the leftmost, most-load-bearing filter (Dave, 2026-07-20):
+            // it opens a sheet to switch the kit the catalog judges against, or
+            // drop the lens. Its icon + label speak the current mode.
+            KitFilterChip(
+                symbol: kitChipSymbol,
+                label: kitChipLabel,
+                isActive: kitChipActive
+            ) { showingKitSheet = true }
             MultiFacetChip(
-                facet: "FOCUS",
+                facet: "Focus",
                 selection: $focusFilter,
-                options: RoutineTemplate.Focus.allCases.map { ($0, $0.rawValue) }
+                options: RoutineTemplate.Focus.allCases.map { ($0, $0.rawValue) },
+                attributeSymbol: "target"
             )
             MultiFacetChip(
-                facet: "EFFORT",
+                facet: "Effort",
                 selection: $effortFilter,
-                options: RoutineTemplate.Effort.allCases.map { ($0, $0.rawValue) }
+                options: RoutineTemplate.Effort.allCases.map { ($0, $0.rawValue) },
+                attributeSymbol: "flame.fill",
+                // A single-effort pick reads as an intensity ramp; a union
+                // falls back to the flame.
+                valueSymbols: [
+                    .light: "thermometer.low",
+                    .moderate: "thermometer.medium",
+                    .intense: "thermometer.high",
+                ]
             )
             MultiFacetChip(
-                facet: "TIME",
+                facet: "Time",
                 selection: $timeFilter,
-                options: TimeBand.allCases.map { ($0, $0.rawValue) }
-            )
-            FacetChip(
-                facet: "GEAR",
-                selection: $gearFilter,
-                options: GearFit.allCases.map { ($0, $0 == .mine ? mineLabel : $0.rawValue) },
-                // Fix the filter's basis without leaving (#260): the
-                // availability version of create-at-every-dead-end, plus
-                // a switch once more than one library exists.
-                footers: gearFooters
+                options: TimeBand.allCases.map { ($0, $0.rawValue) },
+                attributeSymbol: "clock"
             )
             // Sort rides the same row (#237) but stays neutral — see
             // FilterChips: ordering is not filter state.
@@ -332,11 +343,13 @@ struct RoutineCatalogScreen: View {
         .animation(Theme.Anim.standard, value: anyFilterActive)
     }
 
+    /// Clearing returns to the DEFAULT browse (your kit, no facets), not to
+    /// show-all: your kit is the resting scope.
     private func clearFilters() {
         focusFilter = []
         effortFilter = []
         timeFilter = []
-        gearFilter = nil
+        gearFilter = .mine
     }
 
     // MARK: - Rows
