@@ -174,25 +174,29 @@ struct EquipmentLibraryTray: View {
             .buttonStyle(.plain)
             .accessibilityIdentifier("libraryRow-\(library.name)")
 
-            Menu {
-                Button("Rename…") {
-                    renameText = library.name
-                    renaming = library
-                }
-                if libraries.count > 1 {
-                    Button("Delete…", role: .destructive) {
-                        deleting = library
+            // The baked-in null kit is permanent: no rename, no delete, so
+            // it has no … menu (rename/delete are its only items).
+            if !library.isBodyweight {
+                Menu {
+                    Button("Rename…") {
+                        renameText = library.name
+                        renaming = library
                     }
+                    if libraries.count > 1 {
+                        Button("Delete…", role: .destructive) {
+                            deleting = library
+                        }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(.footnote, weight: .semibold))
+                        .foregroundStyle(Theme.textFaint)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.system(.footnote, weight: .semibold))
-                    .foregroundStyle(Theme.textFaint)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
+                .accessibilityLabel("\(library.name) options")
+                .accessibilityIdentifier("libraryMenu-\(library.name)")
             }
-            .accessibilityLabel("\(library.name) options")
-            .accessibilityIdentifier("libraryMenu-\(library.name)")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -206,7 +210,7 @@ struct EquipmentLibraryTray: View {
         let names = library.members.map(\.name).sorted()
         return Group {
             if names.isEmpty {
-                Text("bodyweight only")
+                Text(library.isBodyweight ? EquipmentLibrary.bodyweightCaption : "bodyweight only")
                     .font(.system(.caption2, design: .monospaced))
                     .foregroundStyle(Theme.textFaint)
             } else {
