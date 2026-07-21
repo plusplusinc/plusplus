@@ -110,7 +110,7 @@ struct RoutineCatalogScreen: View {
     /// default — the kit lens is the resting scope, not a transient filter).
     private var kitChipLabel: String {
         switch gearFilter {
-        case .mine: activeLibrary?.name ?? "My kit"
+        case .mine: activeLibrary?.name ?? "Your kit"
         case .bodyweightOnly: "No equipment"
         case nil: "All kits"
         }
@@ -671,11 +671,9 @@ struct GearCheckTray: View {
         VStack(alignment: .leading, spacing: 0) {
             SheetHeader(title: "Equipment check", closeOnly: true, action: { dismiss() })
 
-            // Name the kit these toggles write to (Dave, 2026-07-20): the
-            // marks land in the ACTIVE kit, so say which one — but only
-            // once more than one kit exists, since a lone default kit reads
-            // better as "your kit" than the bare lowercase "main".
-            Text("Marking what you have in \(libraries.count > 1 ? (activeLibrary?.name ?? EquipmentLibrary.defaultName) : "your kit"). It counts toward the kit filter everywhere.")
+            // Name the kit these toggles write to: the marks land in the
+            // ACTIVE kit, so say which one (shared prose rule).
+            Text("Marking what you have in \(EquipmentLibrary.activeNamePhrase(in: libraries, storedID: activeLibraryID)). It determines which exercises your routines can include.")
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
                 .padding(.top, 6)

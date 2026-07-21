@@ -64,6 +64,20 @@ extension EquipmentLibrary {
         return sorted.first
     }
 
+    /// The active kit named for PROSE (card copy, tray blurbs): the kit's
+    /// name once more than one kit exists, else the generic possessive.
+    /// ONE rule in ONE place so the "count > 1 ? name : your kit" logic can't
+    /// drift across call sites. Switcher CONTROLS (the Kit-tab pill, the
+    /// catalog "Adding to" strip, the routine Kit chip) deliberately do NOT
+    /// use this — a control always shows the raw name, since it needs a label
+    /// even with a single kit.
+    static func activeNamePhrase(in libraries: [EquipmentLibrary], storedID: String?, generic: String = "your kit") -> String {
+        guard libraries.count > 1, let name = active(in: libraries, storedID: storedID)?.name else {
+            return generic
+        }
+        return name
+    }
+
     /// Non-view resolution (SeedData's populate math, the importer).
     static func active(context: ModelContext) -> EquipmentLibrary? {
         let all = (try? context.fetch(FetchDescriptor<EquipmentLibrary>())) ?? []
