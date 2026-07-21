@@ -29,6 +29,7 @@ struct ExercisesTabView: View {
     @State private var showingGearPicker = false
     @State private var creatingExercise = false
     @State private var loadedPrefs = false
+    @State private var showingLibraryTray = false
 
     private var availableEquipmentNames: Set<String> {
         EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.memberNames ?? []
@@ -56,7 +57,18 @@ struct ExercisesTabView: View {
                         prompt: "Search exercises",
                         identifier: "exercisesSearchField"
                     )
-                )
+                ) {
+                    // Switch the kit exercises are judged against, inline
+                    // (2026-07-21 axes separation) — the same switcher the Kit
+                    // tab and routine catalog use; the Equipment facet below
+                    // stays a pure LOCAL lens that never switches.
+                    LibrarySwitcherKey(
+                        name: EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.name ?? EquipmentLibrary.defaultName,
+                        identifier: "exercisesKitSwitcher"
+                    ) {
+                        showingLibraryTray = true
+                    }
+                }
                 filterRow
                 List {
                     // Creation is the top row everywhere (2026-07-18): New
@@ -91,6 +103,9 @@ struct ExercisesTabView: View {
             .sheet(isPresented: $showingGearPicker) {
                 GearPickSheet(filterState: filterState, allEquipment: allEquipmentSorted)
                     .presentationDetents([.medium, .large])
+            }
+            .sheet(isPresented: $showingLibraryTray) {
+                EquipmentLibraryTray()
             }
         }
         .revealRoot(tab: "exercises", atRoot: path.isEmpty)
@@ -634,6 +649,10 @@ extension CatalogTabHeader where Accessory == EmptyView {
 /// discoverable before a second library exists).
 struct LibrarySwitcherKey: View {
     let name: String
+    /// Distinct per call site (the same switcher now rides four surfaces), so
+    /// a future smoke test visiting more than one doesn't hit a multiple-match
+    /// on a shared identifier (swift review).
+    var identifier: String = "librarySwitcherButton"
     let action: () -> Void
 
     var body: some View {
@@ -663,7 +682,7 @@ struct LibrarySwitcherKey: View {
             .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
         }
         .buttonStyle(.raisedKey())
-        .accessibilityIdentifier("librarySwitcherButton")
+        .accessibilityIdentifier(identifier)
     }
 }
 
