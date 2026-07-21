@@ -29,6 +29,7 @@ struct ExercisesTabView: View {
     @State private var showingGearPicker = false
     @State private var creatingExercise = false
     @State private var loadedPrefs = false
+    @State private var showingLibraryTray = false
 
     private var availableEquipmentNames: Set<String> {
         EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.memberNames ?? []
@@ -56,7 +57,17 @@ struct ExercisesTabView: View {
                         prompt: "Search exercises",
                         identifier: "exercisesSearchField"
                     )
-                )
+                ) {
+                    // Switch the kit exercises are judged against, inline
+                    // (2026-07-21 axes separation) — the same switcher the Kit
+                    // tab and routine catalog use; the Equipment facet below
+                    // stays a pure LOCAL lens that never switches.
+                    LibrarySwitcherKey(
+                        name: EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.name ?? EquipmentLibrary.defaultName
+                    ) {
+                        showingLibraryTray = true
+                    }
+                }
                 filterRow
                 List {
                     // Creation is the top row everywhere (2026-07-18): New
@@ -91,6 +102,9 @@ struct ExercisesTabView: View {
             .sheet(isPresented: $showingGearPicker) {
                 GearPickSheet(filterState: filterState, allEquipment: allEquipmentSorted)
                     .presentationDetents([.medium, .large])
+            }
+            .sheet(isPresented: $showingLibraryTray) {
+                EquipmentLibraryTray()
             }
         }
         .revealRoot(tab: "exercises", atRoot: path.isEmpty)
