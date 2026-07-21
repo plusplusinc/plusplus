@@ -81,11 +81,12 @@ struct RoutineCatalogScreen: View {
         }
     }
 
-    // Not `case none`: inside a switch over GearFit?, `.none` resolves
-    // to Optional.none and the compiler loses the case (CI catch).
+    /// The routine catalog's kit lens: narrow to the active kit (`.mine`) or,
+    /// as `nil`, drop the lens and show all routines. The bodyweight-only
+    /// scope moved to the baked-in `null` kit (2026-07-21) — switch to it
+    /// instead of a separate mode.
     enum GearFit: String, CaseIterable, Hashable {
         case mine = "My equipment"
-        case bodyweightOnly = "No equipment"
     }
 
     enum CatalogSort: String, CaseIterable {
@@ -111,7 +112,6 @@ struct RoutineCatalogScreen: View {
     private var kitChipLabel: String {
         switch gearFilter {
         case .mine: activeLibrary?.name ?? "Your kit"
-        case .bodyweightOnly: "No equipment"
         case nil: "All kits"
         }
     }
@@ -119,7 +119,6 @@ struct RoutineCatalogScreen: View {
     private var kitChipSymbol: String {
         switch gearFilter {
         case .mine: "dumbbell.fill"
-        case .bodyweightOnly: "figure.strengthtraining.functional"
         case nil: "dumbbell"
         }
     }
@@ -159,8 +158,6 @@ struct RoutineCatalogScreen: View {
             switch gearOverride {
             case .mine:
                 if !template.equipmentNames.allSatisfy(owned.contains) { return false }
-            case .bodyweightOnly:
-                if !template.equipmentNames.isEmpty { return false }
             case nil:
                 break
             }

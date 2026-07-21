@@ -363,6 +363,9 @@ struct EquipmentTabView: View {
         EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)
     }
 
+    /// The baked-in null kit is immutable — no Add row, a distinct empty state.
+    private var isBodyweightKit: Bool { activeLibrary?.isBodyweight ?? false }
+
     /// The active library's members, sorted for a stable list.
     private var libraryEquipment: [Equipment] {
         (activeLibrary?.members ?? []).sorted { $0.name < $1.name }
@@ -400,8 +403,11 @@ struct EquipmentTabView: View {
 
                 List {
                     // Top row navigates to the catalog to add gear; New/Add
-                    // never dead-ends an empty kit or a zeroed search.
-                    addEquipmentRow
+                    // never dead-ends an empty kit or a zeroed search. The
+                    // null kit is immutable, so it shows no Add row.
+                    if !isBodyweightKit {
+                        addEquipmentRow
+                    }
                     equipmentRows
                     if filteredEquipment.isEmpty {
                         equipmentEmptyHint
@@ -443,13 +449,21 @@ struct EquipmentTabView: View {
         .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
     }
 
+    private var emptyHintText: String {
+        if !searchText.trimmingCharacters(in: .whitespaces).isEmpty {
+            return "Nothing in your kit matches."
+        }
+        // The null kit is empty on purpose — say so, and point to the switch.
+        if isBodyweightKit {
+            return "Switch to another kit to add equipment. null is the no-equipment kit."
+        }
+        // A fresh install seeds an empty kit (#232) — say what the list is for.
+        return "Your kit is empty. Add equipment to unlock exercises and routines."
+    }
+
     private var equipmentEmptyHint: some View {
         VStack(spacing: 10) {
-            // A fresh install seeds an empty kit (#232) — say what the list
-            // is for; a zeroed search just says nothing matched.
-            Text(searchText.trimmingCharacters(in: .whitespaces).isEmpty
-                 ? "Your kit is empty. Add equipment to unlock exercises and routines."
-                 : "Nothing in your kit matches.")
+            Text(emptyHintText)
                 .font(.system(.footnote))
                 .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)

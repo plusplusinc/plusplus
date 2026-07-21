@@ -108,6 +108,9 @@ struct PlusPlusApp: App {
         // "Home"; fresh + just-migrated stores get "main" straight from
         // the constant above.
         SeedData.renameDefaultKitIfNeeded(context: modelContainer.mainContext)
+        // The baked-in no-equipment kit — always present alongside `main`
+        // (re-created if deleted), so nobody has to build a bodyweight option.
+        SeedData.ensureBodyweightKit(context: modelContainer.mainContext)
         // Ensure every routine/group/exercise has a stable uuid — assigns one
         // to any row migrated in from a pre-uuid store (#155).
         SeedData.backfillModelUUIDsIfNeeded(context: modelContainer.mainContext)

@@ -32,13 +32,9 @@ struct RoutineKitFilterSheet: View {
                         kitRow(library)
                         Divider().overlay(Theme.border)
                     }
-                    modeRow(
-                        symbol: "figure.strengthtraining.functional",
-                        title: "No equipment",
-                        subtitle: "only routines that need no gear",
-                        selected: mode == .bodyweightOnly
-                    ) { apply(.bodyweightOnly) }
-                    Divider().overlay(Theme.border)
+                    // No "No equipment" mode: the baked-in `null` kit above
+                    // IS the bodyweight-only scope now (2026-07-21). "All
+                    // routines" stays — it drops the lens entirely.
                     modeRow(
                         symbol: "square.stack.3d.up",
                         title: "All routines",
@@ -120,6 +116,7 @@ struct RoutineKitFilterSheet: View {
     }
 
     private func gearSummary(_ library: EquipmentLibrary) -> String {
+        if library.isBodyweight { return EquipmentLibrary.bodyweightCaption }
         let names = library.members.map(\.name).sorted()
         return names.isEmpty ? "bodyweight only" : names.joined(separator: " · ")
     }

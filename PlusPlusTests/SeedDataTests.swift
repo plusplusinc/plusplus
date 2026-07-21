@@ -59,6 +59,89 @@ struct SeedDataTests {
         requires("Burpee", [])
     }
 
+    // MARK: - Baked-in null kit (2026-07-21)
+
+    @Test func ensureBodyweightKitCreatesTheNullKit() throws {
+        let context = ModelContext(try makeContainer())
+        SeedData.ensureEquipmentLibrary(context: context)
+        SeedData.ensureBodyweightKit(context: context)
+
+        let libraries = try context.fetch(FetchDescriptor<EquipmentLibrary>())
+        let names = Set(libraries.map(\.name))
+        #expect(names.contains(EquipmentLibrary.defaultName))
+        #expect(names.contains(EquipmentLibrary.bodyweightName))
+        let null = libraries.first { $0.name == EquipmentLibrary.bodyweightName }
+        #expect(null?.isBodyweight == true)
+        #expect(null?.members.isEmpty == true)
+    }
+
+    @Test func ensureBodyweightKitIsIdempotent() throws {
+        let context = ModelContext(try makeContainer())
+        SeedData.ensureEquipmentLibrary(context: context)
+        SeedData.ensureBodyweightKit(context: context)
+        SeedData.ensureBodyweightKit(context: context)
+
+        let nullKits = try context.fetch(FetchDescriptor<EquipmentLibrary>())
+            .filter { $0.name == EquipmentLibrary.bodyweightName }
+        #expect(nullKits.count == 1)
+    }
+
+    /// The "baked in" guarantee: deleting the null kit brings it back on the
+    /// next launch's ensure pass.
+    @Test func ensureBodyweightKitRecreatesAfterDeletion() throws {
+        let context = ModelContext(try makeContainer())
+        SeedData.ensureEquipmentLibrary(context: context)
+        SeedData.ensureBodyweightKit(context: context)
+
+        if let null = try context.fetch(FetchDescriptor<EquipmentLibrary>())
+            .first(where: { $0.name == EquipmentLibrary.bodyweightName }) {
+            context.delete(null)
+            try context.save()
+        }
+        SeedData.ensureBodyweightKit(context: context)
+
+        let nullKits = try context.fetch(FetchDescriptor<EquipmentLibrary>())
+            .filter { $0.name == EquipmentLibrary.bodyweightName }
+        #expect(nullKits.count == 1)
+    }
+
+    /// The null kit is immutable — a membership write no-ops, whatever surface
+    /// asks, so it stays a true empty set.
+    @Test func nullKitRejectsMembership() throws {
+        let context = ModelContext(try makeContainer())
+        let null = EquipmentLibrary(name: EquipmentLibrary.bodyweightName, order: 1)
+        context.insert(null)
+        let probe = Equipment(name: "Probe Barbell", isBuiltIn: false)
+        context.insert(probe)
+        try context.save()
+
+        null.setMembership(probe, true)
+        #expect(null.members.isEmpty, "the null kit is immutable — membership writes must no-op")
+    }
+
+    /// The always-present null kit must not count toward "more than one kit
+    /// exists" — a user with a single real kit still reads "your kit", while
+    /// null being the active scope names it.
+    @Test func activeNamePhraseIgnoresTheAlwaysPresentNullKit() throws {
+        let context = ModelContext(try makeContainer())
+        let main = EquipmentLibrary(name: EquipmentLibrary.defaultName, order: 0)
+        let null = EquipmentLibrary(name: EquipmentLibrary.bodyweightName, order: 1)
+        context.insert(main)
+        context.insert(null)
+        try context.save()
+
+        // One real kit + the ever-present null → still the generic possessive.
+        #expect(EquipmentLibrary.activeNamePhrase(in: [main, null], storedID: main.uuid.uuidString) == "your kit")
+        // null itself active → named (a deliberate scope, not "your kit").
+        #expect(EquipmentLibrary.activeNamePhrase(in: [main, null], storedID: null.uuid.uuidString) == EquipmentLibrary.bodyweightName)
+
+        // A second real kit → the active kit's own name.
+        let garage = EquipmentLibrary(name: "Garage", order: 2)
+        context.insert(garage)
+        try context.save()
+        #expect(EquipmentLibrary.activeNamePhrase(in: [main, null, garage], storedID: garage.uuid.uuidString) == "Garage")
+    }
+
     /// Whole-catalog successor to #185 (2026-07-17): a fresh install seeds
     /// the entire catalog and favorites nothing, and the seed keeps the
     /// exercise↔equipment relationships intact.

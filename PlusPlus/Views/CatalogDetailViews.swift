@@ -561,7 +561,40 @@ struct EquipmentDetailScreen: View {
         EquipmentLibrary.activeNamePhrase(in: libraries, storedID: activeLibraryID)
     }
 
+    private var activeIsBodyweight: Bool { activeLibrary?.isBodyweight ?? false }
+
+    /// The null kit is immutable, so its detail shows a note instead of an
+    /// inert Add toggle; every other kit gets the real toggle.
+    @ViewBuilder
     private var kitToggleCard: some View {
+        if activeIsBodyweight {
+            bodyweightKitNote
+        } else {
+            editableKitToggleCard
+        }
+    }
+
+    private var bodyweightKitNote: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "figure.strengthtraining.functional")
+                .font(.system(.title2))
+                .foregroundStyle(Theme.textSecondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("On the null kit")
+                    .font(.system(.headline))
+                    .foregroundStyle(Theme.textPrimary)
+                Text("Switch to another kit to add equipment.")
+                    .font(.system(.caption))
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            Spacer(minLength: 8)
+        }
+        .padding(16)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+        .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.borderStrong))
+    }
+
+    private var editableKitToggleCard: some View {
         let inKit = inActiveLibrary
         // Name the target kit right in the card (Dave, 2026-07-20) so the
         // add is never a guess about which kit is active.

@@ -665,7 +665,8 @@ final class ChangeEngine {
             var addedNames: [String] = []
             var removedNames: [String] = []
             for library in resolution.libraries {
-                if let newName = ChangeFilter.normalized(values.name) { library.name = newName }
+                // The null kit's name is its identity — never rename it.
+                if let newName = ChangeFilter.normalized(values.name), !library.isBodyweight { library.name = newName }
                 if values.equipment != nil {
                     for member in library.members { library.setMembership(member, false) }
                     for item in resolution.equipment { library.setMembership(item, true) }
@@ -745,19 +746,24 @@ final class ChangeEngine {
 
         case (.delete, .library):
             let all = try context.fetch(FetchDescriptor<EquipmentLibrary>(sortBy: [SortDescriptor(\.order)]))
+            // The baked-in null kit is permanent — never delete it.
+            let targets = resolution.libraries.filter { !$0.isBodyweight }
+            guard !targets.isEmpty else {
+                throw EngineError.reason("the null kit is permanent and can't be deleted")
+            }
             let active = EquipmentLibrary.active(in: all)
-            let deletingActive = resolution.libraries.contains { $0 === active }
-            for library in resolution.libraries {
+            let deletingActive = targets.contains { $0 === active }
+            for library in targets {
                 inverse.recreateLibraries.append(LibrarySnapshot(library: library, isActive: library === active))
             }
-            let names = resolution.libraries.map(\.name)
-            for library in resolution.libraries {
+            let names = targets.map(\.name)
+            for library in targets {
                 context.delete(library)
             }
             // Deleting the active library re-points the device pointer to
             // a survivor, exactly like the tray's delete does.
             if deletingActive {
-                let deleted = Set(resolution.libraries.map(\.uuid))
+                let deleted = Set(targets.map(\.uuid))
                 if let next = all.first(where: { !deleted.contains($0.uuid) }) {
                     UserDefaults.standard.set(next.uuid.uuidString, forKey: EquipmentLibrary.activeIDKey)
                 }

@@ -95,6 +95,32 @@ struct InterchangeMappingTests {
         #expect(sessions.first?.sortedSetLogs.first?.actualReps == 10)
     }
 
+    @Test("Import can't populate the immutable null kit")
+    func importCannotPopulateNullKit() throws {
+        // Simulate a store carrying a "null"-named kit WITH gear — e.g. a
+        // custom kit made before the baked-in null existed. Direct assignment
+        // mimics that legacy data (setMembership itself no-ops for null).
+        let source = ModelContext(try makeContainer())
+        let barbell = Equipment(name: "Probe Barbell", isBuiltIn: false)
+        source.insert(barbell)
+        let stray = EquipmentLibrary(name: EquipmentLibrary.bodyweightName, order: 0)
+        source.insert(stray)
+        stray.equipment = [barbell]
+        try source.save()
+
+        let bundle = try InterchangeMapping.exportBundle(context: source)
+
+        // Fresh target with the baked-in null kit already present.
+        let target = ModelContext(try makeContainer())
+        SeedData.ensureBodyweightKit(context: target)
+        _ = try InterchangeMapping.importBundle(bundle, context: target)
+
+        let nullKits = try target.fetch(FetchDescriptor<EquipmentLibrary>())
+            .filter { $0.name == EquipmentLibrary.bodyweightName }
+        #expect(nullKits.count == 1, "no duplicate null kit")
+        #expect(nullKits.first?.members.isEmpty == true, "import must not populate the immutable null kit")
+    }
+
     @Test("Favorites travel: favorited built-ins export and restore (#328 basis)")
     func favoritesRoundTrip() throws {
         let source = ModelContext(try makeContainer())

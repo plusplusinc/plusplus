@@ -116,6 +116,21 @@ enum SeedData {
         try? context.save()
     }
 
+    /// The baked-in no-equipment kit (2026-07-21): every store always carries
+    /// `null` alongside `main`, so a bodyweight-only scope is always one tap
+    /// away and nobody has to build one. Idempotent by the reserved name (also
+    /// how the interchange dedups libraries) and re-created if deleted — the
+    /// "baked in" guarantee. Runs AFTER ensureEquipmentLibrary so `main` exists
+    /// and takes order 0, leaving `null` as the second option on a fresh store.
+    static func ensureBodyweightKit(context: ModelContext) {
+        let libraries = (try? context.fetch(FetchDescriptor<EquipmentLibrary>())) ?? []
+        guard !libraries.contains(where: { $0.name == EquipmentLibrary.bodyweightName }) else { return }
+        let order = (libraries.map(\.order).max() ?? -1) + 1
+        let kit = EquipmentLibrary(name: EquipmentLibrary.bodyweightName, order: order)
+        context.insert(kit)
+        try? context.save()
+    }
+
     /// #155 uuid backfill — ENFORCES UNIQUENESS, not just non-nil. The
     /// routine-family models gained an optional `uuid` (for the tray-flicker
     /// decoupling). It's set in `init`, never via a property-level default,
