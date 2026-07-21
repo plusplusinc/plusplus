@@ -119,6 +119,29 @@ struct SeedDataTests {
         #expect(null.members.isEmpty, "the null kit is immutable — membership writes must no-op")
     }
 
+    /// The always-present null kit must not count toward "more than one kit
+    /// exists" — a user with a single real kit still reads "your kit", while
+    /// null being the active scope names it.
+    @Test func activeNamePhraseIgnoresTheAlwaysPresentNullKit() throws {
+        let context = ModelContext(try makeContainer())
+        let main = EquipmentLibrary(name: EquipmentLibrary.defaultName, order: 0)
+        let null = EquipmentLibrary(name: EquipmentLibrary.bodyweightName, order: 1)
+        context.insert(main)
+        context.insert(null)
+        try context.save()
+
+        // One real kit + the ever-present null → still the generic possessive.
+        #expect(EquipmentLibrary.activeNamePhrase(in: [main, null], storedID: main.uuid.uuidString) == "your kit")
+        // null itself active → named (a deliberate scope, not "your kit").
+        #expect(EquipmentLibrary.activeNamePhrase(in: [main, null], storedID: null.uuid.uuidString) == EquipmentLibrary.bodyweightName)
+
+        // A second real kit → the active kit's own name.
+        let garage = EquipmentLibrary(name: "Garage", order: 2)
+        context.insert(garage)
+        try context.save()
+        #expect(EquipmentLibrary.activeNamePhrase(in: [main, null, garage], storedID: garage.uuid.uuidString) == "Garage")
+    }
+
     /// Whole-catalog successor to #185 (2026-07-17): a fresh install seeds
     /// the entire catalog and favorites nothing, and the seed keeps the
     /// exercise↔equipment relationships intact.

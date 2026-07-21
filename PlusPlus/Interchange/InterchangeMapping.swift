@@ -374,14 +374,17 @@ enum InterchangeMapping {
         for dto in bundle.equipmentLibraries ?? [] {
             let members = dto.equipment.map { resolveEquipment($0, in: &equipmentByName, context: context) }
             if let existing = librariesByName[dto.name.lowercased()] {
-                existing.equipment = members
+                // The baked-in null kit is immutable — an imported bundle
+                // (including one carrying a user's old custom "null") can't
+                // populate it, or its gear would be unremovable.
+                existing.equipment = existing.isBodyweight ? [] : members
                 summary.librariesReplaced += 1
             } else {
                 let library = EquipmentLibrary(name: dto.name, order: libraryOrder)
                 libraryOrder += 1
                 context.insert(library)
                 // Post-insert, like every relationship here.
-                library.equipment = members
+                library.equipment = library.isBodyweight ? [] : members
                 librariesByName[dto.name.lowercased()] = library
                 summary.librariesCreated += 1
             }

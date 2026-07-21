@@ -87,10 +87,14 @@ extension EquipmentLibrary {
     /// use this — a control always shows the raw name, since it needs a label
     /// even with a single kit.
     static func activeNamePhrase(in libraries: [EquipmentLibrary], storedID: String?, generic: String = "your kit") -> String {
-        guard libraries.count > 1, let name = active(in: libraries, storedID: storedID)?.name else {
-            return generic
-        }
-        return name
+        guard let activeKit = active(in: libraries, storedID: storedID) else { return generic }
+        // The baked-in null kit is ALWAYS present, so it can't count toward
+        // "more than one exists" — a user with a single real kit still reads
+        // the generic possessive. But when null itself is the active scope,
+        // name it (it's a deliberate named lens, not "your kit").
+        let realKits = libraries.filter { !$0.isBodyweight }.count
+        guard realKits > 1 || activeKit.isBodyweight else { return generic }
+        return activeKit.name
     }
 
     /// Non-view resolution (SeedData's populate math, the importer).

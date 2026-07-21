@@ -182,7 +182,10 @@ struct EquipmentLibraryTray: View {
                         renameText = library.name
                         renaming = library
                     }
-                    if libraries.count > 1 {
+                    // The ever-present null kit doesn't count: keep at least
+                    // one REAL (editable) kit so a store never lands on
+                    // null-only, where nothing can be added.
+                    if realKitCount > 1 {
                         Button("Delete…", role: .destructive) {
                             deleting = library
                         }
@@ -276,9 +279,13 @@ struct EquipmentLibraryTray: View {
         library.name = trimmed
     }
 
+    /// Real (non-null) kits — the null kit is always present, so it never
+    /// counts toward "can this be deleted".
+    private var realKitCount: Int { libraries.filter { !$0.isBodyweight }.count }
+
     private func deleteLibrary() {
         defer { deleting = nil }
-        guard let library = deleting, libraries.count > 1 else { return }
+        guard let library = deleting, !library.isBodyweight, realKitCount > 1 else { return }
         let wasActive = library === activeLibrary
         modelContext.delete(library)
         // `order` isn't reindexed after a delete: it drives sort STABILITY
