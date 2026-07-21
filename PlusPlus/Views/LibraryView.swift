@@ -455,7 +455,7 @@ struct EquipmentTabView: View {
         }
         // The null kit is empty on purpose — say so, and point to the switch.
         if isBodyweightKit {
-            return "null is the no-equipment kit. Switch to another kit to add equipment."
+            return "Switch to another kit to add equipment. null is the no-equipment kit."
         }
         // A fresh install seeds an empty kit (#232) — say what the list is for.
         return "Your kit is empty. Add equipment to unlock exercises and routines."
