@@ -63,7 +63,8 @@ struct ExercisesTabView: View {
                     // tab and routine catalog use; the Equipment facet below
                     // stays a pure LOCAL lens that never switches.
                     LibrarySwitcherKey(
-                        name: EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.name ?? EquipmentLibrary.defaultName
+                        name: EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.name ?? EquipmentLibrary.defaultName,
+                        identifier: "exercisesKitSwitcher"
                     ) {
                         showingLibraryTray = true
                     }
@@ -648,6 +649,10 @@ extension CatalogTabHeader where Accessory == EmptyView {
 /// discoverable before a second library exists).
 struct LibrarySwitcherKey: View {
     let name: String
+    /// Distinct per call site (the same switcher now rides four surfaces), so
+    /// a future smoke test visiting more than one doesn't hit a multiple-match
+    /// on a shared identifier (swift review).
+    var identifier: String = "librarySwitcherButton"
     let action: () -> Void
 
     var body: some View {
@@ -677,7 +682,7 @@ struct LibrarySwitcherKey: View {
             .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
         }
         .buttonStyle(.raisedKey())
-        .accessibilityIdentifier("librarySwitcherButton")
+        .accessibilityIdentifier(identifier)
     }
 }
 

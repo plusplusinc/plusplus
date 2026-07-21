@@ -229,7 +229,10 @@ struct EquipmentCatalogScreen: View {
             Text(activeIsBodyweight ? "On" : "Adding to")
                 .font(.system(.footnote))
                 .foregroundStyle(Theme.textSecondary)
-            LibrarySwitcherKey(name: activeLibrary?.name ?? EquipmentLibrary.defaultName) {
+            LibrarySwitcherKey(
+                name: activeLibrary?.name ?? EquipmentLibrary.defaultName,
+                identifier: "catalogKitSwitcher"
+            ) {
                 showingLibraryTray = true
             }
             Spacer(minLength: 0)

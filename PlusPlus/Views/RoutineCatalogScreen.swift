@@ -113,7 +113,10 @@ struct RoutineCatalogScreen: View {
             Text("Browsing")
                 .font(.system(.footnote))
                 .foregroundStyle(Theme.textSecondary)
-            LibrarySwitcherKey(name: activeLibrary?.name ?? EquipmentLibrary.defaultName) {
+            LibrarySwitcherKey(
+                name: activeLibrary?.name ?? EquipmentLibrary.defaultName,
+                identifier: "routineKitSwitcher"
+            ) {
                 showingLibraryTray = true
             }
             Spacer(minLength: 0)
