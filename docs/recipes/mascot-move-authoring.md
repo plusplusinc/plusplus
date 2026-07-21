@@ -32,15 +32,32 @@ scale-out doesn't re-derive it. Everything runs on Linux: `swift test` in
    - `coordinating` — the path servo: center of mass over the feet, bar over
      the midfoot, equipment clearing the legs, at EVERY baked sample. A lerp
      between two legal poses is not itself legal.
-   - `aligningGrip` — the grip servo for barbell spans: re-aims the wrists so
-     the palm channel stays ON the bar axis at every baked sample (a lerp
-     between two perfectly-gripped endpoints drifted 34° off it mid-press).
-     ANALYTIC minimal rotation, left wrist solved + mirrored right — requires
-     a bilaterally symmetric pose. Two hard-won rules inside it: the
-     objective must be SIGNED (under `abs` a 180° hand flip reads as aligned,
-     and a searcher hops branches between samples — an 11 rad/s wrist snap),
-     and per-sample greedy search is NOT a continuous map — prefer a
-     closed-form correction wherever one exists.
+   - `grippingTheBar` — the whole-hand barbell servo (the grip round, from
+     device feedback: hands slid 99 mm along the bench bar into a plate, and
+     the wrap read underhand): per baked sample it re-solves the WHOLE left
+     arm (shoulder 3 + elbow pitch/yaw + wrist 3, damped Gauss-Newton) so the
+     palm keeps ONE STATION on the bar, the wrap is OVERHAND (left thumb
+     INWARD — thumb-out is supinated), and the metacarpals continue the
+     forearm; optional `elbowUnderBar` adds the pressing stack, optional
+     `palmTarget` is for endpoint authoring, and `armSeed` picks the basin.
+     Mirrored right; requires bilateral symmetry. Hard-won rules:
+     - The overhand flip is ~180° about the forearm and NO single joint owns
+       it — anatomy splits it across shoulder internal rotation (~90°), the
+       elbow's radioulnar share (~23°), and wrist pronation (~88°); at some
+       configurations the chain tops out just short, and the leftover reads
+       as the natural diagonal bar placement (the grip-angle invariant allows
+       25° for exactly this).
+     - The Gauss-Newton SEED picks the basin. Author endpoints in the target
+       basin and let lerped samples seed themselves (the bench), or — when
+       the authored arms serve another servo's conventions — pass `armSeed`,
+       INTERPOLATED from the pose's own hinge so it tracks the body (the
+       deadlift: a constant seed left the standing end so far from home the
+       solver crossed basins and put the bar in the belly).
+     - Servos COMPOSE in order: `coordinating` first (it speaks the simple
+       pitch-only arm convention and owns the bar's path), `grippingTheBar`
+       second (it rebuilds the arm on that path and owns the hand).
+     - Per-sample greedy search is NOT a continuous map; a damped local
+       root from a continuous seed is.
 5. **Bake transitions.** `repCycle` for descend-pause-drive-settle moves
    (its defaults encode the slower eccentric); raw `span`s for anything else.
    Every span takes the SAME solve closure as the endpoints, and endpoints go

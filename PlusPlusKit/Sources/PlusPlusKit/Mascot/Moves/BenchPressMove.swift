@@ -7,15 +7,17 @@ import Foundation
 /// floor — while the bar runs lockout-over-the-shoulders down to a
 /// mid-chest touch and back.
 ///
-/// The whole pose came from the ScratchBench numeric scans (the recipe
-/// discipline): the BODY placement balances the torso capsules' 10 mm
-/// radius spread against the pad with 1.2 degrees of head-up tilt
-/// (pelvis +1.5 / abdomen +0.3 / cowl -2.2 mm of graze), the soles land
-/// flat at +0.4 mm, and a 7-degree chin tuck rests the helmet exactly
-/// on the pad. The ARMS came from coordinate descent: palms exactly on
-/// the bar line, grip axis 0.0 degrees off the bar at both ends,
-/// vertical forearm (elbow directly under the bar in the side view) at
-/// the touch, full-reach lockout stacked over the shoulder line.
+/// The whole pose came from the ScratchBench/ScratchGrip numeric scans
+/// (the recipe discipline): the BODY placement balances the torso
+/// capsules' 10 mm radius spread against the pad with 1.2 degrees of
+/// head-up tilt (pelvis +1.5 / abdomen +0.3 / cowl -2.2 mm of graze),
+/// the soles land flat at +0.4 mm, and a 7-degree chin tuck rests the
+/// helmet exactly on the pad. The ARMS are seeds in the OVERHAND basin
+/// (the grip round, from Dave's device pass: the hands slid 99 mm
+/// along the bar into a plate, and the wrap read underhand): the
+/// `grippingTheBar` servo owns them at every baked sample — palm
+/// pinned to its station, thumb inward, wrists stacked over the elbows
+/// through the whole press.
 enum BenchPressMove {
     static let animation: ExerciseAnimation = {
         // Supine placement (scan winners, one decimal).
@@ -26,7 +28,7 @@ enum BenchPressMove {
 
         func benchPose(
             shoulder: EulerAngles,
-            elbow: Double,
+            elbow: EulerAngles,
             wrist: EulerAngles,
             effort: Double
         ) -> MascotPose {
@@ -42,7 +44,7 @@ enum BenchPressMove {
                     MascotPoseBuilder.torso(neck: .deg(pitch: 7), head: .deg(pitch: 4)),
                     MascotPoseBuilder.symmetricArms(
                         shoulder: shoulder,
-                        elbow: .deg(pitch: elbow),
+                        elbow: elbow,
                         wrist: wrist
                     )
                 ),
@@ -52,34 +54,33 @@ enum BenchPressMove {
 
         // The STANDING servo (`coordinating` — CoM over feet, bar over
         // midfoot) doesn't apply lying down; the bench's servo is the
-        // GRIP one: a joint lerp between the two perfectly-gripped
-        // endpoints swung the hands 34 degrees off the bar axis at
-        // mid-press, so every baked sample re-aims the wrists
-        // (`aligningGrip`). Collision + contact invariants police the
-        // rest.
+        // whole-hand barbell one: palm pinned to its STATION on the bar
+        // (the grip round: a joint lerp slid the hands 99 mm along the
+        // bar, into a plate), the wrap OVERHAND (thumb inward), and the
+        // elbow kept under the bar — the forearm stays vertical through
+        // the whole press, which is the move's own second cue.
         let solve = { (pose: MascotPose) in
-            MascotPoseBuilder.aligningGrip(pose)
+            MascotPoseBuilder.grippingTheBar(pose, station: 0.26, elbowUnderBar: true)
         }
 
-        // Endpoints run through the solve too (repCycle's contract) —
-        // today the scan winners sit under the servo's identity gate so
-        // this is a no-op, but it stays true if a future retune lands a
-        // hair over the gate.
-        // Lockout: bar at full reach (0.726) stacked over the shoulders.
-        let lockout = solve(benchPose(
-            shoulder: .deg(pitch: -84.9, yaw: -10.1, roll: 25.5),
-            elbow: -7.2,
-            wrist: .deg(pitch: -3.8, yaw: 3.9, roll: -15.2),
+        // Arm SEEDS in the overhand basin (ScratchGrip winners, one
+        // decimal); repCycle emits solve(seed) for every endpoint
+        // appearance, so the servo owns the final grip everywhere.
+        // Lockout: bar at full reach stacked over the shoulders.
+        let lockout = benchPose(
+            shoulder: .deg(pitch: -9.1, yaw: -66.7, roll: 89.6),
+            elbow: .deg(pitch: -17.6, yaw: 3.8),
+            wrist: .deg(pitch: 1.6, yaw: -88.0, roll: 3.7),
             effort: 0.3
-        ))
-        // Touch: bar grazing the mid cowl (4 mm proud of the surface),
-        // elbow under the bar in the sagittal plane.
-        let touch = solve(benchPose(
-            shoulder: .deg(pitch: 27.9, yaw: 15.8, roll: 73.0),
-            elbow: -133.4,
-            wrist: .deg(pitch: -39.0, yaw: 40.6, roll: 33.8),
+        )
+        // Touch: bar grazing the mid cowl (5 mm, inside the 8 mm
+        // allowance), elbow under the bar.
+        let touch = benchPose(
+            shoulder: .deg(pitch: 18.4, yaw: 26.1, roll: 73.9),
+            elbow: .deg(pitch: -139.8, yaw: 8.5),
+            wrist: .deg(pitch: -3.2, yaw: -88.0, roll: -11.8),
             effort: 0.55
-        ))
+        )
         let repKeyframes = MascotPoseBuilder.repCycle(
             top: lockout, bottom: touch,
             steps: 12,

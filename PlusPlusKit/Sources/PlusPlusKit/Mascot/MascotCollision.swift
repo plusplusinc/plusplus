@@ -29,6 +29,11 @@ public enum MascotGrip {
     /// authored to the grip point sank the hands 2 cm into the ground).
     public static let contactPadOffset = Vec3(0, -0.0375, 0.008)
     public static let contactPadRadius = 0.012
+    /// The gripped fist's envelope radius around the palm center —
+    /// the renderer's hand box plus curled fingers. What the
+    /// hands-never-touch-the-plates invariant keeps clear of the plate
+    /// faces (the grip round: a sliding bench hand went INSIDE one).
+    public static let fistRadius = 0.055
 }
 
 /// Where SUPPORT surfaces sit and how big they are — the `MascotGrip`

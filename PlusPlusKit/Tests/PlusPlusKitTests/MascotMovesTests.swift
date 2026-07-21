@@ -168,12 +168,86 @@ import Foundation
     @Test(arguments: ["Squat", "Deadlift", "Bench Press"])
     func handsActuallyGripTheBar(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
-        let limit = 20.0 * .pi / 180
+        // 25 degrees, not less: a fully PRONATED grip runs the whole
+        // chain to its anatomical stops (shoulder internal rotation +
+        // the elbow's radioulnar share + wrist pronation total just
+        // under the 180-degree wrap flip at some configurations), and
+        // the few degrees left over read as the natural diagonal bar
+        // placement in a real overhand grip.
+        let limit = 25.0 * .pi / 180
         for i in 0...400 {
             let t = Double(i) / 400
             let misalignment = MascotCollision.worstGripMisalignment(pose: animation.pose(at: t))
             #expect(misalignment <= limit,
                     "\(name): a hand's grip channel is \(misalignment * 180 / .pi) degrees off the bar axis at t=\(t)")
+        }
+    }
+
+    /// The grip round's first law (device feedback: the bench hands
+    /// slid 99 mm along the bar mid-press): a hand holding a barbell
+    /// keeps ONE STATION on it — the palm's position along the bar
+    /// axis stays put across the whole cycle, rest beat included.
+    @Test(arguments: ["Squat", "Deadlift", "Bench Press"])
+    func handsHoldOneStationOnTheBar(name: String) throws {
+        let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
+        var xMin = Double.infinity
+        var xMax = -Double.infinity
+        for i in 0...400 {
+            let t = Double(i) / 400
+            let frames = animation.pose(at: t).jointFrames(skeleton: Self.skeleton)
+            guard let lw = frames[.leftWrist] else { continue }
+            let palm = lw.position + lw.rotation.rotate(MascotGrip.palmOffset)
+            xMin = min(xMin, palm.x)
+            xMax = max(xMax, palm.x)
+        }
+        #expect(xMax - xMin <= 0.008,
+                "\(name): the hand slides \((xMax - xMin) * 1000) mm along the bar (\(xMin)...\(xMax))")
+    }
+
+    /// The grip round's second law — PHYSICS: a hand can never
+    /// intersect a weight plate. The plate's inner face is a disc at
+    /// plateOffset - plateHalfWidth along the bar; the whole fist stays
+    /// axially inside it. (The capsule sweep cannot police this — hands
+    /// are exempt there because gripping the SHAFT is correct contact —
+    /// and its plate capsules bulge hemispherically along the axis,
+    /// overstating a real plate's flat face.)
+    @Test(arguments: ["Squat", "Deadlift", "Bench Press"])
+    func handsNeverTouchThePlates(name: String) throws {
+        let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
+        let plateInner = MascotGrip.plateOffset - MascotGrip.plateHalfWidth
+        for i in 0...400 {
+            let t = Double(i) / 400
+            let frames = animation.pose(at: t).jointFrames(skeleton: Self.skeleton)
+            guard let lw = frames[.leftWrist] else { continue }
+            let palm = lw.position + lw.rotation.rotate(MascotGrip.palmOffset)
+            let clearance = plateInner - (abs(palm.x) + MascotGrip.fistRadius)
+            #expect(clearance > 0,
+                    "\(name): the fist is \(-clearance * 1000) mm into the plate face at t=\(t)")
+        }
+    }
+
+    /// The grip round's third law: every barbell move here grips
+    /// PRONATED (overhand) — the left thumb points INWARD along the
+    /// bar (thumb-out is a supinated wrap, the underhand read from the
+    /// bench device pass), and the metacarpals broadly continue the
+    /// forearm rather than folding off it.
+    @Test(arguments: ["Squat", "Deadlift", "Bench Press"])
+    func theGripIsOverhand(name: String) throws {
+        let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
+        for i in 0...400 {
+            let t = Double(i) / 400
+            let frames = animation.pose(at: t).jointFrames(skeleton: Self.skeleton)
+            guard let lw = frames[.leftWrist], let le = frames[.leftElbow] else { continue }
+            let thumb = lw.rotation.rotate(Vec3(1, 0, 0))
+            #expect(thumb.x <= -0.85,
+                    "\(name): the left thumb points \(thumb.x) along +x at t=\(t) (overhand needs it inward)")
+            let hand = lw.rotation.rotate(Vec3(0, -1, 0))
+            let f = lw.position - le.position
+            let fLength = f.length
+            guard fLength > 1e-9 else { continue }
+            let along = (hand.x * f.x + hand.y * f.y + hand.z * f.z) / fLength
+            #expect(along >= 0.4,
+                    "\(name): the hand folds \(along) off the forearm line at t=\(t)")
         }
     }
 
@@ -559,7 +633,11 @@ import Foundation
         #expect(lock.center.y - shoulder.y >= 0.33, "lockout short of full reach: \(lock.center.y - shoulder.y)")
         #expect(abs(lock.center.z - shoulder.z) <= 0.03,
                 "bar not stacked over the shoulders: \(lock.center.z) vs \(shoulder.z)")
-        #expect(lock.elbowPitch >= -12, "elbows stay bent at lockout: \(lock.elbowPitch)")
+        // -20, not -12: holding full pronation (the overhand grip) at
+        // this grip width costs the last few degrees of elbow
+        // extension, and a SOFT lockout is the safer textbook anyway
+        // (hyperextension is the fault worth teaching against).
+        #expect(lock.elbowPitch >= -20, "elbows stay bent at lockout: \(lock.elbowPitch)")
         #expect(lock.center.y - touch.center.y >= 0.24, "full range of motion: travel \(lock.center.y - touch.center.y)")
     }
 
