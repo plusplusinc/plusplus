@@ -376,11 +376,11 @@ struct RoutineCatalogScreen: View {
             pushedTemplate = true
             path.append(template)
         } label: {
-            // The shared routine-card body (2026-07-19): identity, prose,
-            // then the capsule row (focus · effort · estimate · gear). No
-            // schedule capsule — a template isn't scheduled, the one
-            // necessary catalog↔library difference.
-            RoutineCardContent(model: templateModel(template))
+            // The shared routine-card body (2026-07-22): title, one meta line
+            // (focus · effort · estimate), then the equipment tags. No
+            // schedule — a template isn't scheduled, the one necessary
+            // catalog↔library difference.
+            RoutineCardContent(title: template.name, meta: templateMeta(template))
                 .padding(.vertical, 14)
                 .padding(.horizontal, 14)
                 .contentShape(Rectangle())
@@ -393,15 +393,12 @@ struct RoutineCatalogScreen: View {
     /// Gear reads exactly like the library card: each piece a soft tag,
     /// amber-washed when the active kit lacks it (no more "NEEDS X" verdict
     /// line). A gearless template shows one neutral "Bodyweight" tag.
-    private func templateModel(_ template: RoutineTemplate) -> RoutineCardModel {
+    private func templateMeta(_ template: RoutineTemplate) -> RoutineMeta {
         let names = template.equipmentNames
         let gear: [(name: String, available: Bool)] = names.isEmpty
             ? [(name: "Bodyweight", available: true)]
             : names.map { (name: $0, available: ownedEquipmentNames.contains($0)) }
-        return RoutineCardModel(
-            title: template.name,
-            prose: template.summary,
-            schedule: nil,
+        return RoutineMeta(
             focus: template.focus.rawValue,
             effort: template.effort.rawValue,
             estimate: template.estimatedMinutesText,
