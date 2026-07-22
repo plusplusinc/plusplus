@@ -95,9 +95,17 @@ enum DeadliftMove {
                 elbow: standingArms.elbow.lerp(to: hingedArms.elbow, t: u),
                 wrist: standingArms.wrist.lerp(to: hingedArms.wrist, t: u)
             )
+            // Graze bound 4 mm, not the invariant's 8: `coordinating`
+            // stops nudging the moment penetration clears ITS bound,
+            // and `grippingTheBar` then rebuilds the arm with a
+            // position residual that can carry the bar a couple of
+            // millimeters deeper — the composition is only bounded by
+            // the headroom reserved here (review catch: at 5 mm the
+            // shipped worst case ran 6.7 mm, 1.3 from the invariant;
+            // at 4 the solved cycle worst is 4.7).
             return MascotPoseBuilder.grippingTheBar(
                 MascotPoseBuilder.coordinating(
-                    pose, props: [.barbell], equipmentGrazeAtMost: 0.005
+                    pose, props: [.barbell], equipmentGrazeAtMost: 0.004
                 ),
                 station: 0.17,
                 armSeed: seed

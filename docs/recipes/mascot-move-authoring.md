@@ -58,6 +58,21 @@ scale-out doesn't re-derive it. Everything runs on Linux: `swift test` in
        second (it rebuilds the arm on that path and owns the hand).
      - Per-sample greedy search is NOT a continuous map; a damped local
        root from a continuous seed is.
+   - `plantingPalms` — the floor-hand arm servo (the hand round: the
+     planted push-up hands read as curled-under puppy paws): re-solves
+     the whole arm so the flat `MascotHand` palm plane faces the floor
+     with fingers extended forward-inward, wrist pinned where the
+     chain planted it, elbow stacked fore-aft (laterally free — deep
+     reps flare the elbows). The fingers-forward twist is ~180° about
+     the forearm and splits across humeral spin + pronation, exactly
+     like the overhand wrap; seed the wrist in the extension basin and
+     pass a `shoulderSpinSeed` for the humeral half. At the deep
+     bottom the twist chain tops out — pair the servo with
+     lowest-hand-point anchoring (the push-up's `settledPlanted`) so
+     the hand rocks onto its planted fingers instead of piercing or
+     hovering. Forearm-supported moves (the plank) should NOT fight
+     this at all: their honest hand is the neutral `.fist` at wrist
+     zero-plus-pronation, thumb up, pinky edge riding the floor.
 5. **Bake transitions.** `repCycle` for descend-pause-drive-settle moves
    (its defaults encode the slower eccentric); raw `span`s for anything else.
    Every span takes the SAME solve closure as the endpoints, and endpoints go
@@ -94,7 +109,12 @@ scale-out doesn't re-derive it. Everything runs on Linux: `swift test` in
 
 ## The physical contracts (shared Kit↔renderer, never duplicated)
 
-- `MascotGrip` — palm/pad offsets, every prop dimension.
+- `MascotGrip` — the grip channel (`palmOffset` — barbell AND dumbbell
+  handles rest there), the contact pad, every prop dimension.
+- `MascotHand` — the hand itself: palm slab, finger, and thumb segments
+  per state (gripped wrap around a radius, planted flat palm, neutral
+  fist, idle), ONE segment list the renderer meshes and the invariant
+  capsules are both built from. `state(for:)` is the per-move rule.
 - `MascotSupport` — support-surface geometry (the flat bench: pad top height,
   half-extents, world placement) plus its collision rails. The renderer
   builds the bench from these numbers; the five-points-of-contact invariant
@@ -120,13 +140,19 @@ scale-out doesn't re-derive it. Everything runs on Linux: `swift test` in
 - The camera frames supine moves from the side (`rootRotation.pitch <
   −π/4` in `MascotView.framing`).
 - The standing servo (`coordinating`) does not apply; the bench's servo is
-  `aligningGrip`, and the contact/collision invariants police the rest.
+  `grippingTheBar` (station + overhand wrap + `elbowUnderBar` for the
+  pressing stack), and the contact/collision invariants police the rest.
 
 ## What the invariants will demand (so author for them up front)
 
 Full ROM for the movement's teaching point (depth below parallel, pulls from
-the floor, full arcs) · anatomical joint ranges · grip axis within 20° of the
-bar · equipment ≤ 8 mm graze, never through floor or body · soles/pads may
+the floor, full arcs) · anatomical joint ranges · grip axis within 25° of the
+bar (the pronation chain's honest shortfall — the diagonal-grip look) · hands
+hold ONE STATION, wrap OVERHAND, and the `MascotHand` finger capsules never
+pierce what they grip (tangent-wrap graze ≤ 6 mm) or a plate/head face ·
+planted flat hands REST on the floor (never pierce, never hover; residual
+deep-bottom tilt rocks onto the fingers) · equipment ≤ 8 mm graze, never
+through floor or body · soles/pads may
 touch the floor, nothing else may · center of mass inside the CONTACT-derived
 support polygon (strict at held phases) · slower eccentric · effort peaks on
 the concentric, blinks at low effort · 1–2 synced cues with ≥30%-of-rep

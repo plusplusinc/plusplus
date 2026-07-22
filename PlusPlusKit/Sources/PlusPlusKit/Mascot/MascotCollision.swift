@@ -5,11 +5,14 @@ import Foundation
 /// (which proves the equipment never passes through the body) — if
 /// these lived in two files they would drift.
 public enum MascotGrip {
-    /// Palm center in the wrist joint's local frame — the barbell axis
-    /// passes through both palms.
+    /// The GRIP CHANNEL center in the wrist joint's local frame — the
+    /// one point where any held cylinder rests in the curled hand. The
+    /// barbell axis passes through both palms' channels, and a
+    /// dumbbell handle lies along the channel's local x (the hand
+    /// round unified the old separate dumbbell offset here: two
+    /// different rest points meant the fingers could wrap one while
+    /// the handle rendered at the other).
     public static let palmOffset = Vec3(0, -0.038, 0.01)
-    /// Dumbbell center in the wrist joint's local frame.
-    public static let dumbbellOffset = Vec3(0, -0.045, 0.012)
     /// Bar shaft: radius and half-length; plates: radius, half-width,
     /// and distance out along the axis.
     public static let barRadius = 0.017
@@ -23,11 +26,13 @@ public enum MascotGrip {
     public static let handleRadius = 0.014
     public static let dumbbellHeadRadius = 0.042
     public static let dumbbellHeadOffset = 0.062
-    /// The palm CONTACT PAD: where a weight-bearing flat hand meets the
-    /// floor — the bottom of the hand mesh, unlike `palmOffset`, which
-    /// is the grip-channel center inside curled fingers (a push-up
+    public static let dumbbellHeadHalfWidth = 0.019
+    /// The palm CONTACT PAD: where the planted flat hand's weight
+    /// lands — the palm HEEL, at the wrist end of `MascotHand`'s
+    /// planted palm plane (local z 0.022), distinct from `palmOffset`,
+    /// the grip-channel center inside curled fingers (a push-up
     /// authored to the grip point sank the hands 2 cm into the ground).
-    public static let contactPadOffset = Vec3(0, -0.0375, 0.008)
+    public static let contactPadOffset = Vec3(0, -0.001, 0.010)
     public static let contactPadRadius = 0.012
     /// The gripped fist's envelope radius around the palm center —
     /// the renderer's hand box plus curled fingers. What the
@@ -85,8 +90,10 @@ public enum MascotSupport {
 /// Dave). Everything is a capsule: body segments over the FK frames
 /// with radii mirroring the renderer's mesh volumes, the bar shaft and
 /// plates along the palm-to-palm axis, dumbbell handles and heads in
-/// each wrist frame. The HANDS AND FOREARMS are deliberately excluded:
-/// the hands grip the equipment, so contact there is correct.
+/// each wrist frame. The HANDS AND FOREARMS are deliberately excluded
+/// from this sweep: the hands grip the equipment, so contact there is
+/// correct — their own geometry lives in `MascotHand`, and its
+/// dedicated invariants bound that contact to a tangent graze.
 public enum MascotCollision {
     public struct Capsule {
         public let name: String
@@ -209,7 +216,7 @@ public enum MascotCollision {
 
         if props.contains(.dumbbellPair) {
             for (frame, label) in [(left, "L"), (right, "R")] {
-                let center = frame.position + frame.rotation.rotate(MascotGrip.dumbbellOffset)
+                let center = frame.position + frame.rotation.rotate(MascotGrip.palmOffset)
                 let axis = frame.rotation.rotate(Vec3(1, 0, 0))
                 capsules.append(Capsule(
                     name: "handle\(label)",

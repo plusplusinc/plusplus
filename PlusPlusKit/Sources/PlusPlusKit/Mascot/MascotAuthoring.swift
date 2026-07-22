@@ -125,6 +125,202 @@ public enum MascotPoseBuilder {
         return adjusted
     }
 
+    /// Orients both PLANTED flat hands onto the floor: the palm plane
+    /// faces straight down and the fingers extend forward (+z, the
+    /// direction floor moves face). Solved as a damped Gauss-Newton
+    /// over the WHOLE left arm (shoulder 3, elbow pitch/yaw, wrist 3),
+    /// because a flat planted hand is not a wrist-only property: the
+    /// fingers-forward twist is ~180 degrees about the forearm and
+    /// anatomy splits it across humeral rotation at the shoulder plus
+    /// pronation — the `grippingTheBar` split again — and the last
+    /// degrees of palm-down come from the hand PLANTING slightly ahead
+    /// of the shoulder line (`elbowBehind`, the elbow stacked a touch
+    /// behind the wrist): the forearm's continuation then points
+    /// down-and-forward, and the hand only has to bend back 90 minus
+    /// that lean to lie flat — a perfectly vertical forearm would
+    /// demand the full 90 of wrist extension the joint doesn't have,
+    /// and a forward-tipped one even more (the first cut leaned the
+    /// wrong way and pinned every sample on the pitch stop).
+    /// Residuals: the WRIST stays where the move's chain solvers
+    /// planted it (weight 30); the elbow stacks over the wrist fore-
+    /// aft (laterally only a soft preference — a deep rep flares the
+    /// elbows out, and that flare keeps the palm reachable); palm
+    /// normal down; fingers forward-inward (deliberately softer — a
+    /// real loaded hand yields fingers-inward before it yields palm
+    /// contact); a soft pull toward the seed picks one point of the
+    /// null space, smoothly. `wristSeed` picks the basin; shoulder and
+    /// elbow seed from the pose's own smoothly-solved angles, so the
+    /// per-sample map stays continuous. At the DEEP bottom the whole
+    /// twist chain tops out and the palm keeps a residual tilt — the
+    /// move's lowest-point anchoring turns that into the hand rocking
+    /// forward onto its planted fingers, heel proud, which is what a
+    /// loaded hand actually does. Symmetric: solves the left arm,
+    /// mirrors the right.
+    public static func plantingPalms(
+        _ pose: MascotPose,
+        wristSeed: EulerAngles = .deg(pitch: 70),
+        shoulderSpinSeed: (yaw: Double, roll: Double)? = nil,
+        elbowBehind: Double = 0.04,
+        skeleton: MascotSkeleton = .standard
+    ) -> MascotPose {
+        let normalTarget = Vec3(0, -1, 0)
+        // Fingers point forward-INWARD (~40 degrees), like a real
+        // loaded push-up hand: dead-forward fingers plus a flat palm
+        // need ~180 degrees of twist about the forearm, and the whole
+        // anatomical chain (pronation 88 + the elbow's radioulnar 23 +
+        // reachable humeral spin) tops out ~40 short — the census put
+        // the feasibility floor at a 14-19 degree palm TILT with
+        // fingertips hovering off the floor, and a flat palm with
+        // turned-in fingers beats tilted fingers in the air.
+        let inward = 40.0 * .pi / 180
+        let fingerTarget = Vec3(-Foundation.sin(inward), 0, Foundation.cos(inward))
+
+        let startFrames = pose.jointFrames(skeleton: skeleton)
+        guard let wristHome = startFrames[.leftWrist]?.position else { return pose }
+
+        func applied(_ q: [Double]) -> MascotPose {
+            var next = pose
+            var joints = next.joints
+            joints[.leftShoulder] = EulerAngles(pitch: q[0], yaw: q[1], roll: q[2])
+            joints[.rightShoulder] = EulerAngles(pitch: q[0], yaw: -q[1], roll: -q[2])
+            joints[.leftElbow] = EulerAngles(pitch: q[3], yaw: q[4])
+            joints[.rightElbow] = EulerAngles(pitch: q[3], yaw: -q[4])
+            joints[.leftWrist] = EulerAngles(pitch: q[5], yaw: q[6], roll: q[7])
+            joints[.rightWrist] = EulerAngles(pitch: q[5], yaw: -q[6], roll: -q[7])
+            next.joints = joints
+            return next
+        }
+
+        func residual(_ q: [Double], seed: [Double]) -> [Double]? {
+            let frames = applied(q).jointFrames(skeleton: skeleton)
+            guard let lw = frames[.leftWrist], let le = frames[.leftElbow] else { return nil }
+            let normal = lw.rotation.rotate(Vec3(0, 0, 1))
+            let fingers = lw.rotation.rotate(Vec3(0, -1, 0))
+            // 100, not the grip servo's 30: at the deep bottom the
+            // palm target is genuinely infeasible (residual ~1.0), and
+            // at 30 the solver happily sold 26 mm of planted-wrist
+            // position to shave orientation — hands visibly skating.
+            // The planted spot is non-negotiable; orientation takes
+            // the whole infeasibility instead.
+            let wPos = 100.0
+            var r = [
+                wPos * (lw.position.x - wristHome.x),
+                wPos * (lw.position.y - wristHome.y),
+                wPos * (lw.position.z - wristHome.z),
+                // The stack, fore-aft: elbow a touch behind the
+                // planted wrist; height stays free (the flexion the
+                // depth needs). Laterally only a soft preference — a
+                // deep push-up FLARES the elbows outward (the humerus
+                // abducts), and that flare is precisely what keeps the
+                // palm reachable-flat at the bottom: with a sideways
+                // upper arm, palm-down is mostly plain wrist extension
+                // instead of a maxed-out pronation chain.
+                0.5 * (le.position.x - lw.position.x),
+                6.0 * (le.position.z - (lw.position.z - elbowBehind)),
+                normal.x - normalTarget.x,
+                normal.y - normalTarget.y,
+                normal.z - normalTarget.z,
+                0.45 * (fingers.x - fingerTarget.x),
+                0.45 * (fingers.y - fingerTarget.y),
+                0.45 * (fingers.z - fingerTarget.z),
+            ]
+            for i in 0..<q.count {
+                r.append(0.3 * (q[i] - seed[i]))
+            }
+            return r
+        }
+
+        let toRadians = Double.pi / 180
+        // The same left-canonical bounds as `grippingTheBar`.
+        let bounds: [ClosedRange<Double>] = [
+            (-183 * toRadians)...(58 * toRadians),   // shoulder pitch
+            (-93 * toRadians)...(93 * toRadians),    // shoulder yaw
+            (-23 * toRadians)...(173 * toRadians),   // shoulder roll
+            (-148 * toRadians)...(0),                // elbow pitch
+            (-23 * toRadians)...(23 * toRadians),    // elbow yaw
+            (-78 * toRadians)...(90 * toRadians),    // wrist pitch (loaded extension)
+            (-88 * toRadians)...(88 * toRadians),    // wrist yaw (pronation)
+            (-43 * toRadians)...(43 * toRadians),    // wrist roll
+        ]
+        let shoulder = pose.joints[.leftShoulder] ?? .zero
+        let elbow = pose.joints[.leftElbow] ?? .zero
+        // The shoulder's pitch seeds from the pose (it is the move's
+        // own smoothly-solved channel); its yaw/roll may seed from an
+        // AUTHORED humeral spin — for a hanging arm, spinning about
+        // the bone is nearly free in position but half a turn away in
+        // joint space, and the soft seed anchor won't cross that on
+        // its own (the flat palm's fingers-forward twist lives there).
+        var q = [
+            shoulder.pitch,
+            shoulderSpinSeed?.yaw ?? shoulder.yaw,
+            shoulderSpinSeed?.roll ?? shoulder.roll,
+            elbow.pitch, elbow.yaw,
+            wristSeed.pitch, wristSeed.yaw, wristSeed.roll,
+        ]
+        let seedQ = q
+        let n = 8
+        // Levenberg-Marquardt with BACKTRACKING, not plain damped
+        // Gauss-Newton: near the deep bottom the palm target is
+        // infeasible and several joints ride their stops — a plain
+        // clamped step corner-locks there (the descent direction
+        // points out of bounds on coupled coordinates, the clamp
+        // zeroes it, and iteration freezes 20+ mm from the planted
+        // wrist). Shrinking the step until the residual actually
+        // improves, and raising the damping when nothing does, walks
+        // along the active bounds instead of freezing on them.
+        var lambda = 0.01
+        for _ in 0..<60 {
+            guard let r0 = residual(q, seed: seedQ) else { return pose }
+            let errorSq = r0.reduce(0) { $0 + $1 * $1 }
+            if errorSq < 1e-7 { break }
+            let h = 0.0008
+            var J = [[Double]](repeating: [Double](repeating: 0, count: n), count: r0.count)
+            for j in 0..<n {
+                var qh = q
+                qh[j] += h
+                guard let rh = residual(qh, seed: seedQ) else { return pose }
+                for i in 0..<r0.count {
+                    J[i][j] = (rh[i] - r0[i]) / h
+                }
+            }
+            var A = [[Double]](repeating: [Double](repeating: 0, count: n), count: n)
+            var b = [Double](repeating: 0, count: n)
+            for i in 0..<n {
+                for j in 0..<n {
+                    var sum = 0.0
+                    for k in 0..<r0.count { sum += J[k][i] * J[k][j] }
+                    A[i][j] = sum
+                }
+                A[i][i] += lambda
+                var sum = 0.0
+                for k in 0..<r0.count { sum += J[k][i] * r0[k] }
+                b[i] = -sum
+            }
+            guard let d = Self.solveLinear(A, b) else { break }
+            var stepped = false
+            var scale = 1.0
+            for _ in 0..<6 {
+                var candidate = q
+                for j in 0..<n {
+                    candidate[j] = min(max(q[j] + scale * d[j], bounds[j].lowerBound), bounds[j].upperBound)
+                }
+                if let rc = residual(candidate, seed: seedQ),
+                   rc.reduce(0, { $0 + $1 * $1 }) < errorSq {
+                    q = candidate
+                    stepped = true
+                    lambda = max(lambda / 2, 1e-4)
+                    break
+                }
+                scale /= 2
+            }
+            if !stepped {
+                lambda *= 8
+                if lambda > 1e4 { break }
+            }
+        }
+        return applied(q)
+    }
+
     // MARK: - Spans
 
     /// Generates the keyframes for a transition between two poses,
@@ -190,7 +386,12 @@ public enum MascotPoseBuilder {
         skeleton: MascotSkeleton = .standard
     ) -> MascotPose {
         var candidate = plantingFeet(pose, skeleton: skeleton)
-        for _ in 0..<24 {
+        // 96 steps of 0.0025 rad, not 24 of 0.01: the correction total
+        // is the same, but the QUANTUM matters — with coarse steps,
+        // neighboring baked samples land different integer numbers of
+        // nudges apart, and the ~0.6-degree stair-step reads as shake
+        // on device (Dave's deadlift note).
+        for _ in 0..<96 {
             let frames = candidate.jointFrames(skeleton: skeleton)
             let ankleZ = 0.5 * ((frames[.leftAnkle]?.position.z ?? 0) + (frames[.rightAnkle]?.position.z ?? 0))
 
@@ -217,11 +418,11 @@ public enum MascotPoseBuilder {
             if equipmentTooDeep {
                 for joint in [MascotJoint.leftShoulder, .rightShoulder] {
                     let a = joints[joint] ?? .zero
-                    joints[joint] = EulerAngles(pitch: a.pitch - 0.01, yaw: a.yaw, roll: a.roll)
+                    joints[joint] = EulerAngles(pitch: a.pitch - 0.0025, yaw: a.yaw, roll: a.roll)
                 }
             } else {
                 let spine = joints[.spine] ?? .zero
-                joints[.spine] = EulerAngles(pitch: spine.pitch + 0.01, yaw: spine.yaw, roll: spine.roll)
+                joints[.spine] = EulerAngles(pitch: spine.pitch + 0.0025, yaw: spine.yaw, roll: spine.roll)
             }
             candidate.joints = joints
             candidate = plantingFeet(candidate, skeleton: skeleton)
@@ -293,8 +494,17 @@ public enum MascotPoseBuilder {
         }
 
         /// Residual vector: palm position error (weighted hard), grip
-        /// axis vs -x, hand direction vs the forearm line.
-        func residual(_ q: [Double], target: Vec3) -> [Double]? {
+        /// axis vs -x, hand direction vs the forearm line — plus a
+        /// small pull toward the SEED angles. The last term is what
+        /// makes the per-sample map CONTINUOUS: the arm has a redundant
+        /// degree of freedom (rotations about the shoulder-palm axis
+        /// trade shoulder pitch/yaw/roll at constant everything else),
+        /// and without a preference inside that null space the solver
+        /// bounced between nearby solutions knot to knot — the deadlift
+        /// read as SHAKY on device, shoulder roll flapping ±15 degrees
+        /// between adjacent baked samples. Anchoring softly to the
+        /// smoothly-varying seed picks one point, smoothly.
+        func residual(_ q: [Double], seed: [Double], target: Vec3) -> [Double]? {
             let frames = applied(q).jointFrames(skeleton: skeleton)
             guard let lw = frames[.leftWrist], let le = frames[.leftElbow] else { return nil }
             let palm = lw.position + lw.rotation.rotate(MascotGrip.palmOffset)
@@ -321,6 +531,12 @@ public enum MascotPoseBuilder {
                 // the sagittal plane (thumb-in solutions otherwise
                 // wander into flared, elbows-behind shapes).
                 r.append(6.0 * (le.position.z - palm.z))
+            }
+            // Null-space anchor (see above): soft, so the hard
+            // constraints still win by two orders of magnitude.
+            let wSeed = 0.3
+            for i in 0..<q.count {
+                r.append(wSeed * (q[i] - seed[i]))
             }
             return r
         }
@@ -349,19 +565,21 @@ public enum MascotPoseBuilder {
             elbow.pitch, elbow.yaw,
             wrist.pitch, wrist.yaw, wrist.roll,
         ]
+        let seedQ = q
 
         let n = 8
-        for _ in 0..<14 {
-            guard let r0 = residual(q, target: target) else { return pose }
+        for _ in 0..<24 {
+            guard let r0 = residual(q, seed: seedQ, target: target) else { return pose }
             let errorSq = r0.reduce(0) { $0 + $1 * $1 }
             if errorSq < 1e-7 { break }
-            // Numeric Jacobian (9 x 7).
+            // Numeric Jacobian: one row per residual (9-10 hard terms
+            // plus the 8 seed anchors), 8 DOF columns.
             let h = 0.0008
             var J = [[Double]](repeating: [Double](repeating: 0, count: n), count: r0.count)
             for j in 0..<n {
                 var qh = q
                 qh[j] += h
-                guard let rh = residual(qh, target: target) else { return pose }
+                guard let rh = residual(qh, seed: seedQ, target: target) else { return pose }
                 for i in 0..<r0.count {
                     J[i][j] = (rh[i] - r0[i]) / h
                 }
@@ -475,11 +693,17 @@ public enum MascotPoseBuilder {
     /// eyes come from the face channel's tiredness cap (level lids —
     /// serene, not droopy). Endpoint poses match the rep loop's
     /// endpoints exactly, so both seams are continuous.
+    /// `solve` re-settles the beat's INTERIOR poses (the phew and the
+    /// exhale) after their deltas are applied — floor moves pass their
+    /// re-anchoring chain so planted hands and toes stay planted while
+    /// the chest lifts (the endpoints are the caller's already-solved
+    /// loop poses and pass through untouched).
     public static func tiredBeat(
         from end: MascotPose,
         to start: MascotPose,
         duration: TimeInterval,
-        settle: Double = 1
+        settle: Double = 1,
+        solve: (MascotPose) -> MascotPose = { $0 }
     ) -> ExerciseAnimation.RestBeat {
         func adding(_ base: MascotPose, _ deltas: [(MascotJoint, EulerAngles)], rootLift: Double, effort: Double) -> MascotPose {
             var pose = base
@@ -498,21 +722,21 @@ public enum MascotPoseBuilder {
             return pose
         }
         // The phew: chin up, chest proud, arms opening a hair outward.
-        let phew = adding(end, [
+        let phew = solve(adding(end, [
             (.neck, .deg(pitch: -7 * settle)),
             (.head, .deg(pitch: -3 * settle)),
             (.chest, .deg(pitch: -4 * settle)),
             (.leftShoulder, .deg(roll: 5 * settle)),
             (.rightShoulder, .deg(roll: -5 * settle)),
-        ], rootLift: -0.006 * settle, effort: 0.06)
+        ], rootLift: -0.006 * settle, effort: 0.06))
         // The slow exhale: the chest eases back down, still tall.
-        let exhale = adding(end, [
+        let exhale = solve(adding(end, [
             (.neck, .deg(pitch: -4 * settle)),
             (.head, .deg(pitch: -2 * settle)),
             (.chest, .deg(pitch: -1 * settle)),
             (.leftShoulder, .deg(roll: 2 * settle)),
             (.rightShoulder, .deg(roll: -2 * settle)),
-        ], rootLift: -0.009 * settle, effort: 0.05)
+        ], rootLift: -0.009 * settle, effort: 0.05))
 
         return ExerciseAnimation.RestBeat(duration: duration, keyframes: [
             MascotKeyframe(t: 0, pose: end, easing: .easeOut),

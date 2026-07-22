@@ -189,29 +189,23 @@ final class MascotRig {
             themed.append((sphere, .joint))
         }
 
-        // Hands: a dark palm with three fingers and a thumb (cartoon
-        // rules). Around a prop the fingers wrap into a grip; on a
-        // weight-bearing hand (push-up, plank) they lie FLAT along the
-        // floor — the relaxed half-curl dug fingertips into the ground.
-        let gripped = !animation.props.isEmpty
-        let planted = animation.dynamics.handsBearWeight
-        for (wrist, side) in [(MascotJoint.leftWrist, Float(1)), (.rightWrist, -1)] {
-            attach(box(0.06, 0.055, 0.052), to: wrist, offset: [0, -0.02, 0], role: .joint)
-            let fingerPitch: Float = gripped ? -1.5 : (planted ? -1.42 : -0.45)
-            for (index, dx) in [-0.018, 0, 0.018].enumerated() {
-                let finger = ModelEntity(mesh: box(0.015, 0.05, 0.015))
-                finger.position = [Float(dx), -0.045, 0.008]
-                finger.orientation = simd_quatf(angle: fingerPitch, axis: [1, 0, 0])
-                finger.scale = index == 1 ? [1, 1.15, 1] : [1, 1, 1]
-                joints[wrist]?.addChild(finger)
-                themed.append((finger, .joint))
+        // Hands: built from `MascotHand` — the hand round's shared
+        // contract. The per-move STATE (a fist wrapped around the
+        // bar's radius, a flat planted push-up palm, the plank's
+        // neutral fist, the relaxed idle half-curl) and every
+        // segment's placement come from the kit, where the
+        // fingers-never-pierce and flat-palm invariants prove the SAME
+        // geometry — a hand exists in the pixels and the proof, or in
+        // neither.
+        let handState = MascotHand.state(for: animation)
+        for (wrist, side) in [(MascotJoint.leftWrist, 1.0), (.rightWrist, -1.0)] {
+            for segment in MascotHand.segments(state: handState, side: side) {
+                let model = ModelEntity(mesh: box(segment.size.x, segment.size.y, segment.size.z))
+                model.position = SIMD3<Float>(segment.center)
+                model.orientation = MascotPoseApplier.quaternion(from: segment.rotation)
+                joints[wrist]?.addChild(model)
+                themed.append((model, .joint))
             }
-            let thumb = ModelEntity(mesh: box(0.014, 0.04, 0.014))
-            thumb.position = [side * 0.032, -0.028, 0.012]
-            thumb.orientation = simd_quatf(angle: gripped ? -1.15 : (planted ? -1.05 : -0.35), axis: [1, 0, 0])
-                * simd_quatf(angle: side * -0.35, axis: [0, 0, 1])
-            joints[wrist]?.addChild(thumb)
-            themed.append((thumb, .joint))
         }
 
         // The room: a soft stage disc, a dot-grid floor, and dot-grid
@@ -311,12 +305,16 @@ final class MascotRig {
         if animation.props.contains(.dumbbellPair) {
             let headMesh = MascotMeshes.roundedCylinder(
                 radius: Float(MascotGrip.dumbbellHeadRadius),
-                height: 0.038,
+                height: Float(MascotGrip.dumbbellHeadHalfWidth * 2),
                 edgeRadius: 0.014
             )
             for wrist in [MascotJoint.leftWrist, .rightWrist] {
                 let dumbbell = Entity()
-                dumbbell.position = SIMD3<Float>(MascotGrip.dumbbellOffset)
+                // The handle lies in the GRIP CHANNEL — the same point
+                // the fingers wrap (the hand round unified the old
+                // separate dumbbell offset; two rest points meant the
+                // fingers could pierce the handle they didn't hold).
+                dumbbell.position = SIMD3<Float>(MascotGrip.palmOffset)
                 let handle = ModelEntity(mesh: .generateCylinder(
                     height: Float(MascotGrip.handleHalfLength * 2),
                     radius: Float(MascotGrip.handleRadius)

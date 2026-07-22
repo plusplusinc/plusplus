@@ -73,11 +73,16 @@ enum BenchPressMove {
             wrist: .deg(pitch: 1.6, yaw: -88.0, roll: 3.7),
             effort: 0.3
         )
-        // Touch: bar grazing the mid cowl (5 mm, inside the 8 mm
-        // allowance), elbow under the bar.
+        // Touch: bar grazing the mid cowl, elbow under the bar. The
+        // depth is scanned against the SOLVED cycle, not the seed —
+        // the grip servo's position residual runs the spline's worst
+        // sample ~2 mm deeper than the seed pose reads (review catch:
+        // the old -139.8 seed claimed 5 mm but shipped 6.8, one
+        // millimeter from the invariant). At -137.4 the solved worst
+        // is 4.7 mm with the touch still seated on the cowl.
         let touch = benchPose(
             shoulder: .deg(pitch: 18.4, yaw: 26.1, roll: 73.9),
-            elbow: .deg(pitch: -139.8, yaw: 8.5),
+            elbow: .deg(pitch: -137.4, yaw: 8.5),
             wrist: .deg(pitch: -3.2, yaw: -88.0, roll: -11.8),
             effort: 0.55
         )

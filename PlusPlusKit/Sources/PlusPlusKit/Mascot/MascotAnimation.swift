@@ -92,17 +92,26 @@ public struct MascotDynamics: Equatable, Sendable {
     /// something-touches-the-ground invariant skips them; the ballistic
     /// invariant takes over inside them.
     public var airborneWindows: [ClosedRange<Double>]
-    /// The hands carry body weight on the floor (push-up, plank): the
-    /// renderer lays the fingers flat instead of the relaxed half-curl,
-    /// and the palm contact pads are expected AT the ground.
+    /// The hands carry body weight FLAT on the floor (push-up): the
+    /// hand is the planted flat palm — fingers extended forward, palm
+    /// contact pads expected AT the ground.
     public var handsBearWeight: Bool
+    /// The FOREARMS carry the weight (forearm plank): the elbows and
+    /// forearms rest on the floor and the hands ride as relaxed
+    /// NEUTRAL FISTS — thumb side up, pinky edge near the ground. The
+    /// anatomically honest floor hand for an elbow-supported move:
+    /// palm-down there would demand more pronation than a horizontal
+    /// forearm has (the hand round's census proved it unreachable).
+    public var forearmsBearWeight: Bool
 
     public init(
         airborneWindows: [ClosedRange<Double>] = [],
-        handsBearWeight: Bool = false
+        handsBearWeight: Bool = false,
+        forearmsBearWeight: Bool = false
     ) {
         self.airborneWindows = airborneWindows
         self.handsBearWeight = handsBearWeight
+        self.forearmsBearWeight = forearmsBearWeight
     }
 
     /// Grounded throughout — every non-jumping move.
