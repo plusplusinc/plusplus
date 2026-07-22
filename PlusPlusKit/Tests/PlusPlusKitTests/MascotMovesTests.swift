@@ -264,14 +264,17 @@ import Foundation
     /// servo's diagonal-grip allowance can add (skew shifts the bar
     /// within an outer finger's wrap plane), which must stay a
     /// grip-pressure graze, never a pass-through.
-    @Test(arguments: ["Squat", "Deadlift", "Bench Press", "Dumbbell Curl"])
+    ///
+    /// Runs over EVERY move and keys on `MascotHand.state(for:)` — the
+    /// same rule that gives a move its hand pixels gives it this
+    /// proof, so a future gripped move can never render a fist without
+    /// inheriting the law (review catch: a hardcoded move list here
+    /// was a silent coverage hole waiting for move #8).
+    @Test(arguments: MascotMoves.all.map(\.exerciseName))
     func handsNeverPierceWhatTheyHold(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         let state = MascotHand.state(for: animation)
-        guard case .gripped = state else {
-            Issue.record("\(name): expected a gripped hand state, got \(state)")
-            return
-        }
+        guard case .gripped = state else { return }
         let isDumbbell = animation.props.contains(.dumbbellPair)
         for i in 0...400 {
             let t = Double(i) / 400
@@ -314,11 +317,13 @@ import Foundation
     /// arm's anatomy leaves at depth shows up as the hand rocking onto
     /// its planted fingers, never as fingertips underground or a
     /// hovering palm (the hand round: the old curled-fist floor hands
-    /// read as puppy-paws with fingertips dug in).
-    @Test(arguments: ["Push-Up"])
+    /// read as puppy-paws with fingertips dug in). Coverage keys on
+    /// `MascotHand.state(for:)` over every move — pixels and proof
+    /// share one rule.
+    @Test(arguments: MascotMoves.all.map(\.exerciseName))
     func plantedHandsRestFlatOnTheFloor(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
-        #expect(MascotHand.state(for: animation) == .planted)
+        guard MascotHand.state(for: animation) == .planted else { return }
         let workShare = animation.workDuration / animation.cycleDuration
         for i in 0...400 {
             let t = Double(i) / 400
@@ -337,7 +342,7 @@ import Foundation
                             "\(name): the hand hovers \(lowest * 1000) mm off the floor at t=\(t)")
                 }
                 for segment in MascotHand.segments(state: .planted, side: side) where segment.role == .finger {
-                    let direction = MascotHand.fingerDirection(of: segment, side: side, wrist: frame)
+                    let direction = MascotHand.fingerDirection(of: segment, wrist: frame)
                     #expect(direction.z >= 0.6 && abs(direction.y) <= 0.35,
                             "\(name): fingers point (\(direction.x), \(direction.y), \(direction.z)) at t=\(t) — not extended along the floor")
                 }
@@ -345,14 +350,16 @@ import Foundation
         }
     }
 
-    /// The forearm plank's hands are relaxed NEUTRAL FISTS continuing
-    /// the forearms — pinky edge riding the floor, thumb side up,
-    /// never piercing and never floating away (palm-down there would
-    /// demand more pronation than a horizontal forearm has).
-    @Test(arguments: ["Plank"])
+    /// A forearm-supported move's hands are relaxed NEUTRAL FISTS
+    /// continuing the forearms — pinky edge riding the floor, thumb
+    /// side up, never piercing and never floating away (palm-down
+    /// there would demand more pronation than a horizontal forearm
+    /// has). Coverage keys on `MascotHand.state(for:)` over every
+    /// move — pixels and proof share one rule.
+    @Test(arguments: MascotMoves.all.map(\.exerciseName))
     func plankFistsRideTheFloor(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
-        #expect(MascotHand.state(for: animation) == .fist)
+        guard MascotHand.state(for: animation) == .fist else { return }
         for i in 0...400 {
             let t = Double(i) / 400
             let frames = animation.pose(at: t).jointFrames(skeleton: Self.skeleton)

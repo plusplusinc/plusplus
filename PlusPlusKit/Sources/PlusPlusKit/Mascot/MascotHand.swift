@@ -119,11 +119,12 @@ public enum MascotHand {
         }
     }
 
-    /// The local direction a finger EXTENDS (base toward tip) for a
-    /// segment — always the box's -y before its own rotation.
+    /// The world direction a finger EXTENDS (base toward tip) — the
+    /// box's -y through its own rotation and the wrist frame. Pass a
+    /// segment from `segments(state:side:)`: mirroring already lives
+    /// in the segment's rotation.
     public static func fingerDirection(
         of segment: Segment,
-        side: Double,
         wrist: (position: Vec3, rotation: Mat3)
     ) -> Vec3 {
         (wrist.rotation * Mat3.rotation(segment.rotation)).rotate(Vec3(0, -1, 0))

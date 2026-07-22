@@ -62,6 +62,13 @@ enum BenchPressMove {
         let solve = { (pose: MascotPose) in
             MascotPoseBuilder.grippingTheBar(pose, station: 0.26, elbowUnderBar: true)
         }
+        // ⚠️ Margin note for the next tuner: this arc runs the
+        // TIGHTEST hand-wrap graze in the catalog — solved-cycle worst
+        // ~5.0 mm against the 6 mm fingers-never-pierce bound (the
+        // full-pronation press holds the largest grip-axis skew, and
+        // skew shifts the bar within the outer finger's wrap plane).
+        // A seed retune or servo-weight change lands a far-away
+        // handsNeverPierceWhatTheyHold failure before anything visible.
 
         // Arm SEEDS in the overhand basin (ScratchGrip winners, one
         // decimal); repCycle emits solve(seed) for every endpoint

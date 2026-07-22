@@ -231,7 +231,10 @@ public enum MascotPoseBuilder {
         }
 
         let toRadians = Double.pi / 180
-        // The same left-canonical bounds as `grippingTheBar`.
+        // `grippingTheBar`'s left-canonical bounds, EXCEPT wrist
+        // extension, which opens to 90 here — the planted support
+        // hand loads into end-range extension a free grip never needs
+        // (the anatomical table's 92, minus the usual 2 of margin).
         let bounds: [ClosedRange<Double>] = [
             (-183 * toRadians)...(58 * toRadians),   // shoulder pitch
             (-93 * toRadians)...(93 * toRadians),    // shoulder yaw
