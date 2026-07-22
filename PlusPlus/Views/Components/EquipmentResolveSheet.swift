@@ -169,7 +169,7 @@ struct EquipmentResolveSheet: View {
                     .font(.system(.caption2, design: .monospaced, weight: .semibold))
                     .foregroundStyle(Theme.notes)
                 if let best = res.bestKit {
-                    Text("Switch to your \(best) kit")
+                    Text("Switch to the \(best) kit")
                         .font(.system(.body, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                     Text("It has \(equipmentName.lowercased()) and covers every other exercise in this routine too.")
@@ -291,7 +291,7 @@ struct EquipmentResolveSheet: View {
     private func subtitle(_ res: EquipmentResolution) -> String {
         let names = res.affected
         let verb = names.count == 1 ? "uses" : "use"
-        return "\(listPhrase(names)) \(verb) it. Your kit is \(activeKitName)."
+        return "\(listPhrase(names)) \(verb) it."
     }
 
     /// "Squat", "Squat and Deadlift", "Squat, Deadlift and Bench Press".
