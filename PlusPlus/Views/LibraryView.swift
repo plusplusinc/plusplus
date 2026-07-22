@@ -29,6 +29,7 @@ struct ExercisesTabView: View {
     @State private var showingGearPicker = false
     @State private var creatingExercise = false
     @State private var loadedPrefs = false
+    @State private var showingLibraryTray = false
 
     private var availableEquipmentNames: Set<String> {
         EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.memberNames ?? []
@@ -56,7 +57,18 @@ struct ExercisesTabView: View {
                         prompt: "Search exercises",
                         identifier: "exercisesSearchField"
                     )
-                )
+                ) {
+                    // Switch the kit exercises are judged against, inline
+                    // (2026-07-21 axes separation) — the same switcher the Kit
+                    // tab and routine catalog use; the Equipment facet below
+                    // stays a pure LOCAL lens that never switches.
+                    LibrarySwitcherKey(
+                        name: EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.name ?? EquipmentLibrary.defaultName,
+                        identifier: "exercisesKitSwitcher"
+                    ) {
+                        showingLibraryTray = true
+                    }
+                }
                 filterRow
                 List {
                     // Creation is the top row everywhere (2026-07-18): New
@@ -91,6 +103,9 @@ struct ExercisesTabView: View {
             .sheet(isPresented: $showingGearPicker) {
                 GearPickSheet(filterState: filterState, allEquipment: allEquipmentSorted)
                     .presentationDetents([.medium, .large])
+            }
+            .sheet(isPresented: $showingLibraryTray) {
+                EquipmentLibraryTray()
             }
         }
         .revealRoot(tab: "exercises", atRoot: path.isEmpty)
@@ -363,6 +378,9 @@ struct EquipmentTabView: View {
         EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)
     }
 
+    /// The baked-in null kit is immutable — no Add row, a distinct empty state.
+    private var isBodyweightKit: Bool { activeLibrary?.isBodyweight ?? false }
+
     /// The active library's members, sorted for a stable list.
     private var libraryEquipment: [Equipment] {
         (activeLibrary?.members ?? []).sorted { $0.name < $1.name }
@@ -400,8 +418,11 @@ struct EquipmentTabView: View {
 
                 List {
                     // Top row navigates to the catalog to add gear; New/Add
-                    // never dead-ends an empty kit or a zeroed search.
-                    addEquipmentRow
+                    // never dead-ends an empty kit or a zeroed search. The
+                    // null kit is immutable, so it shows no Add row.
+                    if !isBodyweightKit {
+                        addEquipmentRow
+                    }
                     equipmentRows
                     if filteredEquipment.isEmpty {
                         equipmentEmptyHint
@@ -443,13 +464,21 @@ struct EquipmentTabView: View {
         .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
     }
 
+    private var emptyHintText: String {
+        if !searchText.trimmingCharacters(in: .whitespaces).isEmpty {
+            return "Nothing in your kit matches."
+        }
+        // The null kit is empty on purpose — say so, and point to the switch.
+        if isBodyweightKit {
+            return "Switch to another kit to add equipment. null is the no-equipment kit."
+        }
+        // A fresh install seeds an empty kit (#232) — say what the list is for.
+        return "Your kit is empty. Add equipment to unlock exercises and routines."
+    }
+
     private var equipmentEmptyHint: some View {
         VStack(spacing: 10) {
-            // A fresh install seeds an empty kit (#232) — say what the list
-            // is for; a zeroed search just says nothing matched.
-            Text(searchText.trimmingCharacters(in: .whitespaces).isEmpty
-                 ? "Your kit is empty. Add equipment to unlock exercises and routines."
-                 : "Nothing in your kit matches.")
+            Text(emptyHintText)
                 .font(.system(.footnote))
                 .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
@@ -620,6 +649,10 @@ extension CatalogTabHeader where Accessory == EmptyView {
 /// discoverable before a second library exists).
 struct LibrarySwitcherKey: View {
     let name: String
+    /// Distinct per call site (the same switcher now rides four surfaces), so
+    /// a future smoke test visiting more than one doesn't hit a multiple-match
+    /// on a shared identifier (swift review).
+    var identifier: String = "librarySwitcherButton"
     let action: () -> Void
 
     var body: some View {
@@ -649,7 +682,7 @@ struct LibrarySwitcherKey: View {
             .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
         }
         .buttonStyle(.raisedKey())
-        .accessibilityIdentifier("librarySwitcherButton")
+        .accessibilityIdentifier(identifier)
     }
 }
 

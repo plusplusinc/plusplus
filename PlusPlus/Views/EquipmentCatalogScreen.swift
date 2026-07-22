@@ -215,6 +215,10 @@ struct EquipmentCatalogScreen: View {
 
     // MARK: - Active kit
 
+    /// The null kit is immutable — nothing lands in it — so the strip's verb
+    /// and the row swipes below reflect that.
+    private var activeIsBodyweight: Bool { activeLibrary?.isBodyweight ?? false }
+
     /// Which kit these adds land in, named and switchable right here (Dave,
     /// 2026-07-20): the catalog is the ADD surface, but the active kit was
     /// only legible back on the Kit tab, so a run of quick-adds could pour
@@ -222,10 +226,13 @@ struct EquipmentCatalogScreen: View {
     /// switching re-renders the cards' in-kit glyphs behind the tray.
     private var activeKitBar: some View {
         HStack(spacing: 8) {
-            Text("Adding to")
+            Text(activeIsBodyweight ? "On" : "Adding to")
                 .font(.system(.footnote))
                 .foregroundStyle(Theme.textSecondary)
-            LibrarySwitcherKey(name: activeLibrary?.name ?? EquipmentLibrary.defaultName) {
+            LibrarySwitcherKey(
+                name: activeLibrary?.name ?? EquipmentLibrary.defaultName,
+                identifier: "catalogKitSwitcher"
+            ) {
                 showingLibraryTray = true
             }
             Spacer(minLength: 0)
@@ -320,12 +327,12 @@ struct EquipmentCatalogScreen: View {
             id: equipment.persistentModelID,
             openRow: $openSwipeRow,
             actionsWidth: 0,
-            leadingActionsWidth: 58,
+            leadingActionsWidth: activeIsBodyweight ? 0 : 58,
             onTap: {
                 touchedSetup = true
                 pushedEquipment = equipment
             },
-            accessibilityActions: [
+            accessibilityActions: activeIsBodyweight ? [] : [
                 SwipeRowAction(name: inKit ? "Remove from kit" : "Add to kit") {
                     openSwipeRow = nil
                     setMembership(equipment, !inKit)
@@ -341,19 +348,22 @@ struct EquipmentCatalogScreen: View {
         } leadingActions: {
             // Quick add: green = creation (#202). Flips to membership
             // removal when already in the kit, so setup keeps
-            // toggle-off parity with the old browse.
+            // toggle-off parity with the old browse. The null kit is
+            // immutable, so it has no add/remove swipe.
             // Unique per-row identifier: every realized row's hidden
             // action lives in the accessibility tree (opacity 0
             // removes nothing — the component's own law), so a bare
             // "ADD" query matches a dozen rows at once. The
             // `toggle-\(name)` precedent.
-            SwipeActionButton(
-                label: inKit ? "REMOVE" : "ADD",
-                color: inKit ? Theme.destructive : Theme.accent,
-                identifier: "quickAdd-\(equipment.name)"
-            ) {
-                openSwipeRow = nil
-                setMembership(equipment, !inKit)
+            if !activeIsBodyweight {
+                SwipeActionButton(
+                    label: inKit ? "REMOVE" : "ADD",
+                    color: inKit ? Theme.destructive : Theme.accent,
+                    identifier: "quickAdd-\(equipment.name)"
+                ) {
+                    openSwipeRow = nil
+                    setMembership(equipment, !inKit)
+                }
             }
         }
         .accessibilityIdentifier("equipmentCard-\(equipment.name)")

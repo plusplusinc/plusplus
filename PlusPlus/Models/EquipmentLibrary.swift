@@ -43,6 +43,21 @@ extension EquipmentLibrary {
     /// existing store's lone untouched "Home".
     static let defaultName = "main"
 
+    /// The baked-in no-equipment kit (2026-07-21, Dave): every store always
+    /// carries this alongside `main`, so a bodyweight-only scope is always one
+    /// tap away and nobody has to build one. `null` is the programmer wink (the
+    /// empty set, pairs with `main` and the `++` mark); an empty membership
+    /// already means bodyweight-only. Identity is the reserved NAME — the
+    /// interchange merges libraries by name, so seed/export/import all dedup on
+    /// it for free — and it's protected from rename/delete + immutable so the
+    /// name (its identity) and its emptiness both hold. `SeedData.ensureBodyweightKit`
+    /// guarantees it exists and re-creates it if removed.
+    static let bodyweightName = "null"
+
+    /// The null kit's gear read-out (Dave's line, trimmed to fit a row): an
+    /// empty kit that leans into the joke instead of a bare "bodyweight only".
+    static let bodyweightCaption = "just you, plus maybe shoes"
+
     /// The ONE canonical line explaining what a kit is and what switching
     /// does (2026-07-20, Dave's wording). Every surface that captions the
     /// kit switcher references THIS — don't restate it, or the app grows
@@ -72,10 +87,14 @@ extension EquipmentLibrary {
     /// use this — a control always shows the raw name, since it needs a label
     /// even with a single kit.
     static func activeNamePhrase(in libraries: [EquipmentLibrary], storedID: String?, generic: String = "your kit") -> String {
-        guard libraries.count > 1, let name = active(in: libraries, storedID: storedID)?.name else {
-            return generic
-        }
-        return name
+        guard let activeKit = active(in: libraries, storedID: storedID) else { return generic }
+        // The baked-in null kit is ALWAYS present, so it can't count toward
+        // "more than one exists" — a user with a single real kit still reads
+        // the generic possessive. But when null itself is the active scope,
+        // name it (it's a deliberate named lens, not "your kit").
+        let realKits = libraries.filter { !$0.isBodyweight }.count
+        guard realKits > 1 || activeKit.isBodyweight else { return generic }
+        return activeKit.name
     }
 
     /// Non-view resolution (SeedData's populate math, the importer).
@@ -98,7 +117,14 @@ extension EquipmentLibrary {
         members.contains { $0 === item }
     }
 
+    /// The baked-in no-equipment kit: protected (no rename/delete) and
+    /// immutable (membership writes no-op), so it stays a true empty set.
+    var isBodyweight: Bool { name == EquipmentLibrary.bodyweightName }
+
     func setMembership(_ item: Equipment, _ included: Bool) {
+        // The null kit is permanently empty — the no-equipment option can't
+        // acquire equipment, whatever surface asks.
+        guard !isBodyweight else { return }
         if included {
             guard !contains(item) else { return }
             equipment = (equipment ?? []) + [item]

@@ -50,7 +50,7 @@ struct RoutineCatalogScreen: View {
     /// below the list all make the narrowing visible and reversible.
     @State private var gearFilter: GearFit? = .mine
     @State private var sort: CatalogSort = .featured
-    @State private var showingKitSheet = false
+    @State private var showingLibraryTray = false
     @State private var showingNewRoutine = false
     @State private var newRoutineName = ""
     /// One-shot per appearance: path.append isn't idempotent the way
@@ -81,11 +81,12 @@ struct RoutineCatalogScreen: View {
         }
     }
 
-    // Not `case none`: inside a switch over GearFit?, `.none` resolves
-    // to Optional.none and the compiler loses the case (CI catch).
+    /// The routine catalog's kit lens: narrow to the active kit (`.mine`) or,
+    /// as `nil`, drop the lens and show all routines. The bodyweight-only
+    /// scope moved to the baked-in `null` kit (2026-07-21) — switch to it
+    /// instead of a separate mode.
     enum GearFit: String, CaseIterable, Hashable {
         case mine = "My equipment"
-        case bodyweightOnly = "No equipment"
     }
 
     enum CatalogSort: String, CaseIterable {
@@ -103,28 +104,26 @@ struct RoutineCatalogScreen: View {
         activeLibrary?.memberNames ?? []
     }
 
-    /// The Kit chip (leftmost) speaks the current fit mode: the active kit's
-    /// name while narrowing to it, "No equipment" for bodyweight-only, "All
-    /// kits" while the lens is dropped. It reads active (blue) while narrowing,
-    /// neutral while showing all (`.mine` is the default, so it's blue by
-    /// default — the kit lens is the resting scope, not a transient filter).
-    private var kitChipLabel: String {
-        switch gearFilter {
-        case .mine: activeLibrary?.name ?? "Your kit"
-        case .bodyweightOnly: "No equipment"
-        case nil: "All kits"
+    /// The switch strip names the kit the catalog judges routines against and
+    /// switches it app-wide (2026-07-21 axes separation): switching lives here
+    /// (the one shared tray), while the "Can do now" chip below is a pure local
+    /// lens that never changes global scope.
+    private var kitBar: some View {
+        HStack(spacing: 8) {
+            Text("Browsing")
+                .font(.system(.footnote))
+                .foregroundStyle(Theme.textSecondary)
+            LibrarySwitcherKey(
+                name: activeLibrary?.name ?? EquipmentLibrary.defaultName,
+                identifier: "routineKitSwitcher"
+            ) {
+                showingLibraryTray = true
+            }
+            Spacer(minLength: 0)
         }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
     }
-
-    private var kitChipSymbol: String {
-        switch gearFilter {
-        case .mine: "dumbbell.fill"
-        case .bodyweightOnly: "figure.strengthtraining.functional"
-        case nil: "dumbbell"
-        }
-    }
-
-    private var kitChipActive: Bool { gearFilter != nil }
 
     /// The ✕ appears only once the browse is narrowed past its default (your
     /// kit, no facets): a facet is set, or the kit lens is off-default.
@@ -159,8 +158,6 @@ struct RoutineCatalogScreen: View {
             switch gearOverride {
             case .mine:
                 if !template.equipmentNames.allSatisfy(owned.contains) { return false }
-            case .bodyweightOnly:
-                if !template.equipmentNames.isEmpty { return false }
             case nil:
                 break
             }
@@ -198,6 +195,7 @@ struct RoutineCatalogScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            kitBar
             // Horizontal scroll: four ACTIVE values plus the ✕ can
             // outgrow a compact row, and truncated values defeat the
             // whole glanceable-state point (reviewer catch).
@@ -282,11 +280,12 @@ struct RoutineCatalogScreen: View {
         // resolve in production (build 33: template taps hit SwiftUI's
         // missing-destination placeholder). The registration lives at each
         // owning stack's root — RoutineListView and TodayView.
-        // The Kit filter sheet: switch the kit the catalog judges against
-        // (app-wide) or drop the lens. Kit switching here re-renders the list
-        // live on return, the same as the old footer's "Switch kit…".
-        .sheet(isPresented: $showingKitSheet) {
-            RoutineKitFilterSheet(mode: $gearFilter)
+        // Switching the active kit uses the one canonical tray (2026-07-21
+        // axes separation), reached from the "Browsing" strip; the list
+        // re-renders live behind it. The kit lens (the "Can do now" chip) is a
+        // separate LOCAL filter that never switches.
+        .sheet(isPresented: $showingLibraryTray) {
+            EquipmentLibraryTray()
         }
         .alert("New routine", isPresented: $showingNewRoutine) {
             TextField("Name", text: $newRoutineName)
@@ -302,14 +301,13 @@ struct RoutineCatalogScreen: View {
             if anyFilterActive {
                 ClearAllChip { clearFilters() }
             }
-            // Kit is the leftmost, most-load-bearing filter (Dave, 2026-07-20):
-            // it opens a sheet to switch the kit the catalog judges against, or
-            // drop the lens. Its icon + label speak the current mode.
-            KitFilterChip(
-                symbol: kitChipSymbol,
-                label: kitChipLabel,
-                isActive: kitChipActive
-            ) { showingKitSheet = true }
+            // A pure LOCAL availability lens (2026-07-21 axes separation):
+            // narrow to routines you can do with the active kit, or clear it
+            // to see all. Switching the kit itself is the strip above — a
+            // filter never changes global scope.
+            SelectableChip(label: "Can do now", isSelected: gearFilter == .mine) {
+                gearFilter = gearFilter == .mine ? nil : .mine
+            }
             MultiFacetChip(
                 facet: "Focus",
                 selection: $focusFilter,
@@ -378,11 +376,11 @@ struct RoutineCatalogScreen: View {
             pushedTemplate = true
             path.append(template)
         } label: {
-            // The shared routine-card body (2026-07-19): identity, prose,
-            // then the capsule row (focus · effort · estimate · gear). No
-            // schedule capsule — a template isn't scheduled, the one
-            // necessary catalog↔library difference.
-            RoutineCardContent(model: templateModel(template))
+            // The shared routine-card body (2026-07-22): title, one meta line
+            // (focus · effort · estimate), then the equipment tags. No
+            // schedule — a template isn't scheduled, the one necessary
+            // catalog↔library difference.
+            RoutineCardContent(title: template.name, meta: templateMeta(template))
                 .padding(.vertical, 14)
                 .padding(.horizontal, 14)
                 .contentShape(Rectangle())
@@ -395,15 +393,12 @@ struct RoutineCatalogScreen: View {
     /// Gear reads exactly like the library card: each piece a soft tag,
     /// amber-washed when the active kit lacks it (no more "NEEDS X" verdict
     /// line). A gearless template shows one neutral "Bodyweight" tag.
-    private func templateModel(_ template: RoutineTemplate) -> RoutineCardModel {
+    private func templateMeta(_ template: RoutineTemplate) -> RoutineMeta {
         let names = template.equipmentNames
         let gear: [(name: String, available: Bool)] = names.isEmpty
             ? [(name: "Bodyweight", available: true)]
             : names.map { (name: $0, available: ownedEquipmentNames.contains($0)) }
-        return RoutineCardModel(
-            title: template.name,
-            prose: template.summary,
-            schedule: nil,
+        return RoutineMeta(
             focus: template.focus.rawValue,
             effort: template.effort.rawValue,
             estimate: template.estimatedMinutesText,

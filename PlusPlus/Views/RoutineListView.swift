@@ -302,69 +302,15 @@ private struct RoutineCard: View {
         EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.memberNames ?? []
     }
 
-    /// The routine's exercises, resolved (a broken reference drops out).
-    private var exercises: [Exercise] {
-        routine.sortedGroups.flatMap(\.sortedExercises).compactMap(\.exercise)
-    }
-    private var hasExercises: Bool { !exercises.isEmpty }
-
-    /// Row 2's fallback prose when the routine carries no summary of its own:
-    /// the trained muscles, "cardio" for a pure cardio routine, or an
-    /// empty-state note.
-    private var descriptor: String {
-        guard hasExercises else { return "no exercises yet" }
-        return routine.isCardio ? "cardio" : musclesLine
-    }
-
-    private var musclesLine: String {
-        let present = Set(exercises.map(\.muscleGroup))
-        let ordered = MuscleGroup.allCases.filter { present.contains($0) }
-        guard !ordered.isEmpty else { return "full body" }
-        return ordered.map { $0.displayName.lowercased() }.joined(separator: " · ")
-    }
-
-    private var isUnscheduled: Bool { routine.schedule.normalized == .unscheduled }
-    private var cadenceLabel: String { isUnscheduled ? "anytime" : routine.schedule.shortLabel }
-
-    /// The routine's own one-line description, when it has a non-empty one
-    /// (seeded from a catalog template on add). This takes the prose row;
-    /// without it the row falls back to `descriptor`.
-    private var routineSummary: String? {
-        guard let s = routine.summary?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !s.isEmpty else { return nil }
-        return s
-    }
-
-    /// Gear as soft tags. A bodyweight routine shows one neutral "Bodyweight"
-    /// tag, unless it's pure cardio whose only "gear" is the body (suppressed,
-    /// Dave 2026-07-16).
-    private var gear: [(name: String, available: Bool)] {
-        guard !routine.equipmentNames.isEmpty else {
-            return (hasExercises && !routine.isCardio) ? [(name: "Bodyweight", available: true)] : []
-        }
-        return routine.gearAvailability(activeNames: availableEquipmentNames)
-    }
-
-    /// The shared routine-card model: identity, prose, then the capsule row
-    /// (schedule · focus · effort · estimate · gear). The schedule capsule is
-    /// the one library-only element — a template has none.
-    private var cardModel: RoutineCardModel {
-        RoutineCardModel(
-            title: routine.name,
-            prose: routineSummary ?? descriptor,
-            schedule: CardCapsule(text: cadenceLabel, systemImage: "calendar"),
-            focus: hasExercises ? routine.focusLabel : nil,
-            effort: hasExercises ? routine.effortLabel : nil,
-            estimate: hasExercises ? routine.estimateText : nil,
-            gear: gear
-        )
-    }
-
     var body: some View {
-        // Identity, prose (2 lines), and the shared capsule row — the same
-        // body the catalog card renders (2026-07-19), so a routine reads the
-        // same before and after you add it.
-        RoutineCardContent(model: cardModel)
+        // The shared metadata body (title · one meta line · equipment tags) —
+        // the same vocabulary the catalog card and detail header render
+        // (2026-07-22), so a routine reads the same everywhere. The tags are
+        // inert here: the whole card is the tap target.
+        RoutineCardContent(
+            title: routine.name,
+            meta: RoutineMeta(routine: routine, activeNames: availableEquipmentNames)
+        )
         .padding(.vertical, 14)
         .padding(.horizontal, 14)
         .contentShape(Rectangle())
