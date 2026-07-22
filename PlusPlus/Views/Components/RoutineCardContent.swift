@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import PlusPlusKit
 
 /// Shared routine-card vocabulary (2026-07-19, Dave): the catalog card, the
 /// library card, and the routine-detail header now read the SAME way — one
@@ -130,30 +131,213 @@ struct DetailHeaderCapsules: View {
     }
 }
 
-/// The shared routine-card body: identity, prose (two lines), and the
-/// single-line capsule row. Card chrome (padding, background, the library's
-/// entrance flash, the catalog's `Button`) stays at each call site — the same
-/// split as `ExerciseRowContent`/`EquipmentRowContent`.
-struct RoutineCardModel {
-    var title: String
-    var prose: String
-    /// The library schedule capsule (calendar glyph + cadence). Nil for a
-    /// template — the one necessary catalog↔library variation.
-    var schedule: CardCapsule?
+// MARK: - Shared routine metadata (one producer, composable tiers)
+
+/// The metadata every routine surface shows — the detail header, the library
+/// card, the catalog card, and Today's pending card — from ONE producer, so a
+/// routine reads the same facts the same way everywhere (2026-07-22, "facts,
+/// then needs"). Each surface renders only the tiers it needs via
+/// `RoutineMetaLine`/`ScheduleToken`/`RoutineEquipmentTags`; the chrome (card
+/// background, Today's diff + Start, the detail heading) stays at each call
+/// site — the same split as `ExerciseRowContent`/`EquipmentRowContent`.
+struct RoutineMeta {
     var focus: String?
     var effort: String?
     var estimate: String?
-    /// Gear names paired with whether the active kit has each.
+    /// The schedule, when the surface shows one (cards + detail). Nil on Today
+    /// — a card's presence on the timeline IS its schedule.
+    var schedule: RoutineSchedule?
+    var exercises: Int
+    var sets: Int
+    var restText: String
+    /// Gear names paired with whether the active kit has each (amber-flag input).
     var gear: [(name: String, available: Bool)]
+
+    /// From a live routine. `activeNames` is the active kit's membership;
+    /// `includeSchedule` is false for Today's cards.
+    init(routine: Routine, activeNames: Set<String>, includeSchedule: Bool = true) {
+        let exercises = routine.sortedGroups.reduce(0) { $0 + $1.sortedExercises.count }
+        self.exercises = exercises
+        self.sets = routine.sortedGroups.reduce(0) { $0 + $1.sets * $1.sortedExercises.count }
+        self.restText = Self.restLabel(routine.restSeconds)
+        self.focus = exercises > 0 ? routine.focusLabel : nil
+        self.effort = exercises > 0 ? routine.effortLabel : nil
+        self.estimate = exercises > 0 ? routine.estimateText : nil
+        self.schedule = includeSchedule ? routine.schedule : nil
+        if routine.equipmentNames.isEmpty {
+            self.gear = (exercises > 0 && !routine.isCardio) ? [(name: "Bodyweight", available: true)] : []
+        } else {
+            self.gear = routine.gearAvailability(activeNames: activeNames)
+        }
+    }
+
+    /// From a catalog template: effort but no schedule, gear judged against
+    /// the owned set. A template card shows no counts, so those stay zero.
+    init(focus: String?, effort: String?, estimate: String?, gear: [(name: String, available: Bool)]) {
+        self.focus = focus
+        self.effort = effort
+        self.estimate = estimate
+        self.schedule = nil
+        self.exercises = 0
+        self.sets = 0
+        self.restText = ""
+        self.gear = gear
+    }
+
+    static func restLabel(_ seconds: Int) -> String {
+        WorkoutMetric.duration.formatted(Double(seconds)) + (seconds < 60 ? "s" : "")
+    }
+
+    /// The cadence shown as plain text on a card ("anytime" when unscheduled).
+    static func cadence(_ schedule: RoutineSchedule) -> String {
+        schedule.normalized == .unscheduled ? "anytime" : schedule.shortLabel
+    }
+
+    /// The card's single identity + facts line: focus · schedule · effort · estimate.
+    var cardLine: String {
+        var parts: [String] = []
+        if let focus { parts.append(focus) }
+        if let schedule { parts.append(Self.cadence(schedule)) }
+        if let effort { parts.append(effort) }
+        if let estimate { parts.append(estimate) }
+        return parts.joined(separator: " · ")
+    }
+
+    /// Today's pending card line: focus · estimate. No schedule (a card's
+    /// presence on Today is its schedule) and no effort (the diff summary is
+    /// the identity moment there, so the meta stays terse).
+    var todayLine: String {
+        [focus, estimate].compactMap { $0 }.joined(separator: " · ")
+    }
+
+    /// The detail's fact line (below the focus + schedule subtitle):
+    /// estimate · N exercises · M sets · rest X.
+    var factLine: String {
+        var parts: [String] = []
+        if let estimate { parts.append(estimate) }
+        if exercises > 0 { parts.append("\(exercises) exercise\(exercises == 1 ? "" : "s")") }
+        if sets > 0 { parts.append("\(sets) set\(sets == 1 ? "" : "s")") }
+        if !restText.isEmpty { parts.append("rest \(restText)") }
+        return parts.joined(separator: " · ")
+    }
 }
 
-struct RoutineCardContent: View {
-    let model: RoutineCardModel
+/// The schedule as a soft tag. In the detail it's a door (trailing chevron +
+/// tap → the schedule tray); elsewhere it's a plain readout. Neutral fill: a
+/// schedule is a setting, not a problem, so it never washes amber.
+struct ScheduleToken: View {
+    let schedule: RoutineSchedule
+    var interactive: Bool = false
+    var onTap: () -> Void = {}
+
+    private var label: String {
+        schedule.normalized == .unscheduled ? "Unscheduled" : schedule.shortLabel
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        if interactive {
+            Button(action: onTap) { chip }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Schedule: \(label)")
+                .accessibilityHint("Opens the schedule")
+                .accessibilityAddTraits(.isButton)
+        } else {
+            chip.accessibilityLabel("Schedule: \(label)")
+        }
+    }
+
+    private var chip: some View {
+        HStack(spacing: 3) {
+            Image(systemName: "calendar")
+            Text(label)
+            if interactive {
+                Image(systemName: "chevron.right")
+                    .font(.system(.caption2, weight: .semibold))
+                    .foregroundStyle(Theme.textFaint)
+            }
+        }
+        .font(.system(.caption2))
+        .foregroundStyle(Theme.textSecondary)
+        .lineLimit(1)
+        .padding(.horizontal, CardTagCapsule.horizontalPadding)
+        .padding(.vertical, 2.5)
+        .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: CardTagCapsule.cornerRadius))
+    }
+}
+
+/// The equipment tier: amber-first soft tags (a piece missing from the active
+/// kit washes amber). In the detail the amber tags are doors (trailing chevron
+/// + tap → the resolve sheet) and the row wraps in full; on cards/Today they
+/// only flag and collapse to "N more". `showLabel` prefixes a mono "Equipment".
+struct RoutineEquipmentTags: View {
+    let gear: [(name: String, available: Bool)]
+    var interactive: Bool = false
+    var showLabel: Bool = false
+    var onEquipmentTap: (String) -> Void = { _ in }
+
+    private var sortedGear: [(name: String, available: Bool)] {
+        gear.sorted { (($0.available ? 1 : 0), $0.name) < (($1.available ? 1 : 0), $1.name) }
+    }
+
+    var body: some View {
+        if gear.isEmpty {
+            EmptyView()
+        } else if interactive {
+            VStack(alignment: .leading, spacing: 7) {
+                if showLabel {
+                    Text("EQUIPMENT")
+                        .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                        .foregroundStyle(Theme.textFaint)
+                }
+                FlowLayout(spacing: 6) {
+                    ForEach(sortedGear.indices, id: \.self) { index in
+                        tag(sortedGear[index])
+                    }
+                }
+            }
+        } else {
+            OverflowCapsuleRow(capsules: RoutineCardCapsules.gearCapsules(gear))
+        }
+    }
+
+    @ViewBuilder
+    private func tag(_ piece: (name: String, available: Bool)) -> some View {
+        if piece.available {
+            CardCapsule(text: piece.name).view()
+        } else {
+            Button { onEquipmentTap(piece.name) } label: {
+                HStack(spacing: 3) {
+                    Text(piece.name)
+                    Image(systemName: "chevron.right")
+                        .font(.system(.caption2, weight: .semibold))
+                }
+                .font(.system(.caption2))
+                .foregroundStyle(Theme.notes)
+                .lineLimit(1)
+                .padding(.horizontal, CardTagCapsule.horizontalPadding)
+                .padding(.vertical, 2.5)
+                .background(Theme.notes.opacity(0.14), in: RoundedRectangle(cornerRadius: CardTagCapsule.cornerRadius))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(piece.name), not in your kit")
+            .accessibilityHint("Opens ways to fix it")
+            .accessibilityAddTraits(.isButton)
+        }
+    }
+}
+
+/// The shared card body: title + chevron, the one meta line, and the equipment
+/// tier (inert on a card — the whole card is the tap target). Card chrome
+/// (padding, background, the library's entrance flash, the catalog's `Button`)
+/// stays at each call site.
+struct RoutineCardContent: View {
+    let title: String
+    let meta: RoutineMeta
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(model.title)
+                Text(title)
                     .font(.system(.subheadline, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(2)
@@ -166,33 +350,21 @@ struct RoutineCardContent: View {
                     .foregroundStyle(Theme.textFaint)
                     .accessibilityHidden(true)
             }
-            if !model.prose.isEmpty {
-                Text(model.prose)
+            if !meta.cardLine.isEmpty {
+                Text(meta.cardLine)
                     .font(.system(.caption))
                     .foregroundStyle(Theme.textSecondary)
                     .lineLimit(2)
             }
-            let capsules = RoutineCardCapsules.build(from: model, includesSchedule: true)
-            if !capsules.isEmpty {
-                OverflowCapsuleRow(capsules: capsules)
+            if !meta.gear.isEmpty {
+                RoutineEquipmentTags(gear: meta.gear)
             }
         }
     }
 }
 
-/// Builds the ordered capsule set shared by the card and the detail header,
-/// so both read the facts in the same order with the same treatment.
+/// Builds the ordered gear capsules shared by every inert equipment row.
 enum RoutineCardCapsules {
-    static func build(from model: RoutineCardModel, includesSchedule: Bool) -> [CardCapsule] {
-        var out: [CardCapsule] = []
-        if includesSchedule, let schedule = model.schedule { out.append(schedule) }
-        if let focus = model.focus { out.append(CardCapsule(text: focus)) }
-        if let effort = model.effort { out.append(CardCapsule(text: effort)) }
-        if let estimate = model.estimate { out.append(CardCapsule(text: estimate)) }
-        out.append(contentsOf: gearCapsules(model.gear))
-        return out
-    }
-
     /// Gear as soft tags, amber-washed when the active kit lacks the piece.
     /// Unavailable (amber) gear sorts FIRST so a single-line overflow can only
     /// ever collapse an available piece into "N more" (#113 flag-don't-hide).

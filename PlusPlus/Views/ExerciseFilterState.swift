@@ -82,6 +82,23 @@ final class ExerciseFilterState {
         exercise.equipment.filter { !$0.isDeleted && !available.contains($0.name) }.map(\.name).sorted()
     }
 
+    /// Catalog exercises that hit the SAME muscle group as `exercise` and are
+    /// doable with the given kit — the substitution pool for the equipment
+    /// resolve sheet's "swap the moves" step (2026-07-22). Muscle matching is
+    /// the single coarse `MuscleGroup` (the only muscle signal the model
+    /// carries), so it reads as "another <muscle> move your kit can do" — blunt
+    /// for compounds, clean for isolation work. The exercise itself and any
+    /// just-deleted straggler drop out.
+    static func kitDoableAlternatives(for exercise: Exercise, in catalog: [Exercise], kit: Set<String>) -> [Exercise] {
+        catalog.filter { candidate in
+            candidate !== exercise
+                && !candidate.isDeleted
+                && candidate.muscleGroup == exercise.muscleGroup
+                && missingEquipment(for: candidate, available: kit).isEmpty
+        }
+        .sorted { $0.name < $1.name }
+    }
+
     private func matchesFavorites(_ exercise: Exercise) -> Bool {
         !favoritesOnly || exercise.isFavorite
     }

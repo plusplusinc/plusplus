@@ -29,6 +29,11 @@ struct RoutineDetailView: View {
     @State private var healthStartRequest: HealthStartRequest?
     @State private var showingRoutineSettings = false
     @State private var showingShareSheet = false
+    /// The schedule tray, raised by the header's tappable schedule chip.
+    @State private var showingScheduleTray = false
+    /// The equipment-resolve sheet's target (an equipment name not in the
+    /// active kit), raised by tapping an amber gear chip in the header.
+    @State private var resolveTarget: ResolveTarget?
     /// The exercise-detail tray's target, keyed on the RoutineExercise's
     /// stable `uuid` (not the model / its persistentModelID, which would
     /// re-key the open sheet on a background autosave — the flicker).
@@ -192,6 +197,16 @@ struct RoutineDetailView: View {
         .fullScreenCover(item: $activeSession) { session in
             ActiveSessionView(session: session)
         }
+        // Schedule lives in its own tray now (2026-07-22), reachable from the
+        // header's tappable schedule chip AND the settings "Schedule" row.
+        .sheet(isPresented: $showingScheduleTray) {
+            ScheduleTray(routine: routine)
+        }
+        // Tapping an amber "not in your kit" gear chip opens ways to resolve it
+        // (add to kit · switch kit · swap the moves). Keyed on the name.
+        .sheet(item: $resolveTarget) { target in
+            EquipmentResolveSheet(routine: routine, equipmentName: target.id)
+        }
         // The one-time Health ask, in front of the first workout start.
         .healthStartPrimer($healthStartRequest)
     }
@@ -215,7 +230,13 @@ struct RoutineDetailView: View {
     // MARK: - Header
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        // The shared metadata, in the detail's fuller "facts, then needs" split
+        // (2026-07-22): a focus + schedule subtitle, a quiet fact line, then a
+        // labelled equipment row. Here — and ONLY here — the schedule chip and
+        // the amber (not-in-kit) gear chips are doors: they open the schedule
+        // tray and the equipment-resolve sheet.
+        let meta = RoutineMeta(routine: routine, activeNames: availableEquipmentNames)
+        return VStack(alignment: .leading, spacing: 0) {
             // The routine name is the screen's heading, below the back
             // key (Dave, build-78): a centered chrome title truncated a
             // long name to "Travel bodyweight…". Here it gets the full
@@ -228,13 +249,36 @@ struct RoutineDetailView: View {
                 .accessibilityAddTraits(.isHeader)
                 .padding(.top, 4)
 
-            // Facts, not inputs (v4 §A). The chrome carries no title now; the
-            // name (above) plus the same capsule vocabulary the cards use live
-            // here (2026-07-19) — but the detail shows the FULL set, wrapping
-            // as needed with no "N more" cap. Nothing is tappable.
             if !routine.groups.isEmpty {
-                DetailHeaderCapsules(capsules: headerCapsules)
-                    .padding(.top, 10)
+                // Subtitle: focus + the tappable schedule chip.
+                HStack(spacing: 6) {
+                    if let focus = meta.focus {
+                        Text(focus)
+                            .font(.system(.subheadline))
+                            .foregroundStyle(Theme.textSecondary)
+                        Text("·").foregroundStyle(Theme.textFaint)
+                    }
+                    ScheduleToken(schedule: routine.schedule, interactive: true) {
+                        showingScheduleTray = true
+                    }
+                }
+                .padding(.top, 10)
+
+                // The quiet fact line: estimate · exercises · sets · rest.
+                if !meta.factLine.isEmpty {
+                    Text(meta.factLine)
+                        .font(.system(.caption))
+                        .foregroundStyle(Theme.textSecondary)
+                        .padding(.top, 8)
+                }
+
+                // The equipment tier: amber-first, missing pieces tappable.
+                if !meta.gear.isEmpty {
+                    RoutineEquipmentTags(gear: meta.gear, interactive: true, showLabel: true) { name in
+                        resolveTarget = ResolveTarget(name: name)
+                    }
+                    .padding(.top, 12)
+                }
 
                 if let notes = routine.notes {
                     Text(notes)
@@ -249,41 +293,6 @@ struct RoutineDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 20)
         .padding(.bottom, 4)
-    }
-
-    /// The full fact set as capsules (schedule · focus · effort · estimate ·
-    /// N exercises · M sets · rest · all gear) — the cards' vocabulary, but
-    /// complete and wrapping (no cap), per the detail-header rule.
-    private var headerCapsules: [CardCapsule] {
-        var caps: [CardCapsule] = []
-        let unscheduled = routine.schedule.normalized == .unscheduled
-        caps.append(CardCapsule(
-            text: unscheduled ? "unscheduled" : routine.schedule.shortLabel,
-            systemImage: "calendar"
-        ))
-        let exercises = routine.sortedGroups.reduce(0) { $0 + $1.sortedExercises.count }
-        if exercises > 0 {
-            caps.append(CardCapsule(text: routine.focusLabel))
-            if let effort = routine.effortLabel { caps.append(CardCapsule(text: effort)) }
-            caps.append(CardCapsule(text: routine.estimateText))
-            caps.append(CardCapsule(text: "\(exercises) exercise\(exercises == 1 ? "" : "s")"))
-            let sets = routine.sortedGroups.reduce(0) { $0 + $1.sets * $1.sortedExercises.count }
-            caps.append(CardCapsule(text: "\(sets) set\(sets == 1 ? "" : "s")"))
-        }
-        caps.append(CardCapsule(text: "rest \(restText)"))
-        let gear: [(name: String, available: Bool)]
-        if routine.equipmentNames.isEmpty {
-            gear = (exercises > 0 && !routine.isCardio) ? [(name: "Bodyweight", available: true)] : []
-        } else {
-            gear = routine.gearAvailability(activeNames: availableEquipmentNames)
-        }
-        caps.append(contentsOf: RoutineCardCapsules.gearCapsules(gear))
-        return caps
-    }
-
-    private var restText: String {
-        WorkoutMetric.duration.formatted(Double(routine.restSeconds))
-            + (routine.restSeconds < 60 ? "s" : "")
     }
 
     // The "No exercises yet" empty hint died (#209): the rail's
@@ -1475,10 +1484,7 @@ struct RoutineSettingsScreen: View {
     /// Other routines' schedules feed the day-occupancy dots (#112).
     @Query(sort: \Routine.order) private var allRoutines: [Routine]
 
-    @State private var scheduleMode: Int
-    @State private var scheduleDays: Set<Int>
-    @State private var scheduleTimes: Int
-    @State private var schedulePerDays: Int
+    @State private var showingScheduleTray = false
     @State private var confirmingDelete = false
     @State private var showingRestScrubber = false
     @State private var showingTransitionScrubber = false
@@ -1493,25 +1499,6 @@ struct RoutineSettingsScreen: View {
         self.onDelete = onDelete
         _nameDraft = State(initialValue: routine.name)
         _notesDraft = State(initialValue: routine.notes ?? "")
-        // Seed the editor state from the stored schedule; edits write
-        // back through persistSchedule() on every change.
-        switch routine.schedule {
-        case .unscheduled:
-            _scheduleMode = State(initialValue: 0)
-            _scheduleDays = State(initialValue: [])
-            _scheduleTimes = State(initialValue: 3)
-            _schedulePerDays = State(initialValue: 7)
-        case .weekdays(let days):
-            _scheduleMode = State(initialValue: 1)
-            _scheduleDays = State(initialValue: days)
-            _scheduleTimes = State(initialValue: 3)
-            _schedulePerDays = State(initialValue: 7)
-        case .frequency(let times, let perDays):
-            _scheduleMode = State(initialValue: 2)
-            _scheduleDays = State(initialValue: [])
-            _scheduleTimes = State(initialValue: times)
-            _schedulePerDays = State(initialValue: perDays)
-        }
     }
 
     var body: some View {
@@ -1539,38 +1526,35 @@ struct RoutineSettingsScreen: View {
                     SheetSectionLabel("SCHEDULE")
                         .padding(.top, 24)
 
-                    SegmentedTabs(options: ["Off", "Days", "Pace"], selectedIndex: Binding(
-                        get: { scheduleMode },
-                        set: { scheduleMode = $0; persistSchedule() }
-                    ))
-
-                    if scheduleMode == 1 {
-                        dayChips
-                            .padding(.top, 8)
-                    } else if scheduleMode == 2 {
-                        frequencySteppers
-                            .padding(.top, 8)
+                    // Schedule lives in its own tray now (2026-07-22),
+                    // primarily reached from the header's schedule chip. This
+                    // row is the second door for anyone who looks in settings.
+                    Button {
+                        showingScheduleTray = true
+                    } label: {
+                        HStack(spacing: 10) {
+                            Text("Schedule")
+                                .font(.system(.footnote, weight: .medium))
+                                .foregroundStyle(Theme.textPrimary)
+                            Spacer(minLength: 8)
+                            Text(scheduleRowLabel)
+                                .font(.system(.footnote))
+                                .foregroundStyle(Theme.textSecondary)
+                            Image(systemName: "chevron.right")
+                                .font(.system(.caption, weight: .semibold))
+                                .foregroundStyle(Theme.textFaint)
+                        }
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 44)
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
+                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+                        .contentShape(Rectangle())
                     }
-
-                    if let caption = scheduleCaption {
-                        Text(caption)
-                            .font(.system(.caption))
-                            .foregroundStyle(Theme.textFaint)
-                            .padding(.top, 6)
-                    }
-
-                    // Pace's anchor semantics are permanent copy (the
-                    // one-time tip died in the TipKit rework): the
-                    // concept is load-bearing every time the mode is
-                    // chosen, not a first-encounter surprise. Generic
-                    // wording — the caption above already interpolates
-                    // the user's live pace, and a hardcoded example
-                    // would mismatch it.
-                    if scheduleMode == 2 {
-                        Text("Pace counts from your last completion, not the calendar week. Miss a day and nothing stacks up.")
-                            .font(.system(.caption))
-                            .foregroundStyle(Theme.textFaint)
-                            .padding(.top, 4)
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("scheduleRow")
+                    .padding(.top, 8)
+                    .sheet(isPresented: $showingScheduleTray) {
+                        ScheduleTray(routine: routine)
                     }
 
                     SheetSectionLabel("BETWEEN SETS")
@@ -1714,129 +1698,9 @@ struct RoutineSettingsScreen: View {
 
     // MARK: - Schedule (#83)
 
-    /// Fixed Sunday-first row matching Calendar weekday numbers 1…7.
-    private static let dayLabels = ["S", "M", "T", "W", "T", "F", "S"]
-
-    private var dayChips: some View {
-        HStack(spacing: 4) {
-            ForEach(Self.mondayFirstWeekdays, id: \.self) { weekday in
-                let selected = scheduleDays.contains(weekday)
-                VStack(spacing: 4) {
-                    Button {
-                        if selected {
-                            scheduleDays.remove(weekday)
-                        } else {
-                            scheduleDays.insert(weekday)
-                        }
-                        persistSchedule()
-                    } label: {
-                        // Solid selection blue (#210), not green:
-                        // scheduling a day is choosing an option; the
-                        // due OUTPUT on Today stays green. 34 pt visual
-                        // (Quiet Arcade) inside the 44 pt hit target.
-                        Text(Self.dayLabels[weekday - 1])
-                            .font(.system(.caption, design: .monospaced, weight: .semibold))
-                            .foregroundStyle(selected ? Theme.onSelected : Theme.textSecondary)
-                            .frame(width: 34, height: 34)
-                            .background(
-                                selected ? AnyShapeStyle(Theme.selected) : AnyShapeStyle(Theme.background),
-                                in: Circle()
-                            )
-                            .overlay(Circle().strokeBorder(selected ? Color.clear : Theme.border, lineWidth: 1))
-                            .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .accessibilityIdentifier("scheduleDay\(weekday)")
-
-                    // 4 pt occupancy dot: another routine lives here.
-                    Circle()
-                        .fill(occupiedDays.keys.contains(weekday) ? Theme.textFaint : Color.clear)
-                        .frame(width: 4, height: 4)
-                }
-                .frame(maxWidth: .infinity)
-            }
-        }
-        .animation(Theme.Anim.selection, value: scheduleDays)
-        .sensoryFeedback(.selection, trigger: scheduleDays)
-    }
-
-    /// Monday-first calendar weekday numbers, matching the prototype.
-    private static let mondayFirstWeekdays = [2, 3, 4, 5, 6, 7, 1]
-
-    /// weekday → another scheduled routine's name occupying that day.
-    private var occupiedDays: [Int: String] {
-        var result: [Int: String] = [:]
-        for other in allRoutines where other !== routine {
-            if case .weekdays(let days) = other.schedule.normalized {
-                for day in days where result[day] == nil {
-                    result[day] = other.name
-                }
-            }
-        }
-        return result
-    }
-
-    private var frequencySteppers: some View {
-        VStack(spacing: 0) {
-            MetricStepperRow(
-                label: "Sessions",
-                value: "\(scheduleTimes)×",
-                identifier: "scheduleTimes",
-                onDecrement: { scheduleTimes = max(1, scheduleTimes - 1); persistSchedule() },
-                onIncrement: { scheduleTimes = min(14, scheduleTimes + 1); persistSchedule() }
-            )
-            MetricStepperRow(
-                label: "Every",
-                value: "\(schedulePerDays) days",
-                identifier: "schedulePerDays",
-                onDecrement: { schedulePerDays = max(1, schedulePerDays - 1); persistSchedule() },
-                onIncrement: { schedulePerDays = min(30, schedulePerDays + 1); persistSchedule() }
-            )
-        }
-        .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
-    }
-
-    /// §G: only genuinely informative captions survive — the empty-days
-    /// prompt died (seven circles under SCHEDULE self-describe), and the
-    /// occupancy line renders only while a dot is showing.
-    private var scheduleCaption: String? {
-        switch scheduleMode {
-        case 1:
-            if scheduleDays.isEmpty {
-                return nil
-            }
-            if let (day, name) = occupiedExample {
-                let names = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
-                return "· = \(name) lives on \(names[day - 1])"
-            }
-            return "On the marked days; a missed day carries over until you do it."
-        case 2:
-            // The computed interval as ambient data; the anchor
-            // semantics live in the permanent footnote below this.
-            let interval = (schedulePerDays + scheduleTimes - 1) / scheduleTimes
-            return "\(scheduleTimes)×/\(schedulePerDays)d comes around every ~\(interval) day\(interval == 1 ? "" : "s")."
-        default:
-            return "No schedule. This routine never appears on Today by itself. Swap it in whenever."
-        }
-    }
-
-    /// First occupancy example for the caption, preferring dotted days.
-    private var occupiedExample: (Int, String)? {
-        for weekday in Self.mondayFirstWeekdays {
-            if let name = occupiedDays[weekday] {
-                return (weekday, name)
-            }
-        }
-        return nil
-    }
-
-    private func persistSchedule() {
-        switch scheduleMode {
-        case 1: routine.schedule = .weekdays(scheduleDays)
-        case 2: routine.schedule = .frequency(times: scheduleTimes, perDays: schedulePerDays)
-        default: routine.schedule = .unscheduled
-        }
+    /// The current schedule, shown on the settings row that opens the tray.
+    private var scheduleRowLabel: String {
+        routine.schedule.normalized == .unscheduled ? "Unscheduled" : routine.schedule.shortLabel
     }
 
 }

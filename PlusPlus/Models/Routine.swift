@@ -239,6 +239,31 @@ final class Routine {
         return routineExercise
     }
 
+    /// Swaps the exercise a slot points at (the equipment-resolve "swap the
+    /// moves" step), resetting its targets to the new exercise's add-time
+    /// defaults — a barbell weight must not linger on a bodyweight sub. A plain
+    /// assignment on already-inserted models, so it's safe from the pre-insert
+    /// relationship-loss rule.
+    func replaceExercise(_ entry: RoutineExercise, with exercise: Exercise) {
+        entry.exercise = exercise
+        applyDefaultTargets(to: entry, for: exercise)
+    }
+
+    /// Removes a slot from the routine, dropping its group if that empties it
+    /// (mirrors the detail view's swipe-to-delete, so both paths reindex the
+    /// same way).
+    func removeExercise(_ entry: RoutineExercise, context: ModelContext) {
+        let group = entry.group
+        context.delete(entry)
+        if let group {
+            group.reindexExercises()
+            if group.sortedExercises.isEmpty {
+                context.delete(group)
+                reindexGroups()
+            }
+        }
+    }
+
     /// Merges a solo group's exercise into the adjacent group (direction
     /// -1 = above, +1 = below), forming or extending a superset there.
     /// No-op when the group isn't solo or there is no neighbor (the v2

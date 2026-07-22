@@ -1191,6 +1191,15 @@ struct TodayView: View {
             segments = lines.isEmpty ? [] : summary
         }
 
+        // The shared routine metadata, judged against the active kit (Today
+        // now amber-flags a missing piece like the rest of the app), without
+        // a schedule tier.
+        let todayMeta = RoutineMeta(
+            routine: routine,
+            activeNames: activeLibrary?.memberNames ?? [],
+            includeSchedule: false
+        )
+
         return VStack(alignment: .leading, spacing: 0) {
             // The whole meta region above Start navigates to the routine
             // (Dave's ask): the Configure capsule is gone, replaced by a
@@ -1214,33 +1223,23 @@ struct TodayView: View {
                             .foregroundStyle(Theme.textFaint)
                     }
 
-                    // Two meta rows: what it hits, then what to have
-                    // nearby and how long it runs. The schedule label is
-                    // gone — the card's presence on Today IS the schedule
-                    // statement.
-                    if let muscles = cappedList(musclesFor(routine)) {
-                        Text(muscles)
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundStyle(Theme.textFaint)
+                    // The shared metadata (2026-07-22): a terse focus ·
+                    // estimate line, then the equipment tier — amber-first, so
+                    // a piece the active kit lacks flags here too (Today used
+                    // to drop availability). No schedule — the card's presence
+                    // on Today IS the schedule statement. Inert: the enclosing
+                    // NavigationLink owns the tap.
+                    if !todayMeta.todayLine.isEmpty {
+                        Text(todayMeta.todayLine)
+                            .font(.system(.caption))
+                            .foregroundStyle(Theme.textSecondary)
                             .lineLimit(1)
                             .padding(.top, 9)
                     }
-                    // Gear + estimate pair on the go/no-go row — what to
-                    // have nearby and how long it takes, the two "can I do
-                    // this now?" facts. The estimate keeps priority so a
-                    // long gear list truncates before the time does.
-                    HStack(spacing: 8) {
-                        Text(cappedList(gearFor(routine)) ?? "bodyweight")
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundStyle(Theme.textFaint)
-                            .lineLimit(1)
-                        Spacer(minLength: 8)
-                        Text(routine.estimateText)
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundStyle(Theme.textFaint)
-                            .layoutPriority(1)
+                    if !todayMeta.gear.isEmpty {
+                        RoutineEquipmentTags(gear: todayMeta.gear)
+                            .padding(.top, 6)
                     }
-                    .padding(.top, 3)
 
                     // The diff is the identity moment — it outranks the
                     // meta above it (footnote semibold; unchanged tallies
@@ -1273,25 +1272,6 @@ struct TodayView: View {
             RoundedRectangle(cornerRadius: Theme.cardRadius)
                 .strokeBorder(Theme.accent, lineWidth: 1.5)
         )
-    }
-
-    /// Muscles and gear beat a bare exercise count (Dave, #173): what
-    /// the workout hits and what to have nearby is decision-relevant;
-    /// "6 exercises" isn't. Both lists cap at 3 + overflow (SSE).
-    private func musclesFor(_ routine: Routine) -> [String] {
-        let exercises = routine.sortedGroups.flatMap(\.sortedExercises).compactMap(\.exercise)
-        return Array(Set(exercises.map { $0.muscleGroup.displayName.lowercased() })).sorted()
-    }
-
-    private func gearFor(_ routine: Routine) -> [String] {
-        let exercises = routine.sortedGroups.flatMap(\.sortedExercises).compactMap(\.exercise)
-        return Array(Set(exercises.flatMap { $0.equipment.map { $0.name.lowercased() } })).sorted()
-    }
-
-    private func cappedList(_ list: [String]) -> String? {
-        guard !list.isEmpty else { return nil }
-        let shown = list.prefix(3).joined(separator: ", ")
-        return list.count > 3 ? "\(shown) +\(list.count - 3)" : shown
     }
 
     /// The colored summary line, composed as one Text so it truncates
