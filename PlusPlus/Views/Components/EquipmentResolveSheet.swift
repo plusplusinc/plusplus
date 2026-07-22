@@ -139,9 +139,12 @@ struct EquipmentResolveSheet: View {
 
                     hero(res).padding(.top, 18)
 
-                    SheetSectionLabel("MORE WAYS TO FIX THIS")
-                        .padding(.top, 26)
-                    moreWays(res).padding(.top, 8)
+                    let more = moreWaysRows(res)
+                    if !more.isEmpty {
+                        SheetSectionLabel("MORE WAYS TO FIX THIS")
+                            .padding(.top, 26)
+                        moreWays(more).padding(.top, 8)
+                    }
                 }
                 .padding(.bottom, 28)
             }
@@ -160,6 +163,21 @@ struct EquipmentResolveSheet: View {
         }
     }
 
+    // MARK: - Routes
+
+    /// The active kit can gain a piece unless it's the immutable bodyweight
+    /// (`null`) kit, whose membership writes no-op — offering "add" there
+    /// would be a silent dead tap.
+    private var canAddToActiveKit: Bool {
+        !(activeKit?.isBodyweight ?? true)
+    }
+
+    /// When no kit covers the routine and the active kit can't take the piece
+    /// (bodyweight), swapping the moves is the lead route.
+    private func heroIsSwap(_ res: EquipmentResolution) -> Bool {
+        res.bestKit == nil && !canAddToActiveKit && !affectedEntries.isEmpty
+    }
+
     // MARK: - Hero (the cleanest fix)
 
     private func hero(_ res: EquipmentResolution) -> some View {
@@ -175,11 +193,18 @@ struct EquipmentResolveSheet: View {
                     Text("It has \(equipmentName.lowercased()) and covers every other exercise in this routine too.")
                         .font(.system(.footnote))
                         .foregroundStyle(Theme.textSecondary)
-                } else {
+                } else if canAddToActiveKit {
                     Text("Add \(equipmentName.lowercased()) to \(activeKitName)")
                         .font(.system(.body, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                     Text("Keep this routine exactly as it is.")
+                        .font(.system(.footnote))
+                        .foregroundStyle(Theme.textSecondary)
+                } else {
+                    Text("Swap the \(affectedEntries.count) \(equipmentName.lowercased()) move\(affectedEntries.count == 1 ? "" : "s")")
+                        .font(.system(.body, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                    Text("Your kit has no equipment, so replace these with moves you can do without it.")
                         .font(.system(.footnote))
                         .foregroundStyle(Theme.textSecondary)
                 }
@@ -193,9 +218,13 @@ struct EquipmentResolveSheet: View {
                 primaryButton(title: "Switch to \(best)", systemImage: "arrow.left.arrow.right", tint: Theme.selected) {
                     switchKit(named: best)
                 }
-            } else {
+            } else if canAddToActiveKit {
                 primaryButton(title: "Add \(equipmentName.lowercased()) to \(activeKitName)", systemImage: "plus", tint: Theme.accent) {
                     addToKit()
+                }
+            } else {
+                primaryButton(title: "Swap the moves", systemImage: "arrow.triangle.2.circlepath", tint: Theme.selected) {
+                    showingSwap = true
                 }
             }
         }
@@ -203,33 +232,55 @@ struct EquipmentResolveSheet: View {
 
     // MARK: - More ways
 
-    @ViewBuilder
-    private func moreWays(_ res: EquipmentResolution) -> some View {
+    /// One "more ways" row, kept as data so dividers land only between rows.
+    private struct RouteRow {
+        let icon: String
+        let tint: Color
+        let title: String
+        let subtitle: String
+        let subtitleTint: Color
+        let action: () -> Void
+    }
+
+    private func moreWaysRows(_ res: EquipmentResolution) -> [RouteRow] {
+        var rows: [RouteRow] = []
+        // Add-to-kit, unless it's the hero (bestKit == nil) or the kit can't take it.
+        if canAddToActiveKit, res.bestKit != nil {
+            rows.append(RouteRow(icon: "plus", tint: Theme.accent,
+                                 title: "Add \(equipmentName.lowercased()) to \(activeKitName)",
+                                 subtitle: "Keep this kit, add the piece",
+                                 subtitleTint: Theme.textSecondary,
+                                 action: { addToKit() }))
+        }
+        // Swap, unless it's the hero.
+        if !affectedEntries.isEmpty, !heroIsSwap(res) {
+            let count = affectedEntries.count
+            rows.append(RouteRow(icon: "arrow.triangle.2.circlepath", tint: Theme.textSecondary,
+                                 title: "Swap the \(count) \(equipmentName.lowercased()) move\(count == 1 ? "" : "s")",
+                                 subtitle: "Pick replacements, or remove them",
+                                 subtitleTint: Theme.textSecondary,
+                                 action: { showingSwap = true }))
+        }
+        // Kits that have the piece but trade one gap for another.
+        for trade in res.trades {
+            let sub = trade.exercise.isEmpty
+                ? "Adds \(equipmentName.lowercased()), but misses \(trade.lack.lowercased())"
+                : "No \(trade.lack.lowercased()) for \(trade.exercise)"
+            rows.append(RouteRow(icon: "arrow.left.arrow.right", tint: Theme.notes,
+                                 title: "\(trade.kit) kit",
+                                 subtitle: sub,
+                                 subtitleTint: Theme.notes,
+                                 action: { switchKit(named: trade.kit) }))
+        }
+        return rows
+    }
+
+    private func moreWays(_ rows: [RouteRow]) -> some View {
         VStack(spacing: 0) {
-            if res.bestKit != nil {
-                resolveRow(
-                    icon: "plus", tint: Theme.accent,
-                    title: "Add \(equipmentName.lowercased()) to \(activeKitName)",
-                    subtitle: "Keep this kit, add the piece"
-                ) { addToKit() }
-                divider
-            }
-            if !affectedEntries.isEmpty {
-                resolveRow(
-                    icon: "arrow.triangle.2.circlepath", tint: Theme.textSecondary,
-                    title: "Swap the \(affectedEntries.count) \(equipmentName.lowercased()) move\(affectedEntries.count == 1 ? "" : "s")",
-                    subtitle: "Pick replacements, or remove them"
-                ) { showingSwap = true }
-                if !res.trades.isEmpty { divider }
-            }
-            ForEach(Array(res.trades.enumerated()), id: \.offset) { index, trade in
-                resolveRow(
-                    icon: "arrow.left.arrow.right", tint: Theme.notes,
-                    title: "\(trade.kit) kit",
-                    subtitle: "No \(trade.lack.lowercased()) for \(trade.exercise)",
-                    subtitleTint: Theme.notes
-                ) { switchKit(named: trade.kit) }
-                if index < res.trades.count - 1 { divider }
+            ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
+                if index > 0 { divider }
+                resolveRow(icon: row.icon, tint: row.tint, title: row.title,
+                           subtitle: row.subtitle, subtitleTint: row.subtitleTint, action: row.action)
             }
         }
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
