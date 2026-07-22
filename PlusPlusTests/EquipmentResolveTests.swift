@@ -78,31 +78,36 @@ struct EquipmentResolveTests {
     }
 
     @Test("Alternatives share the muscle group, are kit-doable, and exclude self")
-    @MainActor
     func kitDoableAlternatives() throws {
-        let context = try makeContainer().mainContext
-        let barbell = Equipment(name: "Barbell", isBuiltIn: true)
-        let dumbbells = Equipment(name: "Dumbbells", isBuiltIn: true)
-        let legMachine = Equipment(name: "Leg Press Machine", isBuiltIn: true)
-        for piece in [barbell, dumbbells, legMachine] { context.insert(piece) }
+        // Retain the container (a bare `.mainContext` lets it deallocate
+        // mid-test) and use a background context — the proven pattern from
+        // ExerciseFilterTests / CatalogConfigTests.
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        // "Probe …" fixtures, not catalog names (testing rule): a corrupted
+        // seed can never masquerade as a fixture collision.
+        let barbell = Equipment(name: "Probe Barbell")
+        let dumbbells = Equipment(name: "Probe Dumbbells")
+        let machine = Equipment(name: "Probe Leg Machine")
+        for piece in [barbell, dumbbells, machine] { context.insert(piece) }
 
-        let squat = Exercise(name: "Squat", muscleGroup: .quads, exerciseType: .weightReps, isBuiltIn: true)
-        let goblet = Exercise(name: "Goblet Squat", muscleGroup: .quads, exerciseType: .weightReps, isBuiltIn: true)
-        let legPress = Exercise(name: "Machine Leg Press", muscleGroup: .quads, exerciseType: .weightReps, isBuiltIn: true)
-        let curl = Exercise(name: "Dumbbell Curl", muscleGroup: .biceps, exerciseType: .weightReps, isBuiltIn: true)
+        let squat = Exercise(name: "Probe Squat", muscleGroup: .quads)
+        let goblet = Exercise(name: "Probe Goblet", muscleGroup: .quads)
+        let legPress = Exercise(name: "Probe Leg Press", muscleGroup: .quads)
+        let curl = Exercise(name: "Probe Curl", muscleGroup: .biceps)
         for exercise in [squat, goblet, legPress, curl] { context.insert(exercise) }
         // Relationships assigned AFTER insert (the pre-insert-loss rule).
         squat.equipment = [barbell]
         goblet.equipment = [dumbbells]
-        legPress.equipment = [legMachine]
+        legPress.equipment = [machine]
         curl.equipment = [dumbbells]
 
         let catalog = [squat, goblet, legPress, curl]
-        let alts = ExerciseFilterState.kitDoableAlternatives(for: squat, in: catalog, kit: ["Dumbbells"])
+        let alts = ExerciseFilterState.kitDoableAlternatives(for: squat, in: catalog, kit: ["Probe Dumbbells"])
 
-        // Goblet Squat only: same muscle (quads), doable with dumbbells; the
+        // Probe Goblet only: same muscle (quads), doable with dumbbells; the
         // machine press needs gear the kit lacks, the curl is a different
-        // muscle, and Squat itself is excluded.
-        #expect(alts.map(\.name) == ["Goblet Squat"])
+        // muscle, and Probe Squat itself is excluded.
+        #expect(alts.map(\.name) == ["Probe Goblet"])
     }
 }
