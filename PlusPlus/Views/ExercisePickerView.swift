@@ -418,6 +418,7 @@ struct MuscleGroupFilterSheet: View {
                 cancelLabel: "Clear",
                 action: { dismiss() }
             )
+            .padding(.horizontal, 18)
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     ForEach(MuscleGroup.grouped, id: \.region) { region, groups in
@@ -441,9 +442,9 @@ struct MuscleGroupFilterSheet: View {
                     }
                 }
                 .padding(.vertical)
+                .padding(.horizontal, 18)
             }
         }
-        .padding(.horizontal, 18)
         .presentationBackground(Theme.surface)
     }
 }
@@ -473,6 +474,7 @@ struct EquipmentFilterSheet: View {
                 cancelLabel: "Clear",
                 action: { dismiss() }
             )
+            .padding(.horizontal, 18)
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     if allEquipment.isEmpty {
@@ -505,6 +507,7 @@ struct EquipmentFilterSheet: View {
                     }
                     .padding(.top, 8)
                 }
+                .padding(.horizontal, 18)
             }
             .sheet(isPresented: $showingEquipmentEditor) {
                 NavigationStack {
@@ -512,7 +515,6 @@ struct EquipmentFilterSheet: View {
                 }
             }
         }
-        .padding(.horizontal, 18)
         .presentationBackground(Theme.surface)
     }
 }

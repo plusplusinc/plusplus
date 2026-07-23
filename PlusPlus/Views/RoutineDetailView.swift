@@ -1690,10 +1690,10 @@ struct RoutineSettingsScreen: View {
                         }
                         .accessibilityIdentifier("routineNotesField")
                 }
+                .padding(.horizontal, 16)
                 .padding(.bottom, 30)
             }
         }
-        .padding(.horizontal, 16)
         .background(Theme.background)
         // A static "Routine settings" heading (Dave, build-78): the
         // routine's name was redundant with the editable NAME field right

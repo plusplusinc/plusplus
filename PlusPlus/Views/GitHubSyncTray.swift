@@ -55,10 +55,12 @@ struct GitHubSyncTray: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
+                .padding(.horizontal, 18)
             Text("Keep your data in sync with a GitHub repo")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textSecondary)
                 .padding(.top, 4)
+                .padding(.horizontal, 18)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
@@ -67,9 +69,9 @@ struct GitHubSyncTray: View {
                 }
                 .padding(.top, 16)
                 .padding(.bottom, 8)
+                .padding(.horizontal, 18)
             }
         }
-        .padding(.horizontal, 18)
         .presentationDetents([.medium, .large], selection: $detent)
         .presentationDragIndicator(.visible)
         .onChange(of: isAuthorizing) { _, authorizing in

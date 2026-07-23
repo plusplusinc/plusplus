@@ -490,6 +490,7 @@ struct EquipmentTypeFilterSheet: View {
                 cancelLabel: "Clear",
                 action: { dismiss() }
             )
+            .padding(.horizontal, 18)
             ScrollView {
                 FlowLayout(spacing: 8) {
                     ForEach(SeedData.EquipmentCategory.allCases, id: \.self) { category in
@@ -506,9 +507,9 @@ struct EquipmentTypeFilterSheet: View {
                     }
                 }
                 .padding(.vertical)
+                .padding(.horizontal, 18)
             }
         }
-        .padding(.horizontal, 18)
         .presentationBackground(Theme.surface)
     }
 }

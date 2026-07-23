@@ -128,6 +128,7 @@ struct ExerciseEditorView: View {
                 },
                 action: { save() }
             )
+            .padding(.horizontal, 18)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -313,10 +314,10 @@ struct ExerciseEditorView: View {
                             .padding(.top, 6)
                     }
                 }
+                .padding(.horizontal, 18)
                 .padding(.bottom, 30)
             }
         }
-        .padding(.horizontal, 18)
         .presentationBackground(Theme.surface)
         // A dirty draft can't be swiped away silently — the swipe bounces
         // (standard compose behavior) and Cancel carries the confirm.

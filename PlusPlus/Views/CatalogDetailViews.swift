@@ -347,6 +347,7 @@ private struct AddToRoutineSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             SheetHeader(title: "Add to routine", subtitle: exercise.name, actionLabel: "Cancel", closeOnly: true) { dismiss() }
+                .padding(.horizontal, 18)
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     CreateRow(label: "New routine with \(exercise.name)", identifier: "newRoutineWithExercise") {
@@ -371,10 +372,10 @@ private struct AddToRoutineSheet: View {
                         .padding(.top, 10)
                     }
                 }
+                .padding(.horizontal, 18)
                 .padding(.bottom, 24)
             }
         }
-        .padding(.horizontal, 18)
         .presentationBackground(Theme.background)
         .presentationDetents([.medium, .large])
         // The name alert presents FROM the sheet, not from the screen
