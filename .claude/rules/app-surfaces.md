@@ -169,7 +169,14 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   auto-finish** (`stagedWorkDoneStage` offers Add/Finish); the record
   renders never-completed sets as neutral "skipped" rows (anti-shame:
   fact, not judgment). (10) `Theme.keyRadius` names the 11 pt key
-  radius; `FilterChipShape.cornerRadius` aliases it.
+  radius; `FilterChipShape.cornerRadius` aliases it. (11, round 2a)
+  **The routine exercise sheet's structure actions are ALWAYS-VISIBLE
+  compact pairs** ending in `Swap for…|Remove` — the round-1 Structure
+  disclosure lived one build (Dave: hiding four small actions read as
+  friction). The pair mirrors the live session sheet, so restructuring
+  reads the same at planning and execution time; planning-time swap
+  reuses `Routine.replaceExercise` (targets reset to the new
+  exercise's defaults) via a `.swap` picker destination.
 - **Equipment is availability, not ownership** (2026-07-11): what gear you
   "have" is membership in the ACTIVE `EquipmentLibrary` (Home, Hotel…),
   switched from a tray off the Equipment-tab header (left of the +) and via

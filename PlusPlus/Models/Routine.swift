@@ -240,11 +240,15 @@ final class Routine {
     }
 
     /// Swaps the exercise a slot points at (the equipment-resolve "swap the
-    /// moves" step), resetting its targets to the new exercise's add-time
-    /// defaults — a barbell weight must not linger on a bodyweight sub. A plain
-    /// assignment on already-inserted models, so it's safe from the pre-insert
-    /// relationship-loss rule.
+    /// moves" step; round 2a's planning-sheet Swap for…), resetting its
+    /// targets to the new exercise's add-time defaults — a barbell weight
+    /// must not linger on a bodyweight sub. Swapping an exercise for ITSELF
+    /// is a no-op: the picker doesn't exclude the current exercise, and a
+    /// confirm-tap on it must not wipe hand-tuned targets (swift-reviewer).
+    /// A plain assignment on already-inserted models, so it's safe from the
+    /// pre-insert relationship-loss rule.
     func replaceExercise(_ entry: RoutineExercise, with exercise: Exercise) {
+        guard entry.exercise !== exercise else { return }
         entry.exercise = exercise
         applyDefaultTargets(to: entry, for: exercise)
     }

@@ -194,7 +194,7 @@ struct RoutineDetailView: View {
                 ExerciseDetailSheet(
                     routine: routine,
                     routineExercise: routineExercise,
-                    onAddToSuperset: { group in group.uuid.map { pickerDestination = .group($0) } }
+                    onSwap: { entry in entry.uuid.map { pickerDestination = .swap($0) } }
                 )
                 .presentationDetents([.large])
             }
@@ -973,14 +973,16 @@ struct RoutineDetailView: View {
         switch destination {
         case .newGroup:
             routine.addExerciseInNewGroup(exercise, context: modelContext)
-        case .group(let uuid):
-            guard let group = routine.sortedGroups.first(where: { $0.uuid == uuid }) else { return }
-            routine.addExercise(exercise, to: group, context: modelContext)
-            // Picking into an existing group is superset creation by
-            // another door — same rule as the ring and sheet paths:
-            // hand-creation retires both tips.
-            SupersetCreationTip().invalidate(reason: .actionPerformed)
-            SupersetLoopTip().invalidate(reason: .actionPerformed)
+        case .swap(let uuid):
+            // Resolve the slot within the live graph; a slot deleted while
+            // the picker was up (another device, an Operator apply) is a
+            // clean no-op, not a crash.
+            guard let entry = routine.sortedGroups.flatMap(\.sortedExercises).first(where: { $0.uuid == uuid }) else { return }
+            // Targets reset to the new exercise's add-time defaults by the
+            // model (the equipment-resolve law: a barbell weight must not
+            // linger on a bodyweight sub). Sets/rest are group facts and
+            // stay.
+            routine.replaceExercise(entry, with: exercise)
         }
         // Persist the freshly inserted group/exercise. This screen's trays
         // now key on the stable `uuid` (not persistentModelID), so they no
@@ -1088,14 +1090,19 @@ private struct SupersetTipInline: View {
 /// existing group (forming a superset).
 enum PickerDestination: Identifiable, Hashable {
     case newGroup
-    /// A superset target, keyed on the group's stable `uuid` (not its
-    /// persistentModelID, which would re-key the open picker on autosave).
-    case group(UUID)
+    /// A swap target (round 2a): the RoutineExercise slot whose exercise
+    /// the pick replaces, keyed on its stable `uuid` (not its
+    /// persistentModelID, which would re-key the open picker on
+    /// autosave). A `.group(UUID)` superset-target case died with round
+    /// 2a — its only producer, the sheet's `onAddToSuperset`, was never
+    /// called from anywhere (swift-reviewer archaeology; joining a
+    /// superset is the rail's ring drag and the sheet's merge keys).
+    case swap(UUID)
 
     var id: AnyHashable {
         switch self {
         case .newGroup: AnyHashable("newGroup")
-        case .group(let uuid): AnyHashable(uuid)
+        case .swap(let uuid): AnyHashable("swap-\(uuid.uuidString)")
         }
     }
 }
