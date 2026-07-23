@@ -13,13 +13,14 @@ struct ExerciseDetailSheet: View {
 
     let routine: Routine
     @Bindable var routineExercise: RoutineExercise
-    let onAddToSuperset: (ExerciseGroup) -> Void
     /// "Swap for…" (round 2a, the session sheet's pair at planning
     /// time): the presenter routes it into the pushed exercise picker
-    /// — this sheet dismisses, the picker pushes beneath it (the
-    /// onAddToSuperset pattern), and the pick lands via
-    /// `Routine.replaceExercise` (targets reset to the new exercise's
-    /// defaults, the equipment-resolve law).
+    /// — this sheet dismisses, the picker pushes beneath it — and the
+    /// pick lands via `Routine.replaceExercise` (targets reset to the
+    /// new exercise's defaults, the equipment-resolve law). ⚠️ The
+    /// dismiss-then-push-beneath handoff is field-unproven (its
+    /// supposed precedent, onAddToSuperset, turned out to be dead code
+    /// — deleted with this round); it rides the device-pass list.
     let onSwap: (RoutineExercise) -> Void
 
     /// Finished sessions, newest first, for the RECENT block.
