@@ -63,6 +63,53 @@ public enum MascotBalance {
         return ((minX - halfWidthX)...(maxX + halfWidthX), (minZ - patchZ)...(maxZ + patchZ))
     }
 
+    /// The system center of mass at an animation phase — the same
+    /// mass model, sampled through the baked cycle clock.
+    public static func centerOfMass(
+        animation: ExerciseAnimation,
+        at t: Double,
+        skeleton: MascotSkeleton = .standard
+    ) -> Vec3 {
+        let phase = ((t.truncatingRemainder(dividingBy: 1)) + 1).truncatingRemainder(dividingBy: 1)
+        return centerOfMass(pose: animation.pose(at: phase), props: animation.props, skeleton: skeleton)
+    }
+
+    /// The zero-moment point (cart-table model): where the ground
+    /// reaction must act for the body's ROTATIONAL dynamics to close.
+    /// A body standing still has its ZMP under its center of mass; a
+    /// body accelerating its mass sideways or downward shifts the ZMP
+    /// exactly the way a real athlete's pressure shifts toward toes or
+    /// heels. Physics law: while grounded, the ZMP must lie inside the
+    /// support polygon — gravity and momentum leave no other place for
+    /// the ground to push from. The CoM acceleration comes from
+    /// central differences over the cycle (dt in real seconds, sized
+    /// to average across spline knots), and the fraction g/(g + a_y)
+    /// is the cart-table height correction.
+    ///
+    /// Also returns the raw CoM acceleration so callers can bound it
+    /// directly (a grounded body cannot out-accelerate gravity
+    /// downward, and legs have a real drive ceiling).
+    public static func zeroMomentPoint(
+        animation: ExerciseAnimation,
+        at t: Double,
+        dt: Double = 1.0 / 30.0,
+        skeleton: MascotSkeleton = .standard
+    ) -> (x: Double, z: Double, acceleration: Vec3) {
+        let gravity = 9.81
+        let dtPhase = dt / animation.cycleDuration
+        let before = centerOfMass(animation: animation, at: t - dtPhase, skeleton: skeleton)
+        let now = centerOfMass(animation: animation, at: t, skeleton: skeleton)
+        let after = centerOfMass(animation: animation, at: t + dtPhase, skeleton: skeleton)
+        let acceleration = (1.0 / (dt * dt)) * (before + after - 2.0 * now)
+        // A denominator collapsing toward zero is free fall — the ZMP
+        // stops being defined; callers skip airborne windows, and the
+        // clamp keeps a spline wiggle from exploding the projection.
+        let denominator = max(gravity + acceleration.y, 2.0)
+        let x = now.x - now.y / denominator * acceleration.x
+        let z = now.z - now.y / denominator * acceleration.z
+        return (x, z, acceleration)
+    }
+
     /// The whole-body (plus held bar) center of mass.
     public static func centerOfMass(
         pose: MascotPose,

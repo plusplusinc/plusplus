@@ -23,7 +23,10 @@ enum SquatMove {
             clavicle: .deg(yaw: 20.4, roll: 2.8),
             shoulder: .deg(yaw: 85.3, roll: -0.4),
             elbow: .deg(pitch: -143.5),
-            wrist: .deg(pitch: 47.2, yaw: -35.4, roll: 42)
+            // Roll pulled 42 -> 39: the articulation round's wrist
+            // table caps deviation at a human 40 (grip axis has 25 of
+            // tolerance; the rack read keeps its 5.6-degree margin).
+            wrist: .deg(pitch: 47.2, yaw: -35.4, roll: 39)
         )
         let legsStanding = MascotPoseBuilder.symmetricLegs(
             hip: .deg(roll: stanceRoll)

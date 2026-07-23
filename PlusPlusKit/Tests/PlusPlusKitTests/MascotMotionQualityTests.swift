@@ -482,4 +482,74 @@ import Foundation
             #expect(a > -9.81 * 0.75, "the floaty jump should read as under-gravity, got \(a)")
         }
     }
+
+    // MARK: - Momentum (the ground and the bar obey Newton)
+
+    /// The physics round's dynamic-balance law (build-117, Dave: the
+    /// mass model must make the body "respect major laws of physics,
+    /// like gravity, conservation of momentum"): while grounded, the
+    /// ground reaction is the ONLY external force besides gravity, so
+    /// the zero-moment point — where that reaction must act once the
+    /// center of mass's actual acceleration is accounted — has to lie
+    /// inside the support polygon. A static CoM check can pass while
+    /// the MOTION is impossible (the kettlebell float that holds a
+    /// bell out with no counterlean); the ZMP is what catches it.
+    /// Same standing scope as the static balance law — the support
+    /// model knows feet and palms; supine and bench moves carry their
+    /// weight on surfaces it cannot see. Airborne windows belong to
+    /// the ballistic law; the polygon-less hover samples on a jump's
+    /// way in and out of flight are skipped the same way the static
+    /// law skips them.
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Single-Leg Calf Raise", "Lateral Raise", "Overhead Press", "Barbell Row", "Goblet Squat", "Kettlebell Swing", "Jump Squat"])
+    func standingMovesBalanceTheirMomentum(name: String) throws {
+        let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
+        for i in 0...300 {
+            let t = Double(i) / 300
+            guard !animation.isAirborne(at: t) else { continue }
+            let pose = animation.pose(at: t)
+            guard let polygon = MascotBalance.supportPolygon(pose: pose) else { continue }
+            let zmp = MascotBalance.zeroMomentPoint(animation: animation, at: t)
+            // The pad covers spline-knot acceleration noise plus a
+            // real athlete's brief toe/heel edge loading.
+            let pad = 0.02
+            let xOK = zmp.x >= polygon.x.lowerBound - pad && zmp.x <= polygon.x.upperBound + pad
+            let zOK = zmp.z >= polygon.z.lowerBound - pad && zmp.z <= polygon.z.upperBound + pad
+            #expect(xOK && zOK,
+                    "\(name): the zero-moment point leaves the feet at t=\(t): zmp (\(zmp.x), \(zmp.z)), polygon x \(polygon.x), z \(polygon.z), com accel \(zmp.acceleration)")
+        }
+    }
+
+    /// The ground can push, never pull: no grounded frame of any move
+    /// may accelerate the system center of mass downward faster than
+    /// free fall. (Airborne windows sit exactly AT free fall — the
+    /// ballistic law — so this holds everywhere with one bound.) The
+    /// margin absorbs spline-knot second-derivative noise.
+    @Test(arguments: MascotMoves.all.map(\.exerciseName))
+    func nothingOutrunsGravity(name: String) throws {
+        let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
+        for i in 0...300 {
+            let t = Double(i) / 300
+            let zmp = MascotBalance.zeroMomentPoint(animation: animation, at: t)
+            #expect(zmp.acceleration.y >= -9.81 * 1.3,
+                    "\(name): the center of mass accelerates downward at \(zmp.acceleration.y) m/s² at t=\(t) — faster than gravity, and nothing can push it")
+        }
+    }
+
+    /// A hanging body is a pendulum: with the bar the only support,
+    /// equilibrium demands the system center of mass hang under the
+    /// bar line — a sustained sideways or fore-aft offset would swing.
+    /// Every frame of every hanging move keeps the CoM within a small
+    /// sway of the bar's vertical plane.
+    @Test(arguments: MascotMoves.all.filter(\.dynamics.hangsFromBar).map(\.exerciseName))
+    func hangingMovesHangUnderTheBar(name: String) throws {
+        let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
+        for i in 0...300 {
+            let t = Double(i) / 300
+            let com = MascotBalance.centerOfMass(animation: animation, at: t)
+            #expect(abs(com.z) <= 0.05,
+                    "\(name): the center of mass hangs \(com.z) m in front of/behind the bar at t=\(t)")
+            #expect(abs(com.x) <= 0.03,
+                    "\(name): the center of mass hangs \(com.x) m sideways off the bar's center at t=\(t)")
+        }
+    }
 }

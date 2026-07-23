@@ -273,7 +273,9 @@ public enum MascotPoseBuilder {
             (-23 * toRadians)...(23 * toRadians),    // elbow yaw
             (-78 * toRadians)...(90 * toRadians),    // wrist pitch (loaded extension)
             (-88 * toRadians)...(88 * toRadians),    // wrist yaw (pronation)
-            (-43 * toRadians)...(43 * toRadians),    // wrist roll
+            // Radial/ulnar deviation: the articulation round pulled the
+            // table to a human ±40, so the solver stays 2 inside it.
+            (-38 * toRadians)...(38 * toRadians),    // wrist roll
         ]
         let shoulder = pose.joints[.leftShoulder] ?? .zero
         let elbow = pose.joints[.leftElbow] ?? .zero

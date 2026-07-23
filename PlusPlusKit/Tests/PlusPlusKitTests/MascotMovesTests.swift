@@ -102,7 +102,12 @@ import Foundation
         // along the rotation-invariant axis) and stays near zero.
         .leftClavicle: (-15...15, -30...30, -12...40),
         .leftShoulder: (-185...60, -95...95, -25...175),
-        .leftElbow: (-150...2, -25...25, -25...25),
+        // Elbow roll would be varus/valgus — a sideways bend the human
+        // elbow structurally cannot do (the articulation round; yaw
+        // stays ±25 as the radioulnar pronation share, and
+        // `hingesKeepTheirAxis` bounds what yaw-at-flexion may do to
+        // the bend plane).
+        .leftElbow: (-150...2, -25...25, -3...3),
         // Wrist yaw IS forearm pronation/supination: the forearm's
         // long axis is the wrist frame's local Y, so yaw at the wrist
         // is exactly the hand rotating about the forearm — a human
@@ -111,11 +116,17 @@ import Foundation
         // under load in the push-up support position, past the ~80 of
         // free flexion (the hand round; conservative symmetric 80s
         // made a flat planted palm unreachable).
-        .leftWrist: (-80...92, -90...90, -45...45),
+        // Wrist roll is radial/ulnar deviation — athletic humans top
+        // out around 25 radial / 35-40 ulnar; the old ±45 let hands
+        // cock sideways past anything real (articulation round).
+        .leftWrist: (-80...92, -90...90, -40...40),
         // Hip roll: abduction generous, adduction ~20 (a single-leg
         // stance shifts the pelvis over the foot through adduction).
         .leftHip: (-125...25, -40...40, -20...50),
-        .leftKnee: (-2...150, -12...12, -12...12),
+        // Knee yaw/roll: the knee is a hinge with only a whisper of
+        // rotational play — the old ±12s let it bend ways knees don't
+        // (articulation round).
+        .leftKnee: (-2...150, -6...6, -4...4),
         // Ankle pitch: POSITIVE = plantarflexion (the +z toe direction
         // tips down), to a pointed ~50; negative = dorsiflexion, kept
         // generous because the push-up still authors its tucked foot
@@ -253,6 +264,103 @@ import Foundation
             #expect(along >= 0.4,
                     "\(name): the hand folds \(along) off the forearm line at t=\(t)")
         }
+    }
+
+    /// The articulation round's hang law (Dave, from the pull-up
+    /// device pass: fingers bent BACKWARDS around the bar): a hanging
+    /// hand folds OVER the bar the way a human's does. Two clauses,
+    /// per hand, every frame: (1) the wrap must BEAR the load — the
+    /// world-up direction (where the bar presses into a hanging hand)
+    /// lands well inside the wrap's covered arc (palm at 0, fingers
+    /// 35..155 in the wrap plane), never at the fingertip edge or the
+    /// opening, which is exactly where the backwards wrap carried it;
+    /// (2) the grip is overhand — the left thumb points inward along
+    /// the bar. Together they make a backwards or suicide wrap
+    /// unrepresentable for any hanging move, present or future.
+    @Test(arguments: MascotMoves.all.filter(\.dynamics.hangsFromBar).map(\.exerciseName))
+    func hangingHandsFoldOverTheBar(name: String) throws {
+        let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
+        for i in 0...400 {
+            let t = Double(i) / 400
+            let frames = animation.pose(at: t).jointFrames(skeleton: Self.skeleton)
+            guard let lw = frames[.leftWrist] else { continue }
+            let palmSide = lw.rotation.rotate(Vec3(0, 1, 0))
+            let fingerSide = lw.rotation.rotate(Vec3(0, 0, 1))
+            let phi = atan2(fingerSide.y, palmSide.y) * 180 / .pi
+            #expect(phi >= 15 && phi <= 140,
+                    "\(name): the load direction sits at \(phi) degrees in the wrap plane at t=\(t) (must land on the palm-to-finger arc, 15...140)")
+            let thumb = lw.rotation.rotate(Vec3(1, 0, 0))
+            #expect(thumb.x <= -0.8,
+                    "\(name): the left thumb points \(thumb.x) along +x at t=\(t) (a hang grips overhand, thumb inward)")
+        }
+    }
+
+    /// The articulation round's hinge law: elbows, knees, and toe caps
+    /// are HINGES — the bend axis lives in the parent bone and cannot
+    /// tilt sideways (no varus/valgus), and any rotation about the limb
+    /// itself is bounded by real joint play (the elbow's radioulnar
+    /// share; a knee's whisper). Swing-twist decomposition about the
+    /// bone axis: swing must happen about the local hinge axis within
+    /// the joint's proven envelope, twist within its rotational play.
+    /// Elbow bounds sit at the fleet's device-validated worst (the
+    /// push-up and overhead press arms use their documented radioulnar
+    /// share under flexion) — a ratchet, so no future move can bend an
+    /// elbow further off-plane than today's validated look.
+    @Test(arguments: MascotMoves.all.map(\.exerciseName))
+    func hingesKeepTheirAxis(name: String) throws {
+        let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
+        let limits: [(joints: [MascotJoint], tilt: Double, twist: Double)] = [
+            ([.leftElbow, .rightElbow], 26.0, 26.0),
+            ([.leftKnee, .rightKnee], 6.0, 6.0),
+            ([.leftToe, .rightToe], 6.0, 6.0),
+        ]
+        for i in 0...200 {
+            let t = Double(i) / 200
+            let pose = animation.pose(at: t)
+            for (joints, tiltLimit, twistLimit) in limits {
+                for joint in joints {
+                    let (tilt, twist, swing) = Self.swingTwist(pose.angles(joint))
+                    // A nearly straight joint has no meaningful bend
+                    // plane; twist is still checked.
+                    if swing * 180 / .pi > 8 {
+                        #expect(tilt * 180 / .pi <= tiltLimit,
+                                "\(name) \(joint) at t=\(t): bend axis tilted \(tilt * 180 / .pi) degrees off the hinge (limit \(tiltLimit))")
+                    }
+                    #expect(twist * 180 / .pi <= twistLimit,
+                            "\(name) \(joint) at t=\(t): \(twist * 180 / .pi) degrees of twist about the limb (limit \(twistLimit))")
+                }
+            }
+        }
+    }
+
+    /// Swing-twist of a joint rotation about the bone axis (local y):
+    /// swing carries the bone to its bent direction about an axis in
+    /// the local x-z plane; twist is what remains, about the limb
+    /// itself. Tilt is how far that swing axis sits off the hinge
+    /// (local x).
+    private static func swingTwist(_ angles: EulerAngles) -> (tilt: Double, twist: Double, swing: Double) {
+        let r = Mat3.rotation(angles)
+        let b = r.rotate(Vec3(0, 1, 0))
+        let swing = acos(max(-1, min(1, b.y)))
+        let ax = -b.z
+        let az = b.x
+        let axisLength = (ax * ax + az * az).squareRoot()
+        guard axisLength > 1e-9 else {
+            let twist = atan2(r.m.2, r.m.0)
+            return (0, abs(twist), swing)
+        }
+        let axis = Vec3(ax / axisLength, 0, az / axisLength)
+        let tilt = atan2(abs(axis.z), abs(axis.x))
+        let c = cos(swing), s = sin(swing), u = 1 - c
+        let x = axis.x, z = axis.z
+        let swingMatrix = Mat3(
+            rows: Vec3(u * x * x + c, -s * z, u * x * z),
+            Vec3(s * z, c, -s * x),
+            Vec3(u * x * z, s * x, u * z * z + c)
+        )
+        let twistMatrix = swingMatrix.transposed * r
+        let twist = atan2(twistMatrix.m.2, twistMatrix.m.0)
+        return (tilt, abs(twist), swing)
     }
 
     /// The hand round's PHYSICS law (Dave, from the curl device pass:
