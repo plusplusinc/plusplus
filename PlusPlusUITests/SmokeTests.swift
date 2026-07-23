@@ -293,11 +293,18 @@ final class SmokeTests: XCTestCase {
         XCTAssertEqual(nameField.value as? String, "Wall Slides")
         app.buttons["saveExerciseButton"].tap()
 
-        // Lands on the Exercises tab (create → its list, entrance flash);
-        // the tab's own create row proves which surface we're on, and the
-        // new custom is scrolled into view by the arrival beat.
-        XCTAssertTrue(app.buttons["createExerciseRow"].waitForExistence(timeout: 5))
+        // Lands on the Exercises tab (create → its list, entrance flash).
+        // Do NOT probe the tab's top create row here: the arrival beat
+        // scrolls the new W-named row to center, which pushes the top of
+        // the lazy List out of the realized window — unrealized rows are
+        // invisible to XCUITest (the testing.md lazy-list law; this
+        // assertion's first form failed CI exactly that way). The tab
+        // item's selection + the scrolled-into-view row are the honest
+        // probes.
+        let exercisesTab = app.tabBars.buttons["Exercises"]
+        XCTAssertTrue(exercisesTab.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Wall Slides"].waitForExistence(timeout: 5))
+        XCTAssertTrue(exercisesTab.isSelected)
         snap("find-or-create-landed-exercise")
     }
 
