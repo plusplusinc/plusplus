@@ -66,56 +66,36 @@ enum PullUpMove {
             effort: 0.85
         )
 
-        // The station pin: bisect a symmetric shoulder-ROLL delta
-        // until the left palm sits exactly at its station along the
-        // bar (roll is the frontal-plane reach channel — palm x is
-        // monotone in it across this one-basin family), then hang the
-        // root so the palms land on the bar line. The OLD pin used
-        // shoulder yaw + elbow yaw: yaw at overhead flexion is
-        // humeral spin, which swept the elbows across the chest (the
-        // build-117 crossed-forearms read), and elbow yaw tilted the
-        // hinge plane. Roll moves the arm where a human's lateral
-        // reach actually lives. Palm x is root-translation-invariant,
-        // so the order is exact.
+        // The hands belong to the SERVO (the grip round's composition
+        // law: the path owns the body, `grippingTheBar` owns the
+        // hand). Round 1 pinned the palm with a one-channel bisection
+        // — non-monotone mid-pull, so adjacent frames hopped between
+        // solutions and the spline whipped; a two-channel corrector
+        // then held station but nothing held the WRAP, and the lerped
+        // mid-path tilted the grip axis 27 degrees off the bar. The
+        // fix is the same architecture every barbell move uses: per
+        // baked sample, hang the root on the bar line, then let the
+        // whole-arm servo re-solve the arm onto the FIXED bar
+        // (palmTarget = the bar itself) with its overhand-wrap
+        // objective, seeded by the sample's own lerped arm (the
+        // deadlift's armSeed law — the seed picks the basin, so the
+        // solved arm is a smooth function of the path). One more hang
+        // seats the palms exactly after the arm settles.
+        let barPoint = Vec3(station, MascotSupport.pullUpBarHeight, 0)
         let solve = { (pose: MascotPose) -> MascotPose in
-            func palmX(_ candidate: MascotPose) -> Double {
-                let frames = candidate.jointFrames(skeleton: .standard)
-                guard let lw = frames[.leftWrist] else { return station }
-                return (lw.position + lw.rotation.rotate(MascotGrip.palmOffset)).x
-            }
-            func adjusted(_ u: Double) -> MascotPose {
-                var candidate = pose
-                var joints = candidate.joints
-                // 168, not 173: the anatomical bound minus spline
-                // overshoot room (never author at a joint stop).
-                let rollBound = 168.0 * Double.pi / 180
-                let left = joints[.leftShoulder] ?? .zero
-                let right = joints[.rightShoulder] ?? .zero
-                joints[.leftShoulder] = EulerAngles(
-                    pitch: left.pitch, yaw: left.yaw,
-                    roll: min(max(left.roll + u * 0.70, -rollBound), rollBound)
+            var p = MascotPoseBuilder.hangingFromTheBar(pose)
+            p = MascotPoseBuilder.grippingTheBar(
+                p,
+                station: station,
+                palmTarget: barPoint,
+                handFollowsForearm: false,
+                armSeed: (
+                    shoulder: pose.joints[.leftShoulder] ?? .zero,
+                    elbow: pose.joints[.leftElbow] ?? .zero,
+                    wrist: pose.joints[.leftWrist] ?? .zero
                 )
-                joints[.rightShoulder] = EulerAngles(
-                    pitch: right.pitch, yaw: right.yaw,
-                    roll: min(max(right.roll - u * 0.70, -rollBound), rollBound)
-                )
-                candidate.joints = joints
-                return candidate
-            }
-            // BOUNDED authority: enough to hold the whole path on
-            // station, far too little to fold the arms across.
-            var lowU = -1.0
-            var highU = 1.0
-            let rising = palmX(adjusted(highU)) > palmX(adjusted(lowU))
-            for _ in 0..<36 {
-                let mid = (lowU + highU) / 2
-                if (palmX(adjusted(mid)) < station) == rising {
-                    lowU = mid
-                } else {
-                    highU = mid
-                }
-            }
-            return MascotPoseBuilder.hangingFromTheBar(adjusted((lowU + highU) / 2))
+            )
+            return MascotPoseBuilder.hangingFromTheBar(p)
         }
 
         // The mid waypoint carries a DEEPER hollow than the endpoints'
@@ -134,12 +114,12 @@ enum PullUpMove {
         let hang = solve(hangSeed)
         var repKeyframes = [MascotKeyframe(t: 0, pose: hang, easing: .hold)]
         repKeyframes.append(contentsOf: MascotPoseBuilder.span(
-            from: hangSeed, to: midSeed, t0: 0.06, t1: 0.24, steps: 12,
+            from: hangSeed, to: midSeed, t0: 0.06, t1: 0.24, steps: 8,
             effortKeys: [(0, 0.3), (1, 0.7)],
             solve: solve
         ))
         repKeyframes.append(contentsOf: MascotPoseBuilder.span(
-            from: midSeed, to: topSeed, t0: 0.24, t1: 0.40, steps: 12,
+            from: midSeed, to: topSeed, t0: 0.24, t1: 0.40, steps: 8,
             effortKeys: [(0, 0.7), (0.7, 0.9), (1, 0.75)],
             solve: solve
         ).dropFirst())
@@ -150,12 +130,12 @@ enum PullUpMove {
         repKeyframes.append(MascotKeyframe(t: 0.46, pose: topHold, easing: .linear))
         repKeyframes.append(MascotKeyframe(t: 0.52, pose: topHold, easing: .linear))
         repKeyframes.append(contentsOf: MascotPoseBuilder.span(
-            from: topSeed, to: midSeed, t0: 0.52, t1: 0.72, steps: 12,
+            from: topSeed, to: midSeed, t0: 0.52, t1: 0.72, steps: 8,
             effortKeys: [(0, 0.5), (1, 0.42)],
             solve: solve
         ).dropFirst())
         repKeyframes.append(contentsOf: MascotPoseBuilder.span(
-            from: midSeed, to: hangSeed, t0: 0.72, t1: 0.94, steps: 12,
+            from: midSeed, to: hangSeed, t0: 0.72, t1: 0.94, steps: 8,
             effortKeys: [(0, 0.42), (1, 0.3)],
             solve: solve
         ).dropFirst())

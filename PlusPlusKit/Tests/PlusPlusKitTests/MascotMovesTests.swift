@@ -30,7 +30,7 @@ import Foundation
     }
 
     @Test func catalogIntegrity() {
-        #expect(MascotMoves.all.count == 16)
+        #expect(MascotMoves.all.count == 17)
         let names = MascotMoves.all.map(\.exerciseName)
         #expect(Set(names).count == names.count)
         for name in names {
@@ -180,7 +180,7 @@ import Foundation
         }
     }
 
-    @Test(arguments: ["Squat", "Deadlift", "Bench Press", "Overhead Press", "Barbell Row"])
+    @Test(arguments: ["Squat", "Deadlift", "Bench Press", "Overhead Press", "Barbell Row", "Pull-Up"])
     func handsActuallyGripTheBar(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         // 25 degrees, not less: a fully PRONATED grip runs the whole
@@ -217,6 +217,66 @@ import Foundation
         }
         #expect(xMax - xMin <= 0.008,
                 "\(name): the hand slides \((xMax - xMin) * 1000) mm along the bar (\(xMin)...\(xMax))")
+    }
+
+    /// The device-report round's L1 (Dave: the swing's hands wandered
+    /// off the handle and the bell floated in mid-air): two hands on
+    /// ONE short handle stay ON it — palm span pinned near the two
+    /// stations' width and both palms coaxial along the handle, every
+    /// frame including the rest beat. The renderer solves the bell
+    /// from the palms, so palms that hold this law can never strand
+    /// the bell.
+    @Test(arguments: MascotMoves.all.filter { $0.props.contains(.kettlebell) }.map(\.exerciseName))
+    func heldHandsShareTheHandle(name: String) throws {
+        let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
+        for i in 0...400 {
+            let t = Double(i) / 400
+            let frames = animation.pose(at: t).jointFrames(skeleton: Self.skeleton)
+            guard let lw = frames[.leftWrist], let rw = frames[.rightWrist] else { continue }
+            let lp = lw.position + lw.rotation.rotate(MascotGrip.palmOffset)
+            let rp = rw.position + rw.rotation.rotate(MascotGrip.palmOffset)
+            let span = (lp - rp).length
+            // 0.070, not the handle's 0.04: the palm CHANNELS sit off
+            // the wrists by the rotated grip offset, and the two
+            // hands' mirrored wrap skew widens channel-to-channel
+            // span past the physical handle. The off-axis clause and
+            // the finger-pierce law police the real grip; this bound
+            // kills the 0.2-0.27 m float, not honest wrap skew.
+            #expect(span >= 0.028 && span <= 0.070,
+                    "\(name): the palms sit \(span) m apart on a one-handle grip at t=\(t)")
+            let offAxis = ((lp.y - rp.y) * (lp.y - rp.y) + (lp.z - rp.z) * (lp.z - rp.z)).squareRoot()
+            #expect(offAxis <= 0.02,
+                    "\(name): the palms sit \(offAxis) m off one shared handle axis at t=\(t)")
+        }
+    }
+
+    /// The device-report round's L3 (Dave: the push-up's hands crawled
+    /// around the floor): a planted hand supports weight at ONE SPOT —
+    /// its floor position stays put across the whole cycle, exactly
+    /// like a gripped hand's bar station.
+    @Test(arguments: MascotMoves.all.filter { $0.dynamics.handsBearWeight || $0.dynamics.forearmsBearWeight }.map(\.exerciseName))
+    func plantedHandsHoldOneSpot(name: String) throws {
+        let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
+        // The anchor is the PALM SLAB's floor contact (the same
+        // MascotHand capsule the renderer meshes), not the grip
+        // channel — a flattening wrist legitimately re-orients around
+        // a slab that never moves, and it is the slab a viewer sees
+        // planted.
+        let state = MascotHand.state(for: animation)
+        var minX = Double.infinity, maxX = -Double.infinity
+        var minZ = Double.infinity, maxZ = -Double.infinity
+        for i in 0...400 {
+            let t = Double(i) / 400
+            let frames = animation.pose(at: t).jointFrames(skeleton: Self.skeleton)
+            guard let lw = frames[.leftWrist] else { continue }
+            let capsules = MascotHand.capsules(state: state, side: 1.0, wrist: (lw.position, lw.rotation))
+            guard let palm = capsules.first(where: { $0.name.contains("palm") }) else { continue }
+            let center = 0.5 * (palm.from + palm.to)
+            minX = min(minX, center.x); maxX = max(maxX, center.x)
+            minZ = min(minZ, center.z); maxZ = max(maxZ, center.z)
+        }
+        #expect(maxX - minX <= 0.02 && maxZ - minZ <= 0.02,
+                "\(name): a planted hand travels \((maxX - minX) * 1000) x \((maxZ - minZ) * 1000) mm across the floor")
     }
 
     /// The grip round's second law — PHYSICS: a hand can never
@@ -742,7 +802,7 @@ import Foundation
         }
     }
 
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Bench Press", "Lateral Raise", "Overhead Press", "Barbell Row", "Goblet Squat", "Kettlebell Swing", "Reverse Lunge"])
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Bench Press", "Lateral Raise", "Overhead Press", "Barbell Row", "Goblet Squat", "Pull-Up", "Kettlebell Swing", "Reverse Lunge"])
     func equipmentNeverPassesThroughTheBody(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         #expect(!animation.props.isEmpty)

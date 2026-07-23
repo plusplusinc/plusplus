@@ -493,6 +493,7 @@ public enum MascotPoseBuilder {
         station: Double,
         palmTarget: Vec3? = nil,
         elbowUnderBar: Bool = false,
+        handFollowsForearm: Bool = true,
         armSeed: (shoulder: EulerAngles, elbow: EulerAngles, wrist: EulerAngles)? = nil,
         skeleton: MascotSkeleton = .standard
     ) -> MascotPose {
@@ -512,7 +513,9 @@ public enum MascotPoseBuilder {
             (-23 * toRadians)...(23 * toRadians),    // elbow yaw
             (-78 * toRadians)...(78 * toRadians),    // wrist pitch
             (-88 * toRadians)...(88 * toRadians),    // wrist yaw
-            (-43 * toRadians)...(43 * toRadians),    // wrist roll
+            // Radial/ulnar deviation: the articulation round pulled
+            // the table to a human ±40, so the solver stays 2 inside.
+            (-38 * toRadians)...(38 * toRadians),    // wrist roll
         ]
 
         func applied(_ q: [Double]) -> MascotPose {
@@ -557,10 +560,16 @@ public enum MascotPoseBuilder {
                 wAxis * (grip.x - (-1)),
                 wAxis * grip.y,
                 wAxis * grip.z,
-                wHand * (hand.x - fUnit.x),
-                wHand * (hand.y - fUnit.y),
-                wHand * (hand.z - fUnit.z),
             ]
+            if handFollowsForearm {
+                // The lifting stack: metacarpals continue the forearm.
+                // A HANGING grip must NOT want this — the hand folds
+                // over the bar, and the seed anchor below holds that
+                // authored fold instead (the articulation round).
+                r.append(wHand * (hand.x - fUnit.x))
+                r.append(wHand * (hand.y - fUnit.y))
+                r.append(wHand * (hand.z - fUnit.z))
+            }
             if elbowUnderBar {
                 // The pressing stack: elbow directly under the bar in
                 // the sagittal plane (thumb-in solutions otherwise

@@ -86,8 +86,67 @@ enum KettlebellSwingMove {
         // arms' ~25-degree wrap skew ran a finger capsule 10 mm
         // through the handle (swift-reviewer coverage catch — the
         // finger law had been silently skipping kettlebell capsules).
-        let solve = { (pose: MascotPose) in
-            MascotPoseBuilder.coordinating(pose, props: [.kettlebell])
+        // coordinating owns the body; a light TWO-CHANNEL corrector
+        // owns the hands (the pull-up pin pattern). The full barbell
+        // servo is WRONG here: its overhand objective (grip axis to
+        // -x, left thumb inward) sits half a wrap-flip from this
+        // close two-hand grip's analytic wrists, so it exploded the
+        // arms outward chasing the flip (palms 196 mm apart at the
+        // stand). The corrector never touches the wrists — the
+        // analytic wrap alignment stays exact — it only squeezes the
+        // palms to the handle's width through symmetric shoulder
+        // yaw + roll, damped, seed-anchored, so the bell rendered at
+        // the palm midpoint can never float away from the hands
+        // (Dave's build-117 report: 57-269 mm of palm spread).
+        let handleSpan = 0.04
+        let solve = { (pose: MascotPose) -> MascotPose in
+            let body = MascotPoseBuilder.coordinating(pose, props: [.kettlebell])
+            func palmSpan(_ p: MascotPose) -> Double {
+                let frames = p.jointFrames(skeleton: .standard)
+                guard let lw = frames[.leftWrist], let rw = frames[.rightWrist] else { return handleSpan }
+                let lp = lw.position + lw.rotation.rotate(MascotGrip.palmOffset)
+                let rp = rw.position + rw.rotation.rotate(MascotGrip.palmOffset)
+                return (lp - rp).length
+            }
+            func adjusted(_ dYaw: Double, _ dRoll: Double) -> MascotPose {
+                var candidate = body
+                var joints = candidate.joints
+                let yawBound = 92.0 * Double.pi / 180
+                let rollBound = 168.0 * Double.pi / 180
+                let left = joints[.leftShoulder] ?? .zero
+                let right = joints[.rightShoulder] ?? .zero
+                joints[.leftShoulder] = EulerAngles(
+                    pitch: left.pitch,
+                    yaw: min(max(left.yaw + dYaw, -yawBound), yawBound),
+                    roll: min(max(left.roll + dRoll, -rollBound), rollBound)
+                )
+                joints[.rightShoulder] = EulerAngles(
+                    pitch: right.pitch,
+                    yaw: min(max(right.yaw - dYaw, -yawBound), yawBound),
+                    roll: min(max(right.roll - dRoll, -rollBound), rollBound)
+                )
+                candidate.joints = joints
+                return candidate
+            }
+            var dYaw = 0.0
+            var dRoll = 0.0
+            let authority = 0.60
+            let h = 0.004
+            for _ in 0..<16 {
+                let current = palmSpan(adjusted(dYaw, dRoll))
+                let error = current - handleSpan
+                if abs(error) < 0.0015 { break }
+                let sYaw = (palmSpan(adjusted(dYaw + h, dRoll)) - current) / h
+                let sRoll = (palmSpan(adjusted(dYaw, dRoll + h)) - current) / h
+                let norm2 = sYaw * sYaw + sRoll * sRoll
+                guard norm2 > 1e-8 else { break }
+                let scale = 0.8 * error / norm2
+                dYaw -= min(max(scale * sYaw, -0.06), 0.06)
+                dRoll -= min(max(scale * sRoll, -0.06), 0.06)
+                dYaw = min(max(dYaw, -authority), authority)
+                dRoll = min(max(dRoll, -authority), authority)
+            }
+            return adjusted(dYaw, dRoll)
         }
 
         let standS = solve(stand)

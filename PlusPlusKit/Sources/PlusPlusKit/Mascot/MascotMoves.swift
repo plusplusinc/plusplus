@@ -20,12 +20,7 @@ public enum MascotMoves {
         OverheadPressMove.animation,
         BarbellRowMove.animation,
         GobletSquatMove.animation,
-        // PullUpMove is temporarily OUT of the catalog: the build-117
-        // articulation round re-authored its grip and elbows (the hang
-        // and top configs pass every law), but the PATH between them
-        // needs a better-conditioned station pin than this round could
-        // land — the roll-bisection whips between solutions mid-pull.
-        // No demo beats a broken one; the re-author is the follow-up.
+        PullUpMove.animation,
         JumpSquatMove.animation,
         KettlebellSwingMove.animation,
         ReverseLungeMove.animation,

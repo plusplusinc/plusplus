@@ -137,7 +137,7 @@ import Foundation
         #expect(worst <= 8, "\(name): peak joint speed \(worst) rad/s")
     }
 
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise", "Bench Press", "Lateral Raise", "Sit-Up", "Overhead Press", "Barbell Row", "Goblet Squat", "Kettlebell Swing", "Reverse Lunge", "Glute Bridge"])
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise", "Bench Press", "Lateral Raise", "Sit-Up", "Overhead Press", "Barbell Row", "Goblet Squat", "Kettlebell Swing", "Reverse Lunge", "Glute Bridge", "Pull-Up"])
     func effortPeaksWhileTheLoadRises(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         let repShare = animation.repDuration / animation.cycleDuration
@@ -272,7 +272,7 @@ import Foundation
     // The Kettlebell Swing is deliberately absent: its drop RIDES
     // gravity into the hike — a fast eccentric is the movement, not a
     // form fault.
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise", "Bench Press", "Lateral Raise", "Sit-Up", "Overhead Press", "Barbell Row", "Goblet Squat", "Reverse Lunge", "Glute Bridge"])
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise", "Bench Press", "Lateral Raise", "Sit-Up", "Overhead Press", "Barbell Row", "Goblet Squat", "Reverse Lunge", "Glute Bridge", "Pull-Up"])
     func theEccentricIsControlled(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         let workShare = animation.workDuration / animation.cycleDuration
@@ -303,7 +303,7 @@ import Foundation
     /// bottom of its travel, one at the top. An eased turnaround
     /// without a dwell only grazes zero speed for an instant, so the
     /// window-length bar separates a real pause from a slow reversal.
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise", "Bench Press", "Lateral Raise", "Sit-Up", "Overhead Press", "Barbell Row", "Goblet Squat", "Kettlebell Swing", "Reverse Lunge", "Glute Bridge"])
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise", "Bench Press", "Lateral Raise", "Sit-Up", "Overhead Press", "Barbell Row", "Goblet Squat", "Kettlebell Swing", "Reverse Lunge", "Glute Bridge", "Pull-Up"])
     func everyRepPausesAtItsTurnarounds(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         let repShare = animation.repDuration / animation.cycleDuration
