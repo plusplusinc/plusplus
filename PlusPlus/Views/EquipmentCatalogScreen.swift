@@ -113,6 +113,22 @@ struct EquipmentCatalogScreen: View {
         kitFilter != nil || !typeFilter.isEmpty || !filterState.selectedMuscleGroups.isEmpty
     }
 
+    /// The active facets, summarized for the filter-state popover.
+    private var activeFacets: [ActiveFacet] {
+        var facets: [ActiveFacet] = []
+        if let kitFilter {
+            facets.append(ActiveFacet(name: "Kit", value: kitFilter ? "In kit" : "Not in kit"))
+        }
+        if !typeFilter.isEmpty {
+            facets.append(ActiveFacet(name: "Type", value: typeFilter.map(\.rawValue).sorted().joined(separator: ", ")))
+        }
+        if !filterState.selectedMuscleGroups.isEmpty {
+            let names = filterState.selectedMuscleGroups.map(\.displayName).sorted().joined(separator: ", ")
+            facets.append(ActiveFacet(name: "Muscle", value: names))
+        }
+        return facets
+    }
+
     var body: some View {
         let index = exerciseIndex
         VStack(spacing: 0) {
@@ -247,11 +263,14 @@ struct EquipmentCatalogScreen: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 7) {
                 if anyFilterActive {
-                    ClearAllChip {
-                        kitFilter = nil
-                        typeFilter = []
-                        filterState.selectedMuscleGroups = []
-                    }
+                    FilterSummaryChip(
+                        facets: activeFacets,
+                        onClearAll: {
+                            kitFilter = nil
+                            typeFilter = []
+                            filterState.selectedMuscleGroups = []
+                        }
+                    )
                 }
                 FacetChip(
                     facet: "Kit",

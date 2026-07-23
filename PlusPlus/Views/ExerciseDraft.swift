@@ -79,6 +79,31 @@ final class ExerciseDraft {
         MetricProfile(trackedMetrics, distanceUnit: distanceUnit, isOutdoor: isOutdoor && canBeOutdoor)
     }
 
+    /// A value snapshot of every user-EDITABLE field, for the editor's
+    /// discard guard (design review 2026-07-23): captured at open,
+    /// compared at dismissal, so an accidental swipe on the app's
+    /// biggest form asks before dropping real typing. `metricsTouched`
+    /// is a latch, not content, and stays out — touching chips and
+    /// landing back on the same profile is not an edit.
+    var fingerprint: [String] {
+        [
+            name,
+            String(describing: muscleGroup),
+            trackedMetrics.map { String(describing: $0) }.joined(separator: ","),
+            String(describing: distanceUnit),
+            String(isOutdoor),
+            selectedEquipment.map(\.name).sorted().joined(separator: ","),
+            notes,
+            videoURL,
+            defaultWeight.map { String($0) } ?? "",
+            defaultReps.map { String($0) } ?? "",
+            defaultRepsUpper.map { String($0) } ?? "",
+            defaultDurationSeconds.map { String($0) } ?? "",
+            defaultHeartRateTargetData?.base64EncodedString() ?? "",
+            extraDefaults.map { "\(String(describing: $0.key))=\($0.value)" }.sorted().joined(separator: ","),
+        ]
+    }
+
     /// The legacy type the profile maps onto (kept for old readers).
     var exerciseType: ExerciseType {
         metricProfile.legacyType

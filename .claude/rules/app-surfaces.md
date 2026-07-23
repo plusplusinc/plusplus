@@ -119,7 +119,9 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   (2026-07-18, shapes/mono revised 2026-07-20): a **filter chip** is a button
   — sentence-case plain font, a border when unselected, a solid blue fill when
   selected (`FacetChip`/`MultiFacetChip`/`TrayFilterChip`/`SortChip`/
-  `SelectableChip`/`KitFilterChip`, facet names passed sentence-case). A **card
+  `SelectableChip`, facet names passed sentence-case; the old
+  `KitFilterChip` sheet-chip retired with the 2026-07-21 axes separation —
+  the equipment catalog's Kit facet is a plain `FacetChip`). A **card
   data tag** is not a button — it shows an item's property, so it wears the
   soft `surfaceRaised` fill with NO stroke (a stroked tag reads as a button).
   That style is the shared `CardTagCapsule` (the routine gear pills use it too).
@@ -138,6 +140,43 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   in `Views/Components/CatalogItemRow.swift` — with only parameterized
   exceptions (the picker drops the chevron; the kit list drops the in-kit
   glyph). See docs/DECISIONS.md 2026-07-18.
+- **Design-review round laws (2026-07-23, Dave-decided):** (1) **No
+  toasts, ever.** A transient answer renders INLINE where the triggering
+  gesture settled (Today's pull-to-refresh line), or as a one-shot ALERT
+  when it answers an explicit tap that would otherwise fail silently
+  (renamed-routine deep links, unreadable share links). `Toast.swift` is
+  deleted. (2) **Active filters summarize, never insta-clear**: the
+  leading ✕ `ClearAllChip` died for `FilterSummaryChip` — a
+  selection-blue count chip opening a popover naming each active facet's
+  values (+ result count where cheap), Clear-all inside. ✕ now means
+  ONLY collapse-search, everywhere. (3) **Interactive amber wears the
+  control shape**: the routine header's tappable "needs X" chip is r11 +
+  stroked; card data tags stay soft r6 and inert — no nested tap targets
+  on cards, shape says what taps. (4) **The live-workout HUD is in the
+  key family**: End/Pause/Overview are r11 raised keys (42 pt cap + 3 pt
+  travel ≈ the old row height); HR/pace readouts are soft r6 data tags.
+  (5) **One landing for every routine add/import**: the Routines list +
+  entrance flash, via `RoutineArrival` (pending-uuid handoff + tab
+  switch), from the Routines tab, Today's setup, and share imports alike;
+  blank creation still lands in detail (creating starts editing). (6)
+  **The superset creation tip teaches the DRAG**, as a popover pinned to
+  the first rail row (reversing build-45's sheet-path-only copy; display
+  gated by `SupersetCreationTip.canPair`). (7) The overview's "up next"
+  pulse is a NAMED flourish (the 4th, beside splash/landing/completion).
+  (8) **The exercise editor confirms a dirty discard** (blocked swipe +
+  Cancel-confirm, the Mail-compose pattern) — the ONE exception to
+  Cancel-is-instant, Dave's call. (9) **Ad-hoc sessions never
+  auto-finish** (`stagedWorkDoneStage` offers Add/Finish); the record
+  renders never-completed sets as neutral "skipped" rows (anti-shame:
+  fact, not judgment). (10) `Theme.keyRadius` names the 11 pt key
+  radius; `FilterChipShape.cornerRadius` aliases it. (11, round 2a)
+  **The routine exercise sheet's structure actions are ALWAYS-VISIBLE
+  compact pairs** ending in `Swap for…|Remove` — the round-1 Structure
+  disclosure lived one build (Dave: hiding four small actions read as
+  friction). The pair mirrors the live session sheet, so restructuring
+  reads the same at planning and execution time; planning-time swap
+  reuses `Routine.replaceExercise` (targets reset to the new
+  exercise's defaults) via a `.swap` picker destination.
 - **Equipment is availability, not ownership** (2026-07-11): what gear you
   "have" is membership in the ACTIVE `EquipmentLibrary` (Home, Hotel…),
   switched from a tray off the Equipment-tab header (left of the +) and via

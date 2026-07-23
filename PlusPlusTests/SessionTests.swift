@@ -441,6 +441,82 @@ struct SessionTests {
         #expect(resized.map(\.setNumber) == [1, 2])
     }
 
+    // MARK: - Mid-workout swap/remove (design review 2026-07-23)
+
+    @Test("Removing a pending block drops its pending sets and keeps the record")
+    func removePendingBlockKeepsCompletedWork() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+
+        let session = WorkoutSession.startEmpty(context: context)
+        let press = Exercise(name: "Probe Press", muscleGroup: .chest)
+        context.insert(press)
+        let row = Exercise(name: "Probe Row", muscleGroup: .back)
+        context.insert(row)
+        let pressLogs = session.appendExercise(press, sets: 2, context: context)
+        session.appendExercise(row, sets: 3, context: context)
+
+        session.complete(pressLogs[0])   // press set 1 done; set 2 is live
+
+        // The row block is upcoming (not live) — removable.
+        session.removePendingBlock(groupIndex: 1, exerciseName: "Probe Row", context: context)
+        #expect(session.sortedSetLogs.count == 2, "only the press block survives")
+        let noRowRemains = session.sortedSetLogs.allSatisfy { $0.exerciseName == "Probe Press" }
+        #expect(noRowRemains)
+        // Orders re-densified, cursor still on the live press set.
+        #expect(session.sortedSetLogs.map(\.order) == [0, 1])
+        #expect(session.currentLog === pressLogs[1])
+
+        // The LIVE block refuses removal (the sheet never offers it; a
+        // stray call is a no-op).
+        session.removePendingBlock(groupIndex: 0, exerciseName: "Probe Press", context: context)
+        #expect(session.sortedSetLogs.count == 2)
+    }
+
+    @Test("Swapping a pending block replaces it in place")
+    func swapPendingBlockReplacesInPlace() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+
+        let session = WorkoutSession.startEmpty(context: context)
+        let press = Exercise(name: "Probe Press", muscleGroup: .chest)
+        context.insert(press)
+        let squat = Exercise(name: "Probe Squat", muscleGroup: .quads)
+        context.insert(squat)
+        let curl = Exercise(name: "Probe Curl", muscleGroup: .biceps)
+        context.insert(curl)
+        let pressLogs = session.appendExercise(press, sets: 1, context: context)
+        session.appendExercise(squat, sets: 2, context: context)
+        session.appendExercise(curl, sets: 2, context: context)
+
+        session.complete(pressLogs[0])   // cursor moves into the squat block
+
+        // The squat block is LIVE — a swap must refuse it.
+        let refused = session.swapPendingBlock(
+            groupIndex: 1, exerciseName: "Probe Squat",
+            with: SessionExerciseConfig(exercise: curl, sets: 3), context: context
+        )
+        #expect(refused.isEmpty)
+
+        // Swap the upcoming curl block for more squats: the replacement
+        // takes the curls' position (before nothing here, but orders
+        // stay dense) and its own fresh set numbers.
+        let swapped = session.swapPendingBlock(
+            groupIndex: 2, exerciseName: "Probe Curl",
+            with: SessionExerciseConfig(exercise: squat, sets: 3), context: context
+        )
+        #expect(swapped.count == 3)
+        #expect(swapped.map(\.setNumber) == [1, 2, 3])
+        let keepsGroupIndex = swapped.allSatisfy { $0.groupIndex == 2 }
+        #expect(keepsGroupIndex, "a swap keeps its position's group")
+        #expect(!session.sortedSetLogs.contains { $0.exerciseName == "Probe Curl" && !$0.isCompleted })
+        // Session orders re-densified end to end.
+        #expect(session.sortedSetLogs.map(\.order) == Array(0..<session.sortedSetLogs.count))
+        // The cursor stayed on the live squat set through the surgery.
+        #expect(session.currentLog?.exerciseName == "Probe Squat")
+        #expect(session.currentLog?.groupIndex == 1)
+    }
+
     // MARK: - Workout clock (pause + staged start)
 
     @Test("An ad-hoc session's clock stays at zero until it starts")

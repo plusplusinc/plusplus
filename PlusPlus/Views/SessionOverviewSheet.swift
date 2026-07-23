@@ -88,30 +88,13 @@ struct SessionOverviewSheet: View {
                 // header keeps this sheet reachable from the done
                 // screen, where a new pending set would be invisible).
                 if !session.isFinished {
-                Button {
+                // The shared creation row — this was a flat borderless
+                // fork that read inert next to its two raised siblings
+                // (routine detail + the empty stage), design review
+                // 2026-07-23.
+                CreateRow(label: "Add exercise", identifier: "overviewAddExerciseButton") {
                     showingAddExercise = true
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "plus")
-                            .font(.system(.caption, weight: .semibold))
-                        Text("Add exercise")
-                            .font(.system(.footnote, weight: .semibold))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.6)
-                    }
-                    // Creation is green (#202).
-                    .foregroundStyle(Theme.accent)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 12)
-                    .frame(minHeight: 44)
-                    .contentShape(Rectangle())
-                    .overlay(
-                        RoundedRectangle(cornerRadius: Theme.controlRadius)
-                            .strokeBorder(Theme.borderStrong)
-                    )
                 }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("overviewAddExerciseButton")
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 4, trailing: 14))
@@ -168,6 +151,9 @@ struct SessionOverviewSheet: View {
         }
         // Start/stop the up-next pulse with the countdown. Reduce Motion keeps
         // the static green from nameColor/rowWash and never animates (#421).
+        // A deliberate flourish (a named exception to the Anim-token rule,
+        // like the splash fade and the superset landing): a rest countdown is
+        // a waiting state, and the slow breathe is the information.
         .onChange(of: isResting, initial: true) { _, resting in
             guard !reduceMotion else { pulseUp = false; return }
             if resting {
@@ -373,6 +359,17 @@ struct SessionExerciseSheet: View {
         session.currentLog.map { current in logs.contains { $0.order == current.order } } ?? false
     }
 
+    /// Swap/Remove target the not-yet-done plan only (design review
+    /// 2026-07-23): an UPCOMING block (or one with sets left) can be
+    /// replaced in place or dropped. The live block keeps neither —
+    /// mid-set surgery on the set being performed is a different beast.
+    private var canRestructure: Bool {
+        !isLive && !pending.isEmpty && !session.isFinished
+    }
+    @State private var showingSwapPicker = false
+    @State private var swapFilterState = ExerciseFilterState()
+    @State private var confirmingRemove = false
+
     var body: some View {
         VStack(spacing: 0) {
             Capsule().fill(Theme.borderStrong).frame(width: 36, height: 4)
@@ -434,6 +431,37 @@ struct SessionExerciseSheet: View {
                         .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
                     }
                 }
+                // Mid-workout restructuring (design review 2026-07-23): the
+                // machine's taken, the shoulder says no — swap the block for
+                // another exercise in place, or drop what's left of it.
+                // Planning-time swap lives on the routine; this is the
+                // session's own escape hatch.
+                if canRestructure {
+                    HStack(spacing: 8) {
+                        Button {
+                            showingSwapPicker = true
+                        } label: {
+                            Text("Swap for…")
+                                .font(.system(.footnote, weight: .bold))
+                                .foregroundStyle(Theme.textPrimary)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 44)
+                                .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: 12))
+                        }
+                        .accessibilityIdentifier("swapBlockButton")
+                        Button {
+                            confirmingRemove = true
+                        } label: {
+                            Text("Remove")
+                                .font(.system(.footnote, weight: .bold))
+                                .foregroundStyle(Theme.destructive)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 44)
+                                .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: 12))
+                        }
+                        .accessibilityIdentifier("removeBlockButton")
+                    }
+                }
                 Button {
                     dismiss()
                 } label: {
@@ -449,6 +477,36 @@ struct SessionExerciseSheet: View {
             .padding(.vertical, 12)
         }
         .presentationBackground(Theme.surface)
+        // The picker STACKS on this sheet (the documented stack-don't-
+        // dismiss-then-present law) — same depth the overview's own Add
+        // flow already reaches.
+        .sheet(isPresented: $showingSwapPicker) {
+            ExercisePickerView(filterState: swapFilterState, onConfigured: { config in
+                session.swapPendingBlock(
+                    groupIndex: block.groupIndex,
+                    exerciseName: block.name,
+                    with: config,
+                    context: modelContext
+                )
+                showingSwapPicker = false
+                // This sheet's block key just stopped meaning anything —
+                // land back on the overview, which regroups live.
+                dismiss()
+            })
+        }
+        .confirmationDialog("Remove the remaining sets?", isPresented: $confirmingRemove, titleVisibility: .visible) {
+            Button("Remove \(pending.count) pending set\(pending.count == 1 ? "" : "s")", role: .destructive) {
+                session.removePendingBlock(
+                    groupIndex: block.groupIndex,
+                    exerciseName: block.name,
+                    context: modelContext
+                )
+                dismiss()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Done sets stay in the record.")
+        }
     }
 
     private var statusText: String {

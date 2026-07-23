@@ -184,8 +184,8 @@ struct HeaderSearchField: View {
         .padding(.trailing, hasText ? 10 : 13)
         .frame(height: 44)
         .frame(maxWidth: .infinity)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 11))
-        .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+        .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
     }
 }
 
@@ -207,8 +207,8 @@ struct HeaderMenuKey<Items: View>: View {
                 .font(.system(.body, weight: .medium))
                 .foregroundStyle(Theme.textSecondary)
                 .frame(width: 44, height: 44)
-                .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
-                .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
+                .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+                .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
         }
         .menuStyle(.button)
         .buttonStyle(.raisedKey())

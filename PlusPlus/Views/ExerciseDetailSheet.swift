@@ -13,7 +13,15 @@ struct ExerciseDetailSheet: View {
 
     let routine: Routine
     @Bindable var routineExercise: RoutineExercise
-    let onAddToSuperset: (ExerciseGroup) -> Void
+    /// "Swap for…" (round 2a, the session sheet's pair at planning
+    /// time): the presenter routes it into the pushed exercise picker
+    /// — this sheet dismisses, the picker pushes beneath it — and the
+    /// pick lands via `Routine.replaceExercise` (targets reset to the
+    /// new exercise's defaults, the equipment-resolve law). ⚠️ The
+    /// dismiss-then-push-beneath handoff is field-unproven (its
+    /// supposed precedent, onAddToSuperset, turned out to be dead code
+    /// — deleted with this round); it rides the device-pass list.
+    let onSwap: (RoutineExercise) -> Void
 
     /// Finished sessions, newest first, for the RECENT block.
     @Query(filter: #Predicate<WorkoutSession> { $0.endedAt != nil },
@@ -388,34 +396,14 @@ struct ExerciseDetailSheet: View {
 
     // MARK: - Structure
 
+    /// Always-visible compact PAIRS (Dave, design review round 2a — the
+    /// Structure disclosure lived one build: hiding four small actions
+    /// behind a tap read as friction, not focus). Bottom row mirrors the
+    /// live session sheet's Swap|Remove pair, so restructuring reads the
+    /// same at planning and execution time; Remove anchors last in
+    /// destructive ink.
     private var structureActions: some View {
         VStack(spacing: 7) {
-            if let group, group.isSuperset {
-                SheetActionButton("Move out of superset", systemImage: "square.on.square") {
-                    routine.splitExercise(routineExercise, context: modelContext)
-                    dismiss()
-                }
-            }
-            if let group, !group.isSuperset, let index = groupIndex {
-                if index > 0 {
-                    SheetActionButton("Superset with exercise above", systemImage: "square.on.square") {
-                        routine.mergeSoloGroup(group, direction: -1, context: modelContext)
-                        // Found unprompted — hand-creation retires the
-                        // how-to AND the loop introduction.
-                        SupersetCreationTip().invalidate(reason: .actionPerformed)
-                        SupersetLoopTip().invalidate(reason: .actionPerformed)
-                        dismiss()
-                    }
-                }
-                if index < routine.sortedGroups.count - 1 {
-                    SheetActionButton("Superset with exercise below", systemImage: "square.on.square") {
-                        routine.mergeSoloGroup(group, direction: 1, context: modelContext)
-                        SupersetCreationTip().invalidate(reason: .actionPerformed)
-                        SupersetLoopTip().invalidate(reason: .actionPerformed)
-                        dismiss()
-                    }
-                }
-            }
             HStack(spacing: 7) {
                 SheetActionButton("Move up", systemImage: "arrow.up", dimmed: groupIndex == 0) {
                     moveGroup(-1)
@@ -424,9 +412,49 @@ struct ExerciseDetailSheet: View {
                     moveGroup(1)
                 }
             }
-            SheetActionButton("Delete exercise", destructive: true) {
-                deleteExercise()
+            if let group, group.isSuperset {
+                SheetActionButton("Move out of superset", systemImage: "square.on.square") {
+                    routine.splitExercise(routineExercise, context: modelContext)
+                    dismiss()
+                }
             }
+            if let group, !group.isSuperset, let index = groupIndex {
+                let canAbove = index > 0
+                let canBelow = index < routine.sortedGroups.count - 1
+                // Paired when both neighbors exist ("Superset above" — the
+                // long "with exercise" labels don't fit half-width); a lone
+                // neighbor keeps its key full-width.
+                if canAbove && canBelow {
+                    HStack(spacing: 7) {
+                        supersetKey(direction: -1, label: "Superset above", group: group)
+                        supersetKey(direction: 1, label: "Superset below", group: group)
+                    }
+                } else if canAbove {
+                    supersetKey(direction: -1, label: "Superset with exercise above", group: group)
+                } else if canBelow {
+                    supersetKey(direction: 1, label: "Superset with exercise below", group: group)
+                }
+            }
+            HStack(spacing: 7) {
+                SheetActionButton("Swap for…", systemImage: "arrow.left.arrow.right") {
+                    onSwap(routineExercise)
+                    dismiss()
+                }
+                SheetActionButton("Remove", destructive: true) {
+                    removeExercise()
+                }
+            }
+        }
+    }
+
+    private func supersetKey(direction: Int, label: String, group: ExerciseGroup) -> some View {
+        SheetActionButton(label, systemImage: "square.on.square") {
+            routine.mergeSoloGroup(group, direction: direction, context: modelContext)
+            // Found unprompted — hand-creation retires the how-to AND
+            // the loop introduction.
+            SupersetCreationTip().invalidate(reason: .actionPerformed)
+            SupersetLoopTip().invalidate(reason: .actionPerformed)
+            dismiss()
         }
     }
 
@@ -443,16 +471,12 @@ struct ExerciseDetailSheet: View {
         dismiss()
     }
 
-    private func deleteExercise() {
-        let group = routineExercise.group
-        modelContext.delete(routineExercise)
-        if let group {
-            group.reindexExercises()
-            if group.sortedExercises.isEmpty {
-                modelContext.delete(group)
-                routine.reindexGroups()
-            }
-        }
+    /// "Remove", not "Delete exercise" (round 2a): the slot leaves the
+    /// routine; the exercise itself stays in the catalog. Converged on
+    /// the model's removeExercise — this used to hand-roll the same
+    /// reindex dance.
+    private func removeExercise() {
+        routine.removeExercise(routineExercise, context: modelContext)
         dismiss()
     }
 }

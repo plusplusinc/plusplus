@@ -11,8 +11,10 @@ import SwiftUI
 /// - `TrayFilterChip` — multi-select facets that open a tray; active
 ///   state is the facet name + a count pill (values don't fit, the
 ///   count says how much filtering is on).
-/// - `ClearAllChip` — the leading ✕ that appears when anything is
-///   active and resets the row in one tap.
+/// - `FilterSummaryChip` — the leading count chip that appears when
+///   anything is active: it opens a popover summarizing the active
+///   facets, with Clear all inside (2026-07-23; the instant-✕
+///   `ClearAllChip` died in its favor).
 /// Sort rides the same row but stays visually NEUTRAL with its
 /// up/down glyph — ordering is not filter state, and users conflate
 /// the two when they look alike.
@@ -24,7 +26,7 @@ import SwiftUI
 /// `CardTagCapsule` = inert data tag. One radius, matching the keys they
 /// sit beside.
 enum FilterChipShape {
-    static let cornerRadius: CGFloat = 11
+    static let cornerRadius: CGFloat = Theme.keyRadius
 }
 
 /// One facet, single-select. Tapping anchors a native Menu with a
@@ -265,25 +267,78 @@ struct TrayFilterChip: View {
     }
 }
 
-/// The leading ✕: appears when any facet is active, clears the row.
-struct ClearAllChip: View {
-    let action: () -> Void
+/// One active facet's summary line for `FilterSummaryChip`.
+struct ActiveFacet: Identifiable {
+    let name: String
+    let value: String
+    var id: String { name }
+}
+
+/// The leading filter-state chip (design review 2026-07-23, replacing
+/// the instant-✕ `ClearAllChip`): appears when any facet is active,
+/// wears the selection blue with the ACTIVE FACET COUNT, and opens a
+/// small anchored popover summarizing each facet with its values plus
+/// how much of the catalog survives — with Clear all inside. State
+/// first; the reset sits one deliberate tap deep instead of one
+/// accidental tap away.
+struct FilterSummaryChip: View {
+    let facets: [ActiveFacet]
+    /// "12 of 247" — what the filters leave showing.
+    var resultSummary: String?
+    let onClearAll: () -> Void
+
+    @State private var showingSummary = false
 
     var body: some View {
-        Button(action: action) {
-            Image(systemName: "xmark")
-                .font(.system(.caption2, weight: .bold))
-                .foregroundStyle(Theme.textSecondary)
-                .frame(width: 36, height: 36)
-                .background(Theme.surface, in: RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius))
-                .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius).strokeBorder(Theme.border))
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
+        Button {
+            showingSummary = true
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "line.3.horizontal.decrease")
+                    .font(.system(.caption2, weight: .bold))
+                Text("\(facets.count)")
+                    .font(.system(.footnote, weight: .semibold))
+            }
+            .foregroundStyle(Theme.onSelected)
+            .padding(.horizontal, 11)
+            .frame(height: 36)
+            .background(Theme.selected, in: RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius))
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Clear filters")
-        .accessibilityIdentifier("clearFilters")
+        .accessibilityLabel("Active filters: \(facets.count)")
+        .accessibilityHint("Shows what's filtering the list")
+        .accessibilityIdentifier("filterSummaryChip")
         .transition(.opacity)
+        .popover(isPresented: $showingSummary, arrowEdge: .top) {
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(facets) { facet in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(facet.name.uppercased())
+                            .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                            .kerning(0.7)
+                            .foregroundStyle(Theme.textFaint)
+                        Text(facet.value)
+                            .font(.system(.footnote, weight: .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                    }
+                }
+                if let resultSummary {
+                    Text(resultSummary)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                QuietKey(label: "Clear all", identifier: "clearAllFilters") {
+                    showingSummary = false
+                    onClearAll()
+                }
+            }
+            .padding(16)
+            .frame(minWidth: 190, alignment: .leading)
+            .presentationCompactAdaptation(.popover)
+            .presentationBackground(Theme.surface)
+        }
     }
 }
 

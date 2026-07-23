@@ -170,11 +170,15 @@ struct ExercisesTabView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 7) {
                 if anyFilterActive {
-                    ClearAllChip {
-                        filterState.favoritesOnly = false
-                        filterState.gearMode = nil
-                        filterState.selectedMuscleGroups = []
-                    }
+                    FilterSummaryChip(
+                        facets: activeFacets,
+                        resultSummary: "\(candidates.count) of \(allExercises.count) shown",
+                        onClearAll: {
+                            filterState.favoritesOnly = false
+                            filterState.gearMode = nil
+                            filterState.selectedMuscleGroups = []
+                        }
+                    )
                 }
                 SelectableChip(label: "Favorites", isSelected: filterState.favoritesOnly) {
                     filterState.favoritesOnly.toggle()
@@ -203,6 +207,31 @@ struct ExercisesTabView: View {
     private var pickedGearLabel: String {
         let n = filterState.pickedGearNames.count
         return n > 0 ? "Picked equipment (\(n))" : "Picked equipment"
+    }
+
+    /// The active facets, summarized for the filter-state popover
+    /// (persisted filters made a silently-narrowed catalog possible —
+    /// this is where the narrowing explains itself).
+    private var activeFacets: [ActiveFacet] {
+        var facets: [ActiveFacet] = []
+        if filterState.favoritesOnly {
+            facets.append(ActiveFacet(name: "Favorites", value: "Only favorites"))
+        }
+        if let mode = filterState.gearMode {
+            let value: String = switch mode {
+            case .withKit: "Can do now"
+            case .withoutKit: "Can't yet"
+            case .handPicked: filterState.pickedGearNames.isEmpty
+                ? "Picked equipment"
+                : filterState.pickedGearNames.sorted().joined(separator: ", ")
+            }
+            facets.append(ActiveFacet(name: "Equipment", value: value))
+        }
+        if !filterState.selectedMuscleGroups.isEmpty {
+            let names = filterState.selectedMuscleGroups.map(\.displayName).sorted().joined(separator: ", ")
+            facets.append(ActiveFacet(name: "Muscle", value: names))
+        }
+        return facets
     }
 
     /// Selecting "Picked equipment" opens the picker AND lights the mode; the
@@ -482,6 +511,15 @@ struct EquipmentTabView: View {
                 .font(.system(.footnote))
                 .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
+            // The standard escape-hatch key every other narrowed list carries
+            // (design-review parity, 2026-07-23) — the in-field clear glyph
+            // still works; this makes the way out read the same here as
+            // everywhere else.
+            if !searchText.trimmingCharacters(in: .whitespaces).isEmpty {
+                QuietKey(label: "Clear search", identifier: "clearKitSearch") {
+                    searchText = ""
+                }
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 24)
@@ -678,8 +716,8 @@ struct LibrarySwitcherKey: View {
             }
             .padding(.horizontal, 12)
             .frame(height: 44)
-            .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
-            .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
+            .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+            .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
         }
         .buttonStyle(.raisedKey())
         .accessibilityIdentifier(identifier)

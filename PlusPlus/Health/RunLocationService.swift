@@ -69,6 +69,14 @@ final class RunLocationMonitor: NSObject, CLLocationManagerDelegate {
         return Date().timeIntervalSince(latestAt) < Self.freshWindow
     }
 
+    /// True while Location is denied/restricted (design review
+    /// 2026-07-23, Health-parity honesty): a denied grant used to render
+    /// exactly like "no fix yet", which read as a broken feature rather
+    /// than a fixable permission. The live HUD shows a quiet
+    /// Open-Settings door off this. Doctrine unchanged — location is a
+    /// bonus, never a gate; the run continues either way.
+    private(set) var authorizationDenied = false
+
     /// Fastest plausible human running segment (~2:08 /mi); a fix implying
     /// more is a GPS teleport, not a stride — skip it (distance-side twin
     /// of LivePaceMeter's pace clamp).
@@ -134,11 +142,15 @@ final class RunLocationMonitor: NSObject, CLLocationManagerDelegate {
 
         switch manager.authorizationStatus {
         case .notDetermined:
+            authorizationDenied = false
             manager.requestWhenInUseAuthorization()   // updates begin in the delegate callback
         case .authorizedWhenInUse, .authorizedAlways:
+            authorizationDenied = false
             manager.startUpdatingLocation()
         default:
-            break   // denied/restricted → no reading, run continues
+            // Denied/restricted → no reading, run continues; the HUD
+            // says why (authorizationDenied) instead of looking broken.
+            authorizationDenied = true
         }
     }
 
@@ -203,6 +215,15 @@ final class RunLocationMonitor: NSObject, CLLocationManagerDelegate {
     // MARK: - CLLocationManagerDelegate
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        // Track the denial flag BEFORE the running/armed guard — the HUD's
+        // honesty must follow a mid-session Settings change even while
+        // paused (the guard below only gates the GPS drain).
+        switch manager.authorizationStatus {
+        case .denied, .restricted:
+            authorizationDenied = true
+        default:
+            authorizationDenied = false
+        }
         // armed too: a grant landing mid-pause must not restart the GPS
         // drain — resume() will.
         guard running, armed else { return }

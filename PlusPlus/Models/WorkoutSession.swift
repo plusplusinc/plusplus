@@ -477,6 +477,106 @@ extension WorkoutSession {
         return sortedSetLogs.filter { $0.groupIndex == groupIndex && $0.exerciseName == exerciseName }
     }
 
+    /// Removes a block's remaining PENDING sets ("Remove" on the
+    /// in-session exercise sheet, design review 2026-07-23). Completed
+    /// sets stay — the record keeps what happened; only the not-yet-done
+    /// plan goes. The LIVE block is never removed (the sheet doesn't
+    /// offer it; the guard makes a stray call a no-op). Reindex law
+    /// holds: session order re-densifies, cursor re-pins by reference.
+    func removePendingBlock(groupIndex: Int, exerciseName: String, context: ModelContext) {
+        guard !isFinished else { return }
+        let blockLogs = sortedSetLogs.filter { $0.groupIndex == groupIndex && $0.exerciseName == exerciseName }
+        let liveOrder = currentLog?.order
+        let blockIsLive = liveOrder.map { order in blockLogs.contains { $0.order == order } } ?? false
+        guard !blockIsLive else { return }
+        let pending = blockLogs.filter { !$0.isCompleted }
+        guard !pending.isEmpty else { return }
+        let cursor = currentLog
+        for log in pending { context.delete(log) }
+        // Reindex law: the block's completed survivors renumber 1..n
+        // (same as resize — no "Set 1 / Set 3" gaps), session order
+        // re-densifies, cursor re-pins by reference.
+        let survivors = sortedSetLogs.filter { $0.groupIndex == groupIndex && $0.exerciseName == exerciseName }
+        for (index, log) in survivors.enumerated() { log.setNumber = index + 1 }
+        for (index, log) in sortedSetLogs.enumerated() { log.order = index }
+        if let cursor, !cursor.isDeleted { cursorOrder = cursor.order }
+    }
+
+    /// Replaces a block's remaining PENDING sets with a freshly
+    /// configured exercise IN PLACE ("Swap for…", design review
+    /// 2026-07-23): the new block takes over the old pending sets'
+    /// FIRST order slot and keeps the groupIndex, so it holds the
+    /// block's position in the session instead of landing at the end
+    /// like an add. Inside a superset group the new sets land
+    /// contiguously at that slot — the remaining interleave with the
+    /// partner is not reconstructed (accepted; resize's tail-append
+    /// behaves the same way). Logged sets of the old exercise stay
+    /// untouched as their own completed block (sessions snapshot; the
+    /// record keeps what happened). The LIVE block is never swapped
+    /// (the sheet doesn't offer it). Rare edge, accepted: swapping to
+    /// an exercise the same GROUP already holds merges the two runs
+    /// under one overview block key — a display quirk, not data
+    /// corruption.
+    @discardableResult
+    func swapPendingBlock(groupIndex: Int, exerciseName: String, with config: SessionExerciseConfig, context: ModelContext) -> [SetLog] {
+        guard !isFinished else { return [] }
+        let blockLogs = sortedSetLogs.filter { $0.groupIndex == groupIndex && $0.exerciseName == exerciseName }
+        let liveOrder = currentLog?.order
+        let blockIsLive = liveOrder.map { order in blockLogs.contains { $0.order == order } } ?? false
+        guard !blockIsLive else { return [] }
+        let pending = blockLogs.filter { !$0.isCompleted }
+        guard let insertionOrder = pending.map(\.order).min() else { return [] }
+        let cursor = currentLog
+        // The rest override is GROUP structure (interval blocks), not
+        // exercise config — the swap keeps the group, so it keeps the
+        // group's rest (swift-reviewer: resize carries it the same way).
+        let restOverride = pending.first?.restSecondsOverride
+
+        for log in pending { context.delete(log) }
+        // Open a gap at the old block's position for the incoming sets;
+        // the densify below closes any slack.
+        let count = max(config.sets, 1)
+        for log in sortedSetLogs where log.order >= insertionOrder {
+            log.order += count
+        }
+        let exercise = config.exercise
+        let profile = config.profile
+        var appended: [SetLog] = []
+        var order = insertionOrder
+        for setNumber in 1...count {
+            let log = SetLog(
+                order: order,
+                groupIndex: groupIndex,
+                setNumber: setNumber,
+                exerciseName: exercise.name,
+                exerciseType: exercise.exerciseType,
+                targetWeight: profile.contains(.weight) ? config.weight : nil,
+                targetRepsLower: profile.tracksReps ? config.reps : nil,
+                targetRepsUpper: profile.tracksReps ? config.repsUpper : nil,
+                targetDuration: profile.contains(.duration) ? config.durationSeconds : nil,
+                targetHeartRateData: profile.legacyType == .duration ? config.heartRateTargetData : nil
+            )
+            log.metricProfile = profile
+            log.extraTargets = config.extraTargets.filter { profile.contains($0.key) }
+            log.restSecondsOverride = restOverride
+            // Insert first, relationships after (the seeder's hard-won
+            // rule).
+            context.insert(log)
+            log.session = self
+            log.exercise = exercise
+            appended.append(log)
+            order += 1
+        }
+        // Reindex law: the OLD block's completed remnant renumbers 1..n
+        // (no gaps in the record), session order re-densifies, cursor
+        // re-pins by reference.
+        let oldSurvivors = sortedSetLogs.filter { $0.groupIndex == groupIndex && $0.exerciseName == exerciseName }
+        for (index, log) in oldSurvivors.enumerated() { log.setNumber = index + 1 }
+        for (index, log) in sortedSetLogs.enumerated() { log.order = index }
+        if let cursor, !cursor.isDeleted { cursorOrder = cursor.order }
+        return appended
+    }
+
     /// Materializes a routine from what was actually performed: blocks
     /// in session order, set counts as done, targets from each block's
     /// last completed log (weight carry-forward makes that the latest

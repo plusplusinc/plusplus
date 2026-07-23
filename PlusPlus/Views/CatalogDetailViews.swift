@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 import PlusPlusKit
 
 /// Pushed detail screens for the two catalog tabs (#137): the catalog
@@ -67,8 +68,7 @@ struct ExerciseDetailScreen: View {
 
     @State private var path: PushTarget?
     @State private var showingEditor = false
-    @State private var showingNewRoutine = false
-    @State private var newRoutineName = ""
+    @State private var showingAddToRoutine = false
     @State private var showingDeleteConfirm = false
     /// A routine created from here pushes immediately — the fluid-nav
     /// promise: create it with this exercise already inside, land in it.
@@ -202,9 +202,15 @@ struct ExerciseDetailScreen: View {
                         }
                         .padding(.bottom, 7)
                     }
-                    CreateRow(label: "New routine with \(exercise.name)", identifier: "newRoutineWithExercise") {
-                        newRoutineName = ""
-                        showingNewRoutine = true
+                    // ONE forward flow for both intents (design review
+                    // 2026-07-23): adding to an existing routine used to
+                    // have no door at all — the point of discovery offered
+                    // only "New routine with X", and reaching an existing
+                    // routine meant reversing through the Routines tab.
+                    // The sheet leads with creation (top row, create/add
+                    // grammar) and lists the routines below it.
+                    CreateRow(label: "Add to routine…", identifier: "addToRoutine") {
+                        showingAddToRoutine = true
                     }
 
                 }
@@ -260,12 +266,27 @@ struct ExerciseDetailScreen: View {
         .sheet(isPresented: $showingEditor) {
             ExerciseEditorView(editing: exercise)
         }
-        .alert("New routine", isPresented: $showingNewRoutine) {
-            TextField("Name", text: $newRoutineName)
-            Button("Cancel", role: .cancel) { newRoutineName = "" }
-            Button("Create") { createRoutine() }
-        } message: {
-            Text("Starts with \(exercise.name) already in it.")
+        .sheet(isPresented: $showingAddToRoutine) {
+            AddToRoutineSheet(
+                exercise: exercise,
+                routines: allRoutines,
+                onPick: { routine in
+                    _ = routine.addExerciseInNewGroup(exercise, context: modelContext)
+                    // Permanent ids before the push resolves (the
+                    // tray-flicker law, swiftdata.md).
+                    try? modelContext.save()
+                    // Close the sheet and push behind it in one tick — the
+                    // Operator receipt chain's pattern (tray closes, the
+                    // stack behind pushes). ⚠️ Silent-dead-tap class: needs
+                    // the device pass like every routine-nav change.
+                    showingAddToRoutine = false
+                    routine.uuid.map { path = .routine($0) }
+                },
+                onCreate: { name in
+                    showingAddToRoutine = false
+                    createRoutine(named: name)
+                }
+            )
         }
         .alert("Delete “\(exercise.name)”?", isPresented: $showingDeleteConfirm) {
             Button("Cancel", role: .cancel) {}
@@ -280,9 +301,8 @@ struct ExerciseDetailScreen: View {
     }
 
 
-    private func createRoutine() {
-        let name = newRoutineName.trimmingCharacters(in: .whitespacesAndNewlines)
-        newRoutineName = ""
+    private func createRoutine(named rawName: String) {
+        let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return }
         let routine = Routine(name: name, order: 0)
         modelContext.insert(routine)
@@ -302,6 +322,70 @@ struct ExerciseDetailScreen: View {
     private func deleteCustom() {
         modelContext.delete(exercise)
         dismiss()
+    }
+}
+
+/// The exercise record's one forward flow (design review 2026-07-23):
+/// pick a routine to add this exercise to, or create a new routine with
+/// it — creation is the TOP row, per the create/add grammar. A routine
+/// that already includes the exercise says so and stays pickable (a
+/// second slot is legitimate structure — heavy sets plus a burnout).
+private struct AddToRoutineSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let exercise: Exercise
+    let routines: [Routine]
+    let onPick: (Routine) -> Void
+    let onCreate: (String) -> Void
+
+    @State private var showingNewRoutine = false
+    @State private var newRoutineName = ""
+
+    private func includesExercise(_ routine: Routine) -> Bool {
+        routine.sortedGroups.flatMap(\.sortedExercises).contains { $0.exercise === exercise }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SheetHeader(title: "Add to routine", subtitle: exercise.name, actionLabel: "Cancel", closeOnly: true) { dismiss() }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    CreateRow(label: "New routine with \(exercise.name)", identifier: "newRoutineWithExercise") {
+                        newRoutineName = ""
+                        showingNewRoutine = true
+                    }
+                    .padding(.top, 12)
+                    if !routines.isEmpty {
+                        crossRefBlock {
+                            ForEach(Array(routines.enumerated()), id: \.element.persistentModelID) { index, routine in
+                                CrossRefRow(
+                                    title: routine.name,
+                                    meta: includesExercise(routine) ? "already in it" : routine.schedule.shortLabel
+                                ) {
+                                    onPick(routine)
+                                }
+                                if index < routines.count - 1 {
+                                    Divider().overlay(Theme.border)
+                                }
+                            }
+                        }
+                        .padding(.top, 10)
+                    }
+                }
+                .padding(.bottom, 24)
+            }
+        }
+        .padding(.horizontal, 18)
+        .presentationBackground(Theme.background)
+        .presentationDetents([.medium, .large])
+        // The name alert presents FROM the sheet, not from the screen
+        // beneath a dismissing sheet (the presentation-drop bug class).
+        .alert("New routine", isPresented: $showingNewRoutine) {
+            TextField("Name", text: $newRoutineName)
+            Button("Cancel", role: .cancel) { newRoutineName = "" }
+            Button("Create") { onCreate(newRoutineName) }
+        } message: {
+            Text("Starts with \(exercise.name) already in it.")
+        }
     }
 }
 
@@ -329,6 +413,14 @@ struct EquipmentDetailScreen: View {
     @State private var confirmingDelete = false
     @State private var renameText = ""
     @State private var showingStepSheet = false
+    /// The unlock beat (design review 2026-07-23, Dave-approved): the
+    /// count of exercises this add just made fully doable, shown as a
+    /// green delta chip rising off the toggle card. The app is named
+    /// after the increment operator; adding equipment is the one moment
+    /// the user literally increments what they can do, and it used to
+    /// show nothing. nil = no burst showing.
+    @State private var unlockBurst: Int?
+    @State private var unlockBurstTask: Task<Void, Never>?
 
     private enum PushTarget: Hashable {
         case exercise(Exercise)
@@ -394,6 +486,29 @@ struct EquipmentDetailScreen: View {
                     // remove. Removal no longer hides in the … menu.
                     kitToggleCard
                         .padding(.top, 14)
+                        // The unlock beat rides the card it answers: green
+                        // (data in motion — the diff-chip grammar), rising
+                        // and fading like a landed increment. Transient and
+                        // decorative to touch (never a target); VoiceOver
+                        // hears the announcement instead.
+                        .overlay(alignment: .topTrailing) {
+                            if let unlockBurst {
+                                Text("+\(unlockBurst) exercise\(unlockBurst == 1 ? "" : "s")")
+                                    .font(.system(.caption, design: .monospaced, weight: .semibold))
+                                    .foregroundStyle(Theme.accent)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 3)
+                                    .background(Theme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: CardTagCapsule.cornerRadius))
+                                    .offset(x: -6, y: -12)
+                                    .transition(.asymmetric(
+                                        insertion: .offset(y: 10).combined(with: .opacity),
+                                        removal: .offset(y: -12).combined(with: .opacity)
+                                    ))
+                                    .allowsHitTesting(false)
+                                    .accessibilityHidden(true)
+                            }
+                        }
+                        .onDisappear { unlockBurstTask?.cancel() }
 
                     // Weight step is the only per-gear configurable now
                     // (Tracks removed, 2026-07-17: metrics belong to the
@@ -541,8 +656,51 @@ struct EquipmentDetailScreen: View {
     private var membershipBinding: Binding<Bool> {
         Binding(
             get: { inActiveLibrary },
-            set: { activeLibrary?.setMembership(equipment, $0) }
+            set: { adding in
+                // Count BEFORE the mutation: what does this piece make
+                // fully doable, given what the kit already holds? Only a
+                // real add plays the beat (not a redundant set-true).
+                if adding, !inActiveLibrary {
+                    playUnlockBurst(newlyDoableCount())
+                }
+                activeLibrary?.setMembership(equipment, adding)
+            }
         )
+    }
+
+    /// Exercises this add makes FULLY doable: they require this piece,
+    /// and everything else they need is already in the active kit. The
+    /// truthful delta — the catalog rows' "N exercises" counts every
+    /// user of the piece; a beat that overclaims would train distrust.
+    private func newlyDoableCount() -> Int {
+        let available = activeLibrary?.memberNames ?? []
+        return usedByExercises.count { exercise in
+            exercise.equipment
+                .filter { !$0.isDeleted }
+                .allSatisfy { $0.name == equipment.name || available.contains($0.name) }
+        }
+    }
+
+    /// Raise the "+N exercises" chip, hold it a beat, let it go. Reduce
+    /// Motion appears/clears without travel (`flourish` gates). The
+    /// cleared task cancels on disappear (one-shot deferred-UI law).
+    private func playUnlockBurst(_ count: Int) {
+        guard count > 0 else { return }
+        unlockBurstTask?.cancel()
+        withAnimation(Theme.Anim.flourish(.easeOut(duration: 0.3))) {
+            unlockBurst = count
+        }
+        UIAccessibility.post(
+            notification: .announcement,
+            argument: "\(count) more exercise\(count == 1 ? "" : "s") available"
+        )
+        unlockBurstTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.8))
+            guard !Task.isCancelled else { return }
+            withAnimation(Theme.Anim.flourish(.easeOut(duration: 0.45))) {
+                unlockBurst = nil
+            }
+        }
     }
 
     /// The prominent "do you have this?" card (Dave, 2026-07-17): an obvious
