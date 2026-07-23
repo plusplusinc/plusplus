@@ -465,6 +465,11 @@ enum SeedData {
         /// forget it. Customs always keep the row (the isLoadable
         /// can't-classify-intent rule, applied in Exercise).
         let supportsHeartRate: Bool
+        /// Authored modality override. nil derives from gear + metrics
+        /// (`ExerciseModality.derive`); only the shapes derivation can't
+        /// see carry one — the stretch/mobility rows are `.flexibility`
+        /// (a stretch and a plank look identical to the metrics).
+        let modality: ExerciseModality?
     }
 
     /// Keyed lookup (the builtInProfilesByName pattern) — the resolution
@@ -495,8 +500,8 @@ enum SeedData {
     }
 
     private static let builtInExerciseDefinitions: [BuiltInExerciseDefinition] = {
-        func e(_ name: String, _ muscle: MuscleGroup, _ eqNames: [String], _ type: ExerciseType = .weightReps, metrics: MetricProfile? = nil, sets: Int = 3, reps: Int? = nil, seconds: Int? = nil, heartRate: Bool = true) -> BuiltInExerciseDefinition {
-            BuiltInExerciseDefinition(name: name, muscleGroup: muscle, equipmentNames: eqNames, exerciseType: type, metrics: metrics, defaultSets: sets, defaultReps: reps, defaultDurationSeconds: seconds, supportsHeartRate: heartRate)
+        func e(_ name: String, _ muscle: MuscleGroup, _ eqNames: [String], _ type: ExerciseType = .weightReps, metrics: MetricProfile? = nil, sets: Int = 3, reps: Int? = nil, seconds: Int? = nil, heartRate: Bool = true, modality: ExerciseModality? = nil) -> BuiltInExerciseDefinition {
+            BuiltInExerciseDefinition(name: name, muscleGroup: muscle, equipmentNames: eqNames, exerciseType: type, metrics: metrics, defaultSets: sets, defaultReps: reps, defaultDurationSeconds: seconds, supportsHeartRate: heartRate, modality: modality)
         }
         // The two mobility-work shapes, defined ONCE: a static stretch is
         // a single 30 s hold (the standard prescription — and what the
@@ -506,10 +511,10 @@ enum SeedData {
         // Sit) are NOT stretches — they keep their 3-set blocks and
         // declare `heartRate: false` on their own rows.
         func stretch(_ name: String, _ muscle: MuscleGroup) -> BuiltInExerciseDefinition {
-            e(name, muscle, [], .duration, sets: 1, seconds: 30, heartRate: false)
+            e(name, muscle, [], .duration, sets: 1, seconds: 30, heartRate: false, modality: .flexibility)
         }
         func mobility(_ name: String, _ muscle: MuscleGroup) -> BuiltInExerciseDefinition {
-            e(name, muscle, [], sets: 1, heartRate: false)
+            e(name, muscle, [], sets: 1, heartRate: false, modality: .flexibility)
         }
 
         return [

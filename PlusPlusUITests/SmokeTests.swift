@@ -231,20 +231,16 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(routinesTab.waitForExistence(timeout: 10))
         routinesTab.tap()
 
+        // The Add row opens Find or create pre-scoped to Routines
+        // (2026-07-23); its field is always open, no magnifier toggle.
         let plus = app.buttons["newRoutineButton"]
         XCTAssertTrue(plus.waitForExistence(timeout: 5))
         plus.tap()
 
-        // Search pins the template (lazy-List rule). Under plain
-        // --uitest-reset all built-in gear is owned (populateLibrary),
-        // so the default My-equipment filter hides nothing here; a
-        // bodyweight template ADDITIONALLY survives zero-owned stores
-        // (the --uitest-onboarding world) — don't swap in a
-        // gear-requiring template and trust this test to cover both.
-        let searchToggle = app.buttons["routineCatalogSearchFieldToggle"]
-        XCTAssertTrue(searchToggle.waitForExistence(timeout: 5))
-        searchToggle.tap()
-        let field = app.textFields["routineCatalogSearchField"]
+        // Search pins the template (lazy-List rule). A bodyweight
+        // template also survives zero-owned stores — don't swap in a
+        // gear-requiring one.
+        let field = app.textFields["findOrCreateField"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap()
         field.typeText("Bodyweight Basics")
@@ -256,14 +252,60 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(app.buttons["addTemplateButton"].waitForExistence(timeout: 5))
         snap("routines-tab-template-detail")
 
-        // Back must land on the CATALOG, one level up — not double-pop
-        // to the list (build 44: the catalog rode isPresented while
-        // template taps appended to the path, so the template screen
-        // replaced the catalog and back skipped it).
+        // Back returns to the RESULTS with the query intact — search is
+        // a stack, not a modal (decision A's round-trip promise).
         app.buttons["backButton"].tap()
-        XCTAssertTrue(app.buttons["createBlankRoutine"].waitForExistence(timeout: 5))
-        app.buttons["backButton"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        XCTAssertEqual(field.value as? String, "Bodyweight Basics")
+
+        // Done leaves the surface for the tab it came from.
+        app.buttons["findOrCreateDone"].tap()
         XCTAssertTrue(plus.waitForExistence(timeout: 5))
+    }
+
+    /// The universal surface end to end: open from the tab bar's search
+    /// item, scope to Exercises, create a custom from the query, and land
+    /// on the Exercises tab with the new row present (the no-toasts
+    /// landing grammar).
+    func testUniversalSearchCreatesExercise() throws {
+        let searchTab = app.tabBars.buttons["Search"]
+        XCTAssertTrue(searchTab.waitForExistence(timeout: 10))
+        searchTab.tap()
+
+        // All scope opens with the create chooser row present.
+        XCTAssertTrue(app.buttons["findCreateMenu"].waitForExistence(timeout: 5))
+        snap("find-or-create-all")
+
+        // Scope to Exercises; the create row becomes the direct editor path.
+        app.buttons["findScope-exercises"].tap()
+        let createRow = app.buttons["findCreateExercise"]
+        XCTAssertTrue(createRow.waitForExistence(timeout: 5))
+
+        // The query prefills the editor (the create-from-here contract).
+        let field = app.textFields["findOrCreateField"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("Wall Slides")
+        createRow.tap()
+
+        let nameField = app.textFields["exerciseNameField"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 5))
+        XCTAssertEqual(nameField.value as? String, "Wall Slides")
+        app.buttons["saveExerciseButton"].tap()
+
+        // Lands on the Exercises tab (create → its list, entrance flash).
+        // Do NOT probe the tab's top create row here: the arrival beat
+        // scrolls the new W-named row to center, which pushes the top of
+        // the lazy List out of the realized window — unrealized rows are
+        // invisible to XCUITest (the testing.md lazy-list law; this
+        // assertion's first form failed CI exactly that way). The tab
+        // item's selection + the scrolled-into-view row are the honest
+        // probes.
+        let exercisesTab = app.tabBars.buttons["Exercises"]
+        XCTAssertTrue(exercisesTab.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Wall Slides"].waitForExistence(timeout: 5))
+        XCTAssertTrue(exercisesTab.isSelected)
+        snap("find-or-create-landed-exercise")
     }
 
     func testCreateCustomExerciseWithNotes() throws {
@@ -610,9 +652,11 @@ final class SmokeTests: XCTestCase {
     }
 
     private func createRoutine(named name: String) {
-        // v3 nav (#109): the app lands on Today; the Routines header +
-        // pushes the routine catalog (#223), whose first row creates a
-        // blank routine.
+        // Universal search (2026-07-23): the Routines Add row opens the
+        // Find-or-create surface pre-scoped, whose create row (empty
+        // query) asks for a name; the created routine LANDS back on the
+        // Routines list with the entrance flash, and the helper walks
+        // into its detail from there.
         let routinesTab = app.tabBars.buttons["Routines"]
         XCTAssertTrue(routinesTab.waitForExistence(timeout: 10))
         routinesTab.tap()
@@ -632,9 +676,13 @@ final class SmokeTests: XCTestCase {
         field.typeText(name)
         alert.buttons["Create"].tap()
 
-        // Lands on the new routine's detail screen (custom header — v2
-        // has no system navigation bar here).
-        XCTAssertTrue(app.staticTexts[name].waitForExistence(timeout: 5))
+        // Lands on the Routines list (one landing for every add); the new
+        // card appears after its held-out entrance beat.
+        let card = app.staticTexts[name]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        card.tap()
+
+        // The routine detail (custom header — no system navigation bar).
         XCTAssertTrue(app.buttons["addExerciseButton"].waitForExistence(timeout: 5))
     }
 

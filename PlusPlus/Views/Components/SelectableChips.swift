@@ -11,11 +11,22 @@ struct SelectableChip: View {
     let label: String
     let isSelected: Bool
     var identifier: String? = nil
+    /// Optional leading type glyph (the Find-or-create scope chips carry
+    /// their result type). Rides the label's color, so it flips to
+    /// `onSelected` white with the fill.
+    var systemImage: String? = nil
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Text(label)
+            HStack(spacing: 5) {
+                if let systemImage {
+                    Image(systemName: systemImage)
+                        .font(.system(.caption2, weight: .semibold))
+                        .accessibilityHidden(true)
+                }
+                Text(label)
+            }
                 .font(.system(.footnote, weight: .semibold))
                 .padding(.horizontal, 14)
                 .frame(height: 36)

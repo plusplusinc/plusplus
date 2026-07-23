@@ -134,6 +134,44 @@ struct CreateRow: View {
     }
 }
 
+/// `CreateRow`'s Menu twin: identical green create-key chrome, but the tap
+/// opens a chooser instead of committing — the Find-or-create All-scope row,
+/// where the query hasn't declared what it wants to become. `.menuStyle(.button)`
+/// routes the label through the raised-key style so it presses like the row
+/// it mirrors (the HeaderMenuKey precedent).
+struct CreateMenuRow<Items: View>: View {
+    let label: String
+    var identifier: String?
+    @ViewBuilder let items: () -> Items
+
+    var body: some View {
+        Menu {
+            items()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "plus")
+                    .font(.system(.caption, weight: .semibold))
+                Text(label)
+                    .font(.system(.footnote, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+            .foregroundStyle(Theme.accent)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 48)
+            .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.controlRadius)
+                    .strokeBorder(Theme.borderStrong)
+            )
+        }
+        .menuStyle(.button)
+        .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
+        .accessibilityIdentifier(identifier ?? label)
+    }
+}
+
 /// A primary key whose tap plays the commit flourish — the cap
 /// flashes `accent` green with "let's go ▸" for ~0.85 s — before the
 /// action runs (Start is the app's biggest commit; this is its

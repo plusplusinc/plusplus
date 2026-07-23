@@ -31,11 +31,11 @@ struct RoutineListView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: [SortDescriptor(\Routine.order), SortDescriptor(\Routine.createdAt, order: .reverse)])
     private var routines: [Routine]
+    @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
+    @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
     @State private var path = NavigationPath()
-    /// Filters your routines by name (2026-07-18); the add row threads it
-    /// into the catalog's search so "Add <query>" lands ready.
-    @State private var searchText = ""
+    @State private var showingLibraryTray = false
     @State private var openSwipeRow: SwipeRevealOpen<PersistentIdentifier>?
     /// The routine just added from a template — scrolled into view and
     /// given an entrance flash when we land back on the library, then
@@ -52,16 +52,18 @@ struct RoutineListView: View {
     var body: some View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
-                CatalogTabHeader(
-                    title: "Routines",
-                    // Creation moved into the list (a top row that opens the
-                    // catalog); the header's top-right is the expanding search.
-                    search: HeaderSearchConfig(
-                        text: $searchText,
-                        prompt: "Search routines",
-                        identifier: "routinesSearchField"
-                    )
-                )
+                // The header magnifier retired into the universal Find-or-
+                // create surface (2026-07-23); the kit switcher rides here
+                // now too — routine cards flag gear amber against the
+                // active kit, so the context belongs on this tab as well.
+                CatalogTabHeader(title: "Routines") {
+                    LibrarySwitcherKey(
+                        name: EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.name ?? EquipmentLibrary.defaultName,
+                        identifier: "routinesKitSwitcher"
+                    ) {
+                        showingLibraryTray = true
+                    }
+                }
 
                 ScrollViewReader { proxy in
                     List {
@@ -149,34 +151,14 @@ struct RoutineListView: View {
                     RoutineDetailView(routine: routine)
                 }
             }
-            // Registered at the stack root, NOT inside RoutineCatalogScreen:
-            // a value destination declared on a screen that is itself pushed
-            // (the catalog rides navigationDestination(isPresented:)) failed
-            // to resolve in production — template taps hit SwiftUI's
-            // missing-destination placeholder (build 33).
-            .navigationDestination(for: RoutineTemplate.self) { template in
-                RoutineTemplateDetailScreen(template: template, path: $path) { routine in
-                    // A template is complete on arrival, so return to the
-                    // library with the new card highlighted rather than
-                    // pushing into an empty-feeling detail (Dave,
-                    // 2026-07-15). Popping the whole path also clears the
-                    // catalog beneath, so Back is never stranded.
-                    revealNewCard = false     // hold the card out for the entrance beat
-                    newlyAdded = routine.persistentModelID
-                    path = NavigationPath()
-                }
-            }
-            // No dead-end empty overlay: the add row is always the first
-            // list row, and an empty list shows an inline hint beneath it.
-            // The + pushes the routine catalog (#223) — the same
-            // grammar as the library tabs: adding starts from a
-            // browsable catalog, with blank creation as its first row.
-            // A PATH entry, not isPresented (Dave, build 44): the
-            // catalog appends templates/routines to this same path,
-            // and a value appended beneath a boolean-presented screen
-            // replaces it transition-less and double-pops on back.
-            .navigationDestination(for: RoutineCatalogDestination.self) { dest in
-                RoutineCatalogScreen(path: $path, initialQuery: dest.query)
+            // The RoutineTemplate + RoutineCatalogDestination registrations
+            // left this stack with the Add-row rewire (2026-07-23): the
+            // catalog is reached through Find or create (its own stack) and
+            // Today's setup step (Today's stack) now, and template adds
+            // land here through RoutineArrival like every other cross-tab
+            // add.
+            .sheet(isPresented: $showingLibraryTray) {
+                EquipmentLibraryTray()
             }
         }
         .revealRoot(tab: "routines", atRoot: path.isEmpty)
@@ -203,22 +185,13 @@ struct RoutineListView: View {
         .syncsProgramOnClose()
     }
 
-    /// The Add row (Add family): it NAVIGATES to the catalog (browse
-    /// templates + blank create), so "Add routine" / Add "<query>", never
-    /// "New" (which would imply an inline create). Keeps the
-    /// `newRoutineButton` id so the smoke flows still open the catalog here.
-    private var addRoutineLabel: String {
-        let q = searchText.trimmingCharacters(in: .whitespaces)
-        return q.isEmpty ? "Add routine" : "Add \u{201C}\(q.sentenceCasedFirst)\u{201D}"
-    }
-
+    /// The Add row (Add family — it NAVIGATES, never creates inline):
+    /// opens Find or create pre-scoped to Routines, where the catalog,
+    /// blank creation, and search are one surface (2026-07-23). Keeps the
+    /// `newRoutineButton` id so the smoke flows still start adding here.
     private var addRoutineRow: some View {
-        CreateRow(label: addRoutineLabel, identifier: "newRoutineButton") {
-            // Root-only affordance, so emptiness doubles as the double-tap
-            // guard: a second tap during the push must not stack a second
-            // catalog.
-            guard path.isEmpty else { return }
-            path.append(RoutineCatalogDestination(query: searchText.trimmingCharacters(in: .whitespaces)))
+        CreateRow(label: "Add routine", identifier: "newRoutineButton") {
+            FindOrCreateLaunch.open(.routines)
         }
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
@@ -241,9 +214,7 @@ struct RoutineListView: View {
 
     private var routinesEmptyHint: some View {
         VStack(spacing: 10) {
-            Text(searchText.trimmingCharacters(in: .whitespaces).isEmpty
-                 ? "No routines yet. Add one to get started."
-                 : "Nothing matches.")
+            Text("No routines yet. Add one to get started.")
                 .font(.system(.footnote))
                 .foregroundStyle(Theme.textFaint)
         }
@@ -253,15 +224,12 @@ struct RoutineListView: View {
         .listRowSeparator(.hidden)
     }
 
-    /// The list, minus the just-added card while it's still held out for its
-    /// entrance (revealNewCard == false), narrowed by the header search.
-    /// Once `newlyAdded` clears and the query is empty, both filters are a
-    /// no-op, so the steady state shows everything.
+    /// The list, minus the just-added card while it's still held out for
+    /// its entrance (revealNewCard == false). Once `newlyAdded` clears the
+    /// filter is a no-op, so the steady state shows everything. (Narrowing
+    /// by name moved to the universal Find-or-create surface.)
     private var displayedRoutines: [Routine] {
-        let base = routines.filter { $0.persistentModelID != newlyAdded || revealNewCard }
-        let q = searchText.trimmingCharacters(in: .whitespaces)
-        guard !q.isEmpty else { return base }
-        return FuzzySearch.ranked(base, query: q) { $0.name }
+        routines.filter { $0.persistentModelID != newlyAdded || revealNewCard }
     }
 
     private func deleteRoutine(_ routine: Routine) {
@@ -270,9 +238,6 @@ struct RoutineListView: View {
     }
 
     private func moveRoutines(from source: IndexSet, to destination: Int) {
-        // Reordering a fuzzy-ranked search result would scramble `order`;
-        // manual arrangement only makes sense on the full, unsearched list.
-        guard searchText.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         // Reorder over the SAME collection the ForEach displays: `.onMove`
         // hands indices into `displayedRoutines`, so basing the move on the
         // full `routines` would mis-map during the brief entrance window

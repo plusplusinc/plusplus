@@ -116,7 +116,6 @@ struct HeaderSearchField: View {
     /// request made before the view exists is silently dropped, and an
     /// unconditional onAppear re-summons the keyboard on pop-back (#233).
     @State private var wantsFocus = false
-    @FocusState private var focused: Bool
 
     var body: some View {
         if isExpanded {
@@ -125,9 +124,10 @@ struct HeaderSearchField: View {
                 // Closing the search is its own key, outside the field —
                 // separate from the in-field clear, so emptying the query
                 // and collapsing back to the icon are two distinct acts.
+                // Collapsing removes the field, whose onDisappear drops
+                // the keyboard (#213) — focus lives in SearchFieldBody now.
                 HeaderIconButton(systemImage: "xmark", accessibilityLabel: "Close search", identifier: "dismissSearchButton") {
                     config.text.wrappedValue = ""
-                    focused = false
                     withAnimation(Theme.Anim.standard) { isExpanded = false }
                 }
             }
@@ -140,6 +140,26 @@ struct HeaderSearchField: View {
     }
 
     private var field: some View {
+        SearchFieldBody(config: config, wantsFocus: $wantsFocus)
+    }
+}
+
+/// The search-field BODY — the expanded visual (surface fill, borderStrong
+/// stroke, r11, mono text, magnifier lead) with the in-field CLEAR key and
+/// the focus plumbing — factored out of `HeaderSearchField` so the
+/// always-open Find-or-create field shares the exact anatomy. The one-shot
+/// focus intent (#233) rides a binding: hosts arm it before the field
+/// exists (consumed in onAppear) OR while it is on screen (consumed in
+/// onChange — the "type a name first" refocus).
+struct SearchFieldBody: View {
+    let config: HeaderSearchConfig
+    @Binding var wantsFocus: Bool
+    /// Return-key action (the Find-or-create "open the top result").
+    var onSubmit: (() -> Void)? = nil
+
+    @FocusState private var focused: Bool
+
+    var body: some View {
         let hasText = !config.text.wrappedValue.isEmpty
         return HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
@@ -151,11 +171,17 @@ struct HeaderSearchField: View {
                 .autocorrectionDisabled()
                 .focused($focused)
                 .accessibilityIdentifier(config.identifier)
+                .onSubmit { onSubmit?() }
                 .onAppear {
                     if wantsFocus {
                         wantsFocus = false
                         focused = true
                     }
+                }
+                .onChange(of: wantsFocus) { _, wants in
+                    guard wants else { return }
+                    wantsFocus = false
+                    focused = true
                 }
                 // A push while focused must not strand the keyboard (#213).
                 .onDisappear { focused = false }

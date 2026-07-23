@@ -22,6 +22,18 @@ extension Notification.Name {
     /// uuid rides `RoutineArrival.pending`, not the notification, so a
     /// not-yet-mounted list can still consume it on first appear.
     static let plusplusRoutineArrived = Notification.Name("plusplusRoutineArrived")
+    /// The exercise/equipment twins of `plusplusRoutineArrived` (universal
+    /// search, 2026-07-23): a create/add from the Find-or-create surface
+    /// lands on its list with the entrance flash — no toasts, the landing
+    /// IS the feedback. The identity rides the arrival slot
+    /// (`ExerciseArrival.pending` / `EquipmentArrival.pending`), same
+    /// handoff shape as routines.
+    static let plusplusExerciseArrived = Notification.Name("plusplusExerciseArrived")
+    static let plusplusEquipmentArrived = Notification.Name("plusplusEquipmentArrived")
+    /// Posted by `FindOrCreateLaunch.open(_:)` — a tab's Add row deep-links
+    /// into the Find-or-create surface pre-scoped. The scope rides
+    /// `FindOrCreateLaunch.pending`; the root switches to the search tab.
+    static let plusplusFindOrCreate = Notification.Name("plusplusFindOrCreate")
 }
 
 struct RoutineEntity: AppEntity {

@@ -198,6 +198,31 @@ final class Exercise {
         catalogDefinition?.supportsHeartRate ?? true
     }
 
+    /// The movement family this exercise READS as — the universal-search
+    /// row's figure icon. Catalog stretch/mobility rows carry an authored
+    /// override (derivation can't tell a stretch from a plank); everything
+    /// else derives from gear + tracked metrics on the fly. Computed, not
+    /// stored — a type marker, not data.
+    var modality: ExerciseModality {
+        if let authored = catalogDefinition?.modality { return authored }
+        return ExerciseModality.derive(
+            equipmentNames: Set(equipment.filter { !$0.isDeleted }.map(\.name)),
+            metrics: metricProfile.metrics
+        )
+    }
+
+    /// The modality's SF Symbol (16 pt faint ink on search rows).
+    var modalitySymbolName: String {
+        switch modality {
+        case .strength: "figure.strengthtraining.traditional"
+        case .cardio: "figure.run"
+        case .rowing: "figure.indoor.rowing"
+        case .jumpRope: "figure.jumprope"
+        case .cycling: "figure.outdoor.cycle"
+        case .flexibility: "figure.flexibility"
+        }
+    }
+
     /// The planning/config sheets' Target HR row gate, in one place: the
     /// cardio prescription rides the duration family, dropped where it's
     /// meaningless — but a target someone already set stays visible and
