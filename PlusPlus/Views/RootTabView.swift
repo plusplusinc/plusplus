@@ -9,11 +9,19 @@ import PlusPlusKit
 struct RootTabView: View {
     enum AppTab: String, CaseIterable {
         case today, routines, exercises, equipment
+        /// The universal Find-or-create surface behind the tab bar's
+        /// search item (2026-07-23) — the system separates it beside the
+        /// tab group.
+        case search
 
         var label: String { rawValue }
     }
 
     @State private var tab: AppTab = .today
+    /// Where "Done" on the search surface returns to: the last REAL tab
+    /// (captured on every switch INTO .search, so it can never be .search
+    /// itself).
+    @State private var previousTab: AppTab = .today
     /// The slide-to-reveal drawer behind the ++ key (replaces the pushed
     /// AppMenuScreen). Lives here, above the tabs' NavigationStacks, so it
     /// moves the whole TabView as one layer.
@@ -97,13 +105,22 @@ struct RootTabView: View {
             Tab("Kit", systemImage: "dumbbell", value: AppTab.equipment) {
                 EquipmentTabView()
             }
+            // Universal search (2026-07-23): the search-role item renders
+            // as the separated circle beside the tab group (Liquid Glass
+            // placement for free; the system fixes its magnifier glyph).
+            // No .searchable — the surface carries its own field row, so
+            // selecting this behaves like any tab.
+            Tab(value: AppTab.search, role: .search) {
+                FindOrCreateView(onDone: { tab = previousTab })
+            }
         }
         .tint(Theme.textPrimary)
         // Swipe-to-open is gated on the active tab being at its root; keep
         // the reveal controller told which tab is showing. Operator's
         // view-context follows the same signal (a tab switch also clears
         // a popped detail's stale line).
-        .onChange(of: tab, initial: true) { _, newTab in
+        .onChange(of: tab, initial: true) { oldTab, newTab in
+            if newTab == .search, oldTab != .search { previousTab = oldTab }
             reveal.activeTab = newTab.rawValue
             viewContext.tab = newTab.rawValue
             viewContext.detail = nil
@@ -191,6 +208,19 @@ struct RootTabView: View {
         // entrance flash — one landing for every add (Dave, 2026-07-23).
         .onReceive(NotificationCenter.default.publisher(for: .plusplusRoutineArrived)) { _ in
             tab = .routines
+        }
+        // The exercise/equipment twins (universal search): a create/add
+        // lands on its list, same one-landing law.
+        .onReceive(NotificationCenter.default.publisher(for: .plusplusExerciseArrived)) { _ in
+            tab = .exercises
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .plusplusEquipmentArrived)) { _ in
+            tab = .equipment
+        }
+        // A tab's Add row deep-links into Find or create pre-scoped; the
+        // surface consumes the scope slot on appear.
+        .onReceive(NotificationCenter.default.publisher(for: .plusplusFindOrCreate)) { _ in
+            tab = .search
         }
         // Closing a finished workout's recap goes home: whatever screen
         // presented the session cover, the finish lands on Today, where
