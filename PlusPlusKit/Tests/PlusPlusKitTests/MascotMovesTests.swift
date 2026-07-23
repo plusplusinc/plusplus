@@ -30,7 +30,7 @@ import Foundation
     }
 
     @Test func catalogIntegrity() {
-        #expect(MascotMoves.all.count == 15)
+        #expect(MascotMoves.all.count == 17)
         let names = MascotMoves.all.map(\.exerciseName)
         #expect(Set(names).count == names.count)
         for name in names {
@@ -382,7 +382,7 @@ import Foundation
         }
     }
 
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Lateral Raise", "Overhead Press", "Barbell Row", "Goblet Squat"])
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Lateral Raise", "Overhead Press", "Barbell Row", "Goblet Squat", "Kettlebell Swing"])
     func standingMovesKeepFeetPlanted(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         let reference = animation.pose(at: 0).jointPositions(skeleton: Self.skeleton)
@@ -529,7 +529,7 @@ import Foundation
         return 0.5 * (leftPalm + rightPalm)
     }
 
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Single-Leg Calf Raise", "Lateral Raise", "Overhead Press", "Barbell Row", "Goblet Squat"])
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Single-Leg Calf Raise", "Lateral Raise", "Overhead Press", "Barbell Row", "Goblet Squat", "Kettlebell Swing"])
     func standingMovesStayBalancedOverTheFeet(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         // The support polygon is computed from what is ACTUALLY in
@@ -603,7 +603,7 @@ import Foundation
         }
     }
 
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Bench Press", "Lateral Raise", "Overhead Press", "Barbell Row", "Goblet Squat", "Pull-Up"])
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Bench Press", "Lateral Raise", "Overhead Press", "Barbell Row", "Goblet Squat", "Pull-Up", "Kettlebell Swing", "Reverse Lunge"])
     func equipmentNeverPassesThroughTheBody(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         #expect(!animation.props.isEmpty)

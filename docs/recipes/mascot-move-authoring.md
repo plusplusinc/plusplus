@@ -159,6 +159,67 @@ the concentric, blinks at low effort · 1–2 synced cues with ≥30%-of-rep
 windows plus ≥1 static · seam continuity and exact pause stillness · declared
 airborne windows must free-fall at 9.81 m/s².
 
+## Archetypes (start from the nearest)
+
+- **Squat pattern** — Squat, Goblet Squat, Jump Squat's crouch. `repCycle` + `coordinating`.
+- **Hinge** — Deadlift, Barbell Row (held isometric), Kettlebell Swing (ballistic rhythm). `coordinating` + `grippingTheBar` where a bar rides.
+- **Standing arm work, lift-first** — Dumbbell Curl, Lateral Raise, Overhead Press. `liftCycle` (bottom dwell, rise, squeeze, slow lower); the OHP adds an authored bar line.
+- **Floor prone** — Push-Up, Plank. `anchored`/`plantingPalms`, toe-anchored straight line.
+- **Floor supine** — Bench Press (pad), Glute Bridge, Sit-Up (floor). Flat soles via `ankle = -(rootPitch + hip + knee)`; back capsules rest within the graze; `supineTiredBeat` (the chin-up phew digs the helmet).
+- **Hanging** — Pull-Up. `hangingFromTheBar` + `dynamics.hangsFromBar` (swaps the grounded law for the hang law: palms on the bar line, one station, feet clear).
+- **Ballistic** — Jump Squat. Declared `airborneWindows`, dense linear parabola keys, rigid flight pose, zero-sum leg chain, one-sided sole clamps on launch/landing legs.
+- **Asymmetric** — Single-Leg Calf Raise, Reverse Lunge. Build joint dicts per side; `anchored` on the stance ankle; join the symmetry exemption.
+
+## Scale-out lessons (2026-07-23, the 7-to-17 round)
+
+- **Scan configs with the servo's own objectives.** A config scanned with a
+  soft hand-continues-forearm floor parks fine on its own — then the
+  per-sample servo finishes that objective and drags the palm 10 mm off
+  station. Put the servo's terms in the scan cost.
+- **Multi-config paths need ONE basin family.** Bound shoulder roll in the
+  scan and seed chained stations from the previous winner. An unbounded scan
+  landed a rack at roll 100 (elbows sideways) and the unwind swung the
+  mid-press wild.
+- **Author the bar path as GEOMETRY when it matters.** An angle-space lerp
+  arcs a pressed bar through the helmet; per-sample `palmTarget` on a
+  piecewise-linear line pins it (54 mm in-head → 9.6 mm clear on the OHP).
+- **Feedforward station compensation**: solve once, measure the equilibrium's
+  offset, re-solve with the target shifted the other way. The servo's soft
+  terms leave a locally-affine bias this cancels in one round.
+- **Eased legs beat dense legs.** Velocity-zero at leg ends kills spline
+  corner overshoot; densifying a lerp-seeded servo bake instead EXPOSES
+  per-sample solver wobble (11 mm jitter, joint-speed spikes). Six eased
+  steps per leg was the OHP's landing spot. Continuation seeding (each
+  sample seeded from the previous solution) compounds lag and snaps at the
+  seam — use interpolated seeds, never chained ones.
+- **Bounded-authority pins.** The pull-up's station holds via a bisected
+  symmetric shoulder-yaw + elbow-yaw delta with hard clamps inside the
+  anatomical table: enough authority to hold the path on station, too
+  little to fold the arms across the midline (the unbounded version drove
+  them 45 mm into each other).
+- **Never author AT an anatomical stop.** The Catmull spline overshoots
+  ~1 degree past its keys: spine at its -10 stop or shoulder yaw at ±95
+  fails the joint-range sweep on interpolated samples. Stay 1-2 degrees
+  inside; clamp any pin's writes 2.5 degrees inside.
+- **Zero-sum leg chains through ground transitions.** If both endpoint
+  chains satisfy hip + knee + ankle = -rootPitch, every LERPED sample keeps
+  the soles parallel to the floor — the Jump Squat's toe corner stopped
+  digging the moment its flight pose summed to zero like its crouch.
+- **The helmet is bigger than its orbit.** Chin-over-bar is geometrically
+  impossible (the palm-to-helmet chain radius is shorter than the helmet
+  radius + bar); the honest pull-up finish is the hard neck arch — look
+  over the bar — which also happens to be textbook.
+- **Flare waypoints move arms past the helmet.** A straight hang-to-top
+  lerp sweeps the upper arms through the head; 6- and 12-degree shoulder
+  roll waypoints (what elbows really do mid-pull) clear it.
+- **The lateral-raise wrist law**: one fixed wrist yaw reads as a neutral
+  grip at the hang AND palm-down at the top — shoulder roll carries the
+  hand; don't animate the wrist to fake it.
+- **Supine bridging pivots at the shoulder blades**: root pitch goes PAST
+  -90 (the torso points downhill to the grounded shoulders), the ankles
+  re-plant via `anchored`, and the chin tuck (+neck) keeps the helmet
+  resting. Counter-flexing the spine flat is a different (smaller) bridge.
+
 ## Dynamics extension points
 
 `MascotDynamics` on the animation: `airborneWindows` (ballistic invariant

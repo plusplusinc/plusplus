@@ -99,33 +99,7 @@ enum GluteBridgeMove {
         ).dropFirst())
         repKeyframes.append(MascotKeyframe(t: 1, pose: downS))
 
-        // The standard happy-tired phew tips the chin UP — which lying
-        // down would drive the helmet through the floor (the bench
-        // lesson). Supine tired is the bench's instead: a clavicle
-        // shrug and a sideways glance, contacts untouched.
-        var shrug = downS
-        var shrugJoints = shrug.joints
-        for (clavicle, side) in [(MascotJoint.leftClavicle, 1.0), (.rightClavicle, -1.0)] {
-            let current = shrugJoints[clavicle] ?? .zero
-            shrugJoints[clavicle] = EulerAngles(
-                pitch: current.pitch, yaw: current.yaw,
-                roll: current.roll + side * 4 * .pi / 180
-            )
-        }
-        shrug.joints = shrugJoints
-        shrug.effort = 0.08
-        var glance = downS
-        var glanceJoints = glance.joints
-        let head = glanceJoints[.head] ?? .zero
-        glanceJoints[.head] = EulerAngles(pitch: head.pitch, yaw: 8 * .pi / 180, roll: head.roll)
-        glance.joints = glanceJoints
-        glance.effort = 0.06
-        let restBeat = ExerciseAnimation.RestBeat(duration: 2.4, keyframes: [
-            MascotKeyframe(t: 0, pose: downS, easing: .easeInOut),
-            MascotKeyframe(t: 0.35, pose: shrug, easing: .easeInOut),
-            MascotKeyframe(t: 0.7, pose: glance, easing: .easeInOut),
-            MascotKeyframe(t: 1, pose: downS),
-        ])
+        let restBeat = MascotPoseBuilder.supineTiredBeat(from: downS, to: downS, duration: 2.4)
 
         return ExerciseAnimation(
             exerciseName: "Glute Bridge",

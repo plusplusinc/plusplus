@@ -100,41 +100,14 @@ enum BenchPressMove {
             solve: solve
         )
 
-        // The bench's own quiet rest beat: the standard happy-tired
-        // "phew" tips the chest proud and the chin up — which lying on
-        // a bench would drive INTO the pad (the contact invariant
-        // rejects it). Supine tired is a shoulder-girdle shrug and a
-        // sideways glance, contacts untouched, face doing the tired
-        // work through the effort channel.
-        // Seam-exact endpoints: the beat starts at the rep's LAST baked
-        // pose and ends at its FIRST (they differ only through the
-        // solve, but the seam invariant demands exactness).
+        // The bench's own quiet rest beat: the shared SUPINE tired
+        // beat (shrug + glance, contacts untouched) — the standard
+        // chin-up phew would drive the helmet into the pad.
+        // Seam-exact endpoints: the beat starts at the rep's LAST
+        // baked pose and ends at its FIRST.
         let repEnd = repKeyframes.last!.pose
         let repStart = repKeyframes.first!.pose
-        var shrug = repEnd
-        var shrugJoints = shrug.joints
-        for (clavicle, side) in [(MascotJoint.leftClavicle, 1.0), (.rightClavicle, -1.0)] {
-            let current = shrugJoints[clavicle] ?? .zero
-            shrugJoints[clavicle] = EulerAngles(
-                pitch: current.pitch,
-                yaw: current.yaw,
-                roll: current.roll + side * 4 * .pi / 180
-            )
-        }
-        shrug.joints = shrugJoints
-        shrug.effort = 0.08
-        var glance = repEnd
-        var glanceJoints = glance.joints
-        let head = glanceJoints[.head] ?? .zero
-        glanceJoints[.head] = EulerAngles(pitch: head.pitch, yaw: 8 * .pi / 180, roll: head.roll)
-        glance.joints = glanceJoints
-        glance.effort = 0.06
-        let restBeat = ExerciseAnimation.RestBeat(duration: 2.6, keyframes: [
-            MascotKeyframe(t: 0, pose: repEnd, easing: .easeInOut),
-            MascotKeyframe(t: 0.35, pose: shrug, easing: .easeInOut),
-            MascotKeyframe(t: 0.7, pose: glance, easing: .easeInOut),
-            MascotKeyframe(t: 1, pose: repStart),
-        ])
+        let restBeat = MascotPoseBuilder.supineTiredBeat(from: repEnd, to: repStart, duration: 2.6)
 
         return ExerciseAnimation(
             exerciseName: "Bench Press",

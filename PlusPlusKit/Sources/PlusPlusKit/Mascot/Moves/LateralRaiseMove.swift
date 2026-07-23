@@ -33,28 +33,16 @@ enum LateralRaiseMove {
         // — a lateral raise stops AT the shoulder line, never above.
         let hang = raisePose(shoulderRoll: 12, effort: 0.15)
         let top = raisePose(shoulderRoll: 86, effort: 0.75)
-        var squeezeEnd = top
-        squeezeEnd.effort = 0.62
-        var lowering = top.lerp(to: hang, t: 0.4)
-        lowering.effort = 0.3
 
         return ExerciseAnimation(
             exerciseName: "Lateral Raise",
             style: .reps(repDuration: 2.8),
             repsPerDemoSet: 4,
-            // The curl's proven shape: a readable dwell at the hang
-            // (wrapping the loop seam), a squeeze-beat at the top that
-            // eases off so peak effort lands on the rise, and a lower
-            // that takes longer than the raise.
-            repKeyframes: [
-                MascotKeyframe(t: 0, pose: hang, easing: .hold),
-                MascotKeyframe(t: 0.06, pose: hang, easing: .easeInOut),
-                MascotKeyframe(t: 0.42, pose: top, easing: .linear),
-                MascotKeyframe(t: 0.52, pose: squeezeEnd, easing: .easeInOut),
-                MascotKeyframe(t: 0.74, pose: lowering, easing: .easeInOut),
-                MascotKeyframe(t: 0.94, pose: hang, easing: .hold),
-                MascotKeyframe(t: 1, pose: hang),
-            ],
+            // The curl's lift-first archetype, from the shared builder.
+            repKeyframes: MascotPoseBuilder.liftCycle(
+                bottom: hang, top: top,
+                bottomEffort: 0.15, topEffort: 0.75, squeezeEffort: 0.62, loweringEffort: 0.3
+            ),
             restBeat: MascotPoseBuilder.tiredBeat(from: hang, to: hang, duration: 2.4),
             cues: [
                 MascotCue("Soft bend in the elbows"),

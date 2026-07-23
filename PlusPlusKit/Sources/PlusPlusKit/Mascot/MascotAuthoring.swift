@@ -712,6 +712,49 @@ public enum MascotPoseBuilder {
         return keyframes
     }
 
+    // MARK: - The lift-first rep cycle
+
+    /// The concentric-first counterpart of `repCycle`: a readable
+    /// dwell at the bottom (wrapping the loop seam), the lift, a
+    /// squeeze-beat at the top whose effort eases off so the peak
+    /// lands on the rise, and a lower that takes longer than the
+    /// lift. The curl authored this shape first; the lateral raise
+    /// and sit-up proved it is an archetype, so it lives here.
+    /// Pause keyframes are exact pose copies (only effort differs),
+    /// keeping the spline's stillness detection intact.
+    public static func liftCycle(
+        bottom: MascotPose,
+        top: MascotPose,
+        riseUntil: Double = 0.42,
+        squeezeUntil: Double = 0.52,
+        loweringAt: Double = 0.74,
+        loweringLerp: Double = 0.4,
+        bottomEffort: Double,
+        topEffort: Double,
+        squeezeEffort: Double,
+        loweringEffort: Double
+    ) -> [MascotKeyframe] {
+        var bottomKeyed = bottom
+        bottomKeyed.effort = bottomEffort
+        var topKeyed = top
+        topKeyed.effort = topEffort
+        var squeezeEnd = topKeyed
+        squeezeEnd.effort = squeezeEffort
+        var lowering = topKeyed.lerp(to: bottomKeyed, t: loweringLerp)
+        lowering.effort = loweringEffort
+        return [
+            MascotKeyframe(t: 0, pose: bottomKeyed, easing: .hold),
+            MascotKeyframe(t: 0.06, pose: bottomKeyed, easing: .easeInOut),
+            // .linear, not .hold, into the squeeze: it differs in
+            // EFFORT (.hold is only legal between exact copies).
+            MascotKeyframe(t: riseUntil, pose: topKeyed, easing: .linear),
+            MascotKeyframe(t: squeezeUntil, pose: squeezeEnd, easing: .easeInOut),
+            MascotKeyframe(t: loweringAt, pose: lowering, easing: .easeInOut),
+            MascotKeyframe(t: 0.94, pose: bottomKeyed, easing: .hold),
+            MascotKeyframe(t: 1, pose: bottomKeyed),
+        ]
+    }
+
     // MARK: - The shared tired beat
 
     /// The end-of-set beat, HAPPY-TIRED by decree (Dave, build-80
@@ -773,6 +816,42 @@ public enum MascotPoseBuilder {
             MascotKeyframe(t: 0, pose: end, easing: .easeOut),
             MascotKeyframe(t: 0.32, pose: phew, easing: .easeInOut),
             MascotKeyframe(t: 0.62, pose: exhale, easing: .easeInOut),
+            MascotKeyframe(t: 1, pose: start),
+        ])
+    }
+
+    /// The SUPINE tired beat: a clavicle shrug and a sideways glance,
+    /// contacts untouched. The standard phew tips the chin UP — which
+    /// lying down would drive the helmet through the pad or the floor
+    /// (the bench found this; the glute bridge and sit-up confirmed
+    /// it as the archetype's rule). Endpoints are the caller's exact
+    /// loop poses, so both seams stay bit-exact.
+    public static func supineTiredBeat(
+        from end: MascotPose,
+        to start: MascotPose,
+        duration: TimeInterval
+    ) -> ExerciseAnimation.RestBeat {
+        var shrug = end
+        var shrugJoints = shrug.joints
+        for (clavicle, side) in [(MascotJoint.leftClavicle, 1.0), (.rightClavicle, -1.0)] {
+            let current = shrugJoints[clavicle] ?? .zero
+            shrugJoints[clavicle] = EulerAngles(
+                pitch: current.pitch, yaw: current.yaw,
+                roll: current.roll + side * 4 * .pi / 180
+            )
+        }
+        shrug.joints = shrugJoints
+        shrug.effort = 0.08
+        var glance = end
+        var glanceJoints = glance.joints
+        let head = glanceJoints[.head] ?? .zero
+        glanceJoints[.head] = EulerAngles(pitch: head.pitch, yaw: 8 * .pi / 180, roll: head.roll)
+        glance.joints = glanceJoints
+        glance.effort = 0.06
+        return ExerciseAnimation.RestBeat(duration: duration, keyframes: [
+            MascotKeyframe(t: 0, pose: end, easing: .easeInOut),
+            MascotKeyframe(t: 0.35, pose: shrug, easing: .easeInOut),
+            MascotKeyframe(t: 0.7, pose: glance, easing: .easeInOut),
             MascotKeyframe(t: 1, pose: start),
         ])
     }
