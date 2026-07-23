@@ -65,6 +65,12 @@ struct ExercisesTabView: View {
         EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.memberNames ?? []
     }
 
+    /// The raw kit name — a control label, so it always names the kit
+    /// (the one-rule naming law; prose uses `activeNamePhrase`).
+    private var activeKitName: String {
+        EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.name ?? EquipmentLibrary.defaultName
+    }
+
     private var candidates: [Exercise] {
         filterState.filteredExercises(from: allExercises, kitNames: availableEquipmentNames)
     }
@@ -78,24 +84,15 @@ struct ExercisesTabView: View {
     var body: some View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
-                CatalogTabHeader(
-                    title: "Exercises",
-                    // Creation moved into the list (a top create row), so the
-                    // header's top-right is the expanding search (2026-07-18).
-                    search: HeaderSearchConfig(
-                        text: Bindable(filterState).searchText,
-                        prompt: "Search exercises",
-                        identifier: "exercisesSearchField"
-                    )
-                ) {
+                // The header magnifier retired into the universal Find-or-
+                // create surface (2026-07-23); the filter row below is this
+                // tab's remaining narrowing.
+                CatalogTabHeader(title: "Exercises") {
                     // Switch the kit exercises are judged against, inline
                     // (2026-07-21 axes separation) — the same switcher the Kit
                     // tab and routine catalog use; the Equipment facet below
                     // stays a pure LOCAL lens that never switches.
-                    LibrarySwitcherKey(
-                        name: EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.name ?? EquipmentLibrary.defaultName,
-                        identifier: "exercisesKitSwitcher"
-                    ) {
+                    LibrarySwitcherKey(name: activeKitName, identifier: "exercisesKitSwitcher") {
                         showingLibraryTray = true
                     }
                 }
@@ -137,10 +134,7 @@ struct ExercisesTabView: View {
                 ExerciseDetailScreen(exercise: exercise)
             }
             .sheet(isPresented: $creatingExercise) {
-                ExerciseEditorView(
-                    prefillName: filterState.prefillName,
-                    prefillMuscleGroup: filterState.prefillMuscleGroup
-                )
+                ExerciseEditorView(prefillMuscleGroup: filterState.prefillMuscleGroup)
             }
             .sheet(isPresented: $showingMuscleFilter) {
                 MuscleGroupFilterSheet(filterState: filterState)
@@ -182,15 +176,10 @@ struct ExercisesTabView: View {
     // MARK: - Create row + empty state
 
     /// The whole catalog is here, so an empty list is only ever a zeroed
-    /// filter/search — the create row (always at the top) turns "not here"
-    /// into "make it", and Clear filters is the escape. Never a dead end.
-    private var createLabel: String {
-        let q = filterState.searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        return q.isEmpty ? "New exercise" : "Create \u{201C}\(q.sentenceCasedFirst)\u{201D}"
-    }
-
+    /// filter — the create row (always at the top) turns "not here" into
+    /// "make it", and Clear filters is the escape. Never a dead end.
     private var createExerciseRow: some View {
-        CreateRow(label: createLabel, identifier: "createExerciseRow") {
+        CreateRow(label: "New exercise", identifier: "createExerciseRow") {
             creatingExercise = true
         }
         .listRowBackground(Color.clear)
@@ -236,14 +225,20 @@ struct ExercisesTabView: View {
                 SelectableChip(label: "Favorites", isSelected: filterState.favoritesOnly) {
                     filterState.favoritesOnly.toggle()
                 }
+                // The availability facet speaks its basis (2026-07-23 round):
+                // "Doable with <kit name>" names the kit it judges against,
+                // and the footer jumps to the switcher when the basis itself
+                // is wrong. Values become the chip's label when active
+                // (FacetChip behavior), so the active read is the honest one.
                 FacetChip(
                     facet: "Equipment",
                     selection: gearBinding,
                     options: [
-                        (ExerciseFilterState.GearMode.withKit, "Can do now"),
-                        (.withoutKit, "Can't yet"),
+                        (ExerciseFilterState.GearMode.withKit, "Doable with \(activeKitName)"),
+                        (.withoutKit, "Missing equipment"),
                         (.handPicked, pickedGearLabel),
-                    ]
+                    ],
+                    footers: [(label: "Switch kit…", action: { showingLibraryTray = true })]
                 )
                 TrayFilterChip(
                     facet: "Muscle",
@@ -272,8 +267,8 @@ struct ExercisesTabView: View {
         }
         if let mode = filterState.gearMode {
             let value: String = switch mode {
-            case .withKit: "Can do now"
-            case .withoutKit: "Can't yet"
+            case .withKit: "Doable with \(activeKitName)"
+            case .withoutKit: "Missing equipment"
             case .handPicked: filterState.pickedGearNames.isEmpty
                 ? "Picked equipment"
                 : filterState.pickedGearNames.sorted().joined(separator: ", ")
@@ -467,14 +462,9 @@ struct EquipmentTabView: View {
     @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
     @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
-    @State private var showingCatalog = false
     @State private var showingLibraryTray = false
     @State private var openSwipeRow: SwipeRevealOpen<PersistentIdentifier>?
     @State private var path = NavigationPath()
-    /// Filters the kit list by name (2026-07-18); the add row threads it
-    /// into the catalog's own search so "Add <query>" lands ready to add.
-    @State private var searchText = ""
-    @State private var pendingCatalogQuery = ""
     /// The row playing the entrance flash after a cross-tab add
     /// (`EquipmentArrival`); scroll + ring identity, cleared by the task.
     @State private var newlyAdded: PersistentIdentifier?
@@ -486,36 +476,21 @@ struct EquipmentTabView: View {
     /// The baked-in null kit is immutable — no Add row, a distinct empty state.
     private var isBodyweightKit: Bool { activeLibrary?.isBodyweight ?? false }
 
-    /// The active library's members, sorted for a stable list.
+    /// The active library's members, sorted for a stable list. (Narrowing
+    /// by name moved to the universal Find-or-create surface, 2026-07-23.)
     private var libraryEquipment: [Equipment] {
         (activeLibrary?.members ?? []).sorted { $0.name < $1.name }
-    }
-
-    /// Narrowed by the header search (forgiving, best-match-first), the
-    /// same fuzzy match the catalogs use.
-    private var filteredEquipment: [Equipment] {
-        let q = searchText.trimmingCharacters(in: .whitespaces)
-        guard !q.isEmpty else { return libraryEquipment }
-        return FuzzySearch.ranked(libraryEquipment, query: q) { $0.name }
     }
 
     var body: some View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
-                CatalogTabHeader(
-                    // "Kit": the tab IS your active kit (2026-07-20). Short
-                    // enough to always fit the on-row heading next to the
-                    // switcher, whatever the kit is named.
-                    title: "Kit",
-                    // Adding equipment happens in the catalog, so the top row
-                    // NAVIGATES there (Add family); the header's top-right
-                    // is the expanding search over your kit (2026-07-18).
-                    search: HeaderSearchConfig(
-                        text: $searchText,
-                        prompt: "Search your kit",
-                        identifier: "equipmentKitSearchField"
-                    )
-                ) {
+                // "Kit": the tab IS your active kit (2026-07-20). Short
+                // enough to always fit the on-row heading next to the
+                // switcher, whatever the kit is named. The header magnifier
+                // retired into the universal Find-or-create surface
+                // (2026-07-23).
+                CatalogTabHeader(title: "Kit") {
                     LibrarySwitcherKey(name: activeLibrary?.name ?? EquipmentLibrary.defaultName) {
                         showingLibraryTray = true
                     }
@@ -530,7 +505,7 @@ struct EquipmentTabView: View {
                             addEquipmentRow
                         }
                         equipmentRows
-                        if filteredEquipment.isEmpty {
+                        if libraryEquipment.isEmpty {
                             equipmentEmptyHint
                         }
                     }
@@ -558,14 +533,11 @@ struct EquipmentTabView: View {
             .navigationDestination(for: Equipment.self) { equipment in
                 EquipmentDetailScreen(equipment: equipment)
             }
-            .navigationDestination(isPresented: $showingCatalog) {
-                EquipmentCatalogScreen(initialQuery: pendingCatalogQuery)
-            }
             .sheet(isPresented: $showingLibraryTray) {
                 EquipmentLibraryTray()
             }
         }
-        .revealRoot(tab: "equipment", atRoot: path.isEmpty && !showingCatalog)
+        .revealRoot(tab: "equipment", atRoot: path.isEmpty)
         // Gear membership changes / deletes reach GitHub when you leave the tab.
         .syncsProgramOnClose()
         // Cross-tab landing (the RoutineArrival shape): receive OR appear,
@@ -576,26 +548,20 @@ struct EquipmentTabView: View {
         .onAppear(perform: consumeArrival)
     }
 
-    /// Land a cross-tab add: clear the narrowing search, pop to the root,
-    /// arm the scroll + flash.
+    /// Land a cross-tab add: pop to the root, arm the scroll + flash.
     private func consumeArrival() {
         guard let pending = EquipmentArrival.pending else { return }
         EquipmentArrival.pending = nil
-        searchText = ""
-        showingCatalog = false
         path = NavigationPath()
         newlyAdded = pending
     }
 
-    private var addLabel: String {
-        let q = searchText.trimmingCharacters(in: .whitespaces)
-        return q.isEmpty ? "Add equipment" : "Add \u{201C}\(q.sentenceCasedFirst)\u{201D}"
-    }
-
+    /// The Add row (Add family — it NAVIGATES): opens Find or create
+    /// pre-scoped to Kit, where the catalog and creation are one surface
+    /// (2026-07-23). Keeps the `addEquipmentRow` id.
     private var addEquipmentRow: some View {
-        CreateRow(label: addLabel, identifier: "addEquipmentRow") {
-            pendingCatalogQuery = searchText.trimmingCharacters(in: .whitespaces)
-            showingCatalog = true
+        CreateRow(label: "Add equipment", identifier: "addEquipmentRow") {
+            FindOrCreateLaunch.open(.kit)
         }
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
@@ -603,9 +569,6 @@ struct EquipmentTabView: View {
     }
 
     private var emptyHintText: String {
-        if !searchText.trimmingCharacters(in: .whitespaces).isEmpty {
-            return "Nothing in your kit matches."
-        }
         // The null kit is empty on purpose — say so, and point to the switch.
         if isBodyweightKit {
             return "Switch to another kit to add equipment. null is the no-equipment kit."
@@ -620,15 +583,6 @@ struct EquipmentTabView: View {
                 .font(.system(.footnote))
                 .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
-            // The standard escape-hatch key every other narrowed list carries
-            // (design-review parity, 2026-07-23) — the in-field clear glyph
-            // still works; this makes the way out read the same here as
-            // everywhere else.
-            if !searchText.trimmingCharacters(in: .whitespaces).isEmpty {
-                QuietKey(label: "Clear search", identifier: "clearKitSearch") {
-                    searchText = ""
-                }
-            }
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 24)
@@ -639,7 +593,7 @@ struct EquipmentTabView: View {
 
     @ViewBuilder
     private var equipmentRows: some View {
-        ForEach(filteredEquipment) { equipment in
+        ForEach(libraryEquipment) { equipment in
             SwipeRevealRow(
                 id: equipment.persistentModelID,
                 openRow: $openSwipeRow,
