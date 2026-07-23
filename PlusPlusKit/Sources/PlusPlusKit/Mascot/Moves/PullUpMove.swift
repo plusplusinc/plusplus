@@ -6,7 +6,11 @@ import Foundation
 /// over it, then lowering to a full hang. Support is the BAR, not the
 /// floor: `dynamics.hangsFromBar` swaps the grounded invariant for
 /// the hang law (palms on the bar line, one station, feet never
-/// touching down).
+/// touching down), plus the barbell moves' grip-axis alignment law.
+/// The thumb-chirality (overhand vs suicide-grip read) is NOT
+/// test-enforced for the fixed bar — the overhead wrap reaches the
+/// bar through a different spin chain than a barbell lift, and the
+/// honest wrap for it is a device-pass item.
 ///
 /// The top config is a scratch-descent winner: grip axis 0.0 degrees
 /// off the bar, helmet 27 mm clear of it — the clearance comes from a

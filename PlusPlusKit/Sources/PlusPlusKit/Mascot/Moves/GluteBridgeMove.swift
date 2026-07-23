@@ -83,7 +83,7 @@ enum GluteBridgeMove {
         let downS = solve(down)
         var repKeyframes = [MascotKeyframe(t: 0, pose: downS, easing: .hold)]
         repKeyframes.append(contentsOf: MascotPoseBuilder.span(
-            from: down, to: up, t0: 0.06, t1: 0.42, steps: 8,
+            from: down, to: up, t0: 0.06, t1: 0.40, steps: 8,
             effortKeys: [(0, 0.2), (1, 0.72)],
             solve: solve
         ))
@@ -91,9 +91,9 @@ enum GluteBridgeMove {
         // lands on the rise.
         var squeezeEnd = solve(up)
         squeezeEnd.effort = 0.6
-        repKeyframes.append(MascotKeyframe(t: 0.54, pose: squeezeEnd, easing: .linear))
+        repKeyframes.append(MascotKeyframe(t: 0.52, pose: squeezeEnd, easing: .linear))
         repKeyframes.append(contentsOf: MascotPoseBuilder.span(
-            from: up, to: down, t0: 0.54, t1: 0.94, steps: 8,
+            from: up, to: down, t0: 0.52, t1: 0.94, steps: 8,
             effortKeys: [(0, 0.55), (1, 0.25)],
             solve: solve
         ).dropFirst())
@@ -109,8 +109,8 @@ enum GluteBridgeMove {
             restBeat: restBeat,
             cues: [
                 MascotCue("Feet flat under the knees"),
-                MascotCue("Drive the hips to the ceiling", window: 0.06...0.42),
-                MascotCue("Lower with control", window: 0.54...0.94),
+                MascotCue("Drive the hips to the ceiling", window: 0.06...0.40),
+                MascotCue("Lower with control", window: 0.52...0.94),
             ],
             props: [],
             blinkPhases: MascotPoseBuilder.defaultBlinkPhases(

@@ -109,8 +109,10 @@ public enum MascotPoseBuilder {
     /// stations along the bar are the pose's own grip width). The hang
     /// counterpart of `plantingFeet`: author the hanging shape, let
     /// this put the hands ON the bar; the wrap orientation is the
-    /// authored wrist's job, proven by the same overhand laws as the
-    /// barbell moves.
+    /// authored wrist's job — the grip-axis law covers a hanging
+    /// move's alignment, but the barbell thumb-chirality law does NOT
+    /// run on the fixed bar (an overhead wrap reaches the bar through
+    /// a different spin chain; its thumb read is a device-pass item).
     public static func hangingFromTheBar(_ pose: MascotPose, skeleton: MascotSkeleton = .standard) -> MascotPose {
         let frames = pose.jointFrames(skeleton: skeleton)
         guard let left = frames[.leftWrist], let right = frames[.rightWrist] else { return pose }

@@ -88,10 +88,14 @@ public enum MascotBalance {
             moment = moment + barMass * (0.5 * (leftPalm + rightPalm))
             mass += barMass
         }
-        // The other HELD props hang their mass at the palm midpoint
-        // too (close enough for balance: the kettlebell's bell offset
-        // is centimeters). Fixed props (bench, pull-up bar) carry no
-        // body-borne mass.
+        // The other HELD props hang their mass where the mass actually
+        // IS: the goblet and dumbbell pair at the palm midpoint (their
+        // mass straddles the hands), the kettlebell at the BELL —
+        // 82 mm off the handle along the hang direction, which at the
+        // swing's float is fully horizontal-forward; a palm-anchored
+        // model flattered the proven balance there (swift-reviewer
+        // catch). Fixed props (bench, pull-up bar) carry no body-borne
+        // mass.
         let heldMasses: [(MascotProp, Double)] = [
             (.kettlebell, kettlebellMass),
             (.gobletDumbbell, gobletMass),
@@ -101,7 +105,22 @@ public enum MascotBalance {
             guard let left = frames[.leftWrist], let right = frames[.rightWrist] else { continue }
             let leftPalm = left.position + left.rotation.rotate(MascotGrip.palmOffset)
             let rightPalm = right.position + right.rotation.rotate(MascotGrip.palmOffset)
-            moment = moment + propMass * (0.5 * (leftPalm + rightPalm))
+            var anchor = 0.5 * (leftPalm + rightPalm)
+            if prop == .kettlebell {
+                // The bell hangs off the handle along the hands' mean
+                // fist line, orthogonalized to the handle axis — the
+                // same construction as the collision capsule.
+                let span = leftPalm - rightPalm
+                let spanLength = span.length
+                let axis = spanLength > 1e-6 ? (1 / spanLength) * span : Vec3(1, 0, 0)
+                let handDown = 0.5 * (left.rotation.rotate(Vec3(0, -1, 0)) + right.rotation.rotate(Vec3(0, -1, 0)))
+                let axialPart = handDown.x * axis.x + handDown.y * axis.y + handDown.z * axis.z
+                var hang = handDown - axialPart * axis
+                let hangLength = hang.length
+                hang = hangLength > 1e-6 ? (1 / hangLength) * hang : Vec3(0, -1, 0)
+                anchor = anchor + MascotGrip.kettlebellBellDrop * hang
+            }
+            moment = moment + propMass * anchor
             mass += propMass
         }
         return (1.0 / mass) * moment

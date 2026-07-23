@@ -169,7 +169,7 @@ import Foundation
         }
     }
 
-    @Test(arguments: ["Squat", "Deadlift", "Bench Press", "Overhead Press", "Barbell Row"])
+    @Test(arguments: ["Squat", "Deadlift", "Bench Press", "Overhead Press", "Barbell Row", "Pull-Up"])
     func handsActuallyGripTheBar(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         // 25 degrees, not less: a fully PRONATED grip runs the whole
@@ -274,7 +274,10 @@ import Foundation
     func handsNeverPierceWhatTheyHold(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         let state = MascotHand.state(for: animation)
-        guard case .gripped = state else { return }
+        switch state {
+        case .gripped, .cupped: break
+        default: return
+        }
         let isDumbbell = animation.props.contains(.dumbbellPair)
         for i in 0...400 {
             let t = Double(i) / 400
@@ -288,7 +291,17 @@ import Foundation
                 let palm = frame.position + frame.rotation.rotate(MascotGrip.palmOffset)
                 let axis = frame.rotation.rotate(Vec3(1, 0, 0))
                 for capsule in MascotHand.capsules(state: state, side: side, wrist: frame) {
-                    for item in equipment where item.name.hasPrefix("bar") || item.name.hasPrefix("handle") {
+                    // Everything a hand can hold: bar shafts, every
+                    // handle (the kettlebell's is "kettlebellHandle" —
+                    // a bare hasPrefix("handle") silently skipped it,
+                    // swift-reviewer catch), and the kettlebell's
+                    // round bell. Goblet and dumbbell HEADS are flat
+                    // discs the capsule model bulges hemispherically —
+                    // they get face-plane checks instead (below; the
+                    // cupped palm legitimately rests ON the top face).
+                    for item in equipment where item.name.hasPrefix("bar")
+                        || item.name.lowercased().contains("handle")
+                        || item.name.contains("Bell") {
                         let distance = mascotSegmentDistance(capsule.from, capsule.to, item.from, item.to)
                         let depth = (capsule.radius + item.radius) - distance
                         #expect(depth <= 0.006,
@@ -529,7 +542,7 @@ import Foundation
         return 0.5 * (leftPalm + rightPalm)
     }
 
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Single-Leg Calf Raise", "Lateral Raise", "Overhead Press", "Barbell Row", "Goblet Squat", "Kettlebell Swing"])
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Single-Leg Calf Raise", "Lateral Raise", "Overhead Press", "Barbell Row", "Goblet Squat", "Kettlebell Swing", "Jump Squat"])
     func standingMovesStayBalancedOverTheFeet(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         // The support polygon is computed from what is ACTUALLY in
@@ -539,9 +552,19 @@ import Foundation
         // (dynamic balance — deceleration loads the edge); held
         // positions are strict.
         func expectBalanced(at t: Double, pad: Double, label: String) {
+            // A declared airborne window has no support polygon to be
+            // inside — the ballistic law owns it.
+            guard !animation.isAirborne(at: t) else { return }
             let pose = animation.pose(at: t)
             guard let polygon = MascotBalance.supportPolygon(pose: pose) else {
-                Issue.record("\(name): nothing touches the ground at \(label)")
+                // A jumping move's launch/landing spans hover the
+                // soles millimeters up on their way to declared
+                // flight — no contact means no polygon to be inside,
+                // and the ballistic law owns the flight itself. Any
+                // OTHER move with no ground contact is a bug.
+                if animation.dynamics.airborneWindows.isEmpty {
+                    Issue.record("\(name): nothing touches the ground at \(label)")
+                }
                 return
             }
             let com = MascotBalance.centerOfMass(pose: pose, props: animation.props)

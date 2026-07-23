@@ -33,7 +33,11 @@ public enum MascotGrip {
     public static let kettlebellHandleRadius = 0.014
     public static let kettlebellHandleHalfLength = 0.055
     public static let kettlebellBellRadius = 0.052
-    public static let kettlebellBellDrop = 0.082
+    /// 91 mm, not 82: the bell's top must clear the wrapped
+    /// fingers' lower reach (handle radius + finger wrap ~30 mm below
+    /// the palm line) by more than a graze — at 82 the finger-pierce
+    /// law read a structural 6 mm contact.
+    public static let kettlebellBellDrop = 0.091
     /// The palm CONTACT PAD: where the planted flat hand's weight
     /// lands — the palm HEEL, at the wrist end of `MascotHand`'s
     /// planted palm plane (local z 0.022), distinct from `palmOffset`,
@@ -286,14 +290,20 @@ public enum MascotCollision {
             // cupped on both upturned palms (a mascot-scale handle
             // cannot take two stacked fists — neither can a human's,
             // which is why real goblet holds cup the head). The
-            // dumbbell's axis continues the hands' mean fist line; the
-            // TOP head's underside rests on the palm planes.
+            // dumbbell's axis is the NEGATED mean palm NORMAL (local
+            // +z) — the direction the cupped palms face is up, so the
+            // shaft hangs opposite it. The fist line (local -y) is the
+            // FINGER direction, which for a skyward cup is horizontal:
+            // the first cut used it and modeled the dumbbell lying
+            // flat, poking chest-forward (swift-reviewer catch — Kit
+            // and renderer agreed with each other, so every collision
+            // invariant passed while the render was sideways).
             let leftPalm = left.position + left.rotation.rotate(MascotGrip.palmOffset)
             let rightPalm = right.position + right.rotation.rotate(MascotGrip.palmOffset)
             let support = 0.5 * (leftPalm + rightPalm)
-            let handDown = 0.5 * (left.rotation.rotate(Vec3(0, -1, 0)) + right.rotation.rotate(Vec3(0, -1, 0)))
-            let downLength = handDown.length
-            let axisDown = downLength > 1e-6 ? (1 / downLength) * handDown : Vec3(0, -1, 0)
+            let meanNormal = 0.5 * (left.rotation.rotate(Vec3(0, 0, 1)) + right.rotation.rotate(Vec3(0, 0, 1)))
+            let normalLength = meanNormal.length
+            let axisDown = normalLength > 1e-6 ? (-1 / normalLength) * meanNormal : Vec3(0, -1, 0)
             // The top head sits ON the palms: its center rides half a
             // head-width above the support point, the shaft hangs down.
             let topHead = support + (-MascotGrip.dumbbellHeadHalfWidth) * axisDown

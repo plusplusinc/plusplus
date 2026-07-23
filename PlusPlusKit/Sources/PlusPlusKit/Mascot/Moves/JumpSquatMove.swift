@@ -17,7 +17,7 @@ enum JumpSquatMove {
     static let animation: ExerciseAnimation = {
         let repSeconds = 1.6
 
-        let stand = MascotPoseBuilder.plantingFeet(MascotPose(
+        let stand = MascotPoseBuilder.coordinating(MascotPose(
             joints: MascotPoseBuilder.merge(
                 MascotPoseBuilder.symmetricLegs(hip: .deg(roll: 3)),
                 MascotPoseBuilder.symmetricArms(shoulder: .deg(roll: 8))
@@ -25,7 +25,7 @@ enum JumpSquatMove {
             effort: 0.2
         ))
         // The loaded crouch: arms swept back, ready to swing.
-        let crouch = MascotPoseBuilder.plantingFeet(MascotPose(
+        let crouch = MascotPoseBuilder.coordinating(MascotPose(
             joints: MascotPoseBuilder.merge(
                 MascotPoseBuilder.symmetricLegs(
                     hip: .deg(pitch: -55, roll: 3), knee: .deg(pitch: 70), ankle: .deg(pitch: -15)
@@ -41,7 +41,7 @@ enum JumpSquatMove {
         // Shallower than the loaded crouch on purpose: the landing
         // has ~0.18 s to fold and ~0.22 s to recover, and a full-depth
         // absorb crossed the human joint-speed bound both ways.
-        let landCrouch = MascotPoseBuilder.plantingFeet(MascotPose(
+        let landCrouch = MascotPoseBuilder.coordinating(MascotPose(
             joints: MascotPoseBuilder.merge(
                 MascotPoseBuilder.symmetricLegs(
                     hip: .deg(pitch: -35, roll: 3), knee: .deg(pitch: 45), ankle: .deg(pitch: -10)
@@ -68,7 +68,13 @@ enum JumpSquatMove {
                 MascotPoseBuilder.symmetricLegs(
                     hip: .deg(pitch: -7, roll: 3), knee: .deg(pitch: 12), ankle: .deg(pitch: -5)
                 ),
-                MascotPoseBuilder.torso(spine: .deg(pitch: 4)),
+                // Spine 12: the launch/landing spans carry no com
+                // correction (their solve is the one-way sole clamp),
+                // so the flight pose itself leans the chest over the
+                // toes — mid-lerp the center of mass stayed a few
+                // millimeters behind the heel bound at spine 4, and a
+                // real jumper leans INTO liftoff anyway.
+                MascotPoseBuilder.torso(spine: .deg(pitch: 12)),
                 MascotPoseBuilder.symmetricArms(shoulder: .deg(pitch: -38, roll: 12))
             ),
             effort: 0.85
@@ -90,12 +96,31 @@ enum JumpSquatMove {
         // root is allowed to rise off its lerp, never to drive the
         // sole under the floor. Identity at planted endpoints, so all
         // seams stay exact.
-        let plant = { (pose: MascotPose) in MascotPoseBuilder.plantingFeet(pose) }
+        // `coordinating`, not bare `plantingFeet` (the squat's
+        // lesson): the loaded crouch's hips-back shape parks the
+        // center of mass 3 cm behind the heels unless the spine leans
+        // to meet it — which is what a real jumper's chest does.
+        let plant = { (pose: MascotPose) in MascotPoseBuilder.coordinating(pose) }
         let soleClamped = { (pose: MascotPose) -> MascotPose in
             var candidate = pose
             let low = candidate.solePoints(skeleton: .standard).map(\.y).min() ?? 0
             if low < -0.001 {
                 candidate.rootTranslation.y += -0.001 - low
+            }
+            // `coordinating`'s spine nudge without its foot planting
+            // (the root must be free to launch): lean the chest
+            // forward while the center of mass rides behind the
+            // heels. Identity for poses already inside the bound, so
+            // the span endpoints pass through untouched.
+            for _ in 0..<96 {
+                let frames = candidate.jointFrames(skeleton: .standard)
+                let ankleZ = 0.5 * ((frames[.leftAnkle]?.position.z ?? 0) + (frames[.rightAnkle]?.position.z ?? 0))
+                let com = MascotBalance.centerOfMass(pose: candidate, props: [], skeleton: .standard)
+                guard com.z - ankleZ < -0.052 else { break }
+                var joints = candidate.joints
+                let spine = joints[.spine] ?? .zero
+                joints[.spine] = EulerAngles(pitch: spine.pitch + 0.0025, yaw: spine.yaw, roll: spine.roll)
+                candidate.joints = joints
             }
             return candidate
         }
@@ -159,7 +184,10 @@ enum JumpSquatMove {
             blinkPhases: MascotPoseBuilder.defaultBlinkPhases(
                 reps: 3, repDuration: repSeconds, restDuration: 2.4, repPhase: 0.03
             ),
-            restingPhase: 0.28,
+            // The stand hold: the held-phase balance check is
+            // STRICT there, and mid-descent the com rides right at
+            // coordinating's corrector bound.
+            restingPhase: 0.05,
             smoothing: .curved,
             dynamics: MascotDynamics(airborneWindows: [airborne])
         )

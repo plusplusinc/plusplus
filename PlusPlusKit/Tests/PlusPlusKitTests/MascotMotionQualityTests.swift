@@ -24,20 +24,50 @@ import Foundation
     private static let skeleton = MascotSkeleton.standard
 
     /// The "load" a rep raises and lowers: the palms for weighted
-    /// moves, the chest for bodyweight ones (the body IS the load).
-    /// One definition, shared by the effort-peak, eccentric-control,
-    /// and turnaround-pause laws — three verbatim copies drifted here
-    /// before the scale-out round pulled them together.
-    static func loadHeight(_ animation: ExerciseAnimation, pose: MascotPose) -> Double {
-        if animation.props.isEmpty {
-            return pose.jointPositions(skeleton: skeleton)[.chest]!.y
+    /// moves, the BODY for bodyweight and bar-hanging ones (a
+    /// pull-up's palms never move — the body is the load). For body
+    /// moves the reference joint is whichever of chest/root actually
+    /// travels, decided once per move: the sit-up's chest arcs while
+    /// its pelvis is bolted down; the glute bridge's hips rise while
+    /// its chest stays near the floor. One definition, shared by the
+    /// effort-peak, eccentric-control, and turnaround-pause laws.
+    enum LoadChannel { case palms, chest, root }
+    static let loadChannelByName: [String: LoadChannel] = {
+        var table: [String: LoadChannel] = [:]
+        for animation in MascotMoves.all {
+            guard animation.props.isEmpty || animation.dynamics.hangsFromBar else {
+                table[animation.exerciseName] = .palms
+                continue
+            }
+            var chestLow = Double.infinity, chestHigh = -Double.infinity
+            var rootLow = Double.infinity, rootHigh = -Double.infinity
+            for i in 0...40 {
+                let positions = animation.pose(at: Double(i) / 40).jointPositions(skeleton: skeleton)
+                let chest = positions[.chest]!.y
+                let root = positions[.root]!.y
+                chestLow = min(chestLow, chest); chestHigh = max(chestHigh, chest)
+                rootLow = min(rootLow, root); rootHigh = max(rootHigh, root)
+            }
+            table[animation.exerciseName] =
+                (chestHigh - chestLow) >= (rootHigh - rootLow) ? .chest : .root
         }
-        let frames = pose.jointFrames(skeleton: skeleton)
-        let left = frames[.leftWrist]!
-        let right = frames[.rightWrist]!
-        let leftPalm = left.position + left.rotation.rotate(MascotGrip.palmOffset)
-        let rightPalm = right.position + right.rotation.rotate(MascotGrip.palmOffset)
-        return (leftPalm.y + rightPalm.y) / 2
+        return table
+    }()
+
+    static func loadHeight(_ animation: ExerciseAnimation, pose: MascotPose) -> Double {
+        switch loadChannelByName[animation.exerciseName] ?? .palms {
+        case .chest:
+            return pose.jointPositions(skeleton: skeleton)[.chest]!.y
+        case .root:
+            return pose.jointPositions(skeleton: skeleton)[.root]!.y
+        case .palms:
+            let frames = pose.jointFrames(skeleton: skeleton)
+            let left = frames[.leftWrist]!
+            let right = frames[.rightWrist]!
+            let leftPalm = left.position + left.rotation.rotate(MascotGrip.palmOffset)
+            let rightPalm = right.position + right.rotation.rotate(MascotGrip.palmOffset)
+            return (leftPalm.y + rightPalm.y) / 2
+        }
     }
 
     @Test(arguments: MascotMoves.all.map(\.exerciseName))
@@ -107,7 +137,7 @@ import Foundation
         #expect(worst <= 8, "\(name): peak joint speed \(worst) rad/s")
     }
 
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise", "Bench Press", "Lateral Raise", "Sit-Up", "Overhead Press", "Barbell Row", "Goblet Squat", "Kettlebell Swing", "Reverse Lunge"])
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise", "Bench Press", "Lateral Raise", "Sit-Up", "Overhead Press", "Barbell Row", "Goblet Squat", "Kettlebell Swing", "Reverse Lunge", "Glute Bridge", "Pull-Up"])
     func effortPeaksWhileTheLoadRises(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         let repShare = animation.repDuration / animation.cycleDuration
@@ -239,7 +269,10 @@ import Foundation
     /// — its peak downward speed stays comfortably under its peak
     /// upward speed, i.e. the eccentric is the slow half. Textbook
     /// tempo, enforced (holds are exempt: nothing travels).
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise", "Bench Press", "Lateral Raise", "Sit-Up", "Overhead Press", "Barbell Row", "Goblet Squat", "Kettlebell Swing", "Reverse Lunge"])
+    // The Kettlebell Swing is deliberately absent: its drop RIDES
+    // gravity into the hike — a fast eccentric is the movement, not a
+    // form fault.
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise", "Bench Press", "Lateral Raise", "Sit-Up", "Overhead Press", "Barbell Row", "Goblet Squat", "Reverse Lunge", "Glute Bridge", "Pull-Up"])
     func theEccentricIsControlled(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         let workShare = animation.workDuration / animation.cycleDuration
@@ -270,7 +303,7 @@ import Foundation
     /// bottom of its travel, one at the top. An eased turnaround
     /// without a dwell only grazes zero speed for an instant, so the
     /// window-length bar separates a real pause from a slow reversal.
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise", "Bench Press", "Lateral Raise", "Sit-Up", "Overhead Press", "Barbell Row", "Goblet Squat", "Kettlebell Swing", "Reverse Lunge"])
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise", "Bench Press", "Lateral Raise", "Sit-Up", "Overhead Press", "Barbell Row", "Goblet Squat", "Kettlebell Swing", "Reverse Lunge", "Glute Bridge", "Pull-Up"])
     func everyRepPausesAtItsTurnarounds(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         let repShare = animation.repDuration / animation.cycleDuration

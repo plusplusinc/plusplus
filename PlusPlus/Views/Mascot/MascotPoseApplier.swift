@@ -62,6 +62,12 @@ enum MascotPoseApplier {
                     - wrist.convert(position: .zero, to: rig.container)
             }
             let meanDown = handDown(leftWrist) + handDown(rightWrist)
+            // The mean palm NORMAL (local +z) — what cupped palms face.
+            func palmNormal(_ wrist: Entity) -> SIMD3<Float> {
+                wrist.convert(position: [0, 0, 1], to: rig.container)
+                    - wrist.convert(position: .zero, to: rig.container)
+            }
+            let meanNormal = palmNormal(leftWrist) + palmNormal(rightWrist)
 
             switch kind {
             case .barbell:
@@ -81,11 +87,14 @@ enum MascotPoseApplier {
                     }
                 }
             case .gobletDumbbell:
-                if simd_length(meanDown) > 0.001 {
-                    let down = simd_normalize(meanDown)
-                    // Top head's CENTER rides half a head-width above
-                    // the palm support point; shaft continues down the
-                    // fist line — matching the kit's capsule model.
+                if simd_length(meanNormal) > 0.001 {
+                    // The shaft hangs OPPOSITE the cupped palms' mean
+                    // normal (the fist line is the finger direction —
+                    // horizontal in a cup, the sideways-dumbbell bug);
+                    // top head's CENTER rides half a head-width above
+                    // the palm support point — matching the kit's
+                    // capsule model.
+                    let down = -simd_normalize(meanNormal)
                     entity.position = mid - Float(MascotGrip.dumbbellHeadHalfWidth) * down
                     entity.orientation = simd_quatf(from: [0, -1, 0], to: down)
                 }

@@ -18,7 +18,7 @@ enum KettlebellSwingMove {
         func swingPose(
             spine: Double, chest: Double, neck: Double,
             hip: Double, knee: Double,
-            shoulder: EulerAngles, wristPitch: Double,
+            shoulder: EulerAngles, wrist: EulerAngles,
             effort: Double
         ) -> MascotPose {
             MascotPose(
@@ -33,7 +33,7 @@ enum KettlebellSwingMove {
                     ),
                     MascotPoseBuilder.symmetricArms(
                         shoulder: shoulder, elbow: .deg(pitch: -8),
-                        wrist: .deg(pitch: wristPitch)
+                        wrist: wrist
                     )
                 ),
                 effort: effort
@@ -43,17 +43,31 @@ enum KettlebellSwingMove {
         // The float: standing plank, arms horizontal, bell chest-high.
         let top = swingPose(
             spine: 0, chest: 0, neck: -4, hip: 0, knee: 4,
-            shoulder: .deg(pitch: -85, yaw: -24), wristPitch: 0,
+            shoulder: .deg(pitch: -85, yaw: -24),
+            // Analytic wrap alignment: chain-inverse times the
+            // palm-down/fingers-forward hand puts the grip channel
+            // EXACTLY on the world-x handle (the closed-form move the
+            // aligningGrip lesson demands — the whole-arm servo kept
+            // parking 20 mm deep in a wrong wrap basin here).
+            wrist: .deg(pitch: 3.0, roll: 24.0),
             effort: 0.35
         )
         // The hike: a soft-kneed hinge, arms swept back so the bell
         // rides between and just behind the knees.
         let back = swingPose(
             spine: 40, chest: 30, neck: -28, hip: -25, knee: 25,
-            shoulder: .deg(pitch: -68, yaw: -26), wristPitch: 10,
+            shoulder: .deg(pitch: -68, yaw: -26),
+            wrist: .deg(pitch: -14.0, roll: 26.0),
             effort: 0.5
         )
 
+        // The barbell moves' whole-hand servo, on the short handle:
+        // per baked sample it pins each palm to its station (0.02 —
+        // the two hands squeeze together on one handle) and aligns
+        // the grip channel to the handle axis. Without it the hanging
+        // arms' ~25-degree wrap skew ran a finger capsule 10 mm
+        // through the handle (swift-reviewer coverage catch — the
+        // finger law had been silently skipping kettlebell capsules).
         let solve = { (pose: MascotPose) in
             MascotPoseBuilder.coordinating(pose, props: [.kettlebell])
         }
@@ -67,7 +81,7 @@ enum KettlebellSwingMove {
         repKeyframes.append(contentsOf: MascotPoseBuilder.span(
             from: top, to: back, t0: 0.04, t1: 0.44, steps: 8,
             easing: .easeIn,
-            effortKeys: [(0, 0.32), (1, 0.5)],
+            effortKeys: [(0, 0.35), (1, 0.5)],
             solve: solve
         ))
         repKeyframes.append(MascotKeyframe(t: 0.52, pose: backS, easing: .linear))
