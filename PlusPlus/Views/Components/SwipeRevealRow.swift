@@ -158,7 +158,7 @@ struct SwipeRevealRow<ID: Hashable, Content: View, Actions: View, LeadingActions
                 .modifier(RowAccessibilityActions(actions: accessibilityActions))
         }
         .clipped()
-        .animation(.easeOut(duration: 0.18), value: offset)
+        .animation(Theme.Anim.standard, value: offset)
         // While THIS row is open, the full-width swipe-back stands down:
         // closing a trailing row is a rightward drag the pop gesture
         // can't distinguish from a back-swipe (#198 review), and a

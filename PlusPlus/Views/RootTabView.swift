@@ -30,6 +30,9 @@ struct RootTabView: View {
     private let introInstant: Bool
     /// A share link the app was opened with, awaiting import (#145).
     @State private var shareImport: ShareImport?
+    /// A tapped share link whose payload couldn't be read — said out
+    /// loud, never silently dropped (design review 2026-07-23).
+    @State private var showShareLinkError = false
     /// Post-install return from GitHub (the Setup-URL bounce, #23): present
     /// the connect step so the user just authorizes.
     @State private var showGitHubConnect = false
@@ -154,10 +157,17 @@ struct RootTabView: View {
                 NotificationCenter.default.post(name: .plusplusStartRoutine, object: name)
                 return
             }
-            guard RoutineShareLink.isShareLink(url),
-                  let payload = try? RoutineShareLink.payload(from: url)
-            else { return }
-            shareImport = ShareImport(payload: payload)
+            if RoutineShareLink.isShareLink(url) {
+                if let payload = try? RoutineShareLink.payload(from: url) {
+                    shareImport = ShareImport(payload: payload)
+                } else {
+                    // A raw plusplus://r#… link pasted in Messages/Notes has
+                    // no viewer webpage to explain a bad payload — say it
+                    // here instead of swallowing the tap (design review
+                    // 2026-07-23).
+                    showShareLinkError = true
+                }
+            }
         }
         // Universal-link form of the same GitHub Setup-URL return
         // (https://plusplus.fit/github/…), for when it opens the app directly.
@@ -176,6 +186,12 @@ struct RootTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: .plusplusStartRoutine)) { _ in
             tab = .today
         }
+        // A routine added from outside the Routines tab (Today's setup
+        // step, a share import) lands ON the Routines list with the
+        // entrance flash — one landing for every add (Dave, 2026-07-23).
+        .onReceive(NotificationCenter.default.publisher(for: .plusplusRoutineArrived)) { _ in
+            tab = .routines
+        }
         // Closing a finished workout's recap goes home: whatever screen
         // presented the session cover, the finish lands on Today, where
         // the just-committed card converts itself to done.
@@ -185,6 +201,11 @@ struct RootTabView: View {
         .sheet(item: $shareImport) { item in
             ShareImportSheet(payload: item.payload)
                 .presentationDetents([.large])
+        }
+        .alert("That link couldn't be read", isPresented: $showShareLinkError) {
+            Button("OK") {}
+        } message: {
+            Text("It may be incomplete or from a newer version of PlusPlus.")
         }
         .sheet(isPresented: $showGitHubConnect) {
             GitHubSyncTray(startAtConnect: true)
@@ -225,8 +246,8 @@ struct AppMenuKey: View {
         Button { reveal.toggle() } label: {
             HeaderGlyph()
                 .frame(width: 44, height: 44)
-                .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
-                .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
+                .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+                .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
         }
         .buttonStyle(.raisedKey())
         .accessibilityLabel("Menu")

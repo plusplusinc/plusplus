@@ -22,15 +22,25 @@ struct SupersetLoopTip: Tip {
 }
 
 /// Routine detail, when there's material to pair (≥2 exercises) but no
-/// superset yet: how to make one. One describable path only (the HIG
-/// call from #270, taken all the way in build 45: cramming the drag
-/// gesture in as a second clause read clunky — the ring gesture stays
-/// a discovered mechanic, and using it retires this tip anyway).
-/// Structurally exclusive with the loop tip — see SupersetTipInline
-/// in RoutineDetailView.
+/// superset yet: a POPOVER pinned to the first exercise row, teaching
+/// the GESTURE plus what a superset is (Dave, 2026-07-23 — reversing
+/// build-45's sheet-path-only copy: the drag is the app's most
+/// expressive interaction and deserved to be taught, and anchoring to
+/// a real row fixes what made the build-45 balloon read as floating).
+/// Display is gated by the `canPair` parameter (set by RoutineDetailView
+/// from live structure) so the popover attachment itself can stay
+/// unconditional on the row — no #270 identity churn.
 struct SupersetCreationTip: Tip {
-    var title: Text { Text("Pair exercises into a superset") }
-    var message: Text? { Text("Tap an exercise and choose Superset with the one above or below.") }
+    /// True while the open routine has ≥2 exercises and no superset yet.
+    @Parameter static var canPair: Bool = false
+
+    var title: Text { Text("Build a superset") }
+    var message: Text? { Text("Two exercises, run back to back each round. Hold the dot beside one and drag to the other.") }
     var image: Image? { Image(systemName: "repeat") }
+    var rules: [Rule] {
+        // Builder syntax, not an array literal — `rules` is a
+        // @Tips.RuleBuilder property.
+        #Rule(Self.$canPair) { $0 == true }
+    }
     var options: [any TipOption] { [Tips.MaxDisplayCount(1)] }
 }

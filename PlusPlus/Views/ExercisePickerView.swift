@@ -342,15 +342,35 @@ private struct FilterBar: View {
             || filterState.favoritesOnly
     }
 
+    /// The active facets, summarized for the filter-state popover.
+    private var activeFacets: [ActiveFacet] {
+        var facets: [ActiveFacet] = []
+        if filterState.favoritesOnly {
+            facets.append(ActiveFacet(name: "Favorites", value: "Only favorites"))
+        }
+        if !filterState.selectedMuscleGroups.isEmpty {
+            let names = filterState.selectedMuscleGroups.map(\.displayName).sorted().joined(separator: ", ")
+            facets.append(ActiveFacet(name: "Muscle", value: names))
+        }
+        if !filterState.selectedEquipment.isEmpty {
+            let names = filterState.selectedEquipment.filter { !$0.isDeleted }.map(\.name).sorted().joined(separator: ", ")
+            facets.append(ActiveFacet(name: "Equipment", value: names))
+        }
+        return facets
+    }
+
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 7) {
                 if anyFilterActive {
-                    ClearAllChip {
-                        filterState.selectedMuscleGroups = []
-                        filterState.selectedEquipment = []
-                        filterState.favoritesOnly = false
-                    }
+                    FilterSummaryChip(
+                        facets: activeFacets,
+                        onClearAll: {
+                            filterState.selectedMuscleGroups = []
+                            filterState.selectedEquipment = []
+                            filterState.favoritesOnly = false
+                        }
+                    )
                 }
                 SelectableChip(label: "Favorites", isSelected: filterState.favoritesOnly) {
                     filterState.favoritesOnly.toggle()

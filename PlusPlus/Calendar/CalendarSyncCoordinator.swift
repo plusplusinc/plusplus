@@ -286,8 +286,14 @@ final class CalendarSyncCoordinator {
             let calendar = EKCalendar(for: .event, eventStore: store)
             calendar.title = CalendarSyncSettings.calendarTitle
             calendar.source = source
-            // Brand green, matching the ++ mark.
-            calendar.cgColor = UIColor(red: 0.30, green: 0.78, blue: 0.47, alpha: 1).cgColor
+            // Brand green, derived from Theme.accent rather than approximated
+            // (design-review sweep 2026-07-23). EventKit stores ONE fixed
+            // color, so resolve the dark-side accent — the fuller-chroma ++
+            // green, which reads on both calendar grounds and matches the
+            // swatch this replaced to within a hair.
+            calendar.cgColor = UIColor(Theme.accent)
+                .resolvedColor(with: UITraitCollection(userInterfaceStyle: .dark))
+                .cgColor
             do {
                 try store.saveCalendar(calendar, commit: true)
                 CalendarSyncSettings.calendarIdentifier = calendar.calendarIdentifier

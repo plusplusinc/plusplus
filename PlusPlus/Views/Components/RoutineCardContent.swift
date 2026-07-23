@@ -305,6 +305,12 @@ struct RoutineEquipmentTags: View {
         if piece.available {
             CardCapsule(text: piece.name).view()
         } else {
+            // The TAPPABLE amber piece wears the CONTROL shape — r11 with a
+            // stroke — while the inert card tags stay soft r6 (design review
+            // 2026-07-23): the same amber tag used to render identically here
+            // and on the cards, teaching a tap that was dead everywhere else.
+            // Shape now carries the difference; the cards gained no nested
+            // tap targets.
             Button { onEquipmentTap(piece.name) } label: {
                 HStack(spacing: 3) {
                     Text(piece.name)
@@ -314,9 +320,12 @@ struct RoutineEquipmentTags: View {
                 .font(.system(.caption2))
                 .foregroundStyle(Theme.notes)
                 .lineLimit(1)
-                .padding(.horizontal, CardTagCapsule.horizontalPadding)
-                .padding(.vertical, 2.5)
-                .background(Theme.notes.opacity(0.14), in: RoundedRectangle(cornerRadius: CardTagCapsule.cornerRadius))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Theme.notes.opacity(0.14), in: RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius))
+                .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius)
+                    .strokeBorder(Theme.notes.opacity(0.45), lineWidth: 1))
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("\(piece.name), not in your kit")

@@ -60,17 +60,6 @@ struct SessionDetailView: View {
     private var allFinished: [WorkoutSession]
     @Query private var routines: [Routine]
     let session: WorkoutSession
-    /// "Do it again" (Dave, build-45) presents from HERE, state local
-    /// to this screen — the routine-detail Start pattern, and load-
-    /// bearing: the flash defers ~0.85 s, so a fire can land while a
-    /// pop transition is in flight (back tapped mid-flash, or a held
-    /// swipe-back). Parked on a SURVIVING screen that state would
-    /// wedge its cover forever if the presentation dropped; local
-    /// state dies with the pop and the started session rides Today's
-    /// orphan salvage instead (swift-reviewer catch).
-    @State private var activeSession: WorkoutSession?
-    /// The first-workout Health primer, raised by the start gate.
-    @State private var healthStartRequest: HealthStartRequest?
     /// Per-workout active energy (kcal), read live from Health when this
     /// record opens — not persisted, so it needs no schema/interchange
     /// change. nil until the query answers, or when Health has nothing.
@@ -80,25 +69,30 @@ struct SessionDetailView: View {
         WeightUnit(rawValue: weightUnitRaw) ?? .lb
     }
 
-    /// The routine "Do it again" would start: the session's own
-    /// routine when it survives, else a name match (the record's join
-    /// key everywhere identity is gone). Empty routines can't stage
-    /// (the 0-set bug class), so a hollowed-out routine hides the key
-    /// rather than presenting one that no-ops.
-    private var repeatCandidate: Routine? {
-        if let routine = session.routine, !routine.isDeleted, !routine.groups.isEmpty {
+    /// The routine this record links back to: the session's own routine
+    /// when it survives, else a name match (the record's join key
+    /// everywhere identity is gone). VIEWING tolerates an emptied
+    /// routine — only starting needed the non-empty-groups gate, and
+    /// starting lives on the routine's own screen now ("Do it again"
+    /// retired, design review 2026-07-23: doing it again is the
+    /// routine's Start, one tap through this link).
+    private var linkedRoutine: Routine? {
+        if let routine = session.routine, !routine.isDeleted {
             return routine
         }
-        return routines.first {
-            $0.name.lowercased() == session.routineName.lowercased() && !$0.groups.isEmpty
-        }
+        return routines.first { $0.name.lowercased() == session.routineName.lowercased() }
     }
 
-    /// Blocks keyed by (group, exercise) in rotation order.
+    /// Blocks keyed by (group, exercise) in rotation order — ALL sets,
+    /// including never-completed ones, which render as neutral "skipped"
+    /// rows (design review 2026-07-23): a jumped-past set used to vanish
+    /// from the record with no trace. A skip is a fact the record states
+    /// in plain ink, not a judgment (anti-shame). Deltas and last-time
+    /// comparisons still read completed sets only.
     private var blocks: [(name: String, sets: [SetLog])] {
         var order: [String] = []
         var byKey: [String: (name: String, sets: [SetLog])] = [:]
-        for log in session.completedSetLogs {
+        for log in session.sortedSetLogs {
             let key = "\(log.groupIndex)|\(log.exerciseName)"
             if byKey[key] == nil {
                 byKey[key] = (log.exerciseName, [])
@@ -204,10 +198,11 @@ struct SessionDetailView: View {
                                 HStack {
                                     Text("Set \(log.setNumber)")
                                         .font(.system(.caption))
-                                        .foregroundStyle(Theme.textSecondary)
+                                        .foregroundStyle(log.isCompleted ? Theme.textSecondary : Theme.textFaint)
                                     Spacer()
-                                    Text(log.resultSummary(weightUnit: weightUnit))
+                                    Text(log.isCompleted ? log.resultSummary(weightUnit: weightUnit) : "skipped")
                                         .font(.system(.caption, design: .monospaced))
+                                        .foregroundStyle(log.isCompleted ? Theme.textPrimary : Theme.textFaint)
                                 }
                             }
                         }
@@ -223,30 +218,39 @@ struct SessionDetailView: View {
         // Title + the record's facts in the chrome (mock 11:
         // "jul 7 · 18 sets · 42 min" under the name).
         .pushedScreenChrome(title: session.routineName, subtitle: subtitle.lowercased(), onBack: { dismiss() })
-        // The record's one action (Dave, build-45): run this workout
-        // again, in the same dock grammar as routine detail's Start.
+        // The record's one action (design review 2026-07-23, replacing
+        // build-45's "Do it again"): open the routine this record came
+        // from — the drill-out-and-back-in fix ("that felt too easy,
+        // bump the weight" is one tap now). Doing it again lives on the
+        // routine's own Start; a second start affordance here doubled
+        // it. Same dock grammar as routine detail's Start. Legal per
+        // #291: this screen is itself a value path entry, and
+        // RoutineRef's destination registers at the Today stack root.
         .safeAreaInset(edge: .bottom) {
-            if let routine = repeatCandidate {
-                StartFlashButton(label: "Do it again", height: 52, identifier: "repeatWorkoutButton") {
-                    // Fire-time re-check (the flash defers ~0.85 s;
-                    // see TodayView.start for the failure class).
-                    guard activeSession == nil, !routine.isDeleted, !routine.groups.isEmpty else { return }
-                    HealthStartGate.begin({
-                        guard activeSession == nil, !routine.isDeleted, !routine.groups.isEmpty else { return }
-                        activeSession = WorkoutSession.start(from: routine, context: modelContext)
-                    }, orPresent: { healthStartRequest = $0 })
+            if let uuid = linkedRoutine?.uuid {
+                NavigationLink(value: RoutineRef(uuid: uuid)) {
+                    HStack(spacing: 7) {
+                        Text("View routine")
+                            .font(.system(.body, weight: .semibold))
+                        Image(systemName: "chevron.right")
+                            .font(.system(.footnote, weight: .semibold))
+                            .foregroundStyle(Theme.textSecondary)
+                            .accessibilityHidden(true)
+                    }
+                    .foregroundStyle(Theme.textPrimary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
                 }
+                .buttonStyle(.raisedKey())
+                .accessibilityIdentifier("viewRoutineButton")
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
                 .padding(.bottom, 8)
                 .background(.bar)
             }
         }
-        .fullScreenCover(item: $activeSession) { started in
-            ActiveSessionView(session: started)
-        }
-        // The one-time Health ask, in front of a "Do it again" start.
-        .healthStartPrimer($healthStartRequest)
         // Heart-rate backfill: a session finished before its samples
         // reached Health (watch sync lag, or access granted later)
         // fills in when the record is opened. Idempotent — only runs

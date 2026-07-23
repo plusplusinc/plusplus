@@ -21,7 +21,7 @@ struct RaisedKeyStyle: ButtonStyle {
     var plate: Color = Theme.border
     /// Must match the cap's corner radius so the plate reads as the
     /// same key's underside.
-    var cornerRadius: CGFloat = 11
+    var cornerRadius: CGFloat = Theme.keyRadius
     /// 4 pt standard, 3 pt quiet.
     var travel: CGFloat = 4
 
@@ -47,12 +47,12 @@ struct RaisedKeyStyle: ButtonStyle {
 extension ButtonStyle where Self == RaisedKeyStyle {
     /// Secondary key: `Theme.background`/`surface` cap + 1 pt
     /// borderStrong border, role-colored content.
-    static func raisedKey(cornerRadius: CGFloat = 11) -> RaisedKeyStyle {
+    static func raisedKey(cornerRadius: CGFloat = Theme.keyRadius) -> RaisedKeyStyle {
         RaisedKeyStyle(plate: Theme.border, cornerRadius: cornerRadius)
     }
 
     /// Primary key: `Theme.primaryFill` cap on the stronger plate.
-    static func raisedPrimaryKey(cornerRadius: CGFloat = 11) -> RaisedKeyStyle {
+    static func raisedPrimaryKey(cornerRadius: CGFloat = Theme.keyRadius) -> RaisedKeyStyle {
         RaisedKeyStyle(plate: Theme.borderStrong, cornerRadius: cornerRadius)
     }
 
@@ -180,7 +180,7 @@ struct StartFlashButton: View {
                 .foregroundStyle(Theme.onPrimary)
                 .frame(maxWidth: .infinity)
                 .frame(height: height)
-                .background(flashing ? Theme.accent : Theme.primaryFill, in: RoundedRectangle(cornerRadius: 11))
+                .background(flashing ? Theme.accent : Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
                 .animation(Theme.Anim.standard, value: flashing)
         }
         .buttonStyle(.raisedPrimaryKey())

@@ -188,7 +188,26 @@ struct ShareImportSheet: View {
         )
         do {
             try InterchangeMapping.importBundle(bundle, context: modelContext)
+            // Land where the import went (design review 2026-07-23 — the
+            // sheet used to dismiss to wherever the app happened to be):
+            // the Routines list, entrance-flashing the imported card, the
+            // same landing every add gets. Resolve by name — the import
+            // may have merged into an existing same-name routine, and that
+            // routine IS where the payload landed.
+            // Save BEFORE landing: the entrance flash keys on
+            // persistentModelID, and the temporary→permanent swap at a
+            // later autosave would silently kill the flash + scroll
+            // (the RoutineListView invariant — "permanent id, set
+            // post-save"; swift-reviewer).
+            try? modelContext.save()
+            let importedName = payload.routine.name.lowercased()
+            let landed = ((try? modelContext.fetch(FetchDescriptor<Routine>())) ?? [])
+                .filter { $0.name.lowercased() == importedName }
+                .max { $0.createdAt < $1.createdAt }
             dismiss()
+            if let uuid = landed?.uuid {
+                RoutineArrival.land(uuid)
+            }
         } catch {
             importError = "Import failed: \(error.localizedDescription)"
         }

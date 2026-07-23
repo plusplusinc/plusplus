@@ -299,7 +299,11 @@ struct RoutineCatalogScreen: View {
     private var chipRow: some View {
         HStack(spacing: 7) {
             if anyFilterActive {
-                ClearAllChip { clearFilters() }
+                FilterSummaryChip(
+                    facets: activeFacets,
+                    resultSummary: "\(filteredTemplates.count) shown",
+                    onClearAll: { clearFilters() }
+                )
             }
             // A pure LOCAL availability lens (2026-07-21 axes separation):
             // narrow to routines you can do with the active kit, or clear it
@@ -348,6 +352,25 @@ struct RoutineCatalogScreen: View {
         effortFilter = []
         timeFilter = []
         gearFilter = .mine
+    }
+
+    /// The active facets, summarized for the filter-state popover. The
+    /// kit lens counts as active only OFF its `.mine` resting default.
+    private var activeFacets: [ActiveFacet] {
+        var facets: [ActiveFacet] = []
+        if gearFilter != .mine {
+            facets.append(ActiveFacet(name: "Showing", value: "All routines"))
+        }
+        if !focusFilter.isEmpty {
+            facets.append(ActiveFacet(name: "Focus", value: focusFilter.map(\.rawValue).sorted().joined(separator: ", ")))
+        }
+        if !effortFilter.isEmpty {
+            facets.append(ActiveFacet(name: "Effort", value: effortFilter.map(\.rawValue).sorted().joined(separator: ", ")))
+        }
+        if !timeFilter.isEmpty {
+            facets.append(ActiveFacet(name: "Time", value: timeFilter.map(\.rawValue).sorted().joined(separator: ", ")))
+        }
+        return facets
     }
 
     // MARK: - Rows
