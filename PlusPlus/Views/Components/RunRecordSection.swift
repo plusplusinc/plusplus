@@ -143,13 +143,20 @@ struct RunRecordSection: View {
         let lo = (paces.min() ?? 0) * 0.9
         let hi = (paces.max() ?? 1) * 1.05
         return Chart(splits, id: \.index) { split in
+            // Bars anchor at the domain floor, NOT the default zero
+            // baseline: Charts projects marks through the clamped scale
+            // without clipping them to the plot, so a zero-based bar
+            // extends several plot-heights below the frame and over the
+            // rest of the record.
             BarMark(
                 x: .value("Split", split.index),
-                y: .value("Pace", split.paceSeconds)
+                yStart: .value("Pace", lo),
+                yEnd: .value("Pace", split.paceSeconds)
             )
             .foregroundStyle(Theme.accent)
             .cornerRadius(3)
         }
+        .chartPlotStyle { $0.clipped() }
         .chartYScale(domain: lo...hi)
         .chartXAxis {
             AxisMarks(values: splits.map(\.index)) { _ in
