@@ -544,10 +544,12 @@ struct TodayView: View {
                     )
                     return
                 }
-                guard activeSession == nil else {
-                    startLinkFailure = StartLinkFailure(title: "A workout is already running", message: nil)
-                    return
-                }
+                // Already mid-workout: NO alert — the live cover is up, so a
+                // sibling alert can't present (it drops, or worse, defers and
+                // pops as a stale non-sequitur after the finish;
+                // swift-reviewer). Landing INSIDE the running workout is the
+                // honest answer the screen already gives.
+                guard activeSession == nil else { return }
                 start(routine)
             }
             .alert(

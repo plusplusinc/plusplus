@@ -493,6 +493,11 @@ extension WorkoutSession {
         guard !pending.isEmpty else { return }
         let cursor = currentLog
         for log in pending { context.delete(log) }
+        // Reindex law: the block's completed survivors renumber 1..n
+        // (same as resize — no "Set 1 / Set 3" gaps), session order
+        // re-densifies, cursor re-pins by reference.
+        let survivors = sortedSetLogs.filter { $0.groupIndex == groupIndex && $0.exerciseName == exerciseName }
+        for (index, log) in survivors.enumerated() { log.setNumber = index + 1 }
         for (index, log) in sortedSetLogs.enumerated() { log.order = index }
         if let cursor, !cursor.isDeleted { cursorOrder = cursor.order }
     }
@@ -500,15 +505,18 @@ extension WorkoutSession {
     /// Replaces a block's remaining PENDING sets with a freshly
     /// configured exercise IN PLACE ("Swap for…", design review
     /// 2026-07-23): the new block takes over the old pending sets'
-    /// first order slot, so a swap keeps its position in the rotation —
-    /// including inside a superset group (it keeps the groupIndex) —
-    /// instead of landing at the session's end like an add. Logged sets
-    /// of the old exercise stay untouched as their own completed block
-    /// (sessions snapshot; the record keeps what happened). The LIVE
-    /// block is never swapped (the sheet doesn't offer it). Rare edge,
-    /// accepted: swapping to an exercise the same GROUP already holds
-    /// merges the two runs under one overview block key — a display
-    /// quirk, not data corruption.
+    /// FIRST order slot and keeps the groupIndex, so it holds the
+    /// block's position in the session instead of landing at the end
+    /// like an add. Inside a superset group the new sets land
+    /// contiguously at that slot — the remaining interleave with the
+    /// partner is not reconstructed (accepted; resize's tail-append
+    /// behaves the same way). Logged sets of the old exercise stay
+    /// untouched as their own completed block (sessions snapshot; the
+    /// record keeps what happened). The LIVE block is never swapped
+    /// (the sheet doesn't offer it). Rare edge, accepted: swapping to
+    /// an exercise the same GROUP already holds merges the two runs
+    /// under one overview block key — a display quirk, not data
+    /// corruption.
     @discardableResult
     func swapPendingBlock(groupIndex: Int, exerciseName: String, with config: SessionExerciseConfig, context: ModelContext) -> [SetLog] {
         guard !isFinished else { return [] }
@@ -519,6 +527,10 @@ extension WorkoutSession {
         let pending = blockLogs.filter { !$0.isCompleted }
         guard let insertionOrder = pending.map(\.order).min() else { return [] }
         let cursor = currentLog
+        // The rest override is GROUP structure (interval blocks), not
+        // exercise config — the swap keeps the group, so it keeps the
+        // group's rest (swift-reviewer: resize carries it the same way).
+        let restOverride = pending.first?.restSecondsOverride
 
         for log in pending { context.delete(log) }
         // Open a gap at the old block's position for the incoming sets;
@@ -546,6 +558,7 @@ extension WorkoutSession {
             )
             log.metricProfile = profile
             log.extraTargets = config.extraTargets.filter { profile.contains($0.key) }
+            log.restSecondsOverride = restOverride
             // Insert first, relationships after (the seeder's hard-won
             // rule).
             context.insert(log)
@@ -554,7 +567,11 @@ extension WorkoutSession {
             appended.append(log)
             order += 1
         }
-        // Re-densify + re-pin (reindex-after-every-mutation).
+        // Reindex law: the OLD block's completed remnant renumbers 1..n
+        // (no gaps in the record), session order re-densifies, cursor
+        // re-pins by reference.
+        let oldSurvivors = sortedSetLogs.filter { $0.groupIndex == groupIndex && $0.exerciseName == exerciseName }
+        for (index, log) in oldSurvivors.enumerated() { log.setNumber = index + 1 }
         for (index, log) in sortedSetLogs.enumerated() { log.order = index }
         if let cursor, !cursor.isDeleted { cursorOrder = cursor.order }
         return appended

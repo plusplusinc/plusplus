@@ -10,13 +10,14 @@ import PlusPlusKit
 /// not be mounted yet when the add happens (a first-run setup flow), so
 /// the list consumes it on appear as well as on receive — whichever
 /// fires first wins, and consuming clears the slot.
+@MainActor
 enum RoutineArrival {
     static var pending: UUID?
 
     /// Stamp the arrival and announce it: RootTabView switches to the
     /// Routines tab; a mounted list consumes immediately, an unmounted
     /// one on its first appear.
-    @MainActor static func land(_ uuid: UUID) {
+    static func land(_ uuid: UUID) {
         pending = uuid
         NotificationCenter.default.post(name: .plusplusRoutineArrived, object: nil)
     }
@@ -225,11 +226,14 @@ struct RoutineListView: View {
     }
 
     /// Land a cross-tab add: pop to the list and play the same held-out
-    /// entrance a same-tab template add gets.
+    /// entrance a same-tab template add gets. The slot clears BEFORE
+    /// resolution — every landing path saves before posting, so a miss
+    /// means a stale/deleted routine, and holding the slot would fire a
+    /// phantom path-reset on some much later visit (swift-reviewer).
     private func consumeArrival() {
-        guard let uuid = RoutineArrival.pending,
-              let routine = modelContext.routine(uuid: uuid) else { return }
+        guard let uuid = RoutineArrival.pending else { return }
         RoutineArrival.pending = nil
+        guard let routine = modelContext.routine(uuid: uuid) else { return }
         path = NavigationPath()
         revealNewCard = false     // hold the card out for the entrance beat
         newlyAdded = routine.persistentModelID

@@ -337,18 +337,10 @@ struct RoutineDetailView: View {
             VStack(spacing: 0) {
                 ForEach(Array(groups.enumerated()), id: \.element.uuid) { g, group in
                     ForEach(Array(group.sortedExercises.enumerated()), id: \.element.uuid) { i, routineExercise in
-                        railRow(
+                        positionedRailRow(
                             routineExercise, group: group, groupIndex: g, index: i,
-                            hideLoop: ringGroup == g,
-                            landing: landingParams(groupIndex: g, index: i, layout: layout, sizes: sizes)
+                            ringGroup: ringGroup, offsets: offsets, layout: layout, sizes: sizes
                         )
-                        .offset(y: offsets[.exercise(group: g, index: i)] ?? 0)
-                        // The superset how-to pins to the FIRST row (Dave,
-                        // 2026-07-23) — see FirstRowSupersetTipAnchor. A
-                        // modifier, not an inline if/else: a `let` +
-                        // conditional here pushed the doubly-nested ForEach
-                        // past the type-checker's time budget (CI-caught).
-                        .modifier(FirstRowSupersetTipAnchor(isFirst: g == 0 && i == 0))
                     }
                 }
                 addExerciseRow
@@ -450,6 +442,31 @@ struct RoutineDetailView: View {
 
     /// One row: swipe-revealable content with the two long-press zones —
     /// the rail column grabs the ring, the body drags the row.
+    /// One positioned rail row, extracted WHOLE so the doubly-nested
+    /// ForEach body is a single typed call — the inline chain sat at the
+    /// type-checker's time budget and the first-row tip anchor pushed it
+    /// over (CI-caught, twice: first as let+if/else, then as a bare
+    /// added modifier). The tip pins to the first row per Dave
+    /// (2026-07-23); see FirstRowSupersetTipAnchor.
+    private func positionedRailRow(
+        _ routineExercise: RoutineExercise,
+        group: ExerciseGroup,
+        groupIndex g: Int,
+        index i: Int,
+        ringGroup: Int?,
+        offsets: [RailRowKind: Double],
+        layout: RailLayout,
+        sizes: [Int]
+    ) -> some View {
+        railRow(
+            routineExercise, group: group, groupIndex: g, index: i,
+            hideLoop: ringGroup == g,
+            landing: landingParams(groupIndex: g, index: i, layout: layout, sizes: sizes)
+        )
+        .offset(y: offsets[.exercise(group: g, index: i)] ?? 0)
+        .modifier(FirstRowSupersetTipAnchor(isFirst: g == 0 && i == 0))
+    }
+
     private func railRow(_ routineExercise: RoutineExercise, group: ExerciseGroup, groupIndex g: Int, index i: Int, hideLoop: Bool, landing: RailLandingParams) -> some View {
         let height = railRowHeight
         let isDragged: Bool = {
