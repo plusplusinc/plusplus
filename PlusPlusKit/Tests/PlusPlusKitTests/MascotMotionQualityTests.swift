@@ -23,6 +23,53 @@ import Foundation
 @Suite struct MascotMotionQualityTests {
     private static let skeleton = MascotSkeleton.standard
 
+    /// The "load" a rep raises and lowers: the palms for weighted
+    /// moves, the BODY for bodyweight and bar-hanging ones (a
+    /// pull-up's palms never move — the body is the load). For body
+    /// moves the reference joint is whichever of chest/root actually
+    /// travels, decided once per move: the sit-up's chest arcs while
+    /// its pelvis is bolted down; the glute bridge's hips rise while
+    /// its chest stays near the floor. One definition, shared by the
+    /// effort-peak, eccentric-control, and turnaround-pause laws.
+    enum LoadChannel { case palms, chest, root }
+    static let loadChannelByName: [String: LoadChannel] = {
+        var table: [String: LoadChannel] = [:]
+        for animation in MascotMoves.all {
+            guard animation.props.isEmpty || animation.dynamics.hangsFromBar else {
+                table[animation.exerciseName] = .palms
+                continue
+            }
+            var chestLow = Double.infinity, chestHigh = -Double.infinity
+            var rootLow = Double.infinity, rootHigh = -Double.infinity
+            for i in 0...40 {
+                let positions = animation.pose(at: Double(i) / 40).jointPositions(skeleton: skeleton)
+                let chest = positions[.chest]!.y
+                let root = positions[.root]!.y
+                chestLow = min(chestLow, chest); chestHigh = max(chestHigh, chest)
+                rootLow = min(rootLow, root); rootHigh = max(rootHigh, root)
+            }
+            table[animation.exerciseName] =
+                (chestHigh - chestLow) >= (rootHigh - rootLow) ? .chest : .root
+        }
+        return table
+    }()
+
+    static func loadHeight(_ animation: ExerciseAnimation, pose: MascotPose) -> Double {
+        switch loadChannelByName[animation.exerciseName] ?? .palms {
+        case .chest:
+            return pose.jointPositions(skeleton: skeleton)[.chest]!.y
+        case .root:
+            return pose.jointPositions(skeleton: skeleton)[.root]!.y
+        case .palms:
+            let frames = pose.jointFrames(skeleton: skeleton)
+            let left = frames[.leftWrist]!
+            let right = frames[.rightWrist]!
+            let leftPalm = left.position + left.rotation.rotate(MascotGrip.palmOffset)
+            let rightPalm = right.position + right.rotation.rotate(MascotGrip.palmOffset)
+            return (leftPalm.y + rightPalm.y) / 2
+        }
+    }
+
     @Test(arguments: MascotMoves.all.map(\.exerciseName))
     func bodyNeverPassesThroughItself(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
@@ -41,7 +88,7 @@ import Foundation
         // Unilateral moves are asymmetric BY DESIGN — the calf raise
         // stands on one leg (the exemption round 2 promised its first
         // asymmetric move).
-        guard name != "Single-Leg Calf Raise" else { return }
+        guard name != "Single-Leg Calf Raise", name != "Reverse Lunge" else { return }
         for keyframes in [animation.repKeyframes, animation.restBeat.keyframes] {
             for keyframe in keyframes {
                 for joint in MascotJoint.allCases where joint.mirrored != joint && "\(joint)".hasPrefix("left") {
@@ -56,7 +103,7 @@ import Foundation
         }
     }
 
-    @Test(arguments: ["Squat", "Deadlift", "Bench Press"])
+    @Test(arguments: ["Squat", "Deadlift", "Bench Press", "Overhead Press", "Barbell Row"])
     func theBarStaysLevel(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         let maxTilt = sin(3.0 * .pi / 180)
@@ -90,23 +137,12 @@ import Foundation
         #expect(worst <= 8, "\(name): peak joint speed \(worst) rad/s")
     }
 
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise", "Bench Press"])
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise", "Bench Press", "Lateral Raise", "Sit-Up", "Overhead Press", "Barbell Row", "Goblet Squat", "Kettlebell Swing", "Reverse Lunge", "Glute Bridge", "Pull-Up"])
     func effortPeaksWhileTheLoadRises(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         let repShare = animation.repDuration / animation.cycleDuration
-        // Load height: the palms for weighted moves, the chest for the
-        // push-up (the body IS the load).
         func loadHeight(at t: Double) -> Double {
-            let pose = animation.pose(at: t)
-            if animation.props.isEmpty {
-                return pose.jointPositions(skeleton: Self.skeleton)[.chest]!.y
-            }
-            let frames = pose.jointFrames(skeleton: Self.skeleton)
-            let left = frames[.leftWrist]!
-            let right = frames[.rightWrist]!
-            let leftPalm = left.position + left.rotation.rotate(MascotGrip.palmOffset)
-            let rightPalm = right.position + right.rotation.rotate(MascotGrip.palmOffset)
-            return (leftPalm.y + rightPalm.y) / 2
+            Self.loadHeight(animation, pose: animation.pose(at: t))
         }
         var peak = (effort: -Double.infinity, t: 0.0)
         for i in 0...200 {
@@ -148,6 +184,10 @@ import Foundation
     @Test(arguments: MascotMoves.all.map(\.exerciseName))
     func somethingAlwaysTouchesTheGround(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
+        // A hanging move's support is the BAR, not the ground — it
+        // owes the hang invariant (hands on the bar, feet clear)
+        // instead.
+        guard !animation.dynamics.hangsFromBar else { return }
         for i in 0...400 {
             let t = Double(i) / 400
             // A move that declares airborne windows (a jump) is exempt
@@ -157,6 +197,47 @@ import Foundation
             let closest = Self.closestGroundContact(animation.pose(at: t))
             #expect(closest <= 0.02, "\(name): airborne at t=\(t) (closest contact \(closest))")
         }
+    }
+
+    /// The hang law (the pull-up bar is the first FIXED grip): a move
+    /// that declares `hangsFromBar` keeps both palms ON the bar's
+    /// world line at every sample — rest beat included — and nothing
+    /// touches the floor (a hanging body that grounds a toe is a
+    /// different exercise). Runs over every move and keys on the
+    /// declaration, so future hanging moves inherit it for free.
+    @Test(arguments: MascotMoves.all.map(\.exerciseName))
+    func hangingMovesKeepHandsOnTheBar(name: String) throws {
+        let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
+        guard animation.dynamics.hangsFromBar else { return }
+        #expect(animation.props.contains(.pullUpBar), "\(name): hangs but carries no bar")
+        var xMin = Double.infinity
+        var xMax = -Double.infinity
+        for i in 0...400 {
+            let t = Double(i) / 400
+            let pose = animation.pose(at: t)
+            let frames = pose.jointFrames(skeleton: Self.skeleton)
+            for wrist in [MascotJoint.leftWrist, .rightWrist] {
+                guard let frame = frames[wrist] else { continue }
+                let palm = frame.position + frame.rotation.rotate(MascotGrip.palmOffset)
+                let dy = palm.y - MascotSupport.pullUpBarHeight
+                let dz = palm.z
+                let offBar = (dy * dy + dz * dz).squareRoot()
+                #expect(offBar <= 0.008,
+                        "\(name): a palm rides \(offBar * 1000) mm off the bar line at t=\(t)")
+                #expect(abs(palm.x) + MascotGrip.fistRadius <= MascotSupport.pullUpBarHalfLength,
+                        "\(name): a hand hangs past the bar's end at t=\(t)")
+                if wrist == .leftWrist {
+                    xMin = min(xMin, palm.x)
+                    xMax = max(xMax, palm.x)
+                }
+            }
+            let closest = Self.closestGroundContact(pose)
+            #expect(closest > 0.02, "\(name): a hanging move touches the floor at t=\(t)")
+        }
+        // The barbell's one-station law, inherited by the fixed bar: a
+        // hand may not slide along it mid-rep.
+        #expect(xMax - xMin <= 0.008,
+                "\(name): the hand slides \((xMax - xMin) * 1000) mm along the bar")
     }
 
     @Test(arguments: MascotMoves.all.map(\.exerciseName))
@@ -188,21 +269,15 @@ import Foundation
     /// — its peak downward speed stays comfortably under its peak
     /// upward speed, i.e. the eccentric is the slow half. Textbook
     /// tempo, enforced (holds are exempt: nothing travels).
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise", "Bench Press"])
+    // The Kettlebell Swing is deliberately absent: its drop RIDES
+    // gravity into the hike — a fast eccentric is the movement, not a
+    // form fault.
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise", "Bench Press", "Lateral Raise", "Sit-Up", "Overhead Press", "Barbell Row", "Goblet Squat", "Reverse Lunge", "Glute Bridge", "Pull-Up"])
     func theEccentricIsControlled(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         let workShare = animation.workDuration / animation.cycleDuration
         func loadHeight(at t: Double) -> Double {
-            let pose = animation.pose(at: t)
-            if animation.props.isEmpty {
-                return pose.jointPositions(skeleton: Self.skeleton)[.chest]!.y
-            }
-            let frames = pose.jointFrames(skeleton: Self.skeleton)
-            let left = frames[.leftWrist]!
-            let right = frames[.rightWrist]!
-            let leftPalm = left.position + left.rotation.rotate(MascotGrip.palmOffset)
-            let rightPalm = right.position + right.rotation.rotate(MascotGrip.palmOffset)
-            return (leftPalm.y + rightPalm.y) / 2
+            Self.loadHeight(animation, pose: animation.pose(at: t))
         }
         let samples = 400
         let dt = animation.cycleDuration * workShare / Double(samples)
@@ -228,7 +303,7 @@ import Foundation
     /// bottom of its travel, one at the top. An eased turnaround
     /// without a dwell only grazes zero speed for an instant, so the
     /// window-length bar separates a real pause from a slow reversal.
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise", "Bench Press"])
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise", "Bench Press", "Lateral Raise", "Sit-Up", "Overhead Press", "Barbell Row", "Goblet Squat", "Kettlebell Swing", "Reverse Lunge", "Glute Bridge", "Pull-Up"])
     func everyRepPausesAtItsTurnarounds(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         let repShare = animation.repDuration / animation.cycleDuration
@@ -266,15 +341,7 @@ import Foundation
         // The pauses must SEAT at the turnarounds: the load's lowest
         // and highest points each live inside a pause window.
         func loadHeight(_ pose: MascotPose) -> Double {
-            if animation.props.isEmpty {
-                return pose.jointPositions(skeleton: Self.skeleton)[.chest]!.y
-            }
-            let frames = pose.jointFrames(skeleton: Self.skeleton)
-            let left = frames[.leftWrist]!
-            let right = frames[.rightWrist]!
-            let leftPalm = left.position + left.rotation.rotate(MascotGrip.palmOffset)
-            let rightPalm = right.position + right.rotation.rotate(MascotGrip.palmOffset)
-            return (leftPalm.y + rightPalm.y) / 2
+            Self.loadHeight(animation, pose: pose)
         }
         let heights = poses.map(loadHeight)
         let lowest = heights.min()!

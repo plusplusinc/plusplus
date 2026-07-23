@@ -72,10 +72,23 @@ public struct MascotCue: Equatable, Sendable {
 public enum MascotProp: String, CaseIterable, Sendable {
     case barbell
     case dumbbellPair
+    /// ONE kettlebell held in BOTH hands (the swing): a short handle
+    /// spanning the palms with the bell hanging off it along the
+    /// arms' line — the scale-out round's first kettlebell.
+    case kettlebell
+    /// ONE dumbbell held VERTICALLY in both hands at the chest (the
+    /// goblet hold): the handle runs along the forearms' mean line,
+    /// heads above and below the cupped hands.
+    case gobletDumbbell
     /// A flat bench (the support class's first member): the bot lies ON
     /// it, so its pad joins the collision sweep and the bench-contact
     /// invariant proves the five points of contact.
     case flatBench
+    /// The overhead pull-up bar: world-FIXED support (geometry in
+    /// `MascotSupport`, like the bench) that the bot hangs FROM — the
+    /// one prop whose position never derives from the hands; the hands
+    /// go to it.
+    case pullUpBar
 }
 
 /// The physical context a move declares beyond its pose stream — the
@@ -92,17 +105,34 @@ public struct MascotDynamics: Equatable, Sendable {
     /// something-touches-the-ground invariant skips them; the ballistic
     /// invariant takes over inside them.
     public var airborneWindows: [ClosedRange<Double>]
-    /// The hands carry body weight on the floor (push-up, plank): the
-    /// renderer lays the fingers flat instead of the relaxed half-curl,
-    /// and the palm contact pads are expected AT the ground.
+    /// The hands carry body weight FLAT on the floor (push-up): the
+    /// hand is the planted flat palm — fingers extended forward, palm
+    /// contact pads expected AT the ground.
     public var handsBearWeight: Bool
+    /// The FOREARMS carry the weight (forearm plank): the elbows and
+    /// forearms rest on the floor and the hands ride as relaxed
+    /// NEUTRAL FISTS — thumb side up, pinky edge near the ground. The
+    /// anatomically honest floor hand for an elbow-supported move:
+    /// palm-down there would demand more pronation than a horizontal
+    /// forearm has (the hand round's census proved it unreachable).
+    public var forearmsBearWeight: Bool
+    /// The body HANGS from the fixed overhead bar (pull-up, hanging
+    /// leg raise): nothing touches the ground and the HANDS are the
+    /// support. The grounded invariant stands down and the hang
+    /// invariant takes over — palms stay ON the bar's fixed line,
+    /// feet stay clear of the floor.
+    public var hangsFromBar: Bool
 
     public init(
         airborneWindows: [ClosedRange<Double>] = [],
-        handsBearWeight: Bool = false
+        handsBearWeight: Bool = false,
+        forearmsBearWeight: Bool = false,
+        hangsFromBar: Bool = false
     ) {
         self.airborneWindows = airborneWindows
         self.handsBearWeight = handsBearWeight
+        self.forearmsBearWeight = forearmsBearWeight
+        self.hangsFromBar = hangsFromBar
     }
 
     /// Grounded throughout — every non-jumping move.

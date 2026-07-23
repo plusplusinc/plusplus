@@ -104,6 +104,27 @@ public enum MascotPoseBuilder {
         return adjusted
     }
 
+    /// Solves the root translation so the MEAN PALM lands exactly on
+    /// the fixed pull-up bar's line (y and z; x stays authored — the
+    /// stations along the bar are the pose's own grip width). The hang
+    /// counterpart of `plantingFeet`: author the hanging shape, let
+    /// this put the hands ON the bar; the wrap orientation is the
+    /// authored wrist's job — the grip-axis law covers a hanging
+    /// move's alignment, but the barbell thumb-chirality law does NOT
+    /// run on the fixed bar (an overhead wrap reaches the bar through
+    /// a different spin chain; its thumb read is a device-pass item).
+    public static func hangingFromTheBar(_ pose: MascotPose, skeleton: MascotSkeleton = .standard) -> MascotPose {
+        let frames = pose.jointFrames(skeleton: skeleton)
+        guard let left = frames[.leftWrist], let right = frames[.rightWrist] else { return pose }
+        let leftPalm = left.position + left.rotation.rotate(MascotGrip.palmOffset)
+        let rightPalm = right.position + right.rotation.rotate(MascotGrip.palmOffset)
+        let mean = 0.5 * (leftPalm + rightPalm)
+        var adjusted = pose
+        adjusted.rootTranslation.y += MascotSupport.pullUpBarHeight - mean.y
+        adjusted.rootTranslation.z += 0 - mean.z
+        return adjusted
+    }
+
     /// Solves the root translation so the given joints land (in the
     /// least-squares mean) on explicit world targets — how floor work
     /// pins hands and toes to the ground.
@@ -123,6 +144,214 @@ public enum MascotPoseBuilder {
         var adjusted = pose
         adjusted.rootTranslation = adjusted.rootTranslation + delta
         return adjusted
+    }
+
+    /// Orients both PLANTED flat hands onto the floor: the palm plane
+    /// faces straight down and the fingers extend forward (+z, the
+    /// direction floor moves face). Solved as a damped Gauss-Newton
+    /// over the WHOLE left arm (shoulder 3, elbow pitch/yaw, wrist 3),
+    /// because a flat planted hand is not a wrist-only property: the
+    /// fingers-forward twist is ~180 degrees about the forearm and
+    /// anatomy splits it across humeral rotation at the shoulder plus
+    /// pronation — the `grippingTheBar` split again — and the last
+    /// degrees of palm-down come from the hand PLANTING slightly ahead
+    /// of the shoulder line (`elbowBehind`, the elbow stacked a touch
+    /// behind the wrist): the forearm's continuation then points
+    /// down-and-forward, and the hand only has to bend back 90 minus
+    /// that lean to lie flat — a perfectly vertical forearm would
+    /// demand the full 90 of wrist extension the joint doesn't have,
+    /// and a forward-tipped one even more (the first cut leaned the
+    /// wrong way and pinned every sample on the pitch stop).
+    /// Residuals: the WRIST stays where the move's chain solvers
+    /// planted it (weight 30); the elbow stacks over the wrist fore-
+    /// aft (laterally only a soft preference — a deep rep flares the
+    /// elbows out, and that flare keeps the palm reachable); palm
+    /// normal down; fingers forward-inward (deliberately softer — a
+    /// real loaded hand yields fingers-inward before it yields palm
+    /// contact); a soft pull toward the seed picks one point of the
+    /// null space, smoothly. `wristSeed` picks the basin; shoulder and
+    /// elbow seed from the pose's own smoothly-solved angles, so the
+    /// per-sample map stays continuous. At the DEEP bottom the whole
+    /// twist chain tops out and the palm keeps a residual tilt — the
+    /// move's lowest-point anchoring turns that into the hand rocking
+    /// forward onto its planted fingers, heel proud, which is what a
+    /// loaded hand actually does. Symmetric: solves the left arm,
+    /// mirrors the right.
+    public static func plantingPalms(
+        _ pose: MascotPose,
+        wristSeed: EulerAngles = .deg(pitch: 70),
+        shoulderSpinSeed: (yaw: Double, roll: Double)? = nil,
+        elbowBehind: Double? = 0.04,
+        palmNormal: Vec3? = nil,
+        fingersToward: Vec3? = nil,
+        skeleton: MascotSkeleton = .standard
+    ) -> MascotPose {
+        // Default targets are the FLOOR hand's: palm plane straight
+        // down, fingers forward-INWARD (~40 degrees), like a real
+        // loaded push-up hand — dead-forward fingers plus a flat palm
+        // need ~180 degrees of twist about the forearm, and the whole
+        // anatomical chain (pronation 88 + the elbow's radioulnar 23 +
+        // reachable humeral spin) tops out ~40 short: the census put
+        // the feasibility floor at a 14-19 degree palm TILT with
+        // fingertips hovering off the floor, and a flat palm with
+        // turned-in fingers beats tilted fingers in the air.
+        // `palmNormal`/`fingersToward` override them for the OTHER
+        // flat-hand jobs (the goblet cup wants palms UP under a held
+        // weight — same servo, different plane).
+        let normalTarget = palmNormal ?? Vec3(0, -1, 0)
+        let inward = 40.0 * .pi / 180
+        let fingerTarget = fingersToward ?? Vec3(-Foundation.sin(inward), 0, Foundation.cos(inward))
+
+        let startFrames = pose.jointFrames(skeleton: skeleton)
+        guard let wristHome = startFrames[.leftWrist]?.position else { return pose }
+
+        func applied(_ q: [Double]) -> MascotPose {
+            var next = pose
+            var joints = next.joints
+            joints[.leftShoulder] = EulerAngles(pitch: q[0], yaw: q[1], roll: q[2])
+            joints[.rightShoulder] = EulerAngles(pitch: q[0], yaw: -q[1], roll: -q[2])
+            joints[.leftElbow] = EulerAngles(pitch: q[3], yaw: q[4])
+            joints[.rightElbow] = EulerAngles(pitch: q[3], yaw: -q[4])
+            joints[.leftWrist] = EulerAngles(pitch: q[5], yaw: q[6], roll: q[7])
+            joints[.rightWrist] = EulerAngles(pitch: q[5], yaw: -q[6], roll: -q[7])
+            next.joints = joints
+            return next
+        }
+
+        func residual(_ q: [Double], seed: [Double]) -> [Double]? {
+            let frames = applied(q).jointFrames(skeleton: skeleton)
+            guard let lw = frames[.leftWrist], let le = frames[.leftElbow] else { return nil }
+            let normal = lw.rotation.rotate(Vec3(0, 0, 1))
+            let fingers = lw.rotation.rotate(Vec3(0, -1, 0))
+            // 100, not the grip servo's 30: at the deep bottom the
+            // palm target is genuinely infeasible (residual ~1.0), and
+            // at 30 the solver happily sold 26 mm of planted-wrist
+            // position to shave orientation — hands visibly skating.
+            // The planted spot is non-negotiable; orientation takes
+            // the whole infeasibility instead.
+            let wPos = 100.0
+            let stackX: Double = elbowBehind == nil ? 0 : 0.5 * (le.position.x - lw.position.x)
+            let stackZ: Double = elbowBehind.map { 6.0 * (le.position.z - (lw.position.z - $0)) } ?? 0
+            var r = [
+                wPos * (lw.position.x - wristHome.x),
+                wPos * (lw.position.y - wristHome.y),
+                wPos * (lw.position.z - wristHome.z),
+                // The stack, fore-aft: elbow a touch behind the
+                // planted wrist; height stays free (the flexion the
+                // depth needs). Laterally only a soft preference — a
+                // deep push-up FLARES the elbows outward (the humerus
+                // abducts), and that flare is precisely what keeps the
+                // palm reachable-flat at the bottom: with a sideways
+                // upper arm, palm-down is mostly plain wrist extension
+                // instead of a maxed-out pronation chain. Optional:
+                // non-floor flat hands (the goblet cup) pass nil.
+                stackX,
+                stackZ,
+                normal.x - normalTarget.x,
+                normal.y - normalTarget.y,
+                normal.z - normalTarget.z,
+                0.45 * (fingers.x - fingerTarget.x),
+                0.45 * (fingers.y - fingerTarget.y),
+                0.45 * (fingers.z - fingerTarget.z),
+            ]
+            for i in 0..<q.count {
+                r.append(0.3 * (q[i] - seed[i]))
+            }
+            return r
+        }
+
+        let toRadians = Double.pi / 180
+        // `grippingTheBar`'s left-canonical bounds, EXCEPT wrist
+        // extension, which opens to 90 here — the planted support
+        // hand loads into end-range extension a free grip never needs
+        // (the anatomical table's 92, minus the usual 2 of margin).
+        let bounds: [ClosedRange<Double>] = [
+            (-183 * toRadians)...(58 * toRadians),   // shoulder pitch
+            (-93 * toRadians)...(93 * toRadians),    // shoulder yaw
+            (-23 * toRadians)...(173 * toRadians),   // shoulder roll
+            (-148 * toRadians)...(0),                // elbow pitch
+            (-23 * toRadians)...(23 * toRadians),    // elbow yaw
+            (-78 * toRadians)...(90 * toRadians),    // wrist pitch (loaded extension)
+            (-88 * toRadians)...(88 * toRadians),    // wrist yaw (pronation)
+            (-43 * toRadians)...(43 * toRadians),    // wrist roll
+        ]
+        let shoulder = pose.joints[.leftShoulder] ?? .zero
+        let elbow = pose.joints[.leftElbow] ?? .zero
+        // The shoulder's pitch seeds from the pose (it is the move's
+        // own smoothly-solved channel); its yaw/roll may seed from an
+        // AUTHORED humeral spin — for a hanging arm, spinning about
+        // the bone is nearly free in position but half a turn away in
+        // joint space, and the soft seed anchor won't cross that on
+        // its own (the flat palm's fingers-forward twist lives there).
+        var q = [
+            shoulder.pitch,
+            shoulderSpinSeed?.yaw ?? shoulder.yaw,
+            shoulderSpinSeed?.roll ?? shoulder.roll,
+            elbow.pitch, elbow.yaw,
+            wristSeed.pitch, wristSeed.yaw, wristSeed.roll,
+        ]
+        let seedQ = q
+        let n = 8
+        // Levenberg-Marquardt with BACKTRACKING, not plain damped
+        // Gauss-Newton: near the deep bottom the palm target is
+        // infeasible and several joints ride their stops — a plain
+        // clamped step corner-locks there (the descent direction
+        // points out of bounds on coupled coordinates, the clamp
+        // zeroes it, and iteration freezes 20+ mm from the planted
+        // wrist). Shrinking the step until the residual actually
+        // improves, and raising the damping when nothing does, walks
+        // along the active bounds instead of freezing on them.
+        var lambda = 0.01
+        for _ in 0..<60 {
+            guard let r0 = residual(q, seed: seedQ) else { return pose }
+            let errorSq = r0.reduce(0) { $0 + $1 * $1 }
+            if errorSq < 1e-7 { break }
+            let h = 0.0008
+            var J = [[Double]](repeating: [Double](repeating: 0, count: n), count: r0.count)
+            for j in 0..<n {
+                var qh = q
+                qh[j] += h
+                guard let rh = residual(qh, seed: seedQ) else { return pose }
+                for i in 0..<r0.count {
+                    J[i][j] = (rh[i] - r0[i]) / h
+                }
+            }
+            var A = [[Double]](repeating: [Double](repeating: 0, count: n), count: n)
+            var b = [Double](repeating: 0, count: n)
+            for i in 0..<n {
+                for j in 0..<n {
+                    var sum = 0.0
+                    for k in 0..<r0.count { sum += J[k][i] * J[k][j] }
+                    A[i][j] = sum
+                }
+                A[i][i] += lambda
+                var sum = 0.0
+                for k in 0..<r0.count { sum += J[k][i] * r0[k] }
+                b[i] = -sum
+            }
+            guard let d = Self.solveLinear(A, b) else { break }
+            var stepped = false
+            var scale = 1.0
+            for _ in 0..<6 {
+                var candidate = q
+                for j in 0..<n {
+                    candidate[j] = min(max(q[j] + scale * d[j], bounds[j].lowerBound), bounds[j].upperBound)
+                }
+                if let rc = residual(candidate, seed: seedQ),
+                   rc.reduce(0, { $0 + $1 * $1 }) < errorSq {
+                    q = candidate
+                    stepped = true
+                    lambda = max(lambda / 2, 1e-4)
+                    break
+                }
+                scale /= 2
+            }
+            if !stepped {
+                lambda *= 8
+                if lambda > 1e4 { break }
+            }
+        }
+        return applied(q)
     }
 
     // MARK: - Spans
@@ -190,7 +419,12 @@ public enum MascotPoseBuilder {
         skeleton: MascotSkeleton = .standard
     ) -> MascotPose {
         var candidate = plantingFeet(pose, skeleton: skeleton)
-        for _ in 0..<24 {
+        // 96 steps of 0.0025 rad, not 24 of 0.01: the correction total
+        // is the same, but the QUANTUM matters — with coarse steps,
+        // neighboring baked samples land different integer numbers of
+        // nudges apart, and the ~0.6-degree stair-step reads as shake
+        // on device (Dave's deadlift note).
+        for _ in 0..<96 {
             let frames = candidate.jointFrames(skeleton: skeleton)
             let ankleZ = 0.5 * ((frames[.leftAnkle]?.position.z ?? 0) + (frames[.rightAnkle]?.position.z ?? 0))
 
@@ -217,11 +451,11 @@ public enum MascotPoseBuilder {
             if equipmentTooDeep {
                 for joint in [MascotJoint.leftShoulder, .rightShoulder] {
                     let a = joints[joint] ?? .zero
-                    joints[joint] = EulerAngles(pitch: a.pitch - 0.01, yaw: a.yaw, roll: a.roll)
+                    joints[joint] = EulerAngles(pitch: a.pitch - 0.0025, yaw: a.yaw, roll: a.roll)
                 }
             } else {
                 let spine = joints[.spine] ?? .zero
-                joints[.spine] = EulerAngles(pitch: spine.pitch + 0.01, yaw: spine.yaw, roll: spine.roll)
+                joints[.spine] = EulerAngles(pitch: spine.pitch + 0.0025, yaw: spine.yaw, roll: spine.roll)
             }
             candidate.joints = joints
             candidate = plantingFeet(candidate, skeleton: skeleton)
@@ -229,60 +463,211 @@ public enum MascotPoseBuilder {
         return candidate
     }
 
-    /// The GRIP servo for baked spans: a joint-space lerp between two
-    /// perfectly-gripped endpoints does not keep the hands gripped —
-    /// the wrist orientation that lays the palm channel ON the bar axis
-    /// at the top and at the bottom drifts tens of degrees off it in
-    /// between (the bench press's first bake read 34 degrees at
-    /// mid-press). The fix is ANALYTIC, not searched: pre-rotate the
-    /// left hand by the MINIMAL world rotation carrying its current
-    /// grip axis onto the bar axis (a symmetric pose's palm-to-palm
-    /// axis is exactly world +x for the left hand), then mirror the
-    /// result to the right wrist — so it requires (and preserves) exact
-    /// bilateral symmetry. Minimal-rotation is a continuous map, which
-    /// is the point: a first cut used coordinate descent, and greedy
-    /// search hopping between points of the 2-parameter solution family
-    /// on adjacent baked samples read as an 11 rad/s wrist snap.
-    /// Identity where the grip is already aligned, so authored
-    /// endpoints and pause seams pass through unchanged.
-    public static func aligningGrip(
+    /// The WHOLE-HAND barbell servo (device feedback on the bench
+    /// press: the hands slid 99 mm along the bar — into a plate — and
+    /// the wrap read underhand). A hand holding a barbell keeps ONE
+    /// STATION on it and wraps it OVERHAND; neither survives a
+    /// joint-space lerp, and neither is a wrist-only property:
+    /// flipping the wrap side is ~180 degrees about the forearm, which
+    /// anatomy splits between shoulder internal rotation and forearm
+    /// pronation (with the elbow's radioulnar share carrying the last
+    /// few degrees). So the servo solves the whole LEFT arm — shoulder
+    /// (3), elbow pitch + yaw, wrist (3) — by damped Gauss-Newton
+    /// against:
+    ///   1. palm center at (±station, current y, current z) — the
+    ///      sample's press height is preserved, the slide corrected;
+    ///   2. the grip axis mapped to MINUS x (left thumb INWARD; thumb
+    ///      outward is a supinated/underhand wrap);
+    ///   3. the metacarpals continuing the forearm line (the "wrists
+    ///      stacked" cue — the forearm presses the palm into the bar).
+    /// Seeded from the sample's own lerped angles and regularized to
+    /// stay near them: the minimizer is locally unique, so the map is
+    /// continuous (the wrist-snap lesson — per-sample greedy search is
+    /// not). Endpoints must be authored in the OVERHAND basin, or the
+    /// seed hands the solver the wrong local minimum. The right side is
+    /// the exact sagittal mirror.
+    public static func grippingTheBar(
         _ pose: MascotPose,
+        station: Double,
+        palmTarget: Vec3? = nil,
+        elbowUnderBar: Bool = false,
+        armSeed: (shoulder: EulerAngles, elbow: EulerAngles, wrist: EulerAngles)? = nil,
         skeleton: MascotSkeleton = .standard
     ) -> MascotPose {
-        let frames = pose.jointFrames(skeleton: skeleton)
-        guard let wrist = frames[.leftWrist], let elbow = frames[.leftElbow] else { return pose }
-        let axis = wrist.rotation.rotate(Vec3(1, 0, 0))
-        let c = min(max(axis.x, -1), 1)
-        // Identity gate: authored endpoints pass through untouched so
-        // pause keyframes stay exact copies. (And the Rodrigues form
-        // below degenerates only toward a 180-degree flip, which the
-        // anatomical wrist ranges keep unreachable.)
-        guard Foundation.acos(c) > 0.002, c > -0.999 else { return pose }
+        let toRadians = Double.pi / 180
+        // Left-canonical joint bounds, a couple of degrees inside the
+        // anatomical table. Elbow YAW is a solve variable on purpose:
+        // real forearm rotation is distributed radioulnar, and the
+        // table models part of it at the elbow — the last ~25 degrees
+        // of a full pronation live there when shoulder and wrist have
+        // given all their range (the deadlift bottom and bench touch
+        // both need it).
+        let bounds: [(ClosedRange<Double>)] = [
+            (-183 * toRadians)...(58 * toRadians),   // shoulder pitch
+            (-93 * toRadians)...(93 * toRadians),    // shoulder yaw
+            (-23 * toRadians)...(173 * toRadians),   // shoulder roll
+            (-148 * toRadians)...(0),                // elbow pitch
+            (-23 * toRadians)...(23 * toRadians),    // elbow yaw
+            (-78 * toRadians)...(78 * toRadians),    // wrist pitch
+            (-88 * toRadians)...(88 * toRadians),    // wrist yaw
+            (-43 * toRadians)...(43 * toRadians),    // wrist roll
+        ]
 
-        // Rodrigues: R = I + K + K^2 / (1 + c), for k = axis x target.
-        let k = Vec3(
-            axis.y * 0 - axis.z * 0,
-            axis.z * 1 - axis.x * 0,
-            axis.x * 0 - axis.y * 1
-        )
-        let kMat = Mat3(rows: Vec3(0, -k.z, k.y), Vec3(k.z, 0, -k.x), Vec3(-k.y, k.x, 0))
-        let k2 = kMat * kMat
-        let s = 1.0 / (1 + c)
-        let correction = Mat3(
-            rows: Vec3(1 + kMat.m.0 + s * k2.m.0, kMat.m.1 + s * k2.m.1, kMat.m.2 + s * k2.m.2),
-            Vec3(kMat.m.3 + s * k2.m.3, 1 + kMat.m.4 + s * k2.m.4, kMat.m.5 + s * k2.m.5),
-            Vec3(kMat.m.6 + s * k2.m.6, kMat.m.7 + s * k2.m.7, 1 + kMat.m.8 + s * k2.m.8)
-        )
+        func applied(_ q: [Double]) -> MascotPose {
+            var next = pose
+            var joints = next.joints
+            joints[.leftShoulder] = EulerAngles(pitch: q[0], yaw: q[1], roll: q[2])
+            joints[.rightShoulder] = EulerAngles(pitch: q[0], yaw: -q[1], roll: -q[2])
+            joints[.leftElbow] = EulerAngles(pitch: q[3], yaw: q[4])
+            joints[.rightElbow] = EulerAngles(pitch: q[3], yaw: -q[4])
+            joints[.leftWrist] = EulerAngles(pitch: q[5], yaw: q[6], roll: q[7])
+            joints[.rightWrist] = EulerAngles(pitch: q[5], yaw: -q[6], roll: -q[7])
+            next.joints = joints
+            return next
+        }
 
-        // Conjugate the world-frame correction into the wrist's local
-        // frame and mirror it across the sagittal plane.
-        let newLeft = (elbow.rotation.transposed * (correction * wrist.rotation)).eulerAngles
-        var joints = pose.joints
-        joints[.leftWrist] = newLeft
-        joints[.rightWrist] = EulerAngles(pitch: newLeft.pitch, yaw: -newLeft.yaw, roll: -newLeft.roll)
-        var solved = pose
-        solved.joints = joints
-        return solved
+        /// Residual vector: palm position error (weighted hard), grip
+        /// axis vs -x, hand direction vs the forearm line — plus a
+        /// small pull toward the SEED angles. The last term is what
+        /// makes the per-sample map CONTINUOUS: the arm has a redundant
+        /// degree of freedom (rotations about the shoulder-palm axis
+        /// trade shoulder pitch/yaw/roll at constant everything else),
+        /// and without a preference inside that null space the solver
+        /// bounced between nearby solutions knot to knot — the deadlift
+        /// read as SHAKY on device, shoulder roll flapping ±15 degrees
+        /// between adjacent baked samples. Anchoring softly to the
+        /// smoothly-varying seed picks one point, smoothly.
+        func residual(_ q: [Double], seed: [Double], target: Vec3) -> [Double]? {
+            let frames = applied(q).jointFrames(skeleton: skeleton)
+            guard let lw = frames[.leftWrist], let le = frames[.leftElbow] else { return nil }
+            let palm = lw.position + lw.rotation.rotate(MascotGrip.palmOffset)
+            let grip = lw.rotation.rotate(Vec3(1, 0, 0))
+            let hand = lw.rotation.rotate(Vec3(0, -1, 0))
+            let f = lw.position - le.position
+            let fLength = f.length
+            guard fLength > 1e-9 else { return nil }
+            let fUnit = (1 / fLength) * f
+            let wPos = 30.0, wAxis = 1.0, wHand = 0.7
+            var r = [
+                wPos * (palm.x - target.x),
+                wPos * (palm.y - target.y),
+                wPos * (palm.z - target.z),
+                wAxis * (grip.x - (-1)),
+                wAxis * grip.y,
+                wAxis * grip.z,
+                wHand * (hand.x - fUnit.x),
+                wHand * (hand.y - fUnit.y),
+                wHand * (hand.z - fUnit.z),
+            ]
+            if elbowUnderBar {
+                // The pressing stack: elbow directly under the bar in
+                // the sagittal plane (thumb-in solutions otherwise
+                // wander into flared, elbows-behind shapes).
+                r.append(6.0 * (le.position.z - palm.z))
+            }
+            // Null-space anchor (see above): soft, so the hard
+            // constraints still win by two orders of magnitude.
+            let wSeed = 0.3
+            for i in 0..<q.count {
+                r.append(wSeed * (q[i] - seed[i]))
+            }
+            return r
+        }
+
+        let startFrames = pose.jointFrames(skeleton: skeleton)
+        guard let lw0 = startFrames[.leftWrist] else { return pose }
+        let palm0 = lw0.position + lw0.rotation.rotate(MascotGrip.palmOffset)
+        // Mid-span samples keep their own press height (only the slide
+        // is corrected); endpoint AUTHORING passes the designed target.
+        let target = palmTarget ?? Vec3(station, palm0.y, palm0.z)
+
+        // The Gauss-Newton start point picks the BASIN. By default the
+        // pose's own angles seed it (bench: endpoints authored in the
+        // overhand basin, so lerped samples stay there). A move whose
+        // authored arms serve ANOTHER servo's conventions (the
+        // deadlift's simple hanging arms, which `coordinating` nudges
+        // by shoulder pitch) passes a constant overhand-basin seed
+        // instead — a fixed start plus a smoothly-moving target is a
+        // continuous map, where lerping wildly different Euler shapes
+        // is not.
+        let shoulder = armSeed?.shoulder ?? pose.joints[.leftShoulder] ?? .zero
+        let elbow = armSeed?.elbow ?? pose.joints[.leftElbow] ?? .zero
+        let wrist = armSeed?.wrist ?? pose.joints[.leftWrist] ?? .zero
+        var q = [
+            shoulder.pitch, shoulder.yaw, shoulder.roll,
+            elbow.pitch, elbow.yaw,
+            wrist.pitch, wrist.yaw, wrist.roll,
+        ]
+        let seedQ = q
+
+        let n = 8
+        for _ in 0..<24 {
+            guard let r0 = residual(q, seed: seedQ, target: target) else { return pose }
+            let errorSq = r0.reduce(0) { $0 + $1 * $1 }
+            if errorSq < 1e-7 { break }
+            // Numeric Jacobian: one row per residual (9-10 hard terms
+            // plus the 8 seed anchors), 8 DOF columns.
+            let h = 0.0008
+            var J = [[Double]](repeating: [Double](repeating: 0, count: n), count: r0.count)
+            for j in 0..<n {
+                var qh = q
+                qh[j] += h
+                guard let rh = residual(qh, seed: seedQ, target: target) else { return pose }
+                for i in 0..<r0.count {
+                    J[i][j] = (rh[i] - r0[i]) / h
+                }
+            }
+            // Damped normal equations (JtJ + lambda I) d = -Jt r.
+            var A = [[Double]](repeating: [Double](repeating: 0, count: n), count: n)
+            var b = [Double](repeating: 0, count: n)
+            for i in 0..<n {
+                for j in 0..<n {
+                    var sum = 0.0
+                    for k in 0..<r0.count { sum += J[k][i] * J[k][j] }
+                    A[i][j] = sum
+                }
+                A[i][i] += 0.01
+                var sum = 0.0
+                for k in 0..<r0.count { sum += J[k][i] * r0[k] }
+                b[i] = -sum
+            }
+            guard let d = Self.solveLinear(A, b) else { break }
+            for j in 0..<n {
+                q[j] = min(max(q[j] + d[j], bounds[j].lowerBound), bounds[j].upperBound)
+            }
+        }
+        return applied(q)
+    }
+
+    /// Tiny dense Gaussian elimination with partial pivoting — the
+    /// servo's normal equations. Returns nil on a singular system.
+    static func solveLinear(_ matrix: [[Double]], _ rhs: [Double]) -> [Double]? {
+        let n = rhs.count
+        var a = matrix
+        var b = rhs
+        for col in 0..<n {
+            var pivot = col
+            for row in (col + 1)..<n where abs(a[row][col]) > abs(a[pivot][col]) {
+                pivot = row
+            }
+            guard abs(a[pivot][col]) > 1e-12 else { return nil }
+            if pivot != col {
+                a.swapAt(pivot, col)
+                b.swapAt(pivot, col)
+            }
+            for row in (col + 1)..<n {
+                let factor = a[row][col] / a[col][col]
+                for k in col..<n { a[row][k] -= factor * a[col][k] }
+                b[row] -= factor * b[col]
+            }
+        }
+        var x = [Double](repeating: 0, count: n)
+        for row in stride(from: n - 1, through: 0, by: -1) {
+            var sum = b[row]
+            for k in (row + 1)..<n { sum -= a[row][k] * x[k] }
+            x[row] = sum / a[row][row]
+        }
+        return x
     }
 
     // MARK: - The standard rep cycle
@@ -290,9 +675,12 @@ public enum MascotPoseBuilder {
     /// The shared shape of a loaded rep: descend (the ECCENTRIC —
     /// deliberately slower, that is what "control the negative" means),
     /// pause at the bottom, drive up with the effort spike, settle at
-    /// the top. Endpoints must already be solved (run them through the
-    /// same `solve` first); the pause reuses the exact bottom pose so
-    /// the spline's stillness detection holds.
+    /// the top. `top`/`bottom` may be raw SEEDS: every keyframe that
+    /// shows an endpoint — the span ends, the pause, the final — is
+    /// emitted as `solve(endpoint)`, the SAME pure call each time, so
+    /// pause stillness and the loop seam are bit-exact by determinism
+    /// (an identity-gated solve behaves as before; a always-solving
+    /// servo like `grippingTheBar` no longer needs a gate).
     public static func repCycle(
         top: MascotPose,
         bottom: MascotPose,
@@ -311,15 +699,62 @@ public enum MascotPoseBuilder {
             effortKeys: [(0, topEffort), (1, bottomEffort)],
             solve: solve
         )
-        keyframes.append(MascotKeyframe(t: pauseUntil, pose: bottom, easing: .linear))
+        var pausePose = solve(bottom)
+        pausePose.effort = bottomEffort
+        keyframes.append(MascotKeyframe(t: pauseUntil, pose: pausePose, easing: .linear))
         keyframes.append(contentsOf: span(
             from: bottom, to: top, t0: pauseUntil, t1: driveUntil, steps: steps,
             easing: .easeOut,
             effortKeys: [(0, bottomEffort), (0.45, driveEffort), (1, settleEffort)],
             solve: solve
         ).dropFirst())
-        keyframes.append(MascotKeyframe(t: 1, pose: top))
+        var finalPose = solve(top)
+        finalPose.effort = topEffort
+        keyframes.append(MascotKeyframe(t: 1, pose: finalPose))
         return keyframes
+    }
+
+    // MARK: - The lift-first rep cycle
+
+    /// The concentric-first counterpart of `repCycle`: a readable
+    /// dwell at the bottom (wrapping the loop seam), the lift, a
+    /// squeeze-beat at the top whose effort eases off so the peak
+    /// lands on the rise, and a lower that takes longer than the
+    /// lift. The curl authored this shape first; the lateral raise
+    /// and sit-up proved it is an archetype, so it lives here.
+    /// Pause keyframes are exact pose copies (only effort differs),
+    /// keeping the spline's stillness detection intact.
+    public static func liftCycle(
+        bottom: MascotPose,
+        top: MascotPose,
+        riseUntil: Double = 0.42,
+        squeezeUntil: Double = 0.52,
+        loweringAt: Double = 0.74,
+        loweringLerp: Double = 0.4,
+        bottomEffort: Double,
+        topEffort: Double,
+        squeezeEffort: Double,
+        loweringEffort: Double
+    ) -> [MascotKeyframe] {
+        var bottomKeyed = bottom
+        bottomKeyed.effort = bottomEffort
+        var topKeyed = top
+        topKeyed.effort = topEffort
+        var squeezeEnd = topKeyed
+        squeezeEnd.effort = squeezeEffort
+        var lowering = topKeyed.lerp(to: bottomKeyed, t: loweringLerp)
+        lowering.effort = loweringEffort
+        return [
+            MascotKeyframe(t: 0, pose: bottomKeyed, easing: .hold),
+            MascotKeyframe(t: 0.06, pose: bottomKeyed, easing: .easeInOut),
+            // .linear, not .hold, into the squeeze: it differs in
+            // EFFORT (.hold is only legal between exact copies).
+            MascotKeyframe(t: riseUntil, pose: topKeyed, easing: .linear),
+            MascotKeyframe(t: squeezeUntil, pose: squeezeEnd, easing: .easeInOut),
+            MascotKeyframe(t: loweringAt, pose: lowering, easing: .easeInOut),
+            MascotKeyframe(t: 0.94, pose: bottomKeyed, easing: .hold),
+            MascotKeyframe(t: 1, pose: bottomKeyed),
+        ]
     }
 
     // MARK: - The shared tired beat
@@ -334,11 +769,17 @@ public enum MascotPoseBuilder {
     /// eyes come from the face channel's tiredness cap (level lids —
     /// serene, not droopy). Endpoint poses match the rep loop's
     /// endpoints exactly, so both seams are continuous.
+    /// `solve` re-settles the beat's INTERIOR poses (the phew and the
+    /// exhale) after their deltas are applied — floor moves pass their
+    /// re-anchoring chain so planted hands and toes stay planted while
+    /// the chest lifts (the endpoints are the caller's already-solved
+    /// loop poses and pass through untouched).
     public static func tiredBeat(
         from end: MascotPose,
         to start: MascotPose,
         duration: TimeInterval,
-        settle: Double = 1
+        settle: Double = 1,
+        solve: (MascotPose) -> MascotPose = { $0 }
     ) -> ExerciseAnimation.RestBeat {
         func adding(_ base: MascotPose, _ deltas: [(MascotJoint, EulerAngles)], rootLift: Double, effort: Double) -> MascotPose {
             var pose = base
@@ -357,26 +798,62 @@ public enum MascotPoseBuilder {
             return pose
         }
         // The phew: chin up, chest proud, arms opening a hair outward.
-        let phew = adding(end, [
+        let phew = solve(adding(end, [
             (.neck, .deg(pitch: -7 * settle)),
             (.head, .deg(pitch: -3 * settle)),
             (.chest, .deg(pitch: -4 * settle)),
             (.leftShoulder, .deg(roll: 5 * settle)),
             (.rightShoulder, .deg(roll: -5 * settle)),
-        ], rootLift: -0.006 * settle, effort: 0.06)
+        ], rootLift: -0.006 * settle, effort: 0.06))
         // The slow exhale: the chest eases back down, still tall.
-        let exhale = adding(end, [
+        let exhale = solve(adding(end, [
             (.neck, .deg(pitch: -4 * settle)),
             (.head, .deg(pitch: -2 * settle)),
             (.chest, .deg(pitch: -1 * settle)),
             (.leftShoulder, .deg(roll: 2 * settle)),
             (.rightShoulder, .deg(roll: -2 * settle)),
-        ], rootLift: -0.009 * settle, effort: 0.05)
+        ], rootLift: -0.009 * settle, effort: 0.05))
 
         return ExerciseAnimation.RestBeat(duration: duration, keyframes: [
             MascotKeyframe(t: 0, pose: end, easing: .easeOut),
             MascotKeyframe(t: 0.32, pose: phew, easing: .easeInOut),
             MascotKeyframe(t: 0.62, pose: exhale, easing: .easeInOut),
+            MascotKeyframe(t: 1, pose: start),
+        ])
+    }
+
+    /// The SUPINE tired beat: a clavicle shrug and a sideways glance,
+    /// contacts untouched. The standard phew tips the chin UP — which
+    /// lying down would drive the helmet through the pad or the floor
+    /// (the bench found this; the glute bridge and sit-up confirmed
+    /// it as the archetype's rule). Endpoints are the caller's exact
+    /// loop poses, so both seams stay bit-exact.
+    public static func supineTiredBeat(
+        from end: MascotPose,
+        to start: MascotPose,
+        duration: TimeInterval
+    ) -> ExerciseAnimation.RestBeat {
+        var shrug = end
+        var shrugJoints = shrug.joints
+        for (clavicle, side) in [(MascotJoint.leftClavicle, 1.0), (.rightClavicle, -1.0)] {
+            let current = shrugJoints[clavicle] ?? .zero
+            shrugJoints[clavicle] = EulerAngles(
+                pitch: current.pitch, yaw: current.yaw,
+                roll: current.roll + side * 4 * .pi / 180
+            )
+        }
+        shrug.joints = shrugJoints
+        shrug.effort = 0.08
+        var glance = end
+        var glanceJoints = glance.joints
+        let head = glanceJoints[.head] ?? .zero
+        glanceJoints[.head] = EulerAngles(pitch: head.pitch, yaw: 8 * .pi / 180, roll: head.roll)
+        glance.joints = glanceJoints
+        glance.effort = 0.06
+        return ExerciseAnimation.RestBeat(duration: duration, keyframes: [
+            MascotKeyframe(t: 0, pose: end, easing: .easeInOut),
+            MascotKeyframe(t: 0.35, pose: shrug, easing: .easeInOut),
+            MascotKeyframe(t: 0.7, pose: glance, easing: .easeInOut),
             MascotKeyframe(t: 1, pose: start),
         ])
     }

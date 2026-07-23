@@ -30,7 +30,7 @@ import Foundation
     }
 
     @Test func catalogIntegrity() {
-        #expect(MascotMoves.all.count == 7)
+        #expect(MascotMoves.all.count == 17)
         let names = MascotMoves.all.map(\.exerciseName)
         #expect(Set(names).count == names.count)
         for name in names {
@@ -106,8 +106,12 @@ import Foundation
         // Wrist yaw IS forearm pronation/supination: the forearm's
         // long axis is the wrist frame's local Y, so yaw at the wrist
         // is exactly the hand rotating about the forearm — a human
-        // manages about 90 degrees each way.
-        .leftWrist: (-80...80, -90...90, -45...45),
+        // manages about 90 degrees each way. Pitch is asymmetric:
+        // EXTENSION (positive — the planted flat hand) reaches ~90+
+        // under load in the push-up support position, past the ~80 of
+        // free flexion (the hand round; conservative symmetric 80s
+        // made a flat planted palm unreachable).
+        .leftWrist: (-80...92, -90...90, -45...45),
         // Hip roll: abduction generous, adduction ~20 (a single-leg
         // stance shifts the pelvis over the foot through adduction).
         .leftHip: (-125...25, -40...40, -20...50),
@@ -165,10 +169,16 @@ import Foundation
         }
     }
 
-    @Test(arguments: ["Squat", "Deadlift", "Bench Press"])
+    @Test(arguments: ["Squat", "Deadlift", "Bench Press", "Overhead Press", "Barbell Row", "Pull-Up"])
     func handsActuallyGripTheBar(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
-        let limit = 20.0 * .pi / 180
+        // 25 degrees, not less: a fully PRONATED grip runs the whole
+        // chain to its anatomical stops (shoulder internal rotation +
+        // the elbow's radioulnar share + wrist pronation total just
+        // under the 180-degree wrap flip at some configurations), and
+        // the few degrees left over read as the natural diagonal bar
+        // placement in a real overhand grip.
+        let limit = 25.0 * .pi / 180
         for i in 0...400 {
             let t = Double(i) / 400
             let misalignment = MascotCollision.worstGripMisalignment(pose: animation.pose(at: t))
@@ -177,7 +187,215 @@ import Foundation
         }
     }
 
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl"])
+    /// The grip round's first law (device feedback: the bench hands
+    /// slid 99 mm along the bar mid-press): a hand holding a barbell
+    /// keeps ONE STATION on it — the palm's position along the bar
+    /// axis stays put across the whole cycle, rest beat included.
+    @Test(arguments: ["Squat", "Deadlift", "Bench Press", "Overhead Press", "Barbell Row"])
+    func handsHoldOneStationOnTheBar(name: String) throws {
+        let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
+        var xMin = Double.infinity
+        var xMax = -Double.infinity
+        for i in 0...400 {
+            let t = Double(i) / 400
+            let frames = animation.pose(at: t).jointFrames(skeleton: Self.skeleton)
+            guard let lw = frames[.leftWrist] else { continue }
+            let palm = lw.position + lw.rotation.rotate(MascotGrip.palmOffset)
+            xMin = min(xMin, palm.x)
+            xMax = max(xMax, palm.x)
+        }
+        #expect(xMax - xMin <= 0.008,
+                "\(name): the hand slides \((xMax - xMin) * 1000) mm along the bar (\(xMin)...\(xMax))")
+    }
+
+    /// The grip round's second law — PHYSICS: a hand can never
+    /// intersect a weight plate. The plate's inner face is a disc at
+    /// plateOffset - plateHalfWidth along the bar; the whole fist stays
+    /// axially inside it. (The capsule sweep cannot police this — hands
+    /// are exempt there because gripping the SHAFT is correct contact —
+    /// and its plate capsules bulge hemispherically along the axis,
+    /// overstating a real plate's flat face.)
+    @Test(arguments: ["Squat", "Deadlift", "Bench Press", "Overhead Press", "Barbell Row"])
+    func handsNeverTouchThePlates(name: String) throws {
+        let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
+        let plateInner = MascotGrip.plateOffset - MascotGrip.plateHalfWidth
+        for i in 0...400 {
+            let t = Double(i) / 400
+            let frames = animation.pose(at: t).jointFrames(skeleton: Self.skeleton)
+            guard let lw = frames[.leftWrist] else { continue }
+            let palm = lw.position + lw.rotation.rotate(MascotGrip.palmOffset)
+            let clearance = plateInner - (abs(palm.x) + MascotGrip.fistRadius)
+            #expect(clearance > 0,
+                    "\(name): the fist is \(-clearance * 1000) mm into the plate face at t=\(t)")
+        }
+    }
+
+    /// The grip round's third law: every barbell move here grips
+    /// PRONATED (overhand) — the left thumb points INWARD along the
+    /// bar (thumb-out is a supinated wrap, the underhand read from the
+    /// bench device pass), and the metacarpals broadly continue the
+    /// forearm rather than folding off it.
+    @Test(arguments: ["Squat", "Deadlift", "Bench Press", "Overhead Press", "Barbell Row"])
+    func theGripIsOverhand(name: String) throws {
+        let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
+        for i in 0...400 {
+            let t = Double(i) / 400
+            let frames = animation.pose(at: t).jointFrames(skeleton: Self.skeleton)
+            guard let lw = frames[.leftWrist], let le = frames[.leftElbow] else { continue }
+            let thumb = lw.rotation.rotate(Vec3(1, 0, 0))
+            #expect(thumb.x <= -0.85,
+                    "\(name): the left thumb points \(thumb.x) along +x at t=\(t) (overhand needs it inward)")
+            let hand = lw.rotation.rotate(Vec3(0, -1, 0))
+            let f = lw.position - le.position
+            let fLength = f.length
+            guard fLength > 1e-9 else { continue }
+            let along = (hand.x * f.x + hand.y * f.y + hand.z * f.z) / fLength
+            #expect(along >= 0.4,
+                    "\(name): the hand folds \(along) off the forearm line at t=\(t)")
+        }
+    }
+
+    /// The hand round's PHYSICS law (Dave, from the curl device pass:
+    /// "the fingers are going straight through the dumbbell handles.
+    /// This sort of stuff should be impossible."): the `MascotHand`
+    /// finger/palm/thumb capsules — the SAME geometry the renderer
+    /// meshes — never pierce the thing they grip. The wrap is tangent
+    /// by construction; what this bounds is the residual the grip
+    /// servo's diagonal-grip allowance can add (skew shifts the bar
+    /// within an outer finger's wrap plane), which must stay a
+    /// grip-pressure graze, never a pass-through.
+    ///
+    /// Runs over EVERY move and keys on `MascotHand.state(for:)` — the
+    /// same rule that gives a move its hand pixels gives it this
+    /// proof, so a future gripped move can never render a fist without
+    /// inheriting the law (review catch: a hardcoded move list here
+    /// was a silent coverage hole waiting for move #8).
+    @Test(arguments: MascotMoves.all.map(\.exerciseName))
+    func handsNeverPierceWhatTheyHold(name: String) throws {
+        let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
+        let state = MascotHand.state(for: animation)
+        switch state {
+        case .gripped, .cupped: break
+        default: return
+        }
+        let isDumbbell = animation.props.contains(.dumbbellPair)
+        for i in 0...400 {
+            let t = Double(i) / 400
+            let pose = animation.pose(at: t)
+            let frames = pose.jointFrames(skeleton: Self.skeleton)
+            let equipment = MascotCollision.equipmentCapsules(
+                pose: pose, props: animation.props, skeleton: Self.skeleton
+            )
+            for (wrist, side) in [(MascotJoint.leftWrist, 1.0), (.rightWrist, -1.0)] {
+                guard let frame = frames[wrist] else { continue }
+                let palm = frame.position + frame.rotation.rotate(MascotGrip.palmOffset)
+                let axis = frame.rotation.rotate(Vec3(1, 0, 0))
+                for capsule in MascotHand.capsules(state: state, side: side, wrist: frame) {
+                    // Everything a hand can hold: bar shafts, every
+                    // handle (the kettlebell's is "kettlebellHandle" —
+                    // a bare hasPrefix("handle") silently skipped it,
+                    // swift-reviewer catch), and the kettlebell's
+                    // round bell. Goblet and dumbbell HEADS are flat
+                    // discs the capsule model bulges hemispherically —
+                    // they get face-plane checks instead (below; the
+                    // cupped palm legitimately rests ON the top face).
+                    for item in equipment where item.name.hasPrefix("bar")
+                        || item.name.lowercased().contains("handle")
+                        || item.name.contains("Bell") {
+                        let distance = mascotSegmentDistance(capsule.from, capsule.to, item.from, item.to)
+                        let depth = (capsule.radius + item.radius) - distance
+                        #expect(depth <= 0.006,
+                                "\(name): \(capsule.name) is \(depth * 1000) mm into \(item.name) at t=\(t)")
+                    }
+                    // Dumbbell HEADS are flat discs; the capsule model
+                    // bulges them hemispherically, so bound the hand's
+                    // reach along the handle axis against the face
+                    // plane instead (the plates test's logic).
+                    guard isDumbbell else { continue }
+                    let faceInner = MascotGrip.dumbbellHeadOffset - MascotGrip.dumbbellHeadHalfWidth
+                    for end in [capsule.from, capsule.to] {
+                        let rel = end - palm
+                        let axial = abs(rel.x * axis.x + rel.y * axis.y + rel.z * axis.z) + capsule.radius
+                        #expect(axial < faceInner,
+                                "\(name): \(capsule.name) reaches \(axial * 1000) mm along the handle (face at \(faceInner * 1000)) at t=\(t)")
+                    }
+                }
+            }
+        }
+    }
+
+    /// The planted flat hand (push-up) RESTS on the floor: nothing
+    /// pierces, the hand is never airborne, and the fingers stay
+    /// extended forward along the ground — whatever residual tilt the
+    /// arm's anatomy leaves at depth shows up as the hand rocking onto
+    /// its planted fingers, never as fingertips underground or a
+    /// hovering palm (the hand round: the old curled-fist floor hands
+    /// read as puppy-paws with fingertips dug in). Coverage keys on
+    /// `MascotHand.state(for:)` over every move — pixels and proof
+    /// share one rule.
+    @Test(arguments: MascotMoves.all.map(\.exerciseName))
+    func plantedHandsRestFlatOnTheFloor(name: String) throws {
+        let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
+        guard MascotHand.state(for: animation) == .planted else { return }
+        let workShare = animation.workDuration / animation.cycleDuration
+        for i in 0...400 {
+            let t = Double(i) / 400
+            let frames = animation.pose(at: t).jointFrames(skeleton: Self.skeleton)
+            for (wrist, side) in [(MascotJoint.leftWrist, 1.0), (.rightWrist, -1.0)] {
+                guard let frame = frames[wrist] else { continue }
+                var lowest = Double.infinity
+                for capsule in MascotHand.capsules(state: .planted, side: side, wrist: frame) {
+                    let bottom = min(capsule.from.y, capsule.to.y) - capsule.radius
+                    #expect(bottom >= -0.003,
+                            "\(name): \(capsule.name) is \(-bottom * 1000) mm under the floor at t=\(t)")
+                    lowest = min(lowest, bottom)
+                }
+                if t <= workShare * 0.999 {
+                    #expect(lowest <= 0.010,
+                            "\(name): the hand hovers \(lowest * 1000) mm off the floor at t=\(t)")
+                }
+                for segment in MascotHand.segments(state: .planted, side: side) where segment.role == .finger {
+                    let direction = MascotHand.fingerDirection(of: segment, wrist: frame)
+                    #expect(direction.z >= 0.6 && abs(direction.y) <= 0.35,
+                            "\(name): fingers point (\(direction.x), \(direction.y), \(direction.z)) at t=\(t) — not extended along the floor")
+                }
+            }
+        }
+    }
+
+    /// A forearm-supported move's hands are relaxed NEUTRAL FISTS
+    /// continuing the forearms — pinky edge riding the floor, thumb
+    /// side up, never piercing and never floating away (palm-down
+    /// there would demand more pronation than a horizontal forearm
+    /// has). Coverage keys on `MascotHand.state(for:)` over every
+    /// move — pixels and proof share one rule.
+    @Test(arguments: MascotMoves.all.map(\.exerciseName))
+    func plankFistsRideTheFloor(name: String) throws {
+        let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
+        guard MascotHand.state(for: animation) == .fist else { return }
+        for i in 0...400 {
+            let t = Double(i) / 400
+            let frames = animation.pose(at: t).jointFrames(skeleton: Self.skeleton)
+            for (wrist, side) in [(MascotJoint.leftWrist, 1.0), (.rightWrist, -1.0)] {
+                guard let frame = frames[wrist] else { continue }
+                var lowest = Double.infinity
+                var thumbBottom = Double.infinity
+                for capsule in MascotHand.capsules(state: .fist, side: side, wrist: frame) {
+                    let bottom = min(capsule.from.y, capsule.to.y) - capsule.radius
+                    lowest = min(lowest, bottom)
+                    if capsule.name.hasSuffix("thumb") {
+                        thumbBottom = min(thumbBottom, bottom)
+                    }
+                }
+                #expect(lowest >= -0.003 && lowest <= 0.010,
+                        "\(name): the fist's lowest surface is at \(lowest * 1000) mm at t=\(t)")
+                #expect(thumbBottom >= lowest + 0.02,
+                        "\(name): the thumb rides \(thumbBottom * 1000) mm — not thumb-side-up at t=\(t)")
+            }
+        }
+    }
+
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Lateral Raise", "Overhead Press", "Barbell Row", "Goblet Squat", "Kettlebell Swing"])
     func standingMovesKeepFeetPlanted(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         let reference = animation.pose(at: 0).jointPositions(skeleton: Self.skeleton)
@@ -194,7 +412,7 @@ import Foundation
         }
     }
 
-    @Test(arguments: ["Squat", "Deadlift", "Bench Press"])
+    @Test(arguments: ["Squat", "Deadlift", "Bench Press", "Overhead Press", "Barbell Row"])
     func barbellWristsStaySymmetric(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         #expect(animation.props.contains(.barbell))
@@ -288,7 +506,7 @@ import Foundation
 
     // MARK: - Physics (build-80 device feedback: "all motion respects physics")
 
-    @Test(arguments: ["Push-Up", "Plank"])
+    @Test(arguments: ["Push-Up", "Plank", "Glute Bridge", "Sit-Up"])
     func floorMovesKeepToesOnTheGround(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         // Sole TOE corners (indices 0 and 2: left toe, right toe) — the
@@ -324,7 +542,7 @@ import Foundation
         return 0.5 * (leftPalm + rightPalm)
     }
 
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Single-Leg Calf Raise"])
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Single-Leg Calf Raise", "Lateral Raise", "Overhead Press", "Barbell Row", "Goblet Squat", "Kettlebell Swing", "Jump Squat"])
     func standingMovesStayBalancedOverTheFeet(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         // The support polygon is computed from what is ACTUALLY in
@@ -334,9 +552,19 @@ import Foundation
         // (dynamic balance — deceleration loads the edge); held
         // positions are strict.
         func expectBalanced(at t: Double, pad: Double, label: String) {
+            // A declared airborne window has no support polygon to be
+            // inside — the ballistic law owns it.
+            guard !animation.isAirborne(at: t) else { return }
             let pose = animation.pose(at: t)
             guard let polygon = MascotBalance.supportPolygon(pose: pose) else {
-                Issue.record("\(name): nothing touches the ground at \(label)")
+                // A jumping move's launch/landing spans hover the
+                // soles millimeters up on their way to declared
+                // flight — no contact means no polygon to be inside,
+                // and the ballistic law owns the flight itself. Any
+                // OTHER move with no ground contact is a bug.
+                if animation.dynamics.airborneWindows.isEmpty {
+                    Issue.record("\(name): nothing touches the ground at \(label)")
+                }
                 return
             }
             let com = MascotBalance.centerOfMass(pose: pose, props: animation.props)
@@ -398,7 +626,7 @@ import Foundation
         }
     }
 
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Bench Press"])
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Bench Press", "Lateral Raise", "Overhead Press", "Barbell Row", "Goblet Squat", "Pull-Up", "Kettlebell Swing", "Reverse Lunge"])
     func equipmentNeverPassesThroughTheBody(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         #expect(!animation.props.isEmpty)
@@ -559,7 +787,11 @@ import Foundation
         #expect(lock.center.y - shoulder.y >= 0.33, "lockout short of full reach: \(lock.center.y - shoulder.y)")
         #expect(abs(lock.center.z - shoulder.z) <= 0.03,
                 "bar not stacked over the shoulders: \(lock.center.z) vs \(shoulder.z)")
-        #expect(lock.elbowPitch >= -12, "elbows stay bent at lockout: \(lock.elbowPitch)")
+        // -20, not -12: holding full pronation (the overhand grip) at
+        // this grip width costs the last few degrees of elbow
+        // extension, and a SOFT lockout is the safer textbook anyway
+        // (hyperextension is the fault worth teaching against).
+        #expect(lock.elbowPitch >= -20, "elbows stay bent at lockout: \(lock.elbowPitch)")
         #expect(lock.center.y - touch.center.y >= 0.24, "full range of motion: travel \(lock.center.y - touch.center.y)")
     }
 
@@ -619,9 +851,14 @@ import Foundation
             let positions = pushUp.pose(at: t).jointPositions(skeleton: Self.skeleton)
             for wrist in [MascotJoint.leftWrist, .rightWrist] {
                 let p = positions[wrist]!
-                #expect(p.y >= 0 && p.y <= 0.07, "hands on the floor at t=\(t): y=\(p.y)")
-                let drift = p.distance(to: reference[wrist]!)
-                #expect(drift < 0.03, "hands planted at t=\(t): drift \(drift)")
+                // The wrist RISES by design at depth: the hand rocks
+                // onto its planted fingers as the arm's twist chain
+                // tops out, so height is generous while the planted
+                // spot itself (x, z) must not slide.
+                #expect(p.y >= 0 && p.y <= 0.09, "hands on the floor at t=\(t): y=\(p.y)")
+                let ref = reference[wrist]!
+                let slide = ((p.x - ref.x) * (p.x - ref.x) + (p.z - ref.z) * (p.z - ref.z)).squareRoot()
+                #expect(slide < 0.02, "hands planted at t=\(t): slide \(slide)")
             }
         }
         // The body inclines: head end higher than the feet.

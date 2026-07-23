@@ -22,6 +22,13 @@ public enum MascotBalance {
     ]
     /// The demo barbell (small lathe plates — a teaching bar).
     public static let barMass = 2.0
+    /// The other held demo props, same teaching-weight scale. The
+    /// dumbbell pair joined the mass model in the scale-out round —
+    /// it was weightless before, which flattered any move that swings
+    /// dumbbells away from the body line.
+    public static let kettlebellMass = 2.4
+    public static let gobletMass = 1.6
+    public static let dumbbellPairMass = 1.6
 
     /// The support polygon: x/z extents of every contact point
     /// currently ON the ground (sole corners and palm pads within the
@@ -80,6 +87,41 @@ public enum MascotBalance {
             let rightPalm = right.position + right.rotation.rotate(MascotGrip.palmOffset)
             moment = moment + barMass * (0.5 * (leftPalm + rightPalm))
             mass += barMass
+        }
+        // The other HELD props hang their mass where the mass actually
+        // IS: the goblet and dumbbell pair at the palm midpoint (their
+        // mass straddles the hands), the kettlebell at the BELL —
+        // 82 mm off the handle along the hang direction, which at the
+        // swing's float is fully horizontal-forward; a palm-anchored
+        // model flattered the proven balance there (swift-reviewer
+        // catch). Fixed props (bench, pull-up bar) carry no body-borne
+        // mass.
+        let heldMasses: [(MascotProp, Double)] = [
+            (.kettlebell, kettlebellMass),
+            (.gobletDumbbell, gobletMass),
+            (.dumbbellPair, dumbbellPairMass),
+        ]
+        for (prop, propMass) in heldMasses where props.contains(prop) {
+            guard let left = frames[.leftWrist], let right = frames[.rightWrist] else { continue }
+            let leftPalm = left.position + left.rotation.rotate(MascotGrip.palmOffset)
+            let rightPalm = right.position + right.rotation.rotate(MascotGrip.palmOffset)
+            var anchor = 0.5 * (leftPalm + rightPalm)
+            if prop == .kettlebell {
+                // The bell hangs off the handle along the hands' mean
+                // fist line, orthogonalized to the handle axis — the
+                // same construction as the collision capsule.
+                let span = leftPalm - rightPalm
+                let spanLength = span.length
+                let axis = spanLength > 1e-6 ? (1 / spanLength) * span : Vec3(1, 0, 0)
+                let handDown = 0.5 * (left.rotation.rotate(Vec3(0, -1, 0)) + right.rotation.rotate(Vec3(0, -1, 0)))
+                let axialPart = handDown.x * axis.x + handDown.y * axis.y + handDown.z * axis.z
+                var hang = handDown - axialPart * axis
+                let hangLength = hang.length
+                hang = hangLength > 1e-6 ? (1 / hangLength) * hang : Vec3(0, -1, 0)
+                anchor = anchor + MascotGrip.kettlebellBellDrop * hang
+            }
+            moment = moment + propMass * anchor
+            mass += propMass
         }
         return (1.0 / mass) * moment
     }

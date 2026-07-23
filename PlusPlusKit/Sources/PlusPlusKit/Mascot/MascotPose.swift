@@ -32,6 +32,12 @@ public struct MascotPose: Equatable, Sendable {
     }
 
     public func lerp(to other: MascotPose, t: Double) -> MascotPose {
+        // Exact endpoints: floating point's a + (b - a) need not equal
+        // b bitwise, and the baked-span machinery counts on span ends
+        // being the SAME value as the endpoint pose (pause stillness
+        // and loop seams are proven to 1e-9).
+        if t == 0 { return self }
+        if t == 1 { return other }
         var blended: [MascotJoint: EulerAngles] = [:]
         for joint in Set(joints.keys).union(other.joints.keys) {
             blended[joint] = angles(joint).lerp(to: other.angles(joint), t: t)

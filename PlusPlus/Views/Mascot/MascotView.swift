@@ -67,10 +67,17 @@ struct MascotView: View {
         static func framing(for animation: ExerciseAnimation, mode: Mode) -> OrbitState {
             let bodyPitch = animation.restingPose.rootRotation.pitch
             var state: OrbitState
-            if bodyPitch > .pi / 4 {
+            if animation.dynamics.hangsFromBar {
+                // Hanging moves live UP at the fixed bar (1.38 m):
+                // frame the whole body plus the bar, pulled back.
+                state = OrbitState(azimuth: 0.32, elevation: 0.18, radius: 2.1, target: [0, 0.95, 0])
+            } else if bodyPitch > .pi / 4 {
                 state = OrbitState(azimuth: 1.15, elevation: 0.5, radius: 1.55, target: [0, 0.22, 0])
             } else if bodyPitch < -.pi / 4 {
-                state = OrbitState(azimuth: 1.1, elevation: 0.42, radius: 1.7, target: [0, 0.38, 0])
+                // Supine: bench height when there is a bench, floor
+                // height for the floor-lying moves (bridge, sit-up).
+                let supineY: Float = animation.props.contains(.flatBench) ? 0.38 : 0.24
+                state = OrbitState(azimuth: 1.1, elevation: 0.42, radius: 1.7, target: [0, supineY, 0])
             } else {
                 state = OrbitState(azimuth: 0.32, elevation: 0.33, radius: 1.6, target: [0, 0.55, 0])
             }

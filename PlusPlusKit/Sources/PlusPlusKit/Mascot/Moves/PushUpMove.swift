@@ -16,9 +16,11 @@ enum PushUpMove {
         // Feet tucked at 72 degrees to the floor: toe caps flat, toe
         // hinge at -72 (inside the anatomical -80 bound with margin).
         let footWorldPitch = 72.0
-        // Wrist height that rests the flat hand's contact pad ON the
-        // floor (wrist joint - 0.0475 of hand).
-        let handY = 0.049
+        // Wrist height that rests the flat PLANTED hand on the floor
+        // (the hand round: heel line and finger pads down, metacarpals
+        // arched at the planted slope — the old 0.049 assumed the
+        // curled fist block, which read as puppy-paws on device).
+        let handY = MascotHand.plantedWristHeight
         // Toe hinge height when the cap lies flat: half the cap's
         // thickness above the floor.
         let toeY = 0.018
@@ -53,6 +55,14 @@ enum PushUpMove {
 
         let handJoints: [MascotJoint] = [.leftWrist, .rightWrist]
         let toeJoints: [MascotJoint] = [.leftToe, .rightToe]
+        // The palm-flattening seed: near-full wrist extension, with a
+        // deliberate NEGATIVE yaw bias — fingers-forward is reachable
+        // by spinning the arm either way around the forearm, and an
+        // unbiased seed let neighboring samples pick opposite spins
+        // (the flip read as the hand snapping over between frames).
+        let palmSeed = EulerAngles.deg(pitch: 70, yaw: -60)
+        // The humeral-spin half of the twist (census-scanned shape).
+        let spinSeed = (yaw: -60.0 * .pi / 180, roll: 60.0 * .pi / 180)
 
         // Provisional top: wrists dropped to the floor, body pitch
         // bisected until the toe hinges reach cap-flat height. This
@@ -60,8 +70,14 @@ enum PushUpMove {
         // anchors to those spots exactly.
         func provisionalTop() -> MascotPose {
             func toeHeight(at bodyPitch: Double) -> (pose: MascotPose, y: Double) {
+                // -87, not the vertical-arm -72: the straight arm
+                // swings ~15 degrees toward the head, planting the
+                // hands slightly AHEAD of the shoulder line. That
+                // forearm lean is what buys the flat palm its last
+                // degrees — the hand bends back 90 minus the lean,
+                // and the wrist stops at 78.
                 var pose = plankPose(
-                    bodyPitch: bodyPitch, shoulderPitch: -72,
+                    bodyPitch: bodyPitch, shoulderPitch: -87,
                     elbowPitch: 0, footPitch: footWorldPitch, effort: 0.3
                 )
                 let positions = pose.jointPositions(skeleton: .standard)
@@ -89,6 +105,9 @@ enum PushUpMove {
         let toeAnchors: [(MascotJoint, Vec3)] = toeJoints.compactMap { joint in
             topPositions[joint].map { (joint, $0) }
         }
+        let wristAnchors: [(MascotJoint, Vec3)] = handJoints.compactMap { joint in
+            topPositions[joint].map { (joint, $0) }
+        }
         let wristTarget = topPositions[.leftWrist]!
 
         /// The honest chain closure: TOES anchored exactly (they are
@@ -101,11 +120,12 @@ enum PushUpMove {
         func settled(
             shoulderGuess: Double,
             elbowPitch: Double,
-            effort: Double
+            effort: Double,
+            wristLift: Double = 0
         ) -> MascotPose {
             var shoulderPitch = shoulderGuess
             var solved = top
-            for _ in 0..<14 {
+            for _ in 0..<26 {
                 func wristState(at bodyPitch: Double) -> (pose: MascotPose, wrist: Vec3) {
                     var pose = plankPose(
                         bodyPitch: bodyPitch, shoulderPitch: shoulderPitch,
@@ -116,11 +136,11 @@ enum PushUpMove {
                 }
                 // With the toes pinned, raising the body pitch drops
                 // the head end: wrist height FALLS as pitch rises.
-                var low = 58.0
-                var high = 88.0
+                var low = 52.0
+                var high = 92.0
                 for _ in 0..<32 {
                     let mid = (low + high) / 2
-                    if wristState(at: mid).wrist.y > wristTarget.y {
+                    if wristState(at: mid).wrist.y > wristTarget.y + wristLift {
                         low = mid
                     } else {
                         high = mid
@@ -136,13 +156,68 @@ enum PushUpMove {
                 // flipped and the solver ran to its clamp — the same
                 // lesson as the round-2 grounded() gain.)
                 shoulderPitch += errorZ / 0.0052
-                shoulderPitch = min(max(shoulderPitch, -85), 5)
+                // Positive pitches allowed: the stacked bottom sweeps
+                // the upper arm back past neutral (shoulder extension).
+                shoulderPitch = min(max(shoulderPitch, -95), 55)
+            }
+            // Flat palms LAST, once the contacts have converged: the
+            // arm servo's position residuals keep the planted wrists
+            // and the authored elbow depth where this loop put them,
+            // spending only null-space rotation on the flattening.
+            return MascotPoseBuilder.plantingPalms(
+                solved, wristSeed: palmSeed, shoulderSpinSeed: spinSeed
+            )
+        }
+
+        /// The lowest point of either planted hand — the hand's own
+        /// sole-corner law (`solvingToes` for hands): whatever residual
+        /// tilt the arm's anatomy leaves at depth, the hand must REST
+        /// on the floor, never hover and never pierce.
+        func lowestHandPoint(_ pose: MascotPose) -> Double {
+            let frames = pose.jointFrames(skeleton: .standard)
+            var lowest = Double.infinity
+            for (wrist, side) in [(MascotJoint.leftWrist, 1.0), (.rightWrist, -1.0)] {
+                guard let frame = frames[wrist] else { continue }
+                for capsule in MascotHand.capsules(state: .planted, side: side, wrist: frame) {
+                    lowest = min(lowest, min(capsule.from.y, capsule.to.y) - capsule.radius)
+                }
+            }
+            return lowest
+        }
+
+        /// Solve, then re-solve with the wrist anchor shifted by
+        /// however far the tilted hand's lowest point missed the floor
+        /// — lifted out of a pierce OR pulled down out of a hover.
+        /// Two correction passes: the re-solve can re-tilt slightly,
+        /// and the second pass collapses that residual to sub-mm.
+        func settledPlanted(
+            shoulderGuess: Double, elbowPitch: Double, effort: Double
+        ) -> MascotPose {
+            var lift = 0.0
+            var solved = settled(
+                shoulderGuess: shoulderGuess, elbowPitch: elbowPitch, effort: effort
+            )
+            for _ in 0..<2 {
+                let miss = lowestHandPoint(solved)
+                if abs(miss) < 0.001 { break }
+                lift -= miss
+                solved = settled(
+                    shoulderGuess: shoulderGuess, elbowPitch: elbowPitch,
+                    effort: effort, wristLift: lift
+                )
             }
             return solved
         }
 
-        let settledTop = settled(shoulderGuess: -72, elbowPitch: 0, effort: 0.3)
-        let bottom = settled(shoulderGuess: -10, elbowPitch: -130, effort: 0.5)
+        // Bottom: the ARM STAYS STACKED — the forearm holds its lean
+        // over the planted hand while the elbow flexes and the upper
+        // arm sweeps back toward horizontal (the hand round: the old
+        // folded shoulder -10 / elbow -130 bottom left the palm
+        // unreachable-flat at any wrist angle — the census proved a
+        // flat palm needs the forearm near vertical the whole rep,
+        // which is the elbows-over-wrists cue in solver form).
+        let settledTop = settledPlanted(shoulderGuess: -87, elbowPitch: 0, effort: 0.3)
+        let bottom = settledPlanted(shoulderGuess: 10, elbowPitch: -122, effort: 0.5)
 
         // Baked spans: the ELBOW is the depth driver; every sample
         // re-solves shoulder + pitch so both contacts stay planted.
@@ -159,7 +234,7 @@ enum PushUpMove {
                 let sample = from.lerp(to: to, t: eased)
                 let shoulder = sample.angles(.leftShoulder).pitch * 180 / .pi
                 let elbow = sample.angles(.leftElbow).pitch * 180 / .pi
-                var pose = settled(shoulderGuess: shoulder, elbowPitch: elbow, effort: 0)
+                var pose = settledPlanted(shoulderGuess: shoulder, elbowPitch: elbow, effort: 0)
                 pose.effort = MascotPoseBuilder.effortValue(at: f, keys: effortKeys)
                 return MascotKeyframe(t: t0 + (t1 - t0) * f, pose: pose, easing: .linear)
             }
@@ -186,7 +261,17 @@ enum PushUpMove {
             style: .reps(repDuration: 2.2),
             repsPerDemoSet: 4,
             repKeyframes: repKeyframes,
-            restBeat: MascotPoseBuilder.tiredBeat(from: loopPose, to: loopPose, duration: 2.4, settle: 0.7),
+            // The beat's interior poses re-anchor to the planted
+            // contacts (least-squares over toes + wrists) and re-flatten
+            // the palms, so the phew's chest lift can't hover the hands.
+            restBeat: MascotPoseBuilder.tiredBeat(
+                from: loopPose, to: loopPose, duration: 2.4, settle: 0.7,
+                solve: { beat in
+                    MascotPoseBuilder.plantingPalms(MascotPoseBuilder.anchored(
+                        beat, anchors: toeAnchors + wristAnchors
+                    ), wristSeed: palmSeed, shoulderSpinSeed: spinSeed)
+                }
+            ),
             cues: [
                 MascotCue("Straight line head to heels"),
                 MascotCue("Elbows about 45 degrees"),
