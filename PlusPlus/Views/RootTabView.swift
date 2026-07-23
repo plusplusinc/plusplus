@@ -91,15 +91,12 @@ struct RootTabView: View {
             // on a pop, so none is attached here.
             Tab("Today", systemImage: "smallcircle.filled.circle", value: AppTab.today) {
                 TodayView(onGoToRoutines: { tab = .routines })
-                    .tint(Theme.textPrimary)
             }
             Tab("Routines", systemImage: "square.stack", value: AppTab.routines) {
                 RoutineListView()
-                    .tint(Theme.textPrimary)
             }
             Tab("Exercises", systemImage: "list.bullet", value: AppTab.exercises) {
                 ExercisesTabView()
-                    .tint(Theme.textPrimary)
             }
             // Labeled "Kit" (2026-07-20): the tab shows your ACTIVE kit, and
             // the short word is guaranteed to fit the on-row heading beside
@@ -107,7 +104,6 @@ struct RootTabView: View {
             // (frozen internal — see the vocabulary note).
             Tab("Kit", systemImage: "dumbbell", value: AppTab.equipment) {
                 EquipmentTabView()
-                    .tint(Theme.textPrimary)
             }
             // Universal search (2026-07-23): the search-role item renders
             // as the separated circle beside the tab group (Liquid Glass
@@ -116,18 +112,9 @@ struct RootTabView: View {
             // selecting this behaves like any tab.
             Tab(value: AppTab.search, role: .search) {
                 FindOrCreateView(onDone: { tab = previousTab })
-                    .tint(Theme.textPrimary)
             }
         }
-        // The ink tint is scoped to each tab's CONTENT, deliberately NOT
-        // to the TabView (Dave, 2026-07-23, from a Slack side-by-side):
-        // a TabView-level tint reaches the Liquid Glass bar itself, and
-        // the system renders the selected item's platter with a heavy
-        // near-solid fill to carry the custom color — Slack's untinted
-        // bar gets the subtle stock wash. Scoping keeps every in-content
-        // control on ink while the bar wears the platform's own quiet
-        // selection. Cost: the selected tab icon takes the system accent
-        // instead of ink — the device pass judges that trade.
+        .tint(Theme.textPrimary)
         // Swipe-to-open is gated on the active tab being at its root; keep
         // the reveal controller told which tab is showing. Operator's
         // view-context follows the same signal (a tab switch also clears
@@ -161,10 +148,6 @@ struct RootTabView: View {
                         showingIntro = false
                     }
                 }
-                // Inherited the TabView-level ink tint before the tint was
-                // scoped to tab content; kept explicitly so the intro is
-                // untouched by the bar experiment.
-                .tint(Theme.textPrimary)
                 .transition(.opacity)
             }
         }
