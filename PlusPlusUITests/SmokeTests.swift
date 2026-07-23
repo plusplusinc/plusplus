@@ -502,14 +502,22 @@ final class SmokeTests: XCTestCase {
         snap("setup-step3")
         scheduleCTA.tap()
 
-        let daysTab = app.buttons["Days"]
+        // Scheduling lives in its own tray now (#429): the pushed
+        // settings page shows a Schedule row that opens it, the tray's
+        // segment reads "Days of the week", and a view-only tray
+        // dismisses with the Done text key.
+        let scheduleRow = app.buttons["scheduleRow"]
+        XCTAssertTrue(scheduleRow.waitForExistence(timeout: 5))
+        scheduleRow.tap()
+        let daysTab = app.buttons["Days of the week"]
         XCTAssertTrue(daysTab.waitForExistence(timeout: 5))
         daysTab.tap()
         let weekday = Calendar.current.component(.weekday, from: Date())
         let dayChip = app.buttons["scheduleDay\(weekday)"]
         XCTAssertTrue(dayChip.waitForExistence(timeout: 5))
         dayChip.tap()
-        // Routine settings is a pushed page now (v4 SSA) — back, not Done.
+        app.buttons["Done"].tap()
+        // Then pop routine settings back to Today.
         app.buttons["backButton"].tap()
 
         // Scaffold fully committed; the real thing appears above it —
