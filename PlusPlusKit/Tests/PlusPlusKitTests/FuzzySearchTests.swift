@@ -161,4 +161,68 @@ struct FuzzySearchTests {
         #expect(FuzzySearch.bestMatch(query: "bench press", in: names) == "Bench Press")
         #expect(FuzzySearch.bestMatch(query: "kettlebell", in: names) == nil)
     }
+
+    // MARK: - Highlight ranges
+
+    private func painted(_ query: String, _ candidate: String) -> [String] {
+        FuzzySearch.highlightRanges(query: query, in: candidate).map { String(candidate[$0]) }
+    }
+
+    @Test("Exact and prefix hits paint the matched run")
+    func highlightPrefix() {
+        #expect(painted("curl", "Bicep Curl") == ["Curl"])
+        #expect(painted("cu", "Bicep Curl") == ["Cu"])
+        // Separated words paint as separate runs (the space between is
+        // not part of any match).
+        #expect(painted("bench press", "Bench Press") == ["Bench", "Press"])
+    }
+
+    @Test("Every query word paints its own home, order-free")
+    func highlightMultiToken() {
+        #expect(painted("press bench", "Bench Press") == ["Bench", "Press"])
+        #expect(painted("press", "Overhead Press Machine") == ["Press"])
+    }
+
+    @Test("Mid-word substrings paint at three letters, not below")
+    func highlightSubstringFloor() {
+        #expect(painted("ead", "Deadlift") == ["ead"])
+        #expect(painted("ea", "Deadlift") == [])
+    }
+
+    @Test("Case and diacritics paint the original spelling")
+    func highlightFolding() {
+        #expect(painted("BENCH", "bench press") == ["bench"])
+        #expect(painted("bénch", "Bench Press") == ["Bench"])
+    }
+
+    @Test("Over-typed inflections paint the word they outgrew")
+    func highlightOverTyped() {
+        #expect(painted("curls", "Bicep Curl") == ["Curl"])
+        #expect(painted("presses", "Bench Press") == ["Press"])
+    }
+
+    @Test("Typo and abbreviation matches paint nothing")
+    func highlightInexact() {
+        #expect(painted("benhc", "Bench Press") == [])
+        #expect(painted("rdl", "Romanian Deadlift") == [])
+        // A short glued query still paints the word it over-types
+        // ("pushup" honestly contains "Push"); a long one has no home.
+        #expect(painted("pushup", "Push-Up") == ["Push"])
+        #expect(painted("benchpress", "Bench Press") == [])
+    }
+
+    @Test("Symbol-only queries compare literally")
+    func highlightSymbols() {
+        #expect(painted("++", "Push++") == ["++"])
+        #expect(painted("++", "Push Day") == [])
+    }
+
+    @Test("Overlapping paints fuse into one range")
+    func highlightMerging() {
+        // Both words paint; the adjacent runs stay separate ranges only
+        // when text separates them.
+        let ranges = FuzzySearch.highlightRanges(query: "leg press", in: "Leg Press Machine")
+        #expect(ranges.count == 2)
+        #expect(painted("leg leg", "Leg Press") == ["Leg"])
+    }
 }

@@ -87,7 +87,86 @@ public enum FuzzySearch {
         return ranked(candidates, query: query, key: { $0 }).first
     }
 
+    /// Character ranges of `candidate` that the query LITERALLY matched —
+    /// the substring-highlight companion to `score`, in the candidate's own
+    /// index space, merged and sorted. Only honest homes paint: an exact,
+    /// prefix, or mid-word (3+ chars) hit inside a candidate word, or the
+    /// whole word a query over-typed ("curls" paints "Curl"). Typo rescues
+    /// and abbreviation walks return nothing — an inexact match has no
+    /// true substring to show, and an unhighlighted row reads fine.
+    public static func highlightRanges(query: String, in candidate: String) -> [Range<String.Index>] {
+        let queryTokens = tokens(query)
+        let wordRanges = tokenRanges(in: candidate)
+        let compareOptions: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
+
+        // Symbol-only queries ("++") compare literally on the whole string,
+        // mirroring score()'s fallback.
+        guard !queryTokens.isEmpty else {
+            let q = folded(query)
+            guard !q.isEmpty, let found = candidate.range(of: q, options: compareOptions) else { return [] }
+            return [found]
+        }
+
+        var ranges: [Range<String.Index>] = []
+        for queryToken in queryTokens {
+            for wordRange in wordRanges {
+                let word = candidate[wordRange]
+                if let found = word.range(of: queryToken, options: compareOptions) {
+                    // Word-start hits at any length (the prefix tier);
+                    // mid-word needs the substring tier's 3-char floor.
+                    if found.lowerBound == wordRange.lowerBound || queryToken.count >= 3 {
+                        ranges.append(found)
+                        break
+                    }
+                }
+                // The over-typed direction ("presses" finds "Press"):
+                // paint the whole candidate word the query outgrew.
+                let foldedWord = folded(String(word))
+                if foldedWord.count >= 3, queryToken.count - foldedWord.count <= 2,
+                   queryToken.count > foldedWord.count, queryToken.hasPrefix(foldedWord) {
+                    ranges.append(wordRange)
+                    break
+                }
+            }
+        }
+        return merged(ranges)
+    }
+
     // MARK: - Internals
+
+    /// Alphanumeric runs of `text` as ranges in its own index space —
+    /// the index-preserving twin of `tokens()`.
+    private static func tokenRanges(in text: String) -> [Range<String.Index>] {
+        var ranges: [Range<String.Index>] = []
+        var start: String.Index?
+        var index = text.startIndex
+        while index < text.endIndex {
+            let isWord = text[index].isLetter || text[index].isNumber
+            if isWord {
+                if start == nil { start = index }
+            } else if let s = start {
+                ranges.append(s..<index)
+                start = nil
+            }
+            index = text.index(after: index)
+        }
+        if let s = start { ranges.append(s..<text.endIndex) }
+        return ranges
+    }
+
+    /// Sorted, with overlapping/touching ranges fused.
+    private static func merged(_ ranges: [Range<String.Index>]) -> [Range<String.Index>] {
+        guard ranges.count > 1 else { return ranges }
+        var result: [Range<String.Index>] = []
+        for range in ranges.sorted(by: { $0.lowerBound < $1.lowerBound }) {
+            if let last = result.last, range.lowerBound <= last.upperBound {
+                result[result.count - 1] = last.lowerBound..<max(last.upperBound, range.upperBound)
+            } else {
+                result.append(range)
+            }
+        }
+        return result
+    }
 
     /// Lowercased, diacritics stripped, outer whitespace trimmed.
     static func folded(_ text: String) -> String {
