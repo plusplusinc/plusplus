@@ -53,18 +53,28 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   Keys that carry TEXT keep the rounded-rect pill: `QuietKey`,
   `LibrarySwitcherKey`, `SheetDismissKey`, the primary action bars.
 - **One search UI + one sheet-dismissal, and ✕ means only "collapse search"**
-  (2026-07-18): search everywhere is the expanding in-header field
-  (`HeaderSearchField`) — a top-right magnifier that expands into a field
-  spanning the row, an in-field `delete.left` CLEAR that keeps focus, and a
-  separate `xmark` COLLAPSE key where the magnifier was; the big title (tab
-  root) or centered title (pushed) hides while searching. Because `xmark` is
-  the collapse glyph, a sheet/tray NEVER dismisses with a ✕ — it uses a text
-  `SheetDismissKey` ("Cancel" to abandon edits, "Done" view-only). Creation is
-  the TOP list row, verb-keyed: **Create** (`New <object>` / `Create "<query>"`)
-  when it makes a custom object inline, **Add** (`Add <object>` / `Add "<query>"`)
-  when it navigates to a catalog. Query casing is `String.sentenceCasedFirst`.
-  Empty results NEVER dead-end: the create/add row is always present + a "Clear
-  filters" `QuietKey` when facets are active.
+  (2026-07-18; universal search 2026-07-23): cross-type search lives on the
+  **Find-or-create surface** behind the tab bar's search item
+  (`Tab(role: .search)` → `FindOrCreateView`) — the tab-root headers carry NO
+  magnifier anymore. Pushed catalogs, pickers, and sheets keep the expanding
+  in-header field (`HeaderSearchField`) — a top-right magnifier that expands
+  into a field spanning the row, an in-field `delete.left` CLEAR that keeps
+  focus, and a separate `xmark` COLLAPSE key where the magnifier was; the
+  centered title hides while searching. Both share ONE field anatomy
+  (`SearchFieldBody` — surface fill, borderStrong stroke, r11, mono text, the
+  #233 one-shot focus intent). Because `xmark` is the collapse glyph, a
+  sheet/tray NEVER dismisses with a ✕ — it uses a text `SheetDismissKey`
+  ("Cancel" to abandon edits, "Done" view-only; Find-or-create's Done follows
+  the same grammar). Creation is the TOP list row, verb-keyed: **Create**
+  (`New <object>` / `Create "<query>"`) when it makes a custom object inline,
+  **Add** (`Add <object>` / `Add "<query>"`) when it navigates — the tabs' Add
+  rows now open Find-or-create pre-scoped (`FindOrCreateLaunch`). Query casing
+  is `String.sentenceCasedFirst`. Empty results NEVER dead-end: the create/add
+  row is always present + a "Clear filters" `QuietKey` when facets are active.
+  Search state on the universal surface is EPHEMERAL per-entry (a stale
+  invisible query reads as data loss); every add from it LANDS on its list
+  with the entrance flash (`RoutineArrival`/`ExerciseArrival`/
+  `EquipmentArrival` + `RowEntranceFlash` — one landing for every add).
 - **Heading treatment follows the nature of the title** (2026-07-18, updated
   2026-07-19): a **tab root** wears a large left `.title` heading ON the icon
   row, just right of the ++ key (`AppMenuKey`) — single-line, `.layoutPriority(1)`
