@@ -23,7 +23,7 @@ enum GobletSquatMove {
         let arms = MascotPoseBuilder.symmetricArms(
             shoulder: .deg(pitch: -35.6, yaw: -44.5, roll: 16.7),
             elbow: .deg(pitch: -122.0, yaw: -11.6),
-            wrist: .deg(pitch: 51.7, yaw: 26.1, roll: 39.0)
+            wrist: .deg(pitch: 46.0, yaw: 20.0, roll: 39.0)
         )
         let legsStanding = MascotPoseBuilder.symmetricLegs(hip: .deg(roll: 3))
         // The squat family's below-parallel bottom; ankle cancels the
