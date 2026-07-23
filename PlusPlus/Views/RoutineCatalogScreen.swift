@@ -688,6 +688,7 @@ struct GearCheckTray: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             SheetHeader(title: "Equipment check", closeOnly: true, action: { dismiss() })
+                .padding(.horizontal, 18)
 
             // Name the kit these toggles write to: the marks land in the
             // ACTIVE kit, so say which one (shared prose rule).
@@ -695,6 +696,7 @@ struct GearCheckTray: View {
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
                 .padding(.top, 6)
+                .padding(.horizontal, 18)
 
             ScrollView {
             VStack(spacing: 0) {
@@ -718,17 +720,18 @@ struct GearCheckTray: View {
             }
             .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
             .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
+            .padding(.horizontal, 18)
             .padding(.top, 14)
 
             QuietKey(label: "Full equipment catalog", identifier: "gearCheckCatalogButton") {
                 showingCatalog = true
             }
             .padding(.top, 10)
+            .padding(.horizontal, 18)
             }
 
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 18)
         .presentationBackground(Theme.background)
         .presentationDetents([.medium, .large])
         .sheet(isPresented: $showingCatalog) {

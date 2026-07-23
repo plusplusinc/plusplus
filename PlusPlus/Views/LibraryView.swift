@@ -431,10 +431,12 @@ struct GearPickSheet: View {
                 cancelLabel: "Clear",
                 action: { dismiss() }
             )
+            .padding(.horizontal, 18)
             Text("Show exercises you could do with any of these, whatever's in your kit.")
                 .font(.system(.footnote))
                 .foregroundStyle(Theme.textSecondary)
                 .padding(.top, 6)
+                .padding(.horizontal, 18)
             ScrollView {
                 FlowLayout(spacing: 8) {
                     ForEach(allEquipment) { equipment in
@@ -451,9 +453,9 @@ struct GearPickSheet: View {
                     }
                 }
                 .padding(.vertical)
+                .padding(.horizontal, 18)
             }
         }
-        .padding(.horizontal, 18)
         .presentationBackground(Theme.surface)
     }
 }

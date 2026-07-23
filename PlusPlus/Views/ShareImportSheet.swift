@@ -49,11 +49,13 @@ struct ShareImportSheet: View {
                 onCancel: { dismiss() },
                 action: { importRoutine() }
             )
+            .padding(.horizontal, 18)
 
             Text("Someone sent you this. It came inside the link itself, nothing was uploaded.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textFaint)
                 .padding(.top, 6)
+                .padding(.horizontal, 18)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -97,11 +99,11 @@ struct ShareImportSheet: View {
                             .padding(.top, 8)
                     }
                 }
+                .padding(.horizontal, 18)
                 .padding(.bottom, 16)
             }
 
         }
-        .padding(.horizontal, 18)
         .presentationBackground(Theme.background)
     }
 

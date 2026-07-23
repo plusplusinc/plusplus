@@ -47,6 +47,7 @@ struct ScheduleTray: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             SheetHeader(title: "Schedule", closeOnly: true) { dismiss() }
+                .padding(.horizontal, 18)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -81,12 +82,12 @@ struct ScheduleTray: View {
                             .padding(.top, 4)
                     }
                 }
+                .padding(.horizontal, 18)
                 .padding(.bottom, 24)
             }
 
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 18)
         .presentationBackground(Theme.background)
         .presentationDetents([.medium, .large])
     }

@@ -36,12 +36,14 @@ struct EquipmentLibraryTray: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             SheetHeader(title: "Kits", closeOnly: true, action: { dismiss() })
+                .padding(.horizontal, 18)
 
             // The one canonical kit explainer — see EquipmentLibrary.switchingBlurb.
             Text(EquipmentLibrary.switchingBlurb)
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
                 .padding(.top, 6)
+                .padding(.horizontal, 18)
 
             ScrollView {
                 VStack(spacing: 0) {
@@ -54,6 +56,7 @@ struct EquipmentLibraryTray: View {
                 }
                 .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                 .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
+                .padding(.horizontal, 18)
                 .padding(.top, 14)
                 // ONE feedback for the switch, above the ForEach: on the
                 // row it fired once per rendered library (swift-reviewer).
@@ -86,6 +89,7 @@ struct EquipmentLibraryTray: View {
                 .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
                 .accessibilityIdentifier("newLibraryButton")
                 .padding(.top, 10)
+                .padding(.horizontal, 18)
 
                 // Curation shortcut for a caller that isn't itself an edit
                 // surface (the reveal drawer). Absent everywhere else.
@@ -110,12 +114,12 @@ struct EquipmentLibraryTray: View {
                     .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
                     .accessibilityIdentifier("libraryEditContents")
                     .padding(.top, 10)
+                    .padding(.horizontal, 18)
                 }
             }
 
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 18)
         .presentationBackground(Theme.background)
         .presentationDetents([.medium, .large])
         .alert("New kit", isPresented: $promptingNew) {

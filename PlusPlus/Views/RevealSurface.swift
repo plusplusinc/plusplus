@@ -967,6 +967,7 @@ private struct WhatsNewTray: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             SheetHeader(title: "What's new", closeOnly: true, action: { dismiss() })
+                .padding(.horizontal, 18)
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(WhatsNew.entries.enumerated()), id: \.offset) { index, entry in
@@ -987,9 +988,9 @@ private struct WhatsNewTray: View {
                     }
                 }
                 .padding(.top, 8)
+                .padding(.horizontal, 18)
             }
         }
-        .padding(.horizontal, 18)
         .presentationDetents([.medium, .large])
     }
 }

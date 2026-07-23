@@ -115,6 +115,7 @@ struct EquipmentResolveSheet: View {
         let res = resolution
         VStack(alignment: .leading, spacing: 0) {
             SheetHeader(title: "Equipment", closeOnly: true) { dismiss() }
+                .padding(.horizontal, 18)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -146,10 +147,10 @@ struct EquipmentResolveSheet: View {
                         moreWays(more).padding(.top, 8)
                     }
                 }
+                .padding(.horizontal, 18)
                 .padding(.bottom, 28)
             }
         }
-        .padding(.horizontal, 18)
         .presentationBackground(Theme.background)
         .presentationDetents([.large])
         .sheet(isPresented: $showingSwap) {
@@ -401,6 +402,7 @@ struct SwapMovesSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             SheetHeader(title: "Swap moves", closeOnly: true) { dismiss() }
+                .padding(.horizontal, 18)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -415,6 +417,7 @@ struct SwapMovesSheet: View {
                             .padding(.top, 18)
                     }
                 }
+                .padding(.horizontal, 18)
                 .padding(.bottom, 24)
             }
 
@@ -431,8 +434,8 @@ struct SwapMovesSheet: View {
             }
             .buttonStyle(.plain)
             .padding(.vertical, 10)
+            .padding(.horizontal, 18)
         }
-        .padding(.horizontal, 18)
         .presentationBackground(Theme.background)
         .presentationDetents([.large])
         .onAppear(perform: seedDefaults)
