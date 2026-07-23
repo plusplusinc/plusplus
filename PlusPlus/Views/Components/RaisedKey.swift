@@ -249,7 +249,11 @@ struct BlockBar: View {
         }
         .animation(Theme.Anim.standard, value: filled)
         // Shape-only progress; VoiceOver hears the count, not the blocks
-        // (#164, WCAG 1.1.1). Consumers set the label (sessions / sets).
+        // (#164, WCAG 1.1.1). Consumers either set a label naming the
+        // subject ("Sets") or hide the bar when a sibling caption
+        // already states the fact — a bare "2 of 4" with no subject is
+        // the a11y bug this comment used to merely hope against
+        // (2026-07-23).
         .accessibilityElement(children: .ignore)
         .accessibilityValue("\(filled) of \(total)")
     }

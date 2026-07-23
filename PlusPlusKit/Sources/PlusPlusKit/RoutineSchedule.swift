@@ -266,6 +266,14 @@ extension RoutineSchedule {
     /// checks then see a nil completion and bail.
     private static func occurrenceSatisfiedEarly(on day: Date, days: Set<Int>, completedDay: Date?, previousCompleted: Date?, addedOn: Date?, calendar: Calendar) -> Bool {
         guard let completedDay, completedDay < day else { return false }
+        // A completion on or before the anchor day never banks a future
+        // occurrence: it predates the plan it would be "extra" to. The
+        // app passes the later of joining-the-library and the last
+        // schedule change as `addedOn`, so a routine done Thursday and
+        // THEN scheduled for Friday still shows Friday (Dave's device
+        // report, 2026-07-23 — the reconstruction used to read that
+        // Thursday session as an extra and silently bank tomorrow).
+        if let addedOn, completedDay <= addedOn { return false }
         guard let previous = previousScheduledDay(before: day, days: days, calendar: calendar),
               completedDay > previous else { return false }
         let dueAtCompletion = RoutineSchedule.weekdays(days).dueState(

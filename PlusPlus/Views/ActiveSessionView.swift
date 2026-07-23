@@ -626,6 +626,10 @@ struct ActiveSessionView: View {
                 $0.groupIndex == log.groupIndex && $0.exerciseName == log.exerciseName
             }
             BlockBar(total: block.count, filled: block.filter(\.isCompleted).count, fill: Theme.accent)
+                // No caption sibling here, so the bar needs its own
+                // subject or VoiceOver hears a bare "2 of 4" (a11y,
+                // 2026-07-23).
+                .accessibilityLabel("Sets")
         }
     }
 
@@ -922,8 +926,8 @@ struct ActiveSessionView: View {
                             .foregroundStyle(Theme.textSecondary)
                     }
 
-                    if !diffTally.isEmpty {
-                        tallyCard(diffTally)
+                    if !movedTally.isEmpty {
+                        tallyCard(movedTally)
                             .padding(.horizontal, 20)
                     }
 
@@ -932,7 +936,12 @@ struct ActiveSessionView: View {
                     // own history (a real number or nothing at all).
                     if weekPlanNow.planned > 0 {
                         VStack(spacing: 8) {
+                            // The caption below states the fact for
+                            // VoiceOver; unhidden, the bar announces a
+                            // bare "3 of 4" with no subject (a11y,
+                            // 2026-07-23).
                             BlockBar(total: weekPlanNow.planned, filled: weekPlanNow.completed)
+                                .accessibilityHidden(true)
                             weekCaptionText
                                 .font(.system(.caption, design: .monospaced))
                         }
@@ -1099,6 +1108,15 @@ struct ActiveSessionView: View {
         }
     }
 
+    /// The tally rows worth showing: exercises that MOVED (or are new).
+    /// Unchanged lines render nothing — not an "=" (Dave, 2026-07-23) —
+    /// so an all-steady session shows no tally card at all. `netText`
+    /// still aggregates over the full tally; the Kit summary drops
+    /// unchanged deltas itself, so the two agree.
+    private var movedTally: [TallyLine] {
+        diffTally.filter { $0.delta != .unchanged }
+    }
+
     /// The previous performance of an exercise — newest finished
     /// session other than this one that completed it, as its top set.
     private func prior(for name: String) -> RoutineDiff.Prior? {
@@ -1149,12 +1167,13 @@ struct ActiveSessionView: View {
         .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
     }
 
+    /// Only changed/new deltas reach here — unchanged lines are filtered
+    /// out of the tally entirely (Dave, 2026-07-23: "=" renders nowhere;
+    /// an exercise that held steady is not news).
     private func deltaText(_ delta: RoutineDiff.Delta) -> Text {
         switch delta {
         case .new:
             return Text("new").foregroundStyle(Theme.accent)
-        case .unchanged:
-            return Text("=").foregroundStyle(Theme.textFaint)
         default:
             let text = RoutineDiff.summary(deltas: [delta], weightUnit: weightUnit).first?.text ?? ""
             return Text(text).foregroundStyle(Theme.accent)
@@ -1172,17 +1191,18 @@ struct ActiveSessionView: View {
             let color: Color = switch segment.kind {
             case .up, .new: Theme.accent
             case .down: Theme.textSecondary
-            case .unchanged: Theme.textFaint
             }
             result = result + Text(segment.text).foregroundStyle(color)
         }
         return result
     }
 
-    /// "3 of 4 sessions this week · ★ bench 135 lb — new best".
+    /// "3 of 4 workouts this week · ★ bench 135 lb · new best".
+    /// "Workouts", never "sessions" (#144: performed things are
+    /// workouts; "session" is the type name, not the vocabulary).
     private var weekCaptionText: Text {
         let plan = weekPlanNow
-        var text = Text("\(plan.completed) of \(plan.planned) session\(plan.planned == 1 ? "" : "s") this week")
+        var text = Text("\(plan.completed) of \(plan.planned) workout\(plan.planned == 1 ? "" : "s") this week")
             .foregroundStyle(Theme.textFaint)
         if let best = newBestLine {
             text = text + Text(" · ").foregroundStyle(Theme.textFaint)
@@ -1230,7 +1250,7 @@ struct ActiveSessionView: View {
                 lastCompleted: completions.last,
                 previousCompleted: completions.previous,
                 today: today,
-                addedOn: routine.createdAt,
+                addedOn: routine.scheduleAnchor,
                 calendar: calendar
             )
             // Only `.notDue` next occurrences feed "next up". A `.missed`
@@ -1551,23 +1571,22 @@ private struct SetLoggingView: View {
     /// against it (mock 08, in the big card's corner). Green only while
     /// it's an IMPROVEMENT in the metric's own direction: +5 lb of
     /// weight, but −10 lb of assistance (anti-shame, the RoutineDiff
-    /// rule — regressions render neutral). Nil without a prior.
+    /// rule — regressions render neutral). Nil without a prior. A zero
+    /// delta shows just the last value, no "· =" (Dave, 2026-07-23:
+    /// "=" renders nowhere; matching last time isn't a delta to report).
     private func deltaAnnotation(_ metric: WorkoutMetric) -> (text: String, color: Color)? {
         guard let last = lastTime?.actual(metric), last > 0 else { return nil }
         let current = log.actual(metric) ?? log.target(metric) ?? last
         let delta = current - last
-        let deltaText = delta == 0
-            ? "="
-            : (delta > 0 ? "+" : "−") + metric.formatted(abs(delta))
         let improved = switch metric.improvementDirection {
         case .up: delta > 0
         case .down: delta < 0
         case .neutral: false
         }
-        return (
-            "last \(metric.formatted(last)) · \(deltaText)",
-            improved ? Theme.accent : Theme.textFaint
-        )
+        let text = delta == 0
+            ? "last \(metric.formatted(last))"
+            : "last \(metric.formatted(last)) · " + (delta > 0 ? "+" : "−") + metric.formatted(abs(delta))
+        return (text, improved ? Theme.accent : Theme.textFaint)
     }
 
     /// The metrics shown as cards, in order: the load (or bare reps / the

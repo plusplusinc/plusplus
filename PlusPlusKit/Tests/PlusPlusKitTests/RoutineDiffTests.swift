@@ -81,7 +81,9 @@ struct RoutineDiffTests {
 
     // MARK: - Summary line
 
-    @Test func summaryOrdersChangesThenNewThenUnchangedCount() {
+    @Test func summaryOrdersChangesThenNewAndDropsUnchanged() {
+        // Unchanged deltas emit no segment — no "=", no "n =" tail
+        // (Dave, 2026-07-23: they read as noise, nowhere renders them).
         let segments = RoutineDiff.summary(deltas: [
             .weight(5), .unchanged, .reps(2), .weight(-5), .new, .unchanged,
         ])
@@ -90,13 +92,14 @@ struct RoutineDiffTests {
             RoutineDiff.Segment(kind: .up, text: "+2 reps"),
             RoutineDiff.Segment(kind: .down, text: "−5 lb"),
             RoutineDiff.Segment(kind: .new, text: "1 new"),
-            RoutineDiff.Segment(kind: .unchanged, text: "2 ="),
         ])
     }
 
-    @Test func summaryWithNoChangesCollapses() {
+    @Test func summaryWithNoChangesIsEmpty() {
+        // All-unchanged summarizes as NOTHING — callers omit the line
+        // entirely rather than render a floating "=".
         let segments = RoutineDiff.summary(deltas: [.unchanged, .unchanged])
-        #expect(segments == [RoutineDiff.Segment(kind: .unchanged, text: "=")])
+        #expect(segments.isEmpty)
     }
 
     @Test func summaryHonorsWeightUnit() {
@@ -109,8 +112,8 @@ struct RoutineDiffTests {
         #expect(segments == [RoutineDiff.Segment(kind: .up, text: "+1 rep")])
     }
 
-    @Test func emptyRoutineSummarizesAsNoChanges() {
-        #expect(RoutineDiff.summary(deltas: []) == [RoutineDiff.Segment(kind: .unchanged, text: "=")])
+    @Test func emptyRoutineSummarizesAsNothing() {
+        #expect(RoutineDiff.summary(deltas: []).isEmpty)
     }
 
     // MARK: - Net chip

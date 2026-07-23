@@ -46,13 +46,13 @@ enum WidgetSnapshotWriter {
                 scheduleData: routine.scheduleData,
                 lastCompleted: completions.last,
                 previousCompleted: completions.previous,
-                addedOn: routine.createdAt
+                addedOn: routine.scheduleAnchor
             ))
             let state = routine.schedule.dueState(
                 lastCompleted: completions.last,
                 previousCompleted: completions.previous,
                 today: today,
-                addedOn: routine.createdAt,
+                addedOn: routine.scheduleAnchor,
                 calendar: calendar
             )
             // Only TODAY's occurrences ride the "due" widget; a carried

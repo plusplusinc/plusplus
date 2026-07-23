@@ -36,6 +36,9 @@ import PlusPlusKit
 ///                    uuid → EXCLUDED (active-pointer identity, device state)
 /// Routine            name·restSeconds·transitionSeconds·notes·summary·scheduleData·groups → EXPORTED
 ///                    createdAt → EXCLUDED (device metadata)
+///                    scheduleChangedAt → EXCLUDED (schedule-anchor bookkeeping,
+///                    device state like uuid; an import that changes a schedule
+///                    stamps it fresh via the setter, which is the honest anchor)
 ///                    order → EXCLUDED (device ordering; import appends)
 ///                    uuid → EXCLUDED (presentation identity, device state, like EquipmentLibrary.uuid)
 /// ExerciseGroup      sets·restSecondsOverride·exercises → EXPORTED
