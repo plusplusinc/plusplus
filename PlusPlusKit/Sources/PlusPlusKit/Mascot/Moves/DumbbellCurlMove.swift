@@ -30,34 +30,19 @@ enum DumbbellCurlMove {
         // -132 squeeze at the top — both ends invariant-enforced.
         let start = standingPose(shoulderPitch: 0, elbowPitch: -5, effort: 0.15)
         let topOfCurl = standingPose(shoulderPitch: -10, elbowPitch: -132, effort: 0.78)
-        // The squeeze eases off through the hold so peak effort lands
-        // at the END OF THE RISE (the concentric), not mid-stillness.
-        var squeezeEnd = topOfCurl
-        squeezeEnd.effort = 0.68
-        var lowering = topOfCurl.lerp(to: start, t: 0.4)
-        lowering.effort = 0.35
 
         return ExerciseAnimation(
             exerciseName: "Dumbbell Curl",
             style: .reps(repDuration: 2.6),
             repsPerDemoSet: 4,
-            // A real curl PAUSES at full extension before the next rep
-            // (build-88: reps rolled straight into each other) — the
-            // 0...0.06 dwell is an exact start-pose copy, and with the
-            // loop seam it reads as a natural beat at the bottom. The
-            // squeeze at the top keeps its own hold.
-            repKeyframes: [
-                MascotKeyframe(t: 0, pose: start, easing: .hold),
-                MascotKeyframe(t: 0.06, pose: start, easing: .easeInOut),
-                // .linear, not .hold: squeezeEnd differs in EFFORT
-                // (.hold is only legal between exact copies — through
-                // the eased sampler it would step the face at 0.52).
-                MascotKeyframe(t: 0.42, pose: topOfCurl, easing: .linear),
-                MascotKeyframe(t: 0.52, pose: squeezeEnd, easing: .easeInOut),
-                MascotKeyframe(t: 0.74, pose: lowering, easing: .easeInOut),
-                MascotKeyframe(t: 0.94, pose: start, easing: .hold),
-                MascotKeyframe(t: 1, pose: start),
-            ],
+            // The lift-first archetype (this move authored it; it now
+            // lives in MascotPoseBuilder): bottom dwell wrapping the
+            // seam, rise, squeeze whose effort eases off so the peak
+            // lands on the concentric, slow lower.
+            repKeyframes: MascotPoseBuilder.liftCycle(
+                bottom: start, top: topOfCurl,
+                bottomEffort: 0.15, topEffort: 0.78, squeezeEffort: 0.68, loweringEffort: 0.35
+            ),
             restBeat: MascotPoseBuilder.tiredBeat(from: start, to: start, duration: 2.4),
             cues: [
                 MascotCue("Elbows pinned to your sides"),
