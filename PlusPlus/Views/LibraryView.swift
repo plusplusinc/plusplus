@@ -2,6 +2,33 @@ import SwiftUI
 import SwiftData
 import PlusPlusKit
 
+/// The cross-tab landing slots for an exercise/equipment created outside
+/// its tab (the Find-or-create surface) — `RoutineArrival`'s twins, one
+/// landing for every add (no toasts; the list + entrance flash IS the
+/// feedback). The identity is a SAVED model's `PersistentIdentifier`
+/// (permanent once saved — the temp→permanent swap happens at first
+/// save, and every landing path saves synchronously before posting);
+/// the slot drives scroll + flash identity only, never navigation.
+@MainActor
+enum ExerciseArrival {
+    static var pending: PersistentIdentifier?
+
+    static func land(_ id: PersistentIdentifier) {
+        pending = id
+        NotificationCenter.default.post(name: .plusplusExerciseArrived, object: nil)
+    }
+}
+
+@MainActor
+enum EquipmentArrival {
+    static var pending: PersistentIdentifier?
+
+    static func land(_ id: PersistentIdentifier) {
+        pending = id
+        NotificationCenter.default.post(name: .plusplusEquipmentArrived, object: nil)
+    }
+}
+
 /// The Exercises tab IS the whole catalog now (2026-07-17): an exercise
 /// is a thing you choose to do, not a thing you own, so there is no
 /// library to fill — every exercise is listed, always, narrowed by
@@ -30,6 +57,9 @@ struct ExercisesTabView: View {
     @State private var creatingExercise = false
     @State private var loadedPrefs = false
     @State private var showingLibraryTray = false
+    /// The row playing the entrance flash after a cross-tab create
+    /// (`ExerciseArrival`); scroll + ring identity, cleared by the task.
+    @State private var newlyAdded: PersistentIdentifier?
 
     private var availableEquipmentNames: Set<String> {
         EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.memberNames ?? []
@@ -70,20 +100,36 @@ struct ExercisesTabView: View {
                     }
                 }
                 filterRow
-                List {
-                    // Creation is the top row everywhere (2026-07-18): New
-                    // exercise, or Create "<query>" when searching.
-                    createExerciseRow
-                    ForEach(candidates) { exercise in
-                        exerciseRow(exercise)
+                ScrollViewReader { proxy in
+                    List {
+                        // Creation is the top row everywhere (2026-07-18): New
+                        // exercise, or Create "<query>" when searching.
+                        createExerciseRow
+                        ForEach(candidates) { exercise in
+                            exerciseRow(exercise)
+                        }
+                        if candidates.isEmpty {
+                            emptyResults
+                        }
                     }
-                    if candidates.isEmpty {
-                        emptyResults
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .scrollDismissesKeyboard(.immediately)
+                    // The arrival beat: scroll the landed row into view, let
+                    // its ring flash, then clear. Cancellation (tab left, a
+                    // superseding arrival) bails without clearing.
+                    .task(id: newlyAdded) {
+                        guard let target = newlyAdded else { return }
+                        do {
+                            try await Task.sleep(for: .milliseconds(80))
+                            withAnimation(Theme.Anim.standard) {
+                                proxy.scrollTo(target, anchor: .center)
+                            }
+                            try await Task.sleep(for: .seconds(2.2))
+                            newlyAdded = nil
+                        } catch {}
                     }
                 }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
-                .scrollDismissesKeyboard(.immediately)
             }
             .background(Theme.background)
             .toolbar(.hidden, for: .navigationBar)
@@ -111,7 +157,14 @@ struct ExercisesTabView: View {
         .revealRoot(tab: "exercises", atRoot: path.isEmpty)
         // Favorites + custom deletes reach GitHub when you leave the tab.
         .syncsProgramOnClose()
+        // The landing may arrive while this tab is unmounted (the root
+        // switches tabs on the same notification) — consume on receive
+        // AND on appear, whichever fires first (the RoutineArrival shape).
+        .onReceive(NotificationCenter.default.publisher(for: .plusplusExerciseArrived)) { _ in
+            consumeArrival()
+        }
         .onAppear {
+            consumeArrival()
             guard !loadedPrefs else { return }
             loadedPrefs = true
             loadPrefs()
@@ -283,8 +336,28 @@ struct ExercisesTabView: View {
                 exercise.isFavorite.toggle()
             }
         }
+        .overlay {
+            if newlyAdded == exercise.persistentModelID {
+                RowEntranceFlash()
+            }
+        }
         .listRowBackground(Color.clear)
         .listRowSeparatorTint(Theme.border)
+    }
+
+    /// Land a cross-tab create: clear whatever would hide the new row
+    /// (persisted filters CAN hide a fresh custom — a landing that
+    /// flashes an invisible row would be a lie), pop to the root, and
+    /// arm the scroll + flash.
+    private func consumeArrival() {
+        guard let pending = ExerciseArrival.pending else { return }
+        ExerciseArrival.pending = nil
+        filterState.searchText = ""
+        filterState.favoritesOnly = false
+        filterState.gearMode = nil
+        filterState.selectedMuscleGroups = []
+        path = NavigationPath()
+        newlyAdded = pending
     }
 
     private func accessibilityActions(_ exercise: Exercise) -> [SwipeRowAction] {
@@ -402,6 +475,9 @@ struct EquipmentTabView: View {
     /// into the catalog's own search so "Add <query>" lands ready to add.
     @State private var searchText = ""
     @State private var pendingCatalogQuery = ""
+    /// The row playing the entrance flash after a cross-tab add
+    /// (`EquipmentArrival`); scroll + ring identity, cleared by the task.
+    @State private var newlyAdded: PersistentIdentifier?
 
     private var activeLibrary: EquipmentLibrary? {
         EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)
@@ -445,21 +521,37 @@ struct EquipmentTabView: View {
                     }
                 }
 
-                List {
-                    // Top row navigates to the catalog to add gear; New/Add
-                    // never dead-ends an empty kit or a zeroed search. The
-                    // null kit is immutable, so it shows no Add row.
-                    if !isBodyweightKit {
-                        addEquipmentRow
+                ScrollViewReader { proxy in
+                    List {
+                        // Top row navigates to the catalog to add gear; New/Add
+                        // never dead-ends an empty kit or a zeroed search. The
+                        // null kit is immutable, so it shows no Add row.
+                        if !isBodyweightKit {
+                            addEquipmentRow
+                        }
+                        equipmentRows
+                        if filteredEquipment.isEmpty {
+                            equipmentEmptyHint
+                        }
                     }
-                    equipmentRows
-                    if filteredEquipment.isEmpty {
-                        equipmentEmptyHint
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .scrollDismissesKeyboard(.immediately)
+                    // The arrival beat (the Exercises-tab twin): scroll the
+                    // landed row into view, flash, clear. Cancellation bails
+                    // without clearing.
+                    .task(id: newlyAdded) {
+                        guard let target = newlyAdded else { return }
+                        do {
+                            try await Task.sleep(for: .milliseconds(80))
+                            withAnimation(Theme.Anim.standard) {
+                                proxy.scrollTo(target, anchor: .center)
+                            }
+                            try await Task.sleep(for: .seconds(2.2))
+                            newlyAdded = nil
+                        } catch {}
                     }
                 }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
-                .scrollDismissesKeyboard(.immediately)
             }
             .background(Theme.background)
             .toolbar(.hidden, for: .navigationBar)
@@ -476,6 +568,23 @@ struct EquipmentTabView: View {
         .revealRoot(tab: "equipment", atRoot: path.isEmpty && !showingCatalog)
         // Gear membership changes / deletes reach GitHub when you leave the tab.
         .syncsProgramOnClose()
+        // Cross-tab landing (the RoutineArrival shape): receive OR appear,
+        // whichever fires first.
+        .onReceive(NotificationCenter.default.publisher(for: .plusplusEquipmentArrived)) { _ in
+            consumeArrival()
+        }
+        .onAppear(perform: consumeArrival)
+    }
+
+    /// Land a cross-tab add: clear the narrowing search, pop to the root,
+    /// arm the scroll + flash.
+    private func consumeArrival() {
+        guard let pending = EquipmentArrival.pending else { return }
+        EquipmentArrival.pending = nil
+        searchText = ""
+        showingCatalog = false
+        path = NavigationPath()
+        newlyAdded = pending
     }
 
     private var addLabel: String {
@@ -554,6 +663,11 @@ struct EquipmentTabView: View {
                 SwipeActionButton(label: equipment.isBuiltIn ? "REMOVE" : "DELETE", color: Theme.destructive) {
                     openSwipeRow = nil
                     remove(equipment)
+                }
+            }
+            .overlay {
+                if newlyAdded == equipment.persistentModelID {
+                    RowEntranceFlash()
                 }
             }
             .listRowBackground(Color.clear)

@@ -59,6 +59,53 @@ struct CardTagCapsule: View {
     }
 }
 
+/// The row-scale entrance flash (universal-search landings): an inset
+/// accent ring that appears after a beat and fades out — RoutineCard's
+/// ring choreography at row scale. Pure opacity, deliberately NOT gated
+/// on Reduce Motion (it carries "which row landed", the same call as the
+/// card ring). Mount it as a row overlay while the row is the arrival.
+struct RowEntranceFlash: View {
+    @State private var entrance: Double = 0
+    @State private var flashTask: Task<Void, Never>?
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: Theme.controlRadius)
+            .strokeBorder(Theme.accent, lineWidth: 2)
+            // The ring hugs the row content but breathes past the list
+            // insets sideways, so it reads as a frame, not a squeeze.
+            .padding(.vertical, 2)
+            .padding(.horizontal, -6)
+            .opacity(entrance)
+            .allowsHitTesting(false)
+            .onAppear {
+                flashTask?.cancel()
+                flashTask = Task {
+                    // Let the landing scroll settle before the ring shows.
+                    try? await Task.sleep(for: .milliseconds(340))
+                    guard !Task.isCancelled else { return }
+                    entrance = 1
+                    withAnimation(.easeOut(duration: 0.9)) { entrance = 0 }
+                }
+            }
+            .onDisappear { flashTask?.cancel() }
+    }
+}
+
+/// The row NAME with a query's literal match painted in the selection
+/// wash — the universal-search highlight. Ranges come from
+/// `FuzzySearch.highlightRanges` against the same string; anything that
+/// fails to map (a stale range after an edit) paints nothing.
+func highlightedName(_ text: String, ranges: [Range<String.Index>]) -> AttributedString {
+    var result = AttributedString(text)
+    for range in ranges {
+        guard let lower = AttributedString.Index(range.lowerBound, within: result),
+              let upper = AttributedString.Index(range.upperBound, within: result),
+              lower < upper else { continue }
+        result[lower..<upper].backgroundColor = Theme.selectedTint
+    }
+    return result
+}
+
 /// The shared exercise row body: the SAME representation in the Exercises
 /// catalog and the picker. Star = favorited, a muscle capsule (↔ the Muscle
 /// filter), the gear it needs with the missing-gear gap flagged amber
@@ -70,9 +117,21 @@ struct ExerciseRowContent: View {
     /// Active-kit gear names, for the "needs X" availability flag.
     let available: Set<String>
     var showsChevron: Bool = true
+    /// Optional leading type/modality glyph (universal-search rows) —
+    /// 16 pt faint ink, a type marker, not a control.
+    var leadingSymbol: String? = nil
+    /// Match ranges in `exercise.name` to paint (universal search).
+    var nameHighlight: [Range<String.Index>] = []
 
     var body: some View {
         HStack(spacing: 10) {
+            if let leadingSymbol {
+                Image(systemName: leadingSymbol)
+                    .font(.system(size: 16))
+                    .foregroundStyle(Theme.textFaint)
+                    .frame(width: 22)
+                    .accessibilityHidden(true)
+            }
             if exercise.isFavorite {
                 Image(systemName: "star.fill")
                     .font(.system(.caption, weight: .semibold))
@@ -85,7 +144,7 @@ struct ExerciseRowContent: View {
             // halve the capsule room. The trailing Custom tag + chevron keep
             // their intrinsic size and ride the right edge.
             VStack(alignment: .leading, spacing: 6) {
-                Text(exercise.name)
+                Text(highlightedName(exercise.name, ranges: nameHighlight))
                     .font(.system(.subheadline, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(2)
@@ -136,9 +195,21 @@ struct EquipmentRowContent: View {
     /// in the kit). true/false = show it when in the kit (the catalog).
     var inKit: Bool? = nil
     var showsChevron: Bool = true
+    /// Optional leading type glyph (universal-search rows) — 16 pt faint
+    /// ink, a type marker, not a control.
+    var leadingSymbol: String? = nil
+    /// Match ranges in `equipment.name` to paint (universal search).
+    var nameHighlight: [Range<String.Index>] = []
 
     var body: some View {
         HStack(spacing: 10) {
+            if let leadingSymbol {
+                Image(systemName: leadingSymbol)
+                    .font(.system(size: 16))
+                    .foregroundStyle(Theme.textFaint)
+                    .frame(width: 22)
+                    .accessibilityHidden(true)
+            }
             // The VStack claims the row's free width (maxWidth: .infinity) so
             // the name has full room and short names don't wrap. A trailing
             // Spacer instead let the name size to its ideal, and the in-kit
@@ -146,7 +217,7 @@ struct EquipmentRowContent: View {
             // medium-length name (e.g. "Resistance Band") onto two lines while
             // longer checkmark-less rows stayed on one. Matches ExerciseRowContent.
             VStack(alignment: .leading, spacing: 6) {
-                Text(equipment.name)
+                Text(highlightedName(equipment.name, ranges: nameHighlight))
                     .font(.system(.subheadline, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(2)
