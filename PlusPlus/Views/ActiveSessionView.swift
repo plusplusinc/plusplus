@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import CoreLocation
+import UIKit
 import PlusPlusKit
 
 /// The at-the-gym screen, v2 (#65/#66): End + set-counter pills, a
@@ -467,7 +468,7 @@ struct ActiveSessionView: View {
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("Location is off. Pace and distance can't track.")
+                        .accessibilityLabel("Pace and distance can't track. Location is off.")
                         .accessibilityHint("Opens iOS Settings")
                         .accessibilityIdentifier("gpsDeniedChip")
                     }

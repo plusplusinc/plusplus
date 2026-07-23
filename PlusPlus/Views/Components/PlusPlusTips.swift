@@ -37,6 +37,10 @@ struct SupersetCreationTip: Tip {
     var title: Text { Text("Build a superset") }
     var message: Text? { Text("Two exercises, run back to back each round. Hold the dot beside one and drag to the other.") }
     var image: Image? { Image(systemName: "repeat") }
-    var rules: [Rule] { [#Rule(Self.$canPair) { $0 == true }] }
+    var rules: [Rule] {
+        // Builder syntax, not an array literal — `rules` is a
+        // @Tips.RuleBuilder property.
+        #Rule(Self.$canPair) { $0 == true }
+    }
     var options: [any TipOption] { [Tips.MaxDisplayCount(1)] }
 }

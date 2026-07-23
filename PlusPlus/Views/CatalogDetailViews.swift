@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 import PlusPlusKit
 
 /// Pushed detail screens for the two catalog tabs (#137): the catalog
