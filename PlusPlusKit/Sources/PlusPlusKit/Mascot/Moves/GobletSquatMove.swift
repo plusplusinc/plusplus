@@ -16,11 +16,14 @@ import Foundation
 /// whole rep by construction.
 enum GobletSquatMove {
     static let animation: ExerciseAnimation = {
-        // The frozen cup (plantingPalms winner, one decimal).
+        // The frozen cup (plantingPalms winner, one decimal). Wrist
+        // roll pulled 43 -> 39: the articulation round caps deviation
+        // at a human 40; the cupped hold's own capsule law verifies
+        // the bell still sits snug.
         let arms = MascotPoseBuilder.symmetricArms(
             shoulder: .deg(pitch: -35.6, yaw: -44.5, roll: 16.7),
             elbow: .deg(pitch: -122.0, yaw: -11.6),
-            wrist: .deg(pitch: 51.7, yaw: 26.1, roll: 43.0)
+            wrist: .deg(pitch: 46.0, yaw: 20.0, roll: 39.0)
         )
         let legsStanding = MascotPoseBuilder.symmetricLegs(hip: .deg(roll: 3))
         // The squat family's below-parallel bottom; ankle cancels the

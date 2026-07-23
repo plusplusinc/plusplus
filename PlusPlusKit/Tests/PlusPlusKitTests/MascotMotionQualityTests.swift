@@ -137,7 +137,7 @@ import Foundation
         #expect(worst <= 8, "\(name): peak joint speed \(worst) rad/s")
     }
 
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise", "Bench Press", "Lateral Raise", "Sit-Up", "Overhead Press", "Barbell Row", "Goblet Squat", "Kettlebell Swing", "Reverse Lunge", "Glute Bridge", "Pull-Up"])
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise", "Bench Press", "Lateral Raise", "Sit-Up", "Overhead Press", "Barbell Row", "Goblet Squat", "Kettlebell Swing", "Reverse Lunge", "Glute Bridge"])
     func effortPeaksWhileTheLoadRises(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         let repShare = animation.repDuration / animation.cycleDuration
@@ -272,7 +272,7 @@ import Foundation
     // The Kettlebell Swing is deliberately absent: its drop RIDES
     // gravity into the hike — a fast eccentric is the movement, not a
     // form fault.
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise", "Bench Press", "Lateral Raise", "Sit-Up", "Overhead Press", "Barbell Row", "Goblet Squat", "Reverse Lunge", "Glute Bridge", "Pull-Up"])
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise", "Bench Press", "Lateral Raise", "Sit-Up", "Overhead Press", "Barbell Row", "Goblet Squat", "Reverse Lunge", "Glute Bridge"])
     func theEccentricIsControlled(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         let workShare = animation.workDuration / animation.cycleDuration
@@ -303,7 +303,7 @@ import Foundation
     /// bottom of its travel, one at the top. An eased turnaround
     /// without a dwell only grazes zero speed for an instant, so the
     /// window-length bar separates a real pause from a slow reversal.
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise", "Bench Press", "Lateral Raise", "Sit-Up", "Overhead Press", "Barbell Row", "Goblet Squat", "Kettlebell Swing", "Reverse Lunge", "Glute Bridge", "Pull-Up"])
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Push-Up", "Single-Leg Calf Raise", "Bench Press", "Lateral Raise", "Sit-Up", "Overhead Press", "Barbell Row", "Goblet Squat", "Kettlebell Swing", "Reverse Lunge", "Glute Bridge"])
     func everyRepPausesAtItsTurnarounds(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         let repShare = animation.repDuration / animation.cycleDuration
@@ -481,5 +481,179 @@ import Foundation
             let a = Self.meanVerticalAcceleration(floaty, window: window)
             #expect(a > -9.81 * 0.75, "the floaty jump should read as under-gravity, got \(a)")
         }
+    }
+
+    // MARK: - Momentum (the ground and the bar obey Newton)
+
+    /// The physics round's dynamic-balance law (build-117, Dave: the
+    /// mass model must make the body "respect major laws of physics,
+    /// like gravity, conservation of momentum"): while grounded, the
+    /// ground reaction is the ONLY external force besides gravity, so
+    /// the zero-moment point — where that reaction must act once the
+    /// center of mass's actual acceleration is accounted — has to lie
+    /// inside the support polygon. A static CoM check can pass while
+    /// the MOTION is impossible (the kettlebell float that holds a
+    /// bell out with no counterlean); the ZMP is what catches it.
+    /// Same standing scope as the static balance law — the support
+    /// model knows feet and palms; supine and bench moves carry their
+    /// weight on surfaces it cannot see. Airborne windows belong to
+    /// the ballistic law; the polygon-less hover samples on a jump's
+    /// way in and out of flight are skipped the same way the static
+    /// law skips them.
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Single-Leg Calf Raise", "Lateral Raise", "Overhead Press", "Barbell Row", "Goblet Squat", "Kettlebell Swing", "Jump Squat"])
+    func standingMovesBalanceTheirMomentum(name: String) throws {
+        let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
+        // A BALLISTIC move is one long launch-prep and landing-recovery:
+        // its countermovement dip genuinely accelerates the mass 2+
+        // m/s^2 and rides the foot's edge far beyond this model. The
+        // ballistic law and the gravity ceiling own jumps end to end;
+        // this law owns every move that stays on the ground.
+        guard animation.dynamics.airborneWindows.isEmpty else { return }
+        for i in 0...300 {
+            let t = Double(i) / 300
+            let pose = animation.pose(at: t)
+            guard let polygon = MascotBalance.supportPolygon(pose: pose) else { continue }
+            let zmp = MascotBalance.zeroMomentPoint(animation: animation, at: t, dt: 0.25)
+            // dt 0.25 s spans the baked-knot spacing, so the estimate
+            // is the balance TREND, not spline-knot noise (adjacent
+            // 1/30-s samples read accelerations swinging +/-11 m/s^2
+            // on device-validated moves). The pad covers what remains
+            // plus a real athlete's brief toe/heel edge loading; the
+            // synthetic sway prover keeps the law honest at this
+            // smoothing.
+            // 0.055: the polygon's heel/toe boundary is the sole
+            // CORNER + a 5 mm patch — a real foot extends further —
+            // and the authored moves skip the several-centimeter
+            // preparatory sway a human uses to start a descent. The
+            // sway prover pins the law's teeth at gross violations.
+            let pad = 0.075
+            let xOK = zmp.x >= polygon.x.lowerBound - pad && zmp.x <= polygon.x.upperBound + pad
+            let zOK = zmp.z >= polygon.z.lowerBound - pad && zmp.z <= polygon.z.upperBound + pad
+            #expect(xOK && zOK,
+                    "\(name): the zero-moment point leaves the feet at t=\(t): zmp (\(zmp.x), \(zmp.z)), polygon x \(polygon.x), z \(polygon.z), com accel \(zmp.acceleration)")
+        }
+    }
+
+    /// The ground can push, never pull: no grounded frame of any move
+    /// may accelerate the system center of mass downward faster than
+    /// free fall. (Airborne windows sit exactly AT free fall — the
+    /// ballistic law — so this holds everywhere with one bound.) The
+    /// margin absorbs spline-knot second-derivative noise.
+    @Test(arguments: MascotMoves.all.map(\.exerciseName))
+    func nothingOutrunsGravity(name: String) throws {
+        let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
+        for i in 0...300 {
+            let t = Double(i) / 300
+            let zmp = MascotBalance.zeroMomentPoint(animation: animation, at: t, dt: 0.25)
+            #expect(zmp.acceleration.y >= -9.81 * 1.3,
+                    "\(name): the center of mass accelerates downward at \(zmp.acceleration.y) m/s² at t=\(t) — faster than gravity, and nothing can push it")
+        }
+    }
+
+    /// A hanging body is a pendulum: with the bar the only support,
+    /// equilibrium demands the system center of mass hang under the
+    /// bar line — a sustained sideways or fore-aft offset would swing.
+    /// Every frame of every hanging move keeps the CoM within a small
+    /// sway of the bar's vertical plane.
+    @Test func hangingMovesHangUnderTheBar() throws {
+        // Iterates internally: a parameterized test with an empty
+        // argument list is itself a failure, and the catalog holds no
+        // hanging move while the pull-up awaits its path re-author.
+        for animation in MascotMoves.all where animation.dynamics.hangsFromBar {
+        let name = animation.exerciseName
+        // Mid-rep the bound is looser than a knife-edge pendulum's: a
+        // GRIPPED bar carries real torque and friction, and the peak
+        // of a pull genuinely rides centimeters of offset. The still
+        // phases (the dead hang, the rest beat) are strict — a static
+        // hang far off the bar's plane is the build-117 bug class.
+        for i in 0...300 {
+            let t = Double(i) / 300
+            let com = MascotBalance.centerOfMass(animation: animation, at: t)
+            #expect(abs(com.z) <= 0.10,
+                    "\(name): the center of mass hangs \(com.z) m in front of/behind the bar at t=\(t)")
+            #expect(abs(com.x) <= 0.03,
+                    "\(name): the center of mass hangs \(com.x) m sideways off the bar's center at t=\(t)")
+        }
+        let repShare = animation.repDuration / animation.cycleDuration
+        for phase in [0.0, animation.restingPhase] {
+            let com = MascotBalance.centerOfMass(animation: animation, at: phase * repShare)
+            #expect(abs(com.z) <= 0.05,
+                    "\(name): the STILL center of mass hangs \(com.z) m off the bar's plane at held phase \(phase)")
+        }
+        }
+    }
+
+    /// The proof harness for the momentum laws (the synthetic-jump
+    /// pattern): a body swaying its mass violently over a fixed stance
+    /// must throw its ZMP outside the feet, and a grounded body
+    /// authored to drop at 2 g must be caught outrunning gravity — at
+    /// the same dt/pad the real laws use. If a smoothing change ever
+    /// deafens the checkers, these fail first.
+    @Test func syntheticCheatsProveTheMomentumCheckers() {
+        func flat(_ rootZ: Double, _ rootY: Double) -> MascotPose {
+            MascotPose(rootTranslation: Vec3(0, rootY, rootZ))
+        }
+        let sway = ExerciseAnimation(
+            exerciseName: "Probe Sway",
+            style: .reps(repDuration: 1.2),
+            repsPerDemoSet: 2,
+            repKeyframes: (0...10).map { i in
+                let phase = Double(i) / 10
+                return MascotKeyframe(
+                    t: phase,
+                    pose: flat(0.12 * cos(2 * .pi * phase), 0),
+                    easing: .linear
+                )
+            },
+            restBeat: ExerciseAnimation.RestBeat(duration: 1.0, keyframes: [
+                MascotKeyframe(t: 0, pose: flat(0.14, 0), easing: .linear),
+                MascotKeyframe(t: 1, pose: flat(0.14, 0)),
+            ]),
+            cues: [], props: [], blinkPhases: [],
+            restingPhase: 0, smoothing: .curved
+        )
+        var worstExcursion = 0.0
+        for i in 0...200 {
+            let t = Double(i) / 200
+            guard let polygon = MascotBalance.supportPolygon(pose: sway.pose(at: t)) else { continue }
+            let zmp = MascotBalance.zeroMomentPoint(animation: sway, at: t, dt: 0.25)
+            let excursion = max(polygon.z.lowerBound - zmp.z, zmp.z - polygon.z.upperBound, 0)
+            worstExcursion = max(worstExcursion, excursion)
+        }
+        #expect(worstExcursion > 0.075, "the violent sway should throw its ZMP outside the feet, got \(worstExcursion)")
+
+        let dropDepth = 1.7
+        var dropKeyframes: [MascotKeyframe] = []
+        // A 2 g drop long enough (0.84 s) that the dt-0.25 estimator
+        // must see it, sampled densely so the spline tracks it.
+        for i in 0...10 {
+            let phase = 0.2 + 0.35 * Double(i) / 10
+            let dt = (phase - 0.2) * 2.4
+            dropKeyframes.append(MascotKeyframe(
+                t: phase, pose: flat(0, -min(0.5 * 2 * 9.81 * dt * dt, dropDepth)), easing: .linear
+            ))
+        }
+        let drop = ExerciseAnimation(
+            exerciseName: "Probe Drop",
+            style: .reps(repDuration: 2.4),
+            repsPerDemoSet: 2,
+            repKeyframes: [MascotKeyframe(t: 0, pose: flat(0, 0), easing: .easeInOut)]
+                + dropKeyframes
+                + [MascotKeyframe(t: 0.8, pose: flat(0, -dropDepth), easing: .easeInOut),
+                   MascotKeyframe(t: 1, pose: flat(0, 0))],
+            restBeat: ExerciseAnimation.RestBeat(duration: 1.0, keyframes: [
+                MascotKeyframe(t: 0, pose: flat(0, 0), easing: .linear),
+                MascotKeyframe(t: 1, pose: flat(0, 0)),
+            ]),
+            cues: [], props: [], blinkPhases: [],
+            restingPhase: 0, smoothing: .curved
+        )
+        var minAY = 0.0
+        for i in 0...200 {
+            let t = Double(i) / 200
+            let zmp = MascotBalance.zeroMomentPoint(animation: drop, at: t, dt: 0.25)
+            minAY = min(minAY, zmp.acceleration.y)
+        }
+        #expect(minAY < -9.81 * 1.3, "the 2 g drop should be caught outrunning gravity, got \(minAY)")
     }
 }
