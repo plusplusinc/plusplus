@@ -173,7 +173,7 @@ struct SheetActionButton: View {
             .frame(maxWidth: .infinity)
             .frame(height: 42)
             .overlay(
-                RoundedRectangle(cornerRadius: 11)
+                RoundedRectangle(cornerRadius: Theme.keyRadius)
                     .strokeBorder(destructive ? Theme.destructive.opacity(0.4) : Theme.borderStrong)
             )
         }

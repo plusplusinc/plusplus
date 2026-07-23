@@ -240,15 +240,12 @@ struct EquipmentLibraryTray: View {
         }
     }
 
+    /// The shared data-tag treatment (soft fill, no stroke, r6) — a kit's
+    /// gear is an item property, same as the gear tags on routine cards.
+    /// The stroked mono capsule this replaced read as a button (the exact
+    /// anti-pattern the tag-tier law names).
     private func gearChip(_ text: String) -> some View {
-        Text(text)
-            .font(.system(.caption2, design: .monospaced))
-            .foregroundStyle(Theme.textSecondary)
-            .lineLimit(1)
-            .fixedSize()
-            .padding(.horizontal, 7)
-            .padding(.vertical, 2)
-            .overlay(Capsule().strokeBorder(Theme.border))
+        CardTagCapsule(text: text)
     }
 
     // MARK: - Actions

@@ -154,7 +154,7 @@ struct OperatorPreviewCard: View {
                             .foregroundStyle(Theme.onPrimary)
                             .padding(.horizontal, 18)
                             .frame(minHeight: 40)
-                            .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 11))
+                            .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
                     }
                     .buttonStyle(.raisedPrimaryKey())
                     .accessibilityIdentifier("operatorApply")
@@ -254,8 +254,8 @@ struct OperatorOptionsCard: View {
                         .foregroundStyle(picked.isEmpty ? Theme.textFaint : Theme.onPrimary)
                         .padding(.horizontal, 16)
                         .frame(minHeight: 38)
-                        .background(picked.isEmpty ? Theme.surface : Theme.primaryFill, in: RoundedRectangle(cornerRadius: 11))
-                        .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(picked.isEmpty ? Theme.borderStrong : Color.clear))
+                        .background(picked.isEmpty ? Theme.surface : Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(picked.isEmpty ? Theme.borderStrong : Color.clear))
                 }
                 .buttonStyle(.raisedPrimaryKey())
                 .disabled(picked.isEmpty)

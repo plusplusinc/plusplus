@@ -487,14 +487,19 @@ final class SmokeTests: XCTestCase {
         let add = app.buttons["addTemplateButton"]
         XCTAssertTrue(add.waitForExistence(timeout: 5))
         add.tap()
-        snap("setup-step2-added")
 
-        // Add lands in the new routine; pop back to Today for step 3.
-        for _ in 0..<4 where !app.buttons["setupScheduleStep"].exists {
-            let back = app.buttons["backButton"]
-            guard back.waitForExistence(timeout: 5) else { break }
-            back.tap()
-        }
+        // ONE landing for every template add (design review 2026-07-23):
+        // the add switches to the Routines tab and entrance-flashes the
+        // new card — same as adding from the Routines tab itself. The
+        // card is briefly held out for its entrance beat, so wait
+        // generously. Setup then continues back on Today.
+        let landedCard = app.staticTexts["Bodyweight Basics"]
+        XCTAssertTrue(
+            landedCard.waitForExistence(timeout: 10),
+            "the template add should land on the Routines list showing the new card"
+        )
+        snap("setup-step2-added")
+        app.tabBars.buttons["Today"].tap()
 
         // Step 3 unlocks: schedule Bodyweight Basics for today so it stages.
         let scheduleCTA = app.buttons["setupScheduleStep"]

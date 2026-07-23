@@ -152,8 +152,8 @@ struct HealthStartPrimer: View {
                         .minimumScaleFactor(0.6)
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 44)
-                        .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
-                        .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.border))
+                        .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.border))
                 }
                 .buttonStyle(.quietKey)
                 .disabled(connecting)

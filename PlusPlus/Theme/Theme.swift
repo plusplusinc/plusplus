@@ -102,6 +102,13 @@ enum Theme {
     static let cardRadius: CGFloat = 14
     static let sheetRadius: CGFloat = 20
     static let controlRadius: CGFloat = 10
+    /// The interactive-key radius (2026-07-19 "rounded squares everywhere"):
+    /// RaisedKey caps, header icon keys, filter chips, the search field.
+    /// It was the app's most-repeated radius yet lived as a bare literal at
+    /// ~40 call sites until the 2026-07-23 design-review sweep named it.
+    /// `FilterChipShape.cornerRadius` aliases this so chip call sites keep
+    /// reading in chip vocabulary.
+    static let keyRadius: CGFloat = 11
 
     // MARK: - Motion
 

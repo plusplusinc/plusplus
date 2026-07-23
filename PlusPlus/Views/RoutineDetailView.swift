@@ -117,13 +117,18 @@ struct RoutineDetailView: View {
             // SIBLING gate — conditional content must never wrap the
             // rail ScrollView (identity churn mid-gesture, #270).
             SupersetTipInline(
-                exerciseCount: routine.sortedGroups.reduce(0) { $0 + $1.sortedExercises.count },
                 hasSuperset: routine.sortedGroups.contains(where: \.isSuperset)
             )
 
             railList
         }
         .background(Theme.background)
+        // Feed the creation tip's display rule from live structure (the
+        // popover attachment on the first rail row stays unconditional;
+        // TipKit decides). task(id:) re-fires whenever eligibility flips.
+        .task(id: supersetTipEligible) {
+            SupersetCreationTip.canPair = supersetTipEligible
+        }
         // Operator's view-context: the deepest visible screen reports
         // one compact line (appear-only; the root's re-appear clears it).
         .operatorContext("routines/\(routine.name)")
@@ -227,6 +232,13 @@ struct RoutineDetailView: View {
         return try? RoutineShareLink.url(for: payload)
     }
 
+    /// Material to pair (≥2 exercises) and no superset yet — the
+    /// creation tip's display window.
+    private var supersetTipEligible: Bool {
+        !routine.sortedGroups.contains(where: \.isSuperset)
+            && routine.sortedGroups.reduce(0) { $0 + $1.sortedExercises.count } >= 2
+    }
+
     // MARK: - Header
 
     private var header: some View {
@@ -325,12 +337,23 @@ struct RoutineDetailView: View {
             VStack(spacing: 0) {
                 ForEach(Array(groups.enumerated()), id: \.element.uuid) { g, group in
                     ForEach(Array(group.sortedExercises.enumerated()), id: \.element.uuid) { i, routineExercise in
-                        railRow(
+                        let row = railRow(
                             routineExercise, group: group, groupIndex: g, index: i,
                             hideLoop: ringGroup == g,
                             landing: landingParams(groupIndex: g, index: i, layout: layout, sizes: sizes)
                         )
                         .offset(y: offsets[.exercise(group: g, index: i)] ?? 0)
+                        // The superset how-to pins to the FIRST row (Dave,
+                        // 2026-07-23): a popover on a real exercise, not the
+                        // build-45 balloon floating at the rail's top edge.
+                        // The branch depends only on position, so superset
+                        // formation never re-identifies a row mid-landing;
+                        // display is gated in the tip's own canPair rule.
+                        if g == 0 && i == 0 {
+                            row.popoverTip(SupersetCreationTip(), arrowEdge: .top)
+                        } else {
+                            row
+                        }
                     }
                 }
                 addExerciseRow
@@ -350,7 +373,7 @@ struct RoutineDetailView: View {
             .overlay(alignment: .topLeading) { ringHighlight(layout: layout, sizes: sizes) }
             .overlay(alignment: .topLeading) { supersetLandingFX(layout: layout, sizes: sizes) }
             .overlay(alignment: .topLeading) { floatingDragPreview(layout: layout, groups: groups) }
-            .animation(.easeOut(duration: 0.16), value: offsets)
+            .animation(Theme.Anim.standard, value: offsets)
             .padding(.top, 10)
             .padding(.leading, 20)
             .padding(.trailing, 14)
@@ -1017,16 +1040,15 @@ struct RoutineDetailView: View {
 /// inside is TORN DOWN on every flip. It must stay a SIBLING of the
 /// rail ScrollView, never a wrapper around it.
 private struct SupersetTipInline: View {
-    let exerciseCount: Int
     let hasSuperset: Bool
 
     var body: some View {
+        // Loop tip only, since 2026-07-23: the creation tip moved to a
+        // popover pinned on the first rail row (teaching the gesture).
+        // This inline card still introduces a loop the user didn't draw
+        // (an instantiated template, a shared import).
         if hasSuperset {
             TipView(SupersetLoopTip())
-                .padding(.horizontal, 20)
-                .padding(.vertical, 6)
-        } else if exerciseCount >= 2 {
-            TipView(SupersetCreationTip())
                 .padding(.horizontal, 20)
                 .padding(.vertical, 6)
         }

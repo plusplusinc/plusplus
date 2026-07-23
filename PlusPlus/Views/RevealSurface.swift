@@ -376,10 +376,10 @@ struct RevealSurface: View {
             .padding(.horizontal, 14)
             .frame(minHeight: 50)
             .frame(maxWidth: .infinity)
-            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 11))
-            .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+            .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
         }
-        .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: 11, travel: 3))
+        .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: Theme.keyRadius, travel: 3))
         .accessibilityIdentifier(identifier)
     }
 
@@ -632,10 +632,10 @@ private struct HealthTray: View {
                         .foregroundStyle(Theme.accent)
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
-                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 11))
-                        .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
                 }
-                .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: 11, travel: 3))
+                .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: Theme.keyRadius, travel: 3))
                 .accessibilityIdentifier("healthConnectButton")
             }
         }
@@ -662,10 +662,10 @@ private struct HealthTray: View {
                 .foregroundStyle(Theme.textPrimary)
                 .frame(maxWidth: .infinity)
                 .frame(height: 44)
-                .background(Theme.surface, in: RoundedRectangle(cornerRadius: 11))
-                .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
+                .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+                .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
         }
-        .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: 11, travel: 3))
+        .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: Theme.keyRadius, travel: 3))
         .accessibilityIdentifier("healthOpenSettingsButton")
     }
 }
@@ -952,10 +952,10 @@ private struct DataTray: View {
             .padding(.horizontal, 14)
             .frame(height: 50)
             .frame(maxWidth: .infinity)
-            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 11))
-            .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+            .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
         }
-        .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: 11, travel: 3))
+        .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: Theme.keyRadius, travel: 3))
     }
 }
 
@@ -1020,8 +1020,8 @@ private struct AboutTray: View {
                 Divider().overlay(Theme.border)
                 linkRow("Source on GitHub", url: "https://github.com/plusplusinc/plusplus")
             }
-            .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
-            .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.border))
+            .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+            .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.border))
 
             SheetSectionLabel("FEEDBACK")
                 .padding(.top, 20)
@@ -1030,8 +1030,8 @@ private struct AboutTray: View {
                 Divider().overlay(Theme.border)
                 linkRow("Email", url: "mailto:mr.david.j.cole@gmail.com")
             }
-            .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
-            .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.border))
+            .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+            .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.border))
 
             Text("Opens GitHub or Mail. PlusPlus never phones home.")
                 .font(.system(.caption))

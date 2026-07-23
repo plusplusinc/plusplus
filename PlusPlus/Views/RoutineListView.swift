@@ -2,6 +2,26 @@ import SwiftUI
 import SwiftData
 import PlusPlusKit
 
+/// A routine added from ANOTHER tab (Today's setup step, a share import)
+/// lands on the Routines list with the same entrance flash a same-tab add
+/// gets — one landing for every add (Dave, 2026-07-23; the Today setup
+/// flow used to land inside the new routine's detail instead). The uuid
+/// is a HANDOFF SLOT, not a notification payload: the Routines tab may
+/// not be mounted yet when the add happens (a first-run setup flow), so
+/// the list consumes it on appear as well as on receive — whichever
+/// fires first wins, and consuming clears the slot.
+enum RoutineArrival {
+    static var pending: UUID?
+
+    /// Stamp the arrival and announce it: RootTabView switches to the
+    /// Routines tab; a mounted list consumes immediately, an unmounted
+    /// one on its first appear.
+    @MainActor static func land(_ uuid: UUID) {
+        pending = uuid
+        NotificationCenter.default.post(name: .plusplusRoutineArrived, object: nil)
+    }
+}
+
 /// The Routines tab, v3 (#109): routine cards with equipment pills and
 /// a contextual header + (new routine). Library/History/Settings left
 /// this header with the nav restructure — Exercises and Equipment are
@@ -95,7 +115,7 @@ struct RoutineListView: View {
                             // the row OPEN, not one that was already sitting
                             // there.
                             try await Task.sleep(for: .milliseconds(300))
-                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) {
+                            withAnimation(Theme.Anim.flourish(.easeOut(duration: 0.3))) {
                                 revealNewCard = true      // fade in + push the rest down
                             }
                             // Let the fade begin, then bring the card into view.
@@ -170,6 +190,13 @@ struct RoutineListView: View {
             path = NavigationPath()
             path.append(RoutineRef(uuid: uuid))
         }
+        // A cross-tab add (Today's setup, a share import) lands HERE with
+        // the entrance flash — consumed on receive when mounted, on appear
+        // when this tab mounts for the first time because of the add.
+        .onReceive(NotificationCenter.default.publisher(for: .plusplusRoutineArrived)) { _ in
+            consumeArrival()
+        }
+        .onAppear(perform: consumeArrival)
         // Routine creates / deletes / reorders reach GitHub when you leave the
         // tab. Debounced + dirty-gated (see requestSync).
         .syncsProgramOnClose()
@@ -195,6 +222,17 @@ struct RoutineListView: View {
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
         .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
+    }
+
+    /// Land a cross-tab add: pop to the list and play the same held-out
+    /// entrance a same-tab template add gets.
+    private func consumeArrival() {
+        guard let uuid = RoutineArrival.pending,
+              let routine = modelContext.routine(uuid: uuid) else { return }
+        RoutineArrival.pending = nil
+        path = NavigationPath()
+        revealNewCard = false     // hold the card out for the entrance beat
+        newlyAdded = routine.persistentModelID
     }
 
     private var routinesEmptyHint: some View {
@@ -273,8 +311,8 @@ struct HeaderIconButton: View {
                 .font(.system(.body, weight: .medium))
                 .foregroundStyle(tint)
                 .frame(width: 44, height: 44)
-                .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
-                .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
+                .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+                .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
         }
         .buttonStyle(.raisedKey())
         .accessibilityLabel(accessibilityLabel)
@@ -333,6 +371,10 @@ private struct RoutineCard: View {
                 try? await Task.sleep(for: .milliseconds(340))
                 guard !Task.isCancelled else { return }
                 entrance = 1
+                // Deliberately NOT gated on Reduce Motion: this is a pure
+                // opacity fade (fades are fine under RM, per the Anim token
+                // docs), and it carries information — which card just landed.
+                // An instant disappear would erase the signal, not the motion.
                 withAnimation(.easeOut(duration: 0.9)) { entrance = 0 }
             }
         }

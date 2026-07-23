@@ -68,8 +68,14 @@ struct TodayView: View {
     @State private var dayToken = 0
     @State private var sync = GitHubSyncCoordinator.shared
     /// Transient pull-to-refresh confirmation (a sync result, or a quip when
-    /// there's nothing to sync). Cleared automatically by the toast.
+    /// there's nothing to sync). Rendered INLINE at the top of the timeline —
+    /// the app has no toasts (Dave, 2026-07-23) — and cleared after a beat by
+    /// `refreshClearTask`.
     @State private var refreshMessage: String?
+    @State private var refreshClearTask: Task<Void, Never>?
+    /// Why a routine-start deep link (calendar / Siri / plusplus.fit)
+    /// could not start — surfaced as an alert, never swallowed.
+    @State private var startLinkFailure: StartLinkFailure?
     /// One-shot: the timeline anchors to today's content on FIRST
     /// appearance only (#267) — re-appearances mid-session (returning
     /// from a workout cover, tab hops) must not yank the scroll
@@ -199,6 +205,19 @@ struct TodayView: View {
                                 // history — eager building made every render
                                 // O(sessions) (bug hunt perf finding).
                                 LazyVStack(spacing: 0) {
+                                    // The pull-to-refresh answer, INLINE where
+                                    // the pull just settled (no toasts, Dave
+                                    // 2026-07-23 — an overlay pill floating
+                                    // over content is not this app's voice).
+                                    // Self-clears via refreshClearTask.
+                                    if let refreshMessage {
+                                        Text(refreshMessage)
+                                            .font(.system(.caption, design: .monospaced))
+                                            .foregroundStyle(Theme.textSecondary)
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.bottom, 10)
+                                            .transition(.move(edge: .top).combined(with: .opacity))
+                                    }
                                     // The date lives here now (Dave's ask),
                                     // on the item it names — and it's the
                                     // line the opening scroll lands on.
@@ -416,17 +435,15 @@ struct TodayView: View {
             // placeholder (build 33).
             .navigationDestination(for: RoutineTemplate.self) { template in
                 RoutineTemplateDetailScreen(template: template, path: $todayPath) { routine in
-                    // Today has no routines list to return to, so keep the
-                    // land-in-the-new-routine feedback — but COLLAPSE the
-                    // catalog + template out from beneath it (like
-                    // createBlankRoutine), so the detail sits directly on
-                    // Today's root and Back — or a delete from its settings —
-                    // returns to the timeline instead of stranding the user
-                    // on the template/catalog level (Dave, 2026-07-15).
+                    // ONE landing for every template add (Dave, 2026-07-23,
+                    // superseding the 2026-07-15 land-in-detail): the add
+                    // lands on the ROUTINES LIST with the entrance flash,
+                    // same as adding from the Routines tab. The Today path
+                    // clears so returning to this tab shows the timeline
+                    // (with the setup step now done), not a stale catalog.
                     guard let uuid = routine.uuid else { return }
-                    var collapsed = NavigationPath()
-                    collapsed.append(RoutineRef(uuid: uuid))
-                    todayPath = collapsed
+                    todayPath = NavigationPath()
+                    RoutineArrival.land(uuid)
                 }
             }
             .sheet(isPresented: $showingSwapIn, onDismiss: {
@@ -511,12 +528,40 @@ struct TodayView: View {
             // in-flight dismissal paths are covered by the cover's
             // onDismiss.
             .onAppear(perform: resolveOrphanedSessions)
+            // Calendar events, plusplus.fit/start links, and Siri all start a
+            // routine BY NAME through this one notification. The guards used
+            // to fail silently — a renamed/deleted routine or an in-progress
+            // workout made the tap look broken to exactly the users who set
+            // those integrations up (design review 2026-07-23, the UX
+            // audit's one HIGH). Each miss now says why. Follow-up filed:
+            // resolve these entry points by stable id instead of name.
             .onReceive(NotificationCenter.default.publisher(for: .plusplusStartRoutine)) { note in
-                guard activeSession == nil,
-                      let name = note.object as? String,
-                      let routine = routines.first(where: { $0.name.lowercased() == name.lowercased() })
-                else { return }
+                guard let name = note.object as? String else { return }
+                guard let routine = routines.first(where: { $0.name.lowercased() == name.lowercased() }) else {
+                    startLinkFailure = StartLinkFailure(
+                        title: "Couldn't find that routine",
+                        message: "It may have been renamed or removed."
+                    )
+                    return
+                }
+                guard activeSession == nil else {
+                    startLinkFailure = StartLinkFailure(title: "A workout is already running", message: nil)
+                    return
+                }
                 start(routine)
+            }
+            .alert(
+                startLinkFailure?.title ?? "",
+                isPresented: Binding(
+                    get: { startLinkFailure != nil },
+                    set: { if !$0 { startLinkFailure = nil } }
+                )
+            ) {
+                Button("OK") { startLinkFailure = nil }
+            } message: {
+                if let text = startLinkFailure?.message {
+                    Text(text)
+                }
             }
             // A finished workout's recap just closed: pop to the Today
             // root (the session may have started from a pushed screen)
@@ -530,9 +575,18 @@ struct TodayView: View {
         // Equipment setup pushes via isPresented (not the path), so factor it
         // into root-ness or swipe-to-open would fight its swipe-back.
         .revealRoot(tab: "today", atRoot: todayPath.isEmpty && !showingEquipmentSetup)
-        // Pull-to-refresh confirmation (sync result, or a quip when there's
-        // nothing to sync). Self-clears.
-        .toast($refreshMessage)
+        .animation(Theme.Anim.standard, value: refreshMessage)
+        // The inline refresh line clears itself after a beat (the logic the
+        // deleted ToastModifier used to own).
+        .onChange(of: refreshMessage) { _, newValue in
+            refreshClearTask?.cancel()
+            guard newValue != nil else { return }
+            refreshClearTask = Task { @MainActor in
+                try? await Task.sleep(for: .seconds(3))
+                guard !Task.isCancelled else { return }
+                refreshMessage = nil
+            }
+        }
     }
 
     /// The pending→done conversion, staged so it reads as a sequence:
@@ -1664,6 +1718,15 @@ struct SessionRecordDestination: Hashable {
     let session: WorkoutSession
 }
 
+/// Why a routine-start deep link couldn't start (renamed/removed
+/// routine, or a workout already running) — alert-presented, because a
+/// tapped calendar event or Siri phrase that silently does nothing
+/// reads as the app being broken.
+private struct StartLinkFailure {
+    let title: String
+    let message: String?
+}
+
 /// One row of the Today rail: node in a fixed-width gutter with a
 /// continuous 2 px spine, card alongside. Every node is a RING —
 /// stroke only, never filled (Dave's build-33 call, superseding
@@ -1735,10 +1798,11 @@ private struct TimelineItem<Content: View>: View {
 }
 
 /// One setup step on the Today rail (setup-as-timeline handoff).
-/// Three states: done reads like a committed entry (green node, solid
-/// card, an edit affordance); ready is a dashed pending card with its
-/// "N of 3" badge and a full-width CTA; gated is the same card dimmed,
-/// non-interactive, its sub explaining the prerequisite.
+/// Three states: done reads like a committed entry (purple .committed
+/// node — Dave keeps finished tasks purple, design review 2026-07-23 —
+/// solid card, an edit affordance); ready is a dashed pending card with
+/// its "N of 3" badge and a full-width CTA; gated is the same card
+/// dimmed, non-interactive, its sub explaining the prerequisite.
 private struct SetupRow: View {
     enum StepState {
         case done, ready, gated
@@ -1835,7 +1899,7 @@ private struct SetupRow: View {
                         .minimumScaleFactor(0.6)
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 44)
-                        .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 11))
+                        .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
                 }
                 .buttonStyle(.raisedPrimaryKey())
                 .accessibilityIdentifier(identifier)
@@ -2015,8 +2079,8 @@ private struct SwapInSheet: View {
                 .padding(.horizontal, 14)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .frame(minHeight: 56)
-                .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
-                .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
+                .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+                .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
             }
             .buttonStyle(.raisedKey())
             .accessibilityIdentifier("chooseRoutineButton")
@@ -2046,8 +2110,8 @@ private struct SwapInSheet: View {
                 .padding(.horizontal, 14)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .frame(minHeight: 56)
-                .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
-                .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
+                .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+                .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
             }
             .buttonStyle(.raisedKey())
             .accessibilityIdentifier("swapInStartEmpty")

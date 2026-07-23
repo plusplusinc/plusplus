@@ -166,6 +166,14 @@ struct ActiveSessionView: View {
                 // exist, but auto-finishing here would commit a 0-set
                 // session (the empty-staging bug class, hunt round 1).
                 emptyStage
+            } else if session.routine == nil {
+                // An ad-hoc session's "plan" is only what's been added so
+                // far, so running out of pending sets does NOT mean done —
+                // finishing is the user's call (device report 2026-07-23:
+                // the workout ended the moment the first added exercise
+                // completed). Routine sessions keep the auto-finish below;
+                // their plan ending IS the finish.
+                stagedWorkDoneStage
             } else {
                 finishedView
                     .onAppear { finishSession(dismissAfter: false) }
@@ -379,7 +387,10 @@ struct ActiveSessionView: View {
     // MARK: - Header
 
     private var header: some View {
-        HStack {
+        // Explicit 8 pt gaps: with HR + pace + Pause all present the
+        // default spacing let the keys crowd (design-review spacing
+        // audit, 2026-07-23).
+        HStack(spacing: 8) {
             // No End once finished (#246): its dialog there offered
             // ONLY destructive Discard — a stray delete affordance on
             // an append-only record, one mistap from erasing a first
@@ -388,6 +399,11 @@ struct ActiveSessionView: View {
                 Button {
                     showingExitDialog = true
                 } label: {
+                    // The live HUD predated the shape law (2026-07-20) as a
+                    // capsule island; it joined the r11 raised-key family in
+                    // the 2026-07-23 design review — controls press, data
+                    // tags (HR/pace) stay soft. Cap 42 + travel 3 keeps the
+                    // old 44 pt row height (#130 floor).
                     HStack(spacing: 6) {
                         Image(systemName: "xmark").font(.system(.caption, weight: .semibold))
                             .accessibilityHidden(true)
@@ -396,13 +412,11 @@ struct ActiveSessionView: View {
                     }
                     .foregroundStyle(Theme.textPrimary)
                     .padding(.horizontal, 12)
-                    .frame(minHeight: 34)
-                    .background(Theme.surface, in: Capsule())
-                    .overlay(Capsule().strokeBorder(Theme.border))
-                    // 34 pt visual carried to a 44 pt hit target (#130 floor).
-                    .padding(.vertical, 5)
-                    .contentShape(Rectangle())
+                    .frame(minHeight: 42)
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
                 }
+                .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: Theme.keyRadius, travel: 3))
                 .accessibilityLabel("End workout")
                 .accessibilityIdentifier("exitSessionButton")
 
@@ -423,6 +437,40 @@ struct ActiveSessionView: View {
                         target: activeLog?.target(.pace),
                         chrome: true
                     )
+                    // A denied Location grant says so (design review
+                    // 2026-07-23, the Health-tray parity): amber advisory
+                    // in the interactive control shape, opening iOS
+                    // Settings. Absent this, denial rendered exactly like
+                    // "no GPS fix yet" — a broken-looking feature instead
+                    // of a fixable permission. Never a gate: the workout
+                    // runs fine without it.
+                    if location.authorizationDenied {
+                        Button {
+                            if let url = URL(string: UIApplication.openSettingsURLString) {
+                                UIApplication.shared.open(url)
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "location.slash")
+                                    .font(.system(.caption2, weight: .semibold))
+                                    .accessibilityHidden(true)
+                                Text("GPS off")
+                                    .font(.system(.caption2))
+                            }
+                            .foregroundStyle(Theme.notes)
+                            .lineLimit(1)
+                            .padding(.horizontal, 10)
+                            .frame(minHeight: 34)
+                            .background(Theme.notes.opacity(0.14), in: RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius))
+                            .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius)
+                                .strokeBorder(Theme.notes.opacity(0.45), lineWidth: 1))
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Location is off. Pace and distance can't track.")
+                        .accessibilityHint("Opens iOS Settings")
+                        .accessibilityIdentifier("gpsDeniedChip")
+                    }
                 }
 
                 // Pause the workout clock. Shown only while it's actually
@@ -441,12 +489,11 @@ struct ActiveSessionView: View {
                         }
                         .foregroundStyle(Theme.textPrimary)
                         .padding(.horizontal, 12)
-                        .frame(minHeight: 34)
-                        .background(Theme.surface, in: Capsule())
-                        .overlay(Capsule().strokeBorder(Theme.border))
-                        .padding(.vertical, 5)
-                        .contentShape(Rectangle())
+                        .frame(minHeight: 42)
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
                     }
+                    .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: Theme.keyRadius, travel: 3))
                     .accessibilityLabel("Pause workout")
                     .accessibilityIdentifier("pauseWorkoutButton")
                 }
@@ -474,12 +521,11 @@ struct ActiveSessionView: View {
                         .accessibilityHidden(true)
                 }
                 .padding(.horizontal, 12)
-                .frame(minHeight: 34)
-                .background(Theme.surface, in: Capsule())
-                .overlay(Capsule().strokeBorder(Theme.border))
-                .padding(.vertical, 5)
-                .contentShape(Rectangle())
+                .frame(minHeight: 42)
+                .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+                .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
             }
+            .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: Theme.keyRadius, travel: 3))
             .accessibilityElement(children: .combine)
             .accessibilityHint("Opens the set overview")
             .accessibilityIdentifier("sessionOverviewButton")
@@ -655,8 +701,10 @@ struct ActiveSessionView: View {
 
         // Duration-driven sets have no +1 (their dock is the auto-timer;
         // the timer reaching zero IS the flourish) — no beat to wait for.
+        // Ad-hoc sessions never auto-finish (routine == nil): the body's
+        // stagedWorkDoneStage takes over when pending sets run out.
         guard Self.playsLogBeat, log.driver != .duration else {
-            if !hasNext { finishSession(dismissAfter: false) }
+            if !hasNext, session.routine != nil { finishSession(dismissAfter: false) }
             return
         }
         lingeringLog = log
@@ -671,8 +719,9 @@ struct ActiveSessionView: View {
             // when the screen changes. Preconditions RE-CHECKED at
             // fire time, not trusted from log time (the StartFlash
             // rule): a redo reopening a set mid-beat must not get
-            // stamped into a finished record.
-            if session.nextPendingLog == nil && !session.isFinished {
+            // stamped into a finished record. Ad-hoc sessions (routine
+            // == nil) never auto-finish — see stagedWorkDoneStage.
+            if session.nextPendingLog == nil && !session.isFinished && session.routine != nil {
                 finishSession(dismissAfter: false)
             }
         }
@@ -777,6 +826,64 @@ struct ActiveSessionView: View {
             .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
             .accessibilityIdentifier("addExerciseToSessionButton")
             .padding(.top, 8)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, 32)
+    }
+
+    /// An ad-hoc session with every added set logged. Not a finish —
+    /// the session has no plan to run out of, so the next move is the
+    /// user's: add another exercise, or call it done (device report
+    /// 2026-07-23: auto-finishing here ended the workout after the
+    /// first added exercise).
+    private var stagedWorkDoneStage: some View {
+        VStack(spacing: 14) {
+            Text("SCRATCH WORKOUT")
+                .font(.system(.footnote, design: .monospaced, weight: .semibold))
+                .kerning(0.7)
+                .foregroundStyle(Theme.textSecondary)
+            Text("All added exercises done")
+                .font(.system(.title3, weight: .bold))
+            Text("Add another, or finish and log the workout.")
+                .font(.system(.footnote))
+                .foregroundStyle(Theme.textSecondary)
+                .multilineTextAlignment(.center)
+            Button {
+                showingAddExercise = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "plus")
+                        .font(.system(.caption, weight: .semibold))
+                    Text("Add exercise")
+                        .font(.system(.footnote, weight: .semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                }
+                // Creation is green (#202).
+                .foregroundStyle(Theme.accent)
+                .padding(.horizontal, 22)
+                .frame(minHeight: 48)
+                .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.controlRadius)
+                        .strokeBorder(Theme.borderStrong)
+                )
+            }
+            .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
+            .accessibilityIdentifier("addExerciseToSessionButton")
+            .padding(.top, 8)
+            Button {
+                finishSession(dismissAfter: false)
+            } label: {
+                Text("Finish workout")
+                    .font(.system(.footnote, weight: .semibold))
+                    .foregroundStyle(Theme.onPrimary)
+                    .padding(.horizontal, 22)
+                    .frame(minHeight: 48)
+                    .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+            }
+            .buttonStyle(.raisedPrimaryKey(cornerRadius: Theme.controlRadius))
+            .accessibilityIdentifier("finishScratchWorkoutButton")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.horizontal, 32)
@@ -1708,11 +1815,13 @@ private struct LiveHeartRateLabel: View {
                     .accessibilityValue("\(bpm) beats per minute" + (inTarget ? ", in target" : ""))
                     .accessibilityIdentifier("liveHeartRate")
                 if chrome {
+                    // A readout is data, not a control — the soft r6 tag
+                    // treatment (CardTagCapsule's), no stroke, beside the
+                    // header's r11 raised keys (shape carries role).
                     described
                         .padding(.horizontal, 10)
                         .frame(minHeight: 34)
-                        .background(Theme.surface, in: Capsule())
-                        .overlay(Capsule().strokeBorder(Theme.border))
+                        .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: CardTagCapsule.cornerRadius))
                 } else {
                     described
                 }
@@ -1751,11 +1860,13 @@ private struct LivePaceLabel: View {
                     .accessibilityValue("\(WorkoutMetric.pace.formatted(pace)) \(unit.paceLabel)" + (meeting ? ", meeting target" : ""))
                     .accessibilityIdentifier("livePace")
                 if chrome {
+                    // A readout is data, not a control — the soft r6 tag
+                    // treatment (CardTagCapsule's), no stroke, beside the
+                    // header's r11 raised keys (shape carries role).
                     described
                         .padding(.horizontal, 10)
                         .frame(minHeight: 34)
-                        .background(Theme.surface, in: Capsule())
-                        .overlay(Capsule().strokeBorder(Theme.border))
+                        .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: CardTagCapsule.cornerRadius))
                 } else {
                     described
                 }
@@ -1894,7 +2005,7 @@ private struct DurationTimerCard: View {
                         .foregroundStyle(Theme.textPrimary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 46)
-                        .animation(.default, value: pausedRemaining != nil)
+                        .animation(Theme.Anim.standard, value: pausedRemaining != nil)
                     }
                     Divider().frame(height: 46).overlay(Theme.border)
                     Button(action: reset) {
@@ -2082,8 +2193,8 @@ private struct RestView: View {
                                 .minimumScaleFactor(0.6)
                                 .frame(width: (proxy.size.width - 10) * 5 / 12)
                                 .frame(minHeight: 52)
-                                .background(Theme.background, in: RoundedRectangle(cornerRadius: 11))
-                                .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.borderStrong))
+                                .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+                                .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
                         }
                         .buttonStyle(.raisedKey())
                         .accessibilityIdentifier("extendRestButton")
@@ -2095,7 +2206,7 @@ private struct RestView: View {
                                 .minimumScaleFactor(0.6)
                                 .frame(maxWidth: .infinity)
                                 .frame(minHeight: 52)
-                                .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 11))
+                                .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
                         }
                         .buttonStyle(.raisedPrimaryKey())
                         .accessibilityIdentifier("skipRestButton")

@@ -22,11 +22,18 @@ struct ExerciseEditorView: View {
     @State private var draft: ExerciseDraft
     @State private var defaultsWheel: WorkoutMetric?
     @State private var showingDefaultRepsWheel = false
+    /// The draft as it opened — the discard guard's baseline (design
+    /// review 2026-07-23: this is the app's biggest form, the one place
+    /// Cancel-is-instant cost real typing; Dave's call to confirm).
+    @State private var initialFingerprint: [String]
+    @State private var confirmingDiscard = false
 
     init(editing exercise: Exercise) {
         editingExercise = exercise
         onCreated = nil
-        _draft = State(initialValue: ExerciseDraft(from: exercise))
+        let draft = ExerciseDraft(from: exercise)
+        _draft = State(initialValue: draft)
+        _initialFingerprint = State(initialValue: draft.fingerprint)
     }
 
     /// New custom exercise seeded from wherever creation started: the
@@ -54,6 +61,9 @@ struct ExerciseEditorView: View {
             )
         }
         _draft = State(initialValue: draft)
+        // Prefills are the baseline, not edits — dismissing an untouched
+        // prefilled sheet stays instant.
+        _initialFingerprint = State(initialValue: draft.fingerprint)
     }
 
     private var isBuiltIn: Bool { editingExercise?.isBuiltIn == true }
@@ -84,6 +94,11 @@ struct ExerciseEditorView: View {
         draft.canSave(existingNames: existingNames, editedName: editingExercise?.name)
     }
 
+    /// Whether dismissing now would cost real input.
+    private var isDirty: Bool {
+        draft.fingerprint != initialFingerprint
+    }
+
     private var selectedEquipmentSorted: [Equipment] {
         draft.selectedEquipment.sorted { $0.name < $1.name }
     }
@@ -100,7 +115,17 @@ struct ExerciseEditorView: View {
                 actionLabel: "Save",
                 actionEnabled: canSave,
                 actionIdentifier: "saveExerciseButton",
-                onCancel: { dismiss() },
+                onCancel: {
+                    // Dirty drafts confirm (Dave, 2026-07-23) — the one
+                    // deliberate exception to Cancel-is-instant, matched
+                    // by the blocked swipe below (the Mail-compose
+                    // pattern). A clean sheet still closes instantly.
+                    if isDirty {
+                        confirmingDiscard = true
+                    } else {
+                        dismiss()
+                    }
+                },
                 action: { save() }
             )
 
@@ -137,9 +162,18 @@ struct ExerciseEditorView: View {
 
                     SheetSectionLabel("TRACKED VALUES")
                         .padding(.top, 24)
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 7)], spacing: 7) {
+                    // The shared chip family in the shared wrap layout — the
+                    // editor's chips forked as capsules pre-2026-07-20 and were
+                    // folded back in with the design-review round.
+                    FlowLayout(spacing: 8) {
                         ForEach(WorkoutMetric.allCases.filter { !$0.isBlockConfiguration }) { metric in
-                            metricChip(metric)
+                            SelectableChip(
+                                label: metric.label,
+                                isSelected: draft.isTracked(metric),
+                                identifier: "metricChip-\(metric.rawValue)"
+                            ) {
+                                draft.toggleMetric(metric)
+                            }
                         }
                     }
                     if !draft.metricProfile.isValid {
@@ -214,15 +248,20 @@ struct ExerciseEditorView: View {
 
                     SheetSectionLabel("MUSCLE GROUP")
                         .padding(.top, 24)
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 7)], spacing: 7) {
+                    FlowLayout(spacing: 8) {
                         ForEach(MuscleGroup.allCases) { group in
-                            muscleChip(group)
+                            SelectableChip(
+                                label: group.displayName,
+                                isSelected: draft.muscleGroup == group
+                            ) {
+                                draft.muscleGroup = group
+                            }
                         }
                     }
 
                     SheetSectionLabel("REQUIRES")
                         .padding(.top, 24)
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 118), spacing: 7)], spacing: 7) {
+                    FlowLayout(spacing: 8) {
                         ForEach(selectedEquipmentSorted) { equipment in
                             equipmentChip(equipment)
                         }
@@ -279,6 +318,13 @@ struct ExerciseEditorView: View {
         }
         .padding(.horizontal, 18)
         .presentationBackground(Theme.surface)
+        // A dirty draft can't be swiped away silently — the swipe bounces
+        // (standard compose behavior) and Cancel carries the confirm.
+        .interactiveDismissDisabled(isDirty)
+        .confirmationDialog("Discard changes?", isPresented: $confirmingDiscard, titleVisibility: .visible) {
+            Button("Discard changes", role: .destructive) { dismiss() }
+            Button("Keep editing", role: .cancel) {}
+        }
         // A new exercise adopts its gear's suggested profile as the gear
         // changes — until the user touches the chips, which latches
         // their choice (ExerciseDraft.metricsTouched).
@@ -371,47 +417,10 @@ struct ExerciseEditorView: View {
         draft.defaultRepsUpper = target.upper
     }
 
-    /// TRACKED VALUES chip — multi-select over the curated vocabulary,
-    /// solid selection blue like every selected state (#210).
-    private func metricChip(_ metric: WorkoutMetric) -> some View {
-        let selected = draft.isTracked(metric)
-        return Button {
-            draft.toggleMetric(metric)
-        } label: {
-            Text(metric.label)
-                .font(.system(.footnote, weight: .semibold))
-                .foregroundStyle(selected ? Theme.onSelected : Theme.textSecondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 7)
-                .background(selected ? Theme.selected : Theme.background, in: Capsule())
-                .overlay(Capsule().strokeBorder(selected ? Color.clear : Theme.border))
-        }
-        .accessibilityIdentifier("metricChip-\(metric.rawValue)")
-        .animation(Theme.Anim.selection, value: selected)
-    }
-
-    private func muscleChip(_ group: MuscleGroup) -> some View {
-        let selected = draft.muscleGroup == group
-        return Button {
-            draft.muscleGroup = group
-        } label: {
-            // Solid selection blue (#210) — this was the stray CREAM
-            // on-state; ink fills are for actions, blue is selection.
-            Text(group.displayName)
-                .font(.system(.footnote, weight: .semibold))
-                .foregroundStyle(selected ? Theme.onSelected : Theme.textSecondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 7)
-                .background(selected ? Theme.selected : Theme.background, in: Capsule())
-                .overlay(Capsule().strokeBorder(selected ? Color.clear : Theme.border))
-        }
-        .animation(Theme.Anim.selection, value: selected)
-    }
-
+    /// REQUIRES chip — a removable tag, so it wears the r11 control shape
+    /// (it's a button: tapping removes), sized to its content like every
+    /// chip in the family. Metrics mirror SelectableChip's so the section
+    /// reads as one vocabulary.
     private func equipmentChip(_ equipment: Equipment) -> some View {
         Button {
             draft.selectedEquipment.remove(equipment)
@@ -420,17 +429,19 @@ struct ExerciseEditorView: View {
                 Text(equipment.name)
                     .font(.system(.footnote, weight: .semibold))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.6)
                 Image(systemName: "xmark")
                     .font(.system(.caption2, weight: .bold))
                     .foregroundStyle(Theme.textFaint)
                     .accessibilityHidden(true)
             }
             .foregroundStyle(Theme.textPrimary)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 7)
-            .background(Theme.surfaceRaised, in: Capsule())
-            .overlay(Capsule().strokeBorder(Theme.borderStrong))
+            .padding(.horizontal, 14)
+            .frame(height: 36)
+            .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius))
+            .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius)
+                .strokeBorder(Theme.borderStrong, lineWidth: 1))
+            .padding(4)
+            .contentShape(Rectangle())
         }
         .accessibilityLabel("Remove \(equipment.name)")
     }
@@ -451,9 +462,12 @@ struct ExerciseEditorView: View {
                     .font(.system(.footnote, weight: .semibold))
                     .foregroundStyle(Theme.textSecondary)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 9)
-            .overlay(Capsule().strokeBorder(Theme.borderStrong))
+            .padding(.horizontal, 14)
+            .frame(height: 36)
+            .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius)
+                .strokeBorder(Theme.borderStrong, lineWidth: 1))
+            .padding(4)
+            .contentShape(Rectangle())
         }
         .disabled(unselectedEquipment.isEmpty)
     }

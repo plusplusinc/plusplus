@@ -5,11 +5,12 @@ import SwiftUI
 /// second consumer — shared controls live in Components once they appear
 /// in a second view.
 
-/// A capsule toggle chip: solid selected blue (#210) — one prominent
+/// A rounded-rect toggle chip: solid selected blue (#210) — one prominent
 /// toggled-on look everywhere; ink fills stay reserved for actions.
 struct SelectableChip: View {
     let label: String
     let isSelected: Bool
+    var identifier: String? = nil
     let action: () -> Void
 
     var body: some View {
@@ -30,6 +31,7 @@ struct SelectableChip: View {
         }
         .animation(Theme.Anim.selection, value: isSelected)
         .sensoryFeedback(.selection, trigger: isSelected)
+        .accessibilityIdentifier(identifier ?? "")
     }
 }
 
