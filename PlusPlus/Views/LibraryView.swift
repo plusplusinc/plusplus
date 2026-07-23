@@ -158,10 +158,17 @@ struct ExercisesTabView: View {
             consumeArrival()
         }
         .onAppear {
+            // Prefs load BEFORE the arrival consumes: on a first mount
+            // caused by the arrival itself, the other order re-applied the
+            // persisted filters right after consumeArrival cleared them,
+            // re-hiding the row it landed (swift-reviewer catch). The
+            // clears then flow back through the onChange mirrors, so the
+            // cleared state also persists.
+            if !loadedPrefs {
+                loadedPrefs = true
+                loadPrefs()
+            }
             consumeArrival()
-            guard !loadedPrefs else { return }
-            loadedPrefs = true
-            loadPrefs()
         }
         // Mirror in-session filter changes back to storage.
         .onChange(of: filterState.favoritesOnly) { persistPrefs() }

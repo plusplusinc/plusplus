@@ -126,8 +126,11 @@ struct FindOrCreateView: View {
             }
             .sheet(isPresented: $creatingExercise) {
                 ExerciseEditorView(prefillName: trimmedQuery) { exercise in
-                    // Saved by the editor before this fires; land on the
-                    // Exercises tab with the row flash.
+                    // The editor only INSERTS — save here so the id the
+                    // landing keys on is permanent, not the temporary one
+                    // an autosave would swap out from under the flash
+                    // (swiftdata.md; swift-reviewer catch).
+                    try? modelContext.save()
                     ExerciseArrival.land(exercise.persistentModelID)
                 }
             }
@@ -545,6 +548,15 @@ struct FindOrCreateView: View {
     /// (typing "barbell" over an existing Barbell just adds it to the
     /// kit), insert if new, join the active kit, save synchronously, land.
     private func createEquipmentFromQuery() {
+        // The null kit is immutable (setMembership no-ops; the Kit tab
+        // hides its Add row for the same reason) — an unguarded create
+        // would land on the null kit's empty list and read as data loss
+        // (swift-reviewer catch). Adding means switching first: open the
+        // tray, which explains the null kit and offers the switch.
+        guard activeLibrary?.isBodyweight != true else {
+            showingLibraryTray = true
+            return
+        }
         let name = trimmedQuery.sentenceCasedFirst
         guard !name.isEmpty else {
             // "Type a name first": put the cursor back in the field.
@@ -565,6 +577,10 @@ struct FindOrCreateView: View {
     }
 
     private func addTemplate(_ template: RoutineTemplate) {
+        // One-shot against a fast double-fire (the #189 duplicate-name
+        // class; RoutineTemplateDetailScreen's `added` guard, applied
+        // here as the same name-shadow rule the results already use).
+        guard !routines.contains(where: { $0.name.lowercased() == template.name.lowercased() }) else { return }
         let routine = template.instantiate(in: modelContext, among: routines)
         try? modelContext.save()
         routine.uuid.map { RoutineArrival.land($0) }
