@@ -23,7 +23,12 @@ final class MascotRig {
     /// The vertical stroke of each "+" eye; its y-scale is the eye
     /// openness (1 = "+", collapsed = "-").
     let eyeVerticalBars: [ModelEntity]
-    let barbell: Entity?
+    /// The one two-hand-held prop whose transform is solved from the
+    /// PALMS every frame (barbell, kettlebell, goblet dumbbell) — a
+    /// rigid thing both hands hold can't parent to either wrist.
+    /// World-fixed props (bench, pull-up bar) and per-hand props
+    /// (the dumbbell pair) never appear here.
+    let heldEquipment: (kind: MascotProp, entity: Entity)?
 
     private var themed: [(ModelEntity, MascotPalette.Role)] = []
     private let skeleton = MascotSkeleton.standard
@@ -275,6 +280,31 @@ final class MascotRig {
             }
         }
 
+        if animation.props.contains(.pullUpBar) {
+            // World-fixed, from the MascotSupport contract (the same
+            // shared-numbers law as the bench): the bar the hang
+            // invariant pins the palms to, plus two visual posts.
+            let bar = ModelEntity(mesh: .generateCylinder(
+                height: Float(MascotSupport.pullUpBarHalfLength * 2),
+                radius: Float(MascotSupport.pullUpBarRadius)
+            ))
+            bar.orientation = simd_quatf(angle: .pi / 2, axis: [0, 0, 1])
+            bar.position = [0, Float(MascotSupport.pullUpBarHeight), 0]
+            container.addChild(bar)
+            themed.append((bar, .equipmentDark))
+            for x in [-MascotSupport.pullUpBarPostOffsetX, MascotSupport.pullUpBarPostOffsetX] {
+                let post = ModelEntity(mesh: box(
+                    MascotSupport.pullUpBarPostWidth,
+                    MascotSupport.pullUpBarHeight,
+                    MascotSupport.pullUpBarPostWidth,
+                    corner: 0.012
+                ))
+                post.position = [Float(x), Float(MascotSupport.pullUpBarHeight / 2), 0]
+                container.addChild(post)
+                themed.append((post, .equipmentDark))
+            }
+        }
+
         if animation.props.contains(.barbell) {
             let bar = Entity()
             let shaft = ModelEntity(mesh: .generateCylinder(
@@ -298,9 +328,72 @@ final class MascotRig {
                 }
             }
             container.addChild(bar)
-            barbell = bar
+            heldEquipment = (.barbell, bar)
+        } else if animation.props.contains(.kettlebell) {
+            // Handle along local x at the origin (where the palms
+            // wrap), the bell hanging down local -y — the applier
+            // aligns -y with the hands' mean fist line each frame.
+            let kettlebell = Entity()
+            let handle = ModelEntity(mesh: .generateCylinder(
+                height: Float(MascotGrip.kettlebellHandleHalfLength * 2),
+                radius: Float(MascotGrip.kettlebellHandleRadius)
+            ))
+            handle.orientation = simd_quatf(angle: .pi / 2, axis: [0, 0, 1])
+            kettlebell.addChild(handle)
+            themed.append((handle, .equipmentDark))
+            let bell = ModelEntity(mesh: .generateSphere(
+                radius: Float(MascotGrip.kettlebellBellRadius)
+            ))
+            bell.position = [0, -Float(MascotGrip.kettlebellBellDrop), 0]
+            kettlebell.addChild(bell)
+            themed.append((bell, .equipment))
+            // Horns joining handle to bell.
+            for x in [Float(-MascotGrip.kettlebellHandleHalfLength) * 0.7, Float(MascotGrip.kettlebellHandleHalfLength) * 0.7] {
+                let horn = ModelEntity(mesh: .generateCylinder(
+                    height: Float(MascotGrip.kettlebellBellDrop) * 0.72,
+                    radius: Float(MascotGrip.kettlebellHandleRadius)
+                ))
+                horn.position = [x * 0.7, -Float(MascotGrip.kettlebellBellDrop) * 0.33, 0]
+                horn.orientation = simd_quatf(angle: x > 0 ? -0.35 : 0.35, axis: [0, 0, 1])
+                kettlebell.addChild(horn)
+                themed.append((horn, .equipmentDark))
+            }
+            container.addChild(kettlebell)
+            heldEquipment = (.kettlebell, kettlebell)
+        } else if animation.props.contains(.gobletDumbbell) {
+            // Origin at the TOP head's center (the part resting on the
+            // cupped palms), shaft down local -y.
+            let goblet = Entity()
+            let headMesh = MascotMeshes.roundedCylinder(
+                radius: Float(MascotGrip.dumbbellHeadRadius),
+                height: Float(MascotGrip.dumbbellHeadHalfWidth * 2),
+                edgeRadius: 0.014
+            )
+            for y in [Float(0), -Float(2 * MascotGrip.dumbbellHeadOffset)] {
+                let head: ModelEntity
+                if let headMesh {
+                    head = ModelEntity(mesh: headMesh)
+                } else {
+                    head = ModelEntity(mesh: .generateCylinder(
+                        height: Float(MascotGrip.dumbbellHeadHalfWidth * 2),
+                        radius: Float(MascotGrip.dumbbellHeadRadius)
+                    ))
+                }
+                head.position = [0, y, 0]
+                goblet.addChild(head)
+                themed.append((head, .equipment))
+            }
+            let handle = ModelEntity(mesh: .generateCylinder(
+                height: Float(2 * MascotGrip.dumbbellHeadOffset),
+                radius: Float(MascotGrip.handleRadius)
+            ))
+            handle.position = [0, -Float(MascotGrip.dumbbellHeadOffset), 0]
+            goblet.addChild(handle)
+            themed.append((handle, .equipmentDark))
+            container.addChild(goblet)
+            heldEquipment = (.gobletDumbbell, goblet)
         } else {
-            barbell = nil
+            heldEquipment = nil
         }
         if animation.props.contains(.dumbbellPair) {
             let headMesh = MascotMeshes.roundedCylinder(

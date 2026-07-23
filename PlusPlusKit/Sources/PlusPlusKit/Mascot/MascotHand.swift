@@ -31,6 +31,10 @@ public enum MascotHand {
         /// grip, closed around nothing — the hand simply continues the
         /// forearm, thumb side up.
         case fist
+        /// The goblet CUP: the flat-hand geometry with the palm plane
+        /// turned UP, supporting a held weight's underside (distinct
+        /// from `.planted` so floor-contact laws never apply to it).
+        case cupped
         /// Relaxed half-curl at the side.
         case idle
     }
@@ -61,13 +65,25 @@ public enum MascotHand {
     public static let plantedWristHeight = 0.022
 
     /// The per-move hand state — floor support beats gripping (no
-    /// current move is both), a barbell beats a dumbbell pair,
-    /// support-only props (the bench) leave the hands alone.
+    /// current move is both), then the gripped prop's radius, then the
+    /// goblet cup; support-only props (the bench) leave the hands
+    /// alone. This ONE rule feeds the renderer's meshes AND the hand
+    /// invariants' coverage, so a move can't render a grip without
+    /// inheriting the grip laws.
     public static func state(for animation: ExerciseAnimation) -> State {
         if animation.dynamics.forearmsBearWeight { return .fist }
         if animation.dynamics.handsBearWeight { return .planted }
         if animation.props.contains(.barbell) {
             return .gripped(aroundRadius: MascotGrip.barRadius)
+        }
+        if animation.props.contains(.pullUpBar) {
+            return .gripped(aroundRadius: MascotSupport.pullUpBarRadius)
+        }
+        if animation.props.contains(.kettlebell) {
+            return .gripped(aroundRadius: MascotGrip.kettlebellHandleRadius)
+        }
+        if animation.props.contains(.gobletDumbbell) {
+            return .cupped
         }
         if animation.props.contains(.dumbbellPair) {
             return .gripped(aroundRadius: MascotGrip.handleRadius)
@@ -136,7 +152,10 @@ public enum MascotHand {
         switch state {
         case .gripped(let radius):
             return grippedSegments(radius: radius)
-        case .planted:
+        case .planted, .cupped:
+            // The cup IS the flat hand — the wrist orientation (palm
+            // up under a weight vs palm down on the floor) is the
+            // pose's job, not the geometry's.
             return plantedSegments()
         case .fist:
             // The same wrap as a grip, closed around nothing.

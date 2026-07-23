@@ -14,6 +14,14 @@ public enum MascotMoves {
         DumbbellCurlMove.animation,
         PlankMove.animation,
         SingleLegCalfRaiseMove.animation,
+        LateralRaiseMove.animation,
+        GluteBridgeMove.animation,
+        SitUpMove.animation,
+        OverheadPressMove.animation,
+        BarbellRowMove.animation,
+        GobletSquatMove.animation,
+        PullUpMove.animation,
+        JumpSquatMove.animation,
     ]
 
     private static let animationsByName: [String: ExerciseAnimation] =

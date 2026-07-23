@@ -22,6 +22,13 @@ public enum MascotBalance {
     ]
     /// The demo barbell (small lathe plates — a teaching bar).
     public static let barMass = 2.0
+    /// The other held demo props, same teaching-weight scale. The
+    /// dumbbell pair joined the mass model in the scale-out round —
+    /// it was weightless before, which flattered any move that swings
+    /// dumbbells away from the body line.
+    public static let kettlebellMass = 2.4
+    public static let gobletMass = 1.6
+    public static let dumbbellPairMass = 1.6
 
     /// The support polygon: x/z extents of every contact point
     /// currently ON the ground (sole corners and palm pads within the
@@ -80,6 +87,22 @@ public enum MascotBalance {
             let rightPalm = right.position + right.rotation.rotate(MascotGrip.palmOffset)
             moment = moment + barMass * (0.5 * (leftPalm + rightPalm))
             mass += barMass
+        }
+        // The other HELD props hang their mass at the palm midpoint
+        // too (close enough for balance: the kettlebell's bell offset
+        // is centimeters). Fixed props (bench, pull-up bar) carry no
+        // body-borne mass.
+        let heldMasses: [(MascotProp, Double)] = [
+            (.kettlebell, kettlebellMass),
+            (.gobletDumbbell, gobletMass),
+            (.dumbbellPair, dumbbellPairMass),
+        ]
+        for (prop, propMass) in heldMasses where props.contains(prop) {
+            guard let left = frames[.leftWrist], let right = frames[.rightWrist] else { continue }
+            let leftPalm = left.position + left.rotation.rotate(MascotGrip.palmOffset)
+            let rightPalm = right.position + right.rotation.rotate(MascotGrip.palmOffset)
+            moment = moment + propMass * (0.5 * (leftPalm + rightPalm))
+            mass += propMass
         }
         return (1.0 / mass) * moment
     }

@@ -104,6 +104,25 @@ public enum MascotPoseBuilder {
         return adjusted
     }
 
+    /// Solves the root translation so the MEAN PALM lands exactly on
+    /// the fixed pull-up bar's line (y and z; x stays authored — the
+    /// stations along the bar are the pose's own grip width). The hang
+    /// counterpart of `plantingFeet`: author the hanging shape, let
+    /// this put the hands ON the bar; the wrap orientation is the
+    /// authored wrist's job, proven by the same overhand laws as the
+    /// barbell moves.
+    public static func hangingFromTheBar(_ pose: MascotPose, skeleton: MascotSkeleton = .standard) -> MascotPose {
+        let frames = pose.jointFrames(skeleton: skeleton)
+        guard let left = frames[.leftWrist], let right = frames[.rightWrist] else { return pose }
+        let leftPalm = left.position + left.rotation.rotate(MascotGrip.palmOffset)
+        let rightPalm = right.position + right.rotation.rotate(MascotGrip.palmOffset)
+        let mean = 0.5 * (leftPalm + rightPalm)
+        var adjusted = pose
+        adjusted.rootTranslation.y += MascotSupport.pullUpBarHeight - mean.y
+        adjusted.rootTranslation.z += 0 - mean.z
+        return adjusted
+    }
+
     /// Solves the root translation so the given joints land (in the
     /// least-squares mean) on explicit world targets — how floor work
     /// pins hands and toes to the ground.
@@ -160,20 +179,26 @@ public enum MascotPoseBuilder {
         _ pose: MascotPose,
         wristSeed: EulerAngles = .deg(pitch: 70),
         shoulderSpinSeed: (yaw: Double, roll: Double)? = nil,
-        elbowBehind: Double = 0.04,
+        elbowBehind: Double? = 0.04,
+        palmNormal: Vec3? = nil,
+        fingersToward: Vec3? = nil,
         skeleton: MascotSkeleton = .standard
     ) -> MascotPose {
-        let normalTarget = Vec3(0, -1, 0)
-        // Fingers point forward-INWARD (~40 degrees), like a real
-        // loaded push-up hand: dead-forward fingers plus a flat palm
+        // Default targets are the FLOOR hand's: palm plane straight
+        // down, fingers forward-INWARD (~40 degrees), like a real
+        // loaded push-up hand — dead-forward fingers plus a flat palm
         // need ~180 degrees of twist about the forearm, and the whole
         // anatomical chain (pronation 88 + the elbow's radioulnar 23 +
-        // reachable humeral spin) tops out ~40 short — the census put
+        // reachable humeral spin) tops out ~40 short: the census put
         // the feasibility floor at a 14-19 degree palm TILT with
         // fingertips hovering off the floor, and a flat palm with
         // turned-in fingers beats tilted fingers in the air.
+        // `palmNormal`/`fingersToward` override them for the OTHER
+        // flat-hand jobs (the goblet cup wants palms UP under a held
+        // weight — same servo, different plane).
+        let normalTarget = palmNormal ?? Vec3(0, -1, 0)
         let inward = 40.0 * .pi / 180
-        let fingerTarget = Vec3(-Foundation.sin(inward), 0, Foundation.cos(inward))
+        let fingerTarget = fingersToward ?? Vec3(-Foundation.sin(inward), 0, Foundation.cos(inward))
 
         let startFrames = pose.jointFrames(skeleton: skeleton)
         guard let wristHome = startFrames[.leftWrist]?.position else { return pose }
@@ -203,6 +228,8 @@ public enum MascotPoseBuilder {
             // The planted spot is non-negotiable; orientation takes
             // the whole infeasibility instead.
             let wPos = 100.0
+            let stackX: Double = elbowBehind == nil ? 0 : 0.5 * (le.position.x - lw.position.x)
+            let stackZ: Double = elbowBehind.map { 6.0 * (le.position.z - (lw.position.z - $0)) } ?? 0
             var r = [
                 wPos * (lw.position.x - wristHome.x),
                 wPos * (lw.position.y - wristHome.y),
@@ -214,9 +241,10 @@ public enum MascotPoseBuilder {
                 // abducts), and that flare is precisely what keeps the
                 // palm reachable-flat at the bottom: with a sideways
                 // upper arm, palm-down is mostly plain wrist extension
-                // instead of a maxed-out pronation chain.
-                0.5 * (le.position.x - lw.position.x),
-                6.0 * (le.position.z - (lw.position.z - elbowBehind)),
+                // instead of a maxed-out pronation chain. Optional:
+                // non-floor flat hands (the goblet cup) pass nil.
+                stackX,
+                stackZ,
                 normal.x - normalTarget.x,
                 normal.y - normalTarget.y,
                 normal.z - normalTarget.z,

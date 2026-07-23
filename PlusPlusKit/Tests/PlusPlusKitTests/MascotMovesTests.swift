@@ -30,7 +30,7 @@ import Foundation
     }
 
     @Test func catalogIntegrity() {
-        #expect(MascotMoves.all.count == 7)
+        #expect(MascotMoves.all.count == 15)
         let names = MascotMoves.all.map(\.exerciseName)
         #expect(Set(names).count == names.count)
         for name in names {
@@ -169,7 +169,7 @@ import Foundation
         }
     }
 
-    @Test(arguments: ["Squat", "Deadlift", "Bench Press"])
+    @Test(arguments: ["Squat", "Deadlift", "Bench Press", "Overhead Press", "Barbell Row"])
     func handsActuallyGripTheBar(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         // 25 degrees, not less: a fully PRONATED grip runs the whole
@@ -191,7 +191,7 @@ import Foundation
     /// slid 99 mm along the bar mid-press): a hand holding a barbell
     /// keeps ONE STATION on it — the palm's position along the bar
     /// axis stays put across the whole cycle, rest beat included.
-    @Test(arguments: ["Squat", "Deadlift", "Bench Press"])
+    @Test(arguments: ["Squat", "Deadlift", "Bench Press", "Overhead Press", "Barbell Row"])
     func handsHoldOneStationOnTheBar(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         var xMin = Double.infinity
@@ -215,7 +215,7 @@ import Foundation
     /// are exempt there because gripping the SHAFT is correct contact —
     /// and its plate capsules bulge hemispherically along the axis,
     /// overstating a real plate's flat face.)
-    @Test(arguments: ["Squat", "Deadlift", "Bench Press"])
+    @Test(arguments: ["Squat", "Deadlift", "Bench Press", "Overhead Press", "Barbell Row"])
     func handsNeverTouchThePlates(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         let plateInner = MascotGrip.plateOffset - MascotGrip.plateHalfWidth
@@ -235,7 +235,7 @@ import Foundation
     /// bar (thumb-out is a supinated wrap, the underhand read from the
     /// bench device pass), and the metacarpals broadly continue the
     /// forearm rather than folding off it.
-    @Test(arguments: ["Squat", "Deadlift", "Bench Press"])
+    @Test(arguments: ["Squat", "Deadlift", "Bench Press", "Overhead Press", "Barbell Row"])
     func theGripIsOverhand(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         for i in 0...400 {
@@ -382,7 +382,7 @@ import Foundation
         }
     }
 
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl"])
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Lateral Raise", "Overhead Press", "Barbell Row", "Goblet Squat"])
     func standingMovesKeepFeetPlanted(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         let reference = animation.pose(at: 0).jointPositions(skeleton: Self.skeleton)
@@ -399,7 +399,7 @@ import Foundation
         }
     }
 
-    @Test(arguments: ["Squat", "Deadlift", "Bench Press"])
+    @Test(arguments: ["Squat", "Deadlift", "Bench Press", "Overhead Press", "Barbell Row"])
     func barbellWristsStaySymmetric(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         #expect(animation.props.contains(.barbell))
@@ -493,7 +493,7 @@ import Foundation
 
     // MARK: - Physics (build-80 device feedback: "all motion respects physics")
 
-    @Test(arguments: ["Push-Up", "Plank"])
+    @Test(arguments: ["Push-Up", "Plank", "Glute Bridge", "Sit-Up"])
     func floorMovesKeepToesOnTheGround(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         // Sole TOE corners (indices 0 and 2: left toe, right toe) — the
@@ -529,7 +529,7 @@ import Foundation
         return 0.5 * (leftPalm + rightPalm)
     }
 
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Single-Leg Calf Raise"])
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Single-Leg Calf Raise", "Lateral Raise", "Overhead Press", "Barbell Row", "Goblet Squat"])
     func standingMovesStayBalancedOverTheFeet(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         // The support polygon is computed from what is ACTUALLY in
@@ -603,7 +603,7 @@ import Foundation
         }
     }
 
-    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Bench Press"])
+    @Test(arguments: ["Squat", "Deadlift", "Dumbbell Curl", "Bench Press", "Lateral Raise", "Overhead Press", "Barbell Row", "Goblet Squat", "Pull-Up"])
     func equipmentNeverPassesThroughTheBody(name: String) throws {
         let animation = try #require(MascotMoves.animation(forExerciseNamed: name))
         #expect(!animation.props.isEmpty)

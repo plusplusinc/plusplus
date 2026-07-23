@@ -40,23 +40,57 @@ enum MascotPoseApplier {
             bar.scale = [1, openness, 1]
         }
 
-        // A rigid barbell can't be parented to one hand: it spans both.
-        // Solve its transform from the two PALM centers every frame —
-        // the palms are where the grip closes, so the bar sits inside
-        // the wrapped fingers in every hand orientation.
-        if let barbell = rig.barbell,
+        // A rigid two-hand prop can't be parented to one hand: it
+        // spans both. Solve its transform from the two PALM centers
+        // every frame — the palms are where the grip closes, so the
+        // thing sits inside the wrapped (or cupping) hands in every
+        // orientation. MascotGrip is the shared contract with the
+        // kit's equipment-collision invariant: the proof and the
+        // pixels use the same geometry, mirroring `equipmentCapsules`.
+        if let (kind, entity) = rig.heldEquipment,
            let leftWrist = rig.joints[.leftWrist],
            let rightWrist = rig.joints[.rightWrist] {
-            // MascotGrip is the shared contract with the kit's
-            // equipment-collision invariant: the proof and the pixels
-            // use the same grip geometry.
             let palmOffset = SIMD3<Float>(MascotGrip.palmOffset)
             let left = leftWrist.convert(position: palmOffset, to: rig.container)
             let right = rightWrist.convert(position: palmOffset, to: rig.container)
-            barbell.position = (left + right) / 2
+            let mid = (left + right) / 2
             let span = left - right
-            if simd_length(span) > 0.001 {
-                barbell.orientation = simd_quatf(from: [1, 0, 0], to: simd_normalize(span))
+            // The hands' mean fist line (local -y in each wrist frame),
+            // for props that hang off or continue the grip.
+            func handDown(_ wrist: Entity) -> SIMD3<Float> {
+                wrist.convert(position: [0, -1, 0], to: rig.container)
+                    - wrist.convert(position: .zero, to: rig.container)
+            }
+            let meanDown = handDown(leftWrist) + handDown(rightWrist)
+
+            switch kind {
+            case .barbell:
+                entity.position = mid
+                if simd_length(span) > 0.001 {
+                    entity.orientation = simd_quatf(from: [1, 0, 0], to: simd_normalize(span))
+                }
+            case .kettlebell:
+                entity.position = mid
+                if simd_length(span) > 0.001, simd_length(meanDown) > 0.001 {
+                    let x = simd_normalize(span)
+                    let downOrth = meanDown - simd_dot(meanDown, x) * x
+                    if simd_length(downOrth) > 0.001 {
+                        let y = -simd_normalize(downOrth)
+                        let z = simd_normalize(simd_cross(x, y))
+                        entity.orientation = simd_quatf(simd_float3x3(columns: (x, y, z)))
+                    }
+                }
+            case .gobletDumbbell:
+                if simd_length(meanDown) > 0.001 {
+                    let down = simd_normalize(meanDown)
+                    // Top head's CENTER rides half a head-width above
+                    // the palm support point; shaft continues down the
+                    // fist line — matching the kit's capsule model.
+                    entity.position = mid - Float(MascotGrip.dumbbellHeadHalfWidth) * down
+                    entity.orientation = simd_quatf(from: [0, -1, 0], to: down)
+                }
+            default:
+                break
             }
         }
     }

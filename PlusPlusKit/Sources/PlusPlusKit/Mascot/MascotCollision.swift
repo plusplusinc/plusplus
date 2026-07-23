@@ -27,6 +27,13 @@ public enum MascotGrip {
     public static let dumbbellHeadRadius = 0.042
     public static let dumbbellHeadOffset = 0.062
     public static let dumbbellHeadHalfWidth = 0.019
+    /// Kettlebell (one bell, both hands on the short handle): handle
+    /// radius/half-length, the bell's radius, and how far the bell's
+    /// center hangs off the handle along the arms' line.
+    public static let kettlebellHandleRadius = 0.014
+    public static let kettlebellHandleHalfLength = 0.055
+    public static let kettlebellBellRadius = 0.052
+    public static let kettlebellBellDrop = 0.082
     /// The palm CONTACT PAD: where the planted flat hand's weight
     /// lands — the palm HEEL, at the wrist end of `MascotHand`'s
     /// planted palm plane (local z 0.022), distinct from `palmOffset`,
@@ -67,6 +74,32 @@ public enum MascotSupport {
     public static let benchLegZOffsets: [Double] = [-0.26, 0.26]
     public static let benchLegWidth = 0.16
     public static let benchLegDepth = 0.045
+
+    /// The overhead PULL-UP BAR: world-fixed, along x over the bot.
+    /// Height is set so a straight-arm dead hang (wrists on the bar)
+    /// dangles the pointed toes a few centimeters clear of the floor —
+    /// probe-derived against the standard skeleton's hanging reach.
+    public static let pullUpBarHeight = 1.38
+    public static let pullUpBarHalfLength = 0.44
+    public static let pullUpBarRadius = 0.015
+    /// Upright posts (visual only, like the bench legs): x offsets and
+    /// section, shared so the renderer can't drift from the contract.
+    public static let pullUpBarPostOffsetX = 0.42
+    public static let pullUpBarPostWidth = 0.05
+
+    /// The bar as a collision capsule — the fixed line the hang servo
+    /// pins the palms to and the hang invariant proves against.
+    public static var pullUpBarCapsule: MascotCollision.Capsule {
+        MascotCollision.Capsule(
+            // "bar"-prefixed on purpose: the fingers-never-pierce law
+            // keys its equipment filter on that prefix, so the fixed
+            // bar inherits the same tangent-wrap proof as the barbell.
+            name: "barPullUp",
+            from: Vec3(-pullUpBarHalfLength, pullUpBarHeight, 0),
+            to: Vec3(pullUpBarHalfLength, pullUpBarHeight, 0),
+            radius: pullUpBarRadius
+        )
+    }
 
     /// The pad as collision capsules: three rails along its length at
     /// mid-thickness, radius = half the pad thickness, so a torso
@@ -212,6 +245,72 @@ public enum MascotCollision {
 
         if props.contains(.flatBench) {
             capsules.append(contentsOf: MascotSupport.benchRails)
+        }
+
+        if props.contains(.pullUpBar) {
+            capsules.append(MascotSupport.pullUpBarCapsule)
+        }
+
+        if props.contains(.kettlebell) {
+            // One bell, both hands on the handle: the handle spans the
+            // palms (like the bar, just short) and the bell hangs off
+            // its center along the hands' mean fist line — which is
+            // where centrifugal force holds it through a swing.
+            let leftPalm = left.position + left.rotation.rotate(MascotGrip.palmOffset)
+            let rightPalm = right.position + right.rotation.rotate(MascotGrip.palmOffset)
+            let center = 0.5 * (leftPalm + rightPalm)
+            let span = leftPalm - rightPalm
+            let spanLength = span.length
+            let axis = spanLength > 1e-6 ? (1 / spanLength) * span : Vec3(1, 0, 0)
+            let handDown = 0.5 * (left.rotation.rotate(Vec3(0, -1, 0)) + right.rotation.rotate(Vec3(0, -1, 0)))
+            let axialPart = handDown.x * axis.x + handDown.y * axis.y + handDown.z * axis.z
+            var hang = handDown - axialPart * axis
+            let hangLength = hang.length
+            hang = hangLength > 1e-6 ? (1 / hangLength) * hang : Vec3(0, -1, 0)
+            capsules.append(Capsule(
+                name: "kettlebellHandle",
+                from: center + (-MascotGrip.kettlebellHandleHalfLength) * axis,
+                to: center + MascotGrip.kettlebellHandleHalfLength * axis,
+                radius: MascotGrip.kettlebellHandleRadius
+            ))
+            let bellCenter = center + MascotGrip.kettlebellBellDrop * hang
+            capsules.append(Capsule(
+                name: "kettlebellBell",
+                from: bellCenter, to: bellCenter,
+                radius: MascotGrip.kettlebellBellRadius
+            ))
+        }
+
+        if props.contains(.gobletDumbbell) {
+            // One dumbbell held VERTICALLY at the chest, its top head
+            // cupped on both upturned palms (a mascot-scale handle
+            // cannot take two stacked fists — neither can a human's,
+            // which is why real goblet holds cup the head). The
+            // dumbbell's axis continues the hands' mean fist line; the
+            // TOP head's underside rests on the palm planes.
+            let leftPalm = left.position + left.rotation.rotate(MascotGrip.palmOffset)
+            let rightPalm = right.position + right.rotation.rotate(MascotGrip.palmOffset)
+            let support = 0.5 * (leftPalm + rightPalm)
+            let handDown = 0.5 * (left.rotation.rotate(Vec3(0, -1, 0)) + right.rotation.rotate(Vec3(0, -1, 0)))
+            let downLength = handDown.length
+            let axisDown = downLength > 1e-6 ? (1 / downLength) * handDown : Vec3(0, -1, 0)
+            // The top head sits ON the palms: its center rides half a
+            // head-width above the support point, the shaft hangs down.
+            let topHead = support + (-MascotGrip.dumbbellHeadHalfWidth) * axisDown
+            let bottomHead = support + (2 * MascotGrip.dumbbellHeadOffset - MascotGrip.dumbbellHeadHalfWidth) * axisDown
+            capsules.append(Capsule(
+                name: "gobletHandle",
+                from: topHead, to: bottomHead,
+                radius: MascotGrip.handleRadius
+            ))
+            capsules.append(Capsule(
+                name: "gobletHeadTop", from: topHead, to: topHead,
+                radius: MascotGrip.dumbbellHeadRadius
+            ))
+            capsules.append(Capsule(
+                name: "gobletHeadBottom", from: bottomHead, to: bottomHead,
+                radius: MascotGrip.dumbbellHeadRadius
+            ))
         }
 
         if props.contains(.dumbbellPair) {
