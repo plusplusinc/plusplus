@@ -337,23 +337,18 @@ struct RoutineDetailView: View {
             VStack(spacing: 0) {
                 ForEach(Array(groups.enumerated()), id: \.element.uuid) { g, group in
                     ForEach(Array(group.sortedExercises.enumerated()), id: \.element.uuid) { i, routineExercise in
-                        let row = railRow(
+                        railRow(
                             routineExercise, group: group, groupIndex: g, index: i,
                             hideLoop: ringGroup == g,
                             landing: landingParams(groupIndex: g, index: i, layout: layout, sizes: sizes)
                         )
                         .offset(y: offsets[.exercise(group: g, index: i)] ?? 0)
                         // The superset how-to pins to the FIRST row (Dave,
-                        // 2026-07-23): a popover on a real exercise, not the
-                        // build-45 balloon floating at the rail's top edge.
-                        // The branch depends only on position, so superset
-                        // formation never re-identifies a row mid-landing;
-                        // display is gated in the tip's own canPair rule.
-                        if g == 0 && i == 0 {
-                            row.popoverTip(SupersetCreationTip(), arrowEdge: .top)
-                        } else {
-                            row
-                        }
+                        // 2026-07-23) — see FirstRowSupersetTipAnchor. A
+                        // modifier, not an inline if/else: a `let` +
+                        // conditional here pushed the doubly-nested ForEach
+                        // past the type-checker's time budget (CI-caught).
+                        .modifier(FirstRowSupersetTipAnchor(isFirst: g == 0 && i == 0))
                     }
                 }
                 addExerciseRow
@@ -1039,6 +1034,23 @@ struct RoutineDetailView: View {
 /// and each branch is a distinct _ConditionalContent — whatever sits
 /// inside is TORN DOWN on every flip. It must stay a SIBLING of the
 /// rail ScrollView, never a wrapper around it.
+/// Pins the superset creation tip's popover to the FIRST rail row
+/// (Dave, 2026-07-23): a popover on a real exercise, not the build-45
+/// balloon floating at the rail's top edge. The branch depends only on
+/// POSITION, so superset formation never re-identifies a row
+/// mid-landing (#270); display is gated in the tip's own canPair rule.
+private struct FirstRowSupersetTipAnchor: ViewModifier {
+    let isFirst: Bool
+
+    func body(content: Content) -> some View {
+        if isFirst {
+            content.popoverTip(SupersetCreationTip(), arrowEdge: .top)
+        } else {
+            content
+        }
+    }
+}
+
 private struct SupersetTipInline: View {
     let hasSuperset: Bool
 
