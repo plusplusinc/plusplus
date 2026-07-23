@@ -1069,6 +1069,7 @@ private struct AboutTray: View {
 /// dispatch (one line each, no obligation words).
 enum WhatsNew {
     static let entries: [(build: String, notes: String)] = [
+        ("116", "Find or create: one search for the whole app · the search key beside the tabs finds routines, exercises, and equipment, yours or the catalog's · type what's missing and create it on the spot"),
         ("108", "Rest countdowns beep the last three seconds, a higher tone starts the next move · the live workout is back on the Dynamic Island and Lock Screen · the set overview colors every exercise: done, now, and up next"),
         ("84", "Operator: chat with your training data behind the ++ key · ask anything, change anything · bulk edits preview before they touch a thing, small ones undo in a tap · the model runs entirely on this phone · and outdoor runs now keep their route: map, splits, and stats on the record"),
         ("61", "Scheduled workouts on your calendar · one tap on the event starts the session · works with Apple and Google"),
