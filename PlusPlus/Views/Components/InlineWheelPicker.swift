@@ -58,8 +58,10 @@ struct InlineWheelPicker: View {
     @State private var centeredID: Int?
     /// The widest option's intrinsic width; the band sizes to it.
     @State private var maxLabelWidth: CGFloat = 0
-    /// Chevrons fade out while the wheel is in motion.
-    @State private var isScrolling = false
+    /// Chevrons fade out while the user is DRAGGING the wheel (options wheel
+    /// through the band); a tap-driven programmatic scroll does NOT count, so a
+    /// chevron that stays visible across a tap doesn't flicker out and back.
+    @State private var isDragging = false
 
     private var last: Int { options.count - 1 }
     /// Reserved on EACH side of the label: edge padding + chevron + gap.
@@ -89,7 +91,12 @@ struct InlineWheelPicker: View {
             .contentMargins(.trailing, trailingInset, for: .scrollContent)
             .scrollTargetBehavior(.viewAligned)
             .scrollPosition(id: $centeredID, anchor: UnitPoint(x: bandCenter / max(width, 1), y: 0.5))
-            .onScrollPhaseChange { _, phase in isScrolling = phase != .idle }
+            // Only a finger drag (interacting / its coast) fades the chevrons —
+            // NOT `.animating` (a tap's programmatic scroll), so tapping between
+            // two values that both keep a chevron leaves it steady.
+            .onScrollPhaseChange { _, phase in
+                isDragging = phase == .interacting || phase == .decelerating
+            }
             .accessibilityID(scrollIdentifier)
             // The fixed selection band (behind the cells), pinned LEFT.
             .background(alignment: .leading) {
@@ -195,6 +202,7 @@ struct InlineWheelPicker: View {
 
     private func chevron(_ dir: Dir) -> some View {
         let show = dir == .backward ? selectedIndex > 0 : selectedIndex < last
+        let visible = show && !isDragging
         return Button {
             step(dir == .backward ? -1 : 1)
         } label: {
@@ -208,8 +216,12 @@ struct InlineWheelPicker: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .opacity(show && !isScrolling ? 0.55 : 0)
-        .allowsHitTesting(show && !isScrolling)
+        // Animate on the visibility state itself, so a chevron only fades when
+        // it actually appears/disappears (or on a drag) — never mid-tap when it
+        // stays visible on both sides.
+        .opacity(visible ? 0.55 : 0)
+        .allowsHitTesting(visible)
+        .animation(Theme.Anim.standard, value: visible)
     }
 
     private func step(_ delta: Int) {
