@@ -229,10 +229,12 @@ struct FindOrCreateView: View {
         }
     }
 
-    /// Scope as an inline horizontal wheel: the selected scope centered, its
-    /// neighbors peeking at the edges, swipe or tap-a-peek to change (icons on
-    /// the three typed scopes, "All" text-only). One centered selection; the
-    /// labels/symbols/ids track `FindScope.allCases` in order.
+    /// Scope as an inline horizontal wheel (native-picker idiom): a left-aligned
+    /// selection band the scopes wheel through, white selected / grey unselected,
+    /// a soft 3D tilt, and faint tappable chevrons pointing to options off the
+    /// sides. Swipe, tap an option, or tap a chevron to change it (icons on the
+    /// three typed scopes, "All" text-only). The labels/symbols/ids track
+    /// `FindScope.allCases` in order.
     private var scopeSegmented: some View {
         InlineWheelPicker(
             options: ["All", "Routines", "Exercises", "Kit"],
