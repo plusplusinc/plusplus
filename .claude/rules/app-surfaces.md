@@ -99,20 +99,34 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   results are non-empty whenever a create is hidden. Partial matches still
   offer create.
   **Scope is an inline horizontal WHEEL** (`InlineWheelPicker`, 2026-07-24 —
-  replaced the earlier content-width `SegmentedTabs`), above the field: the
-  selected scope sits CENTERED with its neighbours peeking at the edges (icons
-  on the typed scopes, "All" text-only), swipe or tap-a-peek to change, stops
-  at the ends. It leads the field because scope is a MODE (it changes the
-  create verb + what an empty query browses), not just a filter. Built on
-  native scroll mechanics (`ScrollView(.horizontal)` + `.viewAligned` +
-  `.scrollPosition(id:)` + symmetric `contentMargins` for the centred snap), so
-  it can never overflow the viewport the way the old segmented track could. NOT
-  the native `Tab(role:.search)` bottom-morph (the app owns its selection
-  grammar; and a sibling tab's `.onGeometryChange` triggers the documented iOS
-  26 morph bug). The custom `SegmentedTabs` was RETIRED here (2026-07-24) —
-  every other former segmented site moved to native `Picker`
-  (`.segmented` for short unit/mode toggles, a pushed `NavigationSelectRow`
-  for multi-word modes).
+  replaced the earlier content-width `SegmentedTabs`), above the field: a FIXED
+  selection band the scopes wheel through (native-picker idiom), pinned LEFT so
+  its leading edge sits on the 16 pt content column (lines up with the field +
+  rows) and sized INTRINSICALLY to the widest option label + even padding +
+  reserved chevron/gap space (a hidden width-probe `PreferenceKey`, not a
+  fraction of the track). White selected / grey unselected (no blue — selection
+  reads by the band + weight, not a pill); a soft 3D cylinder tilt on the
+  wheeling options (per-cell `.visualEffect`, Reduce Motion flattens it). Faint
+  chevrons sit INSIDE the band on either side AS NEEDED (the band is at the edge,
+  so nothing peeks left — the chevron is the "more that way" cue); tapping one
+  steps that way, and they fade while the wheel is in motion. Change it by
+  dragging, tapping an option, or tapping a chevron; icons on the typed scopes,
+  "All" text-only. It leads the field because scope is a MODE (changes the create
+  verb + what an empty query browses), not just a filter. Native scroll mechanics
+  (`ScrollView(.horizontal)` + `.viewAligned` + `.scrollPosition(id:)` +
+  asymmetric `contentMargins` for the left-anchored snap), so it can never
+  overflow the viewport the way the old segmented track could. NOT the native
+  `Tab(role:.search)` bottom-morph (the app owns its selection grammar; a sibling
+  tab's `.onGeometryChange` triggers the documented iOS 26 morph bug).
+  **A11y (segmented-control model):** each option is a labelled `Button` with the
+  `.isSelected` trait (VoiceOver "Exercises, selected, button"; Voice Control by
+  name; the 44 pt row is the target); decorative icons + the supplementary
+  chevrons are hidden from assistive tech; VoiceOver's reveal-scroll is guarded
+  from mutating the selection (only a tap/drag changes it) via the
+  `accessibilityVoiceOverEnabled` gate on the scroll→selection sync. The custom
+  `SegmentedTabs` was RETIRED (2026-07-24) — every other former segmented site
+  moved to native `Picker` (`.segmented` for short unit/mode toggles, a pushed
+  `NavigationSelectRow` for multi-word modes).
   **The "Doable" filter** (persisted `@AppStorage`, default on) hides
   routines/exercises the active kit can't do (All/Routines/Exercises; Kit is
   equipment, unfiltered) — a single chip by the scope (the persistent two-way
