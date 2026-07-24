@@ -257,13 +257,19 @@ struct FindOrCreateView: View {
             if showsCreateRow(collisions) {
                 createRow(collisions)
             }
+            // Real Sections (not loose header rows) so `.listStyle(.plain)`
+            // PINS each heading to the top of the scroll area until the next
+            // section's heading pushes it up — one sticky heading at a time.
             ForEach(sections) { section in
-                sectionHeader(section)
-                ForEach(section.results) { result in
-                    resultRow(result, unlockedCounts: unlockedCounts)
-                }
-                if section.moreCount > 0 {
-                    moreRow(section)
+                Section {
+                    ForEach(section.results) { result in
+                        resultRow(result, unlockedCounts: unlockedCounts)
+                    }
+                    if section.moreCount > 0 {
+                        moreRow(section)
+                    }
+                } header: {
+                    sectionHeaderView(section)
                 }
             }
             if sections.isEmpty {
@@ -318,7 +324,7 @@ struct FindOrCreateView: View {
         ).isEmpty
     }
 
-    private func sectionHeader(_ section: FindOrCreateEngine.Section) -> some View {
+    private func sectionHeaderView(_ section: FindOrCreateEngine.Section) -> some View {
         Group {
             if let target = section.scopeTarget {
                 // An All-scope section header is a door into its scope —
@@ -327,16 +333,24 @@ struct FindOrCreateView: View {
                     scope = target
                 } label: {
                     SheetSectionLabel("\(section.title) · \(section.count)")
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             } else {
                 SheetSectionLabel("\(section.title) · \(section.count)")
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .listRowBackground(Color.clear)
+        .padding(.top, 12)
+        .padding(.horizontal, 16)
+        // Full-bleed SOLID background: a pinned header floats over the rows
+        // scrolling beneath it, so a clear fill would let their text show
+        // through. Matches the surface background, so it reads seamless.
+        .background(Theme.background)
+        .listRowInsets(EdgeInsets())
         .listRowSeparator(.hidden)
-        .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 2, trailing: 16))
+        .textCase(nil)
     }
 
     private func moreRow(_ section: FindOrCreateEngine.Section) -> some View {

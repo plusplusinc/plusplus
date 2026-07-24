@@ -104,6 +104,9 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   offers a "Show all" `QuietKey`, never a bare "Nothing matches." Copy is
   **"Doable"** — names the item-set, equipment-agnostic (a bodyweight move is
   doable, not "equipped"), no collision with the adjacent "Kit" segment.
+  Results use real `List` `Section`s so `.listStyle(.plain)` PINS each heading
+  to the top until the next takes over (one sticky at a time); the header wears
+  a solid `Theme.background` so a pinned heading occludes the rows beneath it.
   Search state on the universal surface is EPHEMERAL per-entry (a stale
   invisible query reads as data loss); every add from it LANDS on its list
   with the entrance flash (`RoutineArrival`/`ExerciseArrival`/
