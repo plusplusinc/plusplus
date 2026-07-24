@@ -10,8 +10,35 @@ import PlusPlusKit
 /// what ELSE is on each picked day (the old design hid that behind a 4 pt dot
 /// and a cryptic legend). Every edit writes `routine.schedule` live; there are
 /// no new persisted fields.
+///
+/// The editor body lives in `ScheduleEditor` (2026-07-24) so it can also be
+/// the second stage of Today's two-step "Schedule a routine" tray; this stays
+/// the standalone sheet wrapper (header + detents) for its two direct callers
+/// (`RoutineDetailView`, `RoutineSettingsScreen`).
 struct ScheduleTray: View {
     @Environment(\.dismiss) private var dismiss
+    @Bindable var routine: Routine
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SheetHeader(title: "Schedule", closeOnly: true) { dismiss() }
+                .padding(.horizontal, 18)
+
+            ScheduleEditor(routine: routine)
+
+            Spacer(minLength: 0)
+        }
+        .presentationBackground(Theme.background)
+        .presentationDetents([.medium, .large])
+    }
+}
+
+/// The schedule editor proper: mode picker + day chips / frequency steppers +
+/// captions, writing `routine.schedule` live. Carries NO header or
+/// presentation chrome so it can be embedded (the standalone `ScheduleTray`
+/// wraps it with a `SheetHeader` + detents; Today's `ScheduleRoutineTray`
+/// wraps it as a slide stage with a back key).
+struct ScheduleEditor: View {
     @Bindable var routine: Routine
     /// Other routines' schedules feed the occupancy dots + the sharing list.
     @Query(sort: \Routine.order) private var allRoutines: [Routine]
@@ -20,7 +47,7 @@ struct ScheduleTray: View {
     @State private var scheduleDays: Set<Int>
     @State private var scheduleTimes: Int
     @State private var schedulePerDays: Int
-    /// The schedule (and its anchor stamp) as the tray opened. Live
+    /// The schedule (and its anchor stamp) as the editor opened. Live
     /// per-interaction persistence means an EXPLORATORY round trip —
     /// peek at the other mode, toggle a day off and back on — writes
     /// interim values that each stamp `scheduleChangedAt`; when the
@@ -56,51 +83,42 @@ struct ScheduleTray: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "Schedule", closeOnly: true) { dismiss() }
-                .padding(.horizontal, 18)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                SegmentedTabs(options: ["Off", "Days of the week", "Every few days"], selectedIndex: Binding(
+                    get: { scheduleMode },
+                    set: { scheduleMode = $0; persistSchedule() }
+                ))
+                .padding(.top, 12)
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    SegmentedTabs(options: ["Off", "Days of the week", "Every few days"], selectedIndex: Binding(
-                        get: { scheduleMode },
-                        set: { scheduleMode = $0; persistSchedule() }
-                    ))
-                    .padding(.top, 12)
-
-                    if scheduleMode == 1 {
-                        dayChips
-                            .padding(.top, 18)
-                        sharingSection
-                    } else if scheduleMode == 2 {
-                        frequencySteppers
-                            .padding(.top, 16)
-                    }
-
-                    if let caption = scheduleCaption {
-                        Text(caption)
-                            .font(.system(.caption))
-                            .foregroundStyle(Theme.textFaint)
-                            .padding(.top, 16)
-                    }
-
-                    // "Every few days" anchors to your last completion — a
-                    // load-bearing distinction every time the mode is chosen.
-                    if scheduleMode == 2 {
-                        Text("It counts from your last completion, not the calendar week. Miss a day and nothing stacks up.")
-                            .font(.system(.caption))
-                            .foregroundStyle(Theme.textFaint)
-                            .padding(.top, 4)
-                    }
+                if scheduleMode == 1 {
+                    dayChips
+                        .padding(.top, 18)
+                    sharingSection
+                } else if scheduleMode == 2 {
+                    frequencySteppers
+                        .padding(.top, 16)
                 }
-                .padding(.horizontal, 18)
-                .padding(.bottom, 24)
-            }
 
-            Spacer(minLength: 0)
+                if let caption = scheduleCaption {
+                    Text(caption)
+                        .font(.system(.caption))
+                        .foregroundStyle(Theme.textFaint)
+                        .padding(.top, 16)
+                }
+
+                // "Every few days" anchors to your last completion — a
+                // load-bearing distinction every time the mode is chosen.
+                if scheduleMode == 2 {
+                    Text("It counts from your last completion, not the calendar week. Miss a day and nothing stacks up.")
+                        .font(.system(.caption))
+                        .foregroundStyle(Theme.textFaint)
+                        .padding(.top, 4)
+                }
+            }
+            .padding(.horizontal, 18)
+            .padding(.bottom, 24)
         }
-        .presentationBackground(Theme.background)
-        .presentationDetents([.medium, .large])
     }
 
     // MARK: - Weekday circles
@@ -239,7 +257,7 @@ struct ScheduleTray: View {
         case 2: routine.schedule = .frequency(times: scheduleTimes, perDays: schedulePerDays)
         default: routine.schedule = .unscheduled
         }
-        // Back to where the tray opened → this session nets no change;
+        // Back to where the editor opened → this session nets no change;
         // restore the entry stamp (see entrySchedule).
         if routine.schedule == entrySchedule {
             routine.scheduleChangedAt = entryStamp

@@ -24,9 +24,13 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   first pass shipped a translucent resting blue, `selected.opacity(0.5)`,
   which composited with itself at the Canvas stroke overlaps and read
   blotchy; opaque ink strokes uniformly.)
-- **Purple is done** (GitHub-merged mapping): committed rail rings, session
-  pips, the finish checkmark (now also stamped on the committed Today card
-  itself, not only its rail node), widget streak squares.
+- **Purple is done** (GitHub-merged mapping): the committed Today rail node
+  (a FILLED purple checkmark circle — 2026-07-24; the seal lives on the rail
+  dot, NOT on the committed card, reversing the 2026-07-14 on-card check and
+  the build-33 "rail nodes are rings, never filled" rule — every OTHER
+  timeline node stays a stroke-only ring, and all nodes share one 18 pt
+  diameter so the row reads even), session pips, the finish checkmark, widget
+  streak squares.
 - **Amber (`Theme.notes`) is advisory, never alarm** — the warm in-between
   that is neither green (do/create) nor grey (inert). Two jobs: form-cue /
   "needs X gear" notes, AND a **carried-over occurrence** (2026-07-14) — a

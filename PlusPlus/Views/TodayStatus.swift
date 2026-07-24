@@ -71,6 +71,14 @@ enum TodayStatus: Equatable {
 
         let work = scheduledWork(routines: routines, sessions: sessions, today: today, calendar: calendar)
         if work.outstanding { return .toDo }
+        // Any workout today — scheduled OR ad-hoc — is the day's win once
+        // no scheduled work is still outstanding (checked just above), so an
+        // unscheduled run flips the icon to the checkmark too (Dave,
+        // 2026-07-24). The same rule TodayView uses to drop its placeholder.
+        let workedOutToday = sessions.contains { session in
+            session.endedAt.map { calendar.isDate($0, inSameDayAs: today) } ?? false
+        }
+        if workedOutToday { return .done }
         if work.occursToday && work.satisfiedToday { return .done }
         // Setup is complete but no workout has ever been logged (still the
         // onboarding era): the three setup steps WERE the work and they're
