@@ -56,17 +56,28 @@ struct ScheduleTray: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        // Wrapped in a NavigationStack so the schedule-mode push row can
+        // navigate; the root nav bar is hidden so SheetHeader stays the header
+        // and only the pushed selection screen shows a (system) back bar.
+        NavigationStack {
+          VStack(alignment: .leading, spacing: 0) {
             SheetHeader(title: "Schedule", closeOnly: true) { dismiss() }
                 .padding(.horizontal, 18)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    SegmentedTabs(options: ["Off", "Days of the week", "Every few days"], selectedIndex: Binding(
-                        get: { scheduleMode },
-                        set: { scheduleMode = $0; persistSchedule() }
-                    ))
+                    NavigationSelectRow(
+                        title: "Schedule",
+                        selection: $scheduleMode,
+                        options: [
+                            .init(value: 0, label: "Off"),
+                            .init(value: 1, label: "Days of the week"),
+                            .init(value: 2, label: "Every few days"),
+                        ],
+                        identifier: "scheduleModeRow"
+                    )
                     .padding(.top, 12)
+                    .onChange(of: scheduleMode) { _, _ in persistSchedule() }
 
                     if scheduleMode == 1 {
                         dayChips
@@ -98,6 +109,8 @@ struct ScheduleTray: View {
             }
 
             Spacer(minLength: 0)
+          }
+          .toolbar(.hidden, for: .navigationBar)
         }
         .presentationBackground(Theme.background)
         .presentationDetents([.medium, .large])

@@ -787,30 +787,38 @@ private struct SettingsTray: View {
         // Explicit System / Light / Dark order (handoff), mapped back to
         // the enum's raw values.
         let order: [AppAppearance] = [.system, .light, .dark]
-        return VStack(alignment: .leading, spacing: 0) {
+        // Wrapped in a NavigationStack so the Voice cues push row can navigate;
+        // the root nav bar is hidden so SheetHeader stays the tray's header and
+        // only the pushed selection screen shows a (system) back bar.
+        return NavigationStack {
+          VStack(alignment: .leading, spacing: 0) {
             SheetHeader(title: "Settings", closeOnly: true, action: { dismiss() })
 
             VStack(alignment: .leading, spacing: 7) {
                 SheetSectionLabel("APPEARANCE")
-                SegmentedTabs(
-                    options: order.map(\.label),
-                    selectedIndex: Binding(
-                        get: { order.firstIndex(of: AppAppearance(rawValue: appearanceRaw) ?? .system) ?? 0 },
-                        set: { appearanceRaw = order[$0].rawValue }
-                    )
-                )
+                Picker("Appearance", selection: Binding(
+                    get: { AppAppearance(rawValue: appearanceRaw) ?? .system },
+                    set: { appearanceRaw = $0.rawValue }
+                )) {
+                    ForEach(order, id: \.self) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .tint(Theme.selected)
             }
             .padding(.top, 18)
 
             VStack(alignment: .leading, spacing: 7) {
                 SheetSectionLabel("UNITS")
-                SegmentedTabs(
-                    options: ["lb", "kg"],
-                    selectedIndex: Binding(
-                        get: { weightUnitRaw == WeightUnit.kg.rawValue ? 1 : 0 },
-                        set: { weightUnitRaw = ($0 == 1 ? WeightUnit.kg : WeightUnit.lb).rawValue }
-                    )
-                )
+                Picker("Units", selection: Binding(
+                    get: { WeightUnit(rawValue: weightUnitRaw) ?? .lb },
+                    set: { weightUnitRaw = $0.rawValue }
+                )) {
+                    ForEach(WeightUnit.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .tint(Theme.selected)
             }
             .padding(.top, 22)
 
@@ -819,13 +827,18 @@ private struct SettingsTray: View {
                 // Explicit order: most talkative to silent, matching the
                 // APPEARANCE idiom of a fixed display order over the
                 // enum's declaration order.
-                let cueOrder: [VoiceCueMode] = [.always, .refresher, .off]
-                SegmentedTabs(
-                    options: ["Every time", "Refreshers", "Off"],
-                    selectedIndex: Binding(
-                        get: { cueOrder.firstIndex(of: VoiceCueMode(rawValue: voiceCueRaw) ?? .off) ?? 2 },
-                        set: { voiceCueRaw = cueOrder[$0].rawValue }
-                    )
+                NavigationSelectRow(
+                    title: "Voice cues",
+                    selection: Binding(
+                        get: { VoiceCueMode(rawValue: voiceCueRaw) ?? .off },
+                        set: { voiceCueRaw = $0.rawValue }
+                    ),
+                    options: [
+                        .init(value: .always, label: "Every time"),
+                        .init(value: .refresher, label: "Refreshers"),
+                        .init(value: .off, label: "Off"),
+                    ],
+                    identifier: "voiceCueModeRow"
                 )
                 Text(voiceCueCaption)
                     .font(.system(.caption))
@@ -885,8 +898,10 @@ private struct SettingsTray: View {
             .padding(.top, 22)
 
             Spacer(minLength: 0)
+          }
+          .padding(.horizontal, 18)
+          .toolbar(.hidden, for: .navigationBar)
         }
-        .padding(.horizontal, 18)
         .presentationDetents([.medium, .large])
     }
 

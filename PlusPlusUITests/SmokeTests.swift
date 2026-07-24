@@ -277,7 +277,19 @@ final class SmokeTests: XCTestCase {
         snap("find-or-create-all")
 
         // Scope to Exercises; the create row becomes the direct editor path.
-        app.buttons["findScope-exercises"].tap()
+        // The scope is an inline wheel — the Exercises segment sits off-centre
+        // (not hittable) until the wheel is swiped to bring it toward centre.
+        let exercisesScope = app.buttons["findScope-exercises"]
+        let scopeWheel = app.scrollViews["findScopeWheel"]
+        var swipes = 0
+        while !exercisesScope.isHittable && swipes < 8 {
+            let start = scopeWheel.coordinate(withNormalizedOffset: CGVector(dx: 0.72, dy: 0.5))
+            let end = scopeWheel.coordinate(withNormalizedOffset: CGVector(dx: 0.28, dy: 0.5))
+            start.press(forDuration: 0.01, thenDragTo: end)
+            swipes += 1
+        }
+        XCTAssertTrue(exercisesScope.waitForExistence(timeout: 2))
+        exercisesScope.tap()
         let createRow = app.buttons["findCreateExercise"]
         XCTAssertTrue(createRow.waitForExistence(timeout: 5))
 

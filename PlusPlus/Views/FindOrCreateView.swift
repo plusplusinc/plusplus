@@ -229,12 +229,12 @@ struct FindOrCreateView: View {
         }
     }
 
-    /// Scope as a content-width segmented control (icons on the three typed
-    /// scopes, "All" text-only — no natural glyph, and content widths let it
-    /// sit next to its neighbors without a gap). One selection, one sliding
-    /// pill; the labels/symbols/ids track `FindScope.allCases` in order.
+    /// Scope as an inline horizontal wheel: the selected scope centered, its
+    /// neighbors peeking at the edges, swipe or tap-a-peek to change (icons on
+    /// the three typed scopes, "All" text-only). One centered selection; the
+    /// labels/symbols/ids track `FindScope.allCases` in order.
     private var scopeSegmented: some View {
-        SegmentedTabs(
+        InlineWheelPicker(
             options: ["All", "Routines", "Exercises", "Kit"],
             selectedIndex: Binding(
                 get: { FindScope.allCases.firstIndex(of: scope) ?? 0 },
@@ -242,9 +242,8 @@ struct FindOrCreateView: View {
             ),
             symbols: [nil, "checklist", "figure.strengthtraining.traditional", "dumbbell"],
             identifiers: FindScope.allCases.map { "findScope-\($0.rawValue)" },
-            widthsByContent: true
+            scrollIdentifier: "findScopeWheel"
         )
-        .padding(.horizontal, 16)
         .padding(.bottom, 8)
     }
 
