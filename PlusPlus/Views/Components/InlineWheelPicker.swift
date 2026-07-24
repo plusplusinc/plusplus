@@ -31,9 +31,10 @@ struct InlineWheelPicker: View {
     /// The fraction of the track width the selected slot (and the band) claims.
     /// Narrower slots = less padding around each item's content.
     private let centerFraction: CGFloat = 0.34
-    /// The band sits at the LEFT with this much padding, not centred — options
-    /// wheel in from the right past a left-anchored selection.
-    private let leadingInset: CGFloat = 16
+    /// The band sits LEFT-leaning (not centred) with this much room ahead of
+    /// it — enough that the previous option peeks on the left, so the cylinder
+    /// tilt reads on BOTH sides of the selection while it still sits left.
+    private let leadingInset: CGFloat = 40
     private let spacing: CGFloat = 6
     private let cellHeight: CGFloat = 44
     private let bandHeight: CGFloat = 40
@@ -130,13 +131,15 @@ struct InlineWheelPicker: View {
             let midX = geo.frame(in: .scrollView(axis: .horizontal)).midX
             let d = (midX - bandCenter) / (cellWidth + spacing)
             let c = max(-2.5, min(2.5, d))
+            // Symmetric (keyed on signed `c`, so left and right mirror) and
+            // gentle — reduced tilt + flatter perspective for a subtle curve.
             return content
-                .opacity(1 - min(abs(c) * 0.20, 0.55))
-                .scaleEffect(1 - min(abs(c) * 0.05, 0.16))
+                .opacity(1 - min(abs(c) * 0.18, 0.5))
+                .scaleEffect(1 - min(abs(c) * 0.045, 0.14))
                 .rotation3DEffect(
-                    .degrees(allowMotion ? Double(c) * -32 : 0),
+                    .degrees(allowMotion ? Double(c) * -18 : 0),
                     axis: (x: 0, y: 1, z: 0),
-                    perspective: 0.55
+                    perspective: 0.72
                 )
         }
         .accessibilityID(identifier(at: index))
