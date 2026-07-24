@@ -35,6 +35,10 @@ struct ExerciseDetailSheet: View {
     @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
     @State private var swapping = false
+    /// Set while the swap tray dismisses toward the full-catalog push, so the
+    /// handoff runs from `onDismiss` (after the tray is fully gone) instead of
+    /// racing a second teardown against a nav push (swift-reviewer).
+    @State private var browseAllAfterSwap = false
     @State private var wheel: WorkoutMetric?
     @State private var showingRepsWheel = false
     @State private var showingHeartRateSheet = false
@@ -204,9 +208,17 @@ struct ExerciseDetailSheet: View {
         }
         // The swap suggestions tray STACKS on this sheet (no dismiss-then-
         // present handoff). A pick lands the replacement in place; "Browse
-        // all exercises" hands off to the presenter's full-catalog push and
-        // dismisses this sheet so it shows through beneath.
-        .sheet(isPresented: $swapping) {
+        // all exercises" hands off to the presenter's full-catalog push —
+        // serialized through onDismiss so the tray is fully gone before the
+        // detail sheet dismisses + the picker pushes beneath it (one teardown
+        // at a time, the round-2a single-sheet pattern).
+        .sheet(isPresented: $swapping, onDismiss: {
+            if browseAllAfterSwap {
+                browseAllAfterSwap = false
+                onSwap(routineExercise)
+                dismiss()
+            }
+        }) {
             if let exercise {
                 ExerciseSwapTray(
                     origin: exercise,
@@ -218,13 +230,11 @@ struct ExerciseDetailSheet: View {
                         // down right after (planning swap resets targets to
                         // the new exercise's defaults, via replaceExercise).
                         try? modelContext.save()
-                        swapping = false
                         dismiss()
                     },
                     onBrowseAll: {
+                        browseAllAfterSwap = true
                         swapping = false
-                        onSwap(routineExercise)
-                        dismiss()
                     }
                 )
             }
@@ -482,7 +492,15 @@ struct ExerciseDetailSheet: View {
             }
             HStack(spacing: 7) {
                 SheetActionButton("Swap for…", systemImage: "arrow.left.arrow.right") {
-                    swapping = true
+                    // With no resolvable origin (a deleted exercise) there are
+                    // no suggestions to rank — route straight to the full
+                    // catalog, the pre-tray behavior, instead of a blank tray.
+                    if exercise != nil {
+                        swapping = true
+                    } else {
+                        onSwap(routineExercise)
+                        dismiss()
+                    }
                 }
                 SheetActionButton("Remove", destructive: true) {
                     removeExercise()

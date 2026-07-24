@@ -377,6 +377,10 @@ struct SessionExerciseSheet: View {
     /// separate sheet so the tray hands off cleanly instead of hosting the
     /// picker itself (which would couple it to session config).
     @State private var showingBrowseAllPicker = false
+    /// Set while the tray dismisses toward Browse-all, so the picker presents
+    /// from the tray's onDismiss (after it is fully gone) rather than racing a
+    /// one-runloop dismiss-then-present (swift-reviewer: the drop class).
+    @State private var browseAllAfterTray = false
     @State private var swapFilterState = ExerciseFilterState()
     @State private var confirmingRemove = false
 
@@ -465,7 +469,14 @@ struct SessionExerciseSheet: View {
                 if canRestructure {
                     HStack(spacing: 8) {
                         Button {
-                            showingSwapTray = true
+                            // No resolvable origin (a deleted exercise) means
+                            // no suggestions to rank — go straight to the full
+                            // catalog, the pre-tray behavior, not a blank tray.
+                            if originExercise != nil {
+                                showingSwapTray = true
+                            } else {
+                                showingBrowseAllPicker = true
+                            }
                         } label: {
                             Text("Swap for…")
                                 .font(.system(.footnote, weight: .bold))
@@ -509,7 +520,14 @@ struct SessionExerciseSheet: View {
         // reset-to-defaults; targets stay editable from the block sheet).
         // The tray STACKS on this sheet (the stack-don't-dismiss-then-
         // present law) — same depth the overview's own Add flow reaches.
-        .sheet(isPresented: $showingSwapTray) {
+        .sheet(isPresented: $showingSwapTray, onDismiss: {
+            // Browse-all presents here, once the tray has fully dismissed —
+            // never as a second isPresented flipped in the same turn.
+            if browseAllAfterTray {
+                browseAllAfterTray = false
+                showingBrowseAllPicker = true
+            }
+        }) {
             if let originExercise {
                 ExerciseSwapTray(
                     origin: originExercise,
@@ -529,12 +547,10 @@ struct SessionExerciseSheet: View {
                         dismiss()
                     },
                     onBrowseAll: {
-                        // Hand off to the full catalog (with the
-                        // configure-before-add step). Dismiss the tray, then
-                        // present on the next turn so the two sheets don't
-                        // collide (the deferred-present mitigation).
+                        // Hand off to the full catalog (configure-before-add).
+                        // Dismiss the tray; onDismiss presents the picker.
+                        browseAllAfterTray = true
                         showingSwapTray = false
-                        Task { @MainActor in showingBrowseAllPicker = true }
                     }
                 )
             }
