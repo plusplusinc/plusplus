@@ -256,6 +256,54 @@ struct RoutineScheduleTests {
         ) == [calendar.startOfDay(for: date(2026, 7, 20))])
     }
 
+    @Test func completionBeforeTheAnchorNeverBanksAFutureOccurrence() {
+        // Dave's device report (2026-07-23): routine done Wednesday,
+        // THEN scheduled for Fridays on Thursday. The reconstruction
+        // used to read Wednesday's session as a genuine extra (nothing
+        // outstanding that day) and silently bank tomorrow's Friday.
+        // With the anchor at the schedule change (the app passes
+        // max(createdAt, scheduleChangedAt) as addedOn), a completion
+        // on or before the anchor day banks nothing — Friday shows.
+        let schedule = RoutineSchedule.weekdays([6]) // Fridays
+        let thursday = date(2026, 7, 23)
+        let friday = calendar.startOfDay(for: date(2026, 7, 24))
+        #expect(schedule.upcomingScheduledDays(
+            lastCompleted: date(2026, 7, 22),
+            today: thursday,
+            addedOn: thursday,
+            calendar: calendar
+        ) == [friday])
+        // Same-day completion and schedule change (day granularity is
+        // all the model has): still no banking, Friday still shows and
+        // arrives due.
+        #expect(schedule.upcomingScheduledDays(
+            lastCompleted: thursday,
+            today: thursday,
+            addedOn: thursday,
+            calendar: calendar
+        ) == [friday])
+        #expect(schedule.dueState(
+            lastCompleted: thursday,
+            today: date(2026, 7, 24),
+            addedOn: thursday,
+            calendar: calendar
+        ) == .due)
+    }
+
+    @Test func completionAfterTheAnchorStillBanks() {
+        // The guard is scoped to pre-anchor completions: with the
+        // schedule long configured, an extra Wednesday session on an
+        // on-pace history still banks the upcoming Friday (#267).
+        let schedule = RoutineSchedule.weekdays([6]) // Fridays
+        #expect(schedule.upcomingScheduledDays(
+            lastCompleted: date(2026, 7, 22),
+            previousCompleted: date(2026, 7, 17),
+            today: date(2026, 7, 23),
+            addedOn: date(2026, 7, 13),
+            calendar: calendar
+        ).isEmpty)
+    }
+
     @Test func upcomingDaysNeverRepeatACarriedOverDay() {
         // Thursdays only, last done ON a Thursday, the next one missed:
         // Friday's carried due-ness is today's business — upcoming

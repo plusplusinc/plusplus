@@ -139,6 +139,15 @@ struct TodayView: View {
     private var weightUnit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .lb }
     private var calendar: Calendar { Calendar.current }
 
+    /// Fact captions (dates, estimates, cadences) reflow to two lines at
+    /// accessibility text sizes instead of truncating the facts they
+    /// exist to carry — the #164 "reflow, don't cap" law extended from
+    /// the heading to the rail (2026-07-23). Names stay single-line: a
+    /// truncated name is recoverable one tap away, a truncated date isn't.
+    private var factLineLimit: Int {
+        dynamicTypeSize.isAccessibilitySize ? 2 : 1
+    }
+
     /// Startable routines for the start tray (#208): empty routines
     /// can't stage (the 0-set-session bug class), so they don't appear.
     /// The rest-day card still gates on candidates existing; the header
@@ -687,16 +696,18 @@ struct TodayView: View {
         }
     }
 
-    /// The routine's due state, anchored to when it joined the library
-    /// (`createdAt`) so a freshly added routine never carries a scheduled
-    /// day it wasn't around for (2026-07-14).
+    /// The routine's due state, anchored to the later of joining the
+    /// library and the last schedule change (`scheduleAnchor`) so a
+    /// freshly added routine never carries a day it wasn't around for
+    /// (2026-07-14), and a freshly SET schedule never banks tomorrow
+    /// against a completion that predates it (2026-07-23).
     private func dueState(of routine: Routine) -> RoutineSchedule.DueState {
         let completions = recentCompletions(of: routine)
         return routine.schedule.dueState(
             lastCompleted: completions.last,
             previousCompleted: completions.previous,
             today: today,
-            addedOn: routine.createdAt,
+            addedOn: routine.scheduleAnchor,
             calendar: calendar
         )
     }
@@ -754,7 +765,7 @@ struct TodayView: View {
                 lastCompleted: completions.last,
                 previousCompleted: completions.previous,
                 today: today,
-                addedOn: routine.createdAt,
+                addedOn: routine.scheduleAnchor,
                 calendar: calendar
             )
             entries.append(contentsOf: days.map { (entry: UpcomingEntry(routine: routine, day: $0), order: index) })
@@ -786,7 +797,10 @@ struct TodayView: View {
     /// presence and position communicate. Empty scheduled routines still
     /// appear here: the schedule is a fact even while the routine can't
     /// start (its due-day card names that state). Spine only, no node:
-    /// nothing here is an entry.
+    /// nothing here is an entry. Unlabeled (Dave, 2026-07-23: the rail's
+    /// all-caps headings died — its old "BEYOND THIS WEEK" header read
+    /// as a section header for the DATED cards below, which are the next
+    /// 7 days; position and the undated phrasing carry the meaning).
     private var beyondThisWeekBlock: some View {
         HStack(alignment: .top, spacing: 10) {
             Rectangle()
@@ -795,12 +809,11 @@ struct TodayView: View {
                 .frame(maxHeight: .infinity)
                 .frame(width: 20)
             VStack(alignment: .leading, spacing: 3) {
-                SheetSectionLabel("BEYOND THIS WEEK")
                 ForEach(scheduledRoutines) { routine in
                     Text("\(routine.schedule.recurrenceLabel) · \(routine.name)")
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(Theme.textFaint)
-                        .lineLimit(1)
+                        .lineLimit(factLineLimit)
                 }
             }
             .padding(.vertical, 10)
@@ -813,7 +826,9 @@ struct TodayView: View {
     /// the date left the header (Dave's ask) for the item it describes,
     /// and this marker is what the opening scroll (#267) seats at the
     /// top. A spine-only divider like the beyond-this-week block — no
-    /// node, because it names a moment, it isn't an entry.
+    /// node, because it names a moment, it isn't an entry. The date
+    /// alone since 2026-07-23 (the rail's all-caps headings died; the
+    /// date IS today's label, and the green card below says the rest).
     private var todayMarker: some View {
         HStack(alignment: .top, spacing: 10) {
             Rectangle()
@@ -821,13 +836,10 @@ struct TodayView: View {
                 .frame(width: 2)
                 .frame(maxHeight: .infinity)
                 .frame(width: 20)
-            VStack(alignment: .leading, spacing: 3) {
-                SheetSectionLabel("TODAY")
-                Text(todayDateText)
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(Theme.textFaint)
-            }
-            .padding(.vertical, 10)
+            Text(todayDateText)
+                .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(Theme.textFaint)
+                .padding(.vertical, 10)
             Spacer(minLength: 0)
         }
         .fixedSize(horizontal: false, vertical: true)
@@ -862,7 +874,7 @@ struct TodayView: View {
                     Text(futureCaption(for: entry))
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(Theme.textFaint)
-                        .lineLimit(1)
+                        .lineLimit(factLineLimit)
                 }
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
@@ -870,7 +882,10 @@ struct TodayView: View {
                     .foregroundStyle(Theme.textFaint)
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            // 10, matching the missed card — the two rows share an
+            // anatomy (name + caption + chevron), so they share a
+            // rhythm (design review 2026-07-23, finding 8).
+            .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
             // Dashed grey: a future occurrence is "not yet" (Dave,
@@ -905,28 +920,13 @@ struct TodayView: View {
 
     /// A quiet cluster between today's work and the history below: routines
     /// whose most recent scheduled day lapsed within the carry window
-    /// (Kit `.missed`, 2026-07-14). Its own faint marker keeps them OFF
-    /// today's date, and amber (never green) keeps them a gentle nudge, not
-    /// a call to act — the anti-shame grammar holds ("no obligation words").
+    /// (Kit `.missed`, 2026-07-14). No marker, no caption (Dave,
+    /// 2026-07-23: the rail's all-caps headings died, and the old
+    /// explainer line truncated mid-sentence on device) — the cards
+    /// carry it alone: amber ink, an amber node, and a "was wed" caption
+    /// say lapsed-but-open without an obligation word.
     @ViewBuilder
     private var carriedOverSection: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Rectangle()
-                .fill(Theme.border)
-                .frame(width: 2)
-                .frame(maxHeight: .infinity)
-                .frame(width: 20)
-            VStack(alignment: .leading, spacing: 3) {
-                SheetSectionLabel("CARRIED OVER")
-                Text("still open from earlier · do them whenever")
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(Theme.textFaint)
-                    .lineLimit(1)
-            }
-            .padding(.vertical, 10)
-            Spacer(minLength: 0)
-        }
-        .fixedSize(horizontal: false, vertical: true)
         ForEach(missedEntries) { entry in
             // Amber node, amber card: a lapsed occurrence is neither the
             // green "today" nor the grey "not yet" — it's the warm
@@ -951,7 +951,7 @@ struct TodayView: View {
                     Text(missedCaption(entry))
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(Theme.notes)
-                        .lineLimit(1)
+                        .lineLimit(factLineLimit)
                 }
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
@@ -1055,7 +1055,7 @@ struct TodayView: View {
                 ))
             }
         }
-        // Changed first, unchanged (with =) after, both in routine order.
+        // Changed first, unchanged after, both in routine order.
         return lines.filter { $0.delta.isChange } + lines.filter { !$0.delta.isChange }
     }
 
@@ -1200,6 +1200,10 @@ struct TodayView: View {
             if !(setupActive && !allSetupDone), plan.planned > 0 {
                 BlockBar(total: plan.planned, filled: plan.completed)
                     .padding(.top, 8)
+                    // The caption above already states the fact for
+                    // VoiceOver; without this the bar announces a bare
+                    // "2 of 4" with no subject (a11y, 2026-07-23).
+                    .accessibilityHidden(true)
             }
         }
         .padding(.horizontal, 16)
@@ -1222,29 +1226,27 @@ struct TodayView: View {
         // The week tally is calendar fact, not obligation (#172-safe:
         // it never says what's LEFT, only what the plan holds and what
         // has landed). No "N due" tally — the staged cards ARE that.
+        // "Workouts", never "sessions" (#144: performed things are
+        // workouts; "session" is the type name, not the vocabulary).
         guard plan.planned > 0 else { return nil }
-        return "\(plan.completed) of \(plan.planned) session\(plan.planned == 1 ? "" : "s") this week"
+        return "\(plan.completed) of \(plan.planned) workout\(plan.planned == 1 ? "" : "s") this week"
     }
 
     // MARK: - Pending card
 
     private func pendingCard(_ routine: Routine) -> some View {
         let lines = diffLines(for: routine)
-        let summary = RoutineDiff.summary(deltas: lines.map(\.delta), weightUnit: weightUnit)
-        // The identity moment must read on day one and on plan-held
-        // days (#246): never-performed gets words with stakes instead
-        // of a bare inventory count, and an all-unchanged day keeps
-        // the Kit's single faint "=" — hiding the line entirely made
-        // the diff grammar unlearnable exactly when it was legible.
+        // Never-performed gets words with stakes instead of a bare
+        // inventory count (#246); otherwise the summary carries only
+        // real movement — an all-unchanged day shows NO diff line at
+        // all (Dave, 2026-07-23: "=" reads as noise, superseding the
+        // earlier keep-it-legible call; the Kit summary no longer
+        // emits unchanged segments anywhere).
         let segments: [RoutineDiff.Segment]
         if !lines.isEmpty && lines.allSatisfy({ $0.delta == .new }) {
             segments = [RoutineDiff.Segment(kind: .new, text: "first time · sets the baseline")]
-        } else if summary.contains(where: { $0.kind != .unchanged }) {
-            segments = summary.filter { $0.kind != .unchanged }
         } else {
-            // Zero comparable lines (every entry dangling) must not
-            // claim "=" — there is nothing to be equal to.
-            segments = lines.isEmpty ? [] : summary
+            segments = RoutineDiff.summary(deltas: lines.map(\.delta), weightUnit: weightUnit)
         }
 
         // The shared routine metadata, judged against the active kit (Today
@@ -1289,7 +1291,7 @@ struct TodayView: View {
                         Text(todayMeta.todayLine)
                             .font(.system(.caption))
                             .foregroundStyle(Theme.textSecondary)
-                            .lineLimit(1)
+                            .lineLimit(factLineLimit)
                             .padding(.top, 9)
                     }
                     if !todayMeta.gear.isEmpty {
@@ -1302,7 +1304,7 @@ struct TodayView: View {
                     // aren't news).
                     if !segments.isEmpty {
                         diffSummaryText(segments)
-                            .lineLimit(1)
+                            .lineLimit(factLineLimit)
                             .padding(.top, 8)
                             .accessibilityIdentifier("diffSummary")
                     }
@@ -1351,7 +1353,6 @@ struct TodayView: View {
         case .up: Theme.accent
         case .down: Theme.textSecondary
         case .new: Theme.accent
-        case .unchanged: Theme.textFaint
         }
     }
 
@@ -1377,13 +1378,13 @@ struct TodayView: View {
                         .foregroundStyle(Theme.textSecondary)
                 }
                 Spacer(minLength: 8)
-                if let gain = netGain(for: session) {
-                    Text(RoutineDiff.summary(deltas: [.weight(gain)], weightUnit: weightUnit)[0].text)
-                        .font(.system(.caption2, design: .monospaced, weight: .semibold))
-                        .foregroundStyle(Theme.accent)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2.5)
-                        .overlay(Capsule().strokeBorder(Theme.accent.opacity(0.5)))
+                if let gain = netGain(for: session),
+                   let text = RoutineDiff.summary(deltas: [.weight(gain)], weightUnit: weightUnit).first?.text {
+                    // The soft r6 data-tag treatment, accent-tinted: a
+                    // net gain is data, not a button — the stroked
+                    // capsule predated the 2026-07-20 shape sweep and
+                    // read as a control (design review 2026-07-23).
+                    CardTagCapsule(text: text, tint: Theme.accent)
                 }
                 Image(systemName: "chevron.right")
                     .font(.system(.footnote, weight: .bold))
@@ -2157,15 +2158,12 @@ private struct SwapInSheet: View {
                             }
                             Spacer(minLength: 8)
                             if dueIDs.contains(routine.persistentModelID) {
-                                // Green pill: today's occurrence is
+                                // Green data tag: today's occurrence is
                                 // data (the next increment), not
-                                // selection.
-                                Text("today")
-                                    .font(.system(.caption2, design: .monospaced))
-                                    .foregroundStyle(Theme.accent)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 2.5)
-                                    .overlay(Capsule().strokeBorder(Theme.accent.opacity(0.4)))
+                                // selection — soft r6, no stroke (the
+                                // stroked capsule predated the
+                                // 2026-07-20 shape sweep).
+                                CardTagCapsule(text: "today", tint: Theme.accent)
                             } else {
                                 Text(routine.schedule.shortLabel)
                                     .font(.system(.caption2, design: .monospaced))

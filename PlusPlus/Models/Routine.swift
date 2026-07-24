@@ -43,6 +43,16 @@ final class Routine {
     /// Encoded RoutineSchedule (#83); nil means unscheduled. Stored as
     /// JSON Data (with a default) so the SwiftData migration is additive.
     var scheduleData: Data?
+    /// When the schedule last CHANGED value (stamped by the `schedule`
+    /// setter on real changes only) — the missing memory behind Dave's
+    /// 2026-07-23 device report: a routine done Thursday then scheduled
+    /// for Friday hid Friday, because the reconstruction read the
+    /// Thursday session as an extra banking tomorrow. Optional additive
+    /// column (lightweight migration, existing rows nil = anchor at
+    /// `createdAt`), device bookkeeping EXCLUDED from the interchange
+    /// like `uuid`. Deliberately no init default: a new routine's anchor
+    /// is its `createdAt` until the schedule is first edited.
+    var scheduleChangedAt: Date?
     @Relationship(deleteRule: .cascade, inverse: \ExerciseGroup.routine)
     var groups: [ExerciseGroup] = []
 
@@ -84,8 +94,25 @@ final class Routine {
         }
         set {
             let normalized = newValue.normalized
+            // Stamp the anchor ONLY on a real value change, in the ONE
+            // place every write path funnels through (tray, Operator,
+            // undo, interchange import alike) — a no-op re-assignment
+            // (sync pull writing the same schedule back) must not move
+            // the anchor and quietly clear a carried day.
+            if normalized != schedule {
+                scheduleChangedAt = Date()
+            }
             scheduleData = normalized == .unscheduled ? nil : try? JSONEncoder().encode(normalized)
         }
+    }
+
+    /// The due-ness anchor passed to the Kit as `addedOn`: the later of
+    /// joining the library and the last schedule change. Days before it
+    /// never carry, and completions on or before it never bank a future
+    /// occurrence — a schedule never carries or banks a day it wasn't
+    /// around for (2026-07-23, extending the #354 `createdAt` anchor).
+    var scheduleAnchor: Date {
+        max(createdAt, scheduleChangedAt ?? createdAt)
     }
 
     var sortedGroups: [ExerciseGroup] {

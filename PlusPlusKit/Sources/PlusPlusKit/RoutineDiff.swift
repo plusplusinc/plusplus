@@ -142,10 +142,12 @@ public enum RoutineDiff {
 
     /// One colored run of the diff summary line. Direction is semantic —
     /// the palette decides rendering (up = data green, down = neutral
-    /// gray per the anti-shame rules, new = info, unchanged = faint).
+    /// gray per the anti-shame rules, new = info). Unchanged deltas emit
+    /// no segment at all (Dave, 2026-07-23: "=" and "n =" read as noise,
+    /// nowhere renders them — superseding #246's faint "=").
     public struct Segment: Equatable, Sendable {
         public enum Kind: Equatable, Sendable {
-            case up, down, new, unchanged
+            case up, down, new
         }
 
         public var kind: Kind
@@ -158,17 +160,17 @@ public enum RoutineDiff {
     }
 
     /// Aggregates deltas (in routine order) into the collapsed summary:
-    /// changed deltas first, then "n =" for the unchanged count; a diff
-    /// with no changes at all collapses to one faint "=" (symbols only
-    /// — words there start sounding like judgment, #246).
+    /// changed deltas in order, then the new-count. Unchanged deltas
+    /// contribute NOTHING — no "=", no "n =" tail — so an all-unchanged
+    /// diff summarizes as an empty array and callers simply omit the
+    /// line (Dave, 2026-07-23, superseding #246's faint "=").
     public static func summary(deltas: [Delta], weightUnit: WeightUnit = .lb) -> [Segment] {
         var segments: [Segment] = []
-        var unchanged = 0
         var newCount = 0
         for delta in deltas {
             switch delta {
             case .unchanged:
-                unchanged += 1
+                break
             case .new:
                 newCount += 1
             case .weight(let by):
@@ -200,12 +202,6 @@ public enum RoutineDiff {
         }
         if newCount > 0 {
             segments.append(Segment(kind: .new, text: newCount == 1 ? "1 new" : "\(newCount) new"))
-        }
-        if segments.isEmpty {
-            return [Segment(kind: .unchanged, text: "=")]
-        }
-        if unchanged > 0 {
-            segments.append(Segment(kind: .unchanged, text: "\(unchanged) ="))
         }
         return segments
     }
