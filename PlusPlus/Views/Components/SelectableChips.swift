@@ -37,7 +37,14 @@ struct SelectableChip: View {
                 .clipShape(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius))
                 .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius)
                     .strokeBorder(isSelected ? Color.clear : Theme.borderStrong, lineWidth: 1))
-                .padding(4)
+                // 36 pt chip inside a 44 pt hit target, growing VERTICALLY ONLY
+                // — the same idiom as FacetChip/TrayFilterChip (FilterChips.swift).
+                // A symmetric `.padding(4)` also inset the border horizontally,
+                // which shoved the leading chip 4 pt in from the row edge (out of
+                // line with the ++ key / create row / list rows) and widened the
+                // gap after it — so a filter row led by this chip read misaligned
+                // and unevenly spaced (2026-07-24).
+                .frame(height: 44)
                 .contentShape(Rectangle())
         }
         .animation(Theme.Anim.selection, value: isSelected)
@@ -46,16 +53,33 @@ struct SelectableChip: View {
     }
 }
 
-/// Left-aligned wrapping layout for chip grids.
+/// Left-aligned wrapping layout for chip grids. Horizontal and vertical
+/// gaps are separable: chips grow their hit target VERTICALLY (a 36 pt
+/// chip in a 44 pt tap frame), so a chip's measured height carries 4 pt of
+/// transparent inset top and bottom that a row-to-row gap inherits. Callers
+/// that want visually EVEN gaps therefore pass a smaller `verticalSpacing`
+/// (the inset makes up the difference); `FlowLayout(spacing:)` keeps a
+/// single value for both when the subviews carry no such inset.
 struct FlowLayout: Layout {
-    var spacing: CGFloat = 8
+    var horizontalSpacing: CGFloat
+    var verticalSpacing: CGFloat
+
+    init(spacing: CGFloat = 8) {
+        self.horizontalSpacing = spacing
+        self.verticalSpacing = spacing
+    }
+
+    init(horizontalSpacing: CGFloat, verticalSpacing: CGFloat) {
+        self.horizontalSpacing = horizontalSpacing
+        self.verticalSpacing = verticalSpacing
+    }
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let rows = computeRows(proposal: proposal, subviews: subviews)
         var height: CGFloat = 0
         for (index, row) in rows.enumerated() {
             height += row.map { $0.sizeThatFits(.unspecified).height }.max() ?? 0
-            if index < rows.count - 1 { height += spacing }
+            if index < rows.count - 1 { height += verticalSpacing }
         }
         return CGSize(width: proposal.width ?? 0, height: height)
     }
@@ -69,9 +93,9 @@ struct FlowLayout: Layout {
             for subview in row {
                 let size = subview.sizeThatFits(.unspecified)
                 subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
-                x += size.width + spacing
+                x += size.width + horizontalSpacing
             }
-            y += rowHeight + spacing
+            y += rowHeight + verticalSpacing
         }
     }
 
@@ -87,7 +111,7 @@ struct FlowLayout: Layout {
                 currentWidth = 0
             }
             rows[rows.count - 1].append(subview)
-            currentWidth += size.width + spacing
+            currentWidth += size.width + horizontalSpacing
         }
         return rows
     }
