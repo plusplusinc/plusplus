@@ -438,7 +438,7 @@ struct GearPickSheet: View {
                 .padding(.top, 6)
                 .padding(.horizontal, 18)
             ScrollView {
-                FlowLayout(spacing: 8) {
+                FlowLayout(horizontalSpacing: 16, verticalSpacing: 8) {
                     ForEach(allEquipment) { equipment in
                         SelectableChip(
                             label: equipment.name,
