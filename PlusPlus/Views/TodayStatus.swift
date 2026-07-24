@@ -10,9 +10,14 @@ import PlusPlusKit
 /// - `.toDo` — an open DASHED circle: something is on today's plate.
 ///   Onboarding steps still unfinished, or a workout scheduled (or
 ///   carried over) for today that hasn't been done.
-/// - `.done` — a FILLED circle with a checkmark: today HAD something and
-///   it's all been handled. Every setup step finished, or today's
-///   scheduled workout completed.
+/// - `.done` — a FILLED circle with a checkmark: the day's work is
+///   handled. Today's scheduled workout completed, OR (Dave's ask names
+///   the three onboarding items as "stuff to do") every setup step is
+///   finished. The onboarding checkmark persists through the bounded
+///   window between finishing setup and the first-ever logged workout —
+///   the same window in which the timeline still shows the completed
+///   setup cards — so the two surfaces agree; the first workout flips the
+///   store past setup and normal day-by-day scheduling takes over.
 /// - `.clear` — a plain open circle: today never had anything on it. A
 ///   rest day, nothing scheduled, no setup pending.
 ///
@@ -66,9 +71,15 @@ enum TodayStatus: Equatable {
 
         let work = scheduledWork(routines: routines, sessions: sessions, today: today, calendar: calendar)
         if work.outstanding { return .toDo }
-        // Onboarding just finished (no due work): setup itself is today's
-        // completed task, so celebrate rather than reading empty.
         if work.occursToday && work.satisfiedToday { return .done }
+        // Setup is complete but no workout has ever been logged (still the
+        // onboarding era): the three setup steps WERE the work and they're
+        // done, so show the checkmark rather than an empty rest-day circle.
+        // Deliberately spans the whole pre-first-workout window — the
+        // timeline shows the completed setup cards across the same span (see
+        // the `.done` note above). With no session, `work` can never be
+        // satisfiedToday, so this is the only path to the onboarding-done
+        // checkmark.
         if sessions.isEmpty { return .done }
         return .clear
     }
