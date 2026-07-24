@@ -69,7 +69,10 @@ struct InlineWheelPicker: View {
     var body: some View {
         GeometryReader { proxy in
             let width = proxy.size.width
-            let cellWidth = max(1, bandWidth())
+            // Clamp to the viewport so the intrinsic band never overflows at
+            // accessibility text sizes; the label's minimumScaleFactor then
+            // absorbs any shortfall rather than the wheel running off-screen.
+            let cellWidth = max(1, min(bandWidth(), width - leadingInset - 8))
             let trailingInset = max(0, width - cellWidth - leadingInset)
             let bandCenter = leadingInset + cellWidth / 2
 
@@ -135,15 +138,18 @@ struct InlineWheelPicker: View {
                 .frame(width: cellWidth, height: cellHeight)
         }
         .buttonStyle(.plain)
-        .visualEffect { content, geo in
+        .visualEffect { [flat = reduceMotion] content, geo in
             let midX = geo.frame(in: .scrollView(axis: .horizontal)).midX
             let d = (midX - bandCenter) / (cellWidth + spacing)
             let c = max(-2.5, min(2.5, d))
+            // Gentler fade (floor ~0.75) so peeking options stay legible — they
+            // are tap targets. Under Reduce Motion the whole scroll-linked depth
+            // (opacity + scale + rotation), not just the rotation, is flattened.
             return content
-                .opacity(1 - min(abs(c) * 0.18, 0.5))
-                .scaleEffect(1 - min(abs(c) * 0.045, 0.14))
+                .opacity(flat ? 1 : 1 - min(abs(c) * 0.10, 0.25))
+                .scaleEffect(flat ? 1 : 1 - min(abs(c) * 0.045, 0.14))
                 .rotation3DEffect(
-                    .degrees(reduceMotion ? 0 : Double(c) * -tiltDegrees),
+                    .degrees(flat ? 0 : Double(c) * -tiltDegrees),
                     axis: (x: 0, y: 1, z: 0),
                     perspective: 0.72
                 )
