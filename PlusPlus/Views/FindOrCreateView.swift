@@ -25,10 +25,11 @@ enum FindOrCreateLaunch {
 /// Layout: tab-root header grammar (++ key · title · kit switcher — kit
 /// is CONTEXT, never a filter chip) → the scope segmented control (a MODE,
 /// so it leads) → the Doable filter chip → create row → results, with the
-/// search field + a text Done key (never ✕) anchored in a BOTTOM bar that
-/// takes over the tab bar (the four tabs + search circle are hidden while
-/// this surface is up; the field rides above the keyboard and settles onto
-/// the tab-bar line when it drops).
+/// NATIVE `.searchable` field (2026-07-24) at the bottom — the search-role
+/// tab morphs the tab bar into the system field, carrying the native clear
+/// and Cancel. Its placeholder tracks the scope ("Search" / "Search
+/// routines/exercises/equipment") and it does NOT auto-focus on entry (the
+/// keyboard rises only when the field is tapped).
 /// The create row is present unless the query EXACTLY names an item that
 /// already exists (a create there would only duplicate the row right
 /// below it — `FindOrCreateEngine.Collisions`); it never dead-ends, since
@@ -49,17 +50,13 @@ struct FindOrCreateView: View {
     @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
     @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
-    /// Done returns to wherever the user came from (the root tracks the
-    /// previously selected tab).
-    let onDone: () -> Void
-
     @State private var path = NavigationPath()
     @State private var query = ""
     @State private var scope: FindScope = .all
-    /// One-shot focus intent (#233) — armed on every surface entry so the
-    /// keyboard rises, and re-armed by the empty-query Kit create row
-    /// ("type a name first" = put the cursor back).
-    @State private var wantsFocus = false
+    /// Native search focus. NOT armed on entry (the field must not auto-rise
+    /// the keyboard, Dave 2026-07-24) — set true only by the empty-query Kit
+    /// create row ("type a name first" = put the cursor back in the field).
+    @FocusState private var searchFocused: Bool
     @State private var showingLibraryTray = false
     @State private var creatingExercise = false
     @State private var namingRoutine = false
@@ -114,27 +111,34 @@ struct FindOrCreateView: View {
                     }
                 }
                 // Scope + the Doable filter are the TOP controls (mode +
-                // narrowing). The search field lives in the BOTTOM bar, where
-                // it takes over the tab bar (thumb-reachable, results directly
-                // above it).
+                // narrowing). The native search field sits at the BOTTOM,
+                // morphed from the tab bar by `role: .search` + `.searchable`.
                 scopeSegmented
                 doableFilterRow
                 resultsList
             }
             .background(Theme.background)
             .toolbar(.hidden, for: .navigationBar)
-            // In Find or create the search field TAKES OVER the tab bar: hide
-            // the tab bar and anchor the field + Done key at the bottom in its
-            // place (Dave). Keyboard-aware via safeAreaInset — the bar rides
-            // above the keyboard and settles onto the tab-bar line when it
-            // drops. A CUSTOM field, not `.searchable`, so the iOS 26
-            // search-morph geometry bug (a sibling tab's `.onGeometryChange`)
-            // never applies. ⚠️ Device-pass: iOS 26 renders `role: .search` as
-            // a SEPARATED accessory circle beside the tab group — confirm
-            // `.tabBar` hiding takes that circle down with the four tabs (not
-            // leaving it floating over the new bottom bar).
-            .toolbar(.hidden, for: .tabBar)
-            .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
+            // The NATIVE search field (Dave, 2026-07-24): `.searchable` on the
+            // search-role tab morphs the tab bar into the system field (bottom,
+            // Liquid Glass), carrying the native clear (✕) + Cancel for free —
+            // the hand-rolled bottom bar + `SearchFieldBody` are retired here.
+            // Placement B (searchable INSIDE the search tab's stack) so the
+            // prompt can read `scope`; the morph comes from `role: .search`, not
+            // from where `.searchable` sits. The prompt is per-scope: plain
+            // "Search" on All, "Search routines/exercises/equipment" when scoped.
+            // No `.tabViewSearchActivation(.searchTabSelection)` — the native
+            // default activates search only on a field tap, so the keyboard does
+            // NOT auto-rise on entry (Dave's ask). `.searchFocused` is used only
+            // for the deliberate "type a name first" refocus below.
+            // ⚠️ Device-pass: the documented iOS 26 morph bug — an
+            // `.onGeometryChange` elsewhere in the TabView subtree (TodayView's
+            // onboarding step-height probe) can make the field render as a top
+            // bar on the FIRST activation instead of morphing. Retest on the
+            // shipping OS; if it recurs, rework that probe (see nav-diag 4e).
+            .searchable(text: $query, prompt: Text(searchPrompt))
+            .searchFocused($searchFocused)
+            .onSubmit(of: .search) { openTopResult() }
             // The four result types push onto THIS stack (registered at the
             // root, #262) so back/swipe-back returns to results with query,
             // scope, and scroll intact — search is a stack, not a modal.
@@ -193,39 +197,23 @@ struct FindOrCreateView: View {
         scope = launch ?? .all
         query = ""
         path = NavigationPath()
-        wantsFocus = true
+        // Deliberately no focus arming: the native field stays unfocused on
+        // entry, so the keyboard doesn't auto-rise (Dave 2026-07-24).
     }
 
     // MARK: - Field + scopes
 
-    /// The bottom bar that takes over the tab bar while Find or create is up:
-    /// the search field + a Done key. A text Done (not a ✕ — the app reserves
-    /// ✕ for collapse-search) returns to the tab you came from. A top hairline
-    /// over the surface fill separates it from the results scrolling above.
-    private var bottomBar: some View {
-        HStack(spacing: 10) {
-            SearchFieldBody(
-                config: HeaderSearchConfig(
-                    text: $query,
-                    prompt: "Routines, exercises, equipment…",
-                    identifier: "findOrCreateField"
-                ),
-                wantsFocus: $wantsFocus,
-                onSubmit: openTopResult
-            )
-            SheetDismissKey(identifier: "findOrCreateDone", action: onDone)
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 6)
-        // Opaque (not a translucent material) so results can't bleed through,
-        // and extended under the bottom safe area so the home-indicator strip
-        // fills solid with no seam under the bar.
-        .background {
-            Theme.background.ignoresSafeArea(edges: .bottom)
-        }
-        .overlay(alignment: .top) {
-            Rectangle().fill(Theme.border).frame(height: 0.5)
+    /// The native search field's placeholder, per scope: plain "Search" on
+    /// All (the query can become anything), and a typed "Search <kind>" when a
+    /// scope narrows it. The Kit scope searches equipment, so it reads
+    /// "Search equipment" (the single-item/catalog sense of the word, per the
+    /// kit-vs-equipment vocabulary law).
+    private var searchPrompt: String {
+        switch scope {
+        case .all: return "Search"
+        case .routines: return "Search routines"
+        case .exercises: return "Search exercises"
+        case .kit: return "Search equipment"
         }
     }
 
@@ -719,8 +707,10 @@ struct FindOrCreateView: View {
         }
         let name = trimmedQuery.sentenceCasedFirst
         guard !name.isEmpty else {
-            // "Type a name first": put the cursor back in the field.
-            wantsFocus = true
+            // "Type a name first": put the cursor back in the field. This is a
+            // deliberate user action (they tapped create), so focusing here is
+            // not the auto-focus-on-entry the native default avoids.
+            searchFocused = true
             return
         }
         let item: Equipment

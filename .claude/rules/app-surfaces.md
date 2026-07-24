@@ -67,13 +67,21 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   (2026-07-18; universal search 2026-07-23): cross-type search lives on the
   **Find-or-create surface** behind the tab bar's search item
   (`Tab(role: .search)` → `FindOrCreateView`) — the tab-root headers carry NO
-  magnifier anymore. On that surface the field TAKES OVER the tab bar
-  (2026-07-24): the four tabs + the search circle are hidden
-  (`.toolbar(.hidden, for: .tabBar)`) and the field + Done key are anchored in
-  a bottom bar (`.safeAreaInset(edge: .bottom)`), thumb-reachable, riding above
-  the keyboard and settling onto the tab-bar line when it drops. It's the
-  CUSTOM `SearchFieldBody`, not `.searchable`, so the iOS 26 search-morph
-  geometry bug (a sibling tab's `.onGeometryChange`) never applies. Scope +
+  magnifier anymore. On that surface the field is the NATIVE `.searchable`
+  (2026-07-24, Dave — superseding the custom bottom-bar takeover): placed
+  INSIDE the search tab's stack (placement B) so its prompt can read the scope,
+  the search-role tab morphs the tab bar into the system field at the bottom,
+  carrying the native clear (✕) and Cancel. The placeholder is per-scope
+  ("Search" on All, "Search routines/exercises/equipment" when scoped) and it
+  does NOT auto-focus on entry — no `.tabViewSearchActivation(.searchTabSelection)`,
+  so the keyboard rises only on a field tap (`.searchFocused` is used solely for
+  the "type a name first" refocus). There is NO custom Done key now: leaving is a
+  normal tab tap. ⚠️ This re-arms the documented iOS 26 morph bug — an
+  `.onGeometryChange` in the TabView subtree (TodayView's onboarding step-height
+  probe) can make the field render as a top bar on the FIRST activation instead
+  of morphing (nav-diag 4e); device-pass on the shipping OS, and if it recurs,
+  rework that probe. `SearchFieldBody` stays — the pushed catalogs/pickers/sheets
+  still use it via `HeaderSearchField`. Scope +
   Doable stay the top controls. Pushed catalogs, pickers, and sheets keep the expanding
   in-header field (`HeaderSearchField`) — a top-right magnifier that expands
   into a field spanning the row, an in-field `delete.left` CLEAR that keeps

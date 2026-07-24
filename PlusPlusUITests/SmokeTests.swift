@@ -240,7 +240,9 @@ final class SmokeTests: XCTestCase {
         // Search pins the template (lazy-List rule). A bodyweight
         // template also survives zero-owned stores — don't swap in a
         // gear-requiring one.
-        let field = app.textFields["findOrCreateField"]
+        // The NATIVE search field (2026-07-24) — a searchField element, no
+        // longer a custom textField with a set identifier.
+        let field = app.searchFields.firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap()
         field.typeText("Bodyweight Basics")
@@ -258,8 +260,9 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         XCTAssertEqual(field.value as? String, "Bodyweight Basics")
 
-        // Done leaves the surface for the tab it came from.
-        app.buttons["findOrCreateDone"].tap()
+        // Leaving the native search surface is a normal tab tap now (the
+        // custom Done key is retired with the native field).
+        app.tabBars.buttons["Routines"].tap()
         XCTAssertTrue(plus.waitForExistence(timeout: 5))
     }
 
@@ -294,7 +297,9 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(createRow.waitForExistence(timeout: 5))
 
         // The query prefills the editor (the create-from-here contract).
-        let field = app.textFields["findOrCreateField"]
+        // The NATIVE search field (2026-07-24) — a searchField element, no
+        // longer a custom textField with a set identifier.
+        let field = app.searchFields.firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap()
         field.typeText("Wall Slides")
@@ -530,7 +535,9 @@ final class SmokeTests: XCTestCase {
         // growth (the lazy-List rule: only realized rows exist). The Find
         // or create field is always visible (no toggle). "Bodyweight Basics"
         // is bodyweight, so it survives the default-on Doable filter.
-        let field = app.textFields["findOrCreateField"]
+        // The NATIVE search field (2026-07-24) — a searchField element, no
+        // longer a custom textField with a set identifier.
+        let field = app.searchFields.firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap()
         field.typeText("Bodyweight Basics")

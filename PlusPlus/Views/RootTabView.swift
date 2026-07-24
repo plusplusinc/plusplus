@@ -33,10 +33,6 @@ struct RootTabView: View {
     @State private var dayToken = 0
 
     @State private var tab: AppTab = .today
-    /// Where "Done" on the search surface returns to: the last REAL tab
-    /// (captured on every switch INTO .search, so it can never be .search
-    /// itself).
-    @State private var previousTab: AppTab = .today
     /// The slide-to-reveal drawer behind the ++ key (replaces the pushed
     /// AppMenuScreen). Lives here, above the tabs' NavigationStacks, so it
     /// moves the whole TabView as one layer.
@@ -136,10 +132,11 @@ struct RootTabView: View {
             // Universal search (2026-07-23): the search-role item renders
             // as the separated circle beside the tab group (Liquid Glass
             // placement for free; the system fixes its magnifier glyph).
-            // No .searchable — the surface carries its own field row, so
-            // selecting this behaves like any tab.
+            // The surface carries the NATIVE `.searchable` field (2026-07-24),
+            // which morphs the tab bar into the system search field; leaving
+            // is a normal tab tap, so there's no custom Done return.
             Tab(value: AppTab.search, role: .search) {
-                FindOrCreateView(onDone: { tab = previousTab })
+                FindOrCreateView()
             }
         }
         .tint(Theme.textPrimary)
@@ -147,8 +144,7 @@ struct RootTabView: View {
         // the reveal controller told which tab is showing. Operator's
         // view-context follows the same signal (a tab switch also clears
         // a popped detail's stale line).
-        .onChange(of: tab, initial: true) { oldTab, newTab in
-            if newTab == .search, oldTab != .search { previousTab = oldTab }
+        .onChange(of: tab, initial: true) { _, newTab in
             reveal.activeTab = newTab.rawValue
             viewContext.tab = newTab.rawValue
             viewContext.detail = nil
