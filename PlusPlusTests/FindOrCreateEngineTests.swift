@@ -141,6 +141,27 @@ struct FindOrCreateEngineTests {
         #expect(sections[1].results.map(\.name) == ["Probe Plan"])
     }
 
+    @Test("A deleted routine does not shadow a same-named template")
+    func deletedRoutineDoesNotShadowTemplate() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        // "Probe Day" the routine is deleted (still in the @Query array in
+        // the pre-prune window); the same-named template must reappear
+        // rather than being shadowed into nothing — else an exact-name
+        // query would suppress the create AND show no row (dead end).
+        context.delete(world.routines[0])
+
+        let sections = FindOrCreateEngine.sections(
+            query: "probe day", scope: .routines,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines,
+            templates: [template("Probe Day")],
+            kitNames: world.kitNames
+        )
+        let names = sections.flatMap(\.results).map(\.name)
+        #expect(names.contains("Probe Day"))
+    }
+
     // MARK: - Query ranking
 
     @Test("A query narrows and keeps yours above the catalog")

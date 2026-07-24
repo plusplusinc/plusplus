@@ -218,7 +218,11 @@ enum FindOrCreateEngine {
         }
         // An added template leaves CATALOG (name-keyed, the routine
         // catalog's rule): its routine row above already represents it.
-        let inLibrary = Set(routines.map { $0.name.lowercased() })
+        // A deleted routine does NOT shadow a template — its own row is
+        // filtered out just above, so shadowing here would strand the
+        // template with no row at all (matching the routine loop's filter
+        // also closes the exact-name collision dead-end, swift-reviewer).
+        let inLibrary = Set(routines.filter { !$0.isDeleted }.map { $0.name.lowercased() })
         for template in templates where !inLibrary.contains(template.name.lowercased()) {
             let contained = template.blocks.flatMap(\.entries).map(\.exercise)
             let extra = "\(template.summary) \(template.style.rawValue)"
