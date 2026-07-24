@@ -437,24 +437,10 @@ struct TodayView: View {
                 // navigations felt different and the plain push won.
                 SessionDetailView(session: destination.session)
             }
-            // Registered at the stack root, NOT inside RoutineCatalogScreen
-            // (pushed below for setup step 2): a value destination declared
-            // on a screen that is itself pushed failed to resolve in
-            // production — template taps hit SwiftUI's missing-destination
-            // placeholder (build 33).
-            .navigationDestination(for: RoutineTemplate.self) { template in
-                RoutineTemplateDetailScreen(template: template, path: $todayPath) { routine in
-                    // ONE landing for every template add (Dave, 2026-07-23,
-                    // superseding the 2026-07-15 land-in-detail): the add
-                    // lands on the ROUTINES LIST with the entrance flash,
-                    // same as adding from the Routines tab. The Today path
-                    // clears so returning to this tab shows the timeline
-                    // (with the setup step now done), not a stale catalog.
-                    guard let uuid = routine.uuid else { return }
-                    todayPath = NavigationPath()
-                    RoutineArrival.land(uuid)
-                }
-            }
+            // (The RoutineTemplate destination retired with the routine
+            // catalog, 2026-07-24: templates are found/added on the Find or
+            // create stack now, which registers its own; nothing pushes a
+            // template onto Today's path anymore.)
             .sheet(isPresented: $showingSwapIn, onDismiss: {
                 // Start only once the sheet is fully gone: dismissing a
                 // sheet and presenting a cover in one transaction can
@@ -502,18 +488,6 @@ struct TodayView: View {
             .healthStartPrimer($healthStartRequest)
             .navigationDestination(isPresented: $showingEquipmentSetup) {
                 EquipmentCatalogScreen(setupMode: true)
-            }
-            // Step 2 IS the routine catalog (#246): search, facets,
-            // honest gear checks, blank creation as its first row, and
-            // Add lands in the new routine — the two-option seeder
-            // sheet (whose starter split degraded to one exercise per
-            // routine at zero gear) died in its favor. A PATH entry,
-            // not isPresented (Dave, build 44): the catalog appends
-            // templates/routines to this same path, and a value
-            // appended beneath a boolean-presented screen replaces it
-            // transition-less and double-pops on back.
-            .navigationDestination(for: RoutineCatalogDestination.self) { _ in
-                RoutineCatalogScreen(path: $todayPath)
             }
             .alert("New routine", isPresented: $showingNewRoutine) {
                 TextField("Name", text: $newRoutineName)
@@ -1457,9 +1431,12 @@ struct TodayView: View {
                 gatedSub: "Needs your equipment first",
                 cta: "Pick a routine",
                 identifier: "setupRoutineStep",
-                // Root-only affordance: emptiness doubles as the
-                // double-tap guard (see RoutineListView's +).
-                action: { if todayPath.isEmpty { todayPath.append(RoutineCatalogDestination()) } },
+                // Deep-links into Find or create (Routines scope), the ONE
+                // find-or-create surface (2026-07-24): the standalone routine
+                // catalog was retired in its favor. The add lands on the
+                // Routines tab via RoutineArrival — the same end state the
+                // pushed catalog reached, now through one surface.
+                action: { FindOrCreateLaunch.open(.routines) },
                 edit: { onGoToRoutines() }
             )
             .id(Self.setupRoutineAnchor)

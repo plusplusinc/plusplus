@@ -75,9 +75,38 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   the same grammar). Creation is the TOP list row, verb-keyed: **Create**
   (`New <object>` / `Create "<query>"`) when it makes a custom object inline,
   **Add** (`Add <object>` / `Add "<query>"`) when it navigates — the tabs' Add
-  rows now open Find-or-create pre-scoped (`FindOrCreateLaunch`). Query casing
+  rows now open Find-or-create pre-scoped (`FindOrCreateLaunch`), as does
+  onboarding step 2 ("Pick a routine" → `.open(.routines)`; the standalone
+  `RoutineCatalogScreen` was retired here, 2026-07-24). Query casing
   is `String.sentenceCasedFirst`. Empty results NEVER dead-end: the create/add
   row is always present + a "Clear filters" `QuietKey` when facets are active.
+  The ONE thing that removes a create is an EXACT-name collision (2026-07-24):
+  when the trimmed query case-insensitively equals an existing item's name,
+  that type's create is suppressed (Find-or-create; `FindOrCreateEngine.Collisions`)
+  so the surface never offers to duplicate the row sitting right below it —
+  never a dead end, because an exact match always ranks into results, so
+  results are non-empty whenever a create is hidden. Partial matches still
+  offer create.
+  **Scope is a content-width segmented control** (2026-07-24), above the
+  field: `SegmentedTabs` in `widthsByContent` mode (segments size to content,
+  not equal thirds — HIG-legal non-uniform; icons on the typed scopes, "All"
+  text-only), leading the field because scope is a MODE (it changes the create
+  verb + what an empty query browses), not just a filter. NOT the native
+  `Tab(role:.search)` bottom-morph (the app owns its selection grammar; and a
+  sibling tab's `.onGeometryChange` triggers the documented iOS 26 morph bug).
+  **The "Doable" filter** (persisted `@AppStorage`, default on) hides
+  routines/exercises the active kit can't do (All/Routines/Exercises; Kit is
+  equipment, unfiltered) — a single chip by the scope (the persistent two-way
+  control, so the trip back is the same tap; a bottom reveal footer was
+  rejected for burying the return). An EXACT-name match always surfaces past
+  the filter (search intent + the create-collision guard); off reveals all with
+  per-row amber "needs X"; when the filter alone empties results, the state
+  offers a "Show all" `QuietKey`, never a bare "Nothing matches." Copy is
+  **"Doable"** — names the item-set, equipment-agnostic (a bodyweight move is
+  doable, not "equipped"), no collision with the adjacent "Kit" segment.
+  Results use real `List` `Section`s so `.listStyle(.plain)` PINS each heading
+  to the top until the next takes over (one sticky at a time); the header wears
+  a solid `Theme.background` so a pinned heading occludes the rows beneath it.
   Search state on the universal surface is EPHEMERAL per-entry (a stale
   invisible query reads as data loss); every add from it LANDS on its list
   with the entrance flash (`RoutineArrival`/`ExerciseArrival`/
