@@ -131,11 +131,16 @@ struct FindOrCreateView: View {
             // default activates search only on a field tap, so the keyboard does
             // NOT auto-rise on entry (Dave's ask). `.searchFocused` is used only
             // for the deliberate "type a name first" refocus below.
-            // ⚠️ Device-pass: the documented iOS 26 morph bug — an
-            // `.onGeometryChange` elsewhere in the TabView subtree (TodayView's
-            // onboarding step-height probe) can make the field render as a top
-            // bar on the FIRST activation instead of morphing. Retest on the
-            // shipping OS; if it recurs, rework that probe (see nav-diag 4e).
+            // ⚠️ Device-pass (the #1 check): the documented iOS 26 morph bug —
+            // an `.onGeometryChange` elsewhere in the TabView subtree (TodayView's
+            // onboarding step-height probe) can make the field fall back to the
+            // `.navigationBarDrawer` (top) placement on the FIRST activation
+            // instead of morphing from the tab bar. And because this surface
+            // HIDES the nav bar (above), that fallback has nowhere to render —
+            // so the failure isn't a top bar, it's NO visible field on first
+            // entry. Confirm the field appears on a cold first tap of the search
+            // tab; if it doesn't, the fix is to kill the morph trigger at its
+            // source (rework TodayView's probe — nav-diag 4e), not to revert.
             .searchable(text: $query, prompt: Text(searchPrompt))
             .searchFocused($searchFocused)
             .onSubmit(of: .search) { openTopResult() }

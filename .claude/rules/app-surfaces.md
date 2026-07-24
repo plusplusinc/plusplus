@@ -78,9 +78,12 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   the "type a name first" refocus). There is NO custom Done key now: leaving is a
   normal tab tap. ⚠️ This re-arms the documented iOS 26 morph bug — an
   `.onGeometryChange` in the TabView subtree (TodayView's onboarding step-height
-  probe) can make the field render as a top bar on the FIRST activation instead
-  of morphing (nav-diag 4e); device-pass on the shipping OS, and if it recurs,
-  rework that probe. `SearchFieldBody` stays — the pushed catalogs/pickers/sheets
+  probe, a sibling tab) can make the field fall back to the top
+  `.navigationBarDrawer` placement on the FIRST activation instead of morphing
+  (nav-diag 4e). And since this surface HIDES the nav bar, that fallback has
+  nowhere to render — the failure is NO visible field on first entry, not a top
+  bar. #1 device check on the shipping OS; if it recurs, kill the morph trigger
+  at its source (rework the probe), don't revert. `SearchFieldBody` stays — the pushed catalogs/pickers/sheets
   still use it via `HeaderSearchField`. Scope +
   Doable stay the top controls. Pushed catalogs, pickers, and sheets keep the expanding
   in-header field (`HeaderSearchField`) — a top-right magnifier that expands

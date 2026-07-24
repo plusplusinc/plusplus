@@ -261,7 +261,12 @@ final class SmokeTests: XCTestCase {
         XCTAssertEqual(field.value as? String, "Bodyweight Basics")
 
         // Leaving the native search surface is a normal tab tap now (the
-        // custom Done key is retired with the native field).
+        // custom Done key is retired with the native field). While a query is
+        // present the search-role tab can hold the tab-bar slot with a Cancel
+        // button in place of the tabs, so collapse search first if it's up,
+        // then tap the tab.
+        let cancelSearch = app.buttons["Cancel"]
+        if cancelSearch.exists { cancelSearch.tap() }
         app.tabBars.buttons["Routines"].tap()
         XCTAssertTrue(plus.waitForExistence(timeout: 5))
     }
