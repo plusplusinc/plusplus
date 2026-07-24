@@ -94,7 +94,9 @@ struct InlineWheelPicker: View {
 
     private func cell(index: Int, option: String,
                       cellWidth: CGFloat, trackWidth: CGFloat, allowMotion: Bool) -> some View {
-        let selected = centeredID == index
+        // `centeredID ?? selectedIndex` so the correct option reads selected on
+        // the very first frame (centeredID is nil until .onAppear).
+        let selected = (centeredID ?? selectedIndex) == index
         return Button {
             // Drive the internal id (animated) — the onChange syncs the binding.
             withAnimation(Theme.Anim.selection) { centeredID = index }
