@@ -63,7 +63,14 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   (2026-07-18; universal search 2026-07-23): cross-type search lives on the
   **Find-or-create surface** behind the tab bar's search item
   (`Tab(role: .search)` → `FindOrCreateView`) — the tab-root headers carry NO
-  magnifier anymore. Pushed catalogs, pickers, and sheets keep the expanding
+  magnifier anymore. On that surface the field TAKES OVER the tab bar
+  (2026-07-24): the four tabs + the search circle are hidden
+  (`.toolbar(.hidden, for: .tabBar)`) and the field + Done key are anchored in
+  a bottom bar (`.safeAreaInset(edge: .bottom)`), thumb-reachable, riding above
+  the keyboard and settling onto the tab-bar line when it drops. It's the
+  CUSTOM `SearchFieldBody`, not `.searchable`, so the iOS 26 search-morph
+  geometry bug (a sibling tab's `.onGeometryChange`) never applies. Scope +
+  Doable stay the top controls. Pushed catalogs, pickers, and sheets keep the expanding
   in-header field (`HeaderSearchField`) — a top-right magnifier that expands
   into a field spanning the row, an in-field `delete.left` CLEAR that keeps
   focus, and a separate `xmark` COLLAPSE key where the magnifier was; the

@@ -24,8 +24,11 @@ enum FindOrCreateLaunch {
 ///
 /// Layout: tab-root header grammar (++ key · title · kit switcher — kit
 /// is CONTEXT, never a filter chip) → the scope segmented control (a MODE,
-/// so it leads) → the shared search-field anatomy + a text Done key (never
-/// ✕) → the Doable filter chip → create row → results.
+/// so it leads) → the Doable filter chip → create row → results, with the
+/// search field + a text Done key (never ✕) anchored in a BOTTOM bar that
+/// takes over the tab bar (the four tabs + search circle are hidden while
+/// this surface is up; the field rides above the keyboard and settles onto
+/// the tab-bar line when it drops).
 /// The create row is present unless the query EXACTLY names an item that
 /// already exists (a create there would only duplicate the row right
 /// below it — `FindOrCreateEngine.Collisions`); it never dead-ends, since
@@ -110,18 +113,28 @@ struct FindOrCreateView: View {
                         showingLibraryTray = true
                     }
                 }
-                // Scope leads (above the field): it's a MODE that reshapes
-                // the whole surface — the create verb, what an empty query
-                // browses — not just a result filter, so it reads as the
-                // primary selector, and the field sits directly above its
-                // own results.
+                // Scope + the Doable filter are the TOP controls (mode +
+                // narrowing). The search field lives in the BOTTOM bar, where
+                // it takes over the tab bar (thumb-reachable, results directly
+                // above it).
                 scopeSegmented
-                fieldRow
                 doableFilterRow
                 resultsList
             }
             .background(Theme.background)
             .toolbar(.hidden, for: .navigationBar)
+            // In Find or create the search field TAKES OVER the tab bar: hide
+            // the tab bar and anchor the field + Done key at the bottom in its
+            // place (Dave). Keyboard-aware via safeAreaInset — the bar rides
+            // above the keyboard and settles onto the tab-bar line when it
+            // drops. A CUSTOM field, not `.searchable`, so the iOS 26
+            // search-morph geometry bug (a sibling tab's `.onGeometryChange`)
+            // never applies. ⚠️ Device-pass: iOS 26 renders `role: .search` as
+            // a SEPARATED accessory circle beside the tab group — confirm
+            // `.tabBar` hiding takes that circle down with the four tabs (not
+            // leaving it floating over the new bottom bar).
+            .toolbar(.hidden, for: .tabBar)
+            .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
             // The four result types push onto THIS stack (registered at the
             // root, #262) so back/swipe-back returns to results with query,
             // scope, and scroll intact — search is a stack, not a modal.
@@ -185,7 +198,11 @@ struct FindOrCreateView: View {
 
     // MARK: - Field + scopes
 
-    private var fieldRow: some View {
+    /// The bottom bar that takes over the tab bar while Find or create is up:
+    /// the search field + a Done key. A text Done (not a ✕ — the app reserves
+    /// ✕ for collapse-search) returns to the tab you came from. A top hairline
+    /// over the surface fill separates it from the results scrolling above.
+    private var bottomBar: some View {
         HStack(spacing: 10) {
             SearchFieldBody(
                 config: HeaderSearchConfig(
@@ -196,12 +213,20 @@ struct FindOrCreateView: View {
                 wantsFocus: $wantsFocus,
                 onSubmit: openTopResult
             )
-            // A text dismiss key (the sheet-dismissal grammar) — never ✕,
-            // which means collapse-search everywhere.
             SheetDismissKey(identifier: "findOrCreateDone", action: onDone)
         }
         .padding(.horizontal, 16)
-        .padding(.bottom, 8)
+        .padding(.top, 8)
+        .padding(.bottom, 6)
+        // Opaque (not a translucent material) so results can't bleed through,
+        // and extended under the bottom safe area so the home-indicator strip
+        // fills solid with no seam under the bar.
+        .background {
+            Theme.background.ignoresSafeArea(edges: .bottom)
+        }
+        .overlay(alignment: .top) {
+            Rectangle().fill(Theme.border).frame(height: 0.5)
+        }
     }
 
     /// Scope as a content-width segmented control (icons on the three typed
