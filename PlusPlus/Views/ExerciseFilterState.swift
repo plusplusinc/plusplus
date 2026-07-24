@@ -99,6 +99,41 @@ final class ExerciseFilterState {
         .sorted { $0.name < $1.name }
     }
 
+    /// Ranked substitution suggestions for the "Swap for…" tray (2026-07-24):
+    /// same-muscle catalog moves ordered kit-doable-first, then by
+    /// similarity to the origin (movement family + gear overlap, the
+    /// `ExerciseSimilarity` ranker), then alphabetically. Same-muscle is the
+    /// pool boundary — the model's only muscle signal — so this reads as
+    /// "another <muscle> move like this one"; blunt for compounds, clean for
+    /// isolation work. Unlike `kitDoableAlternatives` this never gear-HIDES:
+    /// not-in-kit moves stay, ranked below the doable ones and flagged amber
+    /// on the row (#113 flag-don't-hide). The origin and just-deleted
+    /// stragglers drop out. The full catalog is one tap further (the tray's
+    /// "Browse all exercises" escape).
+    static func swapSuggestions(for exercise: Exercise, in catalog: [Exercise], kit: Set<String>) -> [Exercise] {
+        let origin = similarityFeatures(exercise)
+        let pool = catalog
+            .filter { $0 !== exercise && !$0.isDeleted && $0.muscleGroup == exercise.muscleGroup }
+            .sorted { $0.name < $1.name }
+        // Stable, kit-doable-first partition; each half stays similarity-ranked
+        // (the ranker's tie-break preserves the alphabetical incoming order).
+        let doable = pool.filter { missingEquipment(for: $0, available: kit).isEmpty }
+        let rest = pool.filter { !missingEquipment(for: $0, available: kit).isEmpty }
+        let rank = { (list: [Exercise]) in
+            ExerciseSimilarity.ranked(list, like: origin, features: similarityFeatures)
+        }
+        return rank(doable) + rank(rest)
+    }
+
+    /// Maps an `Exercise` into the Kit ranker's pure feature bag.
+    private static func similarityFeatures(_ exercise: Exercise) -> ExerciseSimilarityFeatures {
+        ExerciseSimilarityFeatures(
+            muscleGroup: exercise.muscleGroup,
+            modality: exercise.modality,
+            equipmentNames: Set(exercise.equipment.filter { !$0.isDeleted }.map(\.name))
+        )
+    }
+
     private func matchesFavorites(_ exercise: Exercise) -> Bool {
         !favoritesOnly || exercise.isFavorite
     }

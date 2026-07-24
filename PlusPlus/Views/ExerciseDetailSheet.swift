@@ -13,14 +13,14 @@ struct ExerciseDetailSheet: View {
 
     let routine: Routine
     @Bindable var routineExercise: RoutineExercise
-    /// "Swap for…" (round 2a, the session sheet's pair at planning
-    /// time): the presenter routes it into the pushed exercise picker
-    /// — this sheet dismisses, the picker pushes beneath it — and the
-    /// pick lands via `Routine.replaceExercise` (targets reset to the
-    /// new exercise's defaults, the equipment-resolve law). ⚠️ The
-    /// dismiss-then-push-beneath handoff is field-unproven (its
-    /// supposed precedent, onAddToSuperset, turned out to be dead code
-    /// — deleted with this round); it rides the device-pass list.
+    /// "Browse all exercises" — the full-catalog escape from the swap
+    /// suggestions tray (2026-07-24). The presenter routes it into the
+    /// pushed exercise picker (this sheet dismisses, the picker pushes
+    /// beneath it) and the pick lands via `Routine.replaceExercise`
+    /// (targets reset to the new exercise's defaults, the
+    /// equipment-resolve law). Before the tray this WAS the whole "Swap
+    /// for…" action; it is now its fallback, for when none of the
+    /// suggestions fit.
     let onSwap: (RoutineExercise) -> Void
 
     /// Finished sessions, newest first, for the RECENT block.
@@ -28,6 +28,13 @@ struct ExerciseDetailSheet: View {
            sort: [SortDescriptor(\WorkoutSession.startedAt, order: .reverse)])
     private var finishedSessions: [WorkoutSession]
 
+    /// The whole catalog + the active kit, for the swap tray's ranked
+    /// suggestions and each row's availability flag.
+    @Query(sort: \Exercise.name) private var allExercises: [Exercise]
+    @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
+    @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
+
+    @State private var swapping = false
     @State private var wheel: WorkoutMetric?
     @State private var showingRepsWheel = false
     @State private var showingHeartRateSheet = false
@@ -37,6 +44,17 @@ struct ExerciseDetailSheet: View {
 
     private var weightUnit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .lb }
     private var exercise: Exercise? { routineExercise.exercise }
+
+    /// The active kit's gear names — availability flag input for the tray.
+    private var kitNames: Set<String> {
+        EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.memberNames ?? []
+    }
+
+    /// Ranked same-muscle substitutes for the current exercise.
+    private var swapSuggestions: [Exercise] {
+        guard let exercise else { return [] }
+        return ExerciseFilterState.swapSuggestions(for: exercise, in: allExercises, kit: kitNames)
+    }
     private var group: ExerciseGroup? { routineExercise.group }
     /// What this exercise tracks — drives which metric rows render.
     private var profile: MetricProfile { exercise?.metricProfile ?? .weightReps }
@@ -182,6 +200,33 @@ struct ExerciseDetailSheet: View {
             ) { newTarget in
                 routineExercise.reps = newTarget.lower
                 routineExercise.repsUpper = newTarget.upper
+            }
+        }
+        // The swap suggestions tray STACKS on this sheet (no dismiss-then-
+        // present handoff). A pick lands the replacement in place; "Browse
+        // all exercises" hands off to the presenter's full-catalog push and
+        // dismisses this sheet so it shows through beneath.
+        .sheet(isPresented: $swapping) {
+            if let exercise {
+                ExerciseSwapTray(
+                    origin: exercise,
+                    suggestions: swapSuggestions,
+                    available: kitNames,
+                    onPick: { replacement in
+                        routine.replaceExercise(routineExercise, with: replacement)
+                        // Durable commit of a user action; the sheets tear
+                        // down right after (planning swap resets targets to
+                        // the new exercise's defaults, via replaceExercise).
+                        try? modelContext.save()
+                        swapping = false
+                        dismiss()
+                    },
+                    onBrowseAll: {
+                        swapping = false
+                        onSwap(routineExercise)
+                        dismiss()
+                    }
+                )
             }
         }
         .sheet(isPresented: $showingHeartRateSheet) {
@@ -437,8 +482,7 @@ struct ExerciseDetailSheet: View {
             }
             HStack(spacing: 7) {
                 SheetActionButton("Swap for…", systemImage: "arrow.left.arrow.right") {
-                    onSwap(routineExercise)
-                    dismiss()
+                    swapping = true
                 }
                 SheetActionButton("Remove", destructive: true) {
                     removeExercise()

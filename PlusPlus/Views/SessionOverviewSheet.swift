@@ -366,9 +366,35 @@ struct SessionExerciseSheet: View {
     private var canRestructure: Bool {
         !isLive && !pending.isEmpty && !session.isFinished
     }
-    @State private var showingSwapPicker = false
+    /// The whole catalog + active kit, for the swap tray's ranked
+    /// suggestions and each row's availability flag.
+    @Query(sort: \Exercise.name) private var allExercises: [Exercise]
+    @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
+    @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
+
+    @State private var showingSwapTray = false
+    /// The full-catalog escape from the tray (configure-before-add). A
+    /// separate sheet so the tray hands off cleanly instead of hosting the
+    /// picker itself (which would couple it to session config).
+    @State private var showingBrowseAllPicker = false
     @State private var swapFilterState = ExerciseFilterState()
     @State private var confirmingRemove = false
+
+    /// The origin exercise for suggestions — the block's live reference,
+    /// else resolved by name from the catalog (sessions snapshot names; the
+    /// reference can go stale). nil only if it left the catalog entirely.
+    private var originExercise: Exercise? {
+        logs.first?.exercise ?? allExercises.first { $0.name == block.name && !$0.isDeleted }
+    }
+
+    private var kitNames: Set<String> {
+        EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.memberNames ?? []
+    }
+
+    private var swapSuggestions: [Exercise] {
+        guard let originExercise else { return [] }
+        return ExerciseFilterState.swapSuggestions(for: originExercise, in: allExercises, kit: kitNames)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -439,7 +465,7 @@ struct SessionExerciseSheet: View {
                 if canRestructure {
                     HStack(spacing: 8) {
                         Button {
-                            showingSwapPicker = true
+                            showingSwapTray = true
                         } label: {
                             Text("Swap for…")
                                 .font(.system(.footnote, weight: .bold))
@@ -477,10 +503,45 @@ struct SessionExerciseSheet: View {
             .padding(.vertical, 12)
         }
         .presentationBackground(Theme.surface)
-        // The picker STACKS on this sheet (the documented stack-don't-
-        // dismiss-then-present law) — same depth the overview's own Add
-        // flow already reaches.
-        .sheet(isPresented: $showingSwapPicker) {
+        // Suggestions first (2026-07-24): a ranked tray of similar moves
+        // instead of the whole catalog. A pick commits in place with the
+        // exercise's default config (consistent with the planning swap's
+        // reset-to-defaults; targets stay editable from the block sheet).
+        // The tray STACKS on this sheet (the stack-don't-dismiss-then-
+        // present law) — same depth the overview's own Add flow reaches.
+        .sheet(isPresented: $showingSwapTray) {
+            if let originExercise {
+                ExerciseSwapTray(
+                    origin: originExercise,
+                    suggestions: swapSuggestions,
+                    available: kitNames,
+                    onPick: { replacement in
+                        session.swapPendingBlock(
+                            groupIndex: block.groupIndex,
+                            exerciseName: block.name,
+                            with: SessionExerciseConfig(exercise: replacement),
+                            context: modelContext
+                        )
+                        showingSwapTray = false
+                        // This sheet's block key just stopped meaning
+                        // anything — land back on the overview, which
+                        // regroups live.
+                        dismiss()
+                    },
+                    onBrowseAll: {
+                        // Hand off to the full catalog (with the
+                        // configure-before-add step). Dismiss the tray, then
+                        // present on the next turn so the two sheets don't
+                        // collide (the deferred-present mitigation).
+                        showingSwapTray = false
+                        Task { @MainActor in showingBrowseAllPicker = true }
+                    }
+                )
+            }
+        }
+        // The full-catalog escape: the same configure-before-add picker the
+        // session Add flow uses.
+        .sheet(isPresented: $showingBrowseAllPicker) {
             ExercisePickerView(filterState: swapFilterState, onConfigured: { config in
                 session.swapPendingBlock(
                     groupIndex: block.groupIndex,
@@ -488,9 +549,7 @@ struct SessionExerciseSheet: View {
                     with: config,
                     context: modelContext
                 )
-                showingSwapPicker = false
-                // This sheet's block key just stopped meaning anything —
-                // land back on the overview, which regroups live.
+                showingBrowseAllPicker = false
                 dismiss()
             })
         }
