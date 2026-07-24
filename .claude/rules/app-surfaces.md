@@ -31,9 +31,13 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   that is neither green (do/create) nor grey (inert). Two jobs: form-cue /
   "needs X gear" notes, AND a **carried-over occurrence** (2026-07-14) — a
   scheduled day that lapsed within the 6-day window shows in Today's
-  **CARRIED OVER** lane (below today's cards, above history) as an amber
-  tap-to-open card, never a green due. Green + one-click Start is reserved
-  for TODAY's occurrence only; future and carried cards navigate to detail.
+  carried-over lane (below today's cards, above history) as an amber
+  tap-to-open card ("was wed · jul 22"), never a green due. The lane is
+  UNLABELED (2026-07-23 round 2b: the rail's all-caps headings — TODAY ·
+  CARRIED OVER · BEYOND THIS WEEK — died; the date line, cadence lines,
+  and the cards' border/node/caption-tense grammar carry the structure).
+  Green + one-click Start is reserved for TODAY's occurrence only; future
+  and carried cards navigate to detail.
   Due-ness is anchored to a routine's `createdAt` (its added-to-library
   moment), so a freshly added routine never carries a day it wasn't around
   for. The Kit split that backs this: `DueState.due` = scheduled today and
