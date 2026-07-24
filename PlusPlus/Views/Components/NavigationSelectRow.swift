@@ -91,7 +91,9 @@ private struct NavigationSelectList<Value: Hashable>: View {
             }
             .padding(.top, 8)
         }
-        .background(Theme.background)
+        // No explicit background: inherit the host sheet's presentation
+        // background (Theme.surface for Settings, Theme.background for
+        // Schedule) so the pushed screen matches its tray.
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
     }

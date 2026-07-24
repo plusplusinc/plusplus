@@ -74,8 +74,14 @@ struct InlineWheelPicker: View {
             if let new, new != selectedIndex { selectedIndex = new }
         }
         .onChange(of: selectedIndex) { _, new in
+            // Jump WITHOUT animation on an external selection change: an
+            // animated multi-cell scroll would report every intermediate cell
+            // through `.scrollPosition`, and each one round-trips back into the
+            // bound value (setting `scope` to a wrong scope mid-animation and
+            // flashing the wrong results). A tap moves one ADJACENT cell, so
+            // its own `withAnimation` has no intermediate cells to flash.
             guard new != centeredID else { return }
-            withAnimation(Theme.Anim.selection) { centeredID = new }
+            centeredID = new
         }
     }
 
