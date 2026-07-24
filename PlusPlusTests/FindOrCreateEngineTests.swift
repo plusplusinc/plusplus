@@ -141,6 +141,27 @@ struct FindOrCreateEngineTests {
         #expect(sections[1].results.map(\.name) == ["Probe Plan"])
     }
 
+    @Test("A deleted routine does not shadow a same-named template")
+    func deletedRoutineDoesNotShadowTemplate() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        // "Probe Day" the routine is deleted (still in the @Query array in
+        // the pre-prune window); the same-named template must reappear
+        // rather than being shadowed into nothing — else an exact-name
+        // query would suppress the create AND show no row (dead end).
+        context.delete(world.routines[0])
+
+        let sections = FindOrCreateEngine.sections(
+            query: "probe day", scope: .routines,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines,
+            templates: [template("Probe Day")],
+            kitNames: world.kitNames
+        )
+        let names = sections.flatMap(\.results).map(\.name)
+        #expect(names.contains("Probe Day"))
+    }
+
     // MARK: - Query ranking
 
     @Test("A query narrows and keeps yours above the catalog")
@@ -208,5 +229,134 @@ struct FindOrCreateEngineTests {
         let hit = try #require(sections.flatMap(\.results).first)
         #expect(hit.name == "Probe Day")
         #expect(hit.matchedExerciseName == nil)
+    }
+
+    // MARK: - Create collisions
+
+    private func collisions(_ query: String, world: World, templates: [RoutineTemplate] = []) -> FindOrCreateEngine.Collisions {
+        FindOrCreateEngine.collisions(
+            query: query,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines, templates: templates
+        )
+    }
+
+    @Test("An empty query never collides")
+    func emptyQueryNoCollision() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        let c = collisions("   ", world: world)
+        #expect(!c.exercise && !c.routine && !c.equipment)
+    }
+
+    @Test("An exact equipment name collides, case- and space-insensitively")
+    func exactEquipmentCollides() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        // The screenshot's bug: typing an existing gear name still offered
+        // "Add … as equipment".
+        #expect(collisions("Probe Barbell", world: world).equipment)
+        #expect(collisions("probe barbell", world: world).equipment)
+        #expect(collisions("  Probe Barbell  ", world: world).equipment)
+        // Only that one type collides — a routine or exercise of the same
+        // name is a different thing and still creatable.
+        let c = collisions("Probe Barbell", world: world)
+        #expect(!c.exercise && !c.routine)
+    }
+
+    @Test("A partial name does not collide")
+    func partialNameNoCollision() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        // "Circus Dumbbell" vs a "Dumbbells" query: near, not exact.
+        #expect(!collisions("Probe Bar", world: world).equipment)
+        #expect(!collisions("Probe", world: world).exercise)
+    }
+
+    @Test("Exact exercise and routine names collide on their own type")
+    func exactExerciseAndRoutineCollide() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        #expect(collisions("Probe Curl", world: world).exercise)
+        #expect(collisions("Probe Day", world: world).routine)
+    }
+
+    @Test("A catalog template name collides on the routine type")
+    func exactTemplateCollides() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        let c = collisions("Probe Plan", world: world, templates: [template("Probe Plan")])
+        #expect(c.routine)
+    }
+
+    // MARK: - Doable filter
+
+    @Test("Doable filter hides an exercise the kit can't do")
+    func doableFilterHidesUndoableExercise() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        // Probe Press needs Probe Bench (not in the kit); the others are
+        // bodyweight. Browsing with the filter on drops only Probe Press.
+        let sections = FindOrCreateEngine.sections(
+            query: "", scope: .exercises,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines, templates: [], kitNames: world.kitNames,
+            doableOnly: true
+        )
+        let names = sections.flatMap(\.results).map(\.name)
+        #expect(!names.contains("Probe Press"))
+        #expect(names.contains("Probe Curl"))
+    }
+
+    @Test("The filter off shows everything")
+    func doableFilterOffShowsAll() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        let sections = FindOrCreateEngine.sections(
+            query: "", scope: .exercises,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines, templates: [], kitNames: world.kitNames,
+            doableOnly: false
+        )
+        #expect(sections.flatMap(\.results).map(\.name).contains("Probe Press"))
+    }
+
+    @Test("An exact name surfaces even when the kit can't do it")
+    func doableFilterExactNameSurfaces() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        // Searching the exact undoable name still finds it (search intent +
+        // the guard that keeps create-collision suppression from stranding
+        // a hidden row).
+        let sections = FindOrCreateEngine.sections(
+            query: "Probe Press", scope: .exercises,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines, templates: [], kitNames: world.kitNames,
+            doableOnly: true
+        )
+        #expect(sections.flatMap(\.results).map(\.name).contains("Probe Press"))
+    }
+
+    @Test("Doable filter hides a routine the kit can't do")
+    func doableFilterHidesUndoableRoutine() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        // A routine built on Probe Press needs Probe Bench; Probe Day (Probe
+        // Curl) is bodyweight and stays.
+        let press = try #require(world.exercises.first { $0.name == "Probe Press" })
+        let gymDay = Routine(name: "Probe Gym Day", order: 1)
+        context.insert(gymDay)
+        gymDay.addExerciseInNewGroup(press, context: context)
+        try? context.save()
+
+        let sections = FindOrCreateEngine.sections(
+            query: "", scope: .routines,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines + [gymDay], templates: [], kitNames: world.kitNames,
+            doableOnly: true
+        )
+        let names = sections.flatMap(\.results).map(\.name)
+        #expect(names.contains("Probe Day"))
+        #expect(!names.contains("Probe Gym Day"))
     }
 }

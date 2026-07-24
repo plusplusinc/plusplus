@@ -23,14 +23,20 @@ enum FindOrCreateLaunch {
 /// pushed-catalog search stay.
 ///
 /// Layout: tab-root header grammar (++ key · title · kit switcher — kit
-/// is CONTEXT, never a filter chip) → the shared search-field anatomy +
-/// a text Done key (never ✕) → scope chips → create row → results.
-/// The create row is ALWAYS present (never a dead end); an empty query
-/// shows everything, mine-first. Rows are clean (decision A): tap pushes
-/// detail onto THIS stack — back returns with query, scope, and scroll
-/// intact — and the long-press context menu carries the quick acts.
-/// Search state is ephemeral per-entry; the active kit is the one
-/// app-wide pointer, switched only through the tray.
+/// is CONTEXT, never a filter chip) → the scope segmented control (a MODE,
+/// so it leads) → the shared search-field anatomy + a text Done key (never
+/// ✕) → the Doable filter chip → create row → results.
+/// The create row is present unless the query EXACTLY names an item that
+/// already exists (a create there would only duplicate the row right
+/// below it — `FindOrCreateEngine.Collisions`); it never dead-ends, since
+/// an exact-name match always ranks into the results. An empty query
+/// shows everything, mine-first — narrowed by the Doable filter (default
+/// on, routines/exercises the active kit can do; an exact name always
+/// surfaces). Rows are clean (decision A): tap pushes detail onto THIS
+/// stack — back returns with query, scope, and scroll intact — and the
+/// long-press context menu carries the quick acts. The QUERY is ephemeral
+/// per-entry; the Doable FILTER persists (a preference, not search state);
+/// the active kit is the one app-wide pointer, switched only through the tray.
 struct FindOrCreateView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Exercise.name) private var allExercises: [Exercise]
@@ -55,6 +61,13 @@ struct FindOrCreateView: View {
     @State private var creatingExercise = false
     @State private var namingRoutine = false
     @State private var newRoutineName = ""
+    /// The "Doable" filter: show only routines/exercises the active kit can
+    /// do (default on). A FILTER preference, so unlike the query it PERSISTS
+    /// across entries (the catalogs persist their availability facet too) —
+    /// someone who wants the full catalog turns it off once. The chip is the
+    /// two-way control, always at the top so the trip back is as reachable as
+    /// the trip out.
+    @AppStorage("findOrCreateDoableOnly") private var doableOnly = true
 
     private var activeLibrary: EquipmentLibrary? {
         EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)
@@ -76,7 +89,10 @@ struct FindOrCreateView: View {
             equipment: allEquipment,
             routines: routines,
             templates: RoutineCatalog.all,
-            kitNames: kitNames
+            kitNames: kitNames,
+            // Kit scope lists equipment, which the Doable filter never
+            // touches — so it only narrows in All/Routines/Exercises.
+            doableOnly: doableOnly && scope != .kit
         )
     }
 
@@ -94,8 +110,14 @@ struct FindOrCreateView: View {
                         showingLibraryTray = true
                     }
                 }
+                // Scope leads (above the field): it's a MODE that reshapes
+                // the whole surface — the create verb, what an empty query
+                // browses — not just a result filter, so it reads as the
+                // primary selector, and the field sits directly above its
+                // own results.
+                scopeSegmented
                 fieldRow
-                scopeChips
+                doableFilterRow
                 resultsList
             }
             .background(Theme.background)
@@ -182,28 +204,46 @@ struct FindOrCreateView: View {
         .padding(.bottom, 8)
     }
 
-    private var scopeChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 3) {
-                scopeChip(.all, "All", nil)
-                scopeChip(.routines, "Routines", "checklist")
-                scopeChip(.exercises, "Exercises", "figure.strengthtraining.traditional")
-                scopeChip(.kit, "Kit", "dumbbell")
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 12)
-        }
-        .padding(.bottom, 2)
+    /// Scope as a content-width segmented control (icons on the three typed
+    /// scopes, "All" text-only — no natural glyph, and content widths let it
+    /// sit next to its neighbors without a gap). One selection, one sliding
+    /// pill; the labels/symbols/ids track `FindScope.allCases` in order.
+    private var scopeSegmented: some View {
+        SegmentedTabs(
+            options: ["All", "Routines", "Exercises", "Kit"],
+            selectedIndex: Binding(
+                get: { FindScope.allCases.firstIndex(of: scope) ?? 0 },
+                set: { scope = FindScope.allCases[$0] }
+            ),
+            symbols: [nil, "checklist", "figure.strengthtraining.traditional", "dumbbell"],
+            identifiers: FindScope.allCases.map { "findScope-\($0.rawValue)" },
+            widthsByContent: true
+        )
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
     }
 
-    private func scopeChip(_ target: FindScope, _ label: String, _ symbol: String?) -> some View {
-        SelectableChip(
-            label: label,
-            isSelected: scope == target,
-            identifier: "findScope-\(target.rawValue)",
-            systemImage: symbol
-        ) {
-            scope = target
+    /// The Doable filter: hide what the active kit can't do. Off reveals
+    /// everything with the rows' own amber "needs X" tags. Absent in Kit
+    /// scope, where results are equipment (nothing to "do"). This chip is
+    /// the persistent two-way control — the trip back to filtered is the
+    /// same tap, always in reach here rather than stranded below results.
+    @ViewBuilder
+    private var doableFilterRow: some View {
+        if scope != .kit {
+            HStack(spacing: 0) {
+                SelectableChip(
+                    label: "Doable",
+                    isSelected: doableOnly,
+                    identifier: "findDoableFilter",
+                    systemImage: nil
+                ) {
+                    doableOnly.toggle()
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 6)
         }
     }
 
@@ -212,25 +252,28 @@ struct FindOrCreateView: View {
     private var resultsList: some View {
         // One pass per render, shared by every equipment row ("N exercises").
         let unlockedCounts = exerciseCountsByEquipment
+        let collisions = self.collisions
         return List {
-            createRow
+            if showsCreateRow(collisions) {
+                createRow(collisions)
+            }
+            // Real Sections (not loose header rows) so `.listStyle(.plain)`
+            // PINS each heading to the top of the scroll area until the next
+            // section's heading pushes it up — one sticky heading at a time.
             ForEach(sections) { section in
-                sectionHeader(section)
-                ForEach(section.results) { result in
-                    resultRow(result, unlockedCounts: unlockedCounts)
-                }
-                if section.moreCount > 0 {
-                    moreRow(section)
+                Section {
+                    ForEach(section.results) { result in
+                        resultRow(result, unlockedCounts: unlockedCounts)
+                    }
+                    if section.moreCount > 0 {
+                        moreRow(section)
+                    }
+                } header: {
+                    sectionHeaderView(section)
                 }
             }
             if sections.isEmpty {
-                Text("Nothing matches.")
-                    .font(.system(.footnote))
-                    .foregroundStyle(Theme.textFaint)
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 24)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
+                emptyState
             }
         }
         .listStyle(.plain)
@@ -238,7 +281,50 @@ struct FindOrCreateView: View {
         .scrollDismissesKeyboard(.immediately)
     }
 
-    private func sectionHeader(_ section: FindOrCreateEngine.Section) -> some View {
+    /// Empty results are never a bare dead end. If the Doable filter is what
+    /// emptied them (matches exist, just not with this kit), say so and offer
+    /// the one-tap way through — the "Clear filters"-key grammar, so a locked
+    /// search never reads as "nothing exists."
+    @ViewBuilder
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            if doableHidingMatches {
+                Text("Nothing here your kit can do.")
+                    .font(.system(.footnote))
+                    .foregroundStyle(Theme.textFaint)
+                QuietKey(label: "Show all", systemImage: "line.3.horizontal.decrease", identifier: "findShowAll") {
+                    doableOnly = false
+                }
+            } else {
+                Text("Nothing matches.")
+                    .font(.system(.footnote))
+                    .foregroundStyle(Theme.textFaint)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 24)
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+    }
+
+    /// True when the Doable filter alone is emptying the results — the same
+    /// query would show rows with the filter off. Only computed when the
+    /// filtered results are already empty, so the extra pass is rare.
+    private var doableHidingMatches: Bool {
+        guard doableOnly, scope != .kit else { return false }
+        return !FindOrCreateEngine.sections(
+            query: trimmedQuery,
+            scope: scope,
+            exercises: allExercises,
+            equipment: allEquipment,
+            routines: routines,
+            templates: RoutineCatalog.all,
+            kitNames: kitNames,
+            doableOnly: false
+        ).isEmpty
+    }
+
+    private func sectionHeaderView(_ section: FindOrCreateEngine.Section) -> some View {
         Group {
             if let target = section.scopeTarget {
                 // An All-scope section header is a door into its scope —
@@ -247,16 +333,24 @@ struct FindOrCreateView: View {
                     scope = target
                 } label: {
                     SheetSectionLabel("\(section.title) · \(section.count)")
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             } else {
                 SheetSectionLabel("\(section.title) · \(section.count)")
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .listRowBackground(Color.clear)
+        .padding(.top, 12)
+        .padding(.horizontal, 16)
+        // Full-bleed SOLID background: a pinned header floats over the rows
+        // scrolling beneath it, so a clear fill would let their text show
+        // through. Matches the surface background, so it reads seamless.
+        .background(Theme.background)
+        .listRowInsets(EdgeInsets())
         .listRowSeparator(.hidden)
-        .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 2, trailing: 16))
+        .textCase(nil)
     }
 
     private func moreRow(_ section: FindOrCreateEngine.Section) -> some View {
@@ -444,12 +538,46 @@ struct FindOrCreateView: View {
 
     // MARK: - Create row
 
-    private var createRow: some View {
+    /// Exact-name collisions for the live query — a create is dropped when
+    /// its type would duplicate an item that already exists under that name.
+    private var collisions: FindOrCreateEngine.Collisions {
+        FindOrCreateEngine.collisions(
+            query: trimmedQuery,
+            exercises: allExercises,
+            equipment: allEquipment,
+            routines: routines,
+            templates: RoutineCatalog.all
+        )
+    }
+
+    /// All-scope offers three creates; equipment needs a name, and any type
+    /// whose name is already taken drops out. The row hides only when NONE
+    /// remain (an exact match of all three at once — vanishingly rare, but
+    /// then the results carry every one of them).
+    private func allOffersEquipmentCreate(_ collisions: FindOrCreateEngine.Collisions) -> Bool {
+        !trimmedQuery.isEmpty && !collisions.equipment
+    }
+
+    private func showsCreateRow(_ collisions: FindOrCreateEngine.Collisions) -> Bool {
+        switch scope {
+        case .all:
+            return !collisions.exercise || !collisions.routine || allOffersEquipmentCreate(collisions)
+        case .routines:
+            return !collisions.routine
+        case .exercises:
+            return !collisions.exercise
+        case .kit:
+            return !collisions.equipment
+        }
+    }
+
+    @ViewBuilder
+    private func createRow(_ collisions: FindOrCreateEngine.Collisions) -> some View {
         Group {
             switch scope {
             case .all:
                 CreateMenuRow(label: allCreateLabel, identifier: "findCreateMenu") {
-                    createChooserItems
+                    createChooserItems(collisions)
                 }
             case .routines:
                 CreateRow(label: routinesCreateLabel, identifier: "createBlankRoutine") {
@@ -492,21 +620,27 @@ struct FindOrCreateView: View {
 
     /// The All-scope chooser: the query hasn't said what it wants to
     /// become. Equipment needs a name, so its entry only appears with one.
+    /// Any type whose exact name is already taken drops out — the chooser
+    /// never offers to duplicate an item the results already list.
     @ViewBuilder
-    private var createChooserItems: some View {
-        Button {
-            creatingExercise = true
-        } label: {
-            Label(trimmedQuery.isEmpty ? "New exercise" : "Create exercise \(quotedQuery)",
-                  systemImage: "figure.strengthtraining.traditional")
+    private func createChooserItems(_ collisions: FindOrCreateEngine.Collisions) -> some View {
+        if !collisions.exercise {
+            Button {
+                creatingExercise = true
+            } label: {
+                Label(trimmedQuery.isEmpty ? "New exercise" : "Create exercise \(quotedQuery)",
+                      systemImage: "figure.strengthtraining.traditional")
+            }
         }
-        Button {
-            createRoutineFromQuery()
-        } label: {
-            Label(trimmedQuery.isEmpty ? "New routine" : "New routine \(quotedQuery)",
-                  systemImage: "checklist")
+        if !collisions.routine {
+            Button {
+                createRoutineFromQuery()
+            } label: {
+                Label(trimmedQuery.isEmpty ? "New routine" : "New routine \(quotedQuery)",
+                      systemImage: "checklist")
+            }
         }
-        if !trimmedQuery.isEmpty {
+        if allOffersEquipmentCreate(collisions) {
             Button {
                 createEquipmentFromQuery()
             } label: {
