@@ -97,6 +97,11 @@ struct RoutineSettingsSnapshot: Equatable {
     let restSeconds: Int
     let notes: String?
     let scheduleData: Data?
+    /// The due-ness anchor stamp rides every schedule restore: an undo
+    /// must be a due-ness no-op, not a fresh anchor — without this, a
+    /// reverted schedule edit keeps suppressing the carried days from
+    /// before it (swift-reviewer, 2026-07-23 round 2b).
+    let scheduleChangedAt: Date?
 
     @MainActor
     init(routine: Routine) {
@@ -105,6 +110,7 @@ struct RoutineSettingsSnapshot: Equatable {
         restSeconds = routine.restSeconds
         notes = routine.notes
         scheduleData = routine.scheduleData
+        scheduleChangedAt = routine.scheduleChangedAt
     }
 }
 
@@ -113,29 +119,36 @@ struct RoutineSettingsSnapshot: Equatable {
 struct RoutineStructureSnapshot: Equatable {
     let uuid: UUID?
     let dto: RoutineDTO
+    /// See RoutineSettingsSnapshot — every schedule restore restores
+    /// its stamp, so undo can't move the due-ness anchor.
+    let scheduleChangedAt: Date?
 
     @MainActor
     init(routine: Routine) {
         uuid = routine.uuid
         dto = InterchangeMapping.makeDTO(routine)
+        scheduleChangedAt = routine.scheduleChangedAt
     }
 }
 
 /// The recreate payload for a deleted routine: the interchange DTO plus
-/// the device-local identity it census-excludes. `createdAt` is the
-/// due-ness anchor (#354: days before a routine joined never count as
-/// carried), and `uuid` is presentation identity — losing either would
-/// make an undone delete come back subtly different.
+/// the device-local identity it census-excludes. `createdAt` +
+/// `scheduleChangedAt` are the due-ness anchor (#354 + 2026-07-23's
+/// schedule anchor: days before it never carry or bank), and `uuid` is
+/// presentation identity — losing any of them would make an undone
+/// delete come back subtly different.
 struct RoutineSnapshot: Equatable {
     let dto: RoutineDTO
     let uuid: UUID?
     let createdAt: Date
+    let scheduleChangedAt: Date?
 
     @MainActor
     init(routine: Routine) {
         dto = InterchangeMapping.makeDTO(routine)
         uuid = routine.uuid
         createdAt = routine.createdAt
+        scheduleChangedAt = routine.scheduleChangedAt
     }
 }
 
@@ -291,12 +304,18 @@ extension ChangeEngine {
         let routine = Routine(name: dto.name, order: existing.count, restSeconds: dto.restSeconds, notes: dto.notes)
         context.insert(routine)
         // Restore device-local identity the DTO excludes: uuid keeps
-        // presentation/nav resolving, createdAt keeps the due-ness
-        // anchor (#354) — without it a restored Mon/Thu routine forgets
-        // the Monday it just carried over.
+        // presentation/nav resolving, createdAt + scheduleChangedAt keep
+        // the due-ness anchor (#354 + the 2026-07-23 schedule anchor) —
+        // without them a restored Mon/Thu routine forgets the Monday it
+        // just carried over. The schedule setter stamps "changed now" on
+        // any real assignment (a fresh routine is .unscheduled, so a
+        // scheduled DTO always stamps); overwrite the stamp with the
+        // snapshot's AFTER the assignment so the undo is a due-ness
+        // no-op (swift-reviewer, round 2b).
         if let uuid = snapshot.uuid { routine.uuid = uuid }
         routine.createdAt = snapshot.createdAt
         routine.schedule = dto.schedule ?? .unscheduled
+        routine.scheduleChangedAt = snapshot.scheduleChangedAt
         try rebuildGroups(of: routine, from: dto, in: context)
         return true
     }
@@ -313,6 +332,10 @@ extension ChangeEngine {
         routine.restSeconds = snapshot.dto.restSeconds
         routine.notes = snapshot.dto.notes
         routine.schedule = snapshot.dto.schedule ?? .unscheduled
+        // The setter stamps on a real value change; an undo restores the
+        // BEFORE stamp so the due-ness anchor doesn't move (see
+        // RoutineSettingsSnapshot).
+        routine.scheduleChangedAt = snapshot.scheduleChangedAt
         try rebuildGroups(of: routine, from: snapshot.dto, in: context)
     }
 
@@ -384,6 +407,9 @@ extension ChangeEngine {
         routine.restSeconds = snapshot.restSeconds
         routine.notes = snapshot.notes
         routine.scheduleData = snapshot.scheduleData
+        // Raw scheduleData write bypasses the stamping setter on purpose;
+        // the stamp restores alongside it so undo is a due-ness no-op.
+        routine.scheduleChangedAt = snapshot.scheduleChangedAt
     }
 
     @MainActor

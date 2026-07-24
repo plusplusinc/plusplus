@@ -20,9 +20,20 @@ struct ScheduleTray: View {
     @State private var scheduleDays: Set<Int>
     @State private var scheduleTimes: Int
     @State private var schedulePerDays: Int
+    /// The schedule (and its anchor stamp) as the tray opened. Live
+    /// per-interaction persistence means an EXPLORATORY round trip —
+    /// peek at the other mode, toggle a day off and back on — writes
+    /// interim values that each stamp `scheduleChangedAt`; when the
+    /// value lands back where it started, the entry stamp is restored
+    /// so a net no-op editing session can't move the due-ness anchor
+    /// and quietly clear a carried day (swift-reviewer, round 2b).
+    private let entrySchedule: RoutineSchedule
+    private let entryStamp: Date?
 
     init(routine: Routine) {
         self.routine = routine
+        entrySchedule = routine.schedule
+        entryStamp = routine.scheduleChangedAt
         // Seed the editor from the stored schedule; edits write back through
         // persistSchedule() on every change.
         switch routine.schedule {
@@ -227,6 +238,11 @@ struct ScheduleTray: View {
         case 1: routine.schedule = .weekdays(scheduleDays)
         case 2: routine.schedule = .frequency(times: scheduleTimes, perDays: schedulePerDays)
         default: routine.schedule = .unscheduled
+        }
+        // Back to where the tray opened → this session nets no change;
+        // restore the entry stamp (see entrySchedule).
+        if routine.schedule == entrySchedule {
+            routine.scheduleChangedAt = entryStamp
         }
     }
 }

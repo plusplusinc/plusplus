@@ -1175,8 +1175,13 @@ struct ActiveSessionView: View {
         case .new:
             return Text("new").foregroundStyle(Theme.accent)
         default:
-            let text = RoutineDiff.summary(deltas: [delta], weightUnit: weightUnit).first?.text ?? ""
-            return Text(text).foregroundStyle(Theme.accent)
+            // Color by the segment's KIND, matching netText: deloads
+            // render neutral (anti-shame) — a "−5 lb" row used to paint
+            // green here while the net line correctly greyed it
+            // (swift-reviewer, round 2b).
+            let segment = RoutineDiff.summary(deltas: [delta], weightUnit: weightUnit).first
+            let color: Color = segment?.kind == .down ? Theme.textSecondary : Theme.accent
+            return Text(segment?.text ?? "").foregroundStyle(color)
         }
     }
 

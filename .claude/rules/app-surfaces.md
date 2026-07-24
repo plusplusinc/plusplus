@@ -38,10 +38,13 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   and the cards' border/node/caption-tense grammar carry the structure).
   Green + one-click Start is reserved for TODAY's occurrence only; future
   and carried cards navigate to detail.
-  Due-ness is anchored to a routine's `createdAt` (its added-to-library
-  moment), so a freshly added routine never carries a day it wasn't around
-  for. The Kit split that backs this: `DueState.due` = scheduled today and
-  unmet; `.missed(since:)` = a past scheduled day lapsed.
+  Due-ness is anchored to `Routine.scheduleAnchor` — the LATER of
+  `createdAt` and the last schedule change (`scheduleChangedAt`,
+  2026-07-23 round 2b) — so a freshly added routine never carries a day
+  it wasn't around for, and a freshly SET schedule never banks tomorrow
+  against a completion that predates it (nor carries days older than the
+  edit). The Kit split that backs this: `DueState.due` = scheduled today
+  and unmet; `.missed(since:)` = a past scheduled day lapsed.
 - **RaisedKey press grammar**: every committing/navigating button is an opaque
   cap depressing onto a fixed base plate (4 pt standard / 3 pt quiet, 0.06 s
   ease-out); flat controls (chips, toggles, segments, rows) stay flat.
