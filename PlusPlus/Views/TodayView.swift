@@ -59,6 +59,9 @@ struct TodayView: View {
     @Namespace private var zoomNamespace
     @State private var showingEquipmentSetup = false
     @State private var scheduleEditTarget: IdentifiedUUID?
+    /// The two-step "Schedule a routine" tray (pick a routine → schedule it),
+    /// opened from the rest-day card's schedule offer (2026-07-24).
+    @State private var showingScheduleRoutine = false
     @State private var activeSession: WorkoutSession?
     /// The first-workout Health primer, raised by the start gate.
     @State private var healthStartRequest: HealthStartRequest?
@@ -242,7 +245,14 @@ struct TodayView: View {
                                     // the CARRIED OVER lane is the actionable
                                     // surface then, so a "rest day · start whenever"
                                     // line above it would read as a blind claim.
+                                    // A won day (a workout completed, nothing
+                                    // scheduled outstanding) shows no placeholder
+                                    // (Dave, 2026-07-24) — the completed card +
+                                    // week-ahead already say what's done and
+                                    // what's next. A due-but-empty repair prompt
+                                    // (promptsWorkout) still shows.
                                     if dueRoutines.isEmpty && missedEntries.isEmpty
+                                        && !(completedAnyToday && !promptsWorkout)
                                         && (!setupActive || allSetupDone || !swapInCandidates.isEmpty) {
                                         restDayItem
                                     }
@@ -275,20 +285,31 @@ struct TodayView: View {
                                         // The just-finished session converts
                                         // on landing (recap-close animation):
                                         // its node turns from actionable green
-                                        // to done purple and a checkmark seals
-                                        // it. Every other committed card is a
-                                        // plain purple ring.
+                                        // to the done purple checkmark, which
+                                        // seals it. Every other committed card
+                                        // rests at that filled checkmark node.
                                         let converting = justCompletedID == session.persistentModelID
                                         TimelineItem(
                                             node: .committed,
-                                            strokeOverride: converting
-                                                ? (completionConverted ? Theme.committedFill : Theme.accent)
-                                                : nil,
-                                            showCheckmark: converting && completionConverted
+                                            converting: converting,
+                                            converted: converting && completionConverted
                                         ) {
                                             committedCard(session)
                                                 .scaleEffect(converting && !completionConverted ? 0.97 : 1.0)
                                         }
+                                    }
+                                    // Once real history exists the interactive
+                                    // scaffold is gone, but the finished setup
+                                    // steps stay as permanent "origin" milestones
+                                    // at the very bottom (Dave, 2026-07-24): the
+                                    // done steps read as committed cards, and any
+                                    // step left unfinished stays actionable so
+                                    // setup is still reachable. The onboarding
+                                    // anchors/geometry it carries are inert here
+                                    // (the reveal-scroll only runs while setup is
+                                    // active).
+                                    if !setupActive {
+                                        setupSection
                                     }
                                     // Reveal-upward headroom (2026-07-16): the
                                     // setup scaffold reveals its steps by
@@ -470,6 +491,9 @@ struct TodayView: View {
                     showingSwapIn = false
                 })
             }
+            .sheet(isPresented: $showingScheduleRoutine) {
+                ScheduleRoutineTray(routines: routines)
+            }
             .fullScreenCover(item: $activeSession, onDismiss: resolveOrphanedSessions) { session in
                 // The card→session zoom is deliberate large-scale motion, so
                 // Reduce Motion gets the plain cross-fade cover instead
@@ -642,6 +666,17 @@ struct TodayView: View {
         routines.filter { routine in
             guard !routine.groups.isEmpty else { return false }
             return dueState(of: routine) == .due
+        }
+    }
+
+    /// A workout — scheduled OR ad-hoc — was completed today (Dave,
+    /// 2026-07-24). The day is a "win" when this holds AND nothing
+    /// scheduled is still outstanding; the rest-day placeholder yields to
+    /// the completed card + week-ahead in that case (the timeline already
+    /// shows what's done and what's coming up).
+    private var completedAnyToday: Bool {
+        sessions.contains { session in
+            session.endedAt.map { calendar.isDate($0, inSameDayAs: today) } ?? false
         }
     }
 
@@ -1335,14 +1370,9 @@ struct TodayView: View {
     private func committedCard(_ session: WorkoutSession) -> some View {
         NavigationLink(value: SessionRecordDestination(session: session)) {
             HStack(spacing: 8) {
-                // A purple check seal on the card itself (Dave, 2026-07-14):
-                // the rail node already reads done, but a committed card
-                // should say so at a glance without leaning on its ring —
-                // the finish-checkmark grammar, purple = landed (#201).
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(.subheadline))
-                    .foregroundStyle(Theme.done)
-                    .accessibilityHidden(true)
+                // Done reads on the rail node now — a filled purple checkmark
+                // dot (Dave, 2026-07-24) — so the card itself carries no seal.
+                // (Superseded the 2026-07-14 on-card check.)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(session.routineName)
                         .font(.system(.subheadline, weight: .semibold))
@@ -1389,9 +1419,11 @@ struct TodayView: View {
 
     // MARK: - Setup timeline
 
-    /// The scaffold shows until the first real session commits — done
-    /// steps sit on the rail like history until actual history takes
-    /// their place.
+    /// The INTERACTIVE scaffold (reveal-upward scroll, headroom) shows
+    /// until the first real session commits. After that the same steps
+    /// still render — as permanent origin milestones pinned to the bottom
+    /// of the timeline (Dave, 2026-07-24) — but without the onboarding
+    /// chrome; `setupActive` gates only the interactive treatment.
     private var setupActive: Bool { sessions.isEmpty }
 
     private var equipmentStepDone: Bool { SetupState.equipmentDone }
@@ -1574,13 +1606,12 @@ struct TodayView: View {
                 // schedule does. Below the action: it's a footnote-
                 // weight suggestion, not this card's job. During setup
                 // the scaffold's own step is the offer.
-                if !setupActive, !scheduledRoutinesExist,
-                   let target = swapInCandidates.first {
+                if !setupActive, !scheduledRoutinesExist, !swapInCandidates.isEmpty {
                     QuietKey(
-                        label: "schedule a routine · it appears here on its day",
+                        label: "Schedule a routine",
                         identifier: "scheduleOfferButton"
                     ) {
-                        scheduleEditTarget = target.uuid.map(IdentifiedUUID.init)
+                        showingScheduleRoutine = true
                     }
                 }
             }
@@ -1708,18 +1739,19 @@ private struct StartLinkFailure {
 }
 
 /// One row of the Today rail: node in a fixed-width gutter with a
-/// continuous 2 px spine, card alongside. Every node is a RING —
-/// stroke only, never filled (Dave's build-33 call, superseding
-/// #201's filled-purple done dot). State lives entirely in the
-/// stroke's color: green = actionable now, grey = inert, faint =
-/// gated, purple = done.
-private enum TimelineNode {
+/// continuous 2 px spine, card alongside. Nodes are uniform-diameter
+/// (Dave, 2026-07-24): the actionable/inert/gated states are stroke-only
+/// RINGS whose color carries meaning (green = actionable now, grey =
+/// inert, faint = gated), and DONE is a FILLED purple checkmark circle —
+/// the seal moved off the committed card onto its rail node (superseding
+/// the build-33 rings-only rule and the 2026-07-14 on-card check). All
+/// nodes share one diameter so the row reads even, checkmark and all.
+private enum TimelineNode: Equatable {
     /// Ready to do — a green ring. Green marks the next increment.
     case pending
     /// Nothing actionable here (rest day) — neutral grey ring.
     case inert
-    /// Done — a purple ring (GitHub's merged hue carries the meaning;
-    /// the fill no longer does).
+    /// Done — a filled purple checkmark circle (GitHub's merged hue).
     case committed
     /// A setup step whose prerequisite isn't met yet — border-faint,
     /// so the rail reads "not yet yours".
@@ -1737,14 +1769,28 @@ private enum TimelineNode {
 
 private struct TimelineItem<Content: View>: View {
     let node: TimelineNode
-    /// Drives the node color directly (the completion conversion animates
-    /// green → purple here). Nil falls back to the node's own color.
+    /// Overrides a RING node's color (the carried-over lane's amber node).
+    /// Ignored by the committed done-fill, which is always purple.
     var strokeOverride: Color? = nil
-    /// A one-shot purple checkmark that seals the node at the end of the
-    /// conversion — bigger than the ring, so it reads as a stamp, then
-    /// fades back to the resting ring (nodes are rings at rest, #build-33).
-    var showCheckmark: Bool = false
+    /// The just-finished card animates green → purple done on landing.
+    /// While `converting` is true and `converted` is false the node shows
+    /// the pre-flip green ring; once `converted`, it seals into the done
+    /// fill with a bounce. Both false everywhere else (a resting committed
+    /// node just shows the done fill; every other node its ring).
+    var converting: Bool = false
+    var converted: Bool = false
     @ViewBuilder let content: () -> Content
+
+    /// One diameter for every node so the row reads even — big enough that
+    /// the done checkmark stays legible (Dave, 2026-07-24).
+    private static var diameter: CGFloat { 18 }
+
+    /// The done fill shows for a resting committed node, and for the
+    /// converting one once it has flipped; the pre-flip converting node
+    /// still wears the green ring.
+    private var showsDoneFill: Bool {
+        node == .committed && (!converting || converted)
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -1753,20 +1799,9 @@ private struct TimelineItem<Content: View>: View {
                     .fill(Theme.border)
                     .frame(width: 2)
                     .frame(maxHeight: .infinity)
-                Circle()
-                    .strokeBorder(strokeOverride ?? node.strokeColor, lineWidth: 2)
-                    .frame(width: 10, height: 10)
-                    .background(Circle().fill(Theme.background))
-                    .overlay {
-                        if showCheckmark {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundStyle(Theme.done)
-                                .symbolEffect(.bounce, options: .nonRepeating, value: showCheckmark)
-                                .transition(.scale.combined(with: .opacity))
-                        }
-                    }
-                    .padding(.top, 18)
+                marker(diameter: Self.diameter)
+                    // Center the (bigger) dot on the card's first line.
+                    .padding(.top, 14)
             }
             .frame(width: 20)
 
@@ -1774,6 +1809,31 @@ private struct TimelineItem<Content: View>: View {
                 .padding(.vertical, 5)
         }
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder
+    private func marker(diameter dot: CGFloat) -> some View {
+        if showsDoneFill {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: dot, weight: .bold))
+                .foregroundStyle(Theme.committedFill)
+                .frame(width: dot, height: dot)
+                .background(Circle().fill(Theme.background))
+                // Bounce on the SEAL only (showsDoneFill false→true at the
+                // beat), not on cleanup: `converted` flips back to false when
+                // justCompletedID clears while the node stays filled, and a
+                // `value: converted` bounce would re-fire then. `showsDoneFill`
+                // stays true through cleanup and never changes for a resting
+                // committed node, so it fires exactly once (swift-reviewer).
+                .symbolEffect(.bounce, options: .nonRepeating, value: showsDoneFill)
+                .transition(.scale.combined(with: .opacity))
+        } else {
+            Circle()
+                .strokeBorder(strokeOverride ?? (converting ? Theme.accent : node.strokeColor), lineWidth: 2)
+                .frame(width: dot, height: dot)
+                .background(Circle().fill(Theme.background))
+                .transition(.opacity)
+        }
     }
 }
 
@@ -2193,6 +2253,163 @@ private struct SwapInSheet: View {
             }
             .padding(.top, 4)
             .padding(.bottom, 24)
+        }
+    }
+
+    /// "6 exercises · ~40 min" — the go/no-go facts for picking.
+    private func rowCaption(for routine: Routine) -> String {
+        let count = routine.sortedGroups.reduce(0) { $0 + $1.sortedExercises.count }
+        return "\(count) exercise\(count == 1 ? "" : "s") · \(routine.estimateText)"
+    }
+}
+
+/// The "Schedule a routine" tray (Dave, 2026-07-24): a two-stage sheet that
+/// PICKS a routine, then slides to the SCHEDULER for it — the same
+/// horizontal-slide idiom as `SwapInSheet` / `GitHubSyncTray`. Reached from
+/// the rest-day card's schedule offer. Stage two reuses `ScheduleEditor`
+/// (extracted from `ScheduleTray`), so scheduling reads identically wherever
+/// it opens.
+private struct ScheduleRoutineTray: View {
+    @Environment(\.dismiss) private var dismiss
+    /// The whole library — an empty routine is still schedulable, so this is
+    /// the full list, not the startable subset.
+    let routines: [Routine]
+
+    private enum Stage { case pick, schedule }
+
+    @State private var stage: Stage = .pick
+    @State private var picked: Routine?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            header
+
+            // The stage slide reads as a push: the scheduler in from the
+            // trailing edge, the picker out the leading one, reversing on
+            // back. Clipped so the moving stage can't draw over the edges
+            // mid-flight.
+            ZStack(alignment: .top) {
+                switch stage {
+                case .pick:
+                    picker
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .leading).combined(with: .opacity),
+                            removal: .move(edge: .leading).combined(with: .opacity)
+                        ))
+                case .schedule:
+                    scheduler
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .trailing).combined(with: .opacity),
+                            removal: .move(edge: .trailing).combined(with: .opacity)
+                        ))
+                }
+            }
+            .clipped()
+        }
+        .presentationBackground(Theme.background)
+        .presentationDetents([.medium, .large])
+    }
+
+    private func go(to newStage: Stage) {
+        // `.selection` is the snappy spring the grammar uses for slides (an
+        // ease-out tail reads muddy on a slide) — same as GitHubSyncTray.
+        withAnimation(Theme.Anim.selection) {
+            stage = newStage
+        }
+    }
+
+    /// SheetHeader's closeOnly layout, hand-rolled so the schedule stage can
+    /// seat a back key before the title.
+    private var header: some View {
+        HStack(alignment: .center, spacing: 10) {
+            if stage == .schedule {
+                Button {
+                    go(to: .pick)
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(.footnote, weight: .bold))
+                        .foregroundStyle(Theme.textSecondary)
+                        .frame(width: 32, height: 32)
+                        .background(Theme.surface, in: Circle())
+                        .overlay(Circle().strokeBorder(Theme.border))
+                        // 32 pt visual, 44 pt hit — the swap tray's back key.
+                        .padding(6)
+                        .contentShape(Circle())
+                }
+                .accessibilityIdentifier("trayBackButton")
+                .transition(.opacity)
+            }
+            Text(stage == .pick ? "Schedule a routine" : (picked?.name ?? "Schedule"))
+                .font(.system(.title3, weight: .bold))
+                .foregroundStyle(Theme.textPrimary)
+                .lineLimit(1)
+            Spacer(minLength: 12)
+            // One dismissal vocabulary across every tray: a text key, never a
+            // ✕ (✕ is the search-collapse glyph).
+            SheetDismissKey(label: "Done") {
+                dismiss()
+            }
+        }
+        .padding(.top, 14)
+        .padding(.horizontal, 18)
+        .animation(Theme.Anim.standard, value: stage == .schedule)
+    }
+
+    // MARK: - Stage one: pick a routine
+
+    private var picker: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                if routines.isEmpty {
+                    Text("no routines yet · create one first")
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(Theme.textFaint)
+                        .padding(.vertical, 10)
+                }
+                ForEach(routines) { routine in
+                    Button {
+                        picked = routine
+                        go(to: .schedule)
+                    } label: {
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(routine.name)
+                                    .font(.system(.subheadline, weight: .semibold))
+                                    .foregroundStyle(Theme.textPrimary)
+                                    .lineLimit(1)
+                                Text(rowCaption(for: routine))
+                                    .font(.system(.caption2, design: .monospaced))
+                                    .foregroundStyle(Theme.textFaint)
+                                    .lineLimit(1)
+                            }
+                            Spacer(minLength: 8)
+                            // The routine's CURRENT schedule, so an
+                            // already-scheduled routine shows its cadence.
+                            Text(routine.schedule.shortLabel)
+                                .font(.system(.caption2, design: .monospaced))
+                                .foregroundStyle(Theme.textFaint)
+                        }
+                        .frame(minHeight: 52)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .overlay(alignment: .bottom) { Divider().overlay(Theme.border) }
+                }
+            }
+            .padding(.top, 4)
+            .padding(.bottom, 24)
+            .padding(.horizontal, 18)
+        }
+    }
+
+    // MARK: - Stage two: schedule the picked routine
+
+    @ViewBuilder
+    private var scheduler: some View {
+        if let picked {
+            // Re-seed the editor's @State for each fresh pick.
+            ScheduleEditor(routine: picked)
+                .id(picked.persistentModelID)
         }
     }
 
