@@ -1,11 +1,12 @@
 import SwiftUI
 
-/// A horizontal take on the native vertical picker wheel: a FIXED centred
-/// selection band that the options wheel through — the band never moves, the
-/// items scroll past it. The option under the band is the selection (white
-/// text); the others are grey and curve away with a slight 3D cylinder tilt,
-/// staying legible at the sides. Swipe or tap a side option to change it; it
-/// stops at the ends (no wrap).
+/// A horizontal take on the native vertical picker wheel: a FIXED selection
+/// band that the options wheel through — the band never moves, the items scroll
+/// past it. The band is pinned to the LEFT (a small leading inset), so the
+/// selection sits left-aligned and upcoming options wheel in from the right. The
+/// option under the band is the selection (white text); the others are grey and
+/// curve away with a slight 3D cylinder tilt, staying legible. Swipe or tap a
+/// side option to change it; it stops at the ends (no wrap).
 ///
 /// Built on native scroll mechanics — `ScrollView(.horizontal)` +
 /// `.scrollTargetBehavior(.viewAligned)` + `.scrollPosition(id:)` — so the
@@ -27,10 +28,12 @@ struct InlineWheelPicker: View {
     /// to reach an off-centre (not-hittable) segment before tapping it.
     var scrollIdentifier: String? = nil
 
-    /// The fraction of the track width the centred slot (and the band) claims.
-    /// The remainder splits into the two side margins, which is how much of each
-    /// neighbour shows — kept generous so the sides stay clearly readable.
-    private let centerFraction: CGFloat = 0.42
+    /// The fraction of the track width the selected slot (and the band) claims.
+    /// Narrower slots = less padding around each item's content.
+    private let centerFraction: CGFloat = 0.34
+    /// The band sits at the LEFT with this much padding, not centred — options
+    /// wheel in from the right past a left-anchored selection.
+    private let leadingInset: CGFloat = 16
     private let spacing: CGFloat = 6
     private let cellHeight: CGFloat = 44
     private let bandHeight: CGFloat = 40
@@ -46,32 +49,36 @@ struct InlineWheelPicker: View {
         GeometryReader { proxy in
             let width = proxy.size.width
             let cellWidth = max(1, width * centerFraction)
-            let sideMargin = max(0, (width - cellWidth) / 2)
+            // Left-anchored: a small leading margin, a large trailing one so the
+            // LAST option can still scroll up to the left-hand band. The
+            // leading-aligned snap of `.viewAligned` lands each option's leading
+            // edge at `leadingInset` — right where the band sits.
+            let trailingInset = max(0, width - cellWidth - leadingInset)
+            let bandCenter = leadingInset + cellWidth / 2
             let allowMotion = !reduceMotion
 
             ScrollView(.horizontal) {
                 HStack(spacing: spacing) {
                     ForEach(Array(options.enumerated()), id: \.offset) { index, option in
                         cell(index: index, option: option,
-                             cellWidth: cellWidth, trackWidth: width, allowMotion: allowMotion)
+                             cellWidth: cellWidth, bandCenter: bandCenter, allowMotion: allowMotion)
                     }
                 }
                 .scrollTargetLayout()
             }
             .scrollIndicators(.hidden)
-            // Symmetric side margins let the first and last cell reach centre,
-            // and turn the leading-aligned snap of `.viewAligned` into a
-            // CENTRED snap.
-            .contentMargins(.horizontal, sideMargin, for: .scrollContent)
+            .contentMargins(.leading, leadingInset, for: .scrollContent)
+            .contentMargins(.trailing, trailingInset, for: .scrollContent)
             .scrollTargetBehavior(.viewAligned)
-            .scrollPosition(id: $centeredID, anchor: .center)
+            .scrollPosition(id: $centeredID, anchor: UnitPoint(x: bandCenter / max(width, 1), y: 0.5))
             // The fixed selection band the options wheel through (it never
-            // moves). surfaceRaised on the surface = the native picker's subtle
-            // lighter slab.
-            .background {
+            // moves), pinned LEFT. surfaceRaised on the surface = the native
+            // picker's subtle lighter slab.
+            .background(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(Theme.surfaceRaised)
                     .frame(width: cellWidth, height: bandHeight)
+                    .padding(.leading, leadingInset)
             }
             .accessibilityID(scrollIdentifier)
         }
@@ -93,7 +100,7 @@ struct InlineWheelPicker: View {
     }
 
     private func cell(index: Int, option: String,
-                      cellWidth: CGFloat, trackWidth: CGFloat, allowMotion: Bool) -> some View {
+                      cellWidth: CGFloat, bandCenter: CGFloat, allowMotion: Bool) -> some View {
         // `centeredID ?? selectedIndex` so the correct option reads selected on
         // the very first frame (centeredID is nil until .onAppear).
         let selected = (centeredID ?? selectedIndex) == index
@@ -121,7 +128,7 @@ struct InlineWheelPicker: View {
         // as you drag — not a discrete on/off.
         .visualEffect { content, geo in
             let midX = geo.frame(in: .scrollView(axis: .horizontal)).midX
-            let d = (midX - trackWidth / 2) / (cellWidth + spacing)
+            let d = (midX - bandCenter) / (cellWidth + spacing)
             let c = max(-2.5, min(2.5, d))
             return content
                 .opacity(1 - min(abs(c) * 0.20, 0.55))
