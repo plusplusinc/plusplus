@@ -39,11 +39,14 @@ struct TodayStatusTests {
     }
 
     /// A finished ad-hoc session, so the store reads as past onboarding
-    /// (it references no routine, so it satisfies no schedule).
+    /// (it references no routine, so it satisfies no schedule). Pass
+    /// `endedAt` to backdate it — a session finished on a PRIOR day proves
+    /// "past onboarding" without counting as a workout TODAY.
     @discardableResult
-    private func finishAdHoc(context: ModelContext) -> WorkoutSession {
+    private func finishAdHoc(context: ModelContext, endedAt: Date? = nil) -> WorkoutSession {
         let session = WorkoutSession.startEmpty(context: context)
         session.finish()
+        if let endedAt { session.endedAt = endedAt }
         return session
     }
 
@@ -111,8 +114,53 @@ struct TodayStatusTests {
         #expect(status == .done)
     }
 
-    @Test("A rest day with nothing scheduled today is clear")
+    @Test("A rest day with nothing scheduled and no workout today is clear")
     func restDay() throws {
+        let context = ModelContext(try makeContainer())
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: Date())!
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: Date())!
+        _ = makeRoutine("Push", schedule: .weekdays([weekday(of: tomorrow)]), context: context)
+        // Past onboarding via a PRIOR workout — nothing done today.
+        finishAdHoc(context: context, endedAt: yesterday)
+        let routines = try context.fetch(FetchDescriptor<Routine>())
+        let sessions = try context.fetch(FetchDescriptor<WorkoutSession>())
+        let status = TodayStatus.current(
+            routines: routines, sessions: sessions, equipmentDone: true, today: Date(), calendar: calendar
+        )
+        #expect(status == .clear)
+    }
+
+    @Test("An unscheduled routine with no workout today is clear")
+    func unscheduledIsClear() throws {
+        let context = ModelContext(try makeContainer())
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: Date())!
+        _ = makeRoutine("Whenever", schedule: .unscheduled, context: context)
+        finishAdHoc(context: context, endedAt: yesterday)
+        let routines = try context.fetch(FetchDescriptor<Routine>())
+        let sessions = try context.fetch(FetchDescriptor<WorkoutSession>())
+        let status = TodayStatus.current(
+            routines: routines, sessions: sessions, equipmentDone: true, today: Date(), calendar: calendar
+        )
+        #expect(status == .clear)
+    }
+
+    // MARK: - Any workout today is the day's win (2026-07-24)
+
+    @Test("An ad-hoc workout today, with no schedule outstanding, reads as done")
+    func adHocWorkoutTodayIsDone() throws {
+        let context = ModelContext(try makeContainer())
+        _ = makeRoutine("Whenever", schedule: .unscheduled, context: context)
+        finishAdHoc(context: context)
+        let routines = try context.fetch(FetchDescriptor<Routine>())
+        let sessions = try context.fetch(FetchDescriptor<WorkoutSession>())
+        let status = TodayStatus.current(
+            routines: routines, sessions: sessions, equipmentDone: true, today: Date(), calendar: calendar
+        )
+        #expect(status == .done)
+    }
+
+    @Test("An ad-hoc workout today on a rest day (scheduled tomorrow) reads as done")
+    func adHocWorkoutOnRestDayIsDone() throws {
         let context = ModelContext(try makeContainer())
         let tomorrow = calendar.date(byAdding: .day, value: 1, to: Date())!
         _ = makeRoutine("Push", schedule: .weekdays([weekday(of: tomorrow)]), context: context)
@@ -122,20 +170,22 @@ struct TodayStatusTests {
         let status = TodayStatus.current(
             routines: routines, sessions: sessions, equipmentDone: true, today: Date(), calendar: calendar
         )
-        #expect(status == .clear)
+        #expect(status == .done)
     }
 
-    @Test("An unscheduled routine never puts work on today")
-    func unscheduledIsClear() throws {
+    @Test("An ad-hoc workout done while a scheduled routine is still due stays to-do")
+    func adHocWorkoutWithScheduledStillDueIsToDo() throws {
         let context = ModelContext(try makeContainer())
-        _ = makeRoutine("Whenever", schedule: .unscheduled, context: context)
+        _ = makeRoutine("Push", schedule: .weekdays([weekday(of: Date())]), context: context)
+        // A workout today, but it doesn't satisfy the still-due scheduled
+        // routine — the day stays open.
         finishAdHoc(context: context)
         let routines = try context.fetch(FetchDescriptor<Routine>())
         let sessions = try context.fetch(FetchDescriptor<WorkoutSession>())
         let status = TodayStatus.current(
             routines: routines, sessions: sessions, equipmentDone: true, today: Date(), calendar: calendar
         )
-        #expect(status == .clear)
+        #expect(status == .toDo)
     }
 
     @Test("A carried-over missed day is to-do")
