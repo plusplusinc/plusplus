@@ -1819,7 +1819,13 @@ private struct TimelineItem<Content: View>: View {
                 .foregroundStyle(Theme.committedFill)
                 .frame(width: dot, height: dot)
                 .background(Circle().fill(Theme.background))
-                .symbolEffect(.bounce, options: .nonRepeating, value: converted)
+                // Bounce on the SEAL only (showsDoneFill false→true at the
+                // beat), not on cleanup: `converted` flips back to false when
+                // justCompletedID clears while the node stays filled, and a
+                // `value: converted` bounce would re-fire then. `showsDoneFill`
+                // stays true through cleanup and never changes for a resting
+                // committed node, so it fires exactly once (swift-reviewer).
+                .symbolEffect(.bounce, options: .nonRepeating, value: showsDoneFill)
                 .transition(.scale.combined(with: .opacity))
         } else {
             Circle()
