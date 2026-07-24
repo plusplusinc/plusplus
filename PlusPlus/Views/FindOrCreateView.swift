@@ -25,7 +25,10 @@ enum FindOrCreateLaunch {
 /// Layout: tab-root header grammar (++ key · title · kit switcher — kit
 /// is CONTEXT, never a filter chip) → the shared search-field anatomy +
 /// a text Done key (never ✕) → scope chips → create row → results.
-/// The create row is ALWAYS present (never a dead end); an empty query
+/// The create row is present unless the query EXACTLY names an item that
+/// already exists (a create there would only duplicate the row right
+/// below it — `FindOrCreateEngine.Collisions`); it never dead-ends, since
+/// an exact-name match always ranks into the results. An empty query
 /// shows everything, mine-first. Rows are clean (decision A): tap pushes
 /// detail onto THIS stack — back returns with query, scope, and scroll
 /// intact — and the long-press context menu carries the quick acts.
@@ -212,8 +215,11 @@ struct FindOrCreateView: View {
     private var resultsList: some View {
         // One pass per render, shared by every equipment row ("N exercises").
         let unlockedCounts = exerciseCountsByEquipment
+        let collisions = self.collisions
         return List {
-            createRow
+            if showsCreateRow(collisions) {
+                createRow(collisions)
+            }
             ForEach(sections) { section in
                 sectionHeader(section)
                 ForEach(section.results) { result in
@@ -444,12 +450,46 @@ struct FindOrCreateView: View {
 
     // MARK: - Create row
 
-    private var createRow: some View {
+    /// Exact-name collisions for the live query — a create is dropped when
+    /// its type would duplicate an item that already exists under that name.
+    private var collisions: FindOrCreateEngine.Collisions {
+        FindOrCreateEngine.collisions(
+            query: trimmedQuery,
+            exercises: allExercises,
+            equipment: allEquipment,
+            routines: routines,
+            templates: RoutineCatalog.all
+        )
+    }
+
+    /// All-scope offers three creates; equipment needs a name, and any type
+    /// whose name is already taken drops out. The row hides only when NONE
+    /// remain (an exact match of all three at once — vanishingly rare, but
+    /// then the results carry every one of them).
+    private func allOffersEquipmentCreate(_ collisions: FindOrCreateEngine.Collisions) -> Bool {
+        !trimmedQuery.isEmpty && !collisions.equipment
+    }
+
+    private func showsCreateRow(_ collisions: FindOrCreateEngine.Collisions) -> Bool {
+        switch scope {
+        case .all:
+            return !collisions.exercise || !collisions.routine || allOffersEquipmentCreate(collisions)
+        case .routines:
+            return !collisions.routine
+        case .exercises:
+            return !collisions.exercise
+        case .kit:
+            return !collisions.equipment
+        }
+    }
+
+    @ViewBuilder
+    private func createRow(_ collisions: FindOrCreateEngine.Collisions) -> some View {
         Group {
             switch scope {
             case .all:
                 CreateMenuRow(label: allCreateLabel, identifier: "findCreateMenu") {
-                    createChooserItems
+                    createChooserItems(collisions)
                 }
             case .routines:
                 CreateRow(label: routinesCreateLabel, identifier: "createBlankRoutine") {
@@ -492,21 +532,27 @@ struct FindOrCreateView: View {
 
     /// The All-scope chooser: the query hasn't said what it wants to
     /// become. Equipment needs a name, so its entry only appears with one.
+    /// Any type whose exact name is already taken drops out — the chooser
+    /// never offers to duplicate an item the results already list.
     @ViewBuilder
-    private var createChooserItems: some View {
-        Button {
-            creatingExercise = true
-        } label: {
-            Label(trimmedQuery.isEmpty ? "New exercise" : "Create exercise \(quotedQuery)",
-                  systemImage: "figure.strengthtraining.traditional")
+    private func createChooserItems(_ collisions: FindOrCreateEngine.Collisions) -> some View {
+        if !collisions.exercise {
+            Button {
+                creatingExercise = true
+            } label: {
+                Label(trimmedQuery.isEmpty ? "New exercise" : "Create exercise \(quotedQuery)",
+                      systemImage: "figure.strengthtraining.traditional")
+            }
         }
-        Button {
-            createRoutineFromQuery()
-        } label: {
-            Label(trimmedQuery.isEmpty ? "New routine" : "New routine \(quotedQuery)",
-                  systemImage: "checklist")
+        if !collisions.routine {
+            Button {
+                createRoutineFromQuery()
+            } label: {
+                Label(trimmedQuery.isEmpty ? "New routine" : "New routine \(quotedQuery)",
+                      systemImage: "checklist")
+            }
         }
-        if !trimmedQuery.isEmpty {
+        if allOffersEquipmentCreate(collisions) {
             Button {
                 createEquipmentFromQuery()
             } label: {

@@ -54,6 +54,39 @@ enum FindOrCreateEngine {
     /// All-scope sections show this many rows before folding into "n more ›".
     static let allScopeCap = 3
 
+    /// Which create verbs would COLLIDE with an item that already exists
+    /// under the exact (case-insensitive, trimmed) name — one flag per
+    /// creatable type. A create is suppressed when its type collides: the
+    /// identical item is right there in the results to tap, so offering
+    /// "Create/Add <name>" would only mint a duplicate (or read as new when
+    /// it plainly isn't). A collision can never dead-end the surface — an
+    /// exact-name match always ranks into results, so there is a row to tap.
+    struct Collisions {
+        var exercise = false
+        var routine = false
+        var equipment = false
+    }
+
+    /// Detect exact-name collisions for the current query. Routine covers
+    /// both your routines AND catalog templates (one "routine" type on this
+    /// surface). An empty query never collides.
+    static func collisions(
+        query: String,
+        exercises: [Exercise],
+        equipment: [Equipment],
+        routines: [Routine],
+        templates: [RoutineTemplate]
+    ) -> Collisions {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return Collisions() }
+        return Collisions(
+            exercise: exercises.contains { !$0.isDeleted && $0.name.lowercased() == q },
+            routine: routines.contains { !$0.isDeleted && $0.name.lowercased() == q }
+                || templates.contains { $0.name.lowercased() == q },
+            equipment: equipment.contains { !$0.isDeleted && $0.name.lowercased() == q }
+        )
+    }
+
     /// An EMPTY query shows everything (no blank state): every item at
     /// score 0, mine-first then alphabetical. A query narrows and ranks:
     /// mine-first, then score, then name.

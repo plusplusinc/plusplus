@@ -209,4 +209,62 @@ struct FindOrCreateEngineTests {
         #expect(hit.name == "Probe Day")
         #expect(hit.matchedExerciseName == nil)
     }
+
+    // MARK: - Create collisions
+
+    private func collisions(_ query: String, world: World, templates: [RoutineTemplate] = []) -> FindOrCreateEngine.Collisions {
+        FindOrCreateEngine.collisions(
+            query: query,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines, templates: templates
+        )
+    }
+
+    @Test("An empty query never collides")
+    func emptyQueryNoCollision() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        let c = collisions("   ", world: world)
+        #expect(!c.exercise && !c.routine && !c.equipment)
+    }
+
+    @Test("An exact equipment name collides, case- and space-insensitively")
+    func exactEquipmentCollides() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        // The screenshot's bug: typing an existing gear name still offered
+        // "Add … as equipment".
+        #expect(collisions("Probe Barbell", world: world).equipment)
+        #expect(collisions("probe barbell", world: world).equipment)
+        #expect(collisions("  Probe Barbell  ", world: world).equipment)
+        // Only that one type collides — a routine or exercise of the same
+        // name is a different thing and still creatable.
+        let c = collisions("Probe Barbell", world: world)
+        #expect(!c.exercise && !c.routine)
+    }
+
+    @Test("A partial name does not collide")
+    func partialNameNoCollision() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        // "Circus Dumbbell" vs a "Dumbbells" query: near, not exact.
+        #expect(!collisions("Probe Bar", world: world).equipment)
+        #expect(!collisions("Probe", world: world).exercise)
+    }
+
+    @Test("Exact exercise and routine names collide on their own type")
+    func exactExerciseAndRoutineCollide() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        #expect(collisions("Probe Curl", world: world).exercise)
+        #expect(collisions("Probe Day", world: world).routine)
+    }
+
+    @Test("A catalog template name collides on the routine type")
+    func exactTemplateCollides() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        let c = collisions("Probe Plan", world: world, templates: [template("Probe Plan")])
+        #expect(c.routine)
+    }
 }

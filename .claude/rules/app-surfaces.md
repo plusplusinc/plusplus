@@ -78,6 +78,13 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   rows now open Find-or-create pre-scoped (`FindOrCreateLaunch`). Query casing
   is `String.sentenceCasedFirst`. Empty results NEVER dead-end: the create/add
   row is always present + a "Clear filters" `QuietKey` when facets are active.
+  The ONE thing that removes a create is an EXACT-name collision (2026-07-24):
+  when the trimmed query case-insensitively equals an existing item's name,
+  that type's create is suppressed (Find-or-create; `FindOrCreateEngine.Collisions`)
+  so the surface never offers to duplicate the row sitting right below it —
+  never a dead end, because an exact match always ranks into results, so
+  results are non-empty whenever a create is hidden. Partial matches still
+  offer create.
   Search state on the universal surface is EPHEMERAL per-entry (a stale
   invisible query reads as data loss); every add from it LANDS on its list
   with the entrance flash (`RoutineArrival`/`ExerciseArrival`/
