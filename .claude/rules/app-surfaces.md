@@ -98,13 +98,21 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   never a dead end, because an exact match always ranks into results, so
   results are non-empty whenever a create is hidden. Partial matches still
   offer create.
-  **Scope is a content-width segmented control** (2026-07-24), above the
-  field: `SegmentedTabs` in `widthsByContent` mode (segments size to content,
-  not equal thirds — HIG-legal non-uniform; icons on the typed scopes, "All"
-  text-only), leading the field because scope is a MODE (it changes the create
-  verb + what an empty query browses), not just a filter. NOT the native
-  `Tab(role:.search)` bottom-morph (the app owns its selection grammar; and a
-  sibling tab's `.onGeometryChange` triggers the documented iOS 26 morph bug).
+  **Scope is an inline horizontal WHEEL** (`InlineWheelPicker`, 2026-07-24 —
+  replaced the earlier content-width `SegmentedTabs`), above the field: the
+  selected scope sits CENTERED with its neighbours peeking at the edges (icons
+  on the typed scopes, "All" text-only), swipe or tap-a-peek to change, stops
+  at the ends. It leads the field because scope is a MODE (it changes the
+  create verb + what an empty query browses), not just a filter. Built on
+  native scroll mechanics (`ScrollView(.horizontal)` + `.viewAligned` +
+  `.scrollPosition(id:)` + symmetric `contentMargins` for the centred snap), so
+  it can never overflow the viewport the way the old segmented track could. NOT
+  the native `Tab(role:.search)` bottom-morph (the app owns its selection
+  grammar; and a sibling tab's `.onGeometryChange` triggers the documented iOS
+  26 morph bug). The custom `SegmentedTabs` was RETIRED here (2026-07-24) —
+  every other former segmented site moved to native `Picker`
+  (`.segmented` for short unit/mode toggles, a pushed `NavigationSelectRow`
+  for multi-word modes).
   **The "Doable" filter** (persisted `@AppStorage`, default on) hides
   routines/exercises the active kit can't do (All/Routines/Exercises; Kit is
   equipment, unfiltered) — a single chip by the scope (the persistent two-way
@@ -150,8 +158,8 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   finish), navigation zooms. The tempo lives in `Theme.Anim` tokens, never
   inline curves (the "draw from Theme, never ad-hoc literals" law extended
   to motion): `.selection` (a snappy spring — front-loaded, no overshoot —
-  for the segmented pill, selected fills/chips, schedule circles; an
-  ease-out's decelerating tail made a sliding pill read muddy, 2026-07-12),
+  for the scope wheel's tap-to-centre, selected fills/chips, schedule circles;
+  an ease-out's decelerating tail made a sliding pill read muddy, 2026-07-12),
   `.standard` (~0.15 s ease-out for data rolls, opacity, search expansion),
   `.press` (0.06 s cap depression). Deliberate flourishes (splash fade,
   superset landing bloom, the green→purple completion beat) keep their own

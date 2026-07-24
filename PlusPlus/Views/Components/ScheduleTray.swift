@@ -83,13 +83,26 @@ struct ScheduleEditor: View {
     }
 
     var body: some View {
-        ScrollView {
+        // Self-contained NavigationStack so the schedule-mode push row works in
+        // BOTH embed contexts (the standalone ScheduleTray sheet and Today's
+        // slide-stage ScheduleRoutineTray, neither of which supplies one); the
+        // root nav bar is hidden so the host's header stays the header and only
+        // the pushed selection screen shows a (system) back bar.
+        NavigationStack {
+          ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                SegmentedTabs(options: ["Off", "Days of the week", "Every few days"], selectedIndex: Binding(
-                    get: { scheduleMode },
-                    set: { scheduleMode = $0; persistSchedule() }
-                ))
+                NavigationSelectRow(
+                    title: "Schedule",
+                    selection: $scheduleMode,
+                    options: [
+                        .init(value: 0, label: "Off"),
+                        .init(value: 1, label: "Days of the week"),
+                        .init(value: 2, label: "Every few days"),
+                    ],
+                    identifier: "scheduleModeRow"
+                )
                 .padding(.top, 12)
+                .onChange(of: scheduleMode) { _, _ in persistSchedule() }
 
                 if scheduleMode == 1 {
                     dayChips
@@ -118,6 +131,8 @@ struct ScheduleEditor: View {
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 24)
+          }
+          .toolbar(.hidden, for: .navigationBar)
         }
     }
 

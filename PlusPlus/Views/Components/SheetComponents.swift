@@ -64,7 +64,9 @@ struct SheetHeader: View {
                     .lineLimit(1)
             }
         }
-        .padding(.top, 14)
+        // Clear the sheet's drag grabber so the title isn't cramped against it
+        // (worst at the .medium detent). Shared across every tray.
+        .padding(.top, 24)
     }
 
     @ViewBuilder

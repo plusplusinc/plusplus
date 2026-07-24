@@ -192,13 +192,14 @@ struct ExerciseEditorView: View {
                     if draft.usesDistanceUnit {
                         SheetSectionLabel("DISTANCE UNIT")
                             .padding(.top, 24)
-                        SegmentedTabs(
-                            options: DistanceUnit.allCases.map(\.symbol),
-                            selectedIndex: Binding(
-                                get: { DistanceUnit.allCases.firstIndex(of: draft.distanceUnit) ?? 0 },
-                                set: { draft.distanceUnit = DistanceUnit.allCases[$0] }
-                            )
-                        )
+                        Picker("Distance unit", selection: $draft.distanceUnit) {
+                            ForEach(DistanceUnit.allCases, id: \.self) { unit in
+                                Text(unit.symbol).tag(unit)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .tint(Theme.selected)
                         Text("A declaration, not a conversion. Numbers keep their value if you change it. Pace follows: \(draft.distanceUnit.paceLabel).")
                             .font(.system(.caption))
                             .foregroundStyle(Theme.textFaint)
