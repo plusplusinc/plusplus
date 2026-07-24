@@ -75,7 +75,9 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   the same grammar). Creation is the TOP list row, verb-keyed: **Create**
   (`New <object>` / `Create "<query>"`) when it makes a custom object inline,
   **Add** (`Add <object>` / `Add "<query>"`) when it navigates — the tabs' Add
-  rows now open Find-or-create pre-scoped (`FindOrCreateLaunch`). Query casing
+  rows now open Find-or-create pre-scoped (`FindOrCreateLaunch`), as does
+  onboarding step 2 ("Pick a routine" → `.open(.routines)`; the standalone
+  `RoutineCatalogScreen` was retired here, 2026-07-24). Query casing
   is `String.sentenceCasedFirst`. Empty results NEVER dead-end: the create/add
   row is always present + a "Clear filters" `QuietKey` when facets are active.
   The ONE thing that removes a create is an EXACT-name collision (2026-07-24):
