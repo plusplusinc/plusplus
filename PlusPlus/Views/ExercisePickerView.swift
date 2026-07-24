@@ -428,7 +428,7 @@ struct MuscleGroupFilterSheet: View {
                                 .foregroundStyle(.secondary)
                                 .padding(.leading, 4)
 
-                            FlowLayout(spacing: 8) {
+                            FlowLayout(horizontalSpacing: 16, verticalSpacing: 8) {
                                 ForEach(groups) { muscleGroup in
                                     SelectableChip(
                                         label: muscleGroup.displayName,
@@ -486,7 +486,7 @@ struct EquipmentFilterSheet: View {
                             .foregroundStyle(Theme.textSecondary)
                             .padding(.vertical, 14)
                     } else {
-                        FlowLayout(spacing: 8) {
+                        FlowLayout(horizontalSpacing: 16, verticalSpacing: 8) {
                             ForEach(allEquipment) { equipment in
                                 SelectableChip(
                                     label: equipment.name,

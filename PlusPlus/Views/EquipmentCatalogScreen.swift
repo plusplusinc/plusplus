@@ -492,7 +492,7 @@ struct EquipmentTypeFilterSheet: View {
             )
             .padding(.horizontal, 18)
             ScrollView {
-                FlowLayout(spacing: 8) {
+                FlowLayout(horizontalSpacing: 16, verticalSpacing: 8) {
                     ForEach(SeedData.EquipmentCategory.allCases, id: \.self) { category in
                         SelectableChip(
                             label: category.rawValue,

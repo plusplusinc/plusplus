@@ -166,7 +166,7 @@ struct ExerciseEditorView: View {
                     // The shared chip family in the shared wrap layout — the
                     // editor's chips forked as capsules pre-2026-07-20 and were
                     // folded back in with the design-review round.
-                    FlowLayout(spacing: 8) {
+                    FlowLayout(horizontalSpacing: 16, verticalSpacing: 8) {
                         ForEach(WorkoutMetric.allCases.filter { !$0.isBlockConfiguration }) { metric in
                             SelectableChip(
                                 label: metric.label,
@@ -250,7 +250,7 @@ struct ExerciseEditorView: View {
 
                     SheetSectionLabel("MUSCLE GROUP")
                         .padding(.top, 24)
-                    FlowLayout(spacing: 8) {
+                    FlowLayout(horizontalSpacing: 16, verticalSpacing: 8) {
                         ForEach(MuscleGroup.allCases) { group in
                             SelectableChip(
                                 label: group.displayName,
@@ -263,7 +263,7 @@ struct ExerciseEditorView: View {
 
                     SheetSectionLabel("REQUIRES")
                         .padding(.top, 24)
-                    FlowLayout(spacing: 8) {
+                    FlowLayout(horizontalSpacing: 16, verticalSpacing: 8) {
                         ForEach(selectedEquipmentSorted) { equipment in
                             equipmentChip(equipment)
                         }
@@ -442,7 +442,8 @@ struct ExerciseEditorView: View {
             .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius))
             .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius)
                 .strokeBorder(Theme.borderStrong, lineWidth: 1))
-            .padding(4)
+            // Vertical-only hit target, flush like SelectableChip (2026-07-24).
+            .frame(height: 44)
             .contentShape(Rectangle())
         }
         .accessibilityLabel("Remove \(equipment.name)")
@@ -468,7 +469,8 @@ struct ExerciseEditorView: View {
             .frame(height: 36)
             .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius)
                 .strokeBorder(Theme.borderStrong, lineWidth: 1))
-            .padding(4)
+            // Vertical-only hit target, flush like SelectableChip (2026-07-24).
+            .frame(height: 44)
             .contentShape(Rectangle())
         }
         .disabled(unselectedEquipment.isEmpty)
