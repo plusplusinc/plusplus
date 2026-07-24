@@ -57,7 +57,7 @@ struct SegmentedTabs: View {
                 } label: {
                     segmentLabel(index: index, option: option)
                 }
-                .accessibilityID(identifiers?[index])
+                .accessibilityID(identifier(at: index))
                 .accessibilityAddTraits(selectedIndex == index ? [.isButton, .isSelected] : .isButton)
             }
         }
@@ -66,10 +66,22 @@ struct SegmentedTabs: View {
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
     }
 
+    // Safe accessors: a caller passing a shorter symbols/identifiers array
+    // than `options` degrades to no-symbol / no-id rather than crashing.
+    private func symbol(at index: Int) -> String? {
+        guard let symbols, symbols.indices.contains(index) else { return nil }
+        return symbols[index]
+    }
+
+    private func identifier(at index: Int) -> String? {
+        guard let identifiers, identifiers.indices.contains(index) else { return nil }
+        return identifiers[index]
+    }
+
     private func segmentLabel(index: Int, option: String) -> some View {
         let selected = selectedIndex == index
         return HStack(spacing: 5) {
-            if let symbol = symbols?[index] {
+            if let symbol = symbol(at: index) {
                 Image(systemName: symbol)
                     .font(.system(.footnote, weight: .semibold))
                     .accessibilityHidden(true)
