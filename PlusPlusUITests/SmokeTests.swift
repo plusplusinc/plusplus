@@ -505,9 +505,9 @@ final class SmokeTests: XCTestCase {
         // is always fully visible, so equipment Done goes straight on to
         // step 2 with content already available downstream.
 
-        // Step 2 unlocks: pick a routine from the catalog (#246 — the
-        // two-option seeder sheet died; the catalog is THE creation
-        // surface, and this exercises its search + Add end to end).
+        // Step 2 unlocks: pick a routine. The step deep-links into Find or
+        // create (Routines scope) now — the standalone routine catalog was
+        // retired (2026-07-24). This exercises search + Add end to end.
         let routineCTA = app.buttons["setupRoutineStep"]
         XCTAssertTrue(routineCTA.waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Equipment set"].waitForExistence(timeout: 5))
@@ -515,11 +515,10 @@ final class SmokeTests: XCTestCase {
         routineCTA.tap()
 
         // Search pins the template regardless of sort order or catalog
-        // growth (the lazy-List rule: only realized rows exist).
-        let searchToggle = app.buttons["routineCatalogSearchFieldToggle"]
-        XCTAssertTrue(searchToggle.waitForExistence(timeout: 5))
-        searchToggle.tap()
-        let field = app.textFields["routineCatalogSearchField"]
+        // growth (the lazy-List rule: only realized rows exist). The Find
+        // or create field is always visible (no toggle). "Bodyweight Basics"
+        // is bodyweight, so it survives the default-on Doable filter.
+        let field = app.textFields["findOrCreateField"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap()
         field.typeText("Bodyweight Basics")

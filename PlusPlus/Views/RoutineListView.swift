@@ -151,12 +151,11 @@ struct RoutineListView: View {
                     RoutineDetailView(routine: routine)
                 }
             }
-            // The RoutineTemplate + RoutineCatalogDestination registrations
-            // left this stack with the Add-row rewire (2026-07-23): the
-            // catalog is reached through Find or create (its own stack) and
-            // Today's setup step (Today's stack) now, and template adds
-            // land here through RoutineArrival like every other cross-tab
-            // add.
+            // No catalog/template registrations on this stack: finding and
+            // adding a routine lives entirely on the Find or create surface
+            // (its own stack) now — the Routines-tab Add and Today's setup
+            // step both deep-link there — and template adds land here through
+            // RoutineArrival like every other cross-tab add.
             .sheet(isPresented: $showingLibraryTray) {
                 EquipmentLibraryTray()
             }
