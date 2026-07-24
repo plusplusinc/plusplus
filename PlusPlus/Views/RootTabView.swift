@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import SwiftData
 import PlusPlusKit
 
 /// v3 navigation root (#109): four bottom tabs — Today · Routines ·
@@ -16,6 +17,20 @@ struct RootTabView: View {
 
         var label: String { rawValue }
     }
+
+    /// The Today tab's icon reflects whether there's anything to do today
+    /// (2026-07-24) — onboarding steps or scheduled workouts — so it lives
+    /// at the root, computed from queries here (the icon must stay live
+    /// even when Today isn't the front tab, so it can't wait on TodayView's
+    /// body). Same finished-session filter and routine set TodayView reads.
+    @Query(sort: \Routine.order) private var routines: [Routine]
+    @Query(filter: #Predicate<WorkoutSession> { $0.endedAt != nil })
+    private var finishedSessions: [WorkoutSession]
+    @AppStorage(SetupState.equipmentDoneKey) private var equipmentDone = false
+    /// Bumped on day change so the Today icon re-derives at midnight (the
+    /// same guard TodayView uses against a resident app rendering
+    /// yesterday's plan).
+    @State private var dayToken = 0
 
     @State private var tab: AppTab = .today
     /// Where "Done" on the search surface returns to: the last REAL tab
@@ -67,6 +82,19 @@ struct RootTabView: View {
         _showStoreResetNotice = State(initialValue: SetupState.storeWasReset)
     }
 
+    /// The Today tab's icon: dashed-open when work waits, filled-checkmark
+    /// when today's work is done, plain-open when the day held nothing.
+    private var todayStatus: TodayStatus {
+        _ = dayToken
+        return TodayStatus.current(
+            routines: routines,
+            sessions: finishedSessions,
+            equipmentDone: equipmentDone,
+            today: Date(),
+            calendar: .current
+        )
+    }
+
     var body: some View {
         // The whole app rides inside the reveal drawer: tapping ++ slides
         // this TabView aside to uncover the app surface beneath it.
@@ -89,7 +117,7 @@ struct RootTabView: View {
             // below; pushed details report (and clear) their own line via
             // .operatorContext — a tab-level reporter would never re-fire
             // on a pop, so none is attached here.
-            Tab("Today", systemImage: "smallcircle.filled.circle", value: AppTab.today) {
+            Tab("Today", systemImage: todayStatus.systemImage, value: AppTab.today) {
                 TodayView(onGoToRoutines: { tab = .routines })
             }
             Tab("Routines", systemImage: "square.stack", value: AppTab.routines) {
@@ -202,6 +230,12 @@ struct RootTabView: View {
         // root switches to Today, and Today starts the session.
         .onReceive(NotificationCenter.default.publisher(for: .plusplusStartRoutine)) { _ in
             tab = .today
+        }
+        // Re-derive the Today icon at midnight — a resident app would
+        // otherwise keep yesterday's due list (the same day-rollover guard
+        // TodayView carries).
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
+            dayToken += 1
         }
         // A routine added from outside the Routines tab (Today's setup
         // step, a share import) lands ON the Routines list with the
