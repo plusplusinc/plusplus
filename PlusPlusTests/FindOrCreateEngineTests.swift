@@ -288,4 +288,75 @@ struct FindOrCreateEngineTests {
         let c = collisions("Probe Plan", world: world, templates: [template("Probe Plan")])
         #expect(c.routine)
     }
+
+    // MARK: - Doable filter
+
+    @Test("Doable filter hides an exercise the kit can't do")
+    func doableFilterHidesUndoableExercise() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        // Probe Press needs Probe Bench (not in the kit); the others are
+        // bodyweight. Browsing with the filter on drops only Probe Press.
+        let sections = FindOrCreateEngine.sections(
+            query: "", scope: .exercises,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines, templates: [], kitNames: world.kitNames,
+            doableOnly: true
+        )
+        let names = sections.flatMap(\.results).map(\.name)
+        #expect(!names.contains("Probe Press"))
+        #expect(names.contains("Probe Curl"))
+    }
+
+    @Test("The filter off shows everything")
+    func doableFilterOffShowsAll() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        let sections = FindOrCreateEngine.sections(
+            query: "", scope: .exercises,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines, templates: [], kitNames: world.kitNames,
+            doableOnly: false
+        )
+        #expect(sections.flatMap(\.results).map(\.name).contains("Probe Press"))
+    }
+
+    @Test("An exact name surfaces even when the kit can't do it")
+    func doableFilterExactNameSurfaces() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        // Searching the exact undoable name still finds it (search intent +
+        // the guard that keeps create-collision suppression from stranding
+        // a hidden row).
+        let sections = FindOrCreateEngine.sections(
+            query: "Probe Press", scope: .exercises,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines, templates: [], kitNames: world.kitNames,
+            doableOnly: true
+        )
+        #expect(sections.flatMap(\.results).map(\.name).contains("Probe Press"))
+    }
+
+    @Test("Doable filter hides a routine the kit can't do")
+    func doableFilterHidesUndoableRoutine() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        // A routine built on Probe Press needs Probe Bench; Probe Day (Probe
+        // Curl) is bodyweight and stays.
+        let press = try #require(world.exercises.first { $0.name == "Probe Press" })
+        let gymDay = Routine(name: "Probe Gym Day", order: 1)
+        context.insert(gymDay)
+        gymDay.addExerciseInNewGroup(press, context: context)
+        try? context.save()
+
+        let sections = FindOrCreateEngine.sections(
+            query: "", scope: .routines,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines + [gymDay], templates: [], kitNames: world.kitNames,
+            doableOnly: true
+        )
+        let names = sections.flatMap(\.results).map(\.name)
+        #expect(names.contains("Probe Day"))
+        #expect(!names.contains("Probe Gym Day"))
+    }
 }

@@ -90,6 +90,11 @@ enum FindOrCreateEngine {
     /// An EMPTY query shows everything (no blank state): every item at
     /// score 0, mine-first then alphabetical. A query narrows and ranks:
     /// mine-first, then score, then name.
+    /// `doableOnly` hides routines/exercises the active kit can't do (the
+    /// "Doable" filter, default on) — EXCEPT an exact-name match always
+    /// stays (an intentional search hit, and the guard that keeps the
+    /// create-collision suppression from stranding a hidden row). Equipment
+    /// is never doable-filtered (a piece of gear isn't a thing you "do").
     static func sections(
         query: String,
         scope: FindScope,
@@ -97,14 +102,15 @@ enum FindOrCreateEngine {
         equipment: [Equipment],
         routines: [Routine],
         templates: [RoutineTemplate],
-        kitNames: Set<String>
+        kitNames: Set<String>,
+        doableOnly: Bool = false
     ) -> [Section] {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         switch scope {
         case .all:
             let sections: [(String, FindScope, [Result])] = [
-                ("ROUTINES", .routines, routineResults(q, routines: routines, templates: templates, kitNames: kitNames)),
-                ("EXERCISES", .exercises, exerciseResults(q, exercises: exercises)),
+                ("ROUTINES", .routines, routineResults(q, routines: routines, templates: templates, kitNames: kitNames, doableOnly: doableOnly)),
+                ("EXERCISES", .exercises, exerciseResults(q, exercises: exercises, kitNames: kitNames, doableOnly: doableOnly)),
                 ("EQUIPMENT", .kit, equipmentResults(q, equipment: equipment, kitNames: kitNames)),
             ]
             return sections.compactMap { title, target, results in
@@ -118,12 +124,18 @@ enum FindOrCreateEngine {
                 )
             }
         case .routines:
-            return grouped(routineResults(q, routines: routines, templates: templates, kitNames: kitNames))
+            return grouped(routineResults(q, routines: routines, templates: templates, kitNames: kitNames, doableOnly: doableOnly))
         case .exercises:
-            return grouped(exerciseResults(q, exercises: exercises))
+            return grouped(exerciseResults(q, exercises: exercises, kitNames: kitNames, doableOnly: doableOnly))
         case .kit:
             return grouped(equipmentResults(q, equipment: equipment, kitNames: kitNames))
         }
+    }
+
+    /// An exact (case-insensitive) name hit — the one thing the Doable
+    /// filter never hides. An empty query has no exact match.
+    private static func isExactMatch(_ q: String, _ name: String) -> Bool {
+        !q.isEmpty && name.lowercased() == q.lowercased()
     }
 
     /// The scoped view's two groups. MINE = yours; CATALOG = everything
@@ -152,7 +164,7 @@ enum FindOrCreateEngine {
         }
     }
 
-    private static func exerciseResults(_ q: String, exercises: [Exercise]) -> [Result] {
+    private static func exerciseResults(_ q: String, exercises: [Exercise], kitNames: Set<String>, doableOnly: Bool) -> [Result] {
         rank(exercises.compactMap { exercise in
             guard !exercise.isDeleted else { return nil }
             let score: Double
@@ -161,6 +173,12 @@ enum FindOrCreateEngine {
             } else if let s = FuzzySearch.score(query: q, candidate: ExerciseFilterState.searchHaystack(exercise)) {
                 score = s
             } else {
+                return nil
+            }
+            // Doable filter: drop what the kit can't do, keeping an exact
+            // name hit (search intent + the create-collision guard).
+            if doableOnly, !isExactMatch(q, exercise.name),
+               !ExerciseFilterState.missingEquipment(for: exercise, available: kitNames).isEmpty {
                 return nil
             }
             return Result(
@@ -201,12 +219,15 @@ enum FindOrCreateEngine {
         _ q: String,
         routines: [Routine],
         templates: [RoutineTemplate],
-        kitNames: Set<String>
+        kitNames: Set<String>,
+        doableOnly: Bool
     ) -> [Result] {
         var results: [Result] = []
         for routine in routines where !routine.isDeleted {
             let contained = routine.sortedGroups.flatMap(\.sortedExercises).compactMap { $0.exercise?.name }
             guard let (score, matched) = deepScore(q, name: routine.name, contained: contained, extra: "") else { continue }
+            let doable = routine.gearAvailability(activeNames: kitNames).allSatisfy(\.available)
+            if doableOnly, !doable, !isExactMatch(q, routine.name) { continue }
             results.append(Result(
                 item: .routine(routine),
                 name: routine.name,
@@ -227,6 +248,8 @@ enum FindOrCreateEngine {
             let contained = template.blocks.flatMap(\.entries).map(\.exercise)
             let extra = "\(template.summary) \(template.style.rawValue)"
             guard let (score, matched) = deepScore(q, name: template.name, contained: contained, extra: extra) else { continue }
+            let doable = template.equipmentNames.allSatisfy { kitNames.contains($0) }
+            if doableOnly, !doable, !isExactMatch(q, template.name) { continue }
             results.append(Result(
                 item: .template(template),
                 name: template.name,

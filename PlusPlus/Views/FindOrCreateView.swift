@@ -23,17 +23,20 @@ enum FindOrCreateLaunch {
 /// pushed-catalog search stay.
 ///
 /// Layout: tab-root header grammar (++ key · title · kit switcher — kit
-/// is CONTEXT, never a filter chip) → the shared search-field anatomy +
-/// a text Done key (never ✕) → scope chips → create row → results.
+/// is CONTEXT, never a filter chip) → the scope segmented control (a MODE,
+/// so it leads) → the shared search-field anatomy + a text Done key (never
+/// ✕) → the Doable filter chip → create row → results.
 /// The create row is present unless the query EXACTLY names an item that
 /// already exists (a create there would only duplicate the row right
 /// below it — `FindOrCreateEngine.Collisions`); it never dead-ends, since
 /// an exact-name match always ranks into the results. An empty query
-/// shows everything, mine-first. Rows are clean (decision A): tap pushes
-/// detail onto THIS stack — back returns with query, scope, and scroll
-/// intact — and the long-press context menu carries the quick acts.
-/// Search state is ephemeral per-entry; the active kit is the one
-/// app-wide pointer, switched only through the tray.
+/// shows everything, mine-first — narrowed by the Doable filter (default
+/// on, routines/exercises the active kit can do; an exact name always
+/// surfaces). Rows are clean (decision A): tap pushes detail onto THIS
+/// stack — back returns with query, scope, and scroll intact — and the
+/// long-press context menu carries the quick acts. The QUERY is ephemeral
+/// per-entry; the Doable FILTER persists (a preference, not search state);
+/// the active kit is the one app-wide pointer, switched only through the tray.
 struct FindOrCreateView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Exercise.name) private var allExercises: [Exercise]
@@ -58,6 +61,13 @@ struct FindOrCreateView: View {
     @State private var creatingExercise = false
     @State private var namingRoutine = false
     @State private var newRoutineName = ""
+    /// The "Doable" filter: show only routines/exercises the active kit can
+    /// do (default on). A FILTER preference, so unlike the query it PERSISTS
+    /// across entries (the catalogs persist their availability facet too) —
+    /// someone who wants the full catalog turns it off once. The chip is the
+    /// two-way control, always at the top so the trip back is as reachable as
+    /// the trip out.
+    @AppStorage("findOrCreateDoableOnly") private var doableOnly = true
 
     private var activeLibrary: EquipmentLibrary? {
         EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)
@@ -79,7 +89,10 @@ struct FindOrCreateView: View {
             equipment: allEquipment,
             routines: routines,
             templates: RoutineCatalog.all,
-            kitNames: kitNames
+            kitNames: kitNames,
+            // Kit scope lists equipment, which the Doable filter never
+            // touches — so it only narrows in All/Routines/Exercises.
+            doableOnly: doableOnly && scope != .kit
         )
     }
 
@@ -97,8 +110,14 @@ struct FindOrCreateView: View {
                         showingLibraryTray = true
                     }
                 }
+                // Scope leads (above the field): it's a MODE that reshapes
+                // the whole surface — the create verb, what an empty query
+                // browses — not just a result filter, so it reads as the
+                // primary selector, and the field sits directly above its
+                // own results.
+                scopeSegmented
                 fieldRow
-                scopeChips
+                doableFilterRow
                 resultsList
             }
             .background(Theme.background)
@@ -185,28 +204,46 @@ struct FindOrCreateView: View {
         .padding(.bottom, 8)
     }
 
-    private var scopeChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 3) {
-                scopeChip(.all, "All", nil)
-                scopeChip(.routines, "Routines", "checklist")
-                scopeChip(.exercises, "Exercises", "figure.strengthtraining.traditional")
-                scopeChip(.kit, "Kit", "dumbbell")
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 12)
-        }
-        .padding(.bottom, 2)
+    /// Scope as a content-width segmented control (icons on the three typed
+    /// scopes, "All" text-only — no natural glyph, and content widths let it
+    /// sit next to its neighbors without a gap). One selection, one sliding
+    /// pill; the labels/symbols/ids track `FindScope.allCases` in order.
+    private var scopeSegmented: some View {
+        SegmentedTabs(
+            options: ["All", "Routines", "Exercises", "Kit"],
+            selectedIndex: Binding(
+                get: { FindScope.allCases.firstIndex(of: scope) ?? 0 },
+                set: { scope = FindScope.allCases[$0] }
+            ),
+            symbols: [nil, "checklist", "figure.strengthtraining.traditional", "dumbbell"],
+            identifiers: FindScope.allCases.map { "findScope-\($0.rawValue)" },
+            widthsByContent: true
+        )
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
     }
 
-    private func scopeChip(_ target: FindScope, _ label: String, _ symbol: String?) -> some View {
-        SelectableChip(
-            label: label,
-            isSelected: scope == target,
-            identifier: "findScope-\(target.rawValue)",
-            systemImage: symbol
-        ) {
-            scope = target
+    /// The Doable filter: hide what the active kit can't do. Off reveals
+    /// everything with the rows' own amber "needs X" tags. Absent in Kit
+    /// scope, where results are equipment (nothing to "do"). This chip is
+    /// the persistent two-way control — the trip back to filtered is the
+    /// same tap, always in reach here rather than stranded below results.
+    @ViewBuilder
+    private var doableFilterRow: some View {
+        if scope != .kit {
+            HStack(spacing: 0) {
+                SelectableChip(
+                    label: "Doable",
+                    isSelected: doableOnly,
+                    identifier: "findDoableFilter",
+                    systemImage: nil
+                ) {
+                    doableOnly.toggle()
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 6)
         }
     }
 
@@ -230,18 +267,55 @@ struct FindOrCreateView: View {
                 }
             }
             if sections.isEmpty {
-                Text("Nothing matches.")
-                    .font(.system(.footnote))
-                    .foregroundStyle(Theme.textFaint)
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 24)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
+                emptyState
             }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .scrollDismissesKeyboard(.immediately)
+    }
+
+    /// Empty results are never a bare dead end. If the Doable filter is what
+    /// emptied them (matches exist, just not with this kit), say so and offer
+    /// the one-tap way through — the "Clear filters"-key grammar, so a locked
+    /// search never reads as "nothing exists."
+    @ViewBuilder
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            if doableHidingMatches {
+                Text("Nothing here your kit can do.")
+                    .font(.system(.footnote))
+                    .foregroundStyle(Theme.textFaint)
+                QuietKey(label: "Show all", systemImage: "line.3.horizontal.decrease", identifier: "findShowAll") {
+                    doableOnly = false
+                }
+            } else {
+                Text("Nothing matches.")
+                    .font(.system(.footnote))
+                    .foregroundStyle(Theme.textFaint)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 24)
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+    }
+
+    /// True when the Doable filter alone is emptying the results — the same
+    /// query would show rows with the filter off. Only computed when the
+    /// filtered results are already empty, so the extra pass is rare.
+    private var doableHidingMatches: Bool {
+        guard doableOnly, scope != .kit else { return false }
+        return !FindOrCreateEngine.sections(
+            query: trimmedQuery,
+            scope: scope,
+            exercises: allExercises,
+            equipment: allEquipment,
+            routines: routines,
+            templates: RoutineCatalog.all,
+            kitNames: kitNames,
+            doableOnly: false
+        ).isEmpty
     }
 
     private func sectionHeader(_ section: FindOrCreateEngine.Section) -> some View {
