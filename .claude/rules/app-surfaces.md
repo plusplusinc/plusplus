@@ -193,7 +193,17 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   long press has to belong to `.onMove`. **Reorder is routines-only, tab-only,
   empty-query-only, MINE-tier-only**: a ranked or narrowed list has no order to
   write back, and writing one would destroy the user's drag-ordering. Routines
-  render as **cardless rows** outside Today — a catalog list reads flat.
+  render as **cardless rows** outside Today — a catalog list reads flat — but
+  cardless is a CHROME decision: the row still renders the shared
+  `RoutineCardContent` (title · `focus · schedule · effort · estimate` ·
+  equipment tier), so it loses the card, never its facts. Templates render the
+  same body from `RoutineMeta(focus:effort:estimate:gear:)`, so a template reads
+  identically to the routine it becomes.
+- **The PRESENTED equipment catalog is one flat alphabetical run**, while the
+  Kit TAB groups MINE/CATALOG (2026-07-25). Deliberate: the presented form is
+  the ADD surface, and with the tiers every quick-add lifts the row you just
+  swiped to the top and shifts the rows under your thumb — worst in onboarding
+  step 1, a run of eight adds. The in-kit checkmark carries membership there.
 - **Heading treatment follows the nature of the title** (2026-07-18, updated
   2026-07-19): a **tab root** wears a large left `.title` heading ON the icon
   row, just right of the ++ key (`AppMenuKey`) — single-line, `.layoutPriority(1)`
@@ -245,12 +255,13 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
 - Warm charcoal dark (`#201F1D` family); the watch keeps system black.
 - Draw every color from `Theme` — never ad-hoc literals.
 - **Two tag tiers, rounded rects not pills, all-caps is section-labels-only**
-  (2026-07-18, shapes/mono revised 2026-07-20): a **filter chip** is a button
-  — sentence-case plain font, a border when unselected, a solid blue fill when
-  selected (`FacetChip`/`MultiFacetChip`/`TrayFilterChip`/`SortChip`/
-  `SelectableChip`, facet names passed sentence-case; the old
-  `KitFilterChip` sheet-chip retired with the 2026-07-21 axes separation —
-  the equipment catalog's Kit facet is a plain `FacetChip`). A **card
+  (2026-07-18, shapes/mono revised 2026-07-20): a **selectable chip** is a
+  button — sentence-case plain font, a border when unselected, a solid blue
+  fill when selected. `SelectableChip` is the last of them: the FACET chips
+  (`FacetChip`/`MultiFacetChip`/`TrayFilterChip`/`FilterSummaryChip`/`SortChip`,
+  and `KitFilterChip` before them) are **all DELETED as of 2026-07-25** — no
+  catalog surface filters by facet any more, so nothing constructed them. If a
+  facet is ever wanted again, git history has them; don't re-derive. A **card
   data tag** is not a button — it shows an item's property, so it wears the
   soft `surfaceRaised` fill with NO stroke (a stroked tag reads as a button).
   That style is the shared `CardTagCapsule` (the routine gear pills use it too).
