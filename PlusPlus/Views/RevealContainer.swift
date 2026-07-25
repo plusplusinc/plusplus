@@ -144,7 +144,7 @@ struct RevealContainer<Content: View>: View {
                 UIAccessibility.post(notification: .screenChanged, argument: nil)
             }
         }
-        .ignoresSafeArea()
+        .ignoresSafeArea(.container)
     }
 
     /// The dim layer over the peeking app: fades in with the reveal, and
@@ -155,7 +155,7 @@ struct RevealContainer<Content: View>: View {
             // Darken the covered app in dark mode, LIGHTEN it in light mode
             // (Dave, build 64) — a dark veil over a light UI read wrong.
             .fill(Color(light: 0xFFFFFF, dark: 0x000000).opacity(0.42 * f))
-            .ignoresSafeArea()
+            .ignoresSafeArea(.container)
             .allowsHitTesting(f > 0.02)
             .onTapGesture { controller.close() }
             .gesture(revealDrag(width: width))

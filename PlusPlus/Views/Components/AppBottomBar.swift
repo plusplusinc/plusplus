@@ -12,11 +12,14 @@ import PlusPlusKit
 /// travels between them rather than swapping.
 ///
 /// **The travel is Liquid Glass's own morph**, not a hand-rolled one: the bar is
-/// a `GlassEffectContainer`, each item carries `glassEffectID` in a shared
-/// namespace, and that transition defaults to `.matchedGeometry` — so the
+/// a `GlassEffectContainer`, and the group carries one `glassEffectID` in a
+/// shared namespace, whose transition defaults to `.matchedGeometry` — so the
 /// MATERIAL morphs between the two positions, not merely the frame.
-/// `glassEffectUnion` fuses the three into one continuous surface, which is how
-/// the system's own tab group reads as a single platter.
+///
+/// The group is ONE glass surface holding three plain items, with a pill on the
+/// selected one — the same relationship the system's tab platter draws. An
+/// earlier cut gave every item its own glass and unioned them, which is what
+/// made the three stop reading as tabs.
 ///
 /// **Why this isn't the system tab bar.** It was, twice. The native bar can't
 /// express any of the three requirements: `Tab(role:)` separates only the
@@ -93,15 +96,19 @@ struct AppBottomBar: View {
     /// The same three items whether they sit in the bar or in the row above —
     /// only the width changes. Expanded, they span the full width.
     private func scopeGroup(expanded: Bool) -> some View {
-        // Default-ish spacing, not a tight 2: glass needs breathing room, and
-        // `glassEffectUnion` is what fuses the three into one continuous
-        // surface, so they read as a single platter without being drawn as one.
-        HStack(spacing: 6) {
+        // No inter-item spacing: they share ONE platter, so the pill on the
+        // selected item is what separates them, exactly as in the system bar.
+        HStack(spacing: 0) {
             ForEach(FindScope.allCases, id: \.self) { item in
                 scopeItem(item)
             }
         }
+        .padding(4)
         .frame(maxWidth: expanded ? .infinity : nil)
+        // ONE glass surface for the whole group — the native tab platter is a
+        // single pill containing its items, not a row of separate pills.
+        .glassEffect(.regular, in: Capsule())
+        .glassEffectID(Self.groupID, in: glass)
         // Chrome that must hold three labels on one row can't grow without
         // bound. The search field is NOT capped — its text is the user's own.
         .dynamicTypeSize(...DynamicTypeSize.accessibility1)
@@ -130,17 +137,17 @@ struct AppBottomBar: View {
             }
             .foregroundStyle(selected ? Theme.textPrimary : Theme.textSecondary)
             .frame(maxWidth: .infinity)
-            .frame(minWidth: 54, minHeight: 44)
+            .frame(minHeight: 44)
+            .background {
+                // The selected tab's pill, inside the platter — the same
+                // relationship the system bar draws.
+                if selected {
+                    Capsule().fill(.thinMaterial)
+                }
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        // Selection reads as the glass itself, the way a selected tab does —
-        // an opaque fill on top of glass would defeat the material.
-        .glassEffect(selected ? .regular.interactive() : .identity, in: Capsule())
-        .glassEffectUnion(id: Self.groupID, namespace: glass)
-        // The morph: same id in both rows, so the material travels between
-        // them (the transition defaults to `.matchedGeometry`).
-        .glassEffectID(item, in: glass)
         .accessibilityLabel(counts[item].map { "\(item.label), \($0) results" } ?? item.label)
         .accessibilityAddTraits(selected ? [.isButton, .isSelected] : [.isButton])
         .accessibilityIdentifier("tab-\(item.rawValue)")
@@ -209,9 +216,10 @@ struct AppBottomBar: View {
         withAnimation(Theme.Anim.selection) {
             searching = true
         }
-        // Tapping the search key IS the activation, so raising the keyboard
-        // here is the user's own intent.
-        fieldWantsFocus = true
+        // Deliberately NO focus arming: activating search expands the field
+        // and lifts the group into its own row — that is the whole gesture.
+        // The keyboard rises only when the field itself is tapped (Apple's
+        // "search is activated and deactivated by the user", and Dave's ask).
     }
 
     @MainActor
