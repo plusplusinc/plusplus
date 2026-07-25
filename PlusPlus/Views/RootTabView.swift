@@ -171,9 +171,16 @@ struct RootTabView: View {
         // The three catalog tabs the field absorbs ride ABOVE it as the search
         // scopes. `isEnabled:` is what makes this viable — off, it removes the
         // accessory's reserved space, so no other tab carries a blank strip.
+        // The row RISES out of the bar rather than fading in: the scopes are
+        // the tabs the field just took over, so the motion has to read as
+        // those tabs moving up, not as a new panel appearing. (A true matched
+        // move is out of reach — native `Tab` items aren't views the app can
+        // address, so there is no shared geometry namespace to travel through.)
         .tabViewBottomAccessory(isEnabled: tab == .search) {
             SearchScopeBar(scope: $scope, counts: scopeCounts)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
         }
+        .animation(Theme.Anim.selection, value: tab == .search)
         .tint(Theme.textPrimary)
         // Swipe-to-open is gated on the active tab being at its root; keep
         // the reveal controller told which tab is showing. Operator's

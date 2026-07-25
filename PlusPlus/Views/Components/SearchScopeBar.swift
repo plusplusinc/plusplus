@@ -19,14 +19,22 @@ struct SearchScopeBar: View {
     @Binding var scope: FindScope
     let counts: [FindScope: Int]
 
+    /// The system decides where the accessory sits: `.expanded` above the bar,
+    /// or `.inline` within a minimized one. The row has to fit either, so it
+    /// tightens and drops the counts inline, where there is far less width
+    /// (this is the Podcasts now-playing bar's two-mode pattern).
+    @Environment(\.tabViewBottomAccessoryPlacement) private var placement
+
+    private var isInline: Bool { placement == .inline }
+
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: isInline ? 4 : 8) {
             ForEach(FindScope.allCases, id: \.self) { item in
                 chip(item)
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, 12)
+        .padding(.horizontal, isInline ? 6 : 12)
         // Three chips have to stay on one row; the search field below is
         // unaffected, so the text the user types still scales all the way.
         .dynamicTypeSize(...DynamicTypeSize.accessibility1)
@@ -42,14 +50,16 @@ struct SearchScopeBar: View {
                     .font(.system(.footnote, weight: .semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
-                if let count = counts[item] {
+                // The count is the first thing to go when space is tight: it
+                // is the supplementary half of the label, not the label.
+                if !isInline, let count = counts[item] {
                     Text("\(count)")
                         .font(.system(.caption2, weight: .semibold).monospacedDigit())
                         .foregroundStyle(selected ? Theme.onSelected.opacity(0.75) : Theme.textFaint)
                 }
             }
             .foregroundStyle(selected ? Theme.onSelected : Theme.textSecondary)
-            .padding(.horizontal, 11)
+            .padding(.horizontal, isInline ? 8 : 11)
             .padding(.vertical, 7)
             .background(
                 selected ? Theme.selected : Theme.surface,
