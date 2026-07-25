@@ -60,10 +60,6 @@ struct AppBottomBar: View {
         .padding(.horizontal, 12)
         .padding(.top, 8)
         .padding(.bottom, 6)
-        // Chrome that must hold four labels plus a field on one row can't grow
-        // without bound — the same bargain the system tab bar makes. Content
-        // above is unaffected; only the bar caps.
-        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
         .background(alignment: .top) {
             Rectangle()
                 .fill(Theme.border)
@@ -85,6 +81,11 @@ struct AppBottomBar: View {
             }
             Spacer(minLength: 0)
         }
+        // Capped on the CHROME only — never on the field below, whose text is
+        // the user's own and must scale all the way (WCAG 1.4.4). Three chips
+        // on one row is a hard constraint, the same bargain the system tab bar
+        // makes with its labels.
+        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
     }
 
     /// The tab group. It shrinks to just Today while searching — the field
@@ -101,6 +102,7 @@ struct AppBottomBar: View {
         .padding(4)
         .background(Theme.surface, in: Capsule())
         .overlay(Capsule().strokeBorder(Theme.border))
+        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
     }
 
     // MARK: - Items
@@ -178,6 +180,9 @@ struct AppBottomBar: View {
                 RoundedRectangle(cornerRadius: Theme.keyRadius)
                     .strokeBorder(selected ? Color.clear : Theme.border)
             )
+            // The painted chip stays compact; the TARGET clears the 44 pt floor
+            // (the wheel this replaced made the same promise).
+            .frame(minHeight: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -193,7 +198,10 @@ struct AppBottomBar: View {
             SearchFieldBody(
                 config: HeaderSearchConfig(
                     text: $query,
-                    prompt: "Search \(scope.label.lowercased())",
+                    // What the scope SEARCHES, not what its tab is called: the
+                    // Kit scope searches the equipment catalog, so it reads
+                    // "Search equipment" (kit-vs-equipment vocabulary law).
+                    prompt: "Search \(scope.searchNoun)",
                     identifier: "findSearchField"
                 ),
                 wantsFocus: $fieldWantsFocus,
@@ -201,35 +209,35 @@ struct AppBottomBar: View {
             )
             .matchedGeometryEffect(id: Self.fieldID, in: morph)
         } else {
+            // A rounded SQUARE, not a circle: icon-only keys are r11 rounded
+            // squares everywhere (2026-07-19 — the all-circles round was
+            // reverted), and it presses on the shared raised-key style like
+            // every other key rather than a bare tap.
             Button {
                 enterSearch()
             } label: {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 17, weight: .medium))
+                    .font(.system(.body, weight: .medium))
                     .foregroundStyle(Theme.textSecondary)
                     .frame(width: 52, height: 52)
-                    .background(Theme.surface, in: Circle())
-                    .overlay(Circle().strokeBorder(Theme.border))
-                    .contentShape(Circle())
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.border))
+                    .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.raisedKey(cornerRadius: Theme.keyRadius))
             .matchedGeometryEffect(id: Self.fieldID, in: morph)
             .accessibilityLabel("Search")
             .accessibilityIdentifier("searchTabButton")
         }
     }
 
+    /// Leaving search is an escape hatch, so it wears the quiet key — blue is
+    /// retired as a text/link colour, and a bare `Text` gave a tap target the
+    /// size of the word inside a 52 pt row.
     private var cancelKey: some View {
-        Button {
+        QuietKey(label: "Cancel", identifier: "searchCancelButton") {
             exitSearch()
-        } label: {
-            Text("Cancel")
-                .font(.system(.subheadline))
-                .foregroundStyle(Theme.selected)
-                .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("searchCancelButton")
     }
 
     // MARK: - Activation

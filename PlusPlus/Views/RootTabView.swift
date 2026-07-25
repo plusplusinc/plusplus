@@ -59,12 +59,6 @@ struct RootTabView: View {
     @Query(filter: #Predicate<WorkoutSession> { $0.endedAt != nil })
     private var finishedSessions: [WorkoutSession]
     @AppStorage(SetupState.equipmentDoneKey) private var equipmentDone = false
-    // The bottom bar paints per-scope result counts, so the counting data has
-    // to be readable from here (the bar outlives the search surface).
-    @Query(sort: \Exercise.name) private var allExercises: [Exercise]
-    @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
-    @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
-    @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
     /// Bumped on day change so the Today icon re-derives at midnight (the
     /// same guard TodayView uses against a resident app rendering
     /// yesterday's plan).
@@ -78,6 +72,12 @@ struct RootTabView: View {
     @State private var query = ""
     @State private var scope: FindScope = .routines
     @State private var fieldWantsFocus = false
+    /// Per-scope result counts for the bar's labels. COMPUTED BY THE SEARCH
+    /// SURFACE, not here: it already holds the catalog queries, so counting at
+    /// the root would mean duplicate always-live `@Query`s whose every change
+    /// re-evaluated the whole four-root tree, plus a fourth ranking pass per
+    /// keystroke on top of the three the surface already runs.
+    @State private var scopeCounts: [FindScope: Int] = [:]
     /// The slide-to-reveal drawer behind the ++ key (replaces the pushed
     /// AppMenuScreen). Lives here, above the tabs' NavigationStacks, so it
     /// moves the whole TabView as one layer.
@@ -147,24 +147,6 @@ struct RootTabView: View {
         .environment(viewContext)
     }
 
-    /// The active kit, as every catalog surface reads it.
-    private var kitNames: Set<String> {
-        EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.memberNames ?? []
-    }
-
-    /// What the bar paints beside each scope label while searching.
-    private var scopeCounts: [FindScope: Int] {
-        guard searching else { return [:] }
-        return FindOrCreateEngine.matchCounts(
-            query: query,
-            exercises: allExercises,
-            equipment: allEquipment,
-            routines: routines,
-            templates: RoutineCatalog.all,
-            kitNames: kitNames
-        )
-    }
-
     /// One root layer. Hidden roots stay MOUNTED (an `if` would discard the
     /// navigation path a tab switch is supposed to preserve) but drop hit
     /// testing and accessibility — `opacity(0)` removes neither on its own.
@@ -178,6 +160,11 @@ struct RootTabView: View {
             .opacity(visible ? 1 : 0)
             .allowsHitTesting(visible)
             .accessibilityHidden(!visible)
+            // Leaving a tab is still the natural boundary to push program
+            // edits to GitHub — but these roots no longer unmount, so the
+            // trigger has to key on hiding rather than on `onDisappear`
+            // (which is why the roots' own `syncsProgramOnClose` came off).
+            .syncsProgramOnHide(visible: visible)
     }
 
     /// Every landing leaves search first. A create made from the search
@@ -223,7 +210,12 @@ struct RootTabView: View {
             // stack and collapsed groups start fresh every time — the surface
             // is ephemeral by design (a stale invisible query reads as loss).
             if searching {
-                FindOrCreateView(query: $query, scope: $scope, fieldWantsFocus: $fieldWantsFocus)
+                FindOrCreateView(
+                    query: $query,
+                    scope: $scope,
+                    fieldWantsFocus: $fieldWantsFocus,
+                    counts: $scopeCounts
+                )
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {

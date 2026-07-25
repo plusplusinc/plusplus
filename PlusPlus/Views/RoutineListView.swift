@@ -185,7 +185,6 @@ struct RoutineListView: View {
         .onAppear(perform: consumeArrival)
         // Routine creates / deletes / reorders reach GitHub when you leave the
         // tab. Debounced + dirty-gated (see requestSync).
-        .syncsProgramOnClose()
     }
 
     /// The Add row (Add family — it NAVIGATES, never creates inline):

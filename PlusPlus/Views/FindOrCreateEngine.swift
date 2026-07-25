@@ -29,6 +29,18 @@ enum FindScope: String, CaseIterable {
         case .kit: return "dumbbell"
         }
     }
+
+    /// What this scope SEARCHES, which is not always what the tab is called:
+    /// the Kit scope searches the whole equipment catalog, not just your kit,
+    /// so it takes the single-item/catalog word (the kit-vs-equipment
+    /// vocabulary law). Used for prompts and empty states, never as a label.
+    var searchNoun: String {
+        switch self {
+        case .routines: return "routines"
+        case .exercises: return "exercises"
+        case .kit: return "equipment"
+        }
+    }
 }
 
 /// Pure result collection for the Find-or-create surface: score, rank,

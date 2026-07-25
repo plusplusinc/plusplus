@@ -57,6 +57,10 @@ struct FindOrCreateView: View {
     @Binding var query: String
     @Binding var scope: FindScope
     @Binding var fieldWantsFocus: Bool
+    /// Per-scope match counts, published UP to the bar's scope labels. Computed
+    /// here because this view already holds the catalog queries — counting at
+    /// the root would duplicate them app-wide.
+    @Binding var counts: [FindScope: Int]
 
     @State private var path = NavigationPath()
     @State private var showingLibraryTray = false
@@ -179,6 +183,22 @@ struct FindOrCreateView: View {
             path = NavigationPath()
             expandedMissing = []
         }
+        // The labels' counts follow the query. `initial: true` seeds them for a
+        // surface opened with a query already in hand (a pre-scoped deep link
+        // arrives empty, which correctly counts nothing).
+        .onChange(of: trimmedQuery, initial: true) { _, _ in
+            counts = FindOrCreateEngine.matchCounts(
+                query: trimmedQuery,
+                exercises: allExercises,
+                equipment: allEquipment,
+                routines: routines,
+                templates: RoutineCatalog.all,
+                kitNames: kitNames
+            )
+        }
+        // Leaving search takes the numbers with it — a count on a resting tab
+        // label would be a leftover from a query that's no longer on screen.
+        .onDisappear { counts = [:] }
     }
 
     // MARK: - Results
@@ -243,8 +263,10 @@ struct FindOrCreateView: View {
     /// collapsible disclosure — so a kit that can do nothing still shows that
     /// group rather than emptying.
     private var emptyState: some View {
+        // No possessive: every scope searches YOURS AND the catalog, so "your
+        // exercises" would be false (and exercises have no library at all).
         Text(trimmedQuery.isEmpty
-             ? "Search your \(scope.label.lowercased()), or make something new."
+             ? "Search \(scope.searchNoun), or make something new."
              : "Nothing matches.")
             .font(.system(.footnote))
             .foregroundStyle(Theme.textFaint)
@@ -385,8 +407,12 @@ struct FindOrCreateView: View {
     }
 
     /// Return opens the best hit — the first row of the first section.
+    /// Root-only: the field lives in the bottom BAR, outside this stack, so it
+    /// stays live and submittable over a pushed detail. Without the guard a
+    /// second Return would stack another copy of the same screen —
+    /// `path.append` is not idempotent (ui-interaction.md).
     private func openTopResult() {
-        guard let top = sections.first?.results.first else { return }
+        guard path.isEmpty, let top = sections.first?.results.first else { return }
         open(top)
     }
 
