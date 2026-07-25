@@ -45,16 +45,16 @@ struct ExercisesTabView: View {
     // Persisted filters (device-local; the tab is the source of truth
     // during a session and mirrors to these).
     @AppStorage(ExerciseFilterState.Prefs.favoritesOnly) private var prefFavoritesOnly = false
-    @AppStorage(ExerciseFilterState.Prefs.gearMode) private var prefGearMode = ""
-    @AppStorage(ExerciseFilterState.Prefs.pickedGear) private var prefPickedGear = "[]"
     @AppStorage(ExerciseFilterState.Prefs.muscleGroups) private var prefMuscleGroups = "[]"
 
     @State private var filterState = ExerciseFilterState()
     @State private var openSwipeRow: SwipeRevealOpen<PersistentIdentifier>?
     @State private var path = NavigationPath()
     @State private var showingMuscleFilter = false
-    @State private var showingGearPicker = false
     @State private var creatingExercise = false
+    /// Whether the "N exercises require more equipment" group is expanded
+    /// (collapsed by default; ephemeral, like the whole catalog view).
+    @State private var showMissingExercises = false
     @State private var loadedPrefs = false
     @State private var showingLibraryTray = false
     /// The row playing the entrance flash after a cross-tab create
@@ -75,9 +75,23 @@ struct ExercisesTabView: View {
         filterState.filteredExercises(from: allExercises, kitNames: availableEquipmentNames)
     }
 
+    /// The catalog split into what the active kit can do and what needs more
+    /// equipment (2026-07-25). Both keep `candidates`' rank/sort order; the
+    /// missing ones tuck under a collapsible group rather than being hidden.
+    private var doableCandidates: [Exercise] {
+        candidates.filter {
+            ExerciseFilterState.missingEquipment(for: $0, available: availableEquipmentNames).isEmpty
+        }
+    }
+
+    private var missingCandidates: [Exercise] {
+        candidates.filter {
+            !ExerciseFilterState.missingEquipment(for: $0, available: availableEquipmentNames).isEmpty
+        }
+    }
+
     private var anyFilterActive: Bool {
         filterState.favoritesOnly
-            || filterState.gearMode != nil
             || !filterState.selectedMuscleGroups.isEmpty
     }
 
@@ -90,8 +104,8 @@ struct ExercisesTabView: View {
                 CatalogTabHeader(title: "Exercises") {
                     // Switch the kit exercises are judged against, inline
                     // (2026-07-21 axes separation) — the same switcher the Kit
-                    // tab and routine catalog use; the Equipment facet below
-                    // stays a pure LOCAL lens that never switches.
+                    // tab and routine catalog use. It's what decides which rows
+                    // fall into the "require more equipment" group below.
                     LibrarySwitcherKey(name: activeKitName, identifier: "exercisesKitSwitcher") {
                         showingLibraryTray = true
                     }
@@ -102,10 +116,29 @@ struct ExercisesTabView: View {
                         // Creation is the top row everywhere (2026-07-18): New
                         // exercise, or Create "<query>" when searching.
                         createExerciseRow
-                        ForEach(candidates) { exercise in
+                        ForEach(doableCandidates) { exercise in
                             exerciseRow(exercise)
                         }
-                        if candidates.isEmpty {
+                        // What the active kit can't do, tucked under a
+                        // collapsible disclosure AFTER the doable rows
+                        // (2026-07-25). Collapsed by default; the rows still
+                        // carry their own amber "needs X" tags when expanded.
+                        if !missingCandidates.isEmpty {
+                            MissingEquipmentHeaderRow(
+                                count: missingCandidates.count,
+                                noun: "exercise",
+                                isExpanded: showMissingExercises,
+                                identifier: "missingEquipmentToggle-exercises"
+                            ) {
+                                withAnimation(Theme.Anim.standard) { showMissingExercises.toggle() }
+                            }
+                            if showMissingExercises {
+                                ForEach(missingCandidates) { exercise in
+                                    exerciseRow(exercise)
+                                }
+                            }
+                        }
+                        if doableCandidates.isEmpty && missingCandidates.isEmpty {
                             emptyResults
                         }
                     }
@@ -140,10 +173,6 @@ struct ExercisesTabView: View {
                 MuscleGroupFilterSheet(filterState: filterState)
                     .presentationDetents([.medium])
             }
-            .sheet(isPresented: $showingGearPicker) {
-                GearPickSheet(filterState: filterState, allEquipment: allEquipmentSorted)
-                    .presentationDetents([.medium, .large])
-            }
             .sheet(isPresented: $showingLibraryTray) {
                 EquipmentLibraryTray()
             }
@@ -172,13 +201,8 @@ struct ExercisesTabView: View {
         }
         // Mirror in-session filter changes back to storage.
         .onChange(of: filterState.favoritesOnly) { persistPrefs() }
-        .onChange(of: filterState.gearMode) { persistPrefs() }
-        .onChange(of: filterState.pickedGearNames) { persistPrefs() }
         .onChange(of: filterState.selectedMuscleGroups) { persistPrefs() }
     }
-
-    @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
-    private var allEquipmentSorted: [Equipment] { allEquipment }
 
     // MARK: - Create row + empty state
 
@@ -202,7 +226,6 @@ struct ExercisesTabView: View {
             if anyFilterActive {
                 QuietKey(label: "Clear filters", identifier: "clearExerciseFilters") {
                     filterState.favoritesOnly = false
-                    filterState.gearMode = nil
                     filterState.selectedMuscleGroups = []
                 }
             }
@@ -224,7 +247,6 @@ struct ExercisesTabView: View {
                         resultSummary: "\(candidates.count) of \(allExercises.count) shown",
                         onClearAll: {
                             filterState.favoritesOnly = false
-                            filterState.gearMode = nil
                             filterState.selectedMuscleGroups = []
                         }
                     )
@@ -232,21 +254,9 @@ struct ExercisesTabView: View {
                 SelectableChip(label: "Favorites", isSelected: filterState.favoritesOnly) {
                     filterState.favoritesOnly.toggle()
                 }
-                // The availability facet speaks its basis (2026-07-23 round):
-                // "Doable with <kit name>" names the kit it judges against,
-                // and the footer jumps to the switcher when the basis itself
-                // is wrong. Values become the chip's label when active
-                // (FacetChip behavior), so the active read is the honest one.
-                FacetChip(
-                    facet: "Equipment",
-                    selection: gearBinding,
-                    options: [
-                        (ExerciseFilterState.GearMode.withKit, "Doable with \(activeKitName)"),
-                        (.withoutKit, "Missing equipment"),
-                        (.handPicked, pickedGearLabel),
-                    ],
-                    footers: [(label: "Switch kit…", action: { showingLibraryTray = true })]
-                )
+                // Kit availability is no longer a filter (2026-07-25): what the
+                // kit can't do groups under the collapsible "require more
+                // equipment" disclosure in the list below, not a facet here.
                 TrayFilterChip(
                     facet: "Muscle",
                     count: filterState.selectedMuscleGroups.count
@@ -259,11 +269,6 @@ struct ExercisesTabView: View {
         .padding(.bottom, 8)
     }
 
-    private var pickedGearLabel: String {
-        let n = filterState.pickedGearNames.count
-        return n > 0 ? "Picked equipment (\(n))" : "Picked equipment"
-    }
-
     /// The active facets, summarized for the filter-state popover
     /// (persisted filters made a silently-narrowed catalog possible —
     /// this is where the narrowing explains itself).
@@ -272,34 +277,11 @@ struct ExercisesTabView: View {
         if filterState.favoritesOnly {
             facets.append(ActiveFacet(name: "Favorites", value: "Only favorites"))
         }
-        if let mode = filterState.gearMode {
-            let value: String = switch mode {
-            case .withKit: "Doable with \(activeKitName)"
-            case .withoutKit: "Missing equipment"
-            case .handPicked: filterState.pickedGearNames.isEmpty
-                ? "Picked equipment"
-                : filterState.pickedGearNames.sorted().joined(separator: ", ")
-            }
-            facets.append(ActiveFacet(name: "Equipment", value: value))
-        }
         if !filterState.selectedMuscleGroups.isEmpty {
             let names = filterState.selectedMuscleGroups.map(\.displayName).sorted().joined(separator: ", ")
             facets.append(ActiveFacet(name: "Muscle", value: names))
         }
         return facets
-    }
-
-    /// Selecting "Picked equipment" opens the picker AND lights the mode; the
-    /// other modes commit directly. (The binding interceptor pattern from
-    /// the equipment catalog's gear facet.)
-    private var gearBinding: Binding<ExerciseFilterState.GearMode?> {
-        Binding(
-            get: { filterState.gearMode },
-            set: { newValue in
-                filterState.gearMode = newValue
-                if newValue == .handPicked { showingGearPicker = true }
-            }
-        )
     }
 
     // MARK: - Rows
@@ -356,8 +338,10 @@ struct ExercisesTabView: View {
         ExerciseArrival.pending = nil
         filterState.searchText = ""
         filterState.favoritesOnly = false
-        filterState.gearMode = nil
         filterState.selectedMuscleGroups = []
+        // A fresh custom that needs gear lands in the missing group — expand
+        // it so its entrance flash isn't playing on a collapsed row.
+        showMissingExercises = true
         path = NavigationPath()
         newlyAdded = pending
     }
@@ -381,8 +365,6 @@ struct ExercisesTabView: View {
 
     private func loadPrefs() {
         filterState.favoritesOnly = prefFavoritesOnly
-        filterState.gearMode = ExerciseFilterState.GearMode(rawValue: prefGearMode)
-        filterState.pickedGearNames = decodeNames(prefPickedGear)
         filterState.selectedMuscleGroups = Set(
             decodeNames(prefMuscleGroups).compactMap(MuscleGroup.init(rawValue:))
         )
@@ -390,8 +372,6 @@ struct ExercisesTabView: View {
 
     private func persistPrefs() {
         prefFavoritesOnly = filterState.favoritesOnly
-        prefGearMode = filterState.gearMode?.rawValue ?? ""
-        prefPickedGear = encodeNames(filterState.pickedGearNames)
         prefMuscleGroups = encodeNames(Set(filterState.selectedMuscleGroups.map(\.rawValue)))
     }
 
@@ -407,56 +387,6 @@ struct ExercisesTabView: View {
               let json = String(data: data, encoding: .utf8)
         else { return "[]" }
         return json
-    }
-}
-
-/// The hand-picked set for the Equipment facet's "Picked equipment" mode:
-/// pick from ALL equipment (not just the active kit) — the point is to
-/// ask "what could I do with X and Y", regardless of what's in the kit.
-/// Writes `pickedGearNames` (names, so imports/reinstalls resolve).
-struct GearPickSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    var filterState: ExerciseFilterState
-    let allEquipment: [Equipment]
-
-    private var clearAction: (() -> Void)? {
-        filterState.pickedGearNames.isEmpty ? nil : { filterState.pickedGearNames.removeAll() }
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(
-                title: "Picked equipment",
-                onCancel: clearAction,
-                cancelLabel: "Clear",
-                action: { dismiss() }
-            )
-            .padding(.horizontal, 18)
-            Text("Show exercises you could do with any of these, whatever's in your kit.")
-                .font(.system(.footnote))
-                .foregroundStyle(Theme.textSecondary)
-                .padding(.top, 6)
-                .padding(.horizontal, 18)
-            ScrollView {
-                FlowLayout(horizontalSpacing: 16, verticalSpacing: 8) {
-                    ForEach(allEquipment) { equipment in
-                        SelectableChip(
-                            label: equipment.name,
-                            isSelected: filterState.pickedGearNames.contains(equipment.name)
-                        ) {
-                            if filterState.pickedGearNames.contains(equipment.name) {
-                                filterState.pickedGearNames.remove(equipment.name)
-                            } else {
-                                filterState.pickedGearNames.insert(equipment.name)
-                            }
-                        }
-                    }
-                }
-                .padding(.vertical)
-                .padding(.horizontal, 18)
-            }
-        }
-        .presentationBackground(Theme.surface)
     }
 }
 

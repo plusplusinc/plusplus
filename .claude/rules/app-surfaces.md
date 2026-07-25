@@ -138,16 +138,26 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   `SegmentedTabs` was RETIRED (2026-07-24) — every other former segmented site
   moved to native `Picker` (`.segmented` for short unit/mode toggles, a pushed
   `NavigationSelectRow` for multi-word modes).
-  **The "Doable" filter** (persisted `@AppStorage`, default on) hides
-  routines/exercises the active kit can't do (All/Routines/Exercises; Kit is
-  equipment, unfiltered) — a single chip by the scope (the persistent two-way
-  control, so the trip back is the same tap; a bottom reveal footer was
-  rejected for burying the return). An EXACT-name match always surfaces past
-  the filter (search intent + the create-collision guard); off reveals all with
-  per-row amber "needs X"; when the filter alone empties results, the state
-  offers a "Show all" `QuietKey`, never a bare "Nothing matches." Copy is
-  **"Doable"** — names the item-set, equipment-agnostic (a bodyweight move is
-  doable, not "equipped"), no collision with the adjacent "Kit" segment.
+  **Kit availability is NOT a filter** (2026-07-25, superseding the "Doable"
+  chip): nothing is HIDDEN by the active kit. What the kit can't do groups
+  under a collapsible **"N exercises/routines require more equipment"**
+  disclosure (`MissingEquipmentHeaderRow`, `Views/Components/`), placed AFTER
+  the doable items, COLLAPSED BY DEFAULT (a whole-row toggle + chevron;
+  `Theme.Anim.standard`). The header is a plain scrolling row (not pinned) in
+  NEUTRAL ink — amber stays the per-row "needs X" advisory; an amber header
+  reads as an alarm over a group. Header copy describes the ITEMS (they require
+  the equipment), not the user, so it clears the no-obligation law; the one
+  sentence lives in `MissingEquipmentPhrasing`. The SAME pattern is on all
+  three surfaces that used to filter: Find-or-create results, the Exercises tab,
+  and the Routines tab (which thereby loses its inline-everything flag-don't-hide
+  for doable-first + a collapsed group — on Routines `.onMove` sits on the
+  doable group only). In `FindOrCreateEngine` the split is a pure `.missing(noun:)`
+  `Section.Kind` (All scope: capped doable overview then a missing group per
+  type, which still shows when a type has ONLY missing results so an
+  only-missing query never empties; scoped: MINE/CATALOG doable, then one
+  uncapped missing group); collapse state is ephemeral per-surface `@State`,
+  reset on entry, and a cross-tab arrival that needs gear expands the group so
+  its entrance flash isn't on a hidden row.
   Results use real `List` `Section`s so `.listStyle(.plain)` PINS each heading
   to the top until the next takes over (one sticky at a time); the header wears
   a solid `Theme.background` so a pinned heading occludes the rows beneath it.
@@ -271,15 +281,19 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   "have" is membership in the ACTIVE `EquipmentLibrary` (Home, Hotel…),
   switched from a tray off the Equipment-tab header (left of the +) and via
   the catalog GEAR facet's "Switch library…" footer; the tab list re-renders
-  behind the tray, which is how the app-wide scope reads. Lists
-  flag-don't-hide (#113): the Routines/Exercises tabs render unavailable
-  gear in notes amber ("needs X", card pills) rather than hiding it. The
+  behind the tray, which is how the app-wide scope reads. Lists never HIDE
+  by kit availability (#113 flag-don't-hide, extended 2026-07-25): the
+  Routines/Exercises tabs render the whole set doable-first, then group what
+  the kit can't do under a collapsible "N … require more equipment" disclosure
+  (see the search-UI section), with unavailable gear in notes amber ("needs X",
+  card pills) on the rows inside. The
   **Exercises tab IS the whole catalog** (2026-07-17): an exercise is a
   thing you choose to do, not property, so there's no library — curation
-  is FAVORITES (`Exercise.isFavorite`; `inLibrary` frozen), and the GEAR
-  facet's four modes (All / can do with the kit / can't / a hand-picked
-  set) are the opt-in availability filter that replaced the old
-  hide-by-default. Filters persist device-locally. Copy says "have"/"in your kit",
+  is FAVORITES (`Exercise.isFavorite`; `inLibrary` frozen). The old GEAR facet
+  (four `GearMode`s: All / can do with the kit / can't / a hand-picked set) was
+  the opt-in availability filter that replaced hide-by-default; it (and
+  `GearPickSheet`) were RETIRED 2026-07-25 for the collapsible group — Favorites
+  and Muscle remain the tab's filters. Filters persist device-locally. Copy says "have"/"in your kit",
   never "own" (that word survives only for data ownership) and never "have access
   to" (retired 2026-07-17; permission-grant copy keeps "access" — Apple's
   word). **One possessive for the active kit: “your kit”** (2026-07-20;

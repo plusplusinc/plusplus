@@ -32,6 +32,12 @@ enum FindOrCreateEngine {
         let name: String
         let mine: Bool
         let score: Double
+        /// Whether the active kit can do this item (all its equipment is in the
+        /// kit). Drives the doable / "require more equipment" partition — the
+        /// engine no longer HIDES un-doable rows, it groups them (2026-07-25).
+        /// Equipment results are always `true` (a piece of gear isn't a thing
+        /// you "do", so it's never in a missing group).
+        let doable: Bool
         /// A routine/template matched only through an exercise it CONTAINS —
         /// carry the hit's name so the match explains itself ("has Bicep
         /// Curl" on a row whose own name says nothing about the query).
@@ -40,7 +46,16 @@ enum FindOrCreateEngine {
     }
 
     struct Section: Identifiable {
-        /// ALL-CAPS section label stem; the view appends " · n".
+        /// A normal results section, or the collapsible "N <noun>s require more
+        /// equipment" group holding what the active kit can't do (2026-07-25).
+        enum Kind: Equatable {
+            case results
+            case missing(noun: String)
+        }
+
+        let id: String
+        /// ALL-CAPS section label stem for `.results`; the view appends " · n".
+        /// Unused for `.missing` (the view builds the sentence from `count`).
         let title: String
         let count: Int
         /// Set on All-scope sections: the header AND the more-row jump here.
@@ -48,7 +63,25 @@ enum FindOrCreateEngine {
         let results: [Result]
         /// Rows folded behind "n more ›" (All scope caps each type).
         let moreCount: Int
-        var id: String { title }
+        var kind: Kind = .results
+
+        init(
+            id: String? = nil,
+            title: String,
+            count: Int,
+            scopeTarget: FindScope?,
+            results: [Result],
+            moreCount: Int,
+            kind: Kind = .results
+        ) {
+            self.id = id ?? title
+            self.title = title
+            self.count = count
+            self.scopeTarget = scopeTarget
+            self.results = results
+            self.moreCount = moreCount
+            self.kind = kind
+        }
     }
 
     /// All-scope sections show this many rows before folding into "n more ›".
@@ -90,11 +123,10 @@ enum FindOrCreateEngine {
     /// An EMPTY query shows everything (no blank state): every item at
     /// score 0, mine-first then alphabetical. A query narrows and ranks:
     /// mine-first, then score, then name.
-    /// `doableOnly` hides routines/exercises the active kit can't do (the
-    /// "Doable" filter, default on) — EXCEPT an exact-name match always
-    /// stays (an intentional search hit, and the guard that keeps the
-    /// create-collision suppression from stranding a hidden row). Equipment
-    /// is never doable-filtered (a piece of gear isn't a thing you "do").
+    /// Nothing is HIDDEN by kit availability anymore (2026-07-25): each
+    /// routine/exercise section splits into the doable rows, then a
+    /// collapsible `.missing(noun:)` group of what the active kit can't do.
+    /// Equipment is never partitioned (a piece of gear isn't a thing you "do").
     static func sections(
         query: String,
         scope: FindScope,
@@ -102,40 +134,77 @@ enum FindOrCreateEngine {
         equipment: [Equipment],
         routines: [Routine],
         templates: [RoutineTemplate],
-        kitNames: Set<String>,
-        doableOnly: Bool = false
+        kitNames: Set<String>
     ) -> [Section] {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         switch scope {
         case .all:
-            let sections: [(String, FindScope, [Result])] = [
-                ("ROUTINES", .routines, routineResults(q, routines: routines, templates: templates, kitNames: kitNames, doableOnly: doableOnly)),
-                ("EXERCISES", .exercises, exerciseResults(q, exercises: exercises, kitNames: kitNames, doableOnly: doableOnly)),
-                ("EQUIPMENT", .kit, equipmentResults(q, equipment: equipment, kitNames: kitNames)),
-            ]
-            return sections.compactMap { title, target, results in
-                guard !results.isEmpty else { return nil }
-                return Section(
-                    title: title,
-                    count: results.count,
-                    scopeTarget: target,
-                    results: Array(results.prefix(allScopeCap)),
-                    moreCount: max(0, results.count - allScopeCap)
-                )
+            var out: [Section] = []
+            out += allScopeSections(
+                "ROUTINES", .routines, "routine",
+                routineResults(q, routines: routines, templates: templates, kitNames: kitNames)
+            )
+            out += allScopeSections(
+                "EXERCISES", .exercises, "exercise",
+                exerciseResults(q, exercises: exercises, kitNames: kitNames)
+            )
+            let gear = equipmentResults(q, equipment: equipment, kitNames: kitNames)
+            if !gear.isEmpty {
+                out.append(Section(
+                    title: "EQUIPMENT",
+                    count: gear.count,
+                    scopeTarget: .kit,
+                    results: Array(gear.prefix(allScopeCap)),
+                    moreCount: max(0, gear.count - allScopeCap)
+                ))
             }
+            return out
         case .routines:
-            return grouped(routineResults(q, routines: routines, templates: templates, kitNames: kitNames, doableOnly: doableOnly))
+            return groupedWithMissing(
+                routineResults(q, routines: routines, templates: templates, kitNames: kitNames),
+                noun: "routine"
+            )
         case .exercises:
-            return grouped(exerciseResults(q, exercises: exercises, kitNames: kitNames, doableOnly: doableOnly))
+            return groupedWithMissing(
+                exerciseResults(q, exercises: exercises, kitNames: kitNames),
+                noun: "exercise"
+            )
         case .kit:
             return grouped(equipmentResults(q, equipment: equipment, kitNames: kitNames))
         }
     }
 
-    /// An exact (case-insensitive) name hit — the one thing the Doable
-    /// filter never hides. An empty query has no exact match.
-    private static func isExactMatch(_ q: String, _ name: String) -> Bool {
-        !q.isEmpty && name.lowercased() == q.lowercased()
+    /// One All-scope type: the capped doable overview section, then (if any)
+    /// the collapsible "N <noun>s require more equipment" group after it. A
+    /// type with ONLY missing results still appears (its missing group renders),
+    /// so an only-missing query never vanishes into "Nothing matches."
+    private static func allScopeSections(
+        _ title: String, _ target: FindScope, _ noun: String, _ results: [Result]
+    ) -> [Section] {
+        let doable = results.filter(\.doable)
+        let missing = results.filter { !$0.doable }
+        var out: [Section] = []
+        if !doable.isEmpty {
+            out.append(Section(
+                title: title,
+                count: doable.count,
+                scopeTarget: target,
+                results: Array(doable.prefix(allScopeCap)),
+                moreCount: max(0, doable.count - allScopeCap)
+            ))
+        }
+        if !missing.isEmpty {
+            out.append(Section(
+                id: "MISSING_\(title)",
+                title: title,
+                count: missing.count,
+                scopeTarget: target,
+                results: Array(missing.prefix(allScopeCap)),
+                moreCount: max(0, missing.count - allScopeCap),
+                kind: .missing(noun: noun)
+            ))
+        }
+        return out
     }
 
     /// The scoped view's two groups. MINE = yours; CATALOG = everything
@@ -154,6 +223,26 @@ enum FindOrCreateEngine {
         return sections
     }
 
+    /// Scoped Routines/Exercises: the doable rows grouped MINE/CATALOG, then a
+    /// single collapsible `.missing(noun:)` group holding everything the kit
+    /// can't do (mine-first ranked, uncapped — the whole point is to reveal it).
+    private static func groupedWithMissing(_ results: [Result], noun: String) -> [Section] {
+        var sections = grouped(results.filter(\.doable))
+        let missing = results.filter { !$0.doable }
+        if !missing.isEmpty {
+            sections.append(Section(
+                id: "MISSING",
+                title: "MISSING",
+                count: missing.count,
+                scopeTarget: nil,
+                results: missing,
+                moreCount: 0,
+                kind: .missing(noun: noun)
+            ))
+        }
+        return sections
+    }
+
     // MARK: - Per-type collection
 
     private static func rank(_ results: [Result]) -> [Result] {
@@ -164,7 +253,7 @@ enum FindOrCreateEngine {
         }
     }
 
-    private static func exerciseResults(_ q: String, exercises: [Exercise], kitNames: Set<String>, doableOnly: Bool) -> [Result] {
+    private static func exerciseResults(_ q: String, exercises: [Exercise], kitNames: Set<String>) -> [Result] {
         rank(exercises.compactMap { exercise in
             guard !exercise.isDeleted else { return nil }
             let score: Double
@@ -175,17 +264,12 @@ enum FindOrCreateEngine {
             } else {
                 return nil
             }
-            // Doable filter: drop what the kit can't do, keeping an exact
-            // name hit (search intent + the create-collision guard).
-            if doableOnly, !isExactMatch(q, exercise.name),
-               !ExerciseFilterState.missingEquipment(for: exercise, available: kitNames).isEmpty {
-                return nil
-            }
             return Result(
                 item: .exercise(exercise),
                 name: exercise.name,
                 mine: exercise.isFavorite || !exercise.isBuiltIn,
                 score: score,
+                doable: ExerciseFilterState.missingEquipment(for: exercise, available: kitNames).isEmpty,
                 matchedExerciseName: nil,
                 id: AnyHashable(exercise.persistentModelID)
             )
@@ -209,6 +293,7 @@ enum FindOrCreateEngine {
                 name: item.name,
                 mine: kitNames.contains(item.name),
                 score: score,
+                doable: true,
                 matchedExerciseName: nil,
                 id: AnyHashable(item.persistentModelID)
             )
@@ -219,20 +304,19 @@ enum FindOrCreateEngine {
         _ q: String,
         routines: [Routine],
         templates: [RoutineTemplate],
-        kitNames: Set<String>,
-        doableOnly: Bool
+        kitNames: Set<String>
     ) -> [Result] {
         var results: [Result] = []
         for routine in routines where !routine.isDeleted {
             let contained = routine.sortedGroups.flatMap(\.sortedExercises).compactMap { $0.exercise?.name }
             guard let (score, matched) = deepScore(q, name: routine.name, contained: contained, extra: "") else { continue }
             let doable = routine.gearAvailability(activeNames: kitNames).allSatisfy(\.available)
-            if doableOnly, !doable, !isExactMatch(q, routine.name) { continue }
             results.append(Result(
                 item: .routine(routine),
                 name: routine.name,
                 mine: true,
                 score: score,
+                doable: doable,
                 matchedExerciseName: matched,
                 id: AnyHashable(routine.persistentModelID)
             ))
@@ -249,12 +333,12 @@ enum FindOrCreateEngine {
             let extra = "\(template.summary) \(template.style.rawValue)"
             guard let (score, matched) = deepScore(q, name: template.name, contained: contained, extra: extra) else { continue }
             let doable = template.equipmentNames.allSatisfy { kitNames.contains($0) }
-            if doableOnly, !doable, !isExactMatch(q, template.name) { continue }
             results.append(Result(
                 item: .template(template),
                 name: template.name,
                 mine: false,
                 score: score,
+                doable: doable,
                 matchedExerciseName: matched,
                 id: AnyHashable("template-\(template.name)")
             ))
