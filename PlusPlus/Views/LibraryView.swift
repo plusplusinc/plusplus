@@ -178,7 +178,6 @@ struct ExercisesTabView: View {
             }
         }
         .revealRoot(tab: "exercises", atRoot: path.isEmpty)
-        .syncsProgramOnClose()
         // Favorites + custom deletes reach GitHub when you leave the tab.
         // The landing may arrive while this tab is unmounted (the root
         // switches tabs on the same notification) — consume on receive
@@ -477,7 +476,6 @@ struct EquipmentTabView: View {
             }
         }
         .revealRoot(tab: "equipment", atRoot: path.isEmpty)
-        .syncsProgramOnClose()
         // Gear membership changes / deletes reach GitHub when you leave the tab.
         // Cross-tab landing (the RoutineArrival shape): receive OR appear,
         // whichever fires first.

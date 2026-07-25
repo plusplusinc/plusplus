@@ -21,12 +21,11 @@ enum FindOrCreateLaunch {
 /// of equipment, yours or the catalog's. The per-tab header magnifiers retired
 /// into this surface; in-picker and pushed-catalog search stay.
 ///
-/// The chrome is the platform's (2026-07-25): the native `.searchable` field
-/// morphed from the tab bar by `Tab(role: .search)`, and the scopes as the
-/// TabView's bottom ACCESSORY riding above that field (`SearchScopeBar`) —
-/// the three catalog tabs the field absorbed, still there to narrow by. Both
-/// sit outside this tab's content, so this view owns neither `query` nor
-/// `scope`; it reads them as bindings and renders what they select.
+/// The field and the scope selector both live in `AppBottomBar` (2026-07-25):
+/// activating search expands the field over the Routines/Exercises/Kit slot and
+/// those three MOVE up into their own row as the scopes. Both sit outside this
+/// view, so it owns neither `query` nor `scope` — it reads them as bindings and
+/// renders what they select.
 ///
 /// Layout: tab-root header grammar (++ key · title · kit switcher — kit is
 /// CONTEXT, never a filter chip) → create row → results.
@@ -59,12 +58,13 @@ struct FindOrCreateView: View {
     /// Computed here because this view already holds the catalog queries —
     /// counting at the root would duplicate them app-wide.
     @Binding var counts: [FindScope: Int]
+    /// One-shot focus intent for the field, which lives in the bottom bar.
+    @Binding var fieldWantsFocus: Bool
 
     @State private var path = NavigationPath()
     /// Native search focus. NOT armed on entry (the field must not auto-rise
     /// the keyboard, Dave 2026-07-24) — set true only by the empty-query Kit
     /// create row ("type a name first" = put the cursor back in the field).
-    @FocusState private var searchFocused: Bool
     @State private var showingLibraryTray = false
     @State private var creatingExercise = false
     @State private var namingRoutine = false
@@ -125,24 +125,12 @@ struct FindOrCreateView: View {
             }
             .background(Theme.background)
             .toolbar(.hidden, for: .navigationBar)
-            // The NATIVE search field: `.searchable` on the search-role tab
-            // morphs the tab bar into the system field (bottom, Liquid Glass),
-            // carrying the native clear and Cancel for free. Placement B
-            // (searchable INSIDE the search tab's stack) so the prompt can read
-            // `scope`; the morph comes from `role: .search`, not from where
-            // `.searchable` sits. No `.tabViewSearchActivation` — the native
-            // default activates search only on a field tap, so the keyboard
-            // does NOT auto-rise on entry (Dave's ask, 2026-07-24).
-            // ⚠️ Device-pass: the documented iOS 26 morph bug — an
-            // `.onGeometryChange` elsewhere in the TabView subtree (TodayView's
-            // onboarding step-height probe) can make the field fall back to the
-            // top `.navigationBarDrawer` placement on the FIRST activation. This
-            // surface HIDES the nav bar, so that fallback has nowhere to render
-            // and the failure reads as NO field. If it recurs, rework the probe
-            // at its source (nav-diag 4e), don't revert.
-            .searchable(text: $query, prompt: Text(searchPrompt))
-            .searchFocused($searchFocused)
-            .onSubmit(of: .search) { openTopResult() }
+            // The field itself is in `AppBottomBar` — it has to be, since it
+            // expands over the group's slot. Its Return key reaches the ranked
+            // results through a notification rather than a closure.
+            .onReceive(NotificationCenter.default.publisher(for: .plusplusOpenTopResult)) { _ in
+                openTopResult()
+            }
             // The four result types push onto THIS stack (registered at the
             // root, #262) so back/swipe-back returns to results with query,
             // scope, and scroll intact — search is a stack, not a modal.
@@ -222,9 +210,7 @@ struct FindOrCreateView: View {
     /// The native field's placeholder, per scope. The Kit scope searches the
     /// equipment CATALOG, not just your kit, so it reads "Search equipment" —
     /// the single-item/catalog sense of the word (kit-vs-equipment law).
-    private var searchPrompt: String {
-        "Search \(scope.searchNoun)"
-    }
+
 
     // MARK: - Results
 
@@ -595,7 +581,7 @@ struct FindOrCreateView: View {
             // "Type a name first": put the cursor back in the field. This is a
             // deliberate user action (they tapped create), so focusing here is
             // not the auto-focus-on-entry the native default avoids.
-            searchFocused = true
+            fieldWantsFocus = true
             return
         }
         let item: Equipment

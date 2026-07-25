@@ -31,20 +31,21 @@ final class SmokeTests: XCTestCase {
         }
     }
 
-    /// The bottom bar is the system's `TabView` bar; tabs are its children.
+    /// The bottom bar is the app's own control (2026-07-25) — search has to
+    /// expand over the group's slot and the group has to MOVE between rows,
+    /// neither of which native tabs can do — so tabs carry `tab-<case>`
+    /// identifiers rather than being `app.tabBars` children.
     private func tabButton(_ tab: String) -> XCUIElement {
-        app.tabBars.buttons[tab.capitalized]
+        app.buttons["tab-\(tab)"]
     }
 
-    /// The NATIVE search field — a `searchField` element, not a custom
-    /// `textField` with a set identifier.
     private var searchField: XCUIElement {
-        app.searchFields.firstMatch
+        app.textFields["findSearchField"]
     }
 
-    /// Open the search tab (the separated circle beside the tab group).
+    /// Open search from the bar (the floating key beside the group).
     private func openSearch() {
-        let key = app.tabBars.buttons["Search"]
+        let key = app.buttons["searchTabButton"]
         XCTAssertTrue(key.waitForExistence(timeout: 10))
         key.tap()
         XCTAssertTrue(searchField.waitForExistence(timeout: 5))
@@ -280,8 +281,7 @@ final class SmokeTests: XCTestCase {
 
         // Cancel collapses search back onto the tab it was opened from —
         // Today never left the bar, and neither did the tab underneath.
-        let cancelSearch = app.buttons["Cancel"]
-        if cancelSearch.exists { cancelSearch.tap() }
+        app.buttons["searchCancelButton"].tap()
         XCTAssertTrue(plus.waitForExistence(timeout: 5))
     }
 

@@ -145,12 +145,11 @@ enum FindOrCreateEngine {
         )
     }
 
-    /// Results for the live query, within one scope. An empty query ranks
-    /// EVERYTHING at score 0 (mine-first, then alphabetical): with search open
-    /// but nothing typed, the scope shows exactly what its tab shows, so the
-    /// field narrows a list already in front of you rather than replacing an
-    /// empty screen (Dave, 2026-07-25). A query narrows and ranks: mine-first,
-    /// then score, then name.
+    /// Results for the live query, within one scope. This is the ONE list each
+    /// catalog surface shows (2026-07-25): with no query it IS the tab's list —
+    /// everything, mine-first, in the caller's own order (so a user's routine
+    /// ordering survives) — and a query narrows and ranks it: mine-first, then
+    /// score, then name. Same view either way; the field only filters.
     /// Nothing is HIDDEN by kit availability (2026-07-25): each routine/exercise
     /// scope splits into the doable rows, then a collapsible `.missing(noun:)`
     /// group of what the active kit can't do. Equipment is never partitioned
@@ -251,8 +250,19 @@ enum FindOrCreateEngine {
 
     // MARK: - Per-type collection
 
-    private static func rank(_ results: [Result]) -> [Result] {
-        results.sorted { a, b in
+    /// Mine first, then best match, then name.
+    ///
+    /// With NO query this becomes a stable partition on `mine` alone, which
+    /// preserves the caller's incoming order — and that order is meaningful:
+    /// routines arrive in the user's own `Routine.order` (which drag-reorder
+    /// writes), exercises and equipment arrive alphabetically from their
+    /// queries. Re-sorting by name here would silently discard a user's
+    /// routine ordering the moment their tab started rendering these sections.
+    private static func rank(_ results: [Result], query: String) -> [Result] {
+        guard !query.isEmpty else {
+            return results.filter(\.mine) + results.filter { !$0.mine }
+        }
+        return results.sorted { a, b in
             if a.mine != b.mine { return a.mine }
             if a.score != b.score { return a.score > b.score }
             return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
@@ -279,7 +289,7 @@ enum FindOrCreateEngine {
                 matchedExerciseName: nil,
                 id: AnyHashable(exercise.persistentModelID)
             )
-        })
+        }, query: q)
     }
 
     private static func equipmentResults(_ q: String, equipment: [Equipment], kitNames: Set<String>) -> [Result] {
@@ -303,7 +313,7 @@ enum FindOrCreateEngine {
                 matchedExerciseName: nil,
                 id: AnyHashable(item.persistentModelID)
             )
-        })
+        }, query: q)
     }
 
     private static func routineResults(
@@ -349,7 +359,7 @@ enum FindOrCreateEngine {
                 id: AnyHashable("template-\(template.name)")
             ))
         }
-        return rank(results)
+        return rank(results, query: q)
     }
 
     /// The routine-family score: the name is the headline; a hit anywhere

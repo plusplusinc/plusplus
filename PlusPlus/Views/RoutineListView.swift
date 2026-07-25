@@ -165,7 +165,6 @@ struct RoutineListView: View {
             }
         }
         .revealRoot(tab: "routines", atRoot: path.isEmpty)
-        .syncsProgramOnClose()
         // Operator's outcome navigation: a touched routine pushes by its
         // stable uuid (RoutineRef is registered at this stack root, per
         // the #262/#291 laws). The path resets first so the result is
