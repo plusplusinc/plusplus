@@ -47,7 +47,14 @@ struct RoutineListView: View {
     /// the cards below slide down to make room (Dave, 2026-07-16). Reset to
     /// false where the add lands, before the list re-renders.
     @State private var revealNewCard = false
+    /// Whether the "N routines require more equipment" group is expanded
+    /// (collapsed by default; ephemeral).
+    @State private var showMissingRoutines = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var kitNames: Set<String> {
+        EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.memberNames ?? []
+    }
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -68,32 +75,29 @@ struct RoutineListView: View {
                 ScrollViewReader { proxy in
                     List {
                     addRoutineRow
-                    ForEach(displayedRoutines) { routine in
-                        SwipeRevealRow(
-                            id: routine.persistentModelID,
-                            openRow: $openSwipeRow,
-                            actionsWidth: 58,
-                            onTap: { routine.uuid.map { path.append(RoutineRef(uuid: $0)) } },
-                            accessibilityActions: [
-                                SwipeRowAction(name: "Delete") {
-                                    openSwipeRow = nil
-                                    deleteRoutine(routine)
-                                }
-                            ]
-                        ) {
-                            RoutineCard(routine: routine, justAdded: routine.persistentModelID == newlyAdded)
-                        } actions: {
-                            SwipeActionButton(label: "DELETE", color: Theme.destructive) {
-                                openSwipeRow = nil
-                                deleteRoutine(routine)
-                            }
-                        }
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
-                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                        .transition(.opacity)
+                    // Doable routines first, reorderable; what the active kit
+                    // can't do tucks under a collapsible group after them
+                    // (2026-07-25). Only the doable group reorders (a routine
+                    // you can't do isn't a thing you're sequencing).
+                    ForEach(doableRoutines) { routine in
+                        routineRow(routine)
                     }
                         .onMove(perform: moveRoutines)
+                    if !missingRoutines.isEmpty {
+                        MissingEquipmentHeaderRow(
+                            count: missingRoutines.count,
+                            noun: "routine",
+                            isExpanded: showMissingRoutines,
+                            identifier: "missingEquipmentToggle-routines"
+                        ) {
+                            withAnimation(Theme.Anim.standard) { showMissingRoutines.toggle() }
+                        }
+                        if showMissingRoutines {
+                            ForEach(missingRoutines) { routine in
+                                routineRow(routine)
+                            }
+                        }
+                    }
                     if displayedRoutines.isEmpty {
                         routinesEmptyHint
                     }
@@ -208,6 +212,11 @@ struct RoutineListView: View {
         guard let routine = modelContext.routine(uuid: uuid) else { return }
         path = NavigationPath()
         revealNewCard = false     // hold the card out for the entrance beat
+        // A template add that needs gear lands in the missing group — expand
+        // it so the entrance flash isn't playing on a collapsed row.
+        if !routine.gearAvailability(activeNames: kitNames).allSatisfy(\.available) {
+            showMissingRoutines = true
+        }
         newlyAdded = routine.persistentModelID
     }
 
@@ -223,6 +232,34 @@ struct RoutineListView: View {
         .listRowSeparator(.hidden)
     }
 
+    /// One routine card row — shared by the doable list and the collapsible
+    /// missing group so both read identically.
+    private func routineRow(_ routine: Routine) -> some View {
+        SwipeRevealRow(
+            id: routine.persistentModelID,
+            openRow: $openSwipeRow,
+            actionsWidth: 58,
+            onTap: { routine.uuid.map { path.append(RoutineRef(uuid: $0)) } },
+            accessibilityActions: [
+                SwipeRowAction(name: "Delete") {
+                    openSwipeRow = nil
+                    deleteRoutine(routine)
+                }
+            ]
+        ) {
+            RoutineCard(routine: routine, justAdded: routine.persistentModelID == newlyAdded)
+        } actions: {
+            SwipeActionButton(label: "DELETE", color: Theme.destructive) {
+                openSwipeRow = nil
+                deleteRoutine(routine)
+            }
+        }
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
+        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+        .transition(.opacity)
+    }
+
     /// The list, minus the just-added card while it's still held out for
     /// its entrance (revealNewCard == false). Once `newlyAdded` clears the
     /// filter is a no-op, so the steady state shows everything. (Narrowing
@@ -231,19 +268,30 @@ struct RoutineListView: View {
         routines.filter { $0.persistentModelID != newlyAdded || revealNewCard }
     }
 
+    /// Split by whether the active kit can do the routine (2026-07-25). Both
+    /// keep the `order` sort of `displayedRoutines`; the missing ones group
+    /// under a collapsible disclosure instead of being hidden.
+    private var doableRoutines: [Routine] {
+        displayedRoutines.filter { $0.gearAvailability(activeNames: kitNames).allSatisfy(\.available) }
+    }
+
+    private var missingRoutines: [Routine] {
+        displayedRoutines.filter { !$0.gearAvailability(activeNames: kitNames).allSatisfy(\.available) }
+    }
+
     private func deleteRoutine(_ routine: Routine) {
         modelContext.delete(routine)
         reindexRoutines()
     }
 
     private func moveRoutines(from source: IndexSet, to destination: Int) {
-        // Reorder over the SAME collection the ForEach displays: `.onMove`
-        // hands indices into `displayedRoutines`, so basing the move on the
-        // full `routines` would mis-map during the brief entrance window
-        // where the two diverge. In the steady state they're identical.
-        var reordered = displayedRoutines
+        // `.onMove` sits on the DOABLE group only, so its indices map into
+        // `doableRoutines`. Reorder that subset, then write `order` back over
+        // the whole list as (reordered doable) ++ (missing, order preserved)
+        // so `order` stays a clean 0..n and a kit change re-sorts cleanly.
+        var reordered = doableRoutines
         reordered.move(fromOffsets: source, toOffset: destination)
-        for (index, routine) in reordered.enumerated() {
+        for (index, routine) in (reordered + missingRoutines).enumerated() {
             routine.order = index
         }
     }

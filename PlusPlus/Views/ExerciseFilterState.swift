@@ -11,29 +11,18 @@ final class ExerciseFilterState {
     var selectedEquipment: Set<Equipment> = []
     /// Show only favorited exercises (the whole-catalog curation).
     var favoritesOnly = false
-    /// Gear-availability mode (nil = All). `.withKit`/`.withoutKit` test
-    /// against the active kit passed to `filteredExercises`; `.handPicked`
-    /// tests against `pickedGearNames`.
-    var gearMode: GearMode?
-    /// The hand-picked gear set for `.handPicked` mode. Names, not IDs, so
-    /// the choice survives reinstalls and imports (the memberNames
-    /// convention).
-    var pickedGearNames: Set<String> = []
 
-    enum GearMode: String, CaseIterable, Hashable {
-        case withKit, withoutKit, handPicked
-    }
-
-    /// The whole catalog, narrowed by the active filters (2026-07-17: no
-    /// availability hiding — `.withKit`/`.withoutKit`/`.handPicked` are
-    /// explicit, opt-in gear modes, and All shows everything). `kitNames`
-    /// is the active kit's membership, for the gear modes.
+    /// The whole catalog, narrowed by the active filters. Kit availability is
+    /// NOT a filter anymore (2026-07-25): the catalog view keeps every match
+    /// and groups what the kit can't do under a collapsible "require more
+    /// equipment" disclosure. `kitNames` is unused here now, kept in the
+    /// signature so callers don't churn (the view partitions on doability with
+    /// `missingEquipment`).
     func filteredExercises(from allExercises: [Exercise], kitNames: Set<String>) -> [Exercise] {
         let matched = allExercises.filter { exercise in
             matchesFavorites(exercise)
                 && matchesMuscleGroup(exercise)
                 && matchesEquipment(exercise)
-                && matchesGear(exercise, kitNames: kitNames)
         }
         .sorted { $0.name < $1.name }
         // Forgiving search (the FuzzySearch tiers), ranked best-first —
@@ -138,15 +127,6 @@ final class ExerciseFilterState {
         !favoritesOnly || exercise.isFavorite
     }
 
-    private func matchesGear(_ exercise: Exercise, kitNames: Set<String>) -> Bool {
-        switch gearMode {
-        case nil: true
-        case .withKit: Self.missingEquipment(for: exercise, available: kitNames).isEmpty
-        case .withoutKit: !Self.missingEquipment(for: exercise, available: kitNames).isEmpty
-        case .handPicked: Self.missingEquipment(for: exercise, available: pickedGearNames).isEmpty
-        }
-    }
-
     private func matchesMuscleGroup(_ exercise: Exercise) -> Bool {
         selectedMuscleGroups.isEmpty || selectedMuscleGroups.contains(exercise.muscleGroup)
     }
@@ -169,8 +149,6 @@ final class ExerciseFilterState {
     /// change (ExerciseFilterState is a plain @Observable, not a View).
     enum Prefs {
         static let favoritesOnly = "exerciseCatalog.favoritesOnly"
-        static let gearMode = "exerciseCatalog.gearMode"
-        static let pickedGear = "exerciseCatalog.pickedGear"
         static let muscleGroups = "exerciseCatalog.muscleGroups"
     }
 }

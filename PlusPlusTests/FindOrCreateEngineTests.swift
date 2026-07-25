@@ -74,35 +74,63 @@ struct FindOrCreateEngineTests {
             exercises: world.exercises, equipment: world.equipment,
             routines: world.routines, templates: [], kitNames: world.kitNames
         )
-        #expect(sections.map(\.title) == ["MINE", "CATALOG"])
+        // Doable grouped MINE/CATALOG, then the collapsible missing group:
+        // Probe Press needs Probe Bench (not in the kit), so it splits out.
+        #expect(sections.map(\.title) == ["MINE", "CATALOG", "MISSING"])
         // MINE = the favorite + the custom, alphabetical within the tier.
         #expect(sections[0].results.map(\.name) == ["Probe Curl", "Probe Custom Move"])
-        #expect(sections[1].results.map(\.name) == ["Probe Press", "Probe Squat"])
+        #expect(sections[1].results.map(\.name) == ["Probe Squat"])
+        #expect(sections[2].kind == .missing(noun: "exercise"))
+        #expect(sections[2].results.map(\.name) == ["Probe Press"])
     }
 
-    @Test("All scope caps each section at three and counts the fold")
+    @Test("All scope caps the doable overview and folds the rest")
     func allScopeCaps() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+
+        // Five doable routines (1 user + 4 templates) exercise the fold; the
+        // bodyweight exercises stay doable, Probe Press splits to its own group.
+        let sections = FindOrCreateEngine.sections(
+            query: "", scope: .all,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines,
+            templates: [template("Probe Plan A"), template("Probe Plan B"),
+                        template("Probe Plan C"), template("Probe Plan D")],
+            kitNames: world.kitNames
+        )
+        let routines = try #require(sections.first { $0.title == "ROUTINES" && $0.kind == .results })
+        #expect(routines.count == 5)          // full count before the fold
+        #expect(routines.results.count == 3)  // capped
+        #expect(routines.moreCount == 2)
+        #expect(routines.results.first?.name == "Probe Day")  // yours floats up
+
+        let exercisesDoable = try #require(sections.first { $0.title == "EXERCISES" && $0.kind == .results })
+        #expect(exercisesDoable.results.map(\.name) == ["Probe Curl", "Probe Custom Move", "Probe Squat"])
+        #expect(exercisesDoable.moreCount == 0)
+    }
+
+    @Test("All scope: a missing group follows its type with a scope jump")
+    func allScopeMissingGroup() throws {
         let context = ModelContext(try makeContainer())
         let world = makeWorld(context: context)
 
         let sections = FindOrCreateEngine.sections(
             query: "", scope: .all,
             exercises: world.exercises, equipment: world.equipment,
-            routines: world.routines, templates: [template("Probe Plan A"), template("Probe Plan B")],
-            kitNames: world.kitNames
+            routines: world.routines, templates: [], kitNames: world.kitNames
         )
-        #expect(sections.map(\.title) == ["ROUTINES", "EXERCISES", "EQUIPMENT"])
-        let routines = sections[0]
-        // 1 user routine + 2 templates = 3, capped without a fold.
-        #expect(routines.count == 3)
-        #expect(routines.moreCount == 0)
-        // The user's routine floats above both templates.
-        #expect(routines.results.first?.name == "Probe Day")
-        let exercises = sections[1]
-        #expect(exercises.count == 4)
-        #expect(exercises.results.count == 3)
-        #expect(exercises.moreCount == 1)
-        #expect(exercises.scopeTarget == .exercises)
+        let missing = try #require(sections.first { $0.kind == .missing(noun: "exercise") })
+        #expect(missing.count == 1)
+        #expect(missing.results.map(\.name) == ["Probe Press"])
+        // The group's more-row jumps into the exercises scope, like the
+        // doable overview above it.
+        #expect(missing.scopeTarget == .exercises)
+        // It sits right after the doable EXERCISES section.
+        let titles = sections.map(\.id)
+        let doableIdx = try #require(titles.firstIndex(of: "EXERCISES"))
+        let missingIdx = try #require(titles.firstIndex(of: "MISSING_EXERCISES"))
+        #expect(missingIdx == doableIdx + 1)
     }
 
     // MARK: - Partitions
@@ -289,60 +317,47 @@ struct FindOrCreateEngineTests {
         #expect(c.routine)
     }
 
-    // MARK: - Doable filter
+    // MARK: - Missing-equipment group
 
-    @Test("Doable filter hides an exercise the kit can't do")
-    func doableFilterHidesUndoableExercise() throws {
+    @Test("An exercise the kit can't do groups under the missing section, not CATALOG")
+    func missingExerciseGroups() throws {
         let context = ModelContext(try makeContainer())
         let world = makeWorld(context: context)
         // Probe Press needs Probe Bench (not in the kit); the others are
-        // bodyweight. Browsing with the filter on drops only Probe Press.
+        // bodyweight. It splits into the collapsible group, kept out of the
+        // doable MINE/CATALOG groups.
         let sections = FindOrCreateEngine.sections(
             query: "", scope: .exercises,
             exercises: world.exercises, equipment: world.equipment,
-            routines: world.routines, templates: [], kitNames: world.kitNames,
-            doableOnly: true
+            routines: world.routines, templates: [], kitNames: world.kitNames
         )
-        let names = sections.flatMap(\.results).map(\.name)
-        #expect(!names.contains("Probe Press"))
-        #expect(names.contains("Probe Curl"))
+        let doable = sections.filter { $0.kind == .results }.flatMap(\.results).map(\.name)
+        #expect(!doable.contains("Probe Press"))
+        #expect(doable.contains("Probe Curl"))
+        let missing = try #require(sections.first { $0.kind == .missing(noun: "exercise") })
+        #expect(missing.results.map(\.name) == ["Probe Press"])
     }
 
-    @Test("The filter off shows everything")
-    func doableFilterOffShowsAll() throws {
+    @Test("Result.doable reflects kit availability")
+    func resultDoableFlag() throws {
         let context = ModelContext(try makeContainer())
         let world = makeWorld(context: context)
         let sections = FindOrCreateEngine.sections(
             query: "", scope: .exercises,
             exercises: world.exercises, equipment: world.equipment,
-            routines: world.routines, templates: [], kitNames: world.kitNames,
-            doableOnly: false
+            routines: world.routines, templates: [], kitNames: world.kitNames
         )
-        #expect(sections.flatMap(\.results).map(\.name).contains("Probe Press"))
+        let byName = Dictionary(uniqueKeysWithValues: sections.flatMap(\.results).map { ($0.name, $0.doable) })
+        #expect(byName["Probe Curl"] == true)
+        #expect(byName["Probe Press"] == false)
     }
 
-    @Test("An exact name surfaces even when the kit can't do it")
-    func doableFilterExactNameSurfaces() throws {
-        let context = ModelContext(try makeContainer())
-        let world = makeWorld(context: context)
-        // Searching the exact undoable name still finds it (search intent +
-        // the guard that keeps create-collision suppression from stranding
-        // a hidden row).
-        let sections = FindOrCreateEngine.sections(
-            query: "Probe Press", scope: .exercises,
-            exercises: world.exercises, equipment: world.equipment,
-            routines: world.routines, templates: [], kitNames: world.kitNames,
-            doableOnly: true
-        )
-        #expect(sections.flatMap(\.results).map(\.name).contains("Probe Press"))
-    }
-
-    @Test("Doable filter hides a routine the kit can't do")
-    func doableFilterHidesUndoableRoutine() throws {
+    @Test("A routine the kit can't do groups under the missing section")
+    func missingRoutineGroups() throws {
         let context = ModelContext(try makeContainer())
         let world = makeWorld(context: context)
         // A routine built on Probe Press needs Probe Bench; Probe Day (Probe
-        // Curl) is bodyweight and stays.
+        // Curl) is bodyweight and stays doable.
         let press = try #require(world.exercises.first { $0.name == "Probe Press" })
         let gymDay = Routine(name: "Probe Gym Day", order: 1)
         context.insert(gymDay)
@@ -352,11 +367,12 @@ struct FindOrCreateEngineTests {
         let sections = FindOrCreateEngine.sections(
             query: "", scope: .routines,
             exercises: world.exercises, equipment: world.equipment,
-            routines: world.routines + [gymDay], templates: [], kitNames: world.kitNames,
-            doableOnly: true
+            routines: world.routines + [gymDay], templates: [], kitNames: world.kitNames
         )
-        let names = sections.flatMap(\.results).map(\.name)
-        #expect(names.contains("Probe Day"))
-        #expect(!names.contains("Probe Gym Day"))
+        let doable = sections.filter { $0.kind == .results }.flatMap(\.results).map(\.name)
+        #expect(doable.contains("Probe Day"))
+        #expect(!doable.contains("Probe Gym Day"))
+        let missing = try #require(sections.first { $0.kind == .missing(noun: "routine") })
+        #expect(missing.results.map(\.name) == ["Probe Gym Day"])
     }
 }

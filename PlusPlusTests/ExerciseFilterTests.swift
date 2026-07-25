@@ -195,11 +195,11 @@ struct ExerciseFilterTests {
         #expect(result.count == 6)
     }
 
-    /// Gear modes (2026-07-17): nothing hides by default (whole catalog);
-    /// `.withKit` keeps only doable-with-the-kit work, `.withoutKit` its
-    /// complement, `.handPicked` tests a chosen set. `missingEquipment`
-    /// still reports the gap for the row cue.
-    @Test func gearModesFilterByAvailability() throws {
+    /// Kit availability is no longer a FILTER (2026-07-25): the catalog view
+    /// shows the whole catalog and partitions on `missingEquipment` (empty ==
+    /// doable) into a collapsible "require more equipment" group. Assert the
+    /// primitive that drives that partition + the row cue.
+    @Test func missingEquipmentReportsTheGap() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
         let (_, _, _, exercises) = makeExercises(context: context)
@@ -208,31 +208,17 @@ struct ExerciseFilterTests {
         let kit: Set<String> = ["Dumbbells"]
         let filter = ExerciseFilterState()
 
-        // Default (All): the whole catalog, no hiding.
+        // The whole catalog is present regardless of the kit.
         let all = filter.filteredExercises(from: exercises, kitNames: kit)
-        #expect(all.contains { $0.name == "Probe Press" }, "barbell work shows under All")
-
-        // Can do now: barbell work drops, dumbbell + bodyweight stay.
-        filter.gearMode = .withKit
-        let doable = filter.filteredExercises(from: exercises, kitNames: kit)
-        #expect(!doable.contains { $0.name == "Probe Press" }, "barbell work needs gear the kit lacks")
-        #expect(doable.contains { $0.name == "Probe Curl" }, "dumbbell work stays")
-        #expect(doable.contains { $0.name == "Probe Push" }, "bodyweight always stays")
-
-        // Can't yet: the complement.
-        filter.gearMode = .withoutKit
-        let notYet = filter.filteredExercises(from: exercises, kitNames: kit)
-        #expect(notYet.contains { $0.name == "Probe Press" }, "barbell work is what you can't do yet")
-        #expect(!notYet.contains { $0.name == "Probe Curl" }, "doable work drops from the complement")
-
-        // Hand-picked: add a barbell to the picked set → barbell work returns.
-        filter.gearMode = .handPicked
-        filter.pickedGearNames = ["Barbell"]
-        let picked = filter.filteredExercises(from: exercises, kitNames: kit)
-        #expect(picked.contains { $0.name == "Probe Press" }, "picked barbell enables barbell work")
+        #expect(all.contains { $0.name == "Probe Press" }, "barbell work still shows")
 
         let press = try #require(exercises.first { $0.name == "Probe Press" })
+        let curl = try #require(exercises.first { $0.name == "Probe Curl" })
+        let push = try #require(exercises.first { $0.name == "Probe Push" })
+        // Barbell work is missing gear; dumbbell + bodyweight are doable.
         #expect(ExerciseFilterState.missingEquipment(for: press, available: kit) == ["Barbell"])
+        #expect(ExerciseFilterState.missingEquipment(for: curl, available: kit).isEmpty)
+        #expect(ExerciseFilterState.missingEquipment(for: push, available: kit).isEmpty)
     }
 
     // MARK: - Create-from-here prefill

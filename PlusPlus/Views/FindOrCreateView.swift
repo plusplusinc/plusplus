@@ -61,13 +61,11 @@ struct FindOrCreateView: View {
     @State private var creatingExercise = false
     @State private var namingRoutine = false
     @State private var newRoutineName = ""
-    /// The "Doable" filter: show only routines/exercises the active kit can
-    /// do (default on). A FILTER preference, so unlike the query it PERSISTS
-    /// across entries (the catalogs persist their availability facet too) —
-    /// someone who wants the full catalog turns it off once. The chip is the
-    /// two-way control, always at the top so the trip back is as reachable as
-    /// the trip out.
-    @AppStorage("findOrCreateDoableOnly") private var doableOnly = true
+    /// Which "N <noun>s require more equipment" groups are expanded. Ephemeral
+    /// like the query (a stale expansion would be as odd as a stale search) —
+    /// reset to collapsed on every entry. Keyed by `Section.id`
+    /// ("MISSING_ROUTINES"/"MISSING_EXERCISES" in All scope, "MISSING" scoped).
+    @State private var expandedMissing: Set<String> = []
 
     private var activeLibrary: EquipmentLibrary? {
         EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)
@@ -89,10 +87,7 @@ struct FindOrCreateView: View {
             equipment: allEquipment,
             routines: routines,
             templates: RoutineCatalog.all,
-            kitNames: kitNames,
-            // Kit scope lists equipment, which the Doable filter never
-            // touches — so it only narrows in All/Routines/Exercises.
-            doableOnly: doableOnly && scope != .kit
+            kitNames: kitNames
         )
     }
 
@@ -110,11 +105,12 @@ struct FindOrCreateView: View {
                         showingLibraryTray = true
                     }
                 }
-                // Scope + the Doable filter are the TOP controls (mode +
-                // narrowing). The native search field sits at the BOTTOM,
-                // morphed from the tab bar by `role: .search` + `.searchable`.
+                // Scope is the TOP control (the mode). The native search field
+                // sits at the BOTTOM, morphed from the tab bar by
+                // `role: .search` + `.searchable`. Kit availability is no longer
+                // a filter here — un-doable results group under a collapsible
+                // "require more equipment" disclosure in the list (2026-07-25).
                 scopeSegmented
-                doableFilterRow
                 resultsList
             }
             .background(Theme.background)
@@ -202,6 +198,7 @@ struct FindOrCreateView: View {
         scope = launch ?? .all
         query = ""
         path = NavigationPath()
+        expandedMissing = []      // every entry starts with missing groups collapsed
         // Deliberately no focus arming: the native field stays unfocused on
         // entry, so the keyboard doesn't auto-rise (Dave 2026-07-24).
     }
@@ -242,30 +239,6 @@ struct FindOrCreateView: View {
         .padding(.bottom, 8)
     }
 
-    /// The Doable filter: hide what the active kit can't do. Off reveals
-    /// everything with the rows' own amber "needs X" tags. Absent in Kit
-    /// scope, where results are equipment (nothing to "do"). This chip is
-    /// the persistent two-way control — the trip back to filtered is the
-    /// same tap, always in reach here rather than stranded below results.
-    @ViewBuilder
-    private var doableFilterRow: some View {
-        if scope != .kit {
-            HStack(spacing: 0) {
-                SelectableChip(
-                    label: "Doable",
-                    isSelected: doableOnly,
-                    identifier: "findDoableFilter",
-                    systemImage: nil
-                ) {
-                    doableOnly.toggle()
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 6)
-        }
-    }
-
     // MARK: - Results
 
     private var resultsList: some View {
@@ -279,16 +252,43 @@ struct FindOrCreateView: View {
             // Real Sections (not loose header rows) so `.listStyle(.plain)`
             // PINS each heading to the top of the scroll area until the next
             // section's heading pushes it up — one sticky heading at a time.
+            // A `.missing` section is the collapsible "require more equipment"
+            // group: its rows show only when expanded, behind a plain (never
+            // pinned) disclosure header row.
             ForEach(sections) { section in
-                Section {
-                    ForEach(section.results) { result in
-                        resultRow(result, unlockedCounts: unlockedCounts)
+                switch section.kind {
+                case .results:
+                    Section {
+                        ForEach(section.results) { result in
+                            resultRow(result, unlockedCounts: unlockedCounts)
+                        }
+                        if section.moreCount > 0 {
+                            moreRow(section)
+                        }
+                    } header: {
+                        sectionHeaderView(section)
                     }
-                    if section.moreCount > 0 {
-                        moreRow(section)
+                case .missing(let noun):
+                    Section {
+                        MissingEquipmentHeaderRow(
+                            count: section.count,
+                            noun: noun,
+                            isExpanded: expandedMissing.contains(section.id),
+                            identifier: "missingEquipmentToggle-\(section.id)"
+                        ) {
+                            withAnimation(Theme.Anim.standard) {
+                                toggleMissing(section.id)
+                            }
+                        }
+                        if expandedMissing.contains(section.id) {
+                            ForEach(section.results) { result in
+                                resultRow(result, unlockedCounts: unlockedCounts)
+                            }
+                            if section.moreCount > 0 {
+                                moreRow(section)
+                            }
+                        }
                     }
-                } header: {
-                    sectionHeaderView(section)
                 }
             }
             if sections.isEmpty {
@@ -300,47 +300,25 @@ struct FindOrCreateView: View {
         .scrollDismissesKeyboard(.immediately)
     }
 
-    /// Empty results are never a bare dead end. If the Doable filter is what
-    /// emptied them (matches exist, just not with this kit), say so and offer
-    /// the one-tap way through — the "Clear filters"-key grammar, so a locked
-    /// search never reads as "nothing exists."
-    @ViewBuilder
+    /// Empty results are only ever a truly empty match now — un-doable items
+    /// are never hidden, they group under the collapsible disclosure, so a
+    /// kit that can do nothing still shows that group rather than emptying.
     private var emptyState: some View {
-        VStack(spacing: 12) {
-            if doableHidingMatches {
-                Text("Nothing here your kit can do.")
-                    .font(.system(.footnote))
-                    .foregroundStyle(Theme.textFaint)
-                QuietKey(label: "Show all", systemImage: "line.3.horizontal.decrease", identifier: "findShowAll") {
-                    doableOnly = false
-                }
-            } else {
-                Text("Nothing matches.")
-                    .font(.system(.footnote))
-                    .foregroundStyle(Theme.textFaint)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 24)
-        .listRowBackground(Color.clear)
-        .listRowSeparator(.hidden)
+        Text("Nothing matches.")
+            .font(.system(.footnote))
+            .foregroundStyle(Theme.textFaint)
+            .frame(maxWidth: .infinity)
+            .padding(.top, 24)
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
     }
 
-    /// True when the Doable filter alone is emptying the results — the same
-    /// query would show rows with the filter off. Only computed when the
-    /// filtered results are already empty, so the extra pass is rare.
-    private var doableHidingMatches: Bool {
-        guard doableOnly, scope != .kit else { return false }
-        return !FindOrCreateEngine.sections(
-            query: trimmedQuery,
-            scope: scope,
-            exercises: allExercises,
-            equipment: allEquipment,
-            routines: routines,
-            templates: RoutineCatalog.all,
-            kitNames: kitNames,
-            doableOnly: false
-        ).isEmpty
+    private func toggleMissing(_ id: String) {
+        if expandedMissing.contains(id) {
+            expandedMissing.remove(id)
+        } else {
+            expandedMissing.insert(id)
+        }
     }
 
     private func sectionHeaderView(_ section: FindOrCreateEngine.Section) -> some View {
