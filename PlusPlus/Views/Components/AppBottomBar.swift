@@ -42,11 +42,6 @@ struct AppBottomBar: View {
     /// Return key — opens the top result.
     var onSubmit: () -> Void
 
-    /// The `SearchFieldBody` one-shot focus contract. Nothing ever arms it:
-    /// activating search expands the field and lifts the group, and the
-    /// keyboard rises only when the field itself is tapped (Dave, 2026-07-25).
-    @State private var fieldWantsFocus = false
-
     @Namespace private var glass
 
     /// The catalog the group is pointing at. There is ONE source of truth: the
@@ -77,7 +72,10 @@ struct AppBottomBar: View {
                             prompt: "Search \(scope?.searchNoun ?? "routines")",
                             identifier: "findSearchField"
                         ),
-                        wantsFocus: $fieldWantsFocus,
+                        // Never armed: activating search expands the field and
+                        // lifts the group, and the keyboard rises only when the
+                        // field itself is tapped (Dave, 2026-07-25).
+                        wantsFocus: .constant(false),
                         onSubmit: onSubmit
                     )
                     cancelKey

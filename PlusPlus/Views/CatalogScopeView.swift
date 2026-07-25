@@ -79,9 +79,10 @@ struct CatalogScopeView: View {
     /// owns it, behind the header's expanding field.
     @Binding private var boundQuery: String
     /// Per-scope match counts, published UP to the bar's scope labels. Each
-    /// mounted surface writes only its OWN key, from sections it already
-    /// computed — counting all three in one place meant a second full ranking
-    /// pass per keystroke on top of the one the visible surface runs.
+    /// mounted surface writes only its OWN key, by summing its own sections —
+    /// so a surface ranks one type, not three. (The engine used to expose a
+    /// `matchCounts` that ranked ALL three types for whichever surface was
+    /// visible, on top of the pass that surface already ran for its own rows.)
     @Binding private var counts: [FindScope: Int]
     /// Whether the bar is pointing at this scope. All three stay mounted, so
     /// anything that answers a global signal (the field's Return key) has to
@@ -210,6 +211,27 @@ struct CatalogScopeView: View {
             templates: RoutineCatalog.all,
             kitNames: kitNames
         )
+    }
+
+    /// What this surface actually draws. Everywhere except the PRESENTED
+    /// equipment catalog that is `sections` verbatim.
+    ///
+    /// There it is one flat alphabetical run instead, because that surface is
+    /// where you ADD: with MINE above CATALOG, every quick-add lifts the row
+    /// you just swiped out of its place and drops it at the top, and the eight
+    /// rows below it shift under your thumb. Losing your scroll position on
+    /// every add is the opposite of "pick, tune, keep moving", and it lands
+    /// hardest in onboarding step 1. The in-kit checkmark carries membership
+    /// here; the MINE/CATALOG split earns its keep on the TAB, where you
+    /// arrive fresh and want yours first.
+    private var displayedSections: [FindOrCreateEngine.Section] {
+        let sections = self.sections
+        guard case .presented = mode, scope == .kit else { return sections }
+        let flat = sections.flatMap(\.results).sorted {
+            $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
+        guard !flat.isEmpty else { return [] }
+        return [FindOrCreateEngine.Section(id: "ALL", title: "", count: flat.count, results: flat)]
     }
 
     // MARK: - Body
@@ -479,6 +501,12 @@ struct CatalogScopeView: View {
         // "N exercises" capsule.
         let unlockedCounts = exerciseCountsByEquipment
         let collisions = self.collisions
+        // HOISTED, and it matters: `sections` is a computed property that runs
+        // the whole rank-and-group pipeline, and the body reads it twice (the
+        // ForEach and the empty check). All three scopes stay mounted and share
+        // the query, so an un-hoisted read is three extra full passes per
+        // keystroke for lists nobody is looking at.
+        let sections = displayedSections
         return ScrollViewReader { proxy in
             List {
                 if showsCreateRow(collisions) {
@@ -607,8 +635,14 @@ struct CatalogScopeView: View {
         }
     }
 
+    @ViewBuilder
     private func sectionHeaderView(_ section: FindOrCreateEngine.Section) -> some View {
-        SheetSectionLabel("\(section.title) · \(section.count)")
+        // An untitled section is the flat run (the presented equipment
+        // catalog): no tiers, so nothing to head.
+        if section.title.isEmpty {
+            EmptyView()
+        } else {
+            SheetSectionLabel("\(section.title) · \(section.count)")
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, 12)
             .padding(.horizontal, 16)
@@ -619,6 +653,7 @@ struct CatalogScopeView: View {
             .listRowInsets(EdgeInsets())
             .listRowSeparator(.hidden)
             .textCase(nil)
+        }
     }
 
     // MARK: - Rows
@@ -661,6 +696,10 @@ struct CatalogScopeView: View {
         }
         .listRowBackground(Color.clear)
         .listRowSeparatorTint(Theme.border)
+        // The arrival's authored beat: the row is held OUT of the list for
+        // 300 ms, then fades in and pushes the rest down. Without this it
+        // reads as a default List insert (the deleted RoutineCard carried it).
+        .transition(.opacity)
     }
 
     private func exerciseRow(_ exercise: Exercise, result: FindOrCreateEngine.Result) -> some View {
@@ -766,13 +805,15 @@ struct CatalogScopeView: View {
                 }
             ]
         ) {
-            CatalogRoutineRow(
+            // The SHARED routine body (build 107's unification): title · one
+            // meta line · the gear tier. Cardless out here, but a routine still
+            // has to say its schedule, focus, effort and estimate — the row
+            // lost the card, not its facts.
+            RoutineCardContent(
                 title: routine.name,
-                highlight: highlight(routine.name),
-                capsules: routineCapsules(
-                    matched: result.matchedExerciseName,
-                    gear: routine.gearAvailability(activeNames: kitNames)
-                )
+                meta: RoutineMeta(routine: routine, activeNames: kitNames),
+                nameHighlight: highlight(routine.name),
+                leadingCapsules: matchCapsules(result.matchedExerciseName)
             )
         } actions: {
             SwipeActionButton(label: "DELETE", color: Theme.destructive) {
@@ -788,13 +829,19 @@ struct CatalogScopeView: View {
         Button {
             open(result)
         } label: {
-            CatalogRoutineRow(
+            // Same body as a routine's, so a template reads identically to what
+            // it becomes — the number must not visibly change the moment you
+            // add it (the estimate mirrors `Routine.estimatedSeconds`).
+            RoutineCardContent(
                 title: template.name,
-                highlight: highlight(template.name),
-                capsules: routineCapsules(
-                    matched: result.matchedExerciseName,
+                meta: RoutineMeta(
+                    focus: template.focus.rawValue,
+                    effort: template.effort.rawValue,
+                    estimate: template.estimatedMinutesText,
                     gear: template.equipmentNames.map { (name: $0, available: kitNames.contains($0)) }
-                )
+                ),
+                nameHighlight: highlight(template.name),
+                leadingCapsules: matchCapsules(result.matchedExerciseName)
             )
         }
         .buttonStyle(.plain)
@@ -831,15 +878,11 @@ struct CatalogScopeView: View {
         return actions
     }
 
-    /// A routine row stays calm: the "has X" explainer (when the match came
-    /// through a contained exercise) plus ONLY the amber missing pieces.
-    private func routineCapsules(matched: String?, gear: [(name: String, available: Bool)]) -> [CardCapsule] {
-        var capsules: [CardCapsule] = []
-        if let matched {
-            capsules.append(CardCapsule(text: "has \(matched)"))
-        }
-        capsules += RoutineCardCapsules.gearCapsules(gear.filter { !$0.available })
-        return capsules
+    /// The "has X" explainer, when a routine matched the query through a move
+    /// it CONTAINS rather than through its own name — otherwise the row's name
+    /// says nothing about what was typed.
+    private func matchCapsules(_ matched: String?) -> [CardCapsule] {
+        matched.map { [CardCapsule(text: "has \($0)")] } ?? []
     }
 
     private func highlight(_ name: String) -> [Range<String.Index>] {
@@ -864,6 +907,10 @@ struct CatalogScopeView: View {
 
     private func open(_ result: FindOrCreateEngine.Result) {
         touchedSetup = true
+        // A row tap only ever fires from the ROOT, and `path.append` is not
+        // idempotent (ui-interaction.md) — a second tap landing during the push
+        // animation would stack a duplicate screen behind the first.
+        guard onPick != nil || !mode.isTab || path.isEmpty else { return }
         switch result.item {
         case .exercise(let exercise):
             // Picking hands the item back; the caller decides what happens to
@@ -874,12 +921,22 @@ struct CatalogScopeView: View {
             if mode.isTab { path.append(equipment) } else { pushed = .equipment(equipment) }
         case .routine(let routine):
             // The routine family pushes by uuid, never the model.
-            guard mode.isTab else { return }
+            guard mode.isTab else { return unroutableInPresentedMode() }
             routine.uuid.map { path.append(RoutineRef(uuid: $0)) }
         case .template(let template):
-            guard mode.isTab else { return }
+            guard mode.isTab else { return unroutableInPresentedMode() }
             path.append(template)
         }
+    }
+
+    /// A presented catalog has no stack of its own to push a routine onto — it
+    /// pushes with an item destination that carries only exercises and
+    /// equipment. Every caller today presents `.kit`, so this is unreachable;
+    /// it exists loud rather than silent because the failure mode otherwise is
+    /// the build-76 one — rows that render, chevrons that render, taps that do
+    /// nothing, and no compile error anywhere.
+    private func unroutableInPresentedMode() {
+        assertionFailure("\(scope) can't be opened from a presented catalog — extend Push first")
     }
 
     /// Return opens the best hit — the first row of the first section.
@@ -1163,33 +1220,3 @@ private extension FindOrCreateEngine.Result {
     }
 }
 
-/// The routine-family row: the flat form of a routine or template (cards belong
-/// to Today; a catalog list reads flat — Dave, 2026-07-25). Name with the match
-/// painted, then the "has X" explainer + amber missing-equipment capsules.
-struct CatalogRoutineRow: View {
-    let title: String
-    let highlight: [Range<String.Index>]
-    let capsules: [CardCapsule]
-
-    var body: some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(highlightedName(title, ranges: highlight))
-                    .font(.system(.subheadline, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-                    .lineLimit(2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                if !capsules.isEmpty {
-                    OverflowCapsuleRow(capsules: capsules)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            Image(systemName: "chevron.right")
-                .font(.system(.caption, weight: .bold))
-                .foregroundStyle(Theme.textFaint)
-                .accessibilityHidden(true)
-        }
-        .padding(.vertical, 10)
-        .contentShape(Rectangle())
-    }
-}
