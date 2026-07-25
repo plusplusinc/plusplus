@@ -89,7 +89,6 @@ struct TodayView: View {
     /// container AND can't be scrolled off the top (Dave, 2026-07-17):
     /// the headroom below it is capped to exactly one viewport minus the
     /// step, so "step 1 at top" is the maximum downward scroll.
-    @State private var equipmentStepHeight: CGFloat = 0
     /// The workout just finished (its recap closed), awaiting the
     /// pending→done conversion flourish on its committed card. Nil
     /// outside the beat.
@@ -271,7 +270,7 @@ struct TodayView: View {
                                         }
                                     }
                                     if setupActive {
-                                        setupSection
+                                        setupSection(viewportHeight: viewport.size.height)
                                     }
                                     // Carried-over occurrences (Kit .missed):
                                     // a past scheduled day that lapsed, shown
@@ -309,7 +308,7 @@ struct TodayView: View {
                                     // (the reveal-scroll only runs while setup is
                                     // active).
                                     if !setupActive {
-                                        setupSection
+                                        setupSection(viewportHeight: viewport.size.height)
                                     }
                                     // Reveal-upward headroom (2026-07-16): the
                                     // setup scaffold reveals its steps by
@@ -324,10 +323,6 @@ struct TodayView: View {
                                     // it can't be pushed off the top. It sits below
                                     // the fold and vanishes with the scaffold at
                                     // the first logged session.
-                                    if setupActive {
-                                        Color.clear
-                                            .frame(height: max(0, viewport.size.height - equipmentStepHeight - 24))
-                                    }
                                 }
                                 // Pad the below-anchor region to at least a
                                 // screen so today can always scroll to the
@@ -1436,7 +1431,7 @@ struct TodayView: View {
 
     /// Bottom-up like commits: equipment is the first entry (bottom),
     /// schedule the last (top). Each step gates on the one below it.
-    private var setupSection: some View {
+    private func setupSection(viewportHeight: CGFloat) -> some View {
         Group {
             SetupRow(
                 state: scheduleStepDone ? .done : (routineStepDone ? .ready : .gated),
@@ -1487,9 +1482,23 @@ struct TodayView: View {
                 edit: { showingEquipmentSetup = true }
             )
             .id(Self.setupEquipmentAnchor)
-            // Feed the row's height back so the reveal-upward headroom can
-            // pin it at the top (see equipmentStepHeight).
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { equipmentStepHeight = $0 }
+            // Reveal-upward headroom (2026-07-16, rebuilt 2026-07-25): the
+            // scaffold reveals steps by scrolling the active one to the top,
+            // which the BOTTOM step can only reach if scrollable space sits
+            // below it. Giving this step a viewport-tall, top-aligned box IS
+            // that space — and since the box is exactly one screen, seating the
+            // step at the top is also the furthest the list can scroll, so it
+            // can never be pushed off.
+            //
+            // This replaces a `Color.clear` spacer sized `viewport - stepHeight`
+            // from an `.onGeometryChange` probe on this row. That probe is the
+            // documented iOS 26 morph trigger: a geometry read anywhere in the
+            // TabView subtree can make a sibling tab's `.searchable` fall back
+            // to the top `.navigationBarDrawer` placement on first activation,
+            // and since the search surface hides its nav bar the failure is NO
+            // VISIBLE FIELD AT ALL (build 126 shipped straight into it). The
+            // measurement is gone rather than moved.
+            .frame(minHeight: setupActive ? viewportHeight : 0, alignment: .top)
         }
     }
 

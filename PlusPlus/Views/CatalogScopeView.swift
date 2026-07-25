@@ -31,9 +31,11 @@ struct CatalogScopeView: View {
     /// Where this surface is mounted. The list is identical either way; the
     /// chrome, the search field, and the push mechanism differ.
     enum Mode: Equatable {
-        /// A tab root: owns a `NavigationStack`, and the search field is the
-        /// bottom bar's (which is why `query` arrives as a binding).
-        case tab
+        /// A tab root: owns a `NavigationStack`. `Hosting` says WHICH bar put
+        /// it there — nesting means a catalog is reachable both as an outer
+        /// tab and inside the search tab, and the two copies must not both
+        /// answer the same landing.
+        case tab(Hosting)
         /// Presented inside someone else's stack (a sheet, or Today's setup
         /// push) with the pushed-screen chrome and its own header field. This
         /// is what the retired `EquipmentCatalogScreen` was.
@@ -45,7 +47,22 @@ struct CatalogScopeView: View {
         /// opened from down there.
         case picker
 
-        var isTab: Bool { self == .tab }
+        var isTab: Bool {
+            if case .tab = self { return true }
+            return false
+        }
+
+        /// Only the OUTER tab copy answers arrivals and Operator pushes: a
+        /// landing switches to that tab, so the search-tab copy would be
+        /// flashing a row nobody is looking at.
+        var handlesLandings: Bool { self == .tab(.tabRoot) }
+
+        /// What the reveal drawer's swipe gate calls this surface. The
+        /// search-tab copies report "search", matching the tab that is
+        /// actually selected while they're on screen.
+        func revealKey(for scope: FindScope) -> String {
+            self == .tab(.searchTab) ? AppTab.search.rawValue : scope.tab.rawValue
+        }
 
         /// Onboarding's guided equipment step: a pinned Done bar, no kit
         /// switcher, and the stripped detail screen.
@@ -53,6 +70,14 @@ struct CatalogScopeView: View {
             if case .presented(let setup) = self { return setup }
             return false
         }
+    }
+
+    /// Which bar put a tab-hosted catalog on screen.
+    enum Hosting: Equatable {
+        /// An outer tab: Routines / Exercises / Kit, browsing, no query.
+        case tabRoot
+        /// Inside the search tab's inner TabView, carrying the live query.
+        case searchTab
     }
 
     /// What a presented surface pushes. A tab root uses its `NavigationPath`
@@ -78,15 +103,9 @@ struct CatalogScopeView: View {
     /// bar's, which sits outside every tab); in `.presented` mode the surface
     /// owns it, behind the header's expanding field.
     @Binding private var boundQuery: String
-    /// Per-scope match counts, published UP to the bar's scope labels. Each
-    /// mounted surface writes only its OWN key, by summing its own sections —
-    /// so a surface ranks one type, not three. (The engine used to expose a
-    /// `matchCounts` that ranked ALL three types for whichever surface was
-    /// visible, on top of the pass that surface already ran for its own rows.)
-    @Binding private var counts: [FindScope: Int]
-    /// Whether the bar is pointing at this scope. All three stay mounted, so
-    /// anything that answers a global signal (the field's Return key) has to
-    /// know whether it is the one being talked to.
+    /// Whether the bar is pointing at this scope. Every scope stays mounted, so
+    /// anything answering a global signal (the field's Return key) has to know
+    /// whether it is the one being talked to.
     private let isActive: Bool
     /// Picker mode only: a row tap (or a fresh create) hands the item back
     /// here instead of opening it.
@@ -94,17 +113,17 @@ struct CatalogScopeView: View {
     /// Picker mode's sheet title ("Add exercise" / "Swap for…").
     private var pickerTitle = ""
 
-    /// A tab root.
+    /// A tab root — either an outer catalog tab or one scope inside the
+    /// search tab's inner TabView.
     init(
         scope: FindScope,
+        hosting: Hosting,
         query: Binding<String>,
-        counts: Binding<[FindScope: Int]>,
         isActive: Bool
     ) {
         self.scope = scope
-        self.mode = .tab
+        self.mode = .tab(hosting)
         self._boundQuery = query
-        self._counts = counts
         self.isActive = isActive
         self.onPick = nil
     }
@@ -114,7 +133,6 @@ struct CatalogScopeView: View {
         self.scope = scope
         self.mode = .presented(setupMode: setupMode)
         self._boundQuery = .constant("")
-        self._counts = .constant([:])
         self.isActive = true
         self.onPick = nil
     }
@@ -124,7 +142,6 @@ struct CatalogScopeView: View {
         self.scope = scope
         self.mode = .picker
         self._boundQuery = .constant("")
-        self._counts = .constant([:])
         self.isActive = true
         self.onPick = onPick
         self.pickerTitle = title
@@ -316,7 +333,12 @@ struct CatalogScopeView: View {
                 }
             }
         }
-        .revealRoot(tab: scope.tab.rawValue, atRoot: path.isEmpty)
+        .revealRoot(tab: mode.revealKey(for: scope), atRoot: path.isEmpty)
+        // Leaving a catalog is the boundary that pushes program edits to
+        // GitHub. Native tabs fire `onDisappear` on a switch, so this is back
+        // to the same close trigger every other surface uses (the opacity-hidden
+        // roots of the custom-bar round needed a hide-based one instead).
+        .syncsProgramOnClose()
         // The field's Return key reaches the ranked results through a
         // notification (it lives in the bar, outside every stack). All three
         // scopes are mounted, so only the one being looked at may answer.
@@ -334,16 +356,13 @@ struct CatalogScopeView: View {
         // Operator's outcome navigation: a touched routine pushes by its stable
         // uuid. The path resets first, so the result is one Back from the list.
         .onReceive(NotificationCenter.default.publisher(for: .plusplusOperatorShow)) { note in
-            guard scope == .routines,
+            guard mode.handlesLandings, scope == .routines,
                   let destination = note.object as? OperatorDestination,
                   case .routine(let uuid) = destination
             else { return }
             path = NavigationPath()
             path.append(RoutineRef(uuid: uuid))
         }
-        // The bar's labels follow the query. `initial: true` seeds a surface
-        // that mounts with a query already in hand.
-        .onChange(of: trimmedQuery, initial: true) { _, _ in publishCount() }
     }
 
     /// The presented form (a sheet, or Today's setup push): pushed chrome with
@@ -391,8 +410,6 @@ struct CatalogScopeView: View {
             }
         }
         // Membership changes + catalog adds reach GitHub when this closes.
-        // (A tab root can't use this — it hides rather than unmounting, so the
-        // root wires `syncsProgramOnHide` instead.)
         .syncsProgramOnClose()
     }
 
@@ -1143,7 +1160,7 @@ struct CatalogScopeView: View {
     /// Land a cross-tab add: pop to the list, reveal whatever would hide the
     /// new row, and arm the scroll + flash.
     private func consumeArrival() {
-        guard mode.isTab else { return }
+        guard mode.handlesLandings else { return }
         switch scope {
         case .routines:
             // The slot clears BEFORE resolution — every landing path saves
@@ -1178,12 +1195,10 @@ struct CatalogScopeView: View {
         expandedMissing = ["MISSING_MINE", "MISSING_CATALOG"]
     }
 
-    private func publishCount() {
-        guard mode.isTab else { return }
-        // No query counts nothing, so the labels stay bare until there's
-        // something to count.
-        counts[scope] = trimmedQuery.isEmpty ? nil : sections.reduce(0) { $0 + $1.count }
-    }
+    // Per-scope match COUNTS on the labels are gone with the hand-drawn bar
+    // (2026-07-25): a native `Tab` item is not a view the app can decorate, so
+    // there is nowhere to paint a number. Cross-scope discovery is now the
+    // inner bar itself, one tap away while you search.
 }
 
 private extension FindScope {

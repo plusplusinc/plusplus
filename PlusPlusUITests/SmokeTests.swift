@@ -31,21 +31,24 @@ final class SmokeTests: XCTestCase {
         }
     }
 
-    /// The bottom bar is the app's own control (2026-07-25) — search has to
-    /// expand over the group's slot and the group has to MOVE between rows,
-    /// neither of which native tabs can do — so tabs carry `tab-<case>`
-    /// identifiers rather than being `app.tabBars` children.
+    /// The chrome is the system's `TabView` bar again (2026-07-25), so tabs
+    /// are its children rather than app-identified buttons. With search open
+    /// there are TWO bars — the outer one morphed into the field, and the inner
+    /// one carrying the three scopes — and both live in `app.tabBars`, so a
+    /// scope lookup matches by label across either.
     private func tabButton(_ tab: String) -> XCUIElement {
-        app.buttons["tab-\(tab)"]
+        app.tabBars.buttons[tab.capitalized]
     }
 
+    /// The NATIVE search field — a `searchField` element, not a custom
+    /// `textField` with a set identifier.
     private var searchField: XCUIElement {
-        app.textFields["findSearchField"]
+        app.searchFields.firstMatch
     }
 
-    /// Open search from the bar (the floating key beside the group).
+    /// Open the search tab (the separated circle beside the tab group).
     private func openSearch() {
-        let key = app.buttons["searchTabButton"]
+        let key = app.tabBars.buttons["Search"]
         XCTAssertTrue(key.waitForExistence(timeout: 10))
         key.tap()
         XCTAssertTrue(searchField.waitForExistence(timeout: 5))
@@ -277,9 +280,9 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         XCTAssertEqual(field.value as? String, "Bodyweight Basics")
 
-        // Cancel collapses search back onto the tab it was opened from —
-        // Today never left the bar, and neither did the tab underneath.
-        app.buttons["searchCancelButton"].tap()
+        // The native field's own Cancel collapses search; leaving it restores
+        // the three catalog tabs to the outer bar.
+        app.buttons["Cancel"].firstMatch.tap()
         XCTAssertTrue(plus.waitForExistence(timeout: 5))
     }
 
@@ -291,8 +294,8 @@ final class SmokeTests: XCTestCase {
         openSearch()
         snap("find-or-create-open")
 
-        // The absorbed tabs ARE the scopes: the same three controls, moved up
-        // into their own row. So switching scope is switching tab.
+        // The absorbed tabs ARE the scopes: the same three labels, on the INNER
+        // bar while search is open. Same lookup either way.
         let exercisesScope = tabButton("exercises")
         XCTAssertTrue(exercisesScope.waitForExistence(timeout: 5))
         exercisesScope.tap()
