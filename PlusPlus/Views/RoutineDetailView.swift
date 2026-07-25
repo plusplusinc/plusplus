@@ -22,7 +22,6 @@ struct RoutineDetailView: View {
         EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.memberNames ?? []
     }
 
-    @State private var filterState = ExerciseFilterState()
     @State private var pickerDestination: PickerDestination?
     @State private var activeSession: WorkoutSession?
     /// The first-workout Health primer, raised by the start gate.
@@ -157,20 +156,25 @@ struct RoutineDetailView: View {
             }
         }
         .safeAreaInset(edge: .bottom) { bottomBar }
-        // Routine building PUSHES the picker (2026-07-19) — a drill-down that
-        // wears the pushed catalogs' clean chrome. A boolean/item destination
-        // on top of this pushed detail is #291-legal (same as the settings
-        // push below); PickerDestination is UUID-keyed, so no persistentModelID
-        // re-key flicker. Selecting adds and pops back.
-        .navigationDestination(item: $pickerDestination) { destination in
-            // Labeled onSelect: the picker gained an onConfigured: param,
-            // so an unlabeled trailing closure would backward-match (a
-            // deprecation warning, and would misbind to onConfigured under
-            // strict forward-scan). Routine building configures via its
-            // own detail sheet, so it takes the plain select path.
-            ExercisePickerView(filterState: filterState, pushed: true, onSelect: { exercise in
-                addExercise(exercise, to: destination)
-            })
+        // Adding an exercise is a SHEET now (Dave, 2026-07-25) showing the
+        // Exercises catalog as its tab shows it, with the field at the bottom.
+        // It replaced a pushed picker: choosing an exercise is a side errand
+        // you come back from, not a place in the routine's own hierarchy — and
+        // as a sheet it no longer competes with the detail's own stack.
+        // PickerDestination is UUID-keyed, so no persistentModelID re-key
+        // flicker while it's open.
+        .sheet(item: $pickerDestination) { destination in
+            // Labeled onSelect: the picker also has an onConfigured: param, so
+            // an unlabeled trailing closure would backward-match (a deprecation
+            // warning, and would misbind to onConfigured under strict
+            // forward-scan). Routine building configures via its own detail
+            // sheet, so it takes the plain select path.
+            ExercisePickerView(
+                title: destination.pickerTitle,
+                onSelect: { exercise in
+                    addExercise(exercise, to: destination)
+                }
+            )
         }
         .navigationDestination(isPresented: $showingRoutineSettings) {
             RoutineSettingsScreen(routine: routine) {
@@ -1103,6 +1107,14 @@ enum PickerDestination: Identifiable, Hashable {
         switch self {
         case .newGroup: AnyHashable("newGroup")
         case .swap(let uuid): AnyHashable("swap-\(uuid.uuidString)")
+        }
+    }
+
+    /// What the picker sheet calls itself — the same list doing two jobs.
+    var pickerTitle: String {
+        switch self {
+        case .newGroup: "Add exercise"
+        case .swap: "Swap exercise"
         }
     }
 }

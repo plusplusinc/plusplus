@@ -698,11 +698,8 @@ final class SmokeTests: XCTestCase {
     }
 
     private func search(for text: String) {
-        // The picker's search is the expanding in-header field now: tap the
-        // magnifier toggle, then type into the revealed field.
-        let toggle = app.buttons["exercisePickerSearchFieldToggle"]
-        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
-        toggle.tap()
+        // The picker is a sheet whose field sits at the BOTTOM (2026-07-25) —
+        // always visible, so there's no magnifier to expand first.
         let searchField = app.textFields["exercisePickerSearchField"].firstMatch
         XCTAssertTrue(searchField.waitForExistence(timeout: 5))
         searchField.tap()

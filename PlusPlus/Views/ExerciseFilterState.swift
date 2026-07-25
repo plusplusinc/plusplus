@@ -1,70 +1,28 @@
 import Foundation
-import Observation
 import PlusPlusKit
 
-@Observable
-final class ExerciseFilterState {
-    var searchText: String = ""
-    var selectedMuscleGroups: Set<MuscleGroup> = []
-    /// The picker's EQUIPMENT chip: filter to exercises that USE one of
-    /// these specific pieces. A "uses this equipment" axis, NOT kit
-    /// availability (which is no longer a filter — 2026-07-25).
-    var selectedEquipment: Set<Equipment> = []
-    /// Show only favorited exercises (the whole-catalog curation).
-    var favoritesOnly = false
-
-    /// The whole catalog, narrowed by the active filters. Kit availability is
-    /// NOT a filter anymore (2026-07-25): the catalog view keeps every match
-    /// and groups what the kit can't do under a collapsible "require more
-    /// equipment" disclosure. `kitNames` is unused here now, kept in the
-    /// signature so callers don't churn (the view partitions on doability with
-    /// `missingEquipment`).
-    func filteredExercises(from allExercises: [Exercise], kitNames: Set<String>) -> [Exercise] {
-        let matched = allExercises.filter { exercise in
-            matchesFavorites(exercise)
-                && matchesMuscleGroup(exercise)
-                && matchesEquipment(exercise)
-        }
-        .sorted { $0.name < $1.name }
-        // Forgiving search (the FuzzySearch tiers), ranked best-first —
-        // ties keep the alphabetical order from above. A blank search
-        // passes everything through unchanged.
-        return FuzzySearch.ranked(matched, query: searchText, key: Self.searchHaystack)
-    }
+/// Exercise-set arithmetic: what a kit is missing for a move, and which other
+/// moves could stand in for it.
+///
+/// It used to hold the exercise catalog's and the picker's filter state — a
+/// search string, favorites, muscle groups, equipment — hence the name. All of
+/// that is GONE (2026-07-25): the catalog surfaces carry no facet chips, the
+/// picker is the catalog, and each surface owns its own query. So this is an
+/// `enum` now, which makes "there is no state left" a thing the compiler
+/// enforces rather than a comment. The name is kept because it appears across
+/// half a dozen call sites and every rename is a diff nobody reads; the next
+/// person to touch this file should feel free to rename it.
+enum ExerciseFilterState {
 
     /// Name plus muscle group, so "hamstring curl" finds Leg Curl even
-    /// though no exercise carries the word "hamstring" in its name.
+    /// though no exercise carries the word "hamstring" in its name. This is
+    /// also why the Exercises surface needs no Muscle facet: typing reaches it.
     static func searchHaystack(_ exercise: Exercise) -> String {
         "\(exercise.name) \(exercise.muscleGroup.displayName)"
     }
 
-    // MARK: - Create-from-here prefill
-
-    /// What a create action launched from this narrowed list should
-    /// start from: whatever was being searched for is almost certainly
-    /// the thing being created.
-    var prefillName: String {
-        searchText.trimmingCharacters(in: .whitespaces)
-    }
-
-    /// A muscle group carries over only when exactly one is filtered —
-    /// an exercise has exactly one, so a multi-select is ambiguous and
-    /// the editor keeps its own default.
-    var prefillMuscleGroup: MuscleGroup? {
-        selectedMuscleGroups.count == 1 ? selectedMuscleGroups.first : nil
-    }
-
-    /// Filtered gear carries over whole (visible, chip-removable state
-    /// in the editor) — minus just-deleted stragglers: this filter
-    /// state outlives picker presentations, and a deleted model
-    /// lingering in it (bug hunt B1) must never be WRITTEN into a new
-    /// exercise's relationships.
-    var prefillEquipment: Set<Equipment> {
-        selectedEquipment.filter { !$0.isDeleted }
-    }
-
-    /// Equipment the exercise needs but the given set doesn't have —
-    /// drives the gear modes and the "needs squat rack" cue.
+    /// Equipment the exercise needs but the given set doesn't have — drives the
+    /// "require more equipment" grouping and the "needs squat rack" cue.
     static func missingEquipment(for exercise: Exercise, available: Set<String>) -> [String] {
         // isDeleted: a just-deleted custom equipment lingers in the
         // relationship until save and must not count as available or
@@ -123,27 +81,4 @@ final class ExerciseFilterState {
             equipmentNames: Set(exercise.equipment.filter { !$0.isDeleted }.map(\.name))
         )
     }
-
-    private func matchesFavorites(_ exercise: Exercise) -> Bool {
-        !favoritesOnly || exercise.isFavorite
-    }
-
-    private func matchesMuscleGroup(_ exercise: Exercise) -> Bool {
-        selectedMuscleGroups.isEmpty || selectedMuscleGroups.contains(exercise.muscleGroup)
-    }
-
-    private func matchesEquipment(_ exercise: Exercise) -> Bool {
-        guard !selectedEquipment.isEmpty else { return true }
-        // Bodyweight exercises (empty equipment) excluded when equipment filter is active
-        guard !exercise.equipment.isEmpty else { return false }
-        // Exercise matches if any of its equipment is in the selected set
-        return exercise.equipment.contains { selectedEquipment.contains($0) }
-    }
-
-    // The persisted catalog-filter keys (`exerciseCatalog.favoritesOnly` /
-    // `.muscleGroups`) are GONE with the facet chips (2026-07-25): the
-    // Exercises surface reads like Routines and Kit now — MINE then CATALOG,
-    // narrowed only by the field, which already scores muscle groups through
-    // `searchHaystack`. What remains here is filtering the exercise PICKER,
-    // whose facets are its own and live only for that presentation.
 }

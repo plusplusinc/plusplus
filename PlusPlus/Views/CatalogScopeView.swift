@@ -38,6 +38,12 @@ struct CatalogScopeView: View {
         /// push) with the pushed-screen chrome and its own header field. This
         /// is what the retired `EquipmentCatalogScreen` was.
         case presented(setupMode: Bool)
+        /// A PICKER sheet (Dave, 2026-07-25): the same contents as the tab,
+        /// but a row tap hands the item back to the caller instead of pushing
+        /// its detail, and the field sits at the BOTTOM of the sheet — where
+        /// the app's own field lives, and within thumb reach of a sheet that
+        /// opened from down there.
+        case picker
 
         var isTab: Bool { self == .tab }
 
@@ -81,6 +87,11 @@ struct CatalogScopeView: View {
     /// anything that answers a global signal (the field's Return key) has to
     /// know whether it is the one being talked to.
     private let isActive: Bool
+    /// Picker mode only: a row tap (or a fresh create) hands the item back
+    /// here instead of opening it.
+    private let onPick: ((Exercise) -> Void)?
+    /// Picker mode's sheet title ("Add exercise" / "Swap for…").
+    private var pickerTitle = ""
 
     /// A tab root.
     init(
@@ -94,6 +105,7 @@ struct CatalogScopeView: View {
         self._boundQuery = query
         self._counts = counts
         self.isActive = isActive
+        self.onPick = nil
     }
 
     /// A presented catalog (the pushed equipment catalog's replacement).
@@ -103,6 +115,18 @@ struct CatalogScopeView: View {
         self._boundQuery = .constant("")
         self._counts = .constant([:])
         self.isActive = true
+        self.onPick = nil
+    }
+
+    /// A picker sheet: the same catalog, but choosing rather than browsing.
+    init(picking scope: FindScope, title: String, onPick: @escaping (Exercise) -> Void) {
+        self.scope = scope
+        self.mode = .picker
+        self._boundQuery = .constant("")
+        self._counts = .constant([:])
+        self.isActive = true
+        self.onPick = onPick
+        self.pickerTitle = title
     }
 
     @Environment(\.modelContext) private var modelContext
@@ -114,8 +138,12 @@ struct CatalogScopeView: View {
     @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
     @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
-    /// The presented form's own query (unused in `.tab` mode).
+    /// The presented and picker forms' own query (unused in `.tab` mode, where
+    /// the field is the bottom bar's and the query lives in the root).
     @State private var ownQuery = ""
+    /// The picker field's one-shot focus intent. Never armed on entry — the
+    /// list is the point; the keyboard rises when the field is tapped.
+    @State private var pickerFieldWantsFocus = false
     @State private var path = NavigationPath()
     @State private var pushed: Push?
     @State private var openSwipeRow: SwipeRevealOpen<PersistentIdentifier>?
@@ -143,6 +171,8 @@ struct CatalogScopeView: View {
     private var queryBinding: Binding<String> {
         mode.isTab ? $boundQuery : $ownQuery
     }
+
+    private var isPicking: Bool { mode == .picker }
 
     private var trimmedQuery: String {
         queryBinding.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -186,10 +216,10 @@ struct CatalogScopeView: View {
 
     var body: some View {
         Group {
-            if mode.isTab {
-                tabBody
-            } else {
-                presentedBody
+            switch mode {
+            case .tab: tabBody
+            case .presented: presentedBody
+            case .picker: pickerBody
             }
         }
         .sheet(isPresented: $showingLibraryTray) {
@@ -198,10 +228,17 @@ struct CatalogScopeView: View {
         .sheet(isPresented: $creatingExercise) {
             ExerciseEditorView(prefillName: trimmedQuery) { exercise in
                 // The editor only INSERTS — save here so the id the landing
-                // keys on is permanent, not the temporary one an autosave
-                // would swap out from under the flash (swiftdata.md).
+                // (or the pick) keys on is permanent, not the temporary one an
+                // autosave would swap out from under it (swiftdata.md).
                 try? modelContext.save()
-                ExerciseArrival.land(exercise.persistentModelID)
+                if let onPick {
+                    // A picker's create goes STRAIGHT into what you were
+                    // building — coming back to the picker to tap the row you
+                    // just made is a step nobody wants.
+                    onPick(exercise)
+                } else {
+                    ExerciseArrival.land(exercise.persistentModelID)
+                }
             }
         }
         .alert("New routine", isPresented: $namingRoutine) {
@@ -335,6 +372,57 @@ struct CatalogScopeView: View {
         // (A tab root can't use this — it hides rather than unmounting, so the
         // root wires `syncsProgramOnHide` instead.)
         .syncsProgramOnClose()
+    }
+
+    /// The picker sheet: the same list, choosing instead of browsing, with the
+    /// field at the BOTTOM (Dave, 2026-07-25) — where the app's own field is,
+    /// and reachable from a sheet that came up from down there.
+    private var pickerBody: some View {
+        VStack(spacing: 0) {
+            pickerHeader
+            listBody
+        }
+        .background(Theme.background)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            SearchFieldBody(
+                config: HeaderSearchConfig(
+                    text: $ownQuery,
+                    // What the scope SEARCHES, not what its tab is called.
+                    prompt: "Search \(scope.searchNoun)",
+                    identifier: "exercisePickerSearchField"
+                ),
+                wantsFocus: $pickerFieldWantsFocus
+            )
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 6)
+            // OPAQUE, not a translucent `.bar` band: rows scroll under it and a
+            // see-through strip would leave their text showing through the
+            // field. (A tab root gets the scroll-edge effect for this; a sheet
+            // has no scroll edge to hang it on.)
+            .background(Theme.background)
+        }
+    }
+
+    /// Mirrors the pushed catalogs' chrome (centered title flanked by keys) so
+    /// the picker reads as one of the catalog family — with a text "Cancel"
+    /// where a pushed screen has its back key. Dismissal is a WORD, never a ✕
+    /// (✕ collapses search).
+    private var pickerHeader: some View {
+        ZStack {
+            Text(pickerTitle)
+                .font(.system(.subheadline, weight: .bold))
+                .foregroundStyle(Theme.textPrimary)
+                .lineLimit(1)
+                .padding(.horizontal, 90)
+            HStack(spacing: 10) {
+                SheetDismissKey(label: "Cancel") { dismiss() }
+                Spacer(minLength: 0)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 14)
+        .padding(.bottom, 6)
     }
 
     private var presentedTitle: String {
@@ -590,6 +678,8 @@ struct CatalogScopeView: View {
             ExerciseRowContent(
                 exercise: exercise,
                 available: kitNames,
+                // No chevron when picking: a tap SELECTS, it doesn't push.
+                showsChevron: !isPicking,
                 leadingSymbol: exercise.modalitySymbolName,
                 nameHighlight: highlight(exercise.name)
             )
@@ -776,6 +866,9 @@ struct CatalogScopeView: View {
         touchedSetup = true
         switch result.item {
         case .exercise(let exercise):
+            // Picking hands the item back; the caller decides what happens to
+            // it (a routine add, a swap, a configure sheet stacked on this one).
+            if let onPick { onPick(exercise); return }
             if mode.isTab { path.append(exercise) } else { pushed = .exercise(exercise) }
         case .equipment(let equipment):
             if mode.isTab { path.append(equipment) } else { pushed = .equipment(equipment) }
@@ -829,7 +922,12 @@ struct CatalogScopeView: View {
                     createRoutineFromQuery()
                 }
             case .exercises:
-                CreateRow(label: exercisesCreateLabel, identifier: "createExerciseRow") {
+                // The picker keeps its own id — the smoke flows create a custom
+                // exercise from inside a routine through it.
+                CreateRow(
+                    label: exercisesCreateLabel,
+                    identifier: isPicking ? "newExerciseButton" : "createExerciseRow"
+                ) {
                     creatingExercise = true
                 }
             case .kit:
