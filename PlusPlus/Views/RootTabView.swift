@@ -3,35 +3,19 @@ import SwiftUI
 import SwiftData
 import PlusPlusKit
 
-/// The app's roots. Search is NOT among them: it is a MODE over whichever
-/// catalog you're in, so it adds a query rather than a destination.
+/// The app's two roots (Dave, 2026-07-25). The three catalogs stopped being
+/// tabs: they are a SCOPE you dial on the wheel in the tab bar's bottom
+/// accessory, so the bar carries only the two things that are genuinely
+/// different places — a timeline of derived state, and everything you can look
+/// something up in.
 enum AppTab: String, CaseIterable {
-    case today, routines, exercises, equipment
+    case today
+    /// The catalogs. It wears `Tab(role: .search)`, so the system renders it as
+    /// the separated circle and morphs the bar into the search field when it's
+    /// selected — the field narrows whichever catalog the wheel is pointing at.
+    case search
 
     var label: String { rawValue }
-}
-
-extension FindScope {
-    /// The tab this scope is shown by. They are the same thing seen twice —
-    /// the bar's middle group selects a tab, and that tab IS the scope.
-    var tab: AppTab {
-        switch self {
-        case .routines: return .routines
-        case .exercises: return .exercises
-        case .kit: return .equipment
-        }
-    }
-
-    /// The catalog a tab shows — `nil` for Today, which holds a timeline of
-    /// derived state rather than a list of typed items.
-    init?(tab: AppTab) {
-        switch tab {
-        case .routines: self = .routines
-        case .exercises: self = .exercises
-        case .equipment: self = .kit
-        case .today: return nil
-        }
-    }
 }
 
 /// v3 navigation root (#109): four bottom tabs — Today · Routines ·
@@ -48,16 +32,20 @@ extension FindScope {
 /// chips deliberately were NOT — the three read alike now, and the field
 /// reaches what the chips used to).
 ///
-/// The bar is `AppBottomBar` (custom, build 10's trade knowingly reopened —
-/// see it for why the native bar cannot express this): a floating Today key,
-/// the Routines · Exercises · Kit group, and a floating Search key, with the
-/// group MOVING up into its own row when search opens. Today is not in that
-/// group — it holds a timeline of derived state, not a list of typed items,
-/// so it is a tab and never a scope.
+/// The chrome is the SYSTEM'S again (Dave, 2026-07-25), and the bar carries
+/// two tabs: Today and Search. The three catalogs became a SCOPE you dial on
+/// `ScopeWheelAccessory`, riding in the TabView's bottom accessory — the one
+/// slot the system offers for app content beside its own bar. The hand-drawn
+/// `AppBottomBar` is deleted; its three device bugs (content scrolling through
+/// it unreadably, no home-indicator clearance, labels off a common baseline)
+/// were all things a real tab bar does for free.
 ///
-/// Roots stay mounted and hide by opacity (never `if`, which would discard
-/// their navigation paths); each keeps its OWN `NavigationStack`, so every
-/// value destination stays registered where it was (#262).
+/// The accessory has two system-chosen placements, and `tabBarMinimizeBehavior`
+/// is what moves between them: at the top of a scroll the bar is full and the
+/// wheel sits ABOVE it; scrolling down minimizes the bar and the wheel goes
+/// INLINE with it, which with two tabs reads as the wheel between Today and
+/// Search. That is Podcasts' behaviour, and it is scroll-driven — the app
+/// cannot pin a placement, only adapt to the one it's given.
 struct RootTabView: View {
 
     /// The Today tab's icon reflects whether there's anything to do today
@@ -75,17 +63,11 @@ struct RootTabView: View {
     @State private var dayToken = 0
 
     @State private var tab: AppTab = .today
-    /// Search is a MODE over the selected catalog, not a destination: while
-    /// true the bar's middle group moves up into its own row and the field
-    /// takes its place. The query lives here because the field does.
-    @State private var searching = false
+    /// The query, and which catalog the wheel is pointing at. Both live here:
+    /// the field is the system's (attached to the search tab) and the wheel is
+    /// the tab bar's accessory, so both sit outside the surface they drive.
     @State private var query = ""
-    /// Per-scope result counts for the bar's labels. COMPUTED BY THE SEARCH
-    /// SURFACE, not here: it already holds the catalog queries, so counting at
-    /// the root would mean duplicate always-live `@Query`s whose every change
-    /// re-evaluated the whole four-root tree, plus a fourth ranking pass per
-    /// keystroke on top of the three the surface already runs.
-    @State private var scopeCounts: [FindScope: Int] = [:]
+    @State private var scope: FindScope = .routines
     /// The slide-to-reveal drawer behind the ++ key (replaces the pushed
     /// AppMenuScreen). Lives here, above the tabs' NavigationStacks, so it
     /// moves the whole TabView as one layer.
@@ -159,12 +141,10 @@ struct RootTabView: View {
     /// it (the one-landing law), and that landing has to be VISIBLE — left
     /// searching, the entrance flash would play behind a filtered list.
     @MainActor
-    private func land(on newTab: AppTab) {
+    private func land(on newTab: AppTab, scope newScope: FindScope? = nil) {
         query = ""
-        withAnimation(Theme.Anim.selection) {
-            searching = false
-            tab = newTab
-        }
+        if let newScope { scope = newScope }
+        tab = newTab
     }
 
     /// One root layer. Hidden roots stay MOUNTED (an `if` would discard the
@@ -186,42 +166,45 @@ struct RootTabView: View {
     }
 
     private var appContent: some View {
-        // Today, plus ONE catalog surface per scope. The three catalog tabs
-        // and the three search scopes are the same three views: search adds a
-        // query, it does not switch you to a different screen (Dave,
-        // 2026-07-25 — "the modes of universal search fully replace those
-        // older tabbed views"). Each keeps its own NavigationStack, so every
-        // value destination stays registered where it was (#262).
-        ZStack {
-            root(tab == .today) {
-                TodayView(onGoToRoutines: { tab = .routines })
+        // TWO tabs, and the chrome is the system's (Dave, 2026-07-25). The
+        // hand-drawn bar is gone: build 133's three device bugs — content
+        // scrolling through it unreadably, no clearance above the home
+        // indicator, labels off a common baseline — were all things a real tab
+        // bar does for free.
+        TabView(selection: $tab) {
+            // Operator's context: the tab line comes from the onChange below;
+            // pushed details report (and clear) their own via .operatorContext.
+            Tab("Today", systemImage: todayStatus.systemImage, value: AppTab.today) {
+                TodayView(onGoToRoutines: { land(on: .search, scope: .routines) })
             }
-            // One `CatalogScopeView` per scope, and NOTHING keys on `searching`
-            // here: search is a MODE over the catalog you're already in, so it
-            // adds a query rather than swapping in a different screen. The Kit
-            // scope is labeled "Kit" (2026-07-20); its enum case stays
-            // `.equipment`.
-            ForEach(FindScope.allCases, id: \.self) { scope in
-                root(tab == scope.tab) {
-                    CatalogScopeView(
-                        scope: scope,
-                        query: $query,
-                        counts: $scopeCounts,
-                        isActive: tab == scope.tab
-                    )
-                }
+            Tab(value: AppTab.search, role: .search) {
+                // ONE catalog at a time — the wheel picks which. `.id(scope)`
+                // is load-bearing: without it SwiftUI reuses the view across a
+                // scope change and the previous catalog's navigation path,
+                // expanded groups and arrival slot come along with it.
+                CatalogScopeView(scope: scope, query: $query, isActive: true)
+                    .id(scope)
+                    .searchable(text: $query, prompt: "Search \(scope.searchNoun)")
+                    // Return opens the best hit. The field is the system's, so
+                    // the key travels as a signal to the surface below it.
+                    .onSubmit(of: .search) {
+                        NotificationCenter.default.post(name: .plusplusOpenTopResult, object: nil)
+                    }
             }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            AppBottomBar(
-                tab: $tab,
-                searching: $searching,
-                query: $query,
-                todaySymbol: todayStatus.systemImage,
-                counts: scopeCounts,
-                onSubmit: { NotificationCenter.default.post(name: .plusplusOpenTopResult, object: nil) }
-            )
+        // The scope wheel rides the accessory slot — the one place the system
+        // agrees to put app content beside its own bar. `isEnabled:` (26.1+) is
+        // what makes it viable: off, it reclaims the reserved space, so Today
+        // carries no blank strip.
+        .tabViewBottomAccessory(isEnabled: tab == .search) {
+            ScopeWheelAccessory(scope: $scope)
         }
+        // What moves the accessory between its two placements: scrolled to the
+        // top the bar is full and the wheel sits in its own row ABOVE it;
+        // scrolling down minimizes the bar and the wheel goes INLINE with it,
+        // which with two tabs reads as the wheel between Today and Search. The
+        // placement is the system's to choose — the app only adapts.
+        .tabBarMinimizeBehavior(.onScrollDown)
         .tint(Theme.textPrimary)
         // Swipe-to-open is gated on the active tab being at its root; keep
         // the reveal controller told which tab is showing. Operator's
@@ -245,9 +228,9 @@ struct RootTabView: View {
             guard let destination = note.object as? OperatorDestination else { return }
             switch destination {
             case .today: land(on: .today)
-            case .routine: land(on: .routines)
-            case .exercisesTab: land(on: .exercises)
-            case .equipmentTab: land(on: .equipment)
+            case .routine: land(on: .search, scope: .routines)
+            case .exercisesTab: land(on: .search, scope: .exercises)
+            case .equipmentTab: land(on: .search, scope: .kit)
             }
             reveal.close()
         }
@@ -323,15 +306,15 @@ struct RootTabView: View {
         // step, a share import) lands ON the Routines list with the
         // entrance flash — one landing for every add (Dave, 2026-07-23).
         .onReceive(NotificationCenter.default.publisher(for: .plusplusRoutineArrived)) { _ in
-            land(on: .routines)
+            land(on: .search, scope: .routines)
         }
         // The exercise/equipment twins (universal search): a create/add
         // lands on its list, same one-landing law.
         .onReceive(NotificationCenter.default.publisher(for: .plusplusExerciseArrived)) { _ in
-            land(on: .exercises)
+            land(on: .search, scope: .exercises)
         }
         .onReceive(NotificationCenter.default.publisher(for: .plusplusEquipmentArrived)) { _ in
-            land(on: .equipment)
+            land(on: .search, scope: .kit)
         }
         // Closing a finished workout's recap goes home: whatever screen
         // presented the session cover, the finish lands on Today, where

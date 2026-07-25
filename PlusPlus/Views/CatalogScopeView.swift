@@ -78,12 +78,11 @@ struct CatalogScopeView: View {
     /// bar's, which sits outside every tab); in `.presented` mode the surface
     /// owns it, behind the header's expanding field.
     @Binding private var boundQuery: String
-    /// Per-scope match counts, published UP to the bar's scope labels. Each
-    /// mounted surface writes only its OWN key, by summing its own sections —
-    /// so a surface ranks one type, not three. (The engine used to expose a
-    /// `matchCounts` that ranked ALL three types for whichever surface was
-    /// visible, on top of the pass that surface already ran for its own rows.)
-    @Binding private var counts: [FindScope: Int]
+    // Per-scope match COUNTS are gone with the hand-drawn bar (2026-07-25):
+    // there are no scope labels in the tab bar any more — the wheel is the
+    // scope control, and re-measuring its band on every keystroke to fit a
+    // changing number would make it twitch under the thumb. Cross-scope
+    // discovery is the wheel itself, one flick away while you search.
     /// Whether the bar is pointing at this scope. All three stay mounted, so
     /// anything that answers a global signal (the field's Return key) has to
     /// know whether it is the one being talked to.
@@ -98,13 +97,11 @@ struct CatalogScopeView: View {
     init(
         scope: FindScope,
         query: Binding<String>,
-        counts: Binding<[FindScope: Int]>,
         isActive: Bool
     ) {
         self.scope = scope
         self.mode = .tab
         self._boundQuery = query
-        self._counts = counts
         self.isActive = isActive
         self.onPick = nil
     }
@@ -114,7 +111,6 @@ struct CatalogScopeView: View {
         self.scope = scope
         self.mode = .presented(setupMode: setupMode)
         self._boundQuery = .constant("")
-        self._counts = .constant([:])
         self.isActive = true
         self.onPick = nil
     }
@@ -124,7 +120,6 @@ struct CatalogScopeView: View {
         self.scope = scope
         self.mode = .picker
         self._boundQuery = .constant("")
-        self._counts = .constant([:])
         self.isActive = true
         self.onPick = onPick
         self.pickerTitle = title
@@ -316,7 +311,11 @@ struct CatalogScopeView: View {
                 }
             }
         }
-        .revealRoot(tab: scope.tab.rawValue, atRoot: path.isEmpty)
+        .revealRoot(tab: AppTab.search.rawValue, atRoot: path.isEmpty)
+        // Leaving the catalog is the boundary that pushes program edits to
+        // GitHub. Native tabs fire `onDisappear` on a switch, so this is the
+        // same close trigger every other surface uses.
+        .syncsProgramOnClose()
         // The field's Return key reaches the ranked results through a
         // notification (it lives in the bar, outside every stack). All three
         // scopes are mounted, so only the one being looked at may answer.
@@ -341,9 +340,6 @@ struct CatalogScopeView: View {
             path = NavigationPath()
             path.append(RoutineRef(uuid: uuid))
         }
-        // The bar's labels follow the query. `initial: true` seeds a surface
-        // that mounts with a query already in hand.
-        .onChange(of: trimmedQuery, initial: true) { _, _ in publishCount() }
     }
 
     /// The presented form (a sheet, or Today's setup push): pushed chrome with
@@ -1178,12 +1174,6 @@ struct CatalogScopeView: View {
         expandedMissing = ["MISSING_MINE", "MISSING_CATALOG"]
     }
 
-    private func publishCount() {
-        guard mode.isTab else { return }
-        // No query counts nothing, so the labels stay bare until there's
-        // something to count.
-        counts[scope] = trimmedQuery.isEmpty ? nil : sections.reduce(0) { $0 + $1.count }
-    }
 }
 
 private extension FindScope {

@@ -31,24 +31,33 @@ final class SmokeTests: XCTestCase {
         }
     }
 
-    /// The bottom bar is the app's own control (2026-07-25) — search has to
-    /// expand over the group's slot and the group has to MOVE between rows,
-    /// neither of which native tabs can do — so tabs carry `tab-<case>`
-    /// identifiers rather than being `app.tabBars` children.
+    /// The chrome is the system's `TabView` bar again (2026-07-25) and it
+    /// carries only two tabs — Today and Search. The three catalogs are SCOPES
+    /// on the wheel in the bottom accessory, reachable by identifier.
     private func tabButton(_ tab: String) -> XCUIElement {
-        app.buttons["tab-\(tab)"]
+        app.tabBars.buttons[tab.capitalized]
     }
 
+    /// The NATIVE search field — a `searchField` element, not a custom
+    /// `textField` with a set identifier.
     private var searchField: XCUIElement {
-        app.textFields["findSearchField"]
+        app.searchFields.firstMatch
     }
 
-    /// Open search from the bar (the floating key beside the group).
+    /// Open the catalogs (the separated search circle beside Today).
     private func openSearch() {
-        let key = app.buttons["searchTabButton"]
+        let key = app.tabBars.buttons["Search"]
         XCTAssertTrue(key.waitForExistence(timeout: 10))
         key.tap()
         XCTAssertTrue(searchField.waitForExistence(timeout: 5))
+    }
+
+    /// Dial the scope wheel to a catalog. Each option is a labelled button
+    /// carrying `.isSelected` (the segmented-control accessibility model).
+    private func selectScope(_ scope: String) {
+        let option = app.buttons["scopeWheel-\(scope)"]
+        XCTAssertTrue(option.waitForExistence(timeout: 5))
+        option.tap()
     }
 
     // MARK: - Flows
@@ -247,9 +256,8 @@ final class SmokeTests: XCTestCase {
     }
 
     func testRoutinesTabOpensTemplateDetail() throws {
-        let routinesTab = tabButton("routines")
-        XCTAssertTrue(routinesTab.waitForExistence(timeout: 10))
-        routinesTab.tap()
+        openSearch()
+        selectScope("routines")
 
         // The tab already lists the catalog templates under CATALOG, so
         // reaching one is just search narrowing the list you're on — no
@@ -277,9 +285,9 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         XCTAssertEqual(field.value as? String, "Bodyweight Basics")
 
-        // Cancel collapses search back onto the tab it was opened from —
-        // Today never left the bar, and neither did the tab underneath.
-        app.buttons["searchCancelButton"].tap()
+        // The native field's own Cancel clears the query; the catalog stays
+        // put, since the wheel — not the field — decides which one you're on.
+        app.buttons["Cancel"].firstMatch.tap()
         XCTAssertTrue(plus.waitForExistence(timeout: 5))
     }
 
@@ -291,11 +299,8 @@ final class SmokeTests: XCTestCase {
         openSearch()
         snap("find-or-create-open")
 
-        // The absorbed tabs ARE the scopes: the same three controls, moved up
-        // into their own row. So switching scope is switching tab.
-        let exercisesScope = tabButton("exercises")
-        XCTAssertTrue(exercisesScope.waitForExistence(timeout: 5))
-        exercisesScope.tap()
+        // The catalogs are SCOPES on the accessory wheel now, not tabs.
+        selectScope("exercises")
         let createRow = app.buttons["createExerciseRow"]
         XCTAssertTrue(createRow.waitForExistence(timeout: 5))
 
@@ -319,10 +324,13 @@ final class SmokeTests: XCTestCase {
         // assertion's first form failed CI exactly that way). The tab
         // item's selection + the scrolled-into-view row are the honest
         // probes.
-        let exercisesTab = tabButton("exercises")
-        XCTAssertTrue(exercisesTab.waitForExistence(timeout: 5))
+        // The landing dials the wheel to Exercises and shows the new row; the
+        // wheel option carries `.isSelected`, so it is the honest probe for
+        // "we ended up on the right catalog".
+        let exercisesOption = app.buttons["scopeWheel-exercises"]
+        XCTAssertTrue(exercisesOption.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Wall Slides"].waitForExistence(timeout: 5))
-        XCTAssertTrue(exercisesTab.isSelected)
+        XCTAssertTrue(exercisesOption.isSelected)
         snap("find-or-create-landed-exercise")
     }
 
@@ -454,9 +462,8 @@ final class SmokeTests: XCTestCase {
         app.launchArguments += ["--uitest-bigworkout"]
         app.launch()
 
-        let routinesTab = tabButton("routines")
-        XCTAssertTrue(routinesTab.waitForExistence(timeout: 10))
-        routinesTab.tap()
+        openSearch()
+        selectScope("routines")
 
         let card = app.staticTexts["Big Day"]
         XCTAssertTrue(card.waitForExistence(timeout: 10))
@@ -672,9 +679,8 @@ final class SmokeTests: XCTestCase {
         // creates inline rather than deep-linking anywhere: with no query it
         // asks for a name, and the routine LANDS back on the list with the
         // entrance flash, where the helper walks into its detail.
-        let routinesTab = tabButton("routines")
-        XCTAssertTrue(routinesTab.waitForExistence(timeout: 10))
-        routinesTab.tap()
+        openSearch()
+        selectScope("routines")
 
         let plus = app.buttons["newRoutineButton"]
         XCTAssertTrue(plus.waitForExistence(timeout: 5))
