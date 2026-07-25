@@ -289,6 +289,9 @@ struct RoutineListView: View {
         // `doableRoutines`. Reorder that subset, then write `order` back over
         // the whole list as (reordered doable) ++ (missing, order preserved)
         // so `order` stays a clean 0..n and a kit change re-sorts cleanly.
+        // Missing routines are pushed to a contiguous trailing block (their
+        // `order` is rewritten too, so a doable reorder marks them dirty for
+        // sync) — intentional: order is one sequence, split only for display.
         var reordered = doableRoutines
         reordered.move(fromOffsets: source, toOffset: destination)
         for (index, routine) in (reordered + missingRoutines).enumerated() {

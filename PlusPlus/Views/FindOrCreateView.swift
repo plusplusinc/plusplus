@@ -352,7 +352,14 @@ struct FindOrCreateView: View {
 
     private func moreRow(_ section: FindOrCreateEngine.Section) -> some View {
         Button {
-            if let target = section.scopeTarget { scope = target }
+            if let target = section.scopeTarget {
+                // An All-scope MISSING group's "more" jumps into the scope,
+                // where the same group is keyed "MISSING" (not the All-scope
+                // "MISSING_<type>" id). Seed it expanded so the items the user
+                // asked to see land visible, not re-collapsed behind a tap.
+                if case .missing = section.kind { expandedMissing.insert("MISSING") }
+                scope = target
+            }
         } label: {
             // Chevron, not ＋: this is navigation into the scope
             // (＋ stays reserved for creation).

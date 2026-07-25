@@ -7,7 +7,8 @@ final class ExerciseFilterState {
     var searchText: String = ""
     var selectedMuscleGroups: Set<MuscleGroup> = []
     /// The picker's EQUIPMENT chip: filter to exercises that USE one of
-    /// these specific pieces. Distinct from `gearMode` (availability).
+    /// these specific pieces. A "uses this equipment" axis, NOT kit
+    /// availability (which is no longer a filter — 2026-07-25).
     var selectedEquipment: Set<Equipment> = []
     /// Show only favorited exercises (the whole-catalog curation).
     var favoritesOnly = false

@@ -104,8 +104,8 @@ struct ExercisesTabView: View {
                 CatalogTabHeader(title: "Exercises") {
                     // Switch the kit exercises are judged against, inline
                     // (2026-07-21 axes separation) — the same switcher the Kit
-                    // tab and routine catalog use; the Equipment facet below
-                    // stays a pure LOCAL lens that never switches.
+                    // tab and routine catalog use. It's what decides which rows
+                    // fall into the "require more equipment" group below.
                     LibrarySwitcherKey(name: activeKitName, identifier: "exercisesKitSwitcher") {
                         showingLibraryTray = true
                     }
