@@ -159,18 +159,26 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   `.presented(setupMode:)` (pushed chrome + its own header field + an item
   destination, #291) — the second is what onboarding step 1, the drawer's
   "Edit your kit", the picker's filter escape and the template gear-check open.
-  **The bar is the app's own** (`AppBottomBar`, build 10's trade knowingly
-  reopened): a floating Today key · the Routines · Exercises · Kit group as ONE
-  Liquid Glass platter with a pill on the selected item · a floating Search
-  key; activating search expands the field over the group's slot and the group
-  MOVES up into its own row (`GlassEffectContainer` + one shared
-  `glassEffectID`, so the MATERIAL morphs, not just the frame). Native tabs
-  genuinely cannot express that — `Tab(role:)` separates only `.search`,
-  `.prominent` is OS27 and undocumented, and native `Tab` items aren't views
-  the app can address, so they can't share a geometry namespace. The bar
-  therefore sits OUTSIDE the `RaisedKey` press grammar on purpose (it should
-  read as system chrome), and owes the hit targets and a11y the system used to
-  provide. Custom bars must also ask for `.scrollEdgeEffectStyle(.hard, for:)`.
+  **The chrome is the SYSTEM'S, and the bar carries TWO tabs** (2026-07-25,
+  final — the hand-drawn `AppBottomBar` is DELETED after three device rounds,
+  the last of which produced scroll-through illegibility, no home-indicator
+  clearance and misaligned labels in one go; all three are things a real tab
+  bar does for free). `TabView` = **Today** + **Search** (`Tab(role: .search)`),
+  and the three catalogs are a SCOPE dialled on `ScopeWheelAccessory` (the
+  build-125 `InlineWheelPicker`) inside `.tabViewBottomAccessory(isEnabled:)`.
+  ⚠️ **Placement is read-only**: `tabViewBottomAccessoryPlacement` is the
+  system's choice, `.inline` means "beside a MINIMIZED bar", and
+  `.tabBarMinimizeBehavior(.onScrollDown)` is what moves between the two — so
+  the inline look (wheel between Today and Search) is a SCROLLED-DOWN state,
+  not the resting one. Two constraints learned from a cancelled nested-TabView
+  cut, binding on any future arrangement: a `Tab`'s content is its own view
+  tree (a catalog reachable twice EXISTS twice), and a native `Tab` item is not
+  a view the app can decorate (so per-scope counts can never ride tab labels —
+  they are retired). ⚠️ Anything that writes state during layout
+  (`.onGeometryChange`, `GeometryReader` + `PreferenceKey`) anywhere in the
+  TabView subtree breaks the search-role morph on FIRST activation (nav-diag
+  4e); measure from `UIFont` metrics instead, as the wheel's band and
+  `OverflowCapsuleRow` both do.
   **Today is a TAB, never a scope**: a timeline of derived state has nothing to
   narrow. `All` is GONE, and an **empty query shows the scope's WHOLE list,
   grouped as its tab groups it**. **All three scopes read alike: MINE then
