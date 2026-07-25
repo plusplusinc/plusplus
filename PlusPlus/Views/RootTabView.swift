@@ -14,28 +14,6 @@ enum AppTab: String, CaseIterable {
     var label: String { rawValue }
 }
 
-extension FindScope {
-    /// The tab this scope was absorbed from.
-    var tab: AppTab {
-        switch self {
-        case .routines: return .routines
-        case .exercises: return .exercises
-        case .kit: return .equipment
-        }
-    }
-
-    /// The scope a tab searches — `nil` for Today, which is a tab, never a
-    /// scope (it holds a timeline of derived state, not a list of items).
-    init?(tab: AppTab) {
-        switch tab {
-        case .routines: self = .routines
-        case .exercises: self = .exercises
-        case .equipment: self = .kit
-        case .today: return nil
-        }
-    }
-}
-
 /// v3 navigation root (#109): four bottom tabs — Today · Routines ·
 /// Exercises · Equipment. Creation is contextual (each tab's header +
 /// creates its own thing); the FAB menu and the History destination are
