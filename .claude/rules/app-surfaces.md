@@ -165,6 +165,30 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   invisible query reads as data loss); every add from it LANDS on its list
   with the entrance flash (`RoutineArrival`/`ExerciseArrival`/
   `EquipmentArrival` + `RowEntranceFlash` — one landing for every add).
+- **Search absorbs the three catalog tabs; Today stays a tab** (2026-07-25 —
+  supersedes the `Tab(role: .search)` arrangement above wherever they differ):
+  the bottom bar is `AppBottomBar`, not a `TabView` bar. At rest it reads as
+  always (Today · Routines · Exercises · Kit + the separated search key);
+  activating search expands the field over the Routines/Exercises/Kit slots but
+  NOT Today, and those three RISE into a second row above it as the scopes.
+  **Today is a TAB, never a scope** — it holds a timeline of derived state, not
+  a list of typed items, so there is nothing in it to narrow; keeping it in the
+  bar also makes it the one-tap way out of search. `All` and the empty-query
+  browse index are GONE: an empty query shows no results, because browsing a
+  type is what that type's TAB is for — the index was the actual duplication
+  between the two surfaces. Cross-scope discovery rides **per-scope result
+  counts on the scope labels** (no number at rest), never link rows: the count
+  sits on the very control that switches you there. The tab↔scope move is one
+  `matchedGeometryEffect` per scope so each label MOVES rather than cross-fades
+  (the absorb must read as a move for the two states to be one control). Custom
+  chrome is deliberate — the system morph is all-or-nothing, so a pinned Today
+  plus a row above it can't be expressed with `Tab(role: .search)`; retiring it
+  also retires the iOS 26 `.onGeometryChange` morph bug (nav-diag 4e). The four
+  roots live in a ZStack, each keeping its OWN `NavigationStack` (destinations
+  stay registered where they were, #262); hidden roots stay MOUNTED — an `if`
+  would discard the path a tab switch must preserve — and drop hit testing and
+  accessibility, since `opacity(0)` removes neither. Every landing leaves search
+  first, or the entrance flash plays behind the results covering it.
 - **Heading treatment follows the nature of the title** (2026-07-18, updated
   2026-07-19): a **tab root** wears a large left `.title` heading ON the icon
   row, just right of the ++ key (`AppMenuKey`) — single-line, `.layoutPriority(1)`

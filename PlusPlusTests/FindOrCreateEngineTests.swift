@@ -84,53 +84,58 @@ struct FindOrCreateEngineTests {
         #expect(sections[2].results.map(\.name) == ["Probe Press"])
     }
 
-    @Test("All scope caps the doable overview and folds the rest")
-    func allScopeCaps() throws {
+    // MARK: - Scope counts
+
+    // The counts the bottom bar paints beside each scope label. They're what
+    // replaced the retired All lens: a hit in a scope you aren't looking at
+    // has to advertise itself on the control that switches to it.
+
+    @Test("Match counts cover every scope, doable and missing alike")
+    func matchCountsPerScope() throws {
         let context = ModelContext(try makeContainer())
         let world = makeWorld(context: context)
 
-        // Five doable routines (1 user + 4 templates) exercise the fold; the
-        // bodyweight exercises stay doable, Probe Press splits to its own group.
-        let sections = FindOrCreateEngine.sections(
-            query: "", scope: .all,
+        let counts = FindOrCreateEngine.matchCounts(
+            query: "Probe",
             exercises: world.exercises, equipment: world.equipment,
             routines: world.routines,
-            templates: [template("Probe Plan A"), template("Probe Plan B"),
-                        template("Probe Plan C"), template("Probe Plan D")],
+            templates: [template("Probe Plan")],
             kitNames: world.kitNames
         )
-        let routines = try #require(sections.first { $0.title == "ROUTINES" && $0.kind == .results })
-        #expect(routines.count == 5)          // full count before the fold
-        #expect(routines.results.count == 3)  // capped
-        #expect(routines.moreCount == 2)
-        #expect(routines.results.first?.name == "Probe Day")  // yours floats up
-
-        let exercisesDoable = try #require(sections.first { $0.title == "EXERCISES" && $0.kind == .results })
-        #expect(exercisesDoable.results.map(\.name) == ["Probe Curl", "Probe Custom Move", "Probe Squat"])
-        #expect(exercisesDoable.moreCount == 0)
+        // Exercises counts the missing one too — the count is "results", and a
+        // result the kit can't do is still shown (under its disclosure).
+        #expect(counts[.exercises] == world.exercises.count)
+        #expect(counts[.kit] == world.equipment.count)
+        #expect(counts[.routines] == world.routines.count + 1)   // + the template
     }
 
-    @Test("All scope: a missing group follows its type with a scope jump")
-    func allScopeMissingGroup() throws {
+    @Test("A query that misses a scope counts it zero, not absent")
+    func matchCountsZeroForMiss() throws {
         let context = ModelContext(try makeContainer())
         let world = makeWorld(context: context)
 
-        let sections = FindOrCreateEngine.sections(
-            query: "", scope: .all,
+        let counts = FindOrCreateEngine.matchCounts(
+            query: "Curl",
             exercises: world.exercises, equipment: world.equipment,
             routines: world.routines, templates: [], kitNames: world.kitNames
         )
-        let missing = try #require(sections.first { $0.kind == .missing(noun: "exercise") })
-        #expect(missing.count == 1)
-        #expect(missing.results.map(\.name) == ["Probe Press"])
-        // The group's more-row jumps into the exercises scope, like the
-        // doable overview above it.
-        #expect(missing.scopeTarget == .exercises)
-        // It sits right after the doable EXERCISES section.
-        let titles = sections.map(\.id)
-        let doableIdx = try #require(titles.firstIndex(of: "EXERCISES"))
-        let missingIdx = try #require(titles.firstIndex(of: "MISSING_EXERCISES"))
-        #expect(missingIdx == doableIdx + 1)
+        // A zero has to be PRESENT so the label can say "0" — that's the
+        // signal that switching there is pointless.
+        #expect(counts[.kit] == 0)
+        #expect((counts[.exercises] ?? 0) >= 1)
+    }
+
+    @Test("An empty query counts nothing, so the labels stay bare")
+    func matchCountsEmptyQuery() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+
+        let counts = FindOrCreateEngine.matchCounts(
+            query: "   ",
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines, templates: [], kitNames: world.kitNames
+        )
+        #expect(counts.isEmpty)
     }
 
     // MARK: - Partitions
@@ -214,7 +219,7 @@ struct FindOrCreateEngineTests {
         let world = makeWorld(context: context)
 
         let sections = FindOrCreateEngine.sections(
-            query: "zzzz", scope: .all,
+            query: "zzzz", scope: .exercises,
             exercises: world.exercises, equipment: world.equipment,
             routines: world.routines, templates: [], kitNames: world.kitNames
         )

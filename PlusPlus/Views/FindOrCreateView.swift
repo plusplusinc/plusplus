@@ -16,31 +16,31 @@ enum FindOrCreateLaunch {
     }
 }
 
-/// Universal search — "Find or create" (design handoff 2026-07-23). ONE
-/// place to find or make a routine, an exercise, or a piece of equipment,
-/// yours or the catalog's, living behind the tab bar's search item. The
-/// per-tab header magnifiers retired into this surface; in-picker and
-/// pushed-catalog search stay.
+/// Universal search — "Find or create" (design handoff 2026-07-23; rebuilt
+/// 2026-07-25). ONE place to find or make a routine, an exercise, or a piece
+/// of equipment, yours or the catalog's. The per-tab header magnifiers retired
+/// into this surface; in-picker and pushed-catalog search stay.
 ///
-/// Layout: tab-root header grammar (++ key · title · kit switcher — kit
-/// is CONTEXT, never a filter chip) → the scope segmented control (a MODE,
-/// so it leads) → the Doable filter chip → create row → results, with the
-/// NATIVE `.searchable` field (2026-07-24) at the bottom — the search-role
-/// tab morphs the tab bar into the system field, carrying the native clear
-/// and Cancel. Its placeholder tracks the scope ("Search" / "Search
-/// routines/exercises/equipment") and it does NOT auto-focus on entry (the
-/// keyboard rises only when the field is tapped).
+/// It is a MODE, not a tab (2026-07-25). The field and the scope selector live
+/// in `AppBottomBar` — activating search expands the field over the Routines /
+/// Exercises / Kit tab slots, and those three rise above it as the scopes,
+/// carrying their result counts. So this view owns neither: it reads `query`
+/// and `scope` as bindings and renders what they select. It is mounted only
+/// while searching, which is what makes the state ephemeral by construction.
+///
+/// Layout: tab-root header grammar (++ key · title · kit switcher — kit is
+/// CONTEXT, never a filter chip) → create row → results.
 /// The create row is present unless the query EXACTLY names an item that
-/// already exists (a create there would only duplicate the row right
-/// below it — `FindOrCreateEngine.Collisions`); it never dead-ends, since
-/// an exact-name match always ranks into the results. An empty query
-/// shows everything, mine-first — narrowed by the Doable filter (default
-/// on, routines/exercises the active kit can do; an exact name always
-/// surfaces). Rows are clean (decision A): tap pushes detail onto THIS
-/// stack — back returns with query, scope, and scroll intact — and the
-/// long-press context menu carries the quick acts. The QUERY is ephemeral
-/// per-entry; the Doable FILTER persists (a preference, not search state);
-/// the active kit is the one app-wide pointer, switched only through the tray.
+/// already exists (a create there would only duplicate the row right below
+/// it — `FindOrCreateEngine.Collisions`); it never dead-ends, since an
+/// exact-name match always ranks into the results. An EMPTY query shows no
+/// results at all: this surface finds and creates, and each catalog tab is
+/// where you browse its own type — the old everything-index is what made the
+/// surface read as a second copy of those tabs.
+/// Rows are clean (decision A): tap pushes detail onto THIS stack — back
+/// returns with the query and scroll intact — and the long-press context menu
+/// carries the quick acts. The active kit is the one app-wide pointer,
+/// switched only through the tray.
 struct FindOrCreateView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Exercise.name) private var allExercises: [Exercise]
@@ -50,13 +50,15 @@ struct FindOrCreateView: View {
     @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
     @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
+    /// The query, the scope, and the field's focus intent all live in the
+    /// ROOT now (2026-07-25) — the field and the scope selector are in the
+    /// bottom bar, which outlives this surface, so this view reads them
+    /// rather than owning them.
+    @Binding var query: String
+    @Binding var scope: FindScope
+    @Binding var fieldWantsFocus: Bool
+
     @State private var path = NavigationPath()
-    @State private var query = ""
-    @State private var scope: FindScope = .all
-    /// Native search focus. NOT armed on entry (the field must not auto-rise
-    /// the keyboard, Dave 2026-07-24) — set true only by the empty-query Kit
-    /// create row ("type a name first" = put the cursor back in the field).
-    @FocusState private var searchFocused: Bool
     @State private var showingLibraryTray = false
     @State private var creatingExercise = false
     @State private var namingRoutine = false
@@ -80,7 +82,13 @@ struct FindOrCreateView: View {
     }
 
     private var sections: [FindOrCreateEngine.Section] {
-        FindOrCreateEngine.sections(
+        // No query, no results. This surface finds and creates; browsing a
+        // type is what that type's TAB is for — showing everything here is
+        // exactly what made search read as a second copy of those tabs
+        // (2026-07-25). The engine can still rank an empty query; we just
+        // don't ask it to.
+        guard !trimmedQuery.isEmpty else { return [] }
+        return FindOrCreateEngine.sections(
             query: trimmedQuery,
             scope: scope,
             exercises: allExercises,
@@ -105,41 +113,21 @@ struct FindOrCreateView: View {
                         showingLibraryTray = true
                     }
                 }
-                // Scope is the TOP control (the mode). The native search field
-                // sits at the BOTTOM, morphed from the tab bar by
-                // `role: .search` + `.searchable`. Kit availability is no longer
-                // a filter here — un-doable results group under a collapsible
-                // "require more equipment" disclosure in the list (2026-07-25).
-                scopeSegmented
+                // No scope control here any more: the scopes ARE the three
+                // catalog tabs, riding above the field in the bottom bar
+                // (2026-07-25). Kit availability isn't a filter either —
+                // un-doable results group under a collapsible "require more
+                // equipment" disclosure in the list.
                 resultsList
             }
             .background(Theme.background)
             .toolbar(.hidden, for: .navigationBar)
-            // The NATIVE search field (Dave, 2026-07-24): `.searchable` on the
-            // search-role tab morphs the tab bar into the system field (bottom,
-            // Liquid Glass), carrying the native clear (✕) + Cancel for free —
-            // the hand-rolled bottom bar + `SearchFieldBody` are retired here.
-            // Placement B (searchable INSIDE the search tab's stack) so the
-            // prompt can read `scope`; the morph comes from `role: .search`, not
-            // from where `.searchable` sits. The prompt is per-scope: plain
-            // "Search" on All, "Search routines/exercises/equipment" when scoped.
-            // No `.tabViewSearchActivation(.searchTabSelection)` — the native
-            // default activates search only on a field tap, so the keyboard does
-            // NOT auto-rise on entry (Dave's ask). `.searchFocused` is used only
-            // for the deliberate "type a name first" refocus below.
-            // ⚠️ Device-pass (the #1 check): the documented iOS 26 morph bug —
-            // an `.onGeometryChange` elsewhere in the TabView subtree (TodayView's
-            // onboarding step-height probe) can make the field fall back to the
-            // `.navigationBarDrawer` (top) placement on the FIRST activation
-            // instead of morphing from the tab bar. And because this surface
-            // HIDES the nav bar (above), that fallback has nowhere to render —
-            // so the failure isn't a top bar, it's NO visible field on first
-            // entry. Confirm the field appears on a cold first tap of the search
-            // tab; if it doesn't, the fix is to kill the morph trigger at its
-            // source (rework TodayView's probe — nav-diag 4e), not to revert.
-            .searchable(text: $query, prompt: Text(searchPrompt))
-            .searchFocused($searchFocused)
-            .onSubmit(of: .search) { openTopResult() }
+            // The field itself is in `AppBottomBar` — it has to be, since it
+            // expands over the tab slots. Its Return key reaches the ranked
+            // results through a notification rather than a closure.
+            .onReceive(NotificationCenter.default.publisher(for: .plusplusOpenTopResult)) { _ in
+                openTopResult()
+            }
             // The four result types push onto THIS stack (registered at the
             // root, #262) so back/swipe-back returns to results with query,
             // scope, and scroll intact — search is a stack, not a modal.
@@ -184,59 +172,13 @@ struct FindOrCreateView: View {
         // Favorites / kit / routine changes made from here reach GitHub
         // when you leave, like every tab.
         .syncsProgramOnClose()
-        // Ephemeral per-entry state (stale invisible queries read as data
-        // loss): every ENTRY into the tab resets to a blank query on All —
-        // or onto a pre-scoped launch — with the keyboard rising. Attached
-        // to the stack, not the root content, so a pop-back inside the
-        // stack does NOT reset (back returns to live results).
-        .onAppear(perform: enterSurface)
-    }
-
-    private func enterSurface() {
-        let launch = FindOrCreateLaunch.pending
-        FindOrCreateLaunch.pending = nil
-        scope = launch ?? .all
-        query = ""
-        path = NavigationPath()
-        expandedMissing = []      // every entry starts with missing groups collapsed
-        // Deliberately no focus arming: the native field stays unfocused on
-        // entry, so the keyboard doesn't auto-rise (Dave 2026-07-24).
-    }
-
-    // MARK: - Field + scopes
-
-    /// The native search field's placeholder, per scope: plain "Search" on
-    /// All (the query can become anything), and a typed "Search <kind>" when a
-    /// scope narrows it. The Kit scope searches equipment, so it reads
-    /// "Search equipment" (the single-item/catalog sense of the word, per the
-    /// kit-vs-equipment vocabulary law).
-    private var searchPrompt: String {
-        switch scope {
-        case .all: return "Search"
-        case .routines: return "Search routines"
-        case .exercises: return "Search exercises"
-        case .kit: return "Search equipment"
+        // The surface is mounted only while searching, so this fires once per
+        // search: a fresh stack with every missing group collapsed. The query
+        // and scope belong to the bar and are already set by the time we mount.
+        .onAppear {
+            path = NavigationPath()
+            expandedMissing = []
         }
-    }
-
-    /// Scope as an inline horizontal wheel (native-picker idiom): a left-aligned
-    /// selection band the scopes wheel through, white selected / grey unselected,
-    /// a soft 3D tilt, and faint tappable chevrons pointing to options off the
-    /// sides. Swipe, tap an option, or tap a chevron to change it (icons on the
-    /// three typed scopes, "All" text-only). The labels/symbols/ids track
-    /// `FindScope.allCases` in order.
-    private var scopeSegmented: some View {
-        InlineWheelPicker(
-            options: ["All", "Routines", "Exercises", "Kit"],
-            selectedIndex: Binding(
-                get: { FindScope.allCases.firstIndex(of: scope) ?? 0 },
-                set: { scope = FindScope.allCases[$0] }
-            ),
-            symbols: [nil, "checklist", "figure.strengthtraining.traditional", "dumbbell"],
-            identifiers: FindScope.allCases.map { "findScope-\($0.rawValue)" },
-            scrollIdentifier: "findScopeWheel"
-        )
-        .padding(.bottom, 8)
     }
 
     // MARK: - Results
@@ -247,7 +189,7 @@ struct FindOrCreateView: View {
         let collisions = self.collisions
         return List {
             if showsCreateRow(collisions) {
-                createRow(collisions)
+                createRow
             }
             // Real Sections (not loose header rows) so `.listStyle(.plain)`
             // PINS each heading to the top of the scroll area until the next
@@ -261,9 +203,6 @@ struct FindOrCreateView: View {
                     Section {
                         ForEach(section.results) { result in
                             resultRow(result, unlockedCounts: unlockedCounts)
-                        }
-                        if section.moreCount > 0 {
-                            moreRow(section)
                         }
                     } header: {
                         sectionHeaderView(section)
@@ -284,9 +223,6 @@ struct FindOrCreateView: View {
                             ForEach(section.results) { result in
                                 resultRow(result, unlockedCounts: unlockedCounts)
                             }
-                            if section.moreCount > 0 {
-                                moreRow(section)
-                            }
                         }
                     }
                 }
@@ -300,14 +236,21 @@ struct FindOrCreateView: View {
         .scrollDismissesKeyboard(.immediately)
     }
 
-    /// Empty results are only ever a truly empty match now — un-doable items
-    /// are never hidden, they group under the collapsible disclosure, so a
-    /// kit that can do nothing still shows that group rather than emptying.
+    /// Two quiet states, never a wall of everything: before a query there is
+    /// nothing to show (this surface finds and creates — each tab is where you
+    /// BROWSE its own type), and after one that matches nothing, the miss is
+    /// stated plainly. Un-doable items are never hidden — they group under the
+    /// collapsible disclosure — so a kit that can do nothing still shows that
+    /// group rather than emptying.
     private var emptyState: some View {
-        Text("Nothing matches.")
+        Text(trimmedQuery.isEmpty
+             ? "Search your \(scope.label.lowercased()), or make something new."
+             : "Nothing matches.")
             .font(.system(.footnote))
             .foregroundStyle(Theme.textFaint)
+            .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
+            .padding(.horizontal, 24)
             .padding(.top, 24)
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
@@ -322,61 +265,17 @@ struct FindOrCreateView: View {
     }
 
     private func sectionHeaderView(_ section: FindOrCreateEngine.Section) -> some View {
-        Group {
-            if let target = section.scopeTarget {
-                // An All-scope section header is a door into its scope —
-                // same jump as the more-row beneath it.
-                Button {
-                    scope = target
-                } label: {
-                    SheetSectionLabel("\(section.title) · \(section.count)")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            } else {
-                SheetSectionLabel("\(section.title) · \(section.count)")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-        .padding(.top, 12)
-        .padding(.horizontal, 16)
-        // Full-bleed SOLID background: a pinned header floats over the rows
-        // scrolling beneath it, so a clear fill would let their text show
-        // through. Matches the surface background, so it reads seamless.
-        .background(Theme.background)
-        .listRowInsets(EdgeInsets())
-        .listRowSeparator(.hidden)
-        .textCase(nil)
-    }
-
-    private func moreRow(_ section: FindOrCreateEngine.Section) -> some View {
-        Button {
-            if let target = section.scopeTarget {
-                // An All-scope MISSING group's "more" jumps into the scope,
-                // where the same group is keyed "MISSING" (not the All-scope
-                // "MISSING_<type>" id). Seed it expanded so the items the user
-                // asked to see land visible, not re-collapsed behind a tap.
-                if case .missing = section.kind { expandedMissing.insert("MISSING") }
-                scope = target
-            }
-        } label: {
-            // Chevron, not ＋: this is navigation into the scope
-            // (＋ stays reserved for creation).
-            HStack(spacing: 5) {
-                Text("\(section.moreCount) more")
-                Image(systemName: "chevron.right")
-                    .font(.system(.caption2, weight: .bold))
-            }
-            .font(.system(.footnote, weight: .semibold))
-            .foregroundStyle(Theme.textSecondary)
-            .padding(.vertical, 6)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("findMore-\(section.id)")
-        .listRowBackground(Color.clear)
-        .listRowSeparatorTint(Theme.border)
+        SheetSectionLabel("\(section.title) · \(section.count)")
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 12)
+            .padding(.horizontal, 16)
+            // Full-bleed SOLID background: a pinned header floats over the rows
+            // scrolling beneath it, so a clear fill would let their text show
+            // through. Matches the surface background, so it reads seamless.
+            .background(Theme.background)
+            .listRowInsets(EdgeInsets())
+            .listRowSeparator(.hidden)
+            .textCase(nil)
     }
 
     @ViewBuilder
@@ -401,8 +300,9 @@ struct FindOrCreateView: View {
     private func rowContent(_ result: FindOrCreateEngine.Result, unlockedCounts: [PersistentIdentifier: Int]) -> some View {
         switch result.item {
         case .exercise(let exercise):
-            // Modality figures show in All AND Exercises scope — they carry
-            // information beyond type (the one type-icon exception).
+            // The modality figure stays: it says what KIND of movement this is,
+            // which is information beyond "this row is an exercise" (the type
+            // is already given by the scope you're in).
             ExerciseRowContent(
                 exercise: exercise,
                 available: kitNames,
@@ -414,7 +314,6 @@ struct FindOrCreateView: View {
                 equipment: equipment,
                 unlockedCount: unlockedCounts[equipment.persistentModelID] ?? 0,
                 inKit: kitNames.contains(equipment.name) ? true : nil,
-                leadingSymbol: scope == .all ? "dumbbell" : nil,
                 nameHighlight: highlight(equipment.name)
             )
         case .routine(let routine):
@@ -424,8 +323,7 @@ struct FindOrCreateView: View {
                 capsules: routineCapsules(
                     matched: result.matchedExerciseName,
                     gear: routine.gearAvailability(activeNames: kitNames)
-                ),
-                leadingSymbol: scope == .all ? "checklist" : nil
+                )
             )
         case .template(let template):
             SearchRoutineRow(
@@ -434,8 +332,7 @@ struct FindOrCreateView: View {
                 capsules: routineCapsules(
                     matched: result.matchedExerciseName,
                     gear: template.equipmentNames.map { (name: $0, available: kitNames.contains($0)) }
-                ),
-                leadingSymbol: scope == .all ? "checklist" : nil
+                )
             )
         }
     }
@@ -554,18 +451,11 @@ struct FindOrCreateView: View {
         )
     }
 
-    /// All-scope offers three creates; equipment needs a name, and any type
-    /// whose name is already taken drops out. The row hides only when NONE
-    /// remain (an exact match of all three at once — vanishingly rare, but
-    /// then the results carry every one of them).
-    private func allOffersEquipmentCreate(_ collisions: FindOrCreateEngine.Collisions) -> Bool {
-        !trimmedQuery.isEmpty && !collisions.equipment
-    }
-
+    /// The create for the scope you're in, unless that exact name already
+    /// exists — then the identical item is right there in the results and a
+    /// create would only duplicate it.
     private func showsCreateRow(_ collisions: FindOrCreateEngine.Collisions) -> Bool {
         switch scope {
-        case .all:
-            return !collisions.exercise || !collisions.routine || allOffersEquipmentCreate(collisions)
         case .routines:
             return !collisions.routine
         case .exercises:
@@ -576,13 +466,9 @@ struct FindOrCreateView: View {
     }
 
     @ViewBuilder
-    private func createRow(_ collisions: FindOrCreateEngine.Collisions) -> some View {
+    private var createRow: some View {
         Group {
             switch scope {
-            case .all:
-                CreateMenuRow(label: allCreateLabel, identifier: "findCreateMenu") {
-                    createChooserItems(collisions)
-                }
             case .routines:
                 CreateRow(label: routinesCreateLabel, identifier: "createBlankRoutine") {
                     createRoutineFromQuery()
@@ -606,10 +492,6 @@ struct FindOrCreateView: View {
         "\u{201C}\(trimmedQuery.sentenceCasedFirst)\u{201D}"
     }
 
-    private var allCreateLabel: String {
-        trimmedQuery.isEmpty ? "Create…" : "Create \(quotedQuery)…"
-    }
-
     private var routinesCreateLabel: String {
         trimmedQuery.isEmpty ? "New routine" : "New routine \(quotedQuery)"
     }
@@ -620,37 +502,6 @@ struct FindOrCreateView: View {
 
     private var kitCreateLabel: String {
         trimmedQuery.isEmpty ? "New equipment…" : "Add \(quotedQuery) as equipment"
-    }
-
-    /// The All-scope chooser: the query hasn't said what it wants to
-    /// become. Equipment needs a name, so its entry only appears with one.
-    /// Any type whose exact name is already taken drops out — the chooser
-    /// never offers to duplicate an item the results already list.
-    @ViewBuilder
-    private func createChooserItems(_ collisions: FindOrCreateEngine.Collisions) -> some View {
-        if !collisions.exercise {
-            Button {
-                creatingExercise = true
-            } label: {
-                Label(trimmedQuery.isEmpty ? "New exercise" : "Create exercise \(quotedQuery)",
-                      systemImage: "figure.strengthtraining.traditional")
-            }
-        }
-        if !collisions.routine {
-            Button {
-                createRoutineFromQuery()
-            } label: {
-                Label(trimmedQuery.isEmpty ? "New routine" : "New routine \(quotedQuery)",
-                      systemImage: "checklist")
-            }
-        }
-        if allOffersEquipmentCreate(collisions) {
-            Button {
-                createEquipmentFromQuery()
-            } label: {
-                Label("Add \(quotedQuery) as equipment", systemImage: "dumbbell")
-            }
-        }
     }
 
     // MARK: - Create actions
@@ -697,10 +548,10 @@ struct FindOrCreateView: View {
         }
         let name = trimmedQuery.sentenceCasedFirst
         guard !name.isEmpty else {
-            // "Type a name first": put the cursor back in the field. This is a
-            // deliberate user action (they tapped create), so focusing here is
-            // not the auto-focus-on-entry the native default avoids.
-            searchFocused = true
+            // "Type a name first": put the cursor back in the field (which now
+            // lives in the bottom bar, so the intent travels through its
+            // one-shot focus binding).
+            fieldWantsFocus = true
             return
         }
         let item: Equipment
@@ -735,17 +586,9 @@ private struct SearchRoutineRow: View {
     let title: String
     let highlight: [Range<String.Index>]
     let capsules: [CardCapsule]
-    var leadingSymbol: String?
 
     var body: some View {
         HStack(spacing: 10) {
-            if let leadingSymbol {
-                Image(systemName: leadingSymbol)
-                    .font(.system(size: 16))
-                    .foregroundStyle(Theme.textFaint)
-                    .frame(width: 22)
-                    .accessibilityHidden(true)
-            }
             VStack(alignment: .leading, spacing: 6) {
                 Text(highlightedName(title, ranges: highlight))
                     .font(.system(.subheadline, weight: .semibold))

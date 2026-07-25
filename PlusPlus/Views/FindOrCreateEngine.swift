@@ -2,10 +2,33 @@ import Foundation
 import SwiftData
 import PlusPlusKit
 
-/// What the Find-or-create surface is looking at — the scope chips' four
-/// lenses (2026-07-23 handoff). Raw values feed a11y identifiers only.
+/// What the Find-or-create surface is looking at. These are the app's three
+/// CATALOG tabs — the ones the expanding search field absorbs, which then
+/// ride above it as the scope row (2026-07-25). Today is deliberately absent:
+/// it is a tab, never a scope (it holds a timeline of derived state, not a
+/// list of typed items), so it keeps its place beside the field instead.
+/// The former `.all` lens is gone with the browse index — cross-scope hits
+/// are surfaced by the per-scope counts on the labels instead.
 enum FindScope: String, CaseIterable {
-    case all, routines, exercises, kit
+    case routines, exercises, kit
+
+    /// The scope's name, identical to the tab it was absorbed from — the
+    /// control changes shape, never its vocabulary.
+    var label: String {
+        switch self {
+        case .routines: return "Routines"
+        case .exercises: return "Exercises"
+        case .kit: return "Kit"
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .routines: return "square.stack"
+        case .exercises: return "list.bullet"
+        case .kit: return "dumbbell"
+        }
+    }
 }
 
 /// Pure result collection for the Find-or-create surface: score, rank,
@@ -58,34 +81,23 @@ enum FindOrCreateEngine {
         /// Unused for `.missing` (the view builds the sentence from `count`).
         let title: String
         let count: Int
-        /// Set on All-scope sections: the header AND the more-row jump here.
-        let scopeTarget: FindScope?
         let results: [Result]
-        /// Rows folded behind "n more ›" (All scope caps each type).
-        let moreCount: Int
         var kind: Kind = .results
 
         init(
             id: String? = nil,
             title: String,
             count: Int,
-            scopeTarget: FindScope?,
             results: [Result],
-            moreCount: Int,
             kind: Kind = .results
         ) {
             self.id = id ?? title
             self.title = title
             self.count = count
-            self.scopeTarget = scopeTarget
             self.results = results
-            self.moreCount = moreCount
             self.kind = kind
         }
     }
-
-    /// All-scope sections show this many rows before folding into "n more ›".
-    static let allScopeCap = 3
 
     /// Which create verbs would COLLIDE with an item that already exists
     /// under the exact (case-insensitive, trimmed) name — one flag per
@@ -120,13 +132,17 @@ enum FindOrCreateEngine {
         )
     }
 
-    /// An EMPTY query shows everything (no blank state): every item at
-    /// score 0, mine-first then alphabetical. A query narrows and ranks:
+    /// Results for the live query, within one scope. An empty query ranks
+    /// EVERYTHING at score 0 (mine-first, then alphabetical) — that is the
+    /// honest ranking answer, and it stays here so the ordering rules can be
+    /// enumerated in tests. Whether a surface should ASK with an empty query is
+    /// the surface's policy: `FindOrCreateView` doesn't (2026-07-25), because
+    /// browsing a type belongs to that type's tab. A query narrows and ranks:
     /// mine-first, then score, then name.
-    /// Nothing is HIDDEN by kit availability anymore (2026-07-25): each
-    /// routine/exercise section splits into the doable rows, then a
-    /// collapsible `.missing(noun:)` group of what the active kit can't do.
-    /// Equipment is never partitioned (a piece of gear isn't a thing you "do").
+    /// Nothing is HIDDEN by kit availability (2026-07-25): each routine/exercise
+    /// scope splits into the doable rows, then a collapsible `.missing(noun:)`
+    /// group of what the active kit can't do. Equipment is never partitioned
+    /// (a piece of gear isn't a thing you "do").
     static func sections(
         query: String,
         scope: FindScope,
@@ -138,27 +154,6 @@ enum FindOrCreateEngine {
     ) -> [Section] {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         switch scope {
-        case .all:
-            var out: [Section] = []
-            out += allScopeSections(
-                "ROUTINES", .routines, "routine",
-                routineResults(q, routines: routines, templates: templates, kitNames: kitNames)
-            )
-            out += allScopeSections(
-                "EXERCISES", .exercises, "exercise",
-                exerciseResults(q, exercises: exercises, kitNames: kitNames)
-            )
-            let gear = equipmentResults(q, equipment: equipment, kitNames: kitNames)
-            if !gear.isEmpty {
-                out.append(Section(
-                    title: "EQUIPMENT",
-                    count: gear.count,
-                    scopeTarget: .kit,
-                    results: Array(gear.prefix(allScopeCap)),
-                    moreCount: max(0, gear.count - allScopeCap)
-                ))
-            }
-            return out
         case .routines:
             return groupedWithMissing(
                 routineResults(q, routines: routines, templates: templates, kitNames: kitNames),
@@ -174,37 +169,27 @@ enum FindOrCreateEngine {
         }
     }
 
-    /// One All-scope type: the capped doable overview section, then (if any)
-    /// the collapsible "N <noun>s require more equipment" group after it. A
-    /// type with ONLY missing results still appears (its missing group renders),
-    /// so an only-missing query never vanishes into "Nothing matches."
-    private static func allScopeSections(
-        _ title: String, _ target: FindScope, _ noun: String, _ results: [Result]
-    ) -> [Section] {
-        let doable = results.filter(\.doable)
-        let missing = results.filter { !$0.doable }
-        var out: [Section] = []
-        if !doable.isEmpty {
-            out.append(Section(
-                title: title,
-                count: doable.count,
-                scopeTarget: target,
-                results: Array(doable.prefix(allScopeCap)),
-                moreCount: max(0, doable.count - allScopeCap)
-            ))
-        }
-        if !missing.isEmpty {
-            out.append(Section(
-                id: "MISSING_\(title)",
-                title: title,
-                count: missing.count,
-                scopeTarget: target,
-                results: Array(missing.prefix(allScopeCap)),
-                moreCount: max(0, missing.count - allScopeCap),
-                kind: .missing(noun: noun)
-            ))
-        }
-        return out
+    /// How many results each scope holds for the live query — the numbers the
+    /// bottom bar paints beside the scope labels while searching. They are what
+    /// replaced the retired All lens: a hit in a scope you aren't looking at is
+    /// advertised by the very control that switches to it, so no cross-scope
+    /// link rows are needed in the list. An empty query counts nothing, so the
+    /// labels stay bare until there's something to count.
+    static func matchCounts(
+        query: String,
+        exercises: [Exercise],
+        equipment: [Equipment],
+        routines: [Routine],
+        templates: [RoutineTemplate],
+        kitNames: Set<String>
+    ) -> [FindScope: Int] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { return [:] }
+        return [
+            .routines: routineResults(q, routines: routines, templates: templates, kitNames: kitNames).count,
+            .exercises: exerciseResults(q, exercises: exercises, kitNames: kitNames).count,
+            .kit: equipmentResults(q, equipment: equipment, kitNames: kitNames).count
+        ]
     }
 
     /// The scoped view's two groups. MINE = yours; CATALOG = everything
@@ -215,10 +200,10 @@ enum FindOrCreateEngine {
         let catalog = results.filter { !$0.mine }
         var sections: [Section] = []
         if !mine.isEmpty {
-            sections.append(Section(title: "MINE", count: mine.count, scopeTarget: nil, results: mine, moreCount: 0))
+            sections.append(Section(title: "MINE", count: mine.count, results: mine))
         }
         if !catalog.isEmpty {
-            sections.append(Section(title: "CATALOG", count: catalog.count, scopeTarget: nil, results: catalog, moreCount: 0))
+            sections.append(Section(title: "CATALOG", count: catalog.count, results: catalog))
         }
         return sections
     }
@@ -234,9 +219,7 @@ enum FindOrCreateEngine {
                 id: "MISSING",
                 title: "MISSING",
                 count: missing.count,
-                scopeTarget: nil,
                 results: missing,
-                moreCount: 0,
                 kind: .missing(noun: noun)
             ))
         }
