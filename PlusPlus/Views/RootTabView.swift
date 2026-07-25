@@ -7,10 +7,6 @@ import PlusPlusKit
 /// catalog you're in, so it adds a query rather than a destination.
 enum AppTab: String, CaseIterable {
     case today, routines, exercises, equipment
-    /// The native search-role item: the system renders it as the separated
-    /// circle beside the tab group and morphs the bar into the search field
-    /// when it's selected.
-    case search
 
     var label: String { rawValue }
 }
@@ -33,9 +29,7 @@ extension FindScope {
         case .routines: self = .routines
         case .exercises: self = .exercises
         case .equipment: self = .kit
-        // Neither is a catalog: Today holds a timeline of derived state, and
-        // the search tab holds the three scopes rather than being one.
-        case .today, .search: return nil
+        case .today: return nil
         }
     }
 }
@@ -54,24 +48,16 @@ extension FindScope {
 /// chips deliberately were NOT — the three read alike now, and the field
 /// reaches what the chips used to).
 ///
-/// The chrome is NESTED TabViews (Dave, 2026-07-25), and it is the system's
-/// again — the hand-drawn `AppBottomBar` is deleted. Build 133's three device
-/// bugs were scroll-edge legibility, home-indicator clearance and label
-/// alignment: all three are things a real tab bar does for free, and paying
-/// for them by hand a third time was the wrong trade.
+/// The bar is `AppBottomBar` (custom, build 10's trade knowingly reopened —
+/// see it for why the native bar cannot express this): a floating Today key,
+/// the Routines · Exercises · Kit group, and a floating Search key, with the
+/// group MOVING up into its own row when search opens. Today is not in that
+/// group — it holds a timeline of derived state, not a list of typed items,
+/// so it is a tab and never a scope.
 ///
-/// OUTER bar: Today · Routines · Exercises · Kit · Search(role). INNER bar:
-/// the same three catalogs, inside the search tab, riding above the field the
-/// outer bar morphs into. While search is selected the three outer catalog
-/// tabs are DROPPED from the builder — they are the inner bar now, and their
-/// absence is what leaves Today alone beside the field. Today never moves: it
-/// holds a timeline of derived state, not a list of typed items, so it is a
-/// tab and never a scope.
-///
-/// The cost of nesting: a `Tab`'s content is its own view tree, so each
-/// catalog exists twice — once as an outer tab (browsing, no query) and once
-/// inside search (carrying the query). `CatalogScopeView.Hosting` tells the two
-/// copies apart so only the outer one answers landings.
+/// Roots stay mounted and hide by opacity (never `if`, which would discard
+/// their navigation paths); each keeps its OWN `NavigationStack`, so every
+/// value destination stays registered where it was (#262).
 struct RootTabView: View {
 
     /// The Today tab's icon reflects whether there's anything to do today
@@ -89,11 +75,17 @@ struct RootTabView: View {
     @State private var dayToken = 0
 
     @State private var tab: AppTab = .today
-    /// The search query, and which scope the INNER bar is pointing at. Both
-    /// live here because both outlive any one scope's view: switching scope
-    /// mid-search has to keep what you typed.
+    /// Search is a MODE over the selected catalog, not a destination: while
+    /// true the bar's middle group moves up into its own row and the field
+    /// takes its place. The query lives here because the field does.
+    @State private var searching = false
     @State private var query = ""
-    @State private var scope: FindScope = .routines
+    /// Per-scope result counts for the bar's labels. COMPUTED BY THE SEARCH
+    /// SURFACE, not here: it already holds the catalog queries, so counting at
+    /// the root would mean duplicate always-live `@Query`s whose every change
+    /// re-evaluated the whole four-root tree, plus a fourth ranking pass per
+    /// keystroke on top of the three the surface already runs.
+    @State private var scopeCounts: [FindScope: Int] = [:]
     /// The slide-to-reveal drawer behind the ++ key (replaces the pushed
     /// AppMenuScreen). Lives here, above the tabs' NavigationStacks, so it
     /// moves the whole TabView as one layer.
@@ -169,113 +161,76 @@ struct RootTabView: View {
     @MainActor
     private func land(on newTab: AppTab) {
         query = ""
-        tab = newTab
-    }
-
-    /// Entering search opens on the catalog you were already in — search
-    /// narrows where you are, it doesn't relocate you. From Today (a tab, never
-    /// a scope) it opens on whichever scope was last showing.
-    @MainActor
-    private func syncScope(entering newTab: AppTab) {
-        if let entered = FindScope(tab: newTab) {
-            scope = entered
-        }
-        // Leaving search drops the query: a stale invisible one reads as data
-        // loss, and the outer catalogs deliberately browse unfiltered.
-        if newTab != .search {
-            query = ""
+        withAnimation(Theme.Anim.selection) {
+            searching = false
+            tab = newTab
         }
     }
 
-    /// A catalog as an OUTER tab: browsing, no query. The search tab hosts its
-    /// own copy of the same three scopes, which is the one wrinkle of nesting —
-    /// a `Tab`'s content is its own view tree, so a catalog reachable both as a
-    /// tab and inside search exists twice. Only these outer ones answer
-    /// landings, so an entrance flash can never play on the invisible copy.
-    private func catalog(_ scope: FindScope) -> some View {
-        CatalogScopeView(scope: scope, hosting: .tabRoot, query: .constant(""), isActive: tab == scope.tab)
-    }
-
-    /// The search tab: the INNER TabView. Its bar is the three catalogs the
-    /// outer bar just gave up, and each scope carries the native `.searchable`
-    /// — the field is per-scope, so its prompt names what it actually searches
-    /// ("Search equipment" on Kit, the kit-vs-equipment vocabulary law).
-    /// `.searchable` sits on `CatalogScopeView` because that view IS a
-    /// `NavigationStack`, which the field needs in order to render at all.
-    private var searchHost: some View {
-        TabView(selection: $scope) {
-            Tab(FindScope.routines.label, systemImage: FindScope.routines.symbolName, value: FindScope.routines) {
-                searchScope(.routines)
-            }
-            Tab(FindScope.exercises.label, systemImage: FindScope.exercises.symbolName, value: FindScope.exercises) {
-                searchScope(.exercises)
-            }
-            Tab(FindScope.kit.label, systemImage: FindScope.kit.symbolName, value: FindScope.kit) {
-                searchScope(.kit)
-            }
-        }
-    }
-
-    private func searchScope(_ item: FindScope) -> some View {
-        CatalogScopeView(scope: item, hosting: .searchTab, query: $query, isActive: scope == item)
-            .searchable(text: $query, prompt: "Search \(item.searchNoun)")
-            // Return opens the best hit. The field is the system's, so the key
-            // travels as a signal to whichever scope is showing.
-            .onSubmit(of: .search) {
-                NotificationCenter.default.post(name: .plusplusOpenTopResult, object: nil)
-            }
+    /// One root layer. Hidden roots stay MOUNTED (an `if` would discard the
+    /// navigation path a tab switch is supposed to preserve) but drop hit
+    /// testing and accessibility — `opacity(0)` removes neither on its own.
+    @ViewBuilder
+    private func root<Content: View>(
+        _ visible: Bool,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        content()
+            .opacity(visible ? 1 : 0)
+            .allowsHitTesting(visible)
+            .accessibilityHidden(!visible)
+            // Leaving a catalog is still the boundary that pushes program
+            // edits to GitHub, but these roots no longer unmount, so the
+            // trigger keys on hiding rather than on `onDisappear`.
+            .syncsProgramOnHide(visible: visible)
     }
 
     private var appContent: some View {
-        // NESTED TabViews (Dave, 2026-07-25), replacing the hand-drawn bar:
-        // the chrome goes back to the system, which owns the hit targets, the
-        // accessibility, the Liquid Glass, the scroll-edge legibility and the
-        // home-indicator clearance — the three things build 133's custom bar
-        // got wrong were all of them.
-        //
-        // OUTER bar: Today · Routines · Exercises · Kit · Search.
-        // INNER bar: the three catalogs again, inside the search tab, riding
-        // above the field the outer bar morphs into.
-        TabView(selection: $tab) {
-            // Operator's context: the tab line comes from the onChange below;
-            // pushed details report (and clear) their own line via
-            // .operatorContext, so no tab-level reporter is attached here.
-            Tab("Today", systemImage: todayStatus.systemImage, value: AppTab.today) {
+        // Today, plus ONE catalog surface per scope. The three catalog tabs
+        // and the three search scopes are the same three views: search adds a
+        // query, it does not switch you to a different screen (Dave,
+        // 2026-07-25 — "the modes of universal search fully replace those
+        // older tabbed views"). Each keeps its own NavigationStack, so every
+        // value destination stays registered where it was (#262).
+        ZStack {
+            root(tab == .today) {
                 TodayView(onGoToRoutines: { tab = .routines })
             }
-            // While search is selected these three are ABSENT from the outer
-            // bar. They haven't gone anywhere — they're the inner bar now — and
-            // dropping them is what leaves Today as the one item beside the
-            // search field (Dave's ask). Today itself never leaves: it is a
-            // tab, never a scope.
-            if tab != .search {
-                Tab(FindScope.routines.label, systemImage: FindScope.routines.symbolName, value: AppTab.routines) {
-                    catalog(.routines)
-                }
-                Tab(FindScope.exercises.label, systemImage: FindScope.exercises.symbolName, value: AppTab.exercises) {
-                    catalog(.exercises)
-                }
-                // Labeled "Kit" (2026-07-20); the enum case stays `.equipment`.
-                Tab(FindScope.kit.label, systemImage: FindScope.kit.symbolName, value: AppTab.equipment) {
-                    catalog(.kit)
+            // One `CatalogScopeView` per scope, and NOTHING keys on `searching`
+            // here: search is a MODE over the catalog you're already in, so it
+            // adds a query rather than swapping in a different screen. The Kit
+            // scope is labeled "Kit" (2026-07-20); its enum case stays
+            // `.equipment`.
+            ForEach(FindScope.allCases, id: \.self) { scope in
+                root(tab == scope.tab) {
+                    CatalogScopeView(
+                        scope: scope,
+                        query: $query,
+                        counts: $scopeCounts,
+                        isActive: tab == scope.tab
+                    )
                 }
             }
-            Tab(value: AppTab.search, role: .search) {
-                searchHost
-            }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            AppBottomBar(
+                tab: $tab,
+                searching: $searching,
+                query: $query,
+                todaySymbol: todayStatus.systemImage,
+                counts: scopeCounts,
+                onSubmit: { NotificationCenter.default.post(name: .plusplusOpenTopResult, object: nil) }
+            )
         }
         .tint(Theme.textPrimary)
         // Swipe-to-open is gated on the active tab being at its root; keep
         // the reveal controller told which tab is showing. Operator's
         // view-context follows the same signal (a tab switch also clears
         // a popped detail's stale line).
-        .onChange(of: tab, initial: true) { oldTab, newTab in
+        .onChange(of: tab, initial: true) { _, newTab in
             reveal.activeTab = newTab.rawValue
             viewContext.tab = newTab.rawValue
             viewContext.detail = nil
-            // Seed the inner bar from the tab you came FROM when opening
-            // search; clear the query when leaving it.
-            syncScope(entering: newTab == .search ? oldTab : newTab)
         }
         // Nothing to report when search opens: it doesn't change which surface
         // is showing, only what that surface is narrowed to. The drawer's
