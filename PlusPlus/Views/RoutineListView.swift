@@ -2,27 +2,6 @@ import SwiftUI
 import SwiftData
 import PlusPlusKit
 
-/// A routine added from ANOTHER tab (Today's setup step, a share import)
-/// lands on the Routines list with the same entrance flash a same-tab add
-/// gets — one landing for every add (Dave, 2026-07-23; the Today setup
-/// flow used to land inside the new routine's detail instead). The uuid
-/// is a HANDOFF SLOT, not a notification payload: the Routines tab may
-/// not be mounted yet when the add happens (a first-run setup flow), so
-/// the list consumes it on appear as well as on receive — whichever
-/// fires first wins, and consuming clears the slot.
-@MainActor
-enum RoutineArrival {
-    static var pending: UUID?
-
-    /// Stamp the arrival and announce it: RootTabView switches to the
-    /// Routines tab; a mounted list consumes immediately, an unmounted
-    /// one on its first appear.
-    static func land(_ uuid: UUID) {
-        pending = uuid
-        NotificationCenter.default.post(name: .plusplusRoutineArrived, object: nil)
-    }
-}
-
 /// The Routines tab, v3 (#109): routine cards with equipment pills and
 /// a contextual header + (new routine). Library/History/Settings left
 /// this header with the nav restructure — Exercises and Equipment are
@@ -312,31 +291,6 @@ struct RoutineListView: View {
 /// one key shape everywhere — Dave reverted the brief all-circles round
 /// (2026-07-19) and the sheet-corner concentric experiment (2026-07-19,
 /// the uneven corners read wrong).
-struct HeaderIconButton: View {
-    let systemImage: String
-    /// Spoken VoiceOver name for the action (required — the glyph alone reads
-    /// as its raw SF Symbol name, e.g. "slider horizontal 3").
-    let accessibilityLabel: String
-    var identifier: String?
-    /// Glyph tint; defaults to the neutral header ink. The favorite star
-    /// passes `Theme.accent` when lit (green = the user's own data).
-    var tint: Color = Theme.textSecondary
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: systemImage)
-                .font(.system(.body, weight: .medium))
-                .foregroundStyle(tint)
-                .frame(width: 44, height: 44)
-                .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
-                .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
-        }
-        .buttonStyle(.raisedKey())
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityIdentifier(identifier ?? systemImage)
-    }
-}
 
 /// Plain content, deliberately NOT a Button: activation belongs to
 /// SwipeRevealRow's onTap (see the component contract — a Button here
