@@ -111,13 +111,12 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   never a dead end, because an exact match always ranks into results, so
   results are non-empty whenever a create is hidden. Partial matches still
   offer create.
-  **Scope selection IS the tab group** (2026-07-25 — the `SearchScopeBar`
-  accessory, the `InlineWheelPicker` and the `SegmentedTabs` before it are all
-  DELETED): the three catalog scopes are the three catalog tabs, in
-  `AppBottomBar`, and search moves them up a row rather than drawing a second
-  control. Each is a labelled `Button` carrying `.isSelected` with a 44 pt
-  target (VoiceOver "Exercises, 12 results, selected, button"), showing its
-  match count while a query exists. The custom `SegmentedTabs` was RETIRED (2026-07-24) —
+  **Scope selection is the WHEEL in the tab bar's bottom accessory**
+  (2026-07-25, final — `SearchScopeBar` and `SegmentedTabs` are deleted;
+  `InlineWheelPicker` was briefly deleted with them and RESTORED for this job).
+  Each option is a labelled `Button` carrying `.isSelected` with a 44 pt target
+  (VoiceOver "Exercises, selected, button"); the chevrons are supplementary and
+  hidden from assistive tech. No match counts on it — see the chrome bullet. The custom `SegmentedTabs` was RETIRED (2026-07-24) —
   every other former segmented site moved to native `Picker` (`.segmented` for
   short unit/mode toggles, a pushed `NavigationSelectRow` for multi-word modes).
   **Kit availability is NOT a filter** (2026-07-25, superseding the "Doable"
