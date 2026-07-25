@@ -511,7 +511,7 @@ struct TodayView: View {
             // The one-time Health ask, in front of the first workout start.
             .healthStartPrimer($healthStartRequest)
             .navigationDestination(isPresented: $showingEquipmentSetup) {
-                EquipmentCatalogScreen(setupMode: true)
+                CatalogScopeView(scope: .kit, setupMode: true)
             }
             .alert("New routine", isPresented: $showingNewRoutine) {
                 TextField("Name", text: $newRoutineName)
@@ -1463,12 +1463,11 @@ struct TodayView: View {
                 gatedSub: "Needs your equipment first",
                 cta: "Pick a routine",
                 identifier: "setupRoutineStep",
-                // Deep-links into Find or create (Routines scope), the ONE
-                // find-or-create surface (2026-07-24): the standalone routine
-                // catalog was retired in its favor. The add lands on the
-                // Routines tab via RoutineArrival — the same end state the
-                // pushed catalog reached, now through one surface.
-                action: { FindOrCreateLaunch.open(.routines) },
+                // Lands on the Routines tab, which IS the routine catalog now
+                // (2026-07-25): yours, then everything you could add. The
+                // standalone catalog screen and the pre-scoped search deep link
+                // both retired into it.
+                action: { onGoToRoutines() },
                 edit: { onGoToRoutines() }
             )
             .id(Self.setupRoutineAnchor)

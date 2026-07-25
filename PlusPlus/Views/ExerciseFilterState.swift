@@ -140,16 +140,10 @@ final class ExerciseFilterState {
         return exercise.equipment.contains { selectedEquipment.contains($0) }
     }
 
-    // MARK: - Persistence (device-local, interchange-excluded)
-
-    /// The catalog filters persist across launches (Dave: "set it and it
-    /// stays"). Namespaced @AppStorage keys, the same device-local
-    /// convention as the active-kit pointer. Search text is deliberately
-    /// NOT persisted — a stale invisible query resurrecting reads as data
-    /// loss. The owning view loads these on appear and writes back on
-    /// change (ExerciseFilterState is a plain @Observable, not a View).
-    enum Prefs {
-        static let favoritesOnly = "exerciseCatalog.favoritesOnly"
-        static let muscleGroups = "exerciseCatalog.muscleGroups"
-    }
+    // The persisted catalog-filter keys (`exerciseCatalog.favoritesOnly` /
+    // `.muscleGroups`) are GONE with the facet chips (2026-07-25): the
+    // Exercises surface reads like Routines and Kit now — MINE then CATALOG,
+    // narrowed only by the field, which already scores muscle groups through
+    // `searchHaystack`. What remains here is filtering the exercise PICKER,
+    // whose facets are its own and live only for that presentation.
 }

@@ -251,18 +251,16 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(routinesTab.waitForExistence(timeout: 10))
         routinesTab.tap()
 
-        // The Add row opens Find or create pre-scoped to Routines
-        // (2026-07-23); its field is always open, no magnifier toggle.
+        // The tab already lists the catalog templates under CATALOG, so
+        // reaching one is just search narrowing the list you're on — no
+        // detour through another surface (2026-07-25). Search also PINS the
+        // row (the lazy-List rule); a bodyweight template survives a
+        // zero-equipment store, so don't swap in a gear-requiring one.
         let plus = app.buttons["newRoutineButton"]
         XCTAssertTrue(plus.waitForExistence(timeout: 5))
-        plus.tap()
+        openSearch()
 
-        // Search pins the template (lazy-List rule). A bodyweight
-        // template also survives zero-owned stores — don't swap in a
-        // gear-requiring one. The Add row opens search already scoped to
-        // Routines, so no scope tap is needed here.
         let field = searchField
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap()
         field.typeText("Bodyweight Basics")
         let templateRow = app.staticTexts["Bodyweight Basics"]
@@ -293,12 +291,12 @@ final class SmokeTests: XCTestCase {
         openSearch()
         snap("find-or-create-open")
 
-        // The absorbed tabs are the scopes now, sitting above the field as
-        // plain chips — no wheel to swipe into place.
-        let exercisesScope = app.buttons["findScope-exercises"]
+        // The absorbed tabs ARE the scopes: the same three controls, moved up
+        // into their own row. So switching scope is switching tab.
+        let exercisesScope = tabButton("exercises")
         XCTAssertTrue(exercisesScope.waitForExistence(timeout: 5))
         exercisesScope.tap()
-        let createRow = app.buttons["findCreateExercise"]
+        let createRow = app.buttons["createExerciseRow"]
         XCTAssertTrue(createRow.waitForExistence(timeout: 5))
 
         // The query prefills the editor (the create-from-here contract).
@@ -525,21 +523,20 @@ final class SmokeTests: XCTestCase {
         // is always fully visible, so equipment Done goes straight on to
         // step 2 with content already available downstream.
 
-        // Step 2 unlocks: pick a routine. The step deep-links into Find or
-        // create (Routines scope) now — the standalone routine catalog was
-        // retired (2026-07-24). This exercises search + Add end to end.
+        // Step 2 unlocks: pick a routine. The step lands on the Routines tab,
+        // which IS the routine catalog now (2026-07-25) — yours, then
+        // everything you could add. This exercises search + Add end to end.
         let routineCTA = app.buttons["setupRoutineStep"]
         XCTAssertTrue(routineCTA.waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Equipment set"].waitForExistence(timeout: 5))
         snap("setup-step2")
         routineCTA.tap()
 
-        // Search pins the template regardless of sort order or catalog
-        // growth (the lazy-List rule: only realized rows exist). The step
-        // deep-links straight into search on the Routines scope, so the
-        // field is already up and aimed.
+        // Search pins the template regardless of catalog growth (the
+        // lazy-List rule: only realized rows exist).
+        XCTAssertTrue(app.buttons["newRoutineButton"].waitForExistence(timeout: 10))
+        openSearch()
         let field = searchField
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap()
         field.typeText("Bodyweight Basics")
         let templateRow = app.staticTexts["Bodyweight Basics"]
@@ -671,11 +668,10 @@ final class SmokeTests: XCTestCase {
     }
 
     private func createRoutine(named name: String) {
-        // Universal search (2026-07-23): the Routines Add row opens the
-        // Find-or-create surface pre-scoped, whose create row (empty
-        // query) asks for a name; the created routine LANDS back on the
-        // Routines list with the entrance flash, and the helper walks
-        // into its detail from there.
+        // The Routines tab IS the search scope (2026-07-25), so its top row
+        // creates inline rather than deep-linking anywhere: with no query it
+        // asks for a name, and the routine LANDS back on the list with the
+        // entrance flash, where the helper walks into its detail.
         let routinesTab = tabButton("routines")
         XCTAssertTrue(routinesTab.waitForExistence(timeout: 10))
         routinesTab.tap()
@@ -683,10 +679,6 @@ final class SmokeTests: XCTestCase {
         let plus = app.buttons["newRoutineButton"]
         XCTAssertTrue(plus.waitForExistence(timeout: 5))
         plus.tap()
-
-        let createRow = app.buttons["createBlankRoutine"]
-        XCTAssertTrue(createRow.waitForExistence(timeout: 5))
-        createRow.tap()
 
         let alert = app.alerts["New routine"]
         XCTAssertTrue(alert.waitForExistence(timeout: 5))

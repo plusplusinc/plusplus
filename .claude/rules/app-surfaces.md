@@ -64,10 +64,11 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   Keys that carry TEXT keep the rounded-rect pill: `QuietKey`,
   `LibrarySwitcherKey`, `SheetDismissKey`, the primary action bars.
 - **One search UI + one sheet-dismissal, and ✕ means only "collapse search"**
-  (2026-07-18; universal search 2026-07-23): cross-type search lives on the
-  **Find-or-create surface** behind the tab bar's search item
-  (`Tab(role: .search)` → `FindOrCreateView`) — the tab-root headers carry NO
-  magnifier anymore. On that surface the field is the NATIVE `.searchable`
+  (2026-07-18; universal search 2026-07-23; **now `CatalogScopeView` + the
+  bar's search key** — see the one-view bullet below, which supersedes the
+  mechanism described here): cross-type search lived on a separate
+  **Find-or-create surface** behind the tab bar's search item — the tab-root
+  headers carry NO magnifier anymore. On that surface the field was the NATIVE `.searchable`
   (2026-07-24, Dave — superseding the custom bottom-bar takeover): placed
   INSIDE the search tab's stack (placement B) so its prompt can read the scope,
   the search-role tab morphs the tab bar into the system field at the bottom,
@@ -95,10 +96,12 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   ("Cancel" to abandon edits, "Done" view-only; Find-or-create's Done follows
   the same grammar). Creation is the TOP list row, verb-keyed: **Create**
   (`New <object>` / `Create "<query>"`) when it makes a custom object inline,
-  **Add** (`Add <object>` / `Add "<query>"`) when it navigates — the tabs' Add
-  rows now open Find-or-create pre-scoped (`FindOrCreateLaunch`), as does
-  onboarding step 2 ("Pick a routine" → `.open(.routines)`; the standalone
-  `RoutineCatalogScreen` was retired here, 2026-07-24). Query casing
+  **Add** (`Add <object>` / `Add "<query>"`) when it navigates. Since the tab
+  IS the scope (2026-07-25) every catalog's top row CREATES inline — deep-linking
+  into a pre-scoped search would mean navigating to where you already are, so
+  `FindOrCreateLaunch` is gone and onboarding step 2 just lands on the Routines
+  tab, which is the routine catalog (the standalone `RoutineCatalogScreen` was
+  retired into it, 2026-07-24). Query casing
   is `String.sentenceCasedFirst`. Empty results NEVER dead-end: the create/add
   row is always present + a "Clear filters" `QuietKey` when facets are active.
   The ONE thing that removes a create is an EXACT-name collision (2026-07-24):
@@ -108,13 +111,13 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   never a dead end, because an exact match always ranks into results, so
   results are non-empty whenever a create is hidden. Partial matches still
   offer create.
-  **Scope selection is the bottom ACCESSORY row** (2026-07-25 — the
-  `InlineWheelPicker` that briefly held this job is DELETED, as was the
-  `SegmentedTabs` before it): the three catalog scopes ride above the search
-  field in `.tabViewBottomAccessory(isEnabled:)` as `SearchScopeBar`. Each is a
-  labelled `Button` carrying `.isSelected` with a 44 pt target (VoiceOver
-  "Exercises, 12 results, selected, button"), and each shows its match count
-  while a query exists. The custom `SegmentedTabs` was RETIRED (2026-07-24) —
+  **Scope selection IS the tab group** (2026-07-25 — the `SearchScopeBar`
+  accessory, the `InlineWheelPicker` and the `SegmentedTabs` before it are all
+  DELETED): the three catalog scopes are the three catalog tabs, in
+  `AppBottomBar`, and search moves them up a row rather than drawing a second
+  control. Each is a labelled `Button` carrying `.isSelected` with a 44 pt
+  target (VoiceOver "Exercises, 12 results, selected, button"), showing its
+  match count while a query exists. The custom `SegmentedTabs` was RETIRED (2026-07-24) —
   every other former segmented site moved to native `Picker` (`.segmented` for
   short unit/mode toggles, a pushed `NavigationSelectRow` for multi-word modes).
   **Kit availability is NOT a filter** (2026-07-25, superseding the "Doable"
@@ -144,25 +147,53 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   invisible query reads as data loss); every add from it LANDS on its list
   with the entrance flash (`RoutineArrival`/`ExerciseArrival`/
   `EquipmentArrival` + `RowEntranceFlash` — one landing for every add).
-- **Search absorbs the three catalog tabs; the scopes ride above the field**
-  (2026-07-25 — supersedes the arrangement above wherever they differ): the
-  chrome stays the PLATFORM'S — native `TabView` + native `Tab(role: .search)`,
-  so the bar's morph into the field, Liquid Glass, hit targets and a11y are the
-  system's (an interim cut hand-rolled the bar to pin Today beside the field;
-  Dave rejected it — the tabs and search are supposed to be SwiftUI's own).
-  What the app adds is the SECOND ROW: while the search tab is selected the
-  three catalog scopes ride above the field in `.tabViewBottomAccessory(isEnabled:)`
-  (`SearchScopeBar`) — the tabs the field absorbed, still there to narrow by.
+- **The catalog tabs and the search scopes are ONE view** (2026-07-25 —
+  supersedes the arrangement above wherever they differ). Tapping **Routines**
+  with search closed and scoping to **Routines** with it open land on the same
+  screen: `CatalogScopeView`, one per `FindScope`. Search adds a QUERY, never a
+  destination — `RootTabView` mounts the three and shows them on `tab` alone,
+  keying nothing on `searching`. It replaced `RoutineListView` /
+  `ExercisesTabView` / `EquipmentTabView` / `FindOrCreateView` AND the pushed
+  `EquipmentCatalogScreen`; the same view serves both as a `.tab` (own stack,
+  query bound from the root because the field lives in the bar) and
+  `.presented(setupMode:)` (pushed chrome + its own header field + an item
+  destination, #291) — the second is what onboarding step 1, the drawer's
+  "Edit your kit", the picker's filter escape and the template gear-check open.
+  **The bar is the app's own** (`AppBottomBar`, build 10's trade knowingly
+  reopened): a floating Today key · the Routines · Exercises · Kit group as ONE
+  Liquid Glass platter with a pill on the selected item · a floating Search
+  key; activating search expands the field over the group's slot and the group
+  MOVES up into its own row (`GlassEffectContainer` + one shared
+  `glassEffectID`, so the MATERIAL morphs, not just the frame). Native tabs
+  genuinely cannot express that — `Tab(role:)` separates only `.search`,
+  `.prominent` is OS27 and undocumented, and native `Tab` items aren't views
+  the app can address, so they can't share a geometry namespace. The bar
+  therefore sits OUTSIDE the `RaisedKey` press grammar on purpose (it should
+  read as system chrome), and owes the hit targets and a11y the system used to
+  provide. Custom bars must also ask for `.scrollEdgeEffectStyle(.hard, for:)`.
   **Today is a TAB, never a scope**: a timeline of derived state has nothing to
   narrow. `All` is GONE, and an **empty query shows the scope's WHOLE list,
-  grouped as its tab groups it** — search opens onto the content you were
-  already looking at. The "require more equipment" group splits INSIDE each
-  tier (`MISSING_MINE`/`MISSING_CATALOG`): MINE/CATALOG is the primary
-  division, kit availability the secondary. Cross-scope discovery rides
-  **per-scope result counts on the scope labels** (no number at rest), never
-  link rows — the count sits on the control that switches you there. Prompts
-  and empty states use `FindScope.searchNoun`, not `label`: the Kit scope
-  searches the equipment CATALOG, so it says "Search equipment".
+  grouped as its tab groups it**. **All three scopes read alike: MINE then
+  CATALOG, and NO facet chips** (Dave) — so the Kit tab means "equipment, mine
+  first", not "my kit". The field replaces the retired chips: muscle groups sit
+  in `ExerciseFilterState.searchHaystack` and equipment categories in the
+  equipment scorer, so typing reaches them. The "require more equipment" group
+  splits INSIDE each tier (`MISSING_MINE`/`MISSING_CATALOG`): MINE/CATALOG is
+  the primary division, kit availability the secondary. Cross-scope discovery
+  rides **per-scope result counts on the scope labels** (no number at rest),
+  never link rows — and each surface publishes its OWN count by summing its own
+  sections (a central `matchCounts` meant a second ranking pass per keystroke).
+  Prompts and empty states use `FindScope.searchNoun`, not `label`: the Kit
+  scope searches the equipment CATALOG, so it says "Search equipment".
+- **One swipe law on every catalog row: LEADING is curation, TRAILING is
+  destructive** (2026-07-25). Exercises lead FAV/UNFAV, trail DELETE on customs
+  only; Kit leads ADD/REMOVE membership, trails DELETE on customs; Routines
+  trail DELETE. Catalog templates have neither and are plain rows. **Row
+  context menus are gone** — the swipes ARE those acts now, and on Routines a
+  long press has to belong to `.onMove`. **Reorder is routines-only, tab-only,
+  empty-query-only, MINE-tier-only**: a ranked or narrowed list has no order to
+  write back, and writing one would destroy the user's drag-ordering. Routines
+  render as **cardless rows** outside Today — a catalog list reads flat.
 - **Heading treatment follows the nature of the title** (2026-07-18, updated
   2026-07-19): a **tab root** wears a large left `.title` heading ON the icon
   row, just right of the ++ key (`AppMenuKey`) — single-line, `.layoutPriority(1)`
@@ -290,8 +321,11 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   is FAVORITES (`Exercise.isFavorite`; `inLibrary` frozen). The old GEAR facet
   (four `GearMode`s: All / can do with the kit / can't / a hand-picked set) was
   the opt-in availability filter that replaced hide-by-default; it (and
-  `GearPickSheet`) were RETIRED 2026-07-25 for the collapsible group — Favorites
-  and Muscle remain the tab's filters. Filters persist device-locally. Copy says "have"/"in your kit",
+  `GearPickSheet`) were RETIRED 2026-07-25 for the collapsible group, and later
+  the same day **Favorites and Muscle went too** — no catalog surface carries
+  facet chips now (the search field reaches what they reached), so the persisted
+  `exerciseCatalog.*` keys died with them; curation is the MINE tier and the
+  favorite swipe. Copy says "have"/"in your kit",
   never "own" (that word survives only for data ownership) and never "have access
   to" (retired 2026-07-17; permission-grant copy keeps "access" — Apple's
   word). **One possessive for the active kit: “your kit”** (2026-07-20;

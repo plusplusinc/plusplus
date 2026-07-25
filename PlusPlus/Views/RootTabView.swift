@@ -43,8 +43,10 @@ extension FindScope {
 /// views.** Tapping Routines with search closed and scoping to Routines with it
 /// open land on one `CatalogScopeView` — search adds a query, it does not take
 /// you to a different screen. The older `RoutineListView` /
-/// `ExercisesTabView` / `EquipmentTabView` are gone, their swipes, reorder and
-/// facets absorbed into that one surface.
+/// `ExercisesTabView` / `EquipmentTabView` / `FindOrCreateView` are gone, their
+/// swipes, reorder and creates absorbed into that one surface (their facet
+/// chips deliberately were NOT — the three read alike now, and the field
+/// reaches what the chips used to).
 ///
 /// The bar is `AppBottomBar` (custom, build 10's trade knowingly reopened —
 /// see it for why the native bar cannot express this): a floating Today key,
@@ -78,7 +80,6 @@ struct RootTabView: View {
     /// takes its place. The query lives here because the field does.
     @State private var searching = false
     @State private var query = ""
-    @State private var fieldWantsFocus = false
     /// Per-scope result counts for the bar's labels. COMPUTED BY THE SEARCH
     /// SURFACE, not here: it already holds the catalog queries, so counting at
     /// the root would mean duplicate always-live `@Query`s whose every change
@@ -192,27 +193,23 @@ struct RootTabView: View {
         // older tabbed views"). Each keeps its own NavigationStack, so every
         // value destination stays registered where it was (#262).
         ZStack {
-            root(tab == .today && !searching) {
+            root(tab == .today) {
                 TodayView(onGoToRoutines: { tab = .routines })
             }
-            root(tab == .routines && !searching) { RoutineListView() }
-            root(tab == .exercises && !searching) { ExercisesTabView() }
-            // Labeled "Kit" (2026-07-20); the enum case stays `.equipment`.
-            root(tab == .equipment && !searching) { EquipmentTabView() }
-            // Search covers the catalogs while active. Round A of this change
-            // keeps the older per-type views underneath; folding them INTO
-            // this surface (so the tab and the scope are one view) is the
-            // next round.
-            if searching {
-                FindOrCreateView(
-                    query: $query,
-                    scope: Binding(
-                        get: { FindScope(tab: tab) ?? .routines },
-                        set: { tab = $0.tab }
-                    ),
-                    counts: $scopeCounts,
-                    fieldWantsFocus: $fieldWantsFocus
-                )
+            // One `CatalogScopeView` per scope, and NOTHING keys on `searching`
+            // here: search is a MODE over the catalog you're already in, so it
+            // adds a query rather than swapping in a different screen. The Kit
+            // scope is labeled "Kit" (2026-07-20); its enum case stays
+            // `.equipment`.
+            ForEach(FindScope.allCases, id: \.self) { scope in
+                root(tab == scope.tab) {
+                    CatalogScopeView(
+                        scope: scope,
+                        query: $query,
+                        counts: $scopeCounts,
+                        isActive: tab == scope.tab
+                    )
+                }
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -222,7 +219,6 @@ struct RootTabView: View {
                 query: $query,
                 todaySymbol: todayStatus.systemImage,
                 counts: scopeCounts,
-                fieldWantsFocus: $fieldWantsFocus,
                 onSubmit: { NotificationCenter.default.post(name: .plusplusOpenTopResult, object: nil) }
             )
         }
@@ -236,13 +232,9 @@ struct RootTabView: View {
             viewContext.tab = newTab.rawValue
             viewContext.detail = nil
         }
-        // Search is a mode, so it reports itself the way a tab does — and
-        // hands the signal back to the underlying catalog on the way out.
-        .onChange(of: searching) { _, isSearching in
-            reveal.activeTab = isSearching ? "search" : tab.rawValue
-            viewContext.tab = isSearching ? "search" : tab.rawValue
-            viewContext.detail = nil
-        }
+        // Nothing to report when search opens: it doesn't change which surface
+        // is showing, only what that surface is narrowed to. The drawer's
+        // swipe gate and Operator's view-context both stay on the tab.
         // Operator's outcome navigation: the root switches tabs; the
         // owning tab root resolves and pushes (the .plusplusStartRoutine
         // pattern). The drawer closes too, so a half-height Operator
@@ -340,17 +332,6 @@ struct RootTabView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .plusplusEquipmentArrived)) { _ in
             land(on: .equipment)
-        }
-        // A catalog's Add row opens search already on that catalog; the scope
-        // rides `FindOrCreateLaunch.pending`.
-        .onReceive(NotificationCenter.default.publisher(for: .plusplusFindOrCreate)) { _ in
-            if let pending = FindOrCreateLaunch.pending {
-                FindOrCreateLaunch.pending = nil
-                tab = pending.tab
-            }
-            query = ""
-            withAnimation(Theme.Anim.selection) { searching = true }
-            fieldWantsFocus = true
         }
         // Closing a finished workout's recap goes home: whatever screen
         // presented the session cover, the finish lands on Today, where

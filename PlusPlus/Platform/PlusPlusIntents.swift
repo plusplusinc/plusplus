@@ -23,17 +23,13 @@ extension Notification.Name {
     /// not-yet-mounted list can still consume it on first appear.
     static let plusplusRoutineArrived = Notification.Name("plusplusRoutineArrived")
     /// The exercise/equipment twins of `plusplusRoutineArrived` (universal
-    /// search, 2026-07-23): a create/add from the Find-or-create surface
-    /// lands on its list with the entrance flash — no toasts, the landing
-    /// IS the feedback. The identity rides the arrival slot
+    /// search, 2026-07-23): a create/add lands on its catalog surface with
+    /// the entrance flash — no toasts, the landing IS the feedback.
+    /// The identity rides the arrival slot
     /// (`ExerciseArrival.pending` / `EquipmentArrival.pending`), same
     /// handoff shape as routines.
     static let plusplusExerciseArrived = Notification.Name("plusplusExerciseArrived")
     static let plusplusEquipmentArrived = Notification.Name("plusplusEquipmentArrived")
-    /// Posted by `FindOrCreateLaunch.open(_:)` — a tab's Add row deep-links
-    /// into the Find-or-create surface pre-scoped. The scope rides
-    /// `FindOrCreateLaunch.pending`; the root opens search on that scope.
-    static let plusplusFindOrCreate = Notification.Name("plusplusFindOrCreate")
     /// The search field's Return key. The field lives in the bottom bar and the
     /// ranked results live in the catalog surface above it, so the key travels
     /// as a signal rather than a closure.

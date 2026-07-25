@@ -39,10 +39,13 @@ struct AppBottomBar: View {
     /// Per-scope result counts for the live query; empty when there's nothing
     /// to count, so the labels stay bare until a query exists.
     let counts: [FindScope: Int]
-    /// One-shot focus intent handed to the field (the `SearchFieldBody` contract).
-    @Binding var fieldWantsFocus: Bool
     /// Return key — opens the top result.
     var onSubmit: () -> Void
+
+    /// The `SearchFieldBody` one-shot focus contract. Nothing ever arms it:
+    /// activating search expands the field and lifts the group, and the
+    /// keyboard rises only when the field itself is tapped (Dave, 2026-07-25).
+    @State private var fieldWantsFocus = false
 
     @Namespace private var glass
 

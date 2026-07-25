@@ -115,54 +115,50 @@ struct FindOrCreateEngineTests {
 
     // The counts the bottom bar paints beside each scope label. They're what
     // replaced the retired All lens: a hit in a scope you aren't looking at
-    // has to advertise itself on the control that switches to it.
+    // has to advertise itself on the control that switches to it. Each scope's
+    // surface publishes its own by summing the sections it already built
+    // (2026-07-25 — a separate `matchCounts` meant a second ranking pass per
+    // keystroke), so the contract under test is that sum. The "an empty query
+    // counts nothing" half of the rule lives in the surface, not here.
+    private func scopeCount(_ sections: [FindOrCreateEngine.Section]) -> Int {
+        sections.reduce(0) { $0 + $1.count }
+    }
 
-    @Test("Match counts cover every scope, doable and missing alike")
-    func matchCountsPerScope() throws {
+    @Test("Scope counts cover every scope, doable and missing alike")
+    func scopeCountsPerScope() throws {
         let context = ModelContext(try makeContainer())
         let world = makeWorld(context: context)
 
-        let counts = FindOrCreateEngine.matchCounts(
-            query: "Probe",
-            exercises: world.exercises, equipment: world.equipment,
-            routines: world.routines,
-            templates: [template("Probe Plan")],
-            kitNames: world.kitNames
-        )
+        func count(_ scope: FindScope, templates: [RoutineTemplate] = []) -> Int {
+            scopeCount(FindOrCreateEngine.sections(
+                query: "Probe", scope: scope,
+                exercises: world.exercises, equipment: world.equipment,
+                routines: world.routines, templates: templates,
+                kitNames: world.kitNames
+            ))
+        }
         // Exercises counts the missing one too — the count is "results", and a
         // result the kit can't do is still shown (under its disclosure).
-        #expect(counts[.exercises] == world.exercises.count)
-        #expect(counts[.kit] == world.equipment.count)
-        #expect(counts[.routines] == world.routines.count + 1)   // + the template
+        #expect(count(.exercises) == world.exercises.count)
+        #expect(count(.kit) == world.equipment.count)
+        #expect(count(.routines, templates: [template("Probe Plan")]) == world.routines.count + 1)
     }
 
-    @Test("A query that misses a scope counts it zero, not absent")
-    func matchCountsZeroForMiss() throws {
+    @Test("A query that misses a scope counts it zero")
+    func scopeCountZeroForMiss() throws {
         let context = ModelContext(try makeContainer())
         let world = makeWorld(context: context)
 
-        let counts = FindOrCreateEngine.matchCounts(
-            query: "Curl",
-            exercises: world.exercises, equipment: world.equipment,
-            routines: world.routines, templates: [], kitNames: world.kitNames
-        )
-        // A zero has to be PRESENT so the label can say "0" — that's the
-        // signal that switching there is pointless.
-        #expect(counts[.kit] == 0)
-        #expect((counts[.exercises] ?? 0) >= 1)
-    }
-
-    @Test("An empty query counts nothing, so the labels stay bare")
-    func matchCountsEmptyQuery() throws {
-        let context = ModelContext(try makeContainer())
-        let world = makeWorld(context: context)
-
-        let counts = FindOrCreateEngine.matchCounts(
-            query: "   ",
-            exercises: world.exercises, equipment: world.equipment,
-            routines: world.routines, templates: [], kitNames: world.kitNames
-        )
-        #expect(counts.isEmpty)
+        func count(_ scope: FindScope) -> Int {
+            scopeCount(FindOrCreateEngine.sections(
+                query: "Curl", scope: scope,
+                exercises: world.exercises, equipment: world.equipment,
+                routines: world.routines, templates: [], kitNames: world.kitNames
+            ))
+        }
+        // A zero is what tells the label that switching there is pointless.
+        #expect(count(.kit) == 0)
+        #expect(count(.exercises) >= 1)
     }
 
     // MARK: - Partitions

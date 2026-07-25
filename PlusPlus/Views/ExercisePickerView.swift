@@ -511,7 +511,7 @@ struct EquipmentFilterSheet: View {
             }
             .sheet(isPresented: $showingEquipmentEditor) {
                 NavigationStack {
-                    EquipmentCatalogScreen()
+                    CatalogScopeView(scope: .kit)
                 }
             }
         }

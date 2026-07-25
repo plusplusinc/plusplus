@@ -180,28 +180,12 @@ enum FindOrCreateEngine {
         }
     }
 
-    /// How many results each scope holds for the live query — the numbers the
-    /// accessory row paints beside the scope labels while searching. They are what
-    /// replaced the retired All lens: a hit in a scope you aren't looking at is
-    /// advertised by the very control that switches to it, so no cross-scope
-    /// link rows are needed in the list. An empty query counts nothing, so the
-    /// labels stay bare until there's something to count.
-    static func matchCounts(
-        query: String,
-        exercises: [Exercise],
-        equipment: [Equipment],
-        routines: [Routine],
-        templates: [RoutineTemplate],
-        kitNames: Set<String>
-    ) -> [FindScope: Int] {
-        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !q.isEmpty else { return [:] }
-        return [
-            .routines: routineResults(q, routines: routines, templates: templates, kitNames: kitNames).count,
-            .exercises: exerciseResults(q, exercises: exercises, kitNames: kitNames).count,
-            .kit: equipmentResults(q, equipment: equipment, kitNames: kitNames).count
-        ]
-    }
+    // The per-scope match COUNTS the bar paints beside its labels aren't
+    // computed here any more (2026-07-25). Each scope's surface stays mounted
+    // and already builds its own sections, so it publishes its own count by
+    // summing them — a `matchCounts` here meant a second full ranking pass over
+    // all three types on every keystroke, on top of the one the visible surface
+    // was already running.
 
     /// The scoped view's two groups. MINE = yours; CATALOG = everything
     /// else. Either group drops out when empty rather than showing a
