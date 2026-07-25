@@ -3,11 +3,13 @@ import SwiftUI
 import SwiftData
 import PlusPlusKit
 
-/// The app's four roots. Search is NOT among them (2026-07-25): it stopped
-/// being a destination and became a MODE over whichever catalog you're in —
-/// see `AppBottomBar`.
+/// The app's roots, including the native search-role tab.
 enum AppTab: String, CaseIterable {
     case today, routines, exercises, equipment
+    /// The universal Find-or-create surface behind the tab bar's search item —
+    /// the system renders it as the separated circle beside the tab group and
+    /// morphs the bar into the search field when it's selected.
+    case search
 
     var label: String { rawValue }
 }
@@ -39,15 +41,16 @@ extension FindScope {
 /// creates its own thing); the FAB menu and the History destination are
 /// gone (Today's timeline subsumes history, #110).
 ///
-/// 2026-07-25: the native `TabView` gave way to a ZStack of the four roots
-/// under `AppBottomBar`, so search can absorb the three catalog tabs into its
-/// field while Today keeps its place (the system morph is all-or-nothing and
-/// can't express that). Each root keeps its OWN `NavigationStack`, so every
-/// value destination stays registered where it was and per-tab navigation
-/// state still survives switching — only the chrome changed. Roots stay
-/// mounted and hide by opacity (never `if`, which would discard their paths);
-/// hidden ones drop hit testing and accessibility, since `opacity(0)` alone
-/// leaves both live (ui-interaction.md).
+/// The chrome is the platform's (Dave, build 10, reaffirmed 2026-07-25): a
+/// native `TabView` with a native `Tab(role: .search)`, so the tab bar's morph
+/// into the search field, its Liquid Glass treatment, hit targets and
+/// accessibility all come from the system rather than being redrawn.
+///
+/// What the app adds is the SECOND ROW: while the search tab is selected, the
+/// three catalog scopes ride above the field in the TabView's bottom accessory
+/// (`SearchScopeBar`), so the tabs the field absorbed are still there to narrow
+/// by. Today is not among them — it holds a timeline of derived state, not a
+/// list of typed items, so it is a tab and never a scope.
 struct RootTabView: View {
 
     /// The Today tab's icon reflects whether there's anything to do today
@@ -65,13 +68,11 @@ struct RootTabView: View {
     @State private var dayToken = 0
 
     @State private var tab: AppTab = .today
-    /// Search is a MODE over the tabs, not a tab: while true the field is
-    /// expanded, the three catalog scopes ride above it, and the Find-or-create
-    /// surface covers the roots. All of it is ephemeral — leaving clears it.
-    @State private var searching = false
+    /// The search query and scope live here, not in the surface: the scope row
+    /// is the TabView's bottom ACCESSORY, which sits outside the search tab's
+    /// content, so both controls have to read the same state from above them.
     @State private var query = ""
     @State private var scope: FindScope = .routines
-    @State private var fieldWantsFocus = false
     /// Per-scope result counts for the bar's labels. COMPUTED BY THE SEARCH
     /// SURFACE, not here: it already holds the catalog queries, so counting at
     /// the root would mean duplicate always-live `@Query`s whose every change
@@ -147,88 +148,53 @@ struct RootTabView: View {
         .environment(viewContext)
     }
 
-    /// One root layer. Hidden roots stay MOUNTED (an `if` would discard the
-    /// navigation path a tab switch is supposed to preserve) but drop hit
-    /// testing and accessibility — `opacity(0)` removes neither on its own.
-    @ViewBuilder
-    private func root<Content: View>(
-        _ value: AppTab,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        let visible = tab == value && !searching
-        content()
-            .opacity(visible ? 1 : 0)
-            .allowsHitTesting(visible)
-            .accessibilityHidden(!visible)
-            // Leaving a tab is still the natural boundary to push program
-            // edits to GitHub — but these roots no longer unmount, so the
-            // trigger has to key on hiding rather than on `onDisappear`
-            // (which is why the roots' own `syncsProgramOnClose` came off).
-            .syncsProgramOnHide(visible: visible)
-    }
-
-    /// Every landing leaves search first. A create made from the search
-    /// surface lands on the tab that owns it (the one-landing law), and that
-    /// landing has to be VISIBLE — left searching, the entrance flash would
-    /// play behind the results covering it.
+    /// A landing leaves search first: a create made from the search surface
+    /// lands on the tab that owns it (the one-landing law), and that landing
+    /// has to be VISIBLE — left on the search tab, the entrance flash would
+    /// play on a list nobody is looking at.
     @MainActor
     private func land(on newTab: AppTab) {
         query = ""
-        withAnimation(Theme.Anim.selection) {
-            searching = false
-            tab = newTab
-        }
+        tab = newTab
     }
 
     private var appContent: some View {
-        // The four roots, one visible at a time, under the bottom bar. This
-        // replaced the native TabView so search can absorb three of the tabs
-        // into its field while Today stays put (AppBottomBar explains why the
-        // system morph can't). Each root keeps its own NavigationStack.
-        ZStack {
+        // Native TabView (iOS 26 Liquid Glass): system hit targets,
+        // accessibility, and scroll-edge treatment for free — and per-tab
+        // navigation state survives switching. The quiet-terminal identity
+        // lives in the content; the chrome is the platform's (Dave, build 10).
+        TabView(selection: $tab) {
             // Operator's context: the tab line comes from the onChange
             // below; pushed details report (and clear) their own line via
             // .operatorContext — a tab-level reporter would never re-fire
             // on a pop, so none is attached here.
-            root(.today) {
+            Tab("Today", systemImage: todayStatus.systemImage, value: AppTab.today) {
                 TodayView(onGoToRoutines: { tab = .routines })
             }
-            root(.routines) {
+            Tab("Routines", systemImage: "square.stack", value: AppTab.routines) {
                 RoutineListView()
             }
-            root(.exercises) {
+            Tab("Exercises", systemImage: "list.bullet", value: AppTab.exercises) {
                 ExercisesTabView()
             }
             // Labeled "Kit" (2026-07-20): the tab shows your ACTIVE kit, and
             // the short word is guaranteed to fit the on-row heading beside
             // the switcher. The enum case / reveal signal stay `.equipment`
             // (frozen internal — see the vocabulary note).
-            root(.equipment) {
+            Tab("Kit", systemImage: "dumbbell", value: AppTab.equipment) {
                 EquipmentTabView()
             }
-            // Search covers the roots while active. Mounted only then, so its
-            // stack and collapsed groups start fresh every time — the surface
-            // is ephemeral by design (a stale invisible query reads as loss).
-            if searching {
-                FindOrCreateView(
-                    query: $query,
-                    scope: $scope,
-                    fieldWantsFocus: $fieldWantsFocus,
-                    counts: $scopeCounts
-                )
+            // The search-role item renders as the separated circle beside
+            // the tab group and morphs the bar into the system search field.
+            Tab(value: AppTab.search, role: .search) {
+                FindOrCreateView(query: $query, scope: $scope, counts: $scopeCounts)
             }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            AppBottomBar(
-                tab: $tab,
-                searching: $searching,
-                query: $query,
-                scope: $scope,
-                todaySymbol: todayStatus.systemImage,
-                counts: scopeCounts,
-                fieldWantsFocus: $fieldWantsFocus,
-                onSubmit: { NotificationCenter.default.post(name: .plusplusOpenTopResult, object: nil) }
-            )
+        // The three catalog tabs the field absorbs ride ABOVE it as the search
+        // scopes. `isEnabled:` is what makes this viable — off, it removes the
+        // accessory's reserved space, so no other tab carries a blank strip.
+        .tabViewBottomAccessory(isEnabled: tab == .search) {
+            SearchScopeBar(scope: $scope, counts: scopeCounts)
         }
         .tint(Theme.textPrimary)
         // Swipe-to-open is gated on the active tab being at its root; keep
@@ -238,13 +204,6 @@ struct RootTabView: View {
         .onChange(of: tab, initial: true) { _, newTab in
             reveal.activeTab = newTab.rawValue
             viewContext.tab = newTab.rawValue
-            viewContext.detail = nil
-        }
-        // Search is a mode, so it reports itself the same way a tab does —
-        // and hands the signal back to the underlying tab on the way out.
-        .onChange(of: searching) { _, isSearching in
-            reveal.activeTab = isSearching ? "search" : tab.rawValue
-            viewContext.tab = isSearching ? "search" : tab.rawValue
             viewContext.detail = nil
         }
         // Operator's outcome navigation: the root switches tabs; the
@@ -345,18 +304,15 @@ struct RootTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: .plusplusEquipmentArrived)) { _ in
             land(on: .equipment)
         }
-        // A tab's Add row deep-links into search pre-scoped — the same mode
-        // the bar's search key opens, just aimed at a scope up front.
+        // A tab's Add row deep-links into the search tab pre-scoped; the scope
+        // rides `FindOrCreateLaunch.pending`.
         .onReceive(NotificationCenter.default.publisher(for: .plusplusFindOrCreate)) { _ in
             if let pending = FindOrCreateLaunch.pending {
                 FindOrCreateLaunch.pending = nil
                 scope = pending
             }
             query = ""
-            withAnimation(Theme.Anim.selection) {
-                searching = true
-            }
-            fieldWantsFocus = true
+            tab = .search
         }
         // Closing a finished workout's recap goes home: whatever screen
         // presented the session cover, the finish lands on Today, where

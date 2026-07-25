@@ -72,7 +72,7 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   INSIDE the search tab's stack (placement B) so its prompt can read the scope,
   the search-role tab morphs the tab bar into the system field at the bottom,
   carrying the native clear (✕) and Cancel. The placeholder is per-scope
-  ("Search" on All, "Search routines/exercises/equipment" when scoped) and it
+  (`FindScope.searchNoun` — "Search routines / exercises / equipment") and it
   does NOT auto-focus on entry — no `.tabViewSearchActivation(.searchTabSelection)`,
   so the keyboard rises only on a field tap (`.searchFocused` is used solely for
   the "type a name first" refocus). There is NO custom Done key now: leaving is a
@@ -84,8 +84,7 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   nowhere to render — the failure is NO visible field on first entry, not a top
   bar. #1 device check on the shipping OS; if it recurs, kill the morph trigger
   at its source (rework the probe), don't revert. `SearchFieldBody` stays — the pushed catalogs/pickers/sheets
-  still use it via `HeaderSearchField`. Scope +
-  Doable stay the top controls. Pushed catalogs, pickers, and sheets keep the expanding
+  still use it via `HeaderSearchField`. Pushed catalogs, pickers, and sheets keep the expanding
   in-header field (`HeaderSearchField`) — a top-right magnifier that expands
   into a field spanning the row, an in-field `delete.left` CLEAR that keeps
   focus, and a separate `xmark` COLLAPSE key where the magnifier was; the
@@ -109,35 +108,15 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   never a dead end, because an exact match always ranks into results, so
   results are non-empty whenever a create is hidden. Partial matches still
   offer create.
-  **Scope is an inline horizontal WHEEL** (`InlineWheelPicker`, 2026-07-24 —
-  replaced the earlier content-width `SegmentedTabs`), above the field: a FIXED
-  selection band the scopes wheel through (native-picker idiom), pinned LEFT so
-  its leading edge sits on the 16 pt content column (lines up with the field +
-  rows) and sized INTRINSICALLY to the widest option label + even padding +
-  reserved chevron/gap space (a hidden width-probe `PreferenceKey`, not a
-  fraction of the track). White selected / grey unselected (no blue — selection
-  reads by the band + weight, not a pill); a soft 3D cylinder tilt on the
-  wheeling options (per-cell `.visualEffect`, Reduce Motion flattens it). Faint
-  chevrons sit INSIDE the band on either side AS NEEDED (the band is at the edge,
-  so nothing peeks left — the chevron is the "more that way" cue); tapping one
-  steps that way, and they fade while the wheel is in motion. Change it by
-  dragging, tapping an option, or tapping a chevron; icons on the typed scopes,
-  "All" text-only. It leads the field because scope is a MODE (changes the create
-  verb + what an empty query browses), not just a filter. Native scroll mechanics
-  (`ScrollView(.horizontal)` + `.viewAligned` + `.scrollPosition(id:)` +
-  asymmetric `contentMargins` for the left-anchored snap), so it can never
-  overflow the viewport the way the old segmented track could. NOT the native
-  `Tab(role:.search)` bottom-morph (the app owns its selection grammar; a sibling
-  tab's `.onGeometryChange` triggers the documented iOS 26 morph bug).
-  **A11y (segmented-control model):** each option is a labelled `Button` with the
-  `.isSelected` trait (VoiceOver "Exercises, selected, button"; Voice Control by
-  name; the 44 pt row is the target); decorative icons + the supplementary
-  chevrons are hidden from assistive tech; VoiceOver's reveal-scroll is guarded
-  from mutating the selection (only a tap/drag changes it) via the
-  `accessibilityVoiceOverEnabled` gate on the scroll→selection sync. The custom
-  `SegmentedTabs` was RETIRED (2026-07-24) — every other former segmented site
-  moved to native `Picker` (`.segmented` for short unit/mode toggles, a pushed
-  `NavigationSelectRow` for multi-word modes).
+  **Scope selection is the bottom ACCESSORY row** (2026-07-25 — the
+  `InlineWheelPicker` that briefly held this job is DELETED, as was the
+  `SegmentedTabs` before it): the three catalog scopes ride above the search
+  field in `.tabViewBottomAccessory(isEnabled:)` as `SearchScopeBar`. Each is a
+  labelled `Button` carrying `.isSelected` with a 44 pt target (VoiceOver
+  "Exercises, 12 results, selected, button"), and each shows its match count
+  while a query exists. The custom `SegmentedTabs` was RETIRED (2026-07-24) —
+  every other former segmented site moved to native `Picker` (`.segmented` for
+  short unit/mode toggles, a pushed `NavigationSelectRow` for multi-word modes).
   **Kit availability is NOT a filter** (2026-07-25, superseding the "Doable"
   chip): nothing is HIDDEN by the active kit. What the kit can't do groups
   under a collapsible **"N exercises/routines require more equipment"**
@@ -165,30 +144,25 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   invisible query reads as data loss); every add from it LANDS on its list
   with the entrance flash (`RoutineArrival`/`ExerciseArrival`/
   `EquipmentArrival` + `RowEntranceFlash` — one landing for every add).
-- **Search absorbs the three catalog tabs; Today stays a tab** (2026-07-25 —
-  supersedes the `Tab(role: .search)` arrangement above wherever they differ):
-  the bottom bar is `AppBottomBar`, not a `TabView` bar. At rest it reads as
-  always (Today · Routines · Exercises · Kit + the separated search key);
-  activating search expands the field over the Routines/Exercises/Kit slots but
-  NOT Today, and those three RISE into a second row above it as the scopes.
-  **Today is a TAB, never a scope** — it holds a timeline of derived state, not
-  a list of typed items, so there is nothing in it to narrow; keeping it in the
-  bar also makes it the one-tap way out of search. `All` and the empty-query
-  browse index are GONE: an empty query shows no results, because browsing a
-  type is what that type's TAB is for — the index was the actual duplication
-  between the two surfaces. Cross-scope discovery rides **per-scope result
-  counts on the scope labels** (no number at rest), never link rows: the count
-  sits on the very control that switches you there. The tab↔scope move is one
-  `matchedGeometryEffect` per scope so each label MOVES rather than cross-fades
-  (the absorb must read as a move for the two states to be one control). Custom
-  chrome is deliberate — the system morph is all-or-nothing, so a pinned Today
-  plus a row above it can't be expressed with `Tab(role: .search)`; retiring it
-  also retires the iOS 26 `.onGeometryChange` morph bug (nav-diag 4e). The four
-  roots live in a ZStack, each keeping its OWN `NavigationStack` (destinations
-  stay registered where they were, #262); hidden roots stay MOUNTED — an `if`
-  would discard the path a tab switch must preserve — and drop hit testing and
-  accessibility, since `opacity(0)` removes neither. Every landing leaves search
-  first, or the entrance flash plays behind the results covering it.
+- **Search absorbs the three catalog tabs; the scopes ride above the field**
+  (2026-07-25 — supersedes the arrangement above wherever they differ): the
+  chrome stays the PLATFORM'S — native `TabView` + native `Tab(role: .search)`,
+  so the bar's morph into the field, Liquid Glass, hit targets and a11y are the
+  system's (an interim cut hand-rolled the bar to pin Today beside the field;
+  Dave rejected it — the tabs and search are supposed to be SwiftUI's own).
+  What the app adds is the SECOND ROW: while the search tab is selected the
+  three catalog scopes ride above the field in `.tabViewBottomAccessory(isEnabled:)`
+  (`SearchScopeBar`) — the tabs the field absorbed, still there to narrow by.
+  **Today is a TAB, never a scope**: a timeline of derived state has nothing to
+  narrow. `All` is GONE, and an **empty query shows the scope's WHOLE list,
+  grouped as its tab groups it** — search opens onto the content you were
+  already looking at. The "require more equipment" group splits INSIDE each
+  tier (`MISSING_MINE`/`MISSING_CATALOG`): MINE/CATALOG is the primary
+  division, kit availability the secondary. Cross-scope discovery rides
+  **per-scope result counts on the scope labels** (no number at rest), never
+  link rows — the count sits on the control that switches you there. Prompts
+  and empty states use `FindScope.searchNoun`, not `label`: the Kit scope
+  searches the equipment CATALOG, so it says "Search equipment".
 - **Heading treatment follows the nature of the title** (2026-07-18, updated
   2026-07-19): a **tab root** wears a large left `.title` heading ON the icon
   row, just right of the ++ key (`AppMenuKey`) — single-line, `.layoutPriority(1)`

@@ -5,7 +5,11 @@ packages:
 options:
   bundleIdPrefix: com.davidcole
   deploymentTarget:
-    iOS: "26.0"
+    # 26.1 (Dave, 2026-07-25): `tabViewBottomAccessory(isEnabled:)` landed
+    # there, and it's the only form that removes the accessory's reserved
+    # space when it's off — without it every non-search tab would carry a
+    # blank strip above the tab bar.
+    iOS: "26.1"
     watchOS: "26.0"
 
 schemes:

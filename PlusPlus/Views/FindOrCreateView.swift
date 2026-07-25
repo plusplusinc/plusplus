@@ -21,22 +21,22 @@ enum FindOrCreateLaunch {
 /// of equipment, yours or the catalog's. The per-tab header magnifiers retired
 /// into this surface; in-picker and pushed-catalog search stay.
 ///
-/// It is a MODE, not a tab (2026-07-25). The field and the scope selector live
-/// in `AppBottomBar` — activating search expands the field over the Routines /
-/// Exercises / Kit tab slots, and those three rise above it as the scopes,
-/// carrying their result counts. So this view owns neither: it reads `query`
-/// and `scope` as bindings and renders what they select. It is mounted only
-/// while searching, which is what makes the state ephemeral by construction.
+/// The chrome is the platform's (2026-07-25): the native `.searchable` field
+/// morphed from the tab bar by `Tab(role: .search)`, and the scopes as the
+/// TabView's bottom ACCESSORY riding above that field (`SearchScopeBar`) —
+/// the three catalog tabs the field absorbed, still there to narrow by. Both
+/// sit outside this tab's content, so this view owns neither `query` nor
+/// `scope`; it reads them as bindings and renders what they select.
 ///
 /// Layout: tab-root header grammar (++ key · title · kit switcher — kit is
 /// CONTEXT, never a filter chip) → create row → results.
 /// The create row is present unless the query EXACTLY names an item that
 /// already exists (a create there would only duplicate the row right below
 /// it — `FindOrCreateEngine.Collisions`); it never dead-ends, since an
-/// exact-name match always ranks into the results. An EMPTY query shows no
-/// results at all: this surface finds and creates, and each catalog tab is
-/// where you browse its own type — the old everything-index is what made the
-/// surface read as a second copy of those tabs.
+/// exact-name match always ranks into the results. An EMPTY query shows the
+/// scope's WHOLE list, grouped the way its tab groups it (MINE / CATALOG, each
+/// with its own collapsible "require more equipment" subgroup) — search opens
+/// onto the content you were already looking at, and typing narrows it.
 /// Rows are clean (decision A): tap pushes detail onto THIS stack — back
 /// returns with the query and scroll intact — and the long-press context menu
 /// carries the quick acts. The active kit is the one app-wide pointer,
@@ -50,27 +50,29 @@ struct FindOrCreateView: View {
     @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
     @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
-    /// The query, the scope, and the field's focus intent all live in the
-    /// ROOT now (2026-07-25) — the field and the scope selector are in the
-    /// bottom bar, which outlives this surface, so this view reads them
-    /// rather than owning them.
+    /// Query and scope live in the ROOT (2026-07-25): the scope selector is the
+    /// TabView's bottom accessory, which sits outside this tab's content, so
+    /// both it and this surface read the same state from above them.
     @Binding var query: String
     @Binding var scope: FindScope
-    @Binding var fieldWantsFocus: Bool
-    /// Per-scope match counts, published UP to the bar's scope labels. Computed
-    /// here because this view already holds the catalog queries — counting at
-    /// the root would duplicate them app-wide.
+    /// Per-scope match counts, published UP to the accessory's scope labels.
+    /// Computed here because this view already holds the catalog queries —
+    /// counting at the root would duplicate them app-wide.
     @Binding var counts: [FindScope: Int]
 
     @State private var path = NavigationPath()
+    /// Native search focus. NOT armed on entry (the field must not auto-rise
+    /// the keyboard, Dave 2026-07-24) — set true only by the empty-query Kit
+    /// create row ("type a name first" = put the cursor back in the field).
+    @FocusState private var searchFocused: Bool
     @State private var showingLibraryTray = false
     @State private var creatingExercise = false
     @State private var namingRoutine = false
     @State private var newRoutineName = ""
     /// Which "N <noun>s require more equipment" groups are expanded. Ephemeral
     /// like the query (a stale expansion would be as odd as a stale search) —
-    /// reset to collapsed on every entry. Keyed by `Section.id`
-    /// ("MISSING_ROUTINES"/"MISSING_EXERCISES" in All scope, "MISSING" scoped).
+    /// reset to collapsed on every entry. Keyed by `Section.id`, one per tier:
+    /// "MISSING_MINE" / "MISSING_CATALOG".
     @State private var expandedMissing: Set<String> = []
 
     private var activeLibrary: EquipmentLibrary? {
@@ -86,13 +88,10 @@ struct FindOrCreateView: View {
     }
 
     private var sections: [FindOrCreateEngine.Section] {
-        // No query, no results. This surface finds and creates; browsing a
-        // type is what that type's TAB is for — showing everything here is
-        // exactly what made search read as a second copy of those tabs
-        // (2026-07-25). The engine can still rank an empty query; we just
-        // don't ask it to.
-        guard !trimmedQuery.isEmpty else { return [] }
-        return FindOrCreateEngine.sections(
+        // An empty query shows the scope's WHOLE list, grouped exactly as its
+        // tab groups it (Dave, 2026-07-25) — search opens onto the content you
+        // were already looking at, and typing narrows it.
+        FindOrCreateEngine.sections(
             query: trimmedQuery,
             scope: scope,
             exercises: allExercises,
@@ -117,21 +116,33 @@ struct FindOrCreateView: View {
                         showingLibraryTray = true
                     }
                 }
-                // No scope control here any more: the scopes ARE the three
-                // catalog tabs, riding above the field in the bottom bar
+                // No scope control here: the scopes ARE the three catalog tabs,
+                // riding above the field as the TabView's bottom accessory
                 // (2026-07-25). Kit availability isn't a filter either —
                 // un-doable results group under a collapsible "require more
-                // equipment" disclosure in the list.
+                // equipment" disclosure inside each MINE/CATALOG tier.
                 resultsList
             }
             .background(Theme.background)
             .toolbar(.hidden, for: .navigationBar)
-            // The field itself is in `AppBottomBar` — it has to be, since it
-            // expands over the tab slots. Its Return key reaches the ranked
-            // results through a notification rather than a closure.
-            .onReceive(NotificationCenter.default.publisher(for: .plusplusOpenTopResult)) { _ in
-                openTopResult()
-            }
+            // The NATIVE search field: `.searchable` on the search-role tab
+            // morphs the tab bar into the system field (bottom, Liquid Glass),
+            // carrying the native clear and Cancel for free. Placement B
+            // (searchable INSIDE the search tab's stack) so the prompt can read
+            // `scope`; the morph comes from `role: .search`, not from where
+            // `.searchable` sits. No `.tabViewSearchActivation` — the native
+            // default activates search only on a field tap, so the keyboard
+            // does NOT auto-rise on entry (Dave's ask, 2026-07-24).
+            // ⚠️ Device-pass: the documented iOS 26 morph bug — an
+            // `.onGeometryChange` elsewhere in the TabView subtree (TodayView's
+            // onboarding step-height probe) can make the field fall back to the
+            // top `.navigationBarDrawer` placement on the FIRST activation. This
+            // surface HIDES the nav bar, so that fallback has nowhere to render
+            // and the failure reads as NO field. If it recurs, rework the probe
+            // at its source (nav-diag 4e), don't revert.
+            .searchable(text: $query, prompt: Text(searchPrompt))
+            .searchFocused($searchFocused)
+            .onSubmit(of: .search) { openTopResult() }
             // The four result types push onto THIS stack (registered at the
             // root, #262) so back/swipe-back returns to results with query,
             // scope, and scroll intact — search is a stack, not a modal.
@@ -176,13 +187,12 @@ struct FindOrCreateView: View {
         // Favorites / kit / routine changes made from here reach GitHub
         // when you leave, like every tab.
         .syncsProgramOnClose()
-        // The surface is mounted only while searching, so this fires once per
-        // search: a fresh stack with every missing group collapsed. The query
-        // and scope belong to the bar and are already set by the time we mount.
-        .onAppear {
-            path = NavigationPath()
-            expandedMissing = []
-        }
+        // Ephemeral per-entry state (a stale invisible query reads as data
+        // loss): every ENTRY into the tab starts from a blank query with a
+        // fresh stack and every missing group collapsed — or onto a pre-scoped
+        // launch. Attached to the stack, not the root content, so a pop-back
+        // INSIDE the stack does not reset (back returns to live results).
+        .onAppear(perform: enterSurface)
         // The labels' counts follow the query. `initial: true` seeds them for a
         // surface opened with a query already in hand (a pre-scoped deep link
         // arrives empty, which correctly counts nothing).
@@ -196,9 +206,24 @@ struct FindOrCreateView: View {
                 kitNames: kitNames
             )
         }
-        // Leaving search takes the numbers with it — a count on a resting tab
-        // label would be a leftover from a query that's no longer on screen.
-        .onDisappear { counts = [:] }
+    }
+
+    private func enterSurface() {
+        let launch = FindOrCreateLaunch.pending
+        FindOrCreateLaunch.pending = nil
+        if let launch { scope = launch }
+        query = ""
+        path = NavigationPath()
+        expandedMissing = []      // every entry starts with missing groups collapsed
+        // Deliberately no focus arming: the native field stays unfocused on
+        // entry, so the keyboard doesn't auto-rise (Dave 2026-07-24).
+    }
+
+    /// The native field's placeholder, per scope. The Kit scope searches the
+    /// equipment CATALOG, not just your kit, so it reads "Search equipment" —
+    /// the single-item/catalog sense of the word (kit-vs-equipment law).
+    private var searchPrompt: String {
+        "Search \(scope.searchNoun)"
     }
 
     // MARK: - Results
@@ -256,23 +281,16 @@ struct FindOrCreateView: View {
         .scrollDismissesKeyboard(.immediately)
     }
 
-    /// Two quiet states, never a wall of everything: before a query there is
-    /// nothing to show (this surface finds and creates — each tab is where you
-    /// BROWSE its own type), and after one that matches nothing, the miss is
-    /// stated plainly. Un-doable items are never hidden — they group under the
-    /// collapsible disclosure — so a kit that can do nothing still shows that
-    /// group rather than emptying.
+    /// Only ever a genuinely empty match now: an empty query shows the whole
+    /// scope, and
+    /// un-doable items are never hidden (they group under the collapsible
+    /// disclosure), so a kit that can do nothing still shows that group rather
+    /// than emptying.
     private var emptyState: some View {
-        // No possessive: every scope searches YOURS AND the catalog, so "your
-        // exercises" would be false (and exercises have no library at all).
-        Text(trimmedQuery.isEmpty
-             ? "Search \(scope.searchNoun), or make something new."
-             : "Nothing matches.")
+        Text("Nothing matches.")
             .font(.system(.footnote))
             .foregroundStyle(Theme.textFaint)
-            .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
-            .padding(.horizontal, 24)
             .padding(.top, 24)
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
@@ -574,10 +592,10 @@ struct FindOrCreateView: View {
         }
         let name = trimmedQuery.sentenceCasedFirst
         guard !name.isEmpty else {
-            // "Type a name first": put the cursor back in the field (which now
-            // lives in the bottom bar, so the intent travels through its
-            // one-shot focus binding).
-            fieldWantsFocus = true
+            // "Type a name first": put the cursor back in the field. This is a
+            // deliberate user action (they tapped create), so focusing here is
+            // not the auto-focus-on-entry the native default avoids.
+            searchFocused = true
             return
         }
         let item: Equipment

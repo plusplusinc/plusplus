@@ -74,14 +74,41 @@ struct FindOrCreateEngineTests {
             exercises: world.exercises, equipment: world.equipment,
             routines: world.routines, templates: [], kitNames: world.kitNames
         )
-        // Doable grouped MINE/CATALOG, then the collapsible missing group:
-        // Probe Press needs Probe Bench (not in the kit), so it splits out.
-        #expect(sections.map(\.title) == ["MINE", "CATALOG", "MISSING"])
+        // MINE then CATALOG, and the missing subgroup sits INSIDE its own tier
+        // (2026-07-25). Probe Press is built-in and unfavorited, so it belongs
+        // to CATALOG, and its missing group follows CATALOG's doable rows.
+        #expect(sections.map(\.id) == ["MINE", "CATALOG", "MISSING_CATALOG"])
         // MINE = the favorite + the custom, alphabetical within the tier.
         #expect(sections[0].results.map(\.name) == ["Probe Curl", "Probe Custom Move"])
         #expect(sections[1].results.map(\.name) == ["Probe Squat"])
         #expect(sections[2].kind == .missing(noun: "exercise"))
         #expect(sections[2].results.map(\.name) == ["Probe Press"])
+    }
+
+    @Test("Each tier carries its own missing subgroup, not one pooled at the end")
+    func missingSplitsPerTier() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        // Favoriting the one gear-needing exercise moves it into MINE, so both
+        // tiers now hold something the kit can't do.
+        let press = try #require(world.exercises.first { $0.name == "Probe Press" })
+        press.isFavorite = true
+        let bench = try #require(world.equipment.first { $0.name == "Probe Bench" })
+        let extra = Exercise(name: "Probe Machine Row", muscleGroup: .back, isBuiltIn: true)
+        context.insert(extra)
+        extra.equipment = [bench]
+        try? context.save()
+
+        let sections = FindOrCreateEngine.sections(
+            query: "", scope: .exercises,
+            exercises: world.exercises + [extra], equipment: world.equipment,
+            routines: world.routines, templates: [], kitNames: world.kitNames
+        )
+        // Yours-that-need-equipment stays with YOURS; the catalog's stays with
+        // the catalog. MINE/CATALOG is the primary split, kit the secondary.
+        #expect(sections.map(\.id) == ["MINE", "MISSING_MINE", "CATALOG", "MISSING_CATALOG"])
+        #expect(sections[1].results.map(\.name) == ["Probe Press"])
+        #expect(sections[3].results.map(\.name) == ["Probe Machine Row"])
     }
 
     // MARK: - Scope counts

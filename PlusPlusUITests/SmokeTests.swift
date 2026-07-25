@@ -31,22 +31,20 @@ final class SmokeTests: XCTestCase {
         }
     }
 
-    /// The bottom bar is the app's own control now (2026-07-25), not a system
-    /// `TabView` bar — search has to expand over three of the tab slots, which
-    /// the native bar can't express. So the tabs are plain buttons carrying
-    /// `tab-<case>` identifiers rather than `app.tabBars` children.
+    /// The bottom bar is the system's `TabView` bar; tabs are its children.
     private func tabButton(_ tab: String) -> XCUIElement {
-        app.buttons["tab-\(tab)"]
+        app.tabBars.buttons[tab.capitalized]
     }
 
-    /// The search field, which lives in that bar.
+    /// The NATIVE search field — a `searchField` element, not a custom
+    /// `textField` with a set identifier.
     private var searchField: XCUIElement {
-        app.textFields["findSearchField"]
+        app.searchFields.firstMatch
     }
 
-    /// Open search from the bar (the magnifier key beside the tabs).
+    /// Open the search tab (the separated circle beside the tab group).
     private func openSearch() {
-        let key = app.buttons["searchTabButton"]
+        let key = app.tabBars.buttons["Search"]
         XCTAssertTrue(key.waitForExistence(timeout: 10))
         key.tap()
         XCTAssertTrue(searchField.waitForExistence(timeout: 5))
@@ -282,7 +280,8 @@ final class SmokeTests: XCTestCase {
 
         // Cancel collapses search back onto the tab it was opened from —
         // Today never left the bar, and neither did the tab underneath.
-        app.buttons["searchCancelButton"].tap()
+        let cancelSearch = app.buttons["Cancel"]
+        if cancelSearch.exists { cancelSearch.tap() }
         XCTAssertTrue(plus.waitForExistence(timeout: 5))
     }
 

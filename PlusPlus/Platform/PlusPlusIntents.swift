@@ -34,11 +34,6 @@ extension Notification.Name {
     /// into the Find-or-create surface pre-scoped. The scope rides
     /// `FindOrCreateLaunch.pending`; the root opens search on that scope.
     static let plusplusFindOrCreate = Notification.Name("plusplusFindOrCreate")
-    /// The search field's Return key (2026-07-25). The field lives in the
-    /// bottom bar and the ranked results live in the surface above it, so the
-    /// key travels as a signal rather than a closure — the surface opens its
-    /// own top result.
-    static let plusplusOpenTopResult = Notification.Name("plusplusOpenTopResult")
 }
 
 struct RoutineEntity: AppEntity {

@@ -3,12 +3,13 @@ import SwiftData
 import PlusPlusKit
 
 /// What the Find-or-create surface is looking at. These are the app's three
-/// CATALOG tabs — the ones the expanding search field absorbs, which then
-/// ride above it as the scope row (2026-07-25). Today is deliberately absent:
-/// it is a tab, never a scope (it holds a timeline of derived state, not a
-/// list of typed items), so it keeps its place beside the field instead.
-/// The former `.all` lens is gone with the browse index — cross-scope hits
-/// are surfaced by the per-scope counts on the labels instead.
+/// CATALOG tabs — the ones the search field absorbs when it takes over the tab
+/// bar, which then ride above it as the accessory scope row (2026-07-25).
+/// Today is deliberately absent: it is a tab, never a scope (it holds a
+/// timeline of derived state, not a list of typed items, so there is nothing
+/// in it to narrow). The former `.all` lens is gone — a scope with no query
+/// now shows its whole list, and cross-scope hits are surfaced by the
+/// per-scope counts on the labels.
 enum FindScope: String, CaseIterable {
     case routines, exercises, kit
 
@@ -145,12 +146,11 @@ enum FindOrCreateEngine {
     }
 
     /// Results for the live query, within one scope. An empty query ranks
-    /// EVERYTHING at score 0 (mine-first, then alphabetical) — that is the
-    /// honest ranking answer, and it stays here so the ordering rules can be
-    /// enumerated in tests. Whether a surface should ASK with an empty query is
-    /// the surface's policy: `FindOrCreateView` doesn't (2026-07-25), because
-    /// browsing a type belongs to that type's tab. A query narrows and ranks:
-    /// mine-first, then score, then name.
+    /// EVERYTHING at score 0 (mine-first, then alphabetical): with search open
+    /// but nothing typed, the scope shows exactly what its tab shows, so the
+    /// field narrows a list already in front of you rather than replacing an
+    /// empty screen (Dave, 2026-07-25). A query narrows and ranks: mine-first,
+    /// then score, then name.
     /// Nothing is HIDDEN by kit availability (2026-07-25): each routine/exercise
     /// scope splits into the doable rows, then a collapsible `.missing(noun:)`
     /// group of what the active kit can't do. Equipment is never partitioned
@@ -182,7 +182,7 @@ enum FindOrCreateEngine {
     }
 
     /// How many results each scope holds for the live query — the numbers the
-    /// bottom bar paints beside the scope labels while searching. They are what
+    /// accessory row paints beside the scope labels while searching. They are what
     /// replaced the retired All lens: a hit in a scope you aren't looking at is
     /// advertised by the very control that switches to it, so no cross-scope
     /// link rows are needed in the list. An empty query counts nothing, so the
@@ -220,20 +220,31 @@ enum FindOrCreateEngine {
         return sections
     }
 
-    /// Scoped Routines/Exercises: the doable rows grouped MINE/CATALOG, then a
-    /// single collapsible `.missing(noun:)` group holding everything the kit
-    /// can't do (mine-first ranked, uncapped — the whole point is to reveal it).
+    /// Scoped Routines/Exercises: MINE then CATALOG, and **each** tier carries
+    /// its own collapsible `.missing(noun:)` subgroup for what the active kit
+    /// can't do (Dave, 2026-07-25). Keeping the split inside the tier means
+    /// "yours that need more equipment" stays with the rest of yours instead of
+    /// being pooled with the catalog's at the bottom — the MINE/CATALOG
+    /// division is the primary one, kit availability the secondary.
+    /// A tier drops out entirely when it has nothing, in either half.
     private static func groupedWithMissing(_ results: [Result], noun: String) -> [Section] {
-        var sections = grouped(results.filter(\.doable))
-        let missing = results.filter { !$0.doable }
-        if !missing.isEmpty {
-            sections.append(Section(
-                id: "MISSING",
-                title: "MISSING",
-                count: missing.count,
-                results: missing,
-                kind: .missing(noun: noun)
-            ))
+        var sections: [Section] = []
+        for (title, isMine) in [("MINE", true), ("CATALOG", false)] {
+            let tier = results.filter { $0.mine == isMine }
+            let doable = tier.filter(\.doable)
+            let missing = tier.filter { !$0.doable }
+            if !doable.isEmpty {
+                sections.append(Section(title: title, count: doable.count, results: doable))
+            }
+            if !missing.isEmpty {
+                sections.append(Section(
+                    id: "MISSING_\(title)",
+                    title: title,
+                    count: missing.count,
+                    results: missing,
+                    kind: .missing(noun: noun)
+                ))
+            }
         }
         return sections
     }
