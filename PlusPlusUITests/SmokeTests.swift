@@ -44,12 +44,20 @@ final class SmokeTests: XCTestCase {
         app.searchFields.firstMatch
     }
 
-    /// Open the catalogs (the separated search circle beside Today).
+    /// Open the catalogs. Search is an ORDINARY tab in the group beside Today
+    /// now (2026-07-25), so its field is a bottom-bar toolbar item that
+    /// `.searchToolbarBehavior(.minimize)` keeps collapsed to a magnifier until
+    /// it's tapped — hence the second tap.
     private func openSearch() {
         let key = app.tabBars.buttons["Search"]
         XCTAssertTrue(key.waitForExistence(timeout: 10))
         key.tap()
-        XCTAssertTrue(searchField.waitForExistence(timeout: 5))
+        guard !searchField.waitForExistence(timeout: 2) else { return }
+        // Expand the minimized field. Scoped to buttons OUTSIDE the tab bar so
+        // the query can't match the Search tab we just tapped.
+        let expand = app.buttons["Search"]
+        if expand.exists { expand.tap() }
+        XCTAssertTrue(searchField.waitForExistence(timeout: 5), "the bottom-bar search field must expand on tap")
     }
 
     /// Dial the scope wheel to a catalog. Each option is a labelled button

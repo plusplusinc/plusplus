@@ -292,6 +292,26 @@ struct CatalogScopeView: View {
             }
             .background(Theme.background)
             .toolbar(.hidden, for: .navigationBar)
+            // The search field, from the BOTTOM BAR rather than the tab role
+            // (2026-07-25). The tab that hosts this is a plain `Tab` now, so
+            // that Search sits in the group beside Today instead of floating as
+            // the system's separated circle — and a plain tab brings no morph,
+            // which would otherwise leave `.searchable` looking for the nav bar
+            // this screen hides. `DefaultToolbarItem(kind: .search)` puts the
+            // system's own field in the bottom bar instead, and `.minimize`
+            // collapses it to a magnifier that expands on tap, so the resting
+            // state is a button rather than a permanent field.
+            .toolbar {
+                DefaultToolbarItem(kind: .search, placement: .bottomBar)
+            }
+            .searchable(text: queryBinding, prompt: "Search \(scope.searchNoun)")
+            .searchToolbarBehavior(.minimize)
+            // Return opens the best hit. The field is the system's, so the key
+            // travels as a signal rather than a closure.
+            .onSubmit(of: .search) {
+                guard isActive else { return }
+                openTopResult()
+            }
             .navigationDestination(for: Exercise.self) { exercise in
                 ExerciseDetailScreen(exercise: exercise)
             }

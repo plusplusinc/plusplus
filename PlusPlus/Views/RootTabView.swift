@@ -177,19 +177,19 @@ struct RootTabView: View {
             Tab("Today", systemImage: todayStatus.systemImage, value: AppTab.today) {
                 TodayView(onGoToRoutines: { land(on: .search, scope: .routines) })
             }
-            Tab(value: AppTab.search, role: .search) {
+            // A PLAIN tab, deliberately not `Tab(role: .search)` (Dave,
+            // 2026-07-25): the role is what makes the system render search as
+            // the separated floating circle, so dropping it is what seats it in
+            // the group beside Today. The role also owned the bar→field morph,
+            // so the field has to come from somewhere else — see
+            // `CatalogScopeView`'s bottom-bar search item.
+            Tab("Search", systemImage: "magnifyingglass", value: AppTab.search) {
                 // ONE catalog at a time — the wheel picks which. `.id(scope)`
                 // is load-bearing: without it SwiftUI reuses the view across a
                 // scope change and the previous catalog's navigation path,
                 // expanded groups and arrival slot come along with it.
                 CatalogScopeView(scope: scope, query: $query, isActive: true)
                     .id(scope)
-                    .searchable(text: $query, prompt: "Search \(scope.searchNoun)")
-                    // Return opens the best hit. The field is the system's, so
-                    // the key travels as a signal to the surface below it.
-                    .onSubmit(of: .search) {
-                        NotificationCenter.default.post(name: .plusplusOpenTopResult, object: nil)
-                    }
             }
         }
         // The scope wheel rides the accessory slot — the one place the system
