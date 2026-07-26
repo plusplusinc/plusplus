@@ -116,18 +116,26 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   results are non-empty whenever a create is hidden. Partial matches still
   offer create.
   **Scope selection is the TAB BAR, and — on the search surface — a native
-  segmented `Picker` APP-PLACED as a TOP `safeAreaInset`, under the navigation
-  bar** (`ScopeSegmentedControl`, settled 2026-07-26 after SEVEN builds in five
-  placements). Top, not above the field: when the keyboard rises the field
-  DETACHES and rises into the same bottom safe area an inset occupies, so a
-  bottom inset ends up stacked behind it (build 146). Nothing competes for the
-  top band, and since this surface carries no title the control fills a space
-  that was empty anyway — and names the catalog while it's there. It wears
-  `.tint(Theme.background)` so the SELECTED segment goes dark: the tab bar's
-  structure is lighter track / darker selection, and the system's track sits
-  between the dark row and the dark pill to produce exactly that.
-  App-placed because every system-owned home failed a different way, and each
-  failure is a law now:
+  segmented `Picker` in the NAVIGATION BAR's `.principal` slot, between the ++
+  key and the kit switcher** (`ScopeSegmentedControl`, settled 2026-07-26 after
+  SEVEN builds in six placements). That's the slot the other four roots put
+  their title in, which on this surface the control effectively is — it names
+  the catalog, and the surface carries no title precisely so it can. Each
+  segment shows ICON + WORD via an `Image` INTERPOLATED into the segment's
+  `Text`: a `UISegmentedControl` segment takes a title OR an image, never both,
+  and a `Label` collapses to its title — one attributed `Text` is the only way
+  to get both. It wears `.tint(Theme.background)` so the SELECTED segment goes
+  dark, matching the tab bar's lighter-track / darker-selection structure, and
+  takes NO `.controlSize(.large)` (the Photos proportion is for a control that
+  owns a row; in the bar it has to match the raised keys beside it).
+  ⚠️ Two modifiers make a segmented control legal in a toolbar at all:
+  `.sharedBackgroundVisibility(.hidden)` on the item (it brings its own track,
+  and the toolbar's shared glass would wrap that in a second shape) and
+  `.searchPresentationToolbarBehavior(.avoidHidingContent)` on the search
+  presentation (below) — without the second, activating search takes the
+  control away with the rest of the bar's content.
+  It is app-placed because every system-owned home failed a different way, and
+  each failure is a law now:
   ⚠️ **`tabViewBottomAccessory` does not rise with the keyboard** (137–139,
   144) — search's own keyboard buries anything in it, and on that surface the
   keyboard is up most of the time you want to change scope.
@@ -137,10 +145,11 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   ⚠️ **A `.bottomBar` `ToolbarItem` lands in the SAME ROW the search-role
   field expands into** (145), so it sits behind the field. Photos' recipe works
   there only because Photos' search is a small BUTTON in that row, not a
-  full-width field. (If it's ever wanted again, the piece that makes it work is
-  `.sharedBackgroundVisibility(.hidden)` on the item — a segmented control
-  brings its own track, so the toolbar's shared glass would wrap it in a second
-  shape. TOOLBAR-ONLY, which is part of why the accessory could never be fixed.)
+  full-width field. The `.principal` slot has no such competition — the field
+  expands out of the TAB BAR, nowhere near the navigation bar.
+  ⚠️ **A TOP `safeAreaInset` under the bar** (147) was right but one row too
+  many: a band holding a control, directly under a bar holding two keys with
+  nothing between them.
   ⚠️ Build 146 dropped the `.tint` reasoning that a dark pill would vanish into
   the dark row it sits on. That ignored the system's own track BETWEEN the two,
   and left the default lighter-pill look — the inverse of the tab bar below. The

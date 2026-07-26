@@ -329,6 +329,19 @@ struct CatalogScopeView: View {
                     // fault that killed the accessory experiment.
                     ToolbarItem(placement: .topBarLeading) { AppMenuKey() }
                         .sharedBackgroundVisibility(.hidden)
+                    // The scope control sits BETWEEN the two keys, in the bar's
+                    // principal slot (Dave, 2026-07-26) — the same place the
+                    // other four roots put their title, which on this surface
+                    // the control effectively is. It opts out of the shared
+                    // glass for the same reason the keys do: it brings its own
+                    // segmented track, and the toolbar would wrap that in a
+                    // second shape.
+                    if let searchScope {
+                        ToolbarItem(placement: .principal) {
+                            ScopeSegmentedControl(scope: searchScope)
+                        }
+                        .sharedBackgroundVisibility(.hidden)
+                    }
                     // The kit is CONTEXT on every catalog, never a filter chip:
                     // it decides which rows fall into the "require more
                     // equipment" group below.
@@ -1322,42 +1335,24 @@ private struct SearchPresentation: ViewModifier {
     func body(content: Content) -> some View {
         if let scope {
             content
-                // The scope control is APP-PLACED, under the navigation bar
-                // (Dave, 2026-07-26). It sat above the FIELD for one build and
-                // collided with it: when the keyboard rises the field detaches
-                // and rises too, landing in the same bottom safe area the inset
-                // occupies, so the control ended up stacked behind it. Nothing
-                // competes for the top band — and this surface has no title, so
-                // the control fills a space that was otherwise empty and names
-                // the catalog while it's at it.
-                //
-                // ⚠️ Every system-owned home failed, each its own way, so
-                // nobody re-walks them: `tabViewBottomAccessory` does not rise
-                // with the keyboard (137–139, 144); native `.searchScopes`
-                // renders once per app run, at the top, nowhere near the field
-                // (140–143); a `.bottomBar` `ToolbarItem` lands in the same row
-                // the search-role field expands into (145) — Photos gets away
-                // with that only because its search is a small BUTTON in the
-                // row, not a full-width field.
-                .safeAreaInset(edge: .top, spacing: 0) {
-                    ScopeSegmentedControl(scope: scope)
-                        .padding(.horizontal, 16)
-                        .padding(.top, 4)
-                        .padding(.bottom, 10)
-                        // Opaque: rows scroll under this, and the app owns the
-                        // row now rather than borrowing chrome.
-                        .background(Theme.background)
-                }
-                // ⚠️ NO `.searchScopes` — see above.
+                // The scope control is NOT here — it's a `.principal`
+                // `ToolbarItem` on the navigation bar, between the ++ key and
+                // the kit switcher (see `tabBody`'s toolbar, and
+                // `ScopeSegmentedControl` for the five placements that came
+                // before it). ⚠️ NO `.searchScopes` either: on a bottom-aligned
+                // field morphed out of `Tab(role: .search)` the system's own
+                // scope bar renders exactly once per app run, at the top,
+                // nowhere near the field it scopes.
                 .searchable(text: $query, prompt: "Search \(scope.wrappedValue.searchNoun)")
-                // Keep the ++ key and the kit switcher on the bar while search
-                // is active (Dave, build 147). Activating search otherwise
-                // tells the navigation bar to clear its other content and give
-                // search the room — the system's `.automatic` behaviour, and
-                // the same mechanism that emptied the top band on 143 before
-                // the title came off. The keys are how you reach the drawer and
-                // change kit; losing them the moment you tap the field is a
-                // dead end, not a decluttering.
+                // Keep the bar's OTHER content — the ++ key, the kit switcher,
+                // and now the scope control itself — while search is active
+                // (Dave, build 147). Activating search otherwise tells the
+                // navigation bar to clear its content and give search the room:
+                // the system's `.automatic` behaviour, and the same mechanism
+                // that emptied the top band on 143 before the title came off.
+                // Those keys are how you reach the drawer and change kit;
+                // losing them the moment you tap the field is a dead end, not a
+                // decluttering. ⚠️ Now LOAD-BEARING for the scope control too.
                 .searchPresentationToolbarBehavior(.avoidHidingContent)
         } else {
             content

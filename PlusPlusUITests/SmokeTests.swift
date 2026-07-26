@@ -61,15 +61,20 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(searchField.waitForExistence(timeout: 5))
     }
 
-    /// Pick a catalog on the segmented control in the tab bar's bottom
-    /// accessory. It exists only while the Search tab is selected — off search
-    /// the tab bar is the scope control (`goToCatalog`).
+    /// Pick a catalog on the segmented control in the search surface's
+    /// navigation bar. It exists only on the Search tab — off search the tab
+    /// bar is the scope control (`goToCatalog`).
     ///
     /// It's a native `Picker(.segmented)`, so its segments are the system's own
-    /// buttons keyed by label; there are no app-set identifiers to hit.
+    /// buttons keyed by label; there are no app-set identifiers to hit. Matched
+    /// by CONTAINS rather than equality because each segment's title is an SF
+    /// Symbol interpolated into the text, and how much of that attachment ends
+    /// up in the accessibility string is the system's business, not ours.
     private func selectScope(_ scope: String) {
-        let option = app.segmentedControls.buttons[scope.capitalized]
-        XCTAssertTrue(option.waitForExistence(timeout: 5), "the scope control rides the accessory while search is up")
+        let option = app.segmentedControls.buttons
+            .matching(NSPredicate(format: "label CONTAINS[c] %@", scope))
+            .firstMatch
+        XCTAssertTrue(option.waitForExistence(timeout: 5), "the scope control rides the navigation bar on search")
         option.tap()
     }
 
