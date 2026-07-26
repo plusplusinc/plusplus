@@ -1320,27 +1320,30 @@ private struct SearchPresentation: ViewModifier {
     func body(content: Content) -> some View {
         if let scope {
             content
-                // The scope control is APP-PLACED, above the field, as a bottom
-                // safe-area inset (Dave, 2026-07-26). Every system-owned home
-                // failed a different way and this is the one the app controls:
-                // the inset rides the keyboard's safe area, so it stays put
-                // whether the keyboard is up or down, and nothing else is
-                // competing for the row.
+                // The scope control is APP-PLACED, under the navigation bar
+                // (Dave, 2026-07-26). It sat above the FIELD for one build and
+                // collided with it: when the keyboard rises the field detaches
+                // and rises too, landing in the same bottom safe area the inset
+                // occupies, so the control ended up stacked behind it. Nothing
+                // competes for the top band — and this surface has no title, so
+                // the control fills a space that was otherwise empty and names
+                // the catalog while it's at it.
                 //
-                // ⚠️ The three that failed, so nobody re-walks them:
-                // `tabViewBottomAccessory` does not rise with the keyboard
-                // (builds 137–139, 144); native `.searchScopes` renders once
-                // per app run and renders at the TOP (140–143); and a
-                // `.bottomBar` `ToolbarItem` lands in the SAME ROW the
-                // search-role tab's field expands into, so it sits behind the
-                // field (145). Photos gets away with the toolbar because its
-                // search is a small BUTTON in that row, not a full-width field.
-                .safeAreaInset(edge: .bottom, spacing: 0) {
+                // ⚠️ Every system-owned home failed, each its own way, so
+                // nobody re-walks them: `tabViewBottomAccessory` does not rise
+                // with the keyboard (137–139, 144); native `.searchScopes`
+                // renders once per app run, at the top, nowhere near the field
+                // (140–143); a `.bottomBar` `ToolbarItem` lands in the same row
+                // the search-role field expands into (145) — Photos gets away
+                // with that only because its search is a small BUTTON in the
+                // row, not a full-width field.
+                .safeAreaInset(edge: .top, spacing: 0) {
                     ScopeSegmentedControl(scope: scope)
                         .padding(.horizontal, 16)
+                        .padding(.top, 4)
                         .padding(.bottom, 10)
-                        // Opaque: rows must not read through it, and the app
-                        // owns this row now rather than borrowing chrome.
+                        // Opaque: rows scroll under this, and the app owns the
+                        // row now rather than borrowing chrome.
                         .background(Theme.background)
                 }
                 // ⚠️ NO `.searchScopes` — see above.

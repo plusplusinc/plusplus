@@ -48,13 +48,16 @@ struct ScopeSegmentedControl: View {
         .pickerStyle(.segmented)
         .labelsHidden()
         .controlSize(.large)
-        // ⚠️ NO `.tint` here. Build 144 tinted the selected segment
-        // `Theme.background` to invert it against the ACCESSORY's lighter
-        // glass; on the page background that would paint the selection the
-        // same colour as the strip it sits on — invisible again, the opposite
-        // of the fix. On the page the control's own default is already right:
-        // a lighter selected segment on a darker track, which is exactly how
-        // the app's other three segmented pickers read.
+        // The selected segment goes DARK, so the control reads like the tab
+        // bar's own selection (Dave, 2026-07-26). The tab bar's structure is
+        // lighter track, DARKER selected pill — and that's what this produces,
+        // because the system's track sits between the dark row underneath and
+        // the dark pill: row (background) → track (system grey, lighter) →
+        // selected (background, dark again). Build 146 dropped this on the
+        // reasoning that the pill would match the row it sits on; that ignored
+        // the track in between, and left the default lighter-pill look, which
+        // is the inverse of the bar it sits above.
+        .tint(Theme.background)
         // Chrome that has to hold three labels on one row can't grow without
         // bound. The search field is NOT capped — its text is the user's own.
         .dynamicTypeSize(...DynamicTypeSize.accessibility1)

@@ -116,10 +116,18 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   results are non-empty whenever a create is hidden. Partial matches still
   offer create.
   **Scope selection is the TAB BAR, and — on the search surface — a native
-  segmented `Picker` APP-PLACED as a bottom `safeAreaInset` above the field**
-  (`ScopeSegmentedControl`, settled 2026-07-26 after SIX builds in four
-  containers). App-placed because every system-owned home failed a different
-  way, and each failure is a law now:
+  segmented `Picker` APP-PLACED as a TOP `safeAreaInset`, under the navigation
+  bar** (`ScopeSegmentedControl`, settled 2026-07-26 after SEVEN builds in five
+  placements). Top, not above the field: when the keyboard rises the field
+  DETACHES and rises into the same bottom safe area an inset occupies, so a
+  bottom inset ends up stacked behind it (build 146). Nothing competes for the
+  top band, and since this surface carries no title the control fills a space
+  that was empty anyway — and names the catalog while it's there. It wears
+  `.tint(Theme.background)` so the SELECTED segment goes dark: the tab bar's
+  structure is lighter track / darker selection, and the system's track sits
+  between the dark row and the dark pill to produce exactly that.
+  App-placed because every system-owned home failed a different way, and each
+  failure is a law now:
   ⚠️ **`tabViewBottomAccessory` does not rise with the keyboard** (137–139,
   144) — search's own keyboard buries anything in it, and on that surface the
   keyboard is up most of the time you want to change scope.
