@@ -116,16 +116,28 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   results are non-empty whenever a create is hidden. Partial matches still
   offer create.
   **Scope selection is the TAB BAR, and — on the search surface — a native
-  segmented `Picker` in a `.bottomBar` `ToolbarItem`** (`ScopeSegmentedControl`,
-  the Photos Years/Months/All recipe, settled 2026-07-26 after six builds).
-  ⚠️ **`.sharedBackgroundVisibility(.hidden)` on that ToolbarItem is what stops
-  the double background** — a segmented control brings its own track, so the
-  toolbar's shared glass would wrap it in a second shape. That modifier is
-  TOOLBAR-ONLY, which is part of why the accessory could never be fixed.
-  ⚠️ **`tabViewBottomAccessory` is the WRONG container for this** (builds
-  137–139, 144): it does not rise with the keyboard, so search's own keyboard
-  buries anything in it — and on that surface the keyboard is up most of the
-  time you want to change scope. A `.bottomBar` toolbar tracks the keyboard.
+  segmented `Picker` APP-PLACED as a bottom `safeAreaInset` above the field**
+  (`ScopeSegmentedControl`, settled 2026-07-26 after SIX builds in four
+  containers). App-placed because every system-owned home failed a different
+  way, and each failure is a law now:
+  ⚠️ **`tabViewBottomAccessory` does not rise with the keyboard** (137–139,
+  144) — search's own keyboard buries anything in it, and on that surface the
+  keyboard is up most of the time you want to change scope.
+  ⚠️ **Native `.searchScopes` renders exactly ONCE per app run** on a
+  bottom-aligned field morphed out of `Tab(role: .search)` (140–143), and
+  renders at the TOP, nowhere near the field. Tried four ways; still once.
+  ⚠️ **A `.bottomBar` `ToolbarItem` lands in the SAME ROW the search-role
+  field expands into** (145), so it sits behind the field. Photos' recipe works
+  there only because Photos' search is a small BUTTON in that row, not a
+  full-width field. (If it's ever wanted again, the piece that makes it work is
+  `.sharedBackgroundVisibility(.hidden)` on the item — a segmented control
+  brings its own track, so the toolbar's shared glass would wrap it in a second
+  shape. TOOLBAR-ONLY, which is part of why the accessory could never be fixed.)
+  ⚠️ **No `.tint` on the control now**: build 144 tinted the selected segment
+  `Theme.background` to invert it against the accessory's lighter glass, but on
+  the page background that paints the selection the same colour as the strip it
+  sits on. The native default — lighter segment on a darker track — is right
+  here, and matches the app's other three segmented pickers.
   ⚠️ **Native `.searchScopes` DOES NOT WORK on a bottom-aligned search field
   morphed out of a `Tab(role: .search)`** — it renders exactly ONCE per app run.
   Tried, in order, and all still once: `.onSearchPresentation` activation;

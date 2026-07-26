@@ -1,34 +1,33 @@
 import SwiftUI
 
-/// The catalog scope picker: a native segmented control, hosted as a
-/// **`.bottomBar` toolbar item** on the search surface.
+/// The catalog scope picker: a native segmented control, APP-PLACED as a bottom
+/// safe-area inset above the search field (see `SearchPresentation`).
 ///
-/// This is the Photos Years/Months/All recipe (r/SwiftUI 1o2vdp4), and it is
-/// where this control ended up after six builds of trying everywhere else:
+/// It is app-placed because every system-owned container failed a different way,
+/// across six builds. Recorded so nobody re-walks them:
 ///
-/// - **`tabViewBottomAccessory` (builds 137–139, 144).** Right position, wrong
-///   container. The accessory does NOT rise with the keyboard, so the moment
-///   search's keyboard came up the control was buried — and on this surface the
-///   keyboard is up most of the time you'd want to change scope.
-/// - **Native `.searchScopes` (builds 140–143).** The system's own answer, and
-///   it renders exactly ONCE per app run on a bottom-aligned field morphed out
-///   of a `Tab(role: .search)`. Tried with `.onSearchPresentation`, with
+/// - **`tabViewBottomAccessory` (137–139, 144).** Right position, wrong
+///   container: the accessory does NOT rise with the keyboard, so search's own
+///   keyboard buried the control — and on this surface the keyboard is up most
+///   of the time you'd want to change scope.
+/// - **Native `.searchScopes` (140–143).** The system's own answer, and it
+///   renders exactly ONCE per app run on a bottom-aligned field morphed out of
+///   a `Tab(role: .search)` — tried with `.onSearchPresentation`, with
 ///   `.searchable` moved inside the navigation stack, with a real navigation
 ///   bar under it, and with search activating on tab selection so every arrival
-///   is a fresh presentation. Still once. It also renders at the TOP, nowhere
-///   near the field it scopes.
-///
-/// A `.bottomBar` toolbar tracks the keyboard, which is the whole reason to be
-/// here rather than in the accessory.
+///   is a fresh presentation. It also renders at the TOP, nowhere near the
+///   field it scopes.
+/// - **A `.bottomBar` `ToolbarItem` (145)** — the Photos Years/Months/All
+///   recipe (r/SwiftUI 1o2vdp4) — lands in the SAME ROW the search-role tab's
+///   field expands into, so it sits behind the field. Photos gets away with it
+///   because its search is a small BUTTON in that row, not a full-width field.
+///   ⚠️ If that recipe is ever wanted again, the piece that makes it work is
+///   `.sharedBackgroundVisibility(.hidden)` on the ToolbarItem: a segmented
+///   control brings its own track, so the toolbar's shared glass would wrap it
+///   in a second shape. That modifier is TOOLBAR-ONLY, which is part of why the
+///   accessory could never be fixed.
 ///
 /// **The rules that survived all of it, and that this obeys:**
-/// - ⚠️ **`.sharedBackgroundVisibility(.hidden)` on the hosting `ToolbarItem`**
-///   is what stops the double background. A toolbar item otherwise sits in the
-///   toolbar's shared glass, and a segmented control brings its own track —
-///   two concentric shapes, the box-in-a-box Dave rejected in build 137. That
-///   modifier exists precisely to exclude an item that brings its own
-///   background, and it is TOOLBAR-ONLY, which is part of why the accessory
-///   could never be made to work.
 /// - ⚠️ **Do NOT hand-roll the segmented control.** iOS 26's interactive
 ///   "bubbly" glass belongs to exactly two components, tab bars and segmented
 ///   controls, so an app-drawn one cannot look native however it is styled
@@ -37,10 +36,6 @@ import SwiftUI
 ///   inside a system-owned container, so even the canonical
 ///   `matchedGeometryEffect` pill refused to travel on device.
 /// - `.controlSize(.large)` gives the Photos proportions.
-/// - `.tint(Theme.background)` makes the SELECTED segment dark in dark mode and
-///   white in light — the inversion the tab bar draws for its selected tab
-///   (Dave, 2026-07-26). The system default is a lighter grey than the chrome
-///   around it, which reads backwards.
 struct ScopeSegmentedControl: View {
     @Binding var scope: FindScope
 
@@ -53,7 +48,13 @@ struct ScopeSegmentedControl: View {
         .pickerStyle(.segmented)
         .labelsHidden()
         .controlSize(.large)
-        .tint(Theme.background)
+        // ⚠️ NO `.tint` here. Build 144 tinted the selected segment
+        // `Theme.background` to invert it against the ACCESSORY's lighter
+        // glass; on the page background that would paint the selection the
+        // same colour as the strip it sits on — invisible again, the opposite
+        // of the fix. On the page the control's own default is already right:
+        // a lighter selected segment on a darker track, which is exactly how
+        // the app's other three segmented pickers read.
         // Chrome that has to hold three labels on one row can't grow without
         // bound. The search field is NOT capped — its text is the user's own.
         .dynamicTypeSize(...DynamicTypeSize.accessibility1)

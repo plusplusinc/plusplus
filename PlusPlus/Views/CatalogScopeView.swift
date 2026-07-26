@@ -338,22 +338,6 @@ struct CatalogScopeView: View {
                         }
                     }
                     .sharedBackgroundVisibility(.hidden)
-                    // The scope control, on the SEARCH surface only — the
-                    // Photos Years/Months/All recipe. A `.bottomBar` item
-                    // TRACKS THE KEYBOARD, which is why it lives here and not
-                    // in the tab bar's accessory: that one stays put and gets
-                    // buried the moment search's keyboard rises (build 144).
-                    //
-                    // ⚠️ `.sharedBackgroundVisibility(.hidden)` is doing the
-                    // load-bearing work: the segmented control brings its own
-                    // track, so without it the toolbar's shared glass wraps it
-                    // in a second shape — the double background from build 137.
-                    if let searchScope {
-                        ToolbarItem(placement: .bottomBar) {
-                            ScopeSegmentedControl(scope: searchScope)
-                        }
-                        .sharedBackgroundVisibility(.hidden)
-                    }
                 }
             // The system field, on the SEARCH tab only, and INSIDE the stack —
             // see `searchScope`.
@@ -1314,8 +1298,8 @@ private extension FindOrCreateEngine.Result {
 }
 
 
-/// The system search field and its scope bar, attached INSIDE a catalog tab's
-/// `NavigationStack` and only on the search tab.
+/// The system search field and the scope control, attached INSIDE a catalog
+/// tab's `NavigationStack` and only on the search tab.
 ///
 /// A modifier so the branch lives in one place rather than forking the stack's
 /// body. The condition is safe to branch on because it is fixed per instance:
@@ -1329,12 +1313,31 @@ private struct SearchPresentation: ViewModifier {
 
     func body(content: Content) -> some View {
         if let scope {
-            // ⚠️ NO `.searchScopes` here, deliberately (2026-07-26, after builds
-            // 140–143). It renders exactly ONCE in this configuration and it
-            // renders at the top, far from the bottom field it scopes. The
-            // scope control is a `.bottomBar` toolbar item on this surface —
-            // see `ScopeSegmentedControl`, which carries the whole account.
             content
+                // The scope control is APP-PLACED, above the field, as a bottom
+                // safe-area inset (Dave, 2026-07-26). Every system-owned home
+                // failed a different way and this is the one the app controls:
+                // the inset rides the keyboard's safe area, so it stays put
+                // whether the keyboard is up or down, and nothing else is
+                // competing for the row.
+                //
+                // ⚠️ The three that failed, so nobody re-walks them:
+                // `tabViewBottomAccessory` does not rise with the keyboard
+                // (builds 137–139, 144); native `.searchScopes` renders once
+                // per app run and renders at the TOP (140–143); and a
+                // `.bottomBar` `ToolbarItem` lands in the SAME ROW the
+                // search-role tab's field expands into, so it sits behind the
+                // field (145). Photos gets away with the toolbar because its
+                // search is a small BUTTON in that row, not a full-width field.
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    ScopeSegmentedControl(scope: scope)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 10)
+                        // Opaque: rows must not read through it, and the app
+                        // owns this row now rather than borrowing chrome.
+                        .background(Theme.background)
+                }
+                // ⚠️ NO `.searchScopes` — see above.
                 .searchable(text: $query, prompt: "Search \(scope.wrappedValue.searchNoun)")
         } else {
             content
