@@ -292,59 +292,75 @@ struct CatalogScopeView: View {
         }
     }
 
-    /// A tab root: its own stack, the tab-root header, and the bottom bar's
-    /// field. Every value destination registers HERE, at the stack root (#262),
-    /// so back returns to the results with query and scroll intact.
+    /// A tab root: its own stack, the SYSTEM navigation bar, and the bottom
+    /// bar's field. Every value destination registers HERE, at the stack root
+    /// (#262), so back returns to the results with query and scroll intact.
+    ///
+    /// **The hand-drawn `CatalogTabHeader` is gone** (Dave, 2026-07-26: "fuck
+    /// it, let's kill our custom header"). The app hid the navigation bar on
+    /// every tab root and drew its own title row, which is the one thing search
+    /// cannot live with: `.searchable` and its scope bar belong to the
+    /// navigation bar's presentation, so hiding it left the field with nowhere
+    /// to fall back to (build 135's invisible input) and the scope bar with
+    /// nothing to attach to (build 140's missing scopes). The title, the ++ key
+    /// and the kit switcher move into the real bar; nothing is lost but the
+    /// hand-drawing.
     private var tabBody: some View {
         NavigationStack(path: $path) {
-            VStack(spacing: 0) {
-                // NO header magnifier here (Dave, 2026-07-26: "kill our custom
-                // search input at the top again"). The field is the system's,
-                // expanding out of the search-role tab at the BOTTOM — see
-                // `RootTabView`. The header keeps the title and the kit
-                // switcher only.
-                CatalogTabHeader(title: scope.label) {
+            listBody
+                .background(Theme.background)
+                .navigationTitle(scope.label)
+                .navigationBarTitleDisplayMode(.large)
+                .toolbar {
+                    // Both keys keep their own chrome and opt OUT of the
+                    // toolbar's shared glass — `.sharedBackgroundVisibility(.hidden)`
+                    // is exactly the escape for an item that brings its own
+                    // background, and without it the app's raised keys would
+                    // sit inside a system capsule: a box in a box, the same
+                    // fault that killed the accessory experiment.
+                    ToolbarItem(placement: .topBarLeading) { AppMenuKey() }
+                        .sharedBackgroundVisibility(.hidden)
                     // The kit is CONTEXT on every catalog, never a filter chip:
                     // it decides which rows fall into the "require more
                     // equipment" group below.
-                    LibrarySwitcherKey(name: activeKitName, identifier: scope.switcherIdentifier) {
-                        showingLibraryTray = true
+                    ToolbarItem(placement: .topBarTrailing) {
+                        LibrarySwitcherKey(name: activeKitName, identifier: scope.switcherIdentifier) {
+                            showingLibraryTray = true
+                        }
                     }
+                    .sharedBackgroundVisibility(.hidden)
                 }
-                listBody
-            }
-            .background(Theme.background)
-            .toolbar(.hidden, for: .navigationBar)
             // The system field + scope bar, on the SEARCH tab only, and INSIDE
             // the stack — see `searchScope`. `.onSearchPresentation` rather
             // than the default, because the scope decides what an EMPTY query
             // shows: it has to be there the moment search opens, not after the
             // first keystroke.
-            .modifier(SearchPresentation(query: $boundQuery, scope: searchScope))
-            .navigationDestination(for: Exercise.self) { exercise in
-                ExerciseDetailScreen(exercise: exercise)
-            }
-            .navigationDestination(for: Equipment.self) { equipment in
-                EquipmentDetailScreen(equipment: equipment)
-            }
-            .navigationDestination(for: RoutineRef.self) { ref in
-                // Resolve from the stable uuid, never by pushing the @Model
-                // (the tray-flicker law).
-                if let routine = modelContext.routine(uuid: ref.uuid) {
-                    RoutineDetailView(routine: routine)
+                .modifier(SearchPresentation(query: $boundQuery, scope: searchScope))
+                .navigationDestination(for: Exercise.self) { exercise in
+                    ExerciseDetailScreen(exercise: exercise)
                 }
-            }
-            .navigationDestination(for: RoutineTemplate.self) { template in
-                RoutineTemplateDetailScreen(template: template, path: $path) { routine in
-                    // Pop the template BEFORE landing. The landing happens on
-                    // the Routines tab, which may be a different instance of
-                    // this view (search pushed it, the tab consumes it), and
-                    // whoever hosted the push would otherwise keep a stale
-                    // detail of a template you already added.
-                    path = NavigationPath()
-                    routine.uuid.map { RoutineArrival.land($0) }
+                .navigationDestination(for: Equipment.self) { equipment in
+                    EquipmentDetailScreen(equipment: equipment)
                 }
-            }
+                .navigationDestination(for: RoutineRef.self) { ref in
+                    // Resolve from the stable uuid, never by pushing the @Model
+                    // (the tray-flicker law).
+                    if let routine = modelContext.routine(uuid: ref.uuid) {
+                        RoutineDetailView(routine: routine)
+                    }
+                }
+                .navigationDestination(for: RoutineTemplate.self) { template in
+                    RoutineTemplateDetailScreen(template: template, path: $path) { routine in
+                        // Pop the template BEFORE landing. The landing happens
+                        // on the Routines tab, which may be a different
+                        // instance of this view (search pushed it, the tab
+                        // consumes it), and whoever hosted the push would
+                        // otherwise keep a stale detail of a template you had
+                        // already added.
+                        path = NavigationPath()
+                        routine.uuid.map { RoutineArrival.land($0) }
+                    }
+                }
         }
         .revealRoot(tab: tabKey, atRoot: path.isEmpty)
         // Leaving the catalog is the boundary that pushes program edits to

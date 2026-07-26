@@ -1191,10 +1191,10 @@ struct TodayView: View {
                 Text(caption)
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(Theme.textFaint)
-                    // 10 pt below the heading row, matching the space the
-                    // other three tab headers leave below their heading
-                    // (`CatalogTabHeader`'s `.padding(.bottom, 10)`) — Dave,
-                    // 2026-07-19.
+                    // 10 pt below the heading row (Dave, 2026-07-19). It
+                    // used to match the other tab roots' hand-drawn header;
+                    // those wear the SYSTEM navigation bar now, so this is
+                    // Today's own spacing.
                     .padding(.top, 10)
             }
             // The week block bar: one block per scheduled session this
