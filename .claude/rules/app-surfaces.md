@@ -141,11 +141,10 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   `.sharedBackgroundVisibility(.hidden)` on the item — a segmented control
   brings its own track, so the toolbar's shared glass would wrap it in a second
   shape. TOOLBAR-ONLY, which is part of why the accessory could never be fixed.)
-  ⚠️ **No `.tint` on the control now**: build 144 tinted the selected segment
-  `Theme.background` to invert it against the accessory's lighter glass, but on
-  the page background that paints the selection the same colour as the strip it
-  sits on. The native default — lighter segment on a darker track — is right
-  here, and matches the app's other three segmented pickers.
+  ⚠️ Build 146 dropped the `.tint` reasoning that a dark pill would vanish into
+  the dark row it sits on. That ignored the system's own track BETWEEN the two,
+  and left the default lighter-pill look — the inverse of the tab bar below. The
+  tint is back; see above.
   ⚠️ **Native `.searchScopes` DOES NOT WORK on a bottom-aligned search field
   morphed out of a `Tab(role: .search)`** — it renders exactly ONCE per app run.
   Tried, in order, and all still once: `.onSearchPresentation` activation;
@@ -173,6 +172,12 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   as search presents, leaving an empty band. `.navigationTitle("")` + `.inline`
   there; the other four roots keep `.large`. The bar itself stays — hiding it is
   what left `.searchable` with nowhere to fall back to.
+  ⚠️ **The bar's OTHER content needs `.searchPresentationToolbarBehavior(.avoidHidingContent)`**
+  (iOS 17.1+) or activating search empties it: the system's `.automatic`
+  behaviour is to clear the navigation bar and give search the room, which is
+  the same mechanism that emptied the top band on build 143. Here that took the
+  ++ key and the kit switcher away the moment you tapped the field — the drawer
+  and the kit switch, gone, on the one surface you reach them from.
   (Photos' Years/Months/All is a THIRD thing again: a `.bottomBar` `ToolbarItem`
   with `.sharedBackgroundVisibility(.hidden)` + `.controlSize(.large)` — that
   modifier strips a toolbar item's shared glass and exists ONLY for toolbar
