@@ -262,12 +262,15 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   the way it does on a `ScrollView` + `scrollTargetLayout()`, and the remaining
   route observes scroll GEOMETRY, which is the documented way to break the
   search-role morph. Not worth that trade for a convenience.
-  ⚠️ **Every catalog list needs `.scrollEdgeEffectStyle(.hard, for: .bottom)`.**
-  Content passing under the tab bar and its accessory is the iOS 26 design, not
-  a bug — but the glass is far too clear to occlude anything on its own, so
-  without the edge effect rows and section headers read straight through the
-  chrome (build 139: headings legible BELOW the search field). It goes on the
-  SCROLLING CONTENT, never on the bar — the mistake build 133 made.
+  ⚠️ **No bottom scroll edge effect: every scrolling tab root carries
+  `.scrollEdgeEffectHidden(true, for: .bottom)`** (Dave, build 147: "kill the
+  blurred background area behind the TabView tabs row"). iOS 26 gives every
+  List/ScrollView one automatically; build 139 hardened it to `.hard` because
+  the glass alone is too clear to occlude the rows passing under it (headings
+  legible BELOW the search field). Hard then read as a blurred slab the tab bar
+  sat on — worse than the read-through it fixed. If read-through returns, the
+  lever is the STYLE (`.soft`), and it goes on the SCROLLING CONTENT, never a
+  background on the bar — the mistake build 133 made.
   ⚠️ **Accessory placement is read-only**: `tabViewBottomAccessoryPlacement` is
   the system's choice, `.inline` means "beside a MINIMIZED bar", and
   `.tabBarMinimizeBehavior(.onScrollDown)` is what moves between the two — so

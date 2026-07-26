@@ -644,14 +644,16 @@ struct CatalogScopeView: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .scrollDismissesKeyboard(.immediately)
-            // Rows pass UNDER the tab bar and its accessory — that is the iOS 26
-            // design, not a bug — but only reads if the scroll view declares an
-            // edge effect. Without this the glass is too clear to occlude
-            // anything and list rows show straight through the chrome (build
-            // 139's screenshots: section headers legible BELOW the search
-            // field). ⚠️ It belongs on the SCROLLING CONTENT, never on the bar,
-            // which is the mistake build 133 made with the hand-drawn one.
-            .scrollEdgeEffectStyle(.hard, for: .bottom)
+            // NO scroll edge effect at the bottom (Dave, build 147): "kill the
+            // blurred background area behind the TabView tabs row." iOS 26 gives
+            // every List one automatically, and build 139 hardened it to `.hard`
+            // because the glass alone was too clear to occlude the rows passing
+            // under it. Hard read as a blurred slab the tab bar sat on, which is
+            // worse than the thing it fixed. ⚠️ If read-through comes back, the
+            // lever is the STYLE (`.soft`) on the SCROLLING CONTENT — never a
+            // background on the bar, which is the mistake build 133 made with
+            // the hand-drawn one.
+            .scrollEdgeEffectHidden(true, for: .bottom)
             // The arrival beat. Lifecycle-bound via `.task(id:)`: leaving or a
             // rapid second add cancels this in flight, and the throwing sleeps
             // bail in the catch WITHOUT clearing `newlyAdded`, so a superseding
