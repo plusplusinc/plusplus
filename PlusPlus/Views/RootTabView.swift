@@ -109,15 +109,12 @@ struct RootTabView: View {
     /// accessory read it — so they collapse and arrive as ONE movement
     /// (Dave, 2026-07-26).
     @State private var searchActive = false
-    /// Where each catalog was last scrolled to, by scope, so opening search on
-    /// the catalog you were browsing lands you where you already were rather
-    /// than at the top (Dave, 2026-07-26).
-    ///
-    /// It has to live here because a `Tab`'s content is its own view tree: the
-    /// Routines tab's list and a search tab dialled to routines are two
-    /// different scroll views showing the same rows, and this is the only place
-    /// both can see.
-    @State private var scrollAnchors: [FindScope: AnyHashable] = [:]
+    // Scroll-position sync between a catalog tab and search is GONE (build 139
+    // shipped it; it did nothing on device). `.scrollPosition(id:)` does not
+    // take on a `List` the way it does on a `ScrollView` + `scrollTargetLayout`,
+    // and the remaining route observes scroll GEOMETRY, which is the documented
+    // way to break the search-role morph. Not worth that trade for a
+    // convenience — revisit only if the control moves off the TabView subtree.
     /// The slide-to-reveal drawer behind the ++ key (replaces the pushed
     /// AppMenuScreen). Lives here, above the tabs' NavigationStacks, so it
     /// moves the whole TabView as one layer.
@@ -213,19 +210,7 @@ struct RootTabView: View {
     /// switch. Search is the one that reads the state, which is the whole point
     /// of the state: it keeps the catalog you were already on.
     private func catalog(_ shown: FindScope, on appTab: AppTab) -> some View {
-        CatalogScopeView(
-            scope: shown,
-            query: $query,
-            tab: appTab,
-            // Only the tab actually on screen may WRITE the anchor. All four
-            // instances stay mounted, so an ungated setter would let three
-            // lists nobody is looking at overwrite the position of the one
-            // that is. Reading is unconditional — that's the restore.
-            anchor: Binding(
-                get: { scrollAnchors[shown] },
-                set: { if tab == appTab { scrollAnchors[shown] = $0 } }
-            )
-        )
+        CatalogScopeView(scope: shown, query: $query, tab: appTab)
     }
 
     private var appContent: some View {
@@ -239,29 +224,23 @@ struct RootTabView: View {
             Tab("Today", systemImage: todayStatus.systemImage, value: AppTab.today) {
                 TodayView(onGoToRoutines: { land(on: .routines) })
             }
-            // The three catalog tabs step OUT of the bar while search is active
-            // (Dave, 2026-07-26), which leaves Today as the one tab beside the
-            // morphed field — not "whichever tab you came from". Scope is the
-            // accessory's job in there, so three tabs saying the same thing
-            // would be redundant anyway.
-            //
-            // ⚠️ `.hidden(_:)` and NOT an `if`: it PRESERVES the hidden tab's
-            // state, where conditional rendering destroys and recreates it.
-            // These tabs' navigation stacks and scroll positions have to
-            // survive a trip through search.
+            // ⚠️ These do NOT hide while search is active, though `Tab.hidden(_:)`
+            // makes it easy to (build 139 did). It delivers Today beside the
+            // morphed field, but the bar does not REFLOW around the hidden
+            // tabs: what's left is a full-width group capsule with Today
+            // rattling around alone in the middle of it (Dave's screenshot).
+            // Which tab the system parks beside the field is a smaller problem
+            // than that.
             Tab(FindScope.routines.label, systemImage: FindScope.routines.symbolName, value: AppTab.routines) {
                 catalog(.routines, on: .routines)
             }
-            .hidden(searchActive)
             Tab(FindScope.exercises.label, systemImage: FindScope.exercises.symbolName, value: AppTab.exercises) {
                 catalog(.exercises, on: .exercises)
             }
-            .hidden(searchActive)
             // Labeled "Kit" (2026-07-20); the enum case stays `.equipment`.
             Tab(FindScope.kit.label, systemImage: FindScope.kit.symbolName, value: AppTab.equipment) {
                 catalog(.kit, on: .equipment)
             }
-            .hidden(searchActive)
             // The SEARCH ROLE (Dave, 2026-07-26: "the sort of search tab that
             // makes the search input expand out of it to the side"). The role is
             // a package deal — the system floats it apart as the separated

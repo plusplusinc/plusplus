@@ -212,27 +212,24 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   you were already in. The query is search's and dies with it: no other tab has
   a field, so a surviving query would filter a list with nothing on screen
   explaining it.
-  **While search is active the three catalog tabs LEAVE THE BAR**
-  (`Tab.hidden(_:)`, 2026-07-26), so Today is the one tab beside the morphed
-  field rather than whichever tab you came from — what the cancelled
-  nested-TabView cut was reaching for. ⚠️ `.hidden(_:)` and NEVER a conditional
-  `if`: it PRESERVES the hidden tab's state, and these tabs' navigation stacks
-  and scroll positions must survive a trip through search. Both the hiding and
-  the accessory's `isEnabled` read one app-owned `searchActive` mirror set
-  inside `withAnimation(Theme.Anim.standard)` — `tab` is written by the SYSTEM's
-  selection binding outside any transaction of ours, so driving them off `tab`
-  directly snaps; sharing the flag makes the collapse and the accessory's
-  arrival ONE movement. ⚠️ `land(on:)` clears `searchActive` BEFORE writing
-  `tab`, because a landing selects a tab hidden at that instant and a dropped
-  selection is a silent dead tap (the build-76 class).
-  **Scroll position carries between a catalog tab and search** via
-  `scrollAnchors: [FindScope: AnyHashable]` in the root — the only place two
-  instances of the same scope can both see. Doubly gated: the root's setter
-  writes only from the SHOWING tab (else three invisible lists clobber the
-  visible one), and `CatalogScopeView`'s only on an EMPTY query (a ranked result
-  set is a different list). ⚠️ `.scrollPosition(id:)` is a continuous state
-  write inside the TabView subtree — the family below — so it is **the first
-  thing to delete if the search field stops appearing on a cold first tap**.
+  ⚠️ **Do NOT hide the catalog tabs while search is active.** `Tab.hidden(_:)`
+  works and preserves state, and it does put Today beside the morphed field —
+  but the bar does NOT REFLOW around the hidden tabs, so what's left is a
+  full-width group capsule with Today rattling around alone in it (build 139,
+  Dave's screenshot). Which tab the system parks beside the field is the
+  smaller problem. `searchActive` survives as the accessory's animated
+  `isEnabled` only.
+  ⚠️ **Scroll-position sync between a catalog tab and search does not work and
+  is RETIRED** (tried in 139): `.scrollPosition(id:)` does not take on a `List`
+  the way it does on a `ScrollView` + `scrollTargetLayout()`, and the remaining
+  route observes scroll GEOMETRY, which is the documented way to break the
+  search-role morph. Not worth that trade for a convenience.
+  ⚠️ **Every catalog list needs `.scrollEdgeEffectStyle(.hard, for: .bottom)`.**
+  Content passing under the tab bar and its accessory is the iOS 26 design, not
+  a bug — but the glass is far too clear to occlude anything on its own, so
+  without the edge effect rows and section headers read straight through the
+  chrome (build 139: headings legible BELOW the search field). It goes on the
+  SCROLLING CONTENT, never on the bar — the mistake build 133 made.
   ⚠️ **Accessory placement is read-only**: `tabViewBottomAccessoryPlacement` is
   the system's choice, `.inline` means "beside a MINIMIZED bar", and
   `.tabBarMinimizeBehavior(.onScrollDown)` is what moves between the two — so

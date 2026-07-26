@@ -79,9 +79,6 @@ struct CatalogScopeView: View {
     /// picker sits outside this view and switching scope must not lose what you
     /// typed; in `.presented` mode the surface owns it.
     @Binding private var boundQuery: String
-    /// Where this scope's list is scrolled to, shared with the OTHER instance
-    /// showing the same scope — see `scrollAnchorBinding`.
-    @Binding private var boundAnchor: AnyHashable?
     // Per-scope match COUNTS are gone with the hand-drawn bar (2026-07-25):
     // there are no scope labels in the chrome to paint them on. The segmented
     // picker in the tab bar's accessory is the cross-scope affordance now.
@@ -100,17 +97,11 @@ struct CatalogScopeView: View {
     private var pickerTitle = ""
 
     /// A tab root.
-    init(
-        scope: FindScope,
-        query: Binding<String>,
-        tab: AppTab,
-        anchor: Binding<AnyHashable?>
-    ) {
+    init(scope: FindScope, query: Binding<String>, tab: AppTab) {
         self.scope = scope
         self.mode = .tab
         self._boundQuery = query
         self.tabKey = tab.rawValue
-        self._boundAnchor = anchor
         self.onPick = nil
     }
 
@@ -120,7 +111,6 @@ struct CatalogScopeView: View {
         self.mode = .presented(setupMode: setupMode)
         self._boundQuery = .constant("")
         self.tabKey = ""
-        self._boundAnchor = .constant(nil)
         self.onPick = nil
     }
 
@@ -130,7 +120,6 @@ struct CatalogScopeView: View {
         self.mode = .picker
         self._boundQuery = .constant("")
         self.tabKey = ""
-        self._boundAnchor = .constant(nil)
         self.onPick = onPick
         self.pickerTitle = title
     }
@@ -179,22 +168,6 @@ struct CatalogScopeView: View {
     }
 
     private var isPicking: Bool { mode == .picker }
-
-    /// The scroll anchor the list reads and writes (Dave, 2026-07-26: carry the
-    /// scroll position from a catalog tab into search).
-    ///
-    /// **Only the empty-query list writes.** A ranked result set is a different
-    /// list from the browse list, so letting it write would mean leaving search
-    /// scrolls the whole catalog to wherever your last query happened to land.
-    /// Reading stays unconditional — that is the restore, and it works in both
-    /// directions: your browse position is captured on the catalog tab, applied
-    /// when search opens on that scope, and still there when you come back out.
-    private var scrollAnchorBinding: Binding<AnyHashable?> {
-        Binding(
-            get: { boundAnchor },
-            set: { if trimmedQuery.isEmpty { boundAnchor = $0 } }
-        )
-    }
 
     private var trimmedQuery: String {
         queryBinding.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -612,15 +585,14 @@ struct CatalogScopeView: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .scrollDismissesKeyboard(.immediately)
-            // ⚠️ THE FIRST THING TO DELETE if the search field ever stops
-            // appearing on a cold first tap. This is a continuous state write
-            // from inside the TabView subtree, which is the family that has
-            // broken `Tab(role: .search)`'s morph three times on this branch
-            // (nav-diag 4e). It is narrower than the `.onGeometryChange` /
-            // `PreferenceKey` probes that did it — one write when the top row
-            // changes, not a layout-phase callback — but it is not free of the
-            // risk, and nothing else depends on it.
-            .scrollPosition(id: scrollAnchorBinding)
+            // Rows pass UNDER the tab bar and its accessory — that is the iOS 26
+            // design, not a bug — but only reads if the scroll view declares an
+            // edge effect. Without this the glass is too clear to occlude
+            // anything and list rows show straight through the chrome (build
+            // 139's screenshots: section headers legible BELOW the search
+            // field). ⚠️ It belongs on the SCROLLING CONTENT, never on the bar,
+            // which is the mistake build 133 made with the hand-drawn one.
+            .scrollEdgeEffectStyle(.hard, for: .bottom)
             // The arrival beat. Lifecycle-bound via `.task(id:)`: leaving or a
             // rapid second add cancels this in flight, and the throwing sleeps
             // bail in the catch WITHOUT clearing `newlyAdded`, so a superseding
