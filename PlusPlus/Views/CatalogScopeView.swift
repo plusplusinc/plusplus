@@ -338,12 +338,25 @@ struct CatalogScopeView: View {
                         }
                     }
                     .sharedBackgroundVisibility(.hidden)
+                    // The scope control, on the SEARCH surface only — the
+                    // Photos Years/Months/All recipe. A `.bottomBar` item
+                    // TRACKS THE KEYBOARD, which is why it lives here and not
+                    // in the tab bar's accessory: that one stays put and gets
+                    // buried the moment search's keyboard rises (build 144).
+                    //
+                    // ⚠️ `.sharedBackgroundVisibility(.hidden)` is doing the
+                    // load-bearing work: the segmented control brings its own
+                    // track, so without it the toolbar's shared glass wraps it
+                    // in a second shape — the double background from build 137.
+                    if let searchScope {
+                        ToolbarItem(placement: .bottomBar) {
+                            ScopeSegmentedControl(scope: searchScope)
+                        }
+                        .sharedBackgroundVisibility(.hidden)
+                    }
                 }
-            // The system field + scope bar, on the SEARCH tab only, and INSIDE
-            // the stack — see `searchScope`. `.onSearchPresentation` rather
-            // than the default, because the scope decides what an EMPTY query
-            // shows: it has to be there the moment search opens, not after the
-            // first keystroke.
+            // The system field, on the SEARCH tab only, and INSIDE the stack —
+            // see `searchScope`.
                 .modifier(SearchPresentation(query: $boundQuery, scope: searchScope))
                 .navigationDestination(for: Exercise.self) { exercise in
                     ExerciseDetailScreen(exercise: exercise)
@@ -1319,8 +1332,8 @@ private struct SearchPresentation: ViewModifier {
             // ⚠️ NO `.searchScopes` here, deliberately (2026-07-26, after builds
             // 140–143). It renders exactly ONCE in this configuration and it
             // renders at the top, far from the bottom field it scopes. The
-            // scope control is the tab bar's accessory again — see
-            // `ScopeSegmentedAccessory`, which carries the whole account.
+            // scope control is a `.bottomBar` toolbar item on this surface —
+            // see `ScopeSegmentedControl`, which carries the whole account.
             content
                 .searchable(text: $query, prompt: "Search \(scope.wrappedValue.searchNoun)")
         } else {

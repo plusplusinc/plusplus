@@ -115,9 +115,17 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   never a dead end, because an exact match always ranks into results, so
   results are non-empty whenever a create is hidden. Partial matches still
   offer create.
-  **Scope selection is the TAB BAR, and — while search is active — a native
-  `Picker(.segmented)` in `.tabViewBottomAccessory`** (`ScopeSegmentedAccessory`,
-  settled 2026-07-26 after builds 137–143 went round it six times).
+  **Scope selection is the TAB BAR, and — on the search surface — a native
+  segmented `Picker` in a `.bottomBar` `ToolbarItem`** (`ScopeSegmentedControl`,
+  the Photos Years/Months/All recipe, settled 2026-07-26 after six builds).
+  ⚠️ **`.sharedBackgroundVisibility(.hidden)` on that ToolbarItem is what stops
+  the double background** — a segmented control brings its own track, so the
+  toolbar's shared glass would wrap it in a second shape. That modifier is
+  TOOLBAR-ONLY, which is part of why the accessory could never be fixed.
+  ⚠️ **`tabViewBottomAccessory` is the WRONG container for this** (builds
+  137–139, 144): it does not rise with the keyboard, so search's own keyboard
+  buries anything in it — and on that surface the keyboard is up most of the
+  time you want to change scope. A `.bottomBar` toolbar tracks the keyboard.
   ⚠️ **Native `.searchScopes` DOES NOT WORK on a bottom-aligned search field
   morphed out of a `Tab(role: .search)`** — it renders exactly ONCE per app run.
   Tried, in order, and all still once: `.onSearchPresentation` activation;

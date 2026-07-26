@@ -67,12 +67,13 @@ extension FindScope {
 /// but now that `CatalogScopeView` exists they are tabs over ONE screen, which
 /// is what the two-tab round was really after.
 ///
-/// **The tab bar is the scope control; inside search, the bottom ACCESSORY is**
-/// — a native `Picker(.segmented)` filling the accessory's capsule edge to edge
-/// (Dave, 2026-07-26). Native `.searchScopes` was tried across four builds and
-/// renders exactly ONCE per app run in this configuration, at the top, nowhere
-/// near the bottom field it scopes; see `ScopeSegmentedAccessory` for the whole
-/// account and the rules that survived it.
+/// **The tab bar is the scope control; inside search, a `.bottomBar` toolbar
+/// item is** — a native segmented `Picker`, the Photos Years/Months/All recipe
+/// (Dave, 2026-07-26). It does NOT live in `tabViewBottomAccessory` (that
+/// container never rises with the keyboard) and it is NOT native
+/// `.searchScopes` (which renders once per app run on a bottom-aligned field);
+/// see `ScopeSegmentedControl` for the whole account and the rules that
+/// survived six builds of it.
 struct RootTabView: View {
 
     /// The Today tab's icon reflects whether there's anything to do today
@@ -99,12 +100,6 @@ struct RootTabView: View {
     /// so opening search narrows where you already were.
     @State private var query = ""
     @State private var scope: FindScope = .routines
-    /// Whether search is showing, as a value the app OWNS.
-    ///
-    /// `tab` is written by the system's selection binding, outside any
-    /// animation transaction of ours, so driving the accessory off it directly
-    /// makes the control pop rather than arrive. Set inside `withAnimation`.
-    @State private var searchActive = false
     // Scroll-position sync between a catalog tab and search is GONE (build 139
     // shipped it; it did nothing on device). `.scrollPosition(id:)` does not
     // take on a `List` the way it does on a `ScrollView` + `scrollTargetLayout`,
@@ -254,13 +249,12 @@ struct RootTabView: View {
                 catalog(scope, on: .search, searchScope: $scope)
             }
         }
-        // The scope control, and ONLY while search is active — off search the
-        // tab bar itself is the scope control, and two of them at once is one
-        // too many. This is the position native search scopes could not be
-        // talked into: directly above the field it scopes.
-        .tabViewBottomAccessory(isEnabled: searchActive) {
-            ScopeSegmentedAccessory(scope: $scope)
-        }
+        // ⚠️ NOTHING rides `tabViewBottomAccessory` any more. The scope control
+        // lived there for four builds and the container was always wrong: it
+        // does not rise with the keyboard, so search's own keyboard buried it.
+        // It is a `.bottomBar` toolbar item on the search surface now — see
+        // `ScopeSegmentedControl`, which carries the whole account.
+        //
         // ⚠️ NO `.tabViewSearchActivation(.searchTabSelection)` here, and that
         // absence is deliberate. Build 143 added it to force a fresh scope-bar
         // presentation on every arrival; native scopes are gone, so that
@@ -288,7 +282,6 @@ struct RootTabView: View {
             // list with nothing on screen explaining the filter and no way to
             // clear it — the "stale invisible query reads as data loss" law.
             if newTab != .search { query = "" }
-            withAnimation(Theme.Anim.standard) { searchActive = newTab == .search }
         }
         // Operator's outcome navigation: the root switches tabs; the
         // owning tab root resolves and pushes (the .plusplusStartRoutine
