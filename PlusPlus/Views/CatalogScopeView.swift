@@ -311,6 +311,12 @@ struct CatalogScopeView: View {
             }
             .navigationDestination(for: RoutineTemplate.self) { template in
                 RoutineTemplateDetailScreen(template: template, path: $path) { routine in
+                    // Pop the template BEFORE landing. The landing happens on
+                    // the Routines tab, which may be a different instance of
+                    // this view (search pushed it, the tab consumes it), and
+                    // whoever hosted the push would otherwise keep a stale
+                    // detail of a template you already added.
+                    path = NavigationPath()
                     routine.uuid.map { RoutineArrival.land($0) }
                 }
             }
