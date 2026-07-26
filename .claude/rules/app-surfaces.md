@@ -278,15 +278,16 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   the way it does on a `ScrollView` + `scrollTargetLayout()`, and the remaining
   route observes scroll GEOMETRY, which is the documented way to break the
   search-role morph. Not worth that trade for a convenience.
-  ⚠️ **No bottom scroll edge effect: every scrolling tab root carries
-  `.scrollEdgeEffectHidden(true, for: .bottom)`** (Dave, build 147: "kill the
-  blurred background area behind the TabView tabs row"). iOS 26 gives every
-  List/ScrollView one automatically; build 139 hardened it to `.hard` because
-  the glass alone is too clear to occlude the rows passing under it (headings
-  legible BELOW the search field). Hard then read as a blurred slab the tab bar
-  sat on — worse than the read-through it fixed. If read-through returns, the
-  lever is the STYLE (`.soft`), and it goes on the SCROLLING CONTENT, never a
-  background on the bar — the mistake build 133 made.
+  ⚠️ **The bottom scroll edge effect is `.soft` on every scrolling tab root** —
+  the system's own gradient, and the THIRD answer this edge has had. `.hard`
+  (139) was added because the bar's glass alone can't occlude rows passing
+  under it (headings legible below the search field); it draws a full-width
+  blurred SLAB for the bar to sit on, which Dave killed on 148. Hiding it
+  outright (148) brought the read-through straight back — his own screenshot
+  has an equipment name legible through the search field. Soft shows only where
+  content is actually under the chrome, so there's no slab on an empty stretch.
+  It goes on the SCROLLING CONTENT, never as a background on the bar — the
+  mistake build 133 made.
   ⚠️ **Accessory placement is read-only**: `tabViewBottomAccessoryPlacement` is
   the system's choice, `.inline` means "beside a MINIMIZED bar", and
   `.tabBarMinimizeBehavior(.onScrollDown)` is what moves between the two — so

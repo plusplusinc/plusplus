@@ -333,11 +333,12 @@ struct TodayView: View {
                             .padding(.horizontal, 16)
                             .padding(.bottom, 24)
                         }
-                        // NO scroll edge effect at the bottom — same call as the
-                        // catalogs (Dave, build 147). Cards pass under the tab
-                        // bar undimmed; the blurred slab the `.hard` style drew
-                        // behind the bar was the thing he didn't want.
-                        .scrollEdgeEffectHidden(true, for: .bottom)
+                        // SOFT at the bottom — same call as the catalogs. The
+                        // `.hard` slab is what Dave killed; hiding the effect
+                        // outright let content read through the bar. Soft is
+                        // the system's gradient: visible only where something
+                        // is actually passing under the chrome.
+                        .scrollEdgeEffectStyle(.soft, for: .bottom)
                         .refreshable {
                             // Honest refresh (#267): due-ness is pure local
                             // computation keyed on the clock, so bumping the
