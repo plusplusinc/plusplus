@@ -279,31 +279,12 @@ struct CatalogScopeView: View {
     private var tabBody: some View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
-                CatalogTabHeader(
-                    title: scope.label,
-                    // The app's OWN expanding field, the one every pushed
-                    // catalog and picker already uses (2026-07-26). Three
-                    // native routes were tried and none put a usable field on
-                    // this surface: `Tab(role: .search)` morphs the bar but
-                    // forces search out of the tab group as a separated circle;
-                    // a plain tab keeps it in the group but drops the morph, and
-                    // then `.searchable` — with or without
-                    // `DefaultToolbarItem(kind: .search, placement: .bottomBar)`
-                    // and `.searchToolbarBehavior(.minimize)` — rendered NOTHING
-                    // here, because this screen hides the navigation bar the
-                    // field wants (build 135: "I don't see how to open the
-                    // search input"). The header magnifier is proven, visible,
-                    // and consistent with every other catalog in the app.
-                    search: HeaderSearchConfig(
-                        text: queryBinding,
-                        // What the scope SEARCHES, not what it's called: the Kit
-                        // scope searches the equipment CATALOG.
-                        prompt: "Search \(scope.searchNoun)",
-                        identifier: "catalogSearchField"
-                    ),
-                    // Return opens the best hit.
-                    onSearchSubmit: { openTopResult() }
-                ) {
+                // NO header magnifier here (Dave, 2026-07-26: "kill our custom
+                // search input at the top again"). The field is the system's,
+                // expanding out of the search-role tab at the BOTTOM — see
+                // `RootTabView`. The header keeps the title and the kit
+                // switcher only.
+                CatalogTabHeader(title: scope.label) {
                     // The kit is CONTEXT on every catalog, never a filter chip:
                     // it decides which rows fall into the "require more
                     // equipment" group below.
@@ -339,6 +320,14 @@ struct CatalogScopeView: View {
         // GitHub. Native tabs fire `onDisappear` on a switch, so this is the
         // same close trigger every other surface uses.
         .syncsProgramOnClose()
+        // The field's Return key: it belongs to the search-role tab, outside
+        // this stack, so the key arrives as a signal. Root-only, because
+        // `path.append` is not idempotent and the field stays submittable over
+        // a pushed detail (ui-interaction.md).
+        .onReceive(NotificationCenter.default.publisher(for: .plusplusOpenTopResult)) { _ in
+            guard isActive else { return }
+            openTopResult()
+        }
         // A cross-tab add lands HERE with the entrance flash — consumed on
         // receive when mounted, on appear when this surface mounts because of
         // the add itself.

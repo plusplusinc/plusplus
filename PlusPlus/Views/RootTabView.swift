@@ -177,19 +177,27 @@ struct RootTabView: View {
             Tab("Today", systemImage: todayStatus.systemImage, value: AppTab.today) {
                 TodayView(onGoToRoutines: { land(on: .search, scope: .routines) })
             }
-            // A PLAIN tab, deliberately not `Tab(role: .search)` (Dave,
-            // 2026-07-25): the role is what makes the system render search as
-            // the separated floating circle, so dropping it is what seats it in
-            // the group beside Today. The role also owned the bar→field morph,
-            // so the field has to come from somewhere else — see
-            // `CatalogScopeView`'s bottom-bar search item.
-            Tab("Search", systemImage: "magnifyingglass", value: AppTab.search) {
-                // ONE catalog at a time — the wheel picks which. `.id(scope)`
+            // The SEARCH ROLE is back (Dave, 2026-07-26: "the sort of search
+            // tab that makes the search input expand out of it to the side").
+            // The role is a package deal — the system floats it apart as the
+            // separated circle AND gives it the morph into the field — and the
+            // morph is the half worth having. A plain tab seats search in the
+            // group but leaves the field homeless: `.searchable` then wants the
+            // navigation bar this screen hides, which is why build 135 had no
+            // visible input at all.
+            Tab(value: AppTab.search, role: .search) {
+                // ONE catalog at a time — the accessory picks which. `.id(scope)`
                 // is load-bearing: without it SwiftUI reuses the view across a
                 // scope change and the previous catalog's navigation path,
                 // expanded groups and arrival slot come along with it.
                 CatalogScopeView(scope: scope, query: $query, isActive: true)
                     .id(scope)
+                    .searchable(text: $query, prompt: "Search \(scope.searchNoun)")
+                    // Return opens the best hit. The field is the system's and
+                    // sits outside this stack, so the key travels as a signal.
+                    .onSubmit(of: .search) {
+                        NotificationCenter.default.post(name: .plusplusOpenTopResult, object: nil)
+                    }
             }
         }
         // The scope picker rides the accessory slot — the one place the system

@@ -38,31 +38,26 @@ final class SmokeTests: XCTestCase {
         app.tabBars.buttons[tab.capitalized]
     }
 
-    /// The app's own field (`SearchFieldBody`), a `textField` with a set
-    /// identifier rather than a system `searchField`.
+    /// The NATIVE search field, expanded out of the search-role tab — a
+    /// `searchField` element, not a custom `textField` with an identifier.
     private var searchField: XCUIElement {
-        app.textFields["catalogSearchField"]
+        app.searchFields.firstMatch
     }
 
-    /// Open the catalogs and reveal the search field. Search is an ordinary tab
-    /// in the group beside Today, and the field is the app's own expanding
-    /// header one (2026-07-26) — the native routes left it invisible on this
-    /// surface — so it takes a tab tap then the header magnifier.
+    /// Open the catalogs (the separated search circle beside Today), which
+    /// morphs the bar into the field.
     private func openSearch() {
         let key = app.tabBars.buttons["Search"]
         XCTAssertTrue(key.waitForExistence(timeout: 10))
         key.tap()
-        let toggle = app.buttons["catalogSearchFieldToggle"]
-        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
-        toggle.tap()
         XCTAssertTrue(searchField.waitForExistence(timeout: 5))
     }
 
-    /// Pick a catalog on the segmented control in the tab bar's accessory.
-    /// Tapping it also switches to the Search tab, so this doubles as "go to
-    /// that catalog" from anywhere.
+    /// Pick a catalog on the scope control in the tab bar's accessory. Tapping
+    /// it also switches to the Search tab, so this doubles as "go to that
+    /// catalog" from anywhere.
     private func selectScope(_ scope: String) {
-        let option = app.buttons[scope.capitalized]
+        let option = app.buttons["scope-\(scope)"]
         XCTAssertTrue(option.waitForExistence(timeout: 5))
         option.tap()
     }
@@ -333,7 +328,7 @@ final class SmokeTests: XCTestCase {
         // The landing dials the wheel to Exercises and shows the new row; the
         // wheel option carries `.isSelected`, so it is the honest probe for
         // "we ended up on the right catalog".
-        let exercisesOption = app.buttons["Exercises"]
+        let exercisesOption = app.buttons["scope-exercises"]
         XCTAssertTrue(exercisesOption.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Wall Slides"].waitForExistence(timeout: 5))
         XCTAssertTrue(exercisesOption.isSelected)
