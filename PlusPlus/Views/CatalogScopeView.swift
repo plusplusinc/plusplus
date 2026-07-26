@@ -188,6 +188,9 @@ struct CatalogScopeView: View {
 
     private var isPicking: Bool { mode == .picker }
 
+    /// The one tab that hosts the system search field.
+    private var isSearchSurface: Bool { searchScope != nil }
+
     private var trimmedQuery: String {
         queryBinding.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -309,8 +312,14 @@ struct CatalogScopeView: View {
         NavigationStack(path: $path) {
             listBody
                 .background(Theme.background)
-                .navigationTitle(scope.label)
-                .navigationBarTitleDisplayMode(.large)
+                // The SEARCH surface carries no title (Dave, 2026-07-26): the
+                // scope control already names the catalog, so a title is
+                // duplicative — and a large one FLASHES on entry, collapsing
+                // away as search presents and leaving the top area empty. The
+                // bar itself stays: hiding it is what left `.searchable` with
+                // nowhere to fall back to in the first place.
+                .navigationTitle(isSearchSurface ? "" : scope.label)
+                .navigationBarTitleDisplayMode(isSearchSurface ? .inline : .large)
                 .toolbar {
                     // Both keys keep their own chrome and opt OUT of the
                     // toolbar's shared glass — `.sharedBackgroundVisibility(.hidden)`
@@ -1307,13 +1316,13 @@ private struct SearchPresentation: ViewModifier {
 
     func body(content: Content) -> some View {
         if let scope {
+            // ⚠️ NO `.searchScopes` here, deliberately (2026-07-26, after builds
+            // 140–143). It renders exactly ONCE in this configuration and it
+            // renders at the top, far from the bottom field it scopes. The
+            // scope control is the tab bar's accessory again — see
+            // `ScopeSegmentedAccessory`, which carries the whole account.
             content
                 .searchable(text: $query, prompt: "Search \(scope.wrappedValue.searchNoun)")
-                .searchScopes(scope, activation: .onSearchPresentation) {
-                    ForEach(FindScope.allCases, id: \.self) { item in
-                        Text(item.label).tag(item)
-                    }
-                }
         } else {
             content
         }

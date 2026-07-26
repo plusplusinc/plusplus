@@ -61,19 +61,15 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(searchField.waitForExistence(timeout: 5))
     }
 
-    /// Pick a catalog on the NATIVE search scope bar (2026-07-26). It belongs
-    /// to the system's search presentation, so it exists only once search is
-    /// PRESENTED — tap the field first. Off search the tab bar is the scope
-    /// control (`goToCatalog`).
+    /// Pick a catalog on the segmented control in the tab bar's bottom
+    /// accessory. It exists only while the Search tab is selected — off search
+    /// the tab bar is the scope control (`goToCatalog`).
     ///
-    /// The segments are the system's own buttons keyed by label; there are no
-    /// app-set identifiers to hit.
+    /// It's a native `Picker(.segmented)`, so its segments are the system's own
+    /// buttons keyed by label; there are no app-set identifiers to hit.
     private func selectScope(_ scope: String) {
-        let field = searchField
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
-        if !app.segmentedControls.buttons[scope.capitalized].exists { field.tap() }
         let option = app.segmentedControls.buttons[scope.capitalized]
-        XCTAssertTrue(option.waitForExistence(timeout: 5), "the search scope bar shows once search is presented")
+        XCTAssertTrue(option.waitForExistence(timeout: 5), "the scope control rides the accessory while search is up")
         option.tap()
     }
 

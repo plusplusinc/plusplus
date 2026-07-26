@@ -115,29 +115,40 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   never a dead end, because an exact match always ranks into results, so
   results are non-empty whenever a create is hidden. Partial matches still
   offer create.
-  **Scope selection is the TAB BAR, and — inside search — NATIVE SEARCH
-  SCOPES** (`.searchScopes($scope, activation: .onSearchPresentation)`,
-  2026-07-26, Dave: "kill the accessory, use native iOS search scopes").
-  ⚠️ **`tabViewBottomAccessory` is RETIRED as a home for this control** and
-  `ScopeSegmentedAccessory` is deleted, after builds 137–139 failed at it three
-  different ways. What was learned, and binds any future attempt: (a) iOS 26's
-  interactive "bubbly" glass belongs to exactly two components, tab bars and
-  SEGMENTED CONTROLS, so an app-drawn control cannot look native however it is
-  styled (`ryanashcraft/FabBar` hosts a real `UISegmentedControl` for this
-  reason); (b) **app-authored animation does not survive inside the accessory** —
-  the canonical `matchedGeometryEffect` pill, with `.animation` on the value,
-  still did not travel on device, because the accessory is a system-owned
-  container that re-renders outside the app's transactions; (c) the accessory
-  ALWAYS draws a glass capsule and no API removes it, so a native
-  `Picker(.segmented)` inside it nests two shapes unless it fills the capsule
-  edge to edge. `.searchScopes` sidesteps all three: the system draws the real
-  control, in the place iOS puts it, appearing and leaving with search on its
-  own. `.onSearchPresentation` rather than the default, because the scope
-  decides what an EMPTY query shows. (The Photos Years/Months/All control is a
-  THIRD thing again — a `.bottomBar` `ToolbarItem` with
-  `.sharedBackgroundVisibility(.hidden)` + `.controlSize(.large)`; that is the
-  API that strips a toolbar item's shared glass, and it exists only for toolbar
-  items. Reach for it only if search scopes prove wrong.)
+  **Scope selection is the TAB BAR, and — while search is active — a native
+  `Picker(.segmented)` in `.tabViewBottomAccessory`** (`ScopeSegmentedAccessory`,
+  settled 2026-07-26 after builds 137–143 went round it six times).
+  ⚠️ **Native `.searchScopes` DOES NOT WORK on a bottom-aligned search field
+  morphed out of a `Tab(role: .search)`** — it renders exactly ONCE per app run.
+  Tried, in order, and all still once: `.onSearchPresentation` activation;
+  `.searchable` moved INSIDE the navigation stack (the documented requirement,
+  and the thing that made scopes appear at all); giving the surface a real
+  navigation bar; and `.tabViewSearchActivation(.searchTabSelection)` so every
+  arrival is a fresh presentation. It also renders at the TOP, nowhere near the
+  field it scopes, and placement is not the app's to choose.
+  ⚠️ **Do NOT hand-roll the segmented control.** iOS 26's interactive "bubbly"
+  glass belongs to exactly TWO components, tab bars and SEGMENTED CONTROLS, so
+  an app-drawn one cannot look native however styled (`ryanashcraft/FabBar`
+  hosts a real `UISegmentedControl` for this reason). And **app-authored
+  animation does not survive inside the accessory**: the accessory is a
+  system-owned container that re-renders outside the app's transactions, so even
+  the canonical `matchedGeometryEffect` pill with `.animation` on the value
+  refused to travel on device (build 139).
+  ⚠️ **The "double background" is PADDING, not the Picker.** The accessory
+  always draws a Liquid Glass capsule and no API removes it; build 137's
+  `.padding(.horizontal, 12)` inset the Picker's own segmented track inside that
+  capsule, drawing two concentric shapes. Edge to edge the silhouettes coincide.
+  `.controlSize(.large)` gives it the Photos proportions (r/SwiftUI 1o2vdp4); no
+  `.tint`, so it wears the iOS 26 system look.
+  **The SEARCH surface carries no title** (Dave, 2026-07-26): the scope control
+  already names the catalog, and a large title FLASHES on entry then collapses
+  as search presents, leaving an empty band. `.navigationTitle("")` + `.inline`
+  there; the other four roots keep `.large`. The bar itself stays — hiding it is
+  what left `.searchable` with nowhere to fall back to.
+  (Photos' Years/Months/All is a THIRD thing again: a `.bottomBar` `ToolbarItem`
+  with `.sharedBackgroundVisibility(.hidden)` + `.controlSize(.large)` — that
+  modifier strips a toolbar item's shared glass and exists ONLY for toolbar
+  items. The remaining escape if the accessory ever fails.)
   The custom `SegmentedTabs` was RETIRED (2026-07-24) —
   every other former segmented site moved to native `Picker` (`.segmented` for
   short unit/mode toggles, a pushed `NavigationSelectRow` for multi-word modes).
