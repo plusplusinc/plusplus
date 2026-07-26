@@ -254,6 +254,18 @@ struct RootTabView: View {
         // Kept for the bar itself: scrolling down minimizes it, which is the
         // iOS 26 behaviour on every tab. Nothing rides the accessory slot now.
         .tabBarMinimizeBehavior(.onScrollDown)
+        // Selecting the Search tab ACTIVATES search, rather than waiting for a
+        // tap on the field (Dave, 2026-07-26). Two reasons, and the second is
+        // the reason it changed: the search tab is search, so arriving with the
+        // field cold was always a half-step; and the scope bar rides the search
+        // PRESENTATION, which on build 142 appeared the first time the field
+        // was tapped and not on later ones. Presenting search with the tab
+        // makes every arrival a fresh presentation.
+        //
+        // This reverses the standing no-auto-keyboard call (2026-07-24) — the
+        // keyboard now rises on selecting Search — which is the trade Dave
+        // proposed to get a scope bar that is reliably there.
+        .tabViewSearchActivation(.searchTabSelection)
         .tint(Theme.textPrimary)
         // Swipe-to-open is gated on the active tab being at its root; keep
         // the reveal controller told which tab is showing. Operator's

@@ -373,8 +373,14 @@ struct CatalogScopeView: View {
         // like one). Only what can't survive the change resets: a pushed detail
         // belonging to the old catalog, and which groups were opened in it.
         .onChange(of: scope) { _, _ in
-            path = NavigationPath()
-            expandedMissing = []
+            // ⚠️ Guarded, and it matters more than it looks. This fires on
+            // EVERY scope tap, and on the search tab those taps happen while a
+            // search presentation is live — inside the very NavigationStack
+            // `path` belongs to. Assigning an already-empty path still
+            // publishes a change and re-evaluates the stack, which is churn
+            // underneath the thing that must not be re-created beneath itself.
+            if !path.isEmpty { path = NavigationPath() }
+            if !expandedMissing.isEmpty { expandedMissing = [] }
         }
         // A cross-tab add lands HERE with the entrance flash — consumed on
         // receive when this tab is already built, on appear when the landing is

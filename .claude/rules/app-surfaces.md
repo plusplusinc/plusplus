@@ -73,10 +73,14 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   INSIDE the search tab's stack (placement B) so its prompt can read the scope,
   the search-role tab morphs the tab bar into the system field at the bottom,
   carrying the native clear (✕) and Cancel. The placeholder is per-scope
-  (`FindScope.searchNoun` — "Search routines / exercises / equipment") and it
-  does NOT auto-focus on entry — no `.tabViewSearchActivation(.searchTabSelection)`,
-  so the keyboard rises only on a field tap (`.searchFocused` is used solely for
-  the "type a name first" refocus). There is NO custom Done key now: leaving is a
+  (`FindScope.searchNoun` — "Search routines / exercises / equipment"). Selecting
+  the Search tab ACTIVATES search — `.tabViewSearchActivation(.searchTabSelection)`,
+  2026-07-26, REVERSING the 2026-07-24 no-auto-keyboard call: the SCOPE BAR rides
+  the search presentation, and on build 142 it appeared the first time the field
+  was tapped and not on later ones, so presenting search with the tab is what
+  makes every arrival a fresh presentation. The keyboard rising on entry is the
+  accepted cost. (`.searchFocused` is still used solely for the "type a name
+  first" refocus.) There is NO custom Done key now: leaving is a
   normal tab tap. ⚠️ This re-arms the documented iOS 26 morph bug — an
   `.onGeometryChange` in the TabView subtree (TodayView's onboarding step-height
   probe, a sibling tab) can make the field fall back to the top
