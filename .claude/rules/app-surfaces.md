@@ -111,12 +111,21 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   never a dead end, because an exact match always ranks into results, so
   results are non-empty whenever a create is hidden. Partial matches still
   offer create.
-  **Scope selection is the WHEEL in the tab bar's bottom accessory**
-  (2026-07-25, final — `SearchScopeBar` and `SegmentedTabs` are deleted;
-  `InlineWheelPicker` was briefly deleted with them and RESTORED for this job).
-  Each option is a labelled `Button` carrying `.isSelected` with a 44 pt target
-  (VoiceOver "Exercises, selected, button"); the chevrons are supplementary and
-  hidden from assistive tech. No match counts on it — see the chrome bullet. The custom `SegmentedTabs` was RETIRED (2026-07-24) —
+  **Scope selection is the TAB BAR, and — while search is active — the
+  `ScopeSegmentedAccessory`** (2026-07-26; `SearchScopeBar`, `SegmentedTabs` and
+  `InlineWheelPicker` are all deleted). Off search the catalog tabs ARE the
+  scope control; the search-role tab spends its selection on search, so the
+  accessory covers it there and only there (`isEnabled: tab == .search`) —
+  two scope controls at once is one too many. The accessory draws NO background
+  of its own (a `Picker(.segmented)` brought its own backing, which inside the
+  accessory's glass read as a box in a box, Dave's screenshot): plain segments
+  on the glass, an OPAQUE `Theme.surfaceRaised` pill on the selected one that
+  SLIDES via `matchedGeometryEffect` on `Theme.Anim.selection` (#216; a
+  `.thinMaterial` pill was near-invisible against the glass — a selection you
+  have to look for isn't one). Labels follow the placement: icon + label
+  `.expanded`, icon ONLY `.inline`, where three words collide. Each option is a
+  `Button` carrying `.isSelected`; the label survives in VoiceOver even when
+  inline drops it on screen. No match counts on it — see the chrome bullet. The custom `SegmentedTabs` was RETIRED (2026-07-24) —
   every other former segmented site moved to native `Picker` (`.segmented` for
   short unit/mode toggles, a pushed `NavigationSelectRow` for multi-word modes).
   **Kit availability is NOT a filter** (2026-07-25, superseding the "Doable"
@@ -158,26 +167,44 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   `.presented(setupMode:)` (pushed chrome + its own header field + an item
   destination, #291) — the second is what onboarding step 1, the drawer's
   "Edit your kit", the picker's filter escape and the template gear-check open.
-  **The chrome is the SYSTEM'S, and the bar carries TWO tabs** (2026-07-25,
-  final — the hand-drawn `AppBottomBar` is DELETED after three device rounds,
-  the last of which produced scroll-through illegibility, no home-indicator
-  clearance and misaligned labels in one go; all three are things a real tab
-  bar does for free). `TabView` = **Today** + **Search** (`Tab(role: .search)`),
-  and the three catalogs are a SCOPE dialled on `ScopeWheelAccessory` (the
-  build-125 `InlineWheelPicker`) inside `.tabViewBottomAccessory(isEnabled:)`.
-  ⚠️ **Placement is read-only**: `tabViewBottomAccessoryPlacement` is the
-  system's choice, `.inline` means "beside a MINIMIZED bar", and
+  **The chrome is the SYSTEM'S, and the bar carries FIVE tabs** (2026-07-26 —
+  the hand-drawn `AppBottomBar` is DELETED after three device rounds, the last
+  of which produced scroll-through illegibility, no home-indicator clearance
+  and misaligned labels in one go; all three are things a real tab bar does for
+  free). `TabView` = **Today · Routines · Exercises · Kit · Search**
+  (`Tab(role: .search)`). The catalogs spent one build (137) as a scope you
+  dialled on a bottom-accessory wheel while the bar carried only Today and
+  Search; they are tabs again, but now over ONE screen, which is what that
+  round was really after. **All four catalog-showing tabs render the same
+  `CatalogScopeView`** — a tab decides which catalog, never which screen.
+  ⚠️ Because **a `Tab`'s content is its own view tree**, that is four live
+  INSTANCES, so every broadcast needs one named owner: `ownsLandings`
+  (`tabKey == scope.tab.rawValue`) makes the catalog TAB the consumer of
+  arrivals and Operator pushes, never "whichever instance shows that scope"
+  (the search tab dialled to routines shows routines too, and a landing
+  switches away from search by definition). ⚠️ And because a tab's content is
+  built on FIRST selection, a notification alone reaches nobody on a tab you
+  have never visited — every cross-tab landing rides a pending SLOT consumed on
+  receive OR on appear (`RoutineArrival` and now `OperatorArrival`); a bare
+  post is the build-76 silent-dead-tap class. The three catalog tabs pass their
+  scope as a LITERAL (reading shared state would render one frame of the
+  outgoing catalog before `onChange(of: tab)` caught up); only the search tab
+  reads `scope`, which is the point of the state — search opens on the catalog
+  you were already in. The query is search's and dies with it: no other tab has
+  a field, so a surviving query would filter a list with nothing on screen
+  explaining it.
+  ⚠️ **Accessory placement is read-only**: `tabViewBottomAccessoryPlacement` is
+  the system's choice, `.inline` means "beside a MINIMIZED bar", and
   `.tabBarMinimizeBehavior(.onScrollDown)` is what moves between the two — so
-  the inline look (wheel between Today and Search) is a SCROLLED-DOWN state,
-  not the resting one. Two constraints learned from a cancelled nested-TabView
-  cut, binding on any future arrangement: a `Tab`'s content is its own view
-  tree (a catalog reachable twice EXISTS twice), and a native `Tab` item is not
-  a view the app can decorate (so per-scope counts can never ride tab labels —
-  they are retired). ⚠️ Anything that writes state during layout
+  inline is a SCROLLED-DOWN state, not the resting one. A native `Tab` item is
+  also not a view the app can decorate (so per-scope counts can never ride tab
+  labels — they are retired). ⚠️ Anything that writes state during layout
   (`.onGeometryChange`, `GeometryReader` + `PreferenceKey`) anywhere in the
   TabView subtree breaks the search-role morph on FIRST activation (nav-diag
-  4e); measure from `UIFont` metrics instead, as the wheel's band and
-  `OverflowCapsuleRow` both do.
+  4e); measure from `UIFont` metrics instead, as `OverflowCapsuleRow` does.
+  **Return does not navigate** (Dave, 2026-07-26): submitting a search puts the
+  keyboard away, it does not choose a result — no `onSubmit` action on any
+  field in the app now.
   **Today is a TAB, never a scope**: a timeline of derived state has nothing to
   narrow. `All` is GONE, and an **empty query shows the scope's WHOLE list,
   grouped as its tab groups it**. **All three scopes read alike: MINE then

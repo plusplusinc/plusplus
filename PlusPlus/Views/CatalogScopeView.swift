@@ -82,10 +82,14 @@ struct CatalogScopeView: View {
     // Per-scope match COUNTS are gone with the hand-drawn bar (2026-07-25):
     // there are no scope labels in the chrome to paint them on. The segmented
     // picker in the tab bar's accessory is the cross-scope affordance now.
-    /// Whether this is the scope being shown. One catalog is mounted at a time,
-    /// so this is currently always true; it stays as the guard for anything
-    /// answering a signal that isn't scoped to one surface.
-    private let isActive: Bool
+    /// Which tab root this is: the reveal drawer's per-tab swipe gate keys on
+    /// it, and so does `ownsLandings`.
+    ///
+    /// That second job is load-bearing since the catalogs became tabs again
+    /// (2026-07-26): a `Tab`'s content is its own view tree, so the Routines tab
+    /// and a search tab dialled to routines are two live instances of this view.
+    /// Anything answering a broadcast has to name one of them.
+    private let tabKey: String
     /// Picker mode only: a row tap (or a fresh create) hands the item back
     /// here instead of opening it.
     private let onPick: ((Exercise) -> Void)?
@@ -93,15 +97,11 @@ struct CatalogScopeView: View {
     private var pickerTitle = ""
 
     /// A tab root.
-    init(
-        scope: FindScope,
-        query: Binding<String>,
-        isActive: Bool
-    ) {
+    init(scope: FindScope, query: Binding<String>, tab: AppTab) {
         self.scope = scope
         self.mode = .tab
         self._boundQuery = query
-        self.isActive = isActive
+        self.tabKey = tab.rawValue
         self.onPick = nil
     }
 
@@ -110,7 +110,7 @@ struct CatalogScopeView: View {
         self.scope = scope
         self.mode = .presented(setupMode: setupMode)
         self._boundQuery = .constant("")
-        self.isActive = true
+        self.tabKey = ""
         self.onPick = nil
     }
 
@@ -119,7 +119,7 @@ struct CatalogScopeView: View {
         self.scope = scope
         self.mode = .picker
         self._boundQuery = .constant("")
-        self.isActive = true
+        self.tabKey = ""
         self.onPick = onPick
         self.pickerTitle = title
     }
@@ -315,36 +315,54 @@ struct CatalogScopeView: View {
                 }
             }
         }
-        .revealRoot(tab: AppTab.search.rawValue, atRoot: path.isEmpty)
+        .revealRoot(tab: tabKey, atRoot: path.isEmpty)
         // Leaving the catalog is the boundary that pushes program edits to
         // GitHub. Native tabs fire `onDisappear` on a switch, so this is the
         // same close trigger every other surface uses.
         .syncsProgramOnClose()
-        // The field's Return key: it belongs to the search-role tab, outside
-        // this stack, so the key arrives as a signal. Root-only, because
-        // `path.append` is not idempotent and the field stays submittable over
-        // a pushed detail (ui-interaction.md).
-        .onReceive(NotificationCenter.default.publisher(for: .plusplusOpenTopResult)) { _ in
-            guard isActive else { return }
-            openTopResult()
+        // Changing scope is the search tab dialling the accessory — the same
+        // surface looking at something else, so it stays MOUNTED (an `.id(scope)`
+        // would rebuild it, which is exactly what stops a scope change feeling
+        // like one). Only what can't survive the change resets: a pushed detail
+        // belonging to the old catalog, and which groups were opened in it.
+        .onChange(of: scope) { _, _ in
+            path = NavigationPath()
+            expandedMissing = []
         }
         // A cross-tab add lands HERE with the entrance flash — consumed on
-        // receive when mounted, on appear when this surface mounts because of
-        // the add itself.
+        // receive when this tab is already built, on appear when the landing is
+        // what brought it forward.
         .onReceive(NotificationCenter.default.publisher(for: scope.arrivalNotification)) { _ in
             consumeArrival()
         }
-        .onAppear(perform: consumeArrival)
-        // Operator's outcome navigation: a touched routine pushes by its stable
-        // uuid. The path resets first, so the result is one Back from the list.
-        .onReceive(NotificationCenter.default.publisher(for: .plusplusOperatorShow)) { note in
-            guard scope == .routines,
-                  let destination = note.object as? OperatorDestination,
-                  case .routine(let uuid) = destination
-            else { return }
-            path = NavigationPath()
-            path.append(RoutineRef(uuid: uuid))
+        .onAppear {
+            consumeArrival()
+            consumeOperatorPush()
         }
+        // Operator's outcome navigation: a touched routine pushes by its stable
+        // uuid. Same two-door handoff as an arrival — the tab this lands on may
+        // not have been built yet when the notification goes out.
+        .onReceive(NotificationCenter.default.publisher(for: .plusplusOperatorShow)) { _ in
+            consumeOperatorPush()
+        }
+    }
+
+    /// Whether landings addressed to this scope belong to THIS instance.
+    ///
+    /// The catalog tab that owns the scope is the answer, never "whichever
+    /// instance is showing it" — the search tab dialled to routines shows
+    /// routines too, and a landing switches away from search by definition, so
+    /// letting search consume would play the entrance flash on the surface
+    /// you're being taken off. Both slots survive an unbuilt tab, so the
+    /// owner can consume late, on appear.
+    private var ownsLandings: Bool { tabKey == scope.tab.rawValue }
+
+    /// Push the routine an Operator outcome is steering to. The path resets
+    /// first, so the result is one Back from the list.
+    private func consumeOperatorPush() {
+        guard ownsLandings, scope == .routines, let uuid = OperatorArrival.takeRoutine() else { return }
+        path = NavigationPath()
+        path.append(RoutineRef(uuid: uuid))
     }
 
     /// The presented form (a sheet, or Today's setup push): pushed chrome with
@@ -940,14 +958,11 @@ struct CatalogScopeView: View {
         assertionFailure("\(scope) can't be opened from a presented catalog — extend Push first")
     }
 
-    /// Return opens the best hit — the first row of the first section.
-    /// Root-only: the field lives in the bottom BAR, outside this stack, so it
-    /// stays submittable over a pushed detail, and `path.append` is not
-    /// idempotent (ui-interaction.md).
-    private func openTopResult() {
-        guard path.isEmpty, let top = sections.first?.results.first else { return }
-        open(top)
-    }
+    // Return does NOT open the top result (Dave, 2026-07-26) — it just puts the
+    // keyboard away, which the native field does on its own. Submitting a
+    // search is not choosing one, and a key that navigates on Return has to
+    // out-guess you every time; it also took the stacked-duplicate-push hazard
+    // with it (`path.append` is not idempotent, ui-interaction.md).
 
     // MARK: - Create
 
@@ -1144,7 +1159,7 @@ struct CatalogScopeView: View {
     /// Land a cross-tab add: pop to the list, reveal whatever would hide the
     /// new row, and arm the scroll + flash.
     private func consumeArrival() {
-        guard mode.isTab else { return }
+        guard ownsLandings else { return }
         switch scope {
         case .routines:
             // The slot clears BEFORE resolution — every landing path saves

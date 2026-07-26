@@ -111,9 +111,6 @@ struct HeaderSearchConfig {
 struct HeaderSearchField: View {
     let config: HeaderSearchConfig
     @Binding var isExpanded: Bool
-    /// Return-key action, passed through to the field body (the catalog
-    /// surface's "open the top result").
-    var onSubmit: (() -> Void)? = nil
 
     /// One-shot focus intent, consumed by the field's onAppear — a focus
     /// request made before the view exists is silently dropped, and an
@@ -143,7 +140,7 @@ struct HeaderSearchField: View {
     }
 
     private var field: some View {
-        SearchFieldBody(config: config, wantsFocus: $wantsFocus, onSubmit: onSubmit)
+        SearchFieldBody(config: config, wantsFocus: $wantsFocus)
     }
 }
 
@@ -157,8 +154,6 @@ struct HeaderSearchField: View {
 struct SearchFieldBody: View {
     let config: HeaderSearchConfig
     @Binding var wantsFocus: Bool
-    /// Return-key action (the Find-or-create "open the top result").
-    var onSubmit: (() -> Void)? = nil
 
     @FocusState private var focused: Bool
 
@@ -174,7 +169,8 @@ struct SearchFieldBody: View {
                 .autocorrectionDisabled()
                 .focused($focused)
                 .accessibilityIdentifier(config.identifier)
-                .onSubmit { onSubmit?() }
+                // No Return action anywhere (Dave, 2026-07-26): submitting a
+                // search puts the keyboard away, it doesn't choose a result.
                 .onAppear {
                     if wantsFocus {
                         wantsFocus = false

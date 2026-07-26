@@ -429,7 +429,7 @@ final class OperatorController {
         // the receipt's View key) lands on the result. Deterministic and
         // engine-driven; the model has no navigation primitives.
         if let destination = change.receipt.destinations.first {
-            NotificationCenter.default.post(name: .plusplusOperatorShow, object: destination)
+            OperatorDestination.show(destination)
         }
     }
 
