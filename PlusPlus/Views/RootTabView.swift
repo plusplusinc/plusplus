@@ -192,17 +192,19 @@ struct RootTabView: View {
                     .id(scope)
             }
         }
-        // The scope wheel rides the accessory slot — the one place the system
-        // agrees to put app content beside its own bar. `isEnabled:` (26.1+) is
-        // what makes it viable: off, it reclaims the reserved space, so Today
-        // carries no blank strip.
-        .tabViewBottomAccessory(isEnabled: tab == .search) {
-            ScopeWheelAccessory(scope: $scope)
+        // The scope picker rides the accessory slot — the one place the system
+        // agrees to put app content beside its own bar. It shows on BOTH tabs
+        // (Dave, 2026-07-25), so picking a catalog from Today is possible; the
+        // picker therefore also switches to the tab that shows catalogs, since
+        // the segmented value only ever means "which catalog", never "where
+        // you are".
+        .tabViewBottomAccessory {
+            ScopeSegmentedAccessory(scope: $scope) { tab = .search }
         }
         // What moves the accessory between its two placements: scrolled to the
-        // top the bar is full and the wheel sits in its own row ABOVE it;
-        // scrolling down minimizes the bar and the wheel goes INLINE with it,
-        // which with two tabs reads as the wheel between Today and Search. The
+        // top the bar is full and the picker sits in its own row ABOVE it;
+        // scrolling down minimizes the bar and the picker goes INLINE with it,
+        // which with two tabs reads as the picker between Today and Search. The
         // placement is the system's to choose — the app only adapts.
         .tabBarMinimizeBehavior(.onScrollDown)
         .tint(Theme.textPrimary)

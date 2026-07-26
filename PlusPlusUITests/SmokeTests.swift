@@ -31,39 +31,38 @@ final class SmokeTests: XCTestCase {
         }
     }
 
-    /// The chrome is the system's `TabView` bar again (2026-07-25) and it
-    /// carries only two tabs — Today and Search. The three catalogs are SCOPES
-    /// on the wheel in the bottom accessory, reachable by identifier.
+    /// The chrome is the system's `TabView` bar and it carries only two tabs —
+    /// Today and Search. The three catalogs are SCOPES on a segmented control
+    /// in the bottom accessory (`selectScope`), present on both tabs.
     private func tabButton(_ tab: String) -> XCUIElement {
         app.tabBars.buttons[tab.capitalized]
     }
 
-    /// The NATIVE search field — a `searchField` element, not a custom
-    /// `textField` with a set identifier.
+    /// The app's own field (`SearchFieldBody`), a `textField` with a set
+    /// identifier rather than a system `searchField`.
     private var searchField: XCUIElement {
-        app.searchFields.firstMatch
+        app.textFields["catalogSearchField"]
     }
 
-    /// Open the catalogs. Search is an ORDINARY tab in the group beside Today
-    /// now (2026-07-25), so its field is a bottom-bar toolbar item that
-    /// `.searchToolbarBehavior(.minimize)` keeps collapsed to a magnifier until
-    /// it's tapped — hence the second tap.
+    /// Open the catalogs and reveal the search field. Search is an ordinary tab
+    /// in the group beside Today, and the field is the app's own expanding
+    /// header one (2026-07-26) — the native routes left it invisible on this
+    /// surface — so it takes a tab tap then the header magnifier.
     private func openSearch() {
         let key = app.tabBars.buttons["Search"]
         XCTAssertTrue(key.waitForExistence(timeout: 10))
         key.tap()
-        guard !searchField.waitForExistence(timeout: 2) else { return }
-        // Expand the minimized field. Scoped to buttons OUTSIDE the tab bar so
-        // the query can't match the Search tab we just tapped.
-        let expand = app.buttons["Search"]
-        if expand.exists { expand.tap() }
-        XCTAssertTrue(searchField.waitForExistence(timeout: 5), "the bottom-bar search field must expand on tap")
+        let toggle = app.buttons["catalogSearchFieldToggle"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        toggle.tap()
+        XCTAssertTrue(searchField.waitForExistence(timeout: 5))
     }
 
-    /// Dial the scope wheel to a catalog. Each option is a labelled button
-    /// carrying `.isSelected` (the segmented-control accessibility model).
+    /// Pick a catalog on the segmented control in the tab bar's accessory.
+    /// Tapping it also switches to the Search tab, so this doubles as "go to
+    /// that catalog" from anywhere.
     private func selectScope(_ scope: String) {
-        let option = app.buttons["scopeWheel-\(scope)"]
+        let option = app.buttons[scope.capitalized]
         XCTAssertTrue(option.waitForExistence(timeout: 5))
         option.tap()
     }
@@ -264,7 +263,6 @@ final class SmokeTests: XCTestCase {
     }
 
     func testRoutinesTabOpensTemplateDetail() throws {
-        openSearch()
         selectScope("routines")
 
         // The tab already lists the catalog templates under CATALOG, so
@@ -335,7 +333,7 @@ final class SmokeTests: XCTestCase {
         // The landing dials the wheel to Exercises and shows the new row; the
         // wheel option carries `.isSelected`, so it is the honest probe for
         // "we ended up on the right catalog".
-        let exercisesOption = app.buttons["scopeWheel-exercises"]
+        let exercisesOption = app.buttons["Exercises"]
         XCTAssertTrue(exercisesOption.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Wall Slides"].waitForExistence(timeout: 5))
         XCTAssertTrue(exercisesOption.isSelected)
@@ -470,7 +468,6 @@ final class SmokeTests: XCTestCase {
         app.launchArguments += ["--uitest-bigworkout"]
         app.launch()
 
-        openSearch()
         selectScope("routines")
 
         let card = app.staticTexts["Big Day"]
@@ -687,7 +684,6 @@ final class SmokeTests: XCTestCase {
         // creates inline rather than deep-linking anywhere: with no query it
         // asks for a name, and the routine LANDS back on the list with the
         // entrance flash, where the helper walks into its detail.
-        openSearch()
         selectScope("routines")
 
         let plus = app.buttons["newRoutineButton"]

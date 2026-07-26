@@ -30,10 +30,6 @@ extension Notification.Name {
     /// handoff shape as routines.
     static let plusplusExerciseArrived = Notification.Name("plusplusExerciseArrived")
     static let plusplusEquipmentArrived = Notification.Name("plusplusEquipmentArrived")
-    /// The search field's Return key. The field lives in the bottom bar and the
-    /// ranked results live in the catalog surface above it, so the key travels
-    /// as a signal rather than a closure.
-    static let plusplusOpenTopResult = Notification.Name("plusplusOpenTopResult")
 }
 
 struct RoutineEntity: AppEntity {

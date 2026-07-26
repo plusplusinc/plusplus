@@ -20,6 +20,8 @@ struct CatalogTabHeader<Accessory: View>: View {
     /// row (the big title hides while searching), the same affordance the
     /// pushed catalogs use — one search UI everywhere.
     var search: HeaderSearchConfig? = nil
+    /// Return-key action for the search field, when there is one.
+    var onSearchSubmit: (() -> Void)? = nil
     @ViewBuilder var accessory: () -> Accessory
 
     @State private var searchExpanded = false
@@ -69,7 +71,7 @@ struct CatalogTabHeader<Accessory: View>: View {
                             }
                         }
                     }
-                    HeaderSearchField(config: search, isExpanded: $searchExpanded)
+                    HeaderSearchField(config: search, isExpanded: $searchExpanded, onSubmit: onSearchSubmit)
                 } else {
                     Spacer(minLength: 8)
                     accessory()

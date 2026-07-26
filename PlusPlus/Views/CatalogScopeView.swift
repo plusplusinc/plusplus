@@ -31,8 +31,9 @@ struct CatalogScopeView: View {
     /// Where this surface is mounted. The list is identical either way; the
     /// chrome, the search field, and the push mechanism differ.
     enum Mode: Equatable {
-        /// A tab root: owns a `NavigationStack`, and the search field is the
-        /// bottom bar's (which is why `query` arrives as a binding).
+        /// A tab root: owns a `NavigationStack` and the app's expanding header
+        /// search field. `query` still arrives as a binding, because the scope
+        /// picker that outlives this view lives in the tab bar's accessory.
         case tab
         /// Presented inside someone else's stack (a sheet, or Today's setup
         /// push) with the pushed-screen chrome and its own header field. This
@@ -74,18 +75,16 @@ struct CatalogScopeView: View {
     let scope: FindScope
     let mode: Mode
 
-    /// The query. In `.tab` mode it lives in the root (the field is the bottom
-    /// bar's, which sits outside every tab); in `.presented` mode the surface
-    /// owns it, behind the header's expanding field.
+    /// The query. In `.tab` mode it lives in the ROOT — the segmented scope
+    /// picker sits outside this view and switching scope must not lose what you
+    /// typed; in `.presented` mode the surface owns it.
     @Binding private var boundQuery: String
     // Per-scope match COUNTS are gone with the hand-drawn bar (2026-07-25):
-    // there are no scope labels in the tab bar any more — the wheel is the
-    // scope control, and re-measuring its band on every keystroke to fit a
-    // changing number would make it twitch under the thumb. Cross-scope
-    // discovery is the wheel itself, one flick away while you search.
-    /// Whether the bar is pointing at this scope. All three stay mounted, so
-    /// anything that answers a global signal (the field's Return key) has to
-    /// know whether it is the one being talked to.
+    // there are no scope labels in the chrome to paint them on. The segmented
+    // picker in the tab bar's accessory is the cross-scope affordance now.
+    /// Whether this is the scope being shown. One catalog is mounted at a time,
+    /// so this is currently always true; it stays as the guard for anything
+    /// answering a signal that isn't scoped to one surface.
     private let isActive: Bool
     /// Picker mode only: a row tap (or a fresh create) hands the item back
     /// here instead of opening it.
@@ -280,7 +279,31 @@ struct CatalogScopeView: View {
     private var tabBody: some View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
-                CatalogTabHeader(title: scope.label) {
+                CatalogTabHeader(
+                    title: scope.label,
+                    // The app's OWN expanding field, the one every pushed
+                    // catalog and picker already uses (2026-07-26). Three
+                    // native routes were tried and none put a usable field on
+                    // this surface: `Tab(role: .search)` morphs the bar but
+                    // forces search out of the tab group as a separated circle;
+                    // a plain tab keeps it in the group but drops the morph, and
+                    // then `.searchable` — with or without
+                    // `DefaultToolbarItem(kind: .search, placement: .bottomBar)`
+                    // and `.searchToolbarBehavior(.minimize)` — rendered NOTHING
+                    // here, because this screen hides the navigation bar the
+                    // field wants (build 135: "I don't see how to open the
+                    // search input"). The header magnifier is proven, visible,
+                    // and consistent with every other catalog in the app.
+                    search: HeaderSearchConfig(
+                        text: queryBinding,
+                        // What the scope SEARCHES, not what it's called: the Kit
+                        // scope searches the equipment CATALOG.
+                        prompt: "Search \(scope.searchNoun)",
+                        identifier: "catalogSearchField"
+                    ),
+                    // Return opens the best hit.
+                    onSearchSubmit: { openTopResult() }
+                ) {
                     // The kit is CONTEXT on every catalog, never a filter chip:
                     // it decides which rows fall into the "require more
                     // equipment" group below.
@@ -292,26 +315,6 @@ struct CatalogScopeView: View {
             }
             .background(Theme.background)
             .toolbar(.hidden, for: .navigationBar)
-            // The search field, from the BOTTOM BAR rather than the tab role
-            // (2026-07-25). The tab that hosts this is a plain `Tab` now, so
-            // that Search sits in the group beside Today instead of floating as
-            // the system's separated circle — and a plain tab brings no morph,
-            // which would otherwise leave `.searchable` looking for the nav bar
-            // this screen hides. `DefaultToolbarItem(kind: .search)` puts the
-            // system's own field in the bottom bar instead, and `.minimize`
-            // collapses it to a magnifier that expands on tap, so the resting
-            // state is a button rather than a permanent field.
-            .toolbar {
-                DefaultToolbarItem(kind: .search, placement: .bottomBar)
-            }
-            .searchable(text: queryBinding, prompt: "Search \(scope.searchNoun)")
-            .searchToolbarBehavior(.minimize)
-            // Return opens the best hit. The field is the system's, so the key
-            // travels as a signal rather than a closure.
-            .onSubmit(of: .search) {
-                guard isActive else { return }
-                openTopResult()
-            }
             .navigationDestination(for: Exercise.self) { exercise in
                 ExerciseDetailScreen(exercise: exercise)
             }
@@ -336,13 +339,6 @@ struct CatalogScopeView: View {
         // GitHub. Native tabs fire `onDisappear` on a switch, so this is the
         // same close trigger every other surface uses.
         .syncsProgramOnClose()
-        // The field's Return key reaches the ranked results through a
-        // notification (it lives in the bar, outside every stack). All three
-        // scopes are mounted, so only the one being looked at may answer.
-        .onReceive(NotificationCenter.default.publisher(for: .plusplusOpenTopResult)) { _ in
-            guard isActive else { return }
-            openTopResult()
-        }
         // A cross-tab add lands HERE with the entrance flash — consumed on
         // receive when mounted, on appear when this surface mounts because of
         // the add itself.

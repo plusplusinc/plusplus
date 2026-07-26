@@ -111,6 +111,9 @@ struct HeaderSearchConfig {
 struct HeaderSearchField: View {
     let config: HeaderSearchConfig
     @Binding var isExpanded: Bool
+    /// Return-key action, passed through to the field body (the catalog
+    /// surface's "open the top result").
+    var onSubmit: (() -> Void)? = nil
 
     /// One-shot focus intent, consumed by the field's onAppear — a focus
     /// request made before the view exists is silently dropped, and an
@@ -140,7 +143,7 @@ struct HeaderSearchField: View {
     }
 
     private var field: some View {
-        SearchFieldBody(config: config, wantsFocus: $wantsFocus)
+        SearchFieldBody(config: config, wantsFocus: $wantsFocus, onSubmit: onSubmit)
     }
 }
 
