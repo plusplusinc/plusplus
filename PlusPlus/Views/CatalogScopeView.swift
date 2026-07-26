@@ -339,6 +339,22 @@ struct CatalogScopeView: View {
                     if let searchScope {
                         ToolbarItem(placement: .principal) {
                             ScopeSegmentedControl(scope: searchScope)
+                                // Nudged RIGHT to even up the two gaps (Dave,
+                                // build 148: the space to the right of the
+                                // control read wider than the space to its
+                                // left — measured off his screenshot, ~13 pt
+                                // against ~27 pt). The principal slot is
+                                // system-laid-out and there is no API for its
+                                // position, but the direction of this nudge is
+                                // safe under either layout the bar could be
+                                // using: if the control is pinned at minimum
+                                // spacing from the ++ key it moves right by the
+                                // full amount, and if it is centred in the
+                                // leftover space it moves right by half. ⚠️
+                                // Tuned against a deliberately long kit name —
+                                // with a short one the slot is wider and this
+                                // may over-correct. Delete the line if so.
+                                .padding(.leading, 10)
                         }
                         .sharedBackgroundVisibility(.hidden)
                     }
