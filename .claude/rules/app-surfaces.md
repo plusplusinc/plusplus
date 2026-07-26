@@ -118,24 +118,33 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   accessory covers it there and only there (`isEnabled: tab == .search`) —
   two scope controls at once is one too many. The accessory draws NO background
   of its own (a `Picker(.segmented)` brought its own backing, which inside the
-  accessory's glass read as a box in a box, Dave's screenshot): plain segments
-  on the glass, a `.ultraThickMaterial` pill + hairline `Theme.borderStrong`
-  stroke on the selected one (2026-07-26, Dave's third pass — `.thinMaterial`
-  then an opaque `Theme.surfaceRaised` both vanished into the glass; ⚠️ note
-  materials veil the SYSTEM background, so in dark mode thicker reads DARKER,
-  a capsule punched INTO the glass rather than sitting on it).
-  ⚠️ **The pill must be ONE persistent view, not a conditional pill per
-  segment.** N conditional views sharing one `matchedGeometryEffect` id is an
-  insert + a remove, so nothing's frame can travel and it cross-fades in place
-  (shipped in 138, Dave caught it). Canonical form: each segment publishes an
-  invisible `Color.clear` SOURCE frame, one pill in the container background
-  matches `id: scope, isSource: false` — and the animation goes on the VALUE
-  (`.animation(Theme.Anim.selection, value: scope)`, #216), not the tap site,
-  since the accessory sits in a system-owned container that re-renders outside
-  the app's transactions. Labels follow the placement: icon + label
-  `.expanded`, icon ONLY `.inline`, where three words collide. Each option is a
-  `Button` carrying `.isSelected`; the label survives in VoiceOver even when
-  inline drops it on screen. No match counts on it — see the chrome bullet. The custom `SegmentedTabs` was RETIRED (2026-07-24) —
+  accessory's glass read as a box in a box, Dave's screenshot) — **and that was
+  wrong: it is the NATIVE `Picker(.segmented)`, edge to edge** (2026-07-26,
+  settled after builds 137–139 went round three times).
+  ⚠️ **Do NOT hand-roll a segmented control.** The iOS 26 "bubbly" interactive
+  glass — the selection that stretches and settles under the thumb — is
+  available to exactly TWO components, tab bars and SEGMENTED CONTROLS, so an
+  app-drawn one cannot look native however it is styled. Proven the long way: a
+  `matchedGeometryEffect` pill in the accessory does not even TRAVEL (the
+  accessory is a system-owned container that re-renders outside the app's
+  animation transactions, so neither `withAnimation` at the tap site nor
+  `.animation(value:)` reliably reaches it), and three fills in a row
+  (`.thinMaterial`, opaque `Theme.surfaceRaised`, `.ultraThickMaterial`) all
+  read as neither glass nor platter. `ryanashcraft/FabBar` recreates the effect
+  by hosting a real `UISegmentedControl` and overlaying labels on it — the tell
+  that the effect belongs to the control, not to the styling.
+  ⚠️ **The "double background" is caused by PADDING, not by the Picker.** The
+  accessory always draws a Liquid Glass capsule (no API removes it); build 137
+  added `.padding(.horizontal, 12)`, which inset the Picker's own track inside
+  that capsule — two concentric shapes. Edge to edge the silhouettes coincide.
+  If a double survives edge-to-edge, the documented fallback is Apple DTS's
+  answer on forums thread 803030: render the Picker ONLY in `.inline` (where
+  the accessory merges into the bar row and brings no capsule) with something
+  else in `.expanded`, and add `.tabViewStyle(.sidebarAdaptable)`, which that
+  engineer called essential. Labels still follow the placement: words when
+  `.expanded`, GLYPHS when `.inline`, where three words collide — the
+  accessibility label stays the word either way. No `.tint`: in the accessory
+  the control wears the iOS 26 system look, not the app's selection blue. No match counts on it — see the chrome bullet. The custom `SegmentedTabs` was RETIRED (2026-07-24) —
   every other former segmented site moved to native `Picker` (`.segmented` for
   short unit/mode toggles, a pushed `NavigationSelectRow` for multi-word modes).
   **Kit availability is NOT a filter** (2026-07-25, superseding the "Doable"

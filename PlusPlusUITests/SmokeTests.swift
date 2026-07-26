@@ -64,8 +64,13 @@ final class SmokeTests: XCTestCase {
     /// Pick a catalog on the scope control in the tab bar's accessory. That
     /// control exists only while search is active — off search the tab bar is
     /// the scope control (`goToCatalog`).
+    ///
+    /// It's the NATIVE segmented `Picker` (2026-07-26), so its segments are the
+    /// system's buttons keyed by label — there are no app-set identifiers to
+    /// hit. Inline placement swaps the words for glyphs, but the accessibility
+    /// label stays the word either way.
     private func selectScope(_ scope: String) {
-        let option = app.buttons["scope-\(scope)"]
+        let option = app.segmentedControls.buttons[scope.capitalized]
         XCTAssertTrue(option.waitForExistence(timeout: 5))
         option.tap()
     }
