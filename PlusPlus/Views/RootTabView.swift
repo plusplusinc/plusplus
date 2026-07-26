@@ -261,19 +261,15 @@ struct RootTabView: View {
         .tabViewBottomAccessory(isEnabled: searchActive) {
             ScopeSegmentedAccessory(scope: $scope)
         }
+        // ⚠️ NO `.tabViewSearchActivation(.searchTabSelection)` here, and that
+        // absence is deliberate. Build 143 added it to force a fresh scope-bar
+        // presentation on every arrival; native scopes are gone, so that
+        // justification went with them — and it actively hurts now. The
+        // accessory does NOT rise with the keyboard, so raising the keyboard on
+        // arrival buries the scope control at the very moment you land on it.
+        // Without it you arrive with the control in view, pick a catalog, and
+        // tap the field when you actually want to type.
         .tabBarMinimizeBehavior(.onScrollDown)
-        // Selecting the Search tab ACTIVATES search, rather than waiting for a
-        // tap on the field (Dave, 2026-07-26). Two reasons, and the second is
-        // the reason it changed: the search tab is search, so arriving with the
-        // field cold was always a half-step; and the scope bar rides the search
-        // PRESENTATION, which on build 142 appeared the first time the field
-        // was tapped and not on later ones. Presenting search with the tab
-        // makes every arrival a fresh presentation.
-        //
-        // This reverses the standing no-auto-keyboard call (2026-07-24) — the
-        // keyboard now rises on selecting Search — which is the trade Dave
-        // proposed to get a scope bar that is reliably there.
-        .tabViewSearchActivation(.searchTabSelection)
         .tint(Theme.textPrimary)
         // Swipe-to-open is gated on the active tab being at its root; keep
         // the reveal controller told which tab is showing. Operator's

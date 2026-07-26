@@ -47,6 +47,15 @@ struct ScopeSegmentedAccessory: View {
         .pickerStyle(.segmented)
         .labelsHidden()
         .controlSize(.large)
+        // A DARK selected segment, matching the tab bar's own selected pill
+        // (Dave, 2026-07-26) — the system's default indicator is a LIGHTER grey
+        // than the accessory's glass, which reads as the opposite of the
+        // selection sitting right beneath it. On a segmented Picker `.tint` is
+        // the selected segment's fill, so `Theme.background` gives a near-black
+        // pill in dark and a white one in light: the same inversion the tab bar
+        // draws, in both schemes. The segmented control's own title colors
+        // already contrast with the system background, which is what this is.
+        .tint(Theme.background)
         // NO horizontal padding — see the note above. The track fills the
         // accessory's capsule instead of nesting inside it.
         //
