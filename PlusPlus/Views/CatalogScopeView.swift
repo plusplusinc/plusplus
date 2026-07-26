@@ -90,18 +90,35 @@ struct CatalogScopeView: View {
     /// and a search tab dialled to routines are two live instances of this view.
     /// Anything answering a broadcast has to name one of them.
     private let tabKey: String
+    /// The SEARCH tab's scope selection, and nothing else's.
+    ///
+    /// ⚠️ The field and the scope bar live INSIDE this view's `NavigationStack`,
+    /// not on the `Tab` in `RootTabView` (build 140 put them there and the scope
+    /// bar never rendered). `.searchScopes` needs `.searchable` on a view inside
+    /// a NAVIGATION CONTAINER; attached to `CatalogScopeView` from outside, the
+    /// modifier sits ABOVE this stack, so the field still morphed — the tab role
+    /// gives it that — but the scope bar had no search presentation to attach
+    /// to. Non-nil marks the one instance that owns both.
+    private let searchScope: Binding<FindScope>?
     /// Picker mode only: a row tap (or a fresh create) hands the item back
     /// here instead of opening it.
     private let onPick: ((Exercise) -> Void)?
     /// Picker mode's sheet title ("Add exercise" / "Swap for…").
     private var pickerTitle = ""
 
-    /// A tab root.
-    init(scope: FindScope, query: Binding<String>, tab: AppTab) {
+    /// A tab root. `searchScope` is non-nil ONLY on the search tab — that is
+    /// what makes this instance the one carrying the field and the scope bar.
+    init(
+        scope: FindScope,
+        query: Binding<String>,
+        tab: AppTab,
+        searchScope: Binding<FindScope>? = nil
+    ) {
         self.scope = scope
         self.mode = .tab
         self._boundQuery = query
         self.tabKey = tab.rawValue
+        self.searchScope = searchScope
         self.onPick = nil
     }
 
@@ -111,6 +128,7 @@ struct CatalogScopeView: View {
         self.mode = .presented(setupMode: setupMode)
         self._boundQuery = .constant("")
         self.tabKey = ""
+        self.searchScope = nil
         self.onPick = nil
     }
 
@@ -120,6 +138,7 @@ struct CatalogScopeView: View {
         self.mode = .picker
         self._boundQuery = .constant("")
         self.tabKey = ""
+        self.searchScope = nil
         self.onPick = onPick
         self.pickerTitle = title
     }
@@ -296,6 +315,12 @@ struct CatalogScopeView: View {
             }
             .background(Theme.background)
             .toolbar(.hidden, for: .navigationBar)
+            // The system field + scope bar, on the SEARCH tab only, and INSIDE
+            // the stack — see `searchScope`. `.onSearchPresentation` rather
+            // than the default, because the scope decides what an EMPTY query
+            // shows: it has to be there the moment search opens, not after the
+            // first keystroke.
+            .modifier(SearchPresentation(query: $boundQuery, scope: searchScope))
             .navigationDestination(for: Exercise.self) { exercise in
                 ExerciseDetailScreen(exercise: exercise)
             }
@@ -1244,3 +1269,31 @@ private extension FindOrCreateEngine.Result {
     }
 }
 
+
+/// The system search field and its scope bar, attached INSIDE a catalog tab's
+/// `NavigationStack` and only on the search tab.
+///
+/// A modifier so the branch lives in one place rather than forking the stack's
+/// body. The condition is safe to branch on because it is fixed per instance:
+/// `searchScope` is a `let` decided at init, so a given `CatalogScopeView`
+/// either always carries search or never does. Search presentation must not be
+/// re-created underneath itself, and this can't do that.
+private struct SearchPresentation: ViewModifier {
+    @Binding var query: String
+    /// Non-nil only on the search tab. Everywhere else this modifier is inert.
+    let scope: Binding<FindScope>?
+
+    func body(content: Content) -> some View {
+        if let scope {
+            content
+                .searchable(text: $query, prompt: "Search \(scope.wrappedValue.searchNoun)")
+                .searchScopes(scope, activation: .onSearchPresentation) {
+                    ForEach(FindScope.allCases, id: \.self) { item in
+                        Text(item.label).tag(item)
+                    }
+                }
+        } else {
+            content
+        }
+    }
+}

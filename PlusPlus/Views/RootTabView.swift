@@ -196,8 +196,12 @@ struct RootTabView: View {
     /// `onChange(of: tab)` caught up — a flash of the previous catalog every
     /// switch. Search is the one that reads the state, which is the whole point
     /// of the state: it keeps the catalog you were already on.
-    private func catalog(_ shown: FindScope, on appTab: AppTab) -> some View {
-        CatalogScopeView(scope: shown, query: $query, tab: appTab)
+    private func catalog(
+        _ shown: FindScope,
+        on appTab: AppTab,
+        searchScope: Binding<FindScope>? = nil
+    ) -> some View {
+        CatalogScopeView(scope: shown, query: $query, tab: appTab, searchScope: searchScope)
     }
 
     private var appContent: some View {
@@ -237,26 +241,14 @@ struct RootTabView: View {
             // bar this screen hides, which is why build 135 had no visible input
             // at all. Only THIS tab carries the field, for the same reason.
             Tab(value: AppTab.search, role: .search) {
-                catalog(scope, on: .search)
-                    .searchable(text: $query, prompt: "Search \(scope.searchNoun)")
-                    // NATIVE SEARCH SCOPES (Dave, 2026-07-26) — the system's own
-                    // answer to "narrow this search", and the end of the
-                    // bottom-accessory experiment. `.searchScopes` renders the
-                    // real segmented control in the place iOS puts it, appearing
-                    // and leaving with search on its own: no accessory to
-                    // enable, no glass capsule to nest a control inside, no
-                    // app-drawn pill to animate. Everything builds 137–139 kept
-                    // failing at is the system's job here.
-                    //
-                    // `.onSearchPresentation`, not the default: the scope
-                    // decides what an EMPTY query shows, so it has to be there
-                    // the moment search opens rather than after the first
-                    // keystroke.
-                    .searchScopes($scope, activation: .onSearchPresentation) {
-                        ForEach(FindScope.allCases, id: \.self) { item in
-                            Text(item.label).tag(item)
-                        }
-                    }
+                // ⚠️ The field and the scope bar are NOT attached here. They go
+                // INSIDE `CatalogScopeView`'s own `NavigationStack` — see its
+                // `searchScope` note. Build 140 attached them out here and the
+                // scope bar never appeared: `.searchScopes` needs `.searchable`
+                // on a view inside a navigation container, and out here the
+                // modifier lands above that stack. The FIELD still morphed
+                // (the tab role does that), which is what made it look wired up.
+                catalog(scope, on: .search, searchScope: $scope)
             }
         }
         // Kept for the bar itself: scrolling down minimizes it, which is the
