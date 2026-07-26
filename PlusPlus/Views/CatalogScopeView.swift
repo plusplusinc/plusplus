@@ -569,7 +569,13 @@ struct CatalogScopeView: View {
         .accessibilityIdentifier("setEquipmentButton")
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(.bar)
+        // OPAQUE, not a translucent `.bar` band — the same rule the picker's
+        // bottom field states above, and for the same reason: rows scroll under
+        // this and a see-through strip leaves their text showing through the
+        // key. This is a PRESENTED surface, so there's no scroll edge to hang
+        // the effect on. (Missed when that rule was written;
+        // liquid-glass-auditor caught it.)
+        .background(Theme.background)
     }
 
     // MARK: - The list

@@ -333,6 +333,14 @@ struct TodayView: View {
                             .padding(.horizontal, 16)
                             .padding(.bottom, 24)
                         }
+                        // Cards pass UNDER the tab bar — the iOS 26 design —
+                        // but the glass is far too clear to occlude them on its
+                        // own, so without the edge effect rows read straight
+                        // through the chrome. The catalogs learned this on
+                        // build 139; Today shares the same bar and was simply
+                        // missed (liquid-glass-auditor). On the SCROLLING
+                        // CONTENT, never the bar.
+                        .scrollEdgeEffectStyle(.hard, for: .bottom)
                         .refreshable {
                             // Honest refresh (#267): due-ness is pure local
                             // computation keyed on the clock, so bumping the
