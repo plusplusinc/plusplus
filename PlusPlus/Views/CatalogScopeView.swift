@@ -1348,6 +1348,15 @@ private struct SearchPresentation: ViewModifier {
                 }
                 // ⚠️ NO `.searchScopes` — see above.
                 .searchable(text: $query, prompt: "Search \(scope.wrappedValue.searchNoun)")
+                // Keep the ++ key and the kit switcher on the bar while search
+                // is active (Dave, build 147). Activating search otherwise
+                // tells the navigation bar to clear its other content and give
+                // search the room — the system's `.automatic` behaviour, and
+                // the same mechanism that emptied the top band on 143 before
+                // the title came off. The keys are how you reach the drawer and
+                // change kit; losing them the moment you tap the field is a
+                // dead end, not a decluttering.
+                .searchPresentationToolbarBehavior(.avoidHidingContent)
         } else {
             content
         }
