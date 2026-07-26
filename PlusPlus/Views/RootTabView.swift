@@ -67,13 +67,14 @@ extension FindScope {
 /// but now that `CatalogScopeView` exists they are tabs over ONE screen, which
 /// is what the two-tab round was really after.
 ///
-/// **The tab bar is the scope control; inside search, a `.bottomBar` toolbar
-/// item is** — a native segmented `Picker`, the Photos Years/Months/All recipe
-/// (Dave, 2026-07-26). It does NOT live in `tabViewBottomAccessory` (that
-/// container never rises with the keyboard) and it is NOT native
-/// `.searchScopes` (which renders once per app run on a bottom-aligned field);
-/// see `ScopeSegmentedControl` for the whole account and the rules that
-/// survived six builds of it.
+/// **The tab bar is the scope control; inside search, a NAVIGATION BAR item
+/// is** — a native segmented `Picker` in the `.principal` slot, between the ++
+/// key and the kit switcher (Dave, 2026-07-26). It does NOT live in
+/// `tabViewBottomAccessory` (that container never rises with the keyboard), it
+/// is NOT native `.searchScopes` (which renders once per app run on a
+/// bottom-aligned field), and it is NOT a `.bottomBar` item (that row is the
+/// one the search-role field expands into); see `ScopeSegmentedControl` for the
+/// whole account and the rules that survived seven builds of it.
 struct RootTabView: View {
 
     /// The Today tab's icon reflects whether there's anything to do today
@@ -252,16 +253,14 @@ struct RootTabView: View {
         // ⚠️ NOTHING rides `tabViewBottomAccessory` any more. The scope control
         // lived there for four builds and the container was always wrong: it
         // does not rise with the keyboard, so search's own keyboard buried it.
-        // It is a `.bottomBar` toolbar item on the search surface now — see
-        // `ScopeSegmentedControl`, which carries the whole account.
+        // It is a `.principal` NAVIGATION BAR item on the search surface now —
+        // see `ScopeSegmentedControl`, which carries the whole account.
         //
         // ⚠️ NO `.tabViewSearchActivation(.searchTabSelection)` here, and that
         // absence is deliberate. Build 143 added it to force a fresh scope-bar
         // presentation on every arrival; native scopes are gone, so that
-        // justification went with them — and it actively hurts now. The
-        // accessory does NOT rise with the keyboard, so raising the keyboard on
-        // arrival buries the scope control at the very moment you land on it.
-        // Without it you arrive with the control in view, pick a catalog, and
+        // justification went with them. Arriving without the keyboard also
+        // means arriving with the whole surface in view — pick a catalog first,
         // tap the field when you actually want to type.
         .tabBarMinimizeBehavior(.onScrollDown)
         .tint(Theme.textPrimary)

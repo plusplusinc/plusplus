@@ -66,16 +66,29 @@ final class SmokeTests: XCTestCase {
     /// bar is the scope control (`goToCatalog`).
     ///
     /// It's a native `Picker(.segmented)`, so its segments are the system's own
-    /// buttons keyed by label; there are no app-set identifiers to hit. Matched
-    /// by CONTAINS rather than equality because each segment's title is an SF
-    /// Symbol interpolated into the text, and how much of that attachment ends
-    /// up in the accessibility string is the system's business, not ours.
+    /// buttons; there are no app-set identifiers to hit. The segments are
+    /// GLYPHS (iOS segmented controls take a title or an image, never both), so
+    /// the word only reaches XCUITest through the `.accessibilityLabel` the
+    /// control sets — matched by CONTAINS, and falling back to POSITION if that
+    /// label doesn't propagate, since the scope order is fixed by
+    /// `FindScope.allCases` and a name miss here would otherwise read as "the
+    /// control is missing".
     private func selectScope(_ scope: String) {
-        let option = app.segmentedControls.buttons
+        let control = app.segmentedControls.firstMatch
+        XCTAssertTrue(control.waitForExistence(timeout: 5), "the scope control rides the navigation bar on search")
+        let named = control.buttons
             .matching(NSPredicate(format: "label CONTAINS[c] %@", scope))
             .firstMatch
-        XCTAssertTrue(option.waitForExistence(timeout: 5), "the scope control rides the navigation bar on search")
-        option.tap()
+        if named.exists {
+            named.tap()
+            return
+        }
+        let order = ["routines", "exercises", "kit"]
+        guard let index = order.firstIndex(of: scope.lowercased()) else {
+            XCTFail("unknown scope \(scope)")
+            return
+        }
+        control.buttons.element(boundBy: index).tap()
     }
 
     // MARK: - Flows

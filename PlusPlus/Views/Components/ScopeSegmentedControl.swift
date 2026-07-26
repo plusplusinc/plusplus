@@ -31,16 +31,19 @@ import SwiftUI
 ///   many: a band holding a control sat directly beneath a bar holding two
 ///   keys, with nothing in the middle of it.
 ///
-/// ⚠️ Two modifiers make a segmented control legal in a toolbar at all, and
-/// both are non-obvious:
-/// - `.sharedBackgroundVisibility(.hidden)` on the `ToolbarItem` — a segmented
-///   control brings its own track, so the toolbar's shared glass would wrap it
-///   in a second shape (the box-in-a-box that killed the accessory). That
-///   modifier is TOOLBAR-ONLY, which is part of why the accessory could never
-///   be fixed, and here it finally applies.
-/// - `.searchPresentationToolbarBehavior(.avoidHidingContent)` on the search
-///   presentation — activating search otherwise tells the navigation bar to
-///   clear its content, which now takes the scope control with it.
+/// ⚠️ **`.searchPresentationToolbarBehavior(.avoidHidingContent)` on the search
+/// presentation is REQUIRED** — activating search otherwise tells the
+/// navigation bar to clear its content, which now takes the scope control with
+/// it, not just the keys.
+///
+/// The item also carries `.sharedBackgroundVisibility(.hidden)`, which is the
+/// documented escape for a toolbar item bringing its own background (a
+/// segmented control brings its own track, and the toolbar's shared glass would
+/// otherwise wrap it in a second shape — the box-in-a-box that killed the
+/// accessory). ⚠️ Unverified in the PRINCIPAL slot specifically: the shared
+/// background belongs to GROUPED bar items, and the title region may not be one
+/// — so if a double shape ever does appear here, this is not necessarily the
+/// lever. It matches the two keys either way.
 ///
 /// **The rules that survived all of it, and that this obeys:**
 /// - ⚠️ **Do NOT hand-roll the segmented control.** iOS 26's interactive
@@ -51,41 +54,51 @@ import SwiftUI
 ///   inside a system-owned container, so even the canonical
 ///   `matchedGeometryEffect` pill refused to travel on device.
 /// - **No `.controlSize(.large)`.** That was the Photos proportion for a
-///   control that owned a row to itself. In the navigation bar it has to sit
-///   beside the app's raised keys, and the default size is the one that matches
-///   their height.
+///   control that owned a row to itself. A large segmented control is taller
+///   than the navigation bar it would now sit in, so the default size is the
+///   one that fits.
 struct ScopeSegmentedControl: View {
     @Binding var scope: FindScope
 
     var body: some View {
         Picker("Catalog", selection: $scope) {
             ForEach(FindScope.allCases, id: \.self) { item in
-                // Icon AND label in one segment (Dave, 2026-07-26), which is
-                // not something a segmented picker offers: each segment maps to
-                // a `UISegmentedControl` segment, and those take a title OR an
-                // image, never both. A `Label` collapses to its title there.
-                // An `Image` INTERPOLATED into the `Text` is still one `Text`,
-                // so the segment renders glyph + word as a single attributed
-                // string — and VoiceOver reads only the word, since the
-                // interpolation contributes nothing spoken. Same symbols the
-                // tab bar uses, so a scope reads the same in both places.
-                Text("\(Image(systemName: item.symbolName)) \(item.label)").tag(item)
+                // ⚠️ GLYPH ONLY, and not by preference — on iOS a segmented
+                // control CANNOT show an icon and a word in the same segment.
+                // `UISegmentedControl` gives each segment a title OR an image,
+                // never both (AppKit's `NSSegmentedControl` can; UIKit's can't),
+                // and SwiftUI inherits that: Apple DTS answered it directly on
+                // forums thread 816517 — `.titleAndIcon` on a segmented picker
+                // renders the title and drops the icon, and the HIG says pick
+                // one, don't mix. So "icons too" (Dave, 2026-07-26) means icons
+                // INSTEAD, and glyphs are the half that survives the bar: three
+                // words plus three symbols do not fit the principal slot beside
+                // the ++ key and a variable-width kit switcher, and a segmented
+                // control does not scroll — it truncates.
+                //
+                // Nothing is lost: these are the SAME symbols the tab bar uses
+                // for the same three scopes, so a scope reads identically in
+                // both places, and off search the tab bar carries the words.
+                // The explicit label is what VoiceOver reads — without it the
+                // system speaks the symbol name ("square stack").
+                Image(systemName: item.symbolName)
+                    .accessibilityLabel(Text(item.label))
+                    .tag(item)
             }
         }
         .pickerStyle(.segmented)
         .labelsHidden()
-        // The selected segment goes DARK, so the control reads like the tab
-        // bar's own selection (Dave, 2026-07-26). The tab bar's structure is
-        // lighter track, DARKER selected pill — and that's what this produces,
-        // because the system's track sits between the dark row underneath and
-        // the dark pill: row (background) → track (system grey, lighter) →
-        // selected (background, dark again). Build 146 dropped this on the
-        // reasoning that the pill would match the row it sits on; that ignored
-        // the track in between, and left the default lighter-pill look, which
-        // is the inverse of the bar it sits above.
+        // The selected segment takes the PAGE colour, so it reads as part of
+        // the surface rather than floating on it (Dave, 2026-07-26 — he asked
+        // for the tab bar's darker selection). ⚠️ That only produces a dark
+        // pill in DARK mode: `Theme.background` is white in light mode, where
+        // this lands on the stock lighter-selection look instead. Both read
+        // correctly, because the system's own track sits between the page and
+        // the pill either way. Build 146 dropped the tint reasoning the pill
+        // would vanish into the row — which ignored that track.
         .tint(Theme.background)
-        // Chrome that has to hold three labels on one row can't grow without
-        // bound. The search field is NOT capped — its text is the user's own.
+        // Chrome on a bar shared with two keys can't grow without bound. The
+        // search field is NOT capped — its text is the user's own.
         .dynamicTypeSize(...DynamicTypeSize.accessibility1)
     }
 }

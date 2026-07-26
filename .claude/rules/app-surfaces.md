@@ -120,14 +120,21 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   key and the kit switcher** (`ScopeSegmentedControl`, settled 2026-07-26 after
   SEVEN builds in six placements). That's the slot the other four roots put
   their title in, which on this surface the control effectively is — it names
-  the catalog, and the surface carries no title precisely so it can. Each
-  segment shows ICON + WORD via an `Image` INTERPOLATED into the segment's
-  `Text`: a `UISegmentedControl` segment takes a title OR an image, never both,
-  and a `Label` collapses to its title — one attributed `Text` is the only way
-  to get both. It wears `.tint(Theme.background)` so the SELECTED segment goes
-  dark, matching the tab bar's lighter-track / darker-selection structure, and
-  takes NO `.controlSize(.large)` (the Photos proportion is for a control that
-  owns a row; in the bar it has to match the raised keys beside it).
+  the catalog, and the surface carries no title precisely so it can.
+  ⚠️ **The segments are GLYPHS ONLY, and that is a platform limit, not a
+  preference**: on iOS a segmented control gives each segment a title OR an
+  image and NEVER both (`NSSegmentedControl` can; `UISegmentedControl` can't),
+  which Apple DTS confirmed for SwiftUI on forums thread 816517 —
+  `.titleAndIcon` renders the title and drops the icon, and the HIG says pick
+  one. So "icons too" means icons INSTEAD. They're the same symbols the tab bar
+  uses for the same three scopes, and they're also the half that fits: three
+  words beside the ++ key and a variable-width kit switcher overflow the
+  principal slot, and a segmented control doesn't scroll, it truncates. Each
+  segment carries an explicit `.accessibilityLabel` (without it VoiceOver reads
+  the symbol name), and the smoke helper falls back to POSITION if that label
+  doesn't reach XCUITest. It wears `.tint(Theme.background)` — a dark selected
+  segment in dark mode, the stock lighter one in light — and takes NO
+  `.controlSize(.large)` (that control is taller than the bar).
   ⚠️ Two modifiers make a segmented control legal in a toolbar at all:
   `.sharedBackgroundVisibility(.hidden)` on the item (it brings its own track,
   and the toolbar's shared glass would wrap that in a second shape) and
