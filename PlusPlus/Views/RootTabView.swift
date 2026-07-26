@@ -65,15 +65,17 @@ extension FindScope {
 /// The catalogs spent one build as a scope you dialled on a bottom-accessory
 /// wheel while the bar carried only Today and Search. They are tabs again —
 /// but now that `CatalogScopeView` exists they are tabs over ONE screen, which
-/// is what the two-tab round was really after. The scope control survives as
-/// the accessory, and only while search is active: the rest of the time the tab
-/// bar itself is the scope control, and two of them at once is one too many.
+/// is what the two-tab round was really after.
 ///
-/// The accessory has two system-chosen placements, and `tabBarMinimizeBehavior`
-/// is what moves between them: at the top of a scroll the bar is full and the
-/// control sits in its own row ABOVE it; scrolling down minimizes the bar and it
-/// goes INLINE with it. That is Podcasts' behaviour, and it is scroll-driven —
-/// the app cannot pin a placement, only adapt to the one it's given.
+/// **The tab bar is the scope control; inside search, NATIVE SEARCH SCOPES are**
+/// (Dave, 2026-07-26). The `tabViewBottomAccessory` experiment is over and
+/// `ScopeSegmentedAccessory` is deleted: three builds tried to make an
+/// app-drawn control look native inside that glass capsule and none could,
+/// because the interactive-glass selection belongs to real segmented controls
+/// and because app-authored animation does not survive a system-owned
+/// container. `.searchScopes` is the system's own API for narrowing a search —
+/// it draws the real control, in the place iOS puts it, appearing and leaving
+/// with search on its own.
 struct RootTabView: View {
 
     /// The Today tab's icon reflects whether there's anything to do today
@@ -91,24 +93,15 @@ struct RootTabView: View {
     @State private var dayToken = 0
 
     @State private var tab: AppTab = .today
-    /// The query, and which catalog SEARCH is looking at. Both live here: the
-    /// field is the system's (attached to the search tab) and the scope control
-    /// is the tab bar's accessory, so both sit outside the surface they drive.
+    /// The query, and which catalog SEARCH is looking at. Both live here
+    /// because both belong to the system's search presentation on the
+    /// search-role tab, not to the surface they drive.
     ///
     /// `scope` only ever decides what the SEARCH tab shows — the three catalog
     /// tabs carry their own — and it follows whichever of them you last picked,
     /// so opening search narrows where you already were.
     @State private var query = ""
     @State private var scope: FindScope = .routines
-    /// Whether search is the selected tab, as a value the app OWNS.
-    ///
-    /// `tab` is written by the system's selection binding, outside any
-    /// animation transaction of ours, so driving the bar off it directly makes
-    /// the catalog tabs vanish and the accessory appear with no motion. This
-    /// mirror is set inside `withAnimation`, and both the tab hiding and the
-    /// accessory read it — so they collapse and arrive as ONE movement
-    /// (Dave, 2026-07-26).
-    @State private var searchActive = false
     // Scroll-position sync between a catalog tab and search is GONE (build 139
     // shipped it; it did nothing on device). `.scrollPosition(id:)` does not
     // take on a `List` the way it does on a `ScrollView` + `scrollTargetLayout`,
@@ -190,12 +183,6 @@ struct RootTabView: View {
     @MainActor
     private func land(on newTab: AppTab) {
         query = ""
-        // BEFORE the selection, deliberately. While search is active the three
-        // catalog tabs are hidden, and a landing selects one of them — so give
-        // the bar them back first rather than asking it to select a tab that
-        // isn't there. `onChange(of: tab)` would set this a beat too late, and
-        // a dropped selection is a silent dead tap (the build-76 class).
-        searchActive = false
         tab = newTab
     }
 
@@ -252,24 +239,28 @@ struct RootTabView: View {
             Tab(value: AppTab.search, role: .search) {
                 catalog(scope, on: .search)
                     .searchable(text: $query, prompt: "Search \(scope.searchNoun)")
+                    // NATIVE SEARCH SCOPES (Dave, 2026-07-26) — the system's own
+                    // answer to "narrow this search", and the end of the
+                    // bottom-accessory experiment. `.searchScopes` renders the
+                    // real segmented control in the place iOS puts it, appearing
+                    // and leaving with search on its own: no accessory to
+                    // enable, no glass capsule to nest a control inside, no
+                    // app-drawn pill to animate. Everything builds 137–139 kept
+                    // failing at is the system's job here.
+                    //
+                    // `.onSearchPresentation`, not the default: the scope
+                    // decides what an EMPTY query shows, so it has to be there
+                    // the moment search opens rather than after the first
+                    // keystroke.
+                    .searchScopes($scope, activation: .onSearchPresentation) {
+                        ForEach(FindScope.allCases, id: \.self) { item in
+                            Text(item.label).tag(item)
+                        }
+                    }
             }
         }
-        // The scope control rides the accessory slot, and ONLY while search is
-        // active (Dave, 2026-07-26) — the rest of the time the tab bar itself is
-        // the scope control, and two of them at once would be one too many.
-        //
-        // The row's height change is the system's; the fade and rise are ours,
-        // and they run on the same `searchActive` transaction that collapses
-        // the catalog tabs, so the bar rearranges in one movement.
-        .tabViewBottomAccessory(isEnabled: searchActive) {
-            ScopeSegmentedAccessory(scope: $scope)
-                .transition(.opacity.combined(with: .offset(y: 8)))
-        }
-        // What moves the accessory between its two placements: scrolled to the
-        // top the bar is full and the control sits in its own row ABOVE it;
-        // scrolling down minimizes the bar and it goes INLINE with it (where it
-        // shows icons only — there is no room for words). The placement is the
-        // system's to choose; the app only adapts.
+        // Kept for the bar itself: scrolling down minimizes it, which is the
+        // iOS 26 behaviour on every tab. Nothing rides the accessory slot now.
         .tabBarMinimizeBehavior(.onScrollDown)
         .tint(Theme.textPrimary)
         // Swipe-to-open is gated on the active tab being at its root; keep
@@ -289,10 +280,6 @@ struct RootTabView: View {
             // list with nothing on screen explaining the filter and no way to
             // clear it — the "stale invisible query reads as data loss" law.
             if newTab != .search { query = "" }
-            // The bar's own rearrangement. `land(on:)` has already cleared this
-            // on its path, so this is a no-op there and the animation is the
-            // one that matters: entering search.
-            withAnimation(Theme.Anim.standard) { searchActive = newTab == .search }
         }
         // Operator's outcome navigation: the root switches tabs; the
         // owning tab root resolves and pushes (the .plusplusStartRoutine

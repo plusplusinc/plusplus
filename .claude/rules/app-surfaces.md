@@ -111,40 +111,30 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   never a dead end, because an exact match always ranks into results, so
   results are non-empty whenever a create is hidden. Partial matches still
   offer create.
-  **Scope selection is the TAB BAR, and — while search is active — the
-  `ScopeSegmentedAccessory`** (2026-07-26; `SearchScopeBar`, `SegmentedTabs` and
-  `InlineWheelPicker` are all deleted). Off search the catalog tabs ARE the
-  scope control; the search-role tab spends its selection on search, so the
-  accessory covers it there and only there (`isEnabled: tab == .search`) —
-  two scope controls at once is one too many. The accessory draws NO background
-  of its own (a `Picker(.segmented)` brought its own backing, which inside the
-  accessory's glass read as a box in a box, Dave's screenshot) — **and that was
-  wrong: it is the NATIVE `Picker(.segmented)`, edge to edge** (2026-07-26,
-  settled after builds 137–139 went round three times).
-  ⚠️ **Do NOT hand-roll a segmented control.** The iOS 26 "bubbly" interactive
-  glass — the selection that stretches and settles under the thumb — is
-  available to exactly TWO components, tab bars and SEGMENTED CONTROLS, so an
-  app-drawn one cannot look native however it is styled. Proven the long way: a
-  `matchedGeometryEffect` pill in the accessory does not even TRAVEL (the
-  accessory is a system-owned container that re-renders outside the app's
-  animation transactions, so neither `withAnimation` at the tap site nor
-  `.animation(value:)` reliably reaches it), and three fills in a row
-  (`.thinMaterial`, opaque `Theme.surfaceRaised`, `.ultraThickMaterial`) all
-  read as neither glass nor platter. `ryanashcraft/FabBar` recreates the effect
-  by hosting a real `UISegmentedControl` and overlaying labels on it — the tell
-  that the effect belongs to the control, not to the styling.
-  ⚠️ **The "double background" is caused by PADDING, not by the Picker.** The
-  accessory always draws a Liquid Glass capsule (no API removes it); build 137
-  added `.padding(.horizontal, 12)`, which inset the Picker's own track inside
-  that capsule — two concentric shapes. Edge to edge the silhouettes coincide.
-  If a double survives edge-to-edge, the documented fallback is Apple DTS's
-  answer on forums thread 803030: render the Picker ONLY in `.inline` (where
-  the accessory merges into the bar row and brings no capsule) with something
-  else in `.expanded`, and add `.tabViewStyle(.sidebarAdaptable)`, which that
-  engineer called essential. Labels still follow the placement: words when
-  `.expanded`, GLYPHS when `.inline`, where three words collide — the
-  accessibility label stays the word either way. No `.tint`: in the accessory
-  the control wears the iOS 26 system look, not the app's selection blue. No match counts on it — see the chrome bullet. The custom `SegmentedTabs` was RETIRED (2026-07-24) —
+  **Scope selection is the TAB BAR, and — inside search — NATIVE SEARCH
+  SCOPES** (`.searchScopes($scope, activation: .onSearchPresentation)`,
+  2026-07-26, Dave: "kill the accessory, use native iOS search scopes").
+  ⚠️ **`tabViewBottomAccessory` is RETIRED as a home for this control** and
+  `ScopeSegmentedAccessory` is deleted, after builds 137–139 failed at it three
+  different ways. What was learned, and binds any future attempt: (a) iOS 26's
+  interactive "bubbly" glass belongs to exactly two components, tab bars and
+  SEGMENTED CONTROLS, so an app-drawn control cannot look native however it is
+  styled (`ryanashcraft/FabBar` hosts a real `UISegmentedControl` for this
+  reason); (b) **app-authored animation does not survive inside the accessory** —
+  the canonical `matchedGeometryEffect` pill, with `.animation` on the value,
+  still did not travel on device, because the accessory is a system-owned
+  container that re-renders outside the app's transactions; (c) the accessory
+  ALWAYS draws a glass capsule and no API removes it, so a native
+  `Picker(.segmented)` inside it nests two shapes unless it fills the capsule
+  edge to edge. `.searchScopes` sidesteps all three: the system draws the real
+  control, in the place iOS puts it, appearing and leaving with search on its
+  own. `.onSearchPresentation` rather than the default, because the scope
+  decides what an EMPTY query shows. (The Photos Years/Months/All control is a
+  THIRD thing again — a `.bottomBar` `ToolbarItem` with
+  `.sharedBackgroundVisibility(.hidden)` + `.controlSize(.large)`; that is the
+  API that strips a toolbar item's shared glass, and it exists only for toolbar
+  items. Reach for it only if search scopes prove wrong.)
+  The custom `SegmentedTabs` was RETIRED (2026-07-24) —
   every other former segmented site moved to native `Picker` (`.segmented` for
   short unit/mode toggles, a pushed `NavigationSelectRow` for multi-word modes).
   **Kit availability is NOT a filter** (2026-07-25, superseding the "Doable"

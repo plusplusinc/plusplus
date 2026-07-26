@@ -38,8 +38,8 @@ final class SmokeTests: XCTestCase {
         app.tabBars.buttons[tab.capitalized]
     }
 
-    /// Go to a catalog by its tab. The scope control in the accessory does the
-    /// same job WHILE searching (`selectScope`); this is the resting way.
+    /// Go to a catalog by its tab. The native search scope bar does the same
+    /// job WHILE searching (`selectScope`); this is the resting way.
     private func goToCatalog(_ scope: String) {
         let key = tabButton(scope)
         XCTAssertTrue(key.waitForExistence(timeout: 10), "the \(scope) tab is in the bar")
@@ -61,17 +61,19 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(searchField.waitForExistence(timeout: 5))
     }
 
-    /// Pick a catalog on the scope control in the tab bar's accessory. That
-    /// control exists only while search is active — off search the tab bar is
-    /// the scope control (`goToCatalog`).
+    /// Pick a catalog on the NATIVE search scope bar (2026-07-26). It belongs
+    /// to the system's search presentation, so it exists only once search is
+    /// PRESENTED — tap the field first. Off search the tab bar is the scope
+    /// control (`goToCatalog`).
     ///
-    /// It's the NATIVE segmented `Picker` (2026-07-26), so its segments are the
-    /// system's buttons keyed by label — there are no app-set identifiers to
-    /// hit. Inline placement swaps the words for glyphs, but the accessibility
-    /// label stays the word either way.
+    /// The segments are the system's own buttons keyed by label; there are no
+    /// app-set identifiers to hit.
     private func selectScope(_ scope: String) {
+        let field = searchField
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        if !app.segmentedControls.buttons[scope.capitalized].exists { field.tap() }
         let option = app.segmentedControls.buttons[scope.capitalized]
-        XCTAssertTrue(option.waitForExistence(timeout: 5))
+        XCTAssertTrue(option.waitForExistence(timeout: 5), "the search scope bar shows once search is presented")
         option.tap()
     }
 
