@@ -265,21 +265,26 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   the ADD surface, and with the tiers every quick-add lifts the row you just
   swiped to the top and shifts the rows under your thumb — worst in onboarding
   step 1, a run of eight adds. The in-kit checkmark carries membership there.
-- **Heading treatment follows the nature of the title** (2026-07-18, updated
-  2026-07-19): a **tab root** wears a large left `.title` heading ON the icon
-  row, just right of the ++ key (`AppMenuKey`) — single-line, `.layoutPriority(1)`
-  so it claims its space first and all four roots (Today · Routines · Exercises ·
-  Equipment) read at one font size; any squeeze from a trailing accessory (the
-  Equipment kit switcher) falls on THAT key (its own `minimumScaleFactor`), never
-  ejecting a fixed key off the row. **Do NOT use `.fixedSize` here** — a fixed
-  Dynamic-Type title shoves the trailing search/switcher keys off-screen at large
-  text sizes (swift-reviewer/axiom catch). **At `dynamicTypeSize.isAccessibilitySize`
-  the heading reflows to its own line BELOW the icon row** (`.lineLimit(2)` +
-  `.fixedSize(vertical:)`, wraps at full size), the canonical "reflow, don't cap"
-  fix (#164), so every icon-row key stays reachable. The title hides while the
-  header's expanding search field is open. Shared: `CatalogTabHeader`
-  (Routines/Exercises/Equipment); Today has a hand-rolled twin. A **pushed
-  utility/catalog
+- **Heading treatment follows the nature of the title** (2026-07-18; the tab
+  roots reworked 2026-07-26): a **tab root** wears the SYSTEM navigation bar —
+  `.navigationTitle` + `.navigationBarTitleDisplayMode(.large)`, with the ++ key
+  (`AppMenuKey`) as a leading `ToolbarItem` and the root's own accessory
+  (Today's Start key, the catalogs' kit switcher) as a trailing one. Both keys
+  carry **`.sharedBackgroundVisibility(.hidden)`**, since they bring their own
+  raised-key chrome and would otherwise nest inside the toolbar's shared glass
+  capsule — a box in a box, the same fault that killed the bottom accessory.
+  ⚠️ **A tab root must NOT hide its navigation bar.** The hand-drawn
+  `CatalogTabHeader` + `.toolbar(.hidden, for: .navigationBar)` cost three
+  builds to unlearn: `.searchable` AND its scope bar belong to that bar's
+  presentation, so hiding it left the field with nowhere to fall back to when
+  the morph failed (build 135's invisible input) and the scope bar with nothing
+  to attach to at all (build 140's missing scopes). `CatalogTabHeader` is
+  DELETED and Today's hand-rolled twin with it; the system bar handles the
+  Dynamic-Type reflow that the old `.layoutPriority(1)` / no-`.fixedSize` rules
+  used to police by hand. Today keeps a pinned WEEK STRIP (tally + `BlockBar`)
+  between the bar and its scroll — deliberately not scroll content, since the
+  opening scroll seats today at the top and anything above that anchor would be
+  off-screen on arrival. A **pushed utility/catalog
   screen** with a fixed label keeps the small centered `pushedScreenChrome`
   title; a **pushed detail screen showing a dynamic name** clears its chrome
   title (`title: ""`) and leads the body with a large left header that wraps to

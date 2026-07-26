@@ -180,7 +180,7 @@ struct TodayView: View {
     var body: some View {
         NavigationStack(path: $todayPath) {
             VStack(spacing: 0) {
-                header
+                weekStrip
 
                 // The viewport height feeds the below-anchor min height
                 // (#267 follow-up): bound synchronously through the
@@ -432,7 +432,28 @@ struct TodayView: View {
                 }
             }
             .background(Theme.background)
-            .toolbar(.hidden, for: .navigationBar)
+            // The SYSTEM navigation bar, like every other tab root as of
+            // 2026-07-26 — Today's hand-rolled header is gone with the
+            // catalogs'. Nothing forced it here (Today hosts no search), but
+            // one tab keeping a drawn title row while four wear the real bar
+            // is an inconsistency with nothing behind it.
+            .navigationTitle("Today")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                // Both keys bring their own chrome, so they opt OUT of the
+                // toolbar's shared glass rather than nesting inside a system
+                // capsule — same as the catalog tabs.
+                ToolbarItem(placement: .topBarLeading) { AppMenuKey() }
+                    .sharedBackgroundVisibility(.hidden)
+                // Settings' old seat starts workouts instead (#266): the one
+                // action that should never be more than a tap away.
+                ToolbarItem(placement: .topBarTrailing) {
+                    HeaderIconButton(systemImage: "play.fill", accessibilityLabel: "Start a workout", identifier: "startTrayButton") {
+                        showingSwapIn = true
+                    }
+                }
+                .sharedBackgroundVisibility(.hidden)
+            }
             .navigationDestination(for: RoutineRef.self) { ref in
                 // Resolve by stable uuid, not by pushing the @Model (whose
                 // persistentModelID can swap under the push) — see ModelRefs.
@@ -1145,73 +1166,49 @@ struct TodayView: View {
         }, orPresent: { healthStartRequest = $0 })
     }
 
-    // MARK: - Header
+    // MARK: - Week strip
 
-    private var header: some View {
+    /// The week's status, under the navigation bar and ABOVE the scroll.
+    ///
+    /// Pinned deliberately (2026-07-26): it could have become the scroll's
+    /// first content and slid away with the large title, but the opening
+    /// scroll seats TODAY at the very top, so anything above that anchor is
+    /// off-screen the moment you arrive. The week tally is not something you
+    /// should have to scroll UP to find.
+    ///
+    /// The title and the two keys that used to sit above this are the
+    /// navigation bar's now.
+    @ViewBuilder
+    private var weekStrip: some View {
         let plan = weekPlan
-        return VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
-                // The ++ is a button (#266): the app-level page —
-                // Settings, About, What's new, links, feedback. Since
-                // build 44 every root header wears it (AppMenuKey).
-                AppMenuKey()
-                // The big title rides the icon row, left-aligned just right
-                // of the ++ key (2026-07-19). `layoutPriority` keeps it at
-                // full `.title` size without shoving the start key off-row.
-                if !dynamicTypeSize.isAccessibilitySize {
-                    Text("Today")
-                        .font(.system(.title, weight: .bold))
-                        .lineLimit(1)
-                        .layoutPriority(1)
-                        // +8 on top of the HStack's 8 pt spacing = a 16 pt gap
-                        // from the ++ key, matching the key's own inset from
-                        // the screen edge (Dave, 2026-07-19).
-                        .padding(.leading, 8)
+        let showsBar = !(setupActive && !allSetupDone) && plan.planned > 0
+        let line = caption(plan: plan)
+        // Nothing to say (no plan, past setup) means no strip at all — not an
+        // empty box holding padding open under the title.
+        if line != nil || showsBar {
+            VStack(alignment: .leading, spacing: 0) {
+                if let line {
+                    Text(line)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(Theme.textFaint)
                 }
-                Spacer(minLength: 8)
-                // Settings' old seat starts workouts instead (#266):
-                // the one action that should never be more than a tap
-                // away, via the existing start tray. Neutral like every
-                // header key (Quiet Arcade tightened green's scope to
-                // true data; the flourish moved into Start's flash).
-                HeaderIconButton(systemImage: "play.fill", accessibilityLabel: "Start a workout", identifier: "startTrayButton") {
-                    showingSwapIn = true
+                // The week block bar: one block per scheduled session this
+                // week, filled purple as sessions land. Purple, not green —
+                // it counts what's committed, and it hides entirely when
+                // nothing is scheduled (no plan, no empty scorecard).
+                if showsBar {
+                    BlockBar(total: plan.planned, filled: plan.completed)
+                        .padding(.top, 8)
+                        // The caption above already states the fact for
+                        // VoiceOver; without this the bar announces a bare
+                        // "2 of 4" with no subject (a11y, 2026-07-23).
+                        .accessibilityHidden(true)
                 }
             }
-            // At accessibility sizes the title reflows to its own line below
-            // the icon row so it can wrap at full size (#164 / axiom).
-            if dynamicTypeSize.isAccessibilitySize {
-                Text("Today")
-                    .font(.system(.title, weight: .bold))
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, 10)
-            }
-            if let caption = caption(plan: plan) {
-                Text(caption)
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(Theme.textFaint)
-                    // 10 pt below the heading row (Dave, 2026-07-19). It
-                    // used to match the other tab roots' hand-drawn header;
-                    // those wear the SYSTEM navigation bar now, so this is
-                    // Today's own spacing.
-                    .padding(.top, 10)
-            }
-            // The week block bar: one block per scheduled session this
-            // week, filled purple as sessions land. Purple, not green —
-            // it counts what's committed, and it hides entirely when
-            // nothing is scheduled (no plan, no empty scorecard).
-            if !(setupActive && !allSetupDone), plan.planned > 0 {
-                BlockBar(total: plan.planned, filled: plan.completed)
-                    .padding(.top, 8)
-                    // The caption above already states the fact for
-                    // VoiceOver; without this the bar announces a bare
-                    // "2 of 4" with no subject (a11y, 2026-07-23).
-                    .accessibilityHidden(true)
-            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 12)
         }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 12)
     }
 
     private var weekPlan: (completed: Int, planned: Int) {
