@@ -119,10 +119,20 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   two scope controls at once is one too many. The accessory draws NO background
   of its own (a `Picker(.segmented)` brought its own backing, which inside the
   accessory's glass read as a box in a box, Dave's screenshot): plain segments
-  on the glass, an OPAQUE `Theme.surfaceRaised` pill on the selected one that
-  SLIDES via `matchedGeometryEffect` on `Theme.Anim.selection` (#216; a
-  `.thinMaterial` pill was near-invisible against the glass — a selection you
-  have to look for isn't one). Labels follow the placement: icon + label
+  on the glass, a `.ultraThickMaterial` pill + hairline `Theme.borderStrong`
+  stroke on the selected one (2026-07-26, Dave's third pass — `.thinMaterial`
+  then an opaque `Theme.surfaceRaised` both vanished into the glass; ⚠️ note
+  materials veil the SYSTEM background, so in dark mode thicker reads DARKER,
+  a capsule punched INTO the glass rather than sitting on it).
+  ⚠️ **The pill must be ONE persistent view, not a conditional pill per
+  segment.** N conditional views sharing one `matchedGeometryEffect` id is an
+  insert + a remove, so nothing's frame can travel and it cross-fades in place
+  (shipped in 138, Dave caught it). Canonical form: each segment publishes an
+  invisible `Color.clear` SOURCE frame, one pill in the container background
+  matches `id: scope, isSource: false` — and the animation goes on the VALUE
+  (`.animation(Theme.Anim.selection, value: scope)`, #216), not the tap site,
+  since the accessory sits in a system-owned container that re-renders outside
+  the app's transactions. Labels follow the placement: icon + label
   `.expanded`, icon ONLY `.inline`, where three words collide. Each option is a
   `Button` carrying `.isSelected`; the label survives in VoiceOver even when
   inline drops it on screen. No match counts on it — see the chrome bullet. The custom `SegmentedTabs` was RETIRED (2026-07-24) —
@@ -193,6 +203,27 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   you were already in. The query is search's and dies with it: no other tab has
   a field, so a surviving query would filter a list with nothing on screen
   explaining it.
+  **While search is active the three catalog tabs LEAVE THE BAR**
+  (`Tab.hidden(_:)`, 2026-07-26), so Today is the one tab beside the morphed
+  field rather than whichever tab you came from — what the cancelled
+  nested-TabView cut was reaching for. ⚠️ `.hidden(_:)` and NEVER a conditional
+  `if`: it PRESERVES the hidden tab's state, and these tabs' navigation stacks
+  and scroll positions must survive a trip through search. Both the hiding and
+  the accessory's `isEnabled` read one app-owned `searchActive` mirror set
+  inside `withAnimation(Theme.Anim.standard)` — `tab` is written by the SYSTEM's
+  selection binding outside any transaction of ours, so driving them off `tab`
+  directly snaps; sharing the flag makes the collapse and the accessory's
+  arrival ONE movement. ⚠️ `land(on:)` clears `searchActive` BEFORE writing
+  `tab`, because a landing selects a tab hidden at that instant and a dropped
+  selection is a silent dead tap (the build-76 class).
+  **Scroll position carries between a catalog tab and search** via
+  `scrollAnchors: [FindScope: AnyHashable]` in the root — the only place two
+  instances of the same scope can both see. Doubly gated: the root's setter
+  writes only from the SHOWING tab (else three invisible lists clobber the
+  visible one), and `CatalogScopeView`'s only on an EMPTY query (a ranked result
+  set is a different list). ⚠️ `.scrollPosition(id:)` is a continuous state
+  write inside the TabView subtree — the family below — so it is **the first
+  thing to delete if the search field stops appearing on a cold first tap**.
   ⚠️ **Accessory placement is read-only**: `tabViewBottomAccessoryPlacement` is
   the system's choice, `.inline` means "beside a MINIMIZED bar", and
   `.tabBarMinimizeBehavior(.onScrollDown)` is what moves between the two — so

@@ -7,10 +7,15 @@ import PlusPlusKit
 /// says whether any are outstanding, all handled, or the day was simply
 /// empty. Three reads:
 ///
-/// - `.toDo` — an open DASHED circle: something is on today's plate.
+/// The three reads live in the CALENDAR family (Dave, 2026-07-26 — the
+/// circles that carried them before said "state" without saying what of):
+///
+/// - `.toDo` — a calendar with a CLOCK: something is on today's plate.
 ///   Onboarding steps still unfinished, or a workout scheduled (or
-///   carried over) for today that hasn't been done.
-/// - `.done` — a FILLED circle with a checkmark: the day's work is
+///   carried over) for today that hasn't been done. Deliberately not the
+///   `exclamationmark` badge — the app doesn't draw alarm glyphs any more
+///   than it writes "due" (#172, anti-shame).
+/// - `.done` — a calendar with a CHECKMARK: the day's work is
 ///   handled. Today's scheduled workout completed, OR (Dave's ask names
 ///   the three onboarding items as "stuff to do") every setup step is
 ///   finished. The onboarding checkmark persists through the bounded
@@ -18,7 +23,7 @@ import PlusPlusKit
 ///   the same window in which the timeline still shows the completed
 ///   setup cards — so the two surfaces agree; the first workout flips the
 ///   store past setup and normal day-by-day scheduling takes over.
-/// - `.clear` — a plain open circle: today never had anything on it. A
+/// - `.clear` — a plain calendar: today never had anything on it. A
 ///   rest day, nothing scheduled, no setup pending.
 ///
 /// Pure and shared: `RootTabView` reads it for the tab icon, which must
@@ -36,9 +41,9 @@ enum TodayStatus: Equatable {
     /// The SF Symbol the Today tab wears in this state.
     var systemImage: String {
         switch self {
-        case .toDo: return "circle.dashed"
-        case .done: return "checkmark.circle.fill"
-        case .clear: return "circle"
+        case .toDo: return "calendar.badge.clock"
+        case .done: return "calendar.badge.checkmark"
+        case .clear: return "calendar"
         }
     }
 

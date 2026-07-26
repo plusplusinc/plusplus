@@ -24,10 +24,17 @@ struct ScopeSegmentedAccessory: View {
     @Binding var scope: FindScope
 
     @Environment(\.tabViewBottomAccessoryPlacement) private var placement
-    /// The pill travels between segments rather than cutting (#216, the app's
-    /// law for this control since the retired `SegmentedTabs`): selection
-    /// slides, and a control that slides reads as one thing moving instead of
-    /// two things blinking.
+    /// The pill TRAVELS between segments (#216, the app's law for this control
+    /// since the retired `SegmentedTabs`): selection slides, and a control that
+    /// slides reads as one thing moving rather than two things blinking.
+    ///
+    /// ⚠️ The direction of this matters and the first cut had it backwards. A
+    /// conditional pill inside each segment, all sharing one id, is an INSERT
+    /// and a REMOVE on every change — there is no single view whose frame can
+    /// travel, so it cross-fades in place (Dave, build 138: "the background of
+    /// that segmented picker doesn't animate its position"). Instead the
+    /// segments publish invisible SOURCE frames and ONE pill follows whichever
+    /// is selected: one view, one identity, a moving target.
     @Namespace private var pill
 
     private var showsLabels: Bool { placement != .inline }
@@ -38,6 +45,26 @@ struct ScopeSegmentedAccessory: View {
                 segment(item)
             }
         }
+        .background {
+            Capsule()
+                // A material rather than a flat fill (Dave, 2026-07-26), and
+                // the THICKEST one: `.thinMaterial` and then an opaque
+                // `Theme.surfaceRaised` both vanished into the glass beneath.
+                // ⚠️ Materials are veils of the SYSTEM background, so in dark
+                // mode thicker means darker — this reads as a capsule punched
+                // into the glass, not one sitting on it. Contrast either way.
+                .fill(.ultraThickMaterial)
+                // Guarantees a defined edge whichever way the material
+                // resolves against the glass in a given color scheme.
+                .overlay(Capsule().strokeBorder(Theme.borderStrong))
+                .matchedGeometryEffect(id: scope, in: pill, isSource: false)
+        }
+        // On the VALUE, not at the tap site. The accessory lives in a
+        // system-owned container that can re-render outside our transaction, so
+        // a `withAnimation` around the binding write is not something to lean
+        // on — and this way the pill also travels when the scope changes from
+        // somewhere other than a tap here.
+        .animation(Theme.Anim.selection, value: scope)
         .padding(.horizontal, 12)
         // Chrome that has to hold three labels on one row can't grow without
         // bound. The search field is NOT capped — its text is the user's own.
@@ -47,8 +74,7 @@ struct ScopeSegmentedAccessory: View {
     private func segment(_ item: FindScope) -> some View {
         let selected = scope == item
         return Button {
-            guard !selected else { return }
-            withAnimation(Theme.Anim.selection) { scope = item }
+            scope = item
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: item.symbolName)
@@ -60,7 +86,7 @@ struct ScopeSegmentedAccessory: View {
                         .minimumScaleFactor(0.8)
                 }
             }
-            // Selected ink on a lit pill, unselected on bare glass — the same
+            // Selected ink on the pill, unselected on bare glass — the same
             // pairing the tab bar's own selection uses, so the two controls
             // read as one grammar.
             .foregroundStyle(selected ? Theme.textPrimary : Theme.textSecondary)
@@ -69,14 +95,9 @@ struct ScopeSegmentedAccessory: View {
             // a 44 pt target would fight the bar's own sizing.
             .frame(minHeight: 34)
             .background {
-                if selected {
-                    // An OPAQUE fill, not `.thinMaterial` (Dave, 2026-07-26:
-                    // the material pill was nearly invisible against the glass
-                    // it sat on — a selection you have to look for isn't one).
-                    Capsule()
-                        .fill(Theme.surfaceRaised)
-                        .matchedGeometryEffect(id: "scopePill", in: pill)
-                }
+                // Publishes this segment's frame for the pill to travel to.
+                // Draws nothing itself.
+                Color.clear.matchedGeometryEffect(id: item, in: pill, isSource: true)
             }
             .contentShape(Capsule())
         }

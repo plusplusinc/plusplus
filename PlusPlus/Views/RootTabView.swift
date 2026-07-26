@@ -100,6 +100,24 @@ struct RootTabView: View {
     /// so opening search narrows where you already were.
     @State private var query = ""
     @State private var scope: FindScope = .routines
+    /// Whether search is the selected tab, as a value the app OWNS.
+    ///
+    /// `tab` is written by the system's selection binding, outside any
+    /// animation transaction of ours, so driving the bar off it directly makes
+    /// the catalog tabs vanish and the accessory appear with no motion. This
+    /// mirror is set inside `withAnimation`, and both the tab hiding and the
+    /// accessory read it — so they collapse and arrive as ONE movement
+    /// (Dave, 2026-07-26).
+    @State private var searchActive = false
+    /// Where each catalog was last scrolled to, by scope, so opening search on
+    /// the catalog you were browsing lands you where you already were rather
+    /// than at the top (Dave, 2026-07-26).
+    ///
+    /// It has to live here because a `Tab`'s content is its own view tree: the
+    /// Routines tab's list and a search tab dialled to routines are two
+    /// different scroll views showing the same rows, and this is the only place
+    /// both can see.
+    @State private var scrollAnchors: [FindScope: AnyHashable] = [:]
     /// The slide-to-reveal drawer behind the ++ key (replaces the pushed
     /// AppMenuScreen). Lives here, above the tabs' NavigationStacks, so it
     /// moves the whole TabView as one layer.
@@ -175,6 +193,12 @@ struct RootTabView: View {
     @MainActor
     private func land(on newTab: AppTab) {
         query = ""
+        // BEFORE the selection, deliberately. While search is active the three
+        // catalog tabs are hidden, and a landing selects one of them — so give
+        // the bar them back first rather than asking it to select a tab that
+        // isn't there. `onChange(of: tab)` would set this a beat too late, and
+        // a dropped selection is a silent dead tap (the build-76 class).
+        searchActive = false
         tab = newTab
     }
 
@@ -189,7 +213,19 @@ struct RootTabView: View {
     /// switch. Search is the one that reads the state, which is the whole point
     /// of the state: it keeps the catalog you were already on.
     private func catalog(_ shown: FindScope, on appTab: AppTab) -> some View {
-        CatalogScopeView(scope: shown, query: $query, tab: appTab)
+        CatalogScopeView(
+            scope: shown,
+            query: $query,
+            tab: appTab,
+            // Only the tab actually on screen may WRITE the anchor. All four
+            // instances stay mounted, so an ungated setter would let three
+            // lists nobody is looking at overwrite the position of the one
+            // that is. Reading is unconditional — that's the restore.
+            anchor: Binding(
+                get: { scrollAnchors[shown] },
+                set: { if tab == appTab { scrollAnchors[shown] = $0 } }
+            )
+        )
     }
 
     private var appContent: some View {
@@ -203,16 +239,29 @@ struct RootTabView: View {
             Tab("Today", systemImage: todayStatus.systemImage, value: AppTab.today) {
                 TodayView(onGoToRoutines: { land(on: .routines) })
             }
+            // The three catalog tabs step OUT of the bar while search is active
+            // (Dave, 2026-07-26), which leaves Today as the one tab beside the
+            // morphed field — not "whichever tab you came from". Scope is the
+            // accessory's job in there, so three tabs saying the same thing
+            // would be redundant anyway.
+            //
+            // ⚠️ `.hidden(_:)` and NOT an `if`: it PRESERVES the hidden tab's
+            // state, where conditional rendering destroys and recreates it.
+            // These tabs' navigation stacks and scroll positions have to
+            // survive a trip through search.
             Tab(FindScope.routines.label, systemImage: FindScope.routines.symbolName, value: AppTab.routines) {
                 catalog(.routines, on: .routines)
             }
+            .hidden(searchActive)
             Tab(FindScope.exercises.label, systemImage: FindScope.exercises.symbolName, value: AppTab.exercises) {
                 catalog(.exercises, on: .exercises)
             }
+            .hidden(searchActive)
             // Labeled "Kit" (2026-07-20); the enum case stays `.equipment`.
             Tab(FindScope.kit.label, systemImage: FindScope.kit.symbolName, value: AppTab.equipment) {
                 catalog(.kit, on: .equipment)
             }
+            .hidden(searchActive)
             // The SEARCH ROLE (Dave, 2026-07-26: "the sort of search tab that
             // makes the search input expand out of it to the side"). The role is
             // a package deal — the system floats it apart as the separated
@@ -229,8 +278,13 @@ struct RootTabView: View {
         // The scope control rides the accessory slot, and ONLY while search is
         // active (Dave, 2026-07-26) — the rest of the time the tab bar itself is
         // the scope control, and two of them at once would be one too many.
-        .tabViewBottomAccessory(isEnabled: tab == .search) {
+        //
+        // The row's height change is the system's; the fade and rise are ours,
+        // and they run on the same `searchActive` transaction that collapses
+        // the catalog tabs, so the bar rearranges in one movement.
+        .tabViewBottomAccessory(isEnabled: searchActive) {
             ScopeSegmentedAccessory(scope: $scope)
+                .transition(.opacity.combined(with: .offset(y: 8)))
         }
         // What moves the accessory between its two placements: scrolled to the
         // top the bar is full and the control sits in its own row ABOVE it;
@@ -256,6 +310,10 @@ struct RootTabView: View {
             // list with nothing on screen explaining the filter and no way to
             // clear it — the "stale invisible query reads as data loss" law.
             if newTab != .search { query = "" }
+            // The bar's own rearrangement. `land(on:)` has already cleared this
+            // on its path, so this is a no-op there and the animation is the
+            // one that matters: entering search.
+            withAnimation(Theme.Anim.standard) { searchActive = newTab == .search }
         }
         // Operator's outcome navigation: the root switches tabs; the
         // owning tab root resolves and pushes (the .plusplusStartRoutine
