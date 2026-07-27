@@ -18,6 +18,8 @@ paths:
 
 **Long-press row gestures use `.simultaneousGesture`** — `.gesture(LongPressGesture().sequenced(DragGesture()))` starves the ScrollView pan (#99). The rail's gestures live on a UIKit `UILongPressGestureRecognizer` attached to the enclosing UIScrollView for exactly this reason; `scrollDisabled` only during an active drag.
 
+**Guarding what a gesture DOES is not guarding what it CLAIMS** (2026-07-27, #169 — the intermittent dead scroll). A `DragGesture` whose handler `return`s early on the wrong direction still *recognized*, and recognition is what starves the scroll pan — the drawer sat still and so did the list. Two rules for any drag layered over scrollable content: attach it with **`.simultaneousGesture`, never `.gesture`**, and **latch the direction verdict on the sequence's first event** in `@GestureState` rather than re-asking per event (a re-asked guard lets a scroll that curves sideways hand over the touch mid-flick). `RevealContainer`'s 16 pt swipe-to-open strip is the worked example: it is the topmost layer over every tab root and lies exactly on each row's leading margin, so a `.gesture` there is an app-wide dead zone that reads as "scrolling doesn't engage on the first few attempts." ⚠️ Invisible to CI — XCUITest dispatches through accessibility and bypasses gesture overlays, so every change in this class needs a device pass.
+
 **`opacity(0)` does NOT remove a view from hit testing** — hidden layers need `allowsHitTesting(false)`.
 
 **One-shot deferred UI beats re-check preconditions at fire time** (StartFlashButton's deferred fire, the lingering +1 finish): cancel on disappear, check `isDeleted`/session state before acting.
