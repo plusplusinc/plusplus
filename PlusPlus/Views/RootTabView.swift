@@ -262,7 +262,17 @@ struct RootTabView: View {
         // justification went with them. Arriving without the keyboard also
         // means arriving with the whole surface in view — pick a catalog first,
         // tap the field when you actually want to type.
-        .tabBarMinimizeBehavior(.onScrollDown)
+        //
+        // ⚠️ NO `.tabBarMinimizeBehavior(.onScrollDown)` either (Dave,
+        // 2026-07-27). It only ever existed to move the bottom accessory
+        // between its `.expanded` and `.inline` placements, which is what
+        // decided whether the old scope control showed icon + label or icon
+        // only. The accessory died on 149 and nothing reads
+        // `tabViewBottomAccessoryPlacement` now, so all the modifier still did
+        // was shrink the bar out from under your thumb on the way down a
+        // catalog. The bar stays at full size; the `.soft` bottom scroll edge
+        // effect on each scrolling root is what keeps rows from reading
+        // through it.
         .tint(Theme.textPrimary)
         // Swipe-to-open is gated on the active tab being at its root; keep
         // the reveal controller told which tab is showing. Operator's
