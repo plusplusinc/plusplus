@@ -327,13 +327,27 @@ struct ActiveSessionView: View {
     /// the taps above it.
     private func adjustRest(by seconds: Int) {
         guard let current = restEndDate, let currentLog = session.currentLog else { return }
-        // Never below one step left; Skip is the way to zero. The key
-        // that reaches here is already disabled, so this is the belt for
-        // the island's braces.
-        guard seconds > 0 || current.timeIntervalSinceNow > TimeInterval(seconds.magnitude) else { return }
-        let adjusted = current.addingTimeInterval(TimeInterval(seconds))
+        // ⚠️ Subtracting CLAMPS to one full step left; it does not refuse.
+        // "Never reaches zero" has to be enforced on the RESULT, not on
+        // the starting value: a guard of "more than one step left" still
+        // allows 16 s − 15 s, which lands inside a second of zero and
+        // ends the rest — a Skip performed by the minus key, from a
+        // window that occurs in every single rest (swift-reviewer).
+        // Clamping also keeps the ISLAND honest, since a Live Activity
+        // button has no disabled state: near the floor its minus still
+        // moves the clock to the floor instead of silently doing nothing.
+        // The outer `min` stops a clamp from ever running the rest UP
+        // when the countdown is already inside the floor.
+        let floor = Date().addingTimeInterval(TimeInterval(RestAdjustment.stepSeconds))
+        let proposed = current.addingTimeInterval(TimeInterval(seconds))
+        let adjusted = seconds < 0 ? min(current, max(proposed, floor)) : proposed
+        let applied = adjusted.timeIntervalSince(current)
+        // A clamp that lands on the floor already applies nothing.
+        guard abs(applied) >= 1 else { return }
         restEndDate = adjusted
-        restTotalSeconds = max(1, restTotalSeconds + seconds)
+        // Moves by what was APPLIED, not by what was asked for, or a
+        // clamped subtract would desync the blocks from the clock.
+        restTotalSeconds = max(1, restTotalSeconds + Int(applied.rounded()))
         reflectRest(endDate: adjusted, upNext: currentLog)
     }
 
@@ -2169,8 +2183,10 @@ private struct DurationTimerCard: View {
 /// stepping down twice would otherwise end the rest.
 private struct RestView: View {
     let endDate: Date
-    /// The configured rest length — the recharge blocks' denominator
-    /// (an extension can push `remaining` past it; the blocks cap full).
+    /// The rest length AS IT NOW STANDS — the recharge blocks'
+    /// denominator. `adjustRest` moves it with the end date, so
+    /// `remaining <= totalSeconds` holds and the bar grows and shrinks
+    /// with the stepper sitting directly above it.
     let totalSeconds: Int
     /// A transition (different exercise or block up next, #369) says
     /// SWITCH; a new round of the same block says REST. Same screen,
@@ -2188,6 +2204,7 @@ private struct RestView: View {
     let onEnd: () -> Void
 
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var weightUnit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .lb }
 
@@ -2210,16 +2227,28 @@ private struct RestView: View {
                 // (Dave, 2026-07-27) — heart rate, plus pace when a walk
                 // break keeps moving. No target judgment during rest (both
                 // stay quiet ink); pace drops out when you're standing
-                // still. Gated on there being a reading at all, so a
-                // phone-only workout (no HR sensor) doesn't hold an empty
-                // row's spacing open above the clock.
-                if heartRate.latestBPM != nil || location != nil {
+                // still.
+                //
+                // ⚠️ Gated on this session having EVER had a reading (or
+                // being outdoors), not on one being fresh, and the row
+                // holds a minimum height once it's in. Two hazards, one
+                // shape: a phone-only workout has no HR sensor at all
+                // (#418), and an ungated empty `HStack` still consumes the
+                // stack's 20 pt on both sides — a 40 pt hole above the
+                // clock. But a gate on FRESHNESS would let the row come
+                // and go every time a reading aged out, and since this
+                // stack is vertically centred that would shift the
+                // countdown AND the keys under a travelling thumb.
+                // Appearing once, at the first sample, is the only
+                // movement worth having.
+                if heartRate.latestAt != nil || location != nil {
                     HStack(spacing: 14) {
                         LiveHeartRateLabel(monitor: heartRate, target: nil)
                         if let location {
                             LivePaceLabel(monitor: location, unit: runUnit, target: nil)
                         }
                     }
+                    .frame(minHeight: 17)
                 }
 
                 Text(String(format: "%d:%02d", remaining / 60, remaining % 60))
@@ -2230,7 +2259,7 @@ private struct RestView: View {
 
                 rechargeBlocks(remaining: remaining)
 
-                controls(remaining: remaining)
+                controls()
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("UP NEXT")
@@ -2261,7 +2290,9 @@ private struct RestView: View {
                     // Beep the last three seconds; guard on a decrement so a
                     // +15s extension (which raises `remaining`) never beeps,
                     // and the higher "go" tone fires as the countdown lands on
-                    // zero and the next exercise/set begins (#420).
+                    // zero and the next exercise/set begins (#420). A −15s
+                    // can't land inside the window either: it clamps one
+                    // full step above zero.
                     if newValue < oldValue, (1...3).contains(newValue) {
                         CountdownCue.shared.tick()
                     }
@@ -2284,47 +2315,80 @@ private struct RestView: View {
     /// All three keys use the SAME 4 pt travel (`.raisedKey` /
     /// `.raisedPrimaryKey`) rather than the 3 pt `.quietKey`, so their
     /// caps sit on one baseline — the quiet reading comes from the cap's
-    /// fill, ink and type, not from a shorter key that would leave the
-    /// row misaligned by a point.
-    private func controls(remaining: Int) -> some View {
-        // Subtracting stops one step short of zero: Skip is the way to
-        // zero, and a minus that could reach it would be a second way to
-        // do the same thing under a worse name. Dim in place (no removal)
-        // so the row never reflows mid-rest — on a 15 s SWITCH it simply
-        // starts dim, which is honest: there's nothing to take off.
-        let canReduce = remaining > RestAdjustment.stepSeconds
-        return HStack(spacing: 10) {
-            Button(action: onEnd) {
-                Text(isTransition ? "Skip" : "Skip rest")
-                    .font(.system(.subheadline, weight: .semibold))
-                    .foregroundStyle(Theme.textSecondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                    .padding(.horizontal, 16)
-                    .frame(minHeight: 48)
-                    .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
-                    .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.border))
-            }
-            .buttonStyle(.raisedKey())
-            .accessibilityIdentifier("skipRestButton")
-            // The gap that separates the escape from the pair.
-            .padding(.trailing, 6)
-
-            stepKey(label: "−\(RestAdjustment.stepSeconds)s",
-                    accessibility: "Subtract \(RestAdjustment.stepSeconds) seconds",
-                    identifier: "reduceRestButton",
-                    enabled: canReduce) {
-                onAdjust(-RestAdjustment.stepSeconds)
-            }
-
-            stepKey(label: "+\(RestAdjustment.stepSeconds)s",
-                    accessibility: "Add \(RestAdjustment.stepSeconds) seconds",
-                    identifier: "extendRestButton",
-                    enabled: true) {
-                onAdjust(RestAdjustment.stepSeconds)
+    /// ink and type and the absence of a fill, not from a shorter key
+    /// that would leave the row misaligned by a point.
+    ///
+    /// ⚠️ At accessibility sizes the row REFLOWS to the pair over Skip
+    /// (#164's reflow-don't-cap, as `DiffLedger` does): three keys with
+    /// a content-width label among them cannot hold one line at AX5, and
+    /// the two-key row this replaced could — `Skip rest` alone wants
+    /// more than the whole content width there. Stacking also states the
+    /// separation more plainly than a 6 pt inset can at that scale.
+    private func controls() -> some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(spacing: 10) {
+                    HStack(spacing: 10) { reduceKey; extendKey }
+                    skipKey.frame(maxWidth: .infinity)
+                }
+            } else {
+                HStack(spacing: 10) {
+                    // The gap that separates the escape from the pair.
+                    skipKey.padding(.trailing, 6)
+                    reduceKey
+                    extendKey
+                }
             }
         }
         .padding(.horizontal, 20)
+    }
+
+    private var skipKey: some View {
+        Button(action: onEnd) {
+            Text(isTransition ? "Skip" : "Skip rest")
+                .font(.system(.subheadline, weight: .semibold))
+                .foregroundStyle(Theme.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .padding(.horizontal, 16)
+                .frame(minHeight: 48)
+                .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+                // borderStrong is the raised-key stroke everywhere in the
+                // app; `Theme.border` is QuietKey's, and on a background
+                // cap over a background page it reads as barely there.
+                // The quiet comes from having no fill beside two that do.
+                .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
+        }
+        .buttonStyle(.raisedKey())
+        .accessibilityIdentifier("skipRestButton")
+    }
+
+    private var reduceKey: some View {
+        // Live only while a full step would still be left after the tap.
+        // Read from `endDate` and not the tick's `remaining`: a
+        // `.periodic` TimelineView hands back the LAST SCHEDULED tick, so
+        // a re-render driven by anything else (a heart-rate sample, the
+        // other key) would judge this against a stale second and could
+        // show a live key over a model that no longer moves — the
+        // silent-dead-tap class (swift-reviewer).
+        stepKey(label: "−\(RestAdjustment.stepSeconds)s",
+                accessibility: "Subtract \(RestAdjustment.stepSeconds) seconds",
+                identifier: "reduceRestButton",
+                // Dim in place (never removed) so the row can't reflow
+                // mid-rest. On a 15 s SWITCH it simply starts dim, which
+                // is honest: there's nothing to take off.
+                enabled: endDate.timeIntervalSinceNow > TimeInterval(RestAdjustment.stepSeconds)) {
+            onAdjust(-RestAdjustment.stepSeconds)
+        }
+    }
+
+    private var extendKey: some View {
+        stepKey(label: "+\(RestAdjustment.stepSeconds)s",
+                accessibility: "Add \(RestAdjustment.stepSeconds) seconds",
+                identifier: "extendRestButton",
+                enabled: true) {
+            onAdjust(RestAdjustment.stepSeconds)
+        }
     }
 
     /// One half of the stepper: a filled primary cap, mono numerals.
@@ -2345,6 +2409,7 @@ private struct RestView: View {
                 .frame(minHeight: 48)
                 .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
                 .opacity(enabled ? 1 : 0.35)
+                .animation(Theme.Anim.standard, value: enabled)
         }
         .buttonStyle(.raisedPrimaryKey())
         .disabled(!enabled)
