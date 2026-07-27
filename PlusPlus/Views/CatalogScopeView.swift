@@ -339,22 +339,26 @@ struct CatalogScopeView: View {
                     if let searchScope {
                         ToolbarItem(placement: .principal) {
                             ScopeSegmentedControl(scope: searchScope)
-                                // Nudged RIGHT to even up the two gaps (Dave,
-                                // build 148: the space to the right of the
-                                // control read wider than the space to its
-                                // left — measured off his screenshot, ~13 pt
-                                // against ~27 pt). The principal slot is
-                                // system-laid-out and there is no API for its
-                                // position, but the direction of this nudge is
-                                // safe under either layout the bar could be
-                                // using: if the control is pinned at minimum
-                                // spacing from the ++ key it moves right by the
-                                // full amount, and if it is centred in the
-                                // leftover space it moves right by half. ⚠️
-                                // Tuned against a deliberately long kit name —
-                                // with a short one the slot is wider and this
-                                // may over-correct. Delete the line if so.
-                                .padding(.leading, 10)
+                                // FILLS the slot rather than sitting in the
+                                // middle of it (Dave, build 149). A nudge came
+                                // first and was the wrong shape of fix: the
+                                // gaps are the system's, so any constant is
+                                // tuned to one kit-name length and wrong at the
+                                // next. Claiming the whole residual makes the
+                                // two gaps symmetric BY CONSTRUCTION — whatever
+                                // the bar's own item spacing turns out to be,
+                                // it is the same on both sides — and a
+                                // segmented control filling its container is
+                                // its natural shape (equal-width segments, the
+                                // Photos proportion). ⚠️ The remaining unknown
+                                // is the SIZE of that system spacing: Dave
+                                // wants it to match the ++ key's 16 pt inset
+                                // from the screen edge. If it reads tighter,
+                                // `.padding(.horizontal, n)` here closes the
+                                // difference — but it needs a device look
+                                // first, since padding on top of a wide gap
+                                // would inset the control rather than align it.
+                                .frame(maxWidth: .infinity)
                         }
                         .sharedBackgroundVisibility(.hidden)
                     }
