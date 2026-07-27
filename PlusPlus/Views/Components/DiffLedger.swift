@@ -10,6 +10,10 @@ struct DiffLedgerRow: Identifiable {
     let target: [PrescriptionRun]
     let prev: [PrescriptionRun]
     let changed: Set<RoutineDiff.Field>
+    /// Added since the last run, so there is nothing to compare against.
+    /// Distinct from an empty `prev` for any other reason — the row states
+    /// it in words to assistive tech rather than announcing silence.
+    var isNew: Bool = false
 }
 
 /// Today's pending card states what it is asking for beside what happened
@@ -78,13 +82,18 @@ struct DiffLedger: View {
                 columnHeader("prev").gridColumnAlignment(.trailing)
             }
             ForEach(visible) { row in
+                // A modifier on a GridRow applies to each of its CELLS, not
+                // to the row — so the whole sentence rides the label cell and
+                // the value cells are hidden, rather than every row
+                // announcing itself three times over.
                 GridRow {
                     rowLabel(row.label)
+                        .accessibilityLabel(spoken(row))
                     cell(row.target, changed: row.changed, column: .target, lineLimit: 1)
+                        .accessibilityHidden(true)
                     cell(row.prev, changed: row.changed, column: .prev, lineLimit: 1)
+                        .accessibilityHidden(true)
                 }
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(spoken(row))
             }
         }
     }
@@ -138,12 +147,22 @@ struct DiffLedger: View {
     /// each run keeps its own ink — the idiom the diff summary line used
     /// before this replaced it.
     private func cell(_ runs: [PrescriptionRun], changed: Set<RoutineDiff.Field>, column: Column, lineLimit: Int?) -> some View {
-        runs.reduce(Text("")) { result, run in
-            result + Text(run.text).foregroundStyle(ink(run, changed: changed, column: column))
-        }
-        .font(.system(.caption, design: .monospaced))
-        .monospacedDigit()
-        .lineLimit(lineLimit)
+        // A missing side is a placeholder glyph, never a blank: an empty
+        // cell reads as a rendering fault rather than as "nothing to
+        // compare".
+        let body = runs.isEmpty
+            ? Text("—").foregroundStyle(Theme.textFaint)
+            : runs.reduce(Text("")) { result, run in
+                result + Text(run.text).foregroundStyle(ink(run, changed: changed, column: column))
+            }
+        return body
+            .font(.system(.caption, design: .monospaced))
+            .monospacedDigit()
+            .lineLimit(lineLimit)
+            // Between xLarge and the accessibility sizes there is no reflow,
+            // and a truncated number in a comparison is a WRONG number —
+            // the exact failure this table exists to end.
+            .minimumScaleFactor(0.7)
     }
 
     private func ink(_ run: PrescriptionRun, changed: Set<RoutineDiff.Field>, column: Column) -> Color {
@@ -169,7 +188,11 @@ struct DiffLedger: View {
         }
         let target = phrase(row.target)
         let prev = phrase(row.prev)
-        guard !prev.isEmpty else { return "\(row.label). Target \(target). Not done before." }
+        // Keyed on the row's own flag, not on an empty column: a blank prev
+        // can also mean this one metric is missing from an exercise that was
+        // very much done, and announcing "not done before" there is false.
+        if row.isNew { return "\(row.label). Target \(target). Not done before." }
+        guard !prev.isEmpty else { return "\(row.label). Target \(target)." }
         return "\(row.label). Target \(target). Previously \(prev)."
     }
 }

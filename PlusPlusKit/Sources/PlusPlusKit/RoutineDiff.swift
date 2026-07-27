@@ -237,6 +237,34 @@ public enum RoutineDiff {
         return changed
     }
 
+    /// The fields a target-BESIDE-actual display should mark as moved.
+    /// Narrower than `changedFields` on two counts, because a display has to
+    /// justify every row it draws.
+    ///
+    /// Both sides must carry a value. A missing prior is absence of
+    /// evidence, not movement: an exercise shared with another routine
+    /// reports no set count for THIS one, and drawing that as a change puts
+    /// a row on the card where nothing happened — with the two columns
+    /// rendering different token counts, since one side has a set to print
+    /// and the other does not. `changedFields` reporting it is correct for
+    /// what `changedFields` asks ("is this the same", and unknown is not
+    /// the same); it is the wrong question for a row.
+    ///
+    /// And only the PROFILE's own fields participate, so a load column left
+    /// stranded by a profile change (a weighted pull-up planned before the
+    /// bodyweight flip) cannot produce a row whose two cells render
+    /// identically and light nothing.
+    public static func movedFields(target: Target, prior: Prior?, profile: MetricProfile) -> Set<Field> {
+        guard let prior else { return [] }
+        let changed = changedFields(target: target, prior: prior)
+        let candidates: [Field] = [.sets] + profile.metrics.map { Field.metric($0) }
+        return Set(candidates.filter { field in
+            changed.contains(field)
+                && target.value(for: field) != nil
+                && prior.value(for: field) != nil
+        })
+    }
+
     // MARK: - Summary line
 
     /// One colored run of the diff summary line. Direction is semantic —

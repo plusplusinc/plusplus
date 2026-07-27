@@ -278,6 +278,60 @@ struct RoutineDiffTests {
         ).isEmpty)
     }
 
+    // MARK: - movedFields (what a ledger may draw a row for)
+
+    @Test("An unknown prior value is absence of evidence, not movement")
+    func oneSidedFieldsNeverMove() {
+        // The regression this closes: an exercise shared with another
+        // routine reports no set count for THIS one, and treating that as a
+        // change drew a row where nothing happened — with the two columns
+        // rendering different token counts, "3×8 @ 135 lb" against
+        // "8 @ 135 lb", the 3 lit as the thing that moved.
+        let target = RoutineDiff.Target(name: "Bench Press", sets: 3, weight: 135, reps: 8)
+        let prior = RoutineDiff.Prior(sets: nil, weight: 135, reps: 8)
+        let profile = MetricProfile([.weight, .reps])
+
+        #expect(RoutineDiff.changedFields(target: target, prior: prior) == [.sets])
+        #expect(RoutineDiff.movedFields(target: target, prior: prior, profile: profile).isEmpty)
+    }
+
+    @Test("A field the profile no longer tracks cannot draw a row")
+    func untrackedFieldsNeverMove() {
+        // A stranded weight column on a bodyweight profile would otherwise
+        // produce a row whose two cells render identically, because the
+        // renderer prints only what the profile tracks.
+        let target = RoutineDiff.Target(name: "Push-Up", sets: 3, weight: 40, reps: 12)
+        let prior = RoutineDiff.Prior(sets: 3, weight: 25, reps: 12)
+        let bodyweight = MetricProfile([.reps])
+
+        #expect(RoutineDiff.changedFields(target: target, prior: prior).contains(.metric(.weight)))
+        #expect(RoutineDiff.movedFields(target: target, prior: prior, profile: bodyweight).isEmpty)
+    }
+
+    @Test("Real movement in a tracked field still reports")
+    func trackedMovementStillMoves() {
+        let profile = MetricProfile([.weight, .reps])
+        #expect(RoutineDiff.movedFields(
+            target: RoutineDiff.Target(name: "Bench Press", sets: 3, weight: 135, reps: 8),
+            prior: RoutineDiff.Prior(sets: 3, weight: 130, reps: 8),
+            profile: profile
+        ) == [.metric(.weight)])
+        #expect(RoutineDiff.movedFields(
+            target: RoutineDiff.Target(name: "Bench Press", sets: 4, weight: 135, reps: 8),
+            prior: RoutineDiff.Prior(sets: 3, weight: 135, reps: 8),
+            profile: profile
+        ) == [.sets])
+    }
+
+    @Test("Never performed moves nothing")
+    func neverPerformedMovesNothing() {
+        #expect(RoutineDiff.movedFields(
+            target: RoutineDiff.Target(name: "New", sets: 3, weight: 95, reps: 8),
+            prior: nil,
+            profile: MetricProfile([.weight, .reps])
+        ).isEmpty)
+    }
+
     // MARK: - Summary line
 
     @Test func summaryOrdersChangesThenNewAndDropsUnchanged() {

@@ -189,6 +189,23 @@ struct PrescriptionTests {
         #expect(texts(runs) == "3×9 @ 95 lb")
     }
 
+    @Test("Reps render bare on BOTH paths, range and all")
+    func repsRenderBareEverywhere() {
+        // A metric row labels itself "reps", so the value must not repeat
+        // the unit — and it must not collapse a range to its lower bound on
+        // one path while the block path prints the whole thing.
+        #expect(Prescription.text(for: .metric(.reps), value: 8) == "8")
+        #expect(Prescription.text(for: .metric(.reps), value: 8, repsUpper: 10) == "8–10")
+        #expect(WorkoutMetric.reps.displayText(8) == "8 reps")
+
+        let block = Prescription.blockRuns(
+            target: RoutineDiff.Target(name: "Row", sets: 3, weight: 95, reps: 8, repsUpper: 10),
+            profile: lifting
+        )
+        let repsRun = block.first { $0.field == .metric(.reps) }
+        #expect(repsRun?.text == "8–10")
+    }
+
     @Test("A run prescription states its driver")
     func runningBlock() {
         let runs = Prescription.blockRuns(

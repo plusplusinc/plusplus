@@ -1022,33 +1022,37 @@ struct TodayView: View {
         let exercise = routineExercise.exercise
         let name = exercise?.name ?? ""
         let routine = routineExercise.group?.routine
+        func isThisExercise(_ log: SetLog) -> Bool {
+            if let a = log.exercise, let b = exercise { return a === b }
+            return log.exerciseName == name
+        }
         for session in sessions {
-            let matches = session.completedSetLogs.filter { log in
-                if let a = log.exercise, let b = exercise { return a === b }
-                return log.exerciseName == name
-            }
+            let matches = session.completedSetLogs.filter(isThisExercise)
             guard let last = matches.last else { continue }
             let top = matches.max { ($0.actualWeight ?? 0) < ($1.actualWeight ?? 0) } ?? last
             let isSameRoutine = routine.map { session.routine === $0 || session.routineName == $0.name } ?? false
+            // The rounds the block was PLANNED for, not the rounds finished.
+            // The two sides of a set comparison have to be the same kind of
+            // number: today's is a prescription, so last time's must be too.
+            // Comparing a plan against a shortfall manufactures a change out
+            // of an unfinished session, and on a ledger — which draws a row
+            // for any field that moved — one short week would repaint every
+            // exercise on the next card as a mover.
+            //
+            // The HIGHEST set number reached, not the count of logs: the
+            // filter spans the whole session, and an exercise may appear in
+            // more than one block (a 2-set warm-up plus a 4-set working
+            // block). Counting logs would compare one block's target against
+            // every block's total; `setNumber` is 1-based within its group,
+            // so its maximum is the deepest single block.
+            //
+            // And only against the SAME routine: a set count belongs to a
+            // prescription, so an A/B split running bench for 4 rounds one
+            // day and 2 the next must not read as movement. Weight converges
+            // across routines; structure does not.
+            let plannedSets = session.sortedSetLogs.filter(isThisExercise).map(\.setNumber).max()
             return RoutineDiff.Prior(
-                // Sets COMPLETED, not sets planned: three of four
-                // finished reads 3, so today's fourth round is a real
-                // increase over what actually happened.
-                //
-                // The HIGHEST set number reached, not the count of logs:
-                // `matches` spans the whole session, and an exercise may
-                // appear in more than one block (a 2-set warm-up plus a
-                // 4-set working block). Counting logs would compare one
-                // block's target against every block's total and go
-                // silent; `setNumber` is 1-based within its group, so its
-                // maximum is the deepest single block.
-                //
-                // And only against the SAME routine: a set count belongs
-                // to a prescription, so an A/B split that runs bench for
-                // 4 sets on one day and 2 on the other must not report a
-                // standing "+2 sets" for alternating. Weight converges
-                // across routines; structure does not.
-                sets: isSameRoutine ? matches.map(\.setNumber).max() : nil,
+                sets: isSameRoutine ? plannedSets : nil,
                 weight: top.actualWeight,
                 reps: top.actualReps ?? last.actualReps,
                 durationSeconds: last.actualDuration,
@@ -1116,39 +1120,68 @@ struct TodayView: View {
         guard !entries.isEmpty else {
             return LedgerContent(rows: [], isFirstTime: false, hasExercises: false)
         }
-        let isFirstTime = entries.allSatisfy { $0.prior == nil }
+        // Nothing here has run yet: the card says so in words rather than
+        // listing every exercise against an empty column.
+        guard !entries.allSatisfy({ $0.prior == nil }) else {
+            return LedgerContent(rows: [], isFirstTime: true, hasExercises: true)
+        }
 
         if entries.count == 1, let only = entries.first, let prior = only.prior {
             return LedgerContent(rows: metricRows(only, prior: prior), isFirstTime: false, hasExercises: true)
         }
 
         var rows: [DiffLedgerRow] = []
-        for item in entries {
-            guard let prior = item.prior else { continue }
-            let changed = RoutineDiff.changedFields(target: item.target, prior: prior)
-            guard !changed.isEmpty else { continue }
+        for (index, item) in entries.enumerated() {
+            // The uuid is effectively always present, but a store migrated
+            // before the backfill runs can hold nil — and two blocks of the
+            // same exercise is an anticipated shape, so the fallback carries
+            // the position to keep ForEach identity unique.
+            let id = item.entry.uuid?.uuidString ?? "\(index)·\(item.exercise.name)"
+            guard let prior = item.prior else {
+                // Added since the last run. It states its target against an
+                // empty column rather than vanishing — dropping it would let
+                // the card claim "same as last time" over an exercise that
+                // has never been done, which is the one thing on the card
+                // worth knowing.
+                rows.append(DiffLedgerRow(
+                    id: id,
+                    label: item.exercise.name,
+                    target: Prescription.blockRuns(target: item.target, profile: item.profile, weightUnit: weightUnit),
+                    prev: [],
+                    changed: [],
+                    isNew: true
+                ))
+                continue
+            }
+            let moved = RoutineDiff.movedFields(target: item.target, prior: prior, profile: item.profile)
+            guard !moved.isEmpty else { continue }
             rows.append(DiffLedgerRow(
-                id: item.entry.uuid?.uuidString ?? item.exercise.name,
+                id: id,
                 label: item.exercise.name,
                 target: Prescription.blockRuns(target: item.target, profile: item.profile, weightUnit: weightUnit),
                 prev: Prescription.blockRuns(prior: prior, profile: item.profile, weightUnit: weightUnit),
-                changed: changed
+                changed: moved,
+                isNew: false
             ))
         }
-        return LedgerContent(rows: rows, isFirstTime: isFirstTime, hasExercises: true)
+        return LedgerContent(rows: rows, isFirstTime: false, hasExercises: true)
     }
 
     /// One row per moved field, in the profile's canonical order.
+    /// `movedFields` guarantees both sides carry a value, so no row here can
+    /// render a half-empty comparison.
     private func metricRows(_ item: LedgerEntry, prior: RoutineDiff.Prior) -> [DiffLedgerRow] {
-        let changed = RoutineDiff.changedFields(target: item.target, prior: prior)
+        let moved = RoutineDiff.movedFields(target: item.target, prior: prior, profile: item.profile)
         let fields: [RoutineDiff.Field] = [.sets] + item.profile.metrics.map { .metric($0) }
-        return fields.filter(changed.contains).compactMap { field -> DiffLedgerRow? in
-            guard let staged = item.target.value(for: field) else { return nil }
-            func runs(_ value: Double) -> [PrescriptionRun] {
+        return fields.filter(moved.contains).compactMap { field -> DiffLedgerRow? in
+            guard let staged = item.target.value(for: field),
+                  let last = prior.value(for: field) else { return nil }
+            func runs(_ value: Double, repsUpper: Int?) -> [PrescriptionRun] {
                 [PrescriptionRun(
                     Prescription.text(
                         for: field,
                         value: value,
+                        repsUpper: repsUpper,
                         distanceUnit: item.profile.distanceUnit,
                         weightUnit: weightUnit
                     ),
@@ -1158,9 +1191,11 @@ struct TodayView: View {
             return DiffLedgerRow(
                 id: fieldKey(field),
                 label: fieldLabel(field),
-                target: runs(staged),
-                prev: prior.value(for: field).map(runs) ?? [],
-                changed: changed
+                // A range belongs to the plan; a performance is one count.
+                target: runs(staged, repsUpper: item.target.repsUpper),
+                prev: runs(last, repsUpper: nil),
+                changed: moved,
+                isNew: false
             )
         }
     }

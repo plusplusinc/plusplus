@@ -41,12 +41,19 @@ public enum Prescription {
     public static func text(
         for field: RoutineDiff.Field,
         value: Double,
+        repsUpper: Int? = nil,
         distanceUnit: DistanceUnit = .meters,
         weightUnit: WeightUnit = .lb
     ) -> String {
         switch field {
         case .sets:
             return String(Int(value.rounded()))
+        case .metric(.reps):
+            // The bare target ("8", "8–10"), never "8 reps": inside a block
+            // the "×" already says what it is, and in a metric row the row's
+            // own label does. Routing both through here is also what keeps a
+            // RANGE from collapsing to its lower bound on one path only.
+            return RepTarget(lower: Int(value.rounded()), upper: repsUpper).display
         case .metric(.assistance):
             return "−" + WorkoutMetric.assistance.displayText(
                 abs(value), weightUnit: weightUnit, distanceUnit: distanceUnit
@@ -128,7 +135,10 @@ public enum Prescription {
             if !out.isEmpty { out.append(PrescriptionRun("×")) }
             // RepTarget normalizes an inverted range away, so the raw
             // `repsUpper` column is safe to hand over unchecked.
-            out.append(PrescriptionRun(RepTarget(lower: reps, upper: repsUpper).display, .metric(.reps)))
+            out.append(PrescriptionRun(
+                text(for: .metric(.reps), value: Double(reps), repsUpper: repsUpper),
+                .metric(.reps)
+            ))
         }
 
         // The load slot takes assistance when the profile tracks it, weight
