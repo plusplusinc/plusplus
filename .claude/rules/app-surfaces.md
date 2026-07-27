@@ -116,11 +116,29 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   results are non-empty whenever a create is hidden. Partial matches still
   offer create.
   **Scope selection is the TAB BAR, and — on the search surface — a native
-  segmented `Picker` in the NAVIGATION BAR's `.principal` slot, between the ++
-  key and the kit switcher** (`ScopeSegmentedControl`, settled 2026-07-26 after
-  SEVEN builds in six placements). That's the slot the other four roots put
-  their title in, which on this surface the control effectively is — it names
-  the catalog, and the surface carries no title precisely so it can.
+  segmented `Picker` in the NAVIGATION BAR, between the ++ key and the kit
+  switcher** (`ScopeSegmentedControl`, settled 2026-07-26 after SEVEN builds in
+  six placements). That's the slot the other four roots put their title in,
+  which on this surface the control effectively is — it names the catalog, and
+  the surface carries no title precisely so it can.
+  ⚠️ **The search surface builds that row ITSELF**: one `.principal`
+  `ToolbarItem` holding all three pieces at an explicit `width - 32`, with no
+  leading or trailing items. A principal item is a TITLE VIEW, and UIKit centres
+  a title view in the BAR rather than in the space between the side items — so
+  its two gaps differ by exactly the difference in those items' widths (a 42 pt
+  ++ key against a 78 pt kit switcher gave 76 pt left / 40 pt right), and that
+  difference moves with the kit's name. `.frame(maxWidth: .infinity)` doesn't
+  help: the bar proposes an unbounded width, so the control takes its ideal
+  size. With no side items the title view gets the whole bar and every gap is
+  the app's. The width is a PURE `GeometryReader` read (never written to state)
+  and is gated to this surface — the closure re-runs on height changes too, and
+  rebuilding the view re-runs the ranking pipeline, so a scrolling catalog would
+  re-rank mid-scroll for a width it never uses. No hard `minWidth` on the
+  control (an `HStack` already caps a flexible sibling at its share; a floor
+  makes the ROW overflow and shear the keys off a narrow screen), an OPTIONAL
+  width so a zero-size first pass leaves the row at its ideal size, and
+  `.padding(.bottom, 4)` on the control because `RaisedKeyStyle` pads each key
+  by its travel, seating their caps 2 pt above the row's centre.
   ⚠️ **The segments are GLYPHS ONLY, and that is a platform limit, not a
   preference**: on iOS a segmented control gives each segment a title OR an
   image and NEVER both (`NSSegmentedControl` can; `UISegmentedControl` can't),
