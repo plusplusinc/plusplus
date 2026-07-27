@@ -2,10 +2,46 @@ import Foundation
 import SwiftData
 import PlusPlusKit
 
-/// What the Find-or-create surface is looking at — the scope chips' four
-/// lenses (2026-07-23 handoff). Raw values feed a11y identifiers only.
+/// What the Find-or-create surface is looking at. These are the app's three
+/// CATALOG tabs — the ones the search field absorbs when it takes over the tab
+/// bar, which then ride above it as the accessory scope row (2026-07-25).
+/// Today is deliberately absent: it is a tab, never a scope (it holds a
+/// timeline of derived state, not a list of typed items, so there is nothing
+/// in it to narrow). The former `.all` lens is gone — a scope with no query
+/// now shows its whole list, and cross-scope hits are surfaced by the
+/// per-scope counts on the labels.
 enum FindScope: String, CaseIterable {
-    case all, routines, exercises, kit
+    case routines, exercises, kit
+
+    /// The scope's name, identical to the tab it was absorbed from — the
+    /// control changes shape, never its vocabulary.
+    var label: String {
+        switch self {
+        case .routines: return "Routines"
+        case .exercises: return "Exercises"
+        case .kit: return "Kit"
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .routines: return "square.stack"
+        case .exercises: return "list.bullet"
+        case .kit: return "dumbbell"
+        }
+    }
+
+    /// What this scope SEARCHES, which is not always what the tab is called:
+    /// the Kit scope searches the whole equipment catalog, not just your kit,
+    /// so it takes the single-item/catalog word (the kit-vs-equipment
+    /// vocabulary law). Used for prompts and empty states, never as a label.
+    var searchNoun: String {
+        switch self {
+        case .routines: return "routines"
+        case .exercises: return "exercises"
+        case .kit: return "equipment"
+        }
+    }
 }
 
 /// Pure result collection for the Find-or-create surface: score, rank,
@@ -58,34 +94,23 @@ enum FindOrCreateEngine {
         /// Unused for `.missing` (the view builds the sentence from `count`).
         let title: String
         let count: Int
-        /// Set on All-scope sections: the header AND the more-row jump here.
-        let scopeTarget: FindScope?
         let results: [Result]
-        /// Rows folded behind "n more ›" (All scope caps each type).
-        let moreCount: Int
         var kind: Kind = .results
 
         init(
             id: String? = nil,
             title: String,
             count: Int,
-            scopeTarget: FindScope?,
             results: [Result],
-            moreCount: Int,
             kind: Kind = .results
         ) {
             self.id = id ?? title
             self.title = title
             self.count = count
-            self.scopeTarget = scopeTarget
             self.results = results
-            self.moreCount = moreCount
             self.kind = kind
         }
     }
-
-    /// All-scope sections show this many rows before folding into "n more ›".
-    static let allScopeCap = 3
 
     /// Which create verbs would COLLIDE with an item that already exists
     /// under the exact (case-insensitive, trimmed) name — one flag per
@@ -120,13 +145,15 @@ enum FindOrCreateEngine {
         )
     }
 
-    /// An EMPTY query shows everything (no blank state): every item at
-    /// score 0, mine-first then alphabetical. A query narrows and ranks:
-    /// mine-first, then score, then name.
-    /// Nothing is HIDDEN by kit availability anymore (2026-07-25): each
-    /// routine/exercise section splits into the doable rows, then a
-    /// collapsible `.missing(noun:)` group of what the active kit can't do.
-    /// Equipment is never partitioned (a piece of gear isn't a thing you "do").
+    /// Results for the live query, within one scope. This is the ONE list each
+    /// catalog surface shows (2026-07-25): with no query it IS the tab's list —
+    /// everything, mine-first, in the caller's own order (so a user's routine
+    /// ordering survives) — and a query narrows and ranks it: mine-first, then
+    /// score, then name. Same view either way; the field only filters.
+    /// Nothing is HIDDEN by kit availability (2026-07-25): each routine/exercise
+    /// scope splits into the doable rows, then a collapsible `.missing(noun:)`
+    /// group of what the active kit can't do. Equipment is never partitioned
+    /// (a piece of gear isn't a thing you "do").
     static func sections(
         query: String,
         scope: FindScope,
@@ -138,27 +165,6 @@ enum FindOrCreateEngine {
     ) -> [Section] {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         switch scope {
-        case .all:
-            var out: [Section] = []
-            out += allScopeSections(
-                "ROUTINES", .routines, "routine",
-                routineResults(q, routines: routines, templates: templates, kitNames: kitNames)
-            )
-            out += allScopeSections(
-                "EXERCISES", .exercises, "exercise",
-                exerciseResults(q, exercises: exercises, kitNames: kitNames)
-            )
-            let gear = equipmentResults(q, equipment: equipment, kitNames: kitNames)
-            if !gear.isEmpty {
-                out.append(Section(
-                    title: "EQUIPMENT",
-                    count: gear.count,
-                    scopeTarget: .kit,
-                    results: Array(gear.prefix(allScopeCap)),
-                    moreCount: max(0, gear.count - allScopeCap)
-                ))
-            }
-            return out
         case .routines:
             return groupedWithMissing(
                 routineResults(q, routines: routines, templates: templates, kitNames: kitNames),
@@ -174,38 +180,12 @@ enum FindOrCreateEngine {
         }
     }
 
-    /// One All-scope type: the capped doable overview section, then (if any)
-    /// the collapsible "N <noun>s require more equipment" group after it. A
-    /// type with ONLY missing results still appears (its missing group renders),
-    /// so an only-missing query never vanishes into "Nothing matches."
-    private static func allScopeSections(
-        _ title: String, _ target: FindScope, _ noun: String, _ results: [Result]
-    ) -> [Section] {
-        let doable = results.filter(\.doable)
-        let missing = results.filter { !$0.doable }
-        var out: [Section] = []
-        if !doable.isEmpty {
-            out.append(Section(
-                title: title,
-                count: doable.count,
-                scopeTarget: target,
-                results: Array(doable.prefix(allScopeCap)),
-                moreCount: max(0, doable.count - allScopeCap)
-            ))
-        }
-        if !missing.isEmpty {
-            out.append(Section(
-                id: "MISSING_\(title)",
-                title: title,
-                count: missing.count,
-                scopeTarget: target,
-                results: Array(missing.prefix(allScopeCap)),
-                moreCount: max(0, missing.count - allScopeCap),
-                kind: .missing(noun: noun)
-            ))
-        }
-        return out
-    }
+    // The per-scope match COUNTS the bar paints beside its labels aren't
+    // computed here any more (2026-07-25). Each scope's surface stays mounted
+    // and already builds its own sections, so it publishes its own count by
+    // summing them — a `matchCounts` here meant a second full ranking pass over
+    // all three types on every keystroke, on top of the one the visible surface
+    // was already running.
 
     /// The scoped view's two groups. MINE = yours; CATALOG = everything
     /// else. Either group drops out when empty rather than showing a
@@ -215,38 +195,58 @@ enum FindOrCreateEngine {
         let catalog = results.filter { !$0.mine }
         var sections: [Section] = []
         if !mine.isEmpty {
-            sections.append(Section(title: "MINE", count: mine.count, scopeTarget: nil, results: mine, moreCount: 0))
+            sections.append(Section(title: "MINE", count: mine.count, results: mine))
         }
         if !catalog.isEmpty {
-            sections.append(Section(title: "CATALOG", count: catalog.count, scopeTarget: nil, results: catalog, moreCount: 0))
+            sections.append(Section(title: "CATALOG", count: catalog.count, results: catalog))
         }
         return sections
     }
 
-    /// Scoped Routines/Exercises: the doable rows grouped MINE/CATALOG, then a
-    /// single collapsible `.missing(noun:)` group holding everything the kit
-    /// can't do (mine-first ranked, uncapped — the whole point is to reveal it).
+    /// Scoped Routines/Exercises: MINE then CATALOG, and **each** tier carries
+    /// its own collapsible `.missing(noun:)` subgroup for what the active kit
+    /// can't do (Dave, 2026-07-25). Keeping the split inside the tier means
+    /// "yours that need more equipment" stays with the rest of yours instead of
+    /// being pooled with the catalog's at the bottom — the MINE/CATALOG
+    /// division is the primary one, kit availability the secondary.
+    /// A tier drops out entirely when it has nothing, in either half.
     private static func groupedWithMissing(_ results: [Result], noun: String) -> [Section] {
-        var sections = grouped(results.filter(\.doable))
-        let missing = results.filter { !$0.doable }
-        if !missing.isEmpty {
-            sections.append(Section(
-                id: "MISSING",
-                title: "MISSING",
-                count: missing.count,
-                scopeTarget: nil,
-                results: missing,
-                moreCount: 0,
-                kind: .missing(noun: noun)
-            ))
+        var sections: [Section] = []
+        for (title, isMine) in [("MINE", true), ("CATALOG", false)] {
+            let tier = results.filter { $0.mine == isMine }
+            let doable = tier.filter(\.doable)
+            let missing = tier.filter { !$0.doable }
+            if !doable.isEmpty {
+                sections.append(Section(title: title, count: doable.count, results: doable))
+            }
+            if !missing.isEmpty {
+                sections.append(Section(
+                    id: "MISSING_\(title)",
+                    title: title,
+                    count: missing.count,
+                    results: missing,
+                    kind: .missing(noun: noun)
+                ))
+            }
         }
         return sections
     }
 
     // MARK: - Per-type collection
 
-    private static func rank(_ results: [Result]) -> [Result] {
-        results.sorted { a, b in
+    /// Mine first, then best match, then name.
+    ///
+    /// With NO query this becomes a stable partition on `mine` alone, which
+    /// preserves the caller's incoming order — and that order is meaningful:
+    /// routines arrive in the user's own `Routine.order` (which drag-reorder
+    /// writes), exercises and equipment arrive alphabetically from their
+    /// queries. Re-sorting by name here would silently discard a user's
+    /// routine ordering the moment their tab started rendering these sections.
+    private static func rank(_ results: [Result], query: String) -> [Result] {
+        guard !query.isEmpty else {
+            return results.filter(\.mine) + results.filter { !$0.mine }
+        }
+        return results.sorted { a, b in
             if a.mine != b.mine { return a.mine }
             if a.score != b.score { return a.score > b.score }
             return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
@@ -273,7 +273,7 @@ enum FindOrCreateEngine {
                 matchedExerciseName: nil,
                 id: AnyHashable(exercise.persistentModelID)
             )
-        })
+        }, query: q)
     }
 
     private static func equipmentResults(_ q: String, equipment: [Equipment], kitNames: Set<String>) -> [Result] {
@@ -297,7 +297,7 @@ enum FindOrCreateEngine {
                 matchedExerciseName: nil,
                 id: AnyHashable(item.persistentModelID)
             )
-        })
+        }, query: q)
     }
 
     private static func routineResults(
@@ -343,7 +343,7 @@ enum FindOrCreateEngine {
                 id: AnyHashable("template-\(template.name)")
             ))
         }
-        return rank(results)
+        return rank(results, query: q)
     }
 
     /// The routine-family score: the name is the headline; a hit anywhere

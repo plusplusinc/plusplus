@@ -26,7 +26,6 @@ struct ActiveSessionView: View {
     // Ad-hoc sessions (#239): the empty stage adds the first exercise;
     // the finish screen offers to keep the whole thing as a routine.
     @State private var showingAddExercise = false
-    @State private var pickerFilterState = ExerciseFilterState()
     @State private var showingSaveAsRoutine = false
     @State private var routineNameDraft = ""
     @State private var savedRoutineName: String?
@@ -210,7 +209,7 @@ struct ActiveSessionView: View {
             .presentationDetents([.fraction(0.88)])
         }
         .sheet(isPresented: $showingAddExercise) {
-            ExercisePickerView(filterState: pickerFilterState, onConfigured: { config in
+            ExercisePickerView(onConfigured: { config in
                 session.appendExercise(config: config, context: modelContext)
             })
         }

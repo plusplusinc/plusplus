@@ -273,6 +273,10 @@ struct RoutineEquipmentTags: View {
     let gear: [(name: String, available: Bool)]
     var interactive: Bool = false
     var showLabel: Bool = false
+    /// Capsules that ride AHEAD of the gear tags — the catalog surfaces' "has
+    /// <exercise>" explainer, when a routine matched the query through a move
+    /// it contains rather than through its own name.
+    var leadingCapsules: [CardCapsule] = []
     var onEquipmentTap: (String) -> Void = { _ in }
 
     private var sortedGear: [(name: String, available: Bool)] {
@@ -280,7 +284,7 @@ struct RoutineEquipmentTags: View {
     }
 
     var body: some View {
-        if gear.isEmpty {
+        if gear.isEmpty && leadingCapsules.isEmpty {
             EmptyView()
         } else if interactive {
             VStack(alignment: .leading, spacing: 7) {
@@ -296,7 +300,7 @@ struct RoutineEquipmentTags: View {
                 }
             }
         } else {
-            OverflowCapsuleRow(capsules: RoutineCardCapsules.gearCapsules(gear))
+            OverflowCapsuleRow(capsules: leadingCapsules + RoutineCardCapsules.gearCapsules(gear))
         }
     }
 
@@ -342,11 +346,15 @@ struct RoutineEquipmentTags: View {
 struct RoutineCardContent: View {
     let title: String
     let meta: RoutineMeta
+    /// Match ranges in `title` to paint, when a search put this row here.
+    var nameHighlight: [Range<String.Index>] = []
+    /// Capsules ahead of the gear tier (the "has <exercise>" match explainer).
+    var leadingCapsules: [CardCapsule] = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(title)
+                Text(highlightedName(title, ranges: nameHighlight))
                     .font(.system(.subheadline, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(2)
@@ -365,8 +373,8 @@ struct RoutineCardContent: View {
                     .foregroundStyle(Theme.textSecondary)
                     .lineLimit(2)
             }
-            if !meta.gear.isEmpty {
-                RoutineEquipmentTags(gear: meta.gear)
+            if !meta.gear.isEmpty || !leadingCapsules.isEmpty {
+                RoutineEquipmentTags(gear: meta.gear, leadingCapsules: leadingCapsules)
             }
         }
     }

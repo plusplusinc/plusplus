@@ -64,19 +64,24 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   Keys that carry TEXT keep the rounded-rect pill: `QuietKey`,
   `LibrarySwitcherKey`, `SheetDismissKey`, the primary action bars.
 - **One search UI + one sheet-dismissal, and ✕ means only "collapse search"**
-  (2026-07-18; universal search 2026-07-23): cross-type search lives on the
-  **Find-or-create surface** behind the tab bar's search item
-  (`Tab(role: .search)` → `FindOrCreateView`) — the tab-root headers carry NO
-  magnifier anymore. On that surface the field is the NATIVE `.searchable`
+  (2026-07-18; universal search 2026-07-23; **now `CatalogScopeView` + the
+  bar's search key** — see the one-view bullet below, which supersedes the
+  mechanism described here): cross-type search lived on a separate
+  **Find-or-create surface** behind the tab bar's search item — the tab-root
+  headers carry NO magnifier anymore. On that surface the field was the NATIVE `.searchable`
   (2026-07-24, Dave — superseding the custom bottom-bar takeover): placed
   INSIDE the search tab's stack (placement B) so its prompt can read the scope,
   the search-role tab morphs the tab bar into the system field at the bottom,
   carrying the native clear (✕) and Cancel. The placeholder is per-scope
-  ("Search" on All, "Search routines/exercises/equipment" when scoped) and it
-  does NOT auto-focus on entry — no `.tabViewSearchActivation(.searchTabSelection)`,
+  (`FindScope.searchNoun` — "Search routines / exercises / equipment") and it
+  does NOT auto-focus on entry: no `.tabViewSearchActivation(.searchTabSelection)`,
   so the keyboard rises only on a field tap (`.searchFocused` is used solely for
-  the "type a name first" refocus). There is NO custom Done key now: leaving is a
-  normal tab tap. ⚠️ This re-arms the documented iOS 26 morph bug — an
+  the "type a name first" refocus). ⚠️ That absence is now LOAD-BEARING, not
+  just a preference: **the bottom accessory does not rise with the keyboard**,
+  so auto-raising it on arrival buries the scope control at the moment you land
+  on it (build 144). Build 143 tried the activation modifier to force a fresh
+  native-scope presentation; scopes are gone and so is the reason. There is NO
+  custom Done key: leaving is a normal tab tap. ⚠️ This re-arms the documented iOS 26 morph bug — an
   `.onGeometryChange` in the TabView subtree (TodayView's onboarding step-height
   probe, a sibling tab) can make the field fall back to the top
   `.navigationBarDrawer` placement on the FIRST activation instead of morphing
@@ -84,8 +89,7 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   nowhere to render — the failure is NO visible field on first entry, not a top
   bar. #1 device check on the shipping OS; if it recurs, kill the morph trigger
   at its source (rework the probe), don't revert. `SearchFieldBody` stays — the pushed catalogs/pickers/sheets
-  still use it via `HeaderSearchField`. Scope +
-  Doable stay the top controls. Pushed catalogs, pickers, and sheets keep the expanding
+  still use it via `HeaderSearchField`. Pushed catalogs, pickers, and sheets keep the expanding
   in-header field (`HeaderSearchField`) — a top-right magnifier that expands
   into a field spanning the row, an in-field `delete.left` CLEAR that keeps
   focus, and a separate `xmark` COLLAPSE key where the magnifier was; the
@@ -96,10 +100,12 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   ("Cancel" to abandon edits, "Done" view-only; Find-or-create's Done follows
   the same grammar). Creation is the TOP list row, verb-keyed: **Create**
   (`New <object>` / `Create "<query>"`) when it makes a custom object inline,
-  **Add** (`Add <object>` / `Add "<query>"`) when it navigates — the tabs' Add
-  rows now open Find-or-create pre-scoped (`FindOrCreateLaunch`), as does
-  onboarding step 2 ("Pick a routine" → `.open(.routines)`; the standalone
-  `RoutineCatalogScreen` was retired here, 2026-07-24). Query casing
+  **Add** (`Add <object>` / `Add "<query>"`) when it navigates. Since the tab
+  IS the scope (2026-07-25) every catalog's top row CREATES inline — deep-linking
+  into a pre-scoped search would mean navigating to where you already are, so
+  `FindOrCreateLaunch` is gone and onboarding step 2 just lands on the Routines
+  tab, which is the routine catalog (the standalone `RoutineCatalogScreen` was
+  retired into it, 2026-07-24). Query casing
   is `String.sentenceCasedFirst`. Empty results NEVER dead-end: the create/add
   row is always present + a "Clear filters" `QuietKey` when facets are active.
   The ONE thing that removes a create is an EXACT-name collision (2026-07-24):
@@ -109,35 +115,110 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   never a dead end, because an exact match always ranks into results, so
   results are non-empty whenever a create is hidden. Partial matches still
   offer create.
-  **Scope is an inline horizontal WHEEL** (`InlineWheelPicker`, 2026-07-24 —
-  replaced the earlier content-width `SegmentedTabs`), above the field: a FIXED
-  selection band the scopes wheel through (native-picker idiom), pinned LEFT so
-  its leading edge sits on the 16 pt content column (lines up with the field +
-  rows) and sized INTRINSICALLY to the widest option label + even padding +
-  reserved chevron/gap space (a hidden width-probe `PreferenceKey`, not a
-  fraction of the track). White selected / grey unselected (no blue — selection
-  reads by the band + weight, not a pill); a soft 3D cylinder tilt on the
-  wheeling options (per-cell `.visualEffect`, Reduce Motion flattens it). Faint
-  chevrons sit INSIDE the band on either side AS NEEDED (the band is at the edge,
-  so nothing peeks left — the chevron is the "more that way" cue); tapping one
-  steps that way, and they fade while the wheel is in motion. Change it by
-  dragging, tapping an option, or tapping a chevron; icons on the typed scopes,
-  "All" text-only. It leads the field because scope is a MODE (changes the create
-  verb + what an empty query browses), not just a filter. Native scroll mechanics
-  (`ScrollView(.horizontal)` + `.viewAligned` + `.scrollPosition(id:)` +
-  asymmetric `contentMargins` for the left-anchored snap), so it can never
-  overflow the viewport the way the old segmented track could. NOT the native
-  `Tab(role:.search)` bottom-morph (the app owns its selection grammar; a sibling
-  tab's `.onGeometryChange` triggers the documented iOS 26 morph bug).
-  **A11y (segmented-control model):** each option is a labelled `Button` with the
-  `.isSelected` trait (VoiceOver "Exercises, selected, button"; Voice Control by
-  name; the 44 pt row is the target); decorative icons + the supplementary
-  chevrons are hidden from assistive tech; VoiceOver's reveal-scroll is guarded
-  from mutating the selection (only a tap/drag changes it) via the
-  `accessibilityVoiceOverEnabled` gate on the scroll→selection sync. The custom
-  `SegmentedTabs` was RETIRED (2026-07-24) — every other former segmented site
-  moved to native `Picker` (`.segmented` for short unit/mode toggles, a pushed
-  `NavigationSelectRow` for multi-word modes).
+  **Scope selection is the TAB BAR, and — on the search surface — a native
+  segmented `Picker` in the NAVIGATION BAR, between the ++ key and the kit
+  switcher** (`ScopeSegmentedControl`, settled 2026-07-26 after SEVEN builds in
+  six placements). That's the slot the other four roots put their title in,
+  which on this surface the control effectively is — it names the catalog, and
+  the surface carries no title precisely so it can.
+  ⚠️ **The search surface builds that row ITSELF**: one `.principal`
+  `ToolbarItem` holding all three pieces at an explicit `width - 32`, with no
+  leading or trailing items. A principal item is a TITLE VIEW, and UIKit centres
+  a title view in the BAR rather than in the space between the side items — so
+  its two gaps differ by exactly the difference in those items' widths (a 42 pt
+  ++ key against a 78 pt kit switcher gave 76 pt left / 40 pt right), and that
+  difference moves with the kit's name. `.frame(maxWidth: .infinity)` doesn't
+  help: the bar proposes an unbounded width, so the control takes its ideal
+  size. With no side items the title view gets the whole bar and every gap is
+  the app's. The width is a PURE `GeometryReader` read (never written to state)
+  and is gated to this surface — the closure re-runs on height changes too, and
+  rebuilding the view re-runs the ranking pipeline, so a scrolling catalog would
+  re-rank mid-scroll for a width it never uses. No hard `minWidth` on the
+  control (an `HStack` already caps a flexible sibling at its share; a floor
+  makes the ROW overflow and shear the keys off a narrow screen), an OPTIONAL
+  width so a zero-size first pass leaves the row at its ideal size, and
+  `.padding(.bottom, 4)` on the control because `RaisedKeyStyle` pads each key
+  by its travel, seating their caps 2 pt above the row's centre.
+  ⚠️ **The segments are GLYPHS ONLY, and that is a platform limit, not a
+  preference**: on iOS a segmented control gives each segment a title OR an
+  image and NEVER both (`NSSegmentedControl` can; `UISegmentedControl` can't),
+  which Apple DTS confirmed for SwiftUI on forums thread 816517 —
+  `.titleAndIcon` renders the title and drops the icon, and the HIG says pick
+  one. So "icons too" means icons INSTEAD. They're the same symbols the tab bar
+  uses for the same three scopes, and they're also the half that fits: three
+  words beside the ++ key and a variable-width kit switcher overflow the
+  principal slot, and a segmented control doesn't scroll, it truncates. Each
+  segment carries an explicit `.accessibilityLabel` (without it VoiceOver reads
+  the symbol name), and the smoke helper falls back to POSITION if that label
+  doesn't reach XCUITest. It wears `.tint(Theme.background)` — a dark selected
+  segment in dark mode, the stock lighter one in light — and takes NO
+  `.controlSize(.large)` (that control is taller than the bar).
+  ⚠️ Two modifiers make a segmented control legal in a toolbar at all:
+  `.sharedBackgroundVisibility(.hidden)` on the item (it brings its own track,
+  and the toolbar's shared glass would wrap that in a second shape) and
+  `.searchPresentationToolbarBehavior(.avoidHidingContent)` on the search
+  presentation (below) — without the second, activating search takes the
+  control away with the rest of the bar's content.
+  It is app-placed because every system-owned home failed a different way, and
+  each failure is a law now:
+  ⚠️ **`tabViewBottomAccessory` does not rise with the keyboard** (137–139,
+  144) — search's own keyboard buries anything in it, and on that surface the
+  keyboard is up most of the time you want to change scope.
+  ⚠️ **Native `.searchScopes` renders exactly ONCE per app run** on a
+  bottom-aligned field morphed out of `Tab(role: .search)` (140–143), and
+  renders at the TOP, nowhere near the field. Tried four ways; still once.
+  ⚠️ **A `.bottomBar` `ToolbarItem` lands in the SAME ROW the search-role
+  field expands into** (145), so it sits behind the field. Photos' recipe works
+  there only because Photos' search is a small BUTTON in that row, not a
+  full-width field. The `.principal` slot has no such competition — the field
+  expands out of the TAB BAR, nowhere near the navigation bar.
+  ⚠️ **A TOP `safeAreaInset` under the bar** (147) was right but one row too
+  many: a band holding a control, directly under a bar holding two keys with
+  nothing between them.
+  ⚠️ Build 146 dropped the `.tint` reasoning that a dark pill would vanish into
+  the dark row it sits on. That ignored the system's own track BETWEEN the two,
+  and left the default lighter-pill look — the inverse of the tab bar below. The
+  tint is back; see above.
+  ⚠️ **Native `.searchScopes` DOES NOT WORK on a bottom-aligned search field
+  morphed out of a `Tab(role: .search)`** — it renders exactly ONCE per app run.
+  Tried, in order, and all still once: `.onSearchPresentation` activation;
+  `.searchable` moved INSIDE the navigation stack (the documented requirement,
+  and the thing that made scopes appear at all); giving the surface a real
+  navigation bar; and `.tabViewSearchActivation(.searchTabSelection)` so every
+  arrival is a fresh presentation. It also renders at the TOP, nowhere near the
+  field it scopes, and placement is not the app's to choose.
+  ⚠️ **Do NOT hand-roll the segmented control.** iOS 26's interactive "bubbly"
+  glass belongs to exactly TWO components, tab bars and SEGMENTED CONTROLS, so
+  an app-drawn one cannot look native however styled (`ryanashcraft/FabBar`
+  hosts a real `UISegmentedControl` for this reason). And **app-authored
+  animation does not survive inside the accessory**: the accessory is a
+  system-owned container that re-renders outside the app's transactions, so even
+  the canonical `matchedGeometryEffect` pill with `.animation` on the value
+  refused to travel on device (build 139).
+  ⚠️ **The "double background" is PADDING, not the Picker.** The accessory
+  always draws a Liquid Glass capsule and no API removes it; build 137's
+  `.padding(.horizontal, 12)` inset the Picker's own segmented track inside that
+  capsule, drawing two concentric shapes. Edge to edge the silhouettes coincide.
+  `.controlSize(.large)` gives it the Photos proportions (r/SwiftUI 1o2vdp4); no
+  `.tint`, so it wears the iOS 26 system look.
+  **The SEARCH surface carries no title** (Dave, 2026-07-26): the scope control
+  already names the catalog, and a large title FLASHES on entry then collapses
+  as search presents, leaving an empty band. `.navigationTitle("")` + `.inline`
+  there; the other four roots keep `.large`. The bar itself stays — hiding it is
+  what left `.searchable` with nowhere to fall back to.
+  ⚠️ **The bar's OTHER content needs `.searchPresentationToolbarBehavior(.avoidHidingContent)`**
+  (iOS 17.1+) or activating search empties it: the system's `.automatic`
+  behaviour is to clear the navigation bar and give search the room, which is
+  the same mechanism that emptied the top band on build 143. Here that took the
+  ++ key and the kit switcher away the moment you tapped the field — the drawer
+  and the kit switch, gone, on the one surface you reach them from.
+  (Photos' Years/Months/All is a THIRD thing again: a `.bottomBar` `ToolbarItem`
+  with `.sharedBackgroundVisibility(.hidden)` + `.controlSize(.large)` — that
+  modifier strips a toolbar item's shared glass and exists ONLY for toolbar
+  items. The remaining escape if the accessory ever fails.)
+  The custom `SegmentedTabs` was RETIRED (2026-07-24) —
+  every other former segmented site moved to native `Picker` (`.segmented` for
+  short unit/mode toggles, a pushed `NavigationSelectRow` for multi-word modes).
   **Kit availability is NOT a filter** (2026-07-25, superseding the "Doable"
   chip): nothing is HIDDEN by the active kit. What the kit can't do groups
   under a collapsible **"N exercises/routines require more equipment"**
@@ -165,21 +246,131 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   invisible query reads as data loss); every add from it LANDS on its list
   with the entrance flash (`RoutineArrival`/`ExerciseArrival`/
   `EquipmentArrival` + `RowEntranceFlash` — one landing for every add).
-- **Heading treatment follows the nature of the title** (2026-07-18, updated
-  2026-07-19): a **tab root** wears a large left `.title` heading ON the icon
-  row, just right of the ++ key (`AppMenuKey`) — single-line, `.layoutPriority(1)`
-  so it claims its space first and all four roots (Today · Routines · Exercises ·
-  Equipment) read at one font size; any squeeze from a trailing accessory (the
-  Equipment kit switcher) falls on THAT key (its own `minimumScaleFactor`), never
-  ejecting a fixed key off the row. **Do NOT use `.fixedSize` here** — a fixed
-  Dynamic-Type title shoves the trailing search/switcher keys off-screen at large
-  text sizes (swift-reviewer/axiom catch). **At `dynamicTypeSize.isAccessibilitySize`
-  the heading reflows to its own line BELOW the icon row** (`.lineLimit(2)` +
-  `.fixedSize(vertical:)`, wraps at full size), the canonical "reflow, don't cap"
-  fix (#164), so every icon-row key stays reachable. The title hides while the
-  header's expanding search field is open. Shared: `CatalogTabHeader`
-  (Routines/Exercises/Equipment); Today has a hand-rolled twin. A **pushed
-  utility/catalog
+- **The catalog tabs and the search scopes are ONE view** (2026-07-25 —
+  supersedes the arrangement above wherever they differ). Tapping **Routines**
+  with search closed and scoping to **Routines** with it open land on the same
+  screen: `CatalogScopeView`, one per `FindScope`. Search adds a QUERY, never a
+  destination — `RootTabView` mounts the three and shows them on `tab` alone,
+  keying nothing on `searching`. It replaced `RoutineListView` /
+  `ExercisesTabView` / `EquipmentTabView` / `FindOrCreateView` AND the pushed
+  `EquipmentCatalogScreen`; the same view serves both as a `.tab` (own stack,
+  query bound from the root because the field lives in the bar) and
+  `.presented(setupMode:)` (pushed chrome + its own header field + an item
+  destination, #291) — the second is what onboarding step 1, the drawer's
+  "Edit your kit", the picker's filter escape and the template gear-check open.
+  **The chrome is the SYSTEM'S, and the bar carries FIVE tabs** (2026-07-26 —
+  the hand-drawn `AppBottomBar` is DELETED after three device rounds, the last
+  of which produced scroll-through illegibility, no home-indicator clearance
+  and misaligned labels in one go; all three are things a real tab bar does for
+  free). `TabView` = **Today · Routines · Exercises · Kit · Search**
+  (`Tab(role: .search)`). The catalogs spent one build (137) as a scope you
+  dialled on a bottom-accessory wheel while the bar carried only Today and
+  Search; they are tabs again, but now over ONE screen, which is what that
+  round was really after. **All four catalog-showing tabs render the same
+  `CatalogScopeView`** — a tab decides which catalog, never which screen.
+  ⚠️ Because **a `Tab`'s content is its own view tree**, that is four live
+  INSTANCES, so every broadcast needs one named owner: `ownsLandings`
+  (`tabKey == scope.tab.rawValue`) makes the catalog TAB the consumer of
+  arrivals and Operator pushes, never "whichever instance shows that scope"
+  (the search tab dialled to routines shows routines too, and a landing
+  switches away from search by definition). ⚠️ And because a tab's content is
+  built on FIRST selection, a notification alone reaches nobody on a tab you
+  have never visited — every cross-tab landing rides a pending SLOT consumed on
+  receive OR on appear (`RoutineArrival` and now `OperatorArrival`); a bare
+  post is the build-76 silent-dead-tap class. The three catalog tabs pass their
+  scope as a LITERAL (reading shared state would render one frame of the
+  outgoing catalog before `onChange(of: tab)` caught up); only the search tab
+  reads `scope`, which is the point of the state — search opens on the catalog
+  you were already in. The query is search's and dies with it: no other tab has
+  a field, so a surviving query would filter a list with nothing on screen
+  explaining it.
+  ⚠️ **Do NOT hide the catalog tabs while search is active.** `Tab.hidden(_:)`
+  works and preserves state, and it does put Today beside the morphed field —
+  but the bar does NOT REFLOW around the hidden tabs, so what's left is a
+  full-width group capsule with Today rattling around alone in it (build 139,
+  Dave's screenshot). Which tab the system parks beside the field is the
+  smaller problem. `searchActive` survives as the accessory's animated
+  `isEnabled` only.
+  ⚠️ **Scroll-position sync between a catalog tab and search does not work and
+  is RETIRED** (tried in 139): `.scrollPosition(id:)` does not take on a `List`
+  the way it does on a `ScrollView` + `scrollTargetLayout()`, and the remaining
+  route observes scroll GEOMETRY, which is the documented way to break the
+  search-role morph. Not worth that trade for a convenience.
+  ⚠️ **The bottom scroll edge effect is `.soft` on every scrolling tab root** —
+  the system's own gradient, and the THIRD answer this edge has had. `.hard`
+  (139) was added because the bar's glass alone can't occlude rows passing
+  under it (headings legible below the search field); it draws a full-width
+  blurred SLAB for the bar to sit on, which Dave killed on 148. Hiding it
+  outright (148) brought the read-through straight back — his own screenshot
+  has an equipment name legible through the search field. Soft shows only where
+  content is actually under the chrome, so there's no slab on an empty stretch.
+  It goes on the SCROLLING CONTENT, never as a background on the bar — the
+  mistake build 133 made.
+  ⚠️ **Accessory placement is read-only**: `tabViewBottomAccessoryPlacement` is
+  the system's choice, `.inline` means "beside a MINIMIZED bar", and
+  `.tabBarMinimizeBehavior(.onScrollDown)` is what moves between the two — so
+  inline is a SCROLLED-DOWN state, not the resting one. A native `Tab` item is
+  also not a view the app can decorate (so per-scope counts can never ride tab
+  labels — they are retired). ⚠️ Anything that writes state during layout
+  (`.onGeometryChange`, `GeometryReader` + `PreferenceKey`) anywhere in the
+  TabView subtree breaks the search-role morph on FIRST activation (nav-diag
+  4e); measure from `UIFont` metrics instead, as `OverflowCapsuleRow` does.
+  **Return does not navigate** (Dave, 2026-07-26): submitting a search puts the
+  keyboard away, it does not choose a result — no `onSubmit` action on any
+  field in the app now.
+  **Today is a TAB, never a scope**: a timeline of derived state has nothing to
+  narrow. `All` is GONE, and an **empty query shows the scope's WHOLE list,
+  grouped as its tab groups it**. **All three scopes read alike: MINE then
+  CATALOG, and NO facet chips** (Dave) — so the Kit tab means "equipment, mine
+  first", not "my kit". The field replaces the retired chips: muscle groups sit
+  in `ExerciseFilterState.searchHaystack` and equipment categories in the
+  equipment scorer, so typing reaches them. The "require more equipment" group
+  splits INSIDE each tier (`MISSING_MINE`/`MISSING_CATALOG`): MINE/CATALOG is
+  the primary division, kit availability the secondary. Cross-scope discovery
+  rides **per-scope result counts on the scope labels** (no number at rest),
+  never link rows — and each surface publishes its OWN count by summing its own
+  sections (a central `matchCounts` meant a second ranking pass per keystroke).
+  Prompts and empty states use `FindScope.searchNoun`, not `label`: the Kit
+  scope searches the equipment CATALOG, so it says "Search equipment".
+- **One swipe law on every catalog row: LEADING is curation, TRAILING is
+  destructive** (2026-07-25). Exercises lead FAV/UNFAV, trail DELETE on customs
+  only; Kit leads ADD/REMOVE membership, trails DELETE on customs; Routines
+  trail DELETE. Catalog templates have neither and are plain rows. **Row
+  context menus are gone** — the swipes ARE those acts now, and on Routines a
+  long press has to belong to `.onMove`. **Reorder is routines-only, tab-only,
+  empty-query-only, MINE-tier-only**: a ranked or narrowed list has no order to
+  write back, and writing one would destroy the user's drag-ordering. Routines
+  render as **cardless rows** outside Today — a catalog list reads flat — but
+  cardless is a CHROME decision: the row still renders the shared
+  `RoutineCardContent` (title · `focus · schedule · effort · estimate` ·
+  equipment tier), so it loses the card, never its facts. Templates render the
+  same body from `RoutineMeta(focus:effort:estimate:gear:)`, so a template reads
+  identically to the routine it becomes.
+- **The PRESENTED equipment catalog is one flat alphabetical run**, while the
+  Kit TAB groups MINE/CATALOG (2026-07-25). Deliberate: the presented form is
+  the ADD surface, and with the tiers every quick-add lifts the row you just
+  swiped to the top and shifts the rows under your thumb — worst in onboarding
+  step 1, a run of eight adds. The in-kit checkmark carries membership there.
+- **Heading treatment follows the nature of the title** (2026-07-18; the tab
+  roots reworked 2026-07-26): a **tab root** wears the SYSTEM navigation bar —
+  `.navigationTitle` + `.navigationBarTitleDisplayMode(.large)`, with the ++ key
+  (`AppMenuKey`) as a leading `ToolbarItem` and the root's own accessory
+  (Today's Start key, the catalogs' kit switcher) as a trailing one. Both keys
+  carry **`.sharedBackgroundVisibility(.hidden)`**, since they bring their own
+  raised-key chrome and would otherwise nest inside the toolbar's shared glass
+  capsule — a box in a box, the same fault that killed the bottom accessory.
+  ⚠️ **A tab root must NOT hide its navigation bar.** The hand-drawn
+  `CatalogTabHeader` + `.toolbar(.hidden, for: .navigationBar)` cost three
+  builds to unlearn: `.searchable` AND its scope bar belong to that bar's
+  presentation, so hiding it left the field with nowhere to fall back to when
+  the morph failed (build 135's invisible input) and the scope bar with nothing
+  to attach to at all (build 140's missing scopes). `CatalogTabHeader` is
+  DELETED and Today's hand-rolled twin with it; the system bar handles the
+  Dynamic-Type reflow that the old `.layoutPriority(1)` / no-`.fixedSize` rules
+  used to police by hand. Today keeps a pinned WEEK STRIP (tally + `BlockBar`)
+  between the bar and its scroll — deliberately not scroll content, since the
+  opening scroll seats today at the top and anything above that anchor would be
+  off-screen on arrival. A **pushed utility/catalog
   screen** with a fixed label keeps the small centered `pushedScreenChrome`
   title; a **pushed detail screen showing a dynamic name** clears its chrome
   title (`title: ""`) and leads the body with a large left header that wraps to
@@ -216,12 +407,13 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
 - Warm charcoal dark (`#201F1D` family); the watch keeps system black.
 - Draw every color from `Theme` — never ad-hoc literals.
 - **Two tag tiers, rounded rects not pills, all-caps is section-labels-only**
-  (2026-07-18, shapes/mono revised 2026-07-20): a **filter chip** is a button
-  — sentence-case plain font, a border when unselected, a solid blue fill when
-  selected (`FacetChip`/`MultiFacetChip`/`TrayFilterChip`/`SortChip`/
-  `SelectableChip`, facet names passed sentence-case; the old
-  `KitFilterChip` sheet-chip retired with the 2026-07-21 axes separation —
-  the equipment catalog's Kit facet is a plain `FacetChip`). A **card
+  (2026-07-18, shapes/mono revised 2026-07-20): a **selectable chip** is a
+  button — sentence-case plain font, a border when unselected, a solid blue
+  fill when selected. `SelectableChip` is the last of them: the FACET chips
+  (`FacetChip`/`MultiFacetChip`/`TrayFilterChip`/`FilterSummaryChip`/`SortChip`,
+  and `KitFilterChip` before them) are **all DELETED as of 2026-07-25** — no
+  catalog surface filters by facet any more, so nothing constructed them. If a
+  facet is ever wanted again, git history has them; don't re-derive. A **card
   data tag** is not a button — it shows an item's property, so it wears the
   soft `surfaceRaised` fill with NO stroke (a stroked tag reads as a button).
   That style is the shared `CardTagCapsule` (the routine gear pills use it too).
@@ -292,8 +484,11 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   is FAVORITES (`Exercise.isFavorite`; `inLibrary` frozen). The old GEAR facet
   (four `GearMode`s: All / can do with the kit / can't / a hand-picked set) was
   the opt-in availability filter that replaced hide-by-default; it (and
-  `GearPickSheet`) were RETIRED 2026-07-25 for the collapsible group — Favorites
-  and Muscle remain the tab's filters. Filters persist device-locally. Copy says "have"/"in your kit",
+  `GearPickSheet`) were RETIRED 2026-07-25 for the collapsible group, and later
+  the same day **Favorites and Muscle went too** — no catalog surface carries
+  facet chips now (the search field reaches what they reached), so the persisted
+  `exerciseCatalog.*` keys died with them; curation is the MINE tier and the
+  favorite swipe. Copy says "have"/"in your kit",
   never "own" (that word survives only for data ownership) and never "have access
   to" (retired 2026-07-17; permission-grant copy keeps "access" — Apple's
   word). **One possessive for the active kit: “your kit”** (2026-07-20;

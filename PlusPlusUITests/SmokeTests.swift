@@ -26,9 +26,69 @@ final class SmokeTests: XCTestCase {
     private func launchAndSettle() {
         for attempt in 0..<2 {
             app.launch()
-            if app.tabBars.buttons["Today"].waitForExistence(timeout: 30) { return }
+            if tabButton("today").waitForExistence(timeout: 30) { return }
             if attempt == 0 { app.terminate() }
         }
+    }
+
+    /// The chrome is the system's `TabView` bar, carrying Today · Routines ·
+    /// Exercises · Kit · Search (2026-07-26). The three catalog tabs and the
+    /// search tab all show the same screen; the tab only picks the scope.
+    private func tabButton(_ tab: String) -> XCUIElement {
+        app.tabBars.buttons[tab.capitalized]
+    }
+
+    /// Go to a catalog by its tab. The native search scope bar does the same
+    /// job WHILE searching (`selectScope`); this is the resting way.
+    private func goToCatalog(_ scope: String) {
+        let key = tabButton(scope)
+        XCTAssertTrue(key.waitForExistence(timeout: 10), "the \(scope) tab is in the bar")
+        key.tap()
+    }
+
+    /// The NATIVE search field, expanded out of the search-role tab — a
+    /// `searchField` element, not a custom `textField` with an identifier.
+    private var searchField: XCUIElement {
+        app.searchFields.firstMatch
+    }
+
+    /// Open the catalogs (the separated search circle beside Today), which
+    /// morphs the bar into the field.
+    private func openSearch() {
+        let key = app.tabBars.buttons["Search"]
+        XCTAssertTrue(key.waitForExistence(timeout: 10))
+        key.tap()
+        XCTAssertTrue(searchField.waitForExistence(timeout: 5))
+    }
+
+    /// Pick a catalog on the segmented control in the search surface's
+    /// navigation bar. It exists only on the Search tab — off search the tab
+    /// bar is the scope control (`goToCatalog`).
+    ///
+    /// It's a native `Picker(.segmented)`, so its segments are the system's own
+    /// buttons; there are no app-set identifiers to hit. The segments are
+    /// GLYPHS (iOS segmented controls take a title or an image, never both), so
+    /// the word only reaches XCUITest through the `.accessibilityLabel` the
+    /// control sets — matched by CONTAINS, and falling back to POSITION if that
+    /// label doesn't propagate, since the scope order is fixed by
+    /// `FindScope.allCases` and a name miss here would otherwise read as "the
+    /// control is missing".
+    private func selectScope(_ scope: String) {
+        let control = app.segmentedControls.firstMatch
+        XCTAssertTrue(control.waitForExistence(timeout: 5), "the scope control rides the navigation bar on search")
+        let named = control.buttons
+            .matching(NSPredicate(format: "label CONTAINS[c] %@", scope))
+            .firstMatch
+        if named.exists {
+            named.tap()
+            return
+        }
+        let order = ["routines", "exercises", "kit"]
+        guard let index = order.firstIndex(of: scope.lowercased()) else {
+            XCTFail("unknown scope \(scope)")
+            return
+        }
+        control.buttons.element(boundBy: index).tap()
     }
 
     // MARK: - Flows
@@ -227,23 +287,18 @@ final class SmokeTests: XCTestCase {
     }
 
     func testRoutinesTabOpensTemplateDetail() throws {
-        let routinesTab = app.tabBars.buttons["Routines"]
-        XCTAssertTrue(routinesTab.waitForExistence(timeout: 10))
-        routinesTab.tap()
+        goToCatalog("routines")
 
-        // The Add row opens Find or create pre-scoped to Routines
-        // (2026-07-23); its field is always open, no magnifier toggle.
+        // The tab already lists the catalog templates under CATALOG, so
+        // reaching one is just search narrowing the list you're on — no
+        // detour through another surface (2026-07-25). Search also PINS the
+        // row (the lazy-List rule); a bodyweight template survives a
+        // zero-equipment store, so don't swap in a gear-requiring one.
         let plus = app.buttons["newRoutineButton"]
         XCTAssertTrue(plus.waitForExistence(timeout: 5))
-        plus.tap()
+        openSearch()
 
-        // Search pins the template (lazy-List rule). A bodyweight
-        // template also survives zero-owned stores — don't swap in a
-        // gear-requiring one.
-        // The NATIVE search field (2026-07-24) — a searchField element, no
-        // longer a custom textField with a set identifier.
-        let field = app.searchFields.firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        let field = searchField
         field.tap()
         field.typeText("Bodyweight Basics")
         let templateRow = app.staticTexts["Bodyweight Basics"]
@@ -260,51 +315,28 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         XCTAssertEqual(field.value as? String, "Bodyweight Basics")
 
-        // Leaving the native search surface is a normal tab tap now (the
-        // custom Done key is retired with the native field). While a query is
-        // present the search-role tab can hold the tab-bar slot with a Cancel
-        // button in place of the tabs, so collapse search first if it's up,
-        // then tap the tab.
-        let cancelSearch = app.buttons["Cancel"]
-        if cancelSearch.exists { cancelSearch.tap() }
-        app.tabBars.buttons["Routines"].tap()
+        // The native field's own Cancel clears the query; the catalog stays
+        // put, since the SCOPE — not the field — decides which one you're on.
+        app.buttons["Cancel"].firstMatch.tap()
         XCTAssertTrue(plus.waitForExistence(timeout: 5))
     }
 
-    /// The universal surface end to end: open from the tab bar's search
-    /// item, scope to Exercises, create a custom from the query, and land
-    /// on the Exercises tab with the new row present (the no-toasts
-    /// landing grammar).
+    /// The universal surface end to end: open search from the bar, switch to
+    /// the Exercises scope (one of the three tabs the field absorbed), create
+    /// a custom from the query, and land on the Exercises tab with the new row
+    /// present (the no-toasts landing grammar).
     func testUniversalSearchCreatesExercise() throws {
-        let searchTab = app.tabBars.buttons["Search"]
-        XCTAssertTrue(searchTab.waitForExistence(timeout: 10))
-        searchTab.tap()
+        openSearch()
+        snap("find-or-create-open")
 
-        // All scope opens with the create chooser row present.
-        XCTAssertTrue(app.buttons["findCreateMenu"].waitForExistence(timeout: 5))
-        snap("find-or-create-all")
-
-        // Scope to Exercises; the create row becomes the direct editor path.
-        // The scope is an inline wheel — the Exercises segment sits off-centre
-        // (not hittable) until the wheel is swiped to bring it toward centre.
-        let exercisesScope = app.buttons["findScope-exercises"]
-        let scopeWheel = app.scrollViews["findScopeWheel"]
-        var swipes = 0
-        while !exercisesScope.isHittable && swipes < 8 {
-            let start = scopeWheel.coordinate(withNormalizedOffset: CGVector(dx: 0.72, dy: 0.5))
-            let end = scopeWheel.coordinate(withNormalizedOffset: CGVector(dx: 0.28, dy: 0.5))
-            start.press(forDuration: 0.01, thenDragTo: end)
-            swipes += 1
-        }
-        XCTAssertTrue(exercisesScope.waitForExistence(timeout: 2))
-        exercisesScope.tap()
-        let createRow = app.buttons["findCreateExercise"]
+        // While searching, the catalog is picked on the accessory's scope
+        // control rather than by leaving for another tab.
+        selectScope("exercises")
+        let createRow = app.buttons["createExerciseRow"]
         XCTAssertTrue(createRow.waitForExistence(timeout: 5))
 
         // The query prefills the editor (the create-from-here contract).
-        // The NATIVE search field (2026-07-24) — a searchField element, no
-        // longer a custom textField with a set identifier.
-        let field = app.searchFields.firstMatch
+        let field = searchField
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap()
         field.typeText("Wall Slides")
@@ -323,7 +355,10 @@ final class SmokeTests: XCTestCase {
         // assertion's first form failed CI exactly that way). The tab
         // item's selection + the scrolled-into-view row are the honest
         // probes.
-        let exercisesTab = app.tabBars.buttons["Exercises"]
+        // The landing leaves search for the Exercises TAB and shows the new
+        // row. The tab item carries `.isSelected`, so it is the honest probe
+        // for "we ended up on the right catalog".
+        let exercisesTab = tabButton("exercises")
         XCTAssertTrue(exercisesTab.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Wall Slides"].waitForExistence(timeout: 5))
         XCTAssertTrue(exercisesTab.isSelected)
@@ -458,9 +493,7 @@ final class SmokeTests: XCTestCase {
         app.launchArguments += ["--uitest-bigworkout"]
         app.launch()
 
-        let routinesTab = app.tabBars.buttons["Routines"]
-        XCTAssertTrue(routinesTab.waitForExistence(timeout: 10))
-        routinesTab.tap()
+        goToCatalog("routines")
 
         let card = app.staticTexts["Big Day"]
         XCTAssertTrue(card.waitForExistence(timeout: 10))
@@ -527,23 +560,20 @@ final class SmokeTests: XCTestCase {
         // is always fully visible, so equipment Done goes straight on to
         // step 2 with content already available downstream.
 
-        // Step 2 unlocks: pick a routine. The step deep-links into Find or
-        // create (Routines scope) now — the standalone routine catalog was
-        // retired (2026-07-24). This exercises search + Add end to end.
+        // Step 2 unlocks: pick a routine. The step lands on the Routines tab,
+        // which IS the routine catalog now (2026-07-25) — yours, then
+        // everything you could add. This exercises search + Add end to end.
         let routineCTA = app.buttons["setupRoutineStep"]
         XCTAssertTrue(routineCTA.waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Equipment set"].waitForExistence(timeout: 5))
         snap("setup-step2")
         routineCTA.tap()
 
-        // Search pins the template regardless of sort order or catalog
-        // growth (the lazy-List rule: only realized rows exist). The Find
-        // or create field is always visible (no toggle). "Bodyweight Basics"
-        // is bodyweight, so it survives the default-on Doable filter.
-        // The NATIVE search field (2026-07-24) — a searchField element, no
-        // longer a custom textField with a set identifier.
-        let field = app.searchFields.firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        // Search pins the template regardless of catalog growth (the
+        // lazy-List rule: only realized rows exist).
+        XCTAssertTrue(app.buttons["newRoutineButton"].waitForExistence(timeout: 10))
+        openSearch()
+        let field = searchField
         field.tap()
         field.typeText("Bodyweight Basics")
         let templateRow = app.staticTexts["Bodyweight Basics"]
@@ -564,7 +594,7 @@ final class SmokeTests: XCTestCase {
             "the template add should land on the Routines list showing the new card"
         )
         snap("setup-step2-added")
-        app.tabBars.buttons["Today"].tap()
+        tabButton("today").tap()
 
         // Step 3 unlocks: schedule Bodyweight Basics for today so it stages.
         let scheduleCTA = app.buttons["setupScheduleStep"]
@@ -616,7 +646,7 @@ final class SmokeTests: XCTestCase {
         // The intro yields to the app proper. The tab bar EXISTS under
         // the overlay the whole time, so existence proves nothing —
         // hittability is the dismissal signal.
-        let today = app.tabBars.buttons["Today"]
+        let today = tabButton("today")
         XCTAssertTrue(today.waitForExistence(timeout: 10))
         let hittable = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == 1"), object: today)
         XCTAssertEqual(XCTWaiter().wait(for: [hittable], timeout: 10), .completed, "the welcome screen must land in the tabbed app")
@@ -675,22 +705,15 @@ final class SmokeTests: XCTestCase {
     }
 
     private func createRoutine(named name: String) {
-        // Universal search (2026-07-23): the Routines Add row opens the
-        // Find-or-create surface pre-scoped, whose create row (empty
-        // query) asks for a name; the created routine LANDS back on the
-        // Routines list with the entrance flash, and the helper walks
-        // into its detail from there.
-        let routinesTab = app.tabBars.buttons["Routines"]
-        XCTAssertTrue(routinesTab.waitForExistence(timeout: 10))
-        routinesTab.tap()
+        // The Routines tab IS the search scope (2026-07-25), so its top row
+        // creates inline rather than deep-linking anywhere: with no query it
+        // asks for a name, and the routine LANDS back on the list with the
+        // entrance flash, where the helper walks into its detail.
+        goToCatalog("routines")
 
         let plus = app.buttons["newRoutineButton"]
         XCTAssertTrue(plus.waitForExistence(timeout: 5))
         plus.tap()
-
-        let createRow = app.buttons["createBlankRoutine"]
-        XCTAssertTrue(createRow.waitForExistence(timeout: 5))
-        createRow.tap()
 
         let alert = app.alerts["New routine"]
         XCTAssertTrue(alert.waitForExistence(timeout: 5))
@@ -710,11 +733,8 @@ final class SmokeTests: XCTestCase {
     }
 
     private func search(for text: String) {
-        // The picker's search is the expanding in-header field now: tap the
-        // magnifier toggle, then type into the revealed field.
-        let toggle = app.buttons["exercisePickerSearchFieldToggle"]
-        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
-        toggle.tap()
+        // The picker is a sheet whose field sits at the BOTTOM (2026-07-25) —
+        // always visible, so there's no magnifier to expand first.
         let searchField = app.textFields["exercisePickerSearchField"].firstMatch
         XCTAssertTrue(searchField.waitForExistence(timeout: 5))
         searchField.tap()

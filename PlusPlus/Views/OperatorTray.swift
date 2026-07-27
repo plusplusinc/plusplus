@@ -158,10 +158,7 @@ struct OperatorTray: View {
                     // Re-post (the user may have wandered since the
                     // apply-time auto-navigation), then get out of the
                     // way: tray down, drawer closed, result on screen.
-                    NotificationCenter.default.post(
-                        name: .plusplusOperatorShow,
-                        object: payload.destinations.first
-                    )
+                    payload.destinations.first.map(OperatorDestination.show)
                     reveal.close()
                     dismiss()
                 },

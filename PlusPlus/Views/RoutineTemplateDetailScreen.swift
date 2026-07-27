@@ -283,7 +283,7 @@ struct GearCheckTray: View {
         .presentationDetents([.medium, .large])
         .sheet(isPresented: $showingCatalog) {
             NavigationStack {
-                EquipmentCatalogScreen()
+                CatalogScopeView(scope: .kit)
             }
         }
     }

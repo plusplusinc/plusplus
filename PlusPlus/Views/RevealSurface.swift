@@ -111,7 +111,7 @@ struct RevealSurface: View {
         .sheet(item: $activePush) { push in
             NavigationStack {
                 switch push {
-                case .equipment: EquipmentCatalogScreen(setupMode: true)
+                case .equipment: CatalogScopeView(scope: .kit, setupMode: true)
                 }
             }
         }

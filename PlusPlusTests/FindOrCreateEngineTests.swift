@@ -74,9 +74,10 @@ struct FindOrCreateEngineTests {
             exercises: world.exercises, equipment: world.equipment,
             routines: world.routines, templates: [], kitNames: world.kitNames
         )
-        // Doable grouped MINE/CATALOG, then the collapsible missing group:
-        // Probe Press needs Probe Bench (not in the kit), so it splits out.
-        #expect(sections.map(\.title) == ["MINE", "CATALOG", "MISSING"])
+        // MINE then CATALOG, and the missing subgroup sits INSIDE its own tier
+        // (2026-07-25). Probe Press is built-in and unfavorited, so it belongs
+        // to CATALOG, and its missing group follows CATALOG's doable rows.
+        #expect(sections.map(\.id) == ["MINE", "CATALOG", "MISSING_CATALOG"])
         // MINE = the favorite + the custom, alphabetical within the tier.
         #expect(sections[0].results.map(\.name) == ["Probe Curl", "Probe Custom Move"])
         #expect(sections[1].results.map(\.name) == ["Probe Squat"])
@@ -84,53 +85,80 @@ struct FindOrCreateEngineTests {
         #expect(sections[2].results.map(\.name) == ["Probe Press"])
     }
 
-    @Test("All scope caps the doable overview and folds the rest")
-    func allScopeCaps() throws {
+    @Test("Each tier carries its own missing subgroup, not one pooled at the end")
+    func missingSplitsPerTier() throws {
         let context = ModelContext(try makeContainer())
         let world = makeWorld(context: context)
-
-        // Five doable routines (1 user + 4 templates) exercise the fold; the
-        // bodyweight exercises stay doable, Probe Press splits to its own group.
-        let sections = FindOrCreateEngine.sections(
-            query: "", scope: .all,
-            exercises: world.exercises, equipment: world.equipment,
-            routines: world.routines,
-            templates: [template("Probe Plan A"), template("Probe Plan B"),
-                        template("Probe Plan C"), template("Probe Plan D")],
-            kitNames: world.kitNames
-        )
-        let routines = try #require(sections.first { $0.title == "ROUTINES" && $0.kind == .results })
-        #expect(routines.count == 5)          // full count before the fold
-        #expect(routines.results.count == 3)  // capped
-        #expect(routines.moreCount == 2)
-        #expect(routines.results.first?.name == "Probe Day")  // yours floats up
-
-        let exercisesDoable = try #require(sections.first { $0.title == "EXERCISES" && $0.kind == .results })
-        #expect(exercisesDoable.results.map(\.name) == ["Probe Curl", "Probe Custom Move", "Probe Squat"])
-        #expect(exercisesDoable.moreCount == 0)
-    }
-
-    @Test("All scope: a missing group follows its type with a scope jump")
-    func allScopeMissingGroup() throws {
-        let context = ModelContext(try makeContainer())
-        let world = makeWorld(context: context)
+        // Favoriting the one gear-needing exercise moves it into MINE, so both
+        // tiers now hold something the kit can't do.
+        let press = try #require(world.exercises.first { $0.name == "Probe Press" })
+        press.isFavorite = true
+        let bench = try #require(world.equipment.first { $0.name == "Probe Bench" })
+        let extra = Exercise(name: "Probe Machine Row", muscleGroup: .back, isBuiltIn: true)
+        context.insert(extra)
+        extra.equipment = [bench]
+        try? context.save()
 
         let sections = FindOrCreateEngine.sections(
-            query: "", scope: .all,
-            exercises: world.exercises, equipment: world.equipment,
+            query: "", scope: .exercises,
+            exercises: world.exercises + [extra], equipment: world.equipment,
             routines: world.routines, templates: [], kitNames: world.kitNames
         )
-        let missing = try #require(sections.first { $0.kind == .missing(noun: "exercise") })
-        #expect(missing.count == 1)
-        #expect(missing.results.map(\.name) == ["Probe Press"])
-        // The group's more-row jumps into the exercises scope, like the
-        // doable overview above it.
-        #expect(missing.scopeTarget == .exercises)
-        // It sits right after the doable EXERCISES section.
-        let titles = sections.map(\.id)
-        let doableIdx = try #require(titles.firstIndex(of: "EXERCISES"))
-        let missingIdx = try #require(titles.firstIndex(of: "MISSING_EXERCISES"))
-        #expect(missingIdx == doableIdx + 1)
+        // Yours-that-need-equipment stays with YOURS; the catalog's stays with
+        // the catalog. MINE/CATALOG is the primary split, kit the secondary.
+        #expect(sections.map(\.id) == ["MINE", "MISSING_MINE", "CATALOG", "MISSING_CATALOG"])
+        #expect(sections[1].results.map(\.name) == ["Probe Press"])
+        #expect(sections[3].results.map(\.name) == ["Probe Machine Row"])
+    }
+
+    // MARK: - Scope counts
+
+    // The counts the bottom bar paints beside each scope label. They're what
+    // replaced the retired All lens: a hit in a scope you aren't looking at
+    // has to advertise itself on the control that switches to it. Each scope's
+    // surface publishes its own by summing the sections it already built
+    // (2026-07-25 — a separate `matchCounts` meant a second ranking pass per
+    // keystroke), so the contract under test is that sum. The "an empty query
+    // counts nothing" half of the rule lives in the surface, not here.
+    private func scopeCount(_ sections: [FindOrCreateEngine.Section]) -> Int {
+        sections.reduce(0) { $0 + $1.count }
+    }
+
+    @Test("Scope counts cover every scope, doable and missing alike")
+    func scopeCountsPerScope() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+
+        func count(_ scope: FindScope, templates: [RoutineTemplate] = []) -> Int {
+            scopeCount(FindOrCreateEngine.sections(
+                query: "Probe", scope: scope,
+                exercises: world.exercises, equipment: world.equipment,
+                routines: world.routines, templates: templates,
+                kitNames: world.kitNames
+            ))
+        }
+        // Exercises counts the missing one too — the count is "results", and a
+        // result the kit can't do is still shown (under its disclosure).
+        #expect(count(.exercises) == world.exercises.count)
+        #expect(count(.kit) == world.equipment.count)
+        #expect(count(.routines, templates: [template("Probe Plan")]) == world.routines.count + 1)
+    }
+
+    @Test("A query that misses a scope counts it zero")
+    func scopeCountZeroForMiss() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+
+        func count(_ scope: FindScope) -> Int {
+            scopeCount(FindOrCreateEngine.sections(
+                query: "Curl", scope: scope,
+                exercises: world.exercises, equipment: world.equipment,
+                routines: world.routines, templates: [], kitNames: world.kitNames
+            ))
+        }
+        // A zero is what tells the label that switching there is pointless.
+        #expect(count(.kit) == 0)
+        #expect(count(.exercises) >= 1)
     }
 
     // MARK: - Partitions
@@ -214,7 +242,7 @@ struct FindOrCreateEngineTests {
         let world = makeWorld(context: context)
 
         let sections = FindOrCreateEngine.sections(
-            query: "zzzz", scope: .all,
+            query: "zzzz", scope: .exercises,
             exercises: world.exercises, equipment: world.equipment,
             routines: world.routines, templates: [], kitNames: world.kitNames
         )

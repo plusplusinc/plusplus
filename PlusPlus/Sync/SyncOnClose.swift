@@ -22,5 +22,10 @@ private struct SyncsProgramOnClose: ViewModifier {
 
 extension View {
     /// Commit this surface's program changes to GitHub when it closes.
+    ///
+    /// Covers the tab roots too: a native `TabView` fires `onDisappear` on the
+    /// tab you leave, so leaving a catalog is an ordinary close. (The
+    /// hand-rolled ZStack-of-roots era needed a `visible:` twin, since those
+    /// roots only hid; it went with the roots.)
     func syncsProgramOnClose() -> some View { modifier(SyncsProgramOnClose()) }
 }

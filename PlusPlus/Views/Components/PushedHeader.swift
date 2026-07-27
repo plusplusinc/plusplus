@@ -154,8 +154,6 @@ struct HeaderSearchField: View {
 struct SearchFieldBody: View {
     let config: HeaderSearchConfig
     @Binding var wantsFocus: Bool
-    /// Return-key action (the Find-or-create "open the top result").
-    var onSubmit: (() -> Void)? = nil
 
     @FocusState private var focused: Bool
 
@@ -171,7 +169,8 @@ struct SearchFieldBody: View {
                 .autocorrectionDisabled()
                 .focused($focused)
                 .accessibilityIdentifier(config.identifier)
-                .onSubmit { onSubmit?() }
+                // No Return action anywhere (Dave, 2026-07-26): submitting a
+                // search puts the keyboard away, it doesn't choose a result.
                 .onAppear {
                     if wantsFocus {
                         wantsFocus = false

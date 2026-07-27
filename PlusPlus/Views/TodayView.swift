@@ -89,7 +89,6 @@ struct TodayView: View {
     /// container AND can't be scrolled off the top (Dave, 2026-07-17):
     /// the headroom below it is capped to exactly one viewport minus the
     /// step, so "step 1 at top" is the maximum downward scroll.
-    @State private var equipmentStepHeight: CGFloat = 0
     /// The workout just finished (its recap closed), awaiting the
     /// pending→done conversion flourish on its committed card. Nil
     /// outside the beat.
@@ -185,7 +184,7 @@ struct TodayView: View {
     var body: some View {
         NavigationStack(path: $todayPath) {
             VStack(spacing: 0) {
-                header
+                weekStrip
 
                 // The viewport height feeds the below-anchor min height
                 // (#267 follow-up): bound synchronously through the
@@ -275,7 +274,7 @@ struct TodayView: View {
                                         }
                                     }
                                     if setupActive {
-                                        setupSection
+                                        setupSection(viewportHeight: viewport.size.height)
                                     }
                                     // Carried-over occurrences (Kit .missed):
                                     // a past scheduled day that lapsed, shown
@@ -313,7 +312,7 @@ struct TodayView: View {
                                     // (the reveal-scroll only runs while setup is
                                     // active).
                                     if !setupActive {
-                                        setupSection
+                                        setupSection(viewportHeight: viewport.size.height)
                                     }
                                     // Reveal-upward headroom (2026-07-16): the
                                     // setup scaffold reveals its steps by
@@ -328,10 +327,6 @@ struct TodayView: View {
                                     // it can't be pushed off the top. It sits below
                                     // the fold and vanishes with the scaffold at
                                     // the first logged session.
-                                    if setupActive {
-                                        Color.clear
-                                            .frame(height: max(0, viewport.size.height - equipmentStepHeight - 24))
-                                    }
                                 }
                                 // Pad the below-anchor region to at least a
                                 // screen so today can always scroll to the
@@ -342,6 +337,12 @@ struct TodayView: View {
                             .padding(.horizontal, 16)
                             .padding(.bottom, 24)
                         }
+                        // SOFT at the bottom — same call as the catalogs. The
+                        // `.hard` slab is what Dave killed; hiding the effect
+                        // outright let content read through the bar. Soft is
+                        // the system's gradient: visible only where something
+                        // is actually passing under the chrome.
+                        .scrollEdgeEffectStyle(.soft, for: .bottom)
                         .refreshable {
                             // Honest refresh (#267): due-ness is pure local
                             // computation keyed on the clock, so bumping the
@@ -441,7 +442,28 @@ struct TodayView: View {
                 }
             }
             .background(Theme.background)
-            .toolbar(.hidden, for: .navigationBar)
+            // The SYSTEM navigation bar, like every other tab root as of
+            // 2026-07-26 — Today's hand-rolled header is gone with the
+            // catalogs'. Nothing forced it here (Today hosts no search), but
+            // one tab keeping a drawn title row while four wear the real bar
+            // is an inconsistency with nothing behind it.
+            .navigationTitle("Today")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                // Both keys bring their own chrome, so they opt OUT of the
+                // toolbar's shared glass rather than nesting inside a system
+                // capsule — same as the catalog tabs.
+                ToolbarItem(placement: .topBarLeading) { AppMenuKey() }
+                    .sharedBackgroundVisibility(.hidden)
+                // Settings' old seat starts workouts instead (#266): the one
+                // action that should never be more than a tap away.
+                ToolbarItem(placement: .topBarTrailing) {
+                    HeaderIconButton(systemImage: "play.fill", accessibilityLabel: "Start a workout", identifier: "startTrayButton") {
+                        showingSwapIn = true
+                    }
+                }
+                .sharedBackgroundVisibility(.hidden)
+            }
             .navigationDestination(for: RoutineRef.self) { ref in
                 // Resolve by stable uuid, not by pushing the @Model (whose
                 // persistentModelID can swap under the push) — see ModelRefs.
@@ -515,7 +537,7 @@ struct TodayView: View {
             // The one-time Health ask, in front of the first workout start.
             .healthStartPrimer($healthStartRequest)
             .navigationDestination(isPresented: $showingEquipmentSetup) {
-                EquipmentCatalogScreen(setupMode: true)
+                CatalogScopeView(scope: .kit, setupMode: true)
             }
             .alert("New routine", isPresented: $showingNewRoutine) {
                 TextField("Name", text: $newRoutineName)
@@ -1279,73 +1301,49 @@ struct TodayView: View {
         }, orPresent: { healthStartRequest = $0 })
     }
 
-    // MARK: - Header
+    // MARK: - Week strip
 
-    private var header: some View {
+    /// The week's status, under the navigation bar and ABOVE the scroll.
+    ///
+    /// Pinned deliberately (2026-07-26): it could have become the scroll's
+    /// first content and slid away with the large title, but the opening
+    /// scroll seats TODAY at the very top, so anything above that anchor is
+    /// off-screen the moment you arrive. The week tally is not something you
+    /// should have to scroll UP to find.
+    ///
+    /// The title and the two keys that used to sit above this are the
+    /// navigation bar's now.
+    @ViewBuilder
+    private var weekStrip: some View {
         let plan = weekPlan
-        return VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
-                // The ++ is a button (#266): the app-level page —
-                // Settings, About, What's new, links, feedback. Since
-                // build 44 every root header wears it (AppMenuKey).
-                AppMenuKey()
-                // The big title rides the icon row, left-aligned just right
-                // of the ++ key (2026-07-19). `layoutPriority` keeps it at
-                // full `.title` size without shoving the start key off-row.
-                if !dynamicTypeSize.isAccessibilitySize {
-                    Text("Today")
-                        .font(.system(.title, weight: .bold))
-                        .lineLimit(1)
-                        .layoutPriority(1)
-                        // +8 on top of the HStack's 8 pt spacing = a 16 pt gap
-                        // from the ++ key, matching the key's own inset from
-                        // the screen edge (Dave, 2026-07-19).
-                        .padding(.leading, 8)
+        let showsBar = !(setupActive && !allSetupDone) && plan.planned > 0
+        let line = caption(plan: plan)
+        // Nothing to say (no plan, past setup) means no strip at all — not an
+        // empty box holding padding open under the title.
+        if line != nil || showsBar {
+            VStack(alignment: .leading, spacing: 0) {
+                if let line {
+                    Text(line)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(Theme.textFaint)
                 }
-                Spacer(minLength: 8)
-                // Settings' old seat starts workouts instead (#266):
-                // the one action that should never be more than a tap
-                // away, via the existing start tray. Neutral like every
-                // header key (Quiet Arcade tightened green's scope to
-                // true data; the flourish moved into Start's flash).
-                HeaderIconButton(systemImage: "play.fill", accessibilityLabel: "Start a workout", identifier: "startTrayButton") {
-                    showingSwapIn = true
+                // The week block bar: one block per scheduled session this
+                // week, filled purple as sessions land. Purple, not green —
+                // it counts what's committed, and it hides entirely when
+                // nothing is scheduled (no plan, no empty scorecard).
+                if showsBar {
+                    BlockBar(total: plan.planned, filled: plan.completed)
+                        .padding(.top, 8)
+                        // The caption above already states the fact for
+                        // VoiceOver; without this the bar announces a bare
+                        // "2 of 4" with no subject (a11y, 2026-07-23).
+                        .accessibilityHidden(true)
                 }
             }
-            // At accessibility sizes the title reflows to its own line below
-            // the icon row so it can wrap at full size (#164 / axiom).
-            if dynamicTypeSize.isAccessibilitySize {
-                Text("Today")
-                    .font(.system(.title, weight: .bold))
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, 10)
-            }
-            if let caption = caption(plan: plan) {
-                Text(caption)
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(Theme.textFaint)
-                    // 10 pt below the heading row, matching the space the
-                    // other three tab headers leave below their heading
-                    // (`CatalogTabHeader`'s `.padding(.bottom, 10)`) — Dave,
-                    // 2026-07-19.
-                    .padding(.top, 10)
-            }
-            // The week block bar: one block per scheduled session this
-            // week, filled purple as sessions land. Purple, not green —
-            // it counts what's committed, and it hides entirely when
-            // nothing is scheduled (no plan, no empty scorecard).
-            if !(setupActive && !allSetupDone), plan.planned > 0 {
-                BlockBar(total: plan.planned, filled: plan.completed)
-                    .padding(.top, 8)
-                    // The caption above already states the fact for
-                    // VoiceOver; without this the bar announces a bare
-                    // "2 of 4" with no subject (a11y, 2026-07-23).
-                    .accessibilityHidden(true)
-            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 12)
         }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 12)
     }
 
     private var weekPlan: (completed: Int, planned: Int) {
@@ -1546,7 +1544,7 @@ struct TodayView: View {
 
     /// Bottom-up like commits: equipment is the first entry (bottom),
     /// schedule the last (top). Each step gates on the one below it.
-    private var setupSection: some View {
+    private func setupSection(viewportHeight: CGFloat) -> some View {
         Group {
             SetupRow(
                 state: scheduleStepDone ? .done : (routineStepDone ? .ready : .gated),
@@ -1573,12 +1571,11 @@ struct TodayView: View {
                 gatedSub: "Needs your equipment first",
                 cta: "Pick a routine",
                 identifier: "setupRoutineStep",
-                // Deep-links into Find or create (Routines scope), the ONE
-                // find-or-create surface (2026-07-24): the standalone routine
-                // catalog was retired in its favor. The add lands on the
-                // Routines tab via RoutineArrival — the same end state the
-                // pushed catalog reached, now through one surface.
-                action: { FindOrCreateLaunch.open(.routines) },
+                // Lands on the Routines tab, which IS the routine catalog now
+                // (2026-07-25): yours, then everything you could add. The
+                // standalone catalog screen and the pre-scoped search deep link
+                // both retired into it.
+                action: { onGoToRoutines() },
                 edit: { onGoToRoutines() }
             )
             .id(Self.setupRoutineAnchor)
@@ -1598,9 +1595,23 @@ struct TodayView: View {
                 edit: { showingEquipmentSetup = true }
             )
             .id(Self.setupEquipmentAnchor)
-            // Feed the row's height back so the reveal-upward headroom can
-            // pin it at the top (see equipmentStepHeight).
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { equipmentStepHeight = $0 }
+            // Reveal-upward headroom (2026-07-16, rebuilt 2026-07-25): the
+            // scaffold reveals steps by scrolling the active one to the top,
+            // which the BOTTOM step can only reach if scrollable space sits
+            // below it. A viewport-tall, top-aligned box IS that space — and
+            // since the box is exactly one screen, seating this step at the top
+            // is also the furthest the list can scroll, so it can never be
+            // pushed off.
+            //
+            // This replaces a `Color.clear` spacer sized `viewport - stepHeight`
+            // from an `.onGeometryChange` probe on this row. That probe is the
+            // documented iOS 26 morph trigger (nav-diag 4e): a layout observer
+            // anywhere in the TabView subtree breaks `Tab(role: .search)`'s
+            // morph on FIRST activation, and since the catalog surface hides its
+            // nav bar the fallback placement has nowhere to render — the failure
+            // is no visible field at all. Build 126 shipped straight into it.
+            // The measurement is gone rather than moved.
+            .frame(minHeight: setupActive ? viewportHeight : 0, alignment: .top)
         }
     }
 

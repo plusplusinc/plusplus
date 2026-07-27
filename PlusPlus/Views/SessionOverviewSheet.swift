@@ -28,7 +28,6 @@ struct SessionOverviewSheet: View {
     // the new block appears right here when it closes — no dismiss-
     // then-present handoff (the documented presentation-drop class).
     @State private var showingAddExercise = false
-    @State private var pickerFilterState = ExerciseFilterState()
 
     /// One row per exercise-within-group, in rotation order.
     struct Block: Identifiable {
@@ -139,7 +138,7 @@ struct SessionOverviewSheet: View {
             .presentationDetents([.fraction(0.84)])
         }
         .sheet(isPresented: $showingAddExercise) {
-            ExercisePickerView(filterState: pickerFilterState, onConfigured: { config in
+            ExercisePickerView(onConfigured: { config in
                 session.appendExercise(config: config, context: modelContext)
             })
         }
@@ -381,7 +380,6 @@ struct SessionExerciseSheet: View {
     /// from the tray's onDismiss (after it is fully gone) rather than racing a
     /// one-runloop dismiss-then-present (swift-reviewer: the drop class).
     @State private var browseAllAfterTray = false
-    @State private var swapFilterState = ExerciseFilterState()
     @State private var confirmingRemove = false
 
     /// The origin exercise for suggestions — the block's live reference,
@@ -563,7 +561,7 @@ struct SessionExerciseSheet: View {
         // The full-catalog escape: the same configure-before-add picker the
         // session Add flow uses.
         .sheet(isPresented: $showingBrowseAllPicker) {
-            ExercisePickerView(filterState: swapFilterState, onConfigured: { config in
+            ExercisePickerView(title: "Swap exercise", onConfigured: { config in
                 session.swapPendingBlock(
                     groupIndex: block.groupIndex,
                     exerciseName: block.name,

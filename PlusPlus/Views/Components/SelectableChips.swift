@@ -38,7 +38,7 @@ struct SelectableChip: View {
                 .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius)
                     .strokeBorder(isSelected ? Color.clear : Theme.borderStrong, lineWidth: 1))
                 // 36 pt chip inside a 44 pt hit target, growing VERTICALLY ONLY
-                // — the same idiom as FacetChip/TrayFilterChip (FilterChips.swift).
+                // — the idiom the retired facet chips used (FilterChips.swift).
                 // A symmetric `.padding(4)` also inset the border horizontally,
                 // which shoved the leading chip 4 pt in from the row edge (out of
                 // line with the ++ key / create row / list rows) and widened the
