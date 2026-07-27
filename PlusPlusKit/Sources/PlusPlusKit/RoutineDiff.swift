@@ -114,13 +114,22 @@ public enum RoutineDiff {
 
     /// The order improvements are looked for — the first that moved is
     /// the exercise's one delta. Load beats reps (the v3 rule; a lighter
-    /// assistance stack IS the load moving), then an added ROUND, which
-    /// buys more volume than a couple of reps does, then reps, then the
-    /// plyo box, then for cardio a faster pace is the sexiest increment,
-    /// then more distance/calories/watts, then longer duration.
+    /// assistance stack IS the load moving), then the plyo box, then for
+    /// cardio a faster pace is the sexiest increment, then more
+    /// distance/calories/watts, then longer duration.
+    ///
+    /// Sets come LAST, against the instinct that an added round is the
+    /// bigger change. The set counts on the two sides are not the same
+    /// kind of number: the target's is PLANNED while the prior's is
+    /// COMPLETED, so finishing 2 of 3 last time manufactures a "+1 set"
+    /// out of a shortfall. In a first-match-wins list that artifact
+    /// would outrank and silence whatever genuinely moved — a routine
+    /// edited 3×8 to 3×10 would report the phantom round and hide the
+    /// added reps. Placed last, it can only speak when nothing real did.
     static let diffPriority: [Field] = [
-        .metric(.weight), .metric(.assistance), .sets, .metric(.reps), .metric(.height),
-        .metric(.pace), .metric(.distance), .metric(.calories), .metric(.power), .metric(.duration),
+        .metric(.weight), .metric(.assistance), .metric(.reps), .metric(.height),
+        .metric(.pace), .metric(.distance), .metric(.calories), .metric(.power),
+        .metric(.duration), .sets,
     ]
 
     /// Whether a field moved in the direction that means progress. Sets
@@ -209,8 +218,14 @@ public enum RoutineDiff {
                 if metric == .reps {
                     // A rep RANGE is met by any count inside it: 8–10
                     // asked for and 9 done is not a change, while the
-                    // same 9 against a 10–12 target is.
-                    let upper = target.repsUpper.map(Double.init) ?? staged
+                    // same 9 against a 10–12 target is. The upper is
+                    // clamped up to the lower because `repsUpper` is a
+                    // raw stored column that interchange import assigns
+                    // straight from a hand-edited file — `RepTarget`
+                    // drops an upper below its lower, this column does
+                    // not, and an inverted band would report an unmoved
+                    // rep count as changed.
+                    let upper = max(staged, target.repsUpper.map(Double.init) ?? staged)
                     if last < staged || last > upper { changed.insert(field) }
                 } else if staged != last {
                     changed.insert(field)

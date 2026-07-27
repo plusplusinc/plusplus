@@ -1099,8 +1099,11 @@ struct ActiveSessionView: View {
                 name: name,
                 isDuration: last.exerciseType == .duration,
                 // Both sides are actuals here, so this compares rounds
-                // finished against rounds finished.
-                sets: mine.count,
+                // finished against rounds finished. The highest set
+                // number reached rather than the log count, since an
+                // exercise can appear in more than one block and
+                // `setNumber` is 1-based within its group.
+                sets: mine.map(\.setNumber).max(),
                 weight: top.actualWeight,
                 reps: top.actualReps ?? last.actualReps,
                 durationSeconds: last.actualDuration,
@@ -1131,7 +1134,10 @@ struct ActiveSessionView: View {
             guard let last = matches.last else { continue }
             let top = matches.max { ($0.actualWeight ?? 0) < ($1.actualWeight ?? 0) } ?? last
             return RoutineDiff.Prior(
-                sets: matches.count,
+                // Only against the same routine: a set count belongs to a
+                // prescription, so alternating an A/B split that runs this
+                // exercise for different rounds must not read as movement.
+                sets: other.routineName == session.routineName ? matches.map(\.setNumber).max() : nil,
                 weight: top.actualWeight,
                 reps: top.actualReps ?? last.actualReps,
                 durationSeconds: last.actualDuration,

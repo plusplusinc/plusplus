@@ -100,20 +100,51 @@ struct RoutineDiffTests {
         #expect(RoutineDiff.summary(deltas: [.sets(-1)]) == [RoutineDiff.Segment(kind: .down, text: "−1 set")])
     }
 
-    @Test("Load still outranks an added round, which outranks reps")
-    func setsSitBetweenLoadAndReps() {
-        // Everything moved at once: load is still the headline.
-        let all = RoutineDiff.delta(
+    @Test("An added round never silences something that genuinely moved")
+    func setsComeLastSoTheyCannotSuppress() {
+        // The target's set count is PLANNED and the prior's is
+        // COMPLETED, so a shortfall last time manufactures a "+1 set"
+        // out of nothing. Seated anywhere but last in a
+        // first-match-wins list, that artifact hides the real edit:
+        // this routine went 3×8 to 3×10 and must say so.
+        let editedReps = RoutineDiff.delta(
+            target: RoutineDiff.Target(name: "Bench Press", sets: 3, weight: 135, reps: 10),
+            prior: RoutineDiff.Prior(sets: 2, weight: 135, reps: 8)
+        )
+        #expect(editedReps == .reps(2))
+
+        // Same shape for every other real metric below reps.
+        let editedPace = RoutineDiff.delta(
+            target: RoutineDiff.Target(name: "Run", sets: 3, extras: [.pace: 600], distanceUnit: .miles),
+            prior: RoutineDiff.Prior(sets: 2, extras: [.pace: 660])
+        )
+        #expect(editedPace == .pace(-60, .miles))
+
+        // Load is still the headline when it moves.
+        let loaded = RoutineDiff.delta(
             target: RoutineDiff.Target(name: "Bench Press", sets: 4, weight: 140, reps: 12),
             prior: RoutineDiff.Prior(sets: 3, weight: 135, reps: 10)
         )
-        #expect(all == .weight(5))
-        // Load held, so the added round speaks before the added reps.
-        let volume = RoutineDiff.delta(
-            target: RoutineDiff.Target(name: "Bench Press", sets: 4, weight: 135, reps: 12),
-            prior: RoutineDiff.Prior(sets: 3, weight: 135, reps: 10)
+        #expect(loaded == .weight(5))
+
+        // With nothing else moving, the added round is the only thing
+        // left to say.
+        let onlySets = RoutineDiff.delta(
+            target: RoutineDiff.Target(name: "Bench Press", sets: 4, weight: 135, reps: 8),
+            prior: RoutineDiff.Prior(sets: 3, weight: 135, reps: 8)
         )
-        #expect(volume == .sets(1))
+        #expect(onlySets == .sets(1))
+    }
+
+    @Test("A lighter assistance stack outranks reps, as the load rule says")
+    func assistanceOutranksReps() {
+        // Pins the position the v3 rule depends on: less assistance IS
+        // the load moving, so it speaks before an added rep.
+        let delta = RoutineDiff.delta(
+            target: RoutineDiff.Target(name: "Assisted Pull-Up", reps: 8, extras: [.assistance: 25]),
+            prior: RoutineDiff.Prior(reps: 6, extras: [.assistance: 35])
+        )
+        #expect(delta == .assistance(-10))
     }
 
     @Test("Dropping a round stays quiet, like every other regression")
@@ -204,11 +235,47 @@ struct RoutineDiffTests {
     func blockConfigurationIsExcluded() {
         // They reach a SetLog only as snapshotted TARGETS, so there is no
         // actual to compare them against — see RoutineDiff.Field's note.
+        // A diffable extra rides along so this cannot pass against an
+        // implementation that simply never looked at extras.
         let changed = RoutineDiff.changedFields(
-            target: RoutineDiff.Target(name: "Bench Press", extras: [.rest: 60, .transition: 5]),
-            prior: RoutineDiff.Prior(extras: [.rest: 90, .transition: 15])
+            target: RoutineDiff.Target(name: "Row", extras: [.rest: 60, .transition: 5, .distance: 500]),
+            prior: RoutineDiff.Prior(extras: [.rest: 90, .transition: 15, .distance: 400])
         )
-        #expect(changed.isEmpty)
+        #expect(changed == [.metric(.distance)])
+    }
+
+    @Test("A set count on one side only still reads as a change")
+    func oneSidedSetsIsAChange() {
+        #expect(RoutineDiff.changedFields(
+            target: RoutineDiff.Target(name: "Bench Press", sets: 3),
+            prior: RoutineDiff.Prior()
+        ) == [.sets])
+        #expect(RoutineDiff.changedFields(
+            target: RoutineDiff.Target(name: "Bench Press"),
+            prior: RoutineDiff.Prior(sets: 3)
+        ) == [.sets])
+    }
+
+    @Test("Equal reps with no range set are not a change")
+    func equalRepsWithoutARangeHold() {
+        // Exercises the `?? staged` fallback: no upper means the band is
+        // the single number.
+        #expect(RoutineDiff.changedFields(
+            target: RoutineDiff.Target(name: "Row", reps: 10),
+            prior: RoutineDiff.Prior(reps: 10)
+        ).isEmpty)
+    }
+
+    @Test("An inverted rep range cannot invent a change")
+    func invertedRepRangeIsClamped() {
+        // `repsUpper` is a raw stored column and interchange import
+        // assigns it straight from a hand-edited file, so "10–8" is
+        // reachable. Unclamped it reported an identical rep count as
+        // moved, because 10 sits above the bogus upper of 8.
+        #expect(RoutineDiff.changedFields(
+            target: RoutineDiff.Target(name: "Row", reps: 10, repsUpper: 8),
+            prior: RoutineDiff.Prior(reps: 10)
+        ).isEmpty)
     }
 
     // MARK: - Summary line

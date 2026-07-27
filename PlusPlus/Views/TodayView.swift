@@ -1017,6 +1017,7 @@ struct TodayView: View {
     private func prior(for routineExercise: RoutineExercise) -> RoutineDiff.Prior? {
         let exercise = routineExercise.exercise
         let name = exercise?.name ?? ""
+        let routine = routineExercise.group?.routine
         for session in sessions {
             let matches = session.completedSetLogs.filter { log in
                 if let a = log.exercise, let b = exercise { return a === b }
@@ -1024,11 +1025,26 @@ struct TodayView: View {
             }
             guard let last = matches.last else { continue }
             let top = matches.max { ($0.actualWeight ?? 0) < ($1.actualWeight ?? 0) } ?? last
+            let isSameRoutine = routine.map { session.routine === $0 || session.routineName == $0.name } ?? false
             return RoutineDiff.Prior(
                 // Sets COMPLETED, not sets planned: three of four
                 // finished reads 3, so today's fourth round is a real
                 // increase over what actually happened.
-                sets: matches.count,
+                //
+                // The HIGHEST set number reached, not the count of logs:
+                // `matches` spans the whole session, and an exercise may
+                // appear in more than one block (a 2-set warm-up plus a
+                // 4-set working block). Counting logs would compare one
+                // block's target against every block's total and go
+                // silent; `setNumber` is 1-based within its group, so its
+                // maximum is the deepest single block.
+                //
+                // And only against the SAME routine: a set count belongs
+                // to a prescription, so an A/B split that runs bench for
+                // 4 sets on one day and 2 on the other must not report a
+                // standing "+2 sets" for alternating. Weight converges
+                // across routines; structure does not.
+                sets: isSameRoutine ? matches.map(\.setNumber).max() : nil,
                 weight: top.actualWeight,
                 reps: top.actualReps ?? last.actualReps,
                 durationSeconds: last.actualDuration,
