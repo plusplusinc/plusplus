@@ -48,8 +48,11 @@ struct ExerciseConfigSheet: View {
                     }
                     .padding(.top, 8)
 
+                    // Same header as the planning sheet: these are what
+                    // you're aiming for, not a record of anything.
+                    SheetSectionLabel("TARGETS")
+                        .padding(.top, 16)
                     metricsCard
-                        .padding(.top, 12)
 
                     if let notes = exercise.notes {
                         NotesBlock(notes)
@@ -188,7 +191,7 @@ struct ExerciseConfigSheet: View {
             showingHeartRateSheet = true
         } label: {
             HStack(spacing: 10) {
-                Text("Target HR")
+                Text("Heart rate")
                     .font(.system(.footnote))
                     .foregroundStyle(Theme.textSecondary)
                 Spacer()

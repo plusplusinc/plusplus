@@ -419,8 +419,13 @@ struct SessionExerciseSheet: View {
                         .padding(.top, 3)
 
                     if !pending.isEmpty {
+                        // Headed like the planning sheet: the SETS rows
+                        // below are what happened, these are what's being
+                        // aimed at. Unheaded, the two blocks of mono
+                        // numbers read as one kind of thing.
+                        SheetSectionLabel("TARGETS")
+                            .padding(.top, 14)
                         targetEditor
-                            .padding(.top, 12)
                         Text("Edits apply to the remaining sets")
                             .font(.system(.caption2))
                             .foregroundStyle(Theme.textFaint)

@@ -142,6 +142,11 @@ struct SheetSectionLabel: View {
             .foregroundStyle(Theme.textSecondary)
             .kerning(0.7)
             .padding(.bottom, 6)
+            // The rows under a section carry bare metric names ("Distance",
+            // "1 mi"), so the section is the only thing saying which side of
+            // target/actual they are. As a heading it becomes navigable
+            // rather than a caption VoiceOver may sweep past (#164).
+            .accessibilityAddTraits(.isHeader)
     }
 }
 
