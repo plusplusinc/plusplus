@@ -306,10 +306,18 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   content is actually under the chrome, so there's no slab on an empty stretch.
   It goes on the SCROLLING CONTENT, never as a background on the bar — the
   mistake build 133 made.
-  ⚠️ **Accessory placement is read-only**: `tabViewBottomAccessoryPlacement` is
-  the system's choice, `.inline` means "beside a MINIMIZED bar", and
-  `.tabBarMinimizeBehavior(.onScrollDown)` is what moves between the two — so
-  inline is a SCROLLED-DOWN state, not the resting one. A native `Tab` item is
+  ⚠️ **The tab bar does NOT minimize on scroll** (Dave, 2026-07-27):
+  `.tabBarMinimizeBehavior(.onScrollDown)` is GONE. It was only ever there to
+  move the bottom accessory between its `.expanded` and `.inline` placements —
+  which is what decided icon + label vs icon only on the old scope control —
+  and the accessory died on 149. With nothing reading placement, all it did was
+  shrink the bar out from under your thumb on the way down a catalog. The
+  `.soft` bottom scroll edge effect is what handles content passing under a
+  full-size bar. (Historic, for whoever brings an accessory back: accessory
+  placement is READ-ONLY — `tabViewBottomAccessoryPlacement` is the system's
+  choice, `.inline` means "beside a MINIMIZED bar", and the minimize behaviour
+  is what moves between the two, so inline is a SCROLLED-DOWN state, never the
+  resting one.) A native `Tab` item is
   also not a view the app can decorate (so per-scope counts can never ride tab
   labels — they are retired). ⚠️ Anything that writes state during layout
   (`.onGeometryChange`, `GeometryReader` + `PreferenceKey`) anywhere in the
