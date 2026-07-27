@@ -98,6 +98,10 @@ struct TodayView: View {
     /// card's node completes its green→purple turn and the checkmark
     /// seals it. False both before the turn and after it settles.
     @State private var completionConverted = false
+    /// Pending cards whose ledger is showing every mover rather than the
+    /// first four. Keyed by `Routine.uuid` like every other routine-keyed
+    /// state here, never `persistentModelID`.
+    @State private var expandedLedgers: Set<UUID> = []
 
     /// The zero-height marker the opening scroll anchors to — today's
     /// content top-aligns here, with the week ahead above it (#267).
@@ -1054,61 +1058,126 @@ struct TodayView: View {
         return nil
     }
 
-    private struct DiffLine: Identifiable {
-        let id: PersistentIdentifier
-        let name: String
-        let target: String
-        let delta: RoutineDiff.Delta
+    /// One staged exercise: its prescription, and how it last actually went.
+    private struct LedgerEntry {
+        let entry: RoutineExercise
+        let exercise: Exercise
+        let profile: MetricProfile
+        let target: RoutineDiff.Target
+        let prior: RoutineDiff.Prior?
     }
 
-    private func diffLines(for routine: Routine) -> [DiffLine] {
-        var lines: [DiffLine] = []
+    /// What the pending card draws where the one-line diff summary used to
+    /// be: the moved rows, plus enough to name the state when there are none.
+    private struct LedgerContent {
+        let rows: [DiffLedgerRow]
+        /// Nothing here has ever been performed — the routine is unrun.
+        let isFirstTime: Bool
+        let hasExercises: Bool
+    }
+
+    private func ledgerEntries(for routine: Routine) -> [LedgerEntry] {
+        var entries: [LedgerEntry] = []
         for group in routine.sortedGroups {
             for entry in group.sortedExercises {
                 guard let exercise = entry.exercise else { continue }
                 let profile = exercise.metricProfile
-                let target = RoutineDiff.Target(
-                    name: exercise.name,
-                    isDuration: profile.legacyType == .duration,
-                    // The block's rounds. Superset members each run once
-                    // per round, so every entry in the group carries the
-                    // group's count — which is what `prior` counts back.
-                    sets: group.sets,
-                    weight: entry.weight,
-                    reps: entry.reps,
-                    repsUpper: entry.repsUpper,
-                    durationSeconds: entry.durationSeconds,
-                    extras: entry.extraTargets.filter { profile.contains($0.key) },
-                    distanceUnit: profile.distanceUnit
-                )
-                lines.append(DiffLine(
-                    id: entry.persistentModelID,
-                    name: exercise.name,
-                    target: targetText(entry, exercise: exercise, sets: group.sets),
-                    delta: RoutineDiff.delta(target: target, prior: prior(for: entry))
+                entries.append(LedgerEntry(
+                    entry: entry,
+                    exercise: exercise,
+                    profile: profile,
+                    target: RoutineDiff.Target(
+                        name: exercise.name,
+                        isDuration: profile.legacyType == .duration,
+                        // The block's rounds. Superset members each run once
+                        // per round, so every entry in the group carries the
+                        // group's count — which is what `prior` counts back.
+                        sets: group.sets,
+                        weight: entry.weight,
+                        reps: entry.reps,
+                        repsUpper: entry.repsUpper,
+                        durationSeconds: entry.durationSeconds,
+                        extras: entry.extraTargets.filter { profile.contains($0.key) },
+                        distanceUnit: profile.distanceUnit
+                    ),
+                    prior: prior(for: entry)
                 ))
             }
         }
-        // Changed first, unchanged after, both in routine order.
-        return lines.filter { $0.delta.isChange } + lines.filter { !$0.delta.isChange }
+        return entries
     }
 
-    private func targetText(_ entry: RoutineExercise, exercise: Exercise, sets: Int) -> String {
-        let profile = exercise.metricProfile
-        if profile.tracksReps {
-            var text = "\(sets)×\(RepTarget(lower: entry.reps, upper: entry.repsUpper).display)"
-            if let weight = entry.weight, weight > 0 {
-                text += " @ " + WorkoutMetric.weight.displayText(weight, weightUnit: weightUnit)
-            }
-            return text
+    /// The ledger in the shape the routine calls for. A ONE-exercise routine
+    /// varies by metric, so its rows are metrics and the card title already
+    /// names the exercise; anything larger varies by exercise. Movers only
+    /// either way — an unchanged row states nothing, the standing law.
+    private func ledger(for routine: Routine) -> LedgerContent {
+        let entries = ledgerEntries(for: routine)
+        guard !entries.isEmpty else {
+            return LedgerContent(rows: [], isFirstTime: false, hasExercises: false)
         }
-        // Cardio blocks: rounds × the work target ("4× 500 m", "3× 20:00").
-        let driver = profile.driver { entry.target($0) }
-        return "\(sets)× " + driver.displayText(
-            entry.target(driver),
-            weightUnit: weightUnit,
-            distanceUnit: profile.distanceUnit
-        )
+        let isFirstTime = entries.allSatisfy { $0.prior == nil }
+
+        if entries.count == 1, let only = entries.first, let prior = only.prior {
+            return LedgerContent(rows: metricRows(only, prior: prior), isFirstTime: false, hasExercises: true)
+        }
+
+        var rows: [DiffLedgerRow] = []
+        for item in entries {
+            guard let prior = item.prior else { continue }
+            let changed = RoutineDiff.changedFields(target: item.target, prior: prior)
+            guard !changed.isEmpty else { continue }
+            rows.append(DiffLedgerRow(
+                id: item.entry.uuid?.uuidString ?? item.exercise.name,
+                label: item.exercise.name,
+                target: Prescription.blockRuns(target: item.target, profile: item.profile, weightUnit: weightUnit),
+                prev: Prescription.blockRuns(prior: prior, profile: item.profile, weightUnit: weightUnit),
+                changed: changed
+            ))
+        }
+        return LedgerContent(rows: rows, isFirstTime: isFirstTime, hasExercises: true)
+    }
+
+    /// One row per moved field, in the profile's canonical order.
+    private func metricRows(_ item: LedgerEntry, prior: RoutineDiff.Prior) -> [DiffLedgerRow] {
+        let changed = RoutineDiff.changedFields(target: item.target, prior: prior)
+        let fields: [RoutineDiff.Field] = [.sets] + item.profile.metrics.map { .metric($0) }
+        return fields.filter(changed.contains).compactMap { field -> DiffLedgerRow? in
+            guard let staged = item.target.value(for: field) else { return nil }
+            func runs(_ value: Double) -> [PrescriptionRun] {
+                [PrescriptionRun(
+                    Prescription.text(
+                        for: field,
+                        value: value,
+                        distanceUnit: item.profile.distanceUnit,
+                        weightUnit: weightUnit
+                    ),
+                    field
+                )]
+            }
+            return DiffLedgerRow(
+                id: fieldKey(field),
+                label: fieldLabel(field),
+                target: runs(staged),
+                prev: prior.value(for: field).map(runs) ?? [],
+                changed: changed
+            )
+        }
+    }
+
+    private func fieldKey(_ field: RoutineDiff.Field) -> String {
+        switch field {
+        case .sets: "sets"
+        case .metric(let metric): metric.rawValue
+        }
+    }
+
+    /// Lowercase, like every other metadata caption on the rail.
+    private func fieldLabel(_ field: RoutineDiff.Field) -> String {
+        switch field {
+        case .sets: "sets"
+        case .metric(let metric): metric.label.lowercased()
+        }
     }
 
     /// Top completed weight per exercise — the input to the net chip.
@@ -1269,19 +1338,14 @@ struct TodayView: View {
     // MARK: - Pending card
 
     private func pendingCard(_ routine: Routine) -> some View {
-        let lines = diffLines(for: routine)
-        // Never-performed gets words with stakes instead of a bare
-        // inventory count (#246); otherwise the summary carries only
-        // real movement — an all-unchanged day shows NO diff line at
-        // all (Dave, 2026-07-23: "=" reads as noise, superseding the
-        // earlier keep-it-legible call; the Kit summary no longer
-        // emits unchanged segments anywhere).
-        let segments: [RoutineDiff.Segment]
-        if !lines.isEmpty && lines.allSatisfy({ $0.delta == .new }) {
-            segments = [RoutineDiff.Segment(kind: .new, text: "first time · sets the baseline")]
-        } else {
-            segments = RoutineDiff.summary(deltas: lines.map(\.delta), weightUnit: weightUnit)
-        }
+        let content = ledger(for: routine)
+        let expandedLedger = Binding(
+            get: { routine.uuid.map(expandedLedgers.contains) ?? false },
+            set: { isOpen in
+                guard let uuid = routine.uuid else { return }
+                if isOpen { expandedLedgers.insert(uuid) } else { expandedLedgers.remove(uuid) }
+            }
+        )
 
         // The shared routine metadata, judged against the active kit (Today
         // now amber-flags a missing piece like the rest of the app), without
@@ -1332,22 +1396,32 @@ struct TodayView: View {
                         RoutineEquipmentTags(gear: todayMeta.gear)
                             .padding(.top, 6)
                     }
-
-                    // The diff is the identity moment — it outranks the
-                    // meta above it (footnote semibold; unchanged tallies
-                    // aren't news).
-                    if !segments.isEmpty {
-                        diffSummaryText(segments)
-                            .lineLimit(factLineLimit)
-                            .padding(.top, 8)
-                            .accessibilityIdentifier("diffSummary")
-                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("configureRoutineButton")
+
+            // The ledger sits OUTSIDE the navigating region, beside Start
+            // rather than inside the link, because its expander is a tap
+            // target: nested in the link it would race the push, which is
+            // this card's documented silent-dead-tap class.
+            if !content.rows.isEmpty {
+                DiffLedger(rows: content.rows, expanded: expandedLedger)
+                    .padding(.top, 10)
+            } else if content.hasExercises {
+                // Never render nothing (Dave, 2026-07-27). An absent region
+                // reads as "no information" where the fact is "you are
+                // repeating a session on purpose", which is a legitimate
+                // thing to be doing and states itself in quiet ink.
+                Text(content.isFirstTime ? "first time · sets the baseline" : "same as last time")
+                    .font(.system(.footnote, design: .monospaced))
+                    .foregroundStyle(content.isFirstTime ? Theme.accent : Theme.textFaint)
+                    .lineLimit(factLineLimit)
+                    .padding(.top, 8)
+                    .accessibilityIdentifier("diffSummary")
+            }
 
             StartFlashButton(label: "Start", identifier: "startStagedButton") {
                 start(routine)
@@ -1364,30 +1438,6 @@ struct TodayView: View {
             RoundedRectangle(cornerRadius: Theme.cardRadius)
                 .strokeBorder(Theme.accent, lineWidth: 1.5)
         )
-    }
-
-    /// The colored summary line, composed as one Text so it truncates
-    /// gracefully. Up = data green; down = neutral gray (deloads are
-    /// intentional — celebrate-up only); new = info; "n =" faint.
-    private func diffSummaryText(_ segments: [RoutineDiff.Segment]) -> Text {
-        var result = Text("")
-        for (index, segment) in segments.enumerated() {
-            if index > 0 {
-                result = result + Text(" · ").font(.system(.footnote, design: .monospaced)).foregroundStyle(Theme.textFaint)
-            }
-            result = result + Text(segment.text)
-                .font(.system(.footnote, design: .monospaced, weight: .semibold))
-                .foregroundStyle(color(for: segment.kind))
-        }
-        return result
-    }
-
-    private func color(for kind: RoutineDiff.Segment.Kind) -> Color {
-        switch kind {
-        case .up: Theme.accent
-        case .down: Theme.textSecondary
-        case .new: Theme.accent
-        }
     }
 
     // MARK: - Committed card
