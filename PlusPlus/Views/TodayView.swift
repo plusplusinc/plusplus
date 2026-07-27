@@ -67,12 +67,21 @@ struct TodayView: View {
     @State private var healthStartRequest: HealthStartRequest?
     /// Bumped on day change so every Date()-based computed re-evaluates
     /// — without it, an app resident overnight keeps rendering
-    /// yesterday's due list (bug hunt).
+    /// yesterday's due list (bug hunt). Pull-to-refresh bumps it too: the
+    /// gesture asks for a freshly derived Today.
     @State private var dayToken = 0
+    /// Bumped ONLY when the calendar day actually moves. Re-anchoring the
+    /// scroll to today belongs to this, never to `dayToken` (2026-07-27): a
+    /// pull-to-refresh re-derives Today without moving what "today" IS, and
+    /// scrolling the surface mid-gesture yanks the view out from under the
+    /// pull — it also carried the pull's own answer off-screen, which is why
+    /// the refresh line was never seen.
+    @State private var dayChangeToken = 0
     @State private var sync = GitHubSyncCoordinator.shared
-    /// Transient pull-to-refresh confirmation (a sync result, or a quip when
-    /// there's nothing to sync). Rendered INLINE at the top of the timeline —
-    /// the app has no toasts (Dave, 2026-07-23) — and cleared after a beat by
+    /// Transient pull-to-refresh confirmation: a sync result, or a quip when
+    /// the pass had no news (disconnected, or nothing moved). Rendered INLINE
+    /// at the very top of the SCROLL, where the pull settles — the app has no
+    /// toasts (Dave, 2026-07-23) — and cleared after a beat by
     /// `refreshClearTask`.
     @State private var refreshMessage: String?
     @State private var refreshClearTask: Task<Void, Never>?
@@ -82,7 +91,7 @@ struct TodayView: View {
     /// One-shot: the timeline anchors to today's content on FIRST
     /// appearance only (#267) — re-appearances mid-session (returning
     /// from a workout cover, tab hops) must not yank the scroll
-    /// position. Day changes re-anchor separately via dayToken.
+    /// position. Day changes re-anchor separately via dayChangeToken.
     @State private var hasAnchoredToday = false
     /// Measured height of the first setup step (equipment), fed back into
     /// the reveal-upward headroom so step 1 seats at the top of the scroll
@@ -183,260 +192,276 @@ struct TodayView: View {
 
     var body: some View {
         NavigationStack(path: $todayPath) {
-            VStack(spacing: 0) {
-                weekStrip
-
-                // The viewport height feeds the below-anchor min height
-                // (#267 follow-up): bound synchronously through the
-                // GeometryReader so today's region is already a screen
-                // tall on the FIRST layout — the opening scrollTo then
-                // always has room to seat today at the very top, even on
-                // a short fresh-install timeline that couldn't otherwise
-                // scroll the week ahead off-screen.
-                GeometryReader { viewport in
-                    ScrollViewReader { proxy in
-                        ScrollView {
-                            // The week ahead rides ABOVE today (#267) in a
-                            // plain VStack: laziness above the anchor would
-                            // give the opening scrollTo estimated heights to
-                            // aim at (a LazyVStack sizes unrealized content
-                            // approximately, so an anchor below lazy rows
-                            // can land off by their estimation error). The
-                            // future section is small by construction — at
-                            // most a summary block plus 7 days of occurrence
-                            // cards — so eager layout is cheap; the
-                            // committed history below the anchor stays lazy.
-                            VStack(spacing: 0) {
-                                if showsFutureSection {
-                                    futureSection
-                                }
-                                // The opening anchor: today's content
-                                // top-aligns here; the week above is
-                                // reachable by scrolling up.
-                                Color.clear
-                                    .frame(height: 0)
-                                    .id(Self.todayAnchorID)
-                                // Lazy: the committed section is the whole
-                                // history — eager building made every render
-                                // O(sessions) (bug hunt perf finding).
-                                LazyVStack(spacing: 0) {
-                                    // The pull-to-refresh answer, INLINE where
-                                    // the pull just settled (no toasts, Dave
-                                    // 2026-07-23 — an overlay pill floating
-                                    // over content is not this app's voice).
-                                    // Self-clears via refreshClearTask.
-                                    if let refreshMessage {
-                                        Text(refreshMessage)
-                                            .font(.system(.caption, design: .monospaced))
-                                            .foregroundStyle(Theme.textSecondary)
-                                            .frame(maxWidth: .infinity)
-                                            .padding(.bottom, 10)
-                                            .transition(.move(edge: .top).combined(with: .opacity))
-                                    }
-                                    // The date lives here now (Dave's ask),
-                                    // on the item it names — and it's the
-                                    // line the opening scroll lands on.
-                                    todayMarker
-                                    // The rest-day item yields to the setup scaffold
-                                    // until a startable routine exists — "nothing
-                                    // scheduled" and "schedule it (3 of 3)" saying
-                                    // the same thing twice reads broken. Once a
-                                    // routine CAN start, the item returns (#246):
-                                    // scheduling is optional and must not read as
-                                    // the only path to working out. It also yields
-                                    // when carried-over work exists (2026-07-14):
-                                    // the CARRIED OVER lane is the actionable
-                                    // surface then, so a "rest day · start whenever"
-                                    // line above it would read as a blind claim.
-                                    // A won day (a workout completed, nothing
-                                    // scheduled outstanding) shows no placeholder
-                                    // (Dave, 2026-07-24) — the completed card +
-                                    // week-ahead already say what's done and
-                                    // what's next. A due-but-empty repair prompt
-                                    // (promptsWorkout) still shows.
-                                    if dueRoutines.isEmpty && missedEntries.isEmpty
-                                        && !(completedAnyToday && !promptsWorkout)
-                                        && (!setupActive || allSetupDone || !swapInCandidates.isEmpty) {
-                                        restDayItem
-                                    }
-                                    ForEach(dueButEmptyRoutines) { routine in
-                                        // Inert grey by intent: the ROUTINE isn't
-                                        // startable — the card's CTA repairs, it
-                                        // doesn't perform (rail grammar call).
-                                        TimelineItem(node: .inert) {
-                                            emptyRoutineCard(routine)
-                                        }
-                                    }
-                                    ForEach(dueRoutines) { routine in
-                                        TimelineItem(node: .pending) {
-                                            pendingCard(routine)
-                                                .matchedTransitionSource(id: routine.persistentModelID, in: zoomNamespace)
-                                        }
-                                    }
-                                    if setupActive {
-                                        setupSection(viewportHeight: viewport.size.height)
-                                    }
-                                    // Carried-over occurrences (Kit .missed):
-                                    // a past scheduled day that lapsed, shown
-                                    // calmly between today's work and the
-                                    // history below — never as a green due, and
-                                    // never dressed up as today's date.
-                                    if !missedEntries.isEmpty {
-                                        carriedOverSection
-                                    }
-                                    ForEach(sessions) { session in
-                                        // The just-finished session converts
-                                        // on landing (recap-close animation):
-                                        // its node turns from actionable green
-                                        // to the done purple checkmark, which
-                                        // seals it. Every other committed card
-                                        // rests at that filled checkmark node.
-                                        let converting = justCompletedID == session.persistentModelID
-                                        TimelineItem(
-                                            node: .committed,
-                                            converting: converting,
-                                            converted: converting && completionConverted
-                                        ) {
-                                            committedCard(session)
-                                                .scaleEffect(converting && !completionConverted ? 0.97 : 1.0)
-                                        }
-                                    }
-                                    // Once real history exists the interactive
-                                    // scaffold is gone, but the finished setup
-                                    // steps stay as permanent "origin" milestones
-                                    // at the very bottom (Dave, 2026-07-24): the
-                                    // done steps read as committed cards, and any
-                                    // step left unfinished stays actionable so
-                                    // setup is still reachable. The onboarding
-                                    // anchors/geometry it carries are inert here
-                                    // (the reveal-scroll only runs while setup is
-                                    // active).
-                                    if !setupActive {
-                                        setupSection(viewportHeight: viewport.size.height)
-                                    }
-                                    // Reveal-upward headroom (2026-07-16): the
-                                    // setup scaffold reveals its steps by
-                                    // scrolling the active one to the top, with
-                                    // the others above it off-screen. The bottom
-                                    // step (equipment) can only reach the top if
-                                    // scrollable space sits below it, so during
-                                    // onboarding we add some. Capped (2026-07-17)
-                                    // to exactly one viewport minus the step's own
-                                    // height + bottom pad, so step 1 seats at the
-                                    // top AND that IS the maximum downward scroll —
-                                    // it can't be pushed off the top. It sits below
-                                    // the fold and vanishes with the scaffold at
-                                    // the first logged session.
-                                }
-                                // Pad the below-anchor region to at least a
-                                // screen so today can always scroll to the
-                                // top (see the GeometryReader note); taller
-                                // timelines make this a no-op.
-                                .frame(minHeight: viewport.size.height, alignment: .top)
+            // The viewport height feeds the below-anchor min height
+            // (#267 follow-up): bound synchronously through the
+            // GeometryReader so today's region is already a screen
+            // tall on the FIRST layout — the opening scrollTo then
+            // always has room to seat today at the very top, even on
+            // a short fresh-install timeline that couldn't otherwise
+            // scroll the week ahead off-screen.
+            GeometryReader { viewport in
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        // The week ahead rides ABOVE today (#267) in a
+                        // plain VStack: laziness above the anchor would
+                        // give the opening scrollTo estimated heights to
+                        // aim at (a LazyVStack sizes unrealized content
+                        // approximately, so an anchor below lazy rows
+                        // can land off by their estimation error). The
+                        // future section is small by construction — at
+                        // most a summary block plus 7 days of occurrence
+                        // cards — so eager layout is cheap; the
+                        // committed history below the anchor stays lazy.
+                        VStack(spacing: 0) {
+                            // The pull-to-refresh answer, INLINE where the
+                            // pull settles: the very top of the scroll,
+                            // which is the only place the gesture can start
+                            // from (no toasts, Dave 2026-07-23 — an overlay
+                            // pill floating over content is not this app's
+                            // voice). It used to sit below the today anchor,
+                            // which on any timeline with a week ahead is a
+                            // screenful further down than the pull, so the
+                            // line inserted off-screen and nobody ever saw
+                            // it (2026-07-27). Self-clears via
+                            // refreshClearTask.
+                            if let refreshMessage {
+                                Text(refreshMessage)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundStyle(Theme.textSecondary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.bottom, 10)
+                                    .transition(.move(edge: .top).combined(with: .opacity))
                             }
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 24)
+                            if showsFutureSection {
+                                futureSection
+                            }
+                            // The opening anchor: today's content
+                            // top-aligns here; the week above is
+                            // reachable by scrolling up.
+                            Color.clear
+                                .frame(height: 0)
+                                .id(Self.todayAnchorID)
+                            // Lazy: the committed section is the whole
+                            // history — eager building made every render
+                            // O(sessions) (bug hunt perf finding).
+                            LazyVStack(spacing: 0) {
+                                // The week's status is the first thing
+                                // below the anchor, so it is the first
+                                // thing you see on arrival AND it travels
+                                // with the pull like everything else (see
+                                // weekStrip for why neither pinning it nor
+                                // hoisting it above the anchor works).
+                                weekStrip
+                                // The date lives here now (Dave's ask),
+                                // on the item it names — and it's the
+                                // line the opening scroll lands on.
+                                todayMarker
+                                // The rest-day item yields to the setup scaffold
+                                // until a startable routine exists — "nothing
+                                // scheduled" and "schedule it (3 of 3)" saying
+                                // the same thing twice reads broken. Once a
+                                // routine CAN start, the item returns (#246):
+                                // scheduling is optional and must not read as
+                                // the only path to working out. It also yields
+                                // when carried-over work exists (2026-07-14):
+                                // the CARRIED OVER lane is the actionable
+                                // surface then, so a "rest day · start whenever"
+                                // line above it would read as a blind claim.
+                                // A won day (a workout completed, nothing
+                                // scheduled outstanding) shows no placeholder
+                                // (Dave, 2026-07-24) — the completed card +
+                                // week-ahead already say what's done and
+                                // what's next. A due-but-empty repair prompt
+                                // (promptsWorkout) still shows.
+                                if dueRoutines.isEmpty && missedEntries.isEmpty
+                                    && !(completedAnyToday && !promptsWorkout)
+                                    && (!setupActive || allSetupDone || !swapInCandidates.isEmpty) {
+                                    restDayItem
+                                }
+                                ForEach(dueButEmptyRoutines) { routine in
+                                    // Inert grey by intent: the ROUTINE isn't
+                                    // startable — the card's CTA repairs, it
+                                    // doesn't perform (rail grammar call).
+                                    TimelineItem(node: .inert) {
+                                        emptyRoutineCard(routine)
+                                    }
+                                }
+                                ForEach(dueRoutines) { routine in
+                                    TimelineItem(node: .pending) {
+                                        pendingCard(routine)
+                                            .matchedTransitionSource(id: routine.persistentModelID, in: zoomNamespace)
+                                    }
+                                }
+                                if setupActive {
+                                    setupSection(viewportHeight: viewport.size.height)
+                                }
+                                // Carried-over occurrences (Kit .missed):
+                                // a past scheduled day that lapsed, shown
+                                // calmly between today's work and the
+                                // history below — never as a green due, and
+                                // never dressed up as today's date.
+                                if !missedEntries.isEmpty {
+                                    carriedOverSection
+                                }
+                                ForEach(sessions) { session in
+                                    // The just-finished session converts
+                                    // on landing (recap-close animation):
+                                    // its node turns from actionable green
+                                    // to the done purple checkmark, which
+                                    // seals it. Every other committed card
+                                    // rests at that filled checkmark node.
+                                    let converting = justCompletedID == session.persistentModelID
+                                    TimelineItem(
+                                        node: .committed,
+                                        converting: converting,
+                                        converted: converting && completionConverted
+                                    ) {
+                                        committedCard(session)
+                                            .scaleEffect(converting && !completionConverted ? 0.97 : 1.0)
+                                    }
+                                }
+                                // Once real history exists the interactive
+                                // scaffold is gone, but the finished setup
+                                // steps stay as permanent "origin" milestones
+                                // at the very bottom (Dave, 2026-07-24): the
+                                // done steps read as committed cards, and any
+                                // step left unfinished stays actionable so
+                                // setup is still reachable. The onboarding
+                                // anchors/geometry it carries are inert here
+                                // (the reveal-scroll only runs while setup is
+                                // active).
+                                if !setupActive {
+                                    setupSection(viewportHeight: viewport.size.height)
+                                }
+                                // Reveal-upward headroom (2026-07-16): the
+                                // setup scaffold reveals its steps by
+                                // scrolling the active one to the top, with
+                                // the others above it off-screen. The bottom
+                                // step (equipment) can only reach the top if
+                                // scrollable space sits below it, so during
+                                // onboarding we add some. Capped (2026-07-17)
+                                // to exactly one viewport minus the step's own
+                                // height + bottom pad, so step 1 seats at the
+                                // top AND that IS the maximum downward scroll —
+                                // it can't be pushed off the top. It sits below
+                                // the fold and vanishes with the scaffold at
+                                // the first logged session.
+                            }
+                            // Pad the below-anchor region to at least a
+                            // screen so today can always scroll to the
+                            // top (see the GeometryReader note); taller
+                            // timelines make this a no-op.
+                            .frame(minHeight: viewport.size.height, alignment: .top)
                         }
-                        // SOFT at the bottom — same call as the catalogs. The
-                        // `.hard` slab is what Dave killed; hiding the effect
-                        // outright let content read through the bar. Soft is
-                        // the system's gradient: visible only where something
-                        // is actually passing under the chrome.
-                        .scrollEdgeEffectStyle(.soft, for: .bottom)
-                        .refreshable {
-                            // Honest refresh (#267): due-ness is pure local
-                            // computation keyed on the clock, so bumping the
-                            // token re-derives everything instantly.
-                            dayToken += 1
-                            // #23: pull-to-refresh now also syncs GitHub. The
-                            // spinner should stay up only while there's real
-                            // work — so we await the sync ONLY when connected.
-                            // Disconnected, there's nothing to fetch, so we skip
-                            // the network (the spinner snaps back) and reward the
-                            // gesture with a little delight instead of nothing.
-                            if !sync.isConnected {
-                                // Nothing to fetch — skip the network (the
-                                // spinner snaps back) and reward the pull with a
-                                // little delight instead of a dead gesture.
-                                refreshMessage = RefreshQuip.random()
-                            } else if sync.isSyncing {
-                                // A pass is already running (foreground or Sync
-                                // now). sync() is single-flight, so this call
-                                // would no-op — don't report a result it didn't
-                                // produce (that would show a stale summary).
-                                refreshMessage = "Syncing…"
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 24)
+                    }
+                    // SOFT at the bottom — same call as the catalogs. The
+                    // `.hard` slab is what Dave killed; hiding the effect
+                    // outright let content read through the bar. Soft is
+                    // the system's gradient: visible only where something
+                    // is actually passing under the chrome.
+                    .scrollEdgeEffectStyle(.soft, for: .bottom)
+                    .refreshable {
+                        // Honest refresh (#267): due-ness is pure local
+                        // computation keyed on the clock, so bumping the
+                        // token re-derives everything instantly. It does
+                        // NOT re-anchor the scroll (dayChangeToken's job):
+                        // a refresh must leave the surface where the pull
+                        // left it, answer included.
+                        dayToken += 1
+                        // #23: pull-to-refresh now also syncs GitHub. The
+                        // spinner should stay up only while there's real
+                        // work — so we await the sync ONLY when connected.
+                        // Disconnected, there's nothing to fetch, so we skip
+                        // the network (the spinner snaps back) and reward the
+                        // gesture with a little delight instead of nothing.
+                        if !sync.isConnected {
+                            // Nothing to fetch — skip the network (the
+                            // spinner snaps back) and reward the pull with a
+                            // little delight instead of a dead gesture.
+                            refreshMessage = RefreshQuip.random()
+                        } else if sync.isSyncing {
+                            // A pass is already running (foreground or Sync
+                            // now). sync() is single-flight, so this call
+                            // would no-op — don't report a result it didn't
+                            // produce (that would show a stale summary).
+                            refreshMessage = "Syncing…"
+                        } else {
+                            let units = WeightUnit(rawValue: weightUnitRaw) ?? .lb
+                            await sync.sync(context: modelContext, units: units)
+                            if case .error = sync.activity {
+                                refreshMessage = "Couldn't sync. Try again."
                             } else {
-                                let units = WeightUnit(rawValue: weightUnitRaw) ?? .lb
-                                await sync.sync(context: modelContext, units: units)
-                                if case .error = sync.activity {
-                                    refreshMessage = "Couldn't sync. Try again."
-                                } else {
-                                    refreshMessage = sync.lastSyncSummary ?? "Synced"
-                                }
+                                // A pass that moved nothing is as dead a
+                                // pull as a disconnected one, so it earns
+                                // the same reward: lastSyncSummary is nil
+                                // unless something actually moved.
+                                refreshMessage = sync.lastSyncSummary ?? RefreshQuip.random()
                             }
                         }
-                        .onAppear {
-                            // Only seat once the GeometryReader has a real
-                            // height — the below-anchor min height must have
-                            // grown the region before there's room to push
-                            // the week ahead off-screen. If height is still
-                            // pending, the onChange below fires the anchor.
-                            guard !hasAnchoredToday, viewport.size.height > 0 else { return }
-                            hasAnchoredToday = true
-                            // Unanimated: Today OPENS at its target. During
-                            // onboarding that's the active setup step (step 1
-                            // at first, its siblings above it off-screen);
-                            // otherwise today's content, with the week above
-                            // it something you go looking for.
-                            proxy.scrollTo(openingScrollTarget, anchor: .top)
-                        }
-                        .onChange(of: viewport.size.height) { _, height in
-                            // GeometryReader can publish the real height a
-                            // beat after onAppear; seat the opening target the
-                            // instant we have room. One-shot via
-                            // hasAnchoredToday, so a later height change
-                            // (rotation, keyboard) never yanks a scroll the
-                            // user has since moved.
-                            guard !hasAnchoredToday, height > 0 else { return }
-                            hasAnchoredToday = true
-                            proxy.scrollTo(openingScrollTarget, anchor: .top)
-                        }
-                        .onChange(of: isTodayRootVisible) { _, visible in
-                            // Sent back to Today after finishing a setup step
-                            // (the equipment screen, routine catalog, or
-                            // schedule editor each complete a step behind a
-                            // push): reveal the NEXT step, which sits above,
-                            // by smoothly scrolling it up to the top. Deferred
-                            // a runloop so the pop settles and the newly-active
-                            // step has laid out before we aim at its anchor.
-                            guard visible, setupActive, let anchor = activeSetupAnchor else { return }
-                            Task { @MainActor in
-                                withAnimation(Theme.Anim.flourish(.easeInOut(duration: 0.5))) {
-                                    proxy.scrollTo(anchor, anchor: .top)
-                                }
+                    }
+                    .onAppear {
+                        // Only seat once the GeometryReader has a real
+                        // height — the below-anchor min height must have
+                        // grown the region before there's room to push
+                        // the week ahead off-screen. If height is still
+                        // pending, the onChange below fires the anchor.
+                        guard !hasAnchoredToday, viewport.size.height > 0 else { return }
+                        hasAnchoredToday = true
+                        // Unanimated: Today OPENS at its target. During
+                        // onboarding that's the active setup step (step 1
+                        // at first, its siblings above it off-screen);
+                        // otherwise today's content, with the week above
+                        // it something you go looking for.
+                        proxy.scrollTo(openingScrollTarget, anchor: .top)
+                    }
+                    .onChange(of: viewport.size.height) { _, height in
+                        // GeometryReader can publish the real height a
+                        // beat after onAppear; seat the opening target the
+                        // instant we have room. One-shot via
+                        // hasAnchoredToday, so a later height change
+                        // (rotation, keyboard) never yanks a scroll the
+                        // user has since moved.
+                        guard !hasAnchoredToday, height > 0 else { return }
+                        hasAnchoredToday = true
+                        proxy.scrollTo(openingScrollTarget, anchor: .top)
+                    }
+                    .onChange(of: isTodayRootVisible) { _, visible in
+                        // Sent back to Today after finishing a setup step
+                        // (the equipment screen, routine catalog, or
+                        // schedule editor each complete a step behind a
+                        // push): reveal the NEXT step, which sits above,
+                        // by smoothly scrolling it up to the top. Deferred
+                        // a runloop so the pop settles and the newly-active
+                        // step has laid out before we aim at its anchor.
+                        guard visible, setupActive, let anchor = activeSetupAnchor else { return }
+                        Task { @MainActor in
+                            withAnimation(Theme.Anim.flourish(.easeInOut(duration: 0.5))) {
+                                proxy.scrollTo(anchor, anchor: .top)
                             }
                         }
-                        .onChange(of: dayToken) {
-                            // A new day moves "today" — re-anchor. (This
-                            // also runs after pull-to-refresh: the gesture
-                            // asks for a fresh Today, and Today opens at
-                            // today.) Next runloop, not mid-update: the new
-                            // day's content must lay out before the anchor
-                            // frame it scrolls to is real.
-                            Task { @MainActor in
-                                proxy.scrollTo(Self.todayAnchorID, anchor: .top)
-                            }
+                    }
+                    .onChange(of: dayChangeToken) {
+                        // A new day moves "today" — re-anchor. Only a real
+                        // day change does this; a pull-to-refresh derives
+                        // the same day and must not move the scroll (see
+                        // dayChangeToken). Next runloop, not mid-update:
+                        // the new day's content must lay out before the
+                        // anchor frame it scrolls to is real.
+                        Task { @MainActor in
+                            proxy.scrollTo(Self.todayAnchorID, anchor: .top)
                         }
-                        .onChange(of: showsFutureSection) { _, shows in
-                            // The week ahead can pop in mid-lifetime (the
-                            // last setup step completing, the first
-                            // schedule being created) — content inserted
-                            // above the viewport shoves today's cards
-                            // down-screen. Re-anchor so today stays on top.
-                            guard shows else { return }
-                            Task { @MainActor in
-                                proxy.scrollTo(Self.todayAnchorID, anchor: .top)
-                            }
+                    }
+                    .onChange(of: showsFutureSection) { _, shows in
+                        // The week ahead can pop in mid-lifetime (the
+                        // last setup step completing, the first
+                        // schedule being created) — content inserted
+                        // above the viewport shoves today's cards
+                        // down-screen. Re-anchor so today stays on top.
+                        guard shows else { return }
+                        Task { @MainActor in
+                            proxy.scrollTo(Self.todayAnchorID, anchor: .top)
                         }
                     }
                 }
@@ -556,6 +581,7 @@ struct TodayView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
                 dayToken += 1
+                dayChangeToken += 1
             }
             // Crash-orphans from a previous launch get salvaged here;
             // in-flight dismissal paths are covered by the cover's
@@ -1303,16 +1329,34 @@ struct TodayView: View {
 
     // MARK: - Week strip
 
-    /// The week's status, under the navigation bar and ABOVE the scroll.
+    /// The week's status: the tally line + the block bar, at the top of the
+    /// scroll and directly under the navigation bar at rest.
     ///
-    /// Pinned deliberately (2026-07-26): it could have become the scroll's
-    /// first content and slid away with the large title, but the opening
-    /// scroll seats TODAY at the very top, so anything above that anchor is
-    /// off-screen the moment you arrive. The week tally is not something you
-    /// should have to scroll UP to find.
+    /// ⚠️ It is the scroll's first content BELOW the today anchor
+    /// (2026-07-27) — the one placement that satisfies both rules it has to.
+    /// It spent one round PINNED between the bar and the scroll, and that
+    /// broke the pull: content rubber-bands and UIKit walks the large title
+    /// down with it, while a pinned strip stays exactly where it is, so
+    /// "Today" slid down over the block bar (Dave's screenshot, build 152).
+    /// Scroll content moves with the pull and the title lands in the gap that
+    /// opens above it. But it can't ride ABOVE the anchor either: the opening
+    /// scroll seats TODAY at the very top, so anything above the anchor is
+    /// off-screen the moment you arrive, and the week tally is not something
+    /// you should have to scroll UP to find. Below the anchor it is the first
+    /// thing on screen on arrival AND it travels with the pull.
+    ///
+    /// ⚠️ Being timeline content, it carries the RAIL: a spine, no node, like
+    /// the cadence block and the today marker (the rail is continuous through
+    /// every section of this timeline, so a 40-odd pt hole in it where the
+    /// strip sits would read as a bug the first time you scrolled up to the
+    /// week ahead). That puts the tally in the timeline's caption column
+    /// beside the spine rather than the screen's, which is where its
+    /// typography already lived: it is the same faint mono caption as the
+    /// cadence lines and the date marker, and now it lines up with them.
     ///
     /// The title and the two keys that used to sit above this are the
-    /// navigation bar's now.
+    /// navigation bar's now; horizontal padding comes from the scroll
+    /// content's own 16 pt column.
     @ViewBuilder
     private var weekStrip: some View {
         let plan = weekPlan
@@ -1321,28 +1365,41 @@ struct TodayView: View {
         // Nothing to say (no plan, past setup) means no strip at all — not an
         // empty box holding padding open under the title.
         if line != nil || showsBar {
-            VStack(alignment: .leading, spacing: 0) {
-                if let line {
-                    Text(line)
-                        .font(.system(.caption, design: .monospaced))
-                        .foregroundStyle(Theme.textFaint)
+            HStack(alignment: .top, spacing: 10) {
+                Rectangle()
+                    .fill(Theme.border)
+                    .frame(width: 2)
+                    .frame(maxHeight: .infinity)
+                    .frame(width: 20)
+                VStack(alignment: .leading, spacing: 0) {
+                    if let line {
+                        Text(line)
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(Theme.textFaint)
+                    }
+                    // The week block bar: one block per scheduled session this
+                    // week, filled purple as sessions land. Purple, not green —
+                    // it counts what's committed, and it hides entirely when
+                    // nothing is scheduled (no plan, no empty scorecard).
+                    if showsBar {
+                        BlockBar(total: plan.planned, filled: plan.completed)
+                            .padding(.top, 8)
+                            // The caption above already states the fact for
+                            // VoiceOver; without this the bar announces a bare
+                            // "2 of 4" with no subject (a11y, 2026-07-23).
+                            .accessibilityHidden(true)
+                    }
                 }
-                // The week block bar: one block per scheduled session this
-                // week, filled purple as sessions land. Purple, not green —
-                // it counts what's committed, and it hides entirely when
-                // nothing is scheduled (no plan, no empty scorecard).
-                if showsBar {
-                    BlockBar(total: plan.planned, filled: plan.completed)
-                        .padding(.top, 8)
-                        // The caption above already states the fact for
-                        // VoiceOver; without this the bar announces a bare
-                        // "2 of 4" with no subject (a11y, 2026-07-23).
-                        .accessibilityHidden(true)
-                }
+                // The bar spans the card column, so it needs the width the
+                // rail leaves — no trailing Spacer (BlockBar's blocks are
+                // maxWidth-flexible and would collapse against one).
+                .frame(maxWidth: .infinity, alignment: .leading)
+                // The spine-only blocks' rhythm (cadence lines, date marker),
+                // so the tally sits in the rail's cadence rather than the
+                // header's.
+                .padding(.vertical, 10)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 12)
+            .fixedSize(horizontal: false, vertical: true)
         }
     }
 

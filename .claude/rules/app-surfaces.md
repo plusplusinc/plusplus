@@ -367,10 +367,31 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   to attach to at all (build 140's missing scopes). `CatalogTabHeader` is
   DELETED and Today's hand-rolled twin with it; the system bar handles the
   Dynamic-Type reflow that the old `.layoutPriority(1)` / no-`.fixedSize` rules
-  used to police by hand. Today keeps a pinned WEEK STRIP (tally + `BlockBar`)
-  between the bar and its scroll — deliberately not scroll content, since the
-  opening scroll seats today at the top and anything above that anchor would be
-  off-screen on arrival. A **pushed utility/catalog
+  used to police by hand. ⚠️ **Today's WEEK STRIP (tally + `BlockBar`) is the
+  scroll's first content BELOW the today anchor** (2026-07-27), which is the
+  only placement that satisfies both of its rules. It spent one build PINNED
+  between the bar and the scroll, and that broke the pull: content rubber-bands
+  and UIKit walks the large title down with it, while a pinned strip stays
+  exactly where it is, so "Today" slid down over the block bar (Dave, build
+  152). **Anything a large title can travel over has to be scroll content** —
+  a `safeAreaInset` is pinned too and would fail the same way. But it can't
+  ride ABOVE the anchor either: the opening scroll seats today at the top, so
+  anything above the anchor is off-screen on arrival, and the week tally is not
+  something to scroll UP for. Below the anchor it is the first thing on screen
+  on arrival AND it travels with the pull. ⚠️ Being timeline content it now
+  **carries the RAIL** (spine, no node — like `beyondThisWeekBlock` and
+  `todayMarker`): the rail is continuous through every section of that
+  timeline, so a header-aligned strip between the week-ahead cards and the
+  today marker punched a visible hole in the spine. That puts the tally in the
+  timeline's caption column, where its typography already belonged — it is the
+  same faint mono caption as the cadence lines it now aligns with. Same round: **the pull's own answer
+  (the refresh line) renders at the VERY TOP of the scroll content**, since the
+  top is the only place the gesture can start from — below the anchor it landed
+  a screenful past the pull on any timeline with a week ahead, which is why the
+  quips were never seen — and **pull-to-refresh must not re-anchor the scroll**
+  (`dayChangeToken` re-anchors, `dayToken` only re-derives): scrolling to today
+  mid-gesture yanks the surface out from under the pull and carries its answer
+  off-screen. A **pushed utility/catalog
   screen** with a fixed label keeps the small centered `pushedScreenChrome`
   title; a **pushed detail screen showing a dynamic name** clears its chrome
   title (`title: ""`) and leads the body with a large left header that wraps to
