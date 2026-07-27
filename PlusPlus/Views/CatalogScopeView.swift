@@ -308,7 +308,25 @@ struct CatalogScopeView: View {
     /// nothing to attach to (build 140's missing scopes). The title, the ++ key
     /// and the kit switcher move into the real bar; nothing is lost but the
     /// hand-drawing.
+    /// The app's content column, and every gap in the search surface's bar row:
+    /// the ++ key sits this far from the screen edge, so the control's two gaps
+    /// match it and the row reads as evenly spaced (Dave, build 150).
+    private let barGap: CGFloat = 16
+
     private var tabBody: some View {
+        // The width the navigation bar's row gets to work with. ⚠️ A PURE
+        // layout read — the proxy's size is used directly in the body and
+        // never written to state. That distinction is the whole law: an
+        // `.onGeometryChange` or a `PreferenceKey` probe inside the TabView
+        // subtree is the documented iOS 26 trigger for the search-role morph
+        // failing on first activation, because it feeds layout back into state.
+        // A `GeometryReader` that merely reads is not that.
+        GeometryReader { proxy in
+            tabStack(barWidth: proxy.size.width)
+        }
+    }
+
+    private func tabStack(barWidth: CGFloat) -> some View {
         NavigationStack(path: $path) {
             listBody
                 .background(Theme.background)
@@ -321,56 +339,70 @@ struct CatalogScopeView: View {
                 .navigationTitle(isSearchSurface ? "" : scope.label)
                 .navigationBarTitleDisplayMode(isSearchSurface ? .inline : .large)
                 .toolbar {
-                    // Both keys keep their own chrome and opt OUT of the
-                    // toolbar's shared glass — `.sharedBackgroundVisibility(.hidden)`
-                    // is exactly the escape for an item that brings its own
-                    // background, and without it the app's raised keys would
-                    // sit inside a system capsule: a box in a box, the same
-                    // fault that killed the accessory experiment.
-                    ToolbarItem(placement: .topBarLeading) { AppMenuKey() }
-                        .sharedBackgroundVisibility(.hidden)
-                    // The scope control sits BETWEEN the two keys, in the bar's
-                    // principal slot (Dave, 2026-07-26) — the same place the
-                    // other four roots put their title, which on this surface
-                    // the control effectively is. It opts out of the shared
-                    // glass for the same reason the keys do: it brings its own
-                    // segmented track, and the toolbar would wrap that in a
-                    // second shape.
                     if let searchScope {
+                        // ⚠️ On the SEARCH surface the app owns the WHOLE bar
+                        // row as one `.principal` item, rather than letting the
+                        // system place three (Dave, build 150: make the control
+                        // take the available width, less an even gap).
+                        //
+                        // Why it has to be one item: a principal item is a
+                        // TITLE VIEW, and UIKit centres a title view **in the
+                        // bar**, not in the space left between the side items.
+                        // So the two gaps differ by exactly the difference in
+                        // the side items' widths — measured on build 150, a
+                        // 42 pt ++ key against a 78 pt kit switcher gave 76 pt
+                        // of gap on the left and 40 pt on the right. No amount
+                        // of padding fixes that class, and it moves with the
+                        // kit's name. `.frame(maxWidth: .infinity)` did nothing
+                        // either: the bar proposes an unbounded width, so the
+                        // control just takes its ideal size.
+                        //
+                        // With no leading or trailing items the title view gets
+                        // the whole bar, so an explicit width of the screen
+                        // less two `barGap`s lands the row on the app's own
+                        // content column, and every gap in it is ours to set.
                         ToolbarItem(placement: .principal) {
-                            ScopeSegmentedControl(scope: searchScope)
-                                // FILLS the slot rather than sitting in the
-                                // middle of it (Dave, build 149). A nudge came
-                                // first and was the wrong shape of fix: the
-                                // gaps are the system's, so any constant is
-                                // tuned to one kit-name length and wrong at the
-                                // next. Claiming the whole residual makes the
-                                // two gaps symmetric BY CONSTRUCTION — whatever
-                                // the bar's own item spacing turns out to be,
-                                // it is the same on both sides — and a
-                                // segmented control filling its container is
-                                // its natural shape (equal-width segments, the
-                                // Photos proportion). ⚠️ The remaining unknown
-                                // is the SIZE of that system spacing: Dave
-                                // wants it to match the ++ key's 16 pt inset
-                                // from the screen edge. If it reads tighter,
-                                // `.padding(.horizontal, n)` here closes the
-                                // difference — but it needs a device look
-                                // first, since padding on top of a wide gap
-                                // would inset the control rather than align it.
-                                .frame(maxWidth: .infinity)
+                            HStack(spacing: barGap) {
+                                AppMenuKey()
+                                ScopeSegmentedControl(scope: searchScope)
+                                    // Absorbs whatever the two keys leave, and
+                                    // holds a floor so a long kit name can't
+                                    // squeeze it: the switcher shrinks then
+                                    // truncates its own text (it already does),
+                                    // which is the right thing to yield here.
+                                    // ⚠️ The floor belongs on the CONTROL, not
+                                    // as a `maxWidth` cap on the switcher — a
+                                    // `maxWidth` frame is greedy in an HStack
+                                    // and would stretch the switcher's key
+                                    // chrome to the cap for a short name like
+                                    // "main".
+                                    .frame(minWidth: 140, maxWidth: .infinity)
+                                LibrarySwitcherKey(name: activeKitName, identifier: scope.switcherIdentifier) {
+                                    showingLibraryTray = true
+                                }
+                            }
+                            .frame(width: max(0, barWidth - barGap * 2))
+                        }
+                        // The row brings its own key chrome and the control
+                        // brings its own track, so it opts out of the toolbar's
+                        // shared glass — without this they nest inside a system
+                        // capsule, the box-in-a-box that killed the accessory.
+                        .sharedBackgroundVisibility(.hidden)
+                    } else {
+                        // Every other root: the system places the two keys, and
+                        // the title sits between them.
+                        ToolbarItem(placement: .topBarLeading) { AppMenuKey() }
+                            .sharedBackgroundVisibility(.hidden)
+                        // The kit is CONTEXT on every catalog, never a filter
+                        // chip: it decides which rows fall into the "require
+                        // more equipment" group below.
+                        ToolbarItem(placement: .topBarTrailing) {
+                            LibrarySwitcherKey(name: activeKitName, identifier: scope.switcherIdentifier) {
+                                showingLibraryTray = true
+                            }
                         }
                         .sharedBackgroundVisibility(.hidden)
                     }
-                    // The kit is CONTEXT on every catalog, never a filter chip:
-                    // it decides which rows fall into the "require more
-                    // equipment" group below.
-                    ToolbarItem(placement: .topBarTrailing) {
-                        LibrarySwitcherKey(name: activeKitName, identifier: scope.switcherIdentifier) {
-                            showingLibraryTray = true
-                        }
-                    }
-                    .sharedBackgroundVisibility(.hidden)
                 }
             // The system field, on the SEARCH tab only, and INSIDE the stack —
             // see `searchScope`.
