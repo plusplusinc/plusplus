@@ -250,7 +250,8 @@ struct TodayView: View {
                                 // thing you see on arrival AND it travels
                                 // with the pull like everything else (see
                                 // weekStrip for why neither pinning it nor
-                                // hoisting it above the anchor works).
+                                // hoisting it above the anchor works, and
+                                // why it is the one row here with no rail).
                                 weekStrip
                                 // The date lives here now (Dave's ask),
                                 // on the item it names — and it's the
@@ -1345,14 +1346,14 @@ struct TodayView: View {
     /// you should have to scroll UP to find. Below the anchor it is the first
     /// thing on screen on arrival AND it travels with the pull.
     ///
-    /// ⚠️ Being timeline content, it carries the RAIL: a spine, no node, like
-    /// the cadence block and the today marker (the rail is continuous through
-    /// every section of this timeline, so a 40-odd pt hole in it where the
-    /// strip sits would read as a bug the first time you scrolled up to the
-    /// week ahead). That puts the tally in the timeline's caption column
-    /// beside the spine rather than the screen's, which is where its
-    /// typography already lived: it is the same faint mono caption as the
-    /// cadence lines and the date marker, and now it lines up with them.
+    /// ⚠️ It does NOT ride the rail (Dave, 2026-07-27, reversing the first cut
+    /// of this round): it keeps the screen's 16 pt content column and its
+    /// full-width bar, so it stays a BAND across the surface rather than a
+    /// timeline entry indented into the caption column. It is the only thing
+    /// in this scroll that carries no spine, which means the rail breaks for
+    /// its height when you scroll up far enough to see the week ahead above
+    /// it. Accepted: it sits exactly on the seam between the week ahead and
+    /// today, so the break falls where the timeline changes tense.
     ///
     /// The title and the two keys that used to sit above this are the
     /// navigation bar's now; horizontal padding comes from the scroll
@@ -1365,41 +1366,31 @@ struct TodayView: View {
         // Nothing to say (no plan, past setup) means no strip at all — not an
         // empty box holding padding open under the title.
         if line != nil || showsBar {
-            HStack(alignment: .top, spacing: 10) {
-                Rectangle()
-                    .fill(Theme.border)
-                    .frame(width: 2)
-                    .frame(maxHeight: .infinity)
-                    .frame(width: 20)
-                VStack(alignment: .leading, spacing: 0) {
-                    if let line {
-                        Text(line)
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundStyle(Theme.textFaint)
-                    }
-                    // The week block bar: one block per scheduled session this
-                    // week, filled purple as sessions land. Purple, not green —
-                    // it counts what's committed, and it hides entirely when
-                    // nothing is scheduled (no plan, no empty scorecard).
-                    if showsBar {
-                        BlockBar(total: plan.planned, filled: plan.completed)
-                            .padding(.top, 8)
-                            // The caption above already states the fact for
-                            // VoiceOver; without this the bar announces a bare
-                            // "2 of 4" with no subject (a11y, 2026-07-23).
-                            .accessibilityHidden(true)
-                    }
+            VStack(alignment: .leading, spacing: 0) {
+                if let line {
+                    Text(line)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(Theme.textFaint)
                 }
-                // The bar spans the card column, so it needs the width the
-                // rail leaves — no trailing Spacer (BlockBar's blocks are
-                // maxWidth-flexible and would collapse against one).
-                .frame(maxWidth: .infinity, alignment: .leading)
-                // The spine-only blocks' rhythm (cadence lines, date marker),
-                // so the tally sits in the rail's cadence rather than the
-                // header's.
-                .padding(.vertical, 10)
+                // The week block bar: one block per scheduled session this
+                // week, filled purple as sessions land. Purple, not green —
+                // it counts what's committed, and it hides entirely when
+                // nothing is scheduled (no plan, no empty scorecard).
+                if showsBar {
+                    BlockBar(total: plan.planned, filled: plan.completed)
+                        .padding(.top, 8)
+                        // The caption above already states the fact for
+                        // VoiceOver; without this the bar announces a bare
+                        // "2 of 4" with no subject (a11y, 2026-07-23).
+                        .accessibilityHidden(true)
+                }
             }
-            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            // Nothing above it at rest (it seats under the navigation bar), so
+            // the top pad only opens a little air when you scroll up and a
+            // week-ahead card lands above it.
+            .padding(.top, 6)
+            .padding(.bottom, 12)
         }
     }
 

@@ -378,13 +378,14 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   ride ABOVE the anchor either: the opening scroll seats today at the top, so
   anything above the anchor is off-screen on arrival, and the week tally is not
   something to scroll UP for. Below the anchor it is the first thing on screen
-  on arrival AND it travels with the pull. ⚠️ Being timeline content it now
-  **carries the RAIL** (spine, no node — like `beyondThisWeekBlock` and
-  `todayMarker`): the rail is continuous through every section of that
-  timeline, so a header-aligned strip between the week-ahead cards and the
-  today marker punched a visible hole in the spine. That puts the tally in the
-  timeline's caption column, where its typography already belonged — it is the
-  same faint mono caption as the cadence lines it now aligns with. Same round: **the pull's own answer
+  on arrival AND it travels with the pull. ⚠️ It keeps the SCREEN's 16 pt
+  content column and its full-width bar — it does NOT ride the rail (Dave,
+  reversing the first cut, which gave it a spine and no node like
+  `beyondThisWeekBlock`). It is therefore **the one row in that scroll with no
+  spine**, and the rail does break for its height once you scroll up to the
+  week ahead; accepted, because it sits on the today anchor, so the break falls
+  on the seam where the timeline changes tense. The tally is the surface's week
+  header, not an entry on the timeline, and the alignment says so. Same round: **the pull's own answer
   (the refresh line) renders at the VERY TOP of the scroll content**, since the
   top is the only place the gesture can start from — below the anchor it landed
   a screenful past the pull on any timeline with a week ahead, which is why the
