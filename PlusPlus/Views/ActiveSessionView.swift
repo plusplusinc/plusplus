@@ -273,6 +273,16 @@ struct ActiveSessionView: View {
         // and `.onChange` fires after the render that observed it.
         .onChange(of: session.isPaused) { _, paused in
             paused ? location.pause() : location.resume()
+            // Belt for the Pause key's braces, and cover for any future
+            // pause affordance (#157's island controls would post a
+            // notification, exactly like `.plusplusAdjustRest` does).
+            // Safe on THIS edge only: by the time it fires, `isPaused` is
+            // already true, so the body has rendered `pausedView` and
+            // RestView is gone — no frame can observe the un-banked state.
+            // The RESUME side must stay in the button; there the ordering
+            // is the whole point. `bankRestForPause` is guarded, so the
+            // two callers can't double-apply.
+            if paused { bankRestForPause() }
         }
         // Re-point the meter as the active exercise changes: a new outdoor
         // exercise re-bases (its own distance), the same exercise's next
@@ -311,12 +321,26 @@ struct ActiveSessionView: View {
         // The mirror op is kind-agnostic, so a watch-initiated pause
         // always reads REST here (#369 deferred the kind op-field).
         .onReceive(NotificationCenter.default.publisher(for: LiveMirror.restChanged)) { note in
-            if let endsAt = note.object as? Date {
-                restTotalSeconds = max(1, Int(endsAt.timeIntervalSinceNow.rounded()))
-                restIsTransition = false
-                restEndDate = endsAt
-            } else {
+            guard let endsAt = note.object as? Date else {
                 restEndDate = nil
+                restPausedRemaining = nil
+                return
+            }
+            let interval = max(0, endsAt.timeIntervalSinceNow)
+            restTotalSeconds = max(1, Int(interval.rounded()))
+            restIsTransition = false
+            // ⚠️ The one other path that can set a rest, so it has to bank
+            // like the Pause key does: a set logged on the WRIST while the
+            // phone sits paused would otherwise park a wall-clock date
+            // behind the paused screen, and Resume would remount RestView
+            // against an expired date and eat the rest — the exact bug
+            // bankRestForPause exists to prevent, through a door it
+            // doesn't own (swift-reviewer).
+            if session.isPaused {
+                restPausedRemaining = interval
+                restEndDate = nil
+            } else {
+                restEndDate = endsAt
             }
         }
     }
@@ -385,7 +409,11 @@ struct ActiveSessionView: View {
         guard let end = restEndDate else { return }
         restPausedRemaining = max(0, end.timeIntervalSinceNow)
         restEndDate = nil
-        LiveMirror.shared.restEnded(in: session)
+        // Deliberately NOT LiveMirror.restEnded: the op vocabulary has no
+        // "held" kind, and telling the wrist the rest is OVER is further
+        // from the truth than leaving it showing a rest it can't tick.
+        // A real pause op is the honest fix and a Kit change (#322's
+        // deferred pile).
         syncActivityWorking()
     }
 
@@ -401,8 +429,15 @@ struct ActiveSessionView: View {
     }
 
     private func endRest() {
-        guard restEndDate != nil else { return }
+        // ⚠️ Cancels BOTH representations of a live rest. While paused the
+        // end date is nil and the interval is banked, and the overview's
+        // jump affordances reach this from the PAUSED screen — a guard on
+        // the date alone returned early there, so "skip to this exercise"
+        // left the bank intact and Resume restored a countdown in front of
+        // the exercise you had just said to go to now (swift-reviewer).
+        guard restEndDate != nil || restPausedRemaining != nil else { return }
         restEndDate = nil
+        restPausedRemaining = nil
         LiveMirror.shared.restEnded(in: session)
         syncActivityWorking()
     }
@@ -667,10 +702,10 @@ struct ActiveSessionView: View {
                         .foregroundStyle(Theme.textPrimary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
-                    Text("your workout timer is on hold")
-                        .font(.system(.footnote))
-                        .foregroundStyle(Theme.textFaint)
-                        .multilineTextAlignment(.center)
+                    // The frozen clock says the timer is held and the card
+                    // says what it's holding, so the old "your workout timer
+                    // is on hold" caption between them was a second referent
+                    // for the same fact 30 pt from the ON HOLD label.
                     pausedPlace
                     Spacer()
                     Button {
@@ -777,8 +812,12 @@ struct ActiveSessionView: View {
         if heldRestRemaining != nil {
             return "\(current.exerciseName) · \(current.driver == .reps ? "set" : "round") \(current.setNumber)"
         }
+        // Keyed on (group, name), not name alone: a routine that comes
+        // back to an exercise in a later block would otherwise skip past
+        // that occurrence and name something farther down.
         return session.sortedSetLogs.first {
-            $0.order > current.order && !$0.isCompleted && $0.exerciseName != current.exerciseName
+            $0.order > current.order && !$0.isCompleted
+                && ($0.groupIndex != current.groupIndex || $0.exerciseName != current.exerciseName)
         }?.exerciseName
     }
 
