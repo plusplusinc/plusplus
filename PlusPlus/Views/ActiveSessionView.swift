@@ -41,6 +41,10 @@ struct ActiveSessionView: View {
     /// session default. Captured at log time with the end date so the
     /// recharge blocks' denominator matches the countdown they drain.
     @State private var restTotalSeconds = 90
+    /// The rest interval held across a pause, re-based onto the resume
+    /// instant. Non-nil only while paused mid-rest, which is also how
+    /// the paused screen knows a rest is what's being held.
+    @State private var restPausedRemaining: TimeInterval?
     /// Whether the current countdown is a TRANSITION — the session moved
     /// to a different exercise or block (#369) — so the screen says
     /// SWITCH instead of REST. Captured at log time with the length.
@@ -263,6 +267,10 @@ struct ActiveSessionView: View {
         }
         // GPS pauses with the workout clock (HR keeps its passive query) —
         // no distance banked across a pause, and the battery rests.
+        //
+        // ⚠️ The REST countdown pauses too, but NOT from here — see
+        // `bankRestForPause`. It has to happen before the state flips,
+        // and `.onChange` fires after the render that observed it.
         .onChange(of: session.isPaused) { _, paused in
             paused ? location.pause() : location.resume()
         }
@@ -349,6 +357,47 @@ struct ActiveSessionView: View {
         // clamped subtract would desync the blocks from the clock.
         restTotalSeconds = max(1, restTotalSeconds + Int(applied.rounded()))
         reflectRest(endDate: adjusted, upNext: currentLog)
+    }
+
+    /// Holds the rest across a pause: the interval is banked and the end
+    /// date cleared, so nothing can expire behind the paused screen.
+    ///
+    /// ⚠️ `restEndDate` is a WALL-CLOCK instant, which is why Pause used
+    /// to be hidden mid-rest: the paused screen replaces `RestView`, so
+    /// nothing ticks, but the date keeps arriving — and on resume the
+    /// remounting view computes zero remaining and `onAppear` fires
+    /// `onEnd()`. The rest, silently eaten by the pause. Banking the
+    /// interval and re-basing it is the same trick the interval timer
+    /// uses (`pausedRemaining`).
+    ///
+    /// ⚠️ Called from the Pause KEY, not from `.onChange(of: isPaused)`:
+    /// an `onChange` runs after the render that observed the flip, so
+    /// the first paused frame would read the un-banked state (and on the
+    /// way back, `RestView` would remount against the expired date
+    /// before the re-base landed — a race for the bug this exists to
+    /// prevent). Both are guarded, so neither can double-apply.
+    ///
+    /// The island drops back to the working phase, since a countdown
+    /// that keeps running to zero while the workout is held is worse
+    /// than no countdown. (The activity's ELAPSED timer still advances
+    /// through a pause — pre-existing, unchanged here.)
+    private func bankRestForPause() {
+        guard let end = restEndDate else { return }
+        restPausedRemaining = max(0, end.timeIntervalSinceNow)
+        restEndDate = nil
+        LiveMirror.shared.restEnded(in: session)
+        syncActivityWorking()
+    }
+
+    /// Re-bases the banked rest onto the resume instant.
+    private func resumeRestAfterPause() {
+        guard let banked = restPausedRemaining else { return }
+        restPausedRemaining = nil
+        let end = Date().addingTimeInterval(banked)
+        restEndDate = end
+        if let upNext = session.currentLog {
+            reflectRest(endDate: end, upNext: upNext)
+        }
     }
 
     private func endRest() {
@@ -503,12 +552,16 @@ struct ActiveSessionView: View {
                     }
                 }
 
-                // Pause the workout clock. Shown only while it's actually
-                // running under the logging flow (never mid-rest, where
-                // the rest screen owns the controls, and never before the
-                // first exercise has started).
-                if session.isRunning, restEndDate == nil, lingeringLog == nil {
+                // Pause the workout clock. Shown whenever it's actually
+                // running, INCLUDING mid-rest (2026-07-27) — a rest is
+                // exactly when something interrupts you, and the countdown
+                // now banks and re-bases across a pause instead of
+                // expiring behind it. Still hidden before the first
+                // exercise, and through the +1 beat.
+                if session.isRunning, lingeringLog == nil {
                     Button {
+                        // Bank BEFORE the flip; see bankRestForPause.
+                        bankRestForPause()
                         session.pauseClock()
                     } label: {
                         HStack(spacing: 6) {
@@ -618,8 +671,12 @@ struct ActiveSessionView: View {
                         .font(.system(.footnote))
                         .foregroundStyle(Theme.textFaint)
                         .multilineTextAlignment(.center)
+                    pausedPlace
                     Spacer()
                     Button {
+                        // Re-base BEFORE the flip, or the remounting
+                        // RestView reads an expired date and ends the rest.
+                        resumeRestAfterPause()
                         session.startClock()
                     } label: {
                         HStack(spacing: 8) {
@@ -641,6 +698,88 @@ struct ActiveSessionView: View {
                 .frame(minHeight: proxy.size.height)
             }
         }
+    }
+
+    /// Where the pause caught you, and what it's holding you back from
+    /// (Dave, 2026-07-27). Paused used to show a frozen clock and
+    /// nothing else, so coming back to the phone told you it was held
+    /// but not what from — and mid-rest that matters most, since the
+    /// screen you'd otherwise be looking at is the one naming the set
+    /// you're about to do.
+    ///
+    /// Two labelled facts in the rest screen's card anatomy: what's on
+    /// hold, then what follows it. UP NEXT is omitted rather than
+    /// emptied when the pause caught the last set of the workout.
+    @ViewBuilder
+    private var pausedPlace: some View {
+        let held = heldDescription
+        if held != nil || pausedUpNext != nil {
+            VStack(alignment: .leading, spacing: 10) {
+                if let held {
+                    pausedFact(label: "ON HOLD", value: held)
+                }
+                if let next = pausedUpNext {
+                    pausedFact(label: "UP NEXT", value: next)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+            .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
+            .padding(.horizontal, 20)
+            .padding(.top, 6)
+        }
+    }
+
+    private func pausedFact(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label)
+                .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                .foregroundStyle(Theme.textFaint)
+                .kerning(0.8)
+            Text(value)
+                .font(.system(.subheadline, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+                .lineLimit(2)
+                .minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// The held rest interval. Prefers the banked value and falls back to
+    /// a live read, so this reads correctly even on a frame where the
+    /// pause flipped before the banking did (no such path today; the
+    /// keys bank first).
+    private var heldRestRemaining: TimeInterval? {
+        if let banked = restPausedRemaining { return banked }
+        return restEndDate.map { max(0, $0.timeIntervalSinceNow) }
+    }
+
+    /// "Rest · 0:42 left" when the pause caught a countdown, else the set
+    /// that was in play. The banked interval is the honest number: the
+    /// countdown is stopped, so a live clock here would be a lie.
+    private var heldDescription: String? {
+        if let banked = heldRestRemaining {
+            let seconds = max(0, Int(banked.rounded(.up)))
+            let clock = String(format: "%d:%02d", seconds / 60, seconds % 60)
+            return "\(restIsTransition ? "Switch" : "Rest") · \(clock) left"
+        }
+        guard let log = session.currentLog else { return nil }
+        return "\(log.exerciseName) · \(log.driver == .reps ? "set" : "round") \(log.setNumber)"
+    }
+
+    /// Mid-rest, the set the countdown leads into. Mid-exercise, the next
+    /// DIFFERENT exercise — the next set of what you're already on is the
+    /// same answer as ON HOLD, and repeating it says nothing.
+    private var pausedUpNext: String? {
+        guard let current = session.currentLog else { return nil }
+        if heldRestRemaining != nil {
+            return "\(current.exerciseName) · \(current.driver == .reps ? "set" : "round") \(current.setNumber)"
+        }
+        return session.sortedSetLogs.first {
+            $0.order > current.order && !$0.isCompleted && $0.exerciseName != current.exerciseName
+        }?.exerciseName
     }
 
     /// Block-style set progress (Quiet Arcade, mock 08): one block per
