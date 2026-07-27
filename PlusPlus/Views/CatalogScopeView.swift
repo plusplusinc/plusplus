@@ -295,6 +295,11 @@ struct CatalogScopeView: View {
         }
     }
 
+    /// The app's content column, and every gap in the search surface's bar row:
+    /// the ++ key sits this far from the screen edge, so the control's two gaps
+    /// match it and the row reads as evenly spaced (Dave, build 150).
+    private let barGap: CGFloat = 16
+
     /// A tab root: its own stack, the SYSTEM navigation bar, and the bottom
     /// bar's field. Every value destination registers HERE, at the stack root
     /// (#262), so back returns to the results with query and scroll intact.
@@ -308,25 +313,35 @@ struct CatalogScopeView: View {
     /// nothing to attach to (build 140's missing scopes). The title, the ++ key
     /// and the kit switcher move into the real bar; nothing is lost but the
     /// hand-drawing.
-    /// The app's content column, and every gap in the search surface's bar row:
-    /// the ++ key sits this far from the screen edge, so the control's two gaps
-    /// match it and the row reads as evenly spaced (Dave, build 150).
-    private let barGap: CGFloat = 16
-
+    @ViewBuilder
     private var tabBody: some View {
-        // The width the navigation bar's row gets to work with. ⚠️ A PURE
-        // layout read — the proxy's size is used directly in the body and
-        // never written to state. That distinction is the whole law: an
+        // The SEARCH surface — and ONLY it — measures its own width, because
+        // only it lays out the bar row by hand.
+        //
+        // ⚠️ A PURE layout read: the proxy's size is used directly and never
+        // written to state. That distinction is the law — an
         // `.onGeometryChange` or a `PreferenceKey` probe inside the TabView
         // subtree is the documented iOS 26 trigger for the search-role morph
         // failing on first activation, because it feeds layout back into state.
         // A `GeometryReader` that merely reads is not that.
-        GeometryReader { proxy in
-            tabStack(barWidth: proxy.size.width)
+        //
+        // ⚠️ It is still not free, which is why the other four roots don't pay
+        // for it: the closure re-runs on every size change, height included, and
+        // rebuilding this view re-runs the ranking pipeline (`displayedSections`
+        // is hoisted in `listBody` precisely because it is expensive). On the
+        // search tab that pipeline already runs per keystroke, so the extra
+        // passes are marginal; on a scrolling catalog the tab bar minimising
+        // would have re-ranked the whole list mid-scroll for nothing.
+        if isSearchSurface {
+            GeometryReader { proxy in
+                tabStack(barWidth: proxy.size.width)
+            }
+        } else {
+            tabStack(barWidth: nil)
         }
     }
 
-    private func tabStack(barWidth: CGFloat) -> some View {
+    private func tabStack(barWidth: CGFloat?) -> some View {
         NavigationStack(path: $path) {
             listBody
                 .background(Theme.background)
@@ -365,23 +380,34 @@ struct CatalogScopeView: View {
                             HStack(spacing: barGap) {
                                 AppMenuKey()
                                 ScopeSegmentedControl(scope: searchScope)
-                                    // Absorbs whatever the two keys leave, and
-                                    // holds a floor so a long kit name can't
-                                    // squeeze it: the switcher shrinks then
-                                    // truncates its own text (it already does),
-                                    // which is the right thing to yield here.
-                                    // ⚠️ The floor belongs on the CONTROL, not
-                                    // as a `maxWidth` cap on the switcher — a
-                                    // `maxWidth` frame is greedy in an HStack
-                                    // and would stretch the switcher's key
-                                    // chrome to the cap for a short name like
-                                    // "main".
-                                    .frame(minWidth: 140, maxWidth: .infinity)
+                                    // Absorbs whatever the two keys leave. No
+                                    // minimum: an `HStack` never offers one
+                                    // flexible child more than its share, so
+                                    // the switcher can't take more than half of
+                                    // what's left — it shrinks and truncates
+                                    // its own text first, which is the right
+                                    // thing to yield here. A hard floor would
+                                    // instead make the ROW overflow on a narrow
+                                    // screen and shear the keys off both ends.
+                                    .frame(maxWidth: .infinity)
+                                    // The raised keys are 4 pt taller than they
+                                    // look: `RaisedKeyStyle` pads the bottom by
+                                    // its travel to leave room for the plate,
+                                    // so their visible caps centre 2 pt above
+                                    // this row's centre. Match the padding and
+                                    // the three line up.
+                                    .padding(.bottom, 4)
                                 LibrarySwitcherKey(name: activeKitName, identifier: scope.switcherIdentifier) {
                                     showingLibraryTray = true
                                 }
                             }
-                            .frame(width: max(0, barWidth - barGap * 2))
+                            // ⚠️ Optional, not `max(0, …)`: a tab's content is
+                            // built lazily and the first layout pass can report
+                            // a zero size — on the search tab that first pass IS
+                            // the first activation. `nil` leaves the row at its
+                            // ideal size for that frame instead of collapsing
+                            // it to nothing.
+                            .frame(width: barWidth.flatMap { $0 > barGap * 2 ? $0 - barGap * 2 : nil })
                         }
                         // The row brings its own key chrome and the control
                         // brings its own track, so it opts out of the toolbar's
