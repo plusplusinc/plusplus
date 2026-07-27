@@ -197,23 +197,15 @@ struct WorkoutProgressBar: View {
     }
 }
 
-/// +30s / Skip on the island and Lock Screen (#157; +30s since Quiet
-/// Arcade matched the in-app rest button). The intents run in
-/// the app's process and drive the same code path as the on-screen
-/// buttons, so island, notification, and app can't disagree.
+/// Skip · −15s · +15s on the island and Lock Screen (#157; the ±15
+/// stepper since the rest screen gained one, 2026-07-27). Same order and
+/// same emphasis as the phone: the pair is tinted, Skip is the quiet one
+/// on the left. The intents run in the app's process and drive the same
+/// code path as the on-screen keys, so island, notification, and app
+/// can't disagree.
 struct RestControlButtons: View {
     var body: some View {
-        HStack(spacing: 10) {
-            Button(intent: AddRestTimeIntent()) {
-                Text("+30s")
-                    .font(.system(.footnote, design: .monospaced, weight: .semibold))
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 34)
-            }
-            .buttonStyle(.bordered)
-            // Blue, not green: interactive state, not data (#176).
-            .tint(WTheme.selected)
-
+        HStack(spacing: 8) {
             Button(intent: SkipRestIntent()) {
                 Text("Skip")
                     .font(.system(.footnote, design: .monospaced, weight: .semibold))
@@ -222,6 +214,25 @@ struct RestControlButtons: View {
             }
             .buttonStyle(.bordered)
             .tint(.secondary)
+
+            Button(intent: ReduceRestTimeIntent()) {
+                Text("−\(RestAdjustment.stepSeconds)s")
+                    .font(.system(.footnote, design: .monospaced, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 34)
+            }
+            .buttonStyle(.bordered)
+            // Blue, not green: interactive state, not data (#176).
+            .tint(WTheme.selected)
+
+            Button(intent: AddRestTimeIntent()) {
+                Text("+\(RestAdjustment.stepSeconds)s")
+                    .font(.system(.footnote, design: .monospaced, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 34)
+            }
+            .buttonStyle(.bordered)
+            .tint(WTheme.selected)
         }
     }
 }
