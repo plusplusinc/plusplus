@@ -87,8 +87,15 @@ struct ExerciseDetailSheet: View {
                     }
                     .padding(.top, 8)
 
+                    // Labeled, because unlabeled numbers in mono read as a
+                    // log: Dave's device report on a run block ("they read
+                    // as here's what happened, manually entered"). The
+                    // header states which side of the target/actual pair
+                    // these are, and pairs with RECENT below, which shows
+                    // the other side.
+                    SheetSectionLabel("TARGETS")
+                        .padding(.top, 16)
                     metricsCard
-                        .padding(.top, 12)
 
                     // The rest row edits a BLOCK override (what interval
                     // blocks need); the escape hatch back to the workout
@@ -258,7 +265,9 @@ struct ExerciseDetailSheet: View {
             showingHeartRateSheet = true
         } label: {
             HStack(spacing: 10) {
-                Text("Target HR")
+                // Bare metric name like Distance/Duration/Pace beside it —
+                // the TARGETS header carries the prescription sense now.
+                Text("Heart rate")
                     .font(.system(.footnote))
                     .foregroundStyle(Theme.textSecondary)
                 Spacer()
