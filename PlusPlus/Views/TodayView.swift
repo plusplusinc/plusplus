@@ -213,46 +213,75 @@ struct TodayView: View {
                         // cards — so eager layout is cheap; the
                         // committed history below the anchor stays lazy.
                         VStack(spacing: 0) {
-                            // The pull-to-refresh answer, INLINE where the
-                            // pull settles: the very top of the scroll,
-                            // which is the only place the gesture can start
-                            // from (no toasts, Dave 2026-07-23 — an overlay
-                            // pill floating over content is not this app's
-                            // voice). It used to sit below the today anchor,
-                            // which on any timeline with a week ahead is a
-                            // screenful further down than the pull, so the
-                            // line inserted off-screen and nobody ever saw
-                            // it (2026-07-27). Self-clears via
-                            // refreshClearTask.
-                            if let refreshMessage {
-                                Text(refreshMessage)
-                                    .font(.system(.caption, design: .monospaced))
-                                    .foregroundStyle(Theme.textSecondary)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.bottom, 10)
-                                    .transition(.move(edge: .top).combined(with: .opacity))
+                            // The week strip, STICKY at the top of the scroll
+                            // (see weekStrip). Sticky, not pinned outside the
+                            // scroll: it holds the top through every scroll
+                            // position but lets go during the rubber band, so
+                            // it travels with the pull.
+                            weekStripBand
+                                // A pure RENDER-TIME geometry read — no state
+                                // is written, so this is NOT the pattern that
+                                // breaks the search-role morph (that one is
+                                // layout feeding back into state). Below the
+                                // content top the band climbs back to the
+                                // visible top; on overscroll minY goes
+                                // POSITIVE and the offset drops to zero, which
+                                // is what leaves it riding the content down.
+                                .visualEffect { band, geometry in
+                                    let minY = geometry.frame(in: .scrollView).minY
+                                    return band.offset(y: minY < 0 ? -minY : 0)
+                                }
+                                // It floats over what scrolls beneath it, so
+                                // it has to draw above its later siblings.
+                                .zIndex(1)
+                            VStack(spacing: 0) {
+                                // The pull-to-refresh answer, INLINE where the
+                                // pull settles: the top of the scroll, just
+                                // under the strip, which is the only place the
+                                // gesture can start from (no toasts, Dave
+                                // 2026-07-23 — an overlay pill floating over
+                                // content is not this app's voice). It used to
+                                // sit below the today anchor, which on any
+                                // timeline with a week ahead is a screenful
+                                // further down than the pull, so the line
+                                // inserted off-screen and nobody ever saw it
+                                // (2026-07-27). Self-clears via
+                                // refreshClearTask.
+                                if let refreshMessage {
+                                    Text(refreshMessage)
+                                        .font(.system(.caption, design: .monospaced))
+                                        .foregroundStyle(Theme.textSecondary)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.bottom, 10)
+                                        .transition(.move(edge: .top).combined(with: .opacity))
+                                }
+                                if showsFutureSection {
+                                    futureSection
+                                }
+                                // The opening anchor: today's content
+                                // top-aligns here; the week above is
+                                // reachable by scrolling up.
+                                Color.clear
+                                    .frame(height: 0)
+                                    .id(Self.todayAnchorID)
                             }
-                            if showsFutureSection {
-                                futureSection
-                            }
-                            // The opening anchor: today's content
-                            // top-aligns here; the week above is
-                            // reachable by scrolling up.
-                            Color.clear
-                                .frame(height: 0)
-                                .id(Self.todayAnchorID)
+                            .padding(.horizontal, 16)
+                            // ⚠️ The sticky band FLOATS once it is holding the
+                            // top, so it stops reserving its own space — and
+                            // the opening scroll seats the anchor above at the
+                            // very top, which would put today's date line
+                            // under it. A hidden second copy reserves exactly
+                            // the right height, at every Dynamic Type size and
+                            // however the tally wraps, with no measuring and no
+                            // constant to keep in sync. It is what the band
+                            // covers on arrival; scrolled up to the week ahead
+                            // it reads as the space the strip lives in.
+                            weekStripBand
+                                .hidden()
                             // Lazy: the committed section is the whole
                             // history — eager building made every render
                             // O(sessions) (bug hunt perf finding).
                             LazyVStack(spacing: 0) {
-                                // The week's status is the first thing
-                                // below the anchor, so it is the first
-                                // thing you see on arrival AND it travels
-                                // with the pull like everything else (see
-                                // weekStrip for why neither pinning it nor
-                                // hoisting it above the anchor works, and
-                                // why it is the one row here with no rail).
-                                weekStrip
                                 // The date lives here now (Dave's ask),
                                 // on the item it names — and it's the
                                 // line the opening scroll lands on.
@@ -348,13 +377,17 @@ struct TodayView: View {
                                 // the fold and vanishes with the scaffold at
                                 // the first logged session.
                             }
+                            .padding(.horizontal, 16)
                             // Pad the below-anchor region to at least a
                             // screen so today can always scroll to the
                             // top (see the GeometryReader note); taller
                             // timelines make this a no-op.
                             .frame(minHeight: viewport.size.height, alignment: .top)
                         }
-                        .padding(.horizontal, 16)
+                        // ⚠️ The 16 pt content column is per-child now, NOT on
+                        // this stack: the sticky band draws a background that
+                        // has to span the full width, or rows show through the
+                        // gutters as they slide under it.
                         .padding(.bottom, 24)
                     }
                     // SOFT at the bottom — same call as the catalogs. The
@@ -1330,34 +1363,45 @@ struct TodayView: View {
 
     // MARK: - Week strip
 
-    /// The week's status: the tally line + the block bar, at the top of the
-    /// scroll and directly under the navigation bar at rest.
+    /// The week strip as it mounts: full-bleed background, the 16 pt content
+    /// column inside it. Used TWICE, and they must stay identical — once as
+    /// the sticky band, once hidden underneath the today anchor to reserve the
+    /// band's height (see the mount site).
+    private var weekStripBand: some View {
+        weekStrip
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            // Opaque, because the timeline slides UNDER it. Same call the
+            // pinned search headings make for the same reason. It draws
+            // nothing when the strip is empty: a zero-height view with a
+            // background is invisible.
+            .background(Theme.background)
+    }
+
+    /// The week's status: the tally line + the block bar, holding the top of
+    /// the scroll, directly under the navigation bar.
     ///
-    /// ⚠️ It is the scroll's first content BELOW the today anchor
-    /// (2026-07-27) — the one placement that satisfies both rules it has to.
-    /// It spent one round PINNED between the bar and the scroll, and that
-    /// broke the pull: content rubber-bands and UIKit walks the large title
-    /// down with it, while a pinned strip stays exactly where it is, so
-    /// "Today" slid down over the block bar (Dave's screenshot, build 152).
-    /// Scroll content moves with the pull and the title lands in the gap that
-    /// opens above it. But it can't ride ABOVE the anchor either: the opening
-    /// scroll seats TODAY at the very top, so anything above the anchor is
-    /// off-screen the moment you arrive, and the week tally is not something
-    /// you should have to scroll UP to find. Below the anchor it is the first
-    /// thing on screen on arrival AND it travels with the pull.
+    /// ⚠️ **STICKY, not pinned** (2026-07-27). Pinned between the bar and the
+    /// scroll is where it started, and that broke the pull: content
+    /// rubber-bands and UIKit walks the large title DOWN with it, while
+    /// anything outside the scroll keeps the frame it was laid out with — so
+    /// "Today" slid over the block bar (Dave, build 152). The general law:
+    /// **anything a large title can travel over has to be scroll content**, and
+    /// a top `safeAreaInset` is pinned the same way and fails identically. But
+    /// plain scroll content scrolls away, and the strip has always been there
+    /// at every scroll position. Sticky is both: `visualEffect` climbs it back
+    /// to the visible top while you scroll (a pure render-time geometry read —
+    /// no state is written, so it is NOT the pattern that breaks the
+    /// search-role morph), and lets go on overscroll, where it rides the
+    /// content down with the title.
     ///
-    /// ⚠️ It does NOT ride the rail (Dave, 2026-07-27, reversing the first cut
-    /// of this round): it keeps the screen's 16 pt content column and its
-    /// full-width bar, so it stays a BAND across the surface rather than a
-    /// timeline entry indented into the caption column. It is the only thing
-    /// in this scroll that carries no spine, which means the rail breaks for
-    /// its height when you scroll up far enough to see the week ahead above
-    /// it. Accepted: it sits exactly on the seam between the week ahead and
-    /// today, so the break falls where the timeline changes tense.
+    /// ⚠️ It does NOT ride the rail (Dave, reversing the first cut of this
+    /// round): it keeps the screen's 16 pt content column and its full-width
+    /// bar, so it reads as a BAND across the surface — the week header it is —
+    /// rather than a timeline entry indented into the caption column.
     ///
     /// The title and the two keys that used to sit above this are the
-    /// navigation bar's now; horizontal padding comes from the scroll
-    /// content's own 16 pt column.
+    /// navigation bar's now.
     @ViewBuilder
     private var weekStrip: some View {
         let plan = weekPlan
@@ -1386,9 +1430,9 @@ struct TodayView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            // Nothing above it at rest (it seats under the navigation bar), so
-            // the top pad only opens a little air when you scroll up and a
-            // week-ahead card lands above it.
+            // Both pads sit INSIDE the band's opaque background, so they are
+            // also the clearance that keeps a row from touching the tally as
+            // it slides under.
             .padding(.top, 6)
             .padding(.bottom, 12)
         }

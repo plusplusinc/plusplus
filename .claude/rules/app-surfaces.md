@@ -367,25 +367,31 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   to attach to at all (build 140's missing scopes). `CatalogTabHeader` is
   DELETED and Today's hand-rolled twin with it; the system bar handles the
   Dynamic-Type reflow that the old `.layoutPriority(1)` / no-`.fixedSize` rules
-  used to police by hand. ⚠️ **Today's WEEK STRIP (tally + `BlockBar`) is the
-  scroll's first content BELOW the today anchor** (2026-07-27), which is the
-  only placement that satisfies both of its rules. It spent one build PINNED
-  between the bar and the scroll, and that broke the pull: content rubber-bands
-  and UIKit walks the large title down with it, while a pinned strip stays
-  exactly where it is, so "Today" slid down over the block bar (Dave, build
-  152). **Anything a large title can travel over has to be scroll content** —
-  a `safeAreaInset` is pinned too and would fail the same way. But it can't
-  ride ABOVE the anchor either: the opening scroll seats today at the top, so
-  anything above the anchor is off-screen on arrival, and the week tally is not
-  something to scroll UP for. Below the anchor it is the first thing on screen
-  on arrival AND it travels with the pull. ⚠️ It keeps the SCREEN's 16 pt
-  content column and its full-width bar — it does NOT ride the rail (Dave,
-  reversing the first cut, which gave it a spine and no node like
-  `beyondThisWeekBlock`). It is therefore **the one row in that scroll with no
-  spine**, and the rail does break for its height once you scroll up to the
-  week ahead; accepted, because it sits on the today anchor, so the break falls
-  on the seam where the timeline changes tense. The tally is the surface's week
-  header, not an entry on the timeline, and the alignment says so. Same round: **the pull's own answer
+  used to police by hand. ⚠️ **Today's WEEK STRIP (tally + `BlockBar`) is a
+  STICKY band inside the scroll** (2026-07-27) — the scroll's first content,
+  held at the visible top by a `visualEffect`
+  (`offset(y: minY < 0 ? -minY : 0)` against `.scrollView`) that does nothing
+  on overscroll, so it rides the rubber band. It spent one build PINNED between
+  the bar and the scroll, and that broke the pull: content rubber-bands and
+  UIKit walks the large title down with it, while a pinned strip stays exactly
+  where it is, so "Today" slid over the block bar (Dave, build 152).
+  **Anything a large title can travel over has to be scroll content** — a
+  `safeAreaInset` is pinned too and fails the same way. Plain content isn't
+  enough either: above the today anchor it is off-screen on arrival (the
+  opening scroll seats today at the top), and below the anchor it scrolls away,
+  which Dave rejected — he wanted main's always-there band, plus travel.
+  ⚠️ That `visualEffect` is a pure render-time read (no state write), which is
+  what keeps it clear of the morph law; `onScrollGeometryChange` is NOT.
+  ⚠️ **A sticky band floats, so it stops reserving its space**: a hidden second
+  copy (`weekStripBand.hidden()`) sits just below the today anchor so the
+  opening `scrollTo` doesn't seat the date line under it — exact at every
+  Dynamic Type size, no measuring, no constant. Floating also means the band
+  needs an OPAQUE background (rows slide under it) and the 16 pt content column
+  lives on the scroll stack's CHILDREN, not the stack, or rows show through the
+  gutters. ⚠️ It does NOT ride the rail (Dave, reversing the first cut, which
+  gave it a spine and no node like `beyondThisWeekBlock`): the screen's content
+  column and a full-width bar, because the tally is the surface's week header,
+  not an entry on the timeline. Same round: **the pull's own answer
   (the refresh line) renders at the VERY TOP of the scroll content**, since the
   top is the only place the gesture can start from — below the anchor it landed
   a screenful past the pull on any timeline with a week ahead, which is why the
