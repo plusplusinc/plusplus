@@ -78,11 +78,12 @@ struct TodayView: View {
     /// the refresh line was never seen.
     @State private var dayChangeToken = 0
     @State private var sync = GitHubSyncCoordinator.shared
-    /// Transient pull-to-refresh confirmation: a sync result, or a quip when
-    /// the pass had no news (disconnected, or nothing moved). Rendered INLINE
-    /// at the very top of the SCROLL, where the pull settles — the app has no
-    /// toasts (Dave, 2026-07-23) — and cleared after a beat by
-    /// `refreshClearTask`.
+    /// Transient pull-to-refresh answer: a sync result, or a quip when the
+    /// pass had no news (disconnected, or nothing moved). It renders in the
+    /// SPACE THE PULL OPENS, above the scroll's first row (the app has no
+    /// toasts, Dave 2026-07-23), so it is visible for exactly as long as the
+    /// gesture holds that gap — see the overlay at the mount site and
+    /// `clearRefreshMessageAfterSnapBack`.
     @State private var refreshMessage: String?
     @State private var refreshClearTask: Task<Void, Never>?
     /// Why a routine-start deep link (calendar / Siri / plusplus.fit)
@@ -235,26 +236,6 @@ struct TodayView: View {
                                 // it has to draw above its later siblings.
                                 .zIndex(1)
                             VStack(spacing: 0) {
-                                // The pull-to-refresh answer, INLINE where the
-                                // pull settles: the top of the scroll, just
-                                // under the strip, which is the only place the
-                                // gesture can start from (no toasts, Dave
-                                // 2026-07-23 — an overlay pill floating over
-                                // content is not this app's voice). It used to
-                                // sit below the today anchor, which on any
-                                // timeline with a week ahead is a screenful
-                                // further down than the pull, so the line
-                                // inserted off-screen and nobody ever saw it
-                                // (2026-07-27). Self-clears via
-                                // refreshClearTask.
-                                if let refreshMessage {
-                                    Text(refreshMessage)
-                                        .font(.system(.caption, design: .monospaced))
-                                        .foregroundStyle(Theme.textSecondary)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.bottom, 10)
-                                        .transition(.move(edge: .top).combined(with: .opacity))
-                                }
                                 if showsFutureSection {
                                     futureSection
                                 }
@@ -389,6 +370,31 @@ struct TodayView: View {
                         // has to span the full width, or rows show through the
                         // gutters as they slide under it.
                         .padding(.bottom, 24)
+                        // The pull's answer lives in the SPACE THE PULL OPENS
+                        // (Dave, build 153), not in the timeline: the
+                        // alignment guide seats the line's BOTTOM on the
+                        // content's top, so it sits entirely above the first
+                        // row and the scroll view clips it at rest. It is
+                        // visible for exactly as long as the gesture holds the
+                        // gap open, which is why the refresh waits a beat
+                        // before returning. Reserves no space and shifts
+                        // nothing — the last version rendered it as content
+                        // and pushed the whole timeline down.
+                        .overlay(alignment: .top) {
+                            if let refreshMessage {
+                                Text(refreshMessage)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundStyle(Theme.textSecondary)
+                                    .padding(.bottom, 10)
+                                    .alignmentGuide(.top) { $0[.bottom] }
+                                    .transition(.opacity)
+                            }
+                        }
+                        // The app's ambient tint, restored INSIDE the scroll:
+                        // the ScrollView itself wears a clear tint to kill the
+                        // system refresh spinner (below), and without this the
+                        // content would inherit that clear.
+                        .tint(Theme.textPrimary)
                     }
                     // SOFT at the bottom — same call as the catalogs. The
                     // `.hard` slab is what Dave killed; hiding the effect
@@ -396,6 +402,15 @@ struct TodayView: View {
                     // the system's gradient: visible only where something
                     // is actually passing under the chrome.
                     .scrollEdgeEffectStyle(.soft, for: .bottom)
+                    // ⚠️ Kills the system refresh SPINNER (Dave, build 153):
+                    // the space it occupies is the space the pull's answer
+                    // lives in now, and two things in that gap is one too
+                    // many. There is no API to hide the indicator, so it is
+                    // drawn in a clear tint instead — hence the
+                    // `.tint(Theme.textPrimary)` restoring the content's tint
+                    // one level in. Today's is the app's only `.refreshable`,
+                    // so nothing else inherits this.
+                    .tint(.clear)
                     .refreshable {
                         // Honest refresh (#267): due-ness is pure local
                         // computation keyed on the clock, so bumping the
@@ -411,9 +426,9 @@ struct TodayView: View {
                         // the network (the spinner snaps back) and reward the
                         // gesture with a little delight instead of nothing.
                         if !sync.isConnected {
-                            // Nothing to fetch — skip the network (the
-                            // spinner snaps back) and reward the pull with a
-                            // little delight instead of a dead gesture.
+                            // Nothing to fetch — skip the network and reward
+                            // the pull with a little delight instead of a
+                            // dead gesture.
                             refreshMessage = RefreshQuip.random()
                         } else if sync.isSyncing {
                             // A pass is already running (foreground or Sync
@@ -422,6 +437,11 @@ struct TodayView: View {
                             // produce (that would show a stale summary).
                             refreshMessage = "Syncing…"
                         } else {
+                            // Said BEFORE the network, not after: with the
+                            // spinner gone this line is the only thing in the
+                            // gap, and a multi-second sync behind an empty
+                            // gap reads as a dead pull.
+                            refreshMessage = "Syncing…"
                             let units = WeightUnit(rawValue: weightUnitRaw) ?? .lb
                             await sync.sync(context: modelContext, units: units)
                             if case .error = sync.activity {
@@ -434,6 +454,13 @@ struct TodayView: View {
                                 refreshMessage = sync.lastSyncSummary ?? RefreshQuip.random()
                             }
                         }
+                        // The system holds the gap open until this closure
+                        // returns, and the answer is only visible while it is
+                        // open — so hold it a beat. Long enough to read six
+                        // words, short enough that the surface doesn't feel
+                        // stuck.
+                        try? await Task.sleep(for: .seconds(1.1))
+                        clearRefreshMessageAfterSnapBack()
                     }
                     .onAppear {
                         // Only seat once the GeometryReader has a real
@@ -671,16 +698,20 @@ struct TodayView: View {
         // into root-ness or swipe-to-open would fight its swipe-back.
         .revealRoot(tab: "today", atRoot: todayPath.isEmpty && !showingEquipmentSetup)
         .animation(Theme.Anim.standard, value: refreshMessage)
-        // The inline refresh line clears itself after a beat (the logic the
-        // deleted ToastModifier used to own).
-        .onChange(of: refreshMessage) { _, newValue in
-            refreshClearTask?.cancel()
-            guard newValue != nil else { return }
-            refreshClearTask = Task { @MainActor in
-                try? await Task.sleep(for: .seconds(3))
-                guard !Task.isCancelled else { return }
-                refreshMessage = nil
-            }
+    }
+
+    /// Clears the pull's answer once the gap it lives in has closed.
+    ///
+    /// ⚠️ Driven from the END of the refresh, not from a timer started when
+    /// the message is set: a sync can take longer than any fixed window, and a
+    /// line that expired mid-pass would leave the open gap empty. The delay is
+    /// just the snap-back, so the line goes while it can't be watched going.
+    private func clearRefreshMessageAfterSnapBack() {
+        refreshClearTask?.cancel()
+        refreshClearTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(0.35))
+            guard !Task.isCancelled else { return }
+            refreshMessage = nil
         }
     }
 

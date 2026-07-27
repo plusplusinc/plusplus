@@ -391,11 +391,24 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   gutters. ⚠️ It does NOT ride the rail (Dave, reversing the first cut, which
   gave it a spine and no node like `beyondThisWeekBlock`): the screen's content
   column and a full-width bar, because the tally is the surface's week header,
-  not an entry on the timeline. Same round: **the pull's own answer
-  (the refresh line) renders at the VERY TOP of the scroll content**, since the
-  top is the only place the gesture can start from — below the anchor it landed
-  a screenful past the pull on any timeline with a week ahead, which is why the
-  quips were never seen — and **pull-to-refresh must not re-anchor the scroll**
+  not an entry on the timeline. Same round: ⚠️ **the pull's own answer
+  (the refresh line) renders in the SPACE THE PULL OPENS**, not in the
+  timeline — an `overlay(alignment: .top)` with
+  `alignmentGuide(.top) { $0[.bottom] }`, so it sits entirely above the first
+  row, reserves nothing, and is clipped at rest. Two earlier placements were
+  wrong: below the today anchor it landed a screenful past the pull on any
+  timeline with a week ahead (which is why the quips were never seen), and as
+  the scroll's first CONTENT it shoved the whole timeline down (Dave, build
+  153). Because it lives in the gap it is visible only while the gap is open,
+  and the system holds that open until the `refreshable` closure returns — so
+  the closure waits a beat before returning, a connected sync says "Syncing…"
+  BEFORE the network rather than after, and clearing hangs off the closure's
+  tail (a fixed timer started at set-time expires mid-sync and empties an open
+  gap). ⚠️ **The system refresh SPINNER is killed** — same gap, and two things
+  in it is one too many. No hide API exists, so it is drawn in a clear tint
+  (`.tint(.clear)` on the ScrollView, `.tint(Theme.textPrimary)` restoring the
+  content's tint one level in). Today's is the app's only `.refreshable`.
+  And **pull-to-refresh must not re-anchor the scroll**
   (`dayChangeToken` re-anchors, `dayToken` only re-derives): scrolling to today
   mid-gesture yanks the surface out from under the pull and carries its answer
   off-screen. A **pushed utility/catalog
