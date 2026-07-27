@@ -6,25 +6,57 @@ import Foundation
 /// the one before it. Pure value logic — the app maps its SwiftData
 /// models into these inputs.
 public enum RoutineDiff {
-    /// One exercise's staged targets.
+    /// A prescription field the diff can compare between the plan and the
+    /// last performance: the block's set count, plus every tracked metric.
+    ///
+    /// Two things a routine exercise carries are deliberately absent,
+    /// because a performance never records them as actuals. The block's
+    /// REST rides `SetLog.restSecondsOverride`, which snapshots the
+    /// target in force at start time, not the rest actually taken; the
+    /// HEART-RATE TARGET rides `targetHeartRateData` the same way. Both
+    /// can change on a routine, but there is no actual to diff them
+    /// against, so they belong to a target-versus-target comparison this
+    /// type does not model. Adding them here would only produce fields
+    /// that can never differ.
+    public enum Field: Hashable, Sendable {
+        case sets
+        case metric(WorkoutMetric)
+    }
+
+    /// One exercise's staged targets — the whole prescription, so a
+    /// caller can render it as well as diff it.
     public struct Target: Equatable, Sendable {
         public var name: String
         public var isDuration: Bool
+        /// Rounds of this block. A block belongs to the group rather than
+        /// the exercise, but it is part of what the exercise asks for:
+        /// 3×8 becoming 4×8 is a real increase that used to read as
+        /// unchanged, because nothing here knew about it.
+        public var sets: Int?
         public var weight: Double?
         public var reps: Int?
+        /// Top of a target rep RANGE ("8–10"); nil means `reps` is a
+        /// single number. An actual is always one count, so this never
+        /// diffs on its own — it widens `reps` into a band that a prior
+        /// actual can sit inside (see `changedFields`).
+        public var repsUpper: Int?
         public var durationSeconds: Int?
         /// Tracked metrics beyond the classic three (distance, pace,
-        /// power, calories…). Only the diffable ones participate; the
-        /// rest are machine settings the diff ignores.
+        /// power, calories…). `delta` reports only the ones with a
+        /// direction of progress; `changedFields` reports the neutral
+        /// machine settings too, since a changed setting is still a
+        /// changed prescription.
         public var extras: [WorkoutMetric: Double]
         /// What the extras' distance/pace numbers are denominated in.
         public var distanceUnit: DistanceUnit
 
-        public init(name: String, isDuration: Bool = false, weight: Double? = nil, reps: Int? = nil, durationSeconds: Int? = nil, extras: [WorkoutMetric: Double] = [:], distanceUnit: DistanceUnit = .meters) {
+        public init(name: String, isDuration: Bool = false, sets: Int? = nil, weight: Double? = nil, reps: Int? = nil, repsUpper: Int? = nil, durationSeconds: Int? = nil, extras: [WorkoutMetric: Double] = [:], distanceUnit: DistanceUnit = .meters) {
             self.name = name
             self.isDuration = isDuration
+            self.sets = sets
             self.weight = weight
             self.reps = reps
+            self.repsUpper = repsUpper
             self.durationSeconds = durationSeconds
             self.extras = extras
             self.distanceUnit = distanceUnit
@@ -34,12 +66,16 @@ public enum RoutineDiff {
     /// How the same exercise went the last time it was completed —
     /// nil when it has never been performed.
     public struct Prior: Equatable, Sendable {
+        /// Sets actually COMPLETED, which is not always the number
+        /// planned: three of four finished reads 3, honestly.
+        public var sets: Int?
         public var weight: Double?
         public var reps: Int?
         public var durationSeconds: Int?
         public var extras: [WorkoutMetric: Double]
 
-        public init(weight: Double? = nil, reps: Int? = nil, durationSeconds: Int? = nil, extras: [WorkoutMetric: Double] = [:]) {
+        public init(sets: Int? = nil, weight: Double? = nil, reps: Int? = nil, durationSeconds: Int? = nil, extras: [WorkoutMetric: Double] = [:]) {
+            self.sets = sets
             self.weight = weight
             self.reps = reps
             self.durationSeconds = durationSeconds
@@ -56,6 +92,7 @@ public enum RoutineDiff {
     public enum Delta: Equatable, Sendable {
         case new
         case unchanged
+        case sets(Int)
         case weight(Double)
         case reps(Int)
         case duration(Int)
@@ -77,12 +114,32 @@ public enum RoutineDiff {
 
     /// The order improvements are looked for — the first that moved is
     /// the exercise's one delta. Load beats reps (the v3 rule; a lighter
-    /// assistance stack IS the load moving), then the plyo box, then for
-    /// cardio a faster pace is the sexiest increment, then more
-    /// distance/calories/watts, then longer duration.
-    static let diffPriority: [WorkoutMetric] = [
-        .weight, .assistance, .reps, .height, .pace, .distance, .calories, .power, .duration,
+    /// assistance stack IS the load moving), then an added ROUND, which
+    /// buys more volume than a couple of reps does, then reps, then the
+    /// plyo box, then for cardio a faster pace is the sexiest increment,
+    /// then more distance/calories/watts, then longer duration.
+    static let diffPriority: [Field] = [
+        .metric(.weight), .metric(.assistance), .sets, .metric(.reps), .metric(.height),
+        .metric(.pace), .metric(.distance), .metric(.calories), .metric(.power), .metric(.duration),
     ]
+
+    /// Whether a field moved in the direction that means progress. Sets
+    /// go up like load; every metric follows its own
+    /// `improvementDirection`, and the neutral ones (resistance, incline,
+    /// speed, cadence, RPE) are settings rather than progress, so they
+    /// never qualify.
+    static func improves(_ field: Field, from last: Double, to staged: Double) -> Bool {
+        switch field {
+        case .sets:
+            return staged > last
+        case .metric(let metric):
+            switch metric.improvementDirection {
+            case .up: return staged > last
+            case .down: return staged < last
+            case .neutral: return false
+            }
+        }
+    }
 
     /// Deltas report IMPROVEMENTS only (#246): the prior is the last
     /// ACTUAL performance, so a plan sitting below it is the normal
@@ -98,44 +155,71 @@ public enum RoutineDiff {
     /// they never produce a delta.
     public static func delta(target: Target, prior: Prior?) -> Delta {
         guard let prior else { return .new }
-        for metric in diffPriority {
-            let staged: Double?
-            let last: Double?
-            switch metric {
-            case .weight:
-                staged = target.weight
-                last = prior.weight
-            case .reps:
-                staged = target.reps.map(Double.init)
-                last = prior.reps.map(Double.init)
-            case .duration:
-                staged = target.durationSeconds.map(Double.init)
-                last = prior.durationSeconds.map(Double.init)
-            default:
-                staged = target.extras[metric]
-                last = prior.extras[metric]
-            }
-            guard let staged, let last else { continue }
-            let improved = switch metric.improvementDirection {
-            case .up: staged > last
-            case .down: staged < last
-            case .neutral: false
-            }
-            guard improved else { continue }
-            switch metric {
-            case .weight: return .weight(staged - last)
-            case .reps: return .reps(Int(staged - last))
-            case .duration: return .duration(Int(staged - last))
-            case .distance: return .distance(staged - last, target.distanceUnit)
-            case .pace: return .pace(staged - last, target.distanceUnit)
-            case .calories: return .calories(staged - last)
-            case .power: return .power(staged - last)
-            case .assistance: return .assistance(staged - last)
-            case .height: return .height(staged - last)
-            default: continue
+        for field in diffPriority {
+            guard let staged = target.value(for: field),
+                  let last = prior.value(for: field),
+                  improves(field, from: last, to: staged)
+            else { continue }
+            switch field {
+            case .sets: return .sets(Int(staged - last))
+            case .metric(let metric):
+                switch metric {
+                case .weight: return .weight(staged - last)
+                case .reps: return .reps(Int(staged - last))
+                case .duration: return .duration(Int(staged - last))
+                case .distance: return .distance(staged - last, target.distanceUnit)
+                case .pace: return .pace(staged - last, target.distanceUnit)
+                case .calories: return .calories(staged - last)
+                case .power: return .power(staged - last)
+                case .assistance: return .assistance(staged - last)
+                case .height: return .height(staged - last)
+                default: continue
+                }
             }
         }
         return .unchanged
+    }
+
+    /// Every prescription field that DIFFERS from the last performance, in
+    /// either direction — including the neutral-direction settings
+    /// `delta` ignores (resistance, incline, speed, cadence, RPE), because
+    /// a changed setting is still a changed prescription.
+    ///
+    /// Where `delta` answers "what progressed", picking one field, this
+    /// answers "what is not the same", listing all of them. A display that
+    /// shows the target beside the previous actual needs the second
+    /// question: it has to mark every value that moved, not just the one
+    /// worth celebrating.
+    ///
+    /// A field counts as changed when the two sides differ, or when
+    /// exactly one carries a value. Both absent is not a change, and a nil
+    /// `prior` returns an empty set — nothing is comparable against a
+    /// performance that never happened, which `delta` already reports as
+    /// `.new`.
+    public static func changedFields(target: Target, prior: Prior?) -> Set<Field> {
+        guard let prior else { return [] }
+        var changed: Set<Field> = []
+        if target.sets != prior.sets { changed.insert(.sets) }
+        for metric in WorkoutMetric.allCases where !metric.isBlockConfiguration {
+            let field = Field.metric(metric)
+            switch (target.value(for: field), prior.value(for: field)) {
+            case (nil, nil):
+                continue
+            case (let staged?, let last?):
+                if metric == .reps {
+                    // A rep RANGE is met by any count inside it: 8–10
+                    // asked for and 9 done is not a change, while the
+                    // same 9 against a 10–12 target is.
+                    let upper = target.repsUpper.map(Double.init) ?? staged
+                    if last < staged || last > upper { changed.insert(field) }
+                } else if staged != last {
+                    changed.insert(field)
+                }
+            default:
+                changed.insert(field)
+            }
+        }
+        return changed
     }
 
     // MARK: - Summary line
@@ -173,6 +257,8 @@ public enum RoutineDiff {
                 break
             case .new:
                 newCount += 1
+            case .sets(let by):
+                segments.append(Segment(kind: by > 0 ? .up : .down, text: signed(Double(by), unit: abs(by) == 1 ? "set" : "sets")))
             case .weight(let by):
                 segments.append(Segment(kind: by > 0 ? .up : .down, text: signed(by, unit: weightUnit.symbol)))
             case .reps(let by):
@@ -237,5 +323,42 @@ public enum RoutineDiff {
             }
         }
         return gain
+    }
+}
+
+// MARK: - Field access
+
+/// One lookup per side, so `delta` and `changedFields` walk fields without
+/// either of them restating where a value is stored — the columns
+/// (weight/reps/duration) and the extras bag read the same way.
+extension RoutineDiff.Target {
+    public func value(for field: RoutineDiff.Field) -> Double? {
+        switch field {
+        case .sets:
+            return sets.map(Double.init)
+        case .metric(let metric):
+            switch metric {
+            case .weight: return weight
+            case .reps: return reps.map(Double.init)
+            case .duration: return durationSeconds.map(Double.init)
+            default: return extras[metric]
+            }
+        }
+    }
+}
+
+extension RoutineDiff.Prior {
+    public func value(for field: RoutineDiff.Field) -> Double? {
+        switch field {
+        case .sets:
+            return sets.map(Double.init)
+        case .metric(let metric):
+            switch metric {
+            case .weight: return weight
+            case .reps: return reps.map(Double.init)
+            case .duration: return durationSeconds.map(Double.init)
+            default: return extras[metric]
+            }
+        }
     }
 }

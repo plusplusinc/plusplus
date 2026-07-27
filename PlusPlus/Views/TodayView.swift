@@ -1025,6 +1025,10 @@ struct TodayView: View {
             guard let last = matches.last else { continue }
             let top = matches.max { ($0.actualWeight ?? 0) < ($1.actualWeight ?? 0) } ?? last
             return RoutineDiff.Prior(
+                // Sets COMPLETED, not sets planned: three of four
+                // finished reads 3, so today's fourth round is a real
+                // increase over what actually happened.
+                sets: matches.count,
                 weight: top.actualWeight,
                 reps: top.actualReps ?? last.actualReps,
                 durationSeconds: last.actualDuration,
@@ -1050,8 +1054,13 @@ struct TodayView: View {
                 let target = RoutineDiff.Target(
                     name: exercise.name,
                     isDuration: profile.legacyType == .duration,
+                    // The block's rounds. Superset members each run once
+                    // per round, so every entry in the group carries the
+                    // group's count — which is what `prior` counts back.
+                    sets: group.sets,
                     weight: entry.weight,
                     reps: entry.reps,
+                    repsUpper: entry.repsUpper,
                     durationSeconds: entry.durationSeconds,
                     extras: entry.extraTargets.filter { profile.contains($0.key) },
                     distanceUnit: profile.distanceUnit

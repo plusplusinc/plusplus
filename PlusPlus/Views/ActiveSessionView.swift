@@ -1098,6 +1098,9 @@ struct ActiveSessionView: View {
             let target = RoutineDiff.Target(
                 name: name,
                 isDuration: last.exerciseType == .duration,
+                // Both sides are actuals here, so this compares rounds
+                // finished against rounds finished.
+                sets: mine.count,
                 weight: top.actualWeight,
                 reps: top.actualReps ?? last.actualReps,
                 durationSeconds: last.actualDuration,
@@ -1128,6 +1131,7 @@ struct ActiveSessionView: View {
             guard let last = matches.last else { continue }
             let top = matches.max { ($0.actualWeight ?? 0) < ($1.actualWeight ?? 0) } ?? last
             return RoutineDiff.Prior(
+                sets: matches.count,
                 weight: top.actualWeight,
                 reps: top.actualReps ?? last.actualReps,
                 durationSeconds: last.actualDuration,

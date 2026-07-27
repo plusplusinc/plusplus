@@ -79,6 +79,138 @@ struct RoutineDiffTests {
         #expect(delta == .reps(2))
     }
 
+    // MARK: - Sets
+
+    @Test("An added round is an improvement, not silence")
+    func addedSetIsADelta() {
+        // The regression this closes: RoutineDiff.Target carried no sets
+        // field at all, so 3×8 becoming 4×8 evaluated as .unchanged and
+        // Today said nothing about it.
+        let delta = RoutineDiff.delta(
+            target: RoutineDiff.Target(name: "Bench Press", sets: 4, weight: 135, reps: 8),
+            prior: RoutineDiff.Prior(sets: 3, weight: 135, reps: 8)
+        )
+        #expect(delta == .sets(1))
+        #expect(RoutineDiff.summary(deltas: [delta]) == [RoutineDiff.Segment(kind: .up, text: "+1 set")])
+    }
+
+    @Test("Two added rounds pluralize")
+    func addedSetsPluralize() {
+        #expect(RoutineDiff.summary(deltas: [.sets(2)]) == [RoutineDiff.Segment(kind: .up, text: "+2 sets")])
+        #expect(RoutineDiff.summary(deltas: [.sets(-1)]) == [RoutineDiff.Segment(kind: .down, text: "−1 set")])
+    }
+
+    @Test("Load still outranks an added round, which outranks reps")
+    func setsSitBetweenLoadAndReps() {
+        // Everything moved at once: load is still the headline.
+        let all = RoutineDiff.delta(
+            target: RoutineDiff.Target(name: "Bench Press", sets: 4, weight: 140, reps: 12),
+            prior: RoutineDiff.Prior(sets: 3, weight: 135, reps: 10)
+        )
+        #expect(all == .weight(5))
+        // Load held, so the added round speaks before the added reps.
+        let volume = RoutineDiff.delta(
+            target: RoutineDiff.Target(name: "Bench Press", sets: 4, weight: 135, reps: 12),
+            prior: RoutineDiff.Prior(sets: 3, weight: 135, reps: 10)
+        )
+        #expect(volume == .sets(1))
+    }
+
+    @Test("Dropping a round stays quiet, like every other regression")
+    func fewerSetsIsSilent() {
+        // Anti-shame (#246): finishing three of four planned sets last
+        // time must not render today's plan as a gain, and a genuine
+        // deload must not render as a loss.
+        let delta = RoutineDiff.delta(
+            target: RoutineDiff.Target(name: "Bench Press", sets: 3, weight: 135, reps: 8),
+            prior: RoutineDiff.Prior(sets: 4, weight: 135, reps: 8)
+        )
+        #expect(delta == .unchanged)
+    }
+
+    @Test("A missing set count on either side never invents a delta")
+    func absentSetsAreNotAChange() {
+        #expect(RoutineDiff.delta(
+            target: RoutineDiff.Target(name: "Bench Press", sets: 4, weight: 135),
+            prior: RoutineDiff.Prior(weight: 135)
+        ) == .unchanged)
+        #expect(RoutineDiff.delta(
+            target: RoutineDiff.Target(name: "Bench Press", weight: 135),
+            prior: RoutineDiff.Prior(sets: 3, weight: 135)
+        ) == .unchanged)
+    }
+
+    // MARK: - changedFields
+
+    @Test("Every moved field is reported, not just the headline one")
+    func changedFieldsReportsAllOfThem() {
+        let changed = RoutineDiff.changedFields(
+            target: RoutineDiff.Target(name: "Bench Press", sets: 4, weight: 140, reps: 12),
+            prior: RoutineDiff.Prior(sets: 3, weight: 135, reps: 10)
+        )
+        #expect(changed == [.sets, .metric(.weight), .metric(.reps)])
+    }
+
+    @Test("Regressions and neutral settings count as changes here")
+    func changedFieldsIsDirectionless() {
+        // delta() stays silent on both of these by design; a ledger
+        // showing target beside actual still has to mark them.
+        let deload = RoutineDiff.changedFields(
+            target: RoutineDiff.Target(name: "Bench Press", weight: 125),
+            prior: RoutineDiff.Prior(weight: 135)
+        )
+        #expect(deload == [.metric(.weight)])
+
+        let setting = RoutineDiff.Target(name: "Bike", extras: [.resistance: 9])
+        let settingPrior = RoutineDiff.Prior(extras: [.resistance: 3])
+        #expect(RoutineDiff.delta(target: setting, prior: settingPrior) == .unchanged)
+        #expect(RoutineDiff.changedFields(target: setting, prior: settingPrior) == [.metric(.resistance)])
+    }
+
+    @Test("A prior actual inside the target rep range is not a change")
+    func repRangeBandIsHonored() {
+        // 8–10 asked for, 9 done: nothing moved.
+        let inside = RoutineDiff.Target(name: "Row", reps: 8, repsUpper: 10)
+        #expect(RoutineDiff.changedFields(target: inside, prior: RoutineDiff.Prior(reps: 9)).isEmpty)
+        // The same 9 against 10–12 is a change.
+        let above = RoutineDiff.Target(name: "Row", reps: 10, repsUpper: 12)
+        #expect(RoutineDiff.changedFields(target: above, prior: RoutineDiff.Prior(reps: 9)) == [.metric(.reps)])
+        // And a 9 above the whole band is a change too.
+        let below = RoutineDiff.Target(name: "Row", reps: 5, repsUpper: 7)
+        #expect(RoutineDiff.changedFields(target: below, prior: RoutineDiff.Prior(reps: 9)) == [.metric(.reps)])
+    }
+
+    @Test("One side carrying a value is a change; neither side is not")
+    func changedFieldsHandlesAbsence() {
+        #expect(RoutineDiff.changedFields(
+            target: RoutineDiff.Target(name: "Run", extras: [.distance: 3]),
+            prior: RoutineDiff.Prior()
+        ) == [.metric(.distance)])
+        #expect(RoutineDiff.changedFields(
+            target: RoutineDiff.Target(name: "Bench Press", weight: 135),
+            prior: RoutineDiff.Prior(weight: 135)
+        ).isEmpty)
+    }
+
+    @Test("Never performed has nothing to compare against")
+    func changedFieldsOnANewExerciseIsEmpty() {
+        #expect(RoutineDiff.changedFields(
+            target: RoutineDiff.Target(name: "New", sets: 3, weight: 95),
+            prior: nil
+        ).isEmpty)
+    }
+
+    @Test("Rest and transition are block configuration, never diffed")
+    func blockConfigurationIsExcluded() {
+        // They reach a SetLog only as snapshotted TARGETS, so there is no
+        // actual to compare them against — see RoutineDiff.Field's note.
+        let changed = RoutineDiff.changedFields(
+            target: RoutineDiff.Target(name: "Bench Press", extras: [.rest: 60, .transition: 5]),
+            prior: RoutineDiff.Prior(extras: [.rest: 90, .transition: 15])
+        )
+        #expect(changed.isEmpty)
+    }
+
     // MARK: - Summary line
 
     @Test func summaryOrdersChangesThenNewAndDropsUnchanged() {
