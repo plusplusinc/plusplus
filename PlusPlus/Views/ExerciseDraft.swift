@@ -18,8 +18,6 @@ final class ExerciseDraft {
     /// The group the exercise is FOR — what single-group readers see.
     var muscleGroup: MuscleGroup { muscleGroups.first ?? .chest }
 
-    var selectedMuscleGroups: Set<MuscleGroup> { Set(muscleGroups) }
-
     /// Add or remove a group, keeping selection order. Removing the last
     /// one is a no-op: an exercise with no muscle group has nothing to
     /// export and nowhere to rank, and there is no empty state to explain
