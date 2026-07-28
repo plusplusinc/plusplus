@@ -63,6 +63,7 @@ No third-party dependencies without discussion first.
 
 **On main, awaiting Dave's device pass** (reasoning in docs/DECISIONS.md under the dated entry):
 
+- Entrance flash — a leading gutter mark on the row BACKGROUND, never a ring in an overlay; ⚠️ the owning surface must hold the arrival id for `RowEntranceFlash.totalDuration` or the fade is cut off (#468)
 - In-sheet drill-in is a `NavigationStack`, never a stage slide; ⚠️ the HOST owns the stack, and a growing detent rides `path.count` (#466)
 - Muscle groups — multi-select on an exercise; ⚠️ ordered list, `muscleGroups[0]` IS `muscleGroup`; nil means follow the catalog (#463)
 - Horizontal ticker — takes every MEASURED metric; ⚠️ the law is **a measured quantity scrubs, an enumerated scale wheels** (only resistance and RPE keep the wheel). Trays agree on top row, height and elevation (#462)
