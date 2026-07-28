@@ -857,3 +857,23 @@ Kit 500 green on Linux (+18 `PrescriptionTests`), CLI 26 green.
 Also from the same review: a modifier on a `GridRow` applies to each CELL rather than the row (Apple documents this), so the per-row accessibility label would have made every row announce itself three times — it now rides the label cell with the value cells hidden, working with that semantic rather than against it. `.minimumScaleFactor` covers the sizes between xLarge and the accessibility reflow, where a truncated number in a comparison is a WRONG number.
 
 **Process note, and it is the real lesson:** every one of these lived in the composition between two individually-correct pieces, and all of them were unreachable from any test target because the policy sat in private methods on a `View`. Lifting the row test into Kit made them Linux-testable in the suite that already pins the column-alignment property. Kit 505 green (+5 `movedFields` regressions, +1 reps-parity), CLI 26 green.
+
+---
+
+## 2026-07-28 — The row entrance flash is a leading GUTTER MARK on the row background, not an inset ring overlay
+
+**Decision (Dave, from a design study).** `RowEntranceFlash` — the "here is the thing you just made" beat on the Routines / Exercises / Kit catalogs — stops drawing a rounded accent ring around the row and instead paints a 3 pt accent capsule in the row's LEADING MARGIN, 5 pt in from the screen edge, growing from its centre, holding, then fading. It moves from `.overlay` to `.listRowBackground`. Wash-plus-mark and a wash alone were both prototyped and rejected; the mark alone won.
+
+**Reason.** The ring was `RoutineCard`'s choreography at row scale, and it stopped working the moment the catalogs went cardless (2026-07-25). Three faults, one cause:
+
+- A rounded stroke traces a boundary **no other row in the list has**. Nothing else there is drawn *around* content — the separators and the 16 pt content column are the list's only structure — so the ring read as a state badge on a selected row rather than a pointer at a new one.
+- `.padding(.horizontal, -6)` was the tell: an **overlay guessing at bounds it cannot see**. A row background gets the row's true full-bleed bounds for free, which is exactly what the negative padding was approximating.
+- `.padding(.vertical, 2)` put the stroke ~2 pt off the text on a one-line row, so it read as a squeeze. The margin the mark now occupies is the one strip of a row that never holds content, so a bare "anytime" routine and a three-pill one get the identical mark with no per-surface constant.
+
+Two things came free and are worth keeping in mind before anyone moves it back: a row background sits **under** the swipe actions, so a flash caught mid-swipe can no longer fight `swipeAdd`/`swipeDelete`; and the mark is diff-gutter grammar, which this app already speaks (green is data and creation, purple is merged).
+
+**Reduce Motion** is still NOT a gate — the flash answers "which row landed", the same call the card ring made. Only the vertical bloom drops there (`@Environment(\.accessibilityReduceMotion)` seeds `bloom = 1`); the mark still appears and fades.
+
+**One timing fact, and it is a trap.** The flash lives in a view that only exists while `newlyAdded == id`, so **clearing that identity unmounts the mark mid-fade**. The old ring finished at ~1.54 s from the add and the routines arm held for 1.96 s, so the mismatch never showed; the new beat runs 2.08 s from mount and would have been cut off. `RowEntranceFlash.totalDuration` now publishes the figure and both arms of `CatalogScopeView`'s arrival task sleep on it instead of on hand-tuned literals. The four beat constants are seconds, feeding both the sleeps and the curves, so a retune cannot leave an animation longer than the sleep waiting on it.
+
+**Validation.** Invisible to CI — the smoke flows assert the row exists, not what colour its ground went. Device pass required.

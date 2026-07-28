@@ -59,35 +59,83 @@ struct CardTagCapsule: View {
     }
 }
 
-/// The row-scale entrance flash (universal-search landings): an inset
-/// accent ring that appears after a beat and fades out — RoutineCard's
-/// ring choreography at row scale. Pure opacity, deliberately NOT gated
-/// on Reduce Motion (it carries "which row landed", the same call as the
-/// card ring). Mount it as a row overlay while the row is the arrival.
+/// The row-scale entrance flash (cross-surface landings): an accent mark in
+/// the row's LEADING MARGIN that grows from its centre, holds, and fades.
+///
+/// ⚠️ It is a row BACKGROUND, never an overlay (Dave, 2026-07-28). What it
+/// replaces was `RoutineCard`'s ring choreography at row scale, and that
+/// stopped working the moment the catalogs went cardless: a rounded stroke
+/// traces a boundary no other row in the list has, so it read as a state
+/// badge rather than a pointer. Its `.padding(.horizontal, -6)` was the
+/// tell — an overlay guessing at bounds it cannot see, which is also what
+/// put the stroke 2 pt off the text. A row background gets the row's TRUE
+/// bounds for free, and the mark lives in the one strip of the row that
+/// never holds content, so it cannot crowd a one-line routine or a
+/// three-pill one. It also sits UNDER the swipe actions, so a flash caught
+/// mid-swipe can't fight `swipeAdd`/`swipeDelete` the way an overlay did.
+///
+/// Deliberately NOT gated on Reduce Motion — it carries "which row landed",
+/// the same call the card ring made. Only the vertical bloom is dropped
+/// there; the mark still appears and fades.
 struct RowEntranceFlash: View {
-    @State private var entrance: Double = 0
-    @State private var flashTask: Task<Void, Never>?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Opacity, and the vertical grow. Separate drivers because the mark
+    /// blooms IN and then fades without retracting — one shared value would
+    /// shrink it back on the way out, which reads as a cancel.
+    @State private var ink: Double = 0
+    @State private var bloom: CGFloat = 0.15
+
+    /// Both sit OUTSIDE the 16 pt content column, which is the point.
+    private static let markWidth: CGFloat = 3
+    private static let markInset: CGFloat = 5
+
+    /// The beat, in seconds — ONE set of numbers driving both the sleeps and
+    /// the curves, so a retune can't leave an animation longer than the sleep
+    /// that waits on it.
+    private static let settle: Double = 0.34
+    private static let grow: Double = 0.22
+    private static let hold: Double = 0.62
+    private static let fade: Double = 0.90
+
+    /// ⚠️ How long the flash needs from MOUNT to finished. The surface that
+    /// owns the arrival identity must hold it at least this long: clearing
+    /// early unmounts the row background mid-fade, and the mark vanishes
+    /// instead of fading. It lives here so the two can't drift apart.
+    static let totalDuration: Duration = .seconds(settle + grow + hold + fade)
 
     var body: some View {
-        RoundedRectangle(cornerRadius: Theme.controlRadius)
-            .strokeBorder(Theme.accent, lineWidth: 2)
-            // The ring hugs the row content but breathes past the list
-            // insets sideways, so it reads as a frame, not a squeeze.
-            .padding(.vertical, 2)
-            .padding(.horizontal, -6)
-            .opacity(entrance)
-            .allowsHitTesting(false)
-            .onAppear {
-                flashTask?.cancel()
-                flashTask = Task {
-                    // Let the landing scroll settle before the ring shows.
-                    try? await Task.sleep(for: .milliseconds(340))
-                    guard !Task.isCancelled else { return }
-                    entrance = 1
-                    withAnimation(.easeOut(duration: 0.9)) { entrance = 0 }
-                }
+        HStack(spacing: 0) {
+            Capsule()
+                .fill(Theme.accent)
+                .frame(width: Self.markWidth)
+                .padding(.vertical, 5)
+                .padding(.leading, Self.markInset)
+                .scaleEffect(y: bloom, anchor: .center)
+                .opacity(ink)
+            Spacer(minLength: 0)
+        }
+        .allowsHitTesting(false)
+        // `.task` is lifecycle-bound: leaving the surface cancels it, so the
+        // hand-rolled task handle + `onDisappear` cancel this replaced are
+        // no longer needed.
+        .task {
+            // Let the landing scroll settle before the mark shows.
+            try? await Task.sleep(for: .seconds(Self.settle))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: Self.grow)) {
+                ink = 1
+                bloom = 1
             }
-            .onDisappear { flashTask?.cancel() }
+            try? await Task.sleep(for: .seconds(Self.grow + Self.hold))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: Self.fade)) { ink = 0 }
+        }
+        .onAppear {
+            // No travel under Reduce Motion: the mark is already full height
+            // and only the opacity carries it.
+            if reduceMotion { bloom = 1 }
+        }
     }
 }
 
