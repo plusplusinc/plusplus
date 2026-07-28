@@ -51,7 +51,10 @@ final class GitHubSyncCoordinator {
     /// the red "disconnected" trigger and starts a reconnect on the authorize
     /// step (the repo + App install already exist). Meaningless while connected.
     private(set) var faulted: Bool = false
-    /// A short human line about the last pass ("Pushed 3 · pulled 1").
+    /// A short human line about the last pass ("Updated from GitHub"), or nil
+    /// when the pass moved NOTHING (2026-07-27): a no-news sync has nothing to
+    /// report, so the pull that asked for it gets a quip rather than a dry
+    /// non-answer. Callers supply their own fallback.
     private(set) var lastSyncSummary: String?
 
     private let config: GitHubAppConfiguration?
@@ -384,10 +387,12 @@ final class GitHubSyncCoordinator {
     /// A short, friendly line about the last pass — for the pull-to-refresh
     /// toast. Getting new data wins the label, then backing up, else nothing
     /// changed. Deliberately plain language, not counts or git verbs (Dave).
-    private static func summarize(_ outcome: SyncOutcome) -> String {
+    /// Nil when nothing moved — "Up to date" is a non-answer, and the one
+    /// caller has a better one (a refresh quip).
+    private static func summarize(_ outcome: SyncOutcome) -> String? {
         if !outcome.pulls.isEmpty { return "Updated from GitHub" }
         if !outcome.pushed.isEmpty { return "Backed up" }
-        return "Up to date"
+        return nil
     }
 
     private static func isAuthFailure(_ error: Error) -> Bool {
