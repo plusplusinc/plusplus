@@ -192,28 +192,26 @@
   .specRow .v .amber { color: var(--notes-ink); }
   .specRow .chev { font-size: 10px; color: var(--ink-3); }
 
-  /* 1a/1b: the value column ends exactly where the ledger's `target`
-     column ends — rail right padding (14) + prev cell (58) + gap (8). */
-  .alignedTable { margin-top: 12px; }
-  .specRow.aligned { border-bottom: 0; padding: 5px 0; }
-  .specRow.aligned .v { flex: none; text-align: right; }
-  .specRow.aligned .chev { position: absolute; right: 0; }
-  .specRow.aligned { position: relative; padding-right: 0; }
-  /* 80 pt in from the screen edge, less the 20 pt this container already pads. */
-  .specRow.aligned .v { margin-right: 60px; }
-  .specRow.bare .k { display: none; }
-  .specRow.bare { justify-content: flex-end; }
+  /* The original anatomy: mono caps label left, hairline under each row,
+     value hard right, chevron beyond it. */
+  .specTable { margin-top: 12px; }
+  .specTable .specRow { border-bottom: 1px solid var(--border); padding: 7px 0; }
+  .specTable .specRow:last-child { border-bottom: 0; }
+
+  /* F: a leader rule carrying the eye from label to value on ONE line,
+     instead of a rule sitting under the whole row. */
+  .specTable.leader .specRow { border-bottom: 0; padding: 6px 0; align-items: center; }
+  .specRow .k.noflex { flex: none; }
+  .leadLine { flex: 1 1 auto; border-bottom: 1px dotted var(--border-strong); margin: 0 10px; height: 8px; }
 
   /* ---- the split header: table on one side, something on the other ---- */
   .split { display: grid; gap: 0 14px; margin-top: 12px; align-items: start; }
+  .split .specTable { margin-top: 0; }
   .split.narrow    { grid-template-columns: 62% 1fr; }
   .split.kitSplit  { grid-template-columns: minmax(0, 1fr) 128px; }
   .split.statSplit { grid-template-columns: minmax(0, 1fr) 96px; }
   .split.weekSplit { grid-template-columns: 118px minmax(0, 1fr); }
   .split.halves    { grid-template-columns: 1fr 1fr; }
-  .tight .specRow { border-bottom: 0; padding: 5px 0; }
-  .tight .specRow .v { flex: none; }
-  .tight .specRow .chev { margin-left: 2px; }
 
   .sideCol { padding-top: 3px; }
   .sideLabel {
@@ -222,23 +220,16 @@
   }
   .stackChips { display: flex; flex-direction: column; gap: 5px; align-items: flex-start; }
 
-  .weekDots { display: flex; gap: 4px; padding-top: 4px; }
+  .weekDots { display: flex; gap: 4px; padding-top: 6px; }
   .weekDots .day {
     width: 15px; height: 15px; border-radius: 50%; display: grid; place-items: center;
-    font-family: var(--mono); font-size: 9px; color: var(--ink-3);
-    border: 1px solid transparent;
+    font-family: var(--mono); font-size: 9px; color: var(--ink-3); border: 1px solid transparent;
   }
-  .weekDots .day.on {
-    background: var(--selected-tint); border-color: var(--selected-ring); color: var(--selected-ink);
-  }
+  .weekDots .day.on { background: var(--selected-tint); border-color: var(--selected-ring); color: var(--selected-ink); }
 
   .statBlock { display: flex; flex-direction: column; align-items: flex-end; padding-top: 2px; }
   .statBlock .big { font-family: var(--mono); font-size: 19px; color: var(--ink); font-variant-numeric: tabular-nums; }
   .statBlock .sub { font-family: var(--mono); font-size: 11px; color: var(--ink-3); margin-top: 2px; }
-
-  .pips { display: flex; gap: 4px; }
-  .pips i { width: 13px; height: 13px; border-radius: 3px; border: 1.5px solid var(--border-strong); }
-  .pips i.on { background: var(--done); border-color: var(--done); }
 
   /* 3a: a token that reads as a link, which is the only inline form
      SwiftUI can actually put inside wrapping text. */
@@ -399,68 +390,67 @@
     <button class="themeToggle" id="themeToggle" type="button">Light / dark</button>
     <p class="eyebrow">Prototype · routine detail · round 5</p>
     <h1>Closing the gap</h1>
-    <p class="lede">Seven ways to shorten the trip from label to value. The number on each card is the <b>measured worst-case gap</b> between the end of a label and the start of its value, from a headless render: the reference sits at 193 pt, which is what you were feeling. <b>C is loaded.</b> One tension to name first, because it shapes all of this: aligning the value column to <code>target</code> is <i>what creates</i> the long travel, since <code>target</code> lives far right. Every option except C and G gives that alignment up in order to fix this.</p>
+    <p class="lede">Rebuilt on the <b>original</b> anatomy, since that is the one you liked: real mono caps labels, a hairline under every row, four separate rows, values hard right. The number on each card is the measured worst-case gap from the end of a label to the start of its value. The reference sits at <b>267 pt</b> — wider than I quoted last round, because 1a’s value column was pulled 60 pt in from the edge and the original’s is not. <b>F is loaded.</b></p>
   </div>
 
   <div class="stage">
     <div>
-      <h2 class="sectionHead">The directions</h2>
       <div class="dirs" id="dirs">
 
-        <button class="dir" type="button" data-v="tableAligned">
+        <button class="dir" type="button" data-v="tableOrig" aria-pressed="true">
           <span class="num">0</span>
-          <h3>Full width, as it stands</h3>
-          <p class="idea">The reference. Label hard left, value hard right at the <code>target</code> column. Roughly 230 pt of travel between the two, which is the thing you are reacting to.</p>
-          <p class="meta"><span class="cost">193 pt of travel</span></p>
+          <h3>The original, full width</h3>
+          <p class="idea">Exactly as you saw it: mono caps label, hairline under each row, four separate rows, value hard right. The reference every card below is measured against.</p>
+          <p class="meta"><span class="cost">267 pt of travel</span></p>
+        </button>
+
+        <button class="dir" type="button" data-v="tableLeader">
+          <span class="num">F</span>
+          <h3>Keep the width, lead the eye <span class="rec">▸ pick</span></h3>
+          <p class="idea">The typographic answer, and the only one that changes nothing structural: the rule stops sitting <i>under</i> the row and runs <i>across</i> it, from the end of the label to the value. An index leader. The distance is unchanged; the cost of crossing it is what goes away.</p>
+          <p class="meta"><span class="win">nothing moves</span><span class="win">keeps all four rows</span><span class="cost">distance still 267</span></p>
         </button>
 
         <button class="dir" type="button" data-v="narrowOnly">
           <span class="num">A</span>
-          <h3>Just narrower, nothing beside</h3>
-          <p class="idea">The table stops at 62% and the right side stays empty. Worth seeing on its own before adding anything: if this reads fine, the answer to "what goes beside it" is <b>nothing</b>, and a quiet right margin is a legitimate thing to spend width on.</p>
-          <p class="meta"><span>travel 111</span><span class="cost">breaks the ledger alignment</span></p>
+          <h3>Narrower, nothing beside</h3>
+          <p class="idea">The table stops at 62%, right side empty. Worth seeing alone: if this reads fine, the answer to "what goes beside it" is <b>nothing</b>, and a quiet right margin is a legitimate way to spend width.</p>
+          <p class="meta"><span>travel 141</span></p>
         </button>
 
-        <button class="dir" type="button" data-v="tableKit" aria-pressed="true">
+        <button class="dir" type="button" data-v="tableKit">
           <span class="num">B</span>
-          <h3>Table left, kit right</h3>
-          <p class="idea">Split by <b>kind</b>: when and how long on the left, what you need on the right. The kit gets a column of its own, which is the one item whose length actually varies. But narrowing barely helps the travel, because the label still starts at the far left of a 190 pt column.</p>
-          <p class="meta"><span>travel 123</span><span class="win">kit stops truncating</span></p>
+          <h3>Kit moves out</h3>
+          <p class="idea">The kit leaves the table for a column of its own, so the table keeps three even rows and the one row whose value length actually varies stops constraining the rest.</p>
+          <p class="meta"><span class="win">travel 125</span><span class="win">kit stops truncating</span></p>
         </button>
 
         <button class="dir" type="button" data-v="tableWeek">
           <span class="num">C</span>
-          <h3>Table right, week strip left <span class="rec">▸ pick</span></h3>
-          <p class="idea">The only option that <b>keeps the ledger alignment</b>: the whole table shifts right instead of narrowing, so values still land on <code>target</code> while the labels come with them. The freed left half carries the seven days with tuesday lit, which says the schedule better than the word does.</p>
-          <p class="meta"><span class="win">travel 61 · the shortest</span><span class="win">keeps target alignment</span><span class="cost">dots and row say the same thing</span></p>
-        </button>
-
-        <button class="dir" type="button" data-v="tableStat">
-          <span class="num">D</span>
-          <h3>Table left, estimate right</h3>
-          <p class="idea">Promotes <code>~30 min</code> out of the faint caption line into a stat you actually see. It is the fact most likely to decide whether you start now, and on this screen it currently whispers.</p>
-          <p class="meta"><span>travel 127</span><span class="win">estimate gets weight</span><span class="win">shortest header</span></p>
-        </button>
-
-        <button class="dir" type="button" data-v="tableRuns">
-          <span class="num">E</span>
-          <h3>Table left, last four right</h3>
-          <p class="idea">Four pips for the last four times this routine ran, in the purple that already means landed. Answers "am I keeping this up" beside "what is it".</p>
-          <p class="meta"><span>travel 127</span><span class="win">new information</span><span class="cost">a gap could read as judgment</span></p>
+          <h3>Week strip left, table right</h3>
+          <p class="idea">Shifts the whole table right rather than narrowing it. The freed half carries the seven days with tuesday lit, which says the schedule better than the word does. Worth knowing: on this anatomy the shift is <i>not</i> the big win it was on 1a, because the values right-align to the column edge either way.</p>
+          <p class="meta"><span>travel 135</span><span class="cost">dots and row say the same thing</span></p>
         </button>
 
         <button class="dir" type="button" data-v="tableKitLeft">
           <span class="num">G</span>
-          <h3>Table right, kit left</h3>
-          <p class="idea">What the measurements pointed at after the fact: C's geometry, but the freed half carries the <b>kit</b> rather than a second way of saying tuesday. Keeps the <code>target</code> alignment, keeps the travel short, and gives the kit the room it needs. The cost is reading order, since the equipment now comes before the schedule.</p>
-          <p class="meta"><span class="win">travel 89</span><span class="win">alignment + kit</span><span class="cost">kit reads first</span></p>
+          <h3>Kit left, table right</h3>
+          <p class="idea">C's geometry with the kit in the freed half instead of a second way of saying tuesday. Same short travel, and the half earns its place. Costs reading order, since the equipment now comes first.</p>
+          <p class="meta"><span>travel 135</span><span class="cost">kit reads first</span></p>
+        </button>
+
+        <button class="dir" type="button" data-v="tableStat">
+          <span class="num">D</span>
+          <h3>Estimate right, table left</h3>
+          <p class="idea">Promotes <code>~30 min</code> out of the faint caption into a stat you actually see. It is the fact most likely to decide whether you start now, and it currently whispers. Also the shortest header of the set, since the caption line goes away.</p>
+          <p class="meta"><span class="cost">travel 157</span><span class="win">estimate gets weight</span></p>
         </button>
 
         <button class="dir" type="button" data-v="tableHalves">
-          <span class="num">F</span>
+          <span class="num">E</span>
           <h3>Two half tables</h3>
-          <p class="idea">Same four facts, same treatment, just folded into two columns of two. Halves the travel with <b>no new content type at all</b>, which makes it the cheapest of these to build and the hardest to argue with.</p>
-          <p class="meta"><span>travel 92</span><span class="win">nothing new invented</span><span class="cost">two reading orders</span></p>
+          <p class="idea">The same four rows folded into two columns of two. Halves the travel with no new content type at all, which makes it the cheapest to build. Costs you a single reading order.</p>
+          <p class="meta"><span class="win">travel 94 · the shortest</span><span class="win">shortest header</span><span class="cost">two reading orders</span></p>
         </button>
 
       </div>
@@ -486,7 +476,7 @@
 
     <div class="deviceCol">
       <div class="device">
-        <div class="screen" id="screen" data-top="tableWeek" data-row="ledger" data-facts="trim">
+        <div class="screen" id="screen" data-top="tableLeader" data-row="ledger" data-facts="trim">
 
           <div class="statusbar"><span>12:48</span><span class="right">▮▮▮ ᯤ 73</span></div>
 
@@ -545,44 +535,42 @@
     </div>
   </div>
 
-  <div class="notes">
     <div class="noteGrid">
 
       <div class="note">
-        <span class="flag">the finding</span>
-        <h3>Travel is set by where the table starts, not how wide it is</h3>
-        <p>Narrowing the table to 62% only took the gap from 193 to 111, because the label still begins at the far left of whatever column it is in. Right-shifting the whole table took it to 61 without narrowing anything.</p>
-        <p>That is why C and G beat A, B, D and E on your own criterion while also being the only two that keep the value column landing on <code>target</code>. The instinct to narrow was right about the symptom and the fix turned out to be a different move.</p>
+        <span class="flag">correction</span>
+        <h3>Right-shifting was a finding about 1a, not about this table</h3>
+        <p>Last round C came in at 61 pt and I called it the answer. That held because 1a pulled its value column 60 pt in from the edge, so moving the table right closed a gap that was partly artificial.</p>
+        <p>On the original, values right-align to the column edge whichever side the table sits on, so C lands at 135 — no better than B and worse than E. The general claim was wrong. What survives is narrower: <b>where the label starts matters more than how wide the table is</b>, which is why every split here beats the reference and why the two-column split beats them all.</p>
+      </div>
+
+      <div class="note">
+        <h3>Why F is the pick</h3>
+        <p>It is the only option that changes nothing you liked. Four rows, real labels, full width, values hard right — all intact. The rule stops sitting under the row and runs across it instead, from the end of the label to the value.</p>
+        <p>The distance is still 267 pt. That is the point: an index leader does not shorten the trip, it removes the cost of making it, because the eye tracks a line instead of jumping a void. If the gap still reads as too far with a leader in it, then the problem was the width after all and E is the answer.</p>
       </div>
 
       <div class="note">
         <h3>Measured, worst case</h3>
-        <p>Reference 193 · A 111 · B 123 · <b>C 61</b> · G 89 · D 127 · E 127 · F 92.</p>
-        <p>Worst case, not average: the widest gap in the block, which is always the row with the shortest label. <code>SCHEDULE</code> against a right-aligned <code>tue</code> is the one doing the damage in most of these.</p>
+        <p>Reference 267 · F 267 (led) · A 141 · <b>B 125</b> · C 135 · G 135 · D 157 · <b>E 94</b>.</p>
+        <p>Worst case, not average: the widest gap in the block, always the row with the shortest label. <code>KIT</code> against a right-aligned value is what sets it in most of these.</p>
       </div>
 
       <div class="note">
-        <h3>C and G are the same geometry</h3>
-        <p>Both shift the table right and hand the freed half to something else. The only question between them is what deserves that half: a second way of saying tuesday, or the kit.</p>
-        <p>C's dots are the better <i>picture</i> and duplicate a row that is already there. G's kit is the better <i>use</i> and pushes equipment ahead of the schedule in reading order. If the schedule row came out of C's table, the duplication argument disappears and C wins outright.</p>
+        <h3>E is the shortest header too</h3>
+        <p>Two columns of two rows lands the first exercise at 155 pt against the reference's 215. It is both the shortest travel and the most list, which is a strong combination for something that invents nothing new.</p>
+        <p>What it costs is a single reading order. Four rows down a column is one path; a 2×2 is two, and nothing on the screen says which to take first.</p>
       </div>
 
       <div class="note">
-        <h3>D is also the shortest header here</h3>
-        <p>Promoting the estimate to a stat removes the caption line above the table, so D lands the first exercise at 147 pt against everything else's 171. It is the only option that buys height as well as answering the question.</p>
-        <p>Its travel is poor, though, at 127. If the estimate's weight appeals, the honest move is to take that idea into C's or G's geometry rather than D's.</p>
-      </div>
-
-      <div class="note">
-        <span class="flag">⚠ check before building E</span>
-        <h3>Four pips can read as judgment</h3>
-        <p>A missing pip in "last four" states a fact, but the app has a standing anti-shame law: regressions render neutral, diffs sum positive movement only, no out-of-band warnings.</p>
-        <p>A gap in a row of purple squares is exactly the kind of thing that law exists to catch. It is not automatically disqualifying, but it needs a deliberate ruling rather than arriving as a side effect of filling a column.</p>
+        <h3>B is the quiet contender</h3>
+        <p>Lifting the kit out is the only change that fixes a second problem at the same time: the kit is the one row whose value length actually varies, so it is the row that will truncate first as a routine's equipment grows.</p>
+        <p>It also leaves three rows of near-equal label length, which is what makes its 125 respectable without any typographic help.</p>
       </div>
 
       <div class="note">
         <h3>Unchanged underneath</h3>
-        <p>Names wrap, the node centres on the first line, the ledger prints target beside prev with no delta, the columns pin, Start plays the ignition. The whole 1-family still pins nothing itself, so these header rows scroll away with the title.</p>
+        <p>Names wrap, the node centres on the first line, the ledger prints target beside prev with no delta, the columns pin, Start plays the ignition. The header itself pins nothing in any of these, so these rows scroll away with the title.</p>
       </div>
 
     </div>
@@ -616,41 +604,31 @@
   function door(key, label, cls) {
     return '<button class="chip' + (cls || "") + '" type="button" data-k="' + key + '">' + label + '<span class="chev">›</span></button>';
   }
+
   var TOPS = {
-    /* The reference: full width, value column landing on `target`. */
-    tableAligned: {
+    /* Reference: direction 1 exactly as you saw it. Labels, hairlines,
+       four separate rows, values hard right. */
+    tableOrig: {
       scroll:
         '<p class="factline">~30 min · 20 sets</p>' +
-        '<div class="alignedTable">' +
-          specRow("schedule", "schedule", "tue", "aligned") +
-          specRow("rest", "rest", "45s · then 15s", "aligned") +
-          specRow("kit", "kit", '<span class="amber">Dumbbells</span> · Bench', "aligned") +
-        '</div>',
+        '<div class="specTable">' + fourRows() + '</div>',
       pinned: ""
     },
 
-    /* A · narrower, nothing beside it */
+    /* A · same table, stopped at 62% */
     narrowOnly: {
       scroll:
         '<p class="factline">~30 min · 20 sets</p>' +
-        '<div class="split narrow"><div class="tight">' +
-          specRow("schedule", "schedule", "tue", "tightRow") +
-          specRow("rest", "rest", "45s · then 15s", "tightRow") +
-          specRow("kit", "kit", '<span class="amber">Dumbbells</span> · Bench', "tightRow") +
-        '</div><div></div></div>',
+        '<div class="split narrow"><div class="specTable">' + fourRows() + '</div><div></div></div>',
       pinned: ""
     },
 
-    /* B · table left, kit right */
+    /* B · kit lifted out to its own column, table keeps three rows */
     tableKit: {
       scroll:
         '<p class="factline">~30 min · 20 sets</p>' +
         '<div class="split kitSplit">' +
-          '<div class="tight">' +
-            specRow("schedule", "schedule", "tue", "tightRow") +
-            specRow("rest", "rest", "45s", "tightRow") +
-            specRow("transition", "transition", "15s", "tightRow") +
-          '</div>' +
+          '<div class="specTable">' + threeRows() + '</div>' +
           '<div class="sideCol">' +
             '<p class="sideLabel">kit</p>' +
             '<div class="stackChips">' + door("kit", "Dumbbells", " amber") + door("bench", "Bench") + '</div>' +
@@ -659,85 +637,85 @@
       pinned: ""
     },
 
-    /* C · table right (still aligned to `target`), week strip left */
+    /* C · table shifted right, week strip in the freed half */
     tableWeek: {
       scroll:
         '<p class="factline">~30 min · 20 sets</p>' +
         '<div class="split weekSplit">' +
           '<div class="weekDots">' + weekDots() + '</div>' +
-          '<div class="alignedTable" style="margin-top:0">' +
-            specRow("schedule", "schedule", "tue", "aligned") +
-            specRow("rest", "rest", "45s · then 15s", "aligned") +
-            specRow("kit", "kit", '<span class="amber">Dumbbells</span> · Bench', "aligned") +
-          '</div>' +
+          '<div class="specTable">' + fourRows() + '</div>' +
         '</div>',
       pinned: ""
     },
 
-    /* G · same right-shifted table, kit on the left instead of days */
+    /* G · same shift, kit in the freed half instead */
     tableKitLeft: {
       scroll:
         '<p class="factline">~30 min · 20 sets</p>' +
         '<div class="split weekSplit">' +
           '<div class="stackChips">' + door("kit", "Dumbbells", " amber") + door("bench", "Bench") + '</div>' +
-          '<div class="alignedTable" style="margin-top:0">' +
-            specRow("schedule", "schedule", "tue", "aligned") +
-            specRow("rest", "rest", "45s", "aligned") +
-            specRow("transition", "transition", "15s", "aligned") +
-          '</div>' +
+          '<div class="specTable">' + threeRows() + '</div>' +
         '</div>',
       pinned: ""
     },
 
-    /* D · table left, estimate promoted to a stat */
+    /* D · estimate promoted out of the caption into a stat */
     tableStat: {
       scroll:
         '<div class="split statSplit">' +
-          '<div class="tight">' +
-            specRow("schedule", "schedule", "tue", "tightRow") +
-            specRow("rest", "rest", "45s · then 15s", "tightRow") +
-            specRow("kit", "kit", '<span class="amber">Dumbbells</span> · Bench', "tightRow") +
-          '</div>' +
+          '<div class="specTable">' + fourRows() + '</div>' +
           '<div class="statBlock"><span class="big">~30 min</span><span class="sub">20 sets</span></div>' +
         '</div>',
       pinned: ""
     },
 
-    /* E · table left, recent runs right */
-    tableRuns: {
+    /* E · two half tables, two rows each */
+    tableHalves: {
       scroll:
         '<p class="factline">~30 min · 20 sets</p>' +
-        '<div class="split statSplit">' +
-          '<div class="tight">' +
-            specRow("schedule", "schedule", "tue", "tightRow") +
-            specRow("rest", "rest", "45s · then 15s", "tightRow") +
-            specRow("kit", "kit", '<span class="amber">Dumbbells</span> · Bench', "tightRow") +
+        '<div class="split halves">' +
+          '<div class="specTable">' +
+            specRow("schedule", "schedule", "tue") +
+            specRow("rest", "rest", "45s") +
           '</div>' +
-          '<div class="sideCol"><p class="sideLabel">last four</p>' +
-            '<div class="pips"><i class="on"></i><i class="on"></i><i></i><i class="on"></i></div>' +
+          '<div class="specTable">' +
+            specRow("transition", "transition", "15s") +
+            specRow("kit", "kit", '<span class="amber">Dumbbells</span>') +
           '</div>' +
         '</div>',
       pinned: ""
     },
 
-    /* F · two half tables */
-    tableHalves: {
+    /* F · full width, but the rule leads the eye across */
+    tableLeader: {
       scroll:
         '<p class="factline">~30 min · 20 sets</p>' +
-        '<div class="split halves">' +
-          '<div class="tight">' +
-            specRow("schedule", "schedule", "tue", "tightRow") +
-            specRow("rest", "rest", "45s", "tightRow") +
-          '</div>' +
-          '<div class="tight">' +
-            specRow("transition", "transition", "15s", "tightRow") +
-            specRow("kit", "kit", '<span class="amber">Dumbbells</span>', "tightRow") +
-          '</div>' +
+        '<div class="specTable leader">' +
+          leadRow("schedule", "schedule", "tue") +
+          leadRow("rest", "rest", "45s") +
+          leadRow("transition", "transition", "15s") +
+          leadRow("kit", "kit", '<span class="amber">Dumbbells</span> · Bench') +
         '</div>',
       pinned: ""
     }
   };
 
+  function fourRows() {
+    return specRow("schedule", "schedule", "tue") +
+      specRow("rest", "rest", "45s") +
+      specRow("transition", "transition", "15s") +
+      specRow("kit", "kit", '<span class="amber">Dumbbells</span> · Bench');
+  }
+  function threeRows() {
+    return specRow("schedule", "schedule", "tue") +
+      specRow("rest", "rest", "45s") +
+      specRow("transition", "transition", "15s");
+  }
+  function leadRow(key, label, value) {
+    return '<button class="specRow" type="button" data-k="' + key + '">' +
+      '<span class="k noflex">' + label + '</span><span class="leadLine"></span>' +
+      '<span class="v">' + value + '</span><span class="chev">›</span></button>';
+  }
   function weekDots() {
     return ["m", "t", "w", "t", "f", "s", "s"].map(function (d, i) {
       return '<span class="day' + (i === 1 ? " on" : "") + '">' + d + "</span>";
