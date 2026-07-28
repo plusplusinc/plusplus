@@ -185,13 +185,16 @@ struct IncrementSheet: View {
         } label: {
             Text(metric.displayText(choice, weightUnit: weightUnit, distanceUnit: distanceUnit))
                 .font(.system(.subheadline, design: .monospaced, weight: .semibold))
-                .foregroundStyle(active ? Theme.accent : Theme.textPrimary)
+                // Blue, not green (Dave, 2026-07-28): the values are data,
+                // but the state being expressed is SELECTION, and every
+                // other selectable control says that in blue.
+                .foregroundStyle(active ? Theme.selected : Theme.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: 46)
-                .background(active ? Theme.accent.opacity(0.16) : Theme.surface, in: RoundedRectangle(cornerRadius: 10))
-                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(active ? Theme.accent.opacity(0.55) : Theme.border))
+                .background(active ? Theme.selectedTint : Theme.surface, in: RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(active ? Theme.selectedRing : Theme.border))
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("incrementChoice-\(metric.formatted(choice))")

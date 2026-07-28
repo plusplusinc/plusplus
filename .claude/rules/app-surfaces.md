@@ -13,8 +13,14 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
 
 - **Green is data/creation** (deltas, net chips, the ++ glyph, create
   affordances, the Start play key) — never chrome.
-- **Blue (#1668D2/#5CA8F5) is selection/interactive state** — solid fills,
-  one blue on screen outside a live ring gesture. `Theme.selected` is retired
+- **Blue (#1668D2/#5CA8F5) is selection/interactive state** — a TINTED
+  GROUND + ring + bright blue text (`selectedTint`/`selectedRing`/`selected`),
+  one blue on screen outside a live ring gesture. ⚠️ Solid blue fills are
+  RETIRED as of 2026-07-28 (Dave), reversing #210: chips, the increment
+  sheet and the schedule day circles now select the way the selectable ROWS
+  already did, so the app has one selection look instead of two.
+  `Theme.onSelected` survives only where something genuinely sits on a solid
+  fill. `Theme.selected` is retired
   as a text/link color; escape hatches are quiet keys. On the superset rail
   (design handoff 2026-07-12 v2), blue is the MOMENT OF CREATING: the live
   ring highlight, and the landing animation (the selection field's reshape +
@@ -474,7 +480,15 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   access to" is retired (say "have" — OS-permission copy keeps "access");
   the term for a named equipment set is **"kit"**, default kit **`main`**.
 - Warm charcoal dark (`#201F1D` family); the watch keeps system black.
-- Draw every color from `Theme` — never ad-hoc literals.
+- Draw every color from `Theme` — never ad-hoc literals. ⚠️ The five brand
+  HUES live in `BrandPalette` (PlusPlusShared, compiled into the app AND the
+  widget extension) and `Theme` reads them from there (2026-07-28); the
+  neutrals stay in `Theme`, since widgets draw on the system's ground. The
+  widget extension has NO palette of its own any more — its private copy
+  lacked the high-contrast variants, so widgets ignored Increase Contrast for
+  as long as it existed. `WatchTheme` is the one legitimate second palette:
+  watchOS renders only the dark side, and that target doesn't compile
+  PlusPlusShared.
 - **Two tag tiers, rounded rects not pills, all-caps is section-labels-only**
   (2026-07-18, shapes/mono revised 2026-07-20): a **selectable chip** is a
   button — sentence-case plain font, a border when unselected, a solid blue
@@ -567,7 +581,15 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   Kit chip) always shows the raw kit name, since a control needs a label even with one
   kit; PROSE and verdicts use `EquipmentLibrary.activeNamePhrase` (name the kit once
   more than one exists, else “your kit”) so the rule lives in one place. Opening the
-  catalog to change kit membership is always labeled **“Edit your kit…”**. The user-facing term is "kit",
+  catalog to change kit membership is always labeled **“Edit your kit…”**.
+  ⚠️ **A kit NAME in a sentence wears the data-tag treatment** (2026-07-28):
+  `KitNamePhrase`/`KitTag` give it `CardTagCapsule`'s soft r6 fill so it reads
+  as a name rather than an adjective missing its noun ("Add barbell to main").
+  The tag only works with the name LAST — SwiftUI can't put a padded rounded
+  tag inside a wrapping `Text` run — so anywhere it can't go (mid-sentence
+  prose, a saturated button cap) the name takes its noun instead, via
+  `EquipmentLibrary.activeKitPhrase` ("the main kit"). The bug is invisible
+  until a SECOND kit exists, since prose says "your kit" until then. The user-facing term is "kit",
   and the fourth tab is labeled **Kit** (2026-07-20); the word **"gear" is
   retired** from user-facing copy (2026-07-20) — use **kit** for the
   your-set sense, **equipment** for the single-item / catalog sense

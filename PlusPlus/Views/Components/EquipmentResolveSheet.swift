@@ -195,9 +195,11 @@ struct EquipmentResolveSheet: View {
                         .font(.system(.footnote))
                         .foregroundStyle(Theme.textSecondary)
                 } else if canAddToActiveKit {
-                    Text("Add \(equipmentName.lowercased()) to \(activeKitName)")
-                        .font(.system(.body, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
+                    KitNamePhrase(
+                        prefix: "Add \(equipmentName.lowercased()) to",
+                        kit: activeKitName,
+                        font: .system(.body, weight: .semibold)
+                    )
                     Text("Keep this routine exactly as it is.")
                         .font(.system(.footnote))
                         .foregroundStyle(Theme.textSecondary)
@@ -216,11 +218,11 @@ struct EquipmentResolveSheet: View {
             .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.notes.opacity(0.4)))
 
             if let best = res.bestKit {
-                primaryButton(title: "Switch to \(best)", systemImage: "arrow.left.arrow.right", tint: Theme.selected) {
+                primaryButton(title: "Switch to the \(best) kit", systemImage: "arrow.left.arrow.right", tint: Theme.selected) {
                     switchKit(named: best)
                 }
             } else if canAddToActiveKit {
-                primaryButton(title: "Add \(equipmentName.lowercased()) to \(activeKitName)", systemImage: "plus", tint: Theme.accent) {
+                primaryButton(title: "Add \(equipmentName.lowercased()) to the \(activeKitName) kit", systemImage: "plus", tint: Theme.accent) {
                     addToKit()
                 }
             } else {
@@ -238,6 +240,9 @@ struct EquipmentResolveSheet: View {
         let icon: String
         let tint: Color
         let title: String
+        /// A kit this route lands in, rendered as a trailing data tag so the
+        /// title can't end on a bare name (2026-07-28).
+        var kit: String? = nil
         let subtitle: String
         let subtitleTint: Color
         let action: () -> Void
@@ -248,7 +253,8 @@ struct EquipmentResolveSheet: View {
         // Add-to-kit, unless it's the hero (bestKit == nil) or the kit can't take it.
         if canAddToActiveKit, res.bestKit != nil {
             rows.append(RouteRow(icon: "plus", tint: Theme.accent,
-                                 title: "Add \(equipmentName.lowercased()) to \(activeKitName)",
+                                 title: "Add \(equipmentName.lowercased()) to",
+                                 kit: activeKitName,
                                  subtitle: "Keep this kit, add the piece",
                                  subtitleTint: Theme.textSecondary,
                                  action: { addToKit() }))
@@ -280,7 +286,7 @@ struct EquipmentResolveSheet: View {
         VStack(spacing: 0) {
             ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
                 if index > 0 { divider }
-                resolveRow(icon: row.icon, tint: row.tint, title: row.title,
+                resolveRow(icon: row.icon, tint: row.tint, title: row.title, kit: row.kit,
                            subtitle: row.subtitle, subtitleTint: row.subtitleTint, action: row.action)
             }
         }
@@ -291,7 +297,7 @@ struct EquipmentResolveSheet: View {
         Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, 56)
     }
 
-    private func resolveRow(icon: String, tint: Color, title: String, subtitle: String, subtitleTint: Color = Theme.textSecondary, action: @escaping () -> Void) -> some View {
+    private func resolveRow(icon: String, tint: Color, title: String, kit: String? = nil, subtitle: String, subtitleTint: Color = Theme.textSecondary, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: icon)
@@ -300,10 +306,14 @@ struct EquipmentResolveSheet: View {
                     .frame(width: 30, height: 30)
                     .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 8))
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(title)
-                        .font(.system(.subheadline, weight: .medium))
-                        .foregroundStyle(Theme.textPrimary)
-                        .multilineTextAlignment(.leading)
+                    if let kit {
+                        KitNamePhrase(prefix: title, kit: kit, font: .system(.subheadline, weight: .medium))
+                    } else {
+                        Text(title)
+                            .font(.system(.subheadline, weight: .medium))
+                            .foregroundStyle(Theme.textPrimary)
+                            .multilineTextAlignment(.leading)
+                    }
                     Text(subtitle)
                         .font(.system(.caption))
                         .foregroundStyle(subtitleTint)
@@ -322,6 +332,11 @@ struct EquipmentResolveSheet: View {
         .buttonStyle(.plain)
     }
 
+    /// ⚠️ A kit name in one of THESE labels takes the noun form ("the main
+    /// kit"), not the `KitTag` treatment (2026-07-28): the tag's soft
+    /// `surfaceRaised` fill is drawn for the page ground, and on a saturated
+    /// button fill it reads as a hole punched in the cap. Same rule stated in
+    /// `KitNamePhrase` — where a tag can't go, give the name its noun.
     private func primaryButton(title: String, systemImage: String, tint: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 8) {
@@ -478,7 +493,9 @@ struct SwapMovesSheet: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(.system(.subheadline, weight: .medium))
-                        .foregroundStyle(destructive ? Theme.notes : Theme.textPrimary)
+                        // Amber is advisory and never an alarm, so it cannot
+                        // carry a destructive option (2026-07-28).
+                        .foregroundStyle(destructive ? Theme.destructive : Theme.textPrimary)
                     if let muscles {
                         HStack(spacing: 5) {
                             Text(muscles.lowercased())

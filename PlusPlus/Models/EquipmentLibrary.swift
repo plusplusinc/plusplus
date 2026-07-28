@@ -97,6 +97,17 @@ extension EquipmentLibrary {
         return activeKit.name
     }
 
+    /// The same name, but safe MID-SENTENCE: "your kit", or "the main kit"
+    /// (2026-07-28). A bare name inside a sentence reads as an adjective
+    /// waiting for its noun — "Marking what you have in main." — so prose
+    /// that can't end on the name supplies the noun instead. Label-ish
+    /// surfaces that CAN end on it use `KitNamePhrase`, which marks the name
+    /// as a data tag; this is the escape for the ones that can't.
+    static func activeKitPhrase(in libraries: [EquipmentLibrary], storedID: String?) -> String {
+        let name = activeNamePhrase(in: libraries, storedID: storedID)
+        return name == "your kit" ? name : "the \(name) kit"
+    }
+
     /// Non-view resolution (SeedData's populate math, the importer).
     static func active(context: ModelContext) -> EquipmentLibrary? {
         let all = (try? context.fetch(FetchDescriptor<EquipmentLibrary>())) ?? []

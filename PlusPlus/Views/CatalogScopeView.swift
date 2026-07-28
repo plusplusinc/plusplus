@@ -955,7 +955,16 @@ struct CatalogScopeView: View {
                 } label: {
                     Text(inKit ? "REMOVE" : "ADD")
                 }
-                .tint(inKit ? Theme.destructive : Theme.accent)
+                // ⚠️ REMOVE is NEUTRAL, never the destructive red (Dave,
+                // 2026-07-28). It drops the piece from the ACTIVE KIT — the
+                // equipment still exists, still sits in your other kits, and
+                // the same swipe puts it back. DELETE on the trailing edge
+                // ends the object everywhere and only exists on customs.
+                // Sharing one red made the single cue that separates them
+                // say they were the same act. Neutral matches UNFAV on the
+                // exercise row, which is the identical "turn my curation
+                // off" gesture.
+                .tint(inKit ? Theme.textFaint : Theme.accent)
                 .accessibilityIdentifier("quickAdd-\(equipment.name)")
             }
         }

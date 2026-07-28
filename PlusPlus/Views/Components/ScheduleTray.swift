@@ -158,18 +158,21 @@ struct ScheduleEditor: View {
                         }
                         persistSchedule()
                     } label: {
-                        // Solid selection blue (#210), not green: scheduling a
-                        // day is choosing an option; the due OUTPUT on Today
-                        // stays green.
+                        // Selection blue, not green: scheduling a day is
+                        // choosing an option; the due OUTPUT on Today stays
+                        // green. Tinted ground + ring + blue text, the one
+                        // selection look (2026-07-28) — a circle carries it
+                        // as readily as a chip, and seven of them in a row
+                        // read as a week rather than seven solid blocks.
                         Text(Self.dayLabels[weekday - 1])
                             .font(.system(.caption, design: .monospaced, weight: .semibold))
-                            .foregroundStyle(selected ? Theme.onSelected : Theme.textSecondary)
+                            .foregroundStyle(selected ? Theme.selected : Theme.textSecondary)
                             .frame(width: 36, height: 36)
                             .background(
-                                selected ? AnyShapeStyle(Theme.selected) : AnyShapeStyle(Theme.background),
+                                selected ? AnyShapeStyle(Theme.selectedTint) : AnyShapeStyle(Theme.background),
                                 in: Circle()
                             )
-                            .overlay(Circle().strokeBorder(selected ? Color.clear : Theme.border, lineWidth: 1))
+                            .overlay(Circle().strokeBorder(selected ? Theme.selectedRing : Theme.border, lineWidth: 1))
                             .frame(width: 44, height: 44)
                             .contentShape(Rectangle())
                     }
