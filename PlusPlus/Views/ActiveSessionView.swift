@@ -115,7 +115,11 @@ struct ActiveSessionView: View {
         VStack(spacing: 0) {
             header
             progressBar
-                .padding(.horizontal, 20)
+                // The 16 pt content column (Dave, 2026-07-28): the same
+                // width as Today's week bar, and the same as the metric
+                // cards and the Log-set dock directly below it. At 20 it
+                // sat inset from everything it shares a screen with.
+                .padding(.horizontal, 16)
                 .padding(.top, 12)
 
             if session.isFinished {
