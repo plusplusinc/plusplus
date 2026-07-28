@@ -156,7 +156,7 @@ struct ExerciseEditorView: View {
                         .foregroundStyle(isBuiltIn ? Theme.textSecondary : Theme.textPrimary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 11)
-                        .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                         .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
                         .disabled(isBuiltIn)
                         .accessibilityIdentifier("exerciseNameField")
@@ -317,7 +317,7 @@ struct ExerciseEditorView: View {
                         .lineLimit(3...8)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 11)
-                        .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                         .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
 
                     SheetSectionLabel("VIDEO")
@@ -329,7 +329,7 @@ struct ExerciseEditorView: View {
                         .autocorrectionDisabled()
                         .padding(.horizontal, 14)
                         .padding(.vertical, 11)
-                        .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                         .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
                     if draft.normalizedVideoURL == .invalid {
                         Text("That doesn't look like a valid link.")
@@ -375,7 +375,7 @@ struct ExerciseEditorView: View {
             )
         }
         .sheet(isPresented: $showingDefaultRepsWheel) {
-            RepTargetWheelSheet(
+            RepTargetSheet(
                 target: RepTarget(lower: draft.defaultReps, upper: draft.defaultRepsUpper)
             ) { newTarget in
                 draft.defaultReps = newTarget.lower
@@ -386,7 +386,9 @@ struct ExerciseEditorView: View {
         }
         // Presentation-level modifiers sit OUTSIDE the NavigationStack, so
         // they address the sheet itself rather than its root screen.
-        .presentationBackground(Theme.surface)
+        // `background`, not `surface`: the trays agreed on one elevation
+        // (#462).
+        .presentationBackground(Theme.background)
         // A dirty draft can't be swiped away silently — the swipe bounces
         // (standard compose behavior) and Cancel carries the confirm.
         .interactiveDismissDisabled(isDirty)
@@ -428,7 +430,7 @@ struct ExerciseEditorView: View {
                 }
             }
         }
-        .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
     }
 
@@ -637,50 +639,10 @@ struct ExerciseEditorView: View {
     }
 }
 
-/// Read-only exercise details: muscle group, equipment, notes, video link.
-/// Reachable from the routine detail screen so form cues are available
-/// mid-routine.
-struct ExerciseInfoView: View {
-    @Environment(\.dismiss) private var dismiss
-    let exercise: Exercise
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    LabeledContent(
-                        exercise.muscleGroups.count > 1 ? "Muscle Groups" : "Muscle Group",
-                        value: exercise.muscleGroups.map(\.displayName).joined(separator: ", ")
-                    )
-                    LabeledContent(
-                        "Equipment",
-                        value: exercise.equipment.isEmpty
-                            ? "Bodyweight"
-                            : exercise.equipment.map(\.name).sorted().joined(separator: ", ")
-                    )
-                }
-
-                if let notes = exercise.notes {
-                    Section("Notes") {
-                        Text(notes)
-                    }
-                }
-
-                if let videoURL = exercise.videoURL, let url = URL(string: videoURL) {
-                    Section {
-                        Link(destination: url) {
-                            Label("Watch video", systemImage: "play.rectangle")
-                        }
-                    }
-                }
-            }
-            .navigationTitle(exercise.name)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-        }
-    }
-}
+// `ExerciseInfoView` was deleted 2026-07-28: a read-only exercise sheet
+// (muscle group, equipment, notes, video) whose doc comment claimed the
+// routine detail screen reached it, and which nothing had constructed
+// since `ExerciseDetailSheet` took that job. It was also the app's last
+// stock-SwiftUI surface — a plain `List` of `LabeledContent` under a
+// system navigation bar with an unstyled toolbar `Done` — so it was
+// carrying a button vocabulary no reachable screen used.

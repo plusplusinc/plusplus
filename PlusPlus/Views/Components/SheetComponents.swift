@@ -4,6 +4,41 @@ import SwiftUI
 /// typographic/control pieces every sheet composes. One place to change
 /// the sheet language (#91).
 
+// MARK: - How tall a tray opens
+//
+// The detent vocabulary (audited 2026-07-28, Dave: "we should only vary
+// for good reason"). A tray picks ONE of these five by what it IS; a new
+// magic `.fraction` is the thing to avoid, because a number nobody can
+// justify is a number the next tray copies slightly wrong.
+//
+// 1. `[.medium, .large]` — THE DEFAULT, and already what 14 trays use.
+//    Something you browse or edit: it opens at half and grows if you want
+//    more. Reach for this unless one of the others clearly applies.
+// 2. `[.appTall]` (below) — a tray over live context, non-resizable.
+// 3. `[.large]` — a whole task that would be unusable at half: the
+//    equipment-resolve flows, the exercise picker, the mascot demo.
+// 4. `[.height(n)]` — content of an exactly known size (the metric, rep
+//    and increment pickers). ⚠️ Do NOT pair a `.height` with `.medium`:
+//    medium is a FRACTION of the screen, so on a small phone it lands
+//    BELOW the fixed height and "expanding" the sheet shrinks it. The
+//    increment tray had exactly that pairing.
+// 5. `[.medium]` alone — a short fixed tray that shouldn't resize (the
+//    Health primer, the Data tray). The drag indicator is hidden on a
+//    primer, since there is nothing to drag to.
+
+extension PresentationDetent {
+    /// A tray that covers the screen but deliberately keeps a sliver of
+    /// what it came from visible behind it — the exercise/session
+    /// configuration family, which you open ON a routine or ON a live
+    /// workout and where losing sight of that context makes the sheet read
+    /// as a screen you navigated to.
+    ///
+    /// It exists because those four trays had FOUR different numbers
+    /// (0.84, 0.85, 0.88, 0.70) that nobody can tell apart on a device and
+    /// no comment explained. One value, one name, one place to tune it.
+    static let appTall = Self.fraction(0.85)
+}
+
 /// Sheet title bar (v4 §C): title upper-left with an optional context
 /// subtitle; on the right, auxiliary text (Cancel/Clear) beside the
 /// tray's single commit — a primaryFill capsule, because committing a
