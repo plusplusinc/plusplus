@@ -655,7 +655,11 @@ struct ActiveSessionView: View {
             .accessibilityHint("Opens the set overview")
             .accessibilityIdentifier("sessionOverviewButton")
         }
-        .padding(.horizontal, 14)
+        // The 16 pt content column, like everything under it (Dave,
+        // 2026-07-28). `RaisedKeyStyle` insets only the BOTTOM (its
+        // travel), so a key's cap edge lands exactly on this number —
+        // at 14 the End key overhung the bar and the cards by 2 pt.
+        .padding(.horizontal, 16)
         .padding(.top, 8)
     }
 
@@ -733,7 +737,7 @@ struct ActiveSessionView: View {
                     }
                     .buttonStyle(.raisedPrimaryKey(cornerRadius: 12))
                     .accessibilityIdentifier("resumeWorkoutButton")
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 16)
                     .padding(.bottom, 20)
                 }
                 .frame(maxWidth: .infinity)
@@ -768,7 +772,7 @@ struct ActiveSessionView: View {
             .padding(14)
             .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
             .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
             .padding(.top, 6)
         }
     }
@@ -1632,7 +1636,7 @@ private struct SetLoggingView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
                         exerciseHeader
-                            .padding(.horizontal, 20)
+                            .padding(.horizontal, 16)
                         if !secondaryMetricsList.isEmpty {
                             VStack(spacing: 12) {
                                 ForEach(secondaryMetricsList) { metricCard($0) }
@@ -1653,7 +1657,7 @@ private struct SetLoggingView: View {
                     ScrollView {
                         VStack(spacing: 0) {
                             exerciseHeader
-                                .padding(.horizontal, 20)
+                                .padding(.horizontal, 16)
                             Spacer(minLength: 20)
                             stage
                         }
@@ -2469,7 +2473,7 @@ private struct RestView: View {
                 .padding(14)
                 .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
                 .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 16)
                 }
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: screen.size.height)
@@ -2527,7 +2531,7 @@ private struct RestView: View {
                 }
             }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 16)
     }
 
     private var skipKey: some View {
