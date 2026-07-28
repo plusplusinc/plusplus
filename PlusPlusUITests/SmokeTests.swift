@@ -755,6 +755,9 @@ final class SmokeTests: XCTestCase {
         let skip = app.buttons["skipRestButton"]
         XCTAssertTrue(skip.waitForExistence(timeout: 10), "Rest screen should appear after set \(setIndex)")
         if setIndex == 1 {
+            // The rest length is adjustable in both directions (2026-07-27).
+            XCTAssertTrue(app.buttons["extendRestButton"].exists, "Rest screen should offer +15s")
+            XCTAssertTrue(app.buttons["reduceRestButton"].exists, "Rest screen should offer −15s")
             snap("rest-countdown")
         }
         skip.tap()

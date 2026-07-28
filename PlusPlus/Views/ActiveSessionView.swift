@@ -41,6 +41,10 @@ struct ActiveSessionView: View {
     /// session default. Captured at log time with the end date so the
     /// recharge blocks' denominator matches the countdown they drain.
     @State private var restTotalSeconds = 90
+    /// The rest interval held across a pause, re-based onto the resume
+    /// instant. Non-nil only while paused mid-rest, which is also how
+    /// the paused screen knows a rest is what's being held.
+    @State private var restPausedRemaining: TimeInterval?
     /// Whether the current countdown is a TRANSITION — the session moved
     /// to a different exercise or block (#369) — so the screen says
     /// SWITCH instead of REST. Captured at log time with the length.
@@ -134,7 +138,7 @@ struct ActiveSessionView: View {
                         heartRate: heartRate,
                         location: isOutdoorNow ? location : nil,
                         runUnit: runUnit,
-                        onAddTime: { extendRest(by: 30) },
+                        onAdjust: { adjustRest(by: $0) },
                         onEnd: { endRest() }
                     )
                 } else {
@@ -263,8 +267,22 @@ struct ActiveSessionView: View {
         }
         // GPS pauses with the workout clock (HR keeps its passive query) —
         // no distance banked across a pause, and the battery rests.
+        //
+        // ⚠️ The REST countdown pauses too, but NOT from here — see
+        // `bankRestForPause`. It has to happen before the state flips,
+        // and `.onChange` fires after the render that observed it.
         .onChange(of: session.isPaused) { _, paused in
             paused ? location.pause() : location.resume()
+            // Belt for the Pause key's braces, and cover for any future
+            // pause affordance (#157's island controls would post a
+            // notification, exactly like `.plusplusAdjustRest` does).
+            // Safe on THIS edge only: by the time it fires, `isPaused` is
+            // already true, so the body has rendered `pausedView` and
+            // RestView is gone — no frame can observe the un-banked state.
+            // The RESUME side must stay in the button; there the ordering
+            // is the whole point. `bankRestForPause` is guarded, so the
+            // two callers can't double-apply.
+            if paused { bankRestForPause() }
         }
         // Re-point the meter as the active exercise changes: a new outdoor
         // exercise re-bases (its own distance), the same exercise's next
@@ -293,7 +311,8 @@ struct ActiveSessionView: View {
             guard let raw = note.object as? String,
                   let adjustment = RestAdjustment(rawValue: raw) else { return }
             switch adjustment {
-            case .addThirty: extendRest(by: 30)
+            case .add: adjustRest(by: RestAdjustment.stepSeconds)
+            case .subtract: adjustRest(by: -RestAdjustment.stepSeconds)
             case .skip: endRest()
             }
         }
@@ -302,28 +321,123 @@ struct ActiveSessionView: View {
         // The mirror op is kind-agnostic, so a watch-initiated pause
         // always reads REST here (#369 deferred the kind op-field).
         .onReceive(NotificationCenter.default.publisher(for: LiveMirror.restChanged)) { note in
-            if let endsAt = note.object as? Date {
-                restTotalSeconds = max(1, Int(endsAt.timeIntervalSinceNow.rounded()))
-                restIsTransition = false
-                restEndDate = endsAt
-            } else {
+            guard let endsAt = note.object as? Date else {
                 restEndDate = nil
+                restPausedRemaining = nil
+                return
+            }
+            let interval = max(0, endsAt.timeIntervalSinceNow)
+            restTotalSeconds = max(1, Int(interval.rounded()))
+            restIsTransition = false
+            // ⚠️ The one other path that can set a rest, so it has to bank
+            // like the Pause key does: a set logged on the WRIST while the
+            // phone sits paused would otherwise park a wall-clock date
+            // behind the paused screen, and Resume would remount RestView
+            // against an expired date and eat the rest — the exact bug
+            // bankRestForPause exists to prevent, through a door it
+            // doesn't own (swift-reviewer).
+            if session.isPaused {
+                restPausedRemaining = interval
+                restEndDate = nil
+            } else {
+                restEndDate = endsAt
             }
         }
     }
 
     // MARK: - Rest controls (shared by RestView buttons and the island)
 
-    private func extendRest(by seconds: TimeInterval) {
+    /// Steps the running countdown by ±15 s (the on-screen pair and the
+    /// island's controls post the same amounts).
+    ///
+    /// ⚠️ `restTotalSeconds` moves BY THE SAME DELTA, because it is the
+    /// recharge blocks' denominator and the stepper now sits directly
+    /// under those blocks: left alone, `+15s` would push `remaining`
+    /// past the total and the bar would simply pin full, so the control
+    /// would appear to do nothing. Shifting both keeps the bar meaning
+    /// "this rest, as it now stands" and makes it grow and shrink with
+    /// the taps above it.
+    private func adjustRest(by seconds: Int) {
         guard let current = restEndDate, let currentLog = session.currentLog else { return }
-        let extended = current.addingTimeInterval(seconds)
-        restEndDate = extended
-        reflectRest(endDate: extended, upNext: currentLog)
+        // ⚠️ Subtracting CLAMPS to one full step left; it does not refuse.
+        // "Never reaches zero" has to be enforced on the RESULT, not on
+        // the starting value: a guard of "more than one step left" still
+        // allows 16 s − 15 s, which lands inside a second of zero and
+        // ends the rest — a Skip performed by the minus key, from a
+        // window that occurs in every single rest (swift-reviewer).
+        // Clamping also keeps the ISLAND honest, since a Live Activity
+        // button has no disabled state: near the floor its minus still
+        // moves the clock to the floor instead of silently doing nothing.
+        // The outer `min` stops a clamp from ever running the rest UP
+        // when the countdown is already inside the floor.
+        let floor = Date().addingTimeInterval(TimeInterval(RestAdjustment.stepSeconds))
+        let proposed = current.addingTimeInterval(TimeInterval(seconds))
+        let adjusted = seconds < 0 ? min(current, max(proposed, floor)) : proposed
+        let applied = adjusted.timeIntervalSince(current)
+        // A clamp that lands on the floor already applies nothing.
+        guard abs(applied) >= 1 else { return }
+        restEndDate = adjusted
+        // Moves by what was APPLIED, not by what was asked for, or a
+        // clamped subtract would desync the blocks from the clock.
+        restTotalSeconds = max(1, restTotalSeconds + Int(applied.rounded()))
+        reflectRest(endDate: adjusted, upNext: currentLog)
+    }
+
+    /// Holds the rest across a pause: the interval is banked and the end
+    /// date cleared, so nothing can expire behind the paused screen.
+    ///
+    /// ⚠️ `restEndDate` is a WALL-CLOCK instant, which is why Pause used
+    /// to be hidden mid-rest: the paused screen replaces `RestView`, so
+    /// nothing ticks, but the date keeps arriving — and on resume the
+    /// remounting view computes zero remaining and `onAppear` fires
+    /// `onEnd()`. The rest, silently eaten by the pause. Banking the
+    /// interval and re-basing it is the same trick the interval timer
+    /// uses (`pausedRemaining`).
+    ///
+    /// ⚠️ Called from the Pause KEY, not from `.onChange(of: isPaused)`:
+    /// an `onChange` runs after the render that observed the flip, so
+    /// the first paused frame would read the un-banked state (and on the
+    /// way back, `RestView` would remount against the expired date
+    /// before the re-base landed — a race for the bug this exists to
+    /// prevent). Both are guarded, so neither can double-apply.
+    ///
+    /// The island drops back to the working phase, since a countdown
+    /// that keeps running to zero while the workout is held is worse
+    /// than no countdown. (The activity's ELAPSED timer still advances
+    /// through a pause — pre-existing, unchanged here.)
+    private func bankRestForPause() {
+        guard let end = restEndDate else { return }
+        restPausedRemaining = max(0, end.timeIntervalSinceNow)
+        restEndDate = nil
+        // Deliberately NOT LiveMirror.restEnded: the op vocabulary has no
+        // "held" kind, and telling the wrist the rest is OVER is further
+        // from the truth than leaving it showing a rest it can't tick.
+        // A real pause op is the honest fix and a Kit change (#322's
+        // deferred pile).
+        syncActivityWorking()
+    }
+
+    /// Re-bases the banked rest onto the resume instant.
+    private func resumeRestAfterPause() {
+        guard let banked = restPausedRemaining else { return }
+        restPausedRemaining = nil
+        let end = Date().addingTimeInterval(banked)
+        restEndDate = end
+        if let upNext = session.currentLog {
+            reflectRest(endDate: end, upNext: upNext)
+        }
     }
 
     private func endRest() {
-        guard restEndDate != nil else { return }
+        // ⚠️ Cancels BOTH representations of a live rest. While paused the
+        // end date is nil and the interval is banked, and the overview's
+        // jump affordances reach this from the PAUSED screen — a guard on
+        // the date alone returned early there, so "skip to this exercise"
+        // left the bank intact and Resume restored a countdown in front of
+        // the exercise you had just said to go to now (swift-reviewer).
+        guard restEndDate != nil || restPausedRemaining != nil else { return }
         restEndDate = nil
+        restPausedRemaining = nil
         LiveMirror.shared.restEnded(in: session)
         syncActivityWorking()
     }
@@ -473,12 +587,16 @@ struct ActiveSessionView: View {
                     }
                 }
 
-                // Pause the workout clock. Shown only while it's actually
-                // running under the logging flow (never mid-rest, where
-                // the rest screen owns the controls, and never before the
-                // first exercise has started).
-                if session.isRunning, restEndDate == nil, lingeringLog == nil {
+                // Pause the workout clock. Shown whenever it's actually
+                // running, INCLUDING mid-rest (2026-07-27) — a rest is
+                // exactly when something interrupts you, and the countdown
+                // now banks and re-bases across a pause instead of
+                // expiring behind it. Still hidden before the first
+                // exercise, and through the +1 beat.
+                if session.isRunning, lingeringLog == nil {
                     Button {
+                        // Bank BEFORE the flip; see bankRestForPause.
+                        bankRestForPause()
                         session.pauseClock()
                     } label: {
                         HStack(spacing: 6) {
@@ -584,12 +702,16 @@ struct ActiveSessionView: View {
                         .foregroundStyle(Theme.textPrimary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
-                    Text("your workout timer is on hold")
-                        .font(.system(.footnote))
-                        .foregroundStyle(Theme.textFaint)
-                        .multilineTextAlignment(.center)
+                    // The frozen clock says the timer is held and the card
+                    // says what it's holding, so the old "your workout timer
+                    // is on hold" caption between them was a second referent
+                    // for the same fact 30 pt from the ON HOLD label.
+                    pausedPlace
                     Spacer()
                     Button {
+                        // Re-base BEFORE the flip, or the remounting
+                        // RestView reads an expired date and ends the rest.
+                        resumeRestAfterPause()
                         session.startClock()
                     } label: {
                         HStack(spacing: 8) {
@@ -611,6 +733,92 @@ struct ActiveSessionView: View {
                 .frame(minHeight: proxy.size.height)
             }
         }
+    }
+
+    /// Where the pause caught you, and what it's holding you back from
+    /// (Dave, 2026-07-27). Paused used to show a frozen clock and
+    /// nothing else, so coming back to the phone told you it was held
+    /// but not what from — and mid-rest that matters most, since the
+    /// screen you'd otherwise be looking at is the one naming the set
+    /// you're about to do.
+    ///
+    /// Two labelled facts in the rest screen's card anatomy: what's on
+    /// hold, then what follows it. UP NEXT is omitted rather than
+    /// emptied when the pause caught the last set of the workout.
+    @ViewBuilder
+    private var pausedPlace: some View {
+        let held = heldDescription
+        if held != nil || pausedUpNext != nil {
+            VStack(alignment: .leading, spacing: 10) {
+                if let held {
+                    pausedFact(label: "ON HOLD", value: held)
+                }
+                if let next = pausedUpNext {
+                    pausedFact(label: "UP NEXT", value: next)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+            .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
+            .padding(.horizontal, 20)
+            .padding(.top, 6)
+        }
+    }
+
+    private func pausedFact(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label)
+                .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                .foregroundStyle(Theme.textFaint)
+                .kerning(0.8)
+            Text(value)
+                .font(.system(.subheadline, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+                .lineLimit(2)
+                .minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// The held rest interval. Prefers the banked value and falls back to
+    /// a live read, so this reads correctly even on a frame where the
+    /// pause flipped before the banking did (no such path today; the
+    /// keys bank first).
+    private var heldRestRemaining: TimeInterval? {
+        if let banked = restPausedRemaining { return banked }
+        return restEndDate.map { max(0, $0.timeIntervalSinceNow) }
+    }
+
+    /// "Rest · 0:42 left" when the pause caught a countdown, else the set
+    /// that was in play. The banked interval is the honest number: the
+    /// countdown is stopped, so a live clock here would be a lie.
+    private var heldDescription: String? {
+        if let banked = heldRestRemaining {
+            let seconds = max(0, Int(banked.rounded(.up)))
+            let clock = String(format: "%d:%02d", seconds / 60, seconds % 60)
+            return "\(restIsTransition ? "Switch" : "Rest") · \(clock) left"
+        }
+        guard let log = session.currentLog else { return nil }
+        return "\(log.exerciseName) · \(log.driver == .reps ? "set" : "round") \(log.setNumber)"
+    }
+
+    /// Mid-rest, the set the countdown leads into. Mid-exercise, the next
+    /// DIFFERENT exercise — the next set of what you're already on is the
+    /// same answer as ON HOLD, and repeating it says nothing.
+    private var pausedUpNext: String? {
+        guard let current = session.currentLog else { return nil }
+        if heldRestRemaining != nil {
+            return "\(current.exerciseName) · \(current.driver == .reps ? "set" : "round") \(current.setNumber)"
+        }
+        // Keyed on (group, name), not name alone: a routine that comes
+        // back to an exercise in a later block would otherwise skip past
+        // that occurrence and name something farther down.
+        return session.sortedSetLogs.first {
+            $0.order > current.order && !$0.isCompleted
+                && ($0.groupIndex != current.groupIndex || $0.exerciseName != current.exerciseName)
+        }?.exerciseName
     }
 
     /// Block-style set progress (Quiet Arcade, mock 08): one block per
@@ -2131,13 +2339,32 @@ private struct DurationTimerCard: View {
 /// Renders the countdown and ends itself (via `onEnd`) when the clock
 /// runs out — the only ticking view on the rest screen. Quiet Arcade:
 /// 52 pt mono countdown over 12 recharge blocks draining with the
-/// clock (live progress, so accent green), UP NEXT as a card with its
-/// target in plain ink, +30s as a secondary key and Skip rest as the
-/// primary one.
+/// clock (live progress, so accent green), then the controls, then UP
+/// NEXT as a card with its target in plain ink.
+///
+/// The stack is STATE · CONTROL · WHAT YOU'RE WAITING FOR (Dave,
+/// 2026-07-27): kicker, live vitals, countdown, recharge blocks, the
+/// three keys, and the up-next card LAST. Two things fall out of that
+/// order. The stepper sits directly under the bars it moves, so
+/// `+15s` and the blocks growing read as one gesture; and the controls
+/// come before the card, so they stay above the fold at large text
+/// sizes instead of being pushed under it.
+///
+/// ⚠️ NOTHING here is filled except the stepper pair. Skip used to be
+/// the screen's `primaryFill` key, which made ending recovery early
+/// read as the thing to do on a screen whose whole job is to finish by
+/// itself (Dave: "it feels like the thing to do, over just waiting").
+/// A screen that completes on its own has no primary act, so the two
+/// keys that ADJUST are the loud ones and Skip is a quiet key set
+/// apart by an extra gap — present, one tap, clearly not the point.
+/// That gap is load-bearing: `−15s` beside Skip means a fat thumb
+/// stepping down twice would otherwise end the rest.
 private struct RestView: View {
     let endDate: Date
-    /// The configured rest length — the recharge blocks' denominator
-    /// (an extension can push `remaining` past it; the blocks cap full).
+    /// The rest length AS IT NOW STANDS — the recharge blocks'
+    /// denominator. `adjustRest` moves it with the end date, so
+    /// `remaining <= totalSeconds` holds and the bar grows and shrinks
+    /// with the stepper sitting directly above it.
     let totalSeconds: Int
     /// A transition (different exercise or block up next, #369) says
     /// SWITCH; a new round of the same block says REST. Same screen,
@@ -2150,10 +2377,12 @@ private struct RestView: View {
     let heartRate: HeartRateMonitor
     let location: RunLocationMonitor?
     let runUnit: DistanceUnit
-    let onAddTime: () -> Void
+    /// Steps the countdown by ±`RestAdjustment.stepSeconds`.
+    let onAdjust: (Int) -> Void
     let onEnd: () -> Void
 
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var weightUnit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .lb }
 
@@ -2161,7 +2390,7 @@ private struct RestView: View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             let remaining = max(0, Int(endDate.timeIntervalSince(context.date).rounded(.up)))
 
-            // Scrollable so the +30s / Skip controls stay reachable at large
+            // Scrollable so the controls stay reachable at large
             // accessibility text sizes; minHeight keeps it centered when it
             // fits (a11y audit).
             GeometryReader { screen in
@@ -2172,6 +2401,34 @@ private struct RestView: View {
                     .foregroundStyle(Theme.textSecondary)
                     .kerning(1)
 
+                // Recovery at a glance, riding directly under the kicker
+                // (Dave, 2026-07-27) — heart rate, plus pace when a walk
+                // break keeps moving. No target judgment during rest (both
+                // stay quiet ink); pace drops out when you're standing
+                // still.
+                //
+                // ⚠️ Gated on this session having EVER had a reading (or
+                // being outdoors), not on one being fresh, and the row
+                // holds a minimum height once it's in. Two hazards, one
+                // shape: a phone-only workout has no HR sensor at all
+                // (#418), and an ungated empty `HStack` still consumes the
+                // stack's 20 pt on both sides — a 40 pt hole above the
+                // clock. But a gate on FRESHNESS would let the row come
+                // and go every time a reading aged out, and since this
+                // stack is vertically centred that would shift the
+                // countdown AND the keys under a travelling thumb.
+                // Appearing once, at the first sample, is the only
+                // movement worth having.
+                if heartRate.latestAt != nil || location != nil {
+                    HStack(spacing: 14) {
+                        LiveHeartRateLabel(monitor: heartRate, target: nil)
+                        if let location {
+                            LivePaceLabel(monitor: location, unit: runUnit, target: nil)
+                        }
+                    }
+                    .frame(minHeight: 17)
+                }
+
                 Text(String(format: "%d:%02d", remaining / 60, remaining % 60))
                     .font(.system(size: 52, weight: .bold, design: .monospaced))
                     .lineLimit(1)
@@ -2180,16 +2437,7 @@ private struct RestView: View {
 
                 rechargeBlocks(remaining: remaining)
 
-                // Recovery at a glance — heart rate always, pace when a
-                // walk break keeps moving. No target judgment during rest
-                // (both stay quiet ink); pace simply drops out when you're
-                // standing still.
-                HStack(spacing: 14) {
-                    LiveHeartRateLabel(monitor: heartRate, target: nil)
-                    if let location {
-                        LivePaceLabel(monitor: location, unit: runUnit, target: nil)
-                    }
-                }
+                controls()
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("UP NEXT")
@@ -2213,49 +2461,16 @@ private struct RestView: View {
                 .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
                 .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
                 .padding(.horizontal, 20)
-
-                // Skip gets the wider share (the mock's 1 : 1.4 = 5:7
-                // of the row): ending rest is the primary intent,
-                // extending is the hedge.
-                GeometryReader { proxy in
-                    HStack(spacing: 10) {
-                        Button(action: onAddTime) {
-                            Text("+30s")
-                                .font(.system(.subheadline, design: .monospaced, weight: .bold))
-                                .foregroundStyle(Theme.textPrimary)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.6)
-                                .frame(width: (proxy.size.width - 10) * 5 / 12)
-                                .frame(minHeight: 52)
-                                .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
-                                .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
-                        }
-                        .buttonStyle(.raisedKey())
-                        .accessibilityIdentifier("extendRestButton")
-                        Button(action: onEnd) {
-                            Text(isTransition ? "Skip" : "Skip rest")
-                                .font(.system(.subheadline, weight: .bold))
-                                .foregroundStyle(Theme.onPrimary)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.6)
-                                .frame(maxWidth: .infinity)
-                                .frame(minHeight: 52)
-                                .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
-                        }
-                        .buttonStyle(.raisedPrimaryKey())
-                        .accessibilityIdentifier("skipRestButton")
-                    }
-                }
-                .frame(height: 56)
-                .padding(.horizontal, 20)
                 }
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: screen.size.height)
                 .onChange(of: remaining) { oldValue, newValue in
                     // Beep the last three seconds; guard on a decrement so a
-                    // +30s extension (which raises `remaining`) never beeps,
+                    // +15s extension (which raises `remaining`) never beeps,
                     // and the higher "go" tone fires as the countdown lands on
-                    // zero and the next exercise/set begins (#420).
+                    // zero and the next exercise/set begins (#420). A −15s
+                    // can't land inside the window either: it clamps one
+                    // full step above zero.
                     if newValue < oldValue, (1...3).contains(newValue) {
                         CountdownCue.shared.tick()
                     }
@@ -2270,6 +2485,114 @@ private struct RestView: View {
               }
             }
         }
+    }
+
+    /// Skip rest · −15s · +15s. The pair is filled and flexible; Skip is
+    /// a quiet cap at its content width, carrying the extra gap.
+    ///
+    /// All three keys use the SAME 4 pt travel (`.raisedKey` /
+    /// `.raisedPrimaryKey`) rather than the 3 pt `.quietKey`, so their
+    /// caps sit on one baseline — the quiet reading comes from the cap's
+    /// ink and type and the absence of a fill, not from a shorter key
+    /// that would leave the row misaligned by a point.
+    ///
+    /// ⚠️ At accessibility sizes the row REFLOWS to the pair over Skip
+    /// (#164's reflow-don't-cap, as `DiffLedger` does): three keys with
+    /// a content-width label among them cannot hold one line at AX5, and
+    /// the two-key row this replaced could — `Skip rest` alone wants
+    /// more than the whole content width there. Stacking also states the
+    /// separation more plainly than a 6 pt inset can at that scale.
+    private func controls() -> some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(spacing: 10) {
+                    HStack(spacing: 10) { reduceKey; extendKey }
+                    skipKey.frame(maxWidth: .infinity)
+                }
+            } else {
+                HStack(spacing: 10) {
+                    // The gap that separates the escape from the pair.
+                    skipKey.padding(.trailing, 6)
+                    reduceKey
+                    extendKey
+                }
+            }
+        }
+        .padding(.horizontal, 20)
+    }
+
+    private var skipKey: some View {
+        Button(action: onEnd) {
+            Text(isTransition ? "Skip" : "Skip rest")
+                .font(.system(.subheadline, weight: .semibold))
+                .foregroundStyle(Theme.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .padding(.horizontal, 16)
+                .frame(minHeight: 48)
+                .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+                // borderStrong is the raised-key stroke everywhere in the
+                // app; `Theme.border` is QuietKey's, and on a background
+                // cap over a background page it reads as barely there.
+                // The quiet comes from having no fill beside two that do.
+                .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
+        }
+        .buttonStyle(.raisedKey())
+        .accessibilityIdentifier("skipRestButton")
+    }
+
+    private var reduceKey: some View {
+        // Live only while a full step would still be left after the tap.
+        // Read from `endDate` and not the tick's `remaining`: a
+        // `.periodic` TimelineView hands back the LAST SCHEDULED tick, so
+        // a re-render driven by anything else (a heart-rate sample, the
+        // other key) would judge this against a stale second and could
+        // show a live key over a model that no longer moves — the
+        // silent-dead-tap class (swift-reviewer).
+        stepKey(label: "−\(RestAdjustment.stepSeconds)s",
+                accessibility: "Subtract \(RestAdjustment.stepSeconds) seconds",
+                identifier: "reduceRestButton",
+                // Dim in place (never removed) so the row can't reflow
+                // mid-rest. On a 15 s SWITCH it simply starts dim, which
+                // is honest: there's nothing to take off.
+                enabled: endDate.timeIntervalSinceNow > TimeInterval(RestAdjustment.stepSeconds)) {
+            onAdjust(-RestAdjustment.stepSeconds)
+        }
+    }
+
+    private var extendKey: some View {
+        stepKey(label: "+\(RestAdjustment.stepSeconds)s",
+                accessibility: "Add \(RestAdjustment.stepSeconds) seconds",
+                identifier: "extendRestButton",
+                enabled: true) {
+            onAdjust(RestAdjustment.stepSeconds)
+        }
+    }
+
+    /// One half of the stepper: a filled primary cap, mono numerals.
+    private func stepKey(
+        label: String,
+        accessibility: String,
+        identifier: String,
+        enabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(.system(.subheadline, design: .monospaced, weight: .bold))
+                .foregroundStyle(Theme.onPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: 48)
+                .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+                .opacity(enabled ? 1 : 0.35)
+                .animation(Theme.Anim.standard, value: enabled)
+        }
+        .buttonStyle(.raisedPrimaryKey())
+        .disabled(!enabled)
+        .accessibilityLabel(accessibility)
+        .accessibilityIdentifier(identifier)
     }
 
     /// 12 blocks draining left-to-right as the rest runs out.
