@@ -57,7 +57,7 @@ struct MascotFormCard: View {
         .sheet(isPresented: $showingDemo) {
             MascotDemoSheet(exerciseName: exerciseName, animation: animation)
                 .presentationDetents([.large])
-                .presentationBackground(Theme.surface)
+                .presentationBackground(Theme.background)
                 .presentationDragIndicator(.hidden)
         }
     }

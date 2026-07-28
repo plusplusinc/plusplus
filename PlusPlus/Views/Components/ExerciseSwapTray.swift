@@ -99,7 +99,7 @@ struct ExerciseSwapTray: View {
                 .padding(.bottom, 20)
             }
         }
-        .presentationBackground(Theme.surface)
+        .presentationBackground(Theme.background)
         .presentationDetents([.medium, .large])
     }
 

@@ -170,7 +170,11 @@ public enum WorkoutMetric: String, Codable, CaseIterable, Sendable, Identifiable
         range(weightUnit: .lb, distanceUnit: .meters)
     }
 
-    private func range(weightUnit: WeightUnit, distanceUnit: DistanceUnit) -> ClosedRange<Double> {
+    /// Unit-aware bounds. Public (like `step(weightUnit:distanceUnit:)`)
+    /// because the scrubber tape has to span the same range the wheel and
+    /// the steppers do — a tape built from the unit-less `range` would let
+    /// a kg-denominated height scrub past its own ceiling.
+    public func range(weightUnit: WeightUnit, distanceUnit: DistanceUnit = .meters) -> ClosedRange<Double> {
         switch self {
         case .weight: 0...1000
         case .assistance: 0...500

@@ -128,14 +128,14 @@ struct SessionOverviewSheet: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
         }
-        .presentationBackground(Theme.surface)
+        .presentationBackground(Theme.background)
         .sheet(item: selectedBlockBinding) { block in
             SessionExerciseSheet(session: session, block: block) {
                 onJumped()
                 selectedBlockKey = nil
                 dismiss()
             }
-            .presentationDetents([.fraction(0.84)])
+            .presentationDetents([.appTall])
         }
         .sheet(isPresented: $showingAddExercise) {
             ExercisePickerView(onConfigured: { config in
@@ -516,7 +516,7 @@ struct SessionExerciseSheet: View {
             .padding(.horizontal, 18)
             .padding(.vertical, 12)
         }
-        .presentationBackground(Theme.surface)
+        .presentationBackground(Theme.background)
         // Suggestions first (2026-07-24): a ranked tray of similar moves
         // instead of the whole catalog. A pick commits in place with the
         // exercise's default config (consistent with the planning swap's
@@ -636,7 +636,7 @@ struct SessionExerciseSheet: View {
                 }
             }
         }
-        .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
     }
 
