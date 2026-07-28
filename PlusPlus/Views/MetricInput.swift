@@ -55,9 +55,9 @@ struct RepTargetSheet: View {
         _upper = State(initialValue: target.upper ?? seed)
     }
 
-    /// What the sheet is currently holding — and what Done saves. Runs
-    /// through `RepTarget`, so an upper at or below the target collapses to
-    /// "no range" here exactly as it will on save.
+    /// What the sheet is currently holding — and what each settle commits.
+    /// Runs through `RepTarget`, so an upper at or below the target
+    /// collapses to "no range" here exactly as it will on the way out.
     private var target: RepTarget {
         RepTarget(lower: lower, upper: showsUpperBound ? upper : nil)
     }
