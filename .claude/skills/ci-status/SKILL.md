@@ -21,6 +21,13 @@ curl -s "https://api.github.com/repos/plusplusinc/plusplus/commits/<SHA>/check-r
 curl -s "https://api.github.com/repos/plusplusinc/plusplus/actions/runs?branch=main&per_page=5"
 ```
 
+⚠️ **`kit-test` can fail for a non-Swift reason**: its first step is the CLAUDE.md size
+budget (25 KB whole file, ~2 KB any single line — 2026-07-28). It rides an already-required
+job so the budget is enforced without a branch-protection change. The failure annotation says
+`CLAUDE.md too large` / `CLAUDE.md line too long`; the fix is to move detail into
+docs/DECISIONS.md or .claude/rules/ and to add a NEW line rather than grow an existing one —
+never to raise the limit. Swift never ran in that case, so don't go hunting a test failure.
+
 ## Read failures
 
 The `test` job emits failing-test lines as `::error::` annotations exactly
