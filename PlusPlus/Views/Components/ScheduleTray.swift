@@ -166,7 +166,7 @@ struct ScheduleEditor: View {
                         // read as a week rather than seven solid blocks.
                         Text(Self.dayLabels[weekday - 1])
                             .font(.system(.caption, design: .monospaced, weight: .semibold))
-                            .foregroundStyle(selected ? Theme.selected : Theme.textSecondary)
+                            .foregroundStyle(selected ? Theme.selectedInk : Theme.textSecondary)
                             .frame(width: 36, height: 36)
                             .background(
                                 selected ? AnyShapeStyle(Theme.selectedTint) : AnyShapeStyle(Theme.background),

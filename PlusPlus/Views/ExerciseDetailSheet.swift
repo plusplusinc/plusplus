@@ -700,7 +700,7 @@ struct HeartRateTargetSheet: View {
                 if isSelected {
                     Image(systemName: "checkmark")
                         .font(.system(.caption, weight: .bold))
-                        .foregroundStyle(Theme.selected)
+                        .foregroundStyle(Theme.selectedInk)
                 }
             }
             .padding(.horizontal, 13)

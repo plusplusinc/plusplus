@@ -578,7 +578,7 @@ struct RoutineDetailView: View {
             )
             .contentShape(Rectangle())
         } actions: {
-            SwipeActionButton(label: "DELETE", color: Theme.destructive) {
+            SwipeActionButton(label: "DELETE", color: Theme.swipeDelete) {
                 openSwipeRow = nil
                 deleteExercise(routineExercise, in: group)
             }

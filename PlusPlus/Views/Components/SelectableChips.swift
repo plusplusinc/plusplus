@@ -34,7 +34,7 @@ struct SelectableChip: View {
                 .padding(.horizontal, 14)
                 .frame(height: 36)
                 .background(isSelected ? Theme.selectedTint : Color.clear)
-                .foregroundStyle(isSelected ? Theme.selected : Theme.textPrimary)
+                .foregroundStyle(isSelected ? Theme.selectedInk : Theme.textPrimary)
                 // Rounded rect, matching the filter-row control shape (Dave,
                 // 2026-07-20) — see FilterChipShape.
                 .clipShape(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius))

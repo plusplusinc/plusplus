@@ -188,7 +188,7 @@ struct IncrementSheet: View {
                 // Blue, not green (Dave, 2026-07-28): the values are data,
                 // but the state being expressed is SELECTION, and every
                 // other selectable control says that in blue.
-                .foregroundStyle(active ? Theme.selected : Theme.textPrimary)
+                .foregroundStyle(active ? Theme.selectedInk : Theme.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .frame(maxWidth: .infinity)

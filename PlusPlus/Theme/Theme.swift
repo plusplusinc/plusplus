@@ -60,8 +60,15 @@ enum Theme {
     /// on dark.
     static let selected = BrandPalette.selected
     /// Content on a SOLID selected fill. Never white on the
-    /// dark-scheme blue.
+    /// dark-scheme blue. Few callers left since solid selection fills were
+    /// retired (2026-07-28) — most selected content now takes `selectedInk`.
     static let onSelected = BrandPalette.onSelected
+    /// Text and glyphs sitting on a `selectedTint` ground — the selected
+    /// chip label, the day circle's letter, a checkmark in a selected row.
+    /// ⚠️ NOT `selected`: that measures 4.07:1 on its own tint over `surface`
+    /// in light mode, below the AA floor for the footnote-sized labels that
+    /// carry it. See BrandPalette.
+    static let selectedInk = BrandPalette.selectedInk
     /// The superset return-loop at REST (design handoff 2026-07-12 v2).
     /// An OPAQUE warm gray, a step more prominent than the neutral spine
     /// (`border`) but quieter than any blue. Must be opaque: a
@@ -87,10 +94,12 @@ enum Theme {
             ? UIColor(hex: BrandPalette.selectedDark).withAlphaComponent(0.16)
             : UIColor(hex: BrandPalette.selectedLight).withAlphaComponent(0.12)
     })
-    /// 1 pt border accompanying every selectedTint fill. Bumped from 0.55 to
-    /// 0.7 opacity so the selection boundary clears the 3:1 UI-component floor
-    /// against `surface` (a11y audit 2026-07-13).
-    static let selectedRing = selected.opacity(0.7)
+    /// 1 pt border accompanying every selectedTint fill. 0.55 → 0.7 in the
+    /// 2026-07-13 audit, → 0.8 on 2026-07-28: 0.7 measured 2.89:1 against
+    /// `surface` in light mode, just under the 3:1 UI-component floor, and
+    /// the ring carries more weight now that it outlines a tint rather than
+    /// edging a solid fill. 0.8 gives 3.43:1 light / 4.26:1 dark.
+    static let selectedRing = selected.opacity(0.8)
 
     /// Filled controls — Start/Continue/Log set, Done capsules, setup
     /// CTAs: ink in light, cream in dark. Actions, never selection.
@@ -102,6 +111,15 @@ enum Theme {
     static let notes = BrandPalette.notes
 
     static let destructive = BrandPalette.destructive
+
+    /// Swipe-block fills. ⚠️ NOT `accent`/`destructive`: a block is its own
+    /// surface under a WHITE label the system owns, so the fill is chosen for
+    /// that and fixed in both schemes. See BrandPalette — white on the
+    /// dark-scheme green measured 1.97:1 before this.
+    static let swipeAdd = BrandPalette.swipeAdd
+    static let swipeDelete = BrandPalette.swipeDelete
+    /// Curation turned off — UNFAV, REMOVE from kit.
+    static let swipeNeutral = BrandPalette.swipeNeutral
 
     // MARK: - Metrics
 

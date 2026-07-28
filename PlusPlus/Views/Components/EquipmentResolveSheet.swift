@@ -518,7 +518,7 @@ struct SwapMovesSheet: View {
                 Spacer(minLength: 8)
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                     .font(.system(.body))
-                    .foregroundStyle(selected ? Theme.selected : Theme.textFaint)
+                    .foregroundStyle(selected ? Theme.selectedInk : Theme.textFaint)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 11)

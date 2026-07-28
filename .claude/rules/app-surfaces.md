@@ -19,6 +19,10 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   RETIRED as of 2026-07-28 (Dave), reversing #210: chips, the increment
   sheet and the schedule day circles now select the way the selectable ROWS
   already did, so the app has one selection look instead of two.
+  ⚠️ A selected LABEL takes `Theme.selectedInk`, NOT `selected` — the plain
+  blue measures 4.07:1 on its own 12% wash over `surface`, under the AA floor
+  for the footnote-sized labels that carry it (2026-07-28). **A hue proven on
+  a solid fill has not been shown to read on a wash of itself.**
   `Theme.onSelected` survives only where something genuinely sits on a solid
   fill. `Theme.selected` is retired
   as a text/link color; escape hatches are quiet keys. On the superset rail
@@ -363,7 +367,13 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   Prompts and empty states use `FindScope.searchNoun`, not `label`: the Kit
   scope searches the equipment CATALOG, so it says "Search equipment".
 - **One swipe law on every catalog row: LEADING is curation, TRAILING is
-  destructive** (2026-07-25). Exercises lead FAV/UNFAV, trail DELETE on customs
+  destructive** (2026-07-25). ⚠️ Swipe-block fills come from the
+  `Theme.swipeAdd`/`swipeDelete`/`swipeNeutral` family, never from
+  `accent`/`destructive`: the system draws a swipe title WHITE whatever the
+  tint, so the fill is chosen for white and is FIXED in both schemes (white on
+  the dark-scheme green measured 1.97:1 before this, 2026-07-28). REMOVE takes
+  `swipeNeutral`, like UNFAV — it drops a piece from the active kit and the
+  same swipe puts it back, where DELETE ends the object everywhere. Exercises lead FAV/UNFAV, trail DELETE on customs
   only; Kit leads ADD/REMOVE membership, trails DELETE on customs; Routines
   trail DELETE. Catalog templates have neither and are plain rows. **Row
   context menus are gone** — the swipes ARE those acts now, and on Routines a
