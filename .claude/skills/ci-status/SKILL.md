@@ -21,12 +21,18 @@ curl -s "https://api.github.com/repos/plusplusinc/plusplus/commits/<SHA>/check-r
 curl -s "https://api.github.com/repos/plusplusinc/plusplus/actions/runs?branch=main&per_page=5"
 ```
 
-⚠️ **`kit-test` can fail for a non-Swift reason**: its first step is the CLAUDE.md size
-budget (25 KB whole file, ~2 KB any single line — 2026-07-28). It rides an already-required
-job so the budget is enforced without a branch-protection change. The failure annotation says
-`CLAUDE.md too large` / `CLAUDE.md line too long`; the fix is to move detail into
-docs/DECISIONS.md or .claude/rules/ and to add a NEW line rather than grow an existing one —
-never to raise the limit. Swift never ran in that case, so don't go hunting a test failure.
+⚠️ **`kit-test` can fail for a non-Swift reason**: its first step is the agent-doc size
+budget (2026-07-28) — **25 KB** on CLAUDE.md, and a **~2 KB line-length cap** on CLAUDE.md
+and every `.claude/rules/*.md`. It rides an already-required job so the budget binds without
+a branch-protection change. `docs/DECISIONS.md` is deliberately exempt: it is append-only and
+its long entries are the record, not drift.
+
+Annotations read `CLAUDE.md too large` or `Line too long in <file>`. The fix is to move
+detail into docs/DECISIONS.md (dated entry) or a path-scoped rules file, and to add a NEW
+line rather than grow an existing one — **never to raise the limit**. Swift never ran in that
+case, so don't go hunting a test failure. The line cap is not only about merge conflicts: the
+8.7 KB paragraph it caught in `app-surfaces.md` had also drifted into stating things that
+were no longer true, which a rules file auto-loads into every app session.
 
 ## Read failures
 
