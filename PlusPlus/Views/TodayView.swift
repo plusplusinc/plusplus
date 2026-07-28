@@ -214,6 +214,33 @@ struct TodayView: View {
                         // cards — so eager layout is cheap; the
                         // committed history below the anchor stays lazy.
                         VStack(spacing: 0) {
+                            // The pull's answer hangs ABOVE the content, in
+                            // the space the pull opens — where the system
+                            // spinner used to sit (Dave, build 154). A
+                            // zero-height line at the very top of the content
+                            // with the answer overlaid BOTTOM-aligned puts the
+                            // line's bottom edge exactly on the content's top,
+                            // so it is entirely above the first row, reserves
+                            // nothing, and the scroll view clips it at rest.
+                            // ⚠️ Plain alignment, deliberately: the first cut
+                            // used `alignmentGuide(.top) { $0[.bottom] }` on an
+                            // overlay of the content stack, which SwiftUI did
+                            // not honour — the line rendered at the content's
+                            // top edge and collided with the week tally
+                            // (Dave's screenshot). `fixedSize` because the
+                            // zero-height base proposes zero height to it.
+                            Color.clear
+                                .frame(height: 0)
+                                .overlay(alignment: .bottom) {
+                                    if let refreshMessage {
+                                        Text(refreshMessage)
+                                            .font(.system(.caption, design: .monospaced))
+                                            .foregroundStyle(Theme.textSecondary)
+                                            .fixedSize()
+                                            .padding(.bottom, 14)
+                                            .transition(.opacity)
+                                    }
+                                }
                             // The week strip, STICKY at the top of the scroll
                             // (see weekStrip). Sticky, not pinned outside the
                             // scroll: it holds the top through every scroll
@@ -370,26 +397,6 @@ struct TodayView: View {
                         // has to span the full width, or rows show through the
                         // gutters as they slide under it.
                         .padding(.bottom, 24)
-                        // The pull's answer lives in the SPACE THE PULL OPENS
-                        // (Dave, build 153), not in the timeline: the
-                        // alignment guide seats the line's BOTTOM on the
-                        // content's top, so it sits entirely above the first
-                        // row and the scroll view clips it at rest. It is
-                        // visible for exactly as long as the gesture holds the
-                        // gap open, which is why the refresh waits a beat
-                        // before returning. Reserves no space and shifts
-                        // nothing — the last version rendered it as content
-                        // and pushed the whole timeline down.
-                        .overlay(alignment: .top) {
-                            if let refreshMessage {
-                                Text(refreshMessage)
-                                    .font(.system(.caption, design: .monospaced))
-                                    .foregroundStyle(Theme.textSecondary)
-                                    .padding(.bottom, 10)
-                                    .alignmentGuide(.top) { $0[.bottom] }
-                                    .transition(.opacity)
-                            }
-                        }
                         // The app's ambient tint, restored INSIDE the scroll:
                         // the ScrollView itself wears a clear tint to kill the
                         // system refresh spinner (below), and without this the
