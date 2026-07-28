@@ -14,6 +14,9 @@ import PlusPlusKit
 struct ActiveSessionView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    /// The set bar's up-next breathe falls back to a static green under
+    /// Reduce Motion (WCAG 2.3.3), like the overview's pulse.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Bindable var session: WorkoutSession
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
 
@@ -826,13 +829,34 @@ struct ActiveSessionView: View {
     /// M" kicker — session-wide position lives in the header pill.
     /// Hidden when finished (the purple screen has its own bars) and
     /// before a scratch session's first exercise.
+    ///
+    /// The blocks carry the app's state grammar, not plain progress
+    /// (Dave, 2026-07-28): landed sets purple, the one you're on green,
+    /// the rest inert. ⚠️ Status is read PER LOG, never "index < count" —
+    /// a jump/redo can complete sets out of order, and a left-to-right
+    /// fill would then colour the wrong blocks. While a rest runs the
+    /// live block BREATHES: the cursor has already moved on by then, so
+    /// the green block is the set you're about to do, and the bar shows
+    /// it waiting for you.
     @ViewBuilder
     private var progressBar: some View {
         if !session.isFinished, let log = lingeringLog ?? session.currentLog {
             let block = session.sortedSetLogs.filter {
                 $0.groupIndex == log.groupIndex && $0.exerciseName == log.exerciseName
             }
-            BlockBar(total: block.count, filled: block.filter(\.isCompleted).count, fill: Theme.accent)
+            let states: [BlockState] = block.map { setLog -> BlockState in
+                if setLog.isCompleted { return .done }
+                return setLog.order == log.order ? .live : .upcoming
+            }
+            BlockBar(
+                total: block.count,
+                // Colour comes from `states`; this is the VoiceOver count.
+                filled: block.filter(\.isCompleted).count,
+                states: states,
+                // Paused banks the rest and clears the date, so holding a
+                // workout stops the breathing too.
+                breathing: restEndDate != nil && !reduceMotion
+            )
                 // No caption sibling here, so the bar needs its own
                 // subject or VoiceOver hears a bare "2 of 4" (a11y,
                 // 2026-07-23).

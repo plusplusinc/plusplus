@@ -30,7 +30,12 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   the build-33 "rail nodes are rings, never filled" rule — every OTHER
   timeline node stays a stroke-only ring, and all nodes share one 18 pt
   diameter so the row reads even), session pips, the finish checkmark, widget
-  streak squares.
+  streak squares. The live set bar joins them (2026-07-28): its blocks are
+  done purple · live green · upcoming inert, the overview's #421 grammar on
+  the screen you spend the workout on, and the live block BREATHES while a
+  rest countdown runs (the cursor has already advanced, so that block IS the
+  up-next set). ⚠️ Status is per LOG, never `index < filled` — a jump
+  completes sets out of order.
 - **Amber (`Theme.notes`) is advisory, never alarm** — the warm in-between
   that is neither green (do/create) nor grey (inert). Two jobs: form-cue /
   "needs X gear" notes, AND a **carried-over occurrence** (2026-07-14) — a

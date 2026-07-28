@@ -192,24 +192,83 @@ struct StartFlashButton: View {
     }
 }
 
+/// One block's state when a `BlockBar` carries the app's state grammar
+/// rather than plain progress: `done` landed (purple), `live` in motion
+/// (green), `upcoming` inert (2026-07-28, the live set bar).
+enum BlockState: Equatable {
+    case done, live, upcoming
+}
+
 /// Block-style progress (Quiet Arcade): one flexible block per unit,
 /// filled left-to-right. Purple for the week bar (sessions landed),
-/// accent green for live set progress.
+/// accent green for live set progress. Pass `states` instead to colour
+/// each block by where it stands.
 struct BlockBar: View {
     let total: Int
     let filled: Int
     var fill: Color = Theme.done
+    /// Per-block states. When nil the bar is plain progress and colours by
+    /// `filled`; when set, each block wears its own status colour. Short
+    /// arrays fall back to `upcoming`, so it can never index out of range.
+    var states: [BlockState]? = nil
+    /// Breathes the LIVE block — the live workout drives this from a
+    /// running rest countdown, so the bar shows what you are about to do
+    /// while you wait for it. The CALLER honours Reduce Motion (this view
+    /// animates whenever it's true).
+    var breathing: Bool = false
+
+    /// Toggled under a `repeatForever` animation, exactly as the overview
+    /// sheet's up-next pulse does (#421) — a deliberate flourish, and a
+    /// named exception to the Anim-token rule: a countdown is a waiting
+    /// state, and the slow breathe is the information.
+    @State private var breathIn = false
+
+    /// This block's state, or nil when the bar is plain progress.
+    private func blockState(at index: Int) -> BlockState? {
+        guard let states else { return nil }
+        return states.indices.contains(index) ? states[index] : .upcoming
+    }
+
+    private func color(at index: Int) -> Color {
+        guard let state = blockState(at: index) else {
+            return index < filled ? fill : Theme.surfaceRaised
+        }
+        switch state {
+        case .done: return Theme.done
+        case .live: return Theme.accent
+        case .upcoming: return Theme.surfaceRaised
+        }
+    }
+
+    private func isLive(at index: Int) -> Bool {
+        guard let state = blockState(at: index) else { return false }
+        return state == .live
+    }
 
     var body: some View {
         HStack(spacing: 3) {
             ForEach(0..<max(total, 1), id: \.self) { index in
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(index < filled ? fill : Theme.surfaceRaised)
+                    .fill(color(at: index))
                     .frame(height: 9)
                     .frame(maxWidth: .infinity)
+                    .opacity(breathing && isLive(at: index) ? (breathIn ? 1.0 : 0.35) : 1.0)
             }
         }
         .animation(Theme.Anim.standard, value: filled)
+        // A jump moves the live block without changing the completed
+        // count, so the colours need their own trigger.
+        .animation(Theme.Anim.standard, value: states)
+        .onChange(of: breathing, initial: true) { _, on in
+            if on {
+                breathIn = false
+                withAnimation(.easeInOut(duration: 0.85).repeatForever(autoreverses: true)) {
+                    breathIn = true
+                }
+            } else {
+                withAnimation(.easeOut(duration: 0.2)) { breathIn = false }
+            }
+        }
         // Shape-only progress; VoiceOver hears the count, not the blocks
         // (#164, WCAG 1.1.1). Consumers either set a label naming the
         // subject ("Sets") or hide the bar when a sibling caption
