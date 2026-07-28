@@ -43,7 +43,6 @@ struct SessionNavigationTests {
         let first = try #require(session.currentLog)
         #expect(first.setNumber == 1)
         first.actualWeight = 105
-        #expect(session.weightCarriesForward(from: first))
         session.complete(first)
 
         let second = try #require(session.currentLog)
@@ -60,7 +59,6 @@ struct SessionNavigationTests {
         let session = makeSession(context: context)
 
         let first = try #require(session.currentLog)
-        #expect(!session.weightCarriesForward(from: first), "No edit yet — no hint")
         session.complete(first)
         #expect(session.sortedSetLogs[1].targetWeight == 100)
     }

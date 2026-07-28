@@ -14,6 +14,9 @@ import PlusPlusKit
 struct ActiveSessionView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    /// The set bar's up-next breathe falls back to a static green under
+    /// Reduce Motion (WCAG 2.3.3), like the overview's pulse.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Bindable var session: WorkoutSession
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
 
@@ -112,7 +115,11 @@ struct ActiveSessionView: View {
         VStack(spacing: 0) {
             header
             progressBar
-                .padding(.horizontal, 20)
+                // The 16 pt content column (Dave, 2026-07-28): the same
+                // width as Today's week bar, and the same as the metric
+                // cards and the Log-set dock directly below it. At 20 it
+                // sat inset from everything it shares a screen with.
+                .padding(.horizontal, 16)
                 .padding(.top, 12)
 
             if session.isFinished {
@@ -648,7 +655,11 @@ struct ActiveSessionView: View {
             .accessibilityHint("Opens the set overview")
             .accessibilityIdentifier("sessionOverviewButton")
         }
-        .padding(.horizontal, 14)
+        // The 16 pt content column, like everything under it (Dave,
+        // 2026-07-28). `RaisedKeyStyle` insets only the BOTTOM (its
+        // travel), so a key's cap edge lands exactly on this number —
+        // at 14 the End key overhung the bar and the cards by 2 pt.
+        .padding(.horizontal, 16)
         .padding(.top, 8)
     }
 
@@ -726,7 +737,7 @@ struct ActiveSessionView: View {
                     }
                     .buttonStyle(.raisedPrimaryKey(cornerRadius: 12))
                     .accessibilityIdentifier("resumeWorkoutButton")
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 16)
                     .padding(.bottom, 20)
                 }
                 .frame(maxWidth: .infinity)
@@ -761,7 +772,7 @@ struct ActiveSessionView: View {
             .padding(14)
             .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
             .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
             .padding(.top, 6)
         }
     }
@@ -826,13 +837,34 @@ struct ActiveSessionView: View {
     /// M" kicker — session-wide position lives in the header pill.
     /// Hidden when finished (the purple screen has its own bars) and
     /// before a scratch session's first exercise.
+    ///
+    /// The blocks carry the app's state grammar, not plain progress
+    /// (Dave, 2026-07-28): landed sets purple, the one you're on green,
+    /// the rest inert. ⚠️ Status is read PER LOG, never "index < count" —
+    /// a jump/redo can complete sets out of order, and a left-to-right
+    /// fill would then colour the wrong blocks. While a rest runs the
+    /// live block BREATHES: the cursor has already moved on by then, so
+    /// the green block is the set you're about to do, and the bar shows
+    /// it waiting for you.
     @ViewBuilder
     private var progressBar: some View {
         if !session.isFinished, let log = lingeringLog ?? session.currentLog {
             let block = session.sortedSetLogs.filter {
                 $0.groupIndex == log.groupIndex && $0.exerciseName == log.exerciseName
             }
-            BlockBar(total: block.count, filled: block.filter(\.isCompleted).count, fill: Theme.accent)
+            let states: [BlockState] = block.map { setLog -> BlockState in
+                if setLog.isCompleted { return .done }
+                return setLog.order == log.order ? .live : .upcoming
+            }
+            BlockBar(
+                total: block.count,
+                // Colour comes from `states`; this is the VoiceOver count.
+                filled: block.filter(\.isCompleted).count,
+                states: states,
+                // Paused banks the rest and clears the date, so holding a
+                // workout stops the breathing too.
+                breathing: restEndDate != nil && !reduceMotion
+            )
                 // No caption sibling here, so the bar needs its own
                 // subject or VoiceOver hears a bare "2 of 4" (a11y,
                 // 2026-07-23).
@@ -1604,7 +1636,7 @@ private struct SetLoggingView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
                         exerciseHeader
-                            .padding(.horizontal, 20)
+                            .padding(.horizontal, 16)
                         if !secondaryMetricsList.isEmpty {
                             VStack(spacing: 12) {
                                 ForEach(secondaryMetricsList) { metricCard($0) }
@@ -1625,7 +1657,7 @@ private struct SetLoggingView: View {
                     ScrollView {
                         VStack(spacing: 0) {
                             exerciseHeader
-                                .padding(.horizontal, 20)
+                                .padding(.horizontal, 16)
                             Spacer(minLength: 20)
                             stage
                         }
@@ -1696,14 +1728,14 @@ private struct SetLoggingView: View {
                         .padding(.top, 10)
                     }
 
-                    // Weight/reps sets carry target + last INSIDE the
+                    // Weight/reps sets carry target + prev INSIDE the
                     // value cards now (mock 08); this line survives
                     // only for duration-driven sets, which have no cards.
                     if driver == .duration {
                         HStack(spacing: 12) {
                             Text(targetDescription)
                             if let lastTime {
-                                (Text("last ").foregroundStyle(Theme.textSecondary)
+                                (Text("prev: ").foregroundStyle(Theme.textSecondary)
                                     + Text(lastTime.resultSummary(weightUnit: weightUnit))
                                     .font(.system(.subheadline, design: .monospaced))
                                     .foregroundStyle(Theme.textPrimary))
@@ -1775,7 +1807,7 @@ private struct SetLoggingView: View {
 
     // MARK: - Stage (mock 08, #391)
     // EVERY configurable metric gets the same card — big value opening the
-    // wheel, live "last · Δ", two full-width hold-to-repeat stepper keys, and
+    // wheel, the "prev:" reference, two full-width hold-to-repeat stepper keys, and
     // (on the load metrics) a `slider.horizontal.3` key opening the increment
     // sheet. Rep work stacks WEIGHT/ASSIST then REPS; cardio leads with its
     // driver; anything else the profile tracks follows as more cards. Reps and
@@ -1789,26 +1821,13 @@ private struct SetLoggingView: View {
             ?? metric.step(weightUnit: weightUnit, distanceUnit: profile.distanceUnit)
     }
 
-    /// "last 130 · +5" — the previous set's value and the live delta
-    /// against it (mock 08, in the big card's corner). Green only while
-    /// it's an IMPROVEMENT in the metric's own direction: +5 lb of
-    /// weight, but −10 lb of assistance (anti-shame, the RoutineDiff
-    /// rule — regressions render neutral). Nil without a prior. A zero
-    /// delta shows just the last value, no "· =" (Dave, 2026-07-23:
-    /// "=" renders nowhere; matching last time isn't a delta to report).
-    private func deltaAnnotation(_ metric: WorkoutMetric) -> (text: String, color: Color)? {
+    /// "prev: 130" — the previous set's value, in the big card's corner.
+    /// A reference point, not a scoreboard: no live delta and no colour
+    /// change (Dave, 2026-07-28 — the "· +10" and its green went with
+    /// the carry-forward note). Nil without a prior.
+    private func previousAnnotation(_ metric: WorkoutMetric) -> String? {
         guard let last = lastTime?.actual(metric), last > 0 else { return nil }
-        let current = log.actual(metric) ?? log.target(metric) ?? last
-        let delta = current - last
-        let improved = switch metric.improvementDirection {
-        case .up: delta > 0
-        case .down: delta < 0
-        case .neutral: false
-        }
-        let text = delta == 0
-            ? "last \(metric.formatted(last))"
-            : "last \(metric.formatted(last)) · " + (delta > 0 ? "+" : "−") + metric.formatted(abs(delta))
-        return (text, improved ? Theme.accent : Theme.textFaint)
+        return "prev: \(metric.formatted(last))"
     }
 
     /// The metrics shown as cards, in order: the load (or bare reps / the
@@ -1837,9 +1856,8 @@ private struct SetLoggingView: View {
 
     /// The unified metric card (#391): mono label with the increment key on
     /// its right (load metrics only — the rest have no gear stride to edit),
-    /// the big value opening the wheel, the live "last · Δ" in data green, two
-    /// full-width hold-to-repeat stepper keys, and the carry-forward note
-    /// (faint — a mechanic note, not a delta).
+    /// the big value opening the wheel, the faint "prev:" reference, and two
+    /// full-width hold-to-repeat stepper keys.
     private func metricCard(_ metric: WorkoutMetric) -> some View {
         let current = log.actual(metric) ?? log.target(metric)
         let unitText = metric.unit(for: current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit)
@@ -1883,14 +1901,14 @@ private struct SetLoggingView: View {
                 }
                 .accessibilityIdentifier(metric == .weight ? "logWeightValue" : "log-\(metric.rawValue)-value")
                 Spacer(minLength: 8)
-                if let annotation = deltaAnnotation(metric) {
-                    Text(annotation.text)
+                if let annotation = previousAnnotation(metric) {
+                    Text(annotation)
                         .font(.system(.caption, design: .monospaced))
-                        .foregroundStyle(annotation.color)
+                        .foregroundStyle(Theme.textFaint)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                         .contentTransition(.numericText())
-                        .animation(Theme.Anim.standard, value: annotation.text)
+                        .animation(Theme.Anim.standard, value: annotation)
                 }
             }
             HStack(spacing: 10) {
@@ -1906,11 +1924,6 @@ private struct SetLoggingView: View {
                 ) {
                     stepActual(metric, 1)
                 }
-            }
-            if (metric == .weight || metric == .assistance), session.weightCarriesForward(from: log) {
-                Text("new \(metric == .weight ? "weight" : "assist") carries to your remaining sets")
-                    .font(.system(.caption2, design: .monospaced))
-                    .foregroundStyle(Theme.textFaint)
             }
         }
         .padding(14)
@@ -2460,7 +2473,7 @@ private struct RestView: View {
                 .padding(14)
                 .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
                 .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 16)
                 }
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: screen.size.height)
@@ -2518,7 +2531,7 @@ private struct RestView: View {
                 }
             }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 16)
     }
 
     private var skipKey: some View {

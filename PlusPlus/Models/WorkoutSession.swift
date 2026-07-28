@@ -143,20 +143,6 @@ final class WorkoutSession {
         cursorOrder = (pending.first { $0.order > log.order } ?? pending.first)?.order ?? cursorOrder
     }
 
-    /// True when a different pending set of the same exercise will pick up
-    /// this log's edited load on completion — drives the carry-forward
-    /// hint line (loads only; machine settings carry silently).
-    func weightCarriesForward(from log: SetLog) -> Bool {
-        let profile = log.metricProfile
-        let loadChanged = [WorkoutMetric.weight, .assistance].contains { metric in
-            profile.contains(metric)
-                && log.actual(metric) != nil
-                && log.actual(metric) != log.target(metric)
-        }
-        guard loadChanged else { return false }
-        return sortedSetLogs.contains { !$0.isCompleted && $0 !== log && $0.exerciseName == log.exerciseName }
-    }
-
     /// The pause that follows a just-completed set (#369): a NEW ROUND of
     /// the same block earns the block's rest (override when one exists —
     /// interval blocks — else the session default); anything else — the
