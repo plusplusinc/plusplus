@@ -68,6 +68,21 @@ public enum InterchangeValidator {
             if !exerciseNames.insert(key).inserted {
                 issues.append(.init(path: path, message: "duplicate exercise name"))
             }
+            // `muscleGroups` carries the primary first and adds to it, so a
+            // reader that knows only `muscleGroup` still reads the file
+            // correctly. A list that disagrees with the single field, or
+            // repeats a group, is hand-edited and would silently change
+            // which muscle the exercise reads as.
+            if let groups = exercise.muscleGroups {
+                if groups.isEmpty {
+                    issues.append(.init(path: path, message: "muscleGroups is empty (omit it instead)"))
+                } else if groups[0] != exercise.muscleGroup {
+                    issues.append(.init(path: path, message: "muscleGroups must lead with muscleGroup \(exercise.muscleGroup.rawValue), got \(groups[0].rawValue)"))
+                }
+                if Set(groups).count != groups.count {
+                    issues.append(.init(path: path, message: "muscleGroups repeats a group"))
+                }
+            }
             // Default targets (#187) — same bounds as routine entries.
             if let reps = exercise.defaultReps, !(1...100).contains(reps) {
                 issues.append(.init(path: path, message: "defaultReps \(reps) outside 1...100"))

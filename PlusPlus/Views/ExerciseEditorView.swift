@@ -49,7 +49,7 @@ struct ExerciseEditorView: View {
         let draft = ExerciseDraft()
         draft.name = prefillName
         if let prefillMuscleGroup {
-            draft.muscleGroup = prefillMuscleGroup
+            draft.muscleGroups = [prefillMuscleGroup]
         }
         if !prefillEquipment.isEmpty {
             draft.selectedEquipment = prefillEquipment
@@ -74,12 +74,27 @@ struct ExerciseEditorView: View {
         return SeedData.builtInProfile(named: editingExercise?.name ?? "")
     }
 
+    /// Names what the chips ARE, since they now show only what's picked.
+    private var muscleGroupCaption: String {
+        draft.muscleGroups.count > 1
+            ? "Every group this works. \(draft.muscleGroup.displayName) leads."
+            : "Every group this works."
+    }
+
+    /// The pushed list's footer. With one group left it carries the rule
+    /// its disabled row can't state; with more, which one leads.
+    private var muscleGroupPickNote: String {
+        draft.muscleGroups.count > 1
+            ? "\(draft.muscleGroup.displayName) leads."
+            : "Keep at least one."
+    }
+
     /// Anything off the canonical definition counts as customized —
     /// built-ins ship with no notes or video, so their presence alone
     /// is a customization.
     private var differsFromDefault: Bool {
         guard isBuiltIn, let def = SeedData.builtInDefinition(named: editingExercise?.name ?? "") else { return false }
-        return draft.muscleGroup != def.muscleGroup
+        return draft.muscleGroups != def.muscleGroups
             || draft.metricProfile != (builtInDefaultProfile ?? .derived(from: def.exerciseType))
             || Set(draft.selectedEquipment.map(\.name)) != Set(def.equipmentNames)
             || !draft.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -103,11 +118,13 @@ struct ExerciseEditorView: View {
         draft.selectedEquipment.sorted { $0.name < $1.name }
     }
 
-    private var unselectedEquipment: [Equipment] {
-        allEquipment.filter { !draft.selectedEquipment.contains($0) }
-    }
-
     var body: some View {
+        // Self-contained NavigationStack so the two "+ Add" rows can PUSH
+        // their pick lists (the ScheduleTray / Voice-cues pattern): the
+        // root bar is hidden so SheetHeader stays the header, and only the
+        // pushed list wears a system bar — which is what buys the back
+        // swipe, the titled back button and the standard slide.
+        NavigationStack {
         VStack(alignment: .leading, spacing: 0) {
             SheetHeader(
                 title: editingExercise == nil ? "New exercise" : "Edit exercise",
@@ -248,18 +265,33 @@ struct ExerciseEditorView: View {
                     }
                     .padding(.top, 6)
 
-                    SheetSectionLabel("MUSCLE GROUP")
+                    // MUSCLE GROUPS, plural and multi-select: most moves
+                    // work several, and picking one used to mean the rest
+                    // went unsaid — a bench press was chest and its triceps
+                    // existed nowhere. The FIRST one picked is the primary
+                    // (it leads the chips and the capsules, and it is what
+                    // single-group readers see), which is why the chips keep
+                    // selection order rather than re-sorting.
+                    //
+                    // Eleven always-visible chips read as a wall (Dave), so
+                    // this section is the same shape as REQUIRES below it:
+                    // what you PICKED, plus one key that pushes the full
+                    // list. Two adjacent multi-selects behaving differently
+                    // was the actual problem.
+                    SheetSectionLabel("MUSCLE GROUPS")
                         .padding(.top, 24)
                     FlowLayout(horizontalSpacing: 16, verticalSpacing: 8) {
-                        ForEach(MuscleGroup.allCases) { group in
-                            SelectableChip(
-                                label: group.displayName,
-                                isSelected: draft.muscleGroup == group
-                            ) {
-                                draft.muscleGroup = group
-                            }
+                        ForEach(draft.muscleGroups) { group in
+                            muscleGroupChip(group)
+                        }
+                        addChip(title: "Muscle groups", identifier: "addMuscleGroupButton") {
+                            muscleGroupPickList()
                         }
                     }
+                    Text(muscleGroupCaption)
+                        .font(.system(.caption))
+                        .foregroundStyle(Theme.textFaint)
+                        .padding(.top, 6)
 
                     SheetSectionLabel("REQUIRES")
                         .padding(.top, 24)
@@ -267,7 +299,9 @@ struct ExerciseEditorView: View {
                         ForEach(selectedEquipmentSorted) { equipment in
                             equipmentChip(equipment)
                         }
-                        addEquipmentChip
+                        addChip(title: "Equipment", identifier: "addEquipmentButton") {
+                            equipmentPickList()
+                        }
                     }
                     Text(draft.selectedEquipment.isEmpty
                          ? "Bodyweight. No equipment required."
@@ -319,14 +353,6 @@ struct ExerciseEditorView: View {
                 .padding(.bottom, 30)
             }
         }
-        .presentationBackground(Theme.background)
-        // A dirty draft can't be swiped away silently — the swipe bounces
-        // (standard compose behavior) and Cancel carries the confirm.
-        .interactiveDismissDisabled(isDirty)
-        .confirmationDialog("Discard changes?", isPresented: $confirmingDiscard, titleVisibility: .visible) {
-            Button("Discard changes", role: .destructive) { dismiss() }
-            Button("Keep editing", role: .cancel) {}
-        }
         // A new exercise adopts its gear's suggested profile as the gear
         // changes — until the user touches the chips, which latches
         // their choice (ExerciseDraft.metricsTouched).
@@ -355,6 +381,20 @@ struct ExerciseEditorView: View {
                 draft.defaultReps = newTarget.lower
                 draft.defaultRepsUpper = newTarget.upper
             }
+        }
+        .toolbar(.hidden, for: .navigationBar)
+        }
+        // Presentation-level modifiers sit OUTSIDE the NavigationStack, so
+        // they address the sheet itself rather than its root screen.
+        // `background`, not `surface`: the trays agreed on one elevation
+        // (#462).
+        .presentationBackground(Theme.background)
+        // A dirty draft can't be swiped away silently — the swipe bounces
+        // (standard compose behavior) and Cancel carries the confirm.
+        .interactiveDismissDisabled(isDirty)
+        .confirmationDialog("Discard changes?", isPresented: $confirmingDiscard, titleVisibility: .visible) {
+            Button("Discard changes", role: .destructive) { dismiss() }
+            Button("Keep editing", role: .cancel) {}
         }
     }
 
@@ -449,13 +489,52 @@ struct ExerciseEditorView: View {
         .accessibilityLabel("Remove \(equipment.name)")
     }
 
-    private var addEquipmentChip: some View {
-        Menu {
-            ForEach(unselectedEquipment) { equipment in
-                Button(equipment.name) {
-                    draft.selectedEquipment.insert(equipment)
+    /// MUSCLE GROUPS chip — the equipment chip's twin, so the editor's two
+    /// multi-selects read as one thing. Tapping removes, except when it is
+    /// the last one left: that chip is DISABLED and drops its ✕ rather than
+    /// swallowing the tap, since a control that looks live and does nothing
+    /// is the dead-tap class (build 76).
+    private func muscleGroupChip(_ group: MuscleGroup) -> some View {
+        let isLast = draft.muscleGroups.count == 1
+        return Button {
+            withAnimation(Theme.Anim.selection) {
+                draft.toggleMuscleGroup(group)
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Text(group.displayName)
+                    .font(.system(.footnote, weight: .semibold))
+                    .lineLimit(1)
+                if !isLast {
+                    Image(systemName: "xmark")
+                        .font(.system(.caption2, weight: .bold))
+                        .foregroundStyle(Theme.textFaint)
+                        .accessibilityHidden(true)
                 }
             }
+            .foregroundStyle(Theme.textPrimary)
+            .padding(.horizontal, 14)
+            .frame(height: 36)
+            .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius))
+            .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius)
+                .strokeBorder(Theme.borderStrong, lineWidth: 1))
+            // Vertical-only hit target, flush like SelectableChip (2026-07-24).
+            .frame(height: 44)
+            .contentShape(Rectangle())
+        }
+        .disabled(isLast)
+        .accessibilityLabel(isLast ? group.displayName : "Remove \(group.displayName)")
+    }
+
+    /// The one "open the list" key, shared by both sections. A
+    /// `NavigationLink`, so the push is the system's.
+    private func addChip<Destination: View>(
+        title: String,
+        identifier: String,
+        @ViewBuilder destination: () -> Destination
+    ) -> some View {
+        NavigationLink {
+            destination()
         } label: {
             HStack(spacing: 5) {
                 Text("+")
@@ -473,12 +552,64 @@ struct ExerciseEditorView: View {
             .frame(height: 44)
             .contentShape(Rectangle())
         }
-        .disabled(unselectedEquipment.isEmpty)
+        .buttonStyle(.plain)
+        .accessibilityLabel("Add \(title.lowercased())")
+        .accessibilityIdentifier(identifier)
+    }
+
+    /// Flat and alphabetical, searched rather than grouped — the
+    /// presented-catalog law (2026-07-25), and the only sane shape for a
+    /// hundred rows. Selection toggles IN the list, so adding four pieces
+    /// of equipment is four taps, not four trips.
+    @ViewBuilder
+    private func equipmentPickList() -> some View {
+        SheetPickList(
+            title: "Equipment",
+            sections: [SheetPickList.Section(
+                title: nil,
+                options: allEquipment.map { SheetPickList.Option(id: $0.name, name: $0.name) }
+            )],
+            selected: Set(draft.selectedEquipment.map(\.name)),
+            searchPrompt: "Search equipment",
+            searchIdentifier: "equipmentPickSearchField",
+            note: draft.selectedEquipment.isEmpty ? "Bodyweight. No equipment required." : "Needs all of these.",
+            onToggle: { name in
+                guard let equipment = allEquipment.first(where: { $0.name == name }) else { return }
+                if draft.selectedEquipment.contains(equipment) {
+                    draft.selectedEquipment.remove(equipment)
+                } else {
+                    draft.selectedEquipment.insert(equipment)
+                }
+            }
+        )
+    }
+
+    /// Eleven rows, all on screen at once, so no field — grouped by region
+    /// instead (`MuscleGroup.grouped`, which had been sitting in Kit unused
+    /// waiting for a surface that wanted structure).
+    @ViewBuilder
+    private func muscleGroupPickList() -> some View {
+        SheetPickList(
+            title: "Muscle groups",
+            sections: MuscleGroup.grouped.map { region in
+                SheetPickList.Section(
+                    title: region.region.uppercased(),
+                    options: region.groups.map { SheetPickList.Option(id: $0.rawValue, name: $0.displayName) }
+                )
+            },
+            selected: Set(draft.muscleGroups.map(\.rawValue)),
+            locked: draft.muscleGroups.count == 1 ? Set(draft.muscleGroups.map(\.rawValue)) : [],
+            note: muscleGroupPickNote,
+            onToggle: { raw in
+                guard let group = MuscleGroup(rawValue: raw) else { return }
+                draft.toggleMuscleGroup(group)
+            }
+        )
     }
 
     private func revertToDefault() {
         guard let def = SeedData.builtInDefinition(named: editingExercise?.name ?? "") else { return }
-        draft.muscleGroup = def.muscleGroup
+        draft.muscleGroups = def.muscleGroups
         draft.setProfile(builtInDefaultProfile ?? .derived(from: def.exerciseType))
         draft.selectedEquipment = Set(allEquipment.filter { def.equipmentNames.contains($0.name) })
         draft.notes = ""

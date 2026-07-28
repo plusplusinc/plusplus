@@ -192,6 +192,11 @@ final class Routine {
     /// when known, else derived from the muscles it trains.
     var focusLabel: String {
         if let authored = catalogTemplate?.focus { return authored.rawValue }
+        // ⚠️ PRIMARY groups only, deliberately (2026-07-28). A routine's
+        // focus is what it is FOR, and that is the union of what its
+        // exercises are for. Folding in secondaries makes everything full
+        // body: a bench-and-row session would claim chest, back, triceps,
+        // shoulders and biceps, which is true and says nothing.
         let muscles = Set(resolvedExercises.map(\.muscleGroup))
         let ordered = MuscleGroup.allCases.filter { muscles.contains($0) }
         return RoutineTemplate.Focus.derived(fromMuscles: ordered, isCardio: isCardio).rawValue

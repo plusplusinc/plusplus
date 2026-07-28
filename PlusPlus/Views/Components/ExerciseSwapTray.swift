@@ -103,7 +103,11 @@ struct ExerciseSwapTray: View {
         .presentationDetents([.medium, .large])
     }
 
+    /// Names the pool honestly. It used to say "similar <muscle> moves",
+    /// which stopped being true when the pool widened to anything SHARING
+    /// a group (2026-07-28) — a dip belongs in a bench press's list and
+    /// files under triceps.
     private var intro: String {
-        "Similar \(origin.muscleGroup.displayName.lowercased()) moves. The ones in your kit come first; the rest show what they need."
+        "Moves that share a muscle with this one. The ones in your kit come first; the rest show what they need."
     }
 }

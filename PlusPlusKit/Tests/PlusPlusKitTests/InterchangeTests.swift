@@ -185,6 +185,64 @@ struct InterchangeTests {
         #expect(try InterchangeCodec.decode(ExerciseDocument.self, from: dataNil).exercise.isFavorite == nil)
     }
 
+    @Test("muscleGroups round-trips, normalizes, and stays absent when unset")
+    func muscleGroupsRoundTrip() throws {
+        // Explicit list → written, primary first, duplicates collapsed even
+        // when the caller hands them in the wrong order.
+        let multi = ExerciseDTO(name: "Probe Bench", muscleGroup: .chest, exerciseType: .weightReps,
+                                equipment: [], muscleGroups: [.triceps, .chest, .triceps, .shoulders])
+        #expect(multi.muscleGroups == [.chest, .triceps, .shoulders])
+        let data = try InterchangeCodec.encode(ExerciseDocument(exercise: multi))
+        let decoded = try InterchangeCodec.decode(ExerciseDocument.self, from: data).exercise
+        #expect(decoded.muscleGroups == [.chest, .triceps, .shoulders])
+        #expect(decoded.resolvedMuscleGroups == [.chest, .triceps, .shoulders])
+
+        // A single EXPLICIT group is still written: on a built-in it means
+        // the catalog's secondaries were pruned, and dropping it would hand
+        // them back on restore.
+        let pruned = ExerciseDTO(name: "Probe Pruned", muscleGroup: .chest, exerciseType: .weightReps,
+                                 equipment: [], muscleGroups: [.chest])
+        let prunedData = try InterchangeCodec.encode(ExerciseDocument(exercise: pruned))
+        #expect(String(decoding: prunedData, as: UTF8.self).contains("muscleGroups"))
+
+        // No explicit list → omitted, so pre-field files stay byte-identical,
+        // and readers fall back to the single group.
+        let plain = ExerciseDTO(name: "Probe Plain", muscleGroup: .core, exerciseType: .weightReps,
+                                equipment: [])
+        let plainData = try InterchangeCodec.encode(ExerciseDocument(exercise: plain))
+        #expect(!String(decoding: plainData, as: UTF8.self).contains("muscleGroups"))
+        #expect(plain.resolvedMuscleGroups == [.core])
+    }
+
+    @Test("Validator rejects a muscleGroups list that disagrees with muscleGroup")
+    func muscleGroupsValidation() {
+        // Hand-edited files are the case this catches: a list whose head
+        // isn't the single field would silently change which muscle the
+        // exercise reads as, depending on which field a reader trusts.
+        var disagreeing = ExerciseDTO(name: "Bad Order", muscleGroup: .chest, exerciseType: .weightReps,
+                                      equipment: [])
+        disagreeing.muscleGroups = [.triceps, .chest]
+        var repeated = ExerciseDTO(name: "Repeated", muscleGroup: .chest, exerciseType: .weightReps,
+                                   equipment: [])
+        repeated.muscleGroups = [.chest, .triceps, .triceps]
+        var empty = ExerciseDTO(name: "Empty", muscleGroup: .chest, exerciseType: .weightReps,
+                                equipment: [])
+        empty.muscleGroups = []
+        let issues = InterchangeValidator.validate(
+            ExportBundle(exercises: [disagreeing, repeated, empty], routines: [], sessions: [])
+        )
+        #expect(issues.contains { $0.message.contains("must lead with muscleGroup") })
+        #expect(issues.contains { $0.message.contains("repeats a group") })
+        #expect(issues.contains { $0.message.contains("muscleGroups is empty") })
+
+        // The normalized construction path never trips any of them.
+        let good = ExerciseDTO(name: "Good", muscleGroup: .chest, exerciseType: .weightReps,
+                               equipment: [], muscleGroups: [.shoulders, .chest])
+        #expect(InterchangeValidator.validate(
+            ExportBundle(exercises: [good], routines: [], sessions: [])
+        ).isEmpty)
+    }
+
     @Test("Deprecated inLibrary still decodes from older files (parse-and-ignore)")
     func inLibraryDecodeTolerance() throws {
         // A file written by an older build carried `inLibrary`. It must

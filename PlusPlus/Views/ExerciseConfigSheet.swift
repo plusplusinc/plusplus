@@ -42,8 +42,13 @@ struct ExerciseConfigSheet: View {
                         .font(.system(.title3, weight: .bold))
                         .padding(.top, 10)
 
-                    HStack(spacing: 6) {
-                        CardTagCapsule(text: exercise.muscleGroup.displayName)
+                    // Every muscle group, primary first, then the gear. It
+                    // wraps rather than truncating, matching the planning
+                    // sheet's header.
+                    FlowLayout(spacing: 6) {
+                        ForEach(exercise.muscleGroups) { muscle in
+                            CardTagCapsule(text: muscle.displayName)
+                        }
                         CardTagCapsule(text: equipmentText)
                     }
                     .padding(.top, 8)

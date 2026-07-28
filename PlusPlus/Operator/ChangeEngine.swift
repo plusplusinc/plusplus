@@ -368,7 +368,10 @@ final class ChangeEngine {
             switch selectNamed(spec: spec, from: all, by: \.name, matchesFilter: { exercise, filter in
                 if let fragment = filter.normalizedNameContains,
                    !exercise.name.localizedCaseInsensitiveContains(fragment) { return false }
-                if let muscle = filter.muscleGroup, exercise.muscleGroup != muscle { return false }
+                // "chest exercises" means every move that WORKS the chest,
+                // not only the ones filed under it: asked to bulk-edit
+                // chest work, nobody means to leave the dips out.
+                if let muscle = filter.muscleGroup, !exercise.muscleGroups.contains(muscle) { return false }
                 if let mode = filter.trackedBy, !mode.matches(exercise.metricProfile) { return false }
                 return !filter.isEmpty
             }) {
@@ -604,7 +607,11 @@ final class ChangeEngine {
             }
             for exercise in resolution.exercises {
                 if let newName = ChangeFilter.normalized(values.name) { exercise.name = newName }
-                if let muscle = values.muscleGroup { exercise.muscleGroup = muscle }
+                // The tool sets THE muscle group, so it sets the whole list.
+                // Re-priming while keeping secondaries would make the
+                // receipt a lie ("muscle group → chest" leaving back on it),
+                // and the snapshot below restores the old list on undo.
+                if let muscle = values.muscleGroup { exercise.muscleGroups = [muscle] }
                 if let notes = values.notes { exercise.notes = notes }
                 if values.equipment != nil { exercise.equipment = resolution.equipment }
                 if let reps = values.reps { exercise.defaultReps = reps }

@@ -14,7 +14,7 @@ import PlusPlusKit
 /// test is the enforcement point; the docs-drift hook nudges on model edits.
 /// Computed properties (no storage) are never listed — they carry nothing.
 ///
-/// Exercise           name·muscleGroup·equipment·exerciseType·isBuiltIn·
+/// Exercise           name·muscleGroup·muscleGroupsData·equipment·exerciseType·isBuiltIn·
 ///                    isFavorite·notes·videoURL·defaultWeight·defaultReps·
 ///                    defaultRepsUpper·defaultDurationSeconds·
 ///                    defaultHeartRateTargetData·metricsData·extraDefaultsData  → all EXPORTED
@@ -23,6 +23,11 @@ import PlusPlusKit
 ///                    yours" basis that inLibrary used to carry)
 ///                    inLibrary → EXCLUDED (frozen legacy; the DTO field is kept for
 ///                    decode tolerance of older files but never written or read here)
+///                    muscleGroupsData → EXPORTED (2026-07-28: ExerciseDTO.muscleGroups,
+///                    written only when an EXPLICIT list exists — a built-in still
+///                    following the catalog carries none, so catalog authoring keeps
+///                    reaching restored stores. It also joins the built-in export
+///                    filter, or a customized built-in would never be written at all)
 ///                    metricsData.isOutdoor → EXPORTED (#378: ExerciseDTO.isOutdoor,
 ///                    riding the explicit-profile gate, written only when true —
 ///                    the user-facing toggle the old exclusion waited on ships
@@ -115,7 +120,7 @@ enum InterchangeMapping {
             // stay out. (Membership `inLibrary` was the old basis; it's
             // frozen, and favorites are the curation now.)
             exercises: exercises
-                .filter { !$0.isBuiltIn || $0.isFavorite || $0.notes != nil || $0.videoURL != nil || $0.hasDefaultTargets || $0.metricsData != nil }
+                .filter { !$0.isBuiltIn || $0.isFavorite || $0.notes != nil || $0.videoURL != nil || $0.hasDefaultTargets || $0.metricsData != nil || $0.muscleGroupsData != nil }
                 .map(makeDTO),
             routines: routines.map(makeDTO),
             sessions: sessions.map(makeDTO),
@@ -172,7 +177,14 @@ enum InterchangeMapping {
             // (the isOutdoor precedent), so an unfavorited exercise stays
             // byte-clean.
             isFavorite: exercise.isFavorite ? true : nil,
-            defaultHeartRateTarget: decodeHeartRate(exercise.defaultHeartRateTargetData)
+            defaultHeartRateTarget: decodeHeartRate(exercise.defaultHeartRateTargetData),
+            // Muscle groups travel on the same explicit-state rule as the
+            // profile: only an EXPLICIT list is written, so a built-in
+            // still following the catalog exports nothing here and picks up
+            // catalog authoring on the importing side. A one-element
+            // explicit list IS written — that's a pruned built-in, and
+            // dropping it would hand the secondaries back on restore.
+            muscleGroups: exercise.explicitMuscleGroups
         )
     }
 
@@ -324,6 +336,9 @@ enum InterchangeMapping {
             let key = dto.name.lowercased()
             if let existing = exercisesByName[key] {
                 existing.muscleGroup = dto.muscleGroup
+                // Wholesale like the profile: an absent list means
+                // "resolve" (catalog for a built-in), not "keep mine".
+                existing.explicitMuscleGroups = dto.muscleGroups
                 existing.exerciseType = dto.exerciseType
                 existing.notes = dto.notes
                 existing.videoURL = dto.videoURL
@@ -350,6 +365,7 @@ enum InterchangeMapping {
                     notes: dto.notes,
                     videoURL: dto.videoURL
                 )
+                exercise.explicitMuscleGroups = dto.muscleGroups
                 exercise.defaultWeight = dto.defaultWeight
                 exercise.defaultReps = dto.defaultReps
                 exercise.defaultRepsUpper = dto.defaultRepsUpper

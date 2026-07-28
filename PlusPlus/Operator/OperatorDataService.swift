@@ -37,7 +37,9 @@ struct OperatorDataService {
             case .exercise:
                 let all = try context.fetch(FetchDescriptor<Exercise>(sortBy: [SortDescriptor(\.name)]))
                 let filtered = all.filter { exercise in
-                    if let muscleGroup, exercise.muscleGroup != muscleGroup { return false }
+                    // Same reading as the change engine's filter: a muscle
+                    // names every move that works it, not just its primary.
+                    if let muscleGroup, !exercise.muscleGroups.contains(muscleGroup) { return false }
                     if favoritesOnly, !exercise.isFavorite { return false }
                     return true
                 }

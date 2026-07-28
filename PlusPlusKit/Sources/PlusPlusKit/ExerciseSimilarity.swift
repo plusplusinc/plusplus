@@ -1,20 +1,31 @@
 import Foundation
 
 /// The feature bag a similarity score reads — the three signals the model
-/// carries that say "this move is like that one": the coarse muscle group,
-/// the movement family it reads as, and the gear it needs. Pure value type,
-/// so the ranker is Linux-testable with no `@Model` in sight (the app maps
-/// its `Exercise` rows into this).
+/// carries that say "this move is like that one": the muscle groups it
+/// works, the movement family it reads as, and the gear it needs. Pure
+/// value type, so the ranker is Linux-testable with no `@Model` in sight
+/// (the app maps its `Exercise` rows into this).
 public struct ExerciseSimilarityFeatures: Sendable, Equatable {
-    public var muscleGroup: MuscleGroup
+    /// Every group the move works, PRIMARY FIRST — order is meaning here,
+    /// not presentation (see `muscleScore`). Never empty.
+    public var muscleGroups: [MuscleGroup]
     public var modality: ExerciseModality
     /// The exercise's required equipment, by name. Empty = bodyweight.
     public var equipmentNames: Set<String>
 
-    public init(muscleGroup: MuscleGroup, modality: ExerciseModality, equipmentNames: Set<String>) {
-        self.muscleGroup = muscleGroup
+    /// The group the move is FOR. A feature bag is always built from a real
+    /// exercise, which always has one; the fallback keeps this total rather
+    /// than making every reader unwrap.
+    public var muscleGroup: MuscleGroup { muscleGroups.first ?? .fullBody }
+
+    public init(muscleGroups: [MuscleGroup], modality: ExerciseModality, equipmentNames: Set<String>) {
+        self.muscleGroups = muscleGroups.isEmpty ? [.fullBody] : muscleGroups
         self.modality = modality
         self.equipmentNames = equipmentNames
+    }
+
+    public init(muscleGroup: MuscleGroup, modality: ExerciseModality, equipmentNames: Set<String>) {
+        self.init(muscleGroups: [muscleGroup], modality: modality, equipmentNames: equipmentNames)
     }
 }
 
@@ -32,12 +43,15 @@ public enum ExerciseSimilarity {
     static let muscleWeight = 0.6
     static let modalityWeight = 0.25
     static let equipmentWeight = 0.15
+    /// How much of the muscle score the PRIMARY group carries, the rest
+    /// going to overlap across the full lists.
+    static let primaryShare = 0.7
 
     /// A 0…1 substitutability score: 1 means an identical feature bag, 0
     /// means nothing in common. Symmetric in its inputs.
     public static func score(candidate: ExerciseSimilarityFeatures,
                              origin: ExerciseSimilarityFeatures) -> Double {
-        let muscle = candidate.muscleGroup == origin.muscleGroup ? 1.0 : 0.0
+        let muscle = muscleScore(candidate.muscleGroups, origin.muscleGroups)
         let modality = candidate.modality == origin.modality ? 1.0 : 0.0
         let equipment = jaccard(candidate.equipmentNames, origin.equipmentNames)
         return muscle * muscleWeight
@@ -59,6 +73,21 @@ public enum ExerciseSimilarity {
                 return lhs.offset < rhs.offset
             }
             .map(\.element.item)
+    }
+
+    /// Muscle agreement, PRIMARY-WEIGHTED: matching what the two moves are
+    /// FOR carries most of it, and shared secondaries top it up.
+    ///
+    /// A flat Jaccard would be wrong in a way that shows: a Dumbbell Fly
+    /// (chest) against a Bench Press (chest · triceps · shoulders) scores
+    /// 1/3, below a Skull Crusher (triceps · chest) at 2/3 — so the best
+    /// chest swap in the catalog would rank under a triceps move. Breadth
+    /// is not distance. Leading with the primary keeps "another chest
+    /// move" ahead of "another move that happens to involve chest", and
+    /// the overlap term still separates a near-twin from a bare match.
+    static func muscleScore(_ a: [MuscleGroup], _ b: [MuscleGroup]) -> Double {
+        let primary = a.first == b.first ? 1.0 : 0.0
+        return primaryShare * primary + (1 - primaryShare) * jaccard(Set(a.map(\.rawValue)), Set(b.map(\.rawValue)))
     }
 
     /// Set overlap, |A ∩ B| / |A ∪ B|. Two bodyweight moves (both empty)

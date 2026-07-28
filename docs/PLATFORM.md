@@ -176,6 +176,7 @@ The app's single-file export (backup / manual transport) is a bundle:
       "exerciseType": "weightReps",
       "isBuiltIn": false,
       "muscleGroup": "shoulders",
+      "muscleGroups": ["shoulders", "back"],
       "name": "T Raise"
     },
     {
@@ -380,6 +381,20 @@ Semantics worth writing down:
   cadence). Absent means unscheduled — every pre-schedule file round-trips
   unchanged. The app never renders obligation ("due") language from this; it's
   a rhythm, not a deadline.
+- **Muscle groups** (additive to schema v1): most moves work several, so an
+  exercise may carry `muscleGroups` — every group it works, PRIMARY FIRST,
+  so `muscleGroups[0]` always equals the required `muscleGroup`. A reader
+  that knows only `muscleGroup` therefore stays correct, exactly as
+  `exerciseType` stays correct beside `metrics`. Validators reject a list
+  that leads with anything else, repeats a group, or is empty. The field is
+  written only when the exercise carries an EXPLICIT list, so pre-field
+  files and exercises that never had one stay byte-identical; absent means
+  "no explicit list", which a reader resolves the way it resolves any
+  single-group exercise (in the app, a built-in follows the catalog, which
+  is how catalog authoring keeps reaching restored stores). A ONE-element
+  list is therefore meaningful rather than noise: it says "this group, and
+  not whatever the catalog would give me" — how a pruned built-in survives
+  a round trip.
 - **Heart-rate targets** (additive to schema v1): an optional cardio
   prescription — guidance shown during execution, never a logged metric.
   Encoded as `{ "kind": "zone", "zone": 3 }` (zones 1–5) or

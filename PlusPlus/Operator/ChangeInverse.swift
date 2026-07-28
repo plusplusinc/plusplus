@@ -40,6 +40,10 @@ struct ExerciseSnapshot: Equatable {
     let id: PersistentIdentifier
     let name: String
     let muscleGroup: MuscleGroup
+    /// The EXPLICIT list, nil when the exercise follows the catalog — the
+    /// storage-level value, so undo restores "follows the catalog" as
+    /// faithfully as it restores a pinned list.
+    let explicitMuscleGroups: [MuscleGroup]?
     let exerciseType: ExerciseType
     let metricsData: Data?
     let notes: String?
@@ -56,6 +60,7 @@ struct ExerciseSnapshot: Equatable {
         id = exercise.persistentModelID
         name = exercise.name
         muscleGroup = exercise.muscleGroup
+        explicitMuscleGroups = exercise.explicitMuscleGroups
         exerciseType = exercise.exerciseType
         metricsData = exercise.metricsData
         notes = exercise.notes
@@ -251,6 +256,7 @@ extension ChangeEngine {
             videoURL: dto.videoURL
         )
         context.insert(exercise)
+        exercise.explicitMuscleGroups = dto.muscleGroups
         let allGear = try context.fetch(FetchDescriptor<Equipment>())
         exercise.equipment = dto.equipment.compactMap { name in
             allGear.first { $0.name.compare(name, options: .caseInsensitive) == .orderedSame }
@@ -377,6 +383,7 @@ extension ChangeEngine {
         guard let exercise = context.model(for: snapshot.id) as? Exercise, !exercise.isDeleted else { return }
         exercise.name = snapshot.name
         exercise.muscleGroup = snapshot.muscleGroup
+        exercise.explicitMuscleGroups = snapshot.explicitMuscleGroups
         exercise.exerciseType = snapshot.exerciseType
         exercise.metricsData = snapshot.metricsData
         exercise.notes = snapshot.notes

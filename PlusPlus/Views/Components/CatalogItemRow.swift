@@ -154,6 +154,14 @@ struct ExerciseRowContent: View {
                 // active kit lacks it. Amber sorts first, so the "N more"
                 // overflow can only ever drop an available piece — the
                 // missing-gear flag stays visible (#113 flag-don't-hide).
+                //
+                // ⚠️ The row shows the PRIMARY group only, even though an
+                // exercise now carries several (2026-07-28). Leading the row
+                // with three muscle capsules is exactly what would push the
+                // amber gear into "N more" and break the rule above, and a
+                // row is an identity line: the primary is what the move IS.
+                // The full set reads on the detail screen and the planning
+                // sheet, and search reaches every group either way.
                 OverflowCapsuleRow(capsules: [CardCapsule(text: exercise.muscleGroup.displayName)]
                     + RoutineCardCapsules.gearCapsules(gear))
             }
