@@ -417,13 +417,17 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   column and a full-width bar, because the tally is the surface's week header,
   not an entry on the timeline. Same round: ⚠️ **the pull's own answer
   (the refresh line) renders in the SPACE THE PULL OPENS**, not in the
-  timeline — an `overlay(alignment: .top)` with
-  `alignmentGuide(.top) { $0[.bottom] }`, so it sits entirely above the first
-  row, reserves nothing, and is clipped at rest. Two earlier placements were
-  wrong: below the today anchor it landed a screenful past the pull on any
-  timeline with a week ahead (which is why the quips were never seen), and as
-  the scroll's first CONTENT it shoved the whole timeline down (Dave, build
-  153). Because it lives in the gap it is visible only while the gap is open,
+  timeline — a zero-height `Color.clear` at the very top of the content with
+  the line `.overlay(alignment: .bottom)` on it, so the line's bottom edge
+  lands exactly on the content's top: entirely above the first row, reserving
+  nothing, clipped at rest. ⚠️ Plain alignment, not a custom guide:
+  `alignmentGuide(.top) { $0[.bottom] }` on an overlay of the content stack
+  was NOT honoured — the line rendered at the content's top edge and collided
+  with the week tally (Dave, build 154). THREE placements were wrong before
+  this one: below the today anchor it landed a screenful past the pull on any
+  timeline with a week ahead (which is why the quips were never seen), as the
+  scroll's first CONTENT it shoved the whole timeline down (build 153), and the
+  alignment-guide overlay collided (154). Because it lives in the gap it is visible only while the gap is open,
   and the system holds that open until the `refreshable` closure returns — so
   the closure waits a beat before returning, a connected sync says "Syncing…"
   BEFORE the network rather than after, and clearing hangs off the closure's
