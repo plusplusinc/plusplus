@@ -20,7 +20,7 @@
     --selected: #5CA8F5;
     --loop: #7C786F;
     --done: #A371F7;
-    --delete: #CF222E;
+    --card-radius: 14px;
 
     /* Review chrome — a half-step below the app ground so the phone reads as the subject */
     --page: #171614;
@@ -39,7 +39,7 @@
     --accent: #17914B; --on-primary: #FFFFFF; --primary-fill: #232220;
     --notes: #8F5F00; --notes-ink: #805400;
     --notes-wash: rgba(143, 95, 0, 0.14); --notes-ring: rgba(143, 95, 0, 0.75);
-    --selected: #1668D2; --done: #8250DF; --delete: #CF222E;
+    --selected: #1668D2; --done: #8250DF;
     --page: #EFEDE9; --page-panel: #FFFFFF; --page-line: #DAD7D1;
     --page-ink: #232220; --page-ink-2: #6B6965;
   }
@@ -49,26 +49,18 @@
   [hidden] { display: none !important; }
 
   .wrap {
-    background: var(--page);
-    color: var(--page-ink);
-    font-family: var(--sans);
-    -webkit-font-smoothing: antialiased;
-    padding: 28px 20px 72px;
-    min-height: 100vh;
+    background: var(--page); color: var(--page-ink); font-family: var(--sans);
+    -webkit-font-smoothing: antialiased; padding: 28px 20px 72px; min-height: 100vh;
   }
   .col { max-width: 1180px; margin: 0 auto; }
 
   /* ---------- masthead ---------- */
   .eyebrow {
-    font-family: var(--mono);
-    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
     color: var(--page-ink-2); margin: 0 0 10px;
   }
-  h1 {
-    font-size: clamp(28px, 5vw, 40px); line-height: 1.05; letter-spacing: -0.025em;
-    margin: 0 0 12px; font-weight: 700; text-wrap: balance;
-  }
-  .lede { margin: 0; max-width: 62ch; color: var(--page-ink-2); font-size: 15px; line-height: 1.55; }
+  h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.05; letter-spacing: -0.025em; margin: 0 0 12px; font-weight: 700; text-wrap: balance; }
+  .lede { margin: 0; max-width: 64ch; color: var(--page-ink-2); font-size: 15px; line-height: 1.55; }
   .lede b { color: var(--page-ink); font-weight: 600; }
   .masthead { border-bottom: 1px solid var(--page-line); padding-bottom: 24px; margin-bottom: 28px; }
   .themeToggle {
@@ -84,166 +76,186 @@
   .deviceCol { position: sticky; top: 20px; }
   @media (max-width: 940px) { .deviceCol { position: static; } }
 
-  /* ---------- option groups ---------- */
-  .opt { border: 1px solid var(--page-line); border-radius: 14px; background: var(--page-panel); padding: 18px 18px 16px; margin-bottom: 16px; }
+  /* ---------- direction cards ---------- */
+  .dirs { display: grid; gap: 12px; }
+  .dir {
+    display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 0 14px; align-items: start;
+    width: 100%; text-align: left; font: inherit; cursor: pointer;
+    border: 1px solid var(--page-line); border-radius: 14px; background: var(--page-panel);
+    padding: 16px 18px;
+  }
+  .dir:hover { border-color: var(--page-ink-2); }
+  .dir[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--page-panel)); }
+  .dir:focus-visible, .themeToggle:focus-visible, .seg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .dir .num {
+    grid-row: span 3; font-family: var(--mono); font-size: 12px; color: var(--page-ink-2);
+    border: 1px solid var(--page-line); border-radius: 8px; height: 28px; display: grid; place-items: center;
+  }
+  .dir[aria-pressed="true"] .num { color: var(--accent); border-color: var(--accent); }
+  .dir h3 { margin: 4px 0 0; font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
+  .dir .idea { margin: 6px 0 0; font-size: 13.5px; line-height: 1.5; color: var(--page-ink-2); }
+  .dir .idea b { color: var(--page-ink); font-weight: 600; }
+  .dir .meta { margin: 9px 0 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .dir .meta span {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase;
+    border: 1px solid var(--page-line); border-radius: 6px; padding: 3px 7px; color: var(--page-ink-2);
+  }
+  .dir .meta .cost { color: var(--notes); border-color: color-mix(in srgb, var(--notes) 45%, transparent); }
+  .dir .meta .win { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+
+  .opt { border: 1px solid var(--page-line); border-radius: 14px; background: var(--page-panel); padding: 18px; margin-top: 16px; }
   .opt h2 { font-size: 17px; margin: 0 0 4px; letter-spacing: -0.01em; font-weight: 650; }
-  .opt .why { margin: 0 0 14px; font-size: 13.5px; line-height: 1.5; color: var(--page-ink-2); max-width: 62ch; }
+  .opt .why { margin: 0 0 14px; font-size: 13.5px; line-height: 1.5; color: var(--page-ink-2); max-width: 64ch; }
+  .opt .why:last-child { margin-bottom: 0; }
   .opt .why b { color: var(--page-ink); font-weight: 600; }
   .segs { display: flex; flex-wrap: wrap; gap: 8px; }
   .seg {
-    font: inherit; font-size: 13px; cursor: pointer;
-    background: transparent; color: var(--page-ink-2);
+    font: inherit; font-size: 13px; cursor: pointer; background: transparent; color: var(--page-ink-2);
     border: 1px solid var(--page-line); border-radius: 10px; padding: 9px 13px;
-    display: flex; flex-direction: column; gap: 2px; text-align: left; min-width: 0;
+    display: flex; flex-direction: column; gap: 2px; text-align: left;
   }
   .seg:hover { border-color: var(--page-ink-2); color: var(--page-ink); }
   .seg[aria-pressed="true"] { border-color: var(--accent); color: var(--page-ink); background: color-mix(in srgb, var(--accent) 12%, transparent); }
   .seg .tag { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.75; }
-  .seg:focus-visible, .themeToggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .rec { color: var(--accent); font-weight: 600; }
-  .fixedNote { font-size: 12.5px; color: var(--page-ink-2); margin: 12px 0 0; line-height: 1.5; }
-  .fixedNote code, .why code { font-family: var(--mono); font-size: 0.92em; color: var(--page-ink); }
+  .sectionHead { font-size: 20px; margin: 0 0 14px; letter-spacing: -0.015em; }
+  code { font-family: var(--mono); font-size: 0.92em; color: var(--page-ink); }
 
   /* ---------- device ---------- */
-  .device {
-    width: 392px; max-width: 100%;
-    border: 1px solid var(--page-line); border-radius: 34px; padding: 9px;
-    background: var(--page-panel);
-  }
+  .device { width: 392px; max-width: 100%; border: 1px solid var(--page-line); border-radius: 34px; padding: 9px; background: var(--page-panel); }
   .screen {
-    position: relative; overflow: hidden;
-    border-radius: 26px; background: var(--ground); color: var(--ink);
-    height: 720px; display: flex; flex-direction: column;
-    font-family: var(--sans);
+    position: relative; overflow: hidden; border-radius: 26px;
+    background: var(--ground); color: var(--ink); height: 720px;
+    display: flex; flex-direction: column; font-family: var(--sans);
   }
-  .statusbar {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 10px 22px 2px; font-size: 12px; font-weight: 600; color: var(--ink);
-  }
+  .statusbar { display: flex; justify-content: space-between; align-items: center; padding: 10px 22px 2px; font-size: 12px; font-weight: 600; }
   .statusbar .right { font-family: var(--mono); font-size: 11px; color: var(--ink-2); }
 
-  /* top bar (pushedScreenChrome) */
-  .topbar {
-    position: relative; z-index: 5; display: flex; align-items: center; gap: 10px;
-    padding: 4px 16px 8px; background: var(--ground);
-  }
+  .topbar { position: relative; z-index: 5; display: flex; align-items: center; gap: 10px; padding: 4px 16px 8px; background: var(--ground); }
   .keysq {
     width: 40px; height: 40px; flex: none; display: grid; place-items: center;
     border: 1px solid var(--border-strong); border-radius: 11px; background: var(--ground);
-    color: var(--ink-2); box-shadow: 0 3px 0 var(--border-strong);
-    transform: translateY(-1.5px);
+    color: var(--ink-2); box-shadow: 0 3px 0 var(--border-strong); transform: translateY(-1.5px);
   }
   .topbar .spacer { flex: 1 1 auto; min-width: 0; }
   .barTitle {
     position: absolute; left: 96px; right: 96px; top: 4px; height: 40px;
     display: flex; align-items: center; justify-content: center;
     font-size: 15px; font-weight: 700; color: var(--ink);
-    opacity: 0; transform: translateY(6px);
-    pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    opacity: 0; transform: translateY(6px); pointer-events: none;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
-  /* scroll body */
-  /* min-height:0 is what makes a flex child actually scroll rather than
-     grow past its parent and get clipped. */
   .body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; }
   .body::-webkit-scrollbar { display: none; }
   .pad { padding: 0 20px; }
 
-  .bigTitle {
-    font-size: 33px; line-height: 1.05; font-weight: 700; letter-spacing: -0.02em;
-    margin: 2px 0 0; color: var(--ink);
-  }
-  .bigTitle button {
-    font: inherit; color: inherit; background: none; border: 0; padding: 0; text-align: left; cursor: pointer;
-  }
+  .bigTitle { font-size: 33px; line-height: 1.05; font-weight: 700; letter-spacing: -0.02em; margin: 2px 0 0; }
+  .bigTitle button { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-align: left; cursor: pointer; }
   .bigTitle .pencil { font-size: 15px; color: var(--ink-3); margin-left: 8px; vertical-align: 6px; }
-  .screen:not([data-edit="on"]) .pencil { display: none; }
-  .screen:not([data-edit="on"]) .bigTitle button { cursor: default; }
 
-  .factline { font-size: 12px; color: var(--ink-2); margin-top: 10px; font-variant-numeric: tabular-nums; }
-
-  /* sticky metadata band */
-  .band {
-    position: sticky; top: 0; z-index: 4;
-    background: var(--ground); padding: 10px 20px 10px;
-  }
-  .band.unstuck { position: static; }
+  /* one sticky container: the direction's pinned rows, then the columns */
+  .band { position: sticky; top: 0; z-index: 4; background: var(--ground); padding: 0 20px; }
+  .band:empty { display: none; }
   .band::after {
     content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
     background: var(--border); opacity: 0; transition: opacity 0.15s ease-out;
   }
   .band.pinned::after { opacity: 1; }
-  .bandRow { display: flex; gap: 6px; align-items: center; overflow-x: auto; scrollbar-width: none; padding-bottom: 1px; }
-  .bandRow::-webkit-scrollbar { display: none; }
-  .bandFacts { font-size: 12px; color: var(--ink-2); margin-top: 8px; font-variant-numeric: tabular-nums; }
-  .band.pinned .bandCondensed { display: block; }
 
-  /* chips */
+  .factline { font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; margin: 10px 0 0; }
+  .chipRow { display: flex; gap: 6px; align-items: center; overflow-x: auto; scrollbar-width: none; }
+  .chipRow::-webkit-scrollbar { display: none; }
   .chip {
     display: inline-flex; align-items: center; gap: 4px; flex: none;
     font-size: 12px; line-height: 1.2; font-family: var(--sans);
     padding: 6px 10px; border-radius: 11px; white-space: nowrap;
-    background: var(--surface); border: 1px solid var(--border-strong); color: var(--ink-2);
-    cursor: pointer;
+    background: var(--surface); border: 1px solid var(--border-strong); color: var(--ink-2); cursor: pointer;
   }
   .chip .chev { font-size: 9px; color: var(--ink-3); }
-  .chip.data { background: var(--raised); border-color: transparent; border-radius: 6px; padding: 3px 8px; cursor: default; }
   .chip.amber { background: var(--notes-wash); border-color: var(--notes-ring); color: var(--notes-ink); }
   .chip.amber .chev { color: var(--notes-ink); }
-  .chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--notes); flex: none; }
-  .chip:focus-visible { outline: 2px solid var(--selected); outline-offset: 1px; }
-  .sectionLabel {
-    font-family: var(--mono); font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase;
-    color: var(--ink-3); margin: 14px 0 7px;
+
+  /* direction: spec table */
+  .specRow {
+    display: flex; align-items: baseline; gap: 10px; width: 100%;
+    font: inherit; background: none; border: 0; padding: 7px 0; cursor: pointer; text-align: left;
+    border-bottom: 1px solid var(--border);
   }
-  .gearRow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-  .noteRow {
-    display: flex; align-items: center; gap: 6px; margin-top: 12px;
-    font-family: var(--sans); font-size: 13px; color: var(--ink-3);
-    background: none; border: 0; padding: 0; cursor: pointer;
+  .specRow:last-child { border-bottom: 0; }
+  .specRow .k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3); flex: 1 1 auto; }
+  .specRow .v { font-family: var(--mono); font-size: 13px; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .specRow .v .amber { color: var(--notes-ink); }
+  .specRow .chev { font-size: 10px; color: var(--ink-3); }
+
+  /* direction: meta card */
+  .metaCard {
+    background: color-mix(in srgb, var(--surface) 55%, transparent);
+    border: 1px solid var(--border); border-radius: var(--card-radius);
+    padding: 12px; display: grid; gap: 10px; margin-top: 12px;
   }
-  .noteRow .chev { font-size: 9px; }
+
+  /* direction: sentence */
+  .prose { font-size: 14px; line-height: 1.75; color: var(--ink-2); margin: 12px 0 0; }
+  .tok {
+    font: inherit; background: none; border: 0; padding: 0 1px; cursor: pointer;
+    color: var(--ink); font-weight: 600;
+    border-bottom: 1px dashed var(--border-strong);
+  }
+  .tok.amber { color: var(--notes-ink); border-bottom-color: var(--notes-ring); }
+
+  /* direction: rail-continuous */
+  .metaNode { display: flex; gap: 13px; align-items: center; width: 100%; font: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+  .metaNode .glyph { width: 28px; flex: none; position: relative; height: 34px; }
+  .metaNode .spine { position: absolute; left: 13px; top: 0; bottom: 0; width: 2px; background: var(--border); }
+  .metaNode .tick { position: absolute; left: 10px; top: 14px; width: 8px; height: 2px; background: var(--border-strong); }
+  .metaNode .txt { flex: 1 1 auto; min-width: 0; font-size: 12.5px; color: var(--ink-2); }
+  .metaNode .txt .amber { color: var(--notes-ink); }
+  .metaNode .chev { font-size: 10px; color: var(--ink-3); }
+
+  /* direction: 2x2 grid */
+  .metaGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+  .gridCell { text-align: left; font: inherit; background: none; border: 0; padding: 0; cursor: pointer; min-width: 0; }
+  .gridCell .k { display: block; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3); }
+  .gridCell .v { display: block; font-size: 13px; color: var(--ink); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gridCell .v .amber { color: var(--notes-ink); }
+  .gridCell .v .chev { font-size: 9px; color: var(--ink-3); }
+
+  /* direction: minimal */
+  .summaryLine {
+    display: flex; align-items: center; gap: 8px; width: 100%; font: inherit;
+    background: none; border: 0; padding: 0; cursor: pointer; text-align: left;
+    font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums;
+  }
+  .summaryLine .chev { font-size: 10px; color: var(--ink-3); margin-left: auto; }
+  .kitLine { margin-top: 8px; }
 
   /* rail + rows */
-  .rail { padding: 10px 14px 8px 20px; }
-  .colhead { display: flex; gap: 8px; justify-content: flex-end; padding: 0 0 6px 41px; }
-  /* Riding the band: the band pads 20 and the rail pads 14, so the headers
-     need those 6 pt back or they sit inboard of the columns they name. */
-  .band > .colhead { padding: 9px 0 1px 41px; margin-right: -6px; }
+  .rail { padding: 0 14px 8px 20px; }
+  .colhead { display: flex; gap: 8px; justify-content: flex-end; padding: 9px 0 3px 41px; margin-right: -6px; }
   .colhead span { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3); width: 58px; text-align: right; }
-  .row { display: flex; gap: 13px; align-items: stretch; position: relative; }
+  .rail .colhead { margin-right: 0; padding-bottom: 6px; }
+  .row { --rowPadTop: 12px; --nameLine: 19.5px; --nodeR: 7px; display: flex; gap: 13px; position: relative; }
   .glyph { width: 28px; flex: none; position: relative; }
   .glyph .spine { position: absolute; left: 13px; top: 0; bottom: 0; width: 2px; background: var(--border); }
-  .row:first-of-type .glyph .spine { top: 0; }
-  /* The node centres on the FIRST LINE of the name, not on the row: a
-     two-line name would otherwise push the dot into the gap between its
-     lines. Derived, not a magic number — row padding + half a line. */
-  .row { --rowPadTop: 12px; --nameLine: 19.5px; --nodeR: 7px; }
+  /* The node centres on the FIRST LINE of the name, not on the row. */
   .glyph .node {
     position: absolute; left: 7px; width: 14px; height: 14px;
     top: calc(var(--rowPadTop) + var(--nameLine) / 2 - var(--nodeR));
     border-radius: 50%; border: 2px solid var(--border-strong); background: var(--ground);
   }
-  /* baseline, matching DiffLedger's Grid(alignment: .leadingFirstTextBaseline) —
-     the numbers sit on the name's first line, not near it. */
-  .rowBody { flex: 1 1 auto; min-width: 0; display: flex; gap: 12px; align-items: baseline; padding: var(--rowPadTop) 0; border-bottom: 1px solid transparent; }
+  .rowBody { flex: 1 1 auto; min-width: 0; display: flex; gap: 12px; align-items: baseline; padding: var(--rowPadTop) 0; }
   .exName { font-size: 16px; font-weight: 600; line-height: var(--nameLine); color: var(--ink); flex: 1 1 auto; min-width: 0; }
   .cells { display: flex; gap: 8px; flex: none; }
-  .cells.single .cell { width: auto; }
-  /* Sized for ONE run per line ("3×10–15", then "35lb") — a single-line
-     cell needs ~90 pt and that is what starved the name column. */
   .cell { width: 58px; text-align: right; font-family: var(--mono); font-size: 11.5px; font-variant-numeric: tabular-nums; line-height: 1.35; white-space: nowrap; }
   .cell.target { color: var(--ink); }
   .cell.target.held { color: var(--ink-3); }
   .cell.prev { color: var(--ink-2); }
   .cell.none { color: var(--ink-3); }
-
-  /* stacked variant */
   .stackLines { margin-top: 4px; display: flex; gap: 12px; font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; }
   .stackLines .t { color: var(--ink); }
   .stackLines .p { color: var(--ink-3); }
 
-  /* add row */
   .addRow { display: flex; gap: 13px; align-items: center; padding-top: 4px; }
   .addGlyph { width: 28px; flex: none; position: relative; height: 52px; }
   .addGlyph .spine { position: absolute; left: 13px; top: 0; height: 15px; width: 2px; background: var(--border); }
@@ -259,41 +271,30 @@
     box-shadow: 0 3px 0 var(--border-strong); transform: translateY(-1.5px); cursor: pointer;
   }
 
-  /* bottom bar */
   .bottombar { padding: 12px 16px 10px; background: var(--ground); border-top: 1px solid var(--border); }
   .startKey {
-    position: relative; overflow: hidden; width: 100%; height: 52px;
-    border: 0; border-radius: 11px; cursor: pointer;
-    background: var(--primary-fill); color: var(--on-primary);
+    position: relative; overflow: hidden; width: 100%; height: 52px; border: 0; border-radius: 11px;
+    cursor: pointer; background: var(--primary-fill); color: var(--on-primary);
     font-family: var(--sans); font-size: 15px; font-weight: 700;
-    box-shadow: 0 4px 0 var(--border-strong); transform: translateY(-2px);
-    display: grid; place-items: center;
+    box-shadow: 0 4px 0 var(--border-strong); transform: translateY(-2px); display: grid; place-items: center;
   }
   .startKey:active { transform: translateY(2px); box-shadow: 0 0 0 var(--border-strong); }
-  .startKey .wipe {
-    position: absolute; inset: 0; background: var(--accent);
-    transform: scaleX(0); transform-origin: left center; transition: transform 0.32s ease-in-out;
-  }
+  .startKey .wipe { position: absolute; inset: 0; background: var(--accent); transform: scaleX(0); transform-origin: left center; transition: transform 0.32s ease-in-out; }
   .startKey.go .wipe { transform: scaleX(1); }
   .startKey .face { position: relative; display: flex; align-items: center; gap: 8px; }
   .startKey .labelBox { position: relative; display: inline-block; }
   .startKey .labelBox .ghost { visibility: hidden; }
   .startKey .labelBox .live { position: absolute; right: 0; top: 0; white-space: nowrap; transition: opacity 0.2s ease-out; }
   .chevRun { display: flex; gap: 3px; align-items: center; }
-  .chevRun i {
-    font-style: normal; font-size: 15px; font-weight: 700; line-height: 1;
-    transition: opacity 0.15s ease-in-out, transform 0.2s ease-out, margin 0.2s ease-out;
-  }
+  .chevRun i { font-style: normal; font-size: 15px; font-weight: 700; line-height: 1; transition: opacity 0.15s ease-in-out, margin 0.2s ease-out; }
   .chevRun i.extra { opacity: 0; margin-left: -12px; }
   .startKey.go .chevRun i.extra { margin-left: 0; }
 
-  /* mock sheet */
   .sheetWrap { position: absolute; inset: 0; z-index: 9; pointer-events: none; }
   .scrim { position: absolute; inset: 0; background: rgba(0,0,0,0.45); opacity: 0; transition: opacity 0.2s ease-out; }
   .sheet {
-    position: absolute; left: 0; right: 0; bottom: 0;
-    background: var(--surface); border-top: 1px solid var(--border-strong);
-    border-radius: 18px 18px 0 0; padding: 16px 20px 26px;
+    position: absolute; left: 0; right: 0; bottom: 0; background: var(--surface);
+    border-top: 1px solid var(--border-strong); border-radius: 18px 18px 0 0; padding: 16px 20px 26px;
     transform: translateY(105%); transition: transform 0.26s cubic-bezier(0.2, 0.8, 0.3, 1);
   }
   .sheetWrap.open { pointer-events: auto; }
@@ -302,29 +303,18 @@
   .sheetHead { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
   .sheetHead h3 { font-size: 15px; margin: 0; font-weight: 700; }
   .sheetHead button { font: inherit; font-size: 13px; background: none; border: 0; color: var(--ink-2); cursor: pointer; }
-  .sheetBody { font-size: 13px; color: var(--ink-2); line-height: 1.5; }
-  .tape {
-    margin-top: 14px; height: 56px; border-radius: 10px; background: var(--ground);
-    border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;
-    font-family: var(--mono); font-size: 20px; color: var(--ink); position: relative;
-  }
-  .tape::before, .tape::after { content: ""; position: absolute; top: 12px; bottom: 12px; width: 1px; background: var(--border-strong); }
-  .tape::before { left: 33%; } .tape::after { right: 33%; }
+  .sheetBody { font-size: 13px; color: var(--ink-2); line-height: 1.5; margin: 0; }
 
   /* ---------- notes ---------- */
   .notes { margin-top: 40px; border-top: 1px solid var(--page-line); padding-top: 28px; }
-  .notes h2 { font-size: 20px; margin: 0 0 16px; letter-spacing: -0.015em; }
   .noteGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
   .note { border: 1px solid var(--page-line); border-radius: 12px; padding: 16px; background: var(--page-panel); }
   .note h3 { font-size: 14px; margin: 0 0 8px; }
   .note p { margin: 0 0 8px; font-size: 13px; line-height: 1.55; color: var(--page-ink-2); }
   .note p:last-child { margin-bottom: 0; }
   .note .flag { font-family: var(--mono); font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--notes); }
-  .note code { font-family: var(--mono); font-size: 12px; color: var(--page-ink); }
 
-  @media (prefers-reduced-motion: reduce) {
-    * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
-  }
+  @media (prefers-reduced-motion: reduce) { * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; } }
 </style>
 
 <div class="wrap">
@@ -332,81 +322,89 @@
 
   <div class="masthead">
     <button class="themeToggle" id="themeToggle" type="button">Light / dark</button>
-    <p class="eyebrow">Prototype · routine detail</p>
-    <h1>PT A, rebuilt</h1>
-    <p class="lede">Round two. Your four picks — <b>1b · 2b · 3a · 4a</b> — are what the screen now opens on, and the two-column ledger has been made to fit rather than argued with. The switches stay live so you can still see what you turned down. One new question is open at the bottom: <b>the fact line</b>. The routine is padded to seven exercises so there is something to scroll.</p>
+    <p class="eyebrow">Prototype · routine detail · round 3</p>
+    <h1>Six ways to build the top</h1>
+    <p class="lede">Six directions for the space between the title and the first exercise, plus what is on the branch today for reference. Tap one to load it in the phone; scroll to see how each behaves under the title hand-off. Notes are gone from this region entirely. <b>Every direction respects the settled decisions</b>: the whole header scrolls, the equipment capsules are all one size and all doors, derived facts are text while settings are doors, and <code>target</code> / <code>prev</code> pin above the list. They differ in <i>form</i>, not in what they let you reach.</p>
   </div>
 
   <div class="stage">
     <div>
+      <h2 class="sectionHead">The directions</h2>
+      <div class="dirs" id="dirs">
 
-      <div class="opt">
-        <h2>1 · What sticks when you scroll</h2>
-        <p class="why">Everything scrolls now, and the name hands off to the bar the way <b>Today</b> does. The open question is what stays behind. Scroll the phone to see each.</p>
-        <div class="segs" id="bandSegs">
-          <button class="seg" type="button" data-v="condensed" aria-pressed="false"><span class="tag">A</span>Settings chips only</button>
-          <button class="seg" type="button" data-v="full" aria-pressed="true"><span class="tag">B <span class="rec">▸ yours</span></span>Chips + equipment</button>
-          <button class="seg" type="button" data-v="none" aria-pressed="false"><span class="tag">C</span>Nothing sticks</button>
-        </div>
-        <p class="fixedNote">Taking <b>B</b> costs list height, so the fact line was pulled back out of the band (see 5) — it is arrival context, not something you consult mid-scroll. The band is three rows: the doors, what the kit does and does not cover, and the <code>target</code> / <code>prev</code> headers, which pin with it so a column you are scrolling stays labelled.</p>
+        <button class="dir" type="button" data-v="chips" aria-pressed="true">
+          <span class="num">0</span>
+          <h3>Chip band <span style="font-weight:400;color:var(--page-ink-2)">· on the branch now</span></h3>
+          <p class="idea">A quiet fact line, a scrolling row of door chips, then the equipment row. Everything is a pill; the chips and equipment pin. The reference point, not a new proposal.</p>
+          <p class="meta"><span class="cost">pins 3 rows</span><span>first row at 162 pt</span></p>
+        </button>
+
+        <button class="dir" type="button" data-v="table">
+          <span class="num">1</span>
+          <h3>Spec table</h3>
+          <p class="idea">The header speaks the <b>list's own grammar</b>: label left in mono caps, value right in mono, one row per fact. It reads as the same table the exercises below are printed in, which is the strongest consistency argument any of these have.</p>
+          <p class="meta"><span class="win">most legible</span><span class="cost">tallest · pins nothing</span><span>first row at 215 pt</span></p>
+        </button>
+
+        <button class="dir" type="button" data-v="card">
+          <span class="num">2</span>
+          <h3>Meta card</h3>
+          <p class="idea">The whole region becomes <b>the routine's own card</b>, the one Today shows, opened in place. Detail stops having a bespoke header and starts having the card you tapped to get here, which is a real continuity win on the push.</p>
+          <p class="meta"><span class="win">matches Today's card</span><span class="cost">a box inside a screen</span><span>first row at 188 pt</span></p>
+        </button>
+
+        <button class="dir" type="button" data-v="prose">
+          <span class="num">3</span>
+          <h3>Sentence</h3>
+          <p class="idea">The facts written as <b>three short sentences</b> with the editable values as inline tokens. The one direction where the header sounds like the app talks rather than like a form. The kit warning stops being a flag and becomes a clause.</p>
+          <p class="meta"><span class="win">brand voice</span><span class="cost">tap targets inside prose</span><span>first row at 173 pt</span></p>
+        </button>
+
+        <button class="dir" type="button" data-v="rail">
+          <span class="num">4</span>
+          <h3>Rail continues up</h3>
+          <p class="idea">The spine starts at the top and the metadata are <b>nodes above the first exercise</b> — ticks rather than rings, so they never read as work. The routine becomes one continuous map from "when and with what" down through "and then this".</p>
+          <p class="meta"><span class="win">most PlusPlus</span><span class="cost">gives up the pinned columns</span><span>first row at 131 pt</span></p>
+        </button>
+
+        <button class="dir" type="button" data-v="grid">
+          <span class="num">5</span>
+          <h3>Two-by-two</h3>
+          <p class="idea">Four labelled cells in a 2×2 block: schedule, rest, transition, kit. Halves the spec table's height by using the width the table wastes, and every cell is still its own door.</p>
+          <p class="meta"><span class="win">dense and scannable</span><span class="cost">kit gets a narrow cell</span><span>first row at 164 pt</span></p>
+        </button>
+
+        <button class="dir" type="button" data-v="minimal">
+          <span class="num">6</span>
+          <h3>One line and a verdict</h3>
+          <p class="idea">Everything collapses to a single summary line that opens the settings sheet, plus the kit's verdict in amber. The most list you can get. It <b>trades the per-datum doors back</b> for height, which is the one settled decision this direction argues with.</p>
+          <p class="meta"><span class="win">most list</span><span class="cost">one door, not four</span><span>first row at 125 pt</span></p>
+        </button>
+
       </div>
 
       <div class="opt">
-        <h2>2 · The exercise row</h2>
-        <p class="why">Names wrap to two lines in all three. The right-hand side is the question: how literally to copy Today's card, which prints <code>target</code> beside <code>prev</code> and no delta.</p>
-        <div class="segs" id="rowSegs">
-          <button class="seg" type="button" data-v="stacked" aria-pressed="false"><span class="tag">A</span>Stacked under the name</button>
-          <button class="seg" type="button" data-v="ledger" aria-pressed="true"><span class="tag">B <span class="rec">▸ yours</span></span>Two columns, ledger</button>
-          <button class="seg" type="button" data-v="target" aria-pressed="false"><span class="tag">C</span>Target only, prev on change</button>
-        </div>
-        <p class="fixedNote"><b>I was wrong that this does not fit</b>, and the correction is worth the sentence: the ~90 pt column I measured was a column holding <code>3×10–15 · 35lb</code> on one line. Give each cell one run per line — reps above weight, which is how <code>DiffLedger</code> already renders multi-run cells — and the column is 58 pt. Two of those leave the name ~160 pt, which is enough for <i>Dumbbell Shoulder Press</i> in two lines. So B is the literal copy of Today's card, headers and all, and it works.</p>
-      </div>
-
-      <div class="opt">
-        <h2>3 · Equipment capsules</h2>
-        <p class="why">The <code>EQUIPMENT</code> label is gone in all three. The size mismatch was real: a missing piece carried a chevron and 10/5 padding, an available one had neither and 8/2.5. Three ways to make the row deliberate.</p>
-        <div class="segs" id="gearSegs">
-          <button class="seg" type="button" data-v="doors" aria-pressed="true"><span class="tag">A <span class="rec">▸ yours</span></span>All of them are doors</button>
-          <button class="seg" type="button" data-v="dot" aria-pressed="false"><span class="tag">B</span>Uniform soft, amber dot</button>
-          <button class="seg" type="button" data-v="count" aria-pressed="false"><span class="tag">C</span>One key, then data tags</button>
-        </div>
-        <p class="fixedNote"><b>A</b> gives every piece one shape, one size and a job — amber opens the resolve sheet, neutral opens what-uses-this. <b>B</b> keeps the inert card look and drops the chevron, so the amber ones read but nothing taps. <b>C</b> puts the only tap target up front and leaves the rest as data.</p>
-      </div>
-
-      <div class="opt">
-        <h2>4 · Editing from the header</h2>
-        <p class="why">The proposed law: <b>derived facts are text, settings are chips</b>. Estimate, exercise and set counts stay inert prose; schedule, rest, transition and notes become doors. Tap any chip in the phone to see it open.</p>
-        <div class="segs" id="editSegs">
-          <button class="seg" type="button" data-v="on" aria-pressed="true"><span class="tag">A <span class="rec">▸ yours</span></span>Chips + tap-to-rename</button>
-          <button class="seg" type="button" data-v="chips" aria-pressed="false"><span class="tag">B</span>Chips, name in settings</button>
-          <button class="seg" type="button" data-v="off" aria-pressed="false"><span class="tag">C</span>Today's behaviour</button>
-        </div>
-        <p class="fixedNote">Settings keeps rename, transition and delete either way — it stops being the only route, not the route. <b>A</b>'s tap target is the title itself, which is also the thing that flies into the bar; <b>B</b> avoids that overload.</p>
-      </div>
-
-      <div class="opt">
-        <h2>5 · The fact line <span class="rec" style="font-size:12px">new question</span></h2>
-        <p class="why">You asked whether <code>Upper · ~30 min · 7 exercises · 20 sets</code> earns its place. Two of the four facts do not, and the reason is the same for both: <b>on this screen the list is right there</b>. The rail draws seven nodes you can count, and the exercises below say "upper" more precisely than the word does. That line was written for Today's card and the catalog row, where the list is <i>not</i> visible — it earns every word there and only half of them here.</p>
-        <p class="why">What survives is what the list cannot tell you at a glance: the <b>estimate</b>, which answers "do I have time for this right now", and the <b>set count</b>, which you would otherwise have to add up down the column.</p>
+        <h2>Still open from last round</h2>
+        <p class="why"><b>The fact line.</b> Whether the estimate and counts belong in the header at all. Each direction above places them its own way, so this is now partly answered by whichever you pick — but the alternative worth keeping in view is printing the estimate on the Start key instead, where the "do I have time" question actually gets asked.</p>
         <div class="segs" id="factsSegs">
-          <button class="seg" type="button" data-v="trim" aria-pressed="true"><span class="tag">A <span class="rec">▸ pick</span></span>Trim to <code>~30 min · 20 sets</code></button>
-          <button class="seg" type="button" data-v="key" aria-pressed="false"><span class="tag">B</span>No line, estimate on the key</button>
-          <button class="seg" type="button" data-v="all" aria-pressed="false"><span class="tag">C</span>Keep all four</button>
+          <button class="seg" type="button" data-v="trim" aria-pressed="true"><span class="tag">A</span>In the header</button>
+          <button class="seg" type="button" data-v="key" aria-pressed="false"><span class="tag">B</span>On the Start key</button>
         </div>
-        <p class="fixedNote"><b>B</b> is the sharper idea and worth a look: the time question is asked at the moment your thumb is over Start, so the key reads <code>Start workout · ~30 min</code> and the header carries no facts at all. It loses the set count, and it puts a variable-length string on the one control that also morphs to "let's go" mid-ignition. <b>A</b> keeps both facts and costs one quiet caption line that scrolls away.</p>
-        <p class="fixedNote">Either way the estimate goes <b>above</b> the pinned band, not in it. Whichever you take here also applies to the catalog row and Today's card, where the full four-fact line should stay exactly as it is.</p>
       </div>
 
       <div class="opt">
-        <h2>Settled, no option needed</h2>
-        <p class="why">Built into every variant above: the header scrolls; the name hands off to the bar; names wrap to two lines; the <code>EQUIPMENT</code> label is gone; and <b>Start workout</b> now plays the welcome screen's ignition. Tap it.</p>
+        <h2>The exercise row, for context</h2>
+        <p class="why">Settled last round as Today's two-column ledger. Left here so you can see each header direction against the list it introduces.</p>
+        <div class="segs" id="rowSegs">
+          <button class="seg" type="button" data-v="ledger" aria-pressed="true"><span class="tag">A <span class="rec">▸ yours</span></span>Two columns, ledger</button>
+          <button class="seg" type="button" data-v="stacked" aria-pressed="false"><span class="tag">B</span>Stacked under the name</button>
+        </div>
       </div>
-
     </div>
 
     <div class="deviceCol">
       <div class="device">
-        <div class="screen" id="screen" data-band="full" data-row="ledger" data-gear="doors" data-edit="on" data-facts="trim">
+        <div class="screen" id="screen" data-top="chips" data-row="ledger" data-facts="trim">
 
           <div class="statusbar"><span>12:48</span><span class="right">▮▮▮ ᯤ 73</span></div>
 
@@ -423,32 +421,13 @@
               <h2 class="bigTitle" id="bigTitle">
                 <button type="button" data-sheet="Rename routine" data-sheet-body="The name commits when you leave the field. A duplicate is refused in place, same rule as settings.">PT A<span class="pencil">✎</span></button>
               </h2>
-              <div class="bandRow" id="legacySubtitle" hidden style="margin-top:10px">
-                <span style="font-size:14px;color:var(--ink-2)">Upper ·</span>
-                <button class="chip" type="button" data-sheet="Schedule" data-sheet-body="Every tuesday. The same tray the settings row opens.">🗓 tue<span class="chev">›</span></button>
-              </div>
-              <p class="factline" id="staticFacts">Upper · ~30 min · 7 exercises · 20 sets</p>
             </div>
 
-            <div class="band" id="band">
-              <div class="bandRow">
-                <button class="chip" type="button" data-sheet="Schedule" data-sheet-body="Every tuesday. The same tray the settings row opens.">🗓 tue<span class="chev">›</span></button>
-                <button class="chip" type="button" data-sheet="Rest between sets" data-sheet-body="The tape you already have on the settings row, one tap closer.">rest 45s<span class="chev">›</span></button>
-                <button class="chip" type="button" data-sheet="Transition between exercises" data-sheet-body="Switching stations uses this instead of rest. 0 skips the countdown.">transition 15s<span class="chev">›</span></button>
-              </div>
-            </div>
-
-            <div class="pad" id="gearHome">
-              <p class="sectionLabel" id="gearLabel" hidden>Equipment</p>
-              <div class="gearRow" id="gearRow"></div>
-            </div>
-
-            <div class="pad">
-              <button class="noteRow" type="button" id="noteRow" data-sheet="Notes" data-sheet-body="Written inline, exactly as the settings field writes it. With a note saved, this row shows it instead of the prompt.">＋ Add a note<span class="chev">›</span></button>
-            </div>
+            <div class="pad" id="topScroll"></div>
+            <div class="band" id="band"></div>
 
             <div class="rail">
-              <div class="colhead" id="colhead"><span>target</span><span>prev</span></div>
+              <div id="railHead"></div>
               <div id="rows"></div>
               <div class="addRow">
                 <div class="addGlyph"><div class="spine"></div><div class="node">+</div></div>
@@ -466,9 +445,7 @@
                   <span class="ghost" id="startGhost">Start workout</span>
                   <span class="live" id="startLabel">Start workout</span>
                 </span>
-                <span class="chevRun" id="chevRun">
-                  <i data-i="0">›</i><i class="extra" data-i="1">›</i><i class="extra" data-i="2">›</i>
-                </span>
+                <span class="chevRun" id="chevRun"><i data-i="0">›</i><i class="extra" data-i="1">›</i><i class="extra" data-i="2">›</i></span>
               </span>
             </button>
           </div>
@@ -478,7 +455,6 @@
             <div class="sheet">
               <div class="sheetHead"><h3 id="sheetTitle">Rest</h3><button type="button" data-close>Done</button></div>
               <p class="sheetBody" id="sheetBody"></p>
-              <div class="tape" id="sheetTape">45s</div>
             </div>
           </div>
 
@@ -488,54 +464,42 @@
   </div>
 
   <div class="notes">
-    <h2>What each of these costs to build</h2>
+    <h2 class="sectionHead">What separates them</h2>
     <div class="noteGrid">
 
       <div class="note">
-        <span class="flag">⚠ decide first</span>
-        <h3>The title hand-off has two routes</h3>
-        <p>Giving detail the <b>system</b> navigation bar with a large title buys Today's collapse for free and writes no state. But a system large title does not wrap, and single-line truncation is exactly what build-78 moved the name into the body to fix.</p>
-        <p>So the prototype hand-rolls it: two-line wrap kept, crossfade driven by a pure render-time <code>visualEffect</code>. That matters — an <code>onGeometryChange</code> or a <code>PreferenceKey</code> write anywhere in the TabView subtree breaks the search-role morph.</p>
+        <h3>Height is the whole trade</h3>
+        <p>The numbers on each card are measured, not estimated: where the first exercise row starts, from the top of the scroll. The spread between the tallest (1, at 215 pt) and the shortest (6, at 125 pt) is 90 pt, which on this list is about one and a half exercise rows.</p>
+        <p>It only bites on arrival. Everything scrolls now, so a tall header costs you the first screenful and nothing after it — which is an argument for spending the height on legibility rather than hoarding it.</p>
       </div>
 
       <div class="note">
-        <span class="flag">⚠ rail geometry</span>
-        <h3>Two-line names break uniform rows</h3>
-        <p><code>RailLayout</code> assumes one <code>railRowHeight</code> for every row, and the drag, ring and drop targets all read it. A wrapping name makes rows variable-height.</p>
-        <p>Cheapest correct answer: keep rows uniform and raise the height to fit two lines at body size, so nothing in <code>RailArrangement</code> changes. Teaching the layout per-row heights is the honest fix and a much bigger diff — worth its own issue.</p>
-        <p>The two-column ledger makes this easier, not harder: every row is a two-line block regardless of name length, so one raised constant covers the whole rail.</p>
-        <p><b>And the node moves off the row's midpoint.</b> <code>RailGlyph</code> is handed <code>dotY: rowHeight / 2</code>, which is right only while a row is one line — with a wrapping name it lands in the gap between the two lines. It becomes the first line's centre: top padding plus half a line, both <code>@ScaledMetric</code> so it tracks Dynamic Type. The superset loop's quarter-curves read the same <code>dotY</code>, so they follow for free.</p>
+        <span class="flag">⚠ the one real conflict</span>
+        <h3>Direction 4 cannot pin the columns</h3>
+        <p>If the rail runs continuously from the metadata down into the exercises, a pinned band sitting between them cuts the spine it is meant to be part of. So direction 4 pins nothing, and <code>target</code> / <code>prev</code> scroll away with everything else.</p>
+        <p>That is a genuine loss against what you asked for last round, and it is the price of the idea rather than a detail to fix. Worth seeing before deciding it is too expensive.</p>
       </div>
 
       <div class="note">
-        <span class="flag">corrected</span>
-        <h3>The ledger does fit</h3>
-        <p>The first pass here claimed a two-column ledger could not sit beside the rail at phone width. That measured a cell holding <code>3×10–15 · 35lb</code> on one line, at ~90 pt.</p>
-        <p>One run per line — reps above weight, which is what <code>DiffLedger</code> already does for multi-run cells — puts the column at 58 pt. Two of them plus the 41 pt rail leave the name ~160 pt, enough for the longest name in this routine at two lines. The row is a fixed two-line block either way, which is convenient for the rail geometry below.</p>
+        <h3>Direction 6 argues with a settled call</h3>
+        <p>Every other direction keeps four separate doors. This one keeps a single summary that opens the settings sheet, which is close to where the screen started before this round.</p>
+        <p>It earns its place here because it is the honest maximum for list height, and because seeing it makes the cost of the other five legible. It is not a recommendation.</p>
       </div>
 
       <div class="note">
-        <h3>prev already exists</h3>
-        <p>Today's card builds its rows from <code>ledger(for:)</code> in <code>TodayView</code>, over <code>RoutineDiff</code> and <code>Prescription.blockRuns(prior:)</code>. Detail needs the same producer, so it moves out of <code>TodayView</code> into a shared place beside <code>RoutineCardContent</code> and both surfaces read it.</p>
-        <p>That also gets the ledger's rules for free: no green, no delta, prev flat, and the stacked reflow at accessibility sizes.</p>
+        <h3>Amber has to survive the form change</h3>
+        <p>Whatever the shape, a piece of equipment the active kit lacks has to read as advisory and stay tappable. In a table that is a value in <code>notesInk</code>; in prose it is a clause; in the rail it is a tick node.</p>
+        <p>The chip is the only form where the existing law already covers it. The rest need a decision about what "interactive amber wears the control shape" means when there is no chip.</p>
       </div>
 
       <div class="note">
-        <h3>One ignition, two call sites</h3>
-        <p>The welcome key's wipe, label morph and chevron march live inside <code>IntroView</code>. Lifting them into the shared <code>StartFlashButton</code> gives routine detail the full sequence and changes <b>Today's Start too</b>, since both call it.</p>
-        <p>Worth wanting: one start gesture across the app. Flagging it because it is not only this screen.</p>
+        <h3>Notes, removed</h3>
+        <p>Gone from this region in all seven. Nothing here has a place for a free-text field, and the settings sheet already holds one.</p>
       </div>
 
       <div class="note">
-        <h3>What the chips do not take</h3>
-        <p>Focus, estimate, exercise and set counts are computed from the exercises — there is nothing to open, so they stay text. Effort only exists on catalog templates.</p>
-        <p>Rename, transition and delete stay in settings whichever option wins; the chips add a second door, they do not empty the room.</p>
-      </div>
-
-      <div class="note">
-        <span class="flag">⚠ device pass</span>
-        <h3>None of this is CI-visible</h3>
-        <p>Scroll-driven chrome, a sticky band and a leading-reveal rail all live below XCUITest, which dispatches through accessibility and skips gesture overlays. The rail already carries a leading DUPE reveal under <code>leadingRevealHost</code>; a taller row changes the drag distances it arbitrates against.</p>
+        <h3>Everything else is unchanged</h3>
+        <p>Names still wrap, the node still centres on the first line, the ledger still prints target beside prev with no delta, and Start still plays the welcome key's ignition. Tap it in any direction.</p>
       </div>
 
     </div>
@@ -548,7 +512,6 @@
 (function () {
   var screen = document.getElementById("screen");
 
-  /* ---------- data: PT A, with last week's numbers ---------- */
   var EXERCISES = [
     { name: "Dumbbell Row",            target: "3×10–15", weight: "35lb",  prev: "3×12 · 30lb",   moved: true },
     { name: "Dumbbell Shoulder Press", target: "3×8",     weight: "10lb",  prev: "3×8 · 10lb",    moved: false },
@@ -559,147 +522,169 @@
     { name: "Dead Bug",                target: "2×10",    weight: "",      prev: "2×10",          moved: false }
   ];
 
-  var GEAR = [
-    { name: "Dumbbells", available: false },
-    { name: "Bench",     available: true  }
-  ];
+  var SHEETS = {
+    schedule:   ["Schedule", "Every tuesday. The same tray the settings row opens."],
+    rest:       ["Rest between sets", "The tape you already have on the settings row, one tap closer."],
+    transition: ["Transition between exercises", "Switching stations uses this instead of rest. 0 skips the countdown."],
+    kit:        ["Dumbbells", "Not in main. Add it to the kit · switch kit · swap the moves that need it."],
+    bench:      ["Bench", "In main. Used by 3 moves in this routine."],
+    settings:   ["Routine settings", "Name, schedule, rest, transition, notes and delete, all in one place."]
+  };
 
-  /* ---------- rows ---------- */
+  function door(key, label, cls) {
+    return '<button class="chip' + (cls || "") + '" type="button" data-k="' + key + '">' + label + '<span class="chev">›</span></button>';
+  }
+
+  /* ---------- the seven top-area directions ---------- */
+  var TOPS = {
+    chips: {
+      scroll: '<p class="factline">~30 min · 20 sets</p>',
+      pinned:
+        '<div class="chipRow" style="padding-top:10px">' +
+          door("schedule", "🗓 tue") + door("rest", "rest 45s") + door("transition", "transition 15s") +
+        '</div>' +
+        '<div class="chipRow" style="padding-top:10px;padding-bottom:2px">' +
+          door("kit", "Dumbbells", " amber") + door("bench", "Bench") +
+        '</div>'
+    },
+
+    table: {
+      scroll:
+        '<p class="factline">~30 min · 20 sets</p>' +
+        '<div style="margin-top:12px">' +
+          specRow("schedule", "schedule", "tue") +
+          specRow("rest", "rest", "45s") +
+          specRow("transition", "transition", "15s") +
+          specRow("kit", "kit", '<span class="amber">Dumbbells</span> · Bench') +
+        '</div>',
+      pinned: ""
+    },
+
+    card: {
+      scroll:
+        '<div class="metaCard">' +
+          '<p class="factline" style="margin:0">Upper · ~30 min · 20 sets</p>' +
+          '<div class="chipRow">' + door("schedule", "🗓 tue") + door("rest", "rest 45s") + door("transition", "transition 15s") + '</div>' +
+          '<div class="chipRow">' + door("kit", "Dumbbells", " amber") + door("bench", "Bench") + '</div>' +
+        '</div>',
+      pinned: ""
+    },
+
+    prose: {
+      scroll:
+        '<p class="prose">' +
+          'Every <button class="tok" data-k="schedule">tue</button>, about 30 min over 20 sets.<br>' +
+          'Rest <button class="tok" data-k="rest">45s</button> between sets, ' +
+          '<button class="tok" data-k="transition">15s</button> between exercises.<br>' +
+          'Needs <button class="tok amber" data-k="kit">Dumbbells</button>, which is not in your kit.' +
+        '</p>',
+      pinned: ""
+    },
+
+    rail: {
+      scroll: "",
+      railHead:
+        metaNode("schedule", 'Every <b style="color:var(--ink)">tue</b> · rest 45s · transition 15s') +
+        metaNode("kit", '<span class="amber">Dumbbells</span> not in your kit · Bench'),
+      pinned: "",
+      noColumns: true
+    },
+
+    grid: {
+      scroll: '<p class="factline">~30 min · 20 sets</p>',
+      pinned:
+        '<div class="metaGrid" style="padding-top:12px;padding-bottom:2px">' +
+          gridCell("schedule", "schedule", "tue") +
+          gridCell("rest", "rest", "45s") +
+          gridCell("transition", "transition", "15s") +
+          gridCell("kit", "kit", '<span class="amber">Dumbbells</span> · Bench') +
+        '</div>'
+    },
+
+    minimal: {
+      scroll: "",
+      pinned:
+        '<div style="padding-top:12px;padding-bottom:2px">' +
+          '<button class="summaryLine" type="button" data-k="settings">tue · ~30 min · 20 sets · rest 45s<span class="chev">›</span></button>' +
+          '<div class="kitLine chipRow">' + door("kit", "Dumbbells not in your kit", " amber") + '</div>' +
+        '</div>'
+    }
+  };
+
+  function specRow(key, label, value) {
+    return '<button class="specRow" type="button" data-k="' + key + '">' +
+      '<span class="k">' + label + '</span><span class="v">' + value + '</span><span class="chev">›</span></button>';
+  }
+  function gridCell(key, label, value) {
+    return '<button class="gridCell" type="button" data-k="' + key + '">' +
+      '<span class="k">' + label + '</span><span class="v">' + value + ' <span class="chev">›</span></span></button>';
+  }
+  function metaNode(key, text) {
+    return '<button class="metaNode" type="button" data-k="' + key + '">' +
+      '<span class="glyph"><span class="spine"></span><span class="tick"></span></span>' +
+      '<span class="txt">' + text + '</span><span class="chev">›</span></button>';
+  }
+
+  /* ---------- build ---------- */
   function targetText(e) { return e.weight ? e.target + " · " + e.weight : e.target; }
+  function runs(text) {
+    return text ? text.split(" · ").map(function (p) { return "<div>" + p + "</div>"; }).join("") : "";
+  }
 
   function buildRows() {
     var mode = screen.dataset.row;
     var host = document.getElementById("rows");
-    document.getElementById("colhead").style.display = mode === "ledger" ? "flex" : "none";
     host.innerHTML = "";
-
     EXERCISES.forEach(function (e) {
-      var row = document.createElement("div");
-      row.className = "row";
-
-      var glyph = document.createElement("div");
-      glyph.className = "glyph";
-      glyph.innerHTML = '<div class="spine"></div><div class="node"></div>';
-      row.appendChild(glyph);
-
-      var body = document.createElement("div");
-      body.className = "rowBody";
-
-      var name = document.createElement("div");
-      name.className = "exName";
-      name.textContent = e.name;
-      body.appendChild(name);
-
-      if (mode === "ledger") {
-        // Each run stacks reps over weight — a single line does not fit
-        // beside the rail at phone width.
-        var runs = function (text) {
-          return text ? text.split(" · ").map(function (part) { return "<div>" + part + "</div>"; }).join("") : "";
-        };
-        var cells = document.createElement("div");
-        cells.className = "cells";
-        var t = document.createElement("div");
-        t.className = "cell target" + (e.moved ? "" : " held");
-        t.innerHTML = runs(targetText(e));
-        var p = document.createElement("div");
-        p.className = "cell prev" + (e.prev ? "" : " none");
-        p.innerHTML = e.prev ? runs(e.prev) : "<div>" + (e.isNew ? "new" : "—") + "</div>";
-        cells.appendChild(t); cells.appendChild(p);
-        body.appendChild(cells);
-      } else if (mode === "stacked") {
-        var lines = document.createElement("div");
-        lines.className = "stackLines";
-        lines.innerHTML = '<span class="t">' + targetText(e) + "</span>" +
-          '<span class="p">' + (e.prev ? "prev " + e.prev : e.isNew ? "new" : "") + "</span>";
-        name.appendChild(lines);
-      } else {
-        var only = document.createElement("div");
-        only.className = "cells single";
-        var ot = document.createElement("div");
-        ot.className = "cell target";
-        ot.innerHTML = targetText(e) +
-          (e.moved ? '<br><span style="color:var(--ink-3)">was ' + e.prev.split(" · ").pop() + "</span>" : "");
-        only.appendChild(ot);
-        body.appendChild(only);
-      }
-
-      row.appendChild(body);
-      host.appendChild(row);
+      var right = mode === "ledger"
+        ? '<div class="cells">' +
+            '<div class="cell target' + (e.moved ? "" : " held") + '">' + runs(targetText(e)) + "</div>" +
+            '<div class="cell prev' + (e.prev ? "" : " none") + '">' +
+              (e.prev ? runs(e.prev) : "<div>" + (e.isNew ? "new" : "—") + "</div>") + "</div>" +
+          "</div>"
+        : "";
+      var sub = mode === "ledger" ? "" :
+        '<div class="stackLines"><span class="t">' + targetText(e) + "</span>" +
+        '<span class="p">' + (e.prev ? "prev " + e.prev : e.isNew ? "new" : "") + "</span></div>";
+      host.insertAdjacentHTML("beforeend",
+        '<div class="row">' +
+          '<div class="glyph"><div class="spine"></div><div class="node"></div></div>' +
+          '<div class="rowBody"><div class="exName">' + e.name + sub + "</div>" + right + "</div>" +
+        "</div>");
     });
   }
 
-  /* ---------- equipment ---------- */
-  function buildGear() {
-    var mode = screen.dataset.gear;
-    var host = document.getElementById("gearRow");
-    host.innerHTML = "";
+  function buildTop() {
+    var dir = TOPS[screen.dataset.top];
+    var scroll = document.getElementById("topScroll");
+    var band = document.getElementById("band");
+    var railHead = document.getElementById("railHead");
 
-    if (mode === "count") {
-      var missing = GEAR.filter(function (g) { return !g.available; });
-      if (missing.length) {
-        var key = document.createElement("button");
-        key.type = "button";
-        key.className = "chip amber";
-        key.innerHTML = missing.length + " not in your kit<span class='chev'>›</span>";
-        key.dataset.sheet = "Dumbbells";
-        key.dataset.sheetBody = "Add it to main · switch kit · swap the moves that need it.";
-        host.appendChild(key);
-      }
-      GEAR.forEach(function (g) {
-        var tag = document.createElement("span");
-        tag.className = "chip data";
-        tag.textContent = g.name;
-        host.appendChild(tag);
-      });
-      return;
+    scroll.innerHTML = dir.scroll || "";
+    railHead.innerHTML = dir.railHead || "";
+    // The columns pin with whatever else the direction pins — except where
+    // the direction IS the rail, which a pinned band would cut in half.
+    var columns = screen.dataset.row === "ledger" && !dir.noColumns
+      ? '<div class="colhead"><span>target</span><span>prev</span></div>' : "";
+    band.innerHTML = (dir.pinned || "") + columns;
+    if (screen.dataset.row === "ledger" && dir.noColumns) {
+      // ABOVE the meta nodes, never between them and the exercises: the
+      // point of this direction is one unbroken spine.
+      railHead.insertAdjacentHTML("afterbegin", '<div class="colhead"><span>target</span><span>prev</span></div>');
     }
-
-    GEAR.slice().sort(function (a, b) { return (a.available ? 1 : 0) - (b.available ? 1 : 0); })
-      .forEach(function (g) {
-        if (mode === "dot") {
-          var tag = document.createElement("span");
-          tag.className = "chip data";
-          if (!g.available) { tag.innerHTML = "<span class='dot'></span>"; tag.style.color = "var(--notes-ink)"; }
-          tag.appendChild(document.createTextNode(g.name));
-          host.appendChild(tag);
-        } else {
-          var btn = document.createElement("button");
-          btn.type = "button";
-          btn.className = "chip" + (g.available ? "" : " amber");
-          btn.textContent = g.name;
-          btn.dataset.sheet = g.name;
-          btn.dataset.sheetBody = g.available
-            ? "In main. Used by 3 moves in this routine."
-            : "Add it to main · switch kit · swap the moves that need it.";
-          host.appendChild(btn);
-        }
-      });
+    scroll.hidden = !dir.scroll;
+    applyFacts();
   }
 
-  /* ---------- sticky band ---------- */
-  function applyBand() {
-    var mode = screen.dataset.band;
-    var band = document.getElementById("band");
-    band.classList.toggle("unstuck", mode === "none");
-    // In "full" the equipment row rides the band; otherwise it scrolls below it.
-    var gear = document.getElementById("gearHome");
-    if (mode === "full") {
-      band.appendChild(gear);
-      gear.style.padding = "0";
-    } else {
-      band.parentElement.insertBefore(gear, band.nextSibling);
-      gear.style.padding = "";
-    }
-    // The column headers pin with the band — a labelled column stays
-    // labelled while you scroll it. They stay in the rail only when
-    // nothing is pinned at all.
-    var colhead = document.getElementById("colhead");
-    var rail = document.getElementById("rows").parentElement;
-    if (mode === "none") {
-      rail.insertBefore(colhead, document.getElementById("rows"));
-    } else {
-      band.appendChild(colhead);
-    }
+  /* ---------- facts placement ---------- */
+  var startBaseLabel = "Start workout";
+  function applyFacts() {
+    var onKey = screen.dataset.facts === "key";
+    var line = document.querySelector("#topScroll .factline, #band .factline, .metaCard .factline");
+    if (line) line.hidden = onKey;
+    startBaseLabel = onKey ? "Start workout · ~30 min" : "Start workout";
+    document.getElementById("startGhost").textContent = startBaseLabel;
+    if (!igniting) document.getElementById("startLabel").textContent = startBaseLabel;
   }
 
   /* ---------- scroll: title hand-off ---------- */
@@ -710,30 +695,27 @@
 
   function onScroll() {
     var y = body.scrollTop;
-    var span = 34;                       // the distance over which the name hands off
-    var p = Math.max(0, Math.min(1, (y - 8) / span));
+    var p = Math.max(0, Math.min(1, (y - 8) / 34));
     bigTitle.style.opacity = String(1 - p);
     bigTitle.style.transform = "translateY(" + (-6 * p) + "px)";
     barTitle.style.opacity = String(p);
     barTitle.style.transform = "translateY(" + (6 * (1 - p)) + "px)";
-    band.classList.toggle("pinned", screen.dataset.band !== "none" && y > band.offsetTop - 1);
+    band.classList.toggle("pinned", band.innerHTML !== "" && y > band.offsetTop - 1);
   }
   body.addEventListener("scroll", onScroll, { passive: true });
 
   /* ---------- mock sheets ---------- */
   var sheetWrap = document.getElementById("sheetWrap");
   document.addEventListener("click", function (ev) {
-    var opener = ev.target.closest("[data-sheet]");
+    var opener = ev.target.closest("[data-k], [data-sheet]");
     if (opener && screen.contains(opener)) {
-      if (screen.dataset.edit !== "on" && opener.closest(".bigTitle")) return;
-      document.getElementById("sheetTitle").textContent = opener.dataset.sheet;
-      document.getElementById("sheetBody").textContent = opener.dataset.sheetBody || "";
-      var label = opener.dataset.sheet.toLowerCase();
-      var tape = document.getElementById("sheetTape");
-      var isTape = label.indexOf("rest") === 0 || label.indexOf("transition") === 0;
-      tape.style.display = isTape ? "flex" : "none";
-      tape.textContent = label.indexOf("rest") === 0 ? "45s" : "15s";
-      sheetWrap.classList.add("open");
+      var pair = opener.dataset.k ? SHEETS[opener.dataset.k]
+        : [opener.dataset.sheet, opener.dataset.sheetBody];
+      if (pair) {
+        document.getElementById("sheetTitle").textContent = pair[0];
+        document.getElementById("sheetBody").textContent = pair[1] || "";
+        sheetWrap.classList.add("open");
+      }
       return;
     }
     if (ev.target.closest("[data-close]")) sheetWrap.classList.remove("open");
@@ -745,7 +727,6 @@
   var chevs = Array.prototype.slice.call(document.querySelectorAll("#chevRun i"));
   var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var igniting = false;
-  var startBaseLabel = "Start workout";
 
   function setChev(active) {
     chevs.forEach(function (c, i) {
@@ -761,10 +742,7 @@
     startKey.classList.add("go");
     startLabel.textContent = "let's go";
     setChev(0);
-    if (reduce) {
-      window.setTimeout(reset, 700);
-      return;
-    }
+    if (reduce) { window.setTimeout(reset, 700); return; }
     var hop = 0;
     var timer = window.setInterval(function () {
       setChev(hop % 3);
@@ -781,58 +759,29 @@
   }
 
   /* ---------- option wiring ---------- */
-  function wire(id, key, after) {
+  function wire(id, key, sel, after) {
     var group = document.getElementById(id);
     group.addEventListener("click", function (ev) {
-      var seg = ev.target.closest(".seg");
-      if (!seg) return;
-      group.querySelectorAll(".seg").forEach(function (s) { s.setAttribute("aria-pressed", String(s === seg)); });
-      screen.dataset[key] = seg.dataset.v;
+      var btn = ev.target.closest(sel);
+      if (!btn) return;
+      group.querySelectorAll(sel).forEach(function (b) { b.setAttribute("aria-pressed", String(b === btn)); });
+      screen.dataset[key] = btn.dataset.v;
       after();
+      body.scrollTop = 0;
       onScroll();
     });
   }
-  wire("bandSegs", "band", applyBand);
-  wire("rowSegs", "row", buildRows);
-  wire("gearSegs", "gear", buildGear);
-  function applyEdit() {
-    var legacy = screen.dataset.edit === "off";
-    document.getElementById("band").style.display = legacy ? "none" : "";
-    document.getElementById("legacySubtitle").hidden = !legacy;
-    document.getElementById("gearLabel").hidden = !legacy;
-    document.getElementById("noteRow").hidden = legacy;
-    document.getElementById("gearRow").style.marginTop = legacy ? "0" : "";
-    applyFacts();
-  }
-  wire("editSegs", "edit", applyEdit);
+  wire("dirs", "top", ".dir", buildTop);
+  wire("rowSegs", "row", ".seg", function () { buildRows(); buildTop(); });
+  wire("factsSegs", "facts", ".seg", applyFacts);
 
-  /* ---------- the fact line ---------- */
-  function applyFacts() {
-    var mode = screen.dataset.facts;
-    var legacy = screen.dataset.edit === "off";
-    var facts = document.getElementById("staticFacts");
-    var onKey = mode === "key" && !legacy;
-    facts.hidden = onKey;
-    facts.textContent = legacy
-      ? "~30 min · 7 exercises · 20 sets · rest 45s"
-      : (mode === "all" ? "Upper · ~30 min · 7 exercises · 20 sets" : "~30 min · 20 sets");
-    startBaseLabel = onKey ? "Start workout · ~30 min" : "Start workout";
-    document.getElementById("startGhost").textContent = startBaseLabel;
-    if (!igniting) document.getElementById("startLabel").textContent = startBaseLabel;
-  }
-  wire("factsSegs", "facts", applyFacts);
-
-  /* ---------- theme ---------- */
   document.getElementById("themeToggle").addEventListener("click", function () {
     var root = document.documentElement;
-    var dark = root.getAttribute("data-theme") !== "light";
-    root.setAttribute("data-theme", dark ? "light" : "dark");
+    root.setAttribute("data-theme", root.getAttribute("data-theme") !== "light" ? "light" : "dark");
   });
 
   buildRows();
-  buildGear();
-  applyBand();
-  applyEdit();
+  buildTop();
   onScroll();
 })();
 </script>
