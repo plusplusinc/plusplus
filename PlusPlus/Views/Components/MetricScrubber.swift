@@ -1,14 +1,17 @@
 import SwiftUI
 import PlusPlusKit
 
-/// The horizontal tape scrubber for a continuous metric (2026-07-15, after
+/// The horizontal tape scrubber for a measured metric (2026-07-15, after
 /// the iOS 27 timer picker; generalized past time to distance and calories
-/// 2026-07-19): drag for per-unit precision, flick for real scroll inertia,
-/// rubber-banding at the ends. Replaces the tiered wheel wherever a value
-/// lives on a wide continuous range — the wheel could only land on its own
-/// coarse grid, so a precise value (97 s, 3.14 mi, a 137-cal target) was
-/// unreachable in the UI, and one wheel scroll away from being snapped to a
-/// nearby grid point even though the interchange stores any value.
+/// 2026-07-19, and to every remaining measured quantity — loads, reps,
+/// heights, splits, speed, grade, power, cadence — 2026-07-28): drag for
+/// per-unit precision, flick for real scroll inertia, rubber-banding at
+/// the ends. It replaces the tiered wheel wherever a value lives on a
+/// continuum — the wheel could only land on its own coarse grid, so a
+/// precise value (97 s, 3.14 mi, 137.5 lb, a 7:58 mile) was unreachable in
+/// the UI, and one wheel scroll away from being snapped to a nearby grid
+/// point even though the interchange stores any value. What's left on the
+/// wheel is the two enumerated scales (`usesTapeScrubber` owns the line).
 ///
 /// Mechanics: the physics is a real ScrollView — UIKit deceleration and
 /// bounce, never hand-rolled — over an invisible strip one viewport wider
@@ -201,8 +204,8 @@ private struct UnitSnap: ScrollTargetBehavior {
 /// Bridges the picker sheets' `Double?` binding to whole tape units: a nil
 /// target shows the metric's default and commits nothing until the tape
 /// actually moves — the same contract the wheel had. Time spans read their
-/// value as clock text (m:ss); distance and calories read as the metric's
-/// value plus unit ("1.5 mi", "300 cal").
+/// value as clock text (m:ss); everything else reads as the metric's own
+/// display text ("1.5 mi", "300 cal", "137.5 lb", "7:58 /mi", "3%").
 struct MetricScrubberPane: View {
     let metric: WorkoutMetric
     var weightUnit: WeightUnit = .lb
@@ -231,7 +234,7 @@ struct MetricScrubberPane: View {
         // Present only for metrics that scrub (`usesTapeScrubber`), so the
         // factory always yields a tape here; the fallback keeps the init
         // total in the impossible case rather than force-unwrapping.
-        let spec = metric.scrubberTape(distanceUnit: distanceUnit)
+        let spec = metric.scrubberTape(weightUnit: weightUnit, distanceUnit: distanceUnit)
             ?? (quantum: 1, tape: MetricTape(range: 0...1, pointsPerUnit: 1, minorStride: 1, labelStride: 1))
         tape = spec.tape
         let perValue = (1 / spec.quantum).rounded()

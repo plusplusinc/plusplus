@@ -113,7 +113,7 @@ struct ExerciseConfigSheet: View {
             )
         }
         .sheet(isPresented: $showingRepsWheel) {
-            RepTargetWheelSheet(
+            RepTargetSheet(
                 target: RepTarget(lower: config.reps, upper: config.repsUpper)
             ) { newTarget in
                 config.reps = newTarget.lower

@@ -206,7 +206,7 @@ struct ExerciseDetailSheet: View {
             }
         }
         .sheet(isPresented: $showingRepsWheel) {
-            RepTargetWheelSheet(
+            RepTargetSheet(
                 target: RepTarget(lower: routineExercise.reps, upper: routineExercise.repsUpper)
             ) { newTarget in
                 routineExercise.reps = newTarget.lower

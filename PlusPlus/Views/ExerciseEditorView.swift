@@ -349,7 +349,7 @@ struct ExerciseEditorView: View {
             )
         }
         .sheet(isPresented: $showingDefaultRepsWheel) {
-            RepTargetWheelSheet(
+            RepTargetSheet(
                 target: RepTarget(lower: draft.defaultReps, upper: draft.defaultRepsUpper)
             ) { newTarget in
                 draft.defaultReps = newTarget.lower

@@ -134,14 +134,116 @@ struct MetricTapeTests {
         #expect(!WorkoutMetric.reps.isTimeSpan)
     }
 
-    @Test("Tape scrubbing covers time spans plus distance and calories; wheels keep the rest")
+    // MARK: - The measured metrics (2026-07-28)
+
+    @Test("Weight scrubs at half a pound — finer than a microplate, so 137.5 is exact")
+    func weightTape() {
+        let (quantum, tape) = WorkoutMetric.weight.scrubberTape(weightUnit: .lb)!
+        #expect(quantum == 0.5)
+        #expect(tape.range == 0...2000)
+        // 137.5 lb → unit 275, round-tripping through the tape geometry.
+        #expect(tape.unit(atOffset: tape.offset(for: 275)) == 275)
+        // Marks on the wheel's old microplate grid (2.5 lb), labels every
+        // 10 lb.
+        let ticks = tape.ticks(in: tape.offset(for: 0)...tape.offset(for: 40))
+        #expect(ticks.map(\.unit) == Array(stride(from: 0, through: 40, by: 5)))
+        let byUnit = Dictionary(uniqueKeysWithValues: ticks.map { ($0.unit, $0) })
+        #expect(byUnit[20]?.isLabeled == true)   // 10 lb
+        #expect(byUnit[25]?.isLabeled == false)  // 12.5 lb
+
+        // Kilos address quarters, so a 61.25 kg stack is reachable too.
+        let (kgQuantum, kgTape) = WorkoutMetric.weight.scrubberTape(weightUnit: .kg)!
+        #expect(kgQuantum == 0.25)
+        #expect(kgTape.range == 0...4000)
+        #expect(kgTape.unit(atOffset: kgTape.offset(for: 245)) == 245)
+
+        // Assist spans its own (smaller) ceiling at the same grain.
+        let assist = WorkoutMetric.assistance.scrubberTape(weightUnit: .lb)!
+        #expect(assist.quantum == 0.5)
+        #expect(assist.tape.range == 0...1000)
+    }
+
+    @Test("Reps scrub whole, one mark each, labeled every 5")
+    func repsTape() {
+        let (quantum, tape) = WorkoutMetric.reps.scrubberTape()!
+        #expect(quantum == 1)
+        #expect(tape.range == 1...100)
+        let ticks = tape.ticks(in: tape.offset(for: 1)...tape.offset(for: 12))
+        #expect(ticks.map(\.unit) == Array(1...12))
+        let byUnit = Dictionary(uniqueKeysWithValues: ticks.map { ($0.unit, $0) })
+        #expect(byUnit[10]?.isLabeled == true)
+        #expect(byUnit[11]?.isLabeled == false)
+    }
+
+    @Test("Height follows its unit system: whole inches, or whole centimetres to 180")
+    func heightTape() {
+        let inches = WorkoutMetric.height.scrubberTape(weightUnit: .lb)!
+        #expect(inches.quantum == 1)
+        #expect(inches.tape.range == 1...72)
+        #expect(inches.tape.ticks(in: inches.tape.offset(for: 1)...inches.tape.offset(for: 6)).count == 6)
+
+        let cm = WorkoutMetric.height.scrubberTape(weightUnit: .kg)!
+        #expect(cm.quantum == 1)
+        #expect(cm.tape.range == 5...180)
+    }
+
+    @Test("Pace scrubs per SECOND on the road too — a 7:58 mile was unpickable on the 5 s wheel")
+    func paceTape() {
+        let (quantum, tape) = WorkoutMetric.pace.scrubberTape(distanceUnit: .miles)!
+        #expect(quantum == 1)
+        #expect(tape.range == 180...1800)
+        // 7:58 /mi = 478 s, exactly reachable.
+        #expect(tape.unit(atOffset: tape.offset(for: 478)) == 478)
+        // Erg splits get the finer tape: a mark per second.
+        let erg = WorkoutMetric.pace.scrubberTape(distanceUnit: .meters)!
+        #expect(erg.tape.range == 60...300)
+        #expect(erg.tape.ticks(in: erg.tape.offset(for: 120)...erg.tape.offset(for: 125)).count == 6)
+    }
+
+    @Test("Speed and incline scrub in tenths, marked on the half")
+    func speedAndInclineTapes() {
+        let (quantum, tape) = WorkoutMetric.speed.scrubberTape(distanceUnit: .miles)!
+        #expect(quantum == 0.1)
+        #expect(tape.range == 5...150)          // 0.5…15.0 mph in tenths
+        #expect(tape.unit(atOffset: tape.offset(for: 63)) == 63)  // 6.3 mph
+        let byUnit = Dictionary(uniqueKeysWithValues:
+            tape.ticks(in: tape.offset(for: 50)...tape.offset(for: 70)).map { ($0.unit, $0) })
+        #expect(byUnit[60]?.isLabeled == true)  // 6.0 mph
+        #expect(byUnit[65]?.isLabeled == false) // 6.5 mph
+
+        let incline = WorkoutMetric.incline.scrubberTape()!
+        #expect(incline.quantum == 0.1)
+        #expect(incline.tape.range == 0...150)  // 0…15 % in tenths
+    }
+
+    @Test("Power and cadence scrub whole across their full ranges")
+    func powerAndCadenceTapes() {
+        let power = WorkoutMetric.power.scrubberTape()!
+        #expect(power.quantum == 1)
+        #expect(power.tape.range == 5...1500)
+        #expect(power.tape.unit(atOffset: power.tape.offset(for: 247)) == 247)
+
+        let cadence = WorkoutMetric.cadence.scrubberTape()!
+        #expect(cadence.quantum == 1)
+        #expect(cadence.tape.range == 10...220)
+        #expect(cadence.tape.unit(atOffset: cadence.tape.offset(for: 83)) == 83)
+    }
+
+    // MARK: - Classification
+
+    @Test("Every measured metric scrubs; only the enumerated scales keep a wheel")
     func tapeScrubberMetrics() {
-        for m in [WorkoutMetric.duration, .rest, .transition, .distance, .calories] {
-            #expect(m.usesTapeScrubber)
-            #expect(m.scrubberTape(distanceUnit: .miles) != nil)
+        for m in [WorkoutMetric.duration, .rest, .transition, .distance, .calories,
+                  .weight, .assistance, .reps, .height, .pace, .speed, .incline,
+                  .power, .cadence] {
+            #expect(m.usesTapeScrubber, "\(m) should scrub")
+            #expect(m.scrubberTape(weightUnit: .kg, distanceUnit: .miles) != nil)
         }
-        for m in [WorkoutMetric.weight, .reps, .pace, .speed, .incline, .power, .rpe] {
-            #expect(!m.usesTapeScrubber)
+        // Machine resistance is 30 numbered levels and RPE is a subjective
+        // 1–10 rating: their values ARE the list, so a ruler would claim a
+        // precision that isn't there.
+        for m in [WorkoutMetric.resistance, .rpe] {
+            #expect(!m.usesTapeScrubber, "\(m) should wheel")
             #expect(m.scrubberTape() == nil)
         }
         // Distance and calories aren't time spans, so their readout is
@@ -153,9 +255,41 @@ struct MetricTapeTests {
     @Test("Every metric: usesTapeScrubber iff scrubberTape is non-nil (the two switches can't drift)")
     func scrubberSwitchParity() {
         for m in WorkoutMetric.allCases {
-            for unit in DistanceUnit.allCases {
-                let parity = m.usesTapeScrubber == (m.scrubberTape(distanceUnit: unit) != nil)
-                #expect(parity, "\(m) disagrees for \(unit)")
+            for weight in WeightUnit.allCases {
+                for unit in DistanceUnit.allCases {
+                    let parity = m.usesTapeScrubber
+                        == (m.scrubberTape(weightUnit: weight, distanceUnit: unit) != nil)
+                    #expect(parity, "\(m) disagrees for \(weight)/\(unit)")
+                }
+            }
+        }
+    }
+
+    @Test("Every tape spans its metric's whole range, at a legal stride, with the marks on grid")
+    func tapesAreWellFormed() {
+        for m in WorkoutMetric.allCases {
+            for weight in WeightUnit.allCases {
+                for unit in DistanceUnit.allCases {
+                    guard let (quantum, tape) = m.scrubberTape(weightUnit: weight, distanceUnit: unit) else { continue }
+                    // The tape reaches exactly as far as the steppers and
+                    // the wheel do — no metric can scrub past its own
+                    // ceiling or stop short of it.
+                    let bounds = m.range(weightUnit: weight, distanceUnit: unit)
+                    #expect(Double(tape.range.lowerBound) * quantum == bounds.lowerBound, "\(m) low bound")
+                    #expect(Double(tape.range.upperBound) * quantum == bounds.upperBound, "\(m) high bound")
+                    // Labels sit ON the minor grid, or a labeled mark could
+                    // never be drawn.
+                    #expect(tape.labelStride % tape.minorStride == 0, "\(m) stride")
+                    // The first mark is inside the range: a tape whose
+                    // lower bound is off-grid would open with no tick under
+                    // the caret.
+                    let first = tape.ticks(in: 0...tape.offset(for: tape.range.lowerBound + tape.labelStride)).first
+                    #expect(first != nil, "\(m) has no opening tick")
+                    // A whole unit is addressable everywhere on the tape —
+                    // the precision contract the wheel could not keep.
+                    let mid = (tape.range.lowerBound + tape.range.upperBound) / 2
+                    #expect(tape.unit(atOffset: tape.offset(for: mid)) == mid, "\(m) mid round-trip")
+                }
             }
         }
     }
