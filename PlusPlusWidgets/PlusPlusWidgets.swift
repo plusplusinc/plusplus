@@ -4,41 +4,15 @@ import ActivityKit
 import AppIntents
 
 /// The widget extension (#147): the rest-countdown Live Activity plus
-/// Home/Lock Screen widgets fed by the app's snapshot. The extension
-/// can't import the app's Theme, so a minimal palette lives here —
-/// values mirror Theme.swift's v3 tokens.
-enum WTheme {
-    static let green = Color(red: 0x46 / 255.0, green: 0xD1 / 255.0, blue: 0x7C / 255.0)
-    static let greenLight = Color(red: 0x17 / 255.0, green: 0x91 / 255.0, blue: 0x4B / 255.0)
-
-    static var accent: Color {
-        Color(uiColor: UIColor { trait in
-            trait.userInterfaceStyle == .dark
-                ? UIColor(red: 0x46 / 255.0, green: 0xD1 / 255.0, blue: 0x7C / 255.0, alpha: 1)
-                : UIColor(red: 0x17 / 255.0, green: 0x91 / 255.0, blue: 0x4B / 255.0, alpha: 1)
-        })
-    }
-
-    /// Selection blue (#176, rebalanced by Quiet Arcade): green is
-    /// data, blue is interactive. Mirrors Theme.selected.
-    static var selected: Color {
-        Color(uiColor: UIColor { trait in
-            trait.userInterfaceStyle == .dark
-                ? UIColor(red: 0x5C / 255.0, green: 0xA8 / 255.0, blue: 0xF5 / 255.0, alpha: 1)
-                : UIColor(red: 0x16 / 255.0, green: 0x68 / 255.0, blue: 0xD2 / 255.0, alpha: 1)
-        })
-    }
-
-    /// Completion purple (#201): committed workouts are what landed.
-    /// Mirrors Theme.done.
-    static var done: Color {
-        Color(uiColor: UIColor { trait in
-            trait.userInterfaceStyle == .dark
-                ? UIColor(red: 0xA3 / 255.0, green: 0x71 / 255.0, blue: 0xF7 / 255.0, alpha: 1)
-                : UIColor(red: 0x82 / 255.0, green: 0x50 / 255.0, blue: 0xDF / 255.0, alpha: 1)
-        })
-    }
-}
+/// Home/Lock Screen widgets fed by the app's snapshot.
+///
+/// ⚠️ The private palette is GONE (2026-07-28, the colour audit). It
+/// restated the brand hues in raw hex and — the part that actually cost
+/// something — carried no high-contrast variants, so widgets ignored
+/// Increase Contrast while the app honoured it. The hues come from
+/// `BrandPalette` in PlusPlusShared, which compiles into this target too.
+/// The Dynamic Island is ALWAYS dark, so the pieces that live only there
+/// take `accentOnDark` rather than the adaptive value.
 
 @main
 struct PlusPlusWidgetsBundle: WidgetBundle {
@@ -119,7 +93,7 @@ struct WorkoutLiveActivity: Widget {
             } compactLeading: {
                 Text("++")
                     .font(.system(.footnote, design: .monospaced, weight: .bold))
-                    .foregroundStyle(WTheme.green)
+                    .foregroundStyle(BrandPalette.accentOnDark)
             } compactTrailing: {
                 compactTrailing(context.state)
             } minimal: {
@@ -136,7 +110,7 @@ struct WorkoutLiveActivity: Widget {
                 .font(.system(size: size, weight: .bold, design: .monospaced))
                 .monospacedDigit()
                 .multilineTextAlignment(.trailing)
-                .foregroundStyle(WTheme.accent)
+                .foregroundStyle(BrandPalette.accent)
         } else {
             Text(state.sessionStart, style: .timer)
                 .font(.system(size: size, weight: .bold, design: .monospaced))
@@ -152,13 +126,13 @@ struct WorkoutLiveActivity: Widget {
             Text(timerInterval: Date()...restEnd, countsDown: true)
                 .font(.system(.footnote, design: .monospaced, weight: .semibold))
                 .monospacedDigit()
-                .foregroundStyle(WTheme.accent)
+                .foregroundStyle(BrandPalette.accent)
                 .frame(maxWidth: 44)
         } else {
             Text("\(state.setsCompleted)/\(state.totalSets)")
                 .font(.system(.footnote, design: .monospaced, weight: .semibold))
                 .monospacedDigit()
-                .foregroundStyle(WTheme.green)
+                .foregroundStyle(BrandPalette.accentOnDark)
                 .frame(maxWidth: 44)
         }
     }
@@ -169,12 +143,12 @@ struct WorkoutLiveActivity: Widget {
             Text(timerInterval: Date()...restEnd, countsDown: true)
                 .font(.system(.caption2, design: .monospaced, weight: .semibold))
                 .monospacedDigit()
-                .foregroundStyle(WTheme.accent)
+                .foregroundStyle(BrandPalette.accent)
                 .frame(maxWidth: 36)
         } else {
             Text("++")
                 .font(.system(.caption2, design: .monospaced, weight: .bold))
-                .foregroundStyle(WTheme.green)
+                .foregroundStyle(BrandPalette.accentOnDark)
         }
     }
 }
@@ -189,7 +163,7 @@ struct WorkoutProgressBar: View {
             let fraction = total > 0 ? min(1, Double(completed) / Double(total)) : 0
             ZStack(alignment: .leading) {
                 Capsule().fill(Color.secondary.opacity(0.25))
-                Capsule().fill(WTheme.done)
+                Capsule().fill(BrandPalette.done)
                     .frame(width: geo.size.width * fraction)
             }
         }
@@ -223,7 +197,7 @@ struct RestControlButtons: View {
             }
             .buttonStyle(.bordered)
             // Blue, not green: interactive state, not data (#176).
-            .tint(WTheme.selected)
+            .tint(BrandPalette.selected)
 
             Button(intent: AddRestTimeIntent()) {
                 Text("+\(RestAdjustment.stepSeconds)s")
@@ -232,7 +206,7 @@ struct RestControlButtons: View {
                     .frame(height: 34)
             }
             .buttonStyle(.bordered)
-            .tint(WTheme.selected)
+            .tint(BrandPalette.selected)
         }
     }
 }
@@ -310,7 +284,7 @@ struct DueTodayView: View {
             HStack {
                 Text("++")
                     .font(.system(.caption, design: .monospaced, weight: .bold))
-                    .foregroundStyle(WTheme.accent)
+                    .foregroundStyle(BrandPalette.accent)
                 Spacer()
             }
             Spacer(minLength: 0)
@@ -378,7 +352,7 @@ struct StreakView: View {
             Spacer(minLength: 0)
             (Text("\(rolled.weeks)")
                 .font(.system(size: 40, weight: .bold, design: .monospaced))
-                .foregroundStyle(WTheme.accent)
+                .foregroundStyle(BrandPalette.accent)
                 + Text(" wk")
                 .font(.system(.footnote, design: .monospaced))
                 .foregroundStyle(.secondary))
@@ -387,7 +361,7 @@ struct StreakView: View {
                     RoundedRectangle(cornerRadius: 1.5)
                         // Committed weeks are purple (#201), matching
                         // the app's committed rail nodes.
-                        .fill(count > 0 ? WTheme.done : Color.secondary.opacity(0.25))
+                        .fill(count > 0 ? BrandPalette.done : Color.secondary.opacity(0.25))
                         .frame(height: 4 + 14 * CGFloat(count) / CGFloat(maxCount))
                 }
             }

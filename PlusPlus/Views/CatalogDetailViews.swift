@@ -763,9 +763,11 @@ struct EquipmentDetailScreen: View {
                 .font(.system(.title2))
                 .foregroundStyle(inKit ? Theme.accent : Theme.textSecondary)
             VStack(alignment: .leading, spacing: 2) {
-                Text(inKit ? "In \(kitName)" : "Add to \(kitName)")
-                    .font(.system(.headline))
-                    .foregroundStyle(Theme.textPrimary)
+                KitNamePhrase(
+                    prefix: inKit ? "In" : "Add to",
+                    kit: kitName,
+                    font: .system(.headline)
+                )
                 Text(inKit ? "You have this equipment." : "Add it if you train with it.")
                     .font(.system(.caption))
                     .foregroundStyle(Theme.textSecondary)
@@ -773,6 +775,11 @@ struct EquipmentDetailScreen: View {
             Spacer(minLength: 8)
             Toggle("", isOn: membershipBinding)
                 .labelsHidden()
+                // ⚠️ The ONE green toggle in the app, and deliberately so
+                // (2026-07-28): every other switch sets a preference, where
+                // blue means "selected". This one adds a thing to your kit,
+                // which is creation — the same act as a CreateRow, wearing
+                // the same hue. Every other Toggle stays blue.
                 .tint(Theme.accent)
                 .accessibilityIdentifier("addToMyEquipment")
                 .accessibilityLabel(inKit ? "Remove from \(kitName)" : "Add to \(kitName)")

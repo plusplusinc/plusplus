@@ -171,7 +171,7 @@ struct OperatorPreviewCard: View {
         .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.cardRadius - 2))
         .overlay(
             RoundedRectangle(cornerRadius: Theme.cardRadius - 2)
-                .strokeBorder(payload.state == .pending ? Theme.notes.opacity(0.6) : Theme.border)
+                .strokeBorder(payload.state == .pending ? Theme.notesRing : Theme.border)
         )
     }
 

@@ -915,7 +915,7 @@ struct CatalogScopeView: View {
             } label: {
                 Text(exercise.isFavorite ? "UNFAV" : "FAV")
             }
-            .tint(exercise.isFavorite ? Theme.textFaint : Theme.accent)
+            .tint(exercise.isFavorite ? Theme.swipeNeutral : Theme.swipeAdd)
             .accessibilityIdentifier("favSwipe-\(exercise.name)")
         }
         // TRAILING is destructive, and only for customs — a built-in can't be
@@ -927,7 +927,7 @@ struct CatalogScopeView: View {
                 } label: {
                     Text("DELETE")
                 }
-                .tint(Theme.destructive)
+                .tint(Theme.swipeDelete)
             }
         }
     }
@@ -955,7 +955,16 @@ struct CatalogScopeView: View {
                 } label: {
                     Text(inKit ? "REMOVE" : "ADD")
                 }
-                .tint(inKit ? Theme.destructive : Theme.accent)
+                // ⚠️ REMOVE is NEUTRAL, never the destructive red (Dave,
+                // 2026-07-28). It drops the piece from the ACTIVE KIT — the
+                // equipment still exists, still sits in your other kits, and
+                // the same swipe puts it back. DELETE on the trailing edge
+                // ends the object everywhere and only exists on customs.
+                // Sharing one red made the single cue that separates them
+                // say they were the same act. Neutral matches UNFAV on the
+                // exercise row, which is the identical "turn my curation
+                // off" gesture.
+                .tint(inKit ? Theme.swipeNeutral : Theme.swipeAdd)
                 .accessibilityIdentifier("quickAdd-\(equipment.name)")
             }
         }
@@ -966,7 +975,7 @@ struct CatalogScopeView: View {
                 } label: {
                     Text("DELETE")
                 }
-                .tint(Theme.destructive)
+                .tint(Theme.swipeDelete)
             }
         }
         .accessibilityIdentifier("equipmentCard-\(equipment.name)")
@@ -992,7 +1001,7 @@ struct CatalogScopeView: View {
             } label: {
                 Text("DELETE")
             }
-            .tint(Theme.destructive)
+            .tint(Theme.swipeDelete)
         }
     }
 

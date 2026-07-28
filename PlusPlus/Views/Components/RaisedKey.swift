@@ -223,6 +223,15 @@ struct BlockBar: View {
     /// state, and the slow breathe is the information.
     @State private var breathIn = false
 
+    /// ⚠️ A status bar states done/live/upcoming in HUE, and purple against
+    /// green measures 1.25:1 in light mode — a luminance near-tie, so the
+    /// three states are separable by colour alone (WCAG 1.4.1). With
+    /// Differentiate Without Color on, shape carries it instead: done stays
+    /// solid, upcoming becomes a hollow outline (the overview sheet's pip
+    /// treatment), and live grows taller than both. Same escape the session
+    /// pips already take.
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+
     /// This block's state, or nil when the bar is plain progress.
     private func blockState(at index: Int) -> BlockState? {
         guard let states else { return nil }
@@ -245,12 +254,28 @@ struct BlockBar: View {
         return state == .live
     }
 
+    /// Hollow only for a not-yet-done block, and only while the shape cue is
+    /// asked for — a plain progress bar keeps its solid/inert pairing.
+    private func isHollow(at index: Int) -> Bool {
+        differentiateWithoutColor && blockState(at: index) == .upcoming
+    }
+
+    private func height(at index: Int) -> CGFloat {
+        differentiateWithoutColor && isLive(at: index) ? 13 : 9
+    }
+
     var body: some View {
-        HStack(spacing: 3) {
+        HStack(alignment: .center, spacing: 3) {
             ForEach(0..<max(total, 1), id: \.self) { index in
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(color(at: index))
-                    .frame(height: 9)
+                    .fill(isHollow(at: index) ? Color.clear : color(at: index))
+                    .overlay {
+                        if isHollow(at: index) {
+                            RoundedRectangle(cornerRadius: 2)
+                                .strokeBorder(Theme.borderStrong, lineWidth: 1)
+                        }
+                    }
+                    .frame(height: height(at: index))
                     .frame(maxWidth: .infinity)
                     .opacity(breathing && isLive(at: index) ? (breathIn ? 1.0 : 0.35) : 1.0)
             }
