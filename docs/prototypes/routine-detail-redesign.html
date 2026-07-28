@@ -206,8 +206,8 @@
 
   /* rail + rows */
   .rail { padding: 10px 14px 8px 20px; }
-  .colhead { display: flex; gap: 10px; justify-content: flex-end; padding: 0 0 6px 41px; }
-  .colhead span { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3); width: 74px; text-align: right; }
+  .colhead { display: flex; gap: 8px; justify-content: flex-end; padding: 0 0 6px 41px; }
+  .colhead span { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3); width: 58px; text-align: right; }
   .row { display: flex; gap: 13px; align-items: stretch; position: relative; }
   .glyph { width: 28px; flex: none; position: relative; }
   .glyph .spine { position: absolute; left: 13px; top: 0; bottom: 0; width: 2px; background: var(--border); }
@@ -218,9 +218,11 @@
   }
   .rowBody { flex: 1 1 auto; min-width: 0; display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid transparent; }
   .exName { font-size: 16px; font-weight: 600; line-height: 1.22; color: var(--ink); flex: 1 1 auto; min-width: 0; }
-  .cells { display: flex; gap: 10px; flex: none; }
+  .cells { display: flex; gap: 8px; flex: none; }
   .cells.single .cell { width: auto; }
-  .cell { width: 74px; text-align: right; font-family: var(--mono); font-size: 11.5px; font-variant-numeric: tabular-nums; line-height: 1.35; white-space: nowrap; }
+  /* Sized for ONE run per line ("3×10–15", then "35lb") — a single-line
+     cell needs ~90 pt and that is what starved the name column. */
+  .cell { width: 58px; text-align: right; font-family: var(--mono); font-size: 11.5px; font-variant-numeric: tabular-nums; line-height: 1.35; white-space: nowrap; }
   .cell.target { color: var(--ink); }
   .cell.target.held { color: var(--ink-3); }
   .cell.prev { color: var(--ink-2); }
@@ -322,7 +324,7 @@
     <button class="themeToggle" id="themeToggle" type="button">Light / dark</button>
     <p class="eyebrow">Prototype · routine detail</p>
     <h1>PT A, rebuilt</h1>
-    <p class="lede">Every item from your list, live in the phone below. Four were unambiguous and are just <b>built</b>: the header scrolls, the name hands off to the bar, exercise names wrap, and Start plays the welcome key's ignition. Four had no obvious answer, so each is a switch in this column — flip them and watch the screen. Recommendations are marked <span class="rec">▸ pick</span>. The routine is padded to seven exercises so there is something to scroll.</p>
+    <p class="lede">Round two. Your four picks — <b>1b · 2b · 3a · 4a</b> — are what the screen now opens on, and the two-column ledger has been made to fit rather than argued with. The switches stay live so you can still see what you turned down. One new question is open at the bottom: <b>the fact line</b>. The routine is padded to seven exercises so there is something to scroll.</p>
   </div>
 
   <div class="stage">
@@ -332,29 +334,29 @@
         <h2>1 · What sticks when you scroll</h2>
         <p class="why">Everything scrolls now, and the name hands off to the bar the way <b>Today</b> does. The open question is what stays behind. Scroll the phone to see each.</p>
         <div class="segs" id="bandSegs">
-          <button class="seg" type="button" data-v="condensed" aria-pressed="true"><span class="tag">A <span class="rec">▸ pick</span></span>Settings chips only</button>
-          <button class="seg" type="button" data-v="full" aria-pressed="false"><span class="tag">B</span>Chips + equipment</button>
+          <button class="seg" type="button" data-v="condensed" aria-pressed="false"><span class="tag">A</span>Settings chips only</button>
+          <button class="seg" type="button" data-v="full" aria-pressed="true"><span class="tag">B <span class="rec">▸ yours</span></span>Chips + equipment</button>
           <button class="seg" type="button" data-v="none" aria-pressed="false"><span class="tag">C</span>Nothing sticks</button>
         </div>
-        <p class="fixedNote"><b>A</b> pins a 44 pt band — the three doors you might change before starting. <b>B</b> pins ~100 pt, and equipment is a thing you read once on arrival, not something you consult while scrolling the list. <b>C</b> is honest but gives up the one thing a pinned band is for.</p>
+        <p class="fixedNote">Taking <b>B</b> costs list height, so the fact line was pulled back out of the band (see 5) — it is arrival context, not something you consult mid-scroll. That keeps the pinned band to two rows: three doors, then what the kit does and does not cover.</p>
       </div>
 
       <div class="opt">
         <h2>2 · The exercise row</h2>
         <p class="why">Names wrap to two lines in all three. The right-hand side is the question: how literally to copy Today's card, which prints <code>target</code> beside <code>prev</code> and no delta.</p>
         <div class="segs" id="rowSegs">
-          <button class="seg" type="button" data-v="stacked" aria-pressed="true"><span class="tag">A <span class="rec">▸ pick</span></span>Stacked under the name</button>
-          <button class="seg" type="button" data-v="ledger" aria-pressed="false"><span class="tag">B</span>Two columns, ledger</button>
+          <button class="seg" type="button" data-v="stacked" aria-pressed="false"><span class="tag">A</span>Stacked under the name</button>
+          <button class="seg" type="button" data-v="ledger" aria-pressed="true"><span class="tag">B <span class="rec">▸ yours</span></span>Two columns, ledger</button>
           <button class="seg" type="button" data-v="target" aria-pressed="false"><span class="tag">C</span>Target only, prev on change</button>
         </div>
-        <p class="fixedNote"><b>A</b> keeps the ledger's rules (lit where it moved, dim where it held, prev flat, no delta) but gives the name the full width. <b>B</b> is the literal copy of Today's card, headers and all — flip to it and watch what happens to <i>Dumbbell Shoulder Press</i>: the rail takes 41 pt, two mono columns take 158, and the name is left with about 115. That is the finding, not a tuning problem. <b>C</b> stays silent on a routine you have not changed.</p>
+        <p class="fixedNote"><b>I was wrong that this does not fit</b>, and the correction is worth the sentence: the ~90 pt column I measured was a column holding <code>3×10–15 · 35lb</code> on one line. Give each cell one run per line — reps above weight, which is how <code>DiffLedger</code> already renders multi-run cells — and the column is 58 pt. Two of those leave the name ~160 pt, which is enough for <i>Dumbbell Shoulder Press</i> in two lines. So B is the literal copy of Today's card, headers and all, and it works.</p>
       </div>
 
       <div class="opt">
         <h2>3 · Equipment capsules</h2>
         <p class="why">The <code>EQUIPMENT</code> label is gone in all three. The size mismatch was real: a missing piece carried a chevron and 10/5 padding, an available one had neither and 8/2.5. Three ways to make the row deliberate.</p>
         <div class="segs" id="gearSegs">
-          <button class="seg" type="button" data-v="doors" aria-pressed="true"><span class="tag">A <span class="rec">▸ pick</span></span>All of them are doors</button>
+          <button class="seg" type="button" data-v="doors" aria-pressed="true"><span class="tag">A <span class="rec">▸ yours</span></span>All of them are doors</button>
           <button class="seg" type="button" data-v="dot" aria-pressed="false"><span class="tag">B</span>Uniform soft, amber dot</button>
           <button class="seg" type="button" data-v="count" aria-pressed="false"><span class="tag">C</span>One key, then data tags</button>
         </div>
@@ -365,11 +367,24 @@
         <h2>4 · Editing from the header</h2>
         <p class="why">The proposed law: <b>derived facts are text, settings are chips</b>. Estimate, exercise and set counts stay inert prose; schedule, rest, transition and notes become doors. Tap any chip in the phone to see it open.</p>
         <div class="segs" id="editSegs">
-          <button class="seg" type="button" data-v="on" aria-pressed="true"><span class="tag">A <span class="rec">▸ pick</span></span>Chips + tap-to-rename</button>
+          <button class="seg" type="button" data-v="on" aria-pressed="true"><span class="tag">A <span class="rec">▸ yours</span></span>Chips + tap-to-rename</button>
           <button class="seg" type="button" data-v="chips" aria-pressed="false"><span class="tag">B</span>Chips, name in settings</button>
           <button class="seg" type="button" data-v="off" aria-pressed="false"><span class="tag">C</span>Today's behaviour</button>
         </div>
         <p class="fixedNote">Settings keeps rename, transition and delete either way — it stops being the only route, not the route. <b>A</b>'s tap target is the title itself, which is also the thing that flies into the bar; <b>B</b> avoids that overload.</p>
+      </div>
+
+      <div class="opt">
+        <h2>5 · The fact line <span class="rec" style="font-size:12px">new question</span></h2>
+        <p class="why">You asked whether <code>Upper · ~30 min · 7 exercises · 20 sets</code> earns its place. Two of the four facts do not, and the reason is the same for both: <b>on this screen the list is right there</b>. The rail draws seven nodes you can count, and the exercises below say "upper" more precisely than the word does. That line was written for Today's card and the catalog row, where the list is <i>not</i> visible — it earns every word there and only half of them here.</p>
+        <p class="why">What survives is what the list cannot tell you at a glance: the <b>estimate</b>, which answers "do I have time for this right now", and the <b>set count</b>, which you would otherwise have to add up down the column.</p>
+        <div class="segs" id="factsSegs">
+          <button class="seg" type="button" data-v="trim" aria-pressed="true"><span class="tag">A <span class="rec">▸ pick</span></span>Trim to <code>~30 min · 20 sets</code></button>
+          <button class="seg" type="button" data-v="key" aria-pressed="false"><span class="tag">B</span>No line, estimate on the key</button>
+          <button class="seg" type="button" data-v="all" aria-pressed="false"><span class="tag">C</span>Keep all four</button>
+        </div>
+        <p class="fixedNote"><b>B</b> is the sharper idea and worth a look: the time question is asked at the moment your thumb is over Start, so the key reads <code>Start workout · ~30 min</code> and the header carries no facts at all. It loses the set count, and it puts a variable-length string on the one control that also morphs to "let's go" mid-ignition. <b>A</b> keeps both facts and costs one quiet caption line that scrolls away.</p>
+        <p class="fixedNote">Either way the estimate goes <b>above</b> the pinned band, not in it. Whichever you take here also applies to the catalog row and Today's card, where the full four-fact line should stay exactly as it is.</p>
       </div>
 
       <div class="opt">
@@ -381,7 +396,7 @@
 
     <div class="deviceCol">
       <div class="device">
-        <div class="screen" id="screen" data-band="condensed" data-row="stacked" data-gear="doors" data-edit="on">
+        <div class="screen" id="screen" data-band="full" data-row="ledger" data-gear="doors" data-edit="on" data-facts="trim">
 
           <div class="statusbar"><span>12:48</span><span class="right">▮▮▮ ᯤ 73</span></div>
 
@@ -411,7 +426,6 @@
                 <button class="chip" type="button" data-sheet="Rest between sets" data-sheet-body="The tape you already have on the settings row, one tap closer.">rest 45s<span class="chev">›</span></button>
                 <button class="chip" type="button" data-sheet="Transition between exercises" data-sheet-body="Switching stations uses this instead of rest. 0 skips the countdown.">transition 15s<span class="chev">›</span></button>
               </div>
-              <p class="bandFacts" id="bandFacts" hidden>Upper · ~30 min · 7 exercises · 20 sets</p>
             </div>
 
             <div class="pad" id="gearHome">
@@ -439,7 +453,7 @@
               <span class="wipe"></span>
               <span class="face">
                 <span class="labelBox">
-                  <span class="ghost">Start workout</span>
+                  <span class="ghost" id="startGhost">Start workout</span>
                   <span class="live" id="startLabel">Start workout</span>
                 </span>
                 <span class="chevRun" id="chevRun">
@@ -479,6 +493,14 @@
         <h3>Two-line names break uniform rows</h3>
         <p><code>RailLayout</code> assumes one <code>railRowHeight</code> for every row, and the drag, ring and drop targets all read it. A wrapping name makes rows variable-height.</p>
         <p>Cheapest correct answer: keep rows uniform and raise the height to fit two lines at body size, so nothing in <code>RailArrangement</code> changes. Teaching the layout per-row heights is the honest fix and a much bigger diff — worth its own issue.</p>
+        <p>The two-column ledger makes this easier, not harder: every row is a two-line block regardless of name length, so one raised constant covers the whole rail.</p>
+      </div>
+
+      <div class="note">
+        <span class="flag">corrected</span>
+        <h3>The ledger does fit</h3>
+        <p>The first pass here claimed a two-column ledger could not sit beside the rail at phone width. That measured a cell holding <code>3×10–15 · 35lb</code> on one line, at ~90 pt.</p>
+        <p>One run per line — reps above weight, which is what <code>DiffLedger</code> already does for multi-run cells — puts the column at 58 pt. Two of them plus the 41 pt rail leave the name ~160 pt, enough for the longest name in this routine at two lines. The row is a fixed two-line block either way, which is convenient for the rail geometry below.</p>
       </div>
 
       <div class="note">
@@ -647,10 +669,7 @@
   function applyBand() {
     var mode = screen.dataset.band;
     var band = document.getElementById("band");
-    var facts = document.getElementById("bandFacts");
     band.classList.toggle("unstuck", mode === "none");
-    facts.hidden = mode !== "full";
-    document.getElementById("staticFacts").style.display = mode === "full" ? "none" : "";
     // In "full" the equipment row rides the band; otherwise it scrolls below it.
     var gear = document.getElementById("gearHome");
     if (mode === "full") {
@@ -705,6 +724,7 @@
   var chevs = Array.prototype.slice.call(document.querySelectorAll("#chevRun i"));
   var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var igniting = false;
+  var startBaseLabel = "Start workout";
 
   function setChev(active) {
     chevs.forEach(function (c, i) {
@@ -735,7 +755,7 @@
   function reset() {
     igniting = false;
     startKey.classList.remove("go");
-    startLabel.textContent = "Start workout";
+    startLabel.textContent = startBaseLabel;
     setChev(0);
   }
 
@@ -760,12 +780,26 @@
     document.getElementById("legacySubtitle").hidden = !legacy;
     document.getElementById("gearLabel").hidden = !legacy;
     document.getElementById("noteRow").hidden = legacy;
-    document.getElementById("staticFacts").textContent = legacy
-      ? "~15 min · 4 exercises · 12 sets · rest 45s"
-      : "Upper · ~30 min · 7 exercises · 20 sets";
     document.getElementById("gearRow").style.marginTop = legacy ? "0" : "";
+    applyFacts();
   }
   wire("editSegs", "edit", applyEdit);
+
+  /* ---------- the fact line ---------- */
+  function applyFacts() {
+    var mode = screen.dataset.facts;
+    var legacy = screen.dataset.edit === "off";
+    var facts = document.getElementById("staticFacts");
+    var onKey = mode === "key" && !legacy;
+    facts.hidden = onKey;
+    facts.textContent = legacy
+      ? "~30 min · 7 exercises · 20 sets · rest 45s"
+      : (mode === "all" ? "Upper · ~30 min · 7 exercises · 20 sets" : "~30 min · 20 sets");
+    startBaseLabel = onKey ? "Start workout · ~30 min" : "Start workout";
+    document.getElementById("startGhost").textContent = startBaseLabel;
+    if (!igniting) document.getElementById("startLabel").textContent = startBaseLabel;
+  }
+  wire("factsSegs", "facts", applyFacts);
 
   /* ---------- theme ---------- */
   document.getElementById("themeToggle").addEventListener("click", function () {
