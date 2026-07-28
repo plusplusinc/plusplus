@@ -207,6 +207,9 @@
   /* rail + rows */
   .rail { padding: 10px 14px 8px 20px; }
   .colhead { display: flex; gap: 8px; justify-content: flex-end; padding: 0 0 6px 41px; }
+  /* Riding the band: the band pads 20 and the rail pads 14, so the headers
+     need those 6 pt back or they sit inboard of the columns they name. */
+  .band > .colhead { padding: 9px 0 1px 41px; margin-right: -6px; }
   .colhead span { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3); width: 58px; text-align: right; }
   .row { display: flex; gap: 13px; align-items: stretch; position: relative; }
   .glyph { width: 28px; flex: none; position: relative; }
@@ -345,7 +348,7 @@
           <button class="seg" type="button" data-v="full" aria-pressed="true"><span class="tag">B <span class="rec">▸ yours</span></span>Chips + equipment</button>
           <button class="seg" type="button" data-v="none" aria-pressed="false"><span class="tag">C</span>Nothing sticks</button>
         </div>
-        <p class="fixedNote">Taking <b>B</b> costs list height, so the fact line was pulled back out of the band (see 5) — it is arrival context, not something you consult mid-scroll. That keeps the pinned band to two rows: three doors, then what the kit does and does not cover.</p>
+        <p class="fixedNote">Taking <b>B</b> costs list height, so the fact line was pulled back out of the band (see 5) — it is arrival context, not something you consult mid-scroll. The band is three rows: the doors, what the kit does and does not cover, and the <code>target</code> / <code>prev</code> headers, which pin with it so a column you are scrolling stays labelled.</p>
       </div>
 
       <div class="opt">
@@ -686,6 +689,16 @@
     } else {
       band.parentElement.insertBefore(gear, band.nextSibling);
       gear.style.padding = "";
+    }
+    // The column headers pin with the band — a labelled column stays
+    // labelled while you scroll it. They stay in the rail only when
+    // nothing is pinned at all.
+    var colhead = document.getElementById("colhead");
+    var rail = document.getElementById("rows").parentElement;
+    if (mode === "none") {
+      rail.insertBefore(colhead, document.getElementById("rows"));
+    } else {
+      band.appendChild(colhead);
     }
   }
 
