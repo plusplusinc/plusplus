@@ -109,25 +109,37 @@ jobs:
       # passed the old "under ~200 lines" rule and made every concurrent branch
       # conflict, since git merges line by line and each PR rewrote that one line.
       # Cheap enough to ride an existing required job rather than add one.
-      - name: CLAUDE.md size budget
+      - name: Agent-doc size budget
         shell: bash
         run: |
-          max_bytes=25600   # 25 KB whole file
-          max_line=2048     # ~2 KB any single line
-          bytes=$(wc -c < CLAUDE.md)
-          longest=$(awk '{ if (length($0) > m) { m = length($0); n = NR } } END { print m ":" n }' CLAUDE.md)
-          longest_len=${longest%%:*}
-          longest_line=${longest##*:}
+          max_bytes=25600   # 25 KB — CLAUDE.md only (it loads every session)
+          max_line=2048     # ~2 KB any single line, in every agent doc
           fail=0
+
+          bytes=$(wc -c < CLAUDE.md)
           if [ "$bytes" -gt "$max_bytes" ]; then
             echo "::error title=CLAUDE.md too large::${bytes} bytes exceeds the ${max_bytes}-byte budget. Move detail to docs/DECISIONS.md (dated entry) or .claude/rules/ (path-scoped)."
             fail=1
           fi
-          if [ "$longest_len" -gt "$max_line" ]; then
-            echo "::error title=CLAUDE.md line too long::Line ${longest_line} is ${longest_len} chars (max ${max_line}). Add a NEW line instead of growing an existing one — one item per line is what keeps concurrent branches mergeable."
-            fail=1
-          fi
-          echo "CLAUDE.md: ${bytes} bytes, longest line ${longest_len} chars (line ${longest_line})"
+          echo "CLAUDE.md: ${bytes} bytes (budget ${max_bytes})"
+
+          # Line length applies to the RULES files too — app-surfaces.md grew an
+          # 8.7 KB paragraph the same way, and it had drifted into stating things
+          # that were no longer true (2026-07-28). No byte budget on these: they
+          # are path-scoped and load lazily, so length is fine and a mega-line
+          # is not. DECISIONS.md is deliberately EXEMPT — append-only, and its
+          # long entries are the record, not drift.
+          for f in CLAUDE.md .claude/rules/*.md; do
+            [ -f "$f" ] || continue
+            longest=$(awk '{ if (length($0) > m) { m = length($0); n = NR } } END { print m ":" n }' "$f")
+            len=${longest%%:*}
+            line=${longest##*:}
+            if [ "${len:-0}" -gt "$max_line" ]; then
+              echo "::error title=Line too long in ${f}::Line ${line} is ${len} chars (max ${max_line}). Add a NEW line instead of growing an existing one — one item per line is what keeps concurrent branches mergeable, and it is what stops a paragraph quietly going stale."
+              fail=1
+            fi
+            echo "  ${f}: longest line ${len} chars (line ${line})"
+          done
           exit $fail
       - name: Run PlusPlusKit tests
         # Explicit bash: the swift container's default step shell can be
