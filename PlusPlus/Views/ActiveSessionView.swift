@@ -1696,14 +1696,14 @@ private struct SetLoggingView: View {
                         .padding(.top, 10)
                     }
 
-                    // Weight/reps sets carry target + last INSIDE the
+                    // Weight/reps sets carry target + prev INSIDE the
                     // value cards now (mock 08); this line survives
                     // only for duration-driven sets, which have no cards.
                     if driver == .duration {
                         HStack(spacing: 12) {
                             Text(targetDescription)
                             if let lastTime {
-                                (Text("last ").foregroundStyle(Theme.textSecondary)
+                                (Text("prev: ").foregroundStyle(Theme.textSecondary)
                                     + Text(lastTime.resultSummary(weightUnit: weightUnit))
                                     .font(.system(.subheadline, design: .monospaced))
                                     .foregroundStyle(Theme.textPrimary))
@@ -1775,7 +1775,7 @@ private struct SetLoggingView: View {
 
     // MARK: - Stage (mock 08, #391)
     // EVERY configurable metric gets the same card — big value opening the
-    // wheel, live "last · Δ", two full-width hold-to-repeat stepper keys, and
+    // wheel, the "prev:" reference, two full-width hold-to-repeat stepper keys, and
     // (on the load metrics) a `slider.horizontal.3` key opening the increment
     // sheet. Rep work stacks WEIGHT/ASSIST then REPS; cardio leads with its
     // driver; anything else the profile tracks follows as more cards. Reps and
@@ -1789,26 +1789,13 @@ private struct SetLoggingView: View {
             ?? metric.step(weightUnit: weightUnit, distanceUnit: profile.distanceUnit)
     }
 
-    /// "last 130 · +5" — the previous set's value and the live delta
-    /// against it (mock 08, in the big card's corner). Green only while
-    /// it's an IMPROVEMENT in the metric's own direction: +5 lb of
-    /// weight, but −10 lb of assistance (anti-shame, the RoutineDiff
-    /// rule — regressions render neutral). Nil without a prior. A zero
-    /// delta shows just the last value, no "· =" (Dave, 2026-07-23:
-    /// "=" renders nowhere; matching last time isn't a delta to report).
-    private func deltaAnnotation(_ metric: WorkoutMetric) -> (text: String, color: Color)? {
+    /// "prev: 130" — the previous set's value, in the big card's corner.
+    /// A reference point, not a scoreboard: no live delta and no colour
+    /// change (Dave, 2026-07-28 — the "· +10" and its green went with
+    /// the carry-forward note). Nil without a prior.
+    private func previousAnnotation(_ metric: WorkoutMetric) -> String? {
         guard let last = lastTime?.actual(metric), last > 0 else { return nil }
-        let current = log.actual(metric) ?? log.target(metric) ?? last
-        let delta = current - last
-        let improved = switch metric.improvementDirection {
-        case .up: delta > 0
-        case .down: delta < 0
-        case .neutral: false
-        }
-        let text = delta == 0
-            ? "last \(metric.formatted(last))"
-            : "last \(metric.formatted(last)) · " + (delta > 0 ? "+" : "−") + metric.formatted(abs(delta))
-        return (text, improved ? Theme.accent : Theme.textFaint)
+        return "prev: \(metric.formatted(last))"
     }
 
     /// The metrics shown as cards, in order: the load (or bare reps / the
@@ -1837,9 +1824,8 @@ private struct SetLoggingView: View {
 
     /// The unified metric card (#391): mono label with the increment key on
     /// its right (load metrics only — the rest have no gear stride to edit),
-    /// the big value opening the wheel, the live "last · Δ" in data green, two
-    /// full-width hold-to-repeat stepper keys, and the carry-forward note
-    /// (faint — a mechanic note, not a delta).
+    /// the big value opening the wheel, the faint "prev:" reference, and two
+    /// full-width hold-to-repeat stepper keys.
     private func metricCard(_ metric: WorkoutMetric) -> some View {
         let current = log.actual(metric) ?? log.target(metric)
         let unitText = metric.unit(for: current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit)
@@ -1883,14 +1869,14 @@ private struct SetLoggingView: View {
                 }
                 .accessibilityIdentifier(metric == .weight ? "logWeightValue" : "log-\(metric.rawValue)-value")
                 Spacer(minLength: 8)
-                if let annotation = deltaAnnotation(metric) {
-                    Text(annotation.text)
+                if let annotation = previousAnnotation(metric) {
+                    Text(annotation)
                         .font(.system(.caption, design: .monospaced))
-                        .foregroundStyle(annotation.color)
+                        .foregroundStyle(Theme.textFaint)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                         .contentTransition(.numericText())
-                        .animation(Theme.Anim.standard, value: annotation.text)
+                        .animation(Theme.Anim.standard, value: annotation)
                 }
             }
             HStack(spacing: 10) {
@@ -1906,11 +1892,6 @@ private struct SetLoggingView: View {
                 ) {
                     stepActual(metric, 1)
                 }
-            }
-            if (metric == .weight || metric == .assistance), session.weightCarriesForward(from: log) {
-                Text("new \(metric == .weight ? "weight" : "assist") carries to your remaining sets")
-                    .font(.system(.caption2, design: .monospaced))
-                    .foregroundStyle(Theme.textFaint)
             }
         }
         .padding(14)
