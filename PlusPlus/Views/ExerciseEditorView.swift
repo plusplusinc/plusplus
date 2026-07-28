@@ -27,6 +27,14 @@ struct ExerciseEditorView: View {
     /// Cancel-is-instant cost real typing; Dave's call to confirm).
     @State private var initialFingerprint: [String]
     @State private var confirmingDiscard = false
+    /// The name this editor just wrote, held from `save()` until the sheet
+    /// is actually gone. Dismissal is animated, so the body renders more
+    /// frames AFTER the insert — by which point `allExercises` carries the
+    /// row we just made, and the name field compares the draft to it: the
+    /// duplicate warning flashes red under the field and Save dims, on the
+    /// way out. A rename does the same, since its exclusion is the OLD
+    /// name and the newly written one is not it.
+    @State private var savedName: String?
 
     init(editing exercise: Exercise) {
         editingExercise = exercise
@@ -105,8 +113,15 @@ struct ExerciseEditorView: View {
         allExercises.map(\.name)
     }
 
+    /// The name a collision is allowed to be — an exercise never counts as
+    /// its own duplicate, whether it is the one being edited or the one
+    /// this editor just saved.
+    private var excludedName: String? {
+        savedName ?? editingExercise?.name
+    }
+
     private var canSave: Bool {
-        draft.canSave(existingNames: existingNames, editedName: editingExercise?.name)
+        draft.canSave(existingNames: existingNames, editedName: excludedName)
     }
 
     /// Whether dismissing now would cost real input.
@@ -166,7 +181,7 @@ struct ExerciseEditorView: View {
                             .foregroundStyle(Theme.textFaint)
                             .padding(.top, 6)
                     }
-                    if draft.isDuplicate(among: existingNames, excluding: editingExercise?.name) {
+                    if draft.isDuplicate(among: existingNames, excluding: excludedName) {
                         Text("An exercise with this name already exists.")
                             .font(.system(.caption))
                             .foregroundStyle(Theme.destructive)
@@ -618,6 +633,9 @@ struct ExerciseEditorView: View {
 
     private func save() {
         var created: Exercise?
+        // Before the write, so no frame between the insert and the next
+        // body pass can see the name without its exemption.
+        savedName = draft.trimmedName
         if let exercise = editingExercise {
             draft.apply(to: exercise)
         } else {
