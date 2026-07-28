@@ -100,7 +100,7 @@ struct RepTargetSheet: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .presentationDetents([.height(showsUpperBound ? 430 : 320)])
-        .presentationBackground(Theme.surface)
+        .presentationBackground(Theme.background)
     }
 
     private func scrubber(

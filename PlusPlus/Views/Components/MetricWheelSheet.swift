@@ -42,7 +42,7 @@ struct MetricWheelSheet: View {
             }
         }
         .presentationDetents([.height(320)])
-        .presentationBackground(Theme.surface)
+        .presentationBackground(Theme.background)
     }
 
     private var wheel: some View {

@@ -99,7 +99,7 @@ struct ExerciseConfigSheet: View {
             .padding(.horizontal, 18)
             .padding(.vertical, 12)
         }
-        .presentationBackground(Theme.surface)
+        .presentationBackground(Theme.background)
         .presentationDetents([.appTall])
         .sheet(item: $wheel) { metric in
             MetricWheelSheet(
@@ -179,7 +179,7 @@ struct ExerciseConfigSheet: View {
                 onIncrement: { config.sets = min(20, config.sets + 1) }
             )
         }
-        .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
     }
 

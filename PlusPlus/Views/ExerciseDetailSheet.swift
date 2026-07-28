@@ -174,7 +174,7 @@ struct ExerciseDetailSheet: View {
             .padding(.horizontal, 18)
             .padding(.vertical, 12)
         }
-        .presentationBackground(Theme.surface)
+        .presentationBackground(Theme.background)
         // Editing here bumps the exercise's defaults (#187) — every
         // mutation path (steppers and wheels) flows through these values.
         .onChange(of: routineExercise.weight) { _, _ in routineExercise.bumpExerciseDefaults() }
@@ -364,7 +364,7 @@ struct ExerciseDetailSheet: View {
                 onIncrement: { setRestOverride(Int(WorkoutMetric.rest.incremented(Double(effectiveRest)).rounded())) }
             )
         }
-        .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
     }
 
@@ -656,7 +656,7 @@ struct HeartRateTargetSheet: View {
                                 onIncrement: { setCustom(lower: range.lower, upper: range.upper + 5) }
                             )
                         }
-                        .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                         .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
                     }
                 }
@@ -665,7 +665,7 @@ struct HeartRateTargetSheet: View {
                 .padding(.bottom, 20)
             }
         }
-        .presentationBackground(Theme.surface)
+        .presentationBackground(Theme.background)
         .presentationDetents([.appTall])
     }
 
@@ -706,7 +706,7 @@ struct HeartRateTargetSheet: View {
             .padding(.horizontal, 13)
             .frame(minHeight: 46)
             .contentShape(Rectangle())
-            .background(isSelected ? Theme.selectedTint : Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+            .background(isSelected ? Theme.selectedTint : Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
             .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(isSelected ? Theme.selectedRing : Theme.border))
             .animation(Theme.Anim.selection, value: isSelected)
         }

@@ -139,7 +139,7 @@ struct ExerciseEditorView: View {
                         .foregroundStyle(isBuiltIn ? Theme.textSecondary : Theme.textPrimary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 11)
-                        .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                         .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
                         .disabled(isBuiltIn)
                         .accessibilityIdentifier("exerciseNameField")
@@ -283,7 +283,7 @@ struct ExerciseEditorView: View {
                         .lineLimit(3...8)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 11)
-                        .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                         .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
 
                     SheetSectionLabel("VIDEO")
@@ -295,7 +295,7 @@ struct ExerciseEditorView: View {
                         .autocorrectionDisabled()
                         .padding(.horizontal, 14)
                         .padding(.vertical, 11)
-                        .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                         .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
                     if draft.normalizedVideoURL == .invalid {
                         Text("That doesn't look like a valid link.")
@@ -319,7 +319,7 @@ struct ExerciseEditorView: View {
                 .padding(.bottom, 30)
             }
         }
-        .presentationBackground(Theme.surface)
+        .presentationBackground(Theme.background)
         // A dirty draft can't be swiped away silently — the swipe bounces
         // (standard compose behavior) and Cancel carries the confirm.
         .interactiveDismissDisabled(isDirty)
@@ -390,7 +390,7 @@ struct ExerciseEditorView: View {
                 }
             }
         }
-        .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
     }
 

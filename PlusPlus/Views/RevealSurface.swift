@@ -103,7 +103,7 @@ struct RevealSurface: View {
             trayContent(tray)
                 .presentationDragIndicator(.visible)
                 .presentationCornerRadius(Theme.sheetRadius + 2)
-                .presentationBackground(Theme.surface)
+                .presentationBackground(Theme.background)
         }
         // Two sheet(item:) modifiers share this view; the pending-queue
         // above guarantees activeTray is nil before activePush is set, so
@@ -585,7 +585,7 @@ private struct HealthTray: View {
                 }
             }
             .padding(14)
-            .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
             .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
             .padding(.top, 16)
 
@@ -739,7 +739,7 @@ private struct CalendarTray: View {
                 }
             }
             .padding(14)
-            .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
             .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
             .padding(.top, 16)
 
@@ -1036,7 +1036,7 @@ private struct AboutTray: View {
                 Divider().overlay(Theme.border)
                 linkRow("Source on GitHub", url: "https://github.com/plusplusinc/plusplus")
             }
-            .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
             .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.border))
 
             SheetSectionLabel("FEEDBACK")
@@ -1046,7 +1046,7 @@ private struct AboutTray: View {
                 Divider().overlay(Theme.border)
                 linkRow("Email", url: "mailto:mr.david.j.cole@gmail.com")
             }
-            .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
             .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.border))
 
             Text("Opens GitHub or Mail. PlusPlus never phones home.")
