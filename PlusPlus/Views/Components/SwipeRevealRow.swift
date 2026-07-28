@@ -25,9 +25,18 @@ import SwiftData
 /// had just opened. A slop-based tap style failed the same way,
 /// CI-proven — the offset chases the finger, so movement relative to
 /// the row is ~zero and no slop heuristic can engage. Row activation
-/// is `onTap`, which the component composes with the reveal drag in
-/// an ExclusiveGesture: once the drag activates (16 pt), the tap is
-/// structurally impossible — arbitration, not heuristics.
+/// is `onTap`, and since 2026-07-27 the exclusion is UIKit's: the tap
+/// recognizer declares `require(toFail:)` on the reveal pan, so a lift
+/// that ended a drag can never also activate the row — arbitration,
+/// not heuristics, and now real arbitration rather than SwiftUI's
+/// ExclusiveGesture.
+///
+/// ⚠️ SCOPE, since the catalogs left (2026-07-27, #169): rows that live
+/// in a `List` use NATIVE `.swipeActions` now, which is strictly better —
+/// UIKit owns the arbitration end to end. This component is for rows that
+/// are NOT in a List (the routine-detail rail, in a `ScrollView`), where
+/// `.swipeActions` is unavailable until iOS 27 (#277). Do not reach for it
+/// on a new List surface.
 /// A row action exposed to assistive tech: the same name+handler the
 /// visible swipe button carries, surfaced as a VoiceOver custom action so
 /// the swipe (impossible under VoiceOver / Switch Control / Voice Control)
@@ -78,16 +87,17 @@ struct SwipeRevealRow<ID: Hashable, Content: View, Actions: View, LeadingActions
     @ViewBuilder let actions: () -> Actions
     @ViewBuilder let leadingActions: () -> LeadingActions
 
-    /// @GestureState, not @State: the system resets it when the touch
-    /// sequence is CANCELLED (incoming call, Control Center swipe),
-    /// where onEnded never runs — a plain state var left rows frozen
-    /// half-swiped (bug hunt finding 3).
-    @GestureState private var dragX: CGFloat = 0
+    /// Live drag translation. `@State` now, not `@GestureState`: the UIKit
+    /// layer reports cancellation FOR REAL (`.cancelled`/`.failed`), where
+    /// SwiftUI simply never ran `onEnded` — which is the only reason bug-hunt
+    /// finding 3 needed `@GestureState`'s automatic reset. `onCancelled` clears
+    /// both vars, so a row still can't freeze half-swiped.
+    @State private var dragX: CGFloat = 0
 
     /// The row's resting offset captured at the FIRST drag event, so the
     /// open/closed decision can commit mid-gesture (below) without the
     /// row jumping to the new resting point under the finger.
-    @GestureState private var dragBase: CGFloat?
+    @State private var dragBase: CGFloat?
 
     private var restingOffset: CGFloat {
         switch openRow {
@@ -132,11 +142,26 @@ struct SwipeRevealRow<ID: Hashable, Content: View, Actions: View, LeadingActions
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Theme.background)
                 .contentShape(Rectangle())
-                // simultaneous with the OUTSIDE world (the List pan must
-                // coexist — .gesture starves scrolling, #99); exclusive
-                // WITHIN: the drag activating makes the tap impossible.
-                .simultaneousGesture(
-                    ExclusiveGesture(revealDrag, TapGesture().onEnded { handleTap() })
+                // ⚠️ The drag and the tap are a UIKit layer now (#169,
+                // 2026-07-27). `.simultaneousGesture` was not enough and could
+                // not be: it governs SwiftUI's composition, not the CLAIM, and
+                // a SwiftUI `DragGesture` claims a touch it cannot decline. The
+                // direction guards used to live inside the closures, so a
+                // diagonal flick moved neither the row (guard said vertical)
+                // nor the list (the drag owned the touch) — Dave's dead scroll,
+                // which tracked flick angle exactly. `SwipeGestureLayer`
+                // declines in `gestureRecognizerShouldBegin`, BEFORE the
+                // sequence is taken, so a vertical drag reaches the scroll pan
+                // untouched. It rides as a BACKGROUND, inside `.offset`, so its
+                // probe carries the reveal translation (the ordering law below).
+                .background(
+                    SwipeGestureLayer(
+                        enabled: enabled,
+                        onChanged: { handleDragChanged($0) },
+                        onEnded: { handleDragEnded(translationX: $0, momentumX: $1) },
+                        onCancelled: { resetDrag() },
+                        onTap: { handleTap() }
+                    )
                 )
                 // ⚠️ .offset comes AFTER the shape + gesture so the tap
                 // target rides the translation. Attached the other way
@@ -196,66 +221,57 @@ struct SwipeRevealRow<ID: Hashable, Content: View, Actions: View, LeadingActions
         }
     }
 
-    private var revealDrag: some Gesture {
-        DragGesture(minimumDistance: 16)
-            .updating($dragBase) { _, state, _ in
-                if state == nil { state = restingOffset }
-            }
-            .updating($dragX) { value, state, _ in
-                guard enabled,
-                      abs(value.translation.width) > abs(value.translation.height)
-                else { return }
-                state = value.translation.width
-            }
-            // The open/closed decision commits HERE, live at
-            // the halfway threshold — not only in onEnded.
-            // Inside a List the scroll pan can steal the touch
-            // at finger-lift, which CANCELS this gesture:
-            // @GestureState resets, onEnded never runs, and a
-            // decided-at-end-only row snapped shut under the
-            // finger (Dave, build 17: "letting go hides it
-            // again"). A cancelled gesture now keeps whatever
-            // the drag last crossed.
-            .onChanged { value in
-                guard enabled,
-                      abs(value.translation.width) > abs(value.translation.height),
-                      let base = dragBase
-                else { return }
-                let dragged = base + value.translation.width
-                if actionsWidth > 0, dragged < -actionsWidth / 2 {
-                    if openRow != openToken(.trailing) { openRow = openToken(.trailing) }
-                } else if leadingActionsWidth > 0, dragged > leadingActionsWidth / 2 {
-                    if openRow != openToken(.leading) { openRow = openToken(.leading) }
-                } else if isOpen {
-                    openRow = nil
-                }
-            }
-            // onEnded only adds the flick — and only a REAL
-            // flick. A relaxing finger drifts a few points
-            // rightward at lift; treating that as momentum
-            // closed rows the drag had committed open (Dave,
-            // build 31: "on release the item snaps back").
-            // Below the floor, the live-committed state from
-            // onChanged stands. A genuine flick past the middle
-            // opens the edge it points at (if the row has one)
-            // and otherwise closes WHATEVER row is open —
-            // deliberate: a dismissive flick means "close it"
-            // regardless of which row it lands on.
-            .onEnded { value in
-                guard enabled,
-                      abs(value.translation.width) > abs(value.translation.height)
-                else { return }
-                let momentum = value.predictedEndTranslation.width - value.translation.width
-                guard abs(momentum) > 36 else { return }
-                let projected = restingOffset + momentum
-                if actionsWidth > 0, projected < -actionsWidth / 2 {
-                    openRow = openToken(.trailing)
-                } else if leadingActionsWidth > 0, projected > leadingActionsWidth / 2 {
-                    openRow = openToken(.leading)
-                } else {
-                    openRow = nil
-                }
-            }
+    /// The open/closed decision commits HERE, live at the halfway threshold —
+    /// not only at the end. The scroll pan can still steal the touch at
+    /// finger-lift, which CANCELS the sequence, and a decided-at-end-only row
+    /// snapped shut under the finger (Dave, build 17: "letting go hides it
+    /// again"). A cancelled drag keeps whatever it last crossed.
+    ///
+    /// No direction guard any more: the recognizer only ever begins on a
+    /// horizontal-dominant intent, so every translation that reaches this is
+    /// already one the row owns.
+    private func handleDragChanged(_ translationX: CGFloat) {
+        guard enabled else { return }
+        if dragBase == nil { dragBase = restingOffset }
+        dragX = translationX
+        guard let base = dragBase else { return }
+        let dragged = base + translationX
+        if actionsWidth > 0, dragged < -actionsWidth / 2 {
+            if openRow != openToken(.trailing) { openRow = openToken(.trailing) }
+        } else if leadingActionsWidth > 0, dragged > leadingActionsWidth / 2 {
+            if openRow != openToken(.leading) { openRow = openToken(.leading) }
+        } else if isOpen {
+            openRow = nil
+        }
+    }
+
+    /// The end only adds the flick — and only a REAL flick. A relaxing finger
+    /// drifts a few points at lift; treating that as momentum closed rows the
+    /// drag had committed open (Dave, build 31: "on release the item snaps
+    /// back"). Below the floor, the live-committed state stands. A genuine
+    /// flick past the middle opens the edge it points at (if the row has one)
+    /// and otherwise closes WHATEVER row is open — deliberate: a dismissive
+    /// flick means "close it" regardless of which row it lands on.
+    private func handleDragEnded(translationX: CGFloat, momentumX: CGFloat) {
+        // The resting snap happens either way, including on an early return.
+        defer { resetDrag() }
+        guard enabled, abs(momentumX) > 36 else { return }
+        // Read BEFORE the branches below rewrite `openRow`.
+        let projected = restingOffset + momentumX
+        if actionsWidth > 0, projected < -actionsWidth / 2 {
+            openRow = openToken(.trailing)
+        } else if leadingActionsWidth > 0, projected > leadingActionsWidth / 2 {
+            openRow = openToken(.leading)
+        } else {
+            openRow = nil
+        }
+    }
+
+    /// Drop the live translation so `offset` falls back to `restingOffset`,
+    /// which `.animation(_:value:)` then snaps. Also the cancellation path.
+    private func resetDrag() {
+        dragX = 0
+        dragBase = nil
     }
 }
 
