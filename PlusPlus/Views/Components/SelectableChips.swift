@@ -5,15 +5,18 @@ import SwiftUI
 /// second consumer — shared controls live in Components once they appear
 /// in a second view.
 
-/// A rounded-rect toggle chip: solid selected blue (#210) — one prominent
-/// toggled-on look everywhere; ink fills stay reserved for actions.
+/// A rounded-rect toggle chip. Selected reads as a TINTED GROUND, a blue
+/// stroke and bright blue text (Dave, 2026-07-28) — the shape the app's
+/// selectable ROWS already used via `selectedTint`/`selectedRing`, now the
+/// one selection look everywhere, replacing the solid fill of #210. Ink
+/// fills stay reserved for actions.
 struct SelectableChip: View {
     let label: String
     let isSelected: Bool
     var identifier: String? = nil
     /// Optional leading type glyph (the Find-or-create scope chips carry
-    /// their result type). Rides the label's color, so it flips to
-    /// `onSelected` white with the fill.
+    /// their result type). Rides the label's color, so it goes blue with
+    /// the rest of a selected chip.
     var systemImage: String? = nil
     let action: () -> Void
 
@@ -30,13 +33,13 @@ struct SelectableChip: View {
                 .font(.system(.footnote, weight: .semibold))
                 .padding(.horizontal, 14)
                 .frame(height: 36)
-                .background(isSelected ? Theme.selected : Color.clear)
-                .foregroundStyle(isSelected ? Theme.onSelected : Theme.textPrimary)
+                .background(isSelected ? Theme.selectedTint : Color.clear)
+                .foregroundStyle(isSelected ? Theme.selectedInk : Theme.textPrimary)
                 // Rounded rect, matching the filter-row control shape (Dave,
                 // 2026-07-20) — see FilterChipShape.
                 .clipShape(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius))
                 .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius)
-                    .strokeBorder(isSelected ? Color.clear : Theme.borderStrong, lineWidth: 1))
+                    .strokeBorder(isSelected ? Theme.selectedRing : Theme.borderStrong, lineWidth: 1))
                 // 36 pt chip inside a 44 pt hit target, growing VERTICALLY ONLY
                 // — the idiom the retired facet chips used (FilterChips.swift).
                 // A symmetric `.padding(4)` also inset the border horizontally,

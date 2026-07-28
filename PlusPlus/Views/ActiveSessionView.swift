@@ -578,13 +578,14 @@ struct ActiveSessionView: View {
                                 Text("GPS off")
                                     .font(.system(.caption2))
                             }
-                            .foregroundStyle(Theme.notes)
+                            // Ink, not `notes`: this sits on its own wash.
+                            .foregroundStyle(Theme.notesInk)
                             .lineLimit(1)
                             .padding(.horizontal, 10)
                             .frame(minHeight: 34)
-                            .background(Theme.notes.opacity(0.14), in: RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius))
+                            .background(Theme.notesWash, in: RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius))
                             .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius)
-                                .strokeBorder(Theme.notes.opacity(0.45), lineWidth: 1))
+                                .strokeBorder(Theme.notesRing, lineWidth: 1))
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)

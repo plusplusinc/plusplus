@@ -33,7 +33,7 @@ struct RepTargetWheelSheet: View {
                 VStack {
                     Text("Reps")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Theme.textSecondary)
                     Picker("Reps", selection: $wheelLower) {
                         ForEach(RepTarget.allowedReps, id: \.self) { value in
                             Text("\(value)").tag(value)
@@ -46,7 +46,7 @@ struct RepTargetWheelSheet: View {
                     VStack {
                         Text("Up to")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Theme.textSecondary)
                         Picker("Up to", selection: $wheelUpper) {
                             Text("—").tag(Int?.none)
                             ForEach(RepTarget.allowedReps, id: \.self) { value in

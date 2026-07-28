@@ -121,9 +121,9 @@ struct EquipmentResolveSheet: View {
                 VStack(alignment: .leading, spacing: 0) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.system(size: 22))
-                        .foregroundStyle(Theme.notes)
+                        .foregroundStyle(Theme.notesInk)
                         .frame(width: 44, height: 44)
-                        .background(Theme.notes.opacity(0.14), in: RoundedRectangle(cornerRadius: 12))
+                        .background(Theme.notesWash, in: RoundedRectangle(cornerRadius: 12))
                         .padding(.top, 8)
 
                     Text("\(equipmentName) isn't in your kit")
@@ -186,7 +186,8 @@ struct EquipmentResolveSheet: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("CLEANEST FIX")
                     .font(.system(.caption2, design: .monospaced, weight: .semibold))
-                    .foregroundStyle(Theme.notes)
+                    // The whole card is an amber wash, so its label is ink.
+                    .foregroundStyle(Theme.notesInk)
                 if let best = res.bestKit {
                     Text("Switch to the \(best) kit")
                         .font(.system(.body, weight: .semibold))
@@ -195,9 +196,11 @@ struct EquipmentResolveSheet: View {
                         .font(.system(.footnote))
                         .foregroundStyle(Theme.textSecondary)
                 } else if canAddToActiveKit {
-                    Text("Add \(equipmentName.lowercased()) to \(activeKitName)")
-                        .font(.system(.body, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
+                    KitNamePhrase(
+                        prefix: "Add \(equipmentName.lowercased()) to",
+                        kit: activeKitName,
+                        font: .system(.body, weight: .semibold)
+                    )
                     Text("Keep this routine exactly as it is.")
                         .font(.system(.footnote))
                         .foregroundStyle(Theme.textSecondary)
@@ -212,19 +215,19 @@ struct EquipmentResolveSheet: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
-            .background(Theme.notes.opacity(0.12), in: RoundedRectangle(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.notes.opacity(0.4)))
+            .background(Theme.notesWash, in: RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.notesRing))
 
             if let best = res.bestKit {
-                primaryButton(title: "Switch to \(best)", systemImage: "arrow.left.arrow.right", tint: Theme.selected) {
+                primaryButton(title: "Switch to the \(best) kit", systemImage: "arrow.left.arrow.right") {
                     switchKit(named: best)
                 }
             } else if canAddToActiveKit {
-                primaryButton(title: "Add \(equipmentName.lowercased()) to \(activeKitName)", systemImage: "plus", tint: Theme.accent) {
+                primaryButton(title: "Add \(equipmentName.lowercased()) to the \(activeKitName) kit", systemImage: "plus") {
                     addToKit()
                 }
             } else {
-                primaryButton(title: "Swap the moves", systemImage: "arrow.triangle.2.circlepath", tint: Theme.selected) {
+                primaryButton(title: "Swap the moves", systemImage: "arrow.triangle.2.circlepath") {
                     showingSwap = true
                 }
             }
@@ -238,6 +241,9 @@ struct EquipmentResolveSheet: View {
         let icon: String
         let tint: Color
         let title: String
+        /// A kit this route lands in, rendered as a trailing data tag so the
+        /// title can't end on a bare name (2026-07-28).
+        var kit: String? = nil
         let subtitle: String
         let subtitleTint: Color
         let action: () -> Void
@@ -248,7 +254,8 @@ struct EquipmentResolveSheet: View {
         // Add-to-kit, unless it's the hero (bestKit == nil) or the kit can't take it.
         if canAddToActiveKit, res.bestKit != nil {
             rows.append(RouteRow(icon: "plus", tint: Theme.accent,
-                                 title: "Add \(equipmentName.lowercased()) to \(activeKitName)",
+                                 title: "Add \(equipmentName.lowercased()) to",
+                                 kit: activeKitName,
                                  subtitle: "Keep this kit, add the piece",
                                  subtitleTint: Theme.textSecondary,
                                  action: { addToKit() }))
@@ -280,7 +287,7 @@ struct EquipmentResolveSheet: View {
         VStack(spacing: 0) {
             ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
                 if index > 0 { divider }
-                resolveRow(icon: row.icon, tint: row.tint, title: row.title,
+                resolveRow(icon: row.icon, tint: row.tint, title: row.title, kit: row.kit,
                            subtitle: row.subtitle, subtitleTint: row.subtitleTint, action: row.action)
             }
         }
@@ -291,7 +298,7 @@ struct EquipmentResolveSheet: View {
         Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, 56)
     }
 
-    private func resolveRow(icon: String, tint: Color, title: String, subtitle: String, subtitleTint: Color = Theme.textSecondary, action: @escaping () -> Void) -> some View {
+    private func resolveRow(icon: String, tint: Color, title: String, kit: String? = nil, subtitle: String, subtitleTint: Color = Theme.textSecondary, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: icon)
@@ -300,10 +307,14 @@ struct EquipmentResolveSheet: View {
                     .frame(width: 30, height: 30)
                     .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 8))
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(title)
-                        .font(.system(.subheadline, weight: .medium))
-                        .foregroundStyle(Theme.textPrimary)
-                        .multilineTextAlignment(.leading)
+                    if let kit {
+                        KitNamePhrase(prefix: title, kit: kit, font: .system(.subheadline, weight: .medium))
+                    } else {
+                        Text(title)
+                            .font(.system(.subheadline, weight: .medium))
+                            .foregroundStyle(Theme.textPrimary)
+                            .multilineTextAlignment(.leading)
+                    }
                     Text(subtitle)
                         .font(.system(.caption))
                         .foregroundStyle(subtitleTint)
@@ -322,19 +333,33 @@ struct EquipmentResolveSheet: View {
         .buttonStyle(.plain)
     }
 
-    private func primaryButton(title: String, systemImage: String, tint: Color, action: @escaping () -> Void) -> some View {
+    /// ⚠️ INK/CREAM, never a hue (2026-07-28, closing the colour audit's first
+    /// finding). This sheet used to fill its primary blue, green or blue again
+    /// depending on which branch you landed in — so the button's colour tracked
+    /// the SITUATION rather than what pressing it does, on the one screen in
+    /// the app whose committing button wasn't `primaryFill`. Blue is selection
+    /// and green is data; an action is ink. It also joins the raised-key press
+    /// grammar and `Theme.keyRadius` — it was flat at radius 13, the only
+    /// committing button in the app that didn't depress.
+    ///
+    /// ⚠️ A kit name in one of THESE labels takes the noun form ("the main
+    /// kit"), not the `KitTag` treatment: the tag's soft `surfaceRaised` fill
+    /// is drawn for the page ground, and on a filled cap it reads as a hole
+    /// punched in it. Same rule stated in `KitNamePhrase` — where a tag can't
+    /// go, give the name its noun.
+    private func primaryButton(title: String, systemImage: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: systemImage)
                 Text(title).font(.system(.body, weight: .semibold))
             }
-            .foregroundStyle(Theme.onSelected)
+            .foregroundStyle(Theme.onPrimary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .background(tint, in: RoundedRectangle(cornerRadius: 13))
+            .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.raisedPrimaryKey(cornerRadius: Theme.keyRadius))
         .padding(.top, 12)
     }
 
@@ -426,13 +451,13 @@ struct SwapMovesSheet: View {
             } label: {
                 Text("Apply changes")
                     .font(.system(.body, weight: .semibold))
-                    .foregroundStyle(Theme.onSelected)
+                    .foregroundStyle(Theme.onPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(Theme.selected, in: RoundedRectangle(cornerRadius: 13))
+                    .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.raisedPrimaryKey(cornerRadius: Theme.keyRadius))
             .padding(.vertical, 10)
             .padding(.horizontal, 18)
         }
@@ -478,7 +503,9 @@ struct SwapMovesSheet: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(.system(.subheadline, weight: .medium))
-                        .foregroundStyle(destructive ? Theme.notes : Theme.textPrimary)
+                        // Amber is advisory and never an alarm, so it cannot
+                        // carry a destructive option (2026-07-28).
+                        .foregroundStyle(destructive ? Theme.destructive : Theme.textPrimary)
                     if let muscles {
                         HStack(spacing: 5) {
                             Text(muscles.lowercased())
@@ -501,7 +528,7 @@ struct SwapMovesSheet: View {
                 Spacer(minLength: 8)
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                     .font(.system(.body))
-                    .foregroundStyle(selected ? Theme.selected : Theme.textFaint)
+                    .foregroundStyle(selected ? Theme.selectedInk : Theme.textFaint)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 11)
