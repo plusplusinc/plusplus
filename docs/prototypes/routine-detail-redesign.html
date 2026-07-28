@@ -188,6 +188,41 @@
   .specRow .v .amber { color: var(--notes-ink); }
   .specRow .chev { font-size: 10px; color: var(--ink-3); }
 
+  /* 1a/1b: the value column ends exactly where the ledger's `target`
+     column ends — rail right padding (14) + prev cell (58) + gap (8). */
+  .alignedTable { margin-top: 12px; }
+  .specRow.aligned { border-bottom: 0; padding: 5px 0; }
+  .specRow.aligned .v { flex: none; text-align: right; }
+  .specRow.aligned .chev { position: absolute; right: 0; }
+  .specRow.aligned { position: relative; padding-right: 0; }
+  /* 80 pt in from the screen edge, less the 20 pt this container already pads. */
+  .specRow.aligned .v { margin-right: 60px; }
+  .specRow.bare .k { display: none; }
+  .specRow.bare { justify-content: flex-end; }
+
+  /* 3a: a token that reads as a link, which is the only inline form
+     SwiftUI can actually put inside wrapping text. */
+  .tok.link {
+    border-bottom: 0; font-weight: 600;
+    text-decoration: underline; text-decoration-thickness: 1px;
+    text-underline-offset: 2.5px; text-decoration-color: var(--border-strong);
+  }
+  .tok.link.amber { text-decoration-color: var(--notes-ring); }
+  .prose.plain { color: var(--ink-2); }
+  .prose.plain .amber { color: var(--notes-ink); }
+
+  /* 5a / 5b */
+  .metaGrid.thirds { grid-template-columns: repeat(3, 1fr); }
+  .valueLed .gridCell { display: flex; flex-direction: column; }
+  .valueLed .gridCell .k { order: 2; margin-top: 2px; }
+  .valueLed .gridCell .v { order: 1; margin-top: 0; font-size: 15px; font-weight: 600; }
+
+  .groupLabel {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.11em; text-transform: uppercase;
+    color: var(--page-ink-2); margin: 14px 0 -2px 2px;
+  }
+  .dirs .groupLabel:first-child { margin-top: 0; }
+
   /* direction: meta card */
   .metaCard {
     background: color-mix(in srgb, var(--surface) 55%, transparent);
@@ -322,9 +357,9 @@
 
   <div class="masthead">
     <button class="themeToggle" id="themeToggle" type="button">Light / dark</button>
-    <p class="eyebrow">Prototype · routine detail · round 3</p>
-    <h1>Six ways to build the top</h1>
-    <p class="lede">Six directions for the space between the title and the first exercise, plus what is on the branch today for reference. Tap one to load it in the phone; scroll to see how each behaves under the title hand-off. Notes are gone from this region entirely. <b>Every direction respects the settled decisions</b>: the whole header scrolls, the equipment capsules are all one size and all doors, derived facts are text while settings are doors, and <code>target</code> / <code>prev</code> pin above the list. They differ in <i>form</i>, not in what they let you reach.</p>
+    <p class="eyebrow">Prototype · routine detail · round 4</p>
+    <h1>Table, sentence, cells</h1>
+    <p class="lede">Your three finalists, each taken two steps further. Every group keeps the original at the top so you can see what moved. <b>1a is loaded</b>, because the idea it found — the header's value column landing exactly where the list's <code>target</code> column lands — is the one that makes a whole screen out of two halves. Chips, card, rail and the one-liner are retired.</p>
   </div>
 
   <div class="stage">
@@ -332,53 +367,73 @@
       <h2 class="sectionHead">The directions</h2>
       <div class="dirs" id="dirs">
 
-        <button class="dir" type="button" data-v="chips" aria-pressed="true">
-          <span class="num">0</span>
-          <h3>Chip band <span style="font-weight:400;color:var(--page-ink-2)">· on the branch now</span></h3>
-          <p class="idea">A quiet fact line, a scrolling row of door chips, then the equipment row. Everything is a pill; the chips and equipment pin. The reference point, not a new proposal.</p>
-          <p class="meta"><span class="cost">pins 3 rows</span><span>first row at 162 pt</span></p>
-        </button>
+        <p class="groupLabel">Direction 1 · the spec table</p>
 
         <button class="dir" type="button" data-v="table">
           <span class="num">1</span>
-          <h3>Spec table</h3>
-          <p class="idea">The header speaks the <b>list's own grammar</b>: label left in mono caps, value right in mono, one row per fact. It reads as the same table the exercises below are printed in, which is the strongest consistency argument any of these have.</p>
-          <p class="meta"><span class="win">most legible</span><span class="cost">tallest · pins nothing</span><span>first row at 215 pt</span></p>
+          <h3>As shown</h3>
+          <p class="idea">Four labelled rows, hairline between each, values right-aligned in mono.</p>
+          <p class="meta"><span>first row at 215 pt</span></p>
         </button>
 
-        <button class="dir" type="button" data-v="card">
-          <span class="num">2</span>
-          <h3>Meta card</h3>
-          <p class="idea">The whole region becomes <b>the routine's own card</b>, the one Today shows, opened in place. Detail stops having a bespoke header and starts having the card you tapped to get here, which is a real continuity win on the push.</p>
-          <p class="meta"><span class="win">matches Today's card</span><span class="cost">a box inside a screen</span><span>first row at 188 pt</span></p>
+        <button class="dir" type="button" data-v="tableAligned" aria-pressed="true">
+          <span class="num">1a</span>
+          <h3>Aligned to the ledger</h3>
+          <p class="idea">The value column <b>lands where <code>target</code> lands</b>, so one column of numbers runs from the schedule straight down through every exercise. Transition folds into the rest row, which takes four rows to three, and the hairlines go: the shared column is what organises it now.</p>
+          <p class="meta"><span class="win">one table, top to bottom</span><span>saves 44 pt</span></p>
         </button>
+
+        <button class="dir" type="button" data-v="tableBare">
+          <span class="num">1b</span>
+          <h3>No labels</h3>
+          <p class="idea">Same alignment, but the mono caps come off and each row says itself: <i>every tue</i>, <i>45s rest · 15s between</i>. Lightest version. Costs you the scannable left edge, and "15s between" has to carry what <code>TRANSITION</code> spelled out.</p>
+          <p class="meta"><span class="win">quietest</span><span class="cost">leans on copy</span></p>
+        </button>
+
+        <p class="groupLabel">Direction 3 · the sentence</p>
 
         <button class="dir" type="button" data-v="prose">
           <span class="num">3</span>
-          <h3>Sentence</h3>
-          <p class="idea">The facts written as <b>three short sentences</b> with the editable values as inline tokens. The one direction where the header sounds like the app talks rather than like a form. The kit warning stops being a flag and becomes a clause.</p>
-          <p class="meta"><span class="win">brand voice</span><span class="cost">tap targets inside prose</span><span>first row at 173 pt</span></p>
+          <h3>As shown</h3>
+          <p class="idea">Three lines, editable values underlined inside the prose.</p>
+          <p class="meta"><span>first row at 173 pt</span></p>
         </button>
 
-        <button class="dir" type="button" data-v="rail">
-          <span class="num">4</span>
-          <h3>Rail continues up</h3>
-          <p class="idea">The spine starts at the top and the metadata are <b>nodes above the first exercise</b> — ticks rather than rings, so they never read as work. The routine becomes one continuous map from "when and with what" down through "and then this".</p>
-          <p class="meta"><span class="win">most PlusPlus</span><span class="cost">gives up the pinned columns</span><span>first row at 131 pt</span></p>
+        <button class="dir" type="button" data-v="proseLinks">
+          <span class="num">3a</span>
+          <h3>Tokens as links</h3>
+          <p class="idea">Two lines instead of three, and the tokens stop pretending to be chips: coloured ink with a hairline under it, the way a link reads. This is also <b>the only inline form that is buildable</b> (see the note below), so it is the honest version of the idea.</p>
+          <p class="meta"><span class="win">buildable inline</span><span>shortest of the six</span></p>
         </button>
+
+        <button class="dir" type="button" data-v="proseChips">
+          <span class="num">3b</span>
+          <h3>Read, then do</h3>
+          <p class="idea">The sentence states the facts in plain ink and taps nothing. A single chip row underneath does the editing. Separates reading from acting, which sidesteps the tap-target-inside-prose problem entirely rather than solving it.</p>
+          <p class="meta"><span class="win">no taps in prose</span><span class="cost">says everything twice</span></p>
+        </button>
+
+        <p class="groupLabel">Direction 5 · the cell block</p>
 
         <button class="dir" type="button" data-v="grid">
           <span class="num">5</span>
-          <h3>Two-by-two</h3>
-          <p class="idea">Four labelled cells in a 2×2 block: schedule, rest, transition, kit. Halves the spec table's height by using the width the table wastes, and every cell is still its own door.</p>
-          <p class="meta"><span class="win">dense and scannable</span><span class="cost">kit gets a narrow cell</span><span>first row at 164 pt</span></p>
+          <h3>As shown</h3>
+          <p class="idea">Four cells in a 2×2, label above value.</p>
+          <p class="meta"><span>first row at 164 pt</span></p>
         </button>
 
-        <button class="dir" type="button" data-v="minimal">
-          <span class="num">6</span>
-          <h3>One line and a verdict</h3>
-          <p class="idea">Everything collapses to a single summary line that opens the settings sheet, plus the kit's verdict in amber. The most list you can get. It <b>trades the per-datum doors back</b> for height, which is the one settled decision this direction argues with.</p>
-          <p class="meta"><span class="win">most list</span><span class="cost">one door, not four</span><span>first row at 125 pt</span></p>
+        <button class="dir" type="button" data-v="grid31">
+          <span class="num">5a</span>
+          <h3>Three across, kit beneath</h3>
+          <p class="idea">The three settings are short and equal, so they take a third each; the kit gets the <b>full width it actually needs</b> on its own row. Fixes the one real fault in 5 — a kit cell that truncates the moment you own three things.</p>
+          <p class="meta"><span class="win">kit stops truncating</span><span>same height</span></p>
+        </button>
+
+        <button class="dir" type="button" data-v="gridValue">
+          <span class="num">5b</span>
+          <h3>Value first</h3>
+          <p class="idea">5a's arrangement, inverted: the value reads large in ink with the label small beneath it, so the only thing changing here is the order. Turns the header into a stat block you take in at a glance rather than a form you read left to right.</p>
+          <p class="meta"><span class="win">reads at a glance</span><span class="cost">labels get quiet</span></p>
         </button>
 
       </div>
@@ -404,7 +459,7 @@
 
     <div class="deviceCol">
       <div class="device">
-        <div class="screen" id="screen" data-top="chips" data-row="ledger" data-facts="trim">
+        <div class="screen" id="screen" data-top="tableAligned" data-row="ledger" data-facts="trim">
 
           <div class="statusbar"><span>12:48</span><span class="right">▮▮▮ ᯤ 73</span></div>
 
@@ -468,42 +523,43 @@
     <div class="noteGrid">
 
       <div class="note">
-        <h3>Height is the whole trade</h3>
-        <p>The numbers on each card are measured, not estimated: where the first exercise row starts, from the top of the scroll. The spread between the tallest (1, at 215 pt) and the shortest (6, at 125 pt) is 90 pt, which on this list is about one and a half exercise rows.</p>
-        <p>It only bites on arrival. Everything scrolls now, so a tall header costs you the first screenful and nothing after it — which is an argument for spending the height on legibility rather than hoarding it.</p>
+        <h3>Why 1a is loaded</h3>
+        <p>The header's values end at exactly the x where the list's <code>target</code> column ends. Measured, not eyeballed: 80 pt in from the screen edge, which is the rail's right padding plus the <code>prev</code> cell plus the gap between them.</p>
+        <p>That one line of arithmetic is what turns a header and a list into a single table. It also let the hairlines go, since a shared column organises rows better than rules between them, and folding transition into the rest row took four rows to three. Those two together are the 44 pt.</p>
       </div>
 
       <div class="note">
-        <span class="flag">⚠ the one real conflict</span>
-        <h3>Direction 4 cannot pin the columns</h3>
-        <p>If the rail runs continuously from the metadata down into the exercises, a pinned band sitting between them cuts the spine it is meant to be part of. So direction 4 pins nothing, and <code>target</code> / <code>prev</code> scroll away with everything else.</p>
-        <p>That is a genuine loss against what you asked for last round, and it is the price of the idea rather than a detail to fix. Worth seeing before deciding it is too expensive.</p>
+        <span class="flag">⚠ constrains direction 3</span>
+        <h3>SwiftUI cannot box a token inside wrapping text</h3>
+        <p>The repo already knows this one: <code>KitTag</code> works only with the kit name <b>last</b>, because a padded rounded tag cannot sit inside a wrapping <code>Text</code> run. Anywhere it cannot go, the name takes its noun instead.</p>
+        <p>So direction 3's tokens can never be chips. What they can be is inline links: coloured, underlined, tapped through a custom URL scheme and <code>openURL</code>, which composes fine with wrapping. That is 3a, and it is the version of this idea that is actually buildable. 3b sidesteps the question by taking the taps out of the prose.</p>
       </div>
 
       <div class="note">
-        <h3>Direction 6 argues with a settled call</h3>
-        <p>Every other direction keeps four separate doors. This one keeps a single summary that opens the settings sheet, which is close to where the screen started before this round.</p>
-        <p>It earns its place here because it is the honest maximum for list height, and because seeing it makes the cost of the other five legible. It is not a recommendation.</p>
+        <h3>What 5a fixes</h3>
+        <p>PT A needs two things, so the 2×2's kit cell looked fine. Give a routine a barbell, a rack, a bench and bands and that cell truncates while three short cells beside it sit half empty.</p>
+        <p>Three equal cells for the three settings, and a full-width row for the kit, sizes each cell to what it actually holds. Costs 4 pt.</p>
       </div>
 
       <div class="note">
-        <h3>Amber has to survive the form change</h3>
-        <p>Whatever the shape, a piece of equipment the active kit lacks has to read as advisory and stay tappable. In a table that is a value in <code>notesInk</code>; in prose it is a clause; in the rail it is a tick node.</p>
-        <p>The chip is the only form where the existing law already covers it. The rest need a decision about what "interactive amber wears the control shape" means when there is no chip.</p>
+        <h3>Amber still needs a ruling</h3>
+        <p>The law says interactive amber wears the control shape. In 1a and 5a it is a value in <code>notesInk</code> with a chevron; in 3a it is an underlined token. Neither is a chip.</p>
+        <p>The reading that holds: the <b>row</b> is the control and wears the shape, and amber is the ink inside it. That keeps flag-don't-hide without inventing a second amber treatment. Worth confirming before it gets written down as a law.</p>
       </div>
 
       <div class="note">
-        <h3>Notes, removed</h3>
-        <p>Gone from this region in all seven. Nothing here has a place for a free-text field, and the settings sheet already holds one.</p>
+        <h3>Heights, measured</h3>
+        <p>Where the first exercise row starts, from the top of the scroll. 1: 215 · <b>1a: 171</b> · 1b: 171 · 3: 173 · 3a: 145 · 3b: 185 · 5: 164 · 5a: 168 · 5b: 170.</p>
+        <p>3a is the shortest thing here by 19 pt, worth knowing if the sentence appeals on its own terms.</p>
       </div>
 
       <div class="note">
-        <h3>Everything else is unchanged</h3>
-        <p>Names still wrap, the node still centres on the first line, the ledger still prints target beside prev with no delta, and Start still plays the welcome key's ignition. Tap it in any direction.</p>
+        <h3>One thing to settle separately</h3>
+        <p>The 1-family pins nothing, so its rows scroll away with the title. The 5-family pins, so the doors stay reachable mid-list.</p>
+        <p>That is a real split between your finalists and it is not about looks. Everything else underneath is unchanged: names wrap, the node centres on the first line, the ledger prints target beside prev with no delta, the columns pin, and Start plays the welcome key's ignition.</p>
       </div>
 
     </div>
-  </div>
 
 </div>
 </div>
@@ -535,19 +591,8 @@
     return '<button class="chip' + (cls || "") + '" type="button" data-k="' + key + '">' + label + '<span class="chev">›</span></button>';
   }
 
-  /* ---------- the seven top-area directions ---------- */
   var TOPS = {
-    chips: {
-      scroll: '<p class="factline">~30 min · 20 sets</p>',
-      pinned:
-        '<div class="chipRow" style="padding-top:10px">' +
-          door("schedule", "🗓 tue") + door("rest", "rest 45s") + door("transition", "transition 15s") +
-        '</div>' +
-        '<div class="chipRow" style="padding-top:10px;padding-bottom:2px">' +
-          door("kit", "Dumbbells", " amber") + door("bench", "Bench") +
-        '</div>'
-    },
-
+    /* ---- direction 1: the spec table ---- */
     table: {
       scroll:
         '<p class="factline">~30 min · 20 sets</p>' +
@@ -560,16 +605,29 @@
       pinned: ""
     },
 
-    card: {
+    tableAligned: {
       scroll:
-        '<div class="metaCard">' +
-          '<p class="factline" style="margin:0">Upper · ~30 min · 20 sets</p>' +
-          '<div class="chipRow">' + door("schedule", "🗓 tue") + door("rest", "rest 45s") + door("transition", "transition 15s") + '</div>' +
-          '<div class="chipRow">' + door("kit", "Dumbbells", " amber") + door("bench", "Bench") + '</div>' +
+        '<p class="factline">~30 min · 20 sets</p>' +
+        '<div class="alignedTable">' +
+          specRow("schedule", "schedule", "tue", "aligned") +
+          specRow("rest", "rest", "45s · then 15s", "aligned") +
+          specRow("kit", "kit", '<span class="amber">Dumbbells</span> · Bench', "aligned") +
         '</div>',
       pinned: ""
     },
 
+    tableBare: {
+      scroll:
+        '<p class="factline">~30 min · 20 sets</p>' +
+        '<div class="alignedTable">' +
+          specRow("schedule", "", "every tue", "aligned bare") +
+          specRow("rest", "", "45s rest · 15s between", "aligned bare") +
+          specRow("kit", "", '<span class="amber">Dumbbells</span> · Bench', "aligned bare") +
+        '</div>',
+      pinned: ""
+    },
+
+    /* ---- direction 3: the sentence ---- */
     prose: {
       scroll:
         '<p class="prose">' +
@@ -581,15 +639,30 @@
       pinned: ""
     },
 
-    rail: {
-      scroll: "",
-      railHead:
-        metaNode("schedule", 'Every <b style="color:var(--ink)">tue</b> · rest 45s · transition 15s') +
-        metaNode("kit", '<span class="amber">Dumbbells</span> not in your kit · Bench'),
-      pinned: "",
-      noColumns: true
+    proseLinks: {
+      scroll:
+        '<p class="prose">' +
+          'Every <button class="tok link" data-k="schedule">tue</button>, about 30 min over 20 sets, ' +
+          'resting <button class="tok link" data-k="rest">45s</button> between sets and ' +
+          '<button class="tok link" data-k="transition">15s</button> between exercises.<br>' +
+          'Needs <button class="tok link amber" data-k="kit">Dumbbells</button>, which is not in your kit.' +
+        '</p>',
+      pinned: ""
     },
 
+    proseChips: {
+      scroll:
+        '<p class="prose plain">' +
+          'Every tue, about 30 min over 20 sets. Rest 45s between sets, 15s between exercises. ' +
+          'Needs <span class="amber">Dumbbells</span>, which is not in your kit.' +
+        '</p>' +
+        '<div class="chipRow" style="margin-top:11px">' +
+          door("schedule", "🗓 tue") + door("rest", "rest 45s") + door("transition", "transition 15s") + door("kit", "Dumbbells", " amber") +
+        '</div>',
+      pinned: ""
+    },
+
+    /* ---- direction 5: the cell block ---- */
     grid: {
       scroll: '<p class="factline">~30 min · 20 sets</p>',
       pinned:
@@ -601,18 +674,37 @@
         '</div>'
     },
 
-    minimal: {
-      scroll: "",
+    grid31: {
+      scroll: '<p class="factline">~30 min · 20 sets</p>',
       pinned:
-        '<div style="padding-top:12px;padding-bottom:2px">' +
-          '<button class="summaryLine" type="button" data-k="settings">tue · ~30 min · 20 sets · rest 45s<span class="chev">›</span></button>' +
-          '<div class="kitLine chipRow">' + door("kit", "Dumbbells not in your kit", " amber") + '</div>' +
+        '<div class="metaGrid thirds" style="padding-top:12px">' +
+          gridCell("schedule", "schedule", "tue") +
+          gridCell("rest", "rest", "45s") +
+          gridCell("transition", "transition", "15s") +
+        '</div>' +
+        '<div style="padding-top:10px;padding-bottom:2px">' +
+          gridCell("kit", "kit", '<span class="amber">Dumbbells</span> · Bench') +
+        '</div>'
+    },
+
+    gridValue: {
+      scroll: '<p class="factline">~30 min · 20 sets</p>',
+      // Inherits 5a's arrangement, so the only variable here is the order
+      // of label and value.
+      pinned:
+        '<div class="metaGrid thirds valueLed" style="padding-top:12px">' +
+          gridCell("schedule", "schedule", "tue") +
+          gridCell("rest", "rest", "45s") +
+          gridCell("transition", "transition", "15s") +
+        '</div>' +
+        '<div class="valueLed" style="padding-top:10px;padding-bottom:2px">' +
+          gridCell("kit", "kit", '<span class="amber">Dumbbells</span> · Bench') +
         '</div>'
     }
   };
 
-  function specRow(key, label, value) {
-    return '<button class="specRow" type="button" data-k="' + key + '">' +
+  function specRow(key, label, value, cls) {
+    return '<button class="specRow ' + (cls || "") + '" type="button" data-k="' + key + '">' +
       '<span class="k">' + label + '</span><span class="v">' + value + '</span><span class="chev">›</span></button>';
   }
   function gridCell(key, label, value) {
