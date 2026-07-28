@@ -386,10 +386,51 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   to attach to at all (build 140's missing scopes). `CatalogTabHeader` is
   DELETED and Today's hand-rolled twin with it; the system bar handles the
   Dynamic-Type reflow that the old `.layoutPriority(1)` / no-`.fixedSize` rules
-  used to police by hand. Today keeps a pinned WEEK STRIP (tally + `BlockBar`)
-  between the bar and its scroll — deliberately not scroll content, since the
-  opening scroll seats today at the top and anything above that anchor would be
-  off-screen on arrival. A **pushed utility/catalog
+  used to police by hand. ⚠️ **Today's WEEK STRIP (tally + `BlockBar`) is a
+  STICKY band inside the scroll** (2026-07-27) — the scroll's first content,
+  held at the visible top by a `visualEffect`
+  (`offset(y: minY < 0 ? -minY : 0)` against `.scrollView`) that does nothing
+  on overscroll, so it rides the rubber band. It spent one build PINNED between
+  the bar and the scroll, and that broke the pull: content rubber-bands and
+  UIKit walks the large title down with it, while a pinned strip stays exactly
+  where it is, so "Today" slid over the block bar (Dave, build 152).
+  **Anything a large title can travel over has to be scroll content** — a
+  `safeAreaInset` is pinned too and fails the same way. Plain content isn't
+  enough either: above the today anchor it is off-screen on arrival (the
+  opening scroll seats today at the top), and below the anchor it scrolls away,
+  which Dave rejected — he wanted main's always-there band, plus travel.
+  ⚠️ That `visualEffect` is a pure render-time read (no state write), which is
+  what keeps it clear of the morph law; `onScrollGeometryChange` is NOT.
+  ⚠️ **A sticky band floats, so it stops reserving its space**: a hidden second
+  copy (`weekStripBand.hidden()`) sits just below the today anchor so the
+  opening `scrollTo` doesn't seat the date line under it — exact at every
+  Dynamic Type size, no measuring, no constant. Floating also means the band
+  needs an OPAQUE background (rows slide under it) and the 16 pt content column
+  lives on the scroll stack's CHILDREN, not the stack, or rows show through the
+  gutters. ⚠️ It does NOT ride the rail (Dave, reversing the first cut, which
+  gave it a spine and no node like `beyondThisWeekBlock`): the screen's content
+  column and a full-width bar, because the tally is the surface's week header,
+  not an entry on the timeline. Same round: ⚠️ **the pull's own answer
+  (the refresh line) renders in the SPACE THE PULL OPENS**, not in the
+  timeline — an `overlay(alignment: .top)` with
+  `alignmentGuide(.top) { $0[.bottom] }`, so it sits entirely above the first
+  row, reserves nothing, and is clipped at rest. Two earlier placements were
+  wrong: below the today anchor it landed a screenful past the pull on any
+  timeline with a week ahead (which is why the quips were never seen), and as
+  the scroll's first CONTENT it shoved the whole timeline down (Dave, build
+  153). Because it lives in the gap it is visible only while the gap is open,
+  and the system holds that open until the `refreshable` closure returns — so
+  the closure waits a beat before returning, a connected sync says "Syncing…"
+  BEFORE the network rather than after, and clearing hangs off the closure's
+  tail (a fixed timer started at set-time expires mid-sync and empties an open
+  gap). ⚠️ **The system refresh SPINNER is killed** — same gap, and two things
+  in it is one too many. No hide API exists, so it is drawn in a clear tint
+  (`.tint(.clear)` on the ScrollView, `.tint(Theme.textPrimary)` restoring the
+  content's tint one level in). Today's is the app's only `.refreshable`.
+  And **pull-to-refresh must not re-anchor the scroll**
+  (`dayChangeToken` re-anchors, `dayToken` only re-derives): scrolling to today
+  mid-gesture yanks the surface out from under the pull and carries its answer
+  off-screen. A **pushed utility/catalog
   screen** with a fixed label keeps the small centered `pushedScreenChrome`
   title; a **pushed detail screen showing a dynamic name** clears its chrome
   title (`title: ""`) and leads the body with a large left header that wraps to
