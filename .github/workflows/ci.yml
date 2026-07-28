@@ -104,6 +104,31 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      # CLAUDE.md is budgeted in BYTES and LINE LENGTH, not lines (2026-07-28).
+      # It once reached 371 KB in 157 lines — 310 KB of it in a single line, which
+      # passed the old "under ~200 lines" rule and made every concurrent branch
+      # conflict, since git merges line by line and each PR rewrote that one line.
+      # Cheap enough to ride an existing required job rather than add one.
+      - name: CLAUDE.md size budget
+        shell: bash
+        run: |
+          max_bytes=25600   # 25 KB whole file
+          max_line=2048     # ~2 KB any single line
+          bytes=$(wc -c < CLAUDE.md)
+          longest=$(awk '{ if (length($0) > m) { m = length($0); n = NR } } END { print m ":" n }' CLAUDE.md)
+          longest_len=${longest%%:*}
+          longest_line=${longest##*:}
+          fail=0
+          if [ "$bytes" -gt "$max_bytes" ]; then
+            echo "::error title=CLAUDE.md too large::${bytes} bytes exceeds the ${max_bytes}-byte budget. Move detail to docs/DECISIONS.md (dated entry) or .claude/rules/ (path-scoped)."
+            fail=1
+          fi
+          if [ "$longest_len" -gt "$max_line" ]; then
+            echo "::error title=CLAUDE.md line too long::Line ${longest_line} is ${longest_len} chars (max ${max_line}). Add a NEW line instead of growing an existing one — one item per line is what keeps concurrent branches mergeable."
+            fail=1
+          fi
+          echo "CLAUDE.md: ${bytes} bytes, longest line ${longest_len} chars (line ${longest_line})"
+          exit $fail
       - name: Run PlusPlusKit tests
         # Explicit bash: the swift container's default step shell can be
         # dash, where `set -o pipefail` itself exits 2 before swift runs.
