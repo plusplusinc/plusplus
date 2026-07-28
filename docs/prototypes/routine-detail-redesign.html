@@ -1,0 +1,783 @@
+<title>Routine detail · redesign prototypes</title>
+<style>
+  :root {
+    /* App tokens, dark side (Theme.swift + BrandPalette.swift) */
+    --ground: #201F1D;
+    --surface: #2A2925;
+    --raised: #34322D;
+    --border: #3D3B35;
+    --border-strong: #4E4B43;
+    --ink: #F0EDE6;
+    --ink-2: #9D9B96;
+    --ink-3: #949089;
+    --accent: #46D17C;
+    --on-primary: #161616;
+    --primary-fill: #F0EDE6;
+    --notes: #CFA14A;
+    --notes-ink: #DCB25E;
+    --notes-wash: rgba(207, 161, 74, 0.14);
+    --notes-ring: rgba(207, 161, 74, 0.75);
+    --selected: #5CA8F5;
+    --loop: #7C786F;
+    --done: #A371F7;
+    --delete: #CF222E;
+
+    /* Review chrome — a half-step below the app ground so the phone reads as the subject */
+    --page: #171614;
+    --page-panel: #1D1C1A;
+    --page-line: #302E2A;
+    --page-ink: #E8E5DE;
+    --page-ink-2: #97938C;
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  }
+  :root[data-theme="light"] {
+    --ground: #FFFFFF; --surface: #F4F3F1; --raised: #EAE8E4;
+    --border: #DDDBD7; --border-strong: #C2C0BA;
+    --ink: #232220; --ink-2: #6B6965; --ink-3: #6F6C68;
+    --accent: #17914B; --on-primary: #FFFFFF; --primary-fill: #232220;
+    --notes: #8F5F00; --notes-ink: #805400;
+    --notes-wash: rgba(143, 95, 0, 0.14); --notes-ring: rgba(143, 95, 0, 0.75);
+    --selected: #1668D2; --done: #8250DF; --delete: #CF222E;
+    --page: #EFEDE9; --page-panel: #FFFFFF; --page-line: #DAD7D1;
+    --page-ink: #232220; --page-ink-2: #6B6965;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  [hidden] { display: none !important; }
+
+  .wrap {
+    background: var(--page);
+    color: var(--page-ink);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+    padding: 28px 20px 72px;
+    min-height: 100vh;
+  }
+  .col { max-width: 1180px; margin: 0 auto; }
+
+  /* ---------- masthead ---------- */
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--page-ink-2); margin: 0 0 10px;
+  }
+  h1 {
+    font-size: clamp(28px, 5vw, 40px); line-height: 1.05; letter-spacing: -0.025em;
+    margin: 0 0 12px; font-weight: 700; text-wrap: balance;
+  }
+  .lede { margin: 0; max-width: 62ch; color: var(--page-ink-2); font-size: 15px; line-height: 1.55; }
+  .lede b { color: var(--page-ink); font-weight: 600; }
+  .masthead { border-bottom: 1px solid var(--page-line); padding-bottom: 24px; margin-bottom: 28px; }
+  .themeToggle {
+    float: right; font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em;
+    background: transparent; color: var(--page-ink-2); border: 1px solid var(--page-line);
+    border-radius: 8px; padding: 7px 11px; cursor: pointer;
+  }
+  .themeToggle:hover { color: var(--page-ink); border-color: var(--page-ink-2); }
+
+  /* ---------- stage ---------- */
+  .stage { display: grid; grid-template-columns: minmax(0, 1fr) 392px; gap: 36px; align-items: start; }
+  @media (max-width: 940px) { .stage { grid-template-columns: minmax(0, 1fr); } .deviceCol { order: -1; } }
+  .deviceCol { position: sticky; top: 20px; }
+  @media (max-width: 940px) { .deviceCol { position: static; } }
+
+  /* ---------- option groups ---------- */
+  .opt { border: 1px solid var(--page-line); border-radius: 14px; background: var(--page-panel); padding: 18px 18px 16px; margin-bottom: 16px; }
+  .opt h2 { font-size: 17px; margin: 0 0 4px; letter-spacing: -0.01em; font-weight: 650; }
+  .opt .why { margin: 0 0 14px; font-size: 13.5px; line-height: 1.5; color: var(--page-ink-2); max-width: 62ch; }
+  .opt .why b { color: var(--page-ink); font-weight: 600; }
+  .segs { display: flex; flex-wrap: wrap; gap: 8px; }
+  .seg {
+    font: inherit; font-size: 13px; cursor: pointer;
+    background: transparent; color: var(--page-ink-2);
+    border: 1px solid var(--page-line); border-radius: 10px; padding: 9px 13px;
+    display: flex; flex-direction: column; gap: 2px; text-align: left; min-width: 0;
+  }
+  .seg:hover { border-color: var(--page-ink-2); color: var(--page-ink); }
+  .seg[aria-pressed="true"] { border-color: var(--accent); color: var(--page-ink); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .seg .tag { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.75; }
+  .seg:focus-visible, .themeToggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .rec { color: var(--accent); font-weight: 600; }
+  .fixedNote { font-size: 12.5px; color: var(--page-ink-2); margin: 12px 0 0; line-height: 1.5; }
+  .fixedNote code, .why code { font-family: var(--mono); font-size: 0.92em; color: var(--page-ink); }
+
+  /* ---------- device ---------- */
+  .device {
+    width: 392px; max-width: 100%;
+    border: 1px solid var(--page-line); border-radius: 34px; padding: 9px;
+    background: var(--page-panel);
+  }
+  .screen {
+    position: relative; overflow: hidden;
+    border-radius: 26px; background: var(--ground); color: var(--ink);
+    height: 720px; display: flex; flex-direction: column;
+    font-family: var(--sans);
+  }
+  .statusbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 22px 2px; font-size: 12px; font-weight: 600; color: var(--ink);
+  }
+  .statusbar .right { font-family: var(--mono); font-size: 11px; color: var(--ink-2); }
+
+  /* top bar (pushedScreenChrome) */
+  .topbar {
+    position: relative; z-index: 5; display: flex; align-items: center; gap: 10px;
+    padding: 4px 16px 8px; background: var(--ground);
+  }
+  .keysq {
+    width: 40px; height: 40px; flex: none; display: grid; place-items: center;
+    border: 1px solid var(--border-strong); border-radius: 11px; background: var(--ground);
+    color: var(--ink-2); box-shadow: 0 3px 0 var(--border-strong);
+    transform: translateY(-1.5px);
+  }
+  .topbar .spacer { flex: 1 1 auto; min-width: 0; }
+  .barTitle {
+    position: absolute; left: 96px; right: 96px; top: 4px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 700; color: var(--ink);
+    opacity: 0; transform: translateY(6px);
+    pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  /* scroll body */
+  /* min-height:0 is what makes a flex child actually scroll rather than
+     grow past its parent and get clipped. */
+  .body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; }
+  .body::-webkit-scrollbar { display: none; }
+  .pad { padding: 0 20px; }
+
+  .bigTitle {
+    font-size: 33px; line-height: 1.05; font-weight: 700; letter-spacing: -0.02em;
+    margin: 2px 0 0; color: var(--ink);
+  }
+  .bigTitle button {
+    font: inherit; color: inherit; background: none; border: 0; padding: 0; text-align: left; cursor: pointer;
+  }
+  .bigTitle .pencil { font-size: 15px; color: var(--ink-3); margin-left: 8px; vertical-align: 6px; }
+  .screen:not([data-edit="on"]) .pencil { display: none; }
+  .screen:not([data-edit="on"]) .bigTitle button { cursor: default; }
+
+  .factline { font-size: 12px; color: var(--ink-2); margin-top: 10px; font-variant-numeric: tabular-nums; }
+
+  /* sticky metadata band */
+  .band {
+    position: sticky; top: 0; z-index: 4;
+    background: var(--ground); padding: 10px 20px 10px;
+  }
+  .band.unstuck { position: static; }
+  .band::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
+    background: var(--border); opacity: 0; transition: opacity 0.15s ease-out;
+  }
+  .band.pinned::after { opacity: 1; }
+  .bandRow { display: flex; gap: 6px; align-items: center; overflow-x: auto; scrollbar-width: none; padding-bottom: 1px; }
+  .bandRow::-webkit-scrollbar { display: none; }
+  .bandFacts { font-size: 12px; color: var(--ink-2); margin-top: 8px; font-variant-numeric: tabular-nums; }
+  .band.pinned .bandCondensed { display: block; }
+
+  /* chips */
+  .chip {
+    display: inline-flex; align-items: center; gap: 4px; flex: none;
+    font-size: 12px; line-height: 1.2; font-family: var(--sans);
+    padding: 6px 10px; border-radius: 11px; white-space: nowrap;
+    background: var(--surface); border: 1px solid var(--border-strong); color: var(--ink-2);
+    cursor: pointer;
+  }
+  .chip .chev { font-size: 9px; color: var(--ink-3); }
+  .chip.data { background: var(--raised); border-color: transparent; border-radius: 6px; padding: 3px 8px; cursor: default; }
+  .chip.amber { background: var(--notes-wash); border-color: var(--notes-ring); color: var(--notes-ink); }
+  .chip.amber .chev { color: var(--notes-ink); }
+  .chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--notes); flex: none; }
+  .chip:focus-visible { outline: 2px solid var(--selected); outline-offset: 1px; }
+  .sectionLabel {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase;
+    color: var(--ink-3); margin: 14px 0 7px;
+  }
+  .gearRow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .noteRow {
+    display: flex; align-items: center; gap: 6px; margin-top: 12px;
+    font-family: var(--sans); font-size: 13px; color: var(--ink-3);
+    background: none; border: 0; padding: 0; cursor: pointer;
+  }
+  .noteRow .chev { font-size: 9px; }
+
+  /* rail + rows */
+  .rail { padding: 10px 14px 8px 20px; }
+  .colhead { display: flex; gap: 10px; justify-content: flex-end; padding: 0 0 6px 41px; }
+  .colhead span { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3); width: 74px; text-align: right; }
+  .row { display: flex; gap: 13px; align-items: stretch; position: relative; }
+  .glyph { width: 28px; flex: none; position: relative; }
+  .glyph .spine { position: absolute; left: 13px; top: 0; bottom: 0; width: 2px; background: var(--border); }
+  .row:first-of-type .glyph .spine { top: 0; }
+  .glyph .node {
+    position: absolute; left: 7px; top: 24px; width: 14px; height: 14px;
+    border-radius: 50%; border: 2px solid var(--border-strong); background: var(--ground);
+  }
+  .rowBody { flex: 1 1 auto; min-width: 0; display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid transparent; }
+  .exName { font-size: 16px; font-weight: 600; line-height: 1.22; color: var(--ink); flex: 1 1 auto; min-width: 0; }
+  .cells { display: flex; gap: 10px; flex: none; }
+  .cells.single .cell { width: auto; }
+  .cell { width: 74px; text-align: right; font-family: var(--mono); font-size: 11.5px; font-variant-numeric: tabular-nums; line-height: 1.35; white-space: nowrap; }
+  .cell.target { color: var(--ink); }
+  .cell.target.held { color: var(--ink-3); }
+  .cell.prev { color: var(--ink-2); }
+  .cell.none { color: var(--ink-3); }
+
+  /* stacked variant */
+  .stackLines { margin-top: 4px; display: flex; gap: 12px; font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .stackLines .t { color: var(--ink); }
+  .stackLines .p { color: var(--ink-3); }
+
+  /* add row */
+  .addRow { display: flex; gap: 13px; align-items: center; padding-top: 4px; }
+  .addGlyph { width: 28px; flex: none; position: relative; height: 52px; }
+  .addGlyph .spine { position: absolute; left: 13px; top: 0; height: 15px; width: 2px; background: var(--border); }
+  .addGlyph .node {
+    position: absolute; left: 7px; top: 18px; width: 16px; height: 16px; border-radius: 50%;
+    border: 2px dashed var(--border-strong); color: var(--accent); font-family: var(--mono);
+    font-size: 11px; font-weight: 600; display: grid; place-items: center;
+  }
+  .addKey {
+    font-family: var(--sans); font-size: 14px; font-weight: 600; color: var(--accent);
+    padding: 0 18px; height: 44px; display: inline-flex; align-items: center;
+    background: var(--ground); border: 1px solid var(--border-strong); border-radius: 10px;
+    box-shadow: 0 3px 0 var(--border-strong); transform: translateY(-1.5px); cursor: pointer;
+  }
+
+  /* bottom bar */
+  .bottombar { padding: 12px 16px 10px; background: var(--ground); border-top: 1px solid var(--border); }
+  .startKey {
+    position: relative; overflow: hidden; width: 100%; height: 52px;
+    border: 0; border-radius: 11px; cursor: pointer;
+    background: var(--primary-fill); color: var(--on-primary);
+    font-family: var(--sans); font-size: 15px; font-weight: 700;
+    box-shadow: 0 4px 0 var(--border-strong); transform: translateY(-2px);
+    display: grid; place-items: center;
+  }
+  .startKey:active { transform: translateY(2px); box-shadow: 0 0 0 var(--border-strong); }
+  .startKey .wipe {
+    position: absolute; inset: 0; background: var(--accent);
+    transform: scaleX(0); transform-origin: left center; transition: transform 0.32s ease-in-out;
+  }
+  .startKey.go .wipe { transform: scaleX(1); }
+  .startKey .face { position: relative; display: flex; align-items: center; gap: 8px; }
+  .startKey .labelBox { position: relative; display: inline-block; }
+  .startKey .labelBox .ghost { visibility: hidden; }
+  .startKey .labelBox .live { position: absolute; right: 0; top: 0; white-space: nowrap; transition: opacity 0.2s ease-out; }
+  .chevRun { display: flex; gap: 3px; align-items: center; }
+  .chevRun i {
+    font-style: normal; font-size: 15px; font-weight: 700; line-height: 1;
+    transition: opacity 0.15s ease-in-out, transform 0.2s ease-out, margin 0.2s ease-out;
+  }
+  .chevRun i.extra { opacity: 0; margin-left: -12px; }
+  .startKey.go .chevRun i.extra { margin-left: 0; }
+
+  /* mock sheet */
+  .sheetWrap { position: absolute; inset: 0; z-index: 9; pointer-events: none; }
+  .scrim { position: absolute; inset: 0; background: rgba(0,0,0,0.45); opacity: 0; transition: opacity 0.2s ease-out; }
+  .sheet {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    background: var(--surface); border-top: 1px solid var(--border-strong);
+    border-radius: 18px 18px 0 0; padding: 16px 20px 26px;
+    transform: translateY(105%); transition: transform 0.26s cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+  .sheetWrap.open { pointer-events: auto; }
+  .sheetWrap.open .scrim { opacity: 1; }
+  .sheetWrap.open .sheet { transform: translateY(0); }
+  .sheetHead { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
+  .sheetHead h3 { font-size: 15px; margin: 0; font-weight: 700; }
+  .sheetHead button { font: inherit; font-size: 13px; background: none; border: 0; color: var(--ink-2); cursor: pointer; }
+  .sheetBody { font-size: 13px; color: var(--ink-2); line-height: 1.5; }
+  .tape {
+    margin-top: 14px; height: 56px; border-radius: 10px; background: var(--ground);
+    border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 20px; color: var(--ink); position: relative;
+  }
+  .tape::before, .tape::after { content: ""; position: absolute; top: 12px; bottom: 12px; width: 1px; background: var(--border-strong); }
+  .tape::before { left: 33%; } .tape::after { right: 33%; }
+
+  /* ---------- notes ---------- */
+  .notes { margin-top: 40px; border-top: 1px solid var(--page-line); padding-top: 28px; }
+  .notes h2 { font-size: 20px; margin: 0 0 16px; letter-spacing: -0.015em; }
+  .noteGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .note { border: 1px solid var(--page-line); border-radius: 12px; padding: 16px; background: var(--page-panel); }
+  .note h3 { font-size: 14px; margin: 0 0 8px; }
+  .note p { margin: 0 0 8px; font-size: 13px; line-height: 1.55; color: var(--page-ink-2); }
+  .note p:last-child { margin-bottom: 0; }
+  .note .flag { font-family: var(--mono); font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--notes); }
+  .note code { font-family: var(--mono); font-size: 12px; color: var(--page-ink); }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+  }
+</style>
+
+<div class="wrap">
+<div class="col">
+
+  <div class="masthead">
+    <button class="themeToggle" id="themeToggle" type="button">Light / dark</button>
+    <p class="eyebrow">Prototype · routine detail</p>
+    <h1>PT A, rebuilt</h1>
+    <p class="lede">Every item from your list, live in the phone below. Four were unambiguous and are just <b>built</b>: the header scrolls, the name hands off to the bar, exercise names wrap, and Start plays the welcome key's ignition. Four had no obvious answer, so each is a switch in this column — flip them and watch the screen. Recommendations are marked <span class="rec">▸ pick</span>. The routine is padded to seven exercises so there is something to scroll.</p>
+  </div>
+
+  <div class="stage">
+    <div>
+
+      <div class="opt">
+        <h2>1 · What sticks when you scroll</h2>
+        <p class="why">Everything scrolls now, and the name hands off to the bar the way <b>Today</b> does. The open question is what stays behind. Scroll the phone to see each.</p>
+        <div class="segs" id="bandSegs">
+          <button class="seg" type="button" data-v="condensed" aria-pressed="true"><span class="tag">A <span class="rec">▸ pick</span></span>Settings chips only</button>
+          <button class="seg" type="button" data-v="full" aria-pressed="false"><span class="tag">B</span>Chips + equipment</button>
+          <button class="seg" type="button" data-v="none" aria-pressed="false"><span class="tag">C</span>Nothing sticks</button>
+        </div>
+        <p class="fixedNote"><b>A</b> pins a 44 pt band — the three doors you might change before starting. <b>B</b> pins ~100 pt, and equipment is a thing you read once on arrival, not something you consult while scrolling the list. <b>C</b> is honest but gives up the one thing a pinned band is for.</p>
+      </div>
+
+      <div class="opt">
+        <h2>2 · The exercise row</h2>
+        <p class="why">Names wrap to two lines in all three. The right-hand side is the question: how literally to copy Today's card, which prints <code>target</code> beside <code>prev</code> and no delta.</p>
+        <div class="segs" id="rowSegs">
+          <button class="seg" type="button" data-v="stacked" aria-pressed="true"><span class="tag">A <span class="rec">▸ pick</span></span>Stacked under the name</button>
+          <button class="seg" type="button" data-v="ledger" aria-pressed="false"><span class="tag">B</span>Two columns, ledger</button>
+          <button class="seg" type="button" data-v="target" aria-pressed="false"><span class="tag">C</span>Target only, prev on change</button>
+        </div>
+        <p class="fixedNote"><b>A</b> keeps the ledger's rules (lit where it moved, dim where it held, prev flat, no delta) but gives the name the full width. <b>B</b> is the literal copy of Today's card, headers and all — flip to it and watch what happens to <i>Dumbbell Shoulder Press</i>: the rail takes 41 pt, two mono columns take 158, and the name is left with about 115. That is the finding, not a tuning problem. <b>C</b> stays silent on a routine you have not changed.</p>
+      </div>
+
+      <div class="opt">
+        <h2>3 · Equipment capsules</h2>
+        <p class="why">The <code>EQUIPMENT</code> label is gone in all three. The size mismatch was real: a missing piece carried a chevron and 10/5 padding, an available one had neither and 8/2.5. Three ways to make the row deliberate.</p>
+        <div class="segs" id="gearSegs">
+          <button class="seg" type="button" data-v="doors" aria-pressed="true"><span class="tag">A <span class="rec">▸ pick</span></span>All of them are doors</button>
+          <button class="seg" type="button" data-v="dot" aria-pressed="false"><span class="tag">B</span>Uniform soft, amber dot</button>
+          <button class="seg" type="button" data-v="count" aria-pressed="false"><span class="tag">C</span>One key, then data tags</button>
+        </div>
+        <p class="fixedNote"><b>A</b> gives every piece one shape, one size and a job — amber opens the resolve sheet, neutral opens what-uses-this. <b>B</b> keeps the inert card look and drops the chevron, so the amber ones read but nothing taps. <b>C</b> puts the only tap target up front and leaves the rest as data.</p>
+      </div>
+
+      <div class="opt">
+        <h2>4 · Editing from the header</h2>
+        <p class="why">The proposed law: <b>derived facts are text, settings are chips</b>. Estimate, exercise and set counts stay inert prose; schedule, rest, transition and notes become doors. Tap any chip in the phone to see it open.</p>
+        <div class="segs" id="editSegs">
+          <button class="seg" type="button" data-v="on" aria-pressed="true"><span class="tag">A <span class="rec">▸ pick</span></span>Chips + tap-to-rename</button>
+          <button class="seg" type="button" data-v="chips" aria-pressed="false"><span class="tag">B</span>Chips, name in settings</button>
+          <button class="seg" type="button" data-v="off" aria-pressed="false"><span class="tag">C</span>Today's behaviour</button>
+        </div>
+        <p class="fixedNote">Settings keeps rename, transition and delete either way — it stops being the only route, not the route. <b>A</b>'s tap target is the title itself, which is also the thing that flies into the bar; <b>B</b> avoids that overload.</p>
+      </div>
+
+      <div class="opt">
+        <h2>Settled, no option needed</h2>
+        <p class="why">Built into every variant above: the header scrolls; the name hands off to the bar; names wrap to two lines; the <code>EQUIPMENT</code> label is gone; and <b>Start workout</b> now plays the welcome screen's ignition. Tap it.</p>
+      </div>
+
+    </div>
+
+    <div class="deviceCol">
+      <div class="device">
+        <div class="screen" id="screen" data-band="condensed" data-row="stacked" data-gear="doors" data-edit="on">
+
+          <div class="statusbar"><span>12:48</span><span class="right">▮▮▮ ᯤ 73</span></div>
+
+          <div class="topbar">
+            <div class="keysq">‹</div>
+            <div class="spacer"></div>
+            <div class="keysq">↑</div>
+            <div class="keysq">⚙</div>
+            <div class="barTitle" id="barTitle">PT A</div>
+          </div>
+
+          <div class="body" id="scrollBody">
+            <div class="pad">
+              <h2 class="bigTitle" id="bigTitle">
+                <button type="button" data-sheet="Rename routine" data-sheet-body="The name commits when you leave the field. A duplicate is refused in place, same rule as settings.">PT A<span class="pencil">✎</span></button>
+              </h2>
+              <div class="bandRow" id="legacySubtitle" hidden style="margin-top:10px">
+                <span style="font-size:14px;color:var(--ink-2)">Upper ·</span>
+                <button class="chip" type="button" data-sheet="Schedule" data-sheet-body="Every tuesday. The same tray the settings row opens.">🗓 tue<span class="chev">›</span></button>
+              </div>
+              <p class="factline" id="staticFacts">Upper · ~30 min · 7 exercises · 20 sets</p>
+            </div>
+
+            <div class="band" id="band">
+              <div class="bandRow">
+                <button class="chip" type="button" data-sheet="Schedule" data-sheet-body="Every tuesday. The same tray the settings row opens.">🗓 tue<span class="chev">›</span></button>
+                <button class="chip" type="button" data-sheet="Rest between sets" data-sheet-body="The tape you already have on the settings row, one tap closer.">rest 45s<span class="chev">›</span></button>
+                <button class="chip" type="button" data-sheet="Transition between exercises" data-sheet-body="Switching stations uses this instead of rest. 0 skips the countdown.">transition 15s<span class="chev">›</span></button>
+              </div>
+              <p class="bandFacts" id="bandFacts" hidden>Upper · ~30 min · 7 exercises · 20 sets</p>
+            </div>
+
+            <div class="pad" id="gearHome">
+              <p class="sectionLabel" id="gearLabel" hidden>Equipment</p>
+              <div class="gearRow" id="gearRow"></div>
+            </div>
+
+            <div class="pad">
+              <button class="noteRow" type="button" id="noteRow" data-sheet="Notes" data-sheet-body="Written inline, exactly as the settings field writes it. With a note saved, this row shows it instead of the prompt.">＋ Add a note<span class="chev">›</span></button>
+            </div>
+
+            <div class="rail">
+              <div class="colhead" id="colhead"><span>target</span><span>prev</span></div>
+              <div id="rows"></div>
+              <div class="addRow">
+                <div class="addGlyph"><div class="spine"></div><div class="node">+</div></div>
+                <button class="addKey" type="button">Add exercise</button>
+              </div>
+            </div>
+            <div style="height: 24px"></div>
+          </div>
+
+          <div class="bottombar">
+            <button class="startKey" id="startKey" type="button">
+              <span class="wipe"></span>
+              <span class="face">
+                <span class="labelBox">
+                  <span class="ghost">Start workout</span>
+                  <span class="live" id="startLabel">Start workout</span>
+                </span>
+                <span class="chevRun" id="chevRun">
+                  <i data-i="0">›</i><i class="extra" data-i="1">›</i><i class="extra" data-i="2">›</i>
+                </span>
+              </span>
+            </button>
+          </div>
+
+          <div class="sheetWrap" id="sheetWrap">
+            <div class="scrim" data-close></div>
+            <div class="sheet">
+              <div class="sheetHead"><h3 id="sheetTitle">Rest</h3><button type="button" data-close>Done</button></div>
+              <p class="sheetBody" id="sheetBody"></p>
+              <div class="tape" id="sheetTape">45s</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <h2>What each of these costs to build</h2>
+    <div class="noteGrid">
+
+      <div class="note">
+        <span class="flag">⚠ decide first</span>
+        <h3>The title hand-off has two routes</h3>
+        <p>Giving detail the <b>system</b> navigation bar with a large title buys Today's collapse for free and writes no state. But a system large title does not wrap, and single-line truncation is exactly what build-78 moved the name into the body to fix.</p>
+        <p>So the prototype hand-rolls it: two-line wrap kept, crossfade driven by a pure render-time <code>visualEffect</code>. That matters — an <code>onGeometryChange</code> or a <code>PreferenceKey</code> write anywhere in the TabView subtree breaks the search-role morph.</p>
+      </div>
+
+      <div class="note">
+        <span class="flag">⚠ rail geometry</span>
+        <h3>Two-line names break uniform rows</h3>
+        <p><code>RailLayout</code> assumes one <code>railRowHeight</code> for every row, and the drag, ring and drop targets all read it. A wrapping name makes rows variable-height.</p>
+        <p>Cheapest correct answer: keep rows uniform and raise the height to fit two lines at body size, so nothing in <code>RailArrangement</code> changes. Teaching the layout per-row heights is the honest fix and a much bigger diff — worth its own issue.</p>
+      </div>
+
+      <div class="note">
+        <h3>prev already exists</h3>
+        <p>Today's card builds its rows from <code>ledger(for:)</code> in <code>TodayView</code>, over <code>RoutineDiff</code> and <code>Prescription.blockRuns(prior:)</code>. Detail needs the same producer, so it moves out of <code>TodayView</code> into a shared place beside <code>RoutineCardContent</code> and both surfaces read it.</p>
+        <p>That also gets the ledger's rules for free: no green, no delta, prev flat, and the stacked reflow at accessibility sizes.</p>
+      </div>
+
+      <div class="note">
+        <h3>One ignition, two call sites</h3>
+        <p>The welcome key's wipe, label morph and chevron march live inside <code>IntroView</code>. Lifting them into the shared <code>StartFlashButton</code> gives routine detail the full sequence and changes <b>Today's Start too</b>, since both call it.</p>
+        <p>Worth wanting: one start gesture across the app. Flagging it because it is not only this screen.</p>
+      </div>
+
+      <div class="note">
+        <h3>What the chips do not take</h3>
+        <p>Focus, estimate, exercise and set counts are computed from the exercises — there is nothing to open, so they stay text. Effort only exists on catalog templates.</p>
+        <p>Rename, transition and delete stay in settings whichever option wins; the chips add a second door, they do not empty the room.</p>
+      </div>
+
+      <div class="note">
+        <span class="flag">⚠ device pass</span>
+        <h3>None of this is CI-visible</h3>
+        <p>Scroll-driven chrome, a sticky band and a leading-reveal rail all live below XCUITest, which dispatches through accessibility and skips gesture overlays. The rail already carries a leading DUPE reveal under <code>leadingRevealHost</code>; a taller row changes the drag distances it arbitrates against.</p>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+(function () {
+  var screen = document.getElementById("screen");
+
+  /* ---------- data: PT A, with last week's numbers ---------- */
+  var EXERCISES = [
+    { name: "Dumbbell Row",            target: "3×10–15", weight: "35lb",  prev: "3×12 · 30lb",   moved: true },
+    { name: "Dumbbell Shoulder Press", target: "3×8",     weight: "10lb",  prev: "3×8 · 10lb",    moved: false },
+    { name: "Dumbbell Curl",           target: "3×10",    weight: "15lb",  prev: "3×10 · 12.5lb", moved: true },
+    { name: "Push-Up",                 target: "3×8",     weight: "",      prev: "",              moved: false, isNew: true },
+    { name: "Lateral Raise",           target: "3×12",    weight: "10lb",  prev: "3×12 · 10lb",   moved: false },
+    { name: "Face Pull",               target: "3×15",    weight: "20lb",  prev: "3×15 · 17.5lb", moved: true },
+    { name: "Dead Bug",                target: "2×10",    weight: "",      prev: "2×10",          moved: false }
+  ];
+
+  var GEAR = [
+    { name: "Dumbbells", available: false },
+    { name: "Bench",     available: true  }
+  ];
+
+  /* ---------- rows ---------- */
+  function targetText(e) { return e.weight ? e.target + " · " + e.weight : e.target; }
+
+  function buildRows() {
+    var mode = screen.dataset.row;
+    var host = document.getElementById("rows");
+    document.getElementById("colhead").style.display = mode === "ledger" ? "flex" : "none";
+    host.innerHTML = "";
+
+    EXERCISES.forEach(function (e) {
+      var row = document.createElement("div");
+      row.className = "row";
+
+      var glyph = document.createElement("div");
+      glyph.className = "glyph";
+      glyph.innerHTML = '<div class="spine"></div><div class="node"></div>';
+      row.appendChild(glyph);
+
+      var body = document.createElement("div");
+      body.className = "rowBody";
+
+      var name = document.createElement("div");
+      name.className = "exName";
+      name.textContent = e.name;
+      body.appendChild(name);
+
+      if (mode === "ledger") {
+        // Each run stacks reps over weight — a single line does not fit
+        // beside the rail at phone width.
+        var runs = function (text) {
+          return text ? text.split(" · ").map(function (part) { return "<div>" + part + "</div>"; }).join("") : "";
+        };
+        var cells = document.createElement("div");
+        cells.className = "cells";
+        var t = document.createElement("div");
+        t.className = "cell target" + (e.moved ? "" : " held");
+        t.innerHTML = runs(targetText(e));
+        var p = document.createElement("div");
+        p.className = "cell prev" + (e.prev ? "" : " none");
+        p.innerHTML = e.prev ? runs(e.prev) : "<div>" + (e.isNew ? "new" : "—") + "</div>";
+        cells.appendChild(t); cells.appendChild(p);
+        body.appendChild(cells);
+      } else if (mode === "stacked") {
+        var lines = document.createElement("div");
+        lines.className = "stackLines";
+        lines.innerHTML = '<span class="t">' + targetText(e) + "</span>" +
+          '<span class="p">' + (e.prev ? "prev " + e.prev : e.isNew ? "new" : "") + "</span>";
+        name.appendChild(lines);
+      } else {
+        var only = document.createElement("div");
+        only.className = "cells single";
+        var ot = document.createElement("div");
+        ot.className = "cell target";
+        ot.innerHTML = targetText(e) +
+          (e.moved ? '<br><span style="color:var(--ink-3)">was ' + e.prev.split(" · ").pop() + "</span>" : "");
+        only.appendChild(ot);
+        body.appendChild(only);
+      }
+
+      row.appendChild(body);
+      host.appendChild(row);
+    });
+  }
+
+  /* ---------- equipment ---------- */
+  function buildGear() {
+    var mode = screen.dataset.gear;
+    var host = document.getElementById("gearRow");
+    host.innerHTML = "";
+
+    if (mode === "count") {
+      var missing = GEAR.filter(function (g) { return !g.available; });
+      if (missing.length) {
+        var key = document.createElement("button");
+        key.type = "button";
+        key.className = "chip amber";
+        key.innerHTML = missing.length + " not in your kit<span class='chev'>›</span>";
+        key.dataset.sheet = "Dumbbells";
+        key.dataset.sheetBody = "Add it to main · switch kit · swap the moves that need it.";
+        host.appendChild(key);
+      }
+      GEAR.forEach(function (g) {
+        var tag = document.createElement("span");
+        tag.className = "chip data";
+        tag.textContent = g.name;
+        host.appendChild(tag);
+      });
+      return;
+    }
+
+    GEAR.slice().sort(function (a, b) { return (a.available ? 1 : 0) - (b.available ? 1 : 0); })
+      .forEach(function (g) {
+        if (mode === "dot") {
+          var tag = document.createElement("span");
+          tag.className = "chip data";
+          if (!g.available) { tag.innerHTML = "<span class='dot'></span>"; tag.style.color = "var(--notes-ink)"; }
+          tag.appendChild(document.createTextNode(g.name));
+          host.appendChild(tag);
+        } else {
+          var btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "chip" + (g.available ? "" : " amber");
+          btn.textContent = g.name;
+          btn.dataset.sheet = g.name;
+          btn.dataset.sheetBody = g.available
+            ? "In main. Used by 3 moves in this routine."
+            : "Add it to main · switch kit · swap the moves that need it.";
+          host.appendChild(btn);
+        }
+      });
+  }
+
+  /* ---------- sticky band ---------- */
+  function applyBand() {
+    var mode = screen.dataset.band;
+    var band = document.getElementById("band");
+    var facts = document.getElementById("bandFacts");
+    band.classList.toggle("unstuck", mode === "none");
+    facts.hidden = mode !== "full";
+    document.getElementById("staticFacts").style.display = mode === "full" ? "none" : "";
+    // In "full" the equipment row rides the band; otherwise it scrolls below it.
+    var gear = document.getElementById("gearHome");
+    if (mode === "full") {
+      band.appendChild(gear);
+      gear.style.padding = "0";
+    } else {
+      band.parentElement.insertBefore(gear, band.nextSibling);
+      gear.style.padding = "";
+    }
+  }
+
+  /* ---------- scroll: title hand-off ---------- */
+  var body = document.getElementById("scrollBody");
+  var bigTitle = document.getElementById("bigTitle");
+  var barTitle = document.getElementById("barTitle");
+  var band = document.getElementById("band");
+
+  function onScroll() {
+    var y = body.scrollTop;
+    var span = 34;                       // the distance over which the name hands off
+    var p = Math.max(0, Math.min(1, (y - 8) / span));
+    bigTitle.style.opacity = String(1 - p);
+    bigTitle.style.transform = "translateY(" + (-6 * p) + "px)";
+    barTitle.style.opacity = String(p);
+    barTitle.style.transform = "translateY(" + (6 * (1 - p)) + "px)";
+    band.classList.toggle("pinned", screen.dataset.band !== "none" && y > band.offsetTop - 1);
+  }
+  body.addEventListener("scroll", onScroll, { passive: true });
+
+  /* ---------- mock sheets ---------- */
+  var sheetWrap = document.getElementById("sheetWrap");
+  document.addEventListener("click", function (ev) {
+    var opener = ev.target.closest("[data-sheet]");
+    if (opener && screen.contains(opener)) {
+      if (screen.dataset.edit !== "on" && opener.closest(".bigTitle")) return;
+      document.getElementById("sheetTitle").textContent = opener.dataset.sheet;
+      document.getElementById("sheetBody").textContent = opener.dataset.sheetBody || "";
+      var label = opener.dataset.sheet.toLowerCase();
+      var tape = document.getElementById("sheetTape");
+      var isTape = label.indexOf("rest") === 0 || label.indexOf("transition") === 0;
+      tape.style.display = isTape ? "flex" : "none";
+      tape.textContent = label.indexOf("rest") === 0 ? "45s" : "15s";
+      sheetWrap.classList.add("open");
+      return;
+    }
+    if (ev.target.closest("[data-close]")) sheetWrap.classList.remove("open");
+  });
+
+  /* ---------- start key ignition ---------- */
+  var startKey = document.getElementById("startKey");
+  var startLabel = document.getElementById("startLabel");
+  var chevs = Array.prototype.slice.call(document.querySelectorAll("#chevRun i"));
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var igniting = false;
+
+  function setChev(active) {
+    chevs.forEach(function (c, i) {
+      if (!igniting || reduce) { c.style.opacity = i === 0 ? "1" : "0"; return; }
+      c.style.opacity = i === active ? "1" : "0.25";
+    });
+  }
+  setChev(0);
+
+  startKey.addEventListener("click", function () {
+    if (igniting) return;
+    igniting = true;
+    startKey.classList.add("go");
+    startLabel.textContent = "let's go";
+    setChev(0);
+    if (reduce) {
+      window.setTimeout(reset, 700);
+      return;
+    }
+    var hop = 0;
+    var timer = window.setInterval(function () {
+      setChev(hop % 3);
+      hop += 1;
+      if (hop > 6) { window.clearInterval(timer); reset(); }
+    }, 150);
+  });
+
+  function reset() {
+    igniting = false;
+    startKey.classList.remove("go");
+    startLabel.textContent = "Start workout";
+    setChev(0);
+  }
+
+  /* ---------- option wiring ---------- */
+  function wire(id, key, after) {
+    var group = document.getElementById(id);
+    group.addEventListener("click", function (ev) {
+      var seg = ev.target.closest(".seg");
+      if (!seg) return;
+      group.querySelectorAll(".seg").forEach(function (s) { s.setAttribute("aria-pressed", String(s === seg)); });
+      screen.dataset[key] = seg.dataset.v;
+      after();
+      onScroll();
+    });
+  }
+  wire("bandSegs", "band", applyBand);
+  wire("rowSegs", "row", buildRows);
+  wire("gearSegs", "gear", buildGear);
+  function applyEdit() {
+    var legacy = screen.dataset.edit === "off";
+    document.getElementById("band").style.display = legacy ? "none" : "";
+    document.getElementById("legacySubtitle").hidden = !legacy;
+    document.getElementById("gearLabel").hidden = !legacy;
+    document.getElementById("noteRow").hidden = legacy;
+    document.getElementById("staticFacts").textContent = legacy
+      ? "~15 min · 4 exercises · 12 sets · rest 45s"
+      : "Upper · ~30 min · 7 exercises · 20 sets";
+    document.getElementById("gearRow").style.marginTop = legacy ? "0" : "";
+  }
+  wire("editSegs", "edit", applyEdit);
+
+  /* ---------- theme ---------- */
+  document.getElementById("themeToggle").addEventListener("click", function () {
+    var root = document.documentElement;
+    var dark = root.getAttribute("data-theme") !== "light";
+    root.setAttribute("data-theme", dark ? "light" : "dark");
+  });
+
+  buildRows();
+  buildGear();
+  applyBand();
+  applyEdit();
+  onScroll();
+})();
+</script>
