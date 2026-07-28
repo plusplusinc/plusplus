@@ -47,7 +47,7 @@ struct MascotDemoSheet: View {
 
             Spacer(minLength: 0)
         }
-        .background(Theme.surface)
+        .background(Theme.background)
         // A downward orbit drag must never be claimed by the sheet's
         // dismiss gesture; the ✕ key and Escape both close.
         .interactiveDismissDisabled()

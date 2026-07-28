@@ -147,15 +147,23 @@ struct IncrementSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 5) {
-                Text("INCREMENT")
-                    .font(.system(.footnote, design: .monospaced, weight: .semibold))
-                    .kerning(0.7)
-                    .foregroundStyle(Theme.textSecondary)
-                Text("How much each step changes \(metric.label.lowercased()).")
-                    .font(.system(.subheadline))
-                    .foregroundStyle(Theme.textSecondary)
+            // A tray leads with a SheetHeader title and a text dismissal
+            // key, like every other tray (2026-07-28). This one led with an
+            // ALL-CAPS mono label — which is the SECTION vocabulary, not the
+            // title one — and offered no way out but a swipe, so it was the
+            // only tray in the app with nothing in its top-right corner.
+            // `closeOnly` because picking a chip IS the action and dismisses.
+            SheetHeader(
+                title: "Increment",
+                actionLabel: "Done",
+                actionIdentifier: "closeIncrementSheet",
+                closeOnly: true
+            ) {
+                dismiss()
             }
+            Text("How much each step changes \(metric.label.lowercased()).")
+                .font(.system(.subheadline))
+                .foregroundStyle(Theme.textSecondary)
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 80), spacing: 10)], spacing: 10) {
                 ForEach(choices, id: \.self) { choice in
@@ -170,10 +178,18 @@ struct IncrementSheet: View {
                 .foregroundStyle(Theme.textFaint)
             Spacer(minLength: 0)
         }
-        .padding(20)
+        // Horizontal + bottom only: `SheetHeader` carries its own 24 pt of
+        // grabber clearance, and stacking a container top inset on that
+        // pushes the title twice as far down as every other tray's.
+        .padding(.horizontal, 20)
+        .padding(.bottom, 20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .presentationDetents([.height(300), .medium])
-        .presentationDragIndicator(.visible)
+        // One detent, so no explicit drag indicator: the system shows a
+        // grabber exactly when a sheet is resizable, and this now matches
+        // the two other fixed-size pickers (metric, reps). It had `.medium`
+        // as a second detent, which is a FRACTION of the screen and lands
+        // BELOW 360 on a small phone, so "expanding" the sheet shrank it.
+        .presentationDetents([.height(360)])
         .background(Theme.background)
     }
 

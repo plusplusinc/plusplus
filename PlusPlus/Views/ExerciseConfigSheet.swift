@@ -99,8 +99,8 @@ struct ExerciseConfigSheet: View {
             .padding(.horizontal, 18)
             .padding(.vertical, 12)
         }
-        .presentationBackground(Theme.surface)
-        .presentationDetents([.fraction(0.7), .large])
+        .presentationBackground(Theme.background)
+        .presentationDetents([.appTall])
         .sheet(item: $wheel) { metric in
             MetricWheelSheet(
                 metric: metric,
@@ -113,7 +113,7 @@ struct ExerciseConfigSheet: View {
             )
         }
         .sheet(isPresented: $showingRepsWheel) {
-            RepTargetWheelSheet(
+            RepTargetSheet(
                 target: RepTarget(lower: config.reps, upper: config.repsUpper)
             ) { newTarget in
                 config.reps = newTarget.lower
@@ -179,7 +179,7 @@ struct ExerciseConfigSheet: View {
                 onIncrement: { config.sets = min(20, config.sets + 1) }
             )
         }
-        .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
     }
 

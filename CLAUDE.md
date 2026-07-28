@@ -63,6 +63,7 @@ No third-party dependencies without discussion first.
 
 **On main, awaiting Dave's device pass** (reasoning in docs/DECISIONS.md under the dated entry):
 
+- Horizontal ticker — takes every MEASURED metric; ⚠️ the law is **a measured quantity scrubs, an enumerated scale wheels** (only resistance and RPE keep the wheel). Trays agree on top row, height and elevation (#462)
 - Colour audit — one selection look (tinted ground + ring + bright text, never a solid fill), kit names wear the data-tag treatment, `BrandPalette` is the single hue source, WCAG pass (#461)
 - Set screen — says "prev:", prints no delta, its bar carries the state grammar, one column; the rail's swipe law is DUPE leads / DELETE trails (#460)
 - Today — the pull's answer renders in the gap the pull opens; the week strip is a sticky band inside the scroll (#455, #459)
