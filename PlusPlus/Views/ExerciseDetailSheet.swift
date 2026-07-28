@@ -666,7 +666,7 @@ struct HeartRateTargetSheet: View {
             }
         }
         .presentationBackground(Theme.surface)
-        .presentationDetents([.fraction(0.85)])
+        .presentationDetents([.appTall])
     }
 
     /// Clamped so the band always spans at least 5 bpm inside 60–220 —

@@ -217,7 +217,7 @@ struct ActiveSessionView: View {
             SessionOverviewSheet(session: session, isResting: restEndDate != nil) {
                 endRest()
             }
-            .presentationDetents([.fraction(0.88)])
+            .presentationDetents([.appTall])
         }
         .sheet(isPresented: $showingAddExercise) {
             ExercisePickerView(onConfigured: { config in

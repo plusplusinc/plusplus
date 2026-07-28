@@ -100,7 +100,7 @@ struct ExerciseConfigSheet: View {
             .padding(.vertical, 12)
         }
         .presentationBackground(Theme.surface)
-        .presentationDetents([.fraction(0.7), .large])
+        .presentationDetents([.appTall])
         .sheet(item: $wheel) { metric in
             MetricWheelSheet(
                 metric: metric,

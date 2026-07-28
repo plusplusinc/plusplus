@@ -184,8 +184,12 @@ struct IncrementSheet: View {
         .padding(.horizontal, 20)
         .padding(.bottom, 20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .presentationDetents([.height(360), .medium])
-        .presentationDragIndicator(.visible)
+        // One detent, so no explicit drag indicator: the system shows a
+        // grabber exactly when a sheet is resizable, and this now matches
+        // the two other fixed-size pickers (metric, reps). It had `.medium`
+        // as a second detent, which is a FRACTION of the screen and lands
+        // BELOW 360 on a small phone, so "expanding" the sheet shrank it.
+        .presentationDetents([.height(360)])
         .background(Theme.background)
     }
 

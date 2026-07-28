@@ -135,7 +135,7 @@ struct SessionOverviewSheet: View {
                 selectedBlockKey = nil
                 dismiss()
             }
-            .presentationDetents([.fraction(0.84)])
+            .presentationDetents([.appTall])
         }
         .sheet(isPresented: $showingAddExercise) {
             ExercisePickerView(onConfigured: { config in
