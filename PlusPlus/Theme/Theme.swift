@@ -109,6 +109,17 @@ enum Theme {
 
     /// Exercise/routine notes ("form cues" amber).
     static let notes = BrandPalette.notes
+    /// Amber TEXT on a `notesWash` ground. ⚠️ NOT `notes` — that measures
+    /// 4.13:1 on its own wash in light mode. Same rule as `selectedInk`.
+    static let notesInk = BrandPalette.notesInk
+    /// The advisory chip's fill, and the ring that goes with it — amber's
+    /// answer to `selectedTint`/`selectedRing`, added 2026-07-28. The pair was
+    /// hand-built in five files at six different alphas (.12/.14 fills,
+    /// .40–.60 strokes); ⚠️ every one of those rings measured UNDER the 3:1
+    /// component floor (1.90:1 at .45 in light), which is the second reason to
+    /// have named it. 0.75 gives 3.14:1 light / 4.12:1 dark.
+    static let notesWash = notes.opacity(0.14)
+    static let notesRing = notes.opacity(0.75)
 
     static let destructive = BrandPalette.destructive
 

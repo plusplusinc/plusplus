@@ -62,6 +62,15 @@ enum BrandPalette {
     /// copy sits on a card rather than the page. 4.98:1 now. Same remedy, and
     /// the same reason, as the `textFaint` darkening in the 2026-07-13 audit.
     static let notes = Color(light: 0x8F5F00, dark: 0xCFA14A, lightHC: 0x805400, darkHC: 0xDCB25E)
+    /// Advisory amber as TEXT ON ITS OWN WASH — the "needs barbell" chip, the
+    /// GPS-off key, a carried-over caption inside its amber card.
+    ///
+    /// ⚠️ Exactly the `selectedInk` story, one hue over (2026-07-28): plain
+    /// `notes` on a 14% amber ground measures 4.13:1 in light mode, under the
+    /// AA floor. These land at ~4.9 / ~5.7. Amber's wash and ring are tokens
+    /// now (`Theme.notesWash`/`notesRing`) rather than five hand-built copies,
+    /// which is what let this be measured once instead of five times.
+    static let notesInk = Color(light: 0x805400, dark: 0xDCB25E, lightHC: 0x6E4800, darkHC: 0xE3BE72)
     static let destructive = Color(light: 0xCF222E, dark: 0xE5534B, lightHC: 0xB01722, darkHC: 0xEC6B63)
 
     // MARK: Swipe blocks

@@ -121,9 +121,9 @@ struct EquipmentResolveSheet: View {
                 VStack(alignment: .leading, spacing: 0) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.system(size: 22))
-                        .foregroundStyle(Theme.notes)
+                        .foregroundStyle(Theme.notesInk)
                         .frame(width: 44, height: 44)
-                        .background(Theme.notes.opacity(0.14), in: RoundedRectangle(cornerRadius: 12))
+                        .background(Theme.notesWash, in: RoundedRectangle(cornerRadius: 12))
                         .padding(.top, 8)
 
                     Text("\(equipmentName) isn't in your kit")
@@ -186,7 +186,8 @@ struct EquipmentResolveSheet: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("CLEANEST FIX")
                     .font(.system(.caption2, design: .monospaced, weight: .semibold))
-                    .foregroundStyle(Theme.notes)
+                    // The whole card is an amber wash, so its label is ink.
+                    .foregroundStyle(Theme.notesInk)
                 if let best = res.bestKit {
                     Text("Switch to the \(best) kit")
                         .font(.system(.body, weight: .semibold))
@@ -214,19 +215,19 @@ struct EquipmentResolveSheet: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
-            .background(Theme.notes.opacity(0.12), in: RoundedRectangle(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.notes.opacity(0.4)))
+            .background(Theme.notesWash, in: RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.notesRing))
 
             if let best = res.bestKit {
-                primaryButton(title: "Switch to the \(best) kit", systemImage: "arrow.left.arrow.right", tint: Theme.selected) {
+                primaryButton(title: "Switch to the \(best) kit", systemImage: "arrow.left.arrow.right") {
                     switchKit(named: best)
                 }
             } else if canAddToActiveKit {
-                primaryButton(title: "Add \(equipmentName.lowercased()) to the \(activeKitName) kit", systemImage: "plus", tint: Theme.accent) {
+                primaryButton(title: "Add \(equipmentName.lowercased()) to the \(activeKitName) kit", systemImage: "plus") {
                     addToKit()
                 }
             } else {
-                primaryButton(title: "Swap the moves", systemImage: "arrow.triangle.2.circlepath", tint: Theme.selected) {
+                primaryButton(title: "Swap the moves", systemImage: "arrow.triangle.2.circlepath") {
                     showingSwap = true
                 }
             }
@@ -332,24 +333,33 @@ struct EquipmentResolveSheet: View {
         .buttonStyle(.plain)
     }
 
+    /// ⚠️ INK/CREAM, never a hue (2026-07-28, closing the colour audit's first
+    /// finding). This sheet used to fill its primary blue, green or blue again
+    /// depending on which branch you landed in — so the button's colour tracked
+    /// the SITUATION rather than what pressing it does, on the one screen in
+    /// the app whose committing button wasn't `primaryFill`. Blue is selection
+    /// and green is data; an action is ink. It also joins the raised-key press
+    /// grammar and `Theme.keyRadius` — it was flat at radius 13, the only
+    /// committing button in the app that didn't depress.
+    ///
     /// ⚠️ A kit name in one of THESE labels takes the noun form ("the main
-    /// kit"), not the `KitTag` treatment (2026-07-28): the tag's soft
-    /// `surfaceRaised` fill is drawn for the page ground, and on a saturated
-    /// button fill it reads as a hole punched in the cap. Same rule stated in
-    /// `KitNamePhrase` — where a tag can't go, give the name its noun.
-    private func primaryButton(title: String, systemImage: String, tint: Color, action: @escaping () -> Void) -> some View {
+    /// kit"), not the `KitTag` treatment: the tag's soft `surfaceRaised` fill
+    /// is drawn for the page ground, and on a filled cap it reads as a hole
+    /// punched in it. Same rule stated in `KitNamePhrase` — where a tag can't
+    /// go, give the name its noun.
+    private func primaryButton(title: String, systemImage: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: systemImage)
                 Text(title).font(.system(.body, weight: .semibold))
             }
-            .foregroundStyle(Theme.onSelected)
+            .foregroundStyle(Theme.onPrimary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .background(tint, in: RoundedRectangle(cornerRadius: 13))
+            .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.raisedPrimaryKey(cornerRadius: Theme.keyRadius))
         .padding(.top, 12)
     }
 
@@ -441,13 +451,13 @@ struct SwapMovesSheet: View {
             } label: {
                 Text("Apply changes")
                     .font(.system(.body, weight: .semibold))
-                    .foregroundStyle(Theme.onSelected)
+                    .foregroundStyle(Theme.onPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(Theme.selected, in: RoundedRectangle(cornerRadius: 13))
+                    .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.raisedPrimaryKey(cornerRadius: Theme.keyRadius))
             .padding(.vertical, 10)
             .padding(.horizontal, 18)
         }

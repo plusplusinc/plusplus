@@ -1099,7 +1099,7 @@ struct TodayView: View {
             // and the future cards' dashed grey.
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.cardRadius)
-                    .strokeBorder(Theme.notes.opacity(0.55), lineWidth: 1)
+                    .strokeBorder(Theme.notesRing, lineWidth: 1)
             )
             .contentShape(Rectangle())
         }

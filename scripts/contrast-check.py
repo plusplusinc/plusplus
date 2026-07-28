@@ -21,20 +21,22 @@ LIGHT = dict(
     bg=0xFFFFFF, surface=0xF4F3F1, raised=0xEAE8E4, borderStrong=0xC2C0BA,
     ink=0x232220, ink2=0x6B6965, faint=0x6F6C68,
     accent=0x17914B, done=0x8250DF, selected=0x1668D2, selectedInk=0x0E4FA3,
-    notes=0x8F5F00, destructive=0xCF222E, primaryFill=0x232220, onPrimary=0xFFFFFF,
+    notes=0x8F5F00, notesInk=0x805400, destructive=0xCF222E, primaryFill=0x232220, onPrimary=0xFFFFFF,
     tintAlpha=0.12,
 )
 DARK = dict(
     bg=0x201F1D, surface=0x2A2925, raised=0x34322D, borderStrong=0x4E4B43,
     ink=0xF0EDE6, ink2=0x9D9B96, faint=0x949089,
     accent=0x46D17C, done=0xA371F7, selected=0x5CA8F5, selectedInk=0x8CC4FA,
-    notes=0xCFA14A, destructive=0xE5534B, primaryFill=0xF0EDE6, onPrimary=0x161616,
+    notes=0xCFA14A, notesInk=0xDCB25E, destructive=0xE5534B, primaryFill=0xF0EDE6, onPrimary=0x161616,
     tintAlpha=0.16,
 )
 # Swipe blocks are FIXED in both schemes: the system draws their label white
 # whatever the tint, so the fill is chosen for white rather than for the page.
 SWIPE = dict(add=0x0E7A3D, delete=0xCF222E, neutral=0x5F5C58)
 RING_ALPHA = 0.8
+NOTES_WASH_ALPHA = 0.14
+NOTES_RING_ALPHA = 0.75
 
 
 def _channel(c):
@@ -78,6 +80,12 @@ def checks(p):
         ("textFaint on surface", ratio(p["faint"], p["surface"]), 4.5),
         ("advisory amber on surface", ratio(p["notes"], p["surface"]), 4.5),
         ("advisory amber on page", ratio(p["notes"], p["bg"]), 4.5),
+        ("amber label on its wash · surface",
+         ratio(p["notesInk"], over(p["notes"], p["surface"], NOTES_WASH_ALPHA)), 4.5),
+        ("amber label on its wash · page",
+         ratio(p["notesInk"], over(p["notes"], p["bg"], NOTES_WASH_ALPHA)), 4.5),
+        ("amber ring vs surface",
+         ratio(over(p["notes"], p["surface"], NOTES_RING_ALPHA), p["surface"]), 3.0),
         ("kit tag ink on surfaceRaised", ratio(p["ink"], p["raised"]), 4.5),
         ("onPrimary on primaryFill", ratio(p["onPrimary"], p["primaryFill"]), 4.5),
         # Status colours as non-text indicators (set bar, rail nodes, pips).
