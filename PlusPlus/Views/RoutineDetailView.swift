@@ -218,6 +218,14 @@ struct RoutineDetailView: View {
         }
         // The one-time Health ask, in front of the first workout start.
         .healthStartPrimer($healthStartRequest)
+        // ⚠️ REQUIRED now that the rail carries a LEADING reveal (DUPE):
+        // this is a pushed screen, and the app's full-width back-swipe pan
+        // begins at ~10 pt while a reveal drag needs 16, so without this
+        // the pop wins every rightward drag and DUPE would be unreachable.
+        // Narrowed to the 44 pt edge band on THIS screen only, and turned
+        // off while routine settings is pushed on top so that screen keeps
+        // its full-width pop.
+        .leadingRevealHost(active: !showingRoutineSettings)
     }
 
     /// The share link for this routine — built fresh on each render so
@@ -545,11 +553,19 @@ struct RoutineDetailView: View {
         // zone (whose ring gesture stays in the UIKit long-press layer);
         // `enabled: railGesture == .idle` keeps a second finger from
         // opening sheets or closing rows while a rail gesture is live.
+        // ⚠️ The two acts sit on the edges the app's swipe law assigns
+        // them (2026-07-28): LEADING is curation, so DUPE reveals under a
+        // rightward drag; TRAILING is destructive, so DELETE keeps the
+        // left. They shared the trailing edge until now, which put a
+        // duplicate one thumb-width from a delete on the edge that means
+        // "destroy" everywhere else in the app. Each block is one 58 pt
+        // `SwipeActionButton`.
         return SwipeRevealRow(
             id: routineExercise.persistentModelID,
             openRow: $openSwipeRow,
             enabled: railGesture == .idle,
-            actionsWidth: 116,
+            actionsWidth: 58,
+            leadingActionsWidth: 58,
             onTap: { selectedExercise = routineExercise.uuid.map(IdentifiedUUID.init) },
             accessibilityActions: a11yActions
         ) {
@@ -562,15 +578,14 @@ struct RoutineDetailView: View {
             )
             .contentShape(Rectangle())
         } actions: {
-            HStack(spacing: 0) {
-                SwipeActionButton(label: "DUPE", color: Theme.primaryFill, labelColor: Theme.onPrimary) {
-                    openSwipeRow = nil
-                    duplicateExercise(routineExercise, in: group)
-                }
-                SwipeActionButton(label: "DELETE", color: Theme.destructive) {
-                    openSwipeRow = nil
-                    deleteExercise(routineExercise, in: group)
-                }
+            SwipeActionButton(label: "DELETE", color: Theme.destructive) {
+                openSwipeRow = nil
+                deleteExercise(routineExercise, in: group)
+            }
+        } leadingActions: {
+            SwipeActionButton(label: "DUPE", color: Theme.primaryFill, labelColor: Theme.onPrimary) {
+                openSwipeRow = nil
+                duplicateExercise(routineExercise, in: group)
             }
         }
         .frame(height: height)
