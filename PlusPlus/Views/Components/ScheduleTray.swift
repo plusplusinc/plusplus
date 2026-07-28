@@ -20,13 +20,20 @@ struct ScheduleTray: View {
     @Bindable var routine: Routine
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "Schedule", closeOnly: true) { dismiss() }
-                .padding(.horizontal, 18)
+        // The HOST owns the NavigationStack (2026-07-28) — it used to live
+        // inside `ScheduleEditor`, which meant the editor carried navigation
+        // chrome into every context that embedded it. Now that both hosts
+        // are stacks, the editor is plain content and nothing nests.
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 0) {
+                SheetHeader(title: "Schedule", closeOnly: true) { dismiss() }
+                    .padding(.horizontal, 18)
 
-            ScheduleEditor(routine: routine)
+                ScheduleEditor(routine: routine)
 
-            Spacer(minLength: 0)
+                Spacer(minLength: 0)
+            }
+            .toolbar(.hidden, for: .navigationBar)
         }
         .presentationBackground(Theme.background)
         .presentationDetents([.medium, .large])
@@ -34,10 +41,11 @@ struct ScheduleTray: View {
 }
 
 /// The schedule editor proper: mode picker + day chips / frequency steppers +
-/// captions, writing `routine.schedule` live. Carries NO header or
-/// presentation chrome so it can be embedded (the standalone `ScheduleTray`
-/// wraps it with a `SheetHeader` + detents; Today's `ScheduleRoutineTray`
-/// wraps it as a slide stage with a back key).
+/// captions, writing `routine.schedule` live. Carries NO header, navigation
+/// or presentation chrome so it can be embedded: the standalone
+/// `ScheduleTray` wraps it with a `SheetHeader` + detents, and Today's
+/// `ScheduleRoutineTray` PUSHES it. Both supply the `NavigationStack` its
+/// schedule-mode row needs.
 struct ScheduleEditor: View {
     @Bindable var routine: Routine
     /// Other routines' schedules feed the occupancy dots + the sharing list.
@@ -83,13 +91,13 @@ struct ScheduleEditor: View {
     }
 
     var body: some View {
-        // Self-contained NavigationStack so the schedule-mode push row works in
-        // BOTH embed contexts (the standalone ScheduleTray sheet and Today's
-        // slide-stage ScheduleRoutineTray, neither of which supplies one); the
-        // root nav bar is hidden so the host's header stays the header and only
-        // the pushed selection screen shows a (system) back bar.
-        NavigationStack {
-          ScrollView {
+        // ⚠️ Requires an AMBIENT NavigationStack from its host, so the
+        // schedule-mode row can push. Both hosts supply one and hide its root
+        // bar, so their own header stays the header and only the pushed
+        // selection screen shows a system back bar. The stack used to live
+        // here, which nested one inside Today's tray the moment that tray
+        // became a stack too.
+        ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 NavigationSelectRow(
                     title: "Schedule",
@@ -131,8 +139,6 @@ struct ScheduleEditor: View {
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 24)
-          }
-          .toolbar(.hidden, for: .navigationBar)
         }
     }
 

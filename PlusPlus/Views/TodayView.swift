@@ -2230,13 +2230,14 @@ private struct SetupRow: View {
     }
 }
 
-/// The start tray, restructured as a two-stage menu (Dave, build-45:
+/// The start tray, restructured as a two-step menu (Dave, build-45:
 /// a routine listed directly under the title read as part of the
-/// title, not an option). Stage one offers the two WAYS to start —
-/// "Choose a routine" and the no-plan escape — and stage two is the
-/// routine picker itself (rows + creation), sliding in like a push
-/// while the sheet grows a detent. Choosing a routine starts it — it
-/// commits to the timeline like any other session.
+/// title, not an option). The root offers the two WAYS to start —
+/// "Choose a routine" and the no-plan escape — and PUSHES the routine
+/// picker (rows + creation), the sheet growing a detent with the depth.
+/// Choosing a routine starts it — it commits to the timeline like any
+/// other session. The push became a real `NavigationStack` on
+/// 2026-07-28; it used to be a hand-rolled horizontal slide.
 private struct SwapInSheet: View {
     @Environment(\.dismiss) private var dismiss
     let routines: [Routine]
@@ -2247,105 +2248,58 @@ private struct SwapInSheet: View {
     let onCreate: () -> Void
     let onStartEmpty: () -> Void
 
-    private enum Stage {
-        case menu, picker
-    }
-
     /// The menu is two keys tall — a compact detent; the picker grows
-    /// to .medium (user-expandable to .large). The detent rides the
-    /// stage so the sheet resizes with the slide. The compact height
+    /// to .medium (user-expandable to .large). The detent rides the stack
+    /// DEPTH, so the sheet resizes with the push. The compact height
     /// scales with Dynamic Type so the two keys don't clip at large
     /// accessibility sizes (a11y audit 2026-07-13).
     @ScaledMetric(relativeTo: .body) private var menuDetentHeight: CGFloat = 280
     private var menuDetent: PresentationDetent { .height(menuDetentHeight) }
 
-    @State private var stage: Stage = .menu
+    /// One route, but an explicit path rather than a bare `NavigationLink`,
+    /// because the DETENT has to follow the depth — a compact sheet with a
+    /// routine list pushed into it would be two rows tall.
+    private enum Route: Hashable { case picker }
+
+    @State private var path: [Route] = []
     @State private var detent: PresentationDetent = .height(280)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            header
-
-            // The stage slide reads as a push: picker in from the
-            // trailing edge, menu out the leading one, reversing on
-            // back. Clipped so the moving stage can't draw over the
-            // sheet's padding mid-flight.
-            ZStack(alignment: .top) {
-                switch stage {
-                case .menu:
-                    menu
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .leading).combined(with: .opacity),
-                            removal: .move(edge: .leading).combined(with: .opacity)
-                        ))
-                case .picker:
-                    picker
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .trailing).combined(with: .opacity),
-                            removal: .move(edge: .trailing).combined(with: .opacity)
-                        ))
-                }
+        // A real NavigationStack, not the hand-rolled stage slide it
+        // shipped with (2026-07-28) — see .claude/rules/ui-interaction.md.
+        NavigationStack(path: $path) {
+            VStack(alignment: .leading, spacing: 0) {
+                // "Start a workout", not "Swap in": the header's start
+                // button opens this same tray (#266), and starting is what
+                // every path in it does.
+                SheetHeader(title: "Start a workout", closeOnly: true) { dismiss() }
+                menu
+                Spacer(minLength: 0)
             }
-            .clipped()
+            .padding(.horizontal, 18)
+            .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(for: Route.self) { _ in
+                picker
+                    .navigationTitle("Choose a routine")
+                    .navigationBarTitleDisplayMode(.inline)
+            }
         }
-        .padding(.horizontal, 18)
         .presentationBackground(Theme.background)
         .presentationDetents([menuDetent, .medium, .large], selection: $detent)
-        .onAppear { if stage == .menu { detent = menuDetent } }
-    }
-
-    private func go(to newStage: Stage) {
-        withAnimation(Theme.Anim.standard) {
-            stage = newStage
-            detent = newStage == .menu ? menuDetent : .medium
+        .onAppear { if path.isEmpty { detent = menuDetent } }
+        // Depth, not a stage flag: this fires for the back SWIPE too, which
+        // is the whole reason the stack replaced the slide.
+        .onChange(of: path.count) { _, depth in
+            detent = depth > 0 ? .medium : menuDetent
         }
     }
 
-    /// SheetHeader's closeOnly layout, hand-rolled so the picker stage
-    /// can seat a back key before the title.
-    private var header: some View {
-        HStack(alignment: .center, spacing: 10) {
-            if stage == .picker {
-                Button {
-                    go(to: .menu)
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(.footnote, weight: .bold))
-                        .foregroundStyle(Theme.textSecondary)
-                        .frame(width: 32, height: 32)
-                        .background(Theme.surface, in: Circle())
-                        .overlay(Circle().strokeBorder(Theme.border))
-                        // 32 pt visual, 44 pt hit — the ✕'s own
-                        // treatment (#130 target floor).
-                        .padding(6)
-                        .contentShape(Circle())
-                }
-                .accessibilityIdentifier("trayBackButton")
-                .transition(.opacity)
-            }
-            // "Start a workout", not "Swap in": the header's start
-            // button opens this same tray (#266), and starting is what
-            // every path in it does.
-            Text(stage == .menu ? "Start a workout" : "Choose a routine")
-                .font(.system(.title3, weight: .bold))
-                .foregroundStyle(Theme.textPrimary)
-            Spacer(minLength: 12)
-            // One dismissal vocabulary across every tray (2026-07-18): a
-            // text key, never a ✕ (✕ is the search-collapse glyph).
-            SheetDismissKey(label: "Done") {
-                dismiss()
-            }
-        }
-        .padding(.top, 24)
-        .animation(Theme.Anim.standard, value: stage == .picker)
-    }
-
-    // MARK: - Stage one: the two ways to start
+    // MARK: - The two ways to start
 
     private var menu: some View {
         VStack(alignment: .leading, spacing: 10) {
             Button {
-                go(to: .picker)
+                path.append(.picker)
             } label: {
                 HStack(spacing: 10) {
                     // The Routines tab's own glyph: this key drills
@@ -2416,7 +2370,7 @@ private struct SwapInSheet: View {
             : "\(routines.count) routine\(routines.count == 1 ? "" : "s")"
     }
 
-    // MARK: - Stage two: the routine picker
+    // MARK: - The routine picker, pushed
 
     private var picker: some View {
         ScrollView {
@@ -2504,6 +2458,9 @@ private struct SwapInSheet: View {
             }
             .padding(.top, 4)
             .padding(.bottom, 24)
+            // The pushed screen carries the gutters itself: the root's
+            // padding stops at the root.
+            .padding(.horizontal, 18)
         }
     }
 
@@ -2514,99 +2471,36 @@ private struct SwapInSheet: View {
     }
 }
 
-/// The "Schedule a routine" tray (Dave, 2026-07-24): a two-stage sheet that
-/// PICKS a routine, then slides to the SCHEDULER for it — the same
-/// horizontal-slide idiom as `SwapInSheet` / `GitHubSyncTray`. Reached from
-/// the rest-day card's schedule offer. Stage two reuses `ScheduleEditor`
-/// (extracted from `ScheduleTray`), so scheduling reads identically wherever
-/// it opens.
+/// The "Schedule a routine" tray (Dave, 2026-07-24): PICK a routine, then
+/// push its SCHEDULER. Reached from the rest-day card's schedule offer, and
+/// the pushed screen is `ScheduleEditor` (extracted from `ScheduleTray`), so
+/// scheduling reads identically wherever it opens. The push is a real
+/// `NavigationStack` as of 2026-07-28 — it spent four days as a hand-rolled
+/// horizontal slide, which is the thing that read janky.
 private struct ScheduleRoutineTray: View {
     @Environment(\.dismiss) private var dismiss
     /// The whole library — an empty routine is still schedulable, so this is
     /// the full list, not the startable subset.
     let routines: [Routine]
 
-    private enum Stage { case pick, schedule }
-
-    @State private var stage: Stage = .pick
-    @State private var picked: Routine?
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            header
-
-            // The stage slide reads as a push: the scheduler in from the
-            // trailing edge, the picker out the leading one, reversing on
-            // back. Clipped so the moving stage can't draw over the edges
-            // mid-flight.
-            ZStack(alignment: .top) {
-                switch stage {
-                case .pick:
-                    picker
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .leading).combined(with: .opacity),
-                            removal: .move(edge: .leading).combined(with: .opacity)
-                        ))
-                case .schedule:
-                    scheduler
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .trailing).combined(with: .opacity),
-                            removal: .move(edge: .trailing).combined(with: .opacity)
-                        ))
-                }
+        // A real NavigationStack, not the hand-rolled stage slide it shipped
+        // with (2026-07-28) — see the law in .claude/rules/ui-interaction.md.
+        // The back swipe, the titled back button and the settling sheet
+        // height all come from the system now.
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 0) {
+                SheetHeader(title: "Schedule a routine", closeOnly: true) { dismiss() }
+                    .padding(.horizontal, 18)
+                picker
             }
-            .clipped()
+            .toolbar(.hidden, for: .navigationBar)
         }
         .presentationBackground(Theme.background)
         .presentationDetents([.medium, .large])
     }
 
-    private func go(to newStage: Stage) {
-        // `.selection` is the snappy spring the grammar uses for slides (an
-        // ease-out tail reads muddy on a slide) — same as GitHubSyncTray.
-        withAnimation(Theme.Anim.selection) {
-            stage = newStage
-        }
-    }
-
-    /// SheetHeader's closeOnly layout, hand-rolled so the schedule stage can
-    /// seat a back key before the title.
-    private var header: some View {
-        HStack(alignment: .center, spacing: 10) {
-            if stage == .schedule {
-                Button {
-                    go(to: .pick)
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(.footnote, weight: .bold))
-                        .foregroundStyle(Theme.textSecondary)
-                        .frame(width: 32, height: 32)
-                        .background(Theme.surface, in: Circle())
-                        .overlay(Circle().strokeBorder(Theme.border))
-                        // 32 pt visual, 44 pt hit — the swap tray's back key.
-                        .padding(6)
-                        .contentShape(Circle())
-                }
-                .accessibilityIdentifier("trayBackButton")
-                .transition(.opacity)
-            }
-            Text(stage == .pick ? "Schedule a routine" : (picked?.name ?? "Schedule"))
-                .font(.system(.title3, weight: .bold))
-                .foregroundStyle(Theme.textPrimary)
-                .lineLimit(1)
-            Spacer(minLength: 12)
-            // One dismissal vocabulary across every tray: a text key, never a
-            // ✕ (✕ is the search-collapse glyph).
-            SheetDismissKey(label: "Done") {
-                dismiss()
-            }
-        }
-        .padding(.top, 24)
-        .padding(.horizontal, 18)
-        .animation(Theme.Anim.standard, value: stage == .schedule)
-    }
-
-    // MARK: - Stage one: pick a routine
+    // MARK: - Pick a routine
 
     private var picker: some View {
         ScrollView {
@@ -2618,9 +2512,14 @@ private struct ScheduleRoutineTray: View {
                         .padding(.vertical, 10)
                 }
                 ForEach(routines) { routine in
-                    Button {
-                        picked = routine
-                        go(to: .schedule)
+                    // A closure destination, so each push builds a FRESH
+                    // `ScheduleEditor` and its @State re-seeds from that
+                    // routine. The stage version reused one view and needed
+                    // an `.id(persistentModelID)` to force the same thing.
+                    NavigationLink {
+                        ScheduleEditor(routine: routine)
+                            .navigationTitle(routine.name)
+                            .navigationBarTitleDisplayMode(.inline)
                     } label: {
                         HStack(spacing: 12) {
                             VStack(alignment: .leading, spacing: 1) {
@@ -2644,23 +2543,13 @@ private struct ScheduleRoutineTray: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("scheduleRoutineRow")
                     .overlay(alignment: .bottom) { Divider().overlay(Theme.border) }
                 }
             }
             .padding(.top, 4)
             .padding(.bottom, 24)
             .padding(.horizontal, 18)
-        }
-    }
-
-    // MARK: - Stage two: schedule the picked routine
-
-    @ViewBuilder
-    private var scheduler: some View {
-        if let picked {
-            // Re-seed the editor's @State for each fresh pick.
-            ScheduleEditor(routine: picked)
-                .id(picked.persistentModelID)
         }
     }
 

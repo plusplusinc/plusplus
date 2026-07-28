@@ -63,6 +63,7 @@ No third-party dependencies without discussion first.
 
 **On main, awaiting Dave's device pass** (reasoning in docs/DECISIONS.md under the dated entry):
 
+- In-sheet drill-in is a `NavigationStack`, never a stage slide; ⚠️ the HOST owns the stack, and a growing detent rides `path.count` (#466)
 - Muscle groups — multi-select on an exercise; ⚠️ ordered list, `muscleGroups[0]` IS `muscleGroup`; nil means follow the catalog (#463)
 - Horizontal ticker — takes every MEASURED metric; ⚠️ the law is **a measured quantity scrubs, an enumerated scale wheels** (only resistance and RPE keep the wheel). Trays agree on top row, height and elevation (#462)
 - Colour audit — one selection look (tinted ground + ring + bright text, never a solid fill), kit names wear the data-tag treatment, `BrandPalette` is the single hue source, WCAG pass (#461)
