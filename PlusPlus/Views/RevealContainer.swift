@@ -91,6 +91,15 @@ struct RevealContainer<Content: View>: View {
     let controller: RevealController
     @ViewBuilder var content: Content
 
+    /// The swipe-to-open verdict for the CURRENT touch sequence, latched on
+    /// its first event: true = a rightward, horizontal-dominant drag the
+    /// drawer should take, false = anything else (a scroll, a leftward
+    /// row-swipe), nil = not yet decided. `@GestureState` so it clears when
+    /// the sequence ends OR is cancelled — a plain `@State` would carry one
+    /// drag's verdict into the next. See `openDrag` for why a re-evaluated
+    /// guard was not enough.
+    @GestureState private var openIntent: Bool?
+
     var body: some View {
         GeometryReader { geo in
             let f = controller.openFraction
@@ -125,13 +134,21 @@ struct RevealContainer<Content: View>: View {
                 // a full-throw open can't unmount it mid-gesture and skip
                 // endDrag. Inset below the header so it never swallows a tap
                 // on the ++ key; thin so it barely overlaps row content.
+                //
+                // ⚠️ `.simultaneousGesture`, NEVER `.gesture` (#169): this
+                // strip lies over the leading margin of every tab root's
+                // list, so a plain `.gesture` CLAIMS the touch sequence and
+                // starves the scroll pan — the #99 law, re-learned here. The
+                // direction guard in `openDrag` decides what the drawer DOES,
+                // which is not the same as what the recognizer CLAIMS, and
+                // only the second one decides whether the list scrolls.
                 if controller.canSwipeOpen && (f < 0.999 || controller.dragging) {
                     HStack(spacing: 0) {
                         Color.clear
                             .frame(width: 16)
                             .frame(maxHeight: .infinity)
                             .contentShape(Rectangle())
-                            .gesture(openDrag(width: width))
+                            .simultaneousGesture(openDrag(width: width))
                         Spacer(minLength: 0)
                     }
                     .padding(.top, 104)
@@ -181,15 +198,27 @@ struct RevealContainer<Content: View>: View {
     /// only engages on a rightward, horizontal-dominant intent — a vertical
     /// scroll or a leftward row-swipe started at the edge never moves the
     /// drawer. Once engaged it tracks like any drag.
+    ///
+    /// ⚠️ The verdict LATCHES on the sequence's first event (`openIntent`),
+    /// it is not re-asked per event. The old guard re-asked on every event
+    /// until one passed, so a scroll that curved rightward partway down could
+    /// still hand the drawer the touch mid-flick — the list would stop under
+    /// the finger and the app slide sideways. Latching also means a rejected
+    /// sequence stays rejected for its whole life, which is what lets this
+    /// coexist with the scroll pan rather than race it.
     private func openDrag(width: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 12, coordinateSpace: .global)
+            // Runs before `onChanged` for the same event (the ordering
+            // `SwipeRevealRow.dragBase` relies on), so the verdict is always
+            // decided by the time the handler below reads it.
+            .updating($openIntent) { value, state, _ in
+                guard state == nil else { return }
+                state = value.translation.width > 0
+                    && abs(value.translation.width) > abs(value.translation.height)
+            }
             .onChanged { value in
-                if !controller.dragging {
-                    guard value.translation.width > 0,
-                          abs(value.translation.width) > abs(value.translation.height)
-                    else { return }
-                    controller.beginDrag()
-                }
+                guard openIntent == true else { return }
+                if !controller.dragging { controller.beginDrag() }
                 controller.updateDrag(translationX: value.translation.width, width: width)
             }
             .onEnded { value in

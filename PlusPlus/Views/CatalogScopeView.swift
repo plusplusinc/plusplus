@@ -160,7 +160,10 @@ struct CatalogScopeView: View {
     @State private var pickerFieldWantsFocus = false
     @State private var path = NavigationPath()
     @State private var pushed: Push?
-    @State private var openSwipeRow: SwipeRevealOpen<PersistentIdentifier>?
+    // No `openSwipeRow` here any more: the catalog rows use NATIVE
+    // `.swipeActions` (2026-07-27), so UIKit owns which row is open, how it
+    // closes, and — the point of the change — the arbitration with the scroll
+    // pan. `SwipeRevealRow` survives only where a row is not in a `List`.
     /// Which "N … require more equipment" groups are open, by `Section.id`
     /// ("MISSING_MINE" / "MISSING_CATALOG"). Collapsed by default.
     @State private var expandedMissing: Set<String> = []
@@ -536,9 +539,12 @@ struct CatalogScopeView: View {
             ),
             onBack: { dismiss() }
         )
-        // Rightward row drags open the membership quick-add, so the full-width
-        // back-swipe narrows to the edge band here — and hands full width back
-        // the moment detail is pushed.
+        // ⚠️ STILL REQUIRED after the move to native `.swipeActions`. The
+        // leading edge is the membership quick-add, and the app's own
+        // full-width pop pan declares `shouldRecognizeSimultaneouslyWith` false
+        // — so it would win every rightward drag from UIKit's cell swipe just
+        // as it did from the hand-rolled one. Narrow the back-swipe to the edge
+        // band here, and hand full width back the moment detail is pushed.
         .leadingRevealHost(active: pushed == nil)
         .navigationDestination(item: $pushed) { push in
             switch push {
@@ -889,15 +895,7 @@ struct CatalogScopeView: View {
     }
 
     private func exerciseRow(_ exercise: Exercise, result: FindOrCreateEngine.Result) -> some View {
-        SwipeRevealRow(
-            id: exercise.persistentModelID,
-            openRow: $openSwipeRow,
-            // Trailing DELETE only for customs; built-ins can't be deleted.
-            actionsWidth: exercise.isBuiltIn ? 0 : 58,
-            leadingActionsWidth: 58,
-            onTap: { open(result) },
-            accessibilityActions: exerciseActions(exercise)
-        ) {
+        catalogRow { open(result) } content: {
             // The modality figure says what KIND of movement this is, which is
             // information beyond "this row is an exercise".
             ExerciseRowContent(
@@ -908,26 +906,28 @@ struct CatalogScopeView: View {
                 leadingSymbol: exercise.modalitySymbolName,
                 nameHighlight: highlight(exercise.name)
             )
-        } actions: {
-            if !exercise.isBuiltIn {
-                SwipeActionButton(label: "DELETE", color: Theme.destructive) {
-                    openSwipeRow = nil
-                    modelContext.delete(exercise)
-                }
-            } else {
-                EmptyView()
-            }
-        } leadingActions: {
-            // Favorite is creation-of-yours → green; toggles off to a neutral
-            // UNFAV when already lit. Unique per row: every realized row's
-            // hidden action lives in the accessibility tree.
-            SwipeActionButton(
-                label: exercise.isFavorite ? "UNFAV" : "FAV",
-                color: exercise.isFavorite ? Theme.textFaint : Theme.accent,
-                identifier: "favSwipe-\(exercise.name)"
-            ) {
-                openSwipeRow = nil
+        }
+        // LEADING is curation. Favorite is creation-of-yours → green; toggles
+        // off to a neutral UNFAV when already lit.
+        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+            Button {
                 exercise.isFavorite.toggle()
+            } label: {
+                Text(exercise.isFavorite ? "UNFAV" : "FAV")
+            }
+            .tint(exercise.isFavorite ? Theme.textFaint : Theme.accent)
+            .accessibilityIdentifier("favSwipe-\(exercise.name)")
+        }
+        // TRAILING is destructive, and only for customs — a built-in can't be
+        // deleted, so it gets no trailing swipe at all.
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            if !exercise.isBuiltIn {
+                Button(role: .destructive) {
+                    modelContext.delete(exercise)
+                } label: {
+                    Text("DELETE")
+                }
+                .tint(Theme.destructive)
             }
         }
     }
@@ -938,59 +938,42 @@ struct CatalogScopeView: View {
         unlocked: Int
     ) -> some View {
         let inKit = kitNames.contains(equipment.name)
-        return SwipeRevealRow(
-            id: equipment.persistentModelID,
-            openRow: $openSwipeRow,
-            actionsWidth: equipment.isBuiltIn ? 0 : 58,
-            leadingActionsWidth: isBodyweightKit ? 0 : 58,
-            onTap: { open(result) },
-            accessibilityActions: equipmentActions(equipment, inKit: inKit)
-        ) {
+        return catalogRow { open(result) } content: {
             EquipmentRowContent(
                 equipment: equipment,
                 unlockedCount: unlocked,
                 inKit: inKit ? true : nil,
                 nameHighlight: highlight(equipment.name)
             )
-        } actions: {
-            if !equipment.isBuiltIn {
-                SwipeActionButton(label: "DELETE", color: Theme.destructive) {
-                    openSwipeRow = nil
-                    deleteEquipment(equipment)
-                }
-            } else {
-                EmptyView()
-            }
-        } leadingActions: {
-            // Membership is the kit's curation. The null kit is immutable, so
-            // it gets no swipe at all.
+        }
+        // Membership is the kit's curation. The null kit is immutable, so it
+        // gets no leading swipe at all.
+        .swipeActions(edge: .leading, allowsFullSwipe: true) {
             if !isBodyweightKit {
-                SwipeActionButton(
-                    label: inKit ? "REMOVE" : "ADD",
-                    color: inKit ? Theme.destructive : Theme.accent,
-                    identifier: "quickAdd-\(equipment.name)"
-                ) {
-                    openSwipeRow = nil
+                Button {
                     setMembership(equipment, !inKit)
+                } label: {
+                    Text(inKit ? "REMOVE" : "ADD")
                 }
+                .tint(inKit ? Theme.destructive : Theme.accent)
+                .accessibilityIdentifier("quickAdd-\(equipment.name)")
+            }
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            if !equipment.isBuiltIn {
+                Button(role: .destructive) {
+                    deleteEquipment(equipment)
+                } label: {
+                    Text("DELETE")
+                }
+                .tint(Theme.destructive)
             }
         }
         .accessibilityIdentifier("equipmentCard-\(equipment.name)")
     }
 
     private func routineRow(_ routine: Routine, result: FindOrCreateEngine.Result) -> some View {
-        SwipeRevealRow(
-            id: routine.persistentModelID,
-            openRow: $openSwipeRow,
-            actionsWidth: 58,
-            onTap: { open(result) },
-            accessibilityActions: [
-                SwipeRowAction(name: "Delete") {
-                    openSwipeRow = nil
-                    deleteRoutine(routine)
-                }
-            ]
-        ) {
+        catalogRow { open(result) } content: {
             // The SHARED routine body (build 107's unification): title · one
             // meta line · the gear tier. Cardless out here, but a routine still
             // has to say its schedule, focus, effort and estimate — the row
@@ -1001,12 +984,35 @@ struct CatalogScopeView: View {
                 nameHighlight: highlight(routine.name),
                 leadingCapsules: matchCapsules(result.matchedExerciseName)
             )
-        } actions: {
-            SwipeActionButton(label: "DELETE", color: Theme.destructive) {
-                openSwipeRow = nil
-                deleteRoutine(routine)
-            }
         }
+        // Routines carry no leading curation — the MINE tier is the curation.
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button(role: .destructive) {
+                deleteRoutine(routine)
+            } label: {
+                Text("DELETE")
+            }
+            .tint(Theme.destructive)
+        }
+    }
+
+    /// One catalog row body: the whole row is the tap target, and NOTHING else
+    /// in it is (the swipes live on the List row, not on the content).
+    ///
+    /// ⚠️ `.buttonStyle(.plain)`, never the default — inside a `List`, row taps
+    /// route into default-styled buttons anywhere in the row, which was half of
+    /// the build-12 disappearing-rows bug. `templateRow` has always used this
+    /// shape; since 2026-07-27 every catalog row does.
+    private func catalogRow<Content: View>(
+        _ activate: @escaping () -> Void,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        Button(action: activate) {
+            content()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     /// A catalog template: nothing of yours to curate or destroy, so it's a
@@ -1033,36 +1039,11 @@ struct CatalogScopeView: View {
         .buttonStyle(.plain)
     }
 
-    private func exerciseActions(_ exercise: Exercise) -> [SwipeRowAction] {
-        var actions = [SwipeRowAction(name: exercise.isFavorite ? "Unfavorite" : "Favorite") {
-            openSwipeRow = nil
-            exercise.isFavorite.toggle()
-        }]
-        if !exercise.isBuiltIn {
-            actions.append(SwipeRowAction(name: "Delete") {
-                openSwipeRow = nil
-                modelContext.delete(exercise)
-            })
-        }
-        return actions
-    }
-
-    private func equipmentActions(_ equipment: Equipment, inKit: Bool) -> [SwipeRowAction] {
-        var actions: [SwipeRowAction] = []
-        if !isBodyweightKit {
-            actions.append(SwipeRowAction(name: inKit ? "Remove from kit" : "Add to kit") {
-                openSwipeRow = nil
-                setMembership(equipment, !inKit)
-            })
-        }
-        if !equipment.isBuiltIn {
-            actions.append(SwipeRowAction(name: "Delete") {
-                openSwipeRow = nil
-                deleteEquipment(equipment)
-            })
-        }
-        return actions
-    }
+    // The hand-mirrored VoiceOver actions (#164) are GONE with the custom
+    // rows: `.swipeActions` publishes its buttons as custom actions itself, so
+    // re-declaring them would read every act twice in the rotor. The labels
+    // move with the buttons — "FAV"/"DELETE" rather than the old sentence-case
+    // "Favorite"/"Delete" — which is the one a11y-visible cost of the change.
 
     /// The "has X" explainer, when a routine matched the query through a move
     /// it CONTAINS rather than through its own name — otherwise the row's name
