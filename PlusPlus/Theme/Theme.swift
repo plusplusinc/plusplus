@@ -39,14 +39,17 @@ enum Theme {
     /// The data green. Green is data, never chrome: deltas, net chips,
     /// "new" markers, next-due values, live progress, creation
     /// affordances (a future increment), and the ++ glyph.
-    static let accent = Color(light: 0x17914B, dark: 0x46D17C, lightHC: 0x0E7A3D, darkHC: 0x67DD95)
+    ///
+    /// ⚠️ The five brand HUES live in `BrandPalette` (PlusPlusShared) so the
+    /// widget extension reads the same values, HC variants included, instead
+    /// of restating them (2026-07-28). The neutrals below stay here: widgets
+    /// draw on the system's ground, not the app's paper.
+    static let accent = BrandPalette.accent
 
     /// Completion purple (#201, Dave: "akin to a merged PR") — the
     /// third hue job: green is data in motion, blue is selection,
     /// purple is what's landed. GitHub's merged pair, familiar on sight.
-    static let done = Color(light: 0x8250DF, dark: 0xA371F7)
-    /// Committed timeline nodes on the Today rail — finished, so purple.
-    static let committedFill = done
+    static let done = BrandPalette.done
 
     /// Selected state ONLY (Quiet Arcade, v5 of the color notes):
     /// solid fill on toggled-on segments, active filter chips,
@@ -55,10 +58,17 @@ enum Theme {
     /// Chroma/lightness-matched to `accent` and `done` so the triad
     /// reads as siblings; white ≈ 5.2:1 on light, 0x161616 ≈ 7.4:1
     /// on dark.
-    static let selected = Color(light: 0x1668D2, dark: 0x5CA8F5)
+    static let selected = BrandPalette.selected
     /// Content on a SOLID selected fill. Never white on the
-    /// dark-scheme blue.
-    static let onSelected = Color(light: 0xFFFFFF, dark: 0x161616)
+    /// dark-scheme blue. Few callers left since solid selection fills were
+    /// retired (2026-07-28) — most selected content now takes `selectedInk`.
+    static let onSelected = BrandPalette.onSelected
+    /// Text and glyphs sitting on a `selectedTint` ground — the selected
+    /// chip label, the day circle's letter, a checkmark in a selected row.
+    /// ⚠️ NOT `selected`: that measures 4.07:1 on its own tint over `surface`
+    /// in light mode, below the AA floor for the footnote-sized labels that
+    /// carry it. See BrandPalette.
+    static let selectedInk = BrandPalette.selectedInk
     /// The superset return-loop at REST (design handoff 2026-07-12 v2).
     /// An OPAQUE warm gray, a step more prominent than the neutral spine
     /// (`border`) but quieter than any blue. Must be opaque: a
@@ -75,16 +85,21 @@ enum Theme {
     /// light, not a surface). Used only during the superset landing.
     static let supersetFlare = Color(light: 0x96C8FA, dark: 0x96C8FA)
 
-    /// Selected-state fill; always accompanied by `selectedRing`.
+    /// Selected-state fill; always accompanied by `selectedRing`. Reads its
+    /// hex from `BrandPalette` rather than restating it — a per-scheme ALPHA
+    /// is the one thing the shared `Color(light:dark:)` pair can't express,
+    /// which is why this is built by hand rather than living there.
     static let selectedTint = Color(uiColor: UIColor { traits in
         traits.userInterfaceStyle == .dark
-            ? UIColor(hex: 0x5CA8F5).withAlphaComponent(0.16)
-            : UIColor(hex: 0x1668D2).withAlphaComponent(0.12)
+            ? UIColor(hex: BrandPalette.selectedDark).withAlphaComponent(0.16)
+            : UIColor(hex: BrandPalette.selectedLight).withAlphaComponent(0.12)
     })
-    /// 1 pt border accompanying every selectedTint fill. Bumped from 0.55 to
-    /// 0.7 opacity so the selection boundary clears the 3:1 UI-component floor
-    /// against `surface` (a11y audit 2026-07-13).
-    static let selectedRing = selected.opacity(0.7)
+    /// 1 pt border accompanying every selectedTint fill. 0.55 → 0.7 in the
+    /// 2026-07-13 audit, → 0.8 on 2026-07-28: 0.7 measured 2.89:1 against
+    /// `surface` in light mode, just under the 3:1 UI-component floor, and
+    /// the ring carries more weight now that it outlines a tint rather than
+    /// edging a solid fill. 0.8 gives 3.43:1 light / 4.26:1 dark.
+    static let selectedRing = selected.opacity(0.8)
 
     /// Filled controls — Start/Continue/Log set, Done capsules, setup
     /// CTAs: ink in light, cream in dark. Actions, never selection.
@@ -93,9 +108,29 @@ enum Theme {
     static let onPrimary = Color(light: 0xFFFFFF, dark: 0x161616)
 
     /// Exercise/routine notes ("form cues" amber).
-    static let notes = Color(light: 0x9A6700, dark: 0xCFA14A, lightHC: 0x805400, darkHC: 0xDCB25E)
+    static let notes = BrandPalette.notes
+    /// Amber TEXT on a `notesWash` ground. ⚠️ NOT `notes` — that measures
+    /// 4.13:1 on its own wash in light mode. Same rule as `selectedInk`.
+    static let notesInk = BrandPalette.notesInk
+    /// The advisory chip's fill, and the ring that goes with it — amber's
+    /// answer to `selectedTint`/`selectedRing`, added 2026-07-28. The pair was
+    /// hand-built in five files at six different alphas (.12/.14 fills,
+    /// .40–.60 strokes); ⚠️ every one of those rings measured UNDER the 3:1
+    /// component floor (1.90:1 at .45 in light), which is the second reason to
+    /// have named it. 0.75 gives 3.14:1 light / 4.12:1 dark.
+    static let notesWash = notes.opacity(0.14)
+    static let notesRing = notes.opacity(0.75)
 
-    static let destructive = Color(light: 0xCF222E, dark: 0xE5534B, lightHC: 0xB01722, darkHC: 0xEC6B63)
+    static let destructive = BrandPalette.destructive
+
+    /// Swipe-block fills. ⚠️ NOT `accent`/`destructive`: a block is its own
+    /// surface under a WHITE label the system owns, so the fill is chosen for
+    /// that and fixed in both schemes. See BrandPalette — white on the
+    /// dark-scheme green measured 1.97:1 before this.
+    static let swipeAdd = BrandPalette.swipeAdd
+    static let swipeDelete = BrandPalette.swipeDelete
+    /// Curation turned off — UNFAV, REMOVE from kit.
+    static let swipeNeutral = BrandPalette.swipeNeutral
 
     // MARK: - Metrics
 
@@ -153,48 +188,5 @@ enum Theme {
         /// normally, `nil` (instant, no travel) under Reduce Motion. Use at
         /// imperative `withAnimation` sites.
         @MainActor static func flourish(_ full: Animation) -> Animation? { reduceMotion ? nil : full }
-    }
-}
-
-extension Color {
-    /// Color from a 0xRRGGBB literal — palette values are specified in
-    /// hex by the design and must not drift through rounding.
-    init(hex: UInt32) {
-        self.init(
-            .sRGB,
-            red: Double((hex >> 16) & 0xFF) / 255,
-            green: Double((hex >> 8) & 0xFF) / 255,
-            blue: Double(hex & 0xFF) / 255
-        )
-    }
-
-    /// An adaptive pair resolved by the environment's color scheme —
-    /// works everywhere Color does, including Canvas drawing. Optional
-    /// `lightHC`/`darkHC` supply stronger values used when the system
-    /// Increase Contrast setting is on (`traits.accessibilityContrast ==
-    /// .high`); omit them to reuse the standard value. This is the single
-    /// hook through which the palette honors Increase Contrast (a11y audit
-    /// 2026-07-13).
-    init(light: UInt32, dark: UInt32, lightHC: UInt32? = nil, darkHC: UInt32? = nil) {
-        self.init(uiColor: UIColor { traits in
-            let increased = traits.accessibilityContrast == .high
-            switch traits.userInterfaceStyle {
-            case .dark:
-                return UIColor(hex: increased ? (darkHC ?? dark) : dark)
-            default:
-                return UIColor(hex: increased ? (lightHC ?? light) : light)
-            }
-        })
-    }
-}
-
-private extension UIColor {
-    convenience init(hex: UInt32) {
-        self.init(
-            red: CGFloat((hex >> 16) & 0xFF) / 255,
-            green: CGFloat((hex >> 8) & 0xFF) / 255,
-            blue: CGFloat(hex & 0xFF) / 255,
-            alpha: 1
-        )
     }
 }

@@ -889,7 +889,10 @@ private struct SettingsTray: View {
                         .font(.system(.subheadline, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                 }
-                .tint(Theme.accent)
+                // Blue like every other preference switch in this drawer
+                // (2026-07-28): a toggle is a selection, and this one had no
+                // story for being the odd one out beside Health and Calendar.
+                .tint(Theme.selected)
                 .accessibilityIdentifier("countdownCuesToggle")
                 Text("A soft beep on the last three seconds of a rest or switch, and a higher tone as the next exercise begins. Plays over the silent switch, and ducks music.")
                     .font(.system(.caption))

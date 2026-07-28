@@ -1099,7 +1099,7 @@ struct TodayView: View {
             // and the future cards' dashed grey.
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.cardRadius)
-                    .strokeBorder(Theme.notes.opacity(0.55), lineWidth: 1)
+                    .strokeBorder(Theme.notesRing, lineWidth: 1)
             )
             .contentShape(Rectangle())
         }
@@ -2013,7 +2013,7 @@ private enum TimelineNode: Equatable {
         case .pending: Theme.accent
         case .inert: Theme.textFaint
         case .gated: Theme.borderStrong
-        case .committed: Theme.committedFill
+        case .committed: Theme.done
         }
     }
 }
@@ -2067,7 +2067,7 @@ private struct TimelineItem<Content: View>: View {
         if showsDoneFill {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: dot, weight: .bold))
-                .foregroundStyle(Theme.committedFill)
+                .foregroundStyle(Theme.done)
                 .frame(width: dot, height: dot)
                 .background(Circle().fill(Theme.background))
                 // Bounce on the SEAL only (showsDoneFill false→true at the

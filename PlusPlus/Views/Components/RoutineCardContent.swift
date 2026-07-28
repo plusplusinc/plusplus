@@ -322,13 +322,14 @@ struct RoutineEquipmentTags: View {
                         .font(.system(.caption2, weight: .semibold))
                 }
                 .font(.system(.caption2))
-                .foregroundStyle(Theme.notes)
+                // Ink, not `notes`: this sits on its own amber wash.
+                .foregroundStyle(Theme.notesInk)
                 .lineLimit(1)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
-                .background(Theme.notes.opacity(0.14), in: RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius))
+                .background(Theme.notesWash, in: RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius))
                 .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius)
-                    .strokeBorder(Theme.notes.opacity(0.45), lineWidth: 1))
+                    .strokeBorder(Theme.notesRing, lineWidth: 1))
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -391,8 +392,8 @@ enum RoutineCardCapsules {
         }.map { piece in
             CardCapsule(
                 text: piece.name,
-                tint: piece.available ? Theme.textSecondary : Theme.notes,
-                fill: piece.available ? Theme.surfaceRaised : Theme.notes.opacity(0.14)
+                tint: piece.available ? Theme.textSecondary : Theme.notesInk,
+                fill: piece.available ? Theme.surfaceRaised : Theme.notesWash
             )
         }
     }
