@@ -508,47 +508,10 @@ struct ExerciseEditorView: View {
     }
 }
 
-/// Read-only exercise details: muscle group, equipment, notes, video link.
-/// Reachable from the routine detail screen so form cues are available
-/// mid-routine.
-struct ExerciseInfoView: View {
-    @Environment(\.dismiss) private var dismiss
-    let exercise: Exercise
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    LabeledContent("Muscle Group", value: exercise.muscleGroup.displayName)
-                    LabeledContent(
-                        "Equipment",
-                        value: exercise.equipment.isEmpty
-                            ? "Bodyweight"
-                            : exercise.equipment.map(\.name).sorted().joined(separator: ", ")
-                    )
-                }
-
-                if let notes = exercise.notes {
-                    Section("Notes") {
-                        Text(notes)
-                    }
-                }
-
-                if let videoURL = exercise.videoURL, let url = URL(string: videoURL) {
-                    Section {
-                        Link(destination: url) {
-                            Label("Watch video", systemImage: "play.rectangle")
-                        }
-                    }
-                }
-            }
-            .navigationTitle(exercise.name)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-        }
-    }
-}
+// `ExerciseInfoView` was deleted 2026-07-28: a read-only exercise sheet
+// (muscle group, equipment, notes, video) whose doc comment claimed the
+// routine detail screen reached it, and which nothing had constructed
+// since `ExerciseDetailSheet` took that job. It was also the app's last
+// stock-SwiftUI surface — a plain `List` of `LabeledContent` under a
+// system navigation bar with an unstyled toolbar `Done` — so it was
+// carrying a button vocabulary no reachable screen used.

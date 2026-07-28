@@ -20,9 +20,17 @@ import PlusPlusKit
 /// seeds at `lower` rather than at some sentinel — an untouched sheet saves
 /// back exactly what it opened with, and the left half of the tape is an
 /// honest "no upper bound" rather than a dead zone.
+///
+/// It commits LIVE (on every scroll settle) behind a `closeOnly`
+/// `SheetHeader`, which is the same contract and the same top row as the
+/// metric picker beside it — before 2026-07-28 this was a plain system
+/// toolbar `Done` that alone decided whether the pick stuck, so two
+/// adjacent rows of the same defaults list disagreed about what the button
+/// in the corner meant.
 struct RepTargetSheet: View {
     @Environment(\.dismiss) private var dismiss
 
+    /// Called on every settle, not once at Done — see the type comment.
     let onSave: (RepTarget) -> Void
     /// Logging contexts pass false (#246): an actual rep count is a
     /// scalar, and the range editor's upper bound was silently discarded
@@ -55,47 +63,43 @@ struct RepTargetSheet: View {
     }
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 16) {
-                Text(target.display)
-                    .font(.system(size: 44, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Theme.textPrimary)
-                    .contentTransition(.numericText(value: Double(lower)))
-                    .animation(Theme.Anim.standard, value: target.display)
-                    .accessibilityHidden(true) // the tapes speak their values
+        VStack(spacing: 16) {
+            SheetHeader(
+                title: "Reps",
+                actionLabel: "Done",
+                actionIdentifier: "closeRepTargetPicker",
+                closeOnly: true
+            ) {
+                dismiss()
+            }
+            .padding(.horizontal, 18)
 
+            Text(target.display)
+                .font(.system(size: 44, weight: .semibold, design: .monospaced))
+                .foregroundStyle(Theme.textPrimary)
+                .contentTransition(.numericText(value: Double(lower)))
+                .animation(Theme.Anim.standard, value: target.display)
+                .accessibilityHidden(true) // the tapes speak their values
+
+            scrubber(
+                caption: showsUpperBound ? "reps" : nil,
+                label: "Reps",
+                unit: $lower,
+                valueText: { "\($0) reps" }
+            )
+
+            if showsUpperBound {
                 scrubber(
-                    caption: showsUpperBound ? "reps" : nil,
-                    label: "Reps",
-                    unit: $lower,
-                    valueText: { "\($0) reps" }
+                    caption: "up to",
+                    label: "Up to",
+                    unit: $upper,
+                    valueText: { $0 > lower ? "up to \($0) reps" : "no upper limit" }
                 )
-
-                if showsUpperBound {
-                    scrubber(
-                        caption: "up to",
-                        label: "Up to",
-                        unit: $upper,
-                        valueText: { $0 > lower ? "up to \($0) reps" : "no upper limit" }
-                    )
-                }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .padding(.top, 8)
-            .navigationTitle("Reps")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
-                        onSave(target)
-                        dismiss()
-                    }
-                    .font(.system(.footnote, weight: .bold))
-                    .foregroundStyle(Theme.accent)
-                }
-            }
+            Spacer(minLength: 0)
         }
-        .presentationDetents([.height(showsUpperBound ? 400 : 280)])
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .presentationDetents([.height(showsUpperBound ? 430 : 320)])
         .presentationBackground(Theme.surface)
     }
 
@@ -120,10 +124,11 @@ struct RepTargetSheet: View {
                 unit: unit,
                 tickText: { "\($0)" },
                 valueText: valueText,
-                // Both values live in @State until Done — this sheet's
-                // contract is a single `onSave`, not a live binding, so
-                // there is nothing to commit per settle.
-                onSettle: { _ in }
+                // Commit on settle, like the metric scrubber beside it. The
+                // binding has already been written by the time this fires
+                // (the scrubber writes `unit` first, then settles), so
+                // `target` reads the landed pair, not the previous one.
+                onSettle: { _ in onSave(target) }
             )
         }
     }

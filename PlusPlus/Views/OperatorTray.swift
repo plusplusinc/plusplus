@@ -77,7 +77,7 @@ struct OperatorTray: View {
                 dismiss()
             }
         }
-        .padding(.top, 14)
+        .padding(.top, 24)
         .padding(.bottom, 6)
     }
 

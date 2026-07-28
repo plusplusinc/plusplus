@@ -8,6 +8,14 @@ import PlusPlusKit
 /// `usesTapeScrubber` owns the line and the reasoning. Lived inside
 /// ExerciseDetailSheet.swift until the scrubber split (2026-07-15); it is
 /// presented from five screens, so it belongs here.
+///
+/// The top row is the app's `SheetHeader`, not a `NavigationStack`'s
+/// toolbar (2026-07-28). It wore a system nav bar with an accent-green
+/// `Done` for as long as it existed, which meant the tray you open FROM
+/// the exercise editor's defaults list answered in a different button
+/// vocabulary than the sheet that opened it. `closeOnly` because the value
+/// commits live — the scrubber writes on settle, the wheel on selection —
+/// so Done here means "leave", never "save".
 struct MetricWheelSheet: View {
     @Environment(\.dismiss) private var dismiss
     let metric: WorkoutMetric
@@ -16,25 +24,24 @@ struct MetricWheelSheet: View {
     @Binding var value: Double?
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if metric.usesTapeScrubber {
-                    MetricScrubberPane(metric: metric, weightUnit: weightUnit, distanceUnit: distanceUnit, value: $value)
-                } else {
-                    wheel
-                }
+        VStack(spacing: 0) {
+            SheetHeader(
+                title: metric.label,
+                actionLabel: "Done",
+                actionIdentifier: "closeMetricPicker",
+                closeOnly: true
+            ) {
+                dismiss()
             }
-            .navigationTitle(metric.label)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .font(.system(.footnote, weight: .bold))
-                        .foregroundStyle(Theme.accent)
-                }
+            .padding(.horizontal, 18)
+
+            if metric.usesTapeScrubber {
+                MetricScrubberPane(metric: metric, weightUnit: weightUnit, distanceUnit: distanceUnit, value: $value)
+            } else {
+                wheel
             }
         }
-        .presentationDetents([.height(300)])
+        .presentationDetents([.height(320)])
         .presentationBackground(Theme.surface)
     }
 
@@ -50,5 +57,6 @@ struct MetricWheelSheet: View {
             }
         }
         .pickerStyle(.wheel)
+        .frame(maxHeight: .infinity)
     }
 }

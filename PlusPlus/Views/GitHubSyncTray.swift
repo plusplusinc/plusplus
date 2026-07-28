@@ -134,7 +134,7 @@ struct GitHubSyncTray: View {
                 dismiss()
             }
         }
-        .padding(.top, 14)
+        .padding(.top, 24)
     }
 
     // MARK: - Description

@@ -2336,7 +2336,7 @@ private struct SwapInSheet: View {
                 dismiss()
             }
         }
-        .padding(.top, 14)
+        .padding(.top, 24)
         .animation(Theme.Anim.standard, value: stage == .picker)
     }
 
@@ -2601,7 +2601,7 @@ private struct ScheduleRoutineTray: View {
                 dismiss()
             }
         }
-        .padding(.top, 14)
+        .padding(.top, 24)
         .padding(.horizontal, 18)
         .animation(Theme.Anim.standard, value: stage == .schedule)
     }
