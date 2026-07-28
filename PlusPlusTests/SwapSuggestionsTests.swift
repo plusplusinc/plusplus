@@ -4,10 +4,13 @@ import SwiftData
 import PlusPlusKit
 @testable import PlusPlus
 
-/// The "Swap for…" suggestions ranker (2026-07-24): same-muscle catalog
-/// moves, kit-doable first, then ranked by similarity. Distinct from
-/// `kitDoableAlternatives`, which HIDES not-in-kit moves; this keeps them,
-/// flagged, below the doable ones.
+/// The "Swap for…" suggestions ranker (2026-07-24): catalog moves that
+/// share a muscle group, kit-doable first, then ranked by similarity.
+/// Distinct from `kitDoableAlternatives`, which HIDES not-in-kit moves;
+/// this keeps them, flagged, below the doable ones. The cases below use
+/// single-group exercises, so they read the same before and after the pool
+/// widened to shares-ANY-group (2026-07-28); `MuscleGroupSelectionTests`
+/// covers the widening itself.
 @Suite("Swap suggestions")
 struct SwapSuggestionsTests {
     private func makeContainer() throws -> ModelContainer {

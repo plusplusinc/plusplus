@@ -112,11 +112,11 @@ struct ExerciseDetailScreen: View {
                     // tags in natural case (no stroked ALL-CAPS), the same as
                     // the rows and the routine header. Muscle ↔ the Muscle
                     // filter; type = what it tracks; a Custom tag for customs.
+                    // The header wraps rather than overflowing, so unlike the
+                    // rows it shows EVERY muscle group, primary first.
                     DetailHeaderCapsules(capsules: {
-                        var caps = [
-                            CardCapsule(text: exercise.muscleGroup.displayName),
-                            CardCapsule(text: typeLabel),
-                        ]
+                        var caps = exercise.muscleGroups.map { CardCapsule(text: $0.displayName) }
+                        caps.append(CardCapsule(text: typeLabel))
                         if !exercise.isBuiltIn {
                             caps.append(CardCapsule(text: "Custom", tint: Theme.accent))
                         }

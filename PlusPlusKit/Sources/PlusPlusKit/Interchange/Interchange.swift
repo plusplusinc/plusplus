@@ -11,6 +11,10 @@ public enum Interchange {
 
 public struct ExerciseDTO: Codable, Equatable, Sendable {
     public var name: String
+    /// The muscle group this exercise is FOR — the primary, and the first
+    /// entry of `muscleGroups`. Stays required and authoritative for
+    /// readers that know only one group, exactly as `exerciseType` does
+    /// beside `metrics`.
     public var muscleGroup: MuscleGroup
     public var exerciseType: ExerciseType
     /// Equipment names, sorted for deterministic output.
@@ -61,6 +65,25 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
     /// indoor exercise (and every pre-field file) stays byte-identical;
     /// absent means indoor.
     public var isOutdoor: Bool?
+    /// EVERY muscle group this exercise works, primary FIRST — so
+    /// `muscleGroups[0] == muscleGroup` always. Additive, and written only
+    /// when the exercise carries an EXPLICIT list (the `isOutdoor`
+    /// precedent), so an exercise that never had one and every pre-field
+    /// file stay byte-identical. Absent means "no explicit list", which a
+    /// reader resolves however it resolves single-group exercises — for
+    /// the app, a built-in follows the catalog. A one-element list is
+    /// therefore meaningful, not noise: it says "this one group, and not
+    /// whatever the catalog would give me." Read it through
+    /// `resolvedMuscleGroups`, never raw.
+    public var muscleGroups: [MuscleGroup]?
+
+    /// The full group list, however the file spelled it: the explicit
+    /// `muscleGroups` when present, else the single `muscleGroup`. One
+    /// resolution so no reader has to remember the fallback.
+    public var resolvedMuscleGroups: [MuscleGroup] {
+        guard let muscleGroups, !muscleGroups.isEmpty else { return [muscleGroup] }
+        return muscleGroups
+    }
 
     public init(
         name: String,
@@ -80,10 +103,18 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
         extraDefaults: [String: Double]? = nil,
         inLibrary: Bool? = nil,
         isFavorite: Bool? = nil,
-        defaultHeartRateTarget: HeartRateTarget? = nil
+        defaultHeartRateTarget: HeartRateTarget? = nil,
+        muscleGroups: [MuscleGroup]? = nil
     ) {
         self.name = name
         self.muscleGroup = muscleGroup
+        // Normalized here so an inconsistent DTO can't be constructed at
+        // all: `muscleGroup` is the primary by definition, so it leads the
+        // list and duplicates collapse. `nil` in stays `nil` out — the
+        // absence is the signal (see the property's note).
+        self.muscleGroups = muscleGroups.map {
+            MuscleGroups.normalized(primary: muscleGroup, others: $0)
+        }
         self.exerciseType = exerciseType
         self.equipment = equipment.sorted()
         self.notes = notes

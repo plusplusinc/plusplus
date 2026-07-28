@@ -135,6 +135,10 @@ struct RoutineTemplate: Identifiable, Hashable {
         return names.sorted()
     }
 
+    /// What the template trains, for its detail line. PRIMARY groups only,
+    /// for the same reason `Routine.focusLabel` uses them: a list that
+    /// folds in every secondary names most of the body and distinguishes
+    /// nothing.
     var muscleGroups: [MuscleGroup] {
         let present = Set(blocks.flatMap(\.entries).compactMap {
             SeedData.builtInDefinition(named: $0.exercise)?.muscleGroup

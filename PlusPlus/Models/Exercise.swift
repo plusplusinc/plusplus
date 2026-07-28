@@ -5,7 +5,16 @@ import PlusPlusKit
 @Model
 final class Exercise {
     var name: String
+    /// The muscle group this exercise is FOR — the primary, and the first
+    /// entry of `muscleGroups`. Still the column every single-group reader
+    /// uses (the interchange's required field, the substitution pools), so
+    /// writing `muscleGroups` keeps it in step, exactly as `metricProfile`
+    /// keeps `exerciseType` honest.
     var muscleGroup: MuscleGroup
+    /// The SECONDARY groups this exercise also works, Kit-encoded JSON —
+    /// additive and optional, so no store migration and existing rows read
+    /// `nil`. Never read raw: `muscleGroups` resolves it.
+    var muscleGroupsData: Data?
     @Relationship(inverse: \Equipment.exercises) var equipment: [Equipment] = []
     var exerciseType: ExerciseType
     var isBuiltIn: Bool
@@ -67,6 +76,40 @@ final class Exercise {
             metricsData = newValue.encoded()
             exerciseType = newValue.legacyType
         }
+    }
+
+    /// The user's EXPLICIT list, or nil to follow the catalog. Exposed for
+    /// the interchange (an explicit list is exported, an absent one isn't,
+    /// so catalog authoring keeps reaching restored stores) and for the
+    /// editor's revert. Assigning nil hands the exercise back to the
+    /// catalog; assigning a list pins it, single groups included — that is
+    /// how pruning a built-in's secondaries sticks.
+    var explicitMuscleGroups: [MuscleGroup]? {
+        get { MuscleGroups.decode(muscleGroupsData).map { MuscleGroups.normalized($0, fallback: muscleGroup) } }
+        set {
+            guard let newValue, !newValue.isEmpty else { muscleGroupsData = nil; return }
+            let normalized = MuscleGroups.normalized(newValue, fallback: muscleGroup)
+            muscleGroup = normalized[0]
+            muscleGroupsData = MuscleGroups.encode(normalized)
+        }
+    }
+
+    /// Every muscle group this exercise works, PRIMARY FIRST — what the
+    /// editor's chips select and what the row and detail capsules show.
+    /// Resolution mirrors `metricProfile`: an explicit stored list wins,
+    /// then a built-in's catalog row (so catalog authoring reaches every
+    /// existing store with zero writes), then the single `muscleGroup`.
+    /// Setting it re-stamps `muscleGroup` from the primary, so the two can
+    /// never disagree.
+    var muscleGroups: [MuscleGroup] {
+        get {
+            if let explicit = explicitMuscleGroups { return explicit }
+            if isBuiltIn, let seeded = catalogDefinition?.muscleGroups, seeded.count > 1 {
+                return seeded
+            }
+            return [muscleGroup]
+        }
+        set { explicitMuscleGroups = newValue }
     }
 
     /// Extra-metric defaults, decoded. Setter drops entries for metrics

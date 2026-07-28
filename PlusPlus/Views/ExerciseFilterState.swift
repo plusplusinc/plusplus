@@ -14,11 +14,13 @@ import PlusPlusKit
 /// person to touch this file should feel free to rename it.
 enum ExerciseFilterState {
 
-    /// Name plus muscle group, so "hamstring curl" finds Leg Curl even
-    /// though no exercise carries the word "hamstring" in its name. This is
-    /// also why the Exercises surface needs no Muscle facet: typing reaches it.
+    /// Name plus EVERY muscle group it works, so "hamstring curl" finds Leg
+    /// Curl even though no exercise carries the word "hamstring" in its
+    /// name, and "triceps" finds Bench Press even though it's filed under
+    /// chest. This is also why the Exercises surface needs no Muscle facet:
+    /// typing reaches it.
     static func searchHaystack(_ exercise: Exercise) -> String {
-        "\(exercise.name) \(exercise.muscleGroup.displayName)"
+        ([exercise.name] + exercise.muscleGroups.map(\.displayName)).joined(separator: " ")
     }
 
     /// Equipment the exercise needs but the given set doesn't have — drives the
@@ -30,13 +32,16 @@ enum ExerciseFilterState {
         exercise.equipment.filter { !$0.isDeleted && !available.contains($0.name) }.map(\.name).sorted()
     }
 
-    /// Catalog exercises that hit the SAME muscle group as `exercise` and are
-    /// doable with the given kit — the substitution pool for the equipment
-    /// resolve sheet's "swap the moves" step (2026-07-22). Muscle matching is
-    /// the single coarse `MuscleGroup` (the only muscle signal the model
-    /// carries), so it reads as "another <muscle> move your kit can do" — blunt
-    /// for compounds, clean for isolation work. The exercise itself and any
-    /// just-deleted straggler drop out.
+    /// Catalog exercises that hit the same PRIMARY muscle group as
+    /// `exercise` and are doable with the given kit — the substitution pool
+    /// for the equipment resolve sheet's "swap the moves" step
+    /// (2026-07-22). ⚠️ Deliberately still the primary alone, now that an
+    /// exercise carries several (2026-07-28): this list is sorted by NAME,
+    /// with no similarity ranking to keep quality up, so widening it to
+    /// "shares any group" would seat a triceps pushdown among the offered
+    /// replacements for a bench press. It reads as "another <muscle> move
+    /// your kit can do". `swapSuggestions` below, which IS ranked, does
+    /// widen. The exercise itself and any just-deleted straggler drop out.
     static func kitDoableAlternatives(for exercise: Exercise, in catalog: [Exercise], kit: Set<String>) -> [Exercise] {
         catalog.filter { candidate in
             candidate !== exercise
@@ -50,18 +55,23 @@ enum ExerciseFilterState {
     /// Ranked substitution suggestions for the "Swap for…" tray (2026-07-24):
     /// same-muscle catalog moves ordered kit-doable-first, then by
     /// similarity to the origin (movement family + gear overlap, the
-    /// `ExerciseSimilarity` ranker), then alphabetically. Same-muscle is the
-    /// pool boundary — the model's only muscle signal — so this reads as
-    /// "another <muscle> move like this one"; blunt for compounds, clean for
-    /// isolation work. Unlike `kitDoableAlternatives` this never gear-HIDES:
+    /// `ExerciseSimilarity` ranker), then alphabetically. The pool is any
+    /// move SHARING A GROUP (2026-07-28, when exercises gained several):
+    /// a dip is a real bench-press substitute and used to be invisible
+    /// here because it files under triceps. Widening is safe precisely
+    /// because this list is ranked — the ranker weights the primary
+    /// heavily, so shares-a-secondary-only moves sort to the bottom rather
+    /// than displacing the obvious swaps.
+    /// Unlike `kitDoableAlternatives` this never gear-HIDES:
     /// not-in-kit moves stay, ranked below the doable ones and flagged amber
     /// on the row (#113 flag-don't-hide). The origin and just-deleted
     /// stragglers drop out. The full catalog is one tap further (the tray's
     /// "Browse all exercises" escape).
     static func swapSuggestions(for exercise: Exercise, in catalog: [Exercise], kit: Set<String>) -> [Exercise] {
         let origin = similarityFeatures(exercise)
+        let originGroups = Set(exercise.muscleGroups)
         let pool = catalog
-            .filter { $0 !== exercise && !$0.isDeleted && $0.muscleGroup == exercise.muscleGroup }
+            .filter { $0 !== exercise && !$0.isDeleted && !originGroups.isDisjoint(with: $0.muscleGroups) }
             .sorted { $0.name < $1.name }
         // Stable, kit-doable-first partition; each half stays similarity-ranked
         // (the ranker's tie-break preserves the alphabetical incoming order).
@@ -76,7 +86,7 @@ enum ExerciseFilterState {
     /// Maps an `Exercise` into the Kit ranker's pure feature bag.
     private static func similarityFeatures(_ exercise: Exercise) -> ExerciseSimilarityFeatures {
         ExerciseSimilarityFeatures(
-            muscleGroup: exercise.muscleGroup,
+            muscleGroups: exercise.muscleGroups,
             modality: exercise.modality,
             equipmentNames: Set(exercise.equipment.filter { !$0.isDeleted }.map(\.name))
         )

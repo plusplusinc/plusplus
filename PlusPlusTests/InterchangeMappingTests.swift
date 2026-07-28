@@ -276,6 +276,8 @@ struct InterchangeMappingTests {
         )
         source.insert(row)
         row.metricProfile = MetricProfile([.weight, .reps, .duration, .distance], distanceUnit: .miles, isOutdoor: true)
+        // Several muscle groups, primary first: the whole list must survive.
+        row.muscleGroups = [.back, .biceps, .core]
         row.defaultWeight = 60
         row.defaultReps = 8
         row.defaultRepsUpper = 12
@@ -360,6 +362,7 @@ struct InterchangeMappingTests {
         let importedExercises = try dest.fetch(FetchDescriptor<Exercise>())
         let importedRow = try #require(importedExercises.first { $0.name == "Probe Row" })
         #expect(importedRow.muscleGroup == .back)
+        #expect(importedRow.muscleGroups == [.back, .biceps, .core], "every muscle group round-trips, primary first")
         #expect(importedRow.equipment.map(\.name) == ["Probe Rower"])
         #expect(importedRow.notes == "Drive with the legs.")
         #expect(importedRow.videoURL == "https://youtu.be/probe")

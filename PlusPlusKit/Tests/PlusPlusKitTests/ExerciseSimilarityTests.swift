@@ -62,4 +62,43 @@ struct ExerciseSimilarityTests {
         let ranked = ExerciseSimilarity.ranked(moves, like: origin, features: \.bag)
         #expect(ranked.map(\.name) == ["A", "B", "QuadCardio", "Chest"])
     }
+
+    // MARK: - Multiple muscle groups (2026-07-28)
+
+    private func bag(_ groups: [MuscleGroup],
+                     _ modality: ExerciseModality = .strength,
+                     _ gear: Set<String> = []) -> ExerciseSimilarityFeatures {
+        ExerciseSimilarityFeatures(muscleGroups: groups, modality: modality, equipmentNames: gear)
+    }
+
+    @Test("Sharing the primary beats sharing only a secondary")
+    func primaryLeads() {
+        let bench = bag([.chest, .triceps, .shoulders])
+        let fly = bag([.chest])                       // shares the primary only
+        let skullCrusher = bag([.triceps, .chest])    // shares two, primary differs
+        #expect(ExerciseSimilarity.score(candidate: fly, origin: bench)
+            > ExerciseSimilarity.score(candidate: skullCrusher, origin: bench))
+    }
+
+    @Test("Secondaries still separate a near-twin from a bare primary match")
+    func secondariesBreakTies() {
+        let bench = bag([.chest, .triceps, .shoulders])
+        let dumbbellBench = bag([.chest, .triceps, .shoulders])
+        let fly = bag([.chest])
+        #expect(ExerciseSimilarity.score(candidate: dumbbellBench, origin: bench)
+            > ExerciseSimilarity.score(candidate: fly, origin: bench))
+    }
+
+    @Test("Sharing nothing still scores zero on muscle")
+    func noOverlap() {
+        #expect(ExerciseSimilarity.muscleScore([.chest, .triceps], [.quads, .glutes]) == 0)
+    }
+
+    @Test("A single-group bag reads the same through either initializer")
+    func initializerParity() {
+        let viaSingle = features(.quads, .strength, ["Barbell"])
+        let viaList = bag([.quads], .strength, ["Barbell"])
+        #expect(viaSingle == viaList)
+        #expect(viaList.muscleGroup == .quads)
+    }
 }

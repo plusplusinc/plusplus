@@ -49,7 +49,7 @@ struct ExerciseEditorView: View {
         let draft = ExerciseDraft()
         draft.name = prefillName
         if let prefillMuscleGroup {
-            draft.muscleGroup = prefillMuscleGroup
+            draft.muscleGroups = [prefillMuscleGroup]
         }
         if !prefillEquipment.isEmpty {
             draft.selectedEquipment = prefillEquipment
@@ -74,12 +74,21 @@ struct ExerciseEditorView: View {
         return SeedData.builtInProfile(named: editingExercise?.name ?? "")
     }
 
+    /// Each state says the thing that matters right then: with one group
+    /// left, that tapping it again won't drop it (a tap that silently does
+    /// nothing is the dead-tap class); with more, which one leads.
+    private var muscleGroupCaption: String {
+        draft.muscleGroups.count > 1
+            ? "Pick every group this works. \(draft.muscleGroup.displayName) leads."
+            : "Pick every group this works. Keep at least one."
+    }
+
     /// Anything off the canonical definition counts as customized —
     /// built-ins ship with no notes or video, so their presence alone
     /// is a customization.
     private var differsFromDefault: Bool {
         guard isBuiltIn, let def = SeedData.builtInDefinition(named: editingExercise?.name ?? "") else { return false }
-        return draft.muscleGroup != def.muscleGroup
+        return draft.muscleGroups != def.muscleGroups
             || draft.metricProfile != (builtInDefaultProfile ?? .derived(from: def.exerciseType))
             || Set(draft.selectedEquipment.map(\.name)) != Set(def.equipmentNames)
             || !draft.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -248,18 +257,36 @@ struct ExerciseEditorView: View {
                     }
                     .padding(.top, 6)
 
-                    SheetSectionLabel("MUSCLE GROUP")
+                    // MUSCLE GROUPS, plural and multi-select: most moves
+                    // work several, and picking one used to mean the rest
+                    // went unsaid — a bench press was chest and its triceps
+                    // existed nowhere. The FIRST one picked is the primary
+                    // (it leads the capsules, and it is what single-group
+                    // readers see), which is why the chips keep selection
+                    // order rather than re-sorting. The last chip can't be
+                    // deselected; the caption says so rather than letting a
+                    // tap do nothing unexplained.
+                    SheetSectionLabel("MUSCLE GROUPS")
                         .padding(.top, 24)
                     FlowLayout(horizontalSpacing: 16, verticalSpacing: 8) {
                         ForEach(MuscleGroup.allCases) { group in
                             SelectableChip(
                                 label: group.displayName,
-                                isSelected: draft.muscleGroup == group
+                                isSelected: draft.selectedMuscleGroups.contains(group)
                             ) {
-                                draft.muscleGroup = group
+                                withAnimation(Theme.Anim.selection) {
+                                    draft.toggleMuscleGroup(group)
+                                }
                             }
+                            .accessibilityAddTraits(
+                                draft.selectedMuscleGroups.contains(group) ? .isSelected : []
+                            )
                         }
                     }
+                    Text(muscleGroupCaption)
+                        .font(.system(.caption))
+                        .foregroundStyle(Theme.textFaint)
+                        .padding(.top, 6)
 
                     SheetSectionLabel("REQUIRES")
                         .padding(.top, 24)
@@ -478,7 +505,7 @@ struct ExerciseEditorView: View {
 
     private func revertToDefault() {
         guard let def = SeedData.builtInDefinition(named: editingExercise?.name ?? "") else { return }
-        draft.muscleGroup = def.muscleGroup
+        draft.muscleGroups = def.muscleGroups
         draft.setProfile(builtInDefaultProfile ?? .derived(from: def.exerciseType))
         draft.selectedEquipment = Set(allEquipment.filter { def.equipmentNames.contains($0.name) })
         draft.notes = ""
@@ -519,7 +546,10 @@ struct ExerciseInfoView: View {
         NavigationStack {
             List {
                 Section {
-                    LabeledContent("Muscle Group", value: exercise.muscleGroup.displayName)
+                    LabeledContent(
+                        exercise.muscleGroups.count > 1 ? "Muscle Groups" : "Muscle Group",
+                        value: exercise.muscleGroups.map(\.displayName).joined(separator: ", ")
+                    )
                     LabeledContent(
                         "Equipment",
                         value: exercise.equipment.isEmpty

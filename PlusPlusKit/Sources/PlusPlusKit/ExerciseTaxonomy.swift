@@ -21,6 +21,44 @@ public enum MuscleGroup: String, Codable, CaseIterable, Identifiable, Sendable {
     ]
 }
 
+/// An exercise's muscle groups as one ordered, primary-first list: the
+/// normalization rule and the storage codec, in one place, so the model,
+/// the editor draft and the interchange can't disagree about what a list
+/// means. Same shape as `MetricProfile`'s encode/decode (the app stores it
+/// as an additive `Data?` column, which migrates lightweight).
+public enum MuscleGroups {
+    /// Primary first, no repeats, never empty. `primary` always leads,
+    /// whatever order it arrived in — the group an exercise is FOR is a
+    /// decision, not a side effect of tap order in one editing session.
+    public static func normalized(primary: MuscleGroup, others: [MuscleGroup]) -> [MuscleGroup] {
+        var seen: Set<MuscleGroup> = [primary]
+        return [primary] + others.filter { seen.insert($0).inserted }
+    }
+
+    /// Normalizes a list that already carries its primary at the front,
+    /// falling back to `fallback` when the list is empty (a decode miss,
+    /// or a caller that cleared the selection).
+    public static func normalized(_ groups: [MuscleGroup], fallback: MuscleGroup) -> [MuscleGroup] {
+        guard let primary = groups.first else { return [fallback] }
+        return normalized(primary: primary, others: Array(groups.dropFirst()))
+    }
+
+    /// Encodes ANY non-empty list, single groups included. A one-group
+    /// list is not the same as no list: on a built-in it means the user
+    /// pruned the catalog's secondaries, and dropping it would silently
+    /// hand them back on the next read.
+    public static func encode(_ groups: [MuscleGroup]) -> Data? {
+        guard !groups.isEmpty else { return nil }
+        return try? JSONEncoder().encode(groups.map(\.rawValue))
+    }
+
+    public static func decode(_ data: Data?) -> [MuscleGroup]? {
+        guard let data, let raw = try? JSONDecoder().decode([String].self, from: data) else { return nil }
+        let groups = raw.compactMap(MuscleGroup.init(rawValue:))
+        return groups.isEmpty ? nil : groups
+    }
+}
+
 public enum ExerciseType: String, Codable, Sendable {
     case weightReps
     case duration

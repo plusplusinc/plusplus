@@ -80,7 +80,7 @@ struct ExerciseDraftTests {
 
         let draft = ExerciseDraft()
         draft.name = "  Trunk Rotation  "
-        draft.muscleGroup = .core
+        draft.muscleGroups = [.core]
         draft.trackedMetrics = [.weight, .reps]
         draft.selectedEquipment = [band]
         draft.notes = "  Emphasize right rotation.  "

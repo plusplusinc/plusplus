@@ -8,7 +8,31 @@ import PlusPlusKit
 @Observable
 final class ExerciseDraft {
     var name = ""
-    var muscleGroup: MuscleGroup = .chest
+    /// Every muscle group the exercise works, PRIMARY FIRST — the editor's
+    /// MUSCLE GROUPS chips, which multi-select. Order is selection order,
+    /// so the primary is simply the first one picked and stays put while
+    /// others come and go; deselecting it promotes the next. Never empty
+    /// (`toggle` refuses the last removal), so `muscleGroup` is total.
+    var muscleGroups: [MuscleGroup] = [.chest]
+
+    /// The group the exercise is FOR — what single-group readers see.
+    var muscleGroup: MuscleGroup { muscleGroups.first ?? .chest }
+
+    var selectedMuscleGroups: Set<MuscleGroup> { Set(muscleGroups) }
+
+    /// Add or remove a group, keeping selection order. Removing the last
+    /// one is a no-op: an exercise with no muscle group has nothing to
+    /// export and nowhere to rank, and there is no empty state to explain
+    /// it — the chips read as "at least one", like the name field.
+    func toggleMuscleGroup(_ group: MuscleGroup) {
+        if let index = muscleGroups.firstIndex(of: group) {
+            guard muscleGroups.count > 1 else { return }
+            muscleGroups.remove(at: index)
+        } else {
+            muscleGroups.append(group)
+        }
+    }
+
     /// Which metrics this exercise tracks (flexible metrics) — the
     /// editor's TRACKED VALUES chips. Normalized through MetricProfile
     /// on read, so order and duplicates never matter here.
@@ -45,7 +69,7 @@ final class ExerciseDraft {
 
     init(from exercise: Exercise) {
         name = exercise.name
-        muscleGroup = exercise.muscleGroup
+        muscleGroups = exercise.muscleGroups
         let profile = exercise.metricProfile
         trackedMetrics = profile.metrics
         distanceUnit = profile.distanceUnit
@@ -88,7 +112,7 @@ final class ExerciseDraft {
     var fingerprint: [String] {
         [
             name,
-            String(describing: muscleGroup),
+            muscleGroups.map(\.rawValue).joined(separator: ","),
             trackedMetrics.map { String(describing: $0) }.joined(separator: ","),
             String(describing: distanceUnit),
             String(isOutdoor),
@@ -257,6 +281,17 @@ final class ExerciseDraft {
     func apply(to exercise: Exercise) {
         exercise.name = trimmedName
         exercise.muscleGroup = muscleGroup
+        // Same "matching the derived default stays UNSTORED" rule the
+        // profile uses below: a list identical to what the exercise would
+        // resolve on its own writes nothing, so catalog authoring keeps
+        // reaching untouched built-ins and exports stay lean. A list that
+        // DIFFERS is pinned, single groups included — that is how pruning
+        // a built-in's secondaries survives a read, an export and a
+        // restore.
+        let groupsFallback = exercise.isBuiltIn
+            ? (SeedData.builtInDefinition(named: exercise.name)?.muscleGroups ?? [muscleGroup])
+            : [muscleGroup]
+        exercise.explicitMuscleGroups = muscleGroups == groupsFallback ? nil : muscleGroups
         exercise.equipment = selectedEquipment.sorted { $0.name < $1.name }
         let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
         exercise.notes = trimmedNotes.isEmpty ? nil : trimmedNotes
