@@ -770,13 +770,18 @@ struct CatalogScopeView: View {
                         withAnimation(Theme.Anim.standard) {
                             proxy.scrollTo(AnyHashable(target), anchor: .top)
                         }
-                        try await Task.sleep(for: .milliseconds(1600))
+                        // Hold the identity until the flash has finished
+                        // FADING, not merely started: `newlyAdded = nil`
+                        // unmounts the row background the mark lives in, so a
+                        // shorter hold cuts the fade off mid-way. Both arms
+                        // read the duration off the flash itself.
+                        try await Task.sleep(for: RowEntranceFlash.totalDuration)
                     } else {
                         try await Task.sleep(for: .milliseconds(80))
                         withAnimation(Theme.Anim.standard) {
                             proxy.scrollTo(AnyHashable(target), anchor: .center)
                         }
-                        try await Task.sleep(for: .seconds(2.2))
+                        try await Task.sleep(for: RowEntranceFlash.totalDuration)
                     }
                 } catch {
                     return
@@ -878,15 +883,21 @@ struct CatalogScopeView: View {
         // them — and on the routines scope its long press would fight
         // `.onMove`'s, which is the same gesture. The one act that had no other
         // home here, "Start", lives on Today and on the routine's own screen.
-        .overlay {
-            // Both sides can be nil (a catalog template has no stored model and
-            // nothing ever lands on it), so compare only real ids — `nil == nil`
-            // would flash every template row at once.
-            if let id = result.modelID, newlyAdded == id {
-                RowEntranceFlash()
+        // The entrance flash rides the row BACKGROUND, not an overlay: the
+        // background gets the row's true bounds, so the mark needs no
+        // negative padding guessing at them (2026-07-28 — see
+        // `RowEntranceFlash`). Both sides can be nil (a catalog template has
+        // no stored model and nothing ever lands on it), so compare only real
+        // ids — `nil == nil` would flash every template row at once.
+        .listRowBackground(
+            Group {
+                if let id = result.modelID, newlyAdded == id {
+                    RowEntranceFlash()
+                } else {
+                    Color.clear
+                }
             }
-        }
-        .listRowBackground(Color.clear)
+        )
         .listRowSeparatorTint(Theme.border)
         // The arrival's authored beat: the row is held OUT of the list for
         // 300 ms, then fades in and pushes the rest down. Without this it

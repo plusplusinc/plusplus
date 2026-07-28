@@ -272,6 +272,7 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
   invisible query reads as data loss); every add from it LANDS on its list
   with the entrance flash (`RoutineArrival`/`ExerciseArrival`/
   `EquipmentArrival` + `RowEntranceFlash` — one landing for every add).
+  ⚠️ **The entrance flash is a leading GUTTER MARK on the row BACKGROUND, never a ring in an overlay** (2026-07-28): a 3 pt accent capsule 5 pt in from the screen edge, growing from its centre then fading. A cardless list has no boundary drawn AROUND content, so a rounded stroke reads as a state badge, and an overlay has to guess the row's bounds (`.padding(.horizontal, -6)`, which is what put the old ring 2 pt off the text). A background gets the true full-bleed bounds free, the leading margin never holds content so no row height or pill count can crowd it, and it sits UNDER the swipe actions. Reduce Motion drops the bloom ONLY; the flash itself is never gated. ⚠️ The mark's view exists only while the arrival id is set, so **the owning surface must hold that id for `RowEntranceFlash.totalDuration`** — clearing early unmounts the mark mid-fade. See docs/DECISIONS.md 2026-07-28.
 - **The catalog tabs and the search scopes are ONE view** (2026-07-25 —
   supersedes the arrangement above wherever they differ). Tapping **Routines**
   with search closed and scoping to **Routines** with it open land on the same
