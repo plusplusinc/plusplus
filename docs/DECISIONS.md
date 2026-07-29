@@ -957,3 +957,9 @@ It is the SAME hairline the spec table already draws between its rows, turned on
 ⚠️ **The alternative — a filled ground behind one column — costs more than it gives here, and the reason generalizes.** A panel in a cardless screen reads as a card you can open, and neither column is one. And the left column's muscle tags already wear `surfaceRaised` over `background`: put them on `surface` and the tag flattens into its own ground and stops looking like a tag. **A soft data tag needs the page's ground under it; giving its container a fill spends the contrast the tag is made of.**
 
 Same round: the pause NOUN wraps instead of truncating. It is what tells the two pauses apart under one label, so at an accessibility text size where it stops fitting on one line, a second line is the answer and "between exercis…" is not — the same rule as the fault above, applied where the fault would return.
+
+**Addendum 2, same day — the Pauses tray shipped with no header padding.** Dave's second device shot: the title flush against the sheet's left edge and "Done" running off the right.
+
+⚠️ **`SheetHeader` carries no horizontal padding of its own and never has** — every tray supplies it, at 18, because the scrolling content beneath has to be full-bleed so rows clip at the sheet's edges rather than at a padded inset. `PausesTray` was written new in the redesign round and omitted it; its content also sat at 16 where the family uses 18. Both are 18 now.
+
+Worth naming as a class rather than a one-off: **a shared header that expects its caller to pad it will eventually meet a caller that doesn't**, and nothing catches it — it compiles, it renders, and only a device shot shows the title touching the glass. A sweep of every `SheetHeader` call site found this to be the only one, so the component keeps its contract; if a second appears, the padding belongs inside `SheetHeader` and the full-bleed trays take a flag instead.

@@ -1411,7 +1411,14 @@ private struct PausesTray: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // ⚠️ `SheetHeader` carries NO horizontal padding of its own — the
+            // tray supplies it, at 18, because the scrolling content below has
+            // to be full-bleed so rows clip at the sheet's edges rather than
+            // at a padded inset. Every other tray in the app does this; this
+            // one shipped without it (2026-07-29), which put the title flush
+            // against the sheet's left edge and ran "Done" off the right.
             SheetHeader(title: "Pauses", closeOnly: true) { dismiss() }
+                .padding(.horizontal, 18)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
@@ -1441,7 +1448,8 @@ private struct PausesTray: View {
                         .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
                 }
-                .padding(.horizontal, 16)
+                // 18, matching the header above and every sibling tray.
+                .padding(.horizontal, 18)
                 .padding(.bottom, 30)
             }
         }
