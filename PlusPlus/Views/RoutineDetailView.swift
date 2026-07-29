@@ -78,6 +78,9 @@ struct RoutineDetailView: View {
     /// `RailArrangement` untouched. Per-row heights are the honest fix and
     /// a much larger one.
     @ScaledMetric(relativeTo: .body) private var railRowHeight: Double = 76
+    /// Matches `ExerciseRailRow`'s run columns, so a heading sits over the
+    /// column it names at every Dynamic Type size.
+    @ScaledMetric(relativeTo: .caption) private var headerColumnWidth: Double = 58
 
     private var railMetrics: RailMetrics { RailMetrics(rowHeight: railRowHeight) }
 
@@ -489,6 +492,8 @@ struct RoutineDetailView: View {
                     hasSuperset: routine.sortedGroups.contains(where: \.isSuperset)
                 )
 
+                columnHeaders
+
                 railRows(groups: groups, ringGroup: ringGroup, offsets: offsets, layout: layout, sizes: sizes, ledger: ledger)
             }
         }
@@ -550,6 +555,50 @@ struct RoutineDetailView: View {
             .padding(.leading, 20)
             .padding(.trailing, 14)
             .padding(.bottom, 8)
+    }
+
+    /// The rail's column headers, held at the top of the scroll while the
+    /// rows pass under them. Dave's call: ONLY these pin — the estimate and
+    /// the spec table scroll away with the title, because nothing in the
+    /// header is consulted mid-list and pinning it would spend list height on
+    /// facts already read.
+    ///
+    /// ⚠️ Sticky via a pure render-time `visualEffect`, the same mechanism
+    /// Today's week strip uses, and for the same reason: it reads geometry
+    /// without writing state. `onScrollGeometryChange` would also work and is
+    /// FORBIDDEN here — it writes during layout, which breaks the search-role
+    /// morph on first activation anywhere in the TabView subtree.
+    ///
+    /// A sticky band floats, so it stops occluding by accident: it needs an
+    /// opaque ground of its own or rows read through it, and a zIndex, since
+    /// the rows are a later sibling and would otherwise draw over it.
+    @ViewBuilder
+    private var columnHeaders: some View {
+        if !routine.groups.isEmpty {
+            HStack(spacing: 8) {
+                Spacer(minLength: 0)
+                columnLabel("target")
+                columnLabel("prev")
+            }
+            .padding(.top, 10)
+            .padding(.bottom, 3)
+            .padding(.leading, 20)
+            .padding(.trailing, 14)
+            .background(Theme.background)
+            .visualEffect { content, proxy in
+                content.offset(y: max(0, -proxy.frame(in: .scrollView).minY))
+            }
+            .zIndex(1)
+            .accessibilityHidden(true)
+        }
+    }
+
+    private func columnLabel(_ text: String) -> some View {
+        Text(text.uppercased())
+            .font(.system(.caption2, design: .monospaced, weight: .semibold))
+            .kerning(0.6)
+            .foregroundStyle(Theme.textFaint)
+            .frame(width: headerColumnWidth, alignment: .trailing)
     }
 
     private var activeRingGroup: Int? {
