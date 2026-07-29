@@ -1145,48 +1145,11 @@ struct TodayView: View {
     /// set (heaviest completed weight) with THAT set's reps: weight and
     /// reps must come from the same set or the delta describes a set
     /// that never happened (bug hunt). Duration takes the last set.
+    /// How this exercise last actually went. The rules live in
+    /// `RoutineLedger` now (2026-07-29) so routine detail's rail reads the
+    /// same "last time" this card does.
     private func prior(for routineExercise: RoutineExercise) -> RoutineDiff.Prior? {
-        let exercise = routineExercise.exercise
-        let name = exercise?.name ?? ""
-        let routine = routineExercise.group?.routine
-        func isThisExercise(_ log: SetLog) -> Bool {
-            if let a = log.exercise, let b = exercise { return a === b }
-            return log.exerciseName == name
-        }
-        for session in sessions {
-            let matches = session.completedSetLogs.filter(isThisExercise)
-            guard let last = matches.last else { continue }
-            let top = matches.max { ($0.actualWeight ?? 0) < ($1.actualWeight ?? 0) } ?? last
-            let isSameRoutine = routine.map { session.routine === $0 || session.routineName == $0.name } ?? false
-            // The rounds the block was PLANNED for, not the rounds finished.
-            // The two sides of a set comparison have to be the same kind of
-            // number: today's is a prescription, so last time's must be too.
-            // Comparing a plan against a shortfall manufactures a change out
-            // of an unfinished session, and on a ledger — which draws a row
-            // for any field that moved — one short week would repaint every
-            // exercise on the next card as a mover.
-            //
-            // The HIGHEST set number reached, not the count of logs: the
-            // filter spans the whole session, and an exercise may appear in
-            // more than one block (a 2-set warm-up plus a 4-set working
-            // block). Counting logs would compare one block's target against
-            // every block's total; `setNumber` is 1-based within its group,
-            // so its maximum is the deepest single block.
-            //
-            // And only against the SAME routine: a set count belongs to a
-            // prescription, so an A/B split running bench for 4 rounds one
-            // day and 2 the next must not read as movement. Weight converges
-            // across routines; structure does not.
-            let plannedSets = session.sortedSetLogs.filter(isThisExercise).map(\.setNumber).max()
-            return RoutineDiff.Prior(
-                sets: isSameRoutine ? plannedSets : nil,
-                weight: top.actualWeight,
-                reps: top.actualReps ?? last.actualReps,
-                durationSeconds: last.actualDuration,
-                extras: last.extraActuals
-            )
-        }
-        return nil
+        RoutineLedger.prior(for: routineExercise, in: sessions)
     }
 
     /// One staged exercise: its prescription, and how it last actually went.
