@@ -888,7 +888,7 @@ Two things came free and are worth keeping in mind before anyone moves it back: 
 
 ## 2026-07-29 — Routine detail, header redesign settled as a prototype — Design decided before implementation, in a reviewable artifact rather than a branch of Swift
 
-**Decision.** Dave's seven-point brief for routine detail was worked as an interactive prototype over five rounds, and the header's shape is now settled. ⚠️ **The prototype was NOT committed** (Dave: "you shouldn't be committing your prototypes") — it was scratch, and this entry is therefore the only spec. Everything below is written to be built from without it.
+**Decision.** Dave's seven-point brief for routine detail was worked as an interactive prototype over five rounds, then BUILT in the same PR. ⚠️ **The prototype was NOT committed** (Dave: "you shouldn't be committing your prototypes") — it was scratch, and this entry is the record of what it settled.
 
 **The settled header.** The estimate leads a 100 pt column on the LEFT (`~30 min` over `20 sets`, with the routine's muscle groups beneath it as inert data tags). A three-row spec table takes the right: `SCHEDULE`, `PAUSES`, `KIT`, mono caps label left, hairline under each row, value hard right, each row a door.
 
@@ -924,4 +924,6 @@ The fix is the law's own preferred path rather than a new phrase: restructure so
 
 **Deliberately NOT carried.** The estimate-left split and the three-row table are shaped by this routine's particular facts; exercise and equipment detail carry different ones. The spec-table anatomy is a reusable component candidate, but only on the repo's own terms: extract it when a SECOND surface adopts it, not before.
 
-**Validation.** Prototype only, rendered headless in Chromium across every arrangement and both themes; the travel and height figures are measured from that run, not estimated. Nothing here is built, so nothing is CI- or device-verified.
+**Validation.** Built and CI-green (app, Kit and CLI). ⚠️ **Nothing here is device-verified, and the riskiest part is invisible to CI**: `ui-test` is skipped on branch builds, and the rail's drag, ring and drop targets all read `railRowHeight`, which this change moves 52 → 76. The nav-bar swap and the sticky column band are equally device-only. Poke the rail first.
+
+**Two faults found while building, both worth remembering.** `PrescriptionRun`s are FRAGMENTS of one line, not lines — the first cut rendered one per line, which breaks `3×10` into three rows; they compose into a concatenated `Text` with ink per fragment, as `DiffLedger` already did. And the ledger index was first read per ROW, which walks session history once per exercise on every render; it is read once in `railList` and threaded down.
