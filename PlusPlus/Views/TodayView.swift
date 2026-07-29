@@ -158,8 +158,15 @@ struct TodayView: View {
     /// Fact captions (dates, estimates, cadences) reflow to two lines at
     /// accessibility text sizes instead of truncating the facts they
     /// exist to carry — the #164 "reflow, don't cap" law extended from
-    /// the heading to the rail (2026-07-23). Names stay single-line: a
-    /// truncated name is recoverable one tap away, a truncated date isn't.
+    /// the heading to the rail (2026-07-23).
+    ///
+    /// ⚠️ The companion half of that law is RETIRED (Dave, 2026-07-29).
+    /// Names used to stay single-line here, on the reasoning that a
+    /// truncated name is recoverable one tap away while a truncated date
+    /// isn't. Routine names now wrap to two lines wherever they appear, so
+    /// Today matches `RoutineCardContent`, which already wrapped to two on
+    /// every catalog row. A name is the thing you pick the row BY, and one
+    /// line was ellipsizing routines that differ only in their tail.
     private var factLineLimit: Int {
         dynamicTypeSize.isAccessibilitySize ? 2 : 1
     }
@@ -1003,7 +1010,7 @@ struct TodayView: View {
                     Text(entry.routine.name)
                         .font(.system(.body, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
-                        .lineLimit(1)
+                        .lineLimit(2)
                     Text(futureCaption(for: entry))
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(Theme.textFaint)
@@ -1080,7 +1087,7 @@ struct TodayView: View {
                     Text(entry.routine.name)
                         .font(.system(.body, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
-                        .lineLimit(1)
+                        .lineLimit(2)
                     Text(missedCaption(entry))
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(Theme.notes)
@@ -1535,7 +1542,7 @@ struct TodayView: View {
                         Text(routine.name)
                             .font(.system(.body, weight: .semibold))
                             .foregroundStyle(Theme.textPrimary)
-                            .lineLimit(1)
+                            .lineLimit(2)
                         Spacer(minLength: 8)
                         Image(systemName: "chevron.right")
                             .font(.system(.caption2, weight: .bold))
@@ -2392,7 +2399,7 @@ private struct SwapInSheet: View {
                                 Text(routine.name)
                                     .font(.system(.subheadline, weight: .semibold))
                                     .foregroundStyle(Theme.textPrimary)
-                                    .lineLimit(1)
+                                    .lineLimit(2)
                                 Text(rowCaption(for: routine))
                                     .font(.system(.caption2, design: .monospaced))
                                     .foregroundStyle(Theme.textFaint)
@@ -2526,7 +2533,7 @@ private struct ScheduleRoutineTray: View {
                                 Text(routine.name)
                                     .font(.system(.subheadline, weight: .semibold))
                                     .foregroundStyle(Theme.textPrimary)
-                                    .lineLimit(1)
+                                    .lineLimit(2)
                                 Text(rowCaption(for: routine))
                                     .font(.system(.caption2, design: .monospaced))
                                     .foregroundStyle(Theme.textFaint)
