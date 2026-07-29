@@ -204,6 +204,23 @@
   .specRow .k.noflex { flex: none; }
   .leadLine { flex: 1 1 auto; border-bottom: 1px dotted var(--border-strong); margin: 0 10px; height: 8px; }
 
+
+  /* H: estimate column on the LEFT, table on the right */
+  .split.statLeft { grid-template-columns: 104px minmax(0, 1fr); }
+  .statBlock.left { align-items: flex-start; padding-top: 4px; }
+  .statBlock .sub.gap { margin-top: 9px; }
+  .muscleTags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 9px; }
+  .muscleTags span {
+    font-size: 10.5px; color: var(--ink-2); background: var(--raised);
+    border-radius: 6px; padding: 2px 6px;
+  }
+  /* the stacked disambiguation: two nouns carried by the value itself */
+  .specRow.twoLine { align-items: flex-start; }
+  .specRow.twoLine .v { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+  .specRow.twoLine .v .line { white-space: nowrap; }
+  .specRow.twoLine .v em { font-style: normal; font-size: 10.5px; color: var(--ink-3); }
+  .specRow.twoLine .k, .specRow.twoLine .chev { padding-top: 1px; }
+
   /* ---- the split header: table on one side, something on the other ---- */
   .split { display: grid; gap: 0 14px; margin-top: 12px; align-items: start; }
   .split .specTable { margin-top: 0; }
@@ -390,14 +407,21 @@
     <button class="themeToggle" id="themeToggle" type="button">Light / dark</button>
     <p class="eyebrow">Prototype · routine detail · round 5</p>
     <h1>Closing the gap</h1>
-    <p class="lede">Rebuilt on the <b>original</b> anatomy, since that is the one you liked: real mono caps labels, a hairline under every row, four separate rows, values hard right. The number on each card is the measured worst-case gap from the end of a label to the start of its value. The reference sits at <b>267 pt</b> — wider than I quoted last round, because 1a’s value column was pulled 60 pt in from the edge and the original’s is not. <b>F is loaded.</b></p>
+    <p class="lede">Rebuilt on the <b>original</b> anatomy: real mono caps labels, a hairline under every row, four separate rows, values hard right. The number on each card is the measured worst-case gap from the end of a label to the start of its value; the reference sits at <b>267 pt</b>. <b>H is loaded</b> — your combination, with two switches under the list for the parts of it that had no obvious answer.</p>
   </div>
 
   <div class="stage">
     <div>
       <div class="dirs" id="dirs">
 
-        <button class="dir" type="button" data-v="tableOrig" aria-pressed="true">
+        <button class="dir" type="button" data-v="tableStatLeft" aria-pressed="true">
+          <span class="num">H</span>
+          <h3>Estimate left, table right <span class="rec">▸ new</span></h3>
+          <p class="idea">Your combination. The estimate leads on the left where the eye lands first; the table takes the right at three rows, because <b>rest and transition become one</b>. Both changes pull in the same direction: fewer rows, a shorter table, and a shorter trip from label to value.</p>
+          <p class="meta"><span class="win">travel 121</span><span class="win">three rows, not four</span><span class="win">first row at 161</span></p>
+        </button>
+
+        <button class="dir" type="button" data-v="tableOrig">
           <span class="num">0</span>
           <h3>The original, full width</h3>
           <p class="idea">Exactly as you saw it: mono caps label, hairline under each row, four separate rows, value hard right. The reference every card below is measured against.</p>
@@ -406,7 +430,7 @@
 
         <button class="dir" type="button" data-v="tableLeader">
           <span class="num">F</span>
-          <h3>Keep the width, lead the eye <span class="rec">▸ pick</span></h3>
+          <h3>Keep the width, lead the eye</h3>
           <p class="idea">The typographic answer, and the only one that changes nothing structural: the rule stops sitting <i>under</i> the row and runs <i>across</i> it, from the end of the label to the value. An index leader. The distance is unchanged; the cost of crossing it is what goes away.</p>
           <p class="meta"><span class="win">nothing moves</span><span class="win">keeps all four rows</span><span class="cost">distance still 267</span></p>
         </button>
@@ -455,6 +479,31 @@
 
       </div>
 
+
+      <div class="opt">
+        <h2>H · saying which pause is which</h2>
+        <p class="why">Combining the two rows is the easy half. Making one row say <i>45s between sets, 15s between exercises</i> without a sentence is the hard half. Three mechanisms, and the sheet carries the full explanation in all of them: tap the row to read it.</p>
+        <div class="segs" id="pauseSegs">
+          <button class="seg" type="button" data-v="paired" aria-pressed="true"><span class="tag">1 <span class="rec">▸ pick</span></span>Paired label</button>
+          <button class="seg" type="button" data-v="stacked" aria-pressed="false"><span class="tag">2</span>Nouns in the value</button>
+          <button class="seg" type="button" data-v="sheet" aria-pressed="false"><span class="tag">3</span>Sheet does all of it</button>
+        </div>
+        <p class="why" style="margin-top:14px"><b>1</b> reads <code>rest · transition</code> against <code>45s · 15s</code> and lets position do the work, which mono columns are good at and which costs no height. <b>2</b> spells it out in two lines with the noun beside each number, unambiguous but twice as tall and the only one that survives a screenshot with no context. <b>3</b> shows <code>45s · 15s</code> under a single <code>pauses</code> label and leaves the disambiguation entirely to the sheet, which is the smallest header and the biggest bet on people tapping.</p>
+      </div>
+
+      <div class="opt">
+        <h2>H · what else rides the estimate column</h2>
+        <p class="why">You asked what could join it. Everything here is derivable from data the app already holds, and each answers a different question you might have while looking at this screen.</p>
+        <div class="segs" id="extraSegs">
+          <button class="seg" type="button" data-v="none"><span class="tag">a</span>Estimate alone</button>
+          <button class="seg" type="button" data-v="finish" aria-pressed="true"><span class="tag">b <span class="rec">▸ pick</span></span>Finish time</button>
+          <button class="seg" type="button" data-v="last"><span class="tag">c</span>Last done</button>
+          <button class="seg" type="button" data-v="muscles"><span class="tag">d</span>Muscle groups</button>
+        </div>
+        <p class="why" style="margin-top:14px"><b>b · done by 1:18</b> is the estimate finished for you. "~30 min" still asks you to do arithmetic against a clock you have to go and look at; a finish time is the answer to the actual question, which is whether this fits before the next thing. It is the only addition here that makes the estimate <i>more</i> useful rather than adding a second fact beside it.</p>
+        <p class="why"><b>c · last tue, 7 days ago</b> pairs with the <code>prev</code> column below, so the whole screen reads as "here is what you did and when". <b>d · muscle groups</b> replaces the vaguer "Upper" with what the exercises actually cover, drawn from the multi-select that already exists on each one. <b>a</b> is the control: if the column looks unbalanced, that is worth knowing before filling it.</p>
+      </div>
+
       <div class="opt">
         <h2>Still open from last round</h2>
         <p class="why"><b>The fact line.</b> Whether the estimate and counts belong in the header at all. Each direction above places them its own way, so this is now partly answered by whichever you pick — but the alternative worth keeping in view is printing the estimate on the Start key instead, where the "do I have time" question actually gets asked.</p>
@@ -476,7 +525,7 @@
 
     <div class="deviceCol">
       <div class="device">
-        <div class="screen" id="screen" data-top="tableLeader" data-row="ledger" data-facts="trim">
+        <div class="screen" id="screen" data-top="tableStatLeft" data-pause="paired" data-extra="finish" data-row="ledger" data-facts="trim">
 
           <div class="statusbar"><span>12:48</span><span class="right">▮▮▮ ᯤ 73</span></div>
 
@@ -536,6 +585,13 @@
   </div>
 
     <div class="noteGrid">
+
+      <div class="note">
+        <span class="flag">the new one</span>
+        <h3>H does two things at once, and they compound</h3>
+        <p>Moving the estimate left and merging rest into transition are separate ideas, but they pull the same way. Three rows instead of four shortens the table; a 104 pt column on the left shortens it again. Travel lands at 121 against the reference's 267, and the first exercise arrives at 161 pt against 215 — the shortest header of anything built so far, without narrowing the table into a stub.</p>
+        <p>It also fixes something the four-row version had: <code>TRANSITION</code> was the longest label in the block and set the left edge for everything. With it merged, no label is unusually long and the column reads even.</p>
+      </div>
 
       <div class="note">
         <span class="flag">correction</span>
@@ -598,7 +654,8 @@
     transition: ["Transition between exercises", "Switching stations uses this instead of rest. 0 skips the countdown."],
     kit:        ["Dumbbells", "Not in main. Add it to the kit · switch kit · swap the moves that need it."],
     bench:      ["Bench", "In main. Used by 3 moves in this routine."],
-    settings:   ["Routine settings", "Name, schedule, rest, transition, notes and delete, all in one place."]
+    settings:   ["Routine settings", "Name, schedule, rest, transition, notes and delete, all in one place."],
+    pauses:     ["Pauses", "Rest is the wait between sets of the same exercise. Transition is the shorter wait when you move to a different one, or to a superset partner. Set 0 to skip a countdown."]
   };
 
   function door(key, label, cls) {
@@ -669,6 +726,21 @@
       pinned: ""
     },
 
+    /* H · estimate LEFT, table right, rest+transition combined */
+    tableStatLeft: {
+      scroll: function () {
+        return '<div class="split statLeft">' +
+          '<div class="statBlock left">' + estimateStack() + '</div>' +
+          '<div class="specTable">' +
+            specRow("schedule", "schedule", "tue") +
+            pauseRow() +
+            specRow("kit", "kit", '<span class="amber">Dumbbells</span> · Bench') +
+          '</div>' +
+        '</div>';
+      },
+      pinned: ""
+    },
+
     /* E · two half tables, two rows each */
     tableHalves: {
       scroll:
@@ -716,6 +788,37 @@
       '<span class="k noflex">' + label + '</span><span class="leadLine"></span>' +
       '<span class="v">' + value + '</span><span class="chev">›</span></button>';
   }
+
+  /* The combined rest + transition row. Three ways to say which is which. */
+  function pauseRow() {
+    var mode = screen.dataset.pause;
+    if (mode === "paired") {
+      return '<button class="specRow" type="button" data-k="pauses">' +
+        '<span class="k">rest · transition</span>' +
+        '<span class="v">45s · 15s</span><span class="chev">›</span></button>';
+    }
+    if (mode === "stacked") {
+      return '<button class="specRow twoLine" type="button" data-k="pauses">' +
+        '<span class="k">pauses</span>' +
+        '<span class="v"><span class="line">45s <em>between sets</em></span>' +
+        '<span class="line">15s <em>between exercises</em></span></span>' +
+        '<span class="chev">›</span></button>';
+    }
+    return '<button class="specRow" type="button" data-k="pauses">' +
+      '<span class="k">pauses</span>' +
+      '<span class="v">45s · 15s</span><span class="chev">›</span></button>';
+  }
+
+  /* What rides the estimate column beside ~30 min. */
+  function estimateStack() {
+    var extra = screen.dataset.extra;
+    var out = '<span class="big">~30 min</span><span class="sub">20 sets</span>';
+    if (extra === "finish") out += '<span class="sub gap">done by 1:18</span>';
+    if (extra === "last") out += '<span class="sub gap">last tue</span><span class="sub">7 days ago</span>';
+    if (extra === "muscles") out += '<div class="muscleTags"><span>back</span><span>shoulders</span><span>arms</span></div>';
+    return out;
+  }
+
   function weekDots() {
     return ["m", "t", "w", "t", "f", "s", "s"].map(function (d, i) {
       return '<span class="day' + (i === 1 ? " on" : "") + '">' + d + "</span>";
@@ -771,7 +874,8 @@
     var band = document.getElementById("band");
     var railHead = document.getElementById("railHead");
 
-    scroll.innerHTML = dir.scroll || "";
+    var scrollHTML = typeof dir.scroll === "function" ? dir.scroll() : (dir.scroll || "");
+    scroll.innerHTML = scrollHTML;
     railHead.innerHTML = dir.railHead || "";
     // The columns pin with whatever else the direction pins — except where
     // the direction IS the rail, which a pinned band would cut in half.
@@ -783,7 +887,7 @@
       // point of this direction is one unbroken spine.
       railHead.insertAdjacentHTML("afterbegin", '<div class="colhead"><span>target</span><span>prev</span></div>');
     }
-    scroll.hidden = !dir.scroll;
+    scroll.hidden = !scrollHTML;
     applyFacts();
   }
 
@@ -885,6 +989,8 @@
   wire("dirs", "top", ".dir", buildTop);
   wire("rowSegs", "row", ".seg", function () { buildRows(); buildTop(); });
   wire("factsSegs", "facts", ".seg", applyFacts);
+  wire("pauseSegs", "pause", ".seg", buildTop);
+  wire("extraSegs", "extra", ".seg", buildTop);
 
   document.getElementById("themeToggle").addEventListener("click", function () {
     var root = document.documentElement;
