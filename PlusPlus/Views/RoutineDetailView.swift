@@ -105,22 +105,7 @@ struct RoutineDetailView: View {
     }
 
     private var detailContent: some View {
-        VStack(spacing: 0) {
-            header
-
-            // Inline in the flow, not a popover (Dave, build-45: the
-            // balloon anchored to the rail's top edge read as randomly
-            // placed and floated over the first rows). An inline card
-            // sits between the facts and the list it explains, and
-            // displaces content instead of covering it. Still a
-            // SIBLING gate — conditional content must never wrap the
-            // rail ScrollView (identity churn mid-gesture, #270).
-            SupersetTipInline(
-                hasSuperset: routine.sortedGroups.contains(where: \.isSuperset)
-            )
-
-            railList
-        }
+        railList
         .background(Theme.background)
         // Feed the creation tip's display rule from live structure (the
         // popover attachment on the first rail row stays unconditional;
@@ -253,12 +238,19 @@ struct RoutineDetailView: View {
 
     // MARK: - Header
 
+    /// The header (2026-07-29): an ESTIMATE COLUMN on the left and a
+    /// three-row SPEC TABLE on the right, both scrolling with the list.
+    ///
+    /// The shape is the answer to "too much horizontal eye movement between
+    /// the label and the value": travel is set by where the LABEL starts, not
+    /// by how wide the table is, so a left column shortens every row at once.
+    /// Merging rest and transition into one `PAUSES` row does the rest —
+    /// `TRANSITION` was the longest label in the block and was setting the
+    /// left edge for every value.
+    ///
+    /// Derived facts are TEXT (the estimate, the set count, the muscle
+    /// groups); settings are DOORS (schedule, pauses, each kit piece).
     private var header: some View {
-        // The shared metadata, in the detail's fuller "facts, then needs" split
-        // (2026-07-22): a focus + schedule subtitle, a quiet fact line, then a
-        // labelled equipment row. Here — and ONLY here — the schedule chip and
-        // the amber (not-in-kit) gear chips are doors: they open the schedule
-        // tray and the equipment-resolve sheet.
         let meta = RoutineMeta(routine: routine, activeNames: availableEquipmentNames)
         return VStack(alignment: .leading, spacing: 0) {
             // The routine name is the screen's heading, below the back
@@ -345,7 +337,57 @@ struct RoutineDetailView: View {
         // and scrolls naturally — #87's below-the-fold bug came from
         // offset-positioned rows that occupied no layout space. Offsets
         // now carry only the drag-preview deltas.
+        // ⚠️ The header is a SIBLING of the rows stack, never inside it
+        // (2026-07-29). Every rail coordinate — the UIKit long-press
+        // recogniser's y, the ring highlight, the drag preview — is measured
+        // from the rows stack's own origin by `.overlay(alignment: .topLeading)`,
+        // so putting the header in that same stack would shift y=0 to the
+        // header's top and break every drop target by the header's height.
+        // As a sibling it scrolls with the list and changes no geometry.
         return ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                header
+
+                // Inline in the flow, not a popover (Dave, build-45: the
+                // balloon anchored to the rail's top edge read as randomly
+                // placed and floated over the first rows). An inline card
+                // sits between the facts and the list it explains, and
+                // displaces content instead of covering it. Still a
+                // SIBLING gate — conditional content must never wrap the
+                // rows stack (identity churn mid-gesture, #270).
+                SupersetTipInline(
+                    hasSuperset: routine.sortedGroups.contains(where: \.isSuperset)
+                )
+
+                railRows(groups: groups, ringGroup: ringGroup, offsets: offsets, layout: layout, sizes: sizes)
+            }
+        }
+        .scrollDisabled(railGesture != .idle)
+        .sensoryFeedback(.impact(weight: .light), trigger: gestureFeedbackToken)
+        .sensoryFeedback(.impact(weight: .medium), trigger: landingTick)
+        .onDisappear {
+            railGesture = .idle
+            // Cancel any in-flight landing: bumping the token invalidates
+            // the deferred clock/haptic guards, and clearing the state stops
+            // its rendering (the view is going away).
+            landingSeq &+= 1
+            supersetLanding = nil
+        }
+        // Routine edits (rail structure, sets, schedule) reach GitHub when you
+        // leave the detail. Debounced + dirty-gated, so a no-edit visit is free.
+        .syncsProgramOnClose()
+    }
+
+    /// The rows themselves, with every gesture overlay measured from THIS
+    /// stack's origin. Extracted so the header can sit above it without
+    /// entering its coordinate space.
+    private func railRows(
+        groups: [ExerciseGroup],
+        ringGroup: Int?,
+        offsets: [RailRowKind: Double],
+        layout: RailLayout,
+        sizes: [Int]
+    ) -> some View {
             VStack(spacing: 0) {
                 ForEach(Array(groups.enumerated()), id: \.element.uuid) { g, group in
                     ForEach(Array(group.sortedExercises.enumerated()), id: \.element.uuid) { i, routineExercise in
@@ -377,21 +419,6 @@ struct RoutineDetailView: View {
             .padding(.leading, 20)
             .padding(.trailing, 14)
             .padding(.bottom, 8)
-        }
-        .scrollDisabled(railGesture != .idle)
-        .sensoryFeedback(.impact(weight: .light), trigger: gestureFeedbackToken)
-        .sensoryFeedback(.impact(weight: .medium), trigger: landingTick)
-        .onDisappear {
-            railGesture = .idle
-            // Cancel any in-flight landing: bumping the token invalidates
-            // the deferred clock/haptic guards, and clearing the state stops
-            // its rendering (the view is going away).
-            landingSeq &+= 1
-            supersetLanding = nil
-        }
-        // Routine edits (rail structure, sets, schedule) reach GitHub when you
-        // leave the detail. Debounced + dirty-gated, so a no-edit visit is free.
-        .syncsProgramOnClose()
     }
 
     private var activeRingGroup: Int? {

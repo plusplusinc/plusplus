@@ -888,7 +888,7 @@ Two things came free and are worth keeping in mind before anyone moves it back: 
 
 ## 2026-07-29 — Routine detail, header redesign settled as a prototype — Design decided before implementation, in a reviewable artifact rather than a branch of Swift
 
-**Decision.** Dave's seven-point brief for routine detail was worked as an interactive prototype (`docs/prototypes/routine-detail-redesign.html`) over five rounds, and the header's shape is now settled. No app code changed. The prototype is the spec; this entry is the record if it is ever deleted.
+**Decision.** Dave's seven-point brief for routine detail was worked as an interactive prototype over five rounds, and the header's shape is now settled. ⚠️ **The prototype was NOT committed** (Dave: "you shouldn't be committing your prototypes") — it was scratch, and this entry is therefore the only spec. Everything below is written to be built from without it.
 
 **The settled header.** The estimate leads a 100 pt column on the LEFT (`~30 min` over `20 sets`, with the routine's muscle groups beneath it as inert data tags). A three-row spec table takes the right: `SCHEDULE`, `PAUSES`, `KIT`, mono caps label left, hairline under each row, value hard right, each row a door.
 
