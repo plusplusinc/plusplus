@@ -949,3 +949,11 @@ The fix is the law's own preferred path rather than a new phrase: restructure so
 **One thing found while fixing, not reported.** The `target` column heading sat 5 pt right of the column it names — the header row spaced its labels at 8 while the row spaces its run columns at 13. On right-aligned mono columns that is plainly visible. ⚠️ A heading and the thing it heads have to share a spacing constant or they drift the moment either is tuned.
 
 **Validation.** Parse-checked and CI-green. Device-only, again: all five are layout, `ui-test` is skipped on branch builds, and the rail's drag/ring/drop targets read the same geometry the node offset now travels with.
+
+**Addendum, same day — the two header columns get a drawn gutter.** Dave, looking at the fixed layout: "think we need some way of making sure the two columns of that top area are clear". A 1 pt `Theme.border` rule now sits in the gutter, spanning the taller column.
+
+It is the SAME hairline the spec table already draws between its rows, turned on its side, so the three horizontal rules start on a vertical one and the right column reads as a table rather than as text that happens to be right of other text. No new weight, colour or idea enters the screen.
+
+⚠️ **The alternative — a filled ground behind one column — costs more than it gives here, and the reason generalizes.** A panel in a cardless screen reads as a card you can open, and neither column is one. And the left column's muscle tags already wear `surfaceRaised` over `background`: put them on `surface` and the tag flattens into its own ground and stops looking like a tag. **A soft data tag needs the page's ground under it; giving its container a fill spends the contrast the tag is made of.**
+
+Same round: the pause NOUN wraps instead of truncating. It is what tells the two pauses apart under one label, so at an accessibility text size where it stops fitting on one line, a second line is the answer and "between exercis…" is not — the same rule as the fault above, applied where the fault would return.

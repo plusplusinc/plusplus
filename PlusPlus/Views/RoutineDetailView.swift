@@ -354,8 +354,9 @@ struct RoutineDetailView: View {
             // ⚠️ NO notes either. They left this region entirely; the
             // settings sheet still holds the field.
             if !routine.groups.isEmpty {
-                HStack(alignment: .top, spacing: 14) {
+                HStack(alignment: .top, spacing: 0) {
                     estimateColumn(meta)
+                    columnRule
                     specTable(meta)
                 }
                 .padding(.top, 12)
@@ -364,6 +365,32 @@ struct RoutineDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 20)
         .padding(.bottom, 4)
+    }
+
+    /// The gutter between the two header columns, drawn (2026-07-29, Dave:
+    /// the split needed "some way of making sure the two columns are clear").
+    ///
+    /// It is the SAME hairline the spec table already puts between its rows,
+    /// turned on its side, so the three horizontal rules now start on a
+    /// vertical one and the right column reads as a table rather than as text
+    /// that happens to be right of other text. Nothing new is introduced: one
+    /// weight, one colour, one idea.
+    ///
+    /// The alternative was a filled ground behind one column, and it costs
+    /// more than it gives here. A panel in a cardless screen reads as a card
+    /// you can open, and neither column is; the muscle tags in the left column
+    /// already wear `surfaceRaised` over `background`, so putting them on
+    /// `surface` would flatten the tag against its own ground — a tag stops
+    /// looking like a tag.
+    ///
+    /// It spans the taller column: the rule IS the gutter, so it ends where
+    /// the header does.
+    private var columnRule: some View {
+        Rectangle()
+            .fill(Theme.border)
+            .frame(width: 1)
+            .padding(.horizontal, 12)
+            .accessibilityHidden(true)
     }
 
     /// The left column: what the routine COSTS, in the order you ask it.
@@ -450,11 +477,16 @@ struct RoutineDetailView: View {
             Text(value)
                 .font(.system(.footnote, design: .monospaced))
                 .foregroundStyle(Theme.textPrimary)
+                .lineLimit(1)
+            // ⚠️ The noun WRAPS rather than truncating (2026-07-29). It is
+            // what tells the two pauses apart under one label, so at an
+            // accessibility text size where it no longer fits on one line,
+            // a second line is the answer and "between exercis…" is not.
             Text(noun)
                 .font(.system(.caption2))
                 .foregroundStyle(Theme.textFaint)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .lineLimit(1)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(value) \(noun)")
     }
