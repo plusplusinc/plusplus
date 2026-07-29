@@ -266,13 +266,16 @@ struct ScheduleToken: View {
 }
 
 /// The equipment tier: amber-first soft tags (a piece missing from the active
-/// kit washes amber). In the detail the amber tags are doors (trailing chevron
-/// + tap → the resolve sheet) and the row wraps in full; on cards/Today they
-/// only flag and collapse to "N more". `showLabel` prefixes a mono "Equipment".
+/// kit washes amber). In the detail EVERY tag is a door and the row wraps in
+/// full; on cards/Today they only flag and collapse to "N more".
+///
+/// ⚠️ The `showLabel` "EQUIPMENT" heading is GONE (2026-07-29). Its only
+/// caller was routine detail's header, where the row now sits in a spec table
+/// whose own `KIT` label names it — a second heading over the same tags said
+/// the same thing twice.
 struct RoutineEquipmentTags: View {
     let gear: [(name: String, available: Bool)]
     var interactive: Bool = false
-    var showLabel: Bool = false
     /// Capsules that ride AHEAD of the gear tags — the catalog surfaces' "has
     /// <exercise>" explainer, when a routine matched the query through a move
     /// it contains rather than through its own name.
@@ -287,16 +290,9 @@ struct RoutineEquipmentTags: View {
         if gear.isEmpty && leadingCapsules.isEmpty {
             EmptyView()
         } else if interactive {
-            VStack(alignment: .leading, spacing: 7) {
-                if showLabel {
-                    Text("EQUIPMENT")
-                        .font(.system(.caption2, design: .monospaced, weight: .semibold))
-                        .foregroundStyle(Theme.textFaint)
-                }
-                FlowLayout(spacing: 6) {
-                    ForEach(sortedGear.indices, id: \.self) { index in
-                        tag(sortedGear[index])
-                    }
+            FlowLayout(spacing: 6) {
+                ForEach(sortedGear.indices, id: \.self) { index in
+                    tag(sortedGear[index])
                 }
             }
         } else {
@@ -304,39 +300,47 @@ struct RoutineEquipmentTags: View {
         }
     }
 
-    @ViewBuilder
+    /// ⚠️ Shape carries what taps, and BOTH pieces are the SAME SIZE
+    /// (2026-07-29, superseding the 2026-07-23 control-shape treatment).
+    ///
+    /// A kit tag here is a DOOR, so it keeps `CardTagCapsule`'s soft ground
+    /// and adds a ring. The inert card tags — and the muscle groups sitting
+    /// beside these in routine detail's header — carry the same fill with NO
+    /// stroke, which is the whole reason the stroke means anything.
+    ///
+    /// The old treatment gave the missing piece the full control shape (r11,
+    /// a chevron, 10/5 padding) against an available piece's soft r6 at 8/2.5,
+    /// so the two rendered at visibly different sizes on the one surface that
+    /// shows them together. It read as accidental rather than meaningful.
+    /// Same ground, one added stroke, identical metrics.
+    ///
+    /// EVERY piece taps now, not just the missing one: an available piece
+    /// opens your kit, a missing one opens the ways to fix it. A tag that
+    /// looks tappable and isn't is the fault the 2026-07-23 round was trying
+    /// to avoid in the first place.
     private func tag(_ piece: (name: String, available: Bool)) -> some View {
-        if piece.available {
-            CardCapsule(text: piece.name).view()
-        } else {
-            // The TAPPABLE amber piece wears the CONTROL shape — r11 with a
-            // stroke — while the inert card tags stay soft r6 (design review
-            // 2026-07-23): the same amber tag used to render identically here
-            // and on the cards, teaching a tap that was dead everywhere else.
-            // Shape now carries the difference; the cards gained no nested
-            // tap targets.
-            Button { onEquipmentTap(piece.name) } label: {
-                HStack(spacing: 3) {
-                    Text(piece.name)
-                    Image(systemName: "chevron.right")
-                        .font(.system(.caption2, weight: .semibold))
-                }
+        Button { onEquipmentTap(piece.name) } label: {
+            Text(piece.name)
                 .font(.system(.caption2))
-                // Ink, not `notes`: this sits on its own amber wash.
-                .foregroundStyle(Theme.notesInk)
+                // Ink, not `notes`: the amber sits on its own wash.
+                .foregroundStyle(piece.available ? Theme.textSecondary : Theme.notesInk)
                 .lineLimit(1)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(Theme.notesWash, in: RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius))
-                .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius)
-                    .strokeBorder(Theme.notesRing, lineWidth: 1))
+                .padding(.horizontal, CardTagCapsule.horizontalPadding)
+                .padding(.vertical, 2.5)
+                .background(
+                    piece.available ? Theme.surfaceRaised : Theme.notesWash,
+                    in: RoundedRectangle(cornerRadius: CardTagCapsule.cornerRadius)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: CardTagCapsule.cornerRadius)
+                        .strokeBorder(piece.available ? Theme.borderStrong : Theme.notesRing, lineWidth: 1)
+                )
                 .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("\(piece.name), not in your kit")
-            .accessibilityHint("Opens ways to fix it")
-            .accessibilityAddTraits(.isButton)
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel(piece.available ? piece.name : "\(piece.name), not in your kit")
+        .accessibilityHint(piece.available ? "Opens your kit" : "Opens ways to fix it")
+        .accessibilityAddTraits(.isButton)
     }
 }
 

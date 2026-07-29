@@ -28,8 +28,16 @@ struct RoutineDetailView: View {
     @State private var healthStartRequest: HealthStartRequest?
     @State private var showingRoutineSettings = false
     @State private var showingShareSheet = false
-    /// The schedule tray, raised by the header's tappable schedule chip.
+    /// The schedule tray, raised by the header's schedule row.
     @State private var showingScheduleTray = false
+    /// The merged rest + transition tray, raised by the header's pauses row.
+    @State private var showingPausesTray = false
+    /// Your kit, raised by tapping a piece the active kit HAS (a piece it
+    /// lacks opens the resolve sheet instead).
+    @State private var showingKitCatalog = false
+    /// The estimate column's width. Scaled so the spec table's labels start
+    /// at the same place at every Dynamic Type size.
+    @ScaledMetric(relativeTo: .body) private var estimateColumnWidth: Double = 104
     /// The equipment-resolve sheet's target (an equipment name not in the
     /// active kit), raised by tapping an amber gear chip in the header.
     @State private var resolveTarget: ResolveTarget?
@@ -228,6 +236,16 @@ struct RoutineDetailView: View {
         .sheet(isPresented: $showingScheduleTray) {
             ScheduleTray(routine: routine)
         }
+        // Both pauses in one tray, because they are one question with two
+        // answers and the sheet is where the difference gets explained.
+        .sheet(isPresented: $showingPausesTray) {
+            PausesTray(routine: routine)
+        }
+        // A piece the kit already has opens the kit itself — the surface
+        // where you'd manage it. The missing case has its own sheet below.
+        .sheet(isPresented: $showingKitCatalog) {
+            CatalogScopeView(scope: .kit)
+        }
         // Tapping an amber "not in your kit" gear chip opens ways to resolve it
         // (add to kit · switch kit · swap the moves). Keyed on the name.
         .sheet(item: $resolveTarget) { target in
@@ -289,51 +307,115 @@ struct RoutineDetailView: View {
             // reversed here in exchange for the native collapse, and the
             // cost is that a long name truncates on one line instead of
             // wrapping to two.
+            //
+            // ⚠️ NO notes either. They left this region entirely; the
+            // settings sheet still holds the field.
             if !routine.groups.isEmpty {
-                // Subtitle: focus + the tappable schedule chip.
-                HStack(spacing: 6) {
-                    if let focus = meta.focus {
-                        Text(focus)
-                            .font(.system(.subheadline))
-                            .foregroundStyle(Theme.textSecondary)
-                        Text("·").foregroundStyle(Theme.textFaint)
-                    }
-                    ScheduleToken(schedule: routine.schedule, interactive: true) {
-                        showingScheduleTray = true
-                    }
+                HStack(alignment: .top, spacing: 14) {
+                    estimateColumn(meta)
+                    specTable(meta)
                 }
-                .padding(.top, 10)
-
-                // The quiet fact line: estimate · exercises · sets · rest.
-                if !meta.factLine.isEmpty {
-                    Text(meta.factLine)
-                        .font(.system(.caption))
-                        .foregroundStyle(Theme.textSecondary)
-                        .padding(.top, 8)
-                }
-
-                // The equipment tier: amber-first, missing pieces tappable.
-                if !meta.gear.isEmpty {
-                    RoutineEquipmentTags(gear: meta.gear, interactive: true, showLabel: true) { name in
-                        resolveTarget = ResolveTarget(name: name)
-                    }
-                    .padding(.top, 12)
-                }
-
-                if let notes = routine.notes {
-                    Text(notes)
-                        .font(.system(.footnote))
-                        .foregroundStyle(Theme.textSecondary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                        .padding(.top, 9)
-                }
+                .padding(.top, 12)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 20)
         .padding(.bottom, 4)
     }
+
+    /// The left column: what the routine COSTS, in the order you ask it.
+    /// All derived, so all inert text — the estimate answers "do I have time
+    /// for this", the set count is the workload you would otherwise sum down
+    /// the rail, and the muscle groups say what it covers more precisely than
+    /// a single focus word did.
+    private func estimateColumn(_ meta: RoutineMeta) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if let estimate = meta.estimate {
+                Text(estimate)
+                    .font(.system(.title3, design: .monospaced))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            Text("\(meta.sets) sets")
+                .font(.system(.caption2, design: .monospaced))
+                .foregroundStyle(Theme.textFaint)
+            let muscles = routine.muscleGroups
+            if !muscles.isEmpty {
+                FlowLayout(spacing: 4) {
+                    ForEach(muscles, id: \.self) { group in
+                        CardCapsule(text: group.displayName).view()
+                    }
+                }
+                .padding(.top, 8)
+            }
+        }
+        .frame(width: estimateColumnWidth, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// The right column. Mono caps label left, value hard right, hairline
+    /// under all but the last, and every row a door.
+    ///
+    /// ⚠️ The KIT row takes no tap of its own — its tags are each their own
+    /// target, and a row-level door plus per-tag doors would be nested tap
+    /// targets. That is why it alone carries no trailing chevron.
+    private func specTable(_ meta: RoutineMeta) -> some View {
+        VStack(spacing: 0) {
+            RoutineSpecRow(label: "schedule", action: { showingScheduleTray = true }) {
+                Text(RoutineMeta.cadence(routine.schedule))
+                    .font(.system(.footnote, design: .monospaced))
+                    .foregroundStyle(Theme.textPrimary)
+            }
+            specHairline
+            // Rest and transition are one row (2026-07-29). They are the same
+            // KIND of fact — how long you wait — and each number carries its
+            // own noun, so position never has to be decoded. Merging them also
+            // took `TRANSITION`, the longest label in the block, out of the
+            // left edge every value was aligning against.
+            RoutineSpecRow(label: "pauses", action: { showingPausesTray = true }) {
+                VStack(alignment: .trailing, spacing: 2) {
+                    pauseValue(RoutineMeta.restLabel(routine.restSeconds), noun: "between sets")
+                    pauseValue(RoutineMeta.restLabel(routine.transitionSeconds), noun: "between exercises")
+                }
+            }
+            if !meta.gear.isEmpty {
+                specHairline
+                RoutineSpecRow(label: "kit", showsChevron: false) {
+                    RoutineEquipmentTags(gear: meta.gear, interactive: true) { name in
+                        if availableEquipmentNames.contains(name) {
+                            showingKitCatalog = true
+                        } else {
+                            resolveTarget = ResolveTarget(name: name)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var specHairline: some View {
+        Rectangle()
+            .fill(Theme.border)
+            .frame(height: 1)
+    }
+
+    /// One pause: the number in ink, its noun quiet beside it. The noun is
+    /// what makes a merged row readable without a legend.
+    private func pauseValue(_ value: String, noun: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 5) {
+            Text(value)
+                .font(.system(.footnote, design: .monospaced))
+                .foregroundStyle(Theme.textPrimary)
+            Text(noun)
+                .font(.system(.caption2))
+                .foregroundStyle(Theme.textFaint)
+        }
+        .lineLimit(1)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(value) \(noun)")
+    }
+
 
     // The "No exercises yet" empty hint died (#209): the rail's
     // Add-exercise button IS the empty state.
@@ -1108,6 +1190,121 @@ struct RoutineDetailView: View {
         try? modelContext.save()
     }
 
+}
+
+/// One row of routine detail's spec table: a mono caps label on the left, the
+/// value hard right, an optional trailing chevron. The whole row is the tap
+/// target when it has one.
+///
+/// Lives here rather than in `Views/Components/` because exactly one screen
+/// builds this table. It moves the day a second one does — no earlier.
+private struct RoutineSpecRow<Value: View>: View {
+    let label: String
+    var showsChevron = true
+    var action: (() -> Void)?
+    @ViewBuilder let value: () -> Value
+
+    var body: some View {
+        if let action {
+            Button(action: action) { row }
+                .buttonStyle(.plain)
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.isButton)
+        } else {
+            row
+        }
+    }
+
+    private var row: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(label.uppercased())
+                .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                .kerning(0.6)
+                .foregroundStyle(Theme.textFaint)
+                // The label claims the row's slack, which is what pushes the
+                // value right — and what keeps every value on one column.
+                .frame(maxWidth: .infinity, alignment: .leading)
+            value()
+            if showsChevron {
+                Image(systemName: "chevron.right")
+                    .font(.system(.caption2, weight: .semibold))
+                    .foregroundStyle(Theme.textFaint)
+                    .accessibilityHidden(true)
+            }
+        }
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
+    }
+}
+
+/// Rest and transition in one tray (2026-07-29), because the header now shows
+/// them as one row. The explainer is the whole reason the merge is safe: two
+/// numbers under one label need somewhere that says which is which, and this
+/// is it.
+private struct PausesTray: View {
+    @Environment(\.dismiss) private var dismiss
+    @Bindable var routine: Routine
+
+    @State private var showingRestScrubber = false
+    @State private var showingTransitionScrubber = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SheetHeader(title: "Pauses", closeOnly: true) { dismiss() }
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    MetricStepperRow(
+                        label: "Rest",
+                        value: WorkoutMetric.rest.displayText(Double(routine.restSeconds)),
+                        identifier: "rest",
+                        onTapValue: { showingRestScrubber = true },
+                        onDecrement: { routine.restSeconds = Int(WorkoutMetric.rest.decremented(Double(routine.restSeconds))) },
+                        onIncrement: { routine.restSeconds = Int(WorkoutMetric.rest.incremented(Double(routine.restSeconds))) }
+                    )
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+
+                    MetricStepperRow(
+                        label: "Transition",
+                        value: WorkoutMetric.transition.displayText(Double(routine.transitionSeconds)),
+                        identifier: "transition",
+                        onTapValue: { showingTransitionScrubber = true },
+                        onDecrement: { routine.transitionSeconds = Int(WorkoutMetric.transition.decremented(Double(routine.transitionSeconds))) },
+                        onIncrement: { routine.transitionSeconds = Int(WorkoutMetric.transition.incremented(Double(routine.transitionSeconds))) }
+                    )
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+
+                    Text("Rest is the wait between sets of the same exercise. Transition is the shorter wait when you move to a different one, or to a superset partner. Set 0 to skip a countdown.")
+                        .font(.system(.caption))
+                        .foregroundStyle(Theme.textFaint)
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 30)
+            }
+        }
+        .background(Theme.background)
+        .presentationDetents([.medium])
+        .sheet(isPresented: $showingRestScrubber) {
+            MetricWheelSheet(
+                metric: .rest,
+                value: Binding(
+                    get: { Double(routine.restSeconds) },
+                    set: { routine.restSeconds = Int(($0 ?? Double(routine.restSeconds)).rounded()) }
+                )
+            )
+        }
+        .sheet(isPresented: $showingTransitionScrubber) {
+            MetricWheelSheet(
+                metric: .transition,
+                value: Binding(
+                    get: { Double(routine.transitionSeconds) },
+                    set: { routine.transitionSeconds = Int(($0 ?? Double(routine.transitionSeconds)).rounded()) }
+                )
+            )
+        }
+    }
 }
 
 /// Structural gate for the superset tips. One branch renders at a
