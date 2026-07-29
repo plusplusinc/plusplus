@@ -906,6 +906,12 @@ Two things came free and are worth keeping in mind before anyone moves it back: 
 
 **Two knock-ons outside this screen.** `prev` already exists as `ledger(for:)` in `TodayView` and wants moving beside `RoutineCardContent` so both surfaces read one producer. And lifting the ignition out of `IntroView` into `StartFlashButton` changes **Today's Start too**, since both call it.
 
+**⚠️ A latent copy fault found while writing this round's sheet copy, and it is SHIPPED.** `EquipmentLibrary.activeKitPhrase` returns `"the \(name) kit"`. That construction assumes the kit's name is ADJECTIVE-SHAPED, which is true of exactly one name: `main`, the default. It reads fine for "the main kit" and "the travel kit" and breaks for anything else a user might type ("the Dave's stuff kit", "the Home Gym kit"). The helper was validated against the one name that flatters it.
+
+It is invisible today for the same reason the `KitTag` fault was: `activeNamePhrase` only returns a NAME once more than one real kit exists, so with a single kit every caller reads "your kit" and the construction never renders. One shipped call site: `RoutineTemplateDetailScreen`'s onboarding blurb ("Marking what you have in …").
+
+The fix is the law's own preferred path rather than a new phrase: restructure so the sentence ENDS on the name and let `KitNamePhrase`/`KitTag` mark it, which is what that law says to do wherever the tag can go. `activeKitPhrase` then wants narrowing or retiring, because its premise — that "the <name> kit" reads — is the thing that turned out to be false. NOT fixed in this PR: it is app code, it changes a shipped screen's copy, and the rewording is a call to make rather than assume.
+
 **Carry-over to other surfaces.** Assessed at the end of the round; four things generalize and one is a straight conflict.
 
 ⚠️ **The conflict: tappable amber's shape.** `RoutineEquipmentTags.tag` (`Views/Components/RoutineCardContent.swift`) implements design-review 2026-07-23 law #3 — a tappable amber piece wears the CONTROL shape (r11 + stroke + trailing chevron) while inert card tags stay soft r6. That size delta is precisely what Dave opened this round objecting to ("imbalanced and accidental"). The settled answer keeps the law's INTENT (shape carries what taps) but moves the delta from radius-plus-chevron to **stroke only**, at r6, so both tags are the same size. Either app-surfaces.md's law is amended app-wide or it is explicitly scoped to the routine header; leaving both readings in place is how the app ends up with two amber grammars again.
