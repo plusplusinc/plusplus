@@ -256,11 +256,24 @@ struct RoutineDetailView: View {
             // The routine name is the screen's heading, below the back
             // key (Dave, build-78): a centered chrome title truncated a
             // long name to "Travel bodyweight…". Here it gets the full
-            // width and wraps to a second line instead of clipping.
+            // width and wraps.
+            //
+            // ⚠️ NO line limit (Dave, 2026-07-29: "don't truncate the routine
+            // name"). The old `.lineLimit(2)` still clipped a long enough
+            // name, which is the same fault build-78 moved it here to fix,
+            // just two lines further along. `.fixedSize(vertical:)` is what
+            // makes the wrap actually happen rather than the text being
+            // squeezed to one line by the enclosing stack.
+            //
+            // ⚠️ This is ALSO why the heading cannot become a system large
+            // title. A system large title is the free, native version of the
+            // collapse the tab roots get — but it renders on one line, so
+            // adopting it would reintroduce exactly this truncation. The two
+            // asks (never truncate, collapse into the bar) do not compose
+            // through `.navigationTitle`.
             Text(routine.name)
                 .font(.system(.title, weight: .bold))
                 .foregroundStyle(Theme.textPrimary)
-                .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
                 .padding(.top, 4)
