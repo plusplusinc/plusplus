@@ -1,4 +1,4 @@
-<title>Routine detail · redesign prototypes</title>
+<title>Routine detail · how the kit tags read</title>
 <style>
   :root {
     /* App tokens, dark side (Theme.swift + BrandPalette.swift) */
@@ -13,19 +13,11 @@
     --accent: #46D17C;
     --on-primary: #161616;
     --primary-fill: #F0EDE6;
-    --notes: #CFA14A;
     --notes-ink: #DCB25E;
     --notes-wash: rgba(207, 161, 74, 0.14);
     --notes-ring: rgba(207, 161, 74, 0.75);
     --selected: #5CA8F5;
-    --loop: #7C786F;
-    --done: #A371F7;
-    --card-radius: 14px;
-    --selected-tint: rgba(92, 168, 245, 0.12);
-    --selected-ring: rgba(92, 168, 245, 0.7);
-    --selected-ink: #8CC4FA;
 
-    /* Review chrome — a half-step below the app ground so the phone reads as the subject */
     --page: #171614;
     --page-panel: #1D1C1A;
     --page-line: #302E2A;
@@ -40,670 +32,341 @@
     --border: #DDDBD7; --border-strong: #C2C0BA;
     --ink: #232220; --ink-2: #6B6965; --ink-3: #6F6C68;
     --accent: #17914B; --on-primary: #FFFFFF; --primary-fill: #232220;
-    --notes: #8F5F00; --notes-ink: #805400;
-    --notes-wash: rgba(143, 95, 0, 0.14); --notes-ring: rgba(143, 95, 0, 0.75);
-    --selected: #1668D2; --done: #8250DF;
-    --selected-tint: rgba(22, 104, 210, 0.12); --selected-ring: rgba(22, 104, 210, 0.7); --selected-ink: #0E4FA3;
+    --notes-ink: #805400; --notes-wash: rgba(143, 95, 0, 0.14); --notes-ring: rgba(143, 95, 0, 0.75);
+    --selected: #1668D2;
     --page: #EFEDE9; --page-panel: #FFFFFF; --page-line: #DAD7D1;
     --page-ink: #232220; --page-ink-2: #6B6965;
   }
 
   * { box-sizing: border-box; }
   body { margin: 0; }
-  [hidden] { display: none !important; }
 
-  .wrap {
+  .page {
     background: var(--page); color: var(--page-ink); font-family: var(--sans);
-    -webkit-font-smoothing: antialiased; padding: 28px 20px 72px; min-height: 100vh;
+    -webkit-font-smoothing: antialiased; min-height: 100vh;
+    padding: 22px 16px 56px; max-width: 520px; margin: 0 auto;
   }
-  .col { max-width: 1180px; margin: 0 auto; }
 
   /* ---------- masthead ---------- */
   .eyebrow {
-    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
-    color: var(--page-ink-2); margin: 0 0 10px;
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.13em; text-transform: uppercase;
+    color: var(--page-ink-2); margin: 0 0 8px;
   }
-  h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.05; letter-spacing: -0.025em; margin: 0 0 12px; font-weight: 700; text-wrap: balance; }
-  .lede { margin: 0; max-width: 64ch; color: var(--page-ink-2); font-size: 15px; line-height: 1.55; }
+  h1 { font-size: 27px; line-height: 1.1; letter-spacing: -0.02em; margin: 0 0 10px; font-weight: 700; }
+  .lede { margin: 0; color: var(--page-ink-2); font-size: 14.5px; line-height: 1.55; }
   .lede b { color: var(--page-ink); font-weight: 600; }
-  .masthead { border-bottom: 1px solid var(--page-line); padding-bottom: 24px; margin-bottom: 28px; }
+  .masthead { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+  .masthead > div { min-width: 0; }
   .themeToggle {
-    float: right; font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em;
+    flex: none; font-family: var(--mono); font-size: 11px;
     background: transparent; color: var(--page-ink-2); border: 1px solid var(--page-line);
-    border-radius: 8px; padding: 7px 11px; cursor: pointer;
+    border-radius: 9px; padding: 8px 11px; cursor: pointer; min-height: 38px;
   }
-  .themeToggle:hover { color: var(--page-ink); border-color: var(--page-ink-2); }
-
-  /* ---------- stage ---------- */
-  .stage { display: grid; grid-template-columns: minmax(0, 1fr) 392px; gap: 36px; align-items: start; }
-  @media (max-width: 940px) { .stage { grid-template-columns: minmax(0, 1fr); } .deviceCol { order: -1; } }
-  .deviceCol { position: sticky; top: 20px; }
-  @media (max-width: 940px) { .deviceCol { position: static; } }
-
-  /* ---------- direction cards ---------- */
-  .dirs { display: grid; gap: 12px; }
-  .dir {
-    display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 0 14px; align-items: start;
-    width: 100%; text-align: left; font: inherit; cursor: pointer;
-    border: 1px solid var(--page-line); border-radius: 14px; background: var(--page-panel);
-    padding: 16px 18px;
-  }
-  .dir:hover { border-color: var(--page-ink-2); }
-  .dir[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--page-panel)); }
-  .dir:focus-visible, .themeToggle:focus-visible, .seg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .dir .num {
-    grid-row: span 3; font-family: var(--mono); font-size: 12px; color: var(--page-ink-2);
-    border: 1px solid var(--page-line); border-radius: 8px; height: 28px; display: grid; place-items: center;
-  }
-  .dir[aria-pressed="true"] .num { color: var(--accent); border-color: var(--accent); }
-  .dir h3 { margin: 4px 0 0; font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
-  .dir .idea { margin: 6px 0 0; font-size: 13.5px; line-height: 1.5; color: var(--page-ink-2); }
-  .dir .idea b { color: var(--page-ink); font-weight: 600; }
-  .dir .meta { margin: 9px 0 0; display: flex; flex-wrap: wrap; gap: 6px; }
-  .dir .meta span {
-    font-family: var(--mono); font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase;
-    border: 1px solid var(--page-line); border-radius: 6px; padding: 3px 7px; color: var(--page-ink-2);
-  }
-  .dir .meta .cost { color: var(--notes); border-color: color-mix(in srgb, var(--notes) 45%, transparent); }
-  .dir .meta .win { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
-
-  .opt { border: 1px solid var(--page-line); border-radius: 14px; background: var(--page-panel); padding: 18px; margin-top: 16px; }
-  .opt h2 { font-size: 17px; margin: 0 0 4px; letter-spacing: -0.01em; font-weight: 650; }
-  .opt .why { margin: 0 0 14px; font-size: 13.5px; line-height: 1.5; color: var(--page-ink-2); max-width: 64ch; }
-  .opt .why:last-child { margin-bottom: 0; }
-  .opt .why b { color: var(--page-ink); font-weight: 600; }
-  .segs { display: flex; flex-wrap: wrap; gap: 8px; }
-  .seg {
-    font: inherit; font-size: 13px; cursor: pointer; background: transparent; color: var(--page-ink-2);
-    border: 1px solid var(--page-line); border-radius: 10px; padding: 9px 13px;
-    display: flex; flex-direction: column; gap: 2px; text-align: left;
-  }
-  .seg:hover { border-color: var(--page-ink-2); color: var(--page-ink); }
-  .seg[aria-pressed="true"] { border-color: var(--accent); color: var(--page-ink); background: color-mix(in srgb, var(--accent) 12%, transparent); }
-  .seg .tag { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.75; }
-  .rec { color: var(--accent); font-weight: 600; }
-  .sectionHead { font-size: 20px; margin: 0 0 14px; letter-spacing: -0.015em; }
-  code { font-family: var(--mono); font-size: 0.92em; color: var(--page-ink); }
 
   /* ---------- device ---------- */
-  .device { width: 392px; max-width: 100%; border: 1px solid var(--page-line); border-radius: 34px; padding: 9px; background: var(--page-panel); }
+  .device {
+    margin: 22px 0 26px; border: 1px solid var(--page-line); border-radius: 30px;
+    padding: 8px; background: var(--page-panel);
+  }
   .screen {
-    position: relative; overflow: hidden; border-radius: 26px;
-    background: var(--ground); color: var(--ink); height: 720px;
+    position: relative; overflow: hidden; border-radius: 23px;
+    background: var(--ground); color: var(--ink);
+    height: clamp(430px, 66vh, 660px);
     display: flex; flex-direction: column; font-family: var(--sans);
   }
-  .statusbar { display: flex; justify-content: space-between; align-items: center; padding: 10px 22px 2px; font-size: 12px; font-weight: 600; }
-  .statusbar .right { font-family: var(--mono); font-size: 11px; color: var(--ink-2); }
+  .statusbar { display: flex; justify-content: space-between; padding: 9px 20px 2px; font-size: 11.5px; font-weight: 600; }
+  .statusbar .right { font-family: var(--mono); font-size: 10.5px; color: var(--ink-2); }
 
-  .topbar { position: relative; z-index: 5; display: flex; align-items: center; gap: 10px; padding: 4px 16px 8px; background: var(--ground); }
+  .topbar { position: relative; z-index: 5; display: flex; align-items: center; gap: 10px; padding: 4px 14px 8px; background: var(--ground); }
   .keysq {
-    width: 40px; height: 40px; flex: none; display: grid; place-items: center;
+    width: 38px; height: 38px; flex: none; display: grid; place-items: center;
     border: 1px solid var(--border-strong); border-radius: 11px; background: var(--ground);
     color: var(--ink-2); box-shadow: 0 3px 0 var(--border-strong); transform: translateY(-1.5px);
   }
-  .topbar .spacer { flex: 1 1 auto; min-width: 0; }
+  .topbar .spacer { flex: 1 1 auto; }
   .barTitle {
-    position: absolute; left: 96px; right: 96px; top: 4px; height: 40px;
+    position: absolute; left: 90px; right: 90px; top: 4px; height: 38px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 15px; font-weight: 700; color: var(--ink);
-    opacity: 0; transform: translateY(6px); pointer-events: none;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-size: 14.5px; font-weight: 700; opacity: 0; transform: translateY(6px);
+    pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
   .body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; }
   .body::-webkit-scrollbar { display: none; }
-  .pad { padding: 0 20px; }
+  .pad { padding: 0 18px; }
 
-  .bigTitle { font-size: 33px; line-height: 1.05; font-weight: 700; letter-spacing: -0.02em; margin: 2px 0 0; }
-  .bigTitle button { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-align: left; cursor: pointer; }
-  .bigTitle .pencil { font-size: 15px; color: var(--ink-3); margin-left: 8px; vertical-align: 6px; }
+  .bigTitle { font-size: 30px; line-height: 1.05; font-weight: 700; letter-spacing: -0.02em; margin: 2px 0 0; }
+  .bigTitle button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  .bigTitle .pencil { font-size: 14px; color: var(--ink-3); margin-left: 8px; vertical-align: 5px; }
 
-  /* one sticky container: the direction's pinned rows, then the columns */
-  .band { position: sticky; top: 0; z-index: 4; background: var(--ground); padding: 0 20px; }
-  .band:empty { display: none; }
-  .band::after {
-    content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
-    background: var(--border); opacity: 0; transition: opacity 0.15s ease-out;
-  }
-  .band.pinned::after { opacity: 1; }
+  /* header: estimate column left, spec table right */
+  .split { display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 0 14px; margin-top: 12px; align-items: start; }
+  .stat { display: flex; flex-direction: column; align-items: flex-start; padding-top: 4px; }
+  .stat .big { font-family: var(--mono); font-size: 18px; color: var(--ink); }
+  .stat .sub { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); margin-top: 2px; }
+  .muscles { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+  .muscles span { font-size: 10.5px; color: var(--ink-2); background: var(--raised); border-radius: 6px; padding: 2px 6px; }
 
-  .factline { font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; margin: 10px 0 0; }
-  .chipRow { display: flex; gap: 6px; align-items: center; overflow-x: auto; scrollbar-width: none; }
-  .chipRow::-webkit-scrollbar { display: none; }
-  .chip {
-    display: inline-flex; align-items: center; gap: 4px; flex: none;
-    font-size: 12px; line-height: 1.2; font-family: var(--sans);
-    padding: 6px 10px; border-radius: 11px; white-space: nowrap;
-    background: var(--surface); border: 1px solid var(--border-strong); color: var(--ink-2); cursor: pointer;
-  }
-  .chip .chev { font-size: 9px; color: var(--ink-3); }
-  .chip.amber { background: var(--notes-wash); border-color: var(--notes-ring); color: var(--notes-ink); }
-  .chip.amber .chev { color: var(--notes-ink); }
-
-  /* direction: spec table */
   .specRow {
     display: flex; align-items: baseline; gap: 10px; width: 100%;
-    font: inherit; background: none; border: 0; padding: 7px 0; cursor: pointer; text-align: left;
-    border-bottom: 1px solid var(--border);
+    font: inherit; background: none; border: 0; padding: 7px 0; text-align: left;
+    border-bottom: 1px solid var(--border); color: inherit;
   }
+  button.specRow { cursor: pointer; }
   .specRow:last-child { border-bottom: 0; }
-  .specRow .k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3); flex: 1 1 auto; }
-  .specRow .v { font-family: var(--mono); font-size: 13px; color: var(--ink); font-variant-numeric: tabular-nums; }
-  .specRow .v .amber { color: var(--notes-ink); }
+  .specRow .k { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3); flex: 1 1 auto; }
+  .specRow .v { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
   .specRow .chev { font-size: 10px; color: var(--ink-3); }
-
-  /* The original anatomy: mono caps label left, hairline under each row,
-     value hard right, chevron beyond it. */
-  .specTable { margin-top: 12px; }
-  .specTable .specRow { border-bottom: 1px solid var(--border); padding: 7px 0; }
-  .specTable .specRow:last-child { border-bottom: 0; }
-
-  /* F: a leader rule carrying the eye from label to value on ONE line,
-     instead of a rule sitting under the whole row. */
-  .specTable.leader .specRow { border-bottom: 0; padding: 6px 0; align-items: center; }
-  .specRow .k.noflex { flex: none; }
-  .leadLine { flex: 1 1 auto; border-bottom: 1px dotted var(--border-strong); margin: 0 10px; height: 8px; }
-
-
-
-
-  /* Kit tags: shape carries whether it taps. Inert data stays soft r6 with
-     no stroke (what the muscle groups wear); a door takes the control
-     shape, r11 + stroke, like every other key in the app. */
-  .tagBtn { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
-  .tagBtn:focus-visible { outline: 2px solid var(--selected); outline-offset: 2px; border-radius: 11px; }
-  .kitTag { display: inline-flex; align-items: center; gap: 3px; font-family: var(--sans); line-height: 1.25; }
-
-  .kitTag.inert { font-size: 11.5px; background: var(--raised); color: var(--ink-2); border-radius: 6px; padding: 3px 7px; }
-  .kitTag.inert.amber { background: var(--notes-wash); color: var(--notes-ink); }
-
-  .kitTag.control, .kitTag.chevron {
-    font-size: 12px; padding: 5px 10px; border-radius: 11px;
-    background: var(--surface); color: var(--ink-2); border: 1px solid var(--border-strong);
-  }
-  .kitTag.control.amber, .kitTag.chevron.amber {
-    background: var(--notes-wash); color: var(--notes-ink); border-color: var(--notes-ring);
-  }
-  .kitTag .tagChev { font-size: 9px; opacity: 0.8; }
-
-  .kitTag.ring { font-size: 11.5px; background: var(--raised); color: var(--ink-2); border-radius: 6px; padding: 3px 7px; border: 1px solid var(--border-strong); }
-  .kitTag.ring.amber { background: var(--notes-wash); color: var(--notes-ink); border-color: var(--notes-ring); }
-
-  .specRow.asRow { cursor: default; }
-
-  /* the kit row's separator treatments */
-  .specRow .v.tags { display: flex; gap: 5px; align-items: center; }
-  .kitTag {
-    font-family: var(--sans); font-size: 11.5px; line-height: 1.25;
-    background: var(--raised); color: var(--ink-2); border-radius: 6px; padding: 3px 7px;
-  }
-  .kitTag.amber { background: var(--notes-wash); color: var(--notes-ink); }
-  .specRow.twoLine .v .line.amber { color: var(--notes-ink); }
-  .wideGap { display: inline-block; width: 18px; }
-
-  /* H: estimate column on the LEFT, table on the right */
-  .split.statLeft { grid-template-columns: 104px minmax(0, 1fr); }
-  .statBlock.left { align-items: flex-start; padding-top: 4px; }
-  .statBlock .sub.gap { margin-top: 9px; }
-  .muscleTags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 9px; }
-  .muscleTags span {
-    font-size: 10.5px; color: var(--ink-2); background: var(--raised);
-    border-radius: 6px; padding: 2px 6px;
-  }
-  /* the stacked disambiguation: two nouns carried by the value itself */
   .specRow.twoLine { align-items: flex-start; }
   .specRow.twoLine .v { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
   .specRow.twoLine .v .line { white-space: nowrap; }
-  .specRow.twoLine .v em { font-style: normal; font-size: 10.5px; color: var(--ink-3); }
-  .specRow.twoLine .k, .specRow.twoLine .chev { padding-top: 1px; }
+  .specRow.twoLine .v em { font-style: normal; font-size: 10px; color: var(--ink-3); }
+  .specRow .v.tags { display: flex; gap: 5px; align-items: center; }
 
-  /* ---- the split header: table on one side, something on the other ---- */
-  .split { display: grid; gap: 0 14px; margin-top: 12px; align-items: start; }
-  .split .specTable { margin-top: 0; }
-  .split.narrow    { grid-template-columns: 62% 1fr; }
-  .split.kitSplit  { grid-template-columns: minmax(0, 1fr) 128px; }
-  .split.statSplit { grid-template-columns: minmax(0, 1fr) 96px; }
-  .split.weekSplit { grid-template-columns: 118px minmax(0, 1fr); }
-  .split.halves    { grid-template-columns: 1fr 1fr; }
-
-  .sideCol { padding-top: 3px; }
-  .sideLabel {
-    font-family: var(--mono); font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase;
-    color: var(--ink-3); margin: 0 0 7px;
+  /* the four kit-tag treatments */
+  .tagBtn { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
+  .tagBtn:focus-visible { outline: 2px solid var(--selected); outline-offset: 2px; border-radius: 11px; }
+  .kitTag { display: inline-flex; align-items: center; gap: 3px; font-family: var(--sans); line-height: 1.25; }
+  .kitTag.inert { font-size: 11px; background: var(--raised); color: var(--ink-2); border-radius: 6px; padding: 3px 7px; }
+  .kitTag.inert.amber { background: var(--notes-wash); color: var(--notes-ink); }
+  .kitTag.control, .kitTag.chevron {
+    font-size: 11.5px; padding: 5px 10px; border-radius: 11px;
+    background: var(--surface); color: var(--ink-2); border: 1px solid var(--border-strong);
   }
-  .stackChips { display: flex; flex-direction: column; gap: 5px; align-items: flex-start; }
+  .kitTag.control.amber, .kitTag.chevron.amber { background: var(--notes-wash); color: var(--notes-ink); border-color: var(--notes-ring); }
+  .kitTag .tagChev { font-size: 9px; opacity: 0.8; }
+  .kitTag.ring { font-size: 11px; background: var(--raised); color: var(--ink-2); border-radius: 6px; padding: 3px 7px; border: 1px solid var(--border-strong); }
+  .kitTag.ring.amber { background: var(--notes-wash); color: var(--notes-ink); border-color: var(--notes-ring); }
 
-  .weekDots { display: flex; gap: 4px; padding-top: 6px; }
-  .weekDots .day {
-    width: 15px; height: 15px; border-radius: 50%; display: grid; place-items: center;
-    font-family: var(--mono); font-size: 9px; color: var(--ink-3); border: 1px solid transparent;
-  }
-  .weekDots .day.on { background: var(--selected-tint); border-color: var(--selected-ring); color: var(--selected-ink); }
-
-  .statBlock { display: flex; flex-direction: column; align-items: flex-end; padding-top: 2px; }
-  .statBlock .big { font-family: var(--mono); font-size: 19px; color: var(--ink); font-variant-numeric: tabular-nums; }
-  .statBlock .sub { font-family: var(--mono); font-size: 11px; color: var(--ink-3); margin-top: 2px; }
-
-  /* 3a: a token that reads as a link, which is the only inline form
-     SwiftUI can actually put inside wrapping text. */
-  .tok.link {
-    border-bottom: 0; font-weight: 600;
-    text-decoration: underline; text-decoration-thickness: 1px;
-    text-underline-offset: 2.5px; text-decoration-color: var(--border-strong);
-  }
-  .tok.link.amber { text-decoration-color: var(--notes-ring); }
-  .prose.plain { color: var(--ink-2); }
-  .prose.plain .amber { color: var(--notes-ink); }
-
-  /* 5a / 5b */
-  .metaGrid.thirds { grid-template-columns: repeat(3, 1fr); }
-  .valueLed .gridCell { display: flex; flex-direction: column; }
-  .valueLed .gridCell .k { order: 2; margin-top: 2px; }
-  .valueLed .gridCell .v { order: 1; margin-top: 0; font-size: 15px; font-weight: 600; }
-
-  .groupLabel {
-    font-family: var(--mono); font-size: 10px; letter-spacing: 0.11em; text-transform: uppercase;
-    color: var(--page-ink-2); margin: 14px 0 -2px 2px;
-  }
-  .dirs .groupLabel:first-child { margin-top: 0; }
-
-  /* direction: meta card */
-  .metaCard {
-    background: color-mix(in srgb, var(--surface) 55%, transparent);
-    border: 1px solid var(--border); border-radius: var(--card-radius);
-    padding: 12px; display: grid; gap: 10px; margin-top: 12px;
-  }
-
-  /* direction: sentence */
-  .prose { font-size: 14px; line-height: 1.75; color: var(--ink-2); margin: 12px 0 0; }
-  .tok {
-    font: inherit; background: none; border: 0; padding: 0 1px; cursor: pointer;
-    color: var(--ink); font-weight: 600;
-    border-bottom: 1px dashed var(--border-strong);
-  }
-  .tok.amber { color: var(--notes-ink); border-bottom-color: var(--notes-ring); }
-
-  /* direction: rail-continuous */
-  .metaNode { display: flex; gap: 13px; align-items: center; width: 100%; font: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
-  .metaNode .glyph { width: 28px; flex: none; position: relative; height: 34px; }
-  .metaNode .spine { position: absolute; left: 13px; top: 0; bottom: 0; width: 2px; background: var(--border); }
-  .metaNode .tick { position: absolute; left: 10px; top: 14px; width: 8px; height: 2px; background: var(--border-strong); }
-  .metaNode .txt { flex: 1 1 auto; min-width: 0; font-size: 12.5px; color: var(--ink-2); }
-  .metaNode .txt .amber { color: var(--notes-ink); }
-  .metaNode .chev { font-size: 10px; color: var(--ink-3); }
-
-  /* direction: 2x2 grid */
-  .metaGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
-  .gridCell { text-align: left; font: inherit; background: none; border: 0; padding: 0; cursor: pointer; min-width: 0; }
-  .gridCell .k { display: block; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3); }
-  .gridCell .v { display: block; font-size: 13px; color: var(--ink); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .gridCell .v .amber { color: var(--notes-ink); }
-  .gridCell .v .chev { font-size: 9px; color: var(--ink-3); }
-
-  /* direction: minimal */
-  .summaryLine {
-    display: flex; align-items: center; gap: 8px; width: 100%; font: inherit;
-    background: none; border: 0; padding: 0; cursor: pointer; text-align: left;
-    font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums;
-  }
-  .summaryLine .chev { font-size: 10px; color: var(--ink-3); margin-left: auto; }
-  .kitLine { margin-top: 8px; }
-
-  /* rail + rows */
-  .rail { padding: 0 14px 8px 20px; }
-  .colhead { display: flex; gap: 8px; justify-content: flex-end; padding: 9px 0 3px 41px; margin-right: -6px; }
-  .colhead span { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3); width: 58px; text-align: right; }
-  .rail .colhead { margin-right: 0; padding-bottom: 6px; }
-  .row { --rowPadTop: 12px; --nameLine: 19.5px; --nodeR: 7px; display: flex; gap: 13px; position: relative; }
+  /* pinned columns + rail */
+  .band { position: sticky; top: 0; z-index: 4; background: var(--ground); padding: 0 18px; }
+  .colhead { display: flex; gap: 8px; justify-content: flex-end; padding: 9px 0 3px 39px; margin-right: -6px; }
+  .colhead span { font-family: var(--mono); font-size: 9px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3); width: 56px; text-align: right; }
+  .rail { padding: 0 12px 8px 18px; }
+  .row { --pt: 11px; --line: 19px; display: flex; gap: 12px; }
   .glyph { width: 28px; flex: none; position: relative; }
   .glyph .spine { position: absolute; left: 13px; top: 0; bottom: 0; width: 2px; background: var(--border); }
-  /* The node centres on the FIRST LINE of the name, not on the row. */
   .glyph .node {
     position: absolute; left: 7px; width: 14px; height: 14px;
-    top: calc(var(--rowPadTop) + var(--nameLine) / 2 - var(--nodeR));
+    top: calc(var(--pt) + var(--line) / 2 - 7px);
     border-radius: 50%; border: 2px solid var(--border-strong); background: var(--ground);
   }
-  .rowBody { flex: 1 1 auto; min-width: 0; display: flex; gap: 12px; align-items: baseline; padding: var(--rowPadTop) 0; }
-  .exName { font-size: 16px; font-weight: 600; line-height: var(--nameLine); color: var(--ink); flex: 1 1 auto; min-width: 0; }
+  .rowBody { flex: 1 1 auto; min-width: 0; display: flex; gap: 10px; align-items: baseline; padding: var(--pt) 0; }
+  .exName { font-size: 15.5px; font-weight: 600; line-height: var(--line); color: var(--ink); flex: 1 1 auto; min-width: 0; }
   .cells { display: flex; gap: 8px; flex: none; }
-  .cell { width: 58px; text-align: right; font-family: var(--mono); font-size: 11.5px; font-variant-numeric: tabular-nums; line-height: 1.35; white-space: nowrap; }
+  .cell { width: 56px; text-align: right; font-family: var(--mono); font-size: 11px; line-height: 1.35; white-space: nowrap; }
   .cell.target { color: var(--ink); }
   .cell.target.held { color: var(--ink-3); }
   .cell.prev { color: var(--ink-2); }
-  .cell.none { color: var(--ink-3); }
-  .stackLines { margin-top: 4px; display: flex; gap: 12px; font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; }
-  .stackLines .t { color: var(--ink); }
-  .stackLines .p { color: var(--ink-3); }
 
-  .addRow { display: flex; gap: 13px; align-items: center; padding-top: 4px; }
-  .addGlyph { width: 28px; flex: none; position: relative; height: 52px; }
-  .addGlyph .spine { position: absolute; left: 13px; top: 0; height: 15px; width: 2px; background: var(--border); }
+  .addRow { display: flex; gap: 12px; align-items: center; padding-top: 4px; }
+  .addGlyph { width: 28px; flex: none; position: relative; height: 48px; }
+  .addGlyph .spine { position: absolute; left: 13px; top: 0; height: 14px; width: 2px; background: var(--border); }
   .addGlyph .node {
-    position: absolute; left: 7px; top: 18px; width: 16px; height: 16px; border-radius: 50%;
+    position: absolute; left: 7px; top: 16px; width: 16px; height: 16px; border-radius: 50%;
     border: 2px dashed var(--border-strong); color: var(--accent); font-family: var(--mono);
     font-size: 11px; font-weight: 600; display: grid; place-items: center;
   }
   .addKey {
-    font-family: var(--sans); font-size: 14px; font-weight: 600; color: var(--accent);
-    padding: 0 18px; height: 44px; display: inline-flex; align-items: center;
-    background: var(--ground); border: 1px solid var(--border-strong); border-radius: 10px;
+    font-size: 13.5px; font-weight: 600; color: var(--accent); padding: 0 16px; height: 42px;
+    display: inline-flex; align-items: center; background: var(--ground);
+    border: 1px solid var(--border-strong); border-radius: 10px;
     box-shadow: 0 3px 0 var(--border-strong); transform: translateY(-1.5px); cursor: pointer;
   }
 
-  .bottombar { padding: 12px 16px 10px; background: var(--ground); border-top: 1px solid var(--border); }
+  .bottombar { padding: 11px 14px 9px; background: var(--ground); border-top: 1px solid var(--border); }
   .startKey {
-    position: relative; overflow: hidden; width: 100%; height: 52px; border: 0; border-radius: 11px;
+    position: relative; overflow: hidden; width: 100%; height: 48px; border: 0; border-radius: 11px;
     cursor: pointer; background: var(--primary-fill); color: var(--on-primary);
-    font-family: var(--sans); font-size: 15px; font-weight: 700;
+    font-family: var(--sans); font-size: 14.5px; font-weight: 700;
     box-shadow: 0 4px 0 var(--border-strong); transform: translateY(-2px); display: grid; place-items: center;
   }
   .startKey:active { transform: translateY(2px); box-shadow: 0 0 0 var(--border-strong); }
-  .startKey .wipe { position: absolute; inset: 0; background: var(--accent); transform: scaleX(0); transform-origin: left center; transition: transform 0.32s ease-in-out; }
+  .startKey .wipe { position: absolute; inset: 0; background: var(--accent); transform: scaleX(0); transform-origin: left; transition: transform 0.32s ease-in-out; }
   .startKey.go .wipe { transform: scaleX(1); }
   .startKey .face { position: relative; display: flex; align-items: center; gap: 8px; }
-  .startKey .labelBox { position: relative; display: inline-block; }
-  .startKey .labelBox .ghost { visibility: hidden; }
-  .startKey .labelBox .live { position: absolute; right: 0; top: 0; white-space: nowrap; transition: opacity 0.2s ease-out; }
-  .chevRun { display: flex; gap: 3px; align-items: center; }
-  .chevRun i { font-style: normal; font-size: 15px; font-weight: 700; line-height: 1; transition: opacity 0.15s ease-in-out, margin 0.2s ease-out; }
-  .chevRun i.extra { opacity: 0; margin-left: -12px; }
+  .startKey .labelBox { position: relative; }
+  .startKey .ghost { visibility: hidden; }
+  .startKey .live { position: absolute; right: 0; top: 0; white-space: nowrap; transition: opacity 0.2s; }
+  .chevRun { display: flex; gap: 3px; }
+  .chevRun i { font-style: normal; font-size: 14px; font-weight: 700; line-height: 1; transition: opacity 0.15s, margin 0.2s; }
+  .chevRun i.extra { opacity: 0; margin-left: -11px; }
   .startKey.go .chevRun i.extra { margin-left: 0; }
 
   .sheetWrap { position: absolute; inset: 0; z-index: 9; pointer-events: none; }
-  .scrim { position: absolute; inset: 0; background: rgba(0,0,0,0.45); opacity: 0; transition: opacity 0.2s ease-out; }
+  .scrim { position: absolute; inset: 0; background: rgba(0,0,0,0.45); opacity: 0; transition: opacity 0.2s; }
   .sheet {
     position: absolute; left: 0; right: 0; bottom: 0; background: var(--surface);
-    border-top: 1px solid var(--border-strong); border-radius: 18px 18px 0 0; padding: 16px 20px 26px;
+    border-top: 1px solid var(--border-strong); border-radius: 18px 18px 0 0; padding: 15px 18px 24px;
     transform: translateY(105%); transition: transform 0.26s cubic-bezier(0.2, 0.8, 0.3, 1);
   }
   .sheetWrap.open { pointer-events: auto; }
   .sheetWrap.open .scrim { opacity: 1; }
   .sheetWrap.open .sheet { transform: translateY(0); }
-  .sheetHead { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
-  .sheetHead h3 { font-size: 15px; margin: 0; font-weight: 700; }
-  .sheetHead button { font: inherit; font-size: 13px; background: none; border: 0; color: var(--ink-2); cursor: pointer; }
-  .sheetBody { font-size: 13px; color: var(--ink-2); line-height: 1.5; margin: 0; }
+  .sheetHead { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+  .sheetHead h3 { font-size: 14.5px; margin: 0; }
+  .sheetHead button { font: inherit; font-size: 13px; background: none; border: 0; color: var(--ink-2); cursor: pointer; min-height: 34px; }
+  .sheetBody { font-size: 12.5px; color: var(--ink-2); line-height: 1.5; margin: 0; }
 
-  /* ---------- notes ---------- */
-  .notes { margin-top: 40px; border-top: 1px solid var(--page-line); padding-top: 28px; }
-  .noteGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
-  .note { border: 1px solid var(--page-line); border-radius: 12px; padding: 16px; background: var(--page-panel); }
-  .note h3 { font-size: 14px; margin: 0 0 8px; }
-  .note p { margin: 0 0 8px; font-size: 13px; line-height: 1.55; color: var(--page-ink-2); }
-  .note p:last-child { margin-bottom: 0; }
-  .note .flag { font-family: var(--mono); font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--notes); }
+  /* ---------- the one open choice ---------- */
+  h2 { font-size: 18px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .ask { margin: 0 0 16px; font-size: 14px; line-height: 1.55; color: var(--page-ink-2); }
+  .ask b { color: var(--page-ink); font-weight: 600; }
+  .ask code { font-family: var(--mono); font-size: 12.5px; color: var(--page-ink); }
 
-  @media (prefers-reduced-motion: reduce) { * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; } }
+  .opts { display: grid; gap: 10px; }
+  .opt {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 9px;
+    width: 100%; text-align: left; font: inherit; cursor: pointer;
+    border: 1px solid var(--page-line); border-radius: 14px; background: var(--page-panel);
+    padding: 14px 15px; color: inherit;
+  }
+  .opt[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--page-panel)); }
+  .opt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .opt .name { font-size: 15px; font-weight: 650; }
+  .opt .why { font-size: 12.5px; line-height: 1.5; color: var(--page-ink-2); margin: 0; }
+  .opt .demo { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+
+  .caveat {
+    margin: 18px 0 0; padding: 14px 15px; border-radius: 12px;
+    border: 1px solid var(--page-line); background: var(--page-panel);
+    font-size: 12.5px; line-height: 1.55; color: var(--page-ink-2);
+  }
+  .caveat b { color: var(--page-ink); }
+  .caveat .flag { font-family: var(--mono); font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--notes-ink); display: block; margin-bottom: 5px; }
+
+  details.settled { margin-top: 22px; border-top: 1px solid var(--page-line); padding-top: 16px; }
+  details.settled summary { font-size: 13px; color: var(--page-ink-2); cursor: pointer; min-height: 32px; }
+  details.settled ul { margin: 12px 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6; color: var(--page-ink-2); }
+  details.settled li { margin-bottom: 5px; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition-duration: 0.01ms !important; } }
 </style>
 
-<div class="wrap">
-<div class="col">
+<div class="page">
 
   <div class="masthead">
-    <button class="themeToggle" id="themeToggle" type="button">Light / dark</button>
-    <p class="eyebrow">Prototype · routine detail · round 5</p>
-    <h1>Closing the gap</h1>
-    <p class="lede">Rebuilt on the <b>original</b> anatomy: real mono caps labels, a hairline under every row, four separate rows, values hard right. The number on each card is the measured worst-case gap from the end of a label to the start of its value; the reference sits at <b>267 pt</b>. <b>H is loaded</b> — your combination, with two switches under the list for the parts of it that had no obvious answer.</p>
-  </div>
-
-  <div class="stage">
     <div>
-      <div class="dirs" id="dirs">
-
-        <button class="dir" type="button" data-v="tableStatLeft" aria-pressed="true">
-          <span class="num">H</span>
-          <h3>Estimate left, table right <span class="rec">▸ new</span></h3>
-          <p class="idea">Your combination. The estimate leads on the left where the eye lands first; the table takes the right at three rows, because <b>rest and transition become one</b>. Both changes pull in the same direction: fewer rows, a shorter table, and a shorter trip from label to value.</p>
-          <p class="meta"><span class="win">travel 121</span><span class="win">three rows, not four</span><span class="win">first row at 161</span></p>
-        </button>
-
-        <button class="dir" type="button" data-v="tableOrig">
-          <span class="num">0</span>
-          <h3>The original, full width</h3>
-          <p class="idea">Exactly as you saw it: mono caps label, hairline under each row, four separate rows, value hard right. The reference every card below is measured against.</p>
-          <p class="meta"><span class="cost">267 pt of travel</span></p>
-        </button>
-
-        <button class="dir" type="button" data-v="tableLeader">
-          <span class="num">F</span>
-          <h3>Keep the width, lead the eye</h3>
-          <p class="idea">The typographic answer, and the only one that changes nothing structural: the rule stops sitting <i>under</i> the row and runs <i>across</i> it, from the end of the label to the value. An index leader. The distance is unchanged; the cost of crossing it is what goes away.</p>
-          <p class="meta"><span class="win">nothing moves</span><span class="win">keeps all four rows</span><span class="cost">distance still 267</span></p>
-        </button>
-
-        <button class="dir" type="button" data-v="narrowOnly">
-          <span class="num">A</span>
-          <h3>Narrower, nothing beside</h3>
-          <p class="idea">The table stops at 62%, right side empty. Worth seeing alone: if this reads fine, the answer to "what goes beside it" is <b>nothing</b>, and a quiet right margin is a legitimate way to spend width.</p>
-          <p class="meta"><span>travel 141</span></p>
-        </button>
-
-        <button class="dir" type="button" data-v="tableKit">
-          <span class="num">B</span>
-          <h3>Kit moves out</h3>
-          <p class="idea">The kit leaves the table for a column of its own, so the table keeps three even rows and the one row whose value length actually varies stops constraining the rest.</p>
-          <p class="meta"><span class="win">travel 125</span><span class="win">kit stops truncating</span></p>
-        </button>
-
-        <button class="dir" type="button" data-v="tableWeek">
-          <span class="num">C</span>
-          <h3>Week strip left, table right</h3>
-          <p class="idea">Shifts the whole table right rather than narrowing it. The freed half carries the seven days with tuesday lit, which says the schedule better than the word does. Worth knowing: on this anatomy the shift is <i>not</i> the big win it was on 1a, because the values right-align to the column edge either way.</p>
-          <p class="meta"><span>travel 135</span><span class="cost">dots and row say the same thing</span></p>
-        </button>
-
-        <button class="dir" type="button" data-v="tableKitLeft">
-          <span class="num">G</span>
-          <h3>Kit left, table right</h3>
-          <p class="idea">C's geometry with the kit in the freed half instead of a second way of saying tuesday. Same short travel, and the half earns its place. Costs reading order, since the equipment now comes first.</p>
-          <p class="meta"><span>travel 135</span><span class="cost">kit reads first</span></p>
-        </button>
-
-        <button class="dir" type="button" data-v="tableStat">
-          <span class="num">D</span>
-          <h3>Estimate right, table left</h3>
-          <p class="idea">Promotes <code>~30 min</code> out of the faint caption into a stat you actually see. It is the fact most likely to decide whether you start now, and it currently whispers. Also the shortest header of the set, since the caption line goes away.</p>
-          <p class="meta"><span class="cost">travel 157</span><span class="win">estimate gets weight</span></p>
-        </button>
-
-        <button class="dir" type="button" data-v="tableHalves">
-          <span class="num">E</span>
-          <h3>Two half tables</h3>
-          <p class="idea">The same four rows folded into two columns of two. Halves the travel with no new content type at all, which makes it the cheapest to build. Costs you a single reading order.</p>
-          <p class="meta"><span class="win">travel 94 · the shortest</span><span class="win">shortest header</span><span class="cost">two reading orders</span></p>
-        </button>
-
-      </div>
-
-
-      <div class="opt">
-        <h2>H · saying which pause is which</h2>
-        <p class="why">Combining the two rows is the easy half. Making one row say <i>45s between sets, 15s between exercises</i> without a sentence is the hard half. Three mechanisms, and the sheet carries the full explanation in all of them: tap the row to read it.</p>
-        <div class="segs" id="pauseSegs">
-          <button class="seg" type="button" data-v="paired"><span class="tag">1</span>Paired label</button>
-          <button class="seg" type="button" data-v="stacked" aria-pressed="true"><span class="tag">2 <span class="rec">▸ yours</span></span>Nouns in the value</button>
-          <button class="seg" type="button" data-v="sheet" aria-pressed="false"><span class="tag">3</span>Sheet does all of it</button>
-        </div>
-        <p class="why" style="margin-top:14px"><b>1</b> reads <code>rest · transition</code> against <code>45s · 15s</code> and lets position do the work, which mono columns are good at and which costs no height. <b>2</b> spells it out in two lines with the noun beside each number, unambiguous but twice as tall and the only one that survives a screenshot with no context. <b>3</b> shows <code>45s · 15s</code> under a single <code>pauses</code> label and leaves the disambiguation entirely to the sheet, which is the smallest header and the biggest bet on people tapping.</p>
-      </div>
-
-
-      <div class="opt">
-        <h2>H · the kit row, without the middle dot</h2>
-        <p class="why">The <code>·</code> is doing list-separator duty between two equipment names, and at mono sizes it floats at mid-height with nothing to sit on, so it reads as debris rather than punctuation. Four ways to drop it.</p>
-        <div class="segs" id="sepSegs">
-          <button class="seg" type="button" data-v="tags" aria-pressed="true"><span class="tag">i <span class="rec">▸ pick</span></span>Data tags</button>
-          <button class="seg" type="button" data-v="stacked"><span class="tag">ii</span>One per line</button>
-          <button class="seg" type="button" data-v="comma"><span class="tag">iii</span>Comma</button>
-          <button class="seg" type="button" data-v="gap"><span class="tag">iv</span>Just a gap</button>
-        </div>
-        <p class="why" style="margin-top:14px"><b>i · data tags</b> removes the separator instead of replacing it: each name gets <code>CardTagCapsule</code>'s soft r6 fill, which is <i>already</i> how the app draws routine gear pills, and already what the muscle groups on the left of this same header are wearing. The tag boundary is the separator. It also gives the amber a shape to live in rather than a lone coloured word, and it scales to a kit of five without the row turning into a chain of dots. Note the tags are sentence-case and <i>not</i> mono while the rest of the column is: that is the data-tag law, not an oversight.</p>
-        <p class="why"><b>ii · one per line</b> matches the pauses row directly above it, so both multi-value rows read the same way. Honest and clear, but a kit of five costs five lines. <b>iii · comma</b> is the smallest possible change and sits on the baseline where the dot did not, though a comma inside a mono data row reads as prose. <b>iv · just a gap</b> is the minimal answer and breaks the moment a piece of equipment has two words in its name, which most of them do.</p>
-      </div>
-
-
-      <div class="opt">
-        <h2>H · making the kit tags look like doors</h2>
-        <p class="why">The surface law already answers this: <b>shape says what taps.</b> A card data tag is soft r6 with no stroke and is inert; anything interactive wears the control shape, r11 and stroked, like every other key in the app. The muscle groups stay inert in all four of these, which is the whole point — the contrast is what makes the shape mean anything.</p>
-        <div class="segs" id="kittapSegs">
-          <button class="seg" type="button" data-v="control" aria-pressed="true"><span class="tag">i <span class="rec">▸ pick</span></span>Control shape</button>
-          <button class="seg" type="button" data-v="chevron"><span class="tag">ii</span>Control shape + chevron</button>
-          <button class="seg" type="button" data-v="ring"><span class="tag">iii</span>Soft ground, add a ring</button>
-          <button class="seg" type="button" data-v="inert"><span class="tag">iv</span>Leave them inert</button>
-        </div>
-        <p class="why" style="margin-top:14px"><b>i</b> is the law applied literally: r11 and stroked, so the kit reads as two keys and the muscle groups read as two facts, with nothing else needing to change. <b>ii</b> adds a chevron inside each tag, which is more explicit but re-introduces exactly the asymmetry you flagged in the first screenshot if it ever ends up on only some of them. <b>iii</b> keeps the soft ground and adds only the stroke, a half-step that reads as a tag that happens to tap; it stays visually closer to the muscle groups than i does.</p>
-        <p class="why"><b>iv</b> is the other honest answer, and it is not a cop-out: make the tags genuinely inert and let the <b>row</b> be the single door, chevron and all, exactly like schedule and pauses. Then looking identical to the muscle groups is correct, because neither taps. It costs the per-piece resolve sheet, which is the thing amber is for.</p>
-        <p class="why">⚠️ In i, ii and iii the row <b>loses its chevron</b>, because a row-level door plus per-tag doors would be nested tap targets. That is deliberate, and it does mean the kit row stops matching the other two rows' trailing chevron.</p>
-      </div>
-
-      <div class="opt">
-        <h2>H · what else rides the estimate column</h2>
-        <p class="why">You asked what could join it. Everything here is derivable from data the app already holds, and each answers a different question you might have while looking at this screen.</p>
-        <div class="segs" id="extraSegs">
-          <button class="seg" type="button" data-v="none"><span class="tag">a</span>Estimate alone</button>
-          <button class="seg" type="button" data-v="finish"><span class="tag">b</span>Finish time</button>
-          <button class="seg" type="button" data-v="last"><span class="tag">c</span>Last done</button>
-          <button class="seg" type="button" data-v="muscles" aria-pressed="true"><span class="tag">d <span class="rec">▸ yours</span></span>Muscle groups</button>
-        </div>
-        <p class="why" style="margin-top:14px"><b>b · done by 1:18</b> is the estimate finished for you. "~30 min" still asks you to do arithmetic against a clock you have to go and look at; a finish time is the answer to the actual question, which is whether this fits before the next thing. It is the only addition here that makes the estimate <i>more</i> useful rather than adding a second fact beside it.</p>
-        <p class="why"><b>c · last tue, 7 days ago</b> pairs with the <code>prev</code> column below, so the whole screen reads as "here is what you did and when". <b>d · muscle groups</b> replaces the vaguer "Upper" with what the exercises actually cover, drawn from the multi-select that already exists on each one. <b>a</b> is the control: if the column looks unbalanced, that is worth knowing before filling it.</p>
-      </div>
-
-      <div class="opt">
-        <h2>Still open from last round</h2>
-        <p class="why"><b>The fact line.</b> Whether the estimate and counts belong in the header at all. Each direction above places them its own way, so this is now partly answered by whichever you pick — but the alternative worth keeping in view is printing the estimate on the Start key instead, where the "do I have time" question actually gets asked.</p>
-        <div class="segs" id="factsSegs">
-          <button class="seg" type="button" data-v="trim" aria-pressed="true"><span class="tag">A</span>In the header</button>
-          <button class="seg" type="button" data-v="key" aria-pressed="false"><span class="tag">B</span>On the Start key</button>
-        </div>
-      </div>
-
-      <div class="opt">
-        <h2>The exercise row, for context</h2>
-        <p class="why">Settled last round as Today's two-column ledger. Left here so you can see each header direction against the list it introduces.</p>
-        <div class="segs" id="rowSegs">
-          <button class="seg" type="button" data-v="ledger" aria-pressed="true"><span class="tag">A <span class="rec">▸ yours</span></span>Two columns, ledger</button>
-          <button class="seg" type="button" data-v="stacked" aria-pressed="false"><span class="tag">B</span>Stacked under the name</button>
-        </div>
-      </div>
+      <p class="eyebrow">PlusPlus · routine detail</p>
+      <h1>One question left</h1>
     </div>
+    <button class="themeToggle" id="themeToggle" type="button">Light / dark</button>
+  </div>
+  <p class="lede">The header is settled. The only thing still open: <b>how the kit tags show that they tap</b>, when the muscle groups beside them do not. Pick one below and it loads in the screen.</p>
 
-    <div class="deviceCol">
-      <div class="device">
-        <div class="screen" id="screen" data-top="tableStatLeft" data-pause="stacked" data-extra="muscles" data-sep="tags" data-kittap="control" data-row="ledger" data-facts="trim">
+  <div class="device">
+    <div class="screen" id="screen" data-kittap="control">
 
-          <div class="statusbar"><span>12:48</span><span class="right">▮▮▮ ᯤ 73</span></div>
+      <div class="statusbar"><span>12:48</span><span class="right">▮▮▮ ᯤ 73</span></div>
 
-          <div class="topbar">
-            <div class="keysq">‹</div>
-            <div class="spacer"></div>
-            <div class="keysq">↑</div>
-            <div class="keysq">⚙</div>
-            <div class="barTitle" id="barTitle">PT A</div>
-          </div>
+      <div class="topbar">
+        <div class="keysq">‹</div>
+        <div class="spacer"></div>
+        <div class="keysq">↑</div>
+        <div class="keysq">⚙</div>
+        <div class="barTitle" id="barTitle">PT A</div>
+      </div>
 
-          <div class="body" id="scrollBody">
-            <div class="pad">
-              <h2 class="bigTitle" id="bigTitle">
-                <button type="button" data-sheet="Rename routine" data-sheet-body="The name commits when you leave the field. A duplicate is refused in place, same rule as settings.">PT A<span class="pencil">✎</span></button>
-              </h2>
+      <div class="body" id="scrollBody">
+        <div class="pad">
+          <h2 class="bigTitle" id="bigTitle" style="margin:0">
+            <button type="button" data-k="name">PT A<span class="pencil">✎</span></button>
+          </h2>
+
+          <div class="split">
+            <div class="stat">
+              <span class="big">~30 min</span>
+              <span class="sub">20 sets</span>
+              <div class="muscles"><span>back</span><span>shoulders</span><span>arms</span></div>
             </div>
-
-            <div class="pad" id="topScroll"></div>
-            <div class="band" id="band"></div>
-
-            <div class="rail">
-              <div id="railHead"></div>
-              <div id="rows"></div>
-              <div class="addRow">
-                <div class="addGlyph"><div class="spine"></div><div class="node">+</div></div>
-                <button class="addKey" type="button">Add exercise</button>
-              </div>
-            </div>
-            <div style="height: 24px"></div>
+            <div id="specTable"></div>
           </div>
+        </div>
 
-          <div class="bottombar">
-            <button class="startKey" id="startKey" type="button">
-              <span class="wipe"></span>
-              <span class="face">
-                <span class="labelBox">
-                  <span class="ghost" id="startGhost">Start workout</span>
-                  <span class="live" id="startLabel">Start workout</span>
-                </span>
-                <span class="chevRun" id="chevRun"><i data-i="0">›</i><i class="extra" data-i="1">›</i><i class="extra" data-i="2">›</i></span>
-              </span>
-            </button>
+        <div class="band"><div class="colhead"><span>target</span><span>prev</span></div></div>
+
+        <div class="rail">
+          <div id="rows"></div>
+          <div class="addRow">
+            <div class="addGlyph"><div class="spine"></div><div class="node">+</div></div>
+            <button class="addKey" type="button">Add exercise</button>
           </div>
+        </div>
+        <div style="height:20px"></div>
+      </div>
 
-          <div class="sheetWrap" id="sheetWrap">
-            <div class="scrim" data-close></div>
-            <div class="sheet">
-              <div class="sheetHead"><h3 id="sheetTitle">Rest</h3><button type="button" data-close>Done</button></div>
-              <p class="sheetBody" id="sheetBody"></p>
-            </div>
-          </div>
+      <div class="bottombar">
+        <button class="startKey" id="startKey" type="button">
+          <span class="wipe"></span>
+          <span class="face">
+            <span class="labelBox"><span class="ghost">Start workout</span><span class="live" id="startLabel">Start workout</span></span>
+            <span class="chevRun" id="chevRun"><i></i><i class="extra"></i><i class="extra"></i></span>
+          </span>
+        </button>
+      </div>
 
+      <div class="sheetWrap" id="sheetWrap">
+        <div class="scrim" data-close></div>
+        <div class="sheet">
+          <div class="sheetHead"><h3 id="sheetTitle">Pauses</h3><button type="button" data-close>Done</button></div>
+          <p class="sheetBody" id="sheetBody"></p>
         </div>
       </div>
+
     </div>
   </div>
 
-    <div class="noteGrid">
+  <h2>How should the kit tags read?</h2>
+  <p class="ask">The surface law says <b>shape carries what taps</b>: a card data tag is soft r6 with no stroke and is inert, while anything interactive wears the control shape, r11 and stroked. The muscle groups stay inert in all four.</p>
 
-      <div class="note">
-        <span class="flag">⚠ check on device</span>
-        <h3>Two tag families, one header</h3>
-        <p>With the kit as tags and the muscle groups already as tags, the header now carries the same soft r6 pill in two columns for two different kinds of thing. On the render they separate fine, because the <code>KIT</code> label and the column gap do the work.</p>
-        <p>It is still the one thing worth a real look. If they blur, the muscle groups are the ones to change, not the kit: gear pills wearing <code>CardTagCapsule</code> is the older, more established use.</p>
-      </div>
+  <div class="opts" id="opts">
 
-      <div class="note">
-        <span class="flag">the new one</span>
-        <h3>H does two things at once, and they compound</h3>
-        <p>Moving the estimate left and merging rest into transition are separate ideas, but they pull the same way. Three rows instead of four shortens the table; a 104 pt column on the left shortens it again. Travel lands at 121 against the reference's 267, and the first exercise arrives at 161 pt against 215 — the shortest header of anything built so far, without narrowing the table into a stub.</p>
-        <p>It also fixes something the four-row version had: <code>TRANSITION</code> was the longest label in the block and set the left edge for everything. With it merged, no label is unusually long and the column reads even.</p>
-      </div>
+    <button class="opt" type="button" data-v="control" aria-pressed="true">
+      <span class="name">Control shape</span>
+      <span class="demo"><span class="kitTag control amber">Dumbbells</span><span class="kitTag control">Bench</span></span>
+      <p class="why">The law applied literally. The kit reads as two keys, the muscle groups as two facts, and nothing else has to change.</p>
+    </button>
 
-      <div class="note">
-        <span class="flag">correction</span>
-        <h3>Right-shifting was a finding about 1a, not about this table</h3>
-        <p>Last round C came in at 61 pt and I called it the answer. That held because 1a pulled its value column 60 pt in from the edge, so moving the table right closed a gap that was partly artificial.</p>
-        <p>On the original, values right-align to the column edge whichever side the table sits on, so C lands at 135 — no better than B and worse than E. The general claim was wrong. What survives is narrower: <b>where the label starts matters more than how wide the table is</b>, which is why every split here beats the reference and why the two-column split beats them all.</p>
-      </div>
+    <button class="opt" type="button" data-v="chevron">
+      <span class="name">Control shape, plus a chevron</span>
+      <span class="demo"><span class="kitTag chevron amber">Dumbbells<span class="tagChev">›</span></span><span class="kitTag chevron">Bench<span class="tagChev">›</span></span></span>
+      <p class="why">More explicit. But a chevron that ends up on only some tags is the asymmetry you flagged in the first screenshot.</p>
+    </button>
 
-      <div class="note">
-        <h3>Why F is the pick</h3>
-        <p>It is the only option that changes nothing you liked. Four rows, real labels, full width, values hard right — all intact. The rule stops sitting under the row and runs across it instead, from the end of the label to the value.</p>
-        <p>The distance is still 267 pt. That is the point: an index leader does not shorten the trip, it removes the cost of making it, because the eye tracks a line instead of jumping a void. If the gap still reads as too far with a leader in it, then the problem was the width after all and E is the answer.</p>
-      </div>
+    <button class="opt" type="button" data-v="ring">
+      <span class="name">Soft ground, add a ring</span>
+      <span class="demo"><span class="kitTag ring amber">Dumbbells</span><span class="kitTag ring">Bench</span></span>
+      <p class="why">Half-step: keeps the tag's soft fill, gains only the stroke. Reads as a tag that happens to tap, and stays close to the muscle groups.</p>
+    </button>
 
-      <div class="note">
-        <h3>Measured, worst case</h3>
-        <p>Reference 267 · F 267 (led) · A 141 · <b>B 125</b> · C 135 · G 135 · D 157 · <b>E 94</b>.</p>
-        <p>Worst case, not average: the widest gap in the block, always the row with the shortest label. <code>KIT</code> against a right-aligned value is what sets it in most of these.</p>
-      </div>
+    <button class="opt" type="button" data-v="inert">
+      <span class="name">Leave them inert</span>
+      <span class="demo"><span class="kitTag inert amber">Dumbbells</span><span class="kitTag inert">Bench</span></span>
+      <p class="why">Make them genuinely inert and let the row be the single door, like schedule and pauses. Then matching the muscle groups is correct. Costs the per-piece resolve sheet.</p>
+    </button>
 
-      <div class="note">
-        <h3>E is the shortest header too</h3>
-        <p>Two columns of two rows lands the first exercise at 155 pt against the reference's 215. It is both the shortest travel and the most list, which is a strong combination for something that invents nothing new.</p>
-        <p>What it costs is a single reading order. Four rows down a column is one path; a 2×2 is two, and nothing on the screen says which to take first.</p>
-      </div>
+  </div>
 
-      <div class="note">
-        <h3>B is the quiet contender</h3>
-        <p>Lifting the kit out is the only change that fixes a second problem at the same time: the kit is the one row whose value length actually varies, so it is the row that will truncate first as a routine's equipment grows.</p>
-        <p>It also leaves three rows of near-equal label length, which is what makes its 125 respectable without any typographic help.</p>
-      </div>
+  <p class="caveat">
+    <span class="flag">⚠ one consequence</span>
+    In the three tappable options the kit row <b>drops its trailing chevron</b>, because a row-level door plus per-tag doors would be nested tap targets. That does mean the kit row stops matching the schedule and pauses rows above it. Only <b>Leave them inert</b> keeps all three rows identical.
+  </p>
 
-      <div class="note">
-        <h3>Unchanged underneath</h3>
-        <p>Names wrap, the node centres on the first line, the ledger prints target beside prev with no delta, the columns pin, Start plays the ignition. The header itself pins nothing in any of these, so these rows scroll away with the title.</p>
-      </div>
+  <details class="settled">
+    <summary>What's already settled</summary>
+    <ul>
+      <li>The whole header scrolls, and the name hands off to the top bar the way Today's does.</li>
+      <li>Estimate on the left; the spec table on the right at three rows.</li>
+      <li>Rest and transition merged into one <code>pauses</code> row, each number carrying its own noun, with one sheet behind them.</li>
+      <li>Muscle groups ride the estimate column.</li>
+      <li>Kit names are data tags. No middle dot between them.</li>
+      <li>Exercise names wrap to two lines; the rail node centres on the first line.</li>
+      <li>Rows print <code>target</code> beside <code>prev</code> with no delta, and those column headers pin.</li>
+      <li>Notes are gone from this region.</li>
+      <li>Start plays the welcome key's ignition. Tap it.</li>
+    </ul>
+  </details>
 
-    </div>
-
-</div>
 </div>
 
 <script>
@@ -711,357 +374,100 @@
   var screen = document.getElementById("screen");
 
   var EXERCISES = [
-    { name: "Dumbbell Row",            target: "3×10–15", weight: "35lb",  prev: "3×12 · 30lb",   moved: true },
-    { name: "Dumbbell Shoulder Press", target: "3×8",     weight: "10lb",  prev: "3×8 · 10lb",    moved: false },
-    { name: "Dumbbell Curl",           target: "3×10",    weight: "15lb",  prev: "3×10 · 12.5lb", moved: true },
-    { name: "Push-Up",                 target: "3×8",     weight: "",      prev: "",              moved: false, isNew: true },
-    { name: "Lateral Raise",           target: "3×12",    weight: "10lb",  prev: "3×12 · 10lb",   moved: false },
-    { name: "Face Pull",               target: "3×15",    weight: "20lb",  prev: "3×15 · 17.5lb", moved: true },
-    { name: "Dead Bug",                target: "2×10",    weight: "",      prev: "2×10",          moved: false }
+    ["Dumbbell Row", "3×10–15", "35lb", "3×12 · 30lb", true],
+    ["Dumbbell Shoulder Press", "3×8", "10lb", "3×8 · 10lb", false],
+    ["Dumbbell Curl", "3×10", "15lb", "3×10 · 12.5lb", true],
+    ["Push-Up", "3×8", "", "", false],
+    ["Lateral Raise", "3×12", "10lb", "3×12 · 10lb", false],
+    ["Face Pull", "3×15", "20lb", "3×15 · 17.5lb", true],
+    ["Dead Bug", "2×10", "", "2×10", false]
   ];
 
   var SHEETS = {
-    schedule:   ["Schedule", "Every tuesday. The same tray the settings row opens."],
-    rest:       ["Rest between sets", "The tape you already have on the settings row, one tap closer."],
-    transition: ["Transition between exercises", "Switching stations uses this instead of rest. 0 skips the countdown."],
-    kit:        ["Dumbbells", "Not in main. Add it to the kit · switch kit · swap the moves that need it."],
-    bench:      ["Bench", "In main. Used by 3 moves in this routine."],
-    settings:   ["Routine settings", "Name, schedule, rest, transition, notes and delete, all in one place."],
-    pauses:     ["Pauses", "Rest is the wait between sets of the same exercise. Transition is the shorter wait when you move to a different one, or to a superset partner. Set 0 to skip a countdown."]
+    name:     ["Rename routine", "The name commits when you leave the field. A duplicate is refused in place."],
+    schedule: ["Schedule", "Every tuesday. The same tray the settings row opens."],
+    pauses:   ["Pauses", "Rest is the wait between sets of the same exercise. Transition is the shorter wait when you move to a different one, or to a superset partner. Set 0 to skip a countdown."],
+    kit:      ["Dumbbells", "Not in main. Add it to the kit · switch kit · swap the moves that need it."],
+    bench:    ["Bench", "In main. Used by 3 moves in this routine."]
   };
 
-  function door(key, label, cls) {
-    return '<button class="chip' + (cls || "") + '" type="button" data-k="' + key + '">' + label + '<span class="chev">›</span></button>';
-  }
+  function runs(t) { return t.split(" · ").map(function (x) { return "<div>" + x + "</div>"; }).join(""); }
 
-  var TOPS = {
-    /* Reference: direction 1 exactly as you saw it. Labels, hairlines,
-       four separate rows, values hard right. */
-    tableOrig: {
-      scroll:
-        '<p class="factline">~30 min · 20 sets</p>' +
-        '<div class="specTable">' + fourRows() + '</div>',
-      pinned: ""
-    },
+  document.getElementById("rows").innerHTML = EXERCISES.map(function (e) {
+    var target = e[2] ? e[1] + " · " + e[2] : e[1];
+    var prev = e[3] ? runs(e[3]) : "<div>" + (e[0] === "Push-Up" ? "new" : "—") + "</div>";
+    return '<div class="row">' +
+      '<div class="glyph"><div class="spine"></div><div class="node"></div></div>' +
+      '<div class="rowBody"><div class="exName">' + e[0] + "</div>" +
+        '<div class="cells">' +
+          '<div class="cell target' + (e[4] ? "" : " held") + '">' + runs(target) + "</div>" +
+          '<div class="cell prev">' + prev + "</div>" +
+        "</div></div></div>";
+  }).join("");
 
-    /* A · same table, stopped at 62% */
-    narrowOnly: {
-      scroll:
-        '<p class="factline">~30 min · 20 sets</p>' +
-        '<div class="split narrow"><div class="specTable">' + fourRows() + '</div><div></div></div>',
-      pinned: ""
-    },
-
-    /* B · kit lifted out to its own column, table keeps three rows */
-    tableKit: {
-      scroll:
-        '<p class="factline">~30 min · 20 sets</p>' +
-        '<div class="split kitSplit">' +
-          '<div class="specTable">' + threeRows() + '</div>' +
-          '<div class="sideCol">' +
-            '<p class="sideLabel">kit</p>' +
-            '<div class="stackChips">' + door("kit", "Dumbbells", " amber") + door("bench", "Bench") + '</div>' +
-          '</div>' +
-        '</div>',
-      pinned: ""
-    },
-
-    /* C · table shifted right, week strip in the freed half */
-    tableWeek: {
-      scroll:
-        '<p class="factline">~30 min · 20 sets</p>' +
-        '<div class="split weekSplit">' +
-          '<div class="weekDots">' + weekDots() + '</div>' +
-          '<div class="specTable">' + fourRows() + '</div>' +
-        '</div>',
-      pinned: ""
-    },
-
-    /* G · same shift, kit in the freed half instead */
-    tableKitLeft: {
-      scroll:
-        '<p class="factline">~30 min · 20 sets</p>' +
-        '<div class="split weekSplit">' +
-          '<div class="stackChips">' + door("kit", "Dumbbells", " amber") + door("bench", "Bench") + '</div>' +
-          '<div class="specTable">' + threeRows() + '</div>' +
-        '</div>',
-      pinned: ""
-    },
-
-    /* D · estimate promoted out of the caption into a stat */
-    tableStat: {
-      scroll:
-        '<div class="split statSplit">' +
-          '<div class="specTable">' + fourRows() + '</div>' +
-          '<div class="statBlock"><span class="big">~30 min</span><span class="sub">20 sets</span></div>' +
-        '</div>',
-      pinned: ""
-    },
-
-    /* H · estimate LEFT, table right, rest+transition combined */
-    tableStatLeft: {
-      scroll: function () {
-        return '<div class="split statLeft">' +
-          '<div class="statBlock left">' + estimateStack() + '</div>' +
-          '<div class="specTable">' +
-            specRow("schedule", "schedule", "tue") +
-            pauseRow() +
-            kitRow() +
-          '</div>' +
-        '</div>';
-      },
-      pinned: ""
-    },
-
-    /* E · two half tables, two rows each */
-    tableHalves: {
-      scroll:
-        '<p class="factline">~30 min · 20 sets</p>' +
-        '<div class="split halves">' +
-          '<div class="specTable">' +
-            specRow("schedule", "schedule", "tue") +
-            specRow("rest", "rest", "45s") +
-          '</div>' +
-          '<div class="specTable">' +
-            specRow("transition", "transition", "15s") +
-            specRow("kit", "kit", '<span class="amber">Dumbbells</span>') +
-          '</div>' +
-        '</div>',
-      pinned: ""
-    },
-
-    /* F · full width, but the rule leads the eye across */
-    tableLeader: {
-      scroll:
-        '<p class="factline">~30 min · 20 sets</p>' +
-        '<div class="specTable leader">' +
-          leadRow("schedule", "schedule", "tue") +
-          leadRow("rest", "rest", "45s") +
-          leadRow("transition", "transition", "15s") +
-          leadRow("kit", "kit", '<span class="amber">Dumbbells</span> · Bench') +
-        '</div>',
-      pinned: ""
-    }
-  };
-
-  function fourRows() {
-    return specRow("schedule", "schedule", "tue") +
-      specRow("rest", "rest", "45s") +
-      specRow("transition", "transition", "15s") +
-      specRow("kit", "kit", '<span class="amber">Dumbbells</span> · Bench');
-  }
-  function threeRows() {
-    return specRow("schedule", "schedule", "tue") +
-      specRow("rest", "rest", "45s") +
-      specRow("transition", "transition", "15s");
-  }
-  function leadRow(key, label, value) {
-    return '<button class="specRow" type="button" data-k="' + key + '">' +
-      '<span class="k noflex">' + label + '</span><span class="leadLine"></span>' +
-      '<span class="v">' + value + '</span><span class="chev">›</span></button>';
-  }
-
-  /* The combined rest + transition row. Three ways to say which is which. */
-  function pauseRow() {
-    var mode = screen.dataset.pause;
-    if (mode === "paired") {
-      return '<button class="specRow" type="button" data-k="pauses">' +
-        '<span class="k">rest · transition</span>' +
-        '<span class="v">45s · 15s</span><span class="chev">›</span></button>';
-    }
-    if (mode === "stacked") {
-      return '<button class="specRow twoLine" type="button" data-k="pauses">' +
-        '<span class="k">pauses</span>' +
-        '<span class="v"><span class="line">45s <em>between sets</em></span>' +
-        '<span class="line">15s <em>between exercises</em></span></span>' +
-        '<span class="chev">›</span></button>';
-    }
-    return '<button class="specRow" type="button" data-k="pauses">' +
-      '<span class="k">pauses</span>' +
-      '<span class="v">45s · 15s</span><span class="chev">›</span></button>';
-  }
-
-
-  /* The kit row's two names, without a floating middle dot between them. */
-  function kitRow() {
-    var mode = screen.dataset.sep;
-    if (mode === "stacked") {
-      return '<button class="specRow twoLine" type="button" data-k="kit">' +
-        '<span class="k">kit</span>' +
-        '<span class="v"><span class="line amber">Dumbbells</span>' +
-        '<span class="line">Bench</span></span><span class="chev">›</span></button>';
-    }
-    if (mode === "comma") {
-      return '<button class="specRow" type="button" data-k="kit">' +
-        '<span class="k">kit</span>' +
-        '<span class="v"><span class="amber">Dumbbells</span>, Bench</span>' +
-        '<span class="chev">›</span></button>';
-    }
-    if (mode === "gap") {
-      return '<button class="specRow" type="button" data-k="kit">' +
-        '<span class="k">kit</span>' +
-        '<span class="v"><span class="amber">Dumbbells</span><span class="wideGap"></span>Bench</span>' +
-        '<span class="chev">›</span></button>';
-    }
-    // Tag modes. In every mode except `inert` the TAGS are the targets, so
-    // the row drops its chevron: a row-level door plus per-tag doors would
-    // be nested tap targets, which the surface law rules out.
-    var tap = screen.dataset.kittap || "control";
-    var cls = "kitTag " + tap;
+  /* The header's three rows. Only the kit row changes with the choice. */
+  function buildTable() {
+    var tap = screen.dataset.kittap;
     var chev = tap === "chevron" ? '<span class="tagChev">›</span>' : "";
-    var rowChev = tap === "inert" ? '<span class="chev">›</span>' : "";
-    var tags =
-      '<span class="' + cls + ' amber">Dumbbells' + chev + '</span>' +
-      '<span class="' + cls + '">Bench' + chev + '</span>';
-    if (tap === "inert") {
-      return '<button class="specRow" type="button" data-k="kit">' +
-        '<span class="k">kit</span><span class="v tags">' + tags + '</span>' + rowChev + '</button>';
-    }
-    return '<div class="specRow asRow">' +
-      '<span class="k">kit</span><span class="v tags">' +
-      '<button class="tagBtn" type="button" data-k="kit">' + '<span class="' + cls + ' amber">Dumbbells' + chev + '</span></button>' +
-      '<button class="tagBtn" type="button" data-k="bench">' + '<span class="' + cls + '">Bench' + chev + '</span></button>' +
-      '</span></div>';
+    var tag = function (name, amber) {
+      return '<span class="kitTag ' + tap + (amber ? " amber" : "") + '">' + name + chev + "</span>";
+    };
+    var kitRow = tap === "inert"
+      ? '<button class="specRow" type="button" data-k="kit"><span class="k">kit</span>' +
+        '<span class="v tags">' + tag("Dumbbells", 1) + tag("Bench") + '</span><span class="chev">›</span></button>'
+      : '<div class="specRow"><span class="k">kit</span><span class="v tags">' +
+        '<button class="tagBtn" type="button" data-k="kit">' + tag("Dumbbells", 1) + "</button>" +
+        '<button class="tagBtn" type="button" data-k="bench">' + tag("Bench") + "</button>" +
+        "</span></div>";
+
+    document.getElementById("specTable").innerHTML =
+      '<button class="specRow" type="button" data-k="schedule">' +
+        '<span class="k">schedule</span><span class="v">tue</span><span class="chev">›</span></button>' +
+      '<button class="specRow twoLine" type="button" data-k="pauses">' +
+        '<span class="k">pauses</span><span class="v">' +
+          '<span class="line">45s <em>between sets</em></span>' +
+          '<span class="line">15s <em>between exercises</em></span>' +
+        '</span><span class="chev">›</span></button>' +
+      kitRow;
   }
 
-  /* What rides the estimate column beside ~30 min. */
-  function estimateStack() {
-    var extra = screen.dataset.extra;
-    var out = '<span class="big">~30 min</span><span class="sub">20 sets</span>';
-    if (extra === "finish") out += '<span class="sub gap">done by 1:18</span>';
-    if (extra === "last") out += '<span class="sub gap">last tue</span><span class="sub">7 days ago</span>';
-    if (extra === "muscles") out += '<div class="muscleTags"><span>back</span><span>shoulders</span><span>arms</span></div>';
-    return out;
-  }
-
-  function weekDots() {
-    return ["m", "t", "w", "t", "f", "s", "s"].map(function (d, i) {
-      return '<span class="day' + (i === 1 ? " on" : "") + '">' + d + "</span>";
-    }).join("");
-  }
-
-  function specRow(key, label, value, cls) {
-    return '<button class="specRow ' + (cls || "") + '" type="button" data-k="' + key + '">' +
-      '<span class="k">' + label + '</span><span class="v">' + value + '</span><span class="chev">›</span></button>';
-  }
-  function gridCell(key, label, value) {
-    return '<button class="gridCell" type="button" data-k="' + key + '">' +
-      '<span class="k">' + label + '</span><span class="v">' + value + ' <span class="chev">›</span></span></button>';
-  }
-  function metaNode(key, text) {
-    return '<button class="metaNode" type="button" data-k="' + key + '">' +
-      '<span class="glyph"><span class="spine"></span><span class="tick"></span></span>' +
-      '<span class="txt">' + text + '</span><span class="chev">›</span></button>';
-  }
-
-  /* ---------- build ---------- */
-  function targetText(e) { return e.weight ? e.target + " · " + e.weight : e.target; }
-  function runs(text) {
-    return text ? text.split(" · ").map(function (p) { return "<div>" + p + "</div>"; }).join("") : "";
-  }
-
-  function buildRows() {
-    var mode = screen.dataset.row;
-    var host = document.getElementById("rows");
-    host.innerHTML = "";
-    EXERCISES.forEach(function (e) {
-      var right = mode === "ledger"
-        ? '<div class="cells">' +
-            '<div class="cell target' + (e.moved ? "" : " held") + '">' + runs(targetText(e)) + "</div>" +
-            '<div class="cell prev' + (e.prev ? "" : " none") + '">' +
-              (e.prev ? runs(e.prev) : "<div>" + (e.isNew ? "new" : "—") + "</div>") + "</div>" +
-          "</div>"
-        : "";
-      var sub = mode === "ledger" ? "" :
-        '<div class="stackLines"><span class="t">' + targetText(e) + "</span>" +
-        '<span class="p">' + (e.prev ? "prev " + e.prev : e.isNew ? "new" : "") + "</span></div>";
-      host.insertAdjacentHTML("beforeend",
-        '<div class="row">' +
-          '<div class="glyph"><div class="spine"></div><div class="node"></div></div>' +
-          '<div class="rowBody"><div class="exName">' + e.name + sub + "</div>" + right + "</div>" +
-        "</div>");
-    });
-  }
-
-  function buildTop() {
-    var dir = TOPS[screen.dataset.top];
-    var scroll = document.getElementById("topScroll");
-    var band = document.getElementById("band");
-    var railHead = document.getElementById("railHead");
-
-    var scrollHTML = typeof dir.scroll === "function" ? dir.scroll() : (dir.scroll || "");
-    scroll.innerHTML = scrollHTML;
-    railHead.innerHTML = dir.railHead || "";
-    // The columns pin with whatever else the direction pins — except where
-    // the direction IS the rail, which a pinned band would cut in half.
-    var columns = screen.dataset.row === "ledger" && !dir.noColumns
-      ? '<div class="colhead"><span>target</span><span>prev</span></div>' : "";
-    band.innerHTML = (dir.pinned || "") + columns;
-    if (screen.dataset.row === "ledger" && dir.noColumns) {
-      // ABOVE the meta nodes, never between them and the exercises: the
-      // point of this direction is one unbroken spine.
-      railHead.insertAdjacentHTML("afterbegin", '<div class="colhead"><span>target</span><span>prev</span></div>');
-    }
-    scroll.hidden = !scrollHTML;
-    applyFacts();
-  }
-
-  /* ---------- facts placement ---------- */
-  var startBaseLabel = "Start workout";
-  function applyFacts() {
-    var onKey = screen.dataset.facts === "key";
-    var line = document.querySelector("#topScroll .factline, #band .factline, .metaCard .factline");
-    if (line) line.hidden = onKey;
-    startBaseLabel = onKey ? "Start workout · ~30 min" : "Start workout";
-    document.getElementById("startGhost").textContent = startBaseLabel;
-    if (!igniting) document.getElementById("startLabel").textContent = startBaseLabel;
-  }
-
-  /* ---------- scroll: title hand-off ---------- */
+  /* Title hand-off on scroll. */
   var body = document.getElementById("scrollBody");
   var bigTitle = document.getElementById("bigTitle");
   var barTitle = document.getElementById("barTitle");
-  var band = document.getElementById("band");
-
   function onScroll() {
-    var y = body.scrollTop;
-    var p = Math.max(0, Math.min(1, (y - 8) / 34));
+    var p = Math.max(0, Math.min(1, (body.scrollTop - 8) / 32));
     bigTitle.style.opacity = String(1 - p);
-    bigTitle.style.transform = "translateY(" + (-6 * p) + "px)";
     barTitle.style.opacity = String(p);
     barTitle.style.transform = "translateY(" + (6 * (1 - p)) + "px)";
-    band.classList.toggle("pinned", band.innerHTML !== "" && y > band.offsetTop - 1);
   }
   body.addEventListener("scroll", onScroll, { passive: true });
 
-  /* ---------- mock sheets ---------- */
+  /* Mock sheets. */
   var sheetWrap = document.getElementById("sheetWrap");
   document.addEventListener("click", function (ev) {
-    var opener = ev.target.closest("[data-k], [data-sheet]");
-    if (opener && screen.contains(opener)) {
-      var pair = opener.dataset.k ? SHEETS[opener.dataset.k]
-        : [opener.dataset.sheet, opener.dataset.sheetBody];
-      if (pair) {
-        document.getElementById("sheetTitle").textContent = pair[0];
-        document.getElementById("sheetBody").textContent = pair[1] || "";
-        sheetWrap.classList.add("open");
-      }
+    var opener = ev.target.closest("[data-k]");
+    if (opener && screen.contains(opener) && SHEETS[opener.dataset.k]) {
+      var pair = SHEETS[opener.dataset.k];
+      document.getElementById("sheetTitle").textContent = pair[0];
+      document.getElementById("sheetBody").textContent = pair[1];
+      sheetWrap.classList.add("open");
       return;
     }
     if (ev.target.closest("[data-close]")) sheetWrap.classList.remove("open");
   });
 
-  /* ---------- start key ignition ---------- */
+  /* Start ignition: wipe, label morph, three-chevron march. */
   var startKey = document.getElementById("startKey");
   var startLabel = document.getElementById("startLabel");
-  var chevs = Array.prototype.slice.call(document.querySelectorAll("#chevRun i"));
+  var chevs = [].slice.call(document.querySelectorAll("#chevRun i"));
+  chevs.forEach(function (c) { c.textContent = "›"; });
   var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var igniting = false;
 
   function setChev(active) {
     chevs.forEach(function (c, i) {
-      if (!igniting || reduce) { c.style.opacity = i === 0 ? "1" : "0"; return; }
-      c.style.opacity = i === active ? "1" : "0.25";
+      c.style.opacity = !igniting || reduce ? (i === 0 ? "1" : "0") : (i === active ? "1" : "0.25");
     });
   }
   setChev(0);
@@ -1074,48 +480,35 @@
     setChev(0);
     if (reduce) { window.setTimeout(reset, 700); return; }
     var hop = 0;
-    var timer = window.setInterval(function () {
+    var t = window.setInterval(function () {
       setChev(hop % 3);
-      hop += 1;
-      if (hop > 6) { window.clearInterval(timer); reset(); }
+      if (++hop > 6) { window.clearInterval(t); reset(); }
     }, 150);
   });
-
   function reset() {
     igniting = false;
     startKey.classList.remove("go");
-    startLabel.textContent = startBaseLabel;
+    startLabel.textContent = "Start workout";
     setChev(0);
   }
 
-  /* ---------- option wiring ---------- */
-  function wire(id, key, sel, after) {
-    var group = document.getElementById(id);
-    group.addEventListener("click", function (ev) {
-      var btn = ev.target.closest(sel);
-      if (!btn) return;
-      group.querySelectorAll(sel).forEach(function (b) { b.setAttribute("aria-pressed", String(b === btn)); });
-      screen.dataset[key] = btn.dataset.v;
-      after();
-      body.scrollTop = 0;
-      onScroll();
-    });
-  }
-  wire("dirs", "top", ".dir", buildTop);
-  wire("rowSegs", "row", ".seg", function () { buildRows(); buildTop(); });
-  wire("factsSegs", "facts", ".seg", applyFacts);
-  wire("pauseSegs", "pause", ".seg", buildTop);
-  wire("extraSegs", "extra", ".seg", buildTop);
-  wire("sepSegs", "sep", ".seg", buildTop);
-  wire("kittapSegs", "kittap", ".seg", buildTop);
-
-  document.getElementById("themeToggle").addEventListener("click", function () {
-    var root = document.documentElement;
-    root.setAttribute("data-theme", root.getAttribute("data-theme") !== "light" ? "light" : "dark");
+  /* The one choice. */
+  document.getElementById("opts").addEventListener("click", function (ev) {
+    var btn = ev.target.closest(".opt");
+    if (!btn) return;
+    this.querySelectorAll(".opt").forEach(function (b) { b.setAttribute("aria-pressed", String(b === btn)); });
+    screen.dataset.kittap = btn.dataset.v;
+    buildTable();
+    body.scrollTop = 0;
+    onScroll();
   });
 
-  buildRows();
-  buildTop();
+  document.getElementById("themeToggle").addEventListener("click", function () {
+    var r = document.documentElement;
+    r.setAttribute("data-theme", r.getAttribute("data-theme") !== "light" ? "light" : "dark");
+  });
+
+  buildTable();
   onScroll();
 })();
 </script>
