@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import TipKit
 import PlusPlusKit
+import UIKit        // UIFont metrics: where the rail node sits on the name's first line
 import Foundation   // sin / pow for the landing-animation easings
 
 /// Routine detail, v2 (#61): a compact program view — meta line with
@@ -81,6 +82,22 @@ struct RoutineDetailView: View {
     /// Matches `ExerciseRailRow`'s run columns, so a heading sits over the
     /// column it names at every Dynamic Type size.
     @ScaledMetric(relativeTo: .caption) private var headerColumnWidth: Double = 58
+
+    /// How far a rail row's text sits below the row's top edge.
+    @ScaledMetric(relativeTo: .body) private var railTextTopInset: Double = 9
+
+    /// Where a node sits inside its row: the centre of the exercise name's
+    /// FIRST line, not the middle of the row.
+    ///
+    /// ⚠️ It lives HERE, not in `ExerciseRailRow`, because the superset
+    /// landing FX place their field band and spark against the same nodes
+    /// (`supersetLandingFX`, `landingParams`). Those read `railRowHeight / 2`
+    /// while the glyph read its own constant, so moving the node off the row's
+    /// middle silently left the landing animation anchored where the node used
+    /// to be. One number, one owner.
+    private var railNodeY: CGFloat {
+        CGFloat(railTextTopInset) + UIFont.preferredFont(forTextStyle: .body).lineHeight / 2
+    }
 
     private var railMetrics: RailMetrics { RailMetrics(rowHeight: railRowHeight) }
 
@@ -337,8 +354,9 @@ struct RoutineDetailView: View {
             // ⚠️ NO notes either. They left this region entirely; the
             // settings sheet still holds the field.
             if !routine.groups.isEmpty {
-                HStack(alignment: .top, spacing: 14) {
+                HStack(alignment: .top, spacing: 0) {
                     estimateColumn(meta)
+                    columnRule
                     specTable(meta)
                 }
                 .padding(.top, 12)
@@ -347,6 +365,32 @@ struct RoutineDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 20)
         .padding(.bottom, 4)
+    }
+
+    /// The gutter between the two header columns, drawn (2026-07-29, Dave:
+    /// the split needed "some way of making sure the two columns are clear").
+    ///
+    /// It is the SAME hairline the spec table already puts between its rows,
+    /// turned on its side, so the three horizontal rules now start on a
+    /// vertical one and the right column reads as a table rather than as text
+    /// that happens to be right of other text. Nothing new is introduced: one
+    /// weight, one colour, one idea.
+    ///
+    /// The alternative was a filled ground behind one column, and it costs
+    /// more than it gives here. A panel in a cardless screen reads as a card
+    /// you can open, and neither column is; the muscle tags in the left column
+    /// already wear `surfaceRaised` over `background`, so putting them on
+    /// `surface` would flatten the tag against its own ground — a tag stops
+    /// looking like a tag.
+    ///
+    /// It spans the taller column: the rule IS the gutter, so it ends where
+    /// the header does.
+    private var columnRule: some View {
+        Rectangle()
+            .fill(Theme.border)
+            .frame(width: 1)
+            .padding(.horizontal, 12)
+            .accessibilityHidden(true)
     }
 
     /// The left column: what the routine COSTS, in the order you ask it.
@@ -400,7 +444,7 @@ struct RoutineDetailView: View {
             // took `TRANSITION`, the longest label in the block, out of the
             // left edge every value was aligning against.
             RoutineSpecRow(label: "pauses", action: { showingPausesTray = true }) {
-                VStack(alignment: .trailing, spacing: 2) {
+                VStack(alignment: .leading, spacing: 2) {
                     pauseValue(RoutineMeta.restLabel(routine.restSeconds), noun: "between sets")
                     pauseValue(RoutineMeta.restLabel(routine.transitionSeconds), noun: "between exercises")
                 }
@@ -433,11 +477,16 @@ struct RoutineDetailView: View {
             Text(value)
                 .font(.system(.footnote, design: .monospaced))
                 .foregroundStyle(Theme.textPrimary)
+                .lineLimit(1)
+            // ⚠️ The noun WRAPS rather than truncating (2026-07-29). It is
+            // what tells the two pauses apart under one label, so at an
+            // accessibility text size where it no longer fits on one line,
+            // a second line is the answer and "between exercis…" is not.
             Text(noun)
                 .font(.system(.caption2))
                 .foregroundStyle(Theme.textFaint)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .lineLimit(1)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(value) \(noun)")
     }
@@ -575,7 +624,11 @@ struct RoutineDetailView: View {
     @ViewBuilder
     private var columnHeaders: some View {
         if !routine.groups.isEmpty {
-            HStack(spacing: 8) {
+            // ⚠️ Spacing 13, matching the gap between the two run columns in
+            // the row below (device pass, 2026-07-29) — an 8 here sat the
+            // TARGET label 5 pt right of the column it names, which on a
+            // right-aligned mono column is plainly visible.
+            HStack(spacing: 13) {
                 Spacer(minLength: 0)
                 columnLabel("target")
                 columnLabel("prev")
@@ -783,6 +836,8 @@ struct RoutineDetailView: View {
                 role: railRole(index: i, of: group),
                 ledger: routineExercise.uuid.map { ledger[$0.uuidString] } ?? nil,
                 rowHeight: railRowHeight,
+                textTopInset: railTextTopInset,
+                nodeY: Double(railNodeY),
                 hideLoop: hideLoop,
                 landing: landing
             )
@@ -999,13 +1054,12 @@ struct RoutineDetailView: View {
               let lastRow = layout.row(for: .exercise(group: g, index: sizes[g] - 1)),
               let thisRow = layout.row(for: .exercise(group: g, index: i))
         else { return RailLandingParams() }
-        let half = railRowHeight / 2
         return RailLandingParams(
             active: true,
             progress: landing.progress,
             grew: landing.grew,
-            firstNodeY: firstRow.y + half,
-            lastNodeY: lastRow.y + half,
+            firstNodeY: firstRow.y + railNodeY,
+            lastNodeY: lastRow.y + railNodeY,
             rowTopY: thisRow.y
         )
     }
@@ -1023,9 +1077,8 @@ struct RoutineDetailView: View {
            sizes.indices.contains(gf), sizes[gf] > 1,
            let firstRow = layout.row(for: .exercise(group: gf, index: 0)),
            let lastRow = layout.row(for: .exercise(group: gf, index: sizes[gf] - 1)) {
-            let half = railRowHeight / 2
-            let firstNodeY = firstRow.y + half
-            let lastNodeY = lastRow.y + half
+            let firstNodeY = firstRow.y + railNodeY
+            let lastNodeY = lastRow.y + railNodeY
             GeometryReader { geo in
                 ZStack(alignment: .topLeading) {
                     SupersetFieldView(
@@ -1053,7 +1106,15 @@ struct RoutineDetailView: View {
         if case .dragging(let g, let i, let fingerY, let grabOffset) = railGesture,
            groups.indices.contains(g), groups[g].sortedExercises.indices.contains(i) {
             let routineExercise = groups[g].sortedExercises[i]
-            ExerciseRailRow(routineExercise: routineExercise, role: .solo)
+            ExerciseRailRow(
+                routineExercise: routineExercise,
+                role: .solo,
+                // The lifted card is the row it lifted: same height, so its
+                // spine spans the card instead of stopping short inside it.
+                rowHeight: railRowHeight,
+                textTopInset: railTextTopInset,
+                nodeY: Double(railNodeY)
+            )
                 .padding(.horizontal, 8)
                 .frame(height: railRowHeight)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1281,6 +1342,11 @@ private struct RoutineSpecRow<Value: View>: View {
     var action: (() -> Void)?
     @ViewBuilder let value: () -> Value
 
+    /// Wide enough for the longest label in the table (`SCHEDULE`) at the
+    /// default size, so the values start on one x without anything being
+    /// pushed to the far edge to get there.
+    @ScaledMetric(relativeTo: .caption2) private var labelWidth: Double = 62
+
     var body: some View {
         if let action {
             Button(action: action) { row }
@@ -1294,14 +1360,32 @@ private struct RoutineSpecRow<Value: View>: View {
 
     private var row: some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
+            // ⚠️ The label is a fixed COLUMN and the value sits right next to
+            // it (device pass, 2026-07-29). The first cut gave the label
+            // `.frame(maxWidth: .infinity)`, which did two things at once:
+            // it drove every value to the far right edge, opening ~90 pt of
+            // dead space between a label and the value it names (the exact
+            // horizontal eye travel this arrangement exists to avoid), and it
+            // left the value whatever width was over — so "45s between sets"
+            // ellipsized to "45s between…" and the kit tags stacked one per
+            // line. The nouns and the tag names ARE this table's
+            // disambiguation; they get the room, and the slack goes at the
+            // trailing edge where the chevron is.
             Text(label.uppercased())
                 .font(.system(.caption2, design: .monospaced, weight: .semibold))
                 .kerning(0.6)
                 .foregroundStyle(Theme.textFaint)
-                // The label claims the row's slack, which is what pushes the
-                // value right — and what keeps every value on one column.
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize()
+                .frame(minWidth: labelWidth, alignment: .leading)
+            // ⚠️ The value takes the whole remainder and aligns LEADING —
+            // never a trailing `Spacer` beside it. `FlowLayout.sizeThatFits`
+            // returns `proposal.width ?? 0`, so it reads to an `HStack` as
+            // infinitely flexible; a `Spacer` is too, and the stack splits the
+            // remainder EVENLY between two equally flexible children. That
+            // handed the kit tags half the room they had, which is the second
+            // way to make them stack one per line.
             value()
+                .frame(maxWidth: .infinity, alignment: .leading)
             if showsChevron {
                 Image(systemName: "chevron.right")
                     .font(.system(.caption2, weight: .semibold))
@@ -1327,7 +1411,14 @@ private struct PausesTray: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // ⚠️ `SheetHeader` carries NO horizontal padding of its own — the
+            // tray supplies it, at 18, because the scrolling content below has
+            // to be full-bleed so rows clip at the sheet's edges rather than
+            // at a padded inset. Every other tray in the app does this; this
+            // one shipped without it (2026-07-29), which put the title flush
+            // against the sheet's left edge and ran "Done" off the right.
             SheetHeader(title: "Pauses", closeOnly: true) { dismiss() }
+                .padding(.horizontal, 18)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
@@ -1357,7 +1448,8 @@ private struct PausesTray: View {
                         .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
                 }
-                .padding(.horizontal, 16)
+                // 18, matching the header above and every sibling tray.
+                .padding(.horizontal, 18)
                 .padding(.bottom, 30)
             }
         }
@@ -1491,9 +1583,15 @@ private struct ExerciseRailRow: View {
     /// Sized for reps over weight on two lines; a single-line cell needs
     /// ~90 pt and starves the name column beside the 28 pt rail.
     @ScaledMetric(relativeTo: .caption) private var runColumnWidth: Double = 58
-    /// The row's top padding plus half a line of the name's font, so the
-    /// node sits on the first line at every Dynamic Type size.
-    @ScaledMetric(relativeTo: .body) private var firstLineCentreY: Double = 20
+    /// How far the row's text sits below its top edge, and the node's centre
+    /// measured from the same edge. Both are the SCREEN's, passed in, because
+    /// the superset landing FX place their band and spark against these same
+    /// nodes — see `RoutineDetailView.railNodeY`.
+    ///
+    /// The node lands on the name's first line only because the content is
+    /// TOP-aligned and carries `textTopInset` itself — see `body`.
+    var textTopInset: Double = 9
+    var nodeY: Double = 20
     /// Ring-edit mode (#87): the small loop and the expanded full-width
     /// ring are mutually exclusive — the active group's rows drop their
     /// loop drawing while the highlight is up.
@@ -1502,27 +1600,53 @@ private struct ExerciseRailRow: View {
     /// glyph. Inert (`isLanding == false`) at rest.
     var landing = RailLandingParams()
 
-    /// One mono column, right-aligned, wrapping to two lines inside its own
-    /// width rather than shrinking to fit.
+    /// One mono column, right-aligned, printing the prescription over at most
+    /// two lines: what is being done above what it is loaded with.
     ///
     /// ⚠️ `PrescriptionRun`s are FRAGMENTS of one line ("3", "×", "10–15",
-    /// " · ", "35lb"), not lines — so they compose into a single concatenated
-    /// `Text` exactly as `DiffLedger` composes them, with the ink applied per
-    /// fragment. Rendering one per line would break "3×10" into three rows.
+    /// " @ ", "35lb"), not lines — so each printed line composes its fragments
+    /// into a single concatenated `Text` exactly as `DiffLedger` composes
+    /// them, with the ink applied per fragment. Rendering one run per line
+    /// would break "3×10" into three rows.
+    ///
+    /// ⚠️ And the break is CHOSEN, never left to word wrap (device pass,
+    /// 2026-07-29). Wrapping put the break wherever the glyphs happened to
+    /// run out: "3×8 @" / "10 lb" stranded the separator at the end of a line,
+    /// and the two columns broke at different points on the same row
+    /// ("3×9–14" / "@ 35 lb" beside "3×10 @" / "35 lb"), so the pair could not
+    /// be read across. Splitting at the load separator — and dropping it, the
+    /// line break now says what it said — makes both columns break at the same
+    /// place on every row.
     private func runColumn(_ runs: [PrescriptionRun], changed: Set<RoutineDiff.Field>, lit: Bool, placeholder: String? = nil) -> some View {
-        Group {
+        VStack(alignment: .trailing, spacing: 0) {
             if runs.isEmpty {
                 Text(placeholder ?? "—").foregroundStyle(Theme.textFaint)
             } else {
-                runs.reduce(Text("")) { result, run in
-                    result + Text(run.text).foregroundStyle(ink(run, changed: changed, lit: lit))
+                let lines = printedLines(runs)
+                ForEach(lines.indices, id: \.self) { index in
+                    lines[index].reduce(Text("")) { result, run in
+                        result + Text(run.text).foregroundStyle(ink(run, changed: changed, lit: lit))
+                    }
+                    .lineLimit(1)
+                    // The one shape that overruns 58 pt is a cardio block with
+                    // no load to break at ("5× 1000 m"). It shrinks a hair
+                    // rather than wrapping into a shape nothing else has.
+                    .minimumScaleFactor(0.75)
                 }
             }
         }
         .font(.system(.caption, design: .monospaced))
-        .multilineTextAlignment(.trailing)
-        .lineLimit(2)
         .frame(width: runColumnWidth, alignment: .trailing)
+    }
+
+    /// The fragments split into the lines the cell prints, at the load
+    /// separator (" @ "), which the break replaces. Everything else is one
+    /// line — a cardio block's "4× 500 m" has nothing to separate.
+    private func printedLines(_ runs: [PrescriptionRun]) -> [[PrescriptionRun]] {
+        guard let split = runs.firstIndex(where: { $0.field == nil && $0.text.contains("@") }) else {
+            return [runs]
+        }
+        return [Array(runs[..<split]), Array(runs[(split + 1)...])]
     }
 
     /// The target column dims what held and lights what moved; prev is one
@@ -1536,14 +1660,22 @@ private struct ExerciseRailRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 13) {
+        // ⚠️ TOP-aligned, and the text carries its own inset (device pass,
+        // 2026-07-29). This was a plain `HStack`, which vertically CENTRES —
+        // so the glyph, at the full 76 pt row height, kept its top edge while
+        // the name floated to the middle of whatever height it had. The node
+        // was drawn at a fixed y from the glyph's top and the name was not,
+        // so they only ever agreed by accident, and disagreed by a different
+        // amount for a one-line name than a two-line one. Top-aligning both
+        // is what makes `nodeY` mean the same thing to each.
+        HStack(alignment: .top, spacing: 13) {
             RailGlyph(
                 role: hideLoop ? .solo : role,
                 height: rowHeight,
                 // ⚠️ The node centres on the first LINE of the name, not
                 // on the row (2026-07-29). With names wrapping to two
                 // lines a mid-row dot lands in the gap between them.
-                dotY: firstLineCentreY,
+                dotY: nodeY,
                 isLanding: !hideLoop && landing.active,
                 landingProgress: landing.progress,
                 landingGrew: landing.grew,
@@ -1556,35 +1688,42 @@ private struct ExerciseRailRow: View {
             // its meaning is spoken via the row's accessibilityValue below.
             .accessibilityHidden(true)
 
-            Text(routineExercise.exercise?.name ?? "Unknown")
-                .font(.system(.body, weight: .semibold))
-                .foregroundStyle(Theme.textPrimary)
-                // Two lines (2026-07-29). The name IS the row's content
-                // here, not a label on a card you are about to open, so it
-                // wraps where a catalog row's would.
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            // The text of the row shares ONE baseline, so the ledger's first
+            // line sits on the name's first line — the same line the node is
+            // on — however many lines either of them runs to.
+            HStack(alignment: .firstTextBaseline, spacing: 13) {
+                Text(routineExercise.exercise?.name ?? "Unknown")
+                    .font(.system(.body, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                    // Two lines (2026-07-29). The name IS the row's content
+                    // here, not a label on a card you are about to open, so it
+                    // wraps where a catalog row's would.
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-            // The clock marks time-driven blocks (a plank, a 20:00
-            // piece) — distance/calorie work speaks its unit already.
-            if routineExercise.exercise?.metricProfile.contains(.duration) == true,
-               !(routineExercise.exercise?.metricProfile.tracksReps ?? false) {
-                Image(systemName: "clock")
-                    .font(.system(.caption))
-                    .foregroundStyle(Theme.textFaint)
+                // The clock marks time-driven blocks (a plank, a 20:00
+                // piece) — distance/calorie work speaks its unit already.
+                if routineExercise.exercise?.metricProfile.contains(.duration) == true,
+                   !(routineExercise.exercise?.metricProfile.tracksReps ?? false) {
+                    Image(systemName: "clock")
+                        .font(.system(.caption))
+                        .foregroundStyle(Theme.textFaint)
+                }
+
+                // Today's ledger grammar, on the rail (2026-07-29): what is
+                // being asked for beside what happened last time, and NO
+                // delta. The target column dims what held and lights what
+                // moved; prev is one flat brightness throughout, because it is
+                // the thing being compared against rather than the thing being
+                // read.
+                //
+                // ⚠️ Two lines per cell. A single-line cell needs ~90 pt,
+                // which starves the name column; reps over load fits in 58.
+                runColumn(ledger?.target ?? [], changed: ledger?.changed ?? [], lit: true)
+                runColumn(ledger?.prev ?? [], changed: [], lit: false, placeholder: ledger?.isNew == true ? "new" : "—")
             }
-
-            // Today's ledger grammar, on the rail (2026-07-29): what is being
-            // asked for beside what happened last time, and NO delta. The
-            // target column dims what held and lights what moved; prev is one
-            // flat brightness throughout, because it is the thing being
-            // compared against rather than the thing being read.
-            //
-            // ⚠️ One run per LINE. A single-line cell needs ~90 pt, which
-            // starves the name column; reps over weight fits in 58.
-            runColumn(ledger?.target ?? [], changed: ledger?.changed ?? [], lit: true)
-            runColumn(ledger?.prev ?? [], changed: [], lit: false, placeholder: ledger?.isNew == true ? "new" : "—")
+            .padding(.top, textTopInset)
         }
         .frame(minHeight: rowHeight, alignment: .top)
         // One coherent read per row (name + target), with the superset
