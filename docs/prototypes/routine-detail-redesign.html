@@ -205,6 +205,17 @@
   .leadLine { flex: 1 1 auto; border-bottom: 1px dotted var(--border-strong); margin: 0 10px; height: 8px; }
 
 
+
+  /* the kit row's separator treatments */
+  .specRow .v.tags { display: flex; gap: 5px; align-items: center; }
+  .kitTag {
+    font-family: var(--sans); font-size: 11.5px; line-height: 1.25;
+    background: var(--raised); color: var(--ink-2); border-radius: 6px; padding: 3px 7px;
+  }
+  .kitTag.amber { background: var(--notes-wash); color: var(--notes-ink); }
+  .specRow.twoLine .v .line.amber { color: var(--notes-ink); }
+  .wideGap { display: inline-block; width: 18px; }
+
   /* H: estimate column on the LEFT, table on the right */
   .split.statLeft { grid-template-columns: 104px minmax(0, 1fr); }
   .statBlock.left { align-items: flex-start; padding-top: 4px; }
@@ -484,11 +495,25 @@
         <h2>H · saying which pause is which</h2>
         <p class="why">Combining the two rows is the easy half. Making one row say <i>45s between sets, 15s between exercises</i> without a sentence is the hard half. Three mechanisms, and the sheet carries the full explanation in all of them: tap the row to read it.</p>
         <div class="segs" id="pauseSegs">
-          <button class="seg" type="button" data-v="paired" aria-pressed="true"><span class="tag">1 <span class="rec">▸ pick</span></span>Paired label</button>
-          <button class="seg" type="button" data-v="stacked" aria-pressed="false"><span class="tag">2</span>Nouns in the value</button>
+          <button class="seg" type="button" data-v="paired"><span class="tag">1</span>Paired label</button>
+          <button class="seg" type="button" data-v="stacked" aria-pressed="true"><span class="tag">2 <span class="rec">▸ yours</span></span>Nouns in the value</button>
           <button class="seg" type="button" data-v="sheet" aria-pressed="false"><span class="tag">3</span>Sheet does all of it</button>
         </div>
         <p class="why" style="margin-top:14px"><b>1</b> reads <code>rest · transition</code> against <code>45s · 15s</code> and lets position do the work, which mono columns are good at and which costs no height. <b>2</b> spells it out in two lines with the noun beside each number, unambiguous but twice as tall and the only one that survives a screenshot with no context. <b>3</b> shows <code>45s · 15s</code> under a single <code>pauses</code> label and leaves the disambiguation entirely to the sheet, which is the smallest header and the biggest bet on people tapping.</p>
+      </div>
+
+
+      <div class="opt">
+        <h2>H · the kit row, without the middle dot</h2>
+        <p class="why">The <code>·</code> is doing list-separator duty between two equipment names, and at mono sizes it floats at mid-height with nothing to sit on, so it reads as debris rather than punctuation. Four ways to drop it.</p>
+        <div class="segs" id="sepSegs">
+          <button class="seg" type="button" data-v="tags" aria-pressed="true"><span class="tag">i <span class="rec">▸ pick</span></span>Data tags</button>
+          <button class="seg" type="button" data-v="stacked"><span class="tag">ii</span>One per line</button>
+          <button class="seg" type="button" data-v="comma"><span class="tag">iii</span>Comma</button>
+          <button class="seg" type="button" data-v="gap"><span class="tag">iv</span>Just a gap</button>
+        </div>
+        <p class="why" style="margin-top:14px"><b>i · data tags</b> removes the separator instead of replacing it: each name gets <code>CardTagCapsule</code>'s soft r6 fill, which is <i>already</i> how the app draws routine gear pills, and already what the muscle groups on the left of this same header are wearing. The tag boundary is the separator. It also gives the amber a shape to live in rather than a lone coloured word, and it scales to a kit of five without the row turning into a chain of dots. Note the tags are sentence-case and <i>not</i> mono while the rest of the column is: that is the data-tag law, not an oversight.</p>
+        <p class="why"><b>ii · one per line</b> matches the pauses row directly above it, so both multi-value rows read the same way. Honest and clear, but a kit of five costs five lines. <b>iii · comma</b> is the smallest possible change and sits on the baseline where the dot did not, though a comma inside a mono data row reads as prose. <b>iv · just a gap</b> is the minimal answer and breaks the moment a piece of equipment has two words in its name, which most of them do.</p>
       </div>
 
       <div class="opt">
@@ -496,9 +521,9 @@
         <p class="why">You asked what could join it. Everything here is derivable from data the app already holds, and each answers a different question you might have while looking at this screen.</p>
         <div class="segs" id="extraSegs">
           <button class="seg" type="button" data-v="none"><span class="tag">a</span>Estimate alone</button>
-          <button class="seg" type="button" data-v="finish" aria-pressed="true"><span class="tag">b <span class="rec">▸ pick</span></span>Finish time</button>
+          <button class="seg" type="button" data-v="finish"><span class="tag">b</span>Finish time</button>
           <button class="seg" type="button" data-v="last"><span class="tag">c</span>Last done</button>
-          <button class="seg" type="button" data-v="muscles"><span class="tag">d</span>Muscle groups</button>
+          <button class="seg" type="button" data-v="muscles" aria-pressed="true"><span class="tag">d <span class="rec">▸ yours</span></span>Muscle groups</button>
         </div>
         <p class="why" style="margin-top:14px"><b>b · done by 1:18</b> is the estimate finished for you. "~30 min" still asks you to do arithmetic against a clock you have to go and look at; a finish time is the answer to the actual question, which is whether this fits before the next thing. It is the only addition here that makes the estimate <i>more</i> useful rather than adding a second fact beside it.</p>
         <p class="why"><b>c · last tue, 7 days ago</b> pairs with the <code>prev</code> column below, so the whole screen reads as "here is what you did and when". <b>d · muscle groups</b> replaces the vaguer "Upper" with what the exercises actually cover, drawn from the multi-select that already exists on each one. <b>a</b> is the control: if the column looks unbalanced, that is worth knowing before filling it.</p>
@@ -525,7 +550,7 @@
 
     <div class="deviceCol">
       <div class="device">
-        <div class="screen" id="screen" data-top="tableStatLeft" data-pause="paired" data-extra="finish" data-row="ledger" data-facts="trim">
+        <div class="screen" id="screen" data-top="tableStatLeft" data-pause="stacked" data-extra="muscles" data-sep="tags" data-row="ledger" data-facts="trim">
 
           <div class="statusbar"><span>12:48</span><span class="right">▮▮▮ ᯤ 73</span></div>
 
@@ -585,6 +610,13 @@
   </div>
 
     <div class="noteGrid">
+
+      <div class="note">
+        <span class="flag">⚠ check on device</span>
+        <h3>Two tag families, one header</h3>
+        <p>With the kit as tags and the muscle groups already as tags, the header now carries the same soft r6 pill in two columns for two different kinds of thing. On the render they separate fine, because the <code>KIT</code> label and the column gap do the work.</p>
+        <p>It is still the one thing worth a real look. If they blur, the muscle groups are the ones to change, not the kit: gear pills wearing <code>CardTagCapsule</code> is the older, more established use.</p>
+      </div>
 
       <div class="note">
         <span class="flag">the new one</span>
@@ -734,7 +766,7 @@
           '<div class="specTable">' +
             specRow("schedule", "schedule", "tue") +
             pauseRow() +
-            specRow("kit", "kit", '<span class="amber">Dumbbells</span> · Bench') +
+            kitRow() +
           '</div>' +
         '</div>';
       },
@@ -807,6 +839,34 @@
     return '<button class="specRow" type="button" data-k="pauses">' +
       '<span class="k">pauses</span>' +
       '<span class="v">45s · 15s</span><span class="chev">›</span></button>';
+  }
+
+
+  /* The kit row's two names, without a floating middle dot between them. */
+  function kitRow() {
+    var mode = screen.dataset.sep;
+    if (mode === "stacked") {
+      return '<button class="specRow twoLine" type="button" data-k="kit">' +
+        '<span class="k">kit</span>' +
+        '<span class="v"><span class="line amber">Dumbbells</span>' +
+        '<span class="line">Bench</span></span><span class="chev">›</span></button>';
+    }
+    if (mode === "comma") {
+      return '<button class="specRow" type="button" data-k="kit">' +
+        '<span class="k">kit</span>' +
+        '<span class="v"><span class="amber">Dumbbells</span>, Bench</span>' +
+        '<span class="chev">›</span></button>';
+    }
+    if (mode === "gap") {
+      return '<button class="specRow" type="button" data-k="kit">' +
+        '<span class="k">kit</span>' +
+        '<span class="v"><span class="amber">Dumbbells</span><span class="wideGap"></span>Bench</span>' +
+        '<span class="chev">›</span></button>';
+    }
+    return '<button class="specRow" type="button" data-k="kit">' +
+      '<span class="k">kit</span>' +
+      '<span class="v tags"><span class="kitTag amber">Dumbbells</span><span class="kitTag">Bench</span></span>' +
+      '<span class="chev">›</span></button>';
   }
 
   /* What rides the estimate column beside ~30 min. */
@@ -991,6 +1051,7 @@
   wire("factsSegs", "facts", ".seg", applyFacts);
   wire("pauseSegs", "pause", ".seg", buildTop);
   wire("extraSegs", "extra", ".seg", buildTop);
+  wire("sepSegs", "sep", ".seg", buildTop);
 
   document.getElementById("themeToggle").addEventListener("click", function () {
     var root = document.documentElement;
