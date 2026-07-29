@@ -206,6 +206,31 @@
 
 
 
+
+  /* Kit tags: shape carries whether it taps. Inert data stays soft r6 with
+     no stroke (what the muscle groups wear); a door takes the control
+     shape, r11 + stroke, like every other key in the app. */
+  .tagBtn { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
+  .tagBtn:focus-visible { outline: 2px solid var(--selected); outline-offset: 2px; border-radius: 11px; }
+  .kitTag { display: inline-flex; align-items: center; gap: 3px; font-family: var(--sans); line-height: 1.25; }
+
+  .kitTag.inert { font-size: 11.5px; background: var(--raised); color: var(--ink-2); border-radius: 6px; padding: 3px 7px; }
+  .kitTag.inert.amber { background: var(--notes-wash); color: var(--notes-ink); }
+
+  .kitTag.control, .kitTag.chevron {
+    font-size: 12px; padding: 5px 10px; border-radius: 11px;
+    background: var(--surface); color: var(--ink-2); border: 1px solid var(--border-strong);
+  }
+  .kitTag.control.amber, .kitTag.chevron.amber {
+    background: var(--notes-wash); color: var(--notes-ink); border-color: var(--notes-ring);
+  }
+  .kitTag .tagChev { font-size: 9px; opacity: 0.8; }
+
+  .kitTag.ring { font-size: 11.5px; background: var(--raised); color: var(--ink-2); border-radius: 6px; padding: 3px 7px; border: 1px solid var(--border-strong); }
+  .kitTag.ring.amber { background: var(--notes-wash); color: var(--notes-ink); border-color: var(--notes-ring); }
+
+  .specRow.asRow { cursor: default; }
+
   /* the kit row's separator treatments */
   .specRow .v.tags { display: flex; gap: 5px; align-items: center; }
   .kitTag {
@@ -516,6 +541,21 @@
         <p class="why"><b>ii · one per line</b> matches the pauses row directly above it, so both multi-value rows read the same way. Honest and clear, but a kit of five costs five lines. <b>iii · comma</b> is the smallest possible change and sits on the baseline where the dot did not, though a comma inside a mono data row reads as prose. <b>iv · just a gap</b> is the minimal answer and breaks the moment a piece of equipment has two words in its name, which most of them do.</p>
       </div>
 
+
+      <div class="opt">
+        <h2>H · making the kit tags look like doors</h2>
+        <p class="why">The surface law already answers this: <b>shape says what taps.</b> A card data tag is soft r6 with no stroke and is inert; anything interactive wears the control shape, r11 and stroked, like every other key in the app. The muscle groups stay inert in all four of these, which is the whole point — the contrast is what makes the shape mean anything.</p>
+        <div class="segs" id="kittapSegs">
+          <button class="seg" type="button" data-v="control" aria-pressed="true"><span class="tag">i <span class="rec">▸ pick</span></span>Control shape</button>
+          <button class="seg" type="button" data-v="chevron"><span class="tag">ii</span>Control shape + chevron</button>
+          <button class="seg" type="button" data-v="ring"><span class="tag">iii</span>Soft ground, add a ring</button>
+          <button class="seg" type="button" data-v="inert"><span class="tag">iv</span>Leave them inert</button>
+        </div>
+        <p class="why" style="margin-top:14px"><b>i</b> is the law applied literally: r11 and stroked, so the kit reads as two keys and the muscle groups read as two facts, with nothing else needing to change. <b>ii</b> adds a chevron inside each tag, which is more explicit but re-introduces exactly the asymmetry you flagged in the first screenshot if it ever ends up on only some of them. <b>iii</b> keeps the soft ground and adds only the stroke, a half-step that reads as a tag that happens to tap; it stays visually closer to the muscle groups than i does.</p>
+        <p class="why"><b>iv</b> is the other honest answer, and it is not a cop-out: make the tags genuinely inert and let the <b>row</b> be the single door, chevron and all, exactly like schedule and pauses. Then looking identical to the muscle groups is correct, because neither taps. It costs the per-piece resolve sheet, which is the thing amber is for.</p>
+        <p class="why">⚠️ In i, ii and iii the row <b>loses its chevron</b>, because a row-level door plus per-tag doors would be nested tap targets. That is deliberate, and it does mean the kit row stops matching the other two rows' trailing chevron.</p>
+      </div>
+
       <div class="opt">
         <h2>H · what else rides the estimate column</h2>
         <p class="why">You asked what could join it. Everything here is derivable from data the app already holds, and each answers a different question you might have while looking at this screen.</p>
@@ -550,7 +590,7 @@
 
     <div class="deviceCol">
       <div class="device">
-        <div class="screen" id="screen" data-top="tableStatLeft" data-pause="stacked" data-extra="muscles" data-sep="tags" data-row="ledger" data-facts="trim">
+        <div class="screen" id="screen" data-top="tableStatLeft" data-pause="stacked" data-extra="muscles" data-sep="tags" data-kittap="control" data-row="ledger" data-facts="trim">
 
           <div class="statusbar"><span>12:48</span><span class="right">▮▮▮ ᯤ 73</span></div>
 
@@ -863,10 +903,25 @@
         '<span class="v"><span class="amber">Dumbbells</span><span class="wideGap"></span>Bench</span>' +
         '<span class="chev">›</span></button>';
     }
-    return '<button class="specRow" type="button" data-k="kit">' +
-      '<span class="k">kit</span>' +
-      '<span class="v tags"><span class="kitTag amber">Dumbbells</span><span class="kitTag">Bench</span></span>' +
-      '<span class="chev">›</span></button>';
+    // Tag modes. In every mode except `inert` the TAGS are the targets, so
+    // the row drops its chevron: a row-level door plus per-tag doors would
+    // be nested tap targets, which the surface law rules out.
+    var tap = screen.dataset.kittap || "control";
+    var cls = "kitTag " + tap;
+    var chev = tap === "chevron" ? '<span class="tagChev">›</span>' : "";
+    var rowChev = tap === "inert" ? '<span class="chev">›</span>' : "";
+    var tags =
+      '<span class="' + cls + ' amber">Dumbbells' + chev + '</span>' +
+      '<span class="' + cls + '">Bench' + chev + '</span>';
+    if (tap === "inert") {
+      return '<button class="specRow" type="button" data-k="kit">' +
+        '<span class="k">kit</span><span class="v tags">' + tags + '</span>' + rowChev + '</button>';
+    }
+    return '<div class="specRow asRow">' +
+      '<span class="k">kit</span><span class="v tags">' +
+      '<button class="tagBtn" type="button" data-k="kit">' + '<span class="' + cls + ' amber">Dumbbells' + chev + '</span></button>' +
+      '<button class="tagBtn" type="button" data-k="bench">' + '<span class="' + cls + '">Bench' + chev + '</span></button>' +
+      '</span></div>';
   }
 
   /* What rides the estimate column beside ~30 min. */
@@ -1052,6 +1107,7 @@
   wire("pauseSegs", "pause", ".seg", buildTop);
   wire("extraSegs", "extra", ".seg", buildTop);
   wire("sepSegs", "sep", ".seg", buildTop);
+  wire("kittapSegs", "kittap", ".seg", buildTop);
 
   document.getElementById("themeToggle").addEventListener("click", function () {
     var root = document.documentElement;
