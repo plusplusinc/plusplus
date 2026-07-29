@@ -244,7 +244,7 @@
     </div>
     <button class="themeToggle" id="themeToggle" type="button">Light / dark</button>
   </div>
-  <p class="lede">Everything decided across this round, in one screen. Scroll it, tap the rows, tap Start. One thing is still open, at the bottom.</p>
+  <p class="lede">Everything decided across this round, in one screen. Scroll it, tap the rows, tap Start. Nothing here is open.</p>
 
   <div class="device">
     <div class="screen" id="screen">
@@ -325,8 +325,8 @@
   </div>
 
   <p class="caveat">
-    <span class="flag">⚠ still open</span>
-    Your first brief asked for the metadata to <b>stick when it hits the top</b>, with the exercises scrolling behind it. This design does not do that: only the <code>target</code> / <code>prev</code> headers pin, and the estimate and table scroll away with the title. That got traded away incrementally while working the header's shape, and was never decided outright. Worth settling before any of this is built.
+    <span class="flag">decided</span>
+    <b>Only <code>target</code> and <code>prev</code> pin.</b> The first brief asked for the metadata to stick at the top with the exercises scrolling behind it; it does not. The estimate and the table scroll away with the title, and the column headers are the only thing held. Nothing in this header is consulted mid-list, so pinning it would spend list height on facts you have already read.
   </p>
 
   <p class="caveat">
