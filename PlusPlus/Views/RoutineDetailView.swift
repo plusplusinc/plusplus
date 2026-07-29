@@ -14,6 +14,10 @@ struct RoutineDetailView: View {
     @Bindable var routine: Routine
 
     @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
+    /// Newest first — `RoutineLedger` resolves "last time" as the first
+    /// session containing the exercise, so the order is load-bearing.
+    @Query(sort: \WorkoutSession.endedAt, order: .reverse) private var sessions: [WorkoutSession]
+    @AppStorage(WeightUnitSetting.key) private var detailWeightUnitRaw: String = WeightUnit.lb.rawValue
     @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
     /// Active-kit gear names, so the header's gear capsules can amber-flag a
@@ -28,8 +32,16 @@ struct RoutineDetailView: View {
     @State private var healthStartRequest: HealthStartRequest?
     @State private var showingRoutineSettings = false
     @State private var showingShareSheet = false
-    /// The schedule tray, raised by the header's tappable schedule chip.
+    /// The schedule tray, raised by the header's schedule row.
     @State private var showingScheduleTray = false
+    /// The merged rest + transition tray, raised by the header's pauses row.
+    @State private var showingPausesTray = false
+    /// Your kit, raised by tapping a piece the active kit HAS (a piece it
+    /// lacks opens the resolve sheet instead).
+    @State private var showingKitCatalog = false
+    /// The estimate column's width. Scaled so the spec table's labels start
+    /// at the same place at every Dynamic Type size.
+    @ScaledMetric(relativeTo: .body) private var estimateColumnWidth: Double = 104
     /// The equipment-resolve sheet's target (an equipment name not in the
     /// active kit), raised by tapping an amber gear chip in the header.
     @State private var resolveTarget: ResolveTarget?
@@ -56,11 +68,33 @@ struct RoutineDetailView: View {
     /// run's deferred work (the clock, its completion, the delayed haptic)
     /// bows out instead of clobbering a newer one.
     @State private var landingSeq = 0
-    /// Rows track Dynamic Type: 52 pt at standard body size, growing with
-    /// the user's setting so 17 pt+ text never clips (#82).
-    @ScaledMetric(relativeTo: .body) private var railRowHeight: Double = 52
+    /// Rows track Dynamic Type: they grow with the user's setting so 17 pt+
+    /// text never clips (#82).
+    ///
+    /// ⚠️ 52 → 76 (2026-07-29) because a row now carries a two-line name
+    /// beside two lines of numbers. Rows stay UNIFORM deliberately:
+    /// `RailLayout` assumes one height and the drag, ring and drop targets
+    /// all read it, so a taller constant is the change that leaves
+    /// `RailArrangement` untouched. Per-row heights are the honest fix and
+    /// a much larger one.
+    @ScaledMetric(relativeTo: .body) private var railRowHeight: Double = 76
+    /// Matches `ExerciseRailRow`'s run columns, so a heading sits over the
+    /// column it names at every Dynamic Type size.
+    @ScaledMetric(relativeTo: .caption) private var headerColumnWidth: Double = 58
 
     private var railMetrics: RailMetrics { RailMetrics(rowHeight: railRowHeight) }
+
+    /// Target-vs-prev for every exercise, keyed by the row id the rail
+    /// already uses.
+    ///
+    /// ⚠️ Read ONCE in `railList` and threaded down, never touched per
+    /// row: resolving prev walks the session history, so a per-row read
+    /// would walk it once per exercise on every render.
+    private var ledgerByID: [String: RoutineLedgerRow] {
+        let unit = WeightUnit(rawValue: detailWeightUnitRaw) ?? .lb
+        let rows = RoutineLedger.rows(for: routine, sessions: sessions, weightUnit: unit)
+        return Dictionary(uniqueKeysWithValues: rows.map { ($0.id, $0) })
+    }
 
     /// The two #78 long-press interactions. Rows are identified by
     /// (group, index) — the model never mutates while a gesture is live,
@@ -105,22 +139,7 @@ struct RoutineDetailView: View {
     }
 
     private var detailContent: some View {
-        VStack(spacing: 0) {
-            header
-
-            // Inline in the flow, not a popover (Dave, build-45: the
-            // balloon anchored to the rail's top edge read as randomly
-            // placed and floated over the first rows). An inline card
-            // sits between the facts and the list it explains, and
-            // displaces content instead of covering it. Still a
-            // SIBLING gate — conditional content must never wrap the
-            // rail ScrollView (identity churn mid-gesture, #270).
-            SupersetTipInline(
-                hasSuperset: routine.sortedGroups.contains(where: \.isSuperset)
-            )
-
-            railList
-        }
+        railList
         .background(Theme.background)
         // Feed the creation tip's display rule from live structure (the
         // popover attachment on the first rail row stays unconditional;
@@ -136,16 +155,48 @@ struct RoutineDetailView: View {
         // build-78) where it gets full width and wraps instead of
         // truncating; the workload facts already live there (build-48).
         // Share keeps its UIKit sheet (#178).
-        .pushedScreenChrome(title: "", onBack: { dismiss() }) {
+        // ⚠️ Routine detail wears the SYSTEM navigation bar with a LARGE
+        // title (Dave, 2026-07-29), not `pushedScreenChrome`. That is what
+        // buys the native collapse the tab roots have: the name sits large at
+        // the top and walks up into the bar, centred and small, as you
+        // scroll. It is free and it writes no state, so it stays clear of the
+        // morph law — every hand-rolled version needs the scroll offset, and
+        // reading that means `onScrollGeometryChange` or a `PreferenceKey`,
+        // which is exactly what breaks the search-role morph.
+        //
+        // Two deliberate departures come with it. The surface law says a
+        // pushed detail screen clears its chrome title and leads the body
+        // with a large left header; this screen no longer does, so its name
+        // is single-line and truncates where the body header wrapped to two.
+        // And Apple's HIG reserves large titles for top-level views. Both are
+        // accepted for the collapse.
+        //
+        // The system supplies Back, so the custom back key goes; the
+        // full-width back-swipe does NOT come from the chrome modifier and is
+        // re-applied below (#198 drives the navigation controller directly and
+        // never depended on the bar being hidden).
+        .navigationTitle(routine.name)
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            // Both keys bring their own raised-key chrome, so they opt OUT of
+            // the toolbar's shared glass rather than nesting in a system
+            // capsule — the same call the tab roots make.
             if !routine.groups.isEmpty, shareURL != nil {
-                HeaderIconButton(systemImage: "square.and.arrow.up", accessibilityLabel: "Share routine", identifier: "shareRoutineButton") {
-                    showingShareSheet = true
+                ToolbarItem(placement: .topBarTrailing) {
+                    HeaderIconButton(systemImage: "square.and.arrow.up", accessibilityLabel: "Share routine", identifier: "shareRoutineButton") {
+                        showingShareSheet = true
+                    }
+                }
+                .sharedBackgroundVisibility(.hidden)
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                HeaderIconButton(systemImage: "slider.horizontal.3", accessibilityLabel: "Routine settings", identifier: "routineSettingsButton") {
+                    showingRoutineSettings = true
                 }
             }
-            HeaderIconButton(systemImage: "slider.horizontal.3", accessibilityLabel: "Routine settings", identifier: "routineSettingsButton") {
-                showingRoutineSettings = true
-            }
+            .sharedBackgroundVisibility(.hidden)
         }
+        .fullWidthSwipeBack()
         .sheet(isPresented: $showingShareSheet) {
             if let url = shareURL {
                 ActivitySheet(items: [
@@ -211,6 +262,16 @@ struct RoutineDetailView: View {
         .sheet(isPresented: $showingScheduleTray) {
             ScheduleTray(routine: routine)
         }
+        // Both pauses in one tray, because they are one question with two
+        // answers and the sheet is where the difference gets explained.
+        .sheet(isPresented: $showingPausesTray) {
+            PausesTray(routine: routine)
+        }
+        // A piece the kit already has opens the kit itself — the surface
+        // where you'd manage it. The missing case has its own sheet below.
+        .sheet(isPresented: $showingKitCatalog) {
+            CatalogScopeView(scope: .kit)
+        }
         // Tapping an amber "not in your kit" gear chip opens ways to resolve it
         // (add to kit · switch kit · swap the moves). Keyed on the name.
         .sheet(item: $resolveTarget) { target in
@@ -253,71 +314,134 @@ struct RoutineDetailView: View {
 
     // MARK: - Header
 
+    /// The header, now the scroll's first CONTENT rather than a fixed band
+    /// above it, and no longer carrying the name (the bar's large title does).
+    ///
+    /// ⚠️ Mid-rebuild. The settled design replaces what follows with an
+    /// estimate column on the left and a three-row spec table on the right
+    /// (`SCHEDULE` / `PAUSES` / `KIT`), where rest and transition merge into
+    /// one row and each kit piece is its own door. Reasoning and the full
+    /// spec: docs/DECISIONS.md 2026-07-29. What is below is the previous
+    /// arrangement, still standing until that lands.
     private var header: some View {
-        // The shared metadata, in the detail's fuller "facts, then needs" split
-        // (2026-07-22): a focus + schedule subtitle, a quiet fact line, then a
-        // labelled equipment row. Here — and ONLY here — the schedule chip and
-        // the amber (not-in-kit) gear chips are doors: they open the schedule
-        // tray and the equipment-resolve sheet.
         let meta = RoutineMeta(routine: routine, activeNames: availableEquipmentNames)
         return VStack(alignment: .leading, spacing: 0) {
-            // The routine name is the screen's heading, below the back
-            // key (Dave, build-78): a centered chrome title truncated a
-            // long name to "Travel bodyweight…". Here it gets the full
-            // width and wraps to a second line instead of clipping.
-            Text(routine.name)
-                .font(.system(.title, weight: .bold))
-                .foregroundStyle(Theme.textPrimary)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityAddTraits(.isHeader)
-                .padding(.top, 4)
-
+            // ⚠️ NO name here (2026-07-29). It is the system navigation
+            // bar's large title now, which is what collapses it into the bar
+            // on scroll. Build-78 moved the name INTO the body because the
+            // old centred chrome title truncated it; that reasoning is
+            // reversed here in exchange for the native collapse, and the
+            // cost is that a long name truncates on one line instead of
+            // wrapping to two.
+            //
+            // ⚠️ NO notes either. They left this region entirely; the
+            // settings sheet still holds the field.
             if !routine.groups.isEmpty {
-                // Subtitle: focus + the tappable schedule chip.
-                HStack(spacing: 6) {
-                    if let focus = meta.focus {
-                        Text(focus)
-                            .font(.system(.subheadline))
-                            .foregroundStyle(Theme.textSecondary)
-                        Text("·").foregroundStyle(Theme.textFaint)
-                    }
-                    ScheduleToken(schedule: routine.schedule, interactive: true) {
-                        showingScheduleTray = true
-                    }
+                HStack(alignment: .top, spacing: 14) {
+                    estimateColumn(meta)
+                    specTable(meta)
                 }
-                .padding(.top, 10)
-
-                // The quiet fact line: estimate · exercises · sets · rest.
-                if !meta.factLine.isEmpty {
-                    Text(meta.factLine)
-                        .font(.system(.caption))
-                        .foregroundStyle(Theme.textSecondary)
-                        .padding(.top, 8)
-                }
-
-                // The equipment tier: amber-first, missing pieces tappable.
-                if !meta.gear.isEmpty {
-                    RoutineEquipmentTags(gear: meta.gear, interactive: true, showLabel: true) { name in
-                        resolveTarget = ResolveTarget(name: name)
-                    }
-                    .padding(.top, 12)
-                }
-
-                if let notes = routine.notes {
-                    Text(notes)
-                        .font(.system(.footnote))
-                        .foregroundStyle(Theme.textSecondary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                        .padding(.top, 9)
-                }
+                .padding(.top, 12)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 20)
         .padding(.bottom, 4)
     }
+
+    /// The left column: what the routine COSTS, in the order you ask it.
+    /// All derived, so all inert text — the estimate answers "do I have time
+    /// for this", the set count is the workload you would otherwise sum down
+    /// the rail, and the muscle groups say what it covers more precisely than
+    /// a single focus word did.
+    private func estimateColumn(_ meta: RoutineMeta) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if let estimate = meta.estimate {
+                Text(estimate)
+                    .font(.system(.title3, design: .monospaced))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            Text("\(meta.sets) sets")
+                .font(.system(.caption2, design: .monospaced))
+                .foregroundStyle(Theme.textFaint)
+            let muscles = routine.muscleGroups
+            if !muscles.isEmpty {
+                FlowLayout(spacing: 4) {
+                    ForEach(muscles, id: \.self) { group in
+                        CardCapsule(text: group.displayName).view()
+                    }
+                }
+                .padding(.top, 8)
+            }
+        }
+        .frame(width: estimateColumnWidth, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// The right column. Mono caps label left, value hard right, hairline
+    /// under all but the last, and every row a door.
+    ///
+    /// ⚠️ The KIT row takes no tap of its own — its tags are each their own
+    /// target, and a row-level door plus per-tag doors would be nested tap
+    /// targets. That is why it alone carries no trailing chevron.
+    private func specTable(_ meta: RoutineMeta) -> some View {
+        VStack(spacing: 0) {
+            RoutineSpecRow(label: "schedule", action: { showingScheduleTray = true }) {
+                Text(RoutineMeta.cadence(routine.schedule))
+                    .font(.system(.footnote, design: .monospaced))
+                    .foregroundStyle(Theme.textPrimary)
+            }
+            specHairline
+            // Rest and transition are one row (2026-07-29). They are the same
+            // KIND of fact — how long you wait — and each number carries its
+            // own noun, so position never has to be decoded. Merging them also
+            // took `TRANSITION`, the longest label in the block, out of the
+            // left edge every value was aligning against.
+            RoutineSpecRow(label: "pauses", action: { showingPausesTray = true }) {
+                VStack(alignment: .trailing, spacing: 2) {
+                    pauseValue(RoutineMeta.restLabel(routine.restSeconds), noun: "between sets")
+                    pauseValue(RoutineMeta.restLabel(routine.transitionSeconds), noun: "between exercises")
+                }
+            }
+            if !meta.gear.isEmpty {
+                specHairline
+                RoutineSpecRow(label: "kit", showsChevron: false) {
+                    RoutineEquipmentTags(gear: meta.gear, interactive: true) { name in
+                        if availableEquipmentNames.contains(name) {
+                            showingKitCatalog = true
+                        } else {
+                            resolveTarget = ResolveTarget(name: name)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var specHairline: some View {
+        Rectangle()
+            .fill(Theme.border)
+            .frame(height: 1)
+    }
+
+    /// One pause: the number in ink, its noun quiet beside it. The noun is
+    /// what makes a merged row readable without a legend.
+    private func pauseValue(_ value: String, noun: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 5) {
+            Text(value)
+                .font(.system(.footnote, design: .monospaced))
+                .foregroundStyle(Theme.textPrimary)
+            Text(noun)
+                .font(.system(.caption2))
+                .foregroundStyle(Theme.textFaint)
+        }
+        .lineLimit(1)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(value) \(noun)")
+    }
+
 
     // The "No exercises yet" empty hint died (#209): the rail's
     // Add-exercise button IS the empty state.
@@ -340,18 +464,72 @@ struct RoutineDetailView: View {
         let offsets = rowOffsets(layout: layout, sizes: sizes)
         let groups = routine.sortedGroups
         let ringGroup = activeRingGroup
+        let ledger = ledgerByID
 
         // Rows are REAL layout (a plain VStack) so the ScrollView sizes
         // and scrolls naturally — #87's below-the-fold bug came from
         // offset-positioned rows that occupied no layout space. Offsets
         // now carry only the drag-preview deltas.
+        // ⚠️ The header is a SIBLING of the rows stack, never inside it
+        // (2026-07-29). Every rail coordinate — the UIKit long-press
+        // recogniser's y, the ring highlight, the drag preview — is measured
+        // from the rows stack's own origin by `.overlay(alignment: .topLeading)`,
+        // so putting the header in that same stack would shift y=0 to the
+        // header's top and break every drop target by the header's height.
+        // As a sibling it scrolls with the list and changes no geometry.
         return ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                header
+
+                // Inline in the flow, not a popover (Dave, build-45: the
+                // balloon anchored to the rail's top edge read as randomly
+                // placed and floated over the first rows). An inline card
+                // sits between the facts and the list it explains, and
+                // displaces content instead of covering it. Still a
+                // SIBLING gate — conditional content must never wrap the
+                // rows stack (identity churn mid-gesture, #270).
+                SupersetTipInline(
+                    hasSuperset: routine.sortedGroups.contains(where: \.isSuperset)
+                )
+
+                columnHeaders
+
+                railRows(groups: groups, ringGroup: ringGroup, offsets: offsets, layout: layout, sizes: sizes, ledger: ledger)
+            }
+        }
+        .scrollDisabled(railGesture != .idle)
+        .sensoryFeedback(.impact(weight: .light), trigger: gestureFeedbackToken)
+        .sensoryFeedback(.impact(weight: .medium), trigger: landingTick)
+        .onDisappear {
+            railGesture = .idle
+            // Cancel any in-flight landing: bumping the token invalidates
+            // the deferred clock/haptic guards, and clearing the state stops
+            // its rendering (the view is going away).
+            landingSeq &+= 1
+            supersetLanding = nil
+        }
+        // Routine edits (rail structure, sets, schedule) reach GitHub when you
+        // leave the detail. Debounced + dirty-gated, so a no-edit visit is free.
+        .syncsProgramOnClose()
+    }
+
+    /// The rows themselves, with every gesture overlay measured from THIS
+    /// stack's origin. Extracted so the header can sit above it without
+    /// entering its coordinate space.
+    private func railRows(
+        groups: [ExerciseGroup],
+        ringGroup: Int?,
+        offsets: [RailRowKind: Double],
+        layout: RailLayout,
+        sizes: [Int],
+        ledger: [String: RoutineLedgerRow]
+    ) -> some View {
             VStack(spacing: 0) {
                 ForEach(Array(groups.enumerated()), id: \.element.uuid) { g, group in
                     ForEach(Array(group.sortedExercises.enumerated()), id: \.element.uuid) { i, routineExercise in
                         positionedRailRow(
                             routineExercise, group: group, groupIndex: g, index: i,
-                            ringGroup: ringGroup, offsets: offsets, layout: layout, sizes: sizes
+                            ringGroup: ringGroup, offsets: offsets, layout: layout, sizes: sizes, ledger: ledger
                         )
                     }
                 }
@@ -377,21 +555,50 @@ struct RoutineDetailView: View {
             .padding(.leading, 20)
             .padding(.trailing, 14)
             .padding(.bottom, 8)
+    }
+
+    /// The rail's column headers, held at the top of the scroll while the
+    /// rows pass under them. Dave's call: ONLY these pin — the estimate and
+    /// the spec table scroll away with the title, because nothing in the
+    /// header is consulted mid-list and pinning it would spend list height on
+    /// facts already read.
+    ///
+    /// ⚠️ Sticky via a pure render-time `visualEffect`, the same mechanism
+    /// Today's week strip uses, and for the same reason: it reads geometry
+    /// without writing state. `onScrollGeometryChange` would also work and is
+    /// FORBIDDEN here — it writes during layout, which breaks the search-role
+    /// morph on first activation anywhere in the TabView subtree.
+    ///
+    /// A sticky band floats, so it stops occluding by accident: it needs an
+    /// opaque ground of its own or rows read through it, and a zIndex, since
+    /// the rows are a later sibling and would otherwise draw over it.
+    @ViewBuilder
+    private var columnHeaders: some View {
+        if !routine.groups.isEmpty {
+            HStack(spacing: 8) {
+                Spacer(minLength: 0)
+                columnLabel("target")
+                columnLabel("prev")
+            }
+            .padding(.top, 10)
+            .padding(.bottom, 3)
+            .padding(.leading, 20)
+            .padding(.trailing, 14)
+            .background(Theme.background)
+            .visualEffect { content, proxy in
+                content.offset(y: max(0, -proxy.frame(in: .scrollView).minY))
+            }
+            .zIndex(1)
+            .accessibilityHidden(true)
         }
-        .scrollDisabled(railGesture != .idle)
-        .sensoryFeedback(.impact(weight: .light), trigger: gestureFeedbackToken)
-        .sensoryFeedback(.impact(weight: .medium), trigger: landingTick)
-        .onDisappear {
-            railGesture = .idle
-            // Cancel any in-flight landing: bumping the token invalidates
-            // the deferred clock/haptic guards, and clearing the state stops
-            // its rendering (the view is going away).
-            landingSeq &+= 1
-            supersetLanding = nil
-        }
-        // Routine edits (rail structure, sets, schedule) reach GitHub when you
-        // leave the detail. Debounced + dirty-gated, so a no-edit visit is free.
-        .syncsProgramOnClose()
+    }
+
+    private func columnLabel(_ text: String) -> some View {
+        Text(text.uppercased())
+            .font(.system(.caption2, design: .monospaced, weight: .semibold))
+            .kerning(0.6)
+            .foregroundStyle(Theme.textFaint)
+            .frame(width: headerColumnWidth, alignment: .trailing)
     }
 
     private var activeRingGroup: Int? {
@@ -468,18 +675,20 @@ struct RoutineDetailView: View {
         ringGroup: Int?,
         offsets: [RailRowKind: Double],
         layout: RailLayout,
-        sizes: [Int]
+        sizes: [Int],
+        ledger: [String: RoutineLedgerRow]
     ) -> some View {
         railRow(
             routineExercise, group: group, groupIndex: g, index: i,
             hideLoop: ringGroup == g,
-            landing: landingParams(groupIndex: g, index: i, layout: layout, sizes: sizes)
+            landing: landingParams(groupIndex: g, index: i, layout: layout, sizes: sizes),
+            ledger: ledger
         )
         .offset(y: offsets[.exercise(group: g, index: i)] ?? 0)
         .modifier(FirstRowSupersetTipAnchor(isFirst: g == 0 && i == 0))
     }
 
-    private func railRow(_ routineExercise: RoutineExercise, group: ExerciseGroup, groupIndex g: Int, index i: Int, hideLoop: Bool, landing: RailLandingParams) -> some View {
+    private func railRow(_ routineExercise: RoutineExercise, group: ExerciseGroup, groupIndex g: Int, index i: Int, hideLoop: Bool, landing: RailLandingParams, ledger: [String: RoutineLedgerRow]) -> some View {
         let height = railRowHeight
         let isDragged: Bool = {
             if case .dragging(let dg, let di, _, _) = railGesture { return dg == g && di == i }
@@ -572,6 +781,7 @@ struct RoutineDetailView: View {
             ExerciseRailRow(
                 routineExercise: routineExercise,
                 role: railRole(index: i, of: group),
+                ledger: routineExercise.uuid.map { ledger[$0.uuidString] } ?? nil,
                 rowHeight: railRowHeight,
                 hideLoop: hideLoop,
                 landing: landing
@@ -1059,6 +1269,121 @@ struct RoutineDetailView: View {
 
 }
 
+/// One row of routine detail's spec table: a mono caps label on the left, the
+/// value hard right, an optional trailing chevron. The whole row is the tap
+/// target when it has one.
+///
+/// Lives here rather than in `Views/Components/` because exactly one screen
+/// builds this table. It moves the day a second one does — no earlier.
+private struct RoutineSpecRow<Value: View>: View {
+    let label: String
+    var showsChevron = true
+    var action: (() -> Void)?
+    @ViewBuilder let value: () -> Value
+
+    var body: some View {
+        if let action {
+            Button(action: action) { row }
+                .buttonStyle(.plain)
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.isButton)
+        } else {
+            row
+        }
+    }
+
+    private var row: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(label.uppercased())
+                .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                .kerning(0.6)
+                .foregroundStyle(Theme.textFaint)
+                // The label claims the row's slack, which is what pushes the
+                // value right — and what keeps every value on one column.
+                .frame(maxWidth: .infinity, alignment: .leading)
+            value()
+            if showsChevron {
+                Image(systemName: "chevron.right")
+                    .font(.system(.caption2, weight: .semibold))
+                    .foregroundStyle(Theme.textFaint)
+                    .accessibilityHidden(true)
+            }
+        }
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
+    }
+}
+
+/// Rest and transition in one tray (2026-07-29), because the header now shows
+/// them as one row. The explainer is the whole reason the merge is safe: two
+/// numbers under one label need somewhere that says which is which, and this
+/// is it.
+private struct PausesTray: View {
+    @Environment(\.dismiss) private var dismiss
+    @Bindable var routine: Routine
+
+    @State private var showingRestScrubber = false
+    @State private var showingTransitionScrubber = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SheetHeader(title: "Pauses", closeOnly: true) { dismiss() }
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    MetricStepperRow(
+                        label: "Rest",
+                        value: WorkoutMetric.rest.displayText(Double(routine.restSeconds)),
+                        identifier: "rest",
+                        onTapValue: { showingRestScrubber = true },
+                        onDecrement: { routine.restSeconds = Int(WorkoutMetric.rest.decremented(Double(routine.restSeconds))) },
+                        onIncrement: { routine.restSeconds = Int(WorkoutMetric.rest.incremented(Double(routine.restSeconds))) }
+                    )
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+
+                    MetricStepperRow(
+                        label: "Transition",
+                        value: WorkoutMetric.transition.displayText(Double(routine.transitionSeconds)),
+                        identifier: "transition",
+                        onTapValue: { showingTransitionScrubber = true },
+                        onDecrement: { routine.transitionSeconds = Int(WorkoutMetric.transition.decremented(Double(routine.transitionSeconds))) },
+                        onIncrement: { routine.transitionSeconds = Int(WorkoutMetric.transition.incremented(Double(routine.transitionSeconds))) }
+                    )
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+
+                    Text("Rest is the wait between sets of the same exercise. Transition is the shorter wait when you move to a different one, or to a superset partner. Set 0 to skip a countdown.")
+                        .font(.system(.caption))
+                        .foregroundStyle(Theme.textFaint)
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 30)
+            }
+        }
+        .background(Theme.background)
+        .presentationDetents([.medium])
+        .sheet(isPresented: $showingRestScrubber) {
+            MetricWheelSheet(
+                metric: .rest,
+                value: Binding(
+                    get: { Double(routine.restSeconds) },
+                    set: { routine.restSeconds = Int(($0 ?? Double(routine.restSeconds)).rounded()) }
+                )
+            )
+        }
+        .sheet(isPresented: $showingTransitionScrubber) {
+            MetricWheelSheet(
+                metric: .transition,
+                value: Binding(
+                    get: { Double(routine.transitionSeconds) },
+                    set: { routine.transitionSeconds = Int(($0 ?? Double(routine.transitionSeconds)).rounded()) }
+                )
+            )
+        }
+    }
+}
+
 /// Structural gate for the superset tips. One branch renders at a
 /// time, which keeps the two tips contextually exclusive by
 /// construction: a loop on the rail explains itself; no loop but
@@ -1156,10 +1481,19 @@ struct RailLandingParams {
 }
 
 private struct ExerciseRailRow: View {
-    @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
     let routineExercise: RoutineExercise
     let role: RailRole
+    /// This exercise's target-vs-prev, from the shared `RoutineLedger`.
+    /// Nil while the rows are being dragged into a preview, where the
+    /// numbers are not what the gesture is about.
+    var ledger: RoutineLedgerRow?
     var rowHeight: Double = 52
+    /// Sized for reps over weight on two lines; a single-line cell needs
+    /// ~90 pt and starves the name column beside the 28 pt rail.
+    @ScaledMetric(relativeTo: .caption) private var runColumnWidth: Double = 58
+    /// The row's top padding plus half a line of the name's font, so the
+    /// node sits on the first line at every Dynamic Type size.
+    @ScaledMetric(relativeTo: .body) private var firstLineCentreY: Double = 20
     /// Ring-edit mode (#87): the small loop and the expanded full-width
     /// ring are mutually exclusive — the active group's rows drop their
     /// loop drawing while the highlight is up.
@@ -1168,30 +1502,37 @@ private struct ExerciseRailRow: View {
     /// glyph. Inert (`isLanding == false`) at rest.
     var landing = RailLandingParams()
 
-    /// "3×15", "3×10 · 5lb", "2×45s", "4×500 m" — the condensed target
-    /// summary, speaking each block's WORK metric (flexible metrics).
-    private var summary: String {
-        let sets = routineExercise.group?.sets ?? 1
-        let unit = WeightUnit(rawValue: weightUnitRaw) ?? .lb
-        let profile = routineExercise.exercise?.metricProfile ?? .weightReps
-        if profile.tracksReps {
-            let reps = RepTarget(lower: routineExercise.reps, upper: routineExercise.repsUpper).display
-            var text = "\(sets)×\(reps)"
-            if let weight = routineExercise.weight {
-                text += " · \(WorkoutMetric.weight.formatted(weight))\(unit.symbol)"
+    /// One mono column, right-aligned, wrapping to two lines inside its own
+    /// width rather than shrinking to fit.
+    ///
+    /// ⚠️ `PrescriptionRun`s are FRAGMENTS of one line ("3", "×", "10–15",
+    /// " · ", "35lb"), not lines — so they compose into a single concatenated
+    /// `Text` exactly as `DiffLedger` composes them, with the ink applied per
+    /// fragment. Rendering one per line would break "3×10" into three rows.
+    private func runColumn(_ runs: [PrescriptionRun], changed: Set<RoutineDiff.Field>, lit: Bool, placeholder: String? = nil) -> some View {
+        Group {
+            if runs.isEmpty {
+                Text(placeholder ?? "—").foregroundStyle(Theme.textFaint)
+            } else {
+                runs.reduce(Text("")) { result, run in
+                    result + Text(run.text).foregroundStyle(ink(run, changed: changed, lit: lit))
+                }
             }
-            return text
         }
-        let driver = profile.driver { routineExercise.target($0) }
-        if driver == .duration {
-            let dur = routineExercise.durationSeconds.map { DurationTape.label(for: $0) } ?? "—"
-            return "\(sets)×\(dur)"
-        }
-        return "\(sets)×" + driver.displayText(
-            routineExercise.target(driver),
-            weightUnit: unit,
-            distanceUnit: profile.distanceUnit
-        )
+        .font(.system(.caption, design: .monospaced))
+        .multilineTextAlignment(.trailing)
+        .lineLimit(2)
+        .frame(width: runColumnWidth, alignment: .trailing)
+    }
+
+    /// The target column dims what held and lights what moved; prev is one
+    /// flat brightness throughout, because it is the thing being compared
+    /// against rather than the thing being read. A separator fragment belongs
+    /// to no field and is never emphasized.
+    private func ink(_ run: PrescriptionRun, changed: Set<RoutineDiff.Field>, lit: Bool) -> Color {
+        guard lit else { return Theme.textSecondary }
+        let moved = run.field.map(changed.contains) ?? false
+        return moved ? Theme.textPrimary : Theme.textFaint
     }
 
     var body: some View {
@@ -1199,7 +1540,10 @@ private struct ExerciseRailRow: View {
             RailGlyph(
                 role: hideLoop ? .solo : role,
                 height: rowHeight,
-                dotY: rowHeight / 2,
+                // ⚠️ The node centres on the first LINE of the name, not
+                // on the row (2026-07-29). With names wrapping to two
+                // lines a mid-row dot lands in the gap between them.
+                dotY: firstLineCentreY,
                 isLanding: !hideLoop && landing.active,
                 landingProgress: landing.progress,
                 landingGrew: landing.grew,
@@ -1215,9 +1559,12 @@ private struct ExerciseRailRow: View {
             Text(routineExercise.exercise?.name ?? "Unknown")
                 .font(.system(.body, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
-                .lineLimit(1)
-
-            Spacer(minLength: 6)
+                // Two lines (2026-07-29). The name IS the row's content
+                // here, not a label on a card you are about to open, so it
+                // wraps where a catalog row's would.
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             // The clock marks time-driven blocks (a plank, a 20:00
             // piece) — distance/calorie work speaks its unit already.
@@ -1227,13 +1574,19 @@ private struct ExerciseRailRow: View {
                     .font(.system(.caption))
                     .foregroundStyle(Theme.textFaint)
             }
-            Text(summary)
-                .font(.system(.footnote, design: .monospaced))
-                .foregroundStyle(Theme.textSecondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
+
+            // Today's ledger grammar, on the rail (2026-07-29): what is being
+            // asked for beside what happened last time, and NO delta. The
+            // target column dims what held and lights what moved; prev is one
+            // flat brightness throughout, because it is the thing being
+            // compared against rather than the thing being read.
+            //
+            // ⚠️ One run per LINE. A single-line cell needs ~90 pt, which
+            // starves the name column; reps over weight fits in 58.
+            runColumn(ledger?.target ?? [], changed: ledger?.changed ?? [], lit: true)
+            runColumn(ledger?.prev ?? [], changed: [], lit: false, placeholder: ledger?.isNew == true ? "new" : "—")
         }
-        .frame(minHeight: rowHeight)
+        .frame(minHeight: rowHeight, alignment: .top)
         // One coherent read per row (name + target), with the superset
         // grouping the Canvas draws spoken as a value (#164). Rail rows carry
         // no test identifiers, so combining is safe (testing.md).

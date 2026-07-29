@@ -158,8 +158,15 @@ struct TodayView: View {
     /// Fact captions (dates, estimates, cadences) reflow to two lines at
     /// accessibility text sizes instead of truncating the facts they
     /// exist to carry — the #164 "reflow, don't cap" law extended from
-    /// the heading to the rail (2026-07-23). Names stay single-line: a
-    /// truncated name is recoverable one tap away, a truncated date isn't.
+    /// the heading to the rail (2026-07-23).
+    ///
+    /// ⚠️ The companion half of that law is RETIRED (Dave, 2026-07-29).
+    /// Names used to stay single-line here, on the reasoning that a
+    /// truncated name is recoverable one tap away while a truncated date
+    /// isn't. Routine names now wrap to two lines wherever they appear, so
+    /// Today matches `RoutineCardContent`, which already wrapped to two on
+    /// every catalog row. A name is the thing you pick the row BY, and one
+    /// line was ellipsizing routines that differ only in their tail.
     private var factLineLimit: Int {
         dynamicTypeSize.isAccessibilitySize ? 2 : 1
     }
@@ -1003,7 +1010,7 @@ struct TodayView: View {
                     Text(entry.routine.name)
                         .font(.system(.body, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
-                        .lineLimit(1)
+                        .lineLimit(2)
                     Text(futureCaption(for: entry))
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(Theme.textFaint)
@@ -1080,7 +1087,7 @@ struct TodayView: View {
                     Text(entry.routine.name)
                         .font(.system(.body, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
-                        .lineLimit(1)
+                        .lineLimit(2)
                     Text(missedCaption(entry))
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(Theme.notes)
@@ -1138,48 +1145,11 @@ struct TodayView: View {
     /// set (heaviest completed weight) with THAT set's reps: weight and
     /// reps must come from the same set or the delta describes a set
     /// that never happened (bug hunt). Duration takes the last set.
+    /// How this exercise last actually went. The rules live in
+    /// `RoutineLedger` now (2026-07-29) so routine detail's rail reads the
+    /// same "last time" this card does.
     private func prior(for routineExercise: RoutineExercise) -> RoutineDiff.Prior? {
-        let exercise = routineExercise.exercise
-        let name = exercise?.name ?? ""
-        let routine = routineExercise.group?.routine
-        func isThisExercise(_ log: SetLog) -> Bool {
-            if let a = log.exercise, let b = exercise { return a === b }
-            return log.exerciseName == name
-        }
-        for session in sessions {
-            let matches = session.completedSetLogs.filter(isThisExercise)
-            guard let last = matches.last else { continue }
-            let top = matches.max { ($0.actualWeight ?? 0) < ($1.actualWeight ?? 0) } ?? last
-            let isSameRoutine = routine.map { session.routine === $0 || session.routineName == $0.name } ?? false
-            // The rounds the block was PLANNED for, not the rounds finished.
-            // The two sides of a set comparison have to be the same kind of
-            // number: today's is a prescription, so last time's must be too.
-            // Comparing a plan against a shortfall manufactures a change out
-            // of an unfinished session, and on a ledger — which draws a row
-            // for any field that moved — one short week would repaint every
-            // exercise on the next card as a mover.
-            //
-            // The HIGHEST set number reached, not the count of logs: the
-            // filter spans the whole session, and an exercise may appear in
-            // more than one block (a 2-set warm-up plus a 4-set working
-            // block). Counting logs would compare one block's target against
-            // every block's total; `setNumber` is 1-based within its group,
-            // so its maximum is the deepest single block.
-            //
-            // And only against the SAME routine: a set count belongs to a
-            // prescription, so an A/B split running bench for 4 rounds one
-            // day and 2 the next must not read as movement. Weight converges
-            // across routines; structure does not.
-            let plannedSets = session.sortedSetLogs.filter(isThisExercise).map(\.setNumber).max()
-            return RoutineDiff.Prior(
-                sets: isSameRoutine ? plannedSets : nil,
-                weight: top.actualWeight,
-                reps: top.actualReps ?? last.actualReps,
-                durationSeconds: last.actualDuration,
-                extras: last.extraActuals
-            )
-        }
-        return nil
+        RoutineLedger.prior(for: routineExercise, in: sessions)
     }
 
     /// One staged exercise: its prescription, and how it last actually went.
@@ -1535,7 +1505,7 @@ struct TodayView: View {
                         Text(routine.name)
                             .font(.system(.body, weight: .semibold))
                             .foregroundStyle(Theme.textPrimary)
-                            .lineLimit(1)
+                            .lineLimit(2)
                         Spacer(minLength: 8)
                         Image(systemName: "chevron.right")
                             .font(.system(.caption2, weight: .bold))
@@ -2392,7 +2362,7 @@ private struct SwapInSheet: View {
                                 Text(routine.name)
                                     .font(.system(.subheadline, weight: .semibold))
                                     .foregroundStyle(Theme.textPrimary)
-                                    .lineLimit(1)
+                                    .lineLimit(2)
                                 Text(rowCaption(for: routine))
                                     .font(.system(.caption2, design: .monospaced))
                                     .foregroundStyle(Theme.textFaint)
@@ -2526,7 +2496,7 @@ private struct ScheduleRoutineTray: View {
                                 Text(routine.name)
                                     .font(.system(.subheadline, weight: .semibold))
                                     .foregroundStyle(Theme.textPrimary)
-                                    .lineLimit(1)
+                                    .lineLimit(2)
                                 Text(rowCaption(for: routine))
                                     .font(.system(.caption2, design: .monospaced))
                                     .foregroundStyle(Theme.textFaint)

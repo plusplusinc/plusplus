@@ -156,6 +156,13 @@ struct StartFlashButton: View {
 
     @State private var flashing = false
     @State private var pendingFire: Task<Void, Never>?
+    /// Which of the three chevrons is lit as the highlight marches
+    /// left→right once the key ignites.
+    @State private var chevronActive = 0
+    @State private var marchTask: Task<Void, Never>?
+    /// Reduce Motion keeps the single static chevron — the emerge is
+    /// positional (WCAG 2.3.3). The green wipe and the label morph stay.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button {
@@ -166,6 +173,7 @@ struct StartFlashButton: View {
             }
             flashing = true
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            startMarch()
             pendingFire = Task { @MainActor in
                 try? await Task.sleep(for: .seconds(0.85))
                 guard !Task.isCancelled else { return }
@@ -173,21 +181,87 @@ struct StartFlashButton: View {
                 action()
             }
         } label: {
-            Text(flashing ? "let's go ▸" : label)
-                .font(.system(.subheadline, weight: .bold))
-                // onPrimary doubles as on-accent here by design: white
-                // in light, 0x161616 in dark — the handoff's flash spec.
-                .foregroundStyle(Theme.onPrimary)
-                .frame(maxWidth: .infinity)
-                .frame(height: height)
-                .background(flashing ? Theme.accent : Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
-                .animation(Theme.Anim.standard, value: flashing)
+            HStack(spacing: 8) {
+                // The longer label reserves the width, so swapping in
+                // "let's go" can't move the chevrons: a hidden placeholder
+                // fixes the box and the live label rides inside it
+                // trailing-aligned, exactly as the welcome key does.
+                Text(label)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .hidden()
+                    .overlay(alignment: .trailing) {
+                        Text(flashing ? "let's go" : label)
+                            .contentTransition(.opacity)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                    }
+                chevronRun
+            }
+            .font(.system(.subheadline, weight: .bold))
+            // onPrimary doubles as on-accent here by design: white
+            // in light, 0x161616 in dark — the handoff's flash spec.
+            .foregroundStyle(Theme.onPrimary)
+            .frame(maxWidth: .infinity)
+            .frame(height: height)
+            .background(flashing ? Theme.accent : Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+            .animation(Theme.Anim.standard, value: flashing)
         }
         .buttonStyle(.raisedPrimaryKey())
         .accessibilityIdentifier(identifier ?? label)
         .onDisappear {
             pendingFire?.cancel()
+            marchTask?.cancel()
             flashing = false
+            chevronActive = 0
+        }
+    }
+
+    /// At rest the key carries ONE chevron. On ignition two more slide out
+    /// from behind it and a lit highlight marches left→right across the trio
+    /// (the others dimmed, not gone), so the tap reads as forward momentum.
+    ///
+    /// Lifted out of the welcome key (2026-07-29) so the app has ONE start
+    /// gesture: this button is Today's Start and routine detail's Start
+    /// workout, and both now play what the first-run key plays.
+    private var chevronRun: some View {
+        HStack(spacing: 3) {
+            Image(systemName: "chevron.right")
+                .opacity(chevronOpacity(0))
+            if flashing && !reduceMotion {
+                ForEach(1..<3, id: \.self) { index in
+                    Image(systemName: "chevron.right")
+                        .opacity(chevronOpacity(index))
+                        // Emerge from behind the resting chevron so they read
+                        // as coming out of it rightward.
+                        .transition(.move(edge: .leading).combined(with: .opacity))
+                }
+            }
+        }
+    }
+
+    /// The lit chevron is full; its neighbours rest dim so the two that
+    /// emerged stay visible as a track the highlight travels.
+    private func chevronOpacity(_ index: Int) -> Double {
+        guard flashing && !reduceMotion else { return index == 0 ? 1 : 0 }
+        return chevronActive == index ? 1 : 0.25
+    }
+
+    /// The march, sized to the 0.85 s the key already waits before firing:
+    /// a beat for the extra chevrons to emerge, then four 0.15 s hops.
+    private func startMarch() {
+        guard !reduceMotion else { return }
+        marchTask?.cancel()
+        chevronActive = 0
+        marchTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(0.2))
+            for hop in 0..<4 {
+                guard !Task.isCancelled else { return }
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    chevronActive = hop % 3
+                }
+                try? await Task.sleep(for: .seconds(0.15))
+            }
         }
     }
 }

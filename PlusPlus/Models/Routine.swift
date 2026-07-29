@@ -169,6 +169,17 @@ final class Routine {
         sortedGroups.flatMap(\.sortedExercises).compactMap(\.exercise)
     }
 
+    /// The muscle groups this routine trains, in the taxonomy's own order.
+    ///
+    /// ⚠️ PRIMARY groups only, the same call `focusLabel` makes just below and
+    /// for the same reason: folding in secondaries makes everything full body,
+    /// which is true and says nothing. Routine detail's header shows these as
+    /// data tags in place of the single focus word.
+    var muscleGroups: [MuscleGroup] {
+        let trained = Set(resolvedExercises.map(\.muscleGroup))
+        return MuscleGroup.allCases.filter { trained.contains($0) }
+    }
+
     /// A cardio routine tracks distance or pace throughout (Running, Cycling,
     /// the console machines) — where a muscle line would only say "full body".
     var isCardio: Bool {

@@ -58,11 +58,12 @@ No third-party dependencies without discussion first.
 > **.claude/rules/** (path-scoped). Delete an item once it has shipped and been validated —
 > this section tracks what is live now, not what happened.
 
-**Last updated:** 2026-07-28 · **Latest TestFlight build:** 154, from main.
+**Last updated:** 2026-07-29 · **Latest TestFlight build:** 156, from main.
 ⚠️ Build number = workflow RUN number, not last-build+1 — check `actions_list` before writing a What's-New entry.
 
 **On main, awaiting Dave's device pass** (reasoning in docs/DECISIONS.md under the dated entry):
 
+- Routine detail rebuilt — system large title (collapses natively), estimate column + spec table (schedule · **pauses** merging rest+transition · kit), rows print `target` beside `prev`; ⚠️ rail rows are UNIFORM at 76 pt because `RailLayout` reads ONE height, and the node sits on the name's FIRST line, not the row's middle (#470)
 - Entrance flash — a leading gutter mark on the row BACKGROUND, never a ring in an overlay; ⚠️ the owning surface must hold the arrival id for `RowEntranceFlash.totalDuration` or the fade is cut off (#468)
 - In-sheet drill-in is a `NavigationStack`, never a stage slide; ⚠️ the HOST owns the stack, and a growing detent rides `path.count` (#466)
 - Muscle groups — multi-select on an exercise; ⚠️ ordered list, `muscleGroups[0]` IS `muscleGroup`; nil means follow the catalog (#463)
@@ -73,7 +74,7 @@ No third-party dependencies without discussion first.
 - Rest — a dial, not take-it-or-leave-it (`−15s · +15s · Skip`, no primary key on the screen); Pause works mid-rest (#457)
 - Scroll — the intermittent dead scroll fixed by guarding the gesture's *claim*, not its effect (#458)
 
-**In flight:** this branch — CLAUDE.md restructure (see docs/DECISIONS.md 2026-07-28).
+**In flight:** nothing.
 
 **Org + license:** both repos live in the **plusplusinc** org, PUBLIC. App/repo **AGPL-3.0**; **PlusPlusKit + PlusPlusCLI are MIT** (the contract is meant for adoption). Actions minutes are free on public repos — macOS included.
 **Branch protection** (repository ruleset): merges to main require `test`, `kit-test`, `cli-test` to PASS on the head SHA; squash is the only merge method. A cancelled required check blocks merge until re-run; only push-triggered runs satisfy the ruleset (a green `workflow_dispatch` run does not). Docs-only pushes still run CI deliberately. ⚠️ `kit-test`'s FIRST step is the agent-doc size budget — 25 KB on CLAUDE.md, and a ~2 KB line-length cap on CLAUDE.md AND every `.claude/rules/*.md` (docs/DECISIONS.md is exempt: append-only, its long entries are the record). It rides an already-required job so the budget binds without a ruleset change, which means kit-test can go red for a docs reason before Swift ever runs. See the ci-status skill.
