@@ -1,4 +1,4 @@
-<title>Routine detail · how the kit tags read</title>
+<title>Routine detail · the settled header</title>
 <style>
   :root {
     /* App tokens, dark side (Theme.swift + BrandPalette.swift) */
@@ -123,18 +123,12 @@
   .specRow.twoLine .v em { font-style: normal; font-size: 10px; color: var(--ink-3); }
   .specRow .v.tags { display: flex; gap: 5px; align-items: center; }
 
-  /* the four kit-tag treatments */
+  /* kit tags are doors (soft ground + ring); muscle tags are facts (no stroke) */
   .tagBtn { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
   .tagBtn:focus-visible { outline: 2px solid var(--selected); outline-offset: 2px; border-radius: 11px; }
   .kitTag { display: inline-flex; align-items: center; gap: 3px; font-family: var(--sans); line-height: 1.25; }
   .kitTag.inert { font-size: 11px; background: var(--raised); color: var(--ink-2); border-radius: 6px; padding: 3px 7px; }
   .kitTag.inert.amber { background: var(--notes-wash); color: var(--notes-ink); }
-  .kitTag.control, .kitTag.chevron {
-    font-size: 11.5px; padding: 5px 10px; border-radius: 11px;
-    background: var(--surface); color: var(--ink-2); border: 1px solid var(--border-strong);
-  }
-  .kitTag.control.amber, .kitTag.chevron.amber { background: var(--notes-wash); color: var(--notes-ink); border-color: var(--notes-ring); }
-  .kitTag .tagChev { font-size: 9px; opacity: 0.8; }
   .kitTag.ring { font-size: 11px; background: var(--raised); color: var(--ink-2); border-radius: 6px; padding: 3px 7px; border: 1px solid var(--border-strong); }
   .kitTag.ring.amber { background: var(--notes-wash); color: var(--notes-ink); border-color: var(--notes-ring); }
 
@@ -217,12 +211,10 @@
   .opts { display: grid; gap: 10px; }
   .opt {
     display: flex; flex-direction: column; align-items: flex-start; gap: 9px;
-    width: 100%; text-align: left; font: inherit; cursor: pointer;
+    width: 100%; text-align: left; font: inherit;
     border: 1px solid var(--page-line); border-radius: 14px; background: var(--page-panel);
     padding: 14px 15px; color: inherit;
   }
-  .opt[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--page-panel)); }
-  .opt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .opt .name { font-size: 15px; font-weight: 650; }
   .opt .why { font-size: 12.5px; line-height: 1.5; color: var(--page-ink-2); margin: 0; }
   .opt .demo { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
@@ -248,14 +240,14 @@
   <div class="masthead">
     <div>
       <p class="eyebrow">PlusPlus · routine detail</p>
-      <h1>One question left</h1>
+      <h1>The settled header</h1>
     </div>
     <button class="themeToggle" id="themeToggle" type="button">Light / dark</button>
   </div>
-  <p class="lede">The header is settled. The only thing still open: <b>how the kit tags show that they tap</b>, when the muscle groups beside them do not. Pick one below and it loads in the screen.</p>
+  <p class="lede">Everything decided across this round, in one screen. Scroll it, tap the rows, tap Start. One thing is still open, at the bottom.</p>
 
   <div class="device">
-    <div class="screen" id="screen" data-kittap="control">
+    <div class="screen" id="screen">
 
       <div class="statusbar"><span>12:48</span><span class="right">▮▮▮ ᯤ 73</span></div>
 
@@ -316,40 +308,30 @@
     </div>
   </div>
 
-  <h2>How should the kit tags read?</h2>
-  <p class="ask">The surface law says <b>shape carries what taps</b>: a card data tag is soft r6 with no stroke and is inert, while anything interactive wears the control shape, r11 and stroked. The muscle groups stay inert in all four.</p>
+  <h2>Why the kit tags look like that</h2>
+  <p class="ask">The surface law is <b>shape carries what taps</b>: a card data tag is soft r6 with no stroke and is inert, while anything interactive wears the control shape. The kit tags take the <b>soft ground with a ring added</b>. They keep the data tag's fill, so they still read as names rather than buttons, and gain the stroke that says they open something. The muscle groups keep the bare soft fill and stay inert, which is what makes the stroke mean anything.</p>
 
-  <div class="opts" id="opts">
-
-    <button class="opt" type="button" data-v="control" aria-pressed="true">
-      <span class="name">Control shape</span>
-      <span class="demo"><span class="kitTag control amber">Dumbbells</span><span class="kitTag control">Bench</span></span>
-      <p class="why">The law applied literally. The kit reads as two keys, the muscle groups as two facts, and nothing else has to change.</p>
-    </button>
-
-    <button class="opt" type="button" data-v="chevron">
-      <span class="name">Control shape, plus a chevron</span>
-      <span class="demo"><span class="kitTag chevron amber">Dumbbells<span class="tagChev">›</span></span><span class="kitTag chevron">Bench<span class="tagChev">›</span></span></span>
-      <p class="why">More explicit. But a chevron that ends up on only some tags is the asymmetry you flagged in the first screenshot.</p>
-    </button>
-
-    <button class="opt" type="button" data-v="ring">
-      <span class="name">Soft ground, add a ring</span>
+  <div class="opts">
+    <div class="opt">
+      <span class="name">Kit · a door</span>
       <span class="demo"><span class="kitTag ring amber">Dumbbells</span><span class="kitTag ring">Bench</span></span>
-      <p class="why">Half-step: keeps the tag's soft fill, gains only the stroke. Reads as a tag that happens to tap, and stays close to the muscle groups.</p>
-    </button>
-
-    <button class="opt" type="button" data-v="inert">
-      <span class="name">Leave them inert</span>
-      <span class="demo"><span class="kitTag inert amber">Dumbbells</span><span class="kitTag inert">Bench</span></span>
-      <p class="why">Make them genuinely inert and let the row be the single door, like schedule and pauses. Then matching the muscle groups is correct. Costs the per-piece resolve sheet.</p>
-    </button>
-
+      <p class="why">Soft fill, one point of stroke, r6. Amber when the active kit lacks it. Tap either one in the screen to see its sheet.</p>
+    </div>
+    <div class="opt">
+      <span class="name">Muscle groups · a fact</span>
+      <span class="demo"><span class="kitTag inert">back</span><span class="kitTag inert">shoulders</span></span>
+      <p class="why">Same fill, no stroke, nothing to tap.</p>
+    </div>
   </div>
 
   <p class="caveat">
-    <span class="flag">⚠ one consequence</span>
-    In the three tappable options the kit row <b>drops its trailing chevron</b>, because a row-level door plus per-tag doors would be nested tap targets. That does mean the kit row stops matching the schedule and pauses rows above it. Only <b>Leave them inert</b> keeps all three rows identical.
+    <span class="flag">⚠ still open</span>
+    Your first brief asked for the metadata to <b>stick when it hits the top</b>, with the exercises scrolling behind it. This design does not do that: only the <code>target</code> / <code>prev</code> headers pin, and the estimate and table scroll away with the title. That got traded away incrementally while working the header's shape, and was never decided outright. Worth settling before any of this is built.
+  </p>
+
+  <p class="caveat">
+    <span class="flag">⚠ consequence of the tags being doors</span>
+    The kit row has <b>no trailing chevron</b>, because a row-level door plus per-tag doors would be nested tap targets. The schedule and pauses rows above it keep theirs, so the three rows do not end identically.
   </p>
 
   <details class="settled">
@@ -384,11 +366,11 @@
   ];
 
   var SHEETS = {
-    name:     ["Rename routine", "The name commits when you leave the field. A duplicate is refused in place."],
+    name:     ["Rename routine", "The name saves when you leave the field. Another routine already using it keeps it, and this one stays as it was."],
     schedule: ["Schedule", "Every tuesday. The same tray the settings row opens."],
     pauses:   ["Pauses", "Rest is the wait between sets of the same exercise. Transition is the shorter wait when you move to a different one, or to a superset partner. Set 0 to skip a countdown."],
-    kit:      ["Dumbbells", "Not in main. Add it to the kit · switch kit · swap the moves that need it."],
-    bench:    ["Bench", "In main. Used by 3 moves in this routine."]
+    kit:      ["Dumbbells", "Not in the main kit. Add it, switch to a kit that has it, or swap the exercises that need it."],
+    bench:    ["Bench", "In the main kit. Three exercises in this routine use it."]
   };
 
   function runs(t) { return t.split(" · ").map(function (x) { return "<div>" + x + "</div>"; }).join(""); }
@@ -405,20 +387,17 @@
         "</div></div></div>";
   }).join("");
 
-  /* The header's three rows. Only the kit row changes with the choice. */
+  /* The header's three rows. The kit names are doors, so the ROW is not one:
+     a row-level target plus per-tag targets would nest. */
   function buildTable() {
-    var tap = screen.dataset.kittap;
-    var chev = tap === "chevron" ? '<span class="tagChev">›</span>' : "";
     var tag = function (name, amber) {
-      return '<span class="kitTag ' + tap + (amber ? " amber" : "") + '">' + name + chev + "</span>";
+      return '<span class="kitTag ring' + (amber ? " amber" : "") + '">' + name + "</span>";
     };
-    var kitRow = tap === "inert"
-      ? '<button class="specRow" type="button" data-k="kit"><span class="k">kit</span>' +
-        '<span class="v tags">' + tag("Dumbbells", 1) + tag("Bench") + '</span><span class="chev">›</span></button>'
-      : '<div class="specRow"><span class="k">kit</span><span class="v tags">' +
-        '<button class="tagBtn" type="button" data-k="kit">' + tag("Dumbbells", 1) + "</button>" +
-        '<button class="tagBtn" type="button" data-k="bench">' + tag("Bench") + "</button>" +
-        "</span></div>";
+    var kitRow =
+      '<div class="specRow"><span class="k">kit</span><span class="v tags">' +
+      '<button class="tagBtn" type="button" data-k="kit">' + tag("Dumbbells", 1) + "</button>" +
+      '<button class="tagBtn" type="button" data-k="bench">' + tag("Bench") + "</button>" +
+      "</span></div>";
 
     document.getElementById("specTable").innerHTML =
       '<button class="specRow" type="button" data-k="schedule">' +
@@ -491,17 +470,6 @@
     startLabel.textContent = "Start workout";
     setChev(0);
   }
-
-  /* The one choice. */
-  document.getElementById("opts").addEventListener("click", function (ev) {
-    var btn = ev.target.closest(".opt");
-    if (!btn) return;
-    this.querySelectorAll(".opt").forEach(function (b) { b.setAttribute("aria-pressed", String(b === btn)); });
-    screen.dataset.kittap = btn.dataset.v;
-    buildTable();
-    body.scrollTop = 0;
-    onScroll();
-  });
 
   document.getElementById("themeToggle").addEventListener("click", function () {
     var r = document.documentElement;
