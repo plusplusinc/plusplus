@@ -121,16 +121,48 @@ struct RoutineDetailView: View {
         // build-78) where it gets full width and wraps instead of
         // truncating; the workload facts already live there (build-48).
         // Share keeps its UIKit sheet (#178).
-        .pushedScreenChrome(title: "", onBack: { dismiss() }) {
+        // ⚠️ Routine detail wears the SYSTEM navigation bar with a LARGE
+        // title (Dave, 2026-07-29), not `pushedScreenChrome`. That is what
+        // buys the native collapse the tab roots have: the name sits large at
+        // the top and walks up into the bar, centred and small, as you
+        // scroll. It is free and it writes no state, so it stays clear of the
+        // morph law — every hand-rolled version needs the scroll offset, and
+        // reading that means `onScrollGeometryChange` or a `PreferenceKey`,
+        // which is exactly what breaks the search-role morph.
+        //
+        // Two deliberate departures come with it. The surface law says a
+        // pushed detail screen clears its chrome title and leads the body
+        // with a large left header; this screen no longer does, so its name
+        // is single-line and truncates where the body header wrapped to two.
+        // And Apple's HIG reserves large titles for top-level views. Both are
+        // accepted for the collapse.
+        //
+        // The system supplies Back, so the custom back key goes; the
+        // full-width back-swipe does NOT come from the chrome modifier and is
+        // re-applied below (#198 drives the navigation controller directly and
+        // never depended on the bar being hidden).
+        .navigationTitle(routine.name)
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            // Both keys bring their own raised-key chrome, so they opt OUT of
+            // the toolbar's shared glass rather than nesting in a system
+            // capsule — the same call the tab roots make.
             if !routine.groups.isEmpty, shareURL != nil {
-                HeaderIconButton(systemImage: "square.and.arrow.up", accessibilityLabel: "Share routine", identifier: "shareRoutineButton") {
-                    showingShareSheet = true
+                ToolbarItem(placement: .topBarTrailing) {
+                    HeaderIconButton(systemImage: "square.and.arrow.up", accessibilityLabel: "Share routine", identifier: "shareRoutineButton") {
+                        showingShareSheet = true
+                    }
+                }
+                .sharedBackgroundVisibility(.hidden)
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                HeaderIconButton(systemImage: "slider.horizontal.3", accessibilityLabel: "Routine settings", identifier: "routineSettingsButton") {
+                    showingRoutineSettings = true
                 }
             }
-            HeaderIconButton(systemImage: "slider.horizontal.3", accessibilityLabel: "Routine settings", identifier: "routineSettingsButton") {
-                showingRoutineSettings = true
-            }
+            .sharedBackgroundVisibility(.hidden)
         }
+        .fullWidthSwipeBack()
         .sheet(isPresented: $showingShareSheet) {
             if let url = shareURL {
                 ActivitySheet(items: [
@@ -238,46 +270,25 @@ struct RoutineDetailView: View {
 
     // MARK: - Header
 
-    /// The header (2026-07-29): an ESTIMATE COLUMN on the left and a
-    /// three-row SPEC TABLE on the right, both scrolling with the list.
+    /// The header, now the scroll's first CONTENT rather than a fixed band
+    /// above it, and no longer carrying the name (the bar's large title does).
     ///
-    /// The shape is the answer to "too much horizontal eye movement between
-    /// the label and the value": travel is set by where the LABEL starts, not
-    /// by how wide the table is, so a left column shortens every row at once.
-    /// Merging rest and transition into one `PAUSES` row does the rest —
-    /// `TRANSITION` was the longest label in the block and was setting the
-    /// left edge for every value.
-    ///
-    /// Derived facts are TEXT (the estimate, the set count, the muscle
-    /// groups); settings are DOORS (schedule, pauses, each kit piece).
+    /// ⚠️ Mid-rebuild. The settled design replaces what follows with an
+    /// estimate column on the left and a three-row spec table on the right
+    /// (`SCHEDULE` / `PAUSES` / `KIT`), where rest and transition merge into
+    /// one row and each kit piece is its own door. Reasoning and the full
+    /// spec: docs/DECISIONS.md 2026-07-29. What is below is the previous
+    /// arrangement, still standing until that lands.
     private var header: some View {
         let meta = RoutineMeta(routine: routine, activeNames: availableEquipmentNames)
         return VStack(alignment: .leading, spacing: 0) {
-            // The routine name is the screen's heading, below the back
-            // key (Dave, build-78): a centered chrome title truncated a
-            // long name to "Travel bodyweight…". Here it gets the full
-            // width and wraps.
-            //
-            // ⚠️ NO line limit (Dave, 2026-07-29: "don't truncate the routine
-            // name"). The old `.lineLimit(2)` still clipped a long enough
-            // name, which is the same fault build-78 moved it here to fix,
-            // just two lines further along. `.fixedSize(vertical:)` is what
-            // makes the wrap actually happen rather than the text being
-            // squeezed to one line by the enclosing stack.
-            //
-            // ⚠️ This is ALSO why the heading cannot become a system large
-            // title. A system large title is the free, native version of the
-            // collapse the tab roots get — but it renders on one line, so
-            // adopting it would reintroduce exactly this truncation. The two
-            // asks (never truncate, collapse into the bar) do not compose
-            // through `.navigationTitle`.
-            Text(routine.name)
-                .font(.system(.title, weight: .bold))
-                .foregroundStyle(Theme.textPrimary)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityAddTraits(.isHeader)
-                .padding(.top, 4)
-
+            // ⚠️ NO name here (2026-07-29). It is the system navigation
+            // bar's large title now, which is what collapses it into the bar
+            // on scroll. Build-78 moved the name INTO the body because the
+            // old centred chrome title truncated it; that reasoning is
+            // reversed here in exchange for the native collapse, and the
+            // cost is that a long name truncates on one line instead of
+            // wrapping to two.
             if !routine.groups.isEmpty {
                 // Subtitle: focus + the tappable schedule chip.
                 HStack(spacing: 6) {
