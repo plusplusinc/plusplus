@@ -63,6 +63,7 @@ No third-party dependencies without discussion first.
 
 **On main, awaiting Dave's device pass** (reasoning in docs/DECISIONS.md under the dated entry):
 
+- Routine detail device pass — spec-table labels are a fixed COLUMN (a greedy label pushed values to the far edge AND squeezed them), ledger cells break at the load separator not by word wrap, rail rows are `.top`-aligned so the node lands on the name's first line, and `railNodeY` is the SCREEN's (the landing FX place against it too)
 - Routine detail rebuilt — system large title (collapses natively), estimate column + spec table (schedule · **pauses** merging rest+transition · kit), rows print `target` beside `prev`; ⚠️ rail rows are UNIFORM at 76 pt because `RailLayout` reads ONE height, and the node sits on the name's FIRST line, not the row's middle (#470)
 - Entrance flash — a leading gutter mark on the row BACKGROUND, never a ring in an overlay; ⚠️ the owning surface must hold the arrival id for `RowEntranceFlash.totalDuration` or the fade is cut off (#468)
 - In-sheet drill-in is a `NavigationStack`, never a stage slide; ⚠️ the HOST owns the stack, and a growing detent rides `path.count` (#466)
