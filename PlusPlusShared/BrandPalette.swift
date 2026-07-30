@@ -73,6 +73,25 @@ enum BrandPalette {
     static let notesInk = Color(light: 0x805400, dark: 0xDCB25E, lightHC: 0x6E4800, darkHC: 0xE3BE72)
     static let destructive = Color(light: 0xCF222E, dark: 0xE5534B, lightHC: 0xB01722, darkHC: 0xEC6B63)
 
+    // MARK: Ledger movement inks (2026-07-30)
+    //
+    // The target column's moved tokens: an ask for MORE wears the data
+    // green, an ask for LESS a gentle brick (Dave: "decrease is not a
+    // problem" — a planned deload is a choice, and the alarm red would make
+    // every one read as an error). Both are caption-mono TEXT on
+    // `background`/`surface`, so both clear 4.5:1 there.
+
+    /// The accent hue as caption TEXT — taken at accent's high-contrast
+    /// light value, because plain `accentLight` measures 3.65:1 on light
+    /// `surface`, under the AA floor at caption size. The `selectedInk`
+    /// story, third verse: a hue proven as a fill or a large glyph has not
+    /// been shown to read as small text.
+    static let increaseInk = Color(light: 0x0E7A3D, dark: 0x46D17C, lightHC: 0x0B6332, darkHC: 0x67DD95)
+    /// The gentle brick for an ask below last time. Visibly NOT
+    /// `destructive`: desaturated a long step, and never used on an action.
+    /// 5.2:1 on light `surface`, 5.9:1 on dark.
+    static let decreaseInk = Color(light: 0x9E4E44, dark: 0xE09084, lightHC: 0x873C33, darkHC: 0xEEB0A5)
+
     // MARK: Swipe blocks
     //
     // ⚠️ A swipe action block is ITS OWN SURFACE carrying a WHITE label, and

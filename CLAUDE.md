@@ -58,13 +58,14 @@ No third-party dependencies without discussion first.
 > **.claude/rules/** (path-scoped). Delete an item once it has shipped and been validated —
 > this section tracks what is live now, not what happened.
 
-**Last updated:** 2026-07-29 · **Latest TestFlight build:** 157, from main.
+**Last updated:** 2026-07-30 · **Latest TestFlight build:** 157, from main.
 ⚠️ Build number = workflow RUN number, not last-build+1 — check `actions_list` before writing a What's-New entry.
 
 **On main, awaiting Dave's device pass** (reasoning in docs/DECISIONS.md under the dated entry):
 
+- Routine detail round 2 — target tokens wear direction ink (`increaseInk` green / `decreaseInk` gentle brick — new BrandPalette pair; ⚠️ plain `accent` fails AA as caption text on light `surface`), rail rows size to CONTENT (`RailLayout.build(rowHeights:)`; heights from UIFont metrics via a PURE width read), pauses are two noun-under-number cells, muscle tags cap at 2+N, the pinned band draws a hairline shelf, rail leading 20→12, empty prev prints "—"; ⚠️ prev KEEPS its plan-stable source (Dave, told the full mechanism: "don't change the source") — don't re-litigate from the same observation; ⚠️ device pass pending — every rail gesture reads the new per-row geometry
 - Routine detail device pass (build 157) — spec-table labels are a fixed COLUMN (a greedy label pushed values to the far edge AND squeezed them), a hairline draws the header's gutter, ledger cells break at the load separator not by word wrap, rail rows are `.top`-aligned so the node lands on the name's first line, and `railNodeY` is the SCREEN's (the landing FX place against it too); ⚠️ `SheetHeader` has NO padding of its own — every tray supplies 18 (#471)
-- Routine detail rebuilt — system large title (collapses natively), estimate column + spec table (schedule · **pauses** merging rest+transition · kit), rows print `target` beside `prev`; ⚠️ rail rows are UNIFORM at 76 pt because `RailLayout` reads ONE height, and the node sits on the name's FIRST line, not the row's middle (#470)
+- Routine detail rebuilt — system large title (collapses natively), estimate column + spec table (schedule · **pauses** merging rest+transition · kit), rows print `target` beside `prev`; the node sits on the name's FIRST line, not the row's middle (#470)
 - Entrance flash — a leading gutter mark on the row BACKGROUND, never a ring in an overlay; ⚠️ the owning surface must hold the arrival id for `RowEntranceFlash.totalDuration` or the fade is cut off (#468)
 - In-sheet drill-in is a `NavigationStack`, never a stage slide; ⚠️ the HOST owns the stack, and a growing detent rides `path.count` (#466)
 - Muscle groups — multi-select on an exercise; ⚠️ ordered list, `muscleGroups[0]` IS `muscleGroup`; nil means follow the catalog (#463)

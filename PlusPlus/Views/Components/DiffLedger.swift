@@ -10,6 +10,10 @@ struct DiffLedgerRow: Identifiable {
     let target: [PrescriptionRun]
     let prev: [PrescriptionRun]
     let changed: Set<RoutineDiff.Field>
+    /// Which way each moved field moved (2026-07-30): `.up` inks the target
+    /// token green, `.down` the gentle brick. A changed neutral setting is
+    /// in `changed` but absent here and stays plain bright.
+    var directions: [RoutineDiff.Field: RoutineDiff.Direction] = [:]
     /// Added since the last run, so there is nothing to compare against.
     /// Distinct from an empty `prev` for any other reason — the row states
     /// it in words to assistive tech rather than announcing silence.
@@ -26,8 +30,15 @@ struct DiffLedgerRow: Identifiable {
 /// #453). Two columns make the arithmetic the reader's, so a signed number
 /// is unrepresentable and the misread cannot recur.
 ///
-/// Nothing here is green. The `target` column dims what held and lights what
-/// moved; `prev` is one flat brightness throughout, because it is the thing
+/// The `target` column dims what held and marks what moved — since
+/// 2026-07-30 with DIRECTION: an ask above the printed prev in the data
+/// green, an ask below it in the gentle brick (`Theme.increaseInk`/
+/// `decreaseInk`; Dave: "decrease is not a problem"). That supersedes this
+/// card's earlier "nothing here is green" — the #453 misread this table
+/// replaced was a signed NUMBER wearing progress green before the workout
+/// started, and no number here is signed: color rides a token printed
+/// beside the prev it differs from, so it can only read as the comparison.
+/// `prev` stays one flat brightness throughout, because it is the thing
 /// being compared against rather than the thing being read.
 struct DiffLedger: View {
     let rows: [DiffLedgerRow]
@@ -89,9 +100,9 @@ struct DiffLedger: View {
                 GridRow {
                     rowLabel(row.label)
                         .accessibilityLabel(spoken(row))
-                    cell(row.target, changed: row.changed, column: .target, lineLimit: 1)
+                    cell(row.target, changed: row.changed, directions: row.directions, column: .target, lineLimit: 1)
                         .accessibilityHidden(true)
-                    cell(row.prev, changed: row.changed, column: .prev, lineLimit: 1)
+                    cell(row.prev, changed: row.changed, directions: row.directions, column: .prev, lineLimit: 1)
                         .accessibilityHidden(true)
                 }
             }
@@ -103,8 +114,8 @@ struct DiffLedger: View {
             ForEach(visible) { row in
                 VStack(alignment: .leading, spacing: 3) {
                     rowLabel(row.label)
-                    stackedLine("target", runs: row.target, changed: row.changed, column: .target)
-                    stackedLine("prev", runs: row.prev, changed: row.changed, column: .prev)
+                    stackedLine("target", runs: row.target, changed: row.changed, directions: row.directions, column: .target)
+                    stackedLine("prev", runs: row.prev, changed: row.changed, directions: row.directions, column: .prev)
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(spoken(row))
@@ -112,10 +123,10 @@ struct DiffLedger: View {
         }
     }
 
-    private func stackedLine(_ title: String, runs: [PrescriptionRun], changed: Set<RoutineDiff.Field>, column: Column) -> some View {
+    private func stackedLine(_ title: String, runs: [PrescriptionRun], changed: Set<RoutineDiff.Field>, directions: [RoutineDiff.Field: RoutineDiff.Direction], column: Column) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 7) {
             columnHeader(title)
-            cell(runs, changed: changed, column: column, lineLimit: nil)
+            cell(runs, changed: changed, directions: directions, column: column, lineLimit: nil)
         }
     }
 
@@ -146,14 +157,14 @@ struct DiffLedger: View {
     /// Runs concatenate into ONE `Text` so the cell truncates gracefully and
     /// each run keeps its own ink — the idiom the diff summary line used
     /// before this replaced it.
-    private func cell(_ runs: [PrescriptionRun], changed: Set<RoutineDiff.Field>, column: Column, lineLimit: Int?) -> some View {
+    private func cell(_ runs: [PrescriptionRun], changed: Set<RoutineDiff.Field>, directions: [RoutineDiff.Field: RoutineDiff.Direction], column: Column, lineLimit: Int?) -> some View {
         // A missing side is a placeholder glyph, never a blank: an empty
         // cell reads as a rendering fault rather than as "nothing to
         // compare".
         let body = runs.isEmpty
             ? Text("—").foregroundStyle(Theme.textFaint)
             : runs.reduce(Text("")) { result, run in
-                result + Text(run.text).foregroundStyle(ink(run, changed: changed, column: column))
+                result + Text(run.text).foregroundStyle(ink(run, changed: changed, directions: directions, column: column))
             }
         return body
             .font(.system(.caption, design: .monospaced))
@@ -165,13 +176,23 @@ struct DiffLedger: View {
             .minimumScaleFactor(0.7)
     }
 
-    private func ink(_ run: PrescriptionRun, changed: Set<RoutineDiff.Field>, column: Column) -> Color {
+    private func ink(_ run: PrescriptionRun, changed: Set<RoutineDiff.Field>, directions: [RoutineDiff.Field: RoutineDiff.Direction], column: Column) -> Color {
         // prev is reference material: one brightness, no emphasis inside it,
         // so the only thing that varies anywhere in the table is the token
         // that moved in today's column.
+        //
+        // ⚠️ Kept in step with `ExerciseRailRow.ink` by hand — the two
+        // surfaces print the same producer's rows and must agree on what a
+        // moved token wears.
         guard column == .target else { return Theme.textFaint }
-        let moved = run.field.map(changed.contains) ?? false
-        return moved ? Theme.textPrimary : Theme.textSecondary
+        guard let field = run.field, changed.contains(field) else { return Theme.textSecondary }
+        return switch directions[field] {
+        case .up: Theme.increaseInk
+        case .down: Theme.decreaseInk
+        // A changed neutral setting (resistance, incline…): moved, but
+        // neither progress nor regress — plain bright.
+        case nil: Theme.textPrimary
+        }
     }
 
     /// The raw cell reads badly aloud ("three times eight at one three five
