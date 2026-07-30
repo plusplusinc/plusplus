@@ -67,12 +67,40 @@ struct RoutineTemplate: Identifiable, Hashable {
         var reps: Int?
         var repsUpper: Int?
         var durationSeconds: Int?
+        /// Targets beyond the three columns — distance and pace, so a
+        /// template can say "500 m at a 2:00 split" rather than only how
+        /// long it lasts. Empty on every strength entry, which is why the
+        /// catalog above reads exactly as it did.
+        var extraTargets: [WorkoutMetric: Double] = [:]
+
+        /// Seconds of WORK one round takes. The authored duration is the
+        /// honest answer; failing that, a distance and a pace multiply
+        /// out. nil when the entry states neither, and the caller charges
+        /// the flat per-set estimate.
+        ///
+        /// ⚠️ Goes through the same `CardioTargets` rule as
+        /// `Routine.workSeconds(for:)` — the template's number must not
+        /// change the moment it becomes a routine.
+        var workSeconds: Int? {
+            guard let profile = SeedData.builtInProfile(named: exercise) else {
+                return durationSeconds
+            }
+            return CardioTargets.estimatedSeconds(profile: profile) { metric in
+                metric == .duration ? durationSeconds.map(Double.init) : extraTargets[metric]
+            }
+        }
     }
 
     /// One rail block; >1 entry = superset (strict rotation, as ever).
     struct Block: Hashable {
         let sets: Int
         let entries: [Entry]
+        /// This block's own rest, when it differs from the routine's.
+        /// Intervals are the reason it exists: three minutes between
+        /// quarter-mile repeats, inside a session that otherwise turns
+        /// around in one. The `= nil` is explicit so the memberwise init
+        /// keeps its default and `b(_:_:)` stays a two-argument call.
+        var restSeconds: Int? = nil
     }
 
     let name: String
@@ -101,13 +129,11 @@ struct RoutineTemplate: Identifiable, Hashable {
             let rounds = max(block.sets, 1)
             for entry in block.entries {
                 // Shares Routine's per-set charge so a template's number
-                // cannot drift from the routine it becomes. A template
-                // cannot yet state a distance, so there is nothing for
-                // CardioTargets to multiply out here.
-                work += (entry.durationSeconds ?? Routine.assumedSetSeconds) * rounds
+                // cannot drift from the routine it becomes.
+                work += (entry.workSeconds ?? Routine.assumedSetSeconds) * rounds
             }
             pauses += (block.entries.count - 1) * transition * rounds
-            pauses += (rounds - 1) * restSeconds
+            pauses += (rounds - 1) * (block.restSeconds ?? restSeconds)
         }
         pauses += max(0, populated.count - 1) * transition
         return work + pauses
@@ -196,6 +222,22 @@ struct RoutineTemplate: Identifiable, Hashable {
                     routineExercise = newGroup.sortedExercises.first
                 }
                 if let routineExercise {
+                    // ⚠️ An authored cardio target REPLACES the prefill,
+                    // so the whole triad clears first. The add path seeds
+                    // from the exercise's bumped defaults (#187), so a
+                    // "500 m at 2:00" template landing on an erg you last
+                    // rowed for twenty minutes would otherwise arrive
+                    // carrying that duration as a THIRD value, and the
+                    // two-of-three law would have a contradiction to
+                    // resolve on the user's behalf.
+                    if !entry.extraTargets.isEmpty {
+                        for metric in CardioTargets.triad {
+                            routineExercise.setTarget(metric, to: nil)
+                        }
+                        for (metric, value) in entry.extraTargets {
+                            routineExercise.setTarget(metric, to: value)
+                        }
+                    }
                     if let seconds = entry.durationSeconds {
                         routineExercise.durationSeconds = seconds
                     }
@@ -206,6 +248,13 @@ struct RoutineTemplate: Identifiable, Hashable {
                 }
             }
             group?.sets = block.sets
+            // Same rule the planning sheet enforces: an override exists
+            // only while it DIFFERS from the workout default, so a later
+            // routine-level rest edit isn't silently ignored by a block
+            // that never meant to diverge.
+            if let blockRest = block.restSeconds, blockRest != restSeconds {
+                group?.restSecondsOverride = blockRest
+            }
         }
         routine.reindexGroups()
         return routine
@@ -226,6 +275,35 @@ enum RoutineCatalog {
 
     private static func b(_ sets: Int, _ entries: RoutineTemplate.Entry...) -> RoutineTemplate.Block {
         .init(sets: sets, entries: entries)
+    }
+
+    /// A cardio effort: any TWO of distance, duration and pace, and the
+    /// third falls out (`CardioTargets`). `distance` is in the exercise's
+    /// own unit — miles on the road, meters on an erg — and `pace` is
+    /// seconds over that unit's reference split.
+    private static func c(
+        _ exercise: String,
+        distance: Double? = nil,
+        seconds: Int? = nil,
+        pace: Int? = nil
+    ) -> RoutineTemplate.Entry {
+        var extras: [WorkoutMetric: Double] = [:]
+        if let distance { extras[.distance] = distance }
+        if let pace { extras[.pace] = Double(pace) }
+        return .init(
+            exercise: exercise,
+            reps: nil,
+            repsUpper: nil,
+            durationSeconds: seconds,
+            extraTargets: extras
+        )
+    }
+
+    /// A block that sets its own rest — the interval shape, where the
+    /// turnaround between rounds is the prescription and the rest of the
+    /// session wants nothing like it.
+    private static func bi(_ sets: Int, rest: Int, _ entries: RoutineTemplate.Entry...) -> RoutineTemplate.Block {
+        .init(sets: sets, entries: entries, restSeconds: rest)
     }
 
     static let all: [RoutineTemplate] = [
@@ -643,6 +721,63 @@ enum RoutineCatalog {
                 b(4, r("Box Jump", 8)),
                 b(3, d("Battle Rope Waves", 30)),
                 b(3, r("Medicine Ball Slam", 12)),
+            ]
+        ),
+
+        // MARK: Road and console cardio
+        //
+        // The first templates that state a DISTANCE and a PACE rather than
+        // only a stopwatch. Two of the three fix the third, so an authored
+        // "three miles at 9:00" carries its own honest estimate and the
+        // rail rows read like a coach wrote them.
+        .init(
+            name: "Steady Run",
+            summary: "Three miles at one pace. No surges, no finishing kick.",
+            focus: .conditioning, effort: .moderate, style: .conditioning, restSeconds: 60,
+            blocks: [
+                b(1, c("Running", distance: 3, pace: 9 * 60)),
+            ]
+        ),
+        .init(
+            name: "Quarter Mile Repeats",
+            summary: "Six quarters, hard, with a jog either side. Three full minutes between them.",
+            focus: .conditioning, effort: .intense, style: .conditioning, restSeconds: 60,
+            blocks: [
+                b(1, c("Running", seconds: 600)),
+                bi(6, rest: 180, c("Running", distance: 0.25, pace: 7 * 60)),
+                b(1, c("Running", seconds: 600)),
+            ]
+        ),
+        .init(
+            name: "Erg 500s",
+            summary: "Six five-hundreds at a 2:00 split. Two minutes back between each.",
+            focus: .conditioning, effort: .intense, style: .conditioning, restSeconds: 120,
+            blocks: [
+                b(6, c("Rowing", distance: 500, pace: 120)),
+            ]
+        ),
+        .init(
+            name: "Studio Ride",
+            summary: "Forty-five minutes on the bike. Resistance and cadence are yours to pick.",
+            focus: .conditioning, effort: .moderate, style: .conditioning, restSeconds: 60,
+            blocks: [
+                b(1, c("Indoor Cycling", seconds: 2700)),
+            ]
+        ),
+        .init(
+            name: "Trail Hike",
+            summary: "Ninety minutes on the trail. Distance is not the point.",
+            focus: .conditioning, effort: .light, style: .conditioning, restSeconds: 60,
+            blocks: [
+                b(1, c("Hiking", seconds: 5400)),
+            ]
+        ),
+        .init(
+            name: "Long Walk",
+            summary: "Three miles, unhurried. It counts the same.",
+            focus: .conditioning, effort: .light, style: .recovery, restSeconds: 60,
+            blocks: [
+                b(1, c("Walking", distance: 3, pace: 17 * 60)),
             ]
         ),
 

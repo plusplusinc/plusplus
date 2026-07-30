@@ -33,9 +33,20 @@ struct RoutineCatalogTests {
                 for entry in block.entries {
                     guard let def = SeedData.builtInDefinition(named: entry.exercise) else { continue }
                     if def.exerciseType == .duration {
-                        #expect(entry.durationSeconds != nil && entry.reps == nil,
+                        #expect(entry.reps == nil,
                                 "\(template.name): \(entry.exercise) is timed but has rep targets")
+                        // A timed exercise is prescribed by a clock OR by a
+                        // cardio target, since a distance and a pace fix the
+                        // duration between them. What it must never be is
+                        // blank: an authored template with no target charges
+                        // the flat per-set estimate, so "Steady Run" would
+                        // advertise five minutes.
+                        let prescribesSomething = entry.durationSeconds != nil || !entry.extraTargets.isEmpty
+                        #expect(prescribesSomething,
+                                "\(template.name): \(entry.exercise) prescribes nothing")
                     } else {
+                        #expect(entry.extraTargets.isEmpty,
+                                "\(template.name): \(entry.exercise) is weight/reps but carries cardio targets")
                         #expect(entry.reps != nil && entry.durationSeconds == nil,
                                 "\(template.name): \(entry.exercise) is weight/reps but has a duration")
                     }
@@ -117,6 +128,51 @@ struct RoutineCatalogTests {
                 }
             }
         }
+    }
+
+    @Test("A cardio template lands with its distance, its pace, and its own rest")
+    func instantiateCarriesCardioTargets() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        SeedData.loadIfNeeded(context: context)
+
+        let template = try #require(RoutineCatalog.all.first { $0.name == "Quarter Mile Repeats" })
+        let routine = template.instantiate(in: context, among: [])
+
+        // Warm-up, the repeats, cool-down.
+        #expect(routine.sortedGroups.count == 3)
+        let repeats = routine.sortedGroups[1]
+        #expect(repeats.sets == 6)
+        // The block's own rest, not the routine's — the whole point of a
+        // per-block override, and it survives instantiation.
+        #expect(repeats.restSecondsOverride == 180)
+        #expect(routine.restSeconds == 60)
+
+        let entry = try #require(repeats.sortedExercises.first)
+        #expect(entry.target(.distance) == 0.25)
+        #expect(entry.target(.pace) == 420)
+        // ⚠️ Two of the three, never all three: a stored duration here
+        // would outrank nothing but would make the sheet show a value the
+        // user never chose, and the derived reading is the honest one.
+        #expect(entry.durationSeconds == nil)
+
+        // The warm-up states a clock and nothing else.
+        let warmUp = try #require(routine.sortedGroups[0].sortedExercises.first)
+        #expect(warmUp.durationSeconds == 600)
+        #expect(warmUp.target(.distance) == nil)
+
+        // 600 + 6×105 + 5×180 + 600, plus two block transitions.
+        #expect(template.estimatedSeconds == routine.estimatedSeconds)
+        #expect(template.estimatedSeconds == 2760)
+    }
+
+    @Test("A steady run's estimate is its distance times its pace")
+    func steadyRunEstimate() throws {
+        let template = try #require(RoutineCatalog.all.first { $0.name == "Steady Run" })
+        // Three miles at 9:00 is twenty-seven minutes. Before the two-of-
+        // three law a template could not say this at all.
+        #expect(template.estimatedSeconds == 27 * 60)
+        #expect(template.estimatedMinutesText == "~25 min")
     }
 
     @Test func reAddingSuffixesTheName() throws {

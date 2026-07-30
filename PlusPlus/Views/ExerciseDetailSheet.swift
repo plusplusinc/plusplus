@@ -337,6 +337,13 @@ struct ExerciseDetailSheet: View {
                         onDecrement: { applyReps(RepTarget(lower: routineExercise.reps, upper: routineExercise.repsUpper).decremented()) },
                         onIncrement: { applyReps(RepTarget(lower: routineExercise.reps, upper: routineExercise.repsUpper).incremented()) }
                     )
+                } else if metric == derivedMetric, let text = derivedText(metric) {
+                    DerivedMetricRow(
+                        label: metric.label,
+                        value: text,
+                        identifier: metric.rawValue,
+                        onPromote: { promote(metric) }
+                    )
                 } else {
                     MetricStepperRow(
                         label: metric.label,
@@ -347,12 +354,16 @@ struct ExerciseDetailSheet: View {
                         onIncrement: { stepTarget(metric, 1) }
                     )
                 }
+                if metric == heartRateAnchor {
+                    heartRateTargetRow
+                }
             }
             // The cardio prescription rides with the cardio profiles —
             // same placement the duration branch gave it; stretches and
             // holds drop it (Exercise.showsHeartRateTargetRow owns the
-            // rule, stale-target escape included).
-            if exercise?.showsHeartRateTargetRow(existingTarget: routineExercise.heartRateTarget) == true {
+            // rule, stale-target escape included). On a cardio profile it
+            // has already rendered up with the work targets.
+            if showsHeartRate, heartRateAnchor == nil {
                 heartRateTargetRow
             }
             MetricStepperRow(
@@ -405,6 +416,70 @@ struct ExerciseDetailSheet: View {
             weightUnit: weightUnit,
             distanceUnit: profile.distanceUnit
         )
+    }
+
+    // MARK: - The two-of-three law
+
+    /// Whether the heart-rate prescription renders at all — stretches and
+    /// static holds drop it (`Exercise.showsHeartRateTargetRow` owns the
+    /// rule, stale-target escape included).
+    private var showsHeartRate: Bool {
+        exercise?.showsHeartRateTargetRow(existingTarget: routineExercise.heartRateTarget) == true
+    }
+
+    /// On a cardio profile, heart rate IS a work target and sits with
+    /// distance/duration/pace — not below the console dials, where a spin
+    /// bike's resistance, power and cadence would bury it. Everywhere else
+    /// it keeps its place at the end of the metrics. nil means "render it
+    /// in the old spot".
+    private var heartRateAnchor: WorkoutMetric? {
+        guard showsHeartRate, CardioTargets.applies(to: profile) else { return nil }
+        return displayMetrics.last { CardioTargets.triad.contains($0) }
+    }
+
+    /// Which of distance/duration/pace this sheet is COMPUTING rather than
+    /// storing. nil on every profile that tracks fewer than two of them, so
+    /// a strength sheet renders byte-for-byte as it did before.
+    private var derivedMetric: WorkoutMetric? {
+        guard let metric = CardioTargets.derivedMetric(profile: profile, stored: routineExercise.target),
+              derivedText(metric) != nil else { return nil }
+        return metric
+    }
+
+    /// The computed reading, in the metric's own format. nil when the two
+    /// stored values can't produce one (a zero distance, an unset partner):
+    /// a derived "—" states nothing and would take the steppers away, so
+    /// the caller falls back to the input row.
+    private func derivedText(_ metric: WorkoutMetric) -> String? {
+        guard let value = CardioTargets.derive(
+            metric,
+            distance: routineExercise.target(.distance),
+            durationSeconds: routineExercise.target(.duration),
+            paceSeconds: routineExercise.target(.pace),
+            unit: profile.distanceUnit
+        ) else { return nil }
+        if metric == .duration { return DurationTape.label(for: Int(value.rounded())) }
+        return metric.displayText(value, weightUnit: weightUnit, distanceUnit: profile.distanceUnit)
+    }
+
+    /// Turning a derived value into one you set. The order matters: read
+    /// the current computed value BEFORE evicting, or the inputs it is
+    /// computed from are already gone. Storing it first means nothing
+    /// jumps on screen — the number you tapped is the number you get, and
+    /// the picker opens on it.
+    private func promote(_ metric: WorkoutMetric) {
+        let current = CardioTargets.derive(
+            metric,
+            distance: routineExercise.target(.distance),
+            durationSeconds: routineExercise.target(.duration),
+            paceSeconds: routineExercise.target(.pace),
+            unit: profile.distanceUnit
+        )
+        if let evicted = CardioTargets.evicted(entering: metric, profile: profile, stored: routineExercise.target) {
+            routineExercise.setTarget(evicted, to: nil)
+        }
+        routineExercise.setTarget(metric, to: current)
+        wheel = metric
     }
 
     private func stepTarget(_ metric: WorkoutMetric, _ direction: Double) {
