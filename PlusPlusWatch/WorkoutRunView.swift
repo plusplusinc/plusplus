@@ -129,6 +129,16 @@ struct WorkoutRunView: View {
                     .accessibilityValue(health.latestBPM.map { "\($0) beats per minute" } ?? "")
             }
 
+            // What this step has actually covered, against what it asked
+            // for. The wrist was MEASURING this the whole time (it is what
+            // a logged piece records) and never showed it, so a rower
+            // pulling a 500 had no way to know how far in they were.
+            if let distance = distanceLine(for: step) {
+                distance
+                    .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                    .accessibilityLabel("Distance")
+            }
+
             // Live GPS pace on an outdoor run, accent while meeting the
             // step's pace target — same treatment as the heart line.
             if let pace = paceLine(for: step) {
@@ -251,6 +261,24 @@ struct WorkoutRunView: View {
             .foregroundStyle(meeting ? WatchTheme.accent : .secondary)
         if let target {
             line = line + Text(" · \(WorkoutMetric.pace.formatted(target))").foregroundStyle(.secondary)
+        }
+        return line
+    }
+
+    /// "1,240 m · 500 m" — this step's measured distance beside its
+    /// target, the distance going accent once the target is met. Mirrors
+    /// the pace line's grammar exactly (live value first, target after the
+    /// separator). nil when nothing is measuring, which is every indoor
+    /// step and every strength one.
+    private func distanceLine(for step: WatchSync.Step) -> Text? {
+        guard let covered = measuredStepDistance() else { return nil }
+        let unit = step.distanceUnit ?? health.distanceUnit
+        let target = step.extraTargets?[WorkoutMetric.distance.rawValue]
+        let reached = target.map { covered >= $0 } ?? false
+        var line = Text("\(Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")) \(WorkoutMetric.distance.displayText(covered, distanceUnit: unit))")
+            .foregroundStyle(reached ? WatchTheme.accent : .secondary)
+        if let target {
+            line = line + Text(" · \(WorkoutMetric.distance.displayText(target, distanceUnit: unit))").foregroundStyle(.secondary)
         }
         return line
     }

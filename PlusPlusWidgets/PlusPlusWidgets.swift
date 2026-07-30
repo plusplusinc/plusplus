@@ -47,6 +47,12 @@ struct WorkoutLiveActivity: Widget {
                              : context.state.positionLine)
                             .font(.system(.footnote, weight: .semibold))
                             .lineLimit(1)
+                        if context.state.phase != .resting, let cardio = context.state.cardioLine {
+                            Text(cardio)
+                                .font(.system(.caption2, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
                     }
                     Spacer()
                     trailingTimer(context.state, size: 32)
@@ -54,7 +60,7 @@ struct WorkoutLiveActivity: Widget {
                 }
                 if context.state.phase == .resting {
                     RestControlButtons()
-                } else {
+                } else if context.state.totalSets > 1 {
                     WorkoutProgressBar(completed: context.state.setsCompleted, total: context.state.totalSets)
                 }
             }
@@ -76,9 +82,17 @@ struct WorkoutLiveActivity: Widget {
                         Text(context.state.exerciseName)
                             .font(.system(.footnote, weight: .semibold))
                             .lineLimit(1)
-                        Text("\(context.state.setsCompleted)/\(context.state.totalSets) done")
-                            .font(.system(.caption2, design: .monospaced))
-                            .foregroundStyle(.secondary)
+                        // What you're covering when something measures it,
+                        // else how far through the block you are. ⚠️ nil on
+                        // a single continuous effort with nothing live:
+                        // "0/1 done" sat on the island saying nothing for
+                        // forty minutes of a ride.
+                        if let progress = context.state.progressLine {
+                            Text(progress)
+                                .font(.system(.caption2, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
                     }
                 }
                 DynamicIslandExpandedRegion(.trailing) {
@@ -89,7 +103,9 @@ struct WorkoutLiveActivity: Widget {
                     if context.state.phase == .resting {
                         RestControlButtons()
                             .padding(.top, 6)
-                    } else {
+                    } else if context.state.totalSets > 1 {
+                        // Same law the app's own block bar follows: a
+                        // one-block bar is not a progress bar.
                         WorkoutProgressBar(completed: context.state.setsCompleted, total: context.state.totalSets)
                             .padding(.top, 4)
                     }

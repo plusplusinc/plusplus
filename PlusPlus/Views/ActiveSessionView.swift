@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import SwiftData
 import CoreLocation
 import UIKit
@@ -78,6 +79,16 @@ struct ActiveSessionView: View {
     /// the heart-rate window wants the whole set, pause included, because
     /// the recovery in the middle is part of what the set cost.
     @State private var currentSetStartedAt = Date()
+    /// Drives the island's measured-value refresh. A publisher rather than
+    /// a `TimelineView` because nothing on screen depends on it — the
+    /// on-screen readings have their own timelines.
+    ///
+    /// ⚠️ `@State`, not a computed property and not a plain `let`. A
+    /// publisher rebuilt on each body pass is a NEW publisher, so
+    /// `onReceive` resubscribes and `autoconnect()` restarts the timer
+    /// from zero — on a screen that re-renders every second, a 30 s timer
+    /// built that way never fires at all.
+    @State private var islandRefresh = Timer.publish(every: 30, tolerance: 5, on: .main, in: .common).autoconnect()
     /// Flips on appear of the finished screen to fire the checkmark's
     /// one-shot bounce.
     @State private var completeBounce = false
@@ -351,6 +362,18 @@ struct ActiveSessionView: View {
                 effortStartedAt = Date()
             }
         }
+        // ⚠️ The island's distance and pace are pushed values, not
+        // date-derived ones like the elapsed clock, so without this they
+        // would freeze at whatever they read when the set began and sit
+        // there for forty minutes — a stalled number the island cannot
+        // tell you is stale, which is the exact class of lie this push is
+        // removing. Every 30 s, and only while an outdoor effort is
+        // actually running: ActivityKit budgets app-driven updates, and a
+        // strength session must not spend any of them.
+        .onReceive(islandRefresh) { _ in
+            guard isOutdoorNow, !session.isPaused, !session.isFinished, restEndDate == nil else { return }
+            syncActivityWorking()
+        }
         // A WATCH-driven finish swaps this screen to the purple record
         // while a cue may still be talking — the phone-side finish path
         // stops speech inside finishSession, but the mirror path never
@@ -551,8 +574,31 @@ struct ActiveSessionView: View {
             exerciseName: log?.exerciseName ?? session.routineName,
             setNumber: log?.setNumber ?? 1,
             setsCompleted: completedSets,
-            totalSets: totalSets
+            totalSets: totalSets,
+            distanceText: islandDistanceText,
+            paceText: islandPaceText
         )
+    }
+
+    /// The live distance for the island, formatted here because the app is
+    /// the only side that knows the exercise's denomination. Only while
+    /// the fix is FRESH — a stale reading frozen on the Lock Screen reads
+    /// as a stalled run, and the island cannot tell you it is stale.
+    private var islandDistanceText: String? {
+        guard isOutdoorNow, location.isFresh, let value = location.totalDistanceInUnit else { return nil }
+        let profile = session.currentLog?.metricProfile
+        return WorkoutMetric.distance.displayText(
+            value,
+            distanceUnit: profile?.distanceUnit ?? location.unit,
+            paceReference: profile?.paceReference
+        )
+    }
+
+    private var islandPaceText: String? {
+        guard isOutdoorNow, location.isFresh, let pace = location.currentPaceSeconds else { return nil }
+        let profile = session.currentLog?.metricProfile
+        let reference = profile?.resolvedPaceReference ?? location.unit.defaultPaceReference
+        return WorkoutMetric.pace.formatted(pace) + " " + reference.label
     }
 
     // MARK: - Header

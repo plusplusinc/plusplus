@@ -69,7 +69,14 @@ final class WorkoutActivityController {
         #endif
     }
 
-    func working(exerciseName: String, setNumber: Int, setsCompleted: Int, totalSets: Int) {
+    func working(
+        exerciseName: String,
+        setNumber: Int,
+        setsCompleted: Int,
+        totalSets: Int,
+        distanceText: String? = nil,
+        paceText: String? = nil
+    ) {
         #if canImport(ActivityKit)
         guard !disabled else { return }
         update(WorkoutActivityAttributes.ContentState(
@@ -80,7 +87,9 @@ final class WorkoutActivityController {
             totalSets: totalSets,
             sessionStart: sessionStart,
             restEnd: nil,
-            workUnit: workUnit
+            workUnit: workUnit,
+            distanceText: distanceText,
+            paceText: paceText
         ), staleDate: nil)
         #endif
     }
