@@ -29,18 +29,48 @@ public struct MetricProfile: Equatable, Codable, Sendable {
     /// set screen's `secondaryMetricsList`, the watch's `targetText`)
     /// does NOT carry the flag — those sites never read it.
     public var isOutdoor: Bool
+    /// What this exercise's PACE is quoted over, when the distance unit's
+    /// own convention is the wrong one. nil means "use the unit's", which
+    /// is right for every profile written before swimming arrived: an erg
+    /// in meters wants /500m, a run in miles wants /mi. A metric pool is
+    /// the case that needs saying out loud — also meters, but /100m.
+    public var paceReference: PaceReference?
 
-    public init(_ metrics: [WorkoutMetric], distanceUnit: DistanceUnit = .meters, isOutdoor: Bool = false) {
+    public init(
+        _ metrics: [WorkoutMetric],
+        distanceUnit: DistanceUnit = .meters,
+        isOutdoor: Bool = false,
+        paceReference: PaceReference? = nil
+    ) {
         self.metrics = WorkoutMetric.allCases.filter { !$0.isBlockConfiguration && metrics.contains($0) }
         self.distanceUnit = distanceUnit
         self.isOutdoor = isOutdoor
+        self.paceReference = paceReference
     }
+
+    // MARK: - Pace, resolved
+    //
+    // Every pace-facing read goes through these rather than reaching for
+    // `distanceUnit` directly, so an exercise that states its own
+    // reference is denominated the same way on every surface. The four
+    // forwards below are deliberately the same names `DistanceUnit`
+    // carries, so a call site changes by one token.
+
+    /// The reference this profile actually uses.
+    public var resolvedPaceReference: PaceReference {
+        paceReference ?? distanceUnit.defaultPaceReference
+    }
+
+    public var paceLabel: String { resolvedPaceReference.label }
+    public var paceReferenceMeters: Double { resolvedPaceReference.meters }
+    public var paceRange: ClosedRange<Double> { resolvedPaceReference.range }
+    public var paceDefault: Double { resolvedPaceReference.defaultValue }
 
     // Decoding routes through the normalizing init so stored or
     // hand-edited JSON can't smuggle in duplicate/misordered metrics, and
     // a missing unit falls back to meters like everywhere else.
     private enum CodingKeys: String, CodingKey {
-        case metrics, distanceUnit, isOutdoor
+        case metrics, distanceUnit, isOutdoor, paceReference
     }
 
     public init(from decoder: Decoder) throws {
@@ -51,7 +81,16 @@ public struct MetricProfile: Equatable, Codable, Sendable {
         let unit = try container.decodeIfPresent(DistanceUnit.self, forKey: .distanceUnit) ?? .meters
         // Absent in pre-outdoor blobs → false, like distanceUnit's fallback.
         let outdoor = try container.decodeIfPresent(Bool.self, forKey: .isOutdoor) ?? false
-        self.init(rawMetrics.compactMap(WorkoutMetric.init(rawValue:)), distanceUnit: unit, isOutdoor: outdoor)
+        // Absent, or a reference this build doesn't know, both fall back to
+        // the unit's own convention — a future denominator must not brick
+        // the profile that carries it.
+        let reference = try? container.decodeIfPresent(PaceReference.self, forKey: .paceReference)
+        self.init(
+            rawMetrics.compactMap(WorkoutMetric.init(rawValue:)),
+            distanceUnit: unit,
+            isOutdoor: outdoor,
+            paceReference: reference ?? nil
+        )
     }
 
     // MARK: - Common shapes

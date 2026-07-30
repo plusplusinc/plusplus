@@ -118,6 +118,7 @@ struct ExerciseConfigSheet: View {
                 metric: metric,
                 weightUnit: weightUnit,
                 distanceUnit: profile.distanceUnit,
+                paceReference: profile.paceReference,
                 value: Binding(
                     get: { config.target(metric) },
                     set: { writeTarget(metric, to: $0) }
@@ -238,7 +239,7 @@ struct ExerciseConfigSheet: View {
             guard let seconds = config.durationSeconds else { return "—" }
             return DurationTape.label(for: seconds)
         }
-        return metric.displayText(config.target(metric), weightUnit: weightUnit, distanceUnit: profile.distanceUnit)
+        return metric.displayText(config.target(metric), weightUnit: weightUnit, distanceUnit: profile.distanceUnit, paceReference: profile.paceReference)
     }
 
     // MARK: - The two-of-three law
@@ -276,7 +277,8 @@ struct ExerciseConfigSheet: View {
             distance: storedTriad(.distance),
             durationSeconds: storedTriad(.duration),
             paceSeconds: storedTriad(.pace),
-            unit: profile.distanceUnit
+            unit: profile.distanceUnit,
+            paceReference: profile.paceReference
         ) else { return nil }
         if metric == .duration { return DurationTape.label(for: Int(value.rounded())) }
         return metric.displayText(value, weightUnit: weightUnit, distanceUnit: profile.distanceUnit)
@@ -290,7 +292,8 @@ struct ExerciseConfigSheet: View {
             distance: storedTriad(.distance),
             durationSeconds: storedTriad(.duration),
             paceSeconds: storedTriad(.pace),
-            unit: profile.distanceUnit
+            unit: profile.distanceUnit,
+            paceReference: profile.paceReference
         )
         writeTarget(metric, to: current)
         wheel = metric
@@ -311,8 +314,8 @@ struct ExerciseConfigSheet: View {
         let stepOverride = metric == .weight ? exercise.weightStepOverride : nil
         let current = config.target(metric)
         let stepped = direction > 0
-            ? metric.incremented(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, stepOverride: stepOverride)
-            : metric.decremented(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, stepOverride: stepOverride)
+            ? metric.incremented(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, stepOverride: stepOverride, paceReference: profile.paceReference)
+            : metric.decremented(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, stepOverride: stepOverride, paceReference: profile.paceReference)
         writeTarget(metric, to: stepped)
     }
 

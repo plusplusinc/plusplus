@@ -204,6 +204,12 @@ struct RunRecordSection: View {
         case .miles: name = "MI"
         case .kilometers: name = "KM"
         case .meters: name = "500M"
+        // A pool counts in hundreds, the same bucket its split is quoted
+        // over. ⚠️ This switch is the only exhaustive one over
+        // `DistanceUnit` outside the Kit, and the compiler cannot warn
+        // the app targets from a Linux session — check it by hand
+        // whenever the enum grows.
+        case .yards: name = "100YD"
         }
         if split.meters >= bucket - 1 {
             return "\(name) \(split.index)"

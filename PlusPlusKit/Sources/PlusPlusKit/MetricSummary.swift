@@ -39,7 +39,7 @@ public enum MetricSummary {
                 }
             default:
                 if let raw = value(metric) {
-                    parts.append(metric.displayText(raw, weightUnit: weightUnit, distanceUnit: profile.distanceUnit))
+                    parts.append(metric.displayText(raw, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, paceReference: profile.paceReference))
                 }
             }
         }

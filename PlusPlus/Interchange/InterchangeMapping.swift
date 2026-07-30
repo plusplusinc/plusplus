@@ -32,6 +32,10 @@ import PlusPlusKit
 ///                    riding the explicit-profile gate, written only when true —
 ///                    the user-facing toggle the old exclusion waited on ships
 ///                    with the run-record work)
+///                    metricsData.paceReference → EXPORTED (swimming: ExerciseDTO
+///                    .paceReference, riding the same explicit-profile gate and
+///                    written only when the profile OVERRIDES its unit's own
+///                    convention, so every pre-swimming file stays byte-identical)
 /// Equipment          name·isBuiltIn·weightStep·metricsData → EXPORTED
 ///                    inLibrary → EXCLUDED (dead legacy field, folded into the default library)
 ///                    libraries → EXPORTED via EquipmentLibraryDTO membership
@@ -167,6 +171,10 @@ enum InterchangeMapping {
             defaultDurationSeconds: exercise.defaultDurationSeconds,
             metrics: explicitProfile.map { $0.metrics.map(\.rawValue) },
             distanceUnit: explicitProfile?.distanceUnit,
+            // Written only when the profile OVERRIDES its unit's own
+            // convention: an erg in meters means /500m either way, so
+            // writing it would churn every pre-swimming file for nothing.
+            paceReference: explicitProfile?.paceReference,
             // Written only when TRUE (#378), riding the explicit-profile
             // gate like metrics/distanceUnit — indoor files stay byte-clean.
             isOutdoor: explicitProfile?.isOutdoor == true ? true : nil,
@@ -284,6 +292,8 @@ enum InterchangeMapping {
                     targetHeartRate: decodeHeartRate(log.targetHeartRateData),
                     metrics: carriesProfile ? storedProfile?.metrics.map(\.rawValue) : nil,
                     distanceUnit: (carriesProfile && storedProfile?.distanceUnit != .meters) ? storedProfile?.distanceUnit : nil,
+                    // Same gate; only an OVERRIDE is written.
+                    paceReference: carriesProfile ? storedProfile?.paceReference : nil,
                     // Same gate + only-when-true rule as the exercise (#378).
                     isOutdoor: (carriesProfile && storedProfile?.isOutdoor == true) ? true : nil
                 )
@@ -552,7 +562,8 @@ enum InterchangeMapping {
         return MetricProfile(
             metrics.compactMap(WorkoutMetric.init(rawValue:)),
             distanceUnit: dto.distanceUnit ?? .meters,
-            isOutdoor: dto.isOutdoor ?? false
+            isOutdoor: dto.isOutdoor ?? false,
+            paceReference: dto.paceReference
         ).encoded()
     }
 
@@ -572,7 +583,8 @@ enum InterchangeMapping {
                 // Prefer the set's own snapshot; fall back to the exercise
                 // only for pre-field files that carried metrics without a unit.
                 distanceUnit: setDTO.distanceUnit ?? exercise?.metricProfile.distanceUnit ?? .meters,
-                isOutdoor: setDTO.isOutdoor ?? false
+                isOutdoor: setDTO.isOutdoor ?? false,
+                paceReference: setDTO.paceReference ?? exercise?.metricProfile.paceReference
             ).encoded()
         }
         let extras = Set(MetricValues.fromRaw(setDTO.extraTargets).keys)
@@ -584,7 +596,8 @@ enum InterchangeMapping {
         if setDTO.targetDuration != nil || setDTO.actualDuration != nil { metrics.append(.duration) }
         return MetricProfile(
             metrics,
-            distanceUnit: exercise?.metricProfile.distanceUnit ?? .meters
+            distanceUnit: exercise?.metricProfile.distanceUnit ?? .meters,
+            paceReference: exercise?.metricProfile.paceReference
         ).encoded()
     }
 

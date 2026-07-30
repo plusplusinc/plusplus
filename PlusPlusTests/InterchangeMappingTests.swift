@@ -275,7 +275,7 @@ struct InterchangeMappingTests {
             notes: "Drive with the legs.", videoURL: "https://youtu.be/probe"
         )
         source.insert(row)
-        row.metricProfile = MetricProfile([.weight, .reps, .duration, .distance], distanceUnit: .miles, isOutdoor: true)
+        row.metricProfile = MetricProfile([.weight, .reps, .duration, .distance], distanceUnit: .miles, isOutdoor: true, paceReference: .per100Meters)
         // Several muscle groups, primary first: the whole list must survive.
         row.muscleGroups = [.back, .biceps, .core]
         row.defaultWeight = 60
@@ -331,7 +331,7 @@ struct InterchangeMappingTests {
             targetWeight: 60, targetRepsLower: 8, targetRepsUpper: 12, targetDuration: 90,
             targetHeartRateData: InterchangeMapping.encodeHeartRate(.range(lowerBPM: 120, upperBPM: 140))
         )
-        log.metricProfile = MetricProfile([.weight, .reps, .duration, .distance], distanceUnit: .miles, isOutdoor: true)
+        log.metricProfile = MetricProfile([.weight, .reps, .duration, .distance], distanceUnit: .miles, isOutdoor: true, paceReference: .per100Meters)
         log.restSecondsOverride = 120
         log.actualWeight = 62.5
         log.actualReps = 11
@@ -374,6 +374,10 @@ struct InterchangeMappingTests {
         #expect(importedRow.metricProfile.metrics == [.weight, .reps, .distance, .duration])
         #expect(importedRow.metricProfile.distanceUnit == .miles)
         #expect(importedRow.metricProfile.isOutdoor == true, "the outdoor flag rides the explicit profile (#378)")
+        // A deliberately mismatched reference (per 100 m on a mile-denominated
+        // profile) so a mapping that silently re-derived it from the unit
+        // would show up here rather than agreeing by accident.
+        #expect(importedRow.metricProfile.paceReference == .per100Meters, "the pace reference rides the explicit profile")
         #expect(importedRow.extraDefaults == [.distance: 2000, .pace: 300])
         #expect(importedRow.isFavorite == true, "favorite round-trips its true")
         let importedRetired = try #require(importedExercises.first { $0.name == "Probe Retired" })
@@ -436,6 +440,7 @@ struct InterchangeMappingTests {
         #expect(importedLog.metricProfile.metrics == [.weight, .reps, .distance, .duration])
         #expect(importedLog.metricProfile.distanceUnit == .miles, "the set's own distance unit snapshots, not the exercise's")
         #expect(importedLog.metricProfile.isOutdoor == true, "the set snapshot carries outdoor-ness (#378)")
+        #expect(importedLog.metricProfile.paceReference == .per100Meters, "the set snapshot carries its own pace denominator")
     }
 
     /// Byte-stability guard: `WorkoutSession.start` writes `metricsData` on

@@ -126,7 +126,7 @@ public extension WorkoutMetric {
     /// a third of the rep range — with minor marks 10–30 pt apart and
     /// labels 50–90 pt apart, dense enough to read and sparse enough not
     /// to smear.
-    func scrubberTape(weightUnit: WeightUnit = .lb, distanceUnit: DistanceUnit = .meters) -> (quantum: Double, tape: MetricTape)? {
+    func scrubberTape(weightUnit: WeightUnit = .lb, distanceUnit: DistanceUnit = .meters, paceReference: PaceReference? = nil) -> (quantum: Double, tape: MetricTape)? {
         switch self {
         case .duration, .rest, .transition:
             let r = range
@@ -138,7 +138,9 @@ public extension WorkoutMetric {
                                   pointsPerUnit: 3, minorStride: 5, labelStride: 25))
         case .distance:
             switch distanceUnit {
-            case .meters:
+            // Whole meters / whole yards: both count in lengths, and
+            // neither has a fractional value anyone states.
+            case .meters, .yards:
                 let r = distanceUnit.range
                 return (1, MetricTape(range: Int(r.lowerBound)...Int(r.upperBound),
                                       pointsPerUnit: 0.6, minorStride: 25, labelStride: 250))
@@ -176,11 +178,15 @@ public extension WorkoutMetric {
         case .pace:
             // Seconds, always — including on the road, where the wheel
             // could only offer 5 s steps and a 7:58 target was unpickable.
-            // Erg splits get the finer tape: a 500 m split is dialed to
-            // the second and its whole range is four minutes wide.
-            let r = distanceUnit.paceRange
+            // A SHORT reference gets the finer tape: an erg split and a
+            // 100 m swim split are both dialed to the second over a range
+            // a few minutes wide. The reference decides, not the unit —
+            // a metric pool is denominated in meters and wants the fine
+            // tape for /100m, not the erg's /500m span.
+            let reference = paceReference ?? distanceUnit.defaultPaceReference
+            let r = reference.range
             let bounds = Int(r.lowerBound)...Int(r.upperBound)
-            return distanceUnit == .meters
+            return reference.wheelStep == 1
                 ? (1, MetricTape(range: bounds, pointsPerUnit: 6, minorStride: 1, labelStride: 15))
                 : (1, MetricTape(range: bounds, pointsPerUnit: 3, minorStride: 5, labelStride: 30))
         case .speed:

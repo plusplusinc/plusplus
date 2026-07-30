@@ -177,7 +177,8 @@ struct ShareImportSheet: View {
         return "\(sets)× " + driver.displayText(
             value(driver),
             weightUnit: senderUnit,
-            distanceUnit: profile.distanceUnit
+            distanceUnit: profile.distanceUnit,
+            paceReference: profile.paceReference
         )
     }
 

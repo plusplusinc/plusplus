@@ -779,6 +779,29 @@ enum SeedData {
               also: [.quads, .glutes, .calves],
               metrics: MetricProfile([.distance, .duration, .pace], distanceUnit: .miles, isOutdoor: true),
               sets: 1, modality: .hiking),
+            // Swimming, in YARDS and split per 100 — the short-course
+            // convention, and the reason `PaceReference` exists: a metric
+            // pool is denominated in meters like an erg but splits per 100,
+            // not per 500. Both rows state the reference explicitly, so the
+            // meaning survives a unit change in the editor.
+            // ⚠️ Equipment-free like Running and Walking (a pool is not
+            // gear), so the modality is AUTHORED — derivation cannot tell
+            // metrically identical water and road efforts apart.
+            e("Pool Swim", .fullBody, [], .duration,
+              also: [.back, .shoulders, .core],
+              metrics: MetricProfile([.distance, .duration, .pace],
+                                     distanceUnit: .yards,
+                                     paceReference: .per100Yards),
+              sets: 1, modality: .swimming),
+            // Open water is the outdoor one: GPS engages, and Health files
+            // it against the open-water location.
+            e("Open Water Swim", .fullBody, [], .duration,
+              also: [.back, .shoulders, .core],
+              metrics: MetricProfile([.distance, .duration, .pace],
+                                     distanceUnit: .yards,
+                                     isOutdoor: true,
+                                     paceReference: .per100Yards),
+              sets: 1, modality: .swimming),
 
             // #235: every equipment type gates at least one exercise —
             // the 60 types the #222 sweep added get their movements.
