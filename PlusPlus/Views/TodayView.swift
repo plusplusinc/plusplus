@@ -32,6 +32,9 @@ struct TodayView: View {
     private var routines: [Routine]
     @Query(sort: \Equipment.name) private var equipment: [Equipment]
     @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
+    /// The catalog, for resolving quick-start picks by name and offering
+    /// the cardio rows when the row is edited.
+    @Query(sort: \Exercise.name) private var allExercises: [Exercise]
     @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
     @Query(
         filter: #Predicate<WorkoutSession> { $0.endedAt != nil },
@@ -62,6 +65,15 @@ struct TodayView: View {
     /// The two-step "Schedule a routine" tray (pick a routine → schedule it),
     /// opened from the rest-day card's schedule offer (2026-07-24).
     @State private var showingScheduleRoutine = false
+    /// Quick start (2026-07-30). The pending flags exist for the same
+    /// reason `pendingStartEmpty` does: a sheet presented from a sheet
+    /// that is still dismissing is the documented presentation-drop class,
+    /// so the tray sets a flag and `onDismiss` acts.
+    @AppStorage(QuickStartPicks.key) private var quickStartRaw = QuickStartPicks.raw(from: QuickStartPicks.fallback)
+    @State private var pendingQuickStart: Exercise?
+    @State private var pendingEditQuickStarts = false
+    @State private var quickStartConfig: SessionExerciseConfig?
+    @State private var editingQuickStarts = false
     @State private var activeSession: WorkoutSession?
     /// The first-workout Health primer, raised by the start gate.
     @State private var healthStartRequest: HealthStartRequest?
@@ -602,10 +614,24 @@ struct TodayView: View {
                 } else if pendingStartEmpty {
                     pendingStartEmpty = false
                     startEmptySession()
+                } else if let exercise = pendingQuickStart {
+                    pendingQuickStart = nil
+                    quickStartConfig = SessionExerciseConfig(exercise: exercise)
+                } else if pendingEditQuickStarts {
+                    pendingEditQuickStarts = false
+                    editingQuickStarts = true
                 }
             }) {
-                SwapInSheet(routines: swapInCandidates, dueIDs: Set(dueRoutines.map(\.persistentModelID)), onPick: { routine in
+                SwapInSheet(routines: swapInCandidates, dueIDs: Set(dueRoutines.map(\.persistentModelID)), quickStarts: quickStartExercises, onPick: { routine in
                     swapInPick = routine
+                    showingSwapIn = false
+                }, onQuickStart: { exercise in
+                    // Same drop class as swapInPick: the config sheet waits
+                    // for this one to finish dismissing.
+                    pendingQuickStart = exercise
+                    showingSwapIn = false
+                }, onEditQuickStarts: {
+                    pendingEditQuickStarts = true
                     showingSwapIn = false
                 }, onCreate: {
                     // Same drop class as swapInPick above: the alert
@@ -619,6 +645,43 @@ struct TodayView: View {
             }
             .sheet(isPresented: $showingScheduleRoutine) {
                 ScheduleRoutineTray(routines: routines)
+            }
+            // One optional-target sheet, then go (Dave). It is the same
+            // "configure before you do it" card the picker uses, so the
+            // prescription reads identically whichever way you started.
+            .sheet(item: $quickStartConfig) { config in
+                ExerciseConfigSheet(config: config, actionLabel: "Start") {
+                    quickStartConfig = nil
+                    startQuick(config)
+                }
+            }
+            .sheet(isPresented: $editingQuickStarts) {
+                NavigationStack {
+                    SheetPickList(
+                        title: "Quick start",
+                        sections: [SheetPickList.Section(
+                            title: nil,
+                            options: quickStartCandidates.map { SheetPickList.Option($0.name) }
+                        )],
+                        selected: Set(QuickStartPicks.names(from: quickStartRaw)),
+                        searchPrompt: "Search cardio",
+                        note: "These get a one-tap key when you start a workout."
+                    ) { name in
+                        var names = QuickStartPicks.names(from: quickStartRaw)
+                        if let index = names.firstIndex(of: name) {
+                            names.remove(at: index)
+                        } else {
+                            names.append(name)
+                        }
+                        // Never empty: an empty row would hide the "+" that
+                        // is the only way back to this screen.
+                        quickStartRaw = QuickStartPicks.raw(from: names.isEmpty ? QuickStartPicks.fallback : names)
+                    }
+                    .navigationTitle("Quick start")
+                    .navigationBarTitleDisplayMode(.inline)
+                }
+                .presentationBackground(Theme.background)
+                .presentationDetents([.medium, .large])
             }
             .fullScreenCover(item: $activeSession, onDismiss: resolveOrphanedSessions) { session in
                 // The card→session zoom is deliberate large-scale motion, so
@@ -1354,6 +1417,46 @@ struct TodayView: View {
             guard activeSession == nil else { return }
             // ActiveSessionView requests notification permission on appear.
             activeSession = WorkoutSession.start(from: routine, context: modelContext)
+        }, orPresent: { healthStartRequest = $0 })
+    }
+
+    /// The quick-start picks, resolved from names to live catalog rows.
+    /// A name that no longer resolves (a deleted custom) simply drops out
+    /// rather than rendering a dead key.
+    private var quickStartExercises: [Exercise] {
+        let names = QuickStartPicks.names(from: quickStartRaw)
+        let byName = Dictionary(
+            allExercises.filter { !$0.isDeleted }.map { ($0.name, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        return names.compactMap { byName[$0] }
+    }
+
+    /// Everything a quick-start key could reasonably be: the cardio the
+    /// catalog knows. A one-tap row for a bench press is not the problem
+    /// this solves, and an unfiltered catalog would bury the four rows
+    /// that are.
+    private var quickStartCandidates: [Exercise] {
+        allExercises
+            .filter { !$0.isDeleted && $0.modality.isCardio }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    /// One tap from the tray to moving: start a scratch session and plant
+    /// the configured block in it.
+    ///
+    /// ⚠️ It IS a scratch session (#239), not a parallel mechanism — so it
+    /// lands in history, salvages on crash, never auto-finishes, and can
+    /// graduate to a routine afterwards, all for free. And it routes
+    /// through `HealthStartGate` like every other start, or the first
+    /// workout would skip the Health primer.
+    private func startQuick(_ config: SessionExerciseConfig) {
+        guard activeSession == nil else { return }
+        HealthStartGate.begin({
+            guard activeSession == nil else { return }
+            let session = WorkoutSession.startEmpty(context: modelContext)
+            _ = session.appendExercise(config: config, context: modelContext)
+            activeSession = session
         }, orPresent: { healthStartRequest = $0 })
     }
 
@@ -2214,7 +2317,11 @@ private struct SwapInSheet: View {
     /// Routines due today — they wear the pill, everyone else shows
     /// their cadence.
     let dueIDs: Set<PersistentIdentifier>
+    /// The one-tap sports, resolved from the device-local pick list.
+    let quickStarts: [Exercise]
     let onPick: (Routine) -> Void
+    let onQuickStart: (Exercise) -> Void
+    let onEditQuickStarts: () -> Void
     let onCreate: () -> Void
     let onStartEmpty: () -> Void
 
@@ -2268,6 +2375,17 @@ private struct SwapInSheet: View {
 
     private var menu: some View {
         VStack(alignment: .leading, spacing: 10) {
+            // Straight out the door. Cardio is mostly spontaneous, so the
+            // sports you actually do lead the tray rather than sitting
+            // behind "scratch workout → picker → search".
+            if !quickStarts.isEmpty {
+                QuickStartRow(
+                    exercises: quickStarts,
+                    onPick: onQuickStart,
+                    onEdit: onEditQuickStarts
+                )
+                .padding(.bottom, 2)
+            }
             Button {
                 path.append(.picker)
             } label: {
