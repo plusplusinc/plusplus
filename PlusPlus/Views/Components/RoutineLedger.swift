@@ -13,8 +13,12 @@ struct RoutineLedgerRow: Identifiable {
     let target: [PrescriptionRun]
     /// What happened last time. Empty when this exercise has never run.
     let prev: [PrescriptionRun]
-    /// The fields that differ, for the target column's lit/dim treatment.
+    /// The fields that differ, for the target column's moved treatment.
     let changed: Set<RoutineDiff.Field>
+    /// Which way each moved field moved, on its metric's own progress axis
+    /// (2026-07-30): `.up` inks the token green, `.down` the gentle brick.
+    /// A changed neutral setting is in `changed` but absent here.
+    let directions: [RoutineDiff.Field: RoutineDiff.Direction]
     /// Added since the last run, so there is nothing to compare against.
     /// Distinct from an empty `prev` for any other reason.
     let isNew: Bool
@@ -76,16 +80,21 @@ enum RoutineLedger {
                         target: Prescription.blockRuns(target: target, profile: profile, weightUnit: weightUnit),
                         prev: [],
                         changed: [],
+                        directions: [:],
                         isNew: true
                     ))
                     continue
                 }
+                // ⚠️ `changed` and `directions` compare against the SAME
+                // prior the prev column prints — the marks must describe
+                // the two numbers actually sitting beside each other.
                 out.append(RoutineLedgerRow(
                     id: id,
                     name: exercise.name,
                     target: Prescription.blockRuns(target: target, profile: profile, weightUnit: weightUnit),
                     prev: Prescription.blockRuns(prior: prior, profile: profile, weightUnit: weightUnit),
                     changed: RoutineDiff.movedFields(target: target, prior: prior, profile: profile),
+                    directions: RoutineDiff.movedDirections(target: target, prior: prior, profile: profile),
                     isNew: false
                 ))
             }
@@ -98,6 +107,19 @@ enum RoutineLedger {
     ///
     /// Every rule here is load-bearing; see the inline notes before changing
     /// any of them.
+    ///
+    /// ⚠️ Re-examined and UPHELD 2026-07-30, so don't re-litigate it from
+    /// the same observation: Dave reported prev "showing what the targets
+    /// were, not the actual", and the mechanism is real — actual FIELDS are
+    /// read, but the summarization is plan-flavored three ways (planned
+    /// rounds; the top set by weight, where `max(by:)` resolves an all-equal
+    /// tie to the FIRST set — set 1, the set most likely to hit the
+    /// prescription, on every bodyweight or constant-load block; and
+    /// completion prefills actual := target, so only edited sets can ever
+    /// diverge). Told all of that, Dave's call was "don't change the source
+    /// of the values for the prev column": the plan-stable summary keeps a
+    /// short week from repainting Today's movers, and that quiet is worth
+    /// more than per-set fidelity in a 58 pt cell.
     static func prior(for routineExercise: RoutineExercise, in sessions: [WorkoutSession]) -> RoutineDiff.Prior? {
         let exercise = routineExercise.exercise
         let name = exercise?.name ?? ""

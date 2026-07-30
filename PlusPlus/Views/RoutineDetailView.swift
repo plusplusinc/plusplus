@@ -69,19 +69,25 @@ struct RoutineDetailView: View {
     /// run's deferred work (the clock, its completion, the delayed haptic)
     /// bows out instead of clobbering a newer one.
     @State private var landingSeq = 0
-    /// Rows track Dynamic Type: they grow with the user's setting so 17 pt+
-    /// text never clips (#82).
-    ///
-    /// ⚠️ 52 → 76 (2026-07-29) because a row now carries a two-line name
-    /// beside two lines of numbers. Rows stay UNIFORM deliberately:
-    /// `RailLayout` assumes one height and the drag, ring and drop targets
-    /// all read it, so a taller constant is the change that leaves
-    /// `RailArrangement` untouched. Per-row heights are the honest fix and
-    /// a much larger one.
-    @ScaledMetric(relativeTo: .body) private var railRowHeight: Double = 76
-    /// Matches `ExerciseRailRow`'s run columns, so a heading sits over the
-    /// column it names at every Dynamic Type size.
-    @ScaledMetric(relativeTo: .caption) private var headerColumnWidth: Double = 58
+    /// Rows size to their CONTENT (2026-07-30, Dave's pick from the design
+    /// round — the honest fix 2026-07-29 named and deferred): a one-line
+    /// name no longer pays a two-line name's slot, so the ragged gaps the
+    /// uniform 76 pt slot left between short and wrapped rows are gone.
+    /// `railRowHeights(width:ledger:)` computes each row from UIFont
+    /// metrics — pure reads, never a layout-time state write — and
+    /// `RailLayout.build(rowHeights:)` gives the gestures the same
+    /// geometry the VStack renders. This floor is the pre-2026-07-29 row
+    /// height, proven against the loop drawing and the swipe targets.
+    @ScaledMetric(relativeTo: .body) private var railRowMinHeight: Double = 52
+    /// The add-exercise terminus keeps the old uniform height — a raised
+    /// key wants air, and it is not a content row.
+    @ScaledMetric(relativeTo: .body) private var addRowHeight: Double = 76
+    /// Air under a row's text block, before the next row begins.
+    @ScaledMetric(relativeTo: .body) private var railRowBottomInset: Double = 14
+    /// ONE width for the run columns AND the pinned headings over them —
+    /// a heading and the thing it heads share their constants or they
+    /// drift the moment either is tuned (device pass, 2026-07-29).
+    @ScaledMetric(relativeTo: .caption) private var runColumnWidth: Double = 58
 
     /// How far a rail row's text sits below the row's top edge.
     @ScaledMetric(relativeTo: .body) private var railTextTopInset: Double = 9
@@ -99,7 +105,58 @@ struct RoutineDetailView: View {
         CGFloat(railTextTopInset) + UIFont.preferredFont(forTextStyle: .body).lineHeight / 2
     }
 
-    private var railMetrics: RailMetrics { RailMetrics(rowHeight: railRowHeight) }
+    /// Per-row heights in the grouped shape `RailLayout.build(rowHeights:)`
+    /// takes, computed from the same UIFont metrics the rows render with —
+    /// never measured back from layout, which would mean a state write and
+    /// the morph law. The row's shape: `textTopInset`, then the taller of
+    /// the name block (1 or 2 lines of scaled semibold body) and the ledger
+    /// block (1 or 2 caption-mono lines, seated on the name's first
+    /// baseline), then `railRowBottomInset`; floored at the proven 52.
+    ///
+    /// ⚠️ Must walk the SAME rows `railRows` renders — every
+    /// `sortedExercises` entry, nil-exercise ones included — or the gesture
+    /// layout and the VStack disagree row by row.
+    private func railRowHeights(width: Double, ledger: [String: RoutineLedgerRow]) -> [[Double]] {
+        let nameBase = UIFont.preferredFont(forTextStyle: .body)
+        let nameFont = UIFont.systemFont(ofSize: nameBase.pointSize, weight: .semibold)
+        let captionBase = UIFont.preferredFont(forTextStyle: .caption1)
+        let captionFont = UIFont.monospacedSystemFont(ofSize: captionBase.pointSize, weight: .regular)
+        // The rows stack's own paddings, then the row's fixed columns:
+        // glyph 28 + 13 spacing, two run columns each behind a 13 gap.
+        let rowWidth = width - 12 - 14
+        let baseNameWidth = rowWidth - 28 - 13 - (runColumnWidth + 13) * 2
+
+        return routine.sortedGroups.map { group in
+            group.sortedExercises.map { entry in
+                let profile = entry.exercise?.metricProfile
+                let hasClock = profile?.contains(.duration) == true
+                    && !(profile?.tracksReps ?? false)
+                let nameWidth = baseNameWidth - (hasClock ? captionFont.lineHeight + 13 : 0)
+                let name = entry.exercise?.name ?? "Unknown"
+                // Measured 2 pt narrow so a name at the exact wrap boundary
+                // counts as two lines — over-measuring costs a few points of
+                // air, under-measuring clips the second line.
+                let bounds = (name as NSString).boundingRect(
+                    with: CGSize(width: max(10, nameWidth - 2), height: .greatestFiniteMagnitude),
+                    options: [.usesLineFragmentOrigin, .usesFontLeading],
+                    attributes: [.font: nameFont],
+                    context: nil
+                )
+                let nameLines = bounds.height > nameFont.lineHeight * 1.5 ? 2.0 : 1.0
+                let row = entry.uuid.flatMap { ledger[$0.uuidString] }
+                let ledgerLines = Double(max(
+                    ExerciseRailRow.printedLines(row?.target ?? []).count,
+                    ExerciseRailRow.printedLines(row?.prev ?? []).count
+                ))
+                let nameBlock = nameLines * nameFont.lineHeight
+                // The ledger's first line seats on the name's first baseline,
+                // so its block hangs from the two fonts' ascender difference.
+                let ledgerBlock = max(0, nameFont.ascender - captionFont.ascender)
+                    + ledgerLines * captionFont.lineHeight
+                return max(railRowMinHeight, railTextTopInset + max(nameBlock, ledgerBlock) + railRowBottomInset)
+            }
+        }
+    }
 
     /// Target-vs-prev for every exercise, keyed by the row id the rail
     /// already uses.
@@ -156,7 +213,13 @@ struct RoutineDetailView: View {
     }
 
     private var detailContent: some View {
-        railList
+        // ⚠️ A PURE width read (the ScopeSegmentedControl precedent): the
+        // value goes straight into this render's row heights and is never
+        // written to state — `onScrollGeometryChange`/`PreferenceKey` here
+        // would break the search-role morph (nav-diag 4e).
+        GeometryReader { geo in
+            railList(width: geo.size.width)
+        }
         .background(Theme.background)
         // Feed the creation tip's display rule from live structure (the
         // popover attachment on the first rail row stays unconditional;
@@ -331,15 +394,12 @@ struct RoutineDetailView: View {
 
     // MARK: - Header
 
-    /// The header, now the scroll's first CONTENT rather than a fixed band
-    /// above it, and no longer carrying the name (the bar's large title does).
-    ///
-    /// ⚠️ Mid-rebuild. The settled design replaces what follows with an
-    /// estimate column on the left and a three-row spec table on the right
-    /// (`SCHEDULE` / `PAUSES` / `KIT`), where rest and transition merge into
-    /// one row and each kit piece is its own door. Reasoning and the full
-    /// spec: docs/DECISIONS.md 2026-07-29. What is below is the previous
-    /// arrangement, still standing until that lands.
+    /// The header, the scroll's first CONTENT rather than a fixed band above
+    /// it, and no longer carrying the name (the bar's large title does): the
+    /// estimate column on the left, the three-row spec table on the right
+    /// (`SCHEDULE` / `PAUSES` / `KIT`), a drawn gutter between. Reasoning
+    /// and the full spec: docs/DECISIONS.md 2026-07-29 (+ the 2026-07-30
+    /// design round: pause cells, the muscle-tag cap).
     private var header: some View {
         let meta = RoutineMeta(routine: routine, activeNames: availableEquipmentNames)
         return VStack(alignment: .leading, spacing: 0) {
@@ -412,12 +472,23 @@ struct RoutineDetailView: View {
                 .foregroundStyle(Theme.textFaint)
             let muscles = routine.muscleGroups
             if !muscles.isEmpty {
+                // Two tags + a "+N" overflow (Dave's pick, design round
+                // 2026-07-30): the 104 pt column stacks tags one per line,
+                // so an uncapped list made this column the header's tallest
+                // element. The cap bounds the tower; assistive tech gets
+                // the whole list below, so nothing is hidden from anyone
+                // who can't glance.
                 FlowLayout(spacing: 4) {
-                    ForEach(muscles, id: \.self) { group in
+                    ForEach(muscles.prefix(2), id: \.self) { group in
                         CardCapsule(text: group.displayName).view()
+                    }
+                    if muscles.count > 2 {
+                        CardCapsule(text: "+\(muscles.count - 2)").view()
                     }
                 }
                 .padding(.top, 8)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(muscles.map(\.displayName).joined(separator: ", "))
             }
         }
         .frame(width: estimateColumnWidth, alignment: .leading)
@@ -443,10 +514,18 @@ struct RoutineDetailView: View {
             // own noun, so position never has to be decoded. Merging them also
             // took `TRANSITION`, the longest label in the block, out of the
             // left edge every value was aligning against.
+            //
+            // ⚠️ Two side-by-side CELLS, noun under number (Dave's pick,
+            // design round 2026-07-30). The one-line phrase wrapped
+            // mid-phrase at the DEFAULT type size on a standard phone
+            // ("45s between / sets") — the wrap-not-truncate rule firing
+            // where it was never meant to. Stacking by design means nothing
+            // ever breaks mid-phrase, and an accessibility size wraps the
+            // noun within its cell instead of changing the row's shape.
             RoutineSpecRow(label: "pauses", action: { showingPausesTray = true }) {
-                VStack(alignment: .leading, spacing: 2) {
-                    pauseValue(RoutineMeta.restLabel(routine.restSeconds), noun: "between sets")
-                    pauseValue(RoutineMeta.restLabel(routine.transitionSeconds), noun: "between exercises")
+                HStack(alignment: .top, spacing: 16) {
+                    pauseCell(RoutineMeta.restLabel(routine.restSeconds), noun: "between sets")
+                    pauseCell(RoutineMeta.restLabel(routine.transitionSeconds), noun: "between exercises")
                 }
             }
             if !meta.gear.isEmpty {
@@ -470,18 +549,16 @@ struct RoutineDetailView: View {
             .frame(height: 1)
     }
 
-    /// One pause: the number in ink, its noun quiet beside it. The noun is
-    /// what makes a merged row readable without a legend.
-    private func pauseValue(_ value: String, noun: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 5) {
+    /// One pause cell: the number in ink, its noun quiet beneath it. The
+    /// noun is what makes the merged row readable without a legend, so it
+    /// still WRAPS rather than truncating (2026-07-29) — within its cell,
+    /// where a second line is the answer and "between exercis…" is not.
+    private func pauseCell(_ value: String, noun: String) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
             Text(value)
                 .font(.system(.footnote, design: .monospaced))
                 .foregroundStyle(Theme.textPrimary)
                 .lineLimit(1)
-            // ⚠️ The noun WRAPS rather than truncating (2026-07-29). It is
-            // what tells the two pauses apart under one label, so at an
-            // accessibility text size where it no longer fits on one line,
-            // a second line is the answer and "between exercis…" is not.
             Text(noun)
                 .font(.system(.caption2))
                 .foregroundStyle(Theme.textFaint)
@@ -507,13 +584,14 @@ struct RoutineDetailView: View {
         routine.sortedGroups.map { $0.sortedExercises.count }
     }
 
-    private var railList: some View {
+    private func railList(width: Double) -> some View {
+        let ledger = ledgerByID
+        let heights = railRowHeights(width: width, ledger: ledger)
         let sizes = groupSizes
-        let layout = RailLayout.build(groupSizes: sizes, metrics: railMetrics)
-        let offsets = rowOffsets(layout: layout, sizes: sizes)
+        let layout = RailLayout.build(rowHeights: heights)
+        let offsets = rowOffsets(heights: heights, layout: layout)
         let groups = routine.sortedGroups
         let ringGroup = activeRingGroup
-        let ledger = ledgerByID
 
         // Rows are REAL layout (a plain VStack) so the ScrollView sizes
         // and scrolls naturally — #87's below-the-fold bug came from
@@ -543,11 +621,11 @@ struct RoutineDetailView: View {
 
                 columnHeaders
 
-                railRows(groups: groups, ringGroup: ringGroup, offsets: offsets, layout: layout, sizes: sizes, ledger: ledger)
+                railRows(groups: groups, ringGroup: ringGroup, offsets: offsets, layout: layout, heights: heights, sizes: sizes, ledger: ledger)
             }
         }
         .scrollDisabled(railGesture != .idle)
-        .sensoryFeedback(.impact(weight: .light), trigger: gestureFeedbackToken)
+        .sensoryFeedback(.impact(weight: .light), trigger: gestureFeedbackToken(heights: heights))
         .sensoryFeedback(.impact(weight: .medium), trigger: landingTick)
         .onDisappear {
             railGesture = .idle
@@ -570,6 +648,7 @@ struct RoutineDetailView: View {
         ringGroup: Int?,
         offsets: [RailRowKind: Double],
         layout: RailLayout,
+        heights: [[Double]],
         sizes: [Int],
         ledger: [String: RoutineLedgerRow]
     ) -> some View {
@@ -586,22 +665,29 @@ struct RoutineDetailView: View {
             }
             .overlay(alignment: .topLeading) {
                 // The long-press layer for both #78 gestures. UIKit, not
-                // SwiftUI — see RailGestureRecognizer for the why.
+                // SwiftUI — see RailGestureRecognizer for the why. The
+                // closures capture this render's `heights`; structure never
+                // mutates while a gesture is live, so the captured geometry
+                // stays true for the gesture's whole life.
                 RailGestureRecognizer(
-                    shouldReceive: { exerciseRowExists(at: $0.y) },
-                    began: { beginRailGesture(at: $0) },
-                    moved: { moveRailGesture(to: $0) },
-                    ended: { location, cancelled in endRailGesture(at: location, cancelled: cancelled) }
+                    shouldReceive: { exerciseRowExists(at: $0.y, heights: heights) },
+                    began: { beginRailGesture(at: $0, heights: heights) },
+                    moved: { moveRailGesture(to: $0, heights: heights) },
+                    ended: { location, cancelled in endRailGesture(at: location, cancelled: cancelled, heights: heights) }
                 )
                 .frame(width: 1, height: 1)
                 .allowsHitTesting(false)
             }
-            .overlay(alignment: .topLeading) { ringHighlight(layout: layout, sizes: sizes) }
+            .overlay(alignment: .topLeading) { ringHighlight(layout: layout, heights: heights, sizes: sizes) }
             .overlay(alignment: .topLeading) { supersetLandingFX(layout: layout, sizes: sizes) }
             .overlay(alignment: .topLeading) { floatingDragPreview(layout: layout, groups: groups) }
             .animation(Theme.Anim.standard, value: offsets)
             .padding(.top, 10)
-            .padding(.leading, 20)
+            // 12, not the header's 20 (Dave, design round 2026-07-30:
+            // "the left rail should be further to the left") — the glyph
+            // column is structure, not content, so it sits nearer the edge
+            // and the name column gains the width.
+            .padding(.leading, 12)
             .padding(.trailing, 14)
             .padding(.bottom, 8)
     }
@@ -634,10 +720,21 @@ struct RoutineDetailView: View {
                 columnLabel("prev")
             }
             .padding(.top, 10)
-            .padding(.bottom, 3)
-            .padding(.leading, 20)
+            .padding(.bottom, 6)
+            .padding(.leading, 12)
             .padding(.trailing, 14)
             .background(Theme.background)
+            // The shelf's drawn edge (Dave's pick, design round 2026-07-30):
+            // rows sliding under the pinned band used to clip against an
+            // INVISIBLE line — a name vanishing mid-letter into empty air.
+            // The same hairline the spec table and the header gutter already
+            // use, its third job; full-bleed so the edge is the band's, not
+            // the labels'.
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(Theme.border)
+                    .frame(height: 1)
+            }
             .visualEffect { content, proxy in
                 content.offset(y: max(0, -proxy.frame(in: .scrollView).minY))
             }
@@ -651,7 +748,7 @@ struct RoutineDetailView: View {
             .font(.system(.caption2, design: .monospaced, weight: .semibold))
             .kerning(0.6)
             .foregroundStyle(Theme.textFaint)
-            .frame(width: headerColumnWidth, alignment: .trailing)
+            .frame(width: runColumnWidth, alignment: .trailing)
     }
 
     private var activeRingGroup: Int? {
@@ -684,7 +781,7 @@ struct RoutineDetailView: View {
                     at: CGPoint(x: 15, y: mid - 0.5)
                 )
             }
-            .frame(width: 28, height: railRowHeight)
+            .frame(width: 28, height: addRowHeight)
 
             // A button, not a passive row (#209): green creation
             // grammar on a raised key (#224 — dashes belong to
@@ -709,7 +806,7 @@ struct RoutineDetailView: View {
             .accessibilityIdentifier("addExerciseButton")
             Spacer(minLength: 0)
         }
-        .frame(height: railRowHeight)
+        .frame(height: addRowHeight)
     }
 
     /// One row: swipe-revealable content with the two long-press zones —
@@ -733,6 +830,9 @@ struct RoutineDetailView: View {
     ) -> some View {
         railRow(
             routineExercise, group: group, groupIndex: g, index: i,
+            // The row's own computed height, read back from the same layout
+            // the gestures use — one geometry, two readers.
+            height: layout.row(for: .exercise(group: g, index: i))?.height ?? railRowMinHeight,
             hideLoop: ringGroup == g,
             landing: landingParams(groupIndex: g, index: i, layout: layout, sizes: sizes),
             ledger: ledger
@@ -741,8 +841,7 @@ struct RoutineDetailView: View {
         .modifier(FirstRowSupersetTipAnchor(isFirst: g == 0 && i == 0))
     }
 
-    private func railRow(_ routineExercise: RoutineExercise, group: ExerciseGroup, groupIndex g: Int, index i: Int, hideLoop: Bool, landing: RailLandingParams, ledger: [String: RoutineLedgerRow]) -> some View {
-        let height = railRowHeight
+    private func railRow(_ routineExercise: RoutineExercise, group: ExerciseGroup, groupIndex g: Int, index i: Int, height: Double, hideLoop: Bool, landing: RailLandingParams, ledger: [String: RoutineLedgerRow]) -> some View {
         let isDragged: Bool = {
             if case .dragging(let dg, let di, _, _) = railGesture { return dg == g && di == i }
             return false
@@ -835,7 +934,8 @@ struct RoutineDetailView: View {
                 routineExercise: routineExercise,
                 role: railRole(index: i, of: group),
                 ledger: routineExercise.uuid.map { ledger[$0.uuidString] } ?? nil,
-                rowHeight: railRowHeight,
+                rowHeight: height,
+                runColumnWidth: runColumnWidth,
                 textTopInset: railTextTopInset,
                 nodeY: Double(railNodeY),
                 hideLoop: hideLoop,
@@ -876,13 +976,13 @@ struct RoutineDetailView: View {
     /// (ring spans rely on that), so an unbounded call here would make
     /// every press in the viewport — the add row, the empty space below
     /// a short list — grab the nearest row (bug hunt finding 1).
-    private func exerciseRowExists(at y: Double) -> Bool {
-        let layout = RailLayout.build(groupSizes: groupSizes, metrics: railMetrics)
+    private func exerciseRowExists(at y: Double, heights: [[Double]]) -> Bool {
+        let layout = RailLayout.build(rowHeights: heights)
         guard let last = layout.rows.last, y >= 0, y < last.maxY else { return false }
         return layout.exercise(at: y) != nil
     }
 
-    private func beginRailGesture(at location: CGPoint) {
+    private func beginRailGesture(at location: CGPoint, heights: [[Double]]) {
         let x = Double(location.x)
         let y = Double(location.y)
         guard railGesture == .idle else { return }
@@ -891,8 +991,7 @@ struct RoutineDetailView: View {
             openSwipeRow = nil
             return
         }
-        let sizes = groupSizes
-        let layout = RailLayout.build(groupSizes: sizes, metrics: railMetrics)
+        let layout = RailLayout.build(rowHeights: heights)
         // Same bound as shouldReceive: never grab from outside a row.
         guard let last = layout.rows.last, y >= 0, y < last.maxY,
               let (g, i) = layout.exercise(at: y) else { return }
@@ -910,7 +1009,7 @@ struct RoutineDetailView: View {
         }
     }
 
-    private func moveRailGesture(to location: CGPoint) {
+    private func moveRailGesture(to location: CGPoint, heights: [[Double]]) {
         let y = Double(location.y)
         switch railGesture {
         case .idle:
@@ -925,7 +1024,7 @@ struct RoutineDetailView: View {
                 // position in `span`, so this only decides which end an
                 // inward drag trims. Deferred to first movement so the
                 // pre-move highlight still reads as the whole pressed group.
-                let layout = RailLayout.build(groupSizes: groupSizes, metrics: railMetrics)
+                let layout = RailLayout.build(rowHeights: heights)
                 let pressedIndex = layout.exercise(at: pressY).map { $0.group == g ? $0.index : 0 } ?? 0
                 edge = RailRing.grabbedEdge(groupSizes: groupSizes, group: g, pressedIndex: pressedIndex)
             }
@@ -933,7 +1032,7 @@ struct RoutineDetailView: View {
         }
     }
 
-    private func endRailGesture(at location: CGPoint, cancelled: Bool) {
+    private func endRailGesture(at location: CGPoint, cancelled: Bool, heights: [[Double]]) {
         let y = Double(location.y)
         defer { railGesture = .idle }
         guard !cancelled else { return }
@@ -941,28 +1040,30 @@ struct RoutineDetailView: View {
         case .idle:
             break
         case .dragging(let g, let i, _, let grabOffset):
-            commitDrag(group: g, index: i, fingerY: y, grabOffset: grabOffset)
+            commitDrag(group: g, index: i, fingerY: y, grabOffset: grabOffset, heights: heights)
         case .ring(let g, let edge, _, _):
-            if let edge { commitRing(group: g, edge: edge, fingerY: y) }
+            if let edge { commitRing(group: g, edge: edge, fingerY: y, heights: heights) }
         }
     }
 
     /// The dragged row's tentative drop target, from the floating row's
-    /// visual center.
-    private func tentativeTarget(sizes: [Int]) -> RailDropTarget? {
+    /// visual center — the dragged row's OWN height, since rows differ now.
+    private func tentativeTarget(heights: [[Double]]) -> RailDropTarget? {
         guard case .dragging(let g, let i, let fingerY, let grabOffset) = railGesture else { return nil }
-        let centerY = fingerY - grabOffset + railRowHeight / 2
-        return RailDrag.nearestTarget(groupSizes: sizes, dragging: (group: g, index: i), fingerY: centerY, metrics: railMetrics)
+        let draggedHeight = heights.indices.contains(g) && heights[g].indices.contains(i)
+            ? heights[g][i] : railRowMinHeight
+        let centerY = fingerY - grabOffset + draggedHeight / 2
+        return RailDrag.nearestTarget(rowHeights: heights, dragging: (group: g, index: i), fingerY: centerY)
     }
 
     /// Per-row deltas from the natural layout. Empty when idle; during a
     /// drag every surviving row shifts by (previewY − idleY) and the
     /// dragged row gets no entry — it stays anchored (hidden) in place,
     /// so nothing ever flies to the top of the viewport (#87).
-    private func rowOffsets(layout: RailLayout, sizes: [Int]) -> [RailRowKind: Double] {
+    private func rowOffsets(heights: [[Double]], layout: RailLayout) -> [RailRowKind: Double] {
         guard case .dragging(let g, let i, _, _) = railGesture,
-              let target = tentativeTarget(sizes: sizes) else { return [:] }
-        let preview = RailDrag.previewPositions(groupSizes: sizes, dragging: (group: g, index: i), target: target, metrics: railMetrics)
+              let target = tentativeTarget(heights: heights) else { return [:] }
+        let preview = RailDrag.previewPositions(rowHeights: heights, dragging: (group: g, index: i), target: target)
         var offsets: [RailRowKind: Double] = [:]
         for row in layout.rows {
             if let previewY = preview[row.kind] {
@@ -974,26 +1075,25 @@ struct RoutineDetailView: View {
 
     /// Changes whenever the tentative outcome changes — drives one haptic
     /// tick per slot/row crossed.
-    private var gestureFeedbackToken: Int {
-        let sizes = groupSizes
+    private func gestureFeedbackToken(heights: [[Double]]) -> Int {
         switch railGesture {
         case .idle:
             return 0
         case .dragging:
-            return tentativeTarget(sizes: sizes)?.hashValue ?? 0
+            return tentativeTarget(heights: heights)?.hashValue ?? 0
         case .ring(let g, let edge, _, let fingerY):
             guard let edge else { return 1 }
-            let span = RailRing.span(groupSizes: sizes, group: g, edge: edge, fingerY: fingerY, metrics: railMetrics)
+            let span = RailRing.span(rowHeights: heights, group: g, edge: edge, fingerY: fingerY)
             return span.firstFlat &* 31 &+ span.lastFlat
         }
     }
 
     @ViewBuilder
-    private func ringHighlight(layout: RailLayout, sizes: [Int]) -> some View {
+    private func ringHighlight(layout: RailLayout, heights: [[Double]], sizes: [Int]) -> some View {
         if case .ring(let g, let edge, _, let fingerY) = railGesture, sizes.indices.contains(g) {
             // Before a direction is chosen (solo press, finger still) the
             // highlight spans the pressed group; after, the live span.
-            let span: RingSpan? = edge.map { RailRing.span(groupSizes: sizes, group: g, edge: $0, fingerY: fingerY, metrics: railMetrics) }
+            let span: RingSpan? = edge.map { RailRing.span(rowHeights: heights, group: g, edge: $0, fingerY: fingerY) }
             let firstFlat = span?.firstFlat ?? RailLayout.flatIndex(groupSizes: sizes, group: g, index: 0)
             let lastFlat = span?.lastFlat ?? (firstFlat + sizes[g] - 1)
             if let first = exerciseRow(layout: layout, sizes: sizes, flat: firstFlat),
@@ -1106,17 +1206,19 @@ struct RoutineDetailView: View {
         if case .dragging(let g, let i, let fingerY, let grabOffset) = railGesture,
            groups.indices.contains(g), groups[g].sortedExercises.indices.contains(i) {
             let routineExercise = groups[g].sortedExercises[i]
+            // The lifted card is the row it lifted: same (computed) height,
+            // so its spine spans the card instead of stopping short inside it.
+            let liftedHeight = layout.row(for: .exercise(group: g, index: i))?.height ?? railRowMinHeight
             ExerciseRailRow(
                 routineExercise: routineExercise,
                 role: .solo,
-                // The lifted card is the row it lifted: same height, so its
-                // spine spans the card instead of stopping short inside it.
-                rowHeight: railRowHeight,
+                rowHeight: liftedHeight,
+                runColumnWidth: runColumnWidth,
                 textTopInset: railTextTopInset,
                 nodeY: Double(railNodeY)
             )
                 .padding(.horizontal, 8)
-                .frame(height: railRowHeight)
+                .frame(height: liftedHeight)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Theme.surface, in: RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.borderStrong))
@@ -1130,11 +1232,13 @@ struct RoutineDetailView: View {
 
     // MARK: Gesture commits
 
-    private func commitDrag(group g: Int, index i: Int, fingerY: Double, grabOffset: Double) {
+    private func commitDrag(group g: Int, index i: Int, fingerY: Double, grabOffset: Double, heights: [[Double]]) {
         let sizes = groupSizes
         guard sizes.indices.contains(g), i < sizes[g] else { return }
-        let centerY = fingerY - grabOffset + railRowHeight / 2
-        guard let target = RailDrag.nearestTarget(groupSizes: sizes, dragging: (group: g, index: i), fingerY: centerY, metrics: railMetrics) else { return }
+        let draggedHeight = heights.indices.contains(g) && heights[g].indices.contains(i)
+            ? heights[g][i] : railRowMinHeight
+        let centerY = fingerY - grabOffset + draggedHeight / 2
+        guard let target = RailDrag.nearestTarget(rowHeights: heights, dragging: (group: g, index: i), fingerY: centerY) else { return }
 
         let groups = routine.sortedGroups
         guard groups.indices.contains(g), groups[g].sortedExercises.indices.contains(i) else { return }
@@ -1148,10 +1252,10 @@ struct RoutineDetailView: View {
         }
     }
 
-    private func commitRing(group g: Int, edge: RingEdge, fingerY: Double) {
+    private func commitRing(group g: Int, edge: RingEdge, fingerY: Double, heights: [[Double]]) {
         let sizes = groupSizes
         guard sizes.indices.contains(g) else { return }
-        let span = RailRing.span(groupSizes: sizes, group: g, edge: edge, fingerY: fingerY, metrics: railMetrics)
+        let span = RailRing.span(rowHeights: heights, group: g, edge: edge, fingerY: fingerY)
         guard !span.isNoOp else { return }
         let group = routine.sortedGroups[g]
 
@@ -1581,8 +1685,10 @@ private struct ExerciseRailRow: View {
     var ledger: RoutineLedgerRow?
     var rowHeight: Double = 52
     /// Sized for reps over weight on two lines; a single-line cell needs
-    /// ~90 pt and starves the name column beside the 28 pt rail.
-    @ScaledMetric(relativeTo: .caption) private var runColumnWidth: Double = 58
+    /// ~90 pt and starves the name column beside the 28 pt rail. The
+    /// SCREEN's scaled value, passed in — the height computation and the
+    /// pinned headings read the same number (2026-07-30).
+    var runColumnWidth: Double = 58
     /// How far the row's text sits below its top edge, and the node's centre
     /// measured from the same edge. Both are the SCREEN's, passed in, because
     /// the superset landing FX place their band and spark against these same
@@ -1617,15 +1723,18 @@ private struct ExerciseRailRow: View {
     /// be read across. Splitting at the load separator — and dropping it, the
     /// line break now says what it said — makes both columns break at the same
     /// place on every row.
-    private func runColumn(_ runs: [PrescriptionRun], changed: Set<RoutineDiff.Field>, lit: Bool, placeholder: String? = nil) -> some View {
+    private func runColumn(_ runs: [PrescriptionRun], changed: Set<RoutineDiff.Field>, directions: [RoutineDiff.Field: RoutineDiff.Direction], lit: Bool) -> some View {
         VStack(alignment: .trailing, spacing: 0) {
             if runs.isEmpty {
-                Text(placeholder ?? "—").foregroundStyle(Theme.textFaint)
+                // A bare dash for every empty cell, "new" included (Dave's
+                // pick, design round 2026-07-30) — the placeholder glyph,
+                // not a word doing a caption's job.
+                Text("—").foregroundStyle(Theme.textFaint)
             } else {
-                let lines = printedLines(runs)
+                let lines = Self.printedLines(runs)
                 ForEach(lines.indices, id: \.self) { index in
                     lines[index].reduce(Text("")) { result, run in
-                        result + Text(run.text).foregroundStyle(ink(run, changed: changed, lit: lit))
+                        result + Text(run.text).foregroundStyle(ink(run, changed: changed, directions: directions, lit: lit))
                     }
                     .lineLimit(1)
                     // The one shape that overruns 58 pt is a cardio block with
@@ -1642,21 +1751,34 @@ private struct ExerciseRailRow: View {
     /// The fragments split into the lines the cell prints, at the load
     /// separator (" @ "), which the break replaces. Everything else is one
     /// line — a cardio block's "4× 500 m" has nothing to separate.
-    private func printedLines(_ runs: [PrescriptionRun]) -> [[PrescriptionRun]] {
+    /// Static so the screen's row-height computation counts the same lines
+    /// this cell prints.
+    static func printedLines(_ runs: [PrescriptionRun]) -> [[PrescriptionRun]] {
         guard let split = runs.firstIndex(where: { $0.field == nil && $0.text.contains("@") }) else {
             return [runs]
         }
         return [Array(runs[..<split]), Array(runs[(split + 1)...])]
     }
 
-    /// The target column dims what held and lights what moved; prev is one
+    /// The target column dims what held and marks what moved — with
+    /// DIRECTION since 2026-07-30: an ask above the printed prev in the
+    /// data green, below it in the gentle brick (Dave: "decrease is not a
+    /// problem"). A changed neutral setting stays plain bright. Prev is one
     /// flat brightness throughout, because it is the thing being compared
-    /// against rather than the thing being read. A separator fragment belongs
-    /// to no field and is never emphasized.
-    private func ink(_ run: PrescriptionRun, changed: Set<RoutineDiff.Field>, lit: Bool) -> Color {
+    /// against rather than the thing being read. A separator fragment
+    /// belongs to no field and is never emphasized.
+    ///
+    /// ⚠️ Kept in step with `DiffLedger.ink` by hand — the two surfaces
+    /// print the same producer's rows and must agree on what a moved token
+    /// wears.
+    private func ink(_ run: PrescriptionRun, changed: Set<RoutineDiff.Field>, directions: [RoutineDiff.Field: RoutineDiff.Direction], lit: Bool) -> Color {
         guard lit else { return Theme.textSecondary }
-        let moved = run.field.map(changed.contains) ?? false
-        return moved ? Theme.textPrimary : Theme.textFaint
+        guard let field = run.field, changed.contains(field) else { return Theme.textFaint }
+        return switch directions[field] {
+        case .up: Theme.increaseInk
+        case .down: Theme.decreaseInk
+        case nil: Theme.textPrimary
+        }
     }
 
     var body: some View {
@@ -1720,8 +1842,8 @@ private struct ExerciseRailRow: View {
                 //
                 // ⚠️ Two lines per cell. A single-line cell needs ~90 pt,
                 // which starves the name column; reps over load fits in 58.
-                runColumn(ledger?.target ?? [], changed: ledger?.changed ?? [], lit: true)
-                runColumn(ledger?.prev ?? [], changed: [], lit: false, placeholder: ledger?.isNew == true ? "new" : "—")
+                runColumn(ledger?.target ?? [], changed: ledger?.changed ?? [], directions: ledger?.directions ?? [:], lit: true)
+                runColumn(ledger?.prev ?? [], changed: [], directions: [:], lit: false)
             }
             .padding(.top, textTopInset)
         }

@@ -1203,14 +1203,10 @@ struct TodayView: View {
         return (dates.first, dates.count > 1 ? dates[1] : nil)
     }
 
-    /// The last time each staged exercise was actually performed —
-    /// newest finished session containing it, represented by its TOP
-    /// set (heaviest completed weight) with THAT set's reps: weight and
-    /// reps must come from the same set or the delta describes a set
-    /// that never happened (bug hunt). Duration takes the last set.
-    /// How this exercise last actually went. The rules live in
-    /// `RoutineLedger` now (2026-07-29) so routine detail's rail reads the
-    /// same "last time" this card does.
+    /// The last time each staged exercise was performed, summarized
+    /// plan-stably. The rules live in `RoutineLedger` (2026-07-29; upheld
+    /// 2026-07-30) so routine detail's rail reads the same "last time" this
+    /// card does.
     private func prior(for routineExercise: RoutineExercise) -> RoutineDiff.Prior? {
         RoutineLedger.prior(for: routineExercise, in: sessions)
     }
@@ -1314,6 +1310,7 @@ struct TodayView: View {
                 target: Prescription.blockRuns(target: item.target, profile: item.profile, weightUnit: weightUnit),
                 prev: Prescription.blockRuns(prior: prior, profile: item.profile, weightUnit: weightUnit),
                 changed: moved,
+                directions: RoutineDiff.movedDirections(target: item.target, prior: prior, profile: item.profile),
                 isNew: false
             ))
         }
@@ -1325,6 +1322,7 @@ struct TodayView: View {
     /// render a half-empty comparison.
     private func metricRows(_ item: LedgerEntry, prior: RoutineDiff.Prior) -> [DiffLedgerRow] {
         let moved = RoutineDiff.movedFields(target: item.target, prior: prior, profile: item.profile)
+        let directions = RoutineDiff.movedDirections(target: item.target, prior: prior, profile: item.profile)
         let fields: [RoutineDiff.Field] = [.sets] + item.profile.metrics.map { .metric($0) }
         return fields.filter(moved.contains).compactMap { field -> DiffLedgerRow? in
             guard let staged = item.target.value(for: field),
@@ -1348,6 +1346,7 @@ struct TodayView: View {
                 target: runs(staged, repsUpper: item.target.repsUpper),
                 prev: runs(last, repsUpper: nil),
                 changed: moved,
+                directions: directions,
                 isNew: false
             )
         }

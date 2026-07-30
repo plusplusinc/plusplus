@@ -480,6 +480,11 @@ reasoning in docs/DECISIONS.md, 2026-07-07 → 2026-07-10 entries):
 - **No obligation vocabulary** ("due" is banned) and **anti-shame**:
   regressions render neutral, diffs sum positive movement only, no
   out-of-band warnings.
+  ⚠️ Scoped, not repealed, by the ledger movement inks (2026-07-30): a
+  TARGET printed beside the prev it differs from wears direction —
+  `Theme.increaseInk` green / `Theme.decreaseInk` gentle brick (Dave:
+  "decrease is not a problem") — marking the PLAN's movement against the
+  performance, never the performance itself, and never a bare signed number.
 - **No em dashes in user-facing copy** (Dave, 2026-07-10): rewrite the
   sentence (split it, or use "·" separators) instead. A bare "—" standing
   in for a missing value is a placeholder glyph, not prose, and stays.
