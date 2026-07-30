@@ -36,12 +36,39 @@ public extension SessionModality {
         // Cardio we can measure but cannot name — a ski erg, an unlabelled
         // console. `.mixedCardio` is the honest bucket and still earns
         // rings, where `.other` would not.
-        case .cardio: return .mixedCardio
+        //
+        // ⚠️ Except outdoors: an equipment-free GPS effort that reached
+        // here is a run or a walk whose catalog row forgot to say so, and
+        // `.running` is a far better guess than Mixed Cardio for a
+        // workout arriving with a route attached. Belt and braces — the
+        // catalog authors Running and Walking, and this catches the next
+        // row that doesn't.
+        case .cardio: return isOutdoor ? .running : .mixedCardio
         }
     }
 
     var healthLocationType: HKWorkoutSessionLocationType {
         isOutdoor ? .outdoor : .indoor
+    }
+
+    /// The distance quantity this sport actually accrues.
+    ///
+    /// ⚠️ Not always `.distanceWalkingRunning`. An outdoor ride collects
+    /// `.distanceCycling` and a swim `.distanceSwimming`; asking for the
+    /// walking/running type on a bike gets you a number that does not
+    /// move. This only mattered once outdoor stopped meaning "a run" —
+    /// before, the single caller was gated to all-outdoor plans, which in
+    /// practice were runs.
+    var healthDistanceType: HKQuantityType? {
+        switch primary {
+        case .running, .walking, .hiking: HKQuantityType(.distanceWalkingRunning)
+        case .cycling: HKQuantityType(.distanceCycling)
+        case .swimming: HKQuantityType(.distanceSwimming)
+        // Mixed, and the console families, accrue nothing the phone or
+        // wrist can attribute to one sport.
+        case .cardio, .rowing, .elliptical, .stairClimbing, .jumpRope,
+             .strength, .flexibility: nil
+        }
     }
 
     /// The configuration a live session or a retrospective builder is

@@ -388,7 +388,7 @@ struct WorkoutRunView: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.title3)
                 .foregroundStyle(WatchTheme.done)
-            Text("\(results.count) sets logged")
+            Text("\(results.count) \(results.count == 1 ? (results.first?.step.workUnit?.singular ?? "set") : (results.first?.step.workUnit?.plural ?? "sets")) logged")
                 .font(.system(.footnote, design: .monospaced))
                 .foregroundStyle(.secondary)
             Text("Synced to your iPhone.")

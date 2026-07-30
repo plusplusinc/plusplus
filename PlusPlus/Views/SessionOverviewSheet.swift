@@ -188,7 +188,7 @@ struct SessionOverviewSheet: View {
             // is completion vocabulary and this session hasn't started.
             return session.sortedSetLogs.isEmpty ? "nothing added yet" : "done"
         }
-        return "\(current.exerciseName) · set \(current.setNumber)"
+        return current.caption
     }
 
     /// A block's status in the running session, driving its row color:
@@ -716,7 +716,7 @@ struct SessionExerciseSheet: View {
 
     private func setResult(_ log: SetLog, isCurrent: Bool) -> String {
         if log.isCompleted { return log.resultSummary(weightUnit: weightUnit) }
-        if isCurrent { return "current set" }
+        if isCurrent { return "current \(blockUnit.singular)" }
         return "pending"
     }
 

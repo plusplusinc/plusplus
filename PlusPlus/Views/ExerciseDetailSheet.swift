@@ -124,7 +124,7 @@ struct ExerciseDetailSheet: View {
                             Image(systemName: "square.on.square")
                                 .font(.system(.caption))
                                 .foregroundStyle(Theme.textSecondary)
-                            Text("The count applies to the whole superset. One round runs every exercise once.")
+                            Text("The count applies to the whole superset. Each time through runs every exercise once.")
                                 .font(.system(.caption))
                                 .foregroundStyle(Theme.textSecondary)
                         }

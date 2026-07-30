@@ -63,6 +63,34 @@ struct ExerciseModalityTests {
         #expect(!ExerciseModality.flexibility.isCardio)
     }
 
+    @Test("Cross-cardio swaps keep partial credit after the family split")
+    func similarityPartialCredit() {
+        // Splitting `.cardio` into named families made an elliptical score
+        // ZERO against a treadmill run — the same as a burpee — because a
+        // straight equality test has no middle. It is a substitution
+        // ranker; an elliptical is a far better answer than a barbell.
+        #expect(ExerciseSimilarity.modalityScore(.running, .running) == 1.0)
+        #expect(ExerciseSimilarity.modalityScore(.elliptical, .running) == 0.5)
+        #expect(ExerciseSimilarity.modalityScore(.rowing, .cycling) == 0.5)
+        #expect(ExerciseSimilarity.modalityScore(.strength, .running) == 0.0)
+        #expect(ExerciseSimilarity.modalityScore(.strength, .flexibility) == 0.5)
+    }
+
+    @Test("An outdoor effort we could not name still beats Mixed Cardio")
+    func outdoorFallback() {
+        // Belt and braces for a future catalog row that forgets to author
+        // its modality: a workout arriving with a GPS route is a run, not
+        // an unlabelled console piece.
+        let outdoor = SessionModality(primary: .cardio, isMixed: false, isOutdoor: true)
+        let indoor = SessionModality(primary: .cardio, isMixed: false, isOutdoor: false)
+        #expect(outdoor.primary == .cardio)
+        #expect(indoor.primary == .cardio)
+        // The mapping itself is HealthKit-only, so assert the input the
+        // map keys on rather than the HK type (unavailable on Linux).
+        #expect(outdoor.isOutdoor)
+        #expect(!indoor.isOutdoor)
+    }
+
     @Test("Every family carries search terms and a display name")
     func metadata() {
         let allLabelled = ExerciseModality.allCases.allSatisfy {

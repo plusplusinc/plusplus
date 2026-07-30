@@ -54,8 +54,8 @@ public struct SessionModality: Equatable, Sendable {
         // Mobility work never renames a session: a hamstring stretch at
         // the end of a lifting day does not make it a mobility workout,
         // and on its own it files as strength, which is what it did before.
-        let counted = legs.filter { $0.modality != .flexibility }
-        let considered = counted.isEmpty ? legs : counted
+        let nonFlexibility = legs.filter { $0.modality != .flexibility }
+        let considered = nonFlexibility.isEmpty ? legs : nonFlexibility
 
         let cardio = considered.filter { $0.modality.isCardio }
         let hasStrength = considered.contains { !$0.modality.isCardio }

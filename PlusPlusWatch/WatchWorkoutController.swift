@@ -53,6 +53,9 @@ final class WatchWorkoutController: NSObject, HKLiveWorkoutBuilderDelegate {
     /// distance — we don't consume fixes ourselves, the workout does.
     private let locationManager = CLLocationManager()
     private var paceMeter: LivePaceMeter?
+    /// Which distance quantity this session accrues — cycling distance on
+    /// a ride, walking/running on a run. nil when nothing is collected.
+    private var collectedDistanceType: HKQuantityType?
     private var sessionStart: Date?
 
     /// Request authorization (first run only — the system remembers) and
@@ -77,9 +80,13 @@ final class WatchWorkoutController: NSObject, HKLiveWorkoutBuilderDelegate {
             HKQuantityType(.activeEnergyBurned),
             HKQuantityType(.heartRate),
         ]
-        if modality.isOutdoor {
-            share.insert(HKQuantityType(.distanceWalkingRunning))
-            read.insert(HKQuantityType(.distanceWalkingRunning))
+        // ⚠️ The quantity follows the SPORT: a ride accrues
+        // `.distanceCycling`, not walking/running distance. Outdoor used
+        // to mean "a run" in practice, so one hardcoded type sufficed.
+        if modality.isOutdoor, let distanceType = modality.healthDistanceType {
+            share.insert(distanceType)
+            read.insert(distanceType)
+            collectedDistanceType = distanceType
             paceMeter = LivePaceMeter(unit: unit)
             // GPS distance needs location authorization; the workout
             // consumes the fixes, we just hold the grant.
@@ -156,7 +163,7 @@ final class WatchWorkoutController: NSObject, HKLiveWorkoutBuilderDelegate {
 
         // Outdoor run: feed HealthKit's fused cumulative distance into the
         // pace meter (better than raw CLLocation — it blends GPS + motion).
-        let distanceType = HKQuantityType(.distanceWalkingRunning)
+        guard let distanceType = collectedDistanceType else { return }
         if paceMeter != nil, collectedTypes.contains(distanceType),
            let statistics = workoutBuilder.statistics(for: distanceType),
            let meters = statistics.sumQuantity()?.doubleValue(for: .meter()),

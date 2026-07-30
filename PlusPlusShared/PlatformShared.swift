@@ -66,10 +66,11 @@ struct WorkoutActivityAttributes: ActivityAttributes {
                 : exerciseName
         }
 
-        /// "PIECE 3" over the island's leading region; the routine's own
-        /// kicker when there is only one unit of work to name.
-        var unitKicker: String {
-            totalSets > 1 ? "\(unitNoun.uppercased()) \(setNumber)" : "WORKING"
+        /// "PIECE 3" over the island's leading region. nil on a single
+        /// continuous effort, where the exercise name below already says
+        /// everything true and a count of one says nothing.
+        var unitKicker: String? {
+            totalSets > 1 ? "\(unitNoun.uppercased()) \(setNumber)" : nil
         }
     }
 

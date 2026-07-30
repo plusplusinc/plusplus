@@ -117,7 +117,12 @@ public enum CardioTargets {
         profile: MetricProfile,
         stored: (WorkoutMetric) -> Double?
     ) -> Int? {
-        if let duration = stored(.duration), duration > 0 {
+        // ⚠️ The profile gate is load-bearing: `RoutineExercise.target`
+        // returns the raw durationSeconds column whatever the profile
+        // tracks, so a hand-authored program file with a stray
+        // `durationSeconds` on a bench-press entry would otherwise charge
+        // that instead of the per-set estimate.
+        if profile.contains(.duration), let duration = stored(.duration), duration > 0 {
             return Int(duration.rounded())
         }
         guard profile.contains(.distance), profile.contains(.pace) else { return nil }

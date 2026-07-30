@@ -1711,7 +1711,8 @@ private struct SetLoggingView: View {
                     // SETS. It is absent entirely on a single continuous
                     // effort, so a steady ride never claims a second one
                     // is coming.
-                    if let kicker = WorkUnit.kicker(log.workUnit, index: log.setNumber, total: setsTotal) {
+                    let kicker = WorkUnit.kicker(log.workUnit, index: log.setNumber, total: setsTotal)
+                    if let kicker {
                         Text(kicker)
                             .foregroundStyle(Theme.accent)
                             .font(.system(.footnote, design: .monospaced, weight: .semibold))
@@ -1723,7 +1724,7 @@ private struct SetLoggingView: View {
                         .font(.system(.title, weight: .bold))
                         // The name carries the top margin itself when no
                         // kicker sits above it.
-                        .padding(.top, WorkUnit.kicker(log.workUnit, index: log.setNumber, total: setsTotal) == nil ? 20 : 6)
+                        .padding(.top, kicker == nil ? 20 : 6)
 
                     // What comes after this set: a superset partner, or
                     // the exercise after this block, with its prescription.
@@ -1745,9 +1746,9 @@ private struct SetLoggingView: View {
                     // Weight/reps sets carry target + prev INSIDE the
                     // value cards now (mock 08); this line survives
                     // only for duration-driven sets, which have no cards.
-                    if driver == .duration {
+                    if driver == .duration, targetDescription != nil || lastTime != nil {
                         HStack(spacing: 12) {
-                            Text(targetDescription)
+                            if let targetDescription { Text(targetDescription) }
                             if let lastTime {
                                 (Text("prev: ").foregroundStyle(Theme.textSecondary)
                                     + Text(lastTime.resultSummary(weightUnit: weightUnit))
@@ -2051,14 +2052,16 @@ private struct SetLoggingView: View {
         .padding(.bottom, 12)
     }
 
-    private var targetDescription: String {
+    private var targetDescription: String? {
         guard let line = MetricSummary.line(
             profile: profile,
             weightUnit: weightUnit,
             repsText: log.targetReps.lower != nil ? log.targetReps.display : nil,
             value: { log.target($0) }
         ) else {
-            return WorkUnit.inline(log.workUnit, index: log.setNumber, total: setsTotal) ?? log.exerciseName
+            // Nothing prescribed. The position is worth stating; the
+            // exercise name is not — it is four lines up in .title bold.
+            return WorkUnit.inline(log.workUnit, index: log.setNumber, total: setsTotal)
         }
         return "target \(line)"
     }

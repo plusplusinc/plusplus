@@ -28,7 +28,10 @@ struct SessionRow: View {
 
     private var subtitle: String {
         var parts = [session.startedAt.formatted(.dateTime.month(.abbreviated).day())]
-        let unit = session.modality.primary.workUnit ?? .set
+        // The FIRST log's unit, not the whole session's: `session.modality`
+        // walks every set's equipment relationship, and this runs on every
+        // body pass of every row in the list.
+        let unit = session.sortedSetLogs.first?.workUnit ?? .set
         parts.append(unit.counted(session.completedSetLogs.count))
         if let duration = session.duration {
             parts.append(Self.durationText(duration))
@@ -277,7 +280,7 @@ struct SessionDetailView: View {
 
     private var subtitle: String {
         var parts = [session.startedAt.formatted(.dateTime.month(.abbreviated).day())]
-        parts.append((session.modality.primary.workUnit ?? .set).counted(session.completedSetLogs.count))
+        parts.append((session.sortedSetLogs.first?.workUnit ?? .set).counted(session.completedSetLogs.count))
         if let duration = session.duration {
             parts.append(SessionRow.durationText(duration))
         }

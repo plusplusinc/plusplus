@@ -28,6 +28,11 @@ public struct WorkUnit: Equatable, Sendable {
     public static let rep = WorkUnit(singular: "rep", plural: "reps")
     public static let piece = WorkUnit(singular: "piece", plural: "pieces")
     public static let effort = WorkUnit(singular: "effort", plural: "efforts")
+    /// Boxing's word, and the one place it IS native: a jump-rope or bag
+    /// bout is a round. Deliberately not `.rep` — "Reps: 3" on a
+    /// 3 × 60 s skipping block reads as three skips, colliding with the
+    /// meaning reps carry everywhere else in the app.
+    public static let round = WorkUnit(singular: "round", plural: "rounds")
 
     /// `n` of them, pluralized: "1 set", "4 pieces".
     public func counted(_ count: Int) -> String {
@@ -61,7 +66,8 @@ public extension ExerciseModality {
         switch self {
         case .strength, .flexibility: .set
         case .rowing: .piece
-        case .running, .swimming, .jumpRope: .rep
+        case .running, .swimming: .rep
+        case .jumpRope: .round
         case .cycling, .elliptical, .stairClimbing, .cardio: .effort
         // A walk is a walk. Nobody does eight of them.
         case .walking, .hiking: nil

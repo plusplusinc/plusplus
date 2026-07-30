@@ -748,10 +748,15 @@ enum SeedData {
             // the Bicycle, whose declared profile derives the same
             // [distance, duration, speed] the old explicit override
             // spelled out. Running/Walking stay genuinely equipment-free.
+            // ⚠️ Modality is AUTHORED on these two. Running and Walking
+            // are equipment-free and metrically identical, so derivation
+            // cannot tell them apart and lands both on generic `.cardio`
+            // — which would file every GPS run in Health as Mixed Cardio
+            // instead of Running. The catalog knows; derivation can't.
             e("Running", .fullBody, [], .duration,
-              also: [.quads, .calves], metrics: MetricProfile([.distance, .duration, .pace], distanceUnit: .miles, isOutdoor: true), sets: 1),
+              also: [.quads, .calves], metrics: MetricProfile([.distance, .duration, .pace], distanceUnit: .miles, isOutdoor: true), sets: 1, modality: .running),
             e("Walking", .fullBody, [], .duration,
-              metrics: MetricProfile([.distance, .duration, .pace], distanceUnit: .miles, isOutdoor: true), sets: 1),
+              metrics: MetricProfile([.distance, .duration, .pace], distanceUnit: .miles, isOutdoor: true), sets: 1, modality: .walking),
             e("Cycling", .fullBody, ["Bicycle"], .duration, also: [.quads], sets: 1),
 
             // #235: every equipment type gates at least one exercise —
