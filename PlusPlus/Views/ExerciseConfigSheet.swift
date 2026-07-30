@@ -29,6 +29,9 @@ struct ExerciseConfigSheet: View {
     private var exercise: Exercise { config.exercise }
     private var profile: MetricProfile { config.profile }
 
+    /// What this block counts in, for the stepper label.
+    private var blockUnit: WorkUnit { exercise.modality.workUnit ?? .set }
+
     var body: some View {
         VStack(spacing: 0) {
             Capsule()
@@ -176,7 +179,7 @@ struct ExerciseConfigSheet: View {
                 heartRateTargetRow
             }
             MetricStepperRow(
-                label: "Sets",
+                label: blockUnit.plural.capitalized,
                 value: "\(config.sets)",
                 identifier: "cfgSets",
                 onTapValue: nil,

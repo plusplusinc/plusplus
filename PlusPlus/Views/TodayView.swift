@@ -1612,8 +1612,8 @@ struct TodayView: View {
 
     private func committedSubtitle(_ session: WorkoutSession) -> String {
         var parts = [session.startedAt.formatted(.dateTime.month(.abbreviated).day()).lowercased()]
-        let sets = session.completedSetLogs.count
-        parts.append("\(sets) \(sets == 1 ? "set" : "sets")")
+        let unit = session.sortedSetLogs.first?.workUnit ?? .set
+        parts.append(unit.counted(session.completedSetLogs.count))
         if let duration = session.duration {
             let minutes = Int(duration / 60)
             parts.append(minutes < 1 ? "<1 min" : "\(minutes) min")

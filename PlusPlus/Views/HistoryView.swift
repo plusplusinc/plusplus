@@ -28,8 +28,11 @@ struct SessionRow: View {
 
     private var subtitle: String {
         var parts = [session.startedAt.formatted(.dateTime.month(.abbreviated).day())]
-        let sets = session.completedSetLogs.count
-        parts.append("\(sets) \(sets == 1 ? "set" : "sets")")
+        // The FIRST log's unit, not the whole session's: `session.modality`
+        // walks every set's equipment relationship, and this runs on every
+        // body pass of every row in the list.
+        let unit = session.sortedSetLogs.first?.workUnit ?? .set
+        parts.append(unit.counted(session.completedSetLogs.count))
         if let duration = session.duration {
             parts.append(Self.durationText(duration))
         }
@@ -196,7 +199,7 @@ struct SessionDetailView: View {
                             }
                             ForEach(Array(block.sets.enumerated()), id: \.offset) { _, log in
                                 HStack {
-                                    Text("Set \(log.setNumber)")
+                                    Text("\((log.workUnit ?? .set).singular.capitalized) \(log.setNumber)")
                                         .font(.system(.caption))
                                         .foregroundStyle(log.isCompleted ? Theme.textSecondary : Theme.textFaint)
                                     Spacer()
@@ -277,7 +280,7 @@ struct SessionDetailView: View {
 
     private var subtitle: String {
         var parts = [session.startedAt.formatted(.dateTime.month(.abbreviated).day())]
-        parts.append("\(session.completedSetLogs.count) sets")
+        parts.append((session.sortedSetLogs.first?.workUnit ?? .set).counted(session.completedSetLogs.count))
         if let duration = session.duration {
             parts.append(SessionRow.durationText(duration))
         }

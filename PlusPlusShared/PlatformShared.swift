@@ -48,6 +48,30 @@ struct WorkoutActivityAttributes: ActivityAttributes {
         /// exercise or block up next (#369) — so the label says SWITCH
         /// instead of REST. Additive optional; absent reads as rest.
         var isTransition: Bool? = nil
+        /// The noun this workout counts its work in — "set", "piece",
+        /// "rep", "effort". Additive optional; absent reads as "set",
+        /// which is what the island said before it could tell a rower
+        /// from a bench press.
+        var workUnit: String? = nil
+
+        /// The noun to render, defaulting to what the island said before
+        /// it could tell a rower from a bench press.
+        var unitNoun: String { workUnit ?? "set" }
+
+        /// "Rowing · piece 3", or a bare exercise name where the sport
+        /// counts nothing (a walk) or there is only one of them.
+        var positionLine: String {
+            totalSets > 1
+                ? "\(exerciseName) · \(unitNoun) \(setNumber)"
+                : exerciseName
+        }
+
+        /// "PIECE 3" over the island's leading region. nil on a single
+        /// continuous effort, where the exercise name below already says
+        /// everything true and a count of one says nothing.
+        var unitKicker: String? {
+            totalSets > 1 ? "\(unitNoun.uppercased()) \(setNumber)" : nil
+        }
     }
 
     /// Fixed for the activity's life: the routine being performed.

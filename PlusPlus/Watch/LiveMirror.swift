@@ -155,7 +155,8 @@ final class LiveMirror {
                 extraTargets: MetricValues.toRaw(extras),
                 distanceUnit: extras.isEmpty ? nil : profile.distanceUnit,
                 restSecondsOverride: log.restSecondsOverride,
-                isOutdoor: profile.isOutdoor ? true : nil
+                isOutdoor: profile.isOutdoor ? true : nil,
+                modality: log.modality
             )
         }
     }

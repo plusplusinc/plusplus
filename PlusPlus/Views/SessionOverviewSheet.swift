@@ -188,7 +188,7 @@ struct SessionOverviewSheet: View {
             // is completion vocabulary and this session hasn't started.
             return session.sortedSetLogs.isEmpty ? "nothing added yet" : "done"
         }
-        return "\(current.exerciseName) · set \(current.setNumber)"
+        return current.caption
     }
 
     /// A block's status in the running session, driving its row color:
@@ -295,7 +295,8 @@ struct SessionOverviewSheet: View {
     private func subText(for block: Block, isLive: Bool) -> String {
         let done = block.logs.filter(\.isCompleted)
         if isLive, let current = session.currentLog {
-            return "live · \(current.driver == .reps ? "set" : "round") \(current.setNumber)/\(block.logs.count)"
+            guard let unit = current.workUnit, block.logs.count > 1 else { return "live" }
+            return "live · \(unit.singular) \(current.setNumber)/\(block.logs.count)"
         }
         if !done.isEmpty {
             return done.map { resultFragment($0) }.joined(separator: " · ")
@@ -354,6 +355,12 @@ struct SessionExerciseSheet: View {
     }
 
     private var pending: [SetLog] { logs.filter { !$0.isCompleted } }
+
+    /// What this block counts in — pieces on an erg, reps on the track,
+    /// sets in the rack. Falls back to "set" for the sports that count
+    /// nothing (a walk), because this sheet's rows and its stepper still
+    /// need a word even where the live screen shows none.
+    private var blockUnit: WorkUnit { logs.first?.workUnit ?? .set }
     private var isLive: Bool {
         session.currentLog.map { current in logs.contains { $0.order == current.order } } ?? false
     }
@@ -424,13 +431,13 @@ struct SessionExerciseSheet: View {
                         SheetSectionLabel("TARGETS")
                             .padding(.top, 14)
                         targetEditor
-                        Text("Edits apply to the remaining sets")
+                        Text("Edits apply to the remaining \(blockUnit.plural)")
                             .font(.system(.caption2))
                             .foregroundStyle(Theme.textFaint)
                             .padding(.top, 5)
                     }
 
-                    SheetSectionLabel("SETS")
+                    SheetSectionLabel(blockUnit.plural.uppercased())
                         .padding(.top, 14)
                     setRows
 
@@ -572,8 +579,8 @@ struct SessionExerciseSheet: View {
                 dismiss()
             })
         }
-        .confirmationDialog("Remove the remaining sets?", isPresented: $confirmingRemove, titleVisibility: .visible) {
-            Button("Remove \(pending.count) pending set\(pending.count == 1 ? "" : "s")", role: .destructive) {
+        .confirmationDialog("Remove the remaining \(blockUnit.plural)?", isPresented: $confirmingRemove, titleVisibility: .visible) {
+            Button("Remove \(pending.count) pending \(pending.count == 1 ? blockUnit.singular : blockUnit.plural)", role: .destructive) {
                 session.removePendingBlock(
                     groupIndex: block.groupIndex,
                     exerciseName: block.name,
@@ -583,13 +590,13 @@ struct SessionExerciseSheet: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Done sets stay in the record.")
+            Text("Whatever you finished stays in the record.")
         }
     }
 
     private var statusText: String {
         if isLive, let current = session.currentLog {
-            return "LIVE · \(current.driver == .reps ? "SET" : "ROUND") \(current.setNumber) OF \(logs.count)"
+            return WorkUnit.kicker(current.workUnit, index: current.setNumber, total: logs.count).map { "LIVE · \($0)" } ?? "LIVE"
         }
         return logs.allSatisfy(\.isCompleted) ? "DONE" : "UPCOMING"
     }
@@ -605,7 +612,7 @@ struct SessionExerciseSheet: View {
             // pending sets (completed sets and the live set are never
             // removed). The set count is a structural fact, so it leads.
             MetricStepperRow(
-                label: "Sets",
+                label: blockUnit.plural.capitalized,
                 value: "\(logs.count)",
                 identifier: "sxSets",
                 onTapValue: nil,
@@ -677,7 +684,7 @@ struct SessionExerciseSheet: View {
             ForEach(Array(logs.enumerated()), id: \.offset) { _, log in
                 let isCurrent = session.currentLog?.order == log.order
                 HStack(spacing: 10) {
-                    Text("Set \(log.setNumber)")
+                    Text("\(blockUnit.singular.capitalized) \(log.setNumber)")
                         .font(.system(.footnote))
                         .foregroundStyle(Theme.textSecondary)
                         .frame(width: 44, alignment: .leading)
@@ -709,7 +716,7 @@ struct SessionExerciseSheet: View {
 
     private func setResult(_ log: SetLog, isCurrent: Bool) -> String {
         if log.isCompleted { return log.resultSummary(weightUnit: weightUnit) }
-        if isCurrent { return "current set" }
+        if isCurrent { return "current \(blockUnit.singular)" }
         return "pending"
     }
 

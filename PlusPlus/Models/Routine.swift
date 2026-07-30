@@ -141,10 +141,7 @@ final class Routine {
             let rounds = max(group.sets, 1)
             let groupRest = group.restSecondsOverride ?? restSeconds
             for entry in group.sortedExercises {
-                let perSet = entry.exercise?.exerciseType == .duration
-                    ? (entry.durationSeconds ?? 45)
-                    : 45
-                work += perSet * rounds
+                work += Self.workSeconds(for: entry) * rounds
             }
             // Superset partners hand off within the round; each new round
             // of the block is the rest.
@@ -155,6 +152,29 @@ final class Routine {
         pauses += max(0, populated.count - 1) * transitionSeconds
         return work + pauses
     }
+
+    /// Seconds of WORK one round of an entry takes.
+    ///
+    /// A stored duration is the honest answer. Failing that, a cardio
+    /// prescription that states a distance and a pace can be multiplied
+    /// out — a five-mile run at 9:00 is forty-five minutes, and reading
+    /// "45 seconds" (the flat per-set charge this used to apply to
+    /// anything non-duration) was the single most visible lie the app
+    /// told about cardio. An open-ended effort still falls back to the
+    /// 45 s charge, because nothing better is knowable and the estimate
+    /// is bucketed to five minutes anyway.
+    private static func workSeconds(for entry: RoutineExercise) -> Int {
+        guard let exercise = entry.exercise else { return Self.assumedSetSeconds }
+        let profile = exercise.metricProfile
+        if let derived = CardioTargets.estimatedSeconds(profile: profile, stored: { entry.target($0) }) {
+            return derived
+        }
+        return Self.assumedSetSeconds
+    }
+
+    /// What a set of unmeasured work is charged at — a rep set, or a
+    /// cardio effort with no target to multiply out.
+    static let assumedSetSeconds = 45
 
     /// "~40 min" — the shared rendering of `estimatedSeconds` (Today
     /// cards, detail meta, the start tray), rounded to 5-minute steps
@@ -180,13 +200,27 @@ final class Routine {
         return MuscleGroup.allCases.filter { trained.contains($0) }
     }
 
-    /// A cardio routine tracks distance or pace throughout (Running, Cycling,
-    /// the console machines) — where a muscle line would only say "full body".
+    /// What kind of workout this routine is — the modality read the
+    /// Health type, the work-unit noun and the card's tags all share.
+    var modality: SessionModality {
+        SessionModality.resolve(
+            resolvedExercises.map {
+                SessionModality.Leg(modality: $0.modality, isOutdoor: $0.metricProfile.isOutdoor)
+            }
+        )
+    }
+
+    /// A cardio routine is cardio throughout — where a muscle line would
+    /// only say "full body".
+    ///
+    /// ⚠️ This used to test `allSatisfy { tracks distance or pace }`, which
+    /// was wrong twice over: an elliptical or stair routine tracks NEITHER
+    /// (its profile is duration plus resistance) and is obviously cardio,
+    /// while a loaded carry tracks distance and obviously is not. Asking
+    /// the modality gets both right.
     var isCardio: Bool {
         let exercises = resolvedExercises
-        return !exercises.isEmpty && exercises.allSatisfy {
-            $0.metricProfile.contains(.distance) || $0.metricProfile.contains(.pace)
-        }
+        return !exercises.isEmpty && exercises.allSatisfy(\.modality.isCardio)
     }
 
     /// The catalog template this routine was added from, matched on the

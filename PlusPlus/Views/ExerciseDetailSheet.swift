@@ -63,6 +63,11 @@ struct ExerciseDetailSheet: View {
     /// What this exercise tracks — drives which metric rows render.
     private var profile: MetricProfile { exercise?.metricProfile ?? .weightReps }
 
+    /// What this block counts in — pieces on an erg, reps on the track.
+    /// Sports that count nothing still need a stepper label here, so they
+    /// fall back to "set".
+    private var blockUnit: WorkUnit { exercise?.modality.workUnit ?? .set }
+
     private var groupIndex: Int? {
         guard let group else { return nil }
         return routine.sortedGroups.firstIndex(where: { $0 === group })
@@ -119,7 +124,7 @@ struct ExerciseDetailSheet: View {
                             Image(systemName: "square.on.square")
                                 .font(.system(.caption))
                                 .foregroundStyle(Theme.textSecondary)
-                            Text("Sets count applies to the whole superset. One round runs every exercise once.")
+                            Text("The count applies to the whole superset. Each time through runs every exercise once.")
                                 .font(.system(.caption))
                                 .foregroundStyle(Theme.textSecondary)
                         }
@@ -351,21 +356,27 @@ struct ExerciseDetailSheet: View {
                 heartRateTargetRow
             }
             MetricStepperRow(
-                label: "Sets",
+                label: blockUnit.plural.capitalized,
                 value: "\(group?.sets ?? 1)",
                 identifier: "sets",
                 onTapValue: nil,
                 onDecrement: { group?.sets = max(1, (group?.sets ?? 1) - 1) },
                 onIncrement: { group?.sets = min(20, (group?.sets ?? 1) + 1) }
             )
-            MetricStepperRow(
-                label: "Rest",
-                value: WorkoutMetric.rest.displayText(Double(effectiveRest)),
-                identifier: "rest",
-                onTapValue: { wheel = .rest },
-                onDecrement: { setRestOverride(Int(WorkoutMetric.rest.decremented(Double(effectiveRest)).rounded())) },
-                onIncrement: { setRestOverride(Int(WorkoutMetric.rest.incremented(Double(effectiveRest)).rounded())) }
-            )
+            // Rest is the wait BETWEEN rounds, so on a single continuous
+            // effort it has nothing to sit between. It rendered anyway and
+            // did nothing (part of #453); bump the count above one and it
+            // comes back with its stored value intact.
+            if (group?.sets ?? 1) > 1 {
+                MetricStepperRow(
+                    label: "Rest",
+                    value: WorkoutMetric.rest.displayText(Double(effectiveRest)),
+                    identifier: "rest",
+                    onTapValue: { wheel = .rest },
+                    onDecrement: { setRestOverride(Int(WorkoutMetric.rest.decremented(Double(effectiveRest)).rounded())) },
+                    onIncrement: { setRestOverride(Int(WorkoutMetric.rest.incremented(Double(effectiveRest)).rounded())) }
+                )
+            }
         }
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))

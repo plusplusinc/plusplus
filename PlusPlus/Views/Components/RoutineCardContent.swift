@@ -149,6 +149,9 @@ struct RoutineMeta {
     var schedule: RoutineSchedule?
     var exercises: Int
     var sets: Int
+    /// What this routine counts in — pieces on an erg, reps on the track.
+    /// A mixed or template routine falls back to "set".
+    var workUnit: WorkUnit = .set
     var restText: String
     /// Gear names paired with whether the active kit has each (amber-flag input).
     var gear: [(name: String, available: Bool)]
@@ -159,6 +162,7 @@ struct RoutineMeta {
         let exercises = routine.sortedGroups.reduce(0) { $0 + $1.sortedExercises.count }
         self.exercises = exercises
         self.sets = routine.sortedGroups.reduce(0) { $0 + $1.sets * $1.sortedExercises.count }
+        self.workUnit = routine.modality.primary.workUnit ?? .set
         self.restText = Self.restLabel(routine.restSeconds)
         self.focus = exercises > 0 ? routine.focusLabel : nil
         self.effort = exercises > 0 ? routine.effortLabel : nil
@@ -216,7 +220,7 @@ struct RoutineMeta {
         var parts: [String] = []
         if let estimate { parts.append(estimate) }
         if exercises > 0 { parts.append("\(exercises) exercise\(exercises == 1 ? "" : "s")") }
-        if sets > 0 { parts.append("\(sets) set\(sets == 1 ? "" : "s")") }
+        if sets > 0 { parts.append(workUnit.counted(sets)) }
         if !restText.isEmpty { parts.append("rest \(restText)") }
         return parts.joined(separator: " · ")
     }

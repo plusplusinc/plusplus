@@ -47,12 +47,25 @@ public enum ExerciseSimilarity {
     /// going to overlap across the full lists.
     static let primaryShare = 0.7
 
+    /// Family closeness, 0…1.
+    ///
+    /// ⚠️ Partial credit matters now that `.cardio` has split into named
+    /// families. A straight equality test scored Treadmill Run against
+    /// Elliptical at ZERO — the same as against a burpee — because they
+    /// used to share one `.cardio` case and no longer do. An elliptical
+    /// is still a far better substitute for a treadmill than a barbell
+    /// is, and this is a substitution ranker.
+    static func modalityScore(_ candidate: ExerciseModality, _ origin: ExerciseModality) -> Double {
+        if candidate == origin { return 1.0 }
+        return candidate.isCardio == origin.isCardio ? 0.5 : 0.0
+    }
+
     /// A 0…1 substitutability score: 1 means an identical feature bag, 0
     /// means nothing in common. Symmetric in its inputs.
     public static func score(candidate: ExerciseSimilarityFeatures,
                              origin: ExerciseSimilarityFeatures) -> Double {
         let muscle = muscleScore(candidate.muscleGroups, origin.muscleGroups)
-        let modality = candidate.modality == origin.modality ? 1.0 : 0.0
+        let modality = modalityScore(candidate.modality, origin.modality)
         let equipment = jaccard(candidate.equipmentNames, origin.equipmentNames)
         return muscle * muscleWeight
             + modality * modalityWeight

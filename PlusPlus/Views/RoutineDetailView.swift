@@ -407,7 +407,7 @@ struct RoutineDetailView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }
-            Text("\(meta.sets) sets")
+            Text(meta.workUnit.counted(meta.sets))
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(Theme.textFaint)
             let muscles = routine.muscleGroups

@@ -20,7 +20,7 @@ struct ContentView: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(routine.name)
                                     .font(.headline)
-                                Text("\(routine.steps.count) sets")
+                                Text("\(routine.steps.count) \(routine.sessionModality.primary.workUnit?.plural ?? "sets")")
                                     .font(.system(.caption2, design: .monospaced))
                                     .foregroundStyle(.secondary)
                             }

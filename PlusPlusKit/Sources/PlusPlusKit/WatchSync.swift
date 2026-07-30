@@ -41,8 +41,34 @@ public enum WatchSync {
         /// an HKWorkoutSession is one activity type, so we only switch the
         /// watch config to running/outdoor (and collect GPS distance) when
         /// EVERY step is outdoor. A mixed routine stays strength/indoor.
+        ///
+        /// ⚠️ Superseded by `sessionModality` for anything that files a
+        /// workout: this reads a step's location without asking what SPORT
+        /// it is, so it can only ever answer "outdoor run or not". Kept
+        /// because a plan pushed by a phone older than the modality field
+        /// still decodes into it, and that plan has nothing else to go on.
         public var isOutdoorRun: Bool {
             !steps.isEmpty && steps.allSatisfy { $0.isOutdoor == true }
+        }
+
+        /// What kind of workout this plan is, for the wrist's
+        /// `HKWorkoutSession` configuration and its work-unit vocabulary.
+        ///
+        /// Falls back to the legacy outdoor-run read when no step carries a
+        /// modality — a stale phone build pushes plans without one, and
+        /// guessing `.strength` for a run would be worse than the old
+        /// answer.
+        public var sessionModality: SessionModality {
+            let known = steps.compactMap { step -> SessionModality.Leg? in
+                guard let modality = step.modality else { return nil }
+                return SessionModality.Leg(modality: modality, isOutdoor: step.isOutdoor == true)
+            }
+            guard known.count == steps.count, !steps.isEmpty else {
+                return isOutdoorRun
+                    ? SessionModality(primary: .running, isMixed: false, isOutdoor: true)
+                    : .empty
+            }
+            return SessionModality.resolve(known)
         }
     }
 
@@ -76,6 +102,12 @@ public enum WatchSync {
         /// wrist reads it to decide the workout's activity/location type
         /// and whether to show live pace (see `PlanRoutine.isOutdoorRun`).
         public var isOutdoor: Bool?
+        /// The movement family this step belongs to, so the wrist can file
+        /// the workout under the right Health activity type and count in
+        /// the right noun (pieces on an erg, reps on the track). Additive
+        /// optional: a plan from a phone that predates it decodes nil and
+        /// the wrist falls back to `isOutdoorRun`, exactly as before.
+        public var modality: ExerciseModality?
 
         public init(
             exerciseName: String,
@@ -91,7 +123,8 @@ public enum WatchSync {
             extraTargets: [String: Double]? = nil,
             distanceUnit: DistanceUnit? = nil,
             restSecondsOverride: Int? = nil,
-            isOutdoor: Bool? = nil
+            isOutdoor: Bool? = nil,
+            modality: ExerciseModality? = nil
         ) {
             self.exerciseName = exerciseName
             self.groupIndex = groupIndex
@@ -107,6 +140,15 @@ public enum WatchSync {
             self.distanceUnit = distanceUnit
             self.restSecondsOverride = restSecondsOverride
             self.isOutdoor = isOutdoor
+            self.modality = modality
+        }
+
+        /// The noun this step's work is counted in — "piece" on an erg,
+        /// "rep" on the track. nil for a walk, and for a plan pushed
+        /// before modalities existed (the wrist then says nothing rather
+        /// than guessing).
+        public var workUnit: WorkUnit? {
+            modality?.workUnit
         }
     }
 

@@ -90,6 +90,44 @@ final class WorkoutSession {
         sortedSetLogs.filter(\.isCompleted)
     }
 
+    /// What KIND of workout this was — the one answer Health files it
+    /// under, and the reason a bike ride stopped arriving as strength
+    /// training. Resolved from the sets rather than stored, so it stays
+    /// right as an ad-hoc session grows.
+    ///
+    /// ⚠️ `isOutdoor` reads off each set's DECODED snapshot profile (the
+    /// reconstructed-profile law in `MetricProfile`), never a rebuilt one.
+    var modality: SessionModality {
+        SessionModality.resolve(
+            sortedSetLogs.map {
+                SessionModality.Leg(modality: $0.modality, isOutdoor: $0.metricProfile.isOutdoor)
+            }
+        )
+    }
+
+    /// How many sets of this log's exercise its own block holds.
+    func blockCount(of log: SetLog) -> Int {
+        sortedSetLogs.filter {
+            $0.groupIndex == log.groupIndex && $0.exerciseName == log.exerciseName
+        }.count
+    }
+
+    /// "Bench Press · set 3", "Rowing · piece 2", or a bare "Running".
+    ///
+    /// One place, because five surfaces used to hand-roll
+    /// `driver == .reps ? "set" : "round"` and a sixth forgot to. The
+    /// position drops away when the block holds one of them, or when the
+    /// sport has no countable unit — "Running · effort 1 of 1" is three
+    /// words of noise on a screen you glance at mid-stride.
+    func caption(for log: SetLog) -> String {
+        guard let position = WorkUnit.inline(
+            log.workUnit, index: log.setNumber, total: blockCount(of: log)
+        ) else {
+            return log.exerciseName
+        }
+        return "\(log.exerciseName) · \(position)"
+    }
+
     /// The set the user should do next; nil when everything is logged.
     var nextPendingLog: SetLog? {
         sortedSetLogs.first { !$0.isCompleted }
@@ -805,6 +843,32 @@ final class SetLog {
     /// target card + manual log).
     var driver: WorkoutMetric {
         metricProfile.driver { target($0) }
+    }
+
+    /// The movement family this set belongs to.
+    ///
+    /// Prefers the live exercise, which carries the catalog's authored
+    /// override and the equipment derivation keys on. Falls back to
+    /// deriving from the SNAPSHOT profile when the exercise is gone
+    /// (renamed, deleted) — the sessions-snapshot law means history has to
+    /// keep answering without it, and a profile alone still tells cardio
+    /// from strength even if it can't tell a run from a walk.
+    var modality: ExerciseModality {
+        exercise?.modality
+            ?? ExerciseModality.derive(equipmentNames: [], metrics: metricProfile.metrics)
+    }
+
+    /// The noun one unit of this exercise's work goes by — "piece" on an
+    /// erg, "rep" on the track, "set" in the rack.
+    var workUnit: WorkUnit? {
+        modality.workUnit
+    }
+
+    /// "Bench Press · set 3", "Rowing · piece 2", or a bare "Running".
+    /// Reached through the owning session because the position needs the
+    /// block's total; a detached log names itself and stops there.
+    var caption: String {
+        session?.caption(for: self) ?? exerciseName
     }
 
     /// One lookup for any metric's target/actual, columns and bags alike.

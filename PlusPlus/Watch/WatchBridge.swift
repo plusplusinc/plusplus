@@ -84,7 +84,8 @@ final class WatchBridge: NSObject, WCSessionDelegate {
                         extraTargets: MetricValues.toRaw(extras),
                         distanceUnit: extras.isEmpty ? nil : profile.distanceUnit,
                         restSecondsOverride: group.restSecondsOverride,
-                        isOutdoor: profile.isOutdoor ? true : nil
+                        isOutdoor: profile.isOutdoor ? true : nil,
+                        modality: exercise.modality
                     ))
                 }
             }

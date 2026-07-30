@@ -43,8 +43,8 @@ struct WorkoutLiveActivity: Widget {
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                         Text(context.state.phase == .resting
-                             ? "Up next: \(context.state.exerciseName) · set \(context.state.setNumber)"
-                             : "\(context.state.exerciseName) · set \(context.state.setNumber)")
+                             ? "Up next: \(context.state.positionLine)"
+                             : context.state.positionLine)
                             .font(.system(.footnote, weight: .semibold))
                             .lineLimit(1)
                     }
@@ -64,11 +64,15 @@ struct WorkoutLiveActivity: Widget {
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(context.state.phase == .resting
-                         ? (context.state.isTransition == true ? "SWITCH" : "REST")
-                         : "SET \(context.state.setNumber)")
-                            .font(.system(.caption2, design: .monospaced, weight: .semibold))
-                            .foregroundStyle(.secondary)
+                        // nil on a single continuous effort — the name
+                        // below already says everything true.
+                        if let kicker = context.state.phase == .resting
+                            ? (context.state.isTransition == true ? "SWITCH" : "REST")
+                            : context.state.unitKicker {
+                            Text(kicker)
+                                .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                        }
                         Text(context.state.exerciseName)
                             .font(.system(.footnote, weight: .semibold))
                             .lineLimit(1)

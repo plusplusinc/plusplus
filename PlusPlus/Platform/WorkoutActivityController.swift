@@ -27,8 +27,12 @@ final class WorkoutActivityController {
 
     /// Held so rest/working updates can restamp the count-up elapsed base.
     private var sessionStart = Date()
+    /// The noun this session counts in, held for the same reason: every
+    /// later update restates the whole ContentState, and the workout's
+    /// kind cannot change mid-session.
+    private var workUnit = "set"
 
-    func begin(routineName: String, exerciseName: String, setNumber: Int, setsCompleted: Int, totalSets: Int, startedAt: Date) {
+    func begin(routineName: String, exerciseName: String, setNumber: Int, setsCompleted: Int, totalSets: Int, startedAt: Date, workUnit: String = "set") {
         #if canImport(ActivityKit)
         guard !disabled else { return }
         guard ActivityAuthorizationInfo().areActivitiesEnabled else {
@@ -39,6 +43,7 @@ final class WorkoutActivityController {
             return
         }
         sessionStart = startedAt
+        self.workUnit = workUnit
         // Snapshot any pre-existing activities BEFORE requesting the new one, so
         // the teardown ends only stale activities and can never reap the one we
         // just created. `endAll()` inside a Task raced `Activity.request` here —
@@ -53,7 +58,8 @@ final class WorkoutActivityController {
             setsCompleted: setsCompleted,
             totalSets: totalSets,
             sessionStart: startedAt,
-            restEnd: nil
+            restEnd: nil,
+            workUnit: workUnit
         )
         _ = try? Activity.request(
             attributes: WorkoutActivityAttributes(routineName: routineName),
@@ -73,7 +79,8 @@ final class WorkoutActivityController {
             setsCompleted: setsCompleted,
             totalSets: totalSets,
             sessionStart: sessionStart,
-            restEnd: nil
+            restEnd: nil,
+            workUnit: workUnit
         ), staleDate: nil)
         #endif
     }
@@ -89,7 +96,8 @@ final class WorkoutActivityController {
             totalSets: totalSets,
             sessionStart: sessionStart,
             restEnd: restEnd,
-            isTransition: isTransition
+            isTransition: isTransition,
+            workUnit: workUnit
         ), staleDate: restEnd)
         #endif
     }
