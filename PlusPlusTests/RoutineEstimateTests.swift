@@ -314,3 +314,106 @@ struct QuickStartTests {
         #expect(!session.isFinished)
     }
 }
+
+@Suite("The cardio hero")
+struct CardioHeroCatalogTests {
+    /// What the phone can read with no location fix.
+    private let indoors: Set<WorkoutMetric> = [.duration]
+    private let underGPS: Set<WorkoutMetric> = [.duration, .distance, .pace]
+
+    private func profile(_ name: String) throws -> MetricProfile {
+        try #require(SeedData.builtInProfile(named: name), "\(name) not in the catalog")
+    }
+
+    @Test("Quick-starting a run puts a clock on screen, not a dash")
+    func quickStartedRunCountsUp() throws {
+        // The exact shape quick start creates: the catalog row, no
+        // prescription. `driver` falls back to distance (the first tracked
+        // work metric), so before the hero chain this rendered a distance
+        // card reading "—" with a Log key under it and nothing moving.
+        let run = try profile("Running")
+        let indoor = try #require(CardioHero.resolve(profile: run, target: { _ in nil }, measurable: indoors))
+        #expect(indoor.hero == .elapsed)
+        #expect(indoor.hero.isClock)
+
+        // Outdoors with a fix, the distance climbing is the better hero.
+        let outdoor = try #require(CardioHero.resolve(profile: run, target: { _ in nil }, measurable: underGPS))
+        #expect(outdoor.hero == .measured(.distance))
+    }
+
+    @Test("A studio ride counts up rather than down from a number nobody chose")
+    func studioRideCountsUp() throws {
+        // Indoor Cycling ships open-ended deliberately (a class that runs
+        // long must not stop at a preset), and its profile tracks distance
+        // too, so it never reached the timer dock at all.
+        let spin = try profile("Indoor Cycling")
+        let r = try #require(CardioHero.resolve(profile: spin, target: { _ in nil }, measurable: indoors))
+        #expect(r.hero == .elapsed)
+        #expect(!r.hero.countsDown)
+    }
+
+    @Test("A prescribed hold still counts down, exactly as it did")
+    func prescribedEffortsAreUnchanged() throws {
+        // Side Plank is one of the catalog's authored 30 s holds, so this
+        // is the unchanged path: a target exists, the clock can watch it,
+        // the card counts down and logs itself at zero.
+        let hold = try profile("Side Plank")
+        let seconds = try #require(SeedData.builtInDefinition(named: "Side Plank")?.defaultDurationSeconds)
+        let r = try #require(CardioHero.resolve(
+            profile: hold,
+            target: { $0 == .duration ? Double(seconds) : nil },
+            measurable: indoors
+        ))
+        #expect(r.hero == .progress(metric: .duration, target: Double(seconds)))
+        #expect(r.hero.countsDown)
+    }
+
+    @Test("Which exercises actually arrive untargeted, and which never do")
+    func theFortyFiveSecondFloorDecidesWhoCountsUp() throws {
+        // ⚠️ A duration-ONLY profile can never reach the count-up path in
+        // practice, whatever its catalog row says. Plank authors no
+        // default, but `Exercise.addTimeTargets` applies a 45 s floor to
+        // any profile whose sole work metric is duration, so an ad-hoc
+        // plank arrives prescribed and counts DOWN exactly as before.
+        #expect(SeedData.builtInDefinition(named: "Plank")?.defaultDurationSeconds == nil)
+        let plank = try profile("Plank")
+        #expect(plank.metrics.filter(\.isWorkMetric) == [.duration])
+        let prescribed = try #require(CardioHero.resolve(
+            profile: plank, target: { $0 == .duration ? 45 : nil }, measurable: indoors
+        ))
+        #expect(prescribed.hero.countsDown)
+
+        // The genuinely untargeted ones are the profiles with a SECOND
+        // work metric, where the floor deliberately declines to fabricate
+        // a duration: the ergs, the bikes, the loaded carries, the road.
+        for name in ["Rowing", "Assault Bike", "Indoor Cycling", "Running"] {
+            let open = try #require(CardioHero.resolve(
+                profile: try profile(name), target: { _ in nil }, measurable: indoors
+            ))
+            #expect(open.hero == .elapsed, "\(name) should count up when nothing is prescribed")
+        }
+    }
+
+    @Test("A prescribed erg piece keeps its stage rather than becoming a stopwatch")
+    func prescribedErgKeepsTheStage() throws {
+        // The console has the number; nothing was ever measuring it here,
+        // so nothing degrades and nothing apologises.
+        let erg = try profile("Rowing")
+        let r = try #require(CardioHero.resolve(
+            profile: erg, target: { $0 == .distance ? 500 : nil }, measurable: indoors
+        ))
+        #expect(r.hero == .selfReported(metric: .distance, target: 500))
+        #expect(!r.hero.isClock)
+        #expect(r.unmeasurableTarget == nil)
+    }
+
+    @Test("Every rep exercise in the catalog keeps its stage")
+    func repWorkNeverGetsAClock() {
+        // The gate that makes this whole change invisible to strength.
+        for exercise in SeedData.makeBuiltInExercisesForTesting(equipment: []) {
+            guard let profile = SeedData.builtInProfile(named: exercise.name), profile.tracksReps else { continue }
+            let resolved = CardioHero.resolve(profile: profile, target: { _ in nil }, measurable: indoors)
+            #expect(resolved == nil, "\(exercise.name) is rep work and must keep the stage")
+        }
+    }
+}
