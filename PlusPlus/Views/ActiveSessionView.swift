@@ -72,6 +72,12 @@ struct ActiveSessionView: View {
     /// unrecoverably. Same law `bankRestForPause` exists for, same shape.
     @State private var effortStartedAt = Date()
     @State private var effortBanked: TimeInterval = 0
+    /// When the live set became live — the window a per-set heart-rate
+    /// summary is drawn over. Distinct from `effortStartedAt`, which
+    /// re-anchors on RESUME so the clock doesn't double-count a pause;
+    /// the heart-rate window wants the whole set, pause included, because
+    /// the recovery in the middle is part of what the set cost.
+    @State private var currentSetStartedAt = Date()
     /// Flips on appear of the finished screen to fire the checkmark's
     /// one-shot bounce.
     @State private var completeBounce = false
@@ -322,12 +328,17 @@ struct ActiveSessionView: View {
             syncLocation()
             announceVoiceCue()
         }
-        // A new set is a new effort: re-anchor the count-up clock and drop
-        // whatever the last one banked. Keys on the LOG's order, since the
-        // cursor moves for a new round of the same block too.
+        // A new set is a new effort: re-anchor the count-up clock, drop
+        // what the last one banked, and stamp the heart-rate window.
+        // ⚠️ Keys on the LOG's order, since the cursor moves for a new
+        // round of the same block as well as a new exercise. It fires on
+        // the way into the rest screen too, which is correct for both: the
+        // next set starts when the last one ended, and the rest is the
+        // recovery, not the effort.
         .onChange(of: session.currentLog?.order) { _, _ in
             effortStartedAt = Date()
             effortBanked = 0
+            currentSetStartedAt = Date()
         }
         // Bank the count-up across a pause, for the same reason and on the
         // same edge as `bankRestForPause`: by the time this fires the body
@@ -938,6 +949,31 @@ struct ActiveSessionView: View {
         )?.hero.isClock == true
     }
 
+    /// What this set's heart rate was, over THIS set's own window.
+    ///
+    /// The window is the interesting part. Drawing it from the session
+    /// start would average an hour of lifting and resting into one
+    /// number that says almost nothing; drawing it from the previous
+    /// set's completion would fold the rest in and drag every set down.
+    /// `currentSetStartedAt` is stamped when the cursor moves, so the
+    /// window is the effort itself.
+    ///
+    /// Applies to EVERY workout, not just cardio — a heavy triple spikes
+    /// a heart rate too, and the set that spiked it is the unit worth
+    /// recording. Health answers asynchronously and on the main queue;
+    /// nil stays nil (no sensor, no access, no samples), because a
+    /// fabricated zero is the anti-shame rule's inverse.
+    private func recordHeartRate(for log: SetLog) {
+        let from = currentSetStartedAt
+        let to = Date()
+        guard to > from else { return }
+        HeartRateMonitor.summary(from: from, to: to) { average, peak in
+            guard !log.isDeleted else { return }
+            if let average { log.actualAverageHeartRate = average }
+            if let peak { log.actualMaxHeartRate = peak }
+        }
+    }
+
     /// The +1 beat plays only where a human is watching — under UI test
     /// the transition is immediate (the delay would slow every logging
     /// flow and quiescence-block nothing observable).
@@ -955,6 +991,7 @@ struct ActiveSessionView: View {
         // Taps during the beat are the double-log class — the button is
         // still on screen while the view lingers.
         guard lingeringLog == nil else { return }
+        recordHeartRate(for: log)
         // An outdoor run's measured distance/pace become the logged
         // actuals, so the record reflects the GPS run instead of a hand
         // guess. Only for a single-round piece (the meter tracks the whole

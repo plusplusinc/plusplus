@@ -338,6 +338,8 @@ struct InterchangeMappingTests {
         log.actualDuration = 88
         log.extraTargets = [.distance: 500]
         log.extraActuals = [.distance: 512]
+        log.actualAverageHeartRate = 148
+        log.actualMaxHeartRate = 171
         log.completedAt = Date(timeIntervalSince1970: 2_000_100)
         log.session = session
         source.insert(log)
@@ -441,6 +443,8 @@ struct InterchangeMappingTests {
         #expect(importedLog.metricProfile.distanceUnit == .miles, "the set's own distance unit snapshots, not the exercise's")
         #expect(importedLog.metricProfile.isOutdoor == true, "the set snapshot carries outdoor-ness (#378)")
         #expect(importedLog.metricProfile.paceReference == .per100Meters, "the set snapshot carries its own pace denominator")
+        #expect(importedLog.actualAverageHeartRate == 148, "the per-set heart-rate facts round-trip")
+        #expect(importedLog.actualMaxHeartRate == 171)
     }
 
     /// Byte-stability guard: `WorkoutSession.start` writes `metricsData` on

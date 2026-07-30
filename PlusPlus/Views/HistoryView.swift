@@ -202,6 +202,18 @@ struct SessionDetailView: View {
                                     Text("\((log.workUnit ?? .set).singular.capitalized) \(log.setNumber)")
                                         .font(.system(.caption))
                                         .foregroundStyle(log.isCompleted ? Theme.textSecondary : Theme.textFaint)
+                                    // What your heart did during THIS set,
+                                    // between the label and the result. Faint
+                                    // and unlabelled beyond the glyph: it is a
+                                    // fact about the set, not its headline,
+                                    // and it is absent whenever nothing
+                                    // measured it (never a zero).
+                                    if let bpm = log.actualAverageHeartRate {
+                                        Text("\(Image(systemName: "heart.fill")) \(bpm)")
+                                            .font(.system(.caption2, design: .monospaced))
+                                            .foregroundStyle(Theme.textFaint)
+                                            .accessibilityLabel("Average heart rate \(bpm)")
+                                    }
                                     Spacer()
                                     Text(log.isCompleted ? log.resultSummary(weightUnit: weightUnit) : "skipped")
                                         .font(.system(.caption, design: .monospaced))

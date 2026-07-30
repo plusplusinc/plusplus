@@ -28,6 +28,12 @@ final class WatchWorkoutController: NSObject, HKLiveWorkoutBuilderDelegate {
     private(set) var latestBPM: Int?
     private(set) var averageBPM: Int?
     private(set) var maxBPM: Int?
+    /// Readings collected since the current STEP began. The builder's own
+    /// statistics are session-wide, which is the wrong window for a set:
+    /// a 4 × 500 m piece wants four numbers, and an hour of lifting
+    /// averaged whole says almost nothing. Reset by `beginStep()` at each
+    /// log, exactly like `distanceAtStepStart` on the view side.
+    private var stepBPMs: [Int] = []
 
     /// Live pace during an OUTDOOR run, from the builder's fused
     /// distanceWalkingRunning fed into a Kit pace meter. nil for indoor
@@ -155,6 +161,21 @@ final class WatchWorkoutController: NSObject, HKLiveWorkoutBuilderDelegate {
         builder.discardWorkout()
     }
 
+    /// Start a fresh per-step heart-rate window. Called as each step is
+    /// logged, so the NEXT step measures only itself.
+    func beginStep() {
+        stepBPMs.removeAll()
+    }
+
+    /// This step's average, or nil when nothing was read — never a zero,
+    /// and never the session's number standing in for the set's.
+    var stepAverageBPM: Int? {
+        guard !stepBPMs.isEmpty else { return nil }
+        return Int((Double(stepBPMs.reduce(0, +)) / Double(stepBPMs.count)).rounded())
+    }
+
+    var stepMaxBPM: Int? { stepBPMs.max() }
+
     // MARK: - HKLiveWorkoutBuilderDelegate
 
     func workoutBuilder(_ workoutBuilder: HKLiveWorkoutBuilder, didCollectDataOf collectedTypes: Set<HKSampleType>) {
@@ -166,7 +187,10 @@ final class WatchWorkoutController: NSObject, HKLiveWorkoutBuilderDelegate {
             let peak = statistics.maximumQuantity().map { Int($0.doubleValue(for: unit).rounded()) }
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
-                if let latest { self.latestBPM = latest }
+                if let latest {
+                    self.latestBPM = latest
+                    self.stepBPMs.append(latest)
+                }
                 if let average { self.averageBPM = average }
                 if let peak { self.maxBPM = peak }
             }

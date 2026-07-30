@@ -96,6 +96,7 @@ struct DocsConformanceTests {
             sets: [.init(
                 order: 0, groupIndex: 0, setNumber: 1,
                 exerciseName: "Probe", exerciseType: .weightReps,
+                actualAverageHeartRate: 148, actualMaxHeartRate: 171,
                 extraTargets: ["distance": 500],
                 extraActuals: ["distance": 500],
                 restSecondsOverride: 120
@@ -115,6 +116,7 @@ struct DocsConformanceTests {
             "restSecondsOverride", "equipmentLibraries", "weightStep",
             "isOutdoor", "distanceMeters", "movingSeconds", "elevationGainMeters",
             "muscleGroups", "paceReference",
+            "actualAverageHeartRate", "actualMaxHeartRate",
         ] {
             #expect(encoded.contains("\"\(field)\""), "\(field) missing from encoded DTO")
             #expect(text.contains(field), "PLATFORM.md never mentions \(field) but the schema carries it")

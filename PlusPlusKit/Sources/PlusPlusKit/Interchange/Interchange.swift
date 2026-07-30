@@ -296,6 +296,11 @@ public struct SessionDTO: Codable, Equatable, Sendable {
         public var actualWeight: Double?
         public var actualReps: Int?
         public var actualDuration: Int?
+        /// What the heart actually did during THIS set. Additive; absent
+        /// on every set nobody measured, which is every set written before
+        /// this field existed.
+        public var actualAverageHeartRate: Int?
+        public var actualMaxHeartRate: Int?
         public var completedAt: Date?
         /// Targets/actuals for metrics beyond the dedicated fields, keyed
         /// by metric identifier. Sessions snapshot everything, so these
@@ -339,6 +344,8 @@ public struct SessionDTO: Codable, Equatable, Sendable {
             actualWeight: Double? = nil,
             actualReps: Int? = nil,
             actualDuration: Int? = nil,
+            actualAverageHeartRate: Int? = nil,
+            actualMaxHeartRate: Int? = nil,
             completedAt: Date? = nil,
             extraTargets: [String: Double]? = nil,
             extraActuals: [String: Double]? = nil,
@@ -361,6 +368,8 @@ public struct SessionDTO: Codable, Equatable, Sendable {
             self.actualWeight = actualWeight
             self.actualReps = actualReps
             self.actualDuration = actualDuration
+            self.actualAverageHeartRate = actualAverageHeartRate
+            self.actualMaxHeartRate = actualMaxHeartRate
             self.completedAt = completedAt
             self.extraTargets = extraTargets
             self.extraActuals = extraActuals

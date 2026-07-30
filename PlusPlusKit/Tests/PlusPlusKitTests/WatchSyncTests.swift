@@ -115,6 +115,31 @@ struct WatchSyncTests {
         #expect(decoded.steps[0].step.modality == .rowing)
     }
 
+    @Test("A step carries the heart rate it was performed at, per step")
+    func stepCarriesHeartRate() throws {
+        let step = WatchSync.Step(exerciseName: "Rowing", groupIndex: 0, setNumber: 1, isDuration: true)
+        let started = Date(timeIntervalSince1970: 1_780_000_100)
+        let result = WatchSync.SessionResult(
+            routineName: "Erg",
+            startedAt: started,
+            endedAt: started.addingTimeInterval(600),
+            restSeconds: 120,
+            steps: [WatchSync.StepResult(
+                step: step,
+                actualDuration: 128,
+                averageHeartRate: 162,
+                maxHeartRate: 178,
+                completedAt: started.addingTimeInterval(128)
+            )]
+        )
+        let decoded = try WatchSync.decode(WatchSync.SessionResult.self, from: WatchSync.encode(result))
+        #expect(decoded == result)
+        // Per STEP: the wrist wears the sensor, and a 4 × 500 m piece
+        // wants four numbers rather than one session average.
+        #expect(decoded.steps[0].averageHeartRate == 162)
+        #expect(decoded.steps[0].maxHeartRate == 178)
+    }
+
     @Test("A result from a watch that predates measured actuals decodes clean")
     func resultWithoutExtraActualsDecodes() throws {
         let step = WatchSync.Step(exerciseName: "Rowing", groupIndex: 0, setNumber: 1, isDuration: true)
@@ -129,6 +154,10 @@ struct WatchSyncTests {
         let decoded = try WatchSync.decode(WatchSync.SessionResult.self, from: WatchSync.encode(result))
         #expect(decoded.steps[0].extraActuals == nil)
         #expect(decoded.steps[0].step.modality == nil)
+        // Same additive tolerance for the heart-rate pair: absent stays
+        // absent rather than becoming a zero.
+        #expect(decoded.steps[0].averageHeartRate == nil)
+        #expect(decoded.steps[0].maxHeartRate == nil)
     }
 
     @Test("A plan's modality resolves the session, and falls back when absent")
