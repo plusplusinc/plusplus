@@ -49,6 +49,16 @@ final class WatchWorkoutController: NSObject, HKLiveWorkoutBuilderDelegate {
         return currentPaceSeconds
     }
 
+    /// Cumulative MEASURED distance so far, in the run's own unit. nil
+    /// indoors, where nothing is collected. The run view subtracts the
+    /// reading it took at a step's start to get that step's own distance,
+    /// which is what turns a wrist-logged interval into real splits
+    /// instead of a copy of its prescription.
+    private(set) var totalDistance: Double?
+    /// The unit `totalDistance` is denominated in — held so callers don't
+    /// have to remember what they started the session with.
+    private(set) var distanceUnit: DistanceUnit = .miles
+
     /// Location authorization is required for an outdoor session's GPS
     /// distance — we don't consume fixes ourselves, the workout does.
     private let locationManager = CLLocationManager()
@@ -88,6 +98,7 @@ final class WatchWorkoutController: NSObject, HKLiveWorkoutBuilderDelegate {
             read.insert(distanceType)
             collectedDistanceType = distanceType
             paceMeter = LivePaceMeter(unit: unit)
+            distanceUnit = unit
             // GPS distance needs location authorization; the workout
             // consumes the fixes, we just hold the grant.
             locationManager.requestWhenInUseAuthorization()
@@ -170,9 +181,13 @@ final class WatchWorkoutController: NSObject, HKLiveWorkoutBuilderDelegate {
            let start = sessionStart {
             paceMeter?.ingest(at: Date().timeIntervalSince(start), cumulativeMeters: meters)
             let pace = paceMeter?.currentPaceSeconds
+            // The running total in the run's own unit, so a logged step
+            // can record the distance it actually covered.
+            let total = paceMeter.map { $0.unit.value(fromMeters: $0.totalMeters) }
             DispatchQueue.main.async { [weak self] in
                 self?.currentPaceSeconds = pace
                 self?.latestPaceAt = pace != nil ? Date() : nil
+                self?.totalDistance = total
             }
         }
     }
