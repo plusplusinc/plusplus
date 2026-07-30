@@ -50,17 +50,23 @@ public enum CardioTargets {
     /// divide — a prescription is never worth an infinity.
     ///
     /// `distance` is in the profile's own unit; `duration` and `pace` are
-    /// plain seconds, pace against the unit's reference (per 500 m, km or
-    /// mile). The conversion goes through meters because that is the only
-    /// denomination the pace reference is expressed in.
+    /// plain seconds, pace against its reference (per 100 m, 500 m, 100 yd,
+    /// km or mile). The conversion goes through meters because that is the
+    /// only denomination a pace reference is expressed in.
+    ///
+    /// ⚠️ Pass the PROFILE's reference wherever you have one. The unit's own
+    /// convention is only a fallback, and it is wrong for exactly the case
+    /// `PaceReference` exists for: a metric pool is denominated in meters
+    /// and splits per 100, where the unit alone would say per 500.
     public static func derive(
         _ metric: WorkoutMetric,
         distance: Double?,
         durationSeconds: Double?,
         paceSeconds: Double?,
-        unit: DistanceUnit
+        unit: DistanceUnit,
+        paceReference: PaceReference? = nil
     ) -> Double? {
-        let reference = unit.paceReferenceMeters
+        let reference = (paceReference ?? unit.defaultPaceReference).meters
         guard reference > 0 else { return nil }
 
         switch metric {
@@ -145,7 +151,8 @@ public enum CardioTargets {
             distance: stored(.distance),
             durationSeconds: nil,
             paceSeconds: stored(.pace),
-            unit: profile.distanceUnit
+            unit: profile.distanceUnit,
+            paceReference: profile.paceReference
         ) else { return nil }
         return Int(seconds.rounded())
     }

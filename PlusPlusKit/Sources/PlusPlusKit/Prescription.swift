@@ -43,6 +43,7 @@ public enum Prescription {
         value: Double,
         repsUpper: Int? = nil,
         distanceUnit: DistanceUnit = .meters,
+        paceReference: PaceReference? = nil,
         weightUnit: WeightUnit = .lb
     ) -> String {
         switch field {
@@ -56,10 +57,10 @@ public enum Prescription {
             return RepTarget(lower: Int(value.rounded()), upper: repsUpper).display
         case .metric(.assistance):
             return "−" + WorkoutMetric.assistance.displayText(
-                abs(value), weightUnit: weightUnit, distanceUnit: distanceUnit
+                abs(value), weightUnit: weightUnit, distanceUnit: distanceUnit, paceReference: paceReference
             )
         case .metric(let metric):
-            return metric.displayText(value, weightUnit: weightUnit, distanceUnit: distanceUnit)
+            return metric.displayText(value, weightUnit: weightUnit, distanceUnit: distanceUnit, paceReference: paceReference)
         }
     }
 
@@ -124,7 +125,7 @@ public enum Prescription {
             if let value = stored(driver, reps: reps, weight: weight, durationSeconds: durationSeconds, extras: extras) {
                 if !out.isEmpty { out.append(PrescriptionRun("× ")) }
                 out.append(PrescriptionRun(
-                    text(for: .metric(driver), value: value, distanceUnit: profile.distanceUnit, weightUnit: weightUnit),
+                    text(for: .metric(driver), value: value, distanceUnit: profile.distanceUnit, paceReference: profile.paceReference, weightUnit: weightUnit),
                     .metric(driver)
                 ))
             }
@@ -156,7 +157,7 @@ public enum Prescription {
         if let load {
             if !out.isEmpty { out.append(PrescriptionRun(" @ ")) }
             out.append(PrescriptionRun(
-                text(for: load.field, value: load.value, distanceUnit: profile.distanceUnit, weightUnit: weightUnit),
+                text(for: load.field, value: load.value, distanceUnit: profile.distanceUnit, paceReference: profile.paceReference, weightUnit: weightUnit),
                 load.field
             ))
         }

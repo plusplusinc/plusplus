@@ -223,6 +223,10 @@ enum FormCues {
         "Box Jump": "Land soft with your whole foot, stand tall, step down.",
         "Jump Rope": "Bounce on the balls of your feet, spin from the wrists, stay relaxed.",
         "Rowing": "Legs, then body, then arms, and reverse it on the way back.",
+        // Swimming is skill cardio, so it keeps its cues (the same reason
+        // Rowing and Ski Erg do): stroke sequencing is real coaching.
+        "Pool Swim": "Reach long, roll from the hips, and breathe on the same count both sides.",
+        "Open Water Swim": "Sight forward every few strokes. You will drift more than you think.",
         "Sandbag Carry": "Hug it high on your chest, brace, walk tall.",
 
         // Specialty bars

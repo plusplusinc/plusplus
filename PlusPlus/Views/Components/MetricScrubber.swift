@@ -210,6 +210,10 @@ struct MetricScrubberPane: View {
     let metric: WorkoutMetric
     var weightUnit: WeightUnit = .lb
     var distanceUnit: DistanceUnit = .meters
+    /// The profile's pace denominator, when it overrides its unit's own.
+    /// Carried so a swim's split reads /100yd on the picker as well as on
+    /// the row that opened it.
+    var paceReference: PaceReference?
     @Binding var value: Double?
 
     private let tape: MetricTape
@@ -226,15 +230,16 @@ struct MetricScrubberPane: View {
     /// out-of-range stored values survive an open-and-close.
     @State private var touched = false
 
-    init(metric: WorkoutMetric, weightUnit: WeightUnit = .lb, distanceUnit: DistanceUnit = .meters, value: Binding<Double?>) {
+    init(metric: WorkoutMetric, weightUnit: WeightUnit = .lb, distanceUnit: DistanceUnit = .meters, paceReference: PaceReference? = nil, value: Binding<Double?>) {
         self.metric = metric
         self.weightUnit = weightUnit
         self.distanceUnit = distanceUnit
+        self.paceReference = paceReference
         _value = value
         // Present only for metrics that scrub (`usesTapeScrubber`), so the
         // factory always yields a tape here; the fallback keeps the init
         // total in the impossible case rather than force-unwrapping.
-        let spec = metric.scrubberTape(weightUnit: weightUnit, distanceUnit: distanceUnit)
+        let spec = metric.scrubberTape(weightUnit: weightUnit, distanceUnit: distanceUnit, paceReference: paceReference)
             ?? (quantum: 1, tape: MetricTape(range: 0...1, pointsPerUnit: 1, minorStride: 1, labelStride: 1))
         tape = spec.tape
         let perValue = (1 / spec.quantum).rounded()
@@ -250,7 +255,7 @@ struct MetricScrubberPane: View {
         // NOTHING until the tape moves; unclamped, the settle callback would
         // see a mismatch and silently rewrite the stored value on open, the
         // exact destroy-on-open class this control removes.
-        let seed = (value.wrappedValue ?? metric.defaultValue(weightUnit: weightUnit, distanceUnit: distanceUnit)) * perValue
+        let seed = (value.wrappedValue ?? metric.defaultValue(weightUnit: weightUnit, distanceUnit: distanceUnit, paceReference: paceReference)) * perValue
         _unit = State(initialValue: spec.tape.clamped(Int(seed.rounded())))
     }
 
@@ -264,7 +269,7 @@ struct MetricScrubberPane: View {
     private func readout(_ unit: Int) -> String {
         metric.isTimeSpan
             ? DurationTape.label(for: unit)
-            : metric.displayText(metricValue(forUnit: unit), weightUnit: weightUnit, distanceUnit: distanceUnit)
+            : metric.displayText(metricValue(forUnit: unit), weightUnit: weightUnit, distanceUnit: distanceUnit, paceReference: paceReference)
     }
 
     /// Tick label: the bare formatted number (the readout carries the unit),

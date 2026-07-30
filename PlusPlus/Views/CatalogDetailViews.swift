@@ -642,6 +642,7 @@ struct EquipmentDetailScreen: View {
                 metric: .weight,
                 weightUnit: weightUnit,
                 distanceUnit: equipment.suggestedProfile?.distanceUnit ?? .meters,
+                paceReference: equipment.suggestedProfile?.paceReference,
                 current: resolvedStep,
                 onPick: { equipment.weightStep = $0 }
             )

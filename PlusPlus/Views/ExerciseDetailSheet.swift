@@ -206,6 +206,7 @@ struct ExerciseDetailSheet: View {
                     metric: metric,
                     weightUnit: weightUnit,
                     distanceUnit: profile.distanceUnit,
+                    paceReference: profile.paceReference,
                     value: Binding(
                         get: { routineExercise.target(metric) },
                         set: { writeTarget(metric, to: $0) }
@@ -414,7 +415,8 @@ struct ExerciseDetailSheet: View {
         return metric.displayText(
             routineExercise.target(metric),
             weightUnit: weightUnit,
-            distanceUnit: profile.distanceUnit
+            distanceUnit: profile.distanceUnit,
+            paceReference: profile.paceReference
         )
     }
 
@@ -466,7 +468,8 @@ struct ExerciseDetailSheet: View {
             distance: storedTriad(.distance),
             durationSeconds: storedTriad(.duration),
             paceSeconds: storedTriad(.pace),
-            unit: profile.distanceUnit
+            unit: profile.distanceUnit,
+            paceReference: profile.paceReference
         ) else { return nil }
         if metric == .duration { return DurationTape.label(for: Int(value.rounded())) }
         return metric.displayText(value, weightUnit: weightUnit, distanceUnit: profile.distanceUnit)
@@ -483,7 +486,8 @@ struct ExerciseDetailSheet: View {
             distance: storedTriad(.distance),
             durationSeconds: storedTriad(.duration),
             paceSeconds: storedTriad(.pace),
-            unit: profile.distanceUnit
+            unit: profile.distanceUnit,
+            paceReference: profile.paceReference
         )
         writeTarget(metric, to: current)
         wheel = metric
@@ -508,8 +512,8 @@ struct ExerciseDetailSheet: View {
         let stepOverride = metric == .weight ? routineExercise.exercise?.weightStepOverride : nil
         let current = routineExercise.target(metric)
         let stepped = direction > 0
-            ? metric.incremented(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, stepOverride: stepOverride)
-            : metric.decremented(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, stepOverride: stepOverride)
+            ? metric.incremented(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, stepOverride: stepOverride, paceReference: profile.paceReference)
+            : metric.decremented(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, stepOverride: stepOverride, paceReference: profile.paceReference)
         writeTarget(metric, to: stepped)
     }
 
@@ -549,7 +553,8 @@ struct ExerciseDetailSheet: View {
                     log.driver.displayText(
                         log.actual(log.driver),
                         weightUnit: weightUnit,
-                        distanceUnit: log.metricProfile.distanceUnit
+                        distanceUnit: log.metricProfile.distanceUnit,
+                        paceReference: log.metricProfile.paceReference
                     )
                 }
             }.joined(separator: " · ")

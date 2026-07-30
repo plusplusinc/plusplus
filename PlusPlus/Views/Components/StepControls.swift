@@ -132,6 +132,10 @@ struct IncrementSheet: View {
     let metric: WorkoutMetric
     let weightUnit: WeightUnit
     let distanceUnit: DistanceUnit
+    /// The profile's pace denominator, when it overrides its unit's own.
+    /// Carried so a swim's split reads /100yd on the picker as well as on
+    /// the row that opened it.
+    var paceReference: PaceReference?
     /// The stride currently in force (resolved), so it reads as selected even
     /// when it's a custom gear value outside the presets.
     let current: Double
@@ -140,7 +144,7 @@ struct IncrementSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     private var choices: [Double] {
-        var values = metric.stepChoices(weightUnit: weightUnit, distanceUnit: distanceUnit)
+        var values = metric.stepChoices(weightUnit: weightUnit, distanceUnit: distanceUnit, paceReference: paceReference)
         if !values.contains(current) { values.append(current) }
         return values.sorted()
     }
@@ -199,7 +203,7 @@ struct IncrementSheet: View {
             onPick(choice)
             dismiss()
         } label: {
-            Text(metric.displayText(choice, weightUnit: weightUnit, distanceUnit: distanceUnit))
+            Text(metric.displayText(choice, weightUnit: weightUnit, distanceUnit: distanceUnit, paceReference: paceReference))
                 .font(.system(.subheadline, design: .monospaced, weight: .semibold))
                 // Blue, not green (Dave, 2026-07-28): the values are data,
                 // but the state being expressed is SELECTION, and every

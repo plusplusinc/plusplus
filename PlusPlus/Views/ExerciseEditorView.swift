@@ -383,6 +383,7 @@ struct ExerciseEditorView: View {
                 metric: metric,
                 weightUnit: weightUnit,
                 distanceUnit: draft.distanceUnit,
+                paceReference: draft.paceReference,
                 value: Binding(
                     get: { draft.defaultTarget(metric) },
                     set: { draft.setDefaultTarget(metric, to: $0) }
@@ -436,7 +437,7 @@ struct ExerciseEditorView: View {
                         label: metric.label,
                         value: metric == .duration
                             ? defaultDurationText
-                            : metric.displayText(draft.defaultTarget(metric), weightUnit: weightUnit, distanceUnit: draft.distanceUnit),
+                            : metric.displayText(draft.defaultTarget(metric), weightUnit: weightUnit, distanceUnit: draft.distanceUnit, paceReference: draft.paceReference),
                         identifier: "default-\(metric.rawValue)",
                         onTapValue: { defaultsWheel = metric },
                         onDecrement: { stepDefault(metric, -1) },
@@ -464,8 +465,8 @@ struct ExerciseEditorView: View {
         let stepOverride = metric == .weight ? draftWeightStep : nil
         let current = draft.defaultTarget(metric)
         let stepped = direction > 0
-            ? metric.incremented(current, weightUnit: weightUnit, distanceUnit: draft.distanceUnit, stepOverride: stepOverride)
-            : metric.decremented(current, weightUnit: weightUnit, distanceUnit: draft.distanceUnit, stepOverride: stepOverride)
+            ? metric.incremented(current, weightUnit: weightUnit, distanceUnit: draft.distanceUnit, stepOverride: stepOverride, paceReference: draft.paceReference)
+            : metric.decremented(current, weightUnit: weightUnit, distanceUnit: draft.distanceUnit, stepOverride: stepOverride, paceReference: draft.paceReference)
         draft.setDefaultTarget(metric, to: stepped)
     }
 

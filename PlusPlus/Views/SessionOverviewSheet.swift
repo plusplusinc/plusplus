@@ -314,7 +314,8 @@ struct SessionOverviewSheet: View {
         default:
             let target = template.driver.displayText(
                 template.target(template.driver),
-                distanceUnit: template.metricProfile.distanceUnit
+                distanceUnit: template.metricProfile.distanceUnit,
+                paceReference: template.metricProfile.paceReference
             )
             return "\(block.logs.count)×\(target)"
         }
@@ -329,7 +330,7 @@ struct SessionOverviewSheet: View {
         case .duration:
             WorkoutMetric.duration.formatted(log.actualDuration.map(Double.init))
         default:
-            log.driver.displayText(log.actual(log.driver), distanceUnit: log.metricProfile.distanceUnit)
+            log.driver.displayText(log.actual(log.driver), distanceUnit: log.metricProfile.distanceUnit, paceReference: log.metricProfile.paceReference)
         }
     }
 }
@@ -634,7 +635,8 @@ struct SessionExerciseSheet: View {
                         value: metric.displayText(
                             reference?.target(metric),
                             weightUnit: weightUnit,
-                            distanceUnit: reference?.metricProfile.distanceUnit ?? .meters
+                            distanceUnit: reference?.metricProfile.distanceUnit ?? .meters,
+                            paceReference: reference?.metricProfile.paceReference
                         ),
                         identifier: metric == .weight ? "sxWeight" : (metric == .duration ? "sxDuration" : "sx-\(metric.rawValue)"),
                         onDecrement: { editPending { step(metric, on: $0, direction: -1) } },

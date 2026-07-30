@@ -1631,7 +1631,7 @@ private struct SetLoggingView: View {
 
     private var distanceTargetText: Text {
         guard let target = log.target(.distance) else { return Text("—").foregroundStyle(Theme.textFaint) }
-        return Text(WorkoutMetric.distance.displayText(target, weightUnit: weightUnit, distanceUnit: profile.distanceUnit))
+        return Text(WorkoutMetric.distance.displayText(target, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, paceReference: profile.paceReference))
             .foregroundStyle(Theme.textPrimary)
     }
 
@@ -1680,6 +1680,7 @@ private struct SetLoggingView: View {
                 metric: metric,
                 weightUnit: weightUnit,
                 distanceUnit: profile.distanceUnit,
+                paceReference: profile.paceReference,
                 value: Binding(
                     get: { log.actual(metric) ?? log.target(metric) },
                     set: { log.setActual(metric, to: $0) }
@@ -1693,6 +1694,7 @@ private struct SetLoggingView: View {
                 metric: metric,
                 weightUnit: weightUnit,
                 distanceUnit: profile.distanceUnit,
+                paceReference: profile.paceReference,
                 current: stepValue(metric)
             ) { choice in
                 log.exercise?.setStep(choice, for: metric)
@@ -1875,7 +1877,7 @@ private struct SetLoggingView: View {
     /// full-width hold-to-repeat stepper keys.
     private func metricCard(_ metric: WorkoutMetric) -> some View {
         let current = log.actual(metric) ?? log.target(metric)
-        let unitText = metric.unit(for: current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit)
+        let unitText = metric.unit(for: current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, paceReference: profile.paceReference)
         let canAdjust = log.exercise?.canAdjustStep(for: metric) ?? false
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
@@ -1963,8 +1965,8 @@ private struct SetLoggingView: View {
         }
         let current = log.actual(metric) ?? log.target(metric)
         let stepped = direction > 0
-            ? metric.incremented(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, stepOverride: override)
-            : metric.decremented(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, stepOverride: override)
+            ? metric.incremented(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, stepOverride: override, paceReference: profile.paceReference)
+            : metric.decremented(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, stepOverride: override, paceReference: profile.paceReference)
         log.setActual(metric, to: stepped)
     }
 
