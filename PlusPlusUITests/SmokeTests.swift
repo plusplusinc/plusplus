@@ -165,10 +165,20 @@ final class SmokeTests: XCTestCase {
         // from the tree or merely unhittable).
         card.tap()
         let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == 0"), object: delete)
+        // ⚠️ The generic inventory is useless here — it returns the tab bar,
+        // not the row — so this one reports the three states that tell the
+        // failures apart: the row stayed open (DELETE still hittable), the
+        // tap NAVIGATED instead of closing (the routine's own key is up), or
+        // we are somewhere else entirely (the list's key is gone).
         XCTAssertEqual(
             XCTWaiter().wait(for: [closed], timeout: 3),
             .completed,
-            "a tap while open must close the row · \(buttonInventory())"
+            """
+            a tap while open must close the row · \
+            DELETE exists=\(delete.exists) hittable=\(delete.isHittable) · \
+            navigated=\(app.buttons["addExerciseButton"].exists) · \
+            onList=\(app.buttons["newRoutineButton"].exists)
+            """
         )
         XCTAssertFalse(
             app.buttons["addExerciseButton"].waitForExistence(timeout: 3),
@@ -319,13 +329,16 @@ final class SmokeTests: XCTestCase {
 
         // The native field's own Cancel clears the query; the catalog stays
         // put, since the SCOPE — not the field — decides which one you're on.
-        // ⚠️ The affordance is the SYSTEM's — the field is morphed out of the
-        // search-role tab — so match its label as well as its identifier
-        // rather than assuming which one the platform sets.
+        // ⚠️ It is labelled **Close**, not Cancel. The affordance is the
+        // SYSTEM's — the field is morphed out of the search-role tab — and
+        // iOS 26 names it Close there, beside a "Clear text" key. The test
+        // asserted the UIKit-era word for five months of runs nobody read.
+        // Both are accepted: the assertion is about leaving search, not
+        // about which noun the platform picked this release.
         let cancel = app.buttons
-            .matching(NSPredicate(format: "identifier == 'Cancel' OR label == 'Cancel'"))
+            .matching(NSPredicate(format: "label IN {'Cancel', 'Close'} OR identifier IN {'Cancel', 'Close'}"))
             .firstMatch
-        XCTAssertTrue(cancel.waitForExistence(timeout: 5), "the search field's own Cancel · \(buttonInventory())")
+        XCTAssertTrue(cancel.waitForExistence(timeout: 5), "the search field's own Close · \(buttonInventory())")
         cancel.tap()
         XCTAssertTrue(plus.waitForExistence(timeout: 5), "cancelling search returns the catalog · \(buttonInventory())")
     }
@@ -489,11 +502,23 @@ final class SmokeTests: XCTestCase {
         // Generous timeouts: on a loaded CI simulator, the first snapshot
         // after navigation can take most of a minute to evaluate.
         XCTAssertTrue(app.staticTexts["Quick Session"].waitForExistence(timeout: 30))
-        app.staticTexts["Quick Session"].tap()
-        // The committed card is a NavigationLink into the record, which lists
-        // one row per logged set. Push-Up is equipment-free weight/reps, so it
-        // derives to strength and the row's noun is "Set" — the work-unit
-        // vocabulary does not rewrite this one.
+        // ⚠️ Tap the CARD, not its title. The committed card is a
+        // `NavigationLink` whose label is the whole row, and Today prints the
+        // routine's name more than once — the card, and the "Routine created"
+        // entry under it. Tapping the bare text resolved to one that goes
+        // nowhere, and the test then sat on Today waiting for a record it had
+        // never opened.
+        let recordCard = app.buttons
+            .matching(NSPredicate(format: "label CONTAINS 'Quick Session'"))
+            .firstMatch
+        XCTAssertTrue(
+            recordCard.waitForExistence(timeout: 10),
+            "the committed card on Today · \(buttonInventory())"
+        )
+        recordCard.tap()
+        // The record lists one row per logged set. Push-Up is equipment-free
+        // weight/reps, so it derives to strength and the row's noun is "Set" —
+        // the work-unit vocabulary does not rewrite this one.
         snap("history-detail")
         XCTAssertTrue(
             app.staticTexts["Set 1"].waitForExistence(timeout: 15),
