@@ -66,8 +66,17 @@ public enum RoutineDiff {
     /// How the same exercise went the last time it was completed —
     /// nil when it has never been performed.
     public struct Prior: Equatable, Sendable {
-        /// Sets actually COMPLETED, which is not always the number
-        /// planned: three of four finished reads 3, honestly.
+        /// The rounds the comparison treats as "last time's". ⚠️ The app's
+        /// LEDGER producer passes the PLANNED rounds, deliberately
+        /// (2026-07-29, re-examined and upheld by Dave 2026-07-30): today's
+        /// side is a prescription, so last time's must be the same kind of
+        /// number — a plan compared against a shortfall manufactures a
+        /// change out of any unfinished session. The finish tally is the
+        /// deliberate OTHER case: both of its sides are actuals, so it
+        /// compares completed against completed (ActiveSessionView's
+        /// prior). An earlier revision of this doc promised "sets actually
+        /// COMPLETED" as the blanket rule; the ledger producer never did
+        /// that, and the doc was the thing that lied.
         public var sets: Int?
         public var weight: Double?
         public var reps: Int?
@@ -263,6 +272,46 @@ public enum RoutineDiff {
                 && target.value(for: field) != nil
                 && prior.value(for: field) != nil
         })
+    }
+
+    /// Which way a moved field moved, on the axis the metric calls
+    /// progress — so the ledger can ink an ask-for-more differently from
+    /// an ask-for-less (increases green, decreases the gentle rose; Dave,
+    /// 2026-07-30: "decrease is not a problem").
+    public enum Direction: Equatable, Sendable {
+        case up, down
+    }
+
+    /// Direction per moved field, keyed like `movedFields` and computed
+    /// against the same prior — the colors must describe the two numbers
+    /// actually printed beside each other.
+    ///
+    /// `.up` is the metric's own progress direction, not the number's
+    /// (`improves`): a faster pace and a lighter assistance stack are
+    /// both `.up`, and both PRINT that way too (pace falls, assistance is
+    /// rendered signed). Neutral-direction settings (resistance, incline,
+    /// speed, cadence, RPE) return no direction — a changed setting is
+    /// still marked moved, it just isn't progress or regress.
+    ///
+    /// Reps follow the band rule `changedFields` uses: `.up` when the
+    /// ask's floor rose above the prior count, `.down` when the prior sat
+    /// above the asked band (the ask is at or under what was done).
+    public static func movedDirections(target: Target, prior: Prior?, profile: MetricProfile) -> [Field: Direction] {
+        guard let prior else { return [:] }
+        var out: [Field: Direction] = [:]
+        for field in movedFields(target: target, prior: prior, profile: profile) {
+            guard let staged = target.value(for: field),
+                  let last = prior.value(for: field) else { continue }
+            switch field {
+            case .metric(.reps):
+                out[field] = last < staged ? .up : .down
+            case .metric(let metric) where metric.improvementDirection == .neutral:
+                continue
+            default:
+                out[field] = improves(field, from: last, to: staged) ? .up : .down
+            }
+        }
+        return out
     }
 
     // MARK: - Summary line

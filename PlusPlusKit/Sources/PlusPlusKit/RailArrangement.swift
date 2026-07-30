@@ -3,14 +3,22 @@ import Foundation
 /// Pure geometry and semantics for direct manipulation on the routine
 /// detail rail (issue #78): long-press-drag rearrangement and ring-drag
 /// superset membership. Everything here operates on a snapshot of the
-/// group structure (`groupSizes` — exercises per group, in order) and
-/// deterministic row heights, so the interaction rules are unit-testable
-/// without SwiftUI or SwiftData. The view layer translates gestures into
-/// these calls and commits results through the Routine mutations.
+/// group structure and deterministic row heights, so the interaction
+/// rules are unit-testable without SwiftUI or SwiftData. The view layer
+/// translates gestures into these calls and commits results through the
+/// Routine mutations.
+///
+/// Heights come in two shapes. The primary API takes `rowHeights` —
+/// heights per exercise, grouped like the structure (`[[64, 64], [52]]`
+/// is a 2-superset over a solo) — because rows size to their content
+/// (2026-07-30; a one-line name doesn't pay a two-line name's slot). The
+/// `groupSizes` + `RailMetrics` overloads expand to uniform heights and
+/// remain for callers and tests that don't care.
+///
+/// ⚠️ Heights are CONTENT-derived, never membership-derived: joining or
+/// leaving a ring must not change any row's height (#87 — rows must not
+/// shift under the finger while a ring gesture is live).
 public struct RailMetrics: Equatable, Sendable {
-    /// Every exercise row is the same height regardless of superset
-    /// membership (device feedback on #87: rows must not shift when
-    /// joining/leaving a ring).
     public var rowHeight: Double
 
     public init(rowHeight: Double = 48) {
@@ -35,23 +43,35 @@ public struct RailRow: Equatable, Sendable {
     public var maxY: Double { y + height }
 }
 
-/// Deterministic row layout for a group structure: one uniform row per
-/// exercise, packed in order. Supersets are marked by the loop drawing,
-/// not by structure — no caption rows, no per-membership heights.
+/// Expands a uniform metric into the per-row shape the primary API takes.
+func uniformRowHeights(groupSizes: [Int], metrics: RailMetrics) -> [[Double]] {
+    groupSizes.map { Array(repeating: metrics.rowHeight, count: $0) }
+}
+
+/// Deterministic row layout for a group structure: one row per exercise,
+/// packed in order at its own height. Supersets are marked by the loop
+/// drawing, not by structure — no caption rows, no per-membership heights.
 public struct RailLayout: Equatable, Sendable {
     public let rows: [RailRow]
     public let totalHeight: Double
 
-    public static func build(groupSizes: [Int], metrics: RailMetrics = .v2) -> RailLayout {
+    /// The primary builder: heights per exercise, grouped like the
+    /// structure.
+    public static func build(rowHeights: [[Double]]) -> RailLayout {
         var rows: [RailRow] = []
         var y = 0.0
-        for (group, size) in groupSizes.enumerated() {
-            for index in 0..<size {
-                rows.append(RailRow(kind: .exercise(group: group, index: index), y: y, height: metrics.rowHeight))
-                y += metrics.rowHeight
+        for (group, heights) in rowHeights.enumerated() {
+            for (index, height) in heights.enumerated() {
+                rows.append(RailRow(kind: .exercise(group: group, index: index), y: y, height: height))
+                y += height
             }
         }
         return RailLayout(rows: rows, totalHeight: y)
+    }
+
+    /// Uniform-height convenience.
+    public static func build(groupSizes: [Int], metrics: RailMetrics = .v2) -> RailLayout {
+        build(rowHeights: uniformRowHeights(groupSizes: groupSizes, metrics: metrics))
     }
 
     public func row(for kind: RailRowKind) -> RailRow? {
@@ -97,11 +117,11 @@ public enum RailDrag {
     /// All valid drop targets for dragging (group, index), each with the
     /// y position (in the original layout) the target represents.
     public static func targets(
-        groupSizes: [Int],
-        dragging: (group: Int, index: Int),
-        metrics: RailMetrics = .v2
+        rowHeights: [[Double]],
+        dragging: (group: Int, index: Int)
     ) -> [(target: RailDropTarget, y: Double)] {
-        let layout = RailLayout.build(groupSizes: groupSizes, metrics: metrics)
+        let groupSizes = rowHeights.map(\.count)
+        let layout = RailLayout.build(rowHeights: rowHeights)
         var result: [(RailDropTarget, Double)] = []
 
         // Gaps: boundary above each group, plus the very end.
@@ -123,16 +143,32 @@ public enum RailDrag {
         return result
     }
 
+    public static func targets(
+        groupSizes: [Int],
+        dragging: (group: Int, index: Int),
+        metrics: RailMetrics = .v2
+    ) -> [(target: RailDropTarget, y: Double)] {
+        targets(rowHeights: uniformRowHeights(groupSizes: groupSizes, metrics: metrics), dragging: dragging)
+    }
+
     /// The target whose y position is closest to the finger.
+    public static func nearestTarget(
+        rowHeights: [[Double]],
+        dragging: (group: Int, index: Int),
+        fingerY: Double
+    ) -> RailDropTarget? {
+        targets(rowHeights: rowHeights, dragging: dragging)
+            .min { abs($0.y - fingerY) < abs($1.y - fingerY) }?
+            .target
+    }
+
     public static func nearestTarget(
         groupSizes: [Int],
         dragging: (group: Int, index: Int),
         fingerY: Double,
         metrics: RailMetrics = .v2
     ) -> RailDropTarget? {
-        targets(groupSizes: groupSizes, dragging: dragging, metrics: metrics)
-            .min { abs($0.y - fingerY) < abs($1.y - fingerY) }?
-            .target
+        nearestTarget(rowHeights: uniformRowHeights(groupSizes: groupSizes, metrics: metrics), dragging: dragging, fingerY: fingerY)
     }
 
     /// Row positions for the drag preview: every original row except the
@@ -140,14 +176,14 @@ public enum RailDrag {
     /// the finger is down), packed with a hole the size of the dragged
     /// row opened at the tentative target.
     public static func previewPositions(
-        groupSizes: [Int],
+        rowHeights: [[Double]],
         dragging: (group: Int, index: Int),
-        target: RailDropTarget,
-        metrics: RailMetrics = .v2
+        target: RailDropTarget
     ) -> [RailRowKind: Double] {
-        let layout = RailLayout.build(groupSizes: groupSizes, metrics: metrics)
+        let groupSizes = rowHeights.map(\.count)
+        let layout = RailLayout.build(rowHeights: rowHeights)
         let draggedKind = RailRowKind.exercise(group: dragging.group, index: dragging.index)
-        let draggedHeight = layout.row(for: draggedKind)?.height ?? metrics.rowHeight
+        let draggedHeight = layout.row(for: draggedKind)?.height ?? 0
 
         let remaining = layout.rows.filter { $0.kind != draggedKind }
 
@@ -192,6 +228,15 @@ public enum RailDrag {
             y += row.height
         }
         return positions
+    }
+
+    public static func previewPositions(
+        groupSizes: [Int],
+        dragging: (group: Int, index: Int),
+        target: RailDropTarget,
+        metrics: RailMetrics = .v2
+    ) -> [RailRowKind: Double] {
+        previewPositions(rowHeights: uniformRowHeights(groupSizes: groupSizes, metrics: metrics), dragging: dragging, target: target)
     }
 }
 
@@ -268,13 +313,13 @@ public enum RailRing {
     ///   and why a drag that reverses out of the group unites instead of
     ///   silently disbanding.
     public static func span(
-        groupSizes: [Int],
+        rowHeights: [[Double]],
         group: Int,
         edge: RingEdge,
-        fingerY: Double,
-        metrics: RailMetrics = .v2
+        fingerY: Double
     ) -> RingSpan {
-        let layout = RailLayout.build(groupSizes: groupSizes, metrics: metrics)
+        let groupSizes = rowHeights.map(\.count)
+        let layout = RailLayout.build(rowHeights: rowHeights)
         let start = RailLayout.flatIndex(groupSizes: groupSizes, group: group, index: 0)
         let end = start + groupSizes[group] - 1
 
@@ -332,5 +377,15 @@ public enum RailRing {
                 ejectLast: 0
             )
         }
+    }
+
+    public static func span(
+        groupSizes: [Int],
+        group: Int,
+        edge: RingEdge,
+        fingerY: Double,
+        metrics: RailMetrics = .v2
+    ) -> RingSpan {
+        span(rowHeights: uniformRowHeights(groupSizes: groupSizes, metrics: metrics), group: group, edge: edge, fingerY: fingerY)
     }
 }

@@ -332,6 +332,75 @@ struct RoutineDiffTests {
         ).isEmpty)
     }
 
+    // MARK: - movedDirections (increases green, decreases gentle — 2026-07-30)
+
+    @Test("Directions follow each metric's own progress axis")
+    func directionsFollowProgressAxis() {
+        let profile = MetricProfile([.weight, .reps])
+        // Weight up.
+        #expect(RoutineDiff.movedDirections(
+            target: RoutineDiff.Target(name: "Bench", sets: 3, weight: 140, reps: 8),
+            prior: RoutineDiff.Prior(sets: 3, weight: 135, reps: 8),
+            profile: profile
+        ) == [.metric(.weight): .up])
+        // Weight down — visible, not silenced (deltas silence it; the
+        // ledger prints both numbers, so the color must speak).
+        #expect(RoutineDiff.movedDirections(
+            target: RoutineDiff.Target(name: "Bench", sets: 3, weight: 130, reps: 8),
+            prior: RoutineDiff.Prior(sets: 3, weight: 135, reps: 8),
+            profile: profile
+        ) == [.metric(.weight): .down])
+        // Sets go up like load.
+        #expect(RoutineDiff.movedDirections(
+            target: RoutineDiff.Target(name: "Bench", sets: 4, weight: 135, reps: 8),
+            prior: RoutineDiff.Prior(sets: 3, weight: 135, reps: 8),
+            profile: profile
+        ) == [.sets: .up])
+    }
+
+    @Test("A faster pace and a lighter stack are both up")
+    func directionsHonorInvertedMetrics() {
+        // Pace: smaller is progress.
+        #expect(RoutineDiff.movedDirections(
+            target: RoutineDiff.Target(name: "Row", sets: 1, extras: [.pace: 110]),
+            prior: RoutineDiff.Prior(sets: 1, extras: [.pace: 120]),
+            profile: MetricProfile([.distance, .pace])
+        ) == [.metric(.pace): .up])
+        // Assistance: less help is progress, and it PRINTS that way too
+        // (the ledger renders assistance signed: −35 → −25 rises).
+        #expect(RoutineDiff.movedDirections(
+            target: RoutineDiff.Target(name: "Assisted Pull-Up", sets: 3, reps: 6, extras: [.assistance: 25]),
+            prior: RoutineDiff.Prior(sets: 3, reps: 6, extras: [.assistance: 35]),
+            profile: MetricProfile([.assistance, .reps])
+        ) == [.metric(.assistance): .up])
+    }
+
+    @Test("A changed setting is moved but has no direction")
+    func neutralSettingsCarryNoDirection() {
+        let profile = MetricProfile([.resistance, .duration])
+        let target = RoutineDiff.Target(name: "Bike", sets: 1, durationSeconds: 600, extras: [.resistance: 6])
+        let prior = RoutineDiff.Prior(sets: 1, durationSeconds: 600, extras: [.resistance: 8])
+        #expect(RoutineDiff.movedFields(target: target, prior: prior, profile: profile) == [.metric(.resistance)])
+        #expect(RoutineDiff.movedDirections(target: target, prior: prior, profile: profile).isEmpty)
+    }
+
+    @Test("Rep direction reads from the ask's band")
+    func repDirections() {
+        let profile = MetricProfile([.reps])
+        // Asked 10, did 8 → the ask lands as growth.
+        #expect(RoutineDiff.movedDirections(
+            target: RoutineDiff.Target(name: "Push-Up", sets: 3, reps: 10),
+            prior: RoutineDiff.Prior(sets: 3, reps: 8),
+            profile: profile
+        ) == [.metric(.reps): .up])
+        // Asked 8–10, did 12 → the ask sits under what happened.
+        #expect(RoutineDiff.movedDirections(
+            target: RoutineDiff.Target(name: "Push-Up", sets: 3, reps: 8, repsUpper: 10),
+            prior: RoutineDiff.Prior(sets: 3, reps: 12),
+            profile: profile
+        ) == [.metric(.reps): .down])
+    }
+
     // MARK: - Summary line
 
     @Test func summaryOrdersChangesThenNewAndDropsUnchanged() {

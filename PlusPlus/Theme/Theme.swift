@@ -123,6 +123,17 @@ enum Theme {
 
     static let destructive = BrandPalette.destructive
 
+    /// Ledger movement inks (2026-07-30): the target column's moved tokens
+    /// wear direction — asks-for-more in the data green, asks-for-less in a
+    /// gentle brick. ⚠️ The anti-shame law is untouched: it governs how a
+    /// PERFORMANCE renders (regressions neutral, diffs sum positive movement
+    /// only), while these mark how the PLAN moved against what was done —
+    /// Dave, from the design round: "decrease is not a problem." Draw these
+    /// only beside a printed prev; a lone red number with nothing to compare
+    /// against would read as an error.
+    static let increaseInk = BrandPalette.increaseInk
+    static let decreaseInk = BrandPalette.decreaseInk
+
     /// Swipe-block fills. ⚠️ NOT `accent`/`destructive`: a block is its own
     /// surface under a WHITE label the system owns, so the fill is chosen for
     /// that and fixed in both schemes. See BrandPalette — white on the

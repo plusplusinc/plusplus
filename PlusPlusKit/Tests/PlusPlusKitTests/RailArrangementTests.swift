@@ -299,4 +299,63 @@ import Testing
         #expect(span.firstFlat == 0)
         #expect(span.lastFlat == 3)
     }
+
+    // MARK: - Per-row heights (2026-07-30: rows size to their content)
+
+    /// [[64, 52], [76]]: a two-member ring over a solo, each row its own
+    /// height.
+    let varied: [[Double]] = [[64, 52], [76]]
+
+    @Test func variedHeightsAccumulate() {
+        let layout = RailLayout.build(rowHeights: varied)
+        #expect(layout.row(for: .exercise(group: 0, index: 0))?.y == 0)
+        #expect(layout.row(for: .exercise(group: 0, index: 1))?.y == 64)
+        #expect(layout.row(for: .exercise(group: 1, index: 0))?.y == 116)
+        #expect(layout.totalHeight == 192)
+        #expect(layout.row(for: .exercise(group: 0, index: 1))?.height == 52)
+    }
+
+    @Test func uniformOverloadMatchesExpandedHeights() {
+        let viaSizes = RailLayout.build(groupSizes: [1, 2, 1], metrics: metrics)
+        let viaHeights = RailLayout.build(rowHeights: [[48], [48, 48], [48]])
+        #expect(viaSizes == viaHeights)
+    }
+
+    @Test func variedHitTestUsesRealMidpoints() {
+        let layout = RailLayout.build(rowHeights: varied)
+        // Row midpoints: 32, 90, 154.
+        #expect(layout.exercise(at: 60)! == (group: 0, index: 0))   // 28 from 32, 30 from 90
+        #expect(layout.exercise(at: 95)! == (group: 0, index: 1))
+        #expect(layout.exercise(at: 500)! == (group: 1, index: 0))
+    }
+
+    @Test func variedGapAnchorsSitAtRealBoundaries() {
+        let targets = RailDrag.targets(rowHeights: varied, dragging: (group: 1, index: 0))
+        let ys = Dictionary(uniqueKeysWithValues: targets.map { ($0.target, $0.y) })
+        #expect(ys[.gap(0)] == 0)
+        #expect(ys[.gap(1)] == 116)
+        #expect(ys[.gap(2)] == 192)
+    }
+
+    @Test func variedPreviewHoleIsTheDraggedRowsOwnHeight() {
+        // Dragging the 76 pt solo to the top gap: both ring members shift
+        // down by 76 — the dragged row's height, not theirs.
+        let positions = RailDrag.previewPositions(
+            rowHeights: varied,
+            dragging: (group: 1, index: 0),
+            target: .gap(0)
+        )
+        #expect(positions[.exercise(group: 0, index: 0)] == 76)
+        #expect(positions[.exercise(group: 0, index: 1)] == 140)
+        #expect(positions[.exercise(group: 1, index: 0)] == nil) // dragged row floats
+    }
+
+    @Test func variedRingSpanHitsByRealRows() {
+        // Pressing the solo (group 1) and dragging up into the ring's LAST
+        // member (y 64..116) unites the whole ring.
+        let span = RailRing.span(rowHeights: varied, group: 1, edge: .top, fingerY: 90)
+        #expect(span.absorbBefore == 1)
+        #expect(span.firstFlat == 0)
+        #expect(span.lastFlat == 2)
+    }
 }
