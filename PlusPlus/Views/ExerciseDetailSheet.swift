@@ -208,7 +208,7 @@ struct ExerciseDetailSheet: View {
                     distanceUnit: profile.distanceUnit,
                     value: Binding(
                         get: { routineExercise.target(metric) },
-                        set: { routineExercise.setTarget(metric, to: $0) }
+                        set: { writeTarget(metric, to: $0) }
                     )
                 )
             }
@@ -441,9 +441,19 @@ struct ExerciseDetailSheet: View {
     /// storing. nil on every profile that tracks fewer than two of them, so
     /// a strength sheet renders byte-for-byte as it did before.
     private var derivedMetric: WorkoutMetric? {
-        guard let metric = CardioTargets.derivedMetric(profile: profile, stored: routineExercise.target),
+        guard let metric = CardioTargets.derivedMetric(profile: profile, stored: storedTriad),
               derivedText(metric) != nil else { return nil }
         return metric
+    }
+
+    /// ⚠️ Triad reads go through this, never `target(_:)` directly.
+    /// `RoutineExercise.target` returns the extras bag whatever the profile
+    /// tracks, so an entry with a stranded pace (its exercise was edited to
+    /// stop tracking one) would otherwise derive a duration off a number
+    /// with no row on screen — a value the user can neither explain nor
+    /// reach.
+    private func storedTriad(_ metric: WorkoutMetric) -> Double? {
+        profile.contains(metric) ? routineExercise.target(metric) : nil
     }
 
     /// The computed reading, in the metric's own format. nil when the two
@@ -453,9 +463,9 @@ struct ExerciseDetailSheet: View {
     private func derivedText(_ metric: WorkoutMetric) -> String? {
         guard let value = CardioTargets.derive(
             metric,
-            distance: routineExercise.target(.distance),
-            durationSeconds: routineExercise.target(.duration),
-            paceSeconds: routineExercise.target(.pace),
+            distance: storedTriad(.distance),
+            durationSeconds: storedTriad(.duration),
+            paceSeconds: storedTriad(.pace),
             unit: profile.distanceUnit
         ) else { return nil }
         if metric == .duration { return DurationTape.label(for: Int(value.rounded())) }
@@ -470,16 +480,28 @@ struct ExerciseDetailSheet: View {
     private func promote(_ metric: WorkoutMetric) {
         let current = CardioTargets.derive(
             metric,
-            distance: routineExercise.target(.distance),
-            durationSeconds: routineExercise.target(.duration),
-            paceSeconds: routineExercise.target(.pace),
+            distance: storedTriad(.distance),
+            durationSeconds: storedTriad(.duration),
+            paceSeconds: storedTriad(.pace),
             unit: profile.distanceUnit
         )
-        if let evicted = CardioTargets.evicted(entering: metric, profile: profile, stored: routineExercise.target) {
+        writeTarget(metric, to: current)
+        wheel = metric
+    }
+
+    /// ⚠️ EVERY write to a target goes through this, not `setTarget`
+    /// directly. Filling the last empty slot of the triad is an entry
+    /// whoever made it, so the eviction runs for the stepper and the
+    /// picker exactly as it does for a promotion. Without that, the only
+    /// way to evict was to tap the derived row, and a prescription that
+    /// somehow held all three had no way back at all: it would just sit
+    /// there with distance quietly winning the driver.
+    private func writeTarget(_ metric: WorkoutMetric, to value: Double?) {
+        if value != nil,
+           let evicted = CardioTargets.evicted(entering: metric, profile: profile, stored: storedTriad) {
             routineExercise.setTarget(evicted, to: nil)
         }
-        routineExercise.setTarget(metric, to: current)
-        wheel = metric
+        routineExercise.setTarget(metric, to: value)
     }
 
     private func stepTarget(_ metric: WorkoutMetric, _ direction: Double) {
@@ -488,7 +510,7 @@ struct ExerciseDetailSheet: View {
         let stepped = direction > 0
             ? metric.incremented(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, stepOverride: stepOverride)
             : metric.decremented(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, stepOverride: stepOverride)
-        routineExercise.setTarget(metric, to: stepped)
+        writeTarget(metric, to: stepped)
     }
 
     private var durationText: String {

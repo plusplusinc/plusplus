@@ -189,6 +189,61 @@ struct CardioTargetsTests {
     }
 }
 
+@Suite("CardioTargets — one slot always stays empty")
+struct CardioTargetsEvictionScopeTests {
+    private func bag(_ values: [WorkoutMetric: Double]) -> (WorkoutMetric) -> Double? {
+        { values[$0] }
+    }
+
+    @Test("A three-member triad keeps two: pace goes first, else duration")
+    func threeMember() {
+        let run = MetricProfile([.distance, .duration, .pace], distanceUnit: .miles)
+        // Entering pace onto distance + duration drops the duration and
+        // derives it back — "5 miles at 9:00".
+        #expect(CardioTargets.evicted(entering: .pace, profile: run,
+                                      stored: bag([.distance: 5, .duration: 2700])) == .duration)
+        // Entering distance onto duration + pace drops the pace.
+        #expect(CardioTargets.evicted(entering: .distance, profile: run,
+                                      stored: bag([.duration: 1800, .pace: 540])) == .pace)
+        // Room already: nothing steps back.
+        #expect(CardioTargets.evicted(entering: .pace, profile: run,
+                                      stored: bag([.distance: 5])) == nil)
+        // An EDIT of a stored value is not an entry.
+        #expect(CardioTargets.evicted(entering: .distance, profile: run,
+                                      stored: bag([.distance: 5, .duration: 2700])) == nil)
+    }
+
+    @Test("A two-member triad keeps ONE, because nothing relates them")
+    func twoMember() {
+        // A spin bike: distance and duration, and no pace to compute
+        // either from. Holding both is not a prescription, it is two, and
+        // `driver` would silently pick distance.
+        let bike = MetricProfile([.duration, .distance, .resistance, .power, .cadence], distanceUnit: .miles)
+        #expect(CardioTargets.applies(to: bike))
+        #expect(CardioTargets.evicted(entering: .duration, profile: bike,
+                                      stored: bag([.distance: 12])) == .distance)
+        #expect(CardioTargets.evicted(entering: .distance, profile: bike,
+                                      stored: bag([.duration: 2700])) == .duration)
+        #expect(CardioTargets.evicted(entering: .duration, profile: bike, stored: bag([:])) == nil)
+    }
+
+    @Test("An untracked metric never evicts anything")
+    func untracked() {
+        // A stranded pace on a profile that stopped tracking one must not
+        // be able to push a real target out.
+        let bike = MetricProfile([.duration, .distance], distanceUnit: .miles)
+        #expect(CardioTargets.evicted(entering: .pace, profile: bike,
+                                      stored: bag([.distance: 12, .duration: 2700])) == nil)
+    }
+
+    @Test("A single-member profile is outside the law entirely")
+    func singleMember() {
+        let plank = MetricProfile([.duration])
+        #expect(!CardioTargets.applies(to: plank))
+        #expect(CardioTargets.evicted(entering: .duration, profile: plank, stored: bag([:])) == nil)
+    }
+}
+
 @Suite("DistanceUnit — meters both ways")
 struct DistanceUnitConversionTests {
     @Test("meters(from:) inverts value(fromMeters:)")

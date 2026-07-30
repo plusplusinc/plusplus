@@ -87,9 +87,9 @@ public enum CardioTargets {
         }
     }
 
-    /// Which stored metric has to make room when the user enters a third.
-    /// nil when there is room already, or when `entering` is itself stored
-    /// (that's an edit, not an addition).
+    /// Which stored metric has to make room when the user fills the last
+    /// empty slot. nil when there is room already, or when `entering` is
+    /// itself already stored (that's an edit, not an addition).
     ///
     /// **Evict pace if it is stored, else evict duration.** One rule, and
     /// it does the right thing every time: it always keeps the value the
@@ -97,15 +97,29 @@ public enum CardioTargets {
     /// effort (distance, duration) over one that merely describes its rate.
     /// So dialing pace onto a distance-and-duration prescription drops the
     /// duration and derives it back, which is what "5 miles at 9:00" means.
+    ///
+    /// ⚠️ **One slot always stays empty**, whether the profile tracks all
+    /// three or only two. On a three-member profile that empty slot is the
+    /// derived reading. On a TWO-member one (a spin bike's distance and
+    /// duration, with no pace to relate them) nothing can be computed, so
+    /// the empty slot is simply the half of the prescription you didn't
+    /// state — and that matters more, not less: with no pace there is no
+    /// sense in which "45 minutes" and "20 km" are the same instruction,
+    /// and `driver` would silently pick distance. Stating one clears the
+    /// other rather than leaving a contradiction for execution to settle.
     public static func evicted(
         entering metric: WorkoutMetric,
         profile: MetricProfile,
         stored: (WorkoutMetric) -> Double?
     ) -> WorkoutMetric? {
-        guard triad.contains(metric), stored(metric) == nil else { return nil }
-        let others = triad.filter { $0 != metric && profile.contains($0) && stored($0) != nil }
-        guard others.count >= 2 else { return nil }
-        return others.contains(.pace) ? .pace : .duration
+        guard triad.contains(metric), profile.contains(metric), stored(metric) == nil else { return nil }
+        let tracked = triad.filter(profile.contains)
+        let others = tracked.filter { $0 != metric && stored($0) != nil }
+        guard others.count >= max(1, tracked.count - 1) else { return nil }
+        // Pace first, then duration, then distance. The last rung only
+        // comes up on a two-member profile, where the entered metric is
+        // itself the duration and distance is all that is left to drop.
+        return [.pace, .duration, .distance].first(where: others.contains)
     }
 
     /// How long this effort actually takes, for the routine estimate: the

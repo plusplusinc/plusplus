@@ -116,7 +116,7 @@ struct ExerciseConfigSheet: View {
                 distanceUnit: profile.distanceUnit,
                 value: Binding(
                     get: { config.target(metric) },
-                    set: { config.setTarget(metric, to: $0) }
+                    set: { writeTarget(metric, to: $0) }
                 )
             )
         }
@@ -254,17 +254,24 @@ struct ExerciseConfigSheet: View {
     }
 
     private var derivedMetric: WorkoutMetric? {
-        guard let metric = CardioTargets.derivedMetric(profile: profile, stored: config.target),
+        guard let metric = CardioTargets.derivedMetric(profile: profile, stored: storedTriad),
               derivedText(metric) != nil else { return nil }
         return metric
+    }
+
+    /// ⚠️ Triad reads go through this — `target(_:)` returns the extras bag
+    /// whatever the profile tracks, and deriving off a metric with no row
+    /// on screen produces a number the user cannot reach.
+    private func storedTriad(_ metric: WorkoutMetric) -> Double? {
+        profile.contains(metric) ? config.target(metric) : nil
     }
 
     private func derivedText(_ metric: WorkoutMetric) -> String? {
         guard let value = CardioTargets.derive(
             metric,
-            distance: config.target(.distance),
-            durationSeconds: config.target(.duration),
-            paceSeconds: config.target(.pace),
+            distance: storedTriad(.distance),
+            durationSeconds: storedTriad(.duration),
+            paceSeconds: storedTriad(.pace),
             unit: profile.distanceUnit
         ) else { return nil }
         if metric == .duration { return DurationTape.label(for: Int(value.rounded())) }
@@ -276,16 +283,24 @@ struct ExerciseConfigSheet: View {
     private func promote(_ metric: WorkoutMetric) {
         let current = CardioTargets.derive(
             metric,
-            distance: config.target(.distance),
-            durationSeconds: config.target(.duration),
-            paceSeconds: config.target(.pace),
+            distance: storedTriad(.distance),
+            durationSeconds: storedTriad(.duration),
+            paceSeconds: storedTriad(.pace),
             unit: profile.distanceUnit
         )
-        if let evicted = CardioTargets.evicted(entering: metric, profile: profile, stored: config.target) {
+        writeTarget(metric, to: current)
+        wheel = metric
+    }
+
+    /// ⚠️ EVERY target write goes through this — filling the triad's last
+    /// empty slot is an entry whoever made it, so the stepper and the
+    /// picker evict exactly as a promotion does.
+    private func writeTarget(_ metric: WorkoutMetric, to value: Double?) {
+        if value != nil,
+           let evicted = CardioTargets.evicted(entering: metric, profile: profile, stored: storedTriad) {
             config.setTarget(evicted, to: nil)
         }
-        config.setTarget(metric, to: current)
-        wheel = metric
+        config.setTarget(metric, to: value)
     }
 
     private func stepTarget(_ metric: WorkoutMetric, _ direction: Double) {
@@ -294,7 +309,7 @@ struct ExerciseConfigSheet: View {
         let stepped = direction > 0
             ? metric.incremented(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, stepOverride: stepOverride)
             : metric.decremented(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, stepOverride: stepOverride)
-        config.setTarget(metric, to: stepped)
+        writeTarget(metric, to: stepped)
     }
 
     private func applyReps(_ target: RepTarget) {

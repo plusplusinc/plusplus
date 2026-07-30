@@ -73,6 +73,15 @@ struct RoutineTemplate: Identifiable, Hashable {
         /// catalog above reads exactly as it did.
         var extraTargets: [WorkoutMetric: Double] = [:]
 
+        /// Whether this entry states a cardio prescription at all — any
+        /// member of the triad, a bare duration included. Instantiation
+        /// keys the triad clear on this rather than on the extras bag,
+        /// since "ten minutes easy" carries no extras and is precisely
+        /// the entry a stale prefill can contradict.
+        var prescribesTriad: Bool {
+            durationSeconds != nil || !extraTargets.isEmpty
+        }
+
         /// Seconds of WORK one round takes. The authored duration is the
         /// honest answer; failing that, a distance and a pace multiply
         /// out. nil when the entry states neither, and the caller charges
@@ -222,15 +231,21 @@ struct RoutineTemplate: Identifiable, Hashable {
                     routineExercise = newGroup.sortedExercises.first
                 }
                 if let routineExercise {
-                    // ⚠️ An authored cardio target REPLACES the prefill,
-                    // so the whole triad clears first. The add path seeds
-                    // from the exercise's bumped defaults (#187), so a
-                    // "500 m at 2:00" template landing on an erg you last
-                    // rowed for twenty minutes would otherwise arrive
-                    // carrying that duration as a THIRD value, and the
-                    // two-of-three law would have a contradiction to
-                    // resolve on the user's behalf.
-                    if !entry.extraTargets.isEmpty {
+                    // ⚠️ An authored cardio prescription REPLACES the
+                    // prefill, so the whole triad clears first. The add
+                    // path seeds from the exercise's bumped defaults
+                    // (#187), so "ten minutes easy" landing on a Running
+                    // row you last edited to three miles at 9:00 would
+                    // otherwise arrive holding all THREE, and distance
+                    // outranks duration in the driver: a warm-up jog would
+                    // execute as a three-mile set.
+                    //
+                    // ⚠️ The gate is "authors ANY of the triad", not "has
+                    // extras". A duration-only cardio entry has an empty
+                    // extras bag and is exactly the case that used to slip
+                    // through — three of the six cardio templates are that
+                    // shape.
+                    if entry.prescribesTriad {
                         for metric in CardioTargets.triad {
                             routineExercise.setTarget(metric, to: nil)
                         }
