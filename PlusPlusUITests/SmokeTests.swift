@@ -163,14 +163,21 @@ final class SmokeTests: XCTestCase {
         // (isHittable is documented false for nonexistent elements, so
         // the predicate is safe whether the closed action is pruned
         // from the tree or merely unhittable).
-        // ⚠️ Tap the ROW's leading area, not the label's centre. With a
-        // trailing swipe open the content shifts left, so the leading edge is
-        // the one region certain to be row content and certain not to sit
-        // under the revealed actions. The cell is the truest target where the
-        // query resolves it; the label is the fallback.
+        // ⚠️ Tap an ABSOLUTE point between the screen's edge and DELETE, not a
+        // normalized offset into the row. The instrumented run gave the reason
+        // outright: with the swipe open the cell's frame is
+        // `(-92,154 420x69)` — it has slid 92 pt LEFT, so its leading fifth is
+        // off the display and a `dx: 0.15` tap landed at x = -29, on nothing
+        // at all. Every earlier round tapped into that dead zone and read the
+        // silence as "the row ignored it".
+        //
+        // Half of DELETE's own minX is inside the visible row content and
+        // clear of the revealed actions, whatever the shift happens to be.
         let row = app.cells.containing(.staticText, identifier: "Swipe Target").firstMatch
         let rowTarget = row.exists ? row : card
-        rowTarget.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.5)).tap()
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: delete.frame.minX / 2, dy: rowTarget.frame.midY))
+            .tap()
         let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == 0"), object: delete)
         // ⚠️ The generic inventory is useless here — it returns the tab bar,
         // not the row. This reports the geometry instead, which is what tells
@@ -536,13 +543,22 @@ final class SmokeTests: XCTestCase {
             recordCard.isHittable,
             "the committed card must be reachable after \(scrolls) scrolls · \(buttonInventory())"
         )
-        recordCard.tap()
         // The record lists one row per logged set. Push-Up is equipment-free
         // weight/reps, so it derives to strength and the row's noun is "Set" —
         // the work-unit vocabulary does not rewrite this one.
+        //
+        // ⚠️ Retried once: a tap synthesized while the scroll above is still
+        // settling gets eaten as a scroll-stop, which is the same drop
+        // `skipRest` absorbs after a view transition. The first attempt landed
+        // on a card that was hittable and went nowhere.
+        let setRow = app.staticTexts["Set 1"]
+        recordCard.tap()
+        if !setRow.waitForExistence(timeout: 8), recordCard.exists {
+            recordCard.tap()
+        }
         snap("history-detail")
         XCTAssertTrue(
-            app.staticTexts["Set 1"].waitForExistence(timeout: 15),
+            setRow.waitForExistence(timeout: 15),
             "the record lists the logged sets · \(textInventory())"
         )
     }
