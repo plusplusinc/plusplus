@@ -13,6 +13,10 @@ struct ExerciseConfigSheet: View {
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
 
     @Bindable var config: SessionExerciseConfig
+    /// What the commit key says. "Add to workout" mid-session; "Start"
+    /// from quick start, where the tap begins the workout rather than
+    /// adding to one already running.
+    var actionLabel: String = "Add to workout"
     /// Commit — append the configured block AND dismiss the picker (this
     /// stacked sheet tears down with its parent, so it must not also call
     /// its own dismiss: that would be a double-dismiss).
@@ -79,7 +83,7 @@ struct ExerciseConfigSheet: View {
                     HStack(spacing: 8) {
                         Image(systemName: "plus")
                             .font(.system(.footnote, weight: .bold))
-                        Text("Add to workout")
+                        Text(actionLabel)
                             .font(.system(.subheadline, weight: .bold))
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)

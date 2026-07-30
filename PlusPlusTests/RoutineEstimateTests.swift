@@ -265,3 +265,52 @@ struct CardioFindabilityTests {
         #expect(SeedData.builtInDefinition(named: "Indoor Cycling")?.defaultDurationSeconds == nil)
     }
 }
+
+@Suite("Quick start")
+struct QuickStartTests {
+    private func makeContainer() throws -> ModelContainer {
+        let schema = Schema([Exercise.self, Equipment.self, EquipmentLibrary.self, Routine.self, ExerciseGroup.self, RoutineExercise.self, WorkoutSession.self, SetLog.self])
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quickstart-\(UUID().uuidString).store")
+        let config = ModelConfiguration(schema: schema, url: url, allowsSave: true, cloudKitDatabase: .none)
+        return try ModelContainer(for: schema, configurations: [config])
+    }
+
+    @Test("The pick list round-trips, and an empty one falls back")
+    func picksCodec() {
+        let raw = QuickStartPicks.raw(from: ["Running", "Indoor Cycling"])
+        #expect(QuickStartPicks.names(from: raw) == ["Running", "Indoor Cycling"])
+        // Never empty: an empty row would hide the "+" that is the only
+        // way back to the editor.
+        #expect(QuickStartPicks.names(from: "") == QuickStartPicks.fallback)
+        // A name with a space survives — the separator is a unit separator,
+        // not whitespace.
+        #expect(QuickStartPicks.names(from: QuickStartPicks.raw(from: ["Open Water Swim"])) == ["Open Water Swim"])
+    }
+
+    @Test("Quick start is a scratch session with the block already in it")
+    func startsAScratchSession() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        // The REAL catalog row, not a probe: quick start prefills from the
+        // exercise's own defaults, and `defaultSetCount` reads the catalog
+        // by name (an unknown name gets the classic 3). A probe would
+        // therefore have proved the opposite of what a run does.
+        let def = try #require(SeedData.builtInDefinition(named: "Running"))
+        let run = Exercise(name: def.name, muscleGroup: def.muscleGroup, exerciseType: def.exerciseType, isBuiltIn: true)
+        context.insert(run)
+
+        // What TodayView.startQuick does, in the same order.
+        let session = WorkoutSession.startEmpty(context: context)
+        let config = SessionExerciseConfig(exercise: run)
+        let logs = session.appendExercise(config: config, context: context)
+
+        // One effort, not three sets: a run is one continuous thing.
+        #expect(logs.count == 1)
+        #expect(session.sortedSetLogs.first?.exerciseName == "Running")
+        // It is an ad-hoc session, so it graduates to a routine and
+        // salvages on crash exactly like any other scratch workout.
+        #expect(session.routine == nil)
+        #expect(!session.isFinished)
+    }
+}
