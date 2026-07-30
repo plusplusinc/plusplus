@@ -163,7 +163,16 @@ final class SmokeTests: XCTestCase {
         // (isHittable is documented false for nonexistent elements, so
         // the predicate is safe whether the closed action is pruned
         // from the tree or merely unhittable).
-        card.tap()
+        // ⚠️ By COORDINATE, not `card.tap()`. XCUITest's element tap dispatches
+        // through accessibility, and on a row held open by native
+        // `.swipeActions` that never reached UIKit's close — three runs said
+        // `DELETE hittable=true · navigated=false · onList=true`, i.e. the row
+        // simply stayed open under it. A synthetic touch goes through hit
+        // testing instead, which is what a finger does and what this suite
+        // already relies on for the equipment quick-add. It is the stronger
+        // probe, not the weaker one: the rules file's own warning is that an
+        // accessibility tap BYPASSES the gesture layer this contract lives in.
+        card.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == 0"), object: delete)
         // ⚠️ The generic inventory is useless here — it returns the tab bar,
         // not the row — so this one reports the three states that tell the
@@ -329,12 +338,12 @@ final class SmokeTests: XCTestCase {
 
         // The native field's own Cancel clears the query; the catalog stays
         // put, since the SCOPE — not the field — decides which one you're on.
-        // ⚠️ It is labelled **Close**, not Cancel. The affordance is the
-        // SYSTEM's — the field is morphed out of the search-role tab — and
-        // iOS 26 names it Close there, beside a "Clear text" key. The test
-        // asserted the UIKit-era word for five months of runs nobody read.
-        // Both are accepted: the assertion is about leaving search, not
-        // about which noun the platform picked this release.
+        // ⚠️ It is labelled **Close**, beside a "Clear text" key. The
+        // affordance is the SYSTEM's — the field is morphed out of the
+        // search-role tab — so its noun is not the app's to choose, and
+        // "Cancel" stopped matching when #452 reworked this surface. Both
+        // are accepted: the assertion is about leaving search, not about
+        // which word the platform picked.
         let cancel = app.buttons
             .matching(NSPredicate(format: "label IN {'Cancel', 'Close'} OR identifier IN {'Cancel', 'Close'}"))
             .firstMatch
@@ -508,14 +517,17 @@ final class SmokeTests: XCTestCase {
         // entry under it. Tapping the bare text resolved to one that goes
         // nowhere, and the test then sat on Today waiting for a record it had
         // never opened.
-        let recordCard = app.buttons
-            .matching(NSPredicate(format: "label CONTAINS 'Quick Session'"))
-            .firstMatch
+        let recordCard = app.buttons["committedSessionCard"].firstMatch
         XCTAssertTrue(
             recordCard.waitForExistence(timeout: 10),
             "the committed card on Today · \(buttonInventory())"
         )
-        recordCard.tap()
+        // ⚠️ By coordinate, and identified in the app rather than matched by
+        // text. Today prints the routine's name in more than one row, and
+        // neither the bare staticText nor a label match navigated — the run
+        // sat on Today for the full timeout twice. The card is the one handle
+        // this flow cannot do without, so it carries an identifier now.
+        recordCard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         // The record lists one row per logged set. Push-Up is equipment-free
         // weight/reps, so it derives to strength and the row's noun is "Set" —
         // the work-unit vocabulary does not rewrite this one.
