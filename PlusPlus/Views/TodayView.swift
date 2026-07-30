@@ -70,8 +70,6 @@ struct TodayView: View {
     /// that is still dismissing is the documented presentation-drop class,
     /// so the tray sets a flag and `onDismiss` acts.
     @AppStorage(QuickStartPicks.key) private var quickStartRaw = QuickStartPicks.raw(from: QuickStartPicks.fallback)
-    @State private var pendingQuickStart: Exercise?
-    @State private var pendingEditQuickStarts = false
     @State private var quickStartConfig: SessionExerciseConfig?
     @State private var editingQuickStarts = false
     @State private var activeSession: WorkoutSession?
@@ -293,18 +291,7 @@ struct TodayView: View {
                                     .id(Self.todayAnchorID)
                             }
                             .padding(.horizontal, 16)
-                            // ⚠️ The sticky band FLOATS once it is holding the
-                            // top, so it stops reserving its own space — and
-                            // the opening scroll seats the anchor above at the
-                            // very top, which would put today's date line
-                            // under it. A hidden second copy reserves exactly
-                            // the right height, at every Dynamic Type size and
-                            // however the tally wraps, with no measuring and no
-                            // constant to keep in sync. It is what the band
-                            // covers on arrival; scrolled up to the week ahead
-                            // it reads as the space the strip lives in.
-                            weekStripBand
-                                .hidden()
+                            weekStripReservation
                             // Lazy: the committed section is the whole
                             // history — eager building made every render
                             // O(sessions) (bug hunt perf finding).
@@ -313,6 +300,22 @@ struct TodayView: View {
                                 // on the item it names — and it's the
                                 // line the opening scroll lands on.
                                 todayMarker
+                                // ⚠️ Quick start lives HERE, not in the start
+                                // tray (Dave, build 158, overruling the
+                                // placement #476 shipped). Cardio is
+                                // spontaneous — the whole point is that going
+                                // for a run is one tap — and a tap that first
+                                // has to open a sheet is not one tap. It sits
+                                // directly under today's date because that is
+                                // what it belongs to, and it is the first
+                                // thing under the opening scroll's landing.
+                                //
+                                // Scroll CONTENT on the rail, never chrome
+                                // beside it: anything a large title can travel
+                                // over has to be scroll content (the sticky
+                                // band's law), and a pinned row here would
+                                // fight both the title and the band.
+                                quickStartItem
                                 // The rest-day item yields to the setup scaffold
                                 // until a startable routine exists — "nothing
                                 // scheduled" and "schedule it (3 of 3)" saying
@@ -614,24 +617,10 @@ struct TodayView: View {
                 } else if pendingStartEmpty {
                     pendingStartEmpty = false
                     startEmptySession()
-                } else if let exercise = pendingQuickStart {
-                    pendingQuickStart = nil
-                    quickStartConfig = SessionExerciseConfig(exercise: exercise)
-                } else if pendingEditQuickStarts {
-                    pendingEditQuickStarts = false
-                    editingQuickStarts = true
                 }
             }) {
-                SwapInSheet(routines: swapInCandidates, dueIDs: Set(dueRoutines.map(\.persistentModelID)), quickStarts: quickStartExercises, onPick: { routine in
+                SwapInSheet(routines: swapInCandidates, dueIDs: Set(dueRoutines.map(\.persistentModelID)), onPick: { routine in
                     swapInPick = routine
-                    showingSwapIn = false
-                }, onQuickStart: { exercise in
-                    // Same drop class as swapInPick: the config sheet waits
-                    // for this one to finish dismissing.
-                    pendingQuickStart = exercise
-                    showingSwapIn = false
-                }, onEditQuickStarts: {
-                    pendingEditQuickStarts = true
                     showingSwapIn = false
                 }, onCreate: {
                     // Same drop class as swapInPick above: the alert
@@ -1046,6 +1035,37 @@ struct TodayView: View {
             Spacer(minLength: 0)
         }
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// One-tap start for the sports you actually do, on the rail under
+    /// today's date.
+    ///
+    /// Spine only, no node: a node marks an OCCURRENCE, and these keys are
+    /// an offer rather than an entry on the timeline — the same call
+    /// `beyondThisWeekBlock` makes. The keys carry their own raised chrome,
+    /// so the row needs no card around them.
+    ///
+    /// ⚠️ It renders nothing while the setup scaffold is running: a full
+    /// viewport of "3 of 3" steps with a Run key floating above it offers two
+    /// beginnings at once, and setup is the one that has to finish.
+    @ViewBuilder
+    private var quickStartItem: some View {
+        if !setupActive || allSetupDone, !quickStartExercises.isEmpty {
+            HStack(alignment: .top, spacing: 10) {
+                Rectangle()
+                    .fill(Theme.border)
+                    .frame(width: 2)
+                    .frame(maxHeight: .infinity)
+                    .frame(width: 20)
+                QuickStartRow(
+                    exercises: quickStartExercises,
+                    onPick: { quickStartConfig = SessionExerciseConfig(exercise: $0) },
+                    onEdit: { editingQuickStarts = true }
+                )
+                .padding(.vertical, 4)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     /// "sat · jul 11" — the timeline's own weekday·date grammar (matches
@@ -1477,6 +1497,42 @@ struct TodayView: View {
     /// column inside it. Used TWICE, and they must stay identical — once as
     /// the sticky band, once hidden underneath the today anchor to reserve the
     /// band's height (see the mount site).
+    /// The space the sticky band occupies, reserved INSIDE the rail.
+    ///
+    /// ⚠️ The band FLOATS once it is holding the top, so it stops reserving
+    /// its own height — and the opening scroll seats the anchor at the very
+    /// top, which would put today's date line under it. A hidden copy of the
+    /// band reserves exactly the right height, at every Dynamic Type size and
+    /// however the tally wraps, with no measuring (which would write state
+    /// during layout and break the search-role morph) and no constant to keep
+    /// in sync.
+    ///
+    /// ⚠️ It reserves that height WITH the spine, not as a blank band beside
+    /// it. Hiding the copy outright hid the rail through it too, so scrolling
+    /// up to the week ahead showed the timeline coming apart — a floating gap
+    /// with no line through it, which reads as a rendering fault rather than
+    /// as the space the strip lives in (Dave, build 158). Spine only and no
+    /// node, exactly like `beyondThisWeekBlock`: nothing happens here, the
+    /// timeline simply passes through.
+    private var weekStripReservation: some View {
+        weekStripBand
+            .hidden()
+            .overlay(alignment: .topLeading) {
+                // The rail's own geometry, not a derived constant: the same
+                // 20 pt gutter holding the same 2 pt spine, inside the same
+                // 16 pt content column.
+                HStack(spacing: 10) {
+                    Rectangle()
+                        .fill(Theme.border)
+                        .frame(width: 2)
+                        .frame(maxHeight: .infinity)
+                        .frame(width: 20)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 16)
+            }
+    }
+
     private var weekStripBand: some View {
         weekStrip
             .padding(.horizontal, 16)
@@ -2316,11 +2372,7 @@ private struct SwapInSheet: View {
     /// Routines due today — they wear the pill, everyone else shows
     /// their cadence.
     let dueIDs: Set<PersistentIdentifier>
-    /// The one-tap sports, resolved from the device-local pick list.
-    let quickStarts: [Exercise]
     let onPick: (Routine) -> Void
-    let onQuickStart: (Exercise) -> Void
-    let onEditQuickStarts: () -> Void
     let onCreate: () -> Void
     let onStartEmpty: () -> Void
 
@@ -2374,17 +2426,10 @@ private struct SwapInSheet: View {
 
     private var menu: some View {
         VStack(alignment: .leading, spacing: 10) {
-            // Straight out the door. Cardio is mostly spontaneous, so the
-            // sports you actually do lead the tray rather than sitting
-            // behind "scratch workout → picker → search".
-            if !quickStarts.isEmpty {
-                QuickStartRow(
-                    exercises: quickStarts,
-                    onPick: onQuickStart,
-                    onEdit: onEditQuickStarts
-                )
-                .padding(.bottom, 2)
-            }
+            // ⚠️ Quick start is NOT here any more (Dave, build 158). It sits
+            // on Today's rail under the date, because a one-tap start that
+            // first has to open a sheet is not a one-tap start. This tray is
+            // the two ways to start something you have to CHOOSE.
             Button {
                 path.append(.picker)
             } label: {
