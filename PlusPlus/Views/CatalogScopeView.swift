@@ -167,6 +167,28 @@ struct CatalogScopeView: View {
     /// Which "N … require more equipment" groups are open, by `Section.id`
     /// ("MISSING_MINE" / "MISSING_CATALOG"). Collapsed by default.
     @State private var expandedMissing: Set<String> = []
+    /// The exercise facets (Dave, 2026-07-30 — reversing the 2026-07-25
+    /// retirement for ONE axis and its neighbours).
+    ///
+    /// The chips came off because "the search field reaches what the chips
+    /// reached", which was true of Favorites and Muscle and false of KIND:
+    /// a catalog that is ninety percent lifting hides the rest, and search
+    /// only helps once you know the word. Kind earns a control; Muscle and
+    /// Favorites ride along because a rack of one chip is not a rack.
+    ///
+    /// Ephemeral per entry, exactly like the query — a filter you cannot
+    /// see is indistinguishable from missing data (the stale-query rule).
+    @State private var kinds: Set<CatalogKind> = []
+    @State private var favoritesOnly = false
+    @State private var muscles: Set<MuscleGroup> = []
+    @State private var pickingMuscles = false
+
+    /// Facets belong to the Exercises catalog. Routines and equipment have
+    /// no kind, no muscle and no favorite to narrow by, and the presented
+    /// picker is the ADD surface where every extra control is friction.
+    private var showsFacetRow: Bool {
+        scope == .exercises
+    }
     @State private var showingLibraryTray = false
     @State private var creatingExercise = false
     @State private var namingRoutine = false
@@ -220,11 +242,32 @@ struct CatalogScopeView: View {
         routines.filter { $0.persistentModelID != newlyAdded || revealNewCard }
     }
 
+    /// The exercises the facets leave standing. Untouched when nothing is
+    /// active, which is every surface that isn't the Exercises catalog.
+    private var facetedExercises: [Exercise] {
+        guard hasActiveFacets else { return allExercises }
+        return allExercises.filter { exercise in
+            if favoritesOnly, !exercise.isFavorite { return false }
+            if !kinds.isEmpty, !kinds.contains(CatalogKind(exercise.modality)) { return false }
+            if !muscles.isEmpty, muscles.isDisjoint(with: Set(exercise.muscleGroups)) { return false }
+            return true
+        }
+    }
+
+    private var hasActiveFacets: Bool {
+        favoritesOnly || !kinds.isEmpty || !muscles.isEmpty
+    }
+
+    /// How many facet values are switched on — the summary chip's count.
+    private var activeFacetCount: Int {
+        kinds.count + muscles.count + (favoritesOnly ? 1 : 0)
+    }
+
     private var sections: [FindOrCreateEngine.Section] {
         FindOrCreateEngine.sections(
             query: trimmedQuery,
             scope: scope,
-            exercises: allExercises,
+            exercises: facetedExercises,
             equipment: allEquipment,
             routines: displayedRoutines,
             templates: RoutineCatalog.all,
@@ -461,6 +504,26 @@ struct CatalogScopeView: View {
                         routine.uuid.map { RoutineArrival.land($0) }
                     }
                 }
+                // Eleven muscle groups is more than a chip row holds, so
+                // the facet pushes the app's own multi-select. A BOOLEAN
+                // destination on top of the value pushes above, which is
+                // the legal direction (#291).
+                .navigationDestination(isPresented: $pickingMuscles) {
+                    SheetPickList(
+                        title: "Muscle",
+                        sections: MuscleGroup.grouped.map { region in
+                            SheetPickList.Section(
+                                title: region.region,
+                                options: region.groups.map { SheetPickList.Option(id: $0.rawValue, name: $0.displayName) }
+                            )
+                        },
+                        selected: Set(muscles.map(\.rawValue)),
+                        note: "Narrows the catalog. Cardio files under Full body."
+                    ) { raw in
+                        guard let group = MuscleGroup(rawValue: raw) else { return }
+                        if muscles.contains(group) { muscles.remove(group) } else { muscles.insert(group) }
+                    }
+                }
         }
         .revealRoot(tab: tabKey, atRoot: path.isEmpty)
         // Leaving the catalog is the boundary that pushes program edits to
@@ -690,6 +753,23 @@ struct CatalogScopeView: View {
         let sections = displayedSections
         return ScrollViewReader { proxy in
             List {
+                // The facet rack, on the Exercises catalog only: routines
+                // and equipment have no kind to narrow by. Scroll CONTENT,
+                // not a pinned header — a band above the list is one more
+                // row of chrome between the title and the thing you came
+                // for, and it would sit exactly where the search field's
+                // morph needs room.
+                if showsFacetRow {
+                    CatalogFacetRow(
+                        kinds: $kinds,
+                        favoritesOnly: $favoritesOnly,
+                        muscles: $muscles,
+                        onPickMuscles: { pickingMuscles = true }
+                    )
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 6, trailing: 0))
+                }
                 if showsCreateRow(collisions) {
                     createRow
                 }
