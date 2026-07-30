@@ -197,6 +197,12 @@ public enum WatchSync {
         /// exactly as before. ⚠️ Composed through `LoggedActuals.extras`,
         /// never by copying the step's targets — see that type for why.
         public var extraActuals: [String: Double]?
+        /// What the heart did during THIS step. The wrist is the device
+        /// wearing the sensor, so it is the one that actually knows, and
+        /// sending it means a watch-logged set carries the same fact a
+        /// phone-logged one does. Additive optionals, like `extraActuals`.
+        public var averageHeartRate: Int?
+        public var maxHeartRate: Int?
         public var completedAt: Date?
 
         public init(
@@ -205,6 +211,8 @@ public enum WatchSync {
             actualReps: Int? = nil,
             actualDuration: Int? = nil,
             extraActuals: [String: Double]? = nil,
+            averageHeartRate: Int? = nil,
+            maxHeartRate: Int? = nil,
             completedAt: Date? = nil
         ) {
             self.step = step
@@ -212,6 +220,8 @@ public enum WatchSync {
             self.actualReps = actualReps
             self.actualDuration = actualDuration
             self.extraActuals = extraActuals
+            self.averageHeartRate = averageHeartRate
+            self.maxHeartRate = maxHeartRate
             self.completedAt = completedAt
         }
     }

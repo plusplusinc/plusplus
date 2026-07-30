@@ -299,7 +299,9 @@ The app's single-file export (backup / manual transport) is a bundle:
       },
       "sets": [
         {
+          "actualAverageHeartRate": 148,
           "actualDuration": 1745,
+          "actualMaxHeartRate": 171,
           "completedAt": "2026-07-07T07:31:40Z",
           "distanceUnit": "mi",
           "exerciseName": "Trail Run", "exerciseType": "duration",
@@ -420,7 +422,14 @@ Semantics worth writing down:
   It appears as `defaultHeartRateTarget` on an exercise (the prefill for new
   entries), `heartRateTarget` on a routine entry (the prescription), and
   `targetHeartRate` on a session set (the snapshot the set ran under). Absent
-  everywhere means no prescription.
+  everywhere means no prescription. A session set may also carry
+  `actualAverageHeartRate` / `actualMaxHeartRate` — what the heart actually
+  did during THAT set, in bpm, mirroring the session-level pair. They are
+  measurements rather than prescriptions, so they are absent (never zero)
+  whenever nothing measured them, which is every set written before the
+  fields existed. Deliberately not metric-vocabulary keys: a metric is an
+  editable scalar you dial, a heart-rate target is a zone or a range, and an
+  actual is measured.
 - **Outdoor runs** (#378, additive to schema v1): an exercise whose profile
   happens outdoors under GPS declares `isOutdoor: true` — the flag that
   engages live pace/distance and route capture. It rides the explicit

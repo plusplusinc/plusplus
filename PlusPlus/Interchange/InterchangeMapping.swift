@@ -78,6 +78,10 @@ import PlusPlusKit
 ///                    targetRepsLower·targetRepsUpper·targetDuration·
 ///                    targetHeartRateData·extraTargetsData·actualWeight·
 ///                    actualReps·actualDuration·extraActualsData·completedAt → EXPORTED
+///                    actualAverageHeartRate·actualMaxHeartRate → EXPORTED (the
+///                    per-set heart-rate facts; additive optionals, absent on
+///                    every set nobody measured, so pre-field files stay
+///                    byte-identical)
 ///                    session → EXCLUDED (structural); exercise → EXPORTED (resolved by name)
 /// ──────────────────────────────────────────────────────────────────────
 enum InterchangeMapping {
@@ -285,6 +289,8 @@ enum InterchangeMapping {
                     actualWeight: log.actualWeight,
                     actualReps: log.actualReps,
                     actualDuration: log.actualDuration,
+                    actualAverageHeartRate: log.actualAverageHeartRate,
+                    actualMaxHeartRate: log.actualMaxHeartRate,
                     completedAt: log.completedAt,
                     extraTargets: MetricValues.toRaw(log.extraTargets),
                     extraActuals: MetricValues.toRaw(log.extraActuals),
@@ -537,6 +543,8 @@ enum InterchangeMapping {
                 log.actualWeight = setDTO.actualWeight
                 log.actualReps = setDTO.actualReps
                 log.actualDuration = setDTO.actualDuration
+                log.actualAverageHeartRate = setDTO.actualAverageHeartRate
+                log.actualMaxHeartRate = setDTO.actualMaxHeartRate
                 log.completedAt = setDTO.completedAt
                 log.extraTargets = MetricValues.fromRaw(setDTO.extraTargets)
                 log.extraActuals = MetricValues.fromRaw(setDTO.extraActuals)

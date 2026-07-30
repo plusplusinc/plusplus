@@ -208,6 +208,11 @@ final class WatchBridge: NSObject, WCSessionDelegate {
             log.actualReps = stepResult.actualReps
             log.actualDuration = stepResult.actualDuration
             log.completedAt = stepResult.completedAt
+            // The wrist wears the sensor, so a watch-logged set carries
+            // the same per-set heart-rate fact a phone-logged one does.
+            // Absent from an older watch build, which stays nil.
+            log.actualAverageHeartRate = stepResult.averageHeartRate
+            log.actualMaxHeartRate = stepResult.maxHeartRate
             let extras = MetricValues.fromRaw(stepResult.step.extraTargets)
             // What the wrist MEASURED, which is a different thing from
             // what it was asked to do.

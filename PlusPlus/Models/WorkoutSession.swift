@@ -780,6 +780,25 @@ final class SetLog {
     var actualReps: Int?
     var actualDuration: Int?
     var extraActualsData: Data?
+    /// What your heart actually did during THIS set, mirroring the
+    /// session-level pair. Additive optionals: a lightweight migration
+    /// gives every existing row nil, which is the honest answer — nobody
+    /// was measuring per set before.
+    ///
+    /// ⚠️ Deliberately NOT a `WorkoutMetric`, and the reason is not lint
+    /// compatibility. A `WorkoutMetric` is an editable quantity you DIAL:
+    /// it carries a step, a range, wheel values, `incremented`/
+    /// `decremented`, and one `Double`. A heart-rate TARGET is a zone or a
+    /// bpm range, which no scalar expresses (hence `HeartRateTarget`), and
+    /// an actual is MEASURED rather than set, so the whole stepper
+    /// apparatus would be dead weight on both sides.
+    ///
+    /// ⚠️ Applies to every workout, not just cardio. A heavy triple spikes
+    /// a heart rate too, and the set that spiked it is the interesting
+    /// unit — a session average over an hour of lifting and resting says
+    /// almost nothing.
+    var actualAverageHeartRate: Int?
+    var actualMaxHeartRate: Int?
     var completedAt: Date?
 
     init(

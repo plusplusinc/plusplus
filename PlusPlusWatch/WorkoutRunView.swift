@@ -311,9 +311,15 @@ struct WorkoutRunView: View {
             actualReps: reps,
             actualDuration: duration,
             extraActuals: MetricValues.toRaw(extras),
+            // The wrist wears the sensor, so it is the device that
+            // actually knows what this step cost. Per STEP, not per
+            // session — the builder's own statistics are the wrong window.
+            averageHeartRate: health.stepAverageBPM,
+            maxHeartRate: health.stepMaxBPM,
             completedAt: now
         ))
         distanceAtStepStart = health.totalDistance
+        health.beginStep()
         // Mirror the logged set to the phone (its execution order is the
         // step's index in the shared plan).
         store.live.logged(index: results.count - 1, weight: weight, reps: reps, duration: duration, extras: MetricValues.toRaw(extras) ?? [:], at: now)
