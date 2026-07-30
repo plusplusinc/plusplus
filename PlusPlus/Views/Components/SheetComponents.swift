@@ -224,6 +224,78 @@ struct SheetActionButton: View {
     }
 }
 
+/// The ±pair's exact footprint, drawn as nothing. Built from the same
+/// pieces at the same widths as the real pad below rather than one magic
+/// number, so the two cannot drift apart.
+private struct StepperPadFootprint: View {
+    var body: some View {
+        HStack(spacing: 0) {
+            Color.clear.frame(width: 44, height: 36)
+            Divider().frame(height: 36).hidden()
+            Color.clear.frame(width: 44, height: 36)
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+/// The third of distance · duration · pace: shown, never stored.
+///
+/// Sits in the same 52 pt row as `MetricStepperRow` and deliberately
+/// carries none of its input chrome — no field border, no ± pair, ink a
+/// step back — because it is an ANSWER, not a control. Five miles at 9:00
+/// is forty-five minutes; the sheet says so instead of offering a fourth
+/// number you could contradict.
+///
+/// It stays tappable, because deriving is not deciding: tapping promotes
+/// the metric to something you set, and `CardioTargets.evicted` picks
+/// which of the other two steps back to make room.
+struct DerivedMetricRow: View {
+    let label: String
+    let value: String
+    let identifier: String
+    let onPromote: () -> Void
+
+    var body: some View {
+        Button(action: onPromote) {
+            HStack(spacing: 10) {
+                Text(label)
+                    .font(.system(.footnote))
+                    .foregroundStyle(Theme.textSecondary)
+                Spacer()
+                // Lowercase, because ALL-CAPS mono is the section-label
+                // treatment and this is a caption on one value.
+                Text("derived")
+                    .font(.system(.caption2))
+                    .foregroundStyle(Theme.textFaint)
+                Text(value)
+                    .font(.system(.subheadline, design: .monospaced, weight: .semibold))
+                    .foregroundStyle(Theme.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .contentTransition(.numericText())
+                    .animation(Theme.Anim.standard, value: value)
+                    // The stepper value's box, without its border.
+                    .padding(.horizontal, 12)
+                    .frame(minWidth: 60, minHeight: 36)
+                // ⚠️ The ±pair's FOOTPRINT, reserved. Without it this row's
+                // number sits ~89 pt right of every stepper value in the
+                // same card, and a column of three cardio metrics reads
+                // ragged — the derived one juts out exactly as far as the
+                // keys it doesn't have.
+                StepperPadFootprint()
+            }
+            .padding(.horizontal, 14)
+            .frame(minHeight: 52)
+            .contentShape(Rectangle())
+            .overlay(alignment: .bottom) { Divider().overlay(Theme.border) }
+        }
+        .accessibilityLabel(label)
+        .accessibilityValue("\(value), derived")
+        .accessibilityHint("Set it yourself instead")
+        .accessibilityIdentifier("\(identifier)Derived")
+    }
+}
+
 /// Metric row in the v2 sheet style: label, tappable mono value, and a
 /// bordered −/+ pair. Increment/decrement identifiers are derived from
 /// `identifier` ("weightIncrement" etc.) for the UI tests.

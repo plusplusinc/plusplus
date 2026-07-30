@@ -120,7 +120,7 @@ struct ExerciseConfigSheet: View {
                 distanceUnit: profile.distanceUnit,
                 value: Binding(
                     get: { config.target(metric) },
-                    set: { config.setTarget(metric, to: $0) }
+                    set: { writeTarget(metric, to: $0) }
                 )
             )
         }
@@ -165,6 +165,13 @@ struct ExerciseConfigSheet: View {
                         onDecrement: { applyReps(RepTarget(lower: config.reps, upper: config.repsUpper).decremented()) },
                         onIncrement: { applyReps(RepTarget(lower: config.reps, upper: config.repsUpper).incremented()) }
                     )
+                } else if metric == derivedMetric, let text = derivedText(metric) {
+                    DerivedMetricRow(
+                        label: metric.label,
+                        value: text,
+                        identifier: "cfg-\(metric.rawValue)",
+                        onPromote: { promote(metric) }
+                    )
                 } else {
                     MetricStepperRow(
                         label: metric.label,
@@ -175,11 +182,15 @@ struct ExerciseConfigSheet: View {
                         onIncrement: { stepTarget(metric, 1) }
                     )
                 }
+                if metric == heartRateAnchor {
+                    heartRateTargetRow
+                }
             }
             // Stretches and static holds drop the HR prescription
             // (Exercise.showsHeartRateTargetRow owns the rule,
-            // stale-target escape included).
-            if exercise.showsHeartRateTargetRow(existingTarget: config.heartRateTarget) {
+            // stale-target escape included). On a cardio profile it has
+            // already rendered up with the work targets.
+            if showsHeartRate, heartRateAnchor == nil {
                 heartRateTargetRow
             }
             MetricStepperRow(
@@ -230,13 +241,79 @@ struct ExerciseConfigSheet: View {
         return metric.displayText(config.target(metric), weightUnit: weightUnit, distanceUnit: profile.distanceUnit)
     }
 
+    // MARK: - The two-of-three law
+
+    /// Mirrors `ExerciseDetailSheet` — same law, same rows, bound to the
+    /// config instead of the stored entry. The pair is kept parallel by
+    /// hand, as `rowText`/`stepTarget`/`applyReps` already are: the shared
+    /// part that could actually drift is the law itself, and that lives in
+    /// Kit's `CardioTargets`.
+    private var showsHeartRate: Bool {
+        exercise.showsHeartRateTargetRow(existingTarget: config.heartRateTarget)
+    }
+
+    private var heartRateAnchor: WorkoutMetric? {
+        guard showsHeartRate, CardioTargets.applies(to: profile) else { return nil }
+        return profile.metrics.last { CardioTargets.triad.contains($0) }
+    }
+
+    private var derivedMetric: WorkoutMetric? {
+        guard let metric = CardioTargets.derivedMetric(profile: profile, stored: storedTriad),
+              derivedText(metric) != nil else { return nil }
+        return metric
+    }
+
+    /// ⚠️ Triad reads go through this — `target(_:)` returns the extras bag
+    /// whatever the profile tracks, and deriving off a metric with no row
+    /// on screen produces a number the user cannot reach.
+    private func storedTriad(_ metric: WorkoutMetric) -> Double? {
+        profile.contains(metric) ? config.target(metric) : nil
+    }
+
+    private func derivedText(_ metric: WorkoutMetric) -> String? {
+        guard let value = CardioTargets.derive(
+            metric,
+            distance: storedTriad(.distance),
+            durationSeconds: storedTriad(.duration),
+            paceSeconds: storedTriad(.pace),
+            unit: profile.distanceUnit
+        ) else { return nil }
+        if metric == .duration { return DurationTape.label(for: Int(value.rounded())) }
+        return metric.displayText(value, weightUnit: weightUnit, distanceUnit: profile.distanceUnit)
+    }
+
+    /// Read the computed value BEFORE evicting — after, the inputs it is
+    /// computed from are gone.
+    private func promote(_ metric: WorkoutMetric) {
+        let current = CardioTargets.derive(
+            metric,
+            distance: storedTriad(.distance),
+            durationSeconds: storedTriad(.duration),
+            paceSeconds: storedTriad(.pace),
+            unit: profile.distanceUnit
+        )
+        writeTarget(metric, to: current)
+        wheel = metric
+    }
+
+    /// ⚠️ EVERY target write goes through this — filling the triad's last
+    /// empty slot is an entry whoever made it, so the stepper and the
+    /// picker evict exactly as a promotion does.
+    private func writeTarget(_ metric: WorkoutMetric, to value: Double?) {
+        if value != nil,
+           let evicted = CardioTargets.evicted(entering: metric, profile: profile, stored: storedTriad) {
+            config.setTarget(evicted, to: nil)
+        }
+        config.setTarget(metric, to: value)
+    }
+
     private func stepTarget(_ metric: WorkoutMetric, _ direction: Double) {
         let stepOverride = metric == .weight ? exercise.weightStepOverride : nil
         let current = config.target(metric)
         let stepped = direction > 0
             ? metric.incremented(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, stepOverride: stepOverride)
             : metric.decremented(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, stepOverride: stepOverride)
-        config.setTarget(metric, to: stepped)
+        writeTarget(metric, to: stepped)
     }
 
     private func applyReps(_ target: RepTarget) {
