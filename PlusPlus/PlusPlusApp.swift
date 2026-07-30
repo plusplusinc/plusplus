@@ -114,6 +114,10 @@ struct PlusPlusApp: App {
         // Ensure every routine/group/exercise has a stable uuid — assigns one
         // to any row migrated in from a pre-uuid store (#155).
         SeedData.backfillModelUUIDsIfNeeded(context: modelContainer.mainContext)
+        // One row for riding a bike indoors: a store seeded before build 158
+        // has both "Stationary Bike" and "Indoor Cycling" in its catalog, and
+        // dropping a definition never removes a row that already exists.
+        SeedData.mergeIndoorBikeExercises(context: modelContainer.mainContext)
         // A routine tall enough to overflow every simulator screen, for
         // the scroll regression test. Only meaningful with --uitest-reset.
         if inMemory && CommandLine.arguments.contains("--uitest-bigworkout") {

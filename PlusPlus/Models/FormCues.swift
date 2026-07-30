@@ -43,7 +43,7 @@ enum FormCues {
     /// their cues — sequencing is real coaching.
     static let deliberatelySilent: Set<String> = [
         "Running", "Walking", "Hiking", "Cycling", "Treadmill Run",
-        "Stationary Bike", "Indoor Cycling", "Assault Bike", "Elliptical",
+        "Indoor Cycling", "Assault Bike", "Elliptical",
         "Stair Climber", "Vertical Climber", "Upper Body Ergometer",
     ]
 
