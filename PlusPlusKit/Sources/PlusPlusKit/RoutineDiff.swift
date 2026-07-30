@@ -67,13 +67,16 @@ public enum RoutineDiff {
     /// nil when it has never been performed.
     public struct Prior: Equatable, Sendable {
         /// The rounds the comparison treats as "last time's". ⚠️ The app's
-        /// ledger producer passes the PLANNED rounds, deliberately
+        /// LEDGER producer passes the PLANNED rounds, deliberately
         /// (2026-07-29, re-examined and upheld by Dave 2026-07-30): today's
         /// side is a prescription, so last time's must be the same kind of
         /// number — a plan compared against a shortfall manufactures a
-        /// change out of any unfinished session. An earlier revision of
-        /// this doc promised "sets actually COMPLETED"; no producer ever
-        /// did that, and the doc was the thing that lied.
+        /// change out of any unfinished session. The finish tally is the
+        /// deliberate OTHER case: both of its sides are actuals, so it
+        /// compares completed against completed (ActiveSessionView's
+        /// prior). An earlier revision of this doc promised "sets actually
+        /// COMPLETED" as the blanket rule; the ledger producer never did
+        /// that, and the doc was the thing that lied.
         public var sets: Int?
         public var weight: Double?
         public var reps: Int?
