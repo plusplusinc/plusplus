@@ -741,10 +741,16 @@ enum SeedData {
             // A studio class is not a stationary-bike session with the
             // same numbers: it is dialled by resistance and cadence and
             // measured in watts, and it was missing entirely.
+            // ⚠️ No duration default, deliberately, and the coherence test
+            // enforces it: a duration prescription on a profile that also
+            // tracks distance decides the driver behind your back. A class
+            // that runs long would count DOWN to a number nobody chose and
+            // stop; open-ended is both the honest default and the one
+            // Rowing, Assault Bike and Stationary Bike already carry.
             e("Indoor Cycling", .fullBody, ["Stationary Bike"], .duration,
               also: [.quads, .glutes],
               metrics: MetricProfile([.duration, .distance, .resistance, .power, .cadence], distanceUnit: .miles),
-              sets: 1, seconds: 1800),
+              sets: 1),
             e("Treadmill Run", .fullBody, ["Treadmill"], .duration, also: [.quads, .calves], sets: 1),
             e("Sandbag Carry", .fullBody, ["Sandbag"], .duration, also: [.back, .core]),
             // Road cardio (flexible metrics): the road is not gear, but

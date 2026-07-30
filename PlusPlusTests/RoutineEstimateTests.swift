@@ -259,5 +259,9 @@ struct CardioFindabilityTests {
         #expect(spin.contains(.cadence))
         // A studio bike is indoors; the GPS layer must not engage.
         #expect(!spin.isOutdoor)
+        // And it prescribes nothing: a duration default on a profile that
+        // also tracks distance picks the driver behind your back, and a
+        // class that runs long would count down to a number nobody chose.
+        #expect(SeedData.builtInDefinition(named: "Indoor Cycling")?.defaultDurationSeconds == nil)
     }
 }
