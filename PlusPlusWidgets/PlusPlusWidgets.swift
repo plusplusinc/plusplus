@@ -43,8 +43,8 @@ struct WorkoutLiveActivity: Widget {
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                         Text(context.state.phase == .resting
-                             ? "Up next: \(context.state.exerciseName) · set \(context.state.setNumber)"
-                             : "\(context.state.exerciseName) · set \(context.state.setNumber)")
+                             ? "Up next: \(context.state.positionLine)"
+                             : context.state.positionLine)
                             .font(.system(.footnote, weight: .semibold))
                             .lineLimit(1)
                     }
@@ -66,7 +66,7 @@ struct WorkoutLiveActivity: Widget {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(context.state.phase == .resting
                          ? (context.state.isTransition == true ? "SWITCH" : "REST")
-                         : "SET \(context.state.setNumber)")
+                         : context.state.unitKicker)
                             .font(.system(.caption2, design: .monospaced, weight: .semibold))
                             .foregroundStyle(.secondary)
                         Text(context.state.exerciseName)

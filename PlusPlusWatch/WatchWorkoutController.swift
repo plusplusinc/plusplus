@@ -56,10 +56,14 @@ final class WatchWorkoutController: NSObject, HKLiveWorkoutBuilderDelegate {
     private var sessionStart: Date?
 
     /// Request authorization (first run only — the system remembers) and
-    /// begin a workout session. Idempotent; failures leave us inert. On an
-    /// outdoor run the session runs as `.running`/`.outdoor`, collects GPS
-    /// distance, and surfaces live pace in the run's `unit`.
-    func start(outdoorRun: Bool = false, unit: DistanceUnit = .miles) {
+    /// begin a workout session. Idempotent; failures leave us inert.
+    ///
+    /// The session is configured from the plan's own `SessionModality` —
+    /// the same Kit map the phone's recorder uses, so a ride logged here
+    /// and a ride logged there file identically. It used to be an
+    /// `outdoorRun` Bool, which could only ever say "running/outdoor" or
+    /// "strength/indoor".
+    func start(modality: SessionModality = .empty, unit: DistanceUnit = .miles) {
         guard HKHealthStore.isHealthDataAvailable(), session == nil else { return }
         // Share covers everything the live builder saves with the workout;
         // read lets the data source collect from the sensors. Distance is
@@ -73,7 +77,7 @@ final class WatchWorkoutController: NSObject, HKLiveWorkoutBuilderDelegate {
             HKQuantityType(.activeEnergyBurned),
             HKQuantityType(.heartRate),
         ]
-        if outdoorRun {
+        if modality.isOutdoor {
             share.insert(HKQuantityType(.distanceWalkingRunning))
             read.insert(HKQuantityType(.distanceWalkingRunning))
             paceMeter = LivePaceMeter(unit: unit)
@@ -86,17 +90,15 @@ final class WatchWorkoutController: NSObject, HKLiveWorkoutBuilderDelegate {
         // denied share auth the builder's saves fail and we ignore them.
         store.requestAuthorization(toShare: share, read: read) { [weak self] success, _ in
             guard success else { return }
-            DispatchQueue.main.async { self?.begin(outdoorRun: outdoorRun) }
+            DispatchQueue.main.async { self?.begin(modality: modality) }
         }
     }
 
-    private func begin(outdoorRun: Bool) {
+    private func begin(modality: SessionModality) {
         guard session == nil else { return }
-        let configuration = HKWorkoutConfiguration()
-        // One session is one activity type — the caller only asks for
-        // outdoor when the whole routine is a run (PlanRoutine.isOutdoorRun).
-        configuration.activityType = outdoorRun ? .running : .traditionalStrengthTraining
-        configuration.locationType = outdoorRun ? .outdoor : .indoor
+        // One session is one activity type, so a mixed plan resolves to
+        // cross-training rather than claiming to be all of one sport.
+        let configuration = modality.healthConfiguration
         do {
             let session = try HKWorkoutSession(healthStore: store, configuration: configuration)
             let builder = session.associatedWorkoutBuilder()

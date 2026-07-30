@@ -100,7 +100,11 @@ struct RoutineTemplate: Identifiable, Hashable {
         for block in populated {
             let rounds = max(block.sets, 1)
             for entry in block.entries {
-                work += (entry.durationSeconds ?? 45) * rounds
+                // Shares Routine's per-set charge so a template's number
+                // cannot drift from the routine it becomes. A template
+                // cannot yet state a distance, so there is nothing for
+                // CardioTargets to multiply out here.
+                work += (entry.durationSeconds ?? Routine.assumedSetSeconds) * rounds
             }
             pauses += (block.entries.count - 1) * transition * rounds
             pauses += (rounds - 1) * restSeconds

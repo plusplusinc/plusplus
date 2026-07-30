@@ -60,9 +60,11 @@ struct WorkoutRunView: View {
         .navigationTitle(routine.name)
         .navigationBarBackButtonHidden(startedAt != nil && !finished)
         // The HK session starts as soon as the routine is opened —
-        // runtime + heart rate from the first set, not the first log. An
-        // all-outdoor routine runs as a GPS running session for live pace.
-        .onAppear { health.start(outdoorRun: routine.isOutdoorRun, unit: runUnit) }
+        // runtime + heart rate from the first set, not the first log. The
+        // plan's modality decides the activity type, so a wrist-logged
+        // ride files as cycling and an erg as rowing; an outdoor plan
+        // still collects GPS distance for live pace.
+        .onAppear { health.start(modality: routine.sessionModality, unit: runUnit) }
         // If the system pops us mid-session (plan row vanished after a
         // rename/delete on the phone), the logged sets still count:
         // partial history beats lost history, and the phone-side
@@ -83,9 +85,14 @@ struct WorkoutRunView: View {
 
     private func stepView(_ step: WatchSync.Step) -> some View {
         VStack(spacing: 8) {
-            Text("set \(stepIndex + 1)/\(routine.steps.count)")
-                .font(.system(.caption2, design: .monospaced))
-                .foregroundStyle(.secondary)
+            // The plan's own noun — pieces on an erg, reps on the track.
+            // Absent where the sport counts nothing, or on a plan pushed
+            // by a phone that predates modalities.
+            if let unit = step.workUnit, routine.steps.count > 1 {
+                Text("\(unit.singular) \(stepIndex + 1)/\(routine.steps.count)")
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
             Text(step.exerciseName)
                 .font(.headline)
                 .multilineTextAlignment(.center)
@@ -118,7 +125,7 @@ struct WorkoutRunView: View {
             Button {
                 log(step)
             } label: {
-                Text("Log set")
+                Text(step.workUnit.map { "Log \($0.singular)" } ?? "Log")
                     .font(.headline)
                     .foregroundStyle(WatchTheme.onPrimary)
                     .frame(maxWidth: .infinity)

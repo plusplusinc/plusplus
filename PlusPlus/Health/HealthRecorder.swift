@@ -1,6 +1,7 @@
 import Foundation
 import HealthKit
 import CoreLocation
+import PlusPlusKit
 
 /// Writes finished phone-logged sessions to Health as workouts (#90).
 /// Watch-logged sessions never pass through here — the wrist records its
@@ -12,11 +13,14 @@ import CoreLocation
 /// sheet can't eat a smoke test's tap (same gate as the workout Live
 /// Activity controller).
 ///
-/// **Activity type + route (#348):** an outdoor run logged on the phone is
-/// saved as a `.running`/`.outdoor` workout carrying its GPS route (so it
-/// shows a map in Health/Fitness), driven off the fixes the
-/// `RunLocationMonitor` collected. Everything else stays
-/// `.traditionalStrengthTraining`/`.indoor`. We deliberately do NOT attach
+/// **Activity type + route (#348, widened 2026-07-30):** the workout is
+/// filed under the session's own modality — a ride is `.cycling`, a hike
+/// `.hiking`, an erg `.rowing` — via the shared `SessionModality` map in
+/// the Kit, which the watch reads too so the two devices cannot disagree.
+/// Until now the type was a two-value ternary (outdoor run, or strength),
+/// so every bike ride, swim, row and hike logged to Health as
+/// `.traditionalStrengthTraining`. An outdoor run still carries its GPS
+/// route so it shows a map in Health/Fitness. We deliberately do NOT attach
 /// heart-rate samples (they already exist in Health from the watch/strap;
 /// re-adding them would double-count) or an energy figure (the phone
 /// measures none, and fabricating `activeEnergy` is wrong) — those belong to
@@ -39,24 +43,30 @@ enum HealthRecorder {
         // ad-hoc session's Health window starts when the first exercise
         // did, not while it was being assembled.
         let startedAt = session.effectiveStart
-        let outdoor = !route.isEmpty
+        // The session's own kind, read on the main actor with the model
+        // still live and captured as a plain value before any HealthKit
+        // callback hops threads.
+        //
+        // ⚠️ A route means the workout gets a MAP; it no longer decides
+        // what SPORT it was. A GPS ride carries its route and files as
+        // cycling, which the old `outdoor ? .running : …` could not say.
+        let modality = session.modality
+        let hasRoute = !route.isEmpty
         // Saving a route needs the workout-route series type in the share
         // set alongside the workout itself.
         var share: Set<HKSampleType> = [.workoutType()]
-        if outdoor { share.insert(HKSeriesType.workoutRoute()) }
+        if hasRoute { share.insert(HKSeriesType.workoutRoute()) }
         // The prompt lands on the "Workout Complete" screen the first
         // time — auth requested in context, remembered system-wide after.
         store.requestAuthorization(toShare: share, read: []) { success, _ in
             guard success else { return }
             save(start: startedAt, end: max(endedAt, startedAt.addingTimeInterval(1)),
-                 outdoor: outdoor, route: route)
+                 modality: modality, route: route)
         }
     }
 
-    private static func save(start: Date, end: Date, outdoor: Bool, route: [CLLocation]) {
-        let configuration = HKWorkoutConfiguration()
-        configuration.activityType = outdoor ? .running : .traditionalStrengthTraining
-        configuration.locationType = outdoor ? .outdoor : .indoor
+    private static func save(start: Date, end: Date, modality: SessionModality, route: [CLLocation]) {
+        let configuration = modality.healthConfiguration
         let builder = HKWorkoutBuilder(healthStore: store, configuration: configuration, device: .local())
         // The route builder is spun off the workout builder and fed the
         // fixes during collection; the route is associated after the

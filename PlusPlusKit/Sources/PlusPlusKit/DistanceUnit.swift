@@ -93,6 +93,22 @@ public enum DistanceUnit: String, Codable, CaseIterable, Sendable {
         }
     }
 
+    /// How many meters one unit is worth — the inverse of
+    /// `value(fromMeters:)`, needed the moment anything has to relate a
+    /// distance to a pace (whose reference is always in meters).
+    public var metersPerUnit: Double {
+        switch self {
+        case .meters: 1
+        case .kilometers: 1000
+        case .miles: 1609.344
+        }
+    }
+
+    /// A distance in this unit expressed in raw meters.
+    public func meters(from value: Double) -> Double {
+        value * metersPerUnit
+    }
+
     public var paceRange: ClosedRange<Double> {
         switch self {
         case .meters: 60...300      // 1:00–5:00 per 500 m

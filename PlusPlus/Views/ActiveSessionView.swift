@@ -77,6 +77,12 @@ struct ActiveSessionView: View {
 
     private var totalSets: Int { session.sortedSetLogs.count }
 
+    /// The noun this WHOLE session counts in — for the header pill, the
+    /// exit dialog and the finish line, which describe the session rather
+    /// than any one exercise. A mixed session resolves to "set", which is
+    /// the right generic: a run plus a lifting block is not four pieces.
+    private var sessionUnit: WorkUnit { session.modality.primary.workUnit ?? .set }
+
     /// The set whose screen is up (the lingering freeze-frame, else the
     /// live current). What "the active exercise" means for live vitals.
     private var activeLog: SetLog? { lingeringLog ?? session.currentLog }
@@ -206,7 +212,7 @@ struct ActiveSessionView: View {
             Button("Keep going", role: .cancel) {}
         } message: {
             if completedSets > 0 {
-                Text("Finish keeps the \(completedSets) logged \(completedSets == 1 ? "set" : "sets"); Discard deletes the session.")
+                Text("Finish keeps the \(sessionUnit.counted(completedSets)) you logged; Discard deletes the session.")
             } else {
                 Text("Nothing has been logged yet.")
             }
@@ -237,7 +243,7 @@ struct ActiveSessionView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Today's exercises, sets, and weights become the template.")
+            Text("Today's exercises and everything you logged become the template.")
         }
         .interactiveDismissDisabled()
         .task {
@@ -252,7 +258,8 @@ struct ActiveSessionView: View {
                     setNumber: log?.setNumber ?? 1,
                     setsCompleted: completedSets,
                     totalSets: totalSets,
-                    startedAt: session.effectiveStart
+                    startedAt: session.effectiveStart,
+                    workUnit: sessionUnit.singular
                 )
             }
             // HR monitoring rides the workout clock: a routine session
@@ -634,9 +641,9 @@ struct ActiveSessionView: View {
                     TimelineView(.periodic(from: .now, by: 1)) { context in
                         // "set 1/0" is nonsense on an empty scratch
                         // session — the clock state alone carries it.
-                        Text(totalSets == 0
+                        Text(totalSets <= 1
                             ? clockText(at: context.date)
-                            : "set \(min(completedSets + 1, max(totalSets, 1)))/\(totalSets) · \(clockText(at: context.date))")
+                            : "\(sessionUnit.singular) \(min(completedSets + 1, totalSets))/\(totalSets) · \(clockText(at: context.date))")
                             .font(.system(.caption, design: .monospaced))
                             .foregroundStyle(Theme.textPrimary)
                             .lineLimit(1).minimumScaleFactor(0.6)
@@ -813,7 +820,7 @@ struct ActiveSessionView: View {
             return "\(restIsTransition ? "Switch" : "Rest") · \(clock) left"
         }
         guard let log = session.currentLog else { return nil }
-        return "\(log.exerciseName) · \(log.driver == .reps ? "set" : "round") \(log.setNumber)"
+        return log.caption
     }
 
     /// Mid-rest, the set the countdown leads into. Mid-exercise, the next
@@ -822,7 +829,7 @@ struct ActiveSessionView: View {
     private var pausedUpNext: String? {
         guard let current = session.currentLog else { return nil }
         if heldRestRemaining != nil {
-            return "\(current.exerciseName) · \(current.driver == .reps ? "set" : "round") \(current.setNumber)"
+            return current.caption
         }
         // Keyed on (group, name), not name alone: a routine that comes
         // back to an exercise in a later block would otherwise skip past
@@ -869,7 +876,7 @@ struct ActiveSessionView: View {
                 // No caption sibling here, so the bar needs its own
                 // subject or VoiceOver hears a bare "2 of 4" (a11y,
                 // 2026-07-23).
-                .accessibilityLabel("Sets")
+                .accessibilityLabel(sessionUnit.plural.capitalized)
         }
     }
 
@@ -1154,7 +1161,7 @@ struct ActiveSessionView: View {
                         .padding(.top, 18)
                     Text("Workout Complete")
                         .font(.system(.title3, weight: .bold))
-                    Text("\(session.routineName.lowercased()) · \(completedSets) \(completedSets == 1 ? "set" : "sets") · \(finalElapsedText)")
+                    Text("\(session.routineName.lowercased()) · \(sessionUnit.counted(completedSets)) · \(finalElapsedText)")
                         .font(.system(.footnote, design: .monospaced))
                         .foregroundStyle(Theme.textSecondary)
 
@@ -1699,18 +1706,24 @@ private struct SetLoggingView: View {
     /// horizontal padding of its own; call sites inset it by 20.
     private var exerciseHeader: some View {
         VStack(alignment: .leading, spacing: 0) {
-                    // The kicker keeps the set count alone. Cardio work
-                    // (a timed piece, a distance repeat) counts ROUNDS:
-                    // "round 3 of 8" is the honest name for an interval.
-                    Text("\(driver == .reps ? "SET" : "ROUND") \(log.setNumber) OF \(setsTotal)")
-                        .foregroundStyle(Theme.accent)
-                        .font(.system(.footnote, design: .monospaced, weight: .semibold))
-                        .kerning(0.7)
-                        .padding(.top, 20)
+                    // The kicker keeps the count alone, in the sport's own
+                    // noun — a rower does PIECES, a runner REPS, a lifter
+                    // SETS. It is absent entirely on a single continuous
+                    // effort, so a steady ride never claims a second one
+                    // is coming.
+                    if let kicker = WorkUnit.kicker(log.workUnit, index: log.setNumber, total: setsTotal) {
+                        Text(kicker)
+                            .foregroundStyle(Theme.accent)
+                            .font(.system(.footnote, design: .monospaced, weight: .semibold))
+                            .kerning(0.7)
+                            .padding(.top, 20)
+                    }
 
                     Text(log.exerciseName)
                         .font(.system(.title, weight: .bold))
-                        .padding(.top, 6)
+                        // The name carries the top margin itself when no
+                        // kicker sits above it.
+                        .padding(.top, WorkUnit.kicker(log.workUnit, index: log.setNumber, total: setsTotal) == nil ? 20 : 6)
 
                     // What comes after this set: a superset partner, or
                     // the exercise after this block, with its prescription.
@@ -1962,7 +1975,12 @@ private struct SetLoggingView: View {
         VStack(spacing: 0) {
             ZStack {
                 Button(action: onComplete) {
-                    Text("Log set")
+                    // The commit key names what it commits, in the
+                    // exercise's own noun: "Log set" in the rack, "Log
+                    // piece" on an erg, plain "Log" for a walk. The
+                    // identifier stays completeSetButton so the smoke
+                    // suite keeps finding it.
+                    Text(log.workUnit.map { "Log \($0.singular)" } ?? "Log")
                         .font(.system(.body, weight: .bold))
                         .foregroundStyle(Theme.onPrimary)
                         .lineLimit(1)
@@ -2005,10 +2023,15 @@ private struct SetLoggingView: View {
             weightUnit: weightUnit,
             repsText: next.targetReps.lower != nil ? next.targetReps.display : nil,
             value: { next.target($0) }
-        ) ?? "\(next.driver == .reps ? "set" : "round") \(next.setNumber)"
-        return Text(next.exerciseName)
+        ) ?? WorkUnit.inline(next.workUnit, index: next.setNumber, total: session.blockCount(of: next))
+        let name = Text(next.exerciseName)
             .font(.system(.footnote, weight: .semibold))
             .foregroundStyle(Theme.textPrimary)
+        // An open-ended effort states no prescription and counts nothing,
+        // so there is no detail to separate — the name stands alone rather
+        // than trailing a naked "·".
+        guard let detail, !detail.isEmpty else { return name }
+        return name
             + Text(" · ")
             .font(.system(.footnote))
             .foregroundStyle(Theme.textFaint)
@@ -2035,7 +2058,7 @@ private struct SetLoggingView: View {
             repsText: log.targetReps.lower != nil ? log.targetReps.display : nil,
             value: { log.target($0) }
         ) else {
-            return "\(driver == .reps ? "set" : "round") \(log.setNumber)"
+            return WorkUnit.inline(log.workUnit, index: log.setNumber, total: setsTotal) ?? log.exerciseName
         }
         return "target \(line)"
     }
@@ -2458,7 +2481,7 @@ private struct RestView: View {
                         .font(.system(.caption2, design: .monospaced, weight: .semibold))
                         .foregroundStyle(Theme.textFaint)
                         .kerning(0.8)
-                    Text("\(upNext.exerciseName) · \(upNext.driver == .reps ? "set" : "round") \(upNext.setNumber)")
+                    Text(upNext.caption)
                         .font(.system(.body, weight: .semibold))
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
