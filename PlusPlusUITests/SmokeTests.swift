@@ -163,30 +163,28 @@ final class SmokeTests: XCTestCase {
         // (isHittable is documented false for nonexistent elements, so
         // the predicate is safe whether the closed action is pruned
         // from the tree or merely unhittable).
-        // ⚠️ By COORDINATE, not `card.tap()`. XCUITest's element tap dispatches
-        // through accessibility, and on a row held open by native
-        // `.swipeActions` that never reached UIKit's close — three runs said
-        // `DELETE hittable=true · navigated=false · onList=true`, i.e. the row
-        // simply stayed open under it. A synthetic touch goes through hit
-        // testing instead, which is what a finger does and what this suite
-        // already relies on for the equipment quick-add. It is the stronger
-        // probe, not the weaker one: the rules file's own warning is that an
-        // accessibility tap BYPASSES the gesture layer this contract lives in.
-        card.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        // ⚠️ Tap the ROW's leading area, not the label's centre. With a
+        // trailing swipe open the content shifts left, so the leading edge is
+        // the one region certain to be row content and certain not to sit
+        // under the revealed actions. The cell is the truest target where the
+        // query resolves it; the label is the fallback.
+        let row = app.cells.containing(.staticText, identifier: "Swipe Target").firstMatch
+        let rowTarget = row.exists ? row : card
+        rowTarget.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.5)).tap()
         let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == 0"), object: delete)
         // ⚠️ The generic inventory is useless here — it returns the tab bar,
-        // not the row — so this one reports the three states that tell the
-        // failures apart: the row stayed open (DELETE still hittable), the
-        // tap NAVIGATED instead of closing (the routine's own key is up), or
-        // we are somewhere else entirely (the list's key is gone).
+        // not the row. This reports the geometry instead, which is what tells
+        // "the row ignored the tap" apart from "the tap landed somewhere
+        // else": where DELETE is, where the tap went, and whether we ended up
+        // inside the routine.
         XCTAssertEqual(
             XCTWaiter().wait(for: [closed], timeout: 3),
             .completed,
             """
             a tap while open must close the row · \
-            DELETE exists=\(delete.exists) hittable=\(delete.isHittable) · \
-            navigated=\(app.buttons["addExerciseButton"].exists) · \
-            onList=\(app.buttons["newRoutineButton"].exists)
+            DELETE \(rect(delete.frame)) hittable=\(delete.isHittable) · \
+            tapped \(row.exists ? "cell" : "label") \(rect(rowTarget.frame)) · \
+            navigated=\(app.buttons["addExerciseButton"].exists)
             """
         )
         XCTAssertFalse(
@@ -522,12 +520,23 @@ final class SmokeTests: XCTestCase {
             recordCard.waitForExistence(timeout: 10),
             "the committed card on Today · \(buttonInventory())"
         )
-        // ⚠️ By coordinate, and identified in the app rather than matched by
-        // text. Today prints the routine's name in more than one row, and
-        // neither the bare staticText nor a label match navigated — the run
-        // sat on Today for the full timeout twice. The card is the one handle
-        // this flow cannot do without, so it carries an identifier now.
-        recordCard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        // ⚠️ The card is BELOW THE FOLD, which is why three rounds of tapping
+        // it did nothing. While onboarding is unfinished the setup scaffold
+        // takes `minHeight: viewportHeight` — a full screen by design — so
+        // Today's committed card is realized in the tree (every query found
+        // it) and simply off the bottom of the display. Existence is not
+        // visibility, and a tap at an off-screen frame lands on nothing at
+        // all. Scroll it up first, then tap.
+        var scrolls = 0
+        while !recordCard.isHittable, scrolls < 8 {
+            app.swipeUp()
+            scrolls += 1
+        }
+        XCTAssertTrue(
+            recordCard.isHittable,
+            "the committed card must be reachable after \(scrolls) scrolls · \(buttonInventory())"
+        )
+        recordCard.tap()
         // The record lists one row per logged set. Push-Up is equipment-free
         // weight/reps, so it derives to strength and the row's noun is "Set" —
         // the work-unit vocabulary does not rewrite this one.
@@ -806,6 +815,12 @@ final class SmokeTests: XCTestCase {
 
     private func textInventory(_ limit: Int = 10) -> String {
         inventory(app.staticTexts, limit: limit)
+    }
+
+    /// A frame as four integers, short enough to survive the annotation's
+    /// 400-character cut.
+    private func rect(_ frame: CGRect) -> String {
+        "(\(Int(frame.minX)),\(Int(frame.minY)) \(Int(frame.width))x\(Int(frame.height)))"
     }
 
     private func inventory(_ query: XCUIElementQuery, limit: Int) -> String {
