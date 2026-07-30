@@ -209,3 +209,55 @@ struct RoutineModalityTests {
         #expect(routine.modality.primary == .strength)
     }
 }
+
+@Suite("Cardio findability")
+struct CardioFindabilityTests {
+    private func makeContainer() throws -> ModelContainer {
+        let schema = Schema([Exercise.self, Equipment.self, EquipmentLibrary.self, Routine.self, ExerciseGroup.self, RoutineExercise.self])
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cardiofind-\(UUID().uuidString).store")
+        let config = ModelConfiguration(schema: schema, url: url, allowsSave: true, cloudKitDatabase: .none)
+        return try ModelContainer(for: schema, configurations: [config])
+    }
+
+    @Test("Typing a sport reaches its exercises, which no muscle word could")
+    func searchReachesModality() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let run = Exercise(name: "Probe Jog", muscleGroup: .fullBody, exerciseType: .duration)
+        context.insert(run)
+        run.metricProfile = MetricProfile([.distance, .duration, .pace], distanceUnit: .miles, isOutdoor: true)
+
+        let haystack = ExerciseFilterState.searchHaystack(run).lowercased()
+        // The exercise is filed Full Body and named "Jog", so before this
+        // neither "cardio" nor "run" reached it.
+        #expect(haystack.contains("cardio"))
+        #expect(haystack.contains("full body"))
+    }
+
+    @Test("The kind facet buckets every modality without a default")
+    func kindBuckets() {
+        #expect(CatalogKind(.running) == .cardio)
+        #expect(CatalogKind(.rowing) == .cardio)
+        #expect(CatalogKind(.elliptical) == .cardio)
+        #expect(CatalogKind(.strength) == .strength)
+        #expect(CatalogKind(.flexibility) == .mobility)
+        // Exhaustive: a new family lands somewhere real, never nowhere.
+        let bucketed = ExerciseModality.allCases.map(CatalogKind.init)
+        #expect(bucketed.count == ExerciseModality.allCases.count)
+    }
+
+    @Test("Hiking and Indoor Cycling ship, with the right families")
+    func newCatalogRows() throws {
+        let hiking = try #require(SeedData.builtInProfile(named: "Hiking"))
+        #expect(hiking.contains(.distance))
+        #expect(hiking.isOutdoor)
+        #expect(hiking.distanceUnit == .miles)
+
+        let spin = try #require(SeedData.builtInProfile(named: "Indoor Cycling"))
+        #expect(spin.contains(.power))
+        #expect(spin.contains(.cadence))
+        // A studio bike is indoors; the GPS layer must not engage.
+        #expect(!spin.isOutdoor)
+    }
+}

@@ -14,13 +14,24 @@ import PlusPlusKit
 /// person to touch this file should feel free to rename it.
 enum ExerciseFilterState {
 
-    /// Name plus EVERY muscle group it works, so "hamstring curl" finds Leg
-    /// Curl even though no exercise carries the word "hamstring" in its
-    /// name, and "triceps" finds Bench Press even though it's filed under
-    /// chest. This is also why the Exercises surface needs no Muscle facet:
-    /// typing reaches it.
+    /// Name, EVERY muscle group it works, and the words its movement family
+    /// goes by.
+    ///
+    /// Muscles are why "hamstring curl" finds Leg Curl even though no
+    /// exercise carries the word "hamstring" in its name, and "triceps"
+    /// finds Bench Press even though it's filed under chest.
+    ///
+    /// Modality is why "cardio" finds anything at all. Every cardio
+    /// exercise is filed under the `fullBody` muscle group, so before this
+    /// the catalog's ~260 rows offered no word that reached the dozen
+    /// cardio ones as a set — you had to already know the app called it
+    /// "Rowing" and not "erg". Now "cardio", "run", "bike", "row", "hike"
+    /// and "swim" all land.
     static func searchHaystack(_ exercise: Exercise) -> String {
-        ([exercise.name] + exercise.muscleGroups.map(\.displayName)).joined(separator: " ")
+        let parts = [exercise.name]
+            + exercise.muscleGroups.map(\.displayName)
+            + exercise.modality.searchTerms
+        return parts.joined(separator: " ")
     }
 
     /// Equipment the exercise needs but the given set doesn't have — drives the

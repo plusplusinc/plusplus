@@ -738,6 +738,13 @@ enum SeedData {
             e("Rowing", .fullBody, ["Rowing Machine"], .duration, also: [.back, .quads], sets: 1),
             e("Assault Bike", .fullBody, ["Air Bike"], .duration, also: [.quads], sets: 1),
             e("Stationary Bike", .fullBody, ["Stationary Bike"], .duration, also: [.quads], sets: 1),
+            // A studio class is not a stationary-bike session with the
+            // same numbers: it is dialled by resistance and cadence and
+            // measured in watts, and it was missing entirely.
+            e("Indoor Cycling", .fullBody, ["Stationary Bike"], .duration,
+              also: [.quads, .glutes],
+              metrics: MetricProfile([.duration, .distance, .resistance, .power, .cadence], distanceUnit: .miles),
+              sets: 1, seconds: 1800),
             e("Treadmill Run", .fullBody, ["Treadmill"], .duration, also: [.quads, .calves], sets: 1),
             e("Sandbag Carry", .fullBody, ["Sandbag"], .duration, also: [.back, .core]),
             // Road cardio (flexible metrics): the road is not gear, but
@@ -758,6 +765,14 @@ enum SeedData {
             e("Walking", .fullBody, [], .duration,
               metrics: MetricProfile([.distance, .duration, .pace], distanceUnit: .miles, isOutdoor: true), sets: 1, modality: .walking),
             e("Cycling", .fullBody, ["Bicycle"], .duration, also: [.quads], sets: 1),
+            // Hiking is equipment-free like Running and Walking (the
+            // trail is not gear), and authored for the same reason they
+            // are: derivation cannot tell three metrically identical
+            // road efforts apart.
+            e("Hiking", .fullBody, [], .duration,
+              also: [.quads, .glutes, .calves],
+              metrics: MetricProfile([.distance, .duration, .pace], distanceUnit: .miles, isOutdoor: true),
+              sets: 1, modality: .hiking),
 
             // #235: every equipment type gates at least one exercise —
             // the 60 types the #222 sweep added get their movements.

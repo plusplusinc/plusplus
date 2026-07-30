@@ -42,9 +42,9 @@ enum FormCues {
     /// timing) and skill cardio (Jump Rope, Heavy Bag Rounds) keep
     /// their cues — sequencing is real coaching.
     static let deliberatelySilent: Set<String> = [
-        "Running", "Walking", "Cycling", "Treadmill Run",
-        "Stationary Bike", "Assault Bike", "Elliptical", "Stair Climber",
-        "Vertical Climber", "Upper Body Ergometer",
+        "Running", "Walking", "Hiking", "Cycling", "Treadmill Run",
+        "Stationary Bike", "Indoor Cycling", "Assault Bike", "Elliptical",
+        "Stair Climber", "Vertical Climber", "Upper Body Ergometer",
     ]
 
     private static let linesByName: [String: String] = [
