@@ -1045,10 +1045,15 @@ struct ActiveSessionView: View {
         // a still-acquiring re-base can't log stale values), and only when
         // not already edited — a manual actual always wins.
         if isOutdoorNow, location.isFresh, roundsInBlock(of: log) == 1 {
-            if log.actual(.distance) == nil, let distance = location.totalDistanceInUnit {
+            // ⚠️ `storedActual`, not `actual`: pace derives from distance and
+            // duration (#302), so an `actual(.pace) == nil` guard would read
+            // a derivation as an edit and drop the GPS reading. The meter's
+            // average is over MOVING time; a derivation divides by elapsed,
+            // so the measurement is the better number and must win.
+            if log.storedActual(.distance) == nil, let distance = location.totalDistanceInUnit {
                 log.setActual(.distance, to: distance)
             }
-            if log.actual(.pace) == nil, let pace = location.averagePaceSeconds {
+            if log.storedActual(.pace) == nil, let pace = location.averagePaceSeconds {
                 log.setActual(.pace, to: pace)
             }
         }

@@ -166,7 +166,15 @@ final class WorkoutSession {
     /// (wrapping to the first pending).
     func complete(_ log: SetLog, at date: Date = Date()) {
         let profile = log.metricProfile
-        for metric in profile.metrics where log.actual(metric) == nil {
+        // ⚠️ A pace the record can COMPUTE is never prefilled from the plan
+        // (#302). Copying the target would freeze the prescription's pace
+        // onto an effort that may have covered a different distance in a
+        // different time — and it would win forever, since a stored value
+        // is the override. Left unwritten, it tracks its inputs: correct
+        // the duration afterwards and the pace follows.
+        let derivesPace = [.pace, .distance, .duration].allSatisfy(profile.contains)
+        for metric in profile.metrics where log.storedActual(metric) == nil {
+            if metric == .pace, derivesPace { continue }
             log.setActual(metric, to: log.target(metric))
         }
         for metric in Self.carryForwardMetrics where profile.contains(metric) {
@@ -649,7 +657,13 @@ extension WorkoutSession {
                     // into the template with its duration.
                     entry.heartRateTargetData = last.targetHeartRateData
                 default:
-                    extras[metric] = last.actual(metric) ?? last.target(metric)
+                    // ⚠️ `storedActual`: a template is a PRESCRIPTION, and a
+                    // derived pace written here would store all three of
+                    // distance/duration/pace, which is the state
+                    // `CardioTargets` exists to prevent — the sheet would
+                    // then read every one of them as entered and evict one
+                    // on the next edit.
+                    extras[metric] = last.storedActual(metric) ?? last.target(metric)
                 }
             }
             entry.extraTargets = extras
@@ -913,8 +927,60 @@ final class SetLog {
         // pre-profile logs stored the stack value in the weight column,
         // so "last time" still resolves there.
         case .assistance: extraActuals[.assistance] ?? actualWeight
+        case .pace: extraActuals[.pace] ?? derivedActualPace
         default: extraActuals[metric]
         }
+    }
+
+    /// The value actually WRITTEN for this metric, with nothing computed.
+    ///
+    /// ⚠️ Anything deciding whether to RECORD something asks this; anything
+    /// displaying a fact asks `actual(_:)`. Since pace derives (#302), an
+    /// `actual(.pace) == nil` guard silently means "and nothing to derive
+    /// from either" — which would stop a GPS-measured pace being written
+    /// the moment a distance and a duration existed, and a measurement
+    /// beats a derivation every time.
+    func storedActual(_ metric: WorkoutMetric) -> Double? {
+        switch metric {
+        case .weight: actualWeight
+        case .reps: actualReps.map(Double.init)
+        case .duration: actualDuration.map(Double.init)
+        case .assistance: extraActuals[.assistance] ?? actualWeight
+        default: extraActuals[metric]
+        }
+    }
+
+    /// The pace this effort actually held, computed from what it actually
+    /// covered and how long it actually took (#302).
+    ///
+    /// An entered pace always wins — the console read 1:52 and that is the
+    /// number. Absent one, asking for a third value is asking the user to
+    /// do arithmetic on two facts the record already holds.
+    ///
+    /// Two clauses keep it honest, and both are the point rather than
+    /// caution:
+    ///
+    /// - **Both inputs must be ACTUALS.** Deriving from a planned distance
+    ///   and a measured time would manufacture a pace for an effort that
+    ///   never covered that ground — the same fabrication `LoggedActuals`
+    ///   exists to stop, arriving by the back door. Row 400 m of a planned
+    ///   500 in 1:40 and the pace is 2:05/500m, not 2:00.
+    /// - **It is never stored.** A stored derivation stops tracking its
+    ///   inputs: correct the distance afterwards and the pace would keep
+    ///   the old answer while claiming to describe the new one. Same law as
+    ///   `CardioTargets`, for the same reason, one layer down.
+    ///
+    /// Gated on the profile tracking pace, so nothing else in the app grows
+    /// a metric its exercise doesn't have.
+    private var derivedActualPace: Double? {
+        let profile = metricProfile
+        guard profile.contains(.pace) else { return nil }
+        return LoggedActuals.pace(
+            distance: extraActuals[.distance],
+            elapsedSeconds: actualDuration.map(Double.init),
+            unit: profile.distanceUnit,
+            paceReference: profile.paceReference
+        )
     }
 
     func setActual(_ metric: WorkoutMetric, to value: Double?) {
