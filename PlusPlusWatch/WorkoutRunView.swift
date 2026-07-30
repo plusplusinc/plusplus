@@ -21,6 +21,15 @@ struct WorkoutRunView: View {
     }
 
     @State private var startedAt: Date?
+    /// When the CURRENT step's work began — set as its screen appears, so
+    /// a logged effort records how long it actually took rather than how
+    /// long it was prescribed. Rest sits on its own screen, so a step's
+    /// clock never includes the recovery before it.
+    @State private var stepStartedAt: Date?
+    /// The measured cumulative distance as this step began. Subtracting it
+    /// from the running total is what gives one piece its own split
+    /// instead of the whole session's.
+    @State private var distanceAtStepStart: Double?
     @State private var results: [WatchSync.StepResult] = []
     @State private var restEndsAt: Date?
     /// Whether the current countdown is a transition — a different
@@ -44,6 +53,16 @@ struct WorkoutRunView: View {
     /// The run's pace/distance denomination (an outdoor routine is
     /// homogeneous, so the first step's unit speaks for it).
     private var runUnit: DistanceUnit { routine.steps.first?.distanceUnit ?? .miles }
+
+    /// How far THIS step covered, measured. nil indoors (nothing is
+    /// collected) and nil for a non-positive delta — standing still for a
+    /// whole piece is not a distance, the same positive-measurement gate
+    /// the phone's run summary applies.
+    private func measuredStepDistance() -> Double? {
+        guard let total = health.totalDistance else { return nil }
+        let delta = total - (distanceAtStepStart ?? 0)
+        return delta > 0 ? delta : nil
+    }
 
     var body: some View {
         Group {
@@ -152,6 +171,14 @@ struct WorkoutRunView: View {
             }
             .buttonStyle(.plain)
         }
+        // The step's own clock and odometer start when its screen does.
+        // Re-entering the same step (a rest ending) restarts neither —
+        // the id keeps this to genuine step changes.
+        .onAppear {
+            stepStartedAt = Date()
+            if distanceAtStepStart == nil { distanceAtStepStart = health.totalDistance }
+        }
+        .id(stepIndex)
     }
 
     private func targetText(_ step: WatchSync.Step) -> String {
@@ -250,19 +277,46 @@ struct WorkoutRunView: View {
             store.live.beginIfNeeded(routine: routine, startedAt: now)
         }
         WKInterfaceDevice.current().play(.success)
+        // Load and reps are the user's ASSERTION — tapping Log is the
+        // claim that the prescribed set happened, and the wrist has no
+        // way to measure otherwise (editing stays on the phone).
         let weight = step.isDuration ? nil : step.targetWeight
         let reps = step.isDuration ? nil : step.targetRepsLower
-        let duration = step.isDuration ? step.targetDuration : nil
+
+        // Everything below is MEASURED, and measurement beats the plan.
+        // This is the fix for the wrist recording your target as your
+        // result: a 500 m piece rowed to 412 m logged as 500 m.
+        let elapsed = stepStartedAt.map { now.timeIntervalSince($0) }
+        let stepDistance = measuredStepDistance()
+        let unit = step.distanceUnit ?? health.distanceUnit
+        var measured: [WorkoutMetric: Double] = [:]
+        if let stepDistance { measured[.distance] = stepDistance }
+        if let split = LoggedActuals.pace(distance: stepDistance, elapsedSeconds: elapsed, unit: unit) {
+            measured[.pace] = split
+        }
+        let extras = LoggedActuals.extras(
+            planned: MetricValues.fromRaw(step.extraTargets),
+            measured: measured
+        )
+        // A timed hold ran for as long as it ran. Falling back to the
+        // target only when the step was never timed keeps a plan pushed
+        // by an older phone behaving as it did.
+        let duration = step.isDuration
+            ? (elapsed.map { Int($0.rounded()) } ?? step.targetDuration)
+            : nil
+
         results.append(WatchSync.StepResult(
             step: step,
             actualWeight: weight,
             actualReps: reps,
             actualDuration: duration,
+            extraActuals: MetricValues.toRaw(extras),
             completedAt: now
         ))
+        distanceAtStepStart = health.totalDistance
         // Mirror the logged set to the phone (its execution order is the
         // step's index in the shared plan).
-        store.live.logged(index: results.count - 1, weight: weight, reps: reps, duration: duration, extras: step.extraTargets ?? [:], at: now)
+        store.live.logged(index: results.count - 1, weight: weight, reps: reps, duration: duration, extras: MetricValues.toRaw(extras) ?? [:], at: now)
         if results.count < routine.steps.count {
             // A new round of the same block rests — the just-logged
             // block's override (interval blocks) wins over the routine

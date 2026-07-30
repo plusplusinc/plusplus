@@ -188,13 +188,30 @@ public enum WatchSync {
         public var actualWeight: Double?
         public var actualReps: Int?
         public var actualDuration: Int?
+        /// What actually happened beyond the three columns — the measured
+        /// distance and split of a piece, the damper it was pulled at.
+        /// Keyed by metric raw value, like every other extras bag.
+        ///
+        /// Additive optional: results from a watch build that predates it
+        /// decode nil, and the phone then records only the three columns,
+        /// exactly as before. ⚠️ Composed through `LoggedActuals.extras`,
+        /// never by copying the step's targets — see that type for why.
+        public var extraActuals: [String: Double]?
         public var completedAt: Date?
 
-        public init(step: Step, actualWeight: Double? = nil, actualReps: Int? = nil, actualDuration: Int? = nil, completedAt: Date? = nil) {
+        public init(
+            step: Step,
+            actualWeight: Double? = nil,
+            actualReps: Int? = nil,
+            actualDuration: Int? = nil,
+            extraActuals: [String: Double]? = nil,
+            completedAt: Date? = nil
+        ) {
             self.step = step
             self.actualWeight = actualWeight
             self.actualReps = actualReps
             self.actualDuration = actualDuration
+            self.extraActuals = extraActuals
             self.completedAt = completedAt
         }
     }
