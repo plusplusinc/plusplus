@@ -220,11 +220,25 @@ this surface the control effectively is.
 - **Today is a TAB, never a scope**: a timeline of derived state has nothing
   to narrow. `All` is GONE; an **empty query shows the scope's WHOLE list,
   grouped as its tab groups it**.
-- **All three scopes read alike: MINE then CATALOG, and NO facet chips**
-  (Dave) — the Kit tab means "equipment, mine first", not "my kit". The field
-  replaces the retired chips: muscle groups sit in
-  `ExerciseFilterState.searchHaystack` and equipment categories in the
-  equipment scorer, so typing reaches them.
+- **All three scopes read alike: MINE then CATALOG, plus ONE facet row**
+  (filtering returned 2026-07-31, reversing 2026-07-25) — the Kit tab means
+  "equipment, mine first", not "my kit". The row: single-select `FacetChip`
+  Menus per scope (exercises muscle · movement · mechanic · sides; kit
+  category; routines focus · effort · style), state in `CatalogFilterState` —
+  ephemeral per `CatalogScopeView` INSTANCE, reset on scope change, applied in
+  `FindOrCreateEngine` BEFORE scoring so facets narrow and the query ranks.
+  Active facets lead with `FilterSummaryChip` (popover names values, "N of M
+  shown" computed only on open, Clear all inside); empty results add a
+  "Clear filters" QuietKey; the create row never filters; an item that can't
+  answer an active facet drops out under it (customs under the attribute
+  chips) — muscle excepted, customs carry their own groups. The row is a top
+  `safeAreaInset` on the List — pinned, opaque, no geometry probes;
+  ⚠️ the large title travels over it on tab-root overscroll (cosmetic — the
+  catalogs have no `.refreshable`; device-pass item, fallback is
+  first-list-content). Typing still reaches everything without chips: muscle
+  groups, movement patterns and hidden synonyms (`CatalogSearchSynonyms` —
+  "erg", "rdl", "trx") ride `ExerciseFilterState.searchHaystack` and the
+  equipment scorer.
 - **Kit availability is NOT a filter** (2026-07-25): nothing is HIDDEN by the
   active kit. What the kit can't do groups under a collapsible **"N
   exercises/routines require more equipment"** disclosure

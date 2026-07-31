@@ -182,6 +182,11 @@ struct CatalogScopeView: View {
     /// Setup mode: any engagement counts, so plain back still marks the step
     /// done. Never trap the user in a step.
     @State private var touchedSetup = false
+    /// The facet row's state (filtering returns, 2026-07-31): one value
+    /// struct per surface INSTANCE, never persisted, reset on scope change
+    /// (the search tab dialling scopes must not carry invisible narrowing).
+    /// The summary chip keeps surviving state announced on the tabs.
+    @State private var filters = CatalogFilterState()
 
     // MARK: - Derived state
 
@@ -224,12 +229,29 @@ struct CatalogScopeView: View {
         FindOrCreateEngine.sections(
             query: trimmedQuery,
             scope: scope,
+            filters: filters,
             exercises: allExercises,
             equipment: allEquipment,
             routines: displayedRoutines,
             templates: RoutineCatalog.all,
             kitNames: kitNames
         )
+    }
+
+    /// The unfiltered count behind "N of M shown" — computed ONLY when the
+    /// summary popover opens (a closure, never per keystroke: a second
+    /// ranking pass per render is the exact cost the per-scope-counts
+    /// design retired).
+    private func unfilteredCount() -> Int {
+        FindOrCreateEngine.sections(
+            query: trimmedQuery,
+            scope: scope,
+            exercises: allExercises,
+            equipment: allEquipment,
+            routines: displayedRoutines,
+            templates: RoutineCatalog.all,
+            kitNames: kitNames
+        ).reduce(0) { $0 + $1.count }
     }
 
     /// What this surface actually draws. Everywhere except the PRESENTED
@@ -481,6 +503,8 @@ struct CatalogScopeView: View {
             // underneath the thing that must not be re-created beneath itself.
             if !path.isEmpty { path = NavigationPath() }
             if !expandedMissing.isEmpty { expandedMissing = [] }
+            // Facets die with the scope they narrowed (same guard rule).
+            if filters != CatalogFilterState() { filters = CatalogFilterState() }
         }
         // A cross-tab add lands HERE with the entrance flash — consumed on
         // receive when this tab is already built, on appear when the landing is
@@ -741,6 +765,18 @@ struct CatalogScopeView: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .scrollDismissesKeyboard(.immediately)
+            // The facet row (filtering returns, 2026-07-31): pinned above
+            // the list in every mode — below the system bar on tabs, below
+            // the kit bar when presented, below the picker header. Opaque,
+            // rows scroll under it. No geometry probes (the morph law); it
+            // never touches the `.principal` toolbar row. ⚠️ Named tension:
+            // a safeAreaInset is pinned, so the large title travels over it
+            // on tab-root overscroll — catalogs have no `.refreshable`, so
+            // the exposure is cosmetic; on Dave's device-pass list, with
+            // "row as first list content" as the fallback.
+            .safeAreaInset(edge: .top, spacing: 0) {
+                filterRow(shown: sections.reduce(0) { $0 + $1.count })
+            }
             // SOFT at the bottom — the system's own gradient dissolve, which is
             // the third answer this edge has had and the one that holds both
             // constraints at once. `.hard` (139) draws a full-width blurred
@@ -792,15 +828,67 @@ struct CatalogScopeView: View {
     }
 
     /// Only ever a genuinely empty match: with no query the whole scope shows,
-    /// and un-doable items are grouped rather than hidden.
+    /// and un-doable items are grouped rather than hidden. Active facets get
+    /// the promised escape (navigation.md: empty results never dead-end) —
+    /// the create row is present regardless.
     private var emptyState: some View {
-        Text("Nothing matches.")
-            .font(.system(.footnote))
-            .foregroundStyle(Theme.textFaint)
-            .frame(maxWidth: .infinity)
-            .padding(.top, 24)
-            .listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
+        VStack(spacing: 10) {
+            Text("Nothing matches.")
+                .font(.system(.footnote))
+                .foregroundStyle(Theme.textFaint)
+            if !filters.isEmpty(for: scope) {
+                QuietKey(label: "Clear filters", identifier: "clearCatalogFilters") {
+                    withAnimation(Theme.Anim.standard) {
+                        filters.clear(scope: scope)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 24)
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+    }
+
+    // MARK: - The facet row (filtering returns, 2026-07-31)
+
+    /// Per-scope single-select facet chips in a horizontal run, led by the
+    /// summary chip whenever anything is active (the summarize-never-
+    /// insta-clear law). State is `filters`; the engine applies it.
+    private func filterRow(shown: Int) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 7) {
+                if !filters.isEmpty(for: scope) {
+                    FilterSummaryChip(
+                        facets: filters.activeFacets(for: scope),
+                        shown: shown,
+                        total: unfilteredCount
+                    ) {
+                        withAnimation(Theme.Anim.standard) {
+                            filters.clear(scope: scope)
+                        }
+                    }
+                }
+                switch scope {
+                case .exercises:
+                    FacetChip(name: "Muscle", options: MuscleGroup.allCases, display: \.displayName, selection: $filters.muscle, identifier: "facetMuscle")
+                    FacetChip(name: "Movement", options: MovementPattern.allCases, display: \.displayName, selection: $filters.pattern, identifier: "facetMovement")
+                    FacetChip(name: "Mechanic", options: ExerciseMechanic.allCases, display: \.displayName, selection: $filters.mechanic, identifier: "facetMechanic")
+                    FacetChip(name: "Sides", options: ExerciseLaterality.allCases, display: \.displayName, selection: $filters.laterality, identifier: "facetSides")
+                case .kit:
+                    FacetChip(name: "Type", options: SeedData.EquipmentCategory.allCases, display: \.rawValue, selection: $filters.equipmentCategory, identifier: "facetType")
+                case .routines:
+                    FacetChip(name: "Focus", options: RoutineTemplate.Focus.allCases, display: \.rawValue, selection: $filters.focus, identifier: "facetFocus")
+                    FacetChip(name: "Effort", options: RoutineTemplate.Effort.allCases, display: \.rawValue, selection: $filters.effort, identifier: "facetEffort")
+                    FacetChip(name: "Style", options: RoutineTemplate.Style.allCases, display: \.rawValue, selection: $filters.style, identifier: "facetStyle")
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+        .padding(.bottom, 8)
+        .animation(Theme.Anim.standard, value: filters.isEmpty(for: scope))
+        // OPAQUE — rows scroll under this band (the picker-field rule).
+        .background(Theme.background)
     }
 
     /// The Kit scope shows the whole equipment catalog, so its list can never
@@ -1294,12 +1382,15 @@ struct CatalogScopeView: View {
     // MARK: - Reorder
 
     /// Drag-reorder belongs to your own routines, in the list you actually
-    /// sequence: the routines scope, on a tab, with no query narrowing or
-    /// ranking the rows, over the MINE tier's doable group.
+    /// sequence: the routines scope, on a tab, with no query OR FACETS
+    /// narrowing the rows, over the MINE tier's doable group. A facet-
+    /// narrowed list has no order to write back — writing one demotes
+    /// every filtered-out routine to the bottom (swift-reviewer, this PR).
     private func moveHandler(for section: FindOrCreateEngine.Section) -> ((IndexSet, Int) -> Void)? {
         let reorderable = scope == .routines
             && mode.isTab
             && trimmedQuery.isEmpty
+            && filters.isEmpty(for: scope)
             && section.id == "MINE"
         return reorderable ? moveRoutines : nil
     }
@@ -1341,17 +1432,20 @@ struct CatalogScopeView: View {
             if !routine.gearAvailability(activeNames: kitNames).allSatisfy(\.available) {
                 expandMissingGroups()
             }
+            clearFiltersHiding(filters.allows(routine))
             newlyAdded = routine.persistentModelID
         case .exercises:
             guard let pending = ExerciseArrival.pending else { return }
             ExerciseArrival.pending = nil
             path = NavigationPath()
             expandMissingGroups()
+            clearFiltersHiding(allExercises.first { $0.persistentModelID == pending }.map { filters.allows($0) })
             newlyAdded = pending
         case .kit:
             guard let pending = EquipmentArrival.pending else { return }
             EquipmentArrival.pending = nil
             path = NavigationPath()
+            clearFiltersHiding(allEquipment.first { $0.persistentModelID == pending }.map { filters.allowsEquipment(named: $0.name) })
             newlyAdded = pending
         }
     }
@@ -1360,6 +1454,18 @@ struct CatalogScopeView: View {
     /// so its entrance flash isn't playing on a hidden row.
     private func expandMissingGroups() {
         expandedMissing = ["MISSING_MINE", "MISSING_CATALOG"]
+    }
+
+    /// The facet row is the OTHER thing that can hide a landed row
+    /// (swift-reviewer, this PR): a just-created custom answers none of
+    /// the attribute chips, so an active facet would swallow its landing
+    /// — no row, no flash, reads as a failed save. Same rule as
+    /// `expandMissingGroups`: a landing never targets a hidden row.
+    /// `allowed` nil means the model couldn't be resolved against the
+    /// live query — clear then too, visibility can't be proven.
+    private func clearFiltersHiding(_ allowed: Bool?) {
+        guard !filters.isEmpty(for: scope), allowed != true else { return }
+        filters.clear(scope: scope)
     }
 
 }

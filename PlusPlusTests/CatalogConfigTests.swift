@@ -57,10 +57,23 @@ struct CatalogConfigTests {
         #expect(SeedData.builtInDefinition(named: "Power Clean")?.defaultReps == 3)
         #expect(SeedData.builtInDefinition(named: "Nordic Curl")?.defaultReps == 5)
         #expect(SeedData.builtInDefinition(named: "Rope Climb")?.defaultReps == 3)
+        // The oly bar lives at doubles and triples (expansion, 2026-07-31).
+        #expect(SeedData.builtInDefinition(named: "Snatch")?.defaultReps == 2)
+        #expect(SeedData.builtInDefinition(named: "Clean and Jerk")?.defaultReps == 2)
+        #expect(SeedData.builtInDefinition(named: "Ring Muscle-Up")?.defaultReps == 3)
         // Round/hold lengths that the 45 s floor got wrong.
         #expect(SeedData.builtInDefinition(named: "Heavy Bag Rounds")?.defaultDurationSeconds == 180)
         #expect(SeedData.builtInDefinition(named: "Parallette L-Sit")?.defaultDurationSeconds == 20)
         #expect(SeedData.builtInDefinition(named: "Side Plank")?.defaultDurationSeconds == 30)
+        #expect(SeedData.builtInDefinition(named: "Dead Hang")?.defaultDurationSeconds == 30)
+        #expect(SeedData.builtInDefinition(named: "L-Sit")?.defaultDurationSeconds == 20)
+        // Foam rolls ride the stretch shape: one 30 s pass, no HR row.
+        for name in ["Foam Roll Quads", "Foam Roll Upper Back", "Foam Roll IT Band"] {
+            let def = SeedData.builtInDefinition(named: name)
+            #expect(def?.defaultSets == 1, "\(name) should land as a single pass")
+            #expect(def?.defaultDurationSeconds == 30)
+            #expect(def?.supportsHeartRate == false)
+        }
         // The classic strength block is untouched.
         let bench = try #require(SeedData.builtInDefinition(named: "Bench Press"))
         #expect(bench.defaultSets == 3)

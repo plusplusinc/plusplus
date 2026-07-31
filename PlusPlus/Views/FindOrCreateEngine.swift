@@ -154,9 +154,16 @@ enum FindOrCreateEngine {
     /// scope splits into the doable rows, then a collapsible `.missing(noun:)`
     /// group of what the active kit can't do. Equipment is never partitioned
     /// (a piece of gear isn't a thing you "do").
+    /// `filters` narrows the candidate set BEFORE scoring (facet chips,
+    /// 2026-07-31): filters and query AND-compose — the filter decides
+    /// who competes, the query ranks them. The missing-equipment
+    /// partition runs after filtering, unchanged (kit availability is
+    /// still not a filter), and `collisions` never sees filters
+    /// (creation is unaffected by narrowing).
     static func sections(
         query: String,
         scope: FindScope,
+        filters: CatalogFilterState = CatalogFilterState(),
         exercises: [Exercise],
         equipment: [Equipment],
         routines: [Routine],
@@ -167,16 +174,16 @@ enum FindOrCreateEngine {
         switch scope {
         case .routines:
             return groupedWithMissing(
-                routineResults(q, routines: routines, templates: templates, kitNames: kitNames),
+                routineResults(q, routines: routines, templates: templates, kitNames: kitNames, filters: filters),
                 noun: "routine"
             )
         case .exercises:
             return groupedWithMissing(
-                exerciseResults(q, exercises: exercises, kitNames: kitNames),
+                exerciseResults(q, exercises: exercises, kitNames: kitNames, filters: filters),
                 noun: "exercise"
             )
         case .kit:
-            return grouped(equipmentResults(q, equipment: equipment, kitNames: kitNames))
+            return grouped(equipmentResults(q, equipment: equipment, kitNames: kitNames, filters: filters))
         }
     }
 
@@ -253,9 +260,9 @@ enum FindOrCreateEngine {
         }
     }
 
-    private static func exerciseResults(_ q: String, exercises: [Exercise], kitNames: Set<String>) -> [Result] {
+    private static func exerciseResults(_ q: String, exercises: [Exercise], kitNames: Set<String>, filters: CatalogFilterState = CatalogFilterState()) -> [Result] {
         rank(exercises.compactMap { exercise in
-            guard !exercise.isDeleted else { return nil }
+            guard !exercise.isDeleted, filters.allows(exercise) else { return nil }
             let score: Double
             if q.isEmpty {
                 score = 0
@@ -276,14 +283,17 @@ enum FindOrCreateEngine {
         }, query: q)
     }
 
-    private static func equipmentResults(_ q: String, equipment: [Equipment], kitNames: Set<String>) -> [Result] {
+    private static func equipmentResults(_ q: String, equipment: [Equipment], kitNames: Set<String>, filters: CatalogFilterState = CatalogFilterState()) -> [Result] {
         rank(equipment.compactMap { item in
-            guard !item.isDeleted else { return nil }
+            guard !item.isDeleted, filters.allowsEquipment(named: item.name) else { return nil }
             let category = SeedData.equipmentCategory(named: item.name)?.rawValue ?? ""
+            // Hidden synonym terms ride the same candidate ("erg" reaches
+            // the Rowing Machine); customs contribute "" and lose nothing.
+            let synonyms = CatalogSearchSynonyms.equipmentTerms(named: item.name)
             let score: Double
             if q.isEmpty {
                 score = 0
-            } else if let s = FuzzySearch.score(query: q, candidate: "\(item.name) \(category)") {
+            } else if let s = FuzzySearch.score(query: q, candidate: "\(item.name) \(category) \(synonyms)") {
                 score = s
             } else {
                 return nil
@@ -304,10 +314,11 @@ enum FindOrCreateEngine {
         _ q: String,
         routines: [Routine],
         templates: [RoutineTemplate],
-        kitNames: Set<String>
+        kitNames: Set<String>,
+        filters: CatalogFilterState = CatalogFilterState()
     ) -> [Result] {
         var results: [Result] = []
-        for routine in routines where !routine.isDeleted {
+        for routine in routines where !routine.isDeleted && filters.allows(routine) {
             let contained = routine.sortedGroups.flatMap(\.sortedExercises).compactMap { $0.exercise?.name }
             guard let (score, matched) = deepScore(q, name: routine.name, contained: contained, extra: "") else { continue }
             let doable = routine.gearAvailability(activeNames: kitNames).allSatisfy(\.available)
@@ -328,7 +339,7 @@ enum FindOrCreateEngine {
         // template with no row at all (matching the routine loop's filter
         // also closes the exact-name collision dead-end, swift-reviewer).
         let inLibrary = Set(routines.filter { !$0.isDeleted }.map { $0.name.lowercased() })
-        for template in templates where !inLibrary.contains(template.name.lowercased()) {
+        for template in templates where !inLibrary.contains(template.name.lowercased()) && filters.allows(template) {
             let contained = template.blocks.flatMap(\.entries).map(\.exercise)
             let extra = "\(template.summary) \(template.style.rawValue)"
             guard let (score, matched) = deepScore(q, name: template.name, contained: contained, extra: extra) else { continue }
