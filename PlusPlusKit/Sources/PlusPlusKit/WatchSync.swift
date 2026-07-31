@@ -32,15 +32,21 @@ public enum WatchSync {
         /// optional: a plan from an older phone decodes nil and adoption
         /// falls back to the name, exactly as before.
         public var uuid: UUID?
+        /// A synthesized one-step scratch plan for a quick-start sport
+        /// (#513) — the wrist renders these under their own section, and
+        /// they are not routines the user authored. Additive optional:
+        /// an older watch renders them as plain rows, which still work.
+        public var isQuickStart: Bool?
 
         public var id: String { name }
 
-        public init(name: String, restSeconds: Int, transitionSeconds: Int? = nil, steps: [Step], uuid: UUID? = nil) {
+        public init(name: String, restSeconds: Int, transitionSeconds: Int? = nil, steps: [Step], uuid: UUID? = nil, isQuickStart: Bool? = nil) {
             self.name = name
             self.restSeconds = restSeconds
             self.transitionSeconds = transitionSeconds
             self.steps = steps
             self.uuid = uuid
+            self.isQuickStart = isQuickStart
         }
 
         /// Whether this routine runs as an OUTDOOR workout on the wrist —

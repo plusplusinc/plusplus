@@ -13,16 +13,38 @@ struct ContentView: View {
                     // Positional identity, not name-keyed: routine names
                     // aren't unique, and duplicate Identifiable IDs make
                     // ForEach misbehave (bug hunt A6).
-                    List(Array(plan.routines.enumerated()), id: \.offset) { _, routine in
-                        NavigationLink {
-                            WorkoutRunView(routine: routine)
-                        } label: {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(routine.name)
-                                    .font(.headline)
-                                Text("\(routine.steps.count) \(routine.sessionModality.primary.workUnit?.plural ?? "sets")")
-                                    .font(.system(.caption2, design: .monospaced))
-                                    .foregroundStyle(.secondary)
+                    let planned = plan.routines.filter { $0.isQuickStart != true }
+                    let quick = plan.routines.filter { $0.isQuickStart == true }
+                    List {
+                        ForEach(Array(planned.enumerated()), id: \.offset) { _, routine in
+                            NavigationLink {
+                                WorkoutRunView(routine: routine)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(routine.name)
+                                        .font(.headline)
+                                    Text("\(routine.steps.count) \(routine.sessionModality.primary.workUnit?.plural ?? "sets")")
+                                        .font(.system(.caption2, design: .monospaced))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        // The spontaneous sports (#513): one tap opens the
+                        // run, the first log starts the session — the
+                        // wrist no longer needs the phone to go for a run.
+                        if !quick.isEmpty {
+                            Section("Quick start") {
+                                ForEach(Array(quick.enumerated()), id: \.offset) { _, routine in
+                                    NavigationLink {
+                                        WorkoutRunView(routine: routine)
+                                    } label: {
+                                        // The sport alone — a one-step
+                                        // scratch plan has no count worth
+                                        // naming (#514's count-of-one).
+                                        Text(routine.name)
+                                            .font(.headline)
+                                    }
+                                }
                             }
                         }
                     }

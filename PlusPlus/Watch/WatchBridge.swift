@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import OSLog
 import SwiftData
@@ -43,9 +44,27 @@ final class WatchBridge: NSObject, WCSessionDelegate {
             // the max HR (Health's date of birth); the wrist only
             // compares numbers.
             let maxHeartRate = HealthAccess.resolvedMaxHeartRate()
+            // The quick-start sports ride the plan as one-step scratch
+            // plans (#513) — the wrist is the device actually worn on a
+            // spontaneous run. Same source as Today's rail: the user's
+            // device-local picks, resolved by name; a stale pick drops.
+            let pickNames = QuickStartPicks.names(
+                from: UserDefaults.standard.string(forKey: QuickStartPicks.key)
+                    ?? QuickStartPicks.raw(from: QuickStartPicks.fallback)
+            )
+            // Sorted so a duplicate name resolves to the SAME exercise
+            // Today's name-sorted rail resolves (quick-start review).
+            let exercises = (try? context.fetch(
+                FetchDescriptor<Exercise>(sortBy: [SortDescriptor(\.name)])
+            )) ?? []
+            let byName = Dictionary(
+                exercises.filter { !$0.isDeleted }.map { ($0.name, $0) },
+                uniquingKeysWith: { first, _ in first }
+            )
+            let quickStarts = pickNames.compactMap { byName[$0] }.map(Self.quickStartPlan)
             let plan = WatchSync.Plan(
                 generatedAt: Date(),
-                routines: routines.map { Self.planRoutine($0, maxHeartRate: maxHeartRate) }
+                routines: routines.map { Self.planRoutine($0, maxHeartRate: maxHeartRate) } + quickStarts
             )
             do {
                 let data = try WatchSync.encode(plan)
@@ -97,6 +116,49 @@ final class WatchBridge: NSObject, WCSessionDelegate {
             steps: steps,
             uuid: routine.uuid
         )
+    }
+
+    /// One untargeted step wearing the sport's own modality (#513). The
+    /// run view already says nothing for an untargeted effort and counts
+    /// no "1/1" at a count of one (#514), so the scratch plan renders
+    /// clean; a single step means rest never schedules and the first log
+    /// finishes, exactly like the phone's quick start.
+    ///
+    /// ⚠️ `isDuration` follows the PROFILE (quick-start review): every
+    /// cardio profile is duration-legacy, and the flag is what makes the
+    /// wrist record the elapsed time it measured — hardcoded false, an
+    /// indoor quick start came home as a completed set with no facts.
+    @MainActor
+    private static func quickStartPlan(_ exercise: Exercise) -> WatchSync.PlanRoutine {
+        let profile = exercise.metricProfile
+        return WatchSync.PlanRoutine(
+            name: exercise.name,
+            restSeconds: 90,
+            steps: [WatchSync.Step(
+                exerciseName: exercise.name,
+                groupIndex: 0,
+                setNumber: 1,
+                isDuration: profile.legacyType == .duration,
+                distanceUnit: profile.distanceUnit,
+                isOutdoor: profile.isOutdoor ? true : nil,
+                modality: exercise.modality
+            )],
+            uuid: Self.quickStartIdentity(exercise.name),
+            isQuickStart: true
+        )
+    }
+
+    /// A stable, name-derived identity for a quick-start plan — NOT a
+    /// routine's uuid, and deterministic across plan pushes so an
+    /// unfinished wrist quick start re-adopts after a re-push. What keeps
+    /// a scratch "Running" from adopting a ROUTINE literally named
+    /// "Running" (quick-start review): adoption matches uuid-to-uuid,
+    /// and these can never equal a routine's.
+    private static func quickStartIdentity(_ name: String) -> UUID {
+        let digest = SHA256.hash(data: Data("quickStart.\(name)".utf8))
+        let b = Array(digest.prefix(16))
+        return UUID(uuid: (b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7],
+                           b[8], b[9], b[10], b[11], b[12], b[13], b[14], b[15]))
     }
 
     // MARK: - Live mirror (#322)
