@@ -161,16 +161,22 @@ final class WatchBridge: NSObject, WCSessionDelegate {
         importResult(result, into: ModelContext(container))
     }
 
-    /// Appends the wrist session as ordinary history. Idempotent:
-    /// transferUserInfo retries across launches, so an already-imported
-    /// (name, startedAt) pair is skipped.
+    /// Appends the wrist session as ordinary history — or, when the live
+    /// mirror already materialized the same session, MERGES into that row
+    /// instead (stage 1, #510): the ops carry no heart rate and can
+    /// under-carry extras, so skipping the result here threw away the
+    /// HR summary on every mirrored wrist workout. Idempotent either way:
+    /// transferUserInfo retries across launches, and a re-delivered
+    /// result merges the same values onto the same row.
     private func importResult(_ result: WatchSync.SessionResult, into context: ModelContext) {
         let existing = (try? context.fetch(FetchDescriptor<WorkoutSession>())) ?? []
-        let alreadyImported = existing.contains {
+        if let match = existing.first(where: {
             $0.routineName == result.routineName
                 && abs($0.startedAt.timeIntervalSince(result.startedAt)) < 1
+        }) {
+            merge(result, into: match, context: context)
+            return
         }
-        guard !alreadyImported else { return }
 
         let session = WorkoutSession(
             routineName: result.routineName,
@@ -251,6 +257,61 @@ final class WatchBridge: NSObject, WCSessionDelegate {
         } catch {
             Logger(subsystem: "com.davidcole.plusplus", category: "watch")
                 .fault("wrist session save failed: \(error.localizedDescription)")
+        }
+    }
+
+    /// Fills a live-mirror row from the wrist's authoritative summary.
+    /// The result only ADDS what the ops could not carry — HR, measured
+    /// extras, a completion the ops lost — and never downgrades a value
+    /// the row already holds, so a re-delivered result is a no-op.
+    private func merge(_ result: WatchSync.SessionResult, into session: WorkoutSession, context: ModelContext) {
+        LiveMirror.clearRemoteActivity(session.sessionId)
+        if result.averageHeartRate != nil { session.averageHeartRate = result.averageHeartRate }
+        if result.maxHeartRate != nil { session.maxHeartRate = result.maxHeartRate }
+        let logs = session.sortedSetLogs
+        for (order, stepResult) in result.steps.enumerated() {
+            guard let log = logs.first(where: { $0.order == order }) else { continue }
+            if stepResult.averageHeartRate != nil { log.actualAverageHeartRate = stepResult.averageHeartRate }
+            if stepResult.maxHeartRate != nil { log.actualMaxHeartRate = stepResult.maxHeartRate }
+            guard let completedAt = stepResult.completedAt else { continue }
+            if log.completedAt == nil {
+                log.actualWeight = stepResult.actualWeight
+                log.actualReps = stepResult.actualReps
+                log.actualDuration = stepResult.actualDuration
+                log.completedAt = completedAt
+            }
+            let actuals = MetricValues.fromRaw(stepResult.extraActuals)
+            if !actuals.isEmpty, log.extraActuals.isEmpty {
+                log.extraActuals = actuals
+            }
+            // The snapshot profile spans what the log now holds — same
+            // rule as the fresh-import path above. isOutdoor/paceReference
+            // ride along: the init defaults them, and losing the flag
+            // would re-file an outdoor workout in Health.
+            let profile = log.metricProfile
+            let newKeys = log.extraActuals.keys.filter { !profile.contains($0) }
+            if !newKeys.isEmpty {
+                log.metricsData = MetricProfile(
+                    profile.metrics + newKeys,
+                    distanceUnit: profile.distanceUnit,
+                    isOutdoor: profile.isOutdoor,
+                    paceReference: profile.paceReference
+                ).encoded()
+            }
+        }
+        // The wrist's end is the honest one. The `.finished` op already
+        // closed the row in the common case; correct the stamp when a
+        // different door closed it first.
+        if !session.isFinished {
+            session.finish(at: result.endedAt)
+        } else if let ended = session.endedAt, abs(ended.timeIntervalSince(result.endedAt)) > 1 {
+            session.endedAt = result.endedAt
+        }
+        do {
+            try context.save()
+        } catch {
+            Logger(subsystem: "com.davidcole.plusplus", category: "watch")
+                .fault("wrist session merge failed: \(error.localizedDescription)")
         }
     }
 

@@ -28,6 +28,53 @@ struct LiveSessionTests {
            kind: .logSet(index: index, actualWeight: nil, actualReps: reps, actualDuration: nil, extras: [:], completedAt: t0.addingTimeInterval(offset)))
     }
 
+    // MARK: Displacement (stage 1 of the watch repair, #510)
+
+    @Test("A newer started for a different session displaces a stale unfinished state")
+    func newerStartDisplaces() {
+        var reducer = LiveSession.Reducer()
+        reducer.apply(started(steps: steps(["Bench", "Row"])))
+        reducer.apply(logSet(0, reps: 5, seq: 1, at: 10))
+        // The first session's discard was lost; a new session begins an
+        // hour later. One human: the new start means the old one is over.
+        let other = UUID()
+        let fresh = Op(
+            opId: UUID(), sessionId: other, origin: .phone, seq: 0,
+            at: t0.addingTimeInterval(3600),
+            kind: .started(routineName: "Legs", startedAt: t0.addingTimeInterval(3600),
+                           restSeconds: 60, steps: steps(["Squat"]))
+        )
+        reducer.apply(fresh)
+        #expect(reducer.state?.sessionId == other)
+        #expect(reducer.state?.routineName == "Legs")
+    }
+
+    @Test("A replayed older started for a previous session cannot clobber the live one")
+    func olderStartRefused() {
+        var reducer = LiveSession.Reducer()
+        reducer.apply(started(steps: steps(["Bench"])))
+        reducer.apply(logSet(0, reps: 5, seq: 1, at: 10))
+        // A duplicate delivery of yesterday's birth arrives late.
+        let old = Op(
+            opId: UUID(), sessionId: UUID(), origin: .watch, seq: 0,
+            at: t0.addingTimeInterval(-3600),
+            kind: .started(routineName: "Yesterday", startedAt: t0.addingTimeInterval(-3600),
+                           restSeconds: 60, steps: steps(["Row"]))
+        )
+        reducer.apply(old)
+        #expect(reducer.state?.routineName == "Push Day")
+    }
+
+    @Test("A discarded state reads closed without reading finished")
+    func discardedIsClosed() throws {
+        var s = try #require(LiveSession.reduce([started(steps: steps(["Bench"]))]))
+        #expect(!s.isClosed)
+        s.apply(Op(opId: UUID(), sessionId: session, origin: .phone, seq: 1,
+                   at: t0.addingTimeInterval(5), kind: .discarded))
+        #expect(s.isClosed)
+        #expect(!s.isFinished)
+    }
+
     // MARK: Basics
 
     @Test("Started plus two logs yields two completed and the cursor at the third")

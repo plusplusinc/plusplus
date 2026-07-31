@@ -832,10 +832,20 @@ struct TodayView: View {
             predicate: #Predicate { $0.endedAt == nil }
         )
         for session in (try? modelContext.fetch(descriptor)) ?? [] where !session.isDeleted {
+            // Live on the wrist right now is not an orphan: its ops have
+            // been arriving. Leave it to its own lifecycle — glancing at
+            // the phone used to destroy a running wrist workout (#510).
+            if LiveMirror.isLiveElsewhere(session.sessionId) { continue }
             if session.completedSetLogs.isEmpty {
+                // Emit before delete — the op needs the sessionId, and
+                // the wrist needs the discard to clear its journal.
+                LiveMirror.shared.closeRemotely(session, discarded: true)
                 modelContext.delete(session)
             } else {
-                session.finish()
+                // Anchor to the last real activity: the crash-to-reopen
+                // gap is not training time (#503).
+                session.finish(at: session.lastActivityAt)
+                LiveMirror.shared.closeRemotely(session, discarded: false)
             }
         }
     }
