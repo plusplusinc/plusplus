@@ -7,7 +7,8 @@ paths:
 
 Every ⚠️ here is a law learned on device — the build number names the failing
 build. Don't re-try retired mechanisms; docs/DECISIONS.md and git history hold
-the post-mortems. Siblings: `design-grammar.md` (color/key/tag/copy laws),
+the post-mortems. A law tagged **(recheck: iOS 27)** encodes an OS-26 bug:
+re-test it on the next major SDK before assuming it still binds. Siblings: `design-grammar.md` (color/key/tag/copy laws),
 `app-surfaces.md` (what each screen is), `ui-interaction.md` (gesture laws).
 
 ## The tab bar
@@ -39,8 +40,8 @@ Search** (`Tab(role: .search)`).
   can never ride tab labels (retired).
 - ⚠️ **Anything that writes state during layout** (`.onGeometryChange`,
   `GeometryReader` + `PreferenceKey`) anywhere in the TabView subtree breaks
-  the search-role morph on FIRST activation (nav-diag 4e). Measure from
-  `UIFont` metrics instead, as `OverflowCapsuleRow` does.
+  the search-role morph on FIRST activation (nav-diag 4e; recheck: iOS 27).
+  Measure from `UIFont` metrics instead, as `OverflowCapsuleRow` does.
 - ⚠️ Because **a `Tab`'s content is its own view tree**, the four
   catalog-showing tabs are four live INSTANCES, so every broadcast needs one
   named owner: `ownsLandings` (`tabKey == scope.tab.rawValue`) makes the
@@ -95,7 +96,8 @@ exercises / equipment").
   rise with the keyboard**, so auto-raising it on arrival buries the scope
   control at the moment you land on it (build 144). There is NO custom Done
   key: leaving is a normal tab tap.
-- ⚠️ **The iOS 26 morph bug is live**: an `.onGeometryChange` in the TabView
+- ⚠️ **The iOS 26 morph bug is live** (recheck: iOS 27): an
+  `.onGeometryChange` in the TabView
   subtree (a sibling tab's probe) can make the field fall back to the top
   `.navigationBarDrawer` placement on FIRST activation instead of morphing
   (nav-diag 4e). Since this surface HIDES the nav bar's title, the failure is
@@ -184,17 +186,17 @@ this surface the control effectively is.
   presentation.
 - **It is app-placed because every system-owned home failed, and each failure
   is a law**:
-  ⚠️ `tabViewBottomAccessory` does not rise with the keyboard (137–139, 144) —
-  search's own keyboard buries anything in it.
+  ⚠️ `tabViewBottomAccessory` does not rise with the keyboard (137–139, 144;
+  recheck: iOS 27) — search's own keyboard buries anything in it.
   ⚠️ **Native `.searchScopes` renders exactly ONCE per app run** on a
   bottom-aligned field morphed out of `Tab(role: .search)`, and renders at the
-  TOP, nowhere near the field (140–143). Tried, in order, all still once:
+  TOP, nowhere near the field (140–143; recheck: iOS 27). Tried, in order, all still once:
   `.onSearchPresentation` activation; `.searchable` moved INSIDE the stack
   (the documented requirement, and what made scopes appear at all); a real
   navigation bar; `.tabViewSearchActivation(.searchTabSelection)` for a fresh
   presentation per arrival.
   ⚠️ A `.bottomBar` `ToolbarItem` lands in the SAME ROW the search-role field
-  expands into (145), so it sits behind the field. Photos' recipe works there
+  expands into (145; recheck: iOS 27), so it sits behind the field. Photos' recipe works there
   only because Photos' search is a small BUTTON in that row. The `.principal`
   slot has no such competition — the field expands out of the TAB BAR.
   ⚠️ A TOP `safeAreaInset` under the bar (147) was right but one row too many:

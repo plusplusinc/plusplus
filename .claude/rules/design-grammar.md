@@ -136,6 +136,15 @@ Siblings: `navigation.md` (tab bar, search, scroll/landing mechanics),
 - **No em dashes in user-facing copy** (Dave, 2026-07-10): rewrite the
   sentence (split it, or use "·" separators). A bare "—" standing in for a
   missing value is a placeholder glyph, not prose, and stays.
+- **Type is the system ramp, worn plainly** (Dave, 2026-07-31 — a law, not
+  tokens): dynamic text styles only (`.font(.system(.footnote, ...))`), so
+  Dynamic Type reflow comes free. Fixed sizes are reserved for DISPLAY
+  NUMERALS (the live metric value, the splash mark and their kin — the few
+  sanctioned sites that exist today). Mono (`design: .monospaced`) is DATA:
+  numerals, lowercase metadata captions, and the all-caps section labels
+  above. Weight carries emphasis (semibold on keys and labels), never a
+  second face. There is deliberately NO Theme type-token layer — the system
+  styles are the ramp, and abstraction waits for real duplication pain.
 - **The full brand voice lives in `.claude/skills/voice/SKILL.md`** — read it
   before writing ANY user-facing string, and run the `copy-reviewer` agent on
   diffs that touch copy. Headlines: no "we"/"I"; the app never refers to
