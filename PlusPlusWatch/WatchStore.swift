@@ -88,12 +88,19 @@ final class WatchStore: NSObject, WCSessionDelegate {
     private static let parkedOpsKey = "pendingPhoneLiveOps"
     private static let parkedCap = 256
     private static let parkLock = NSLock()
+    /// The drain's count-based removal is only correct while the park
+    /// APPENDS during a drain — a cap eviction mid-drain would shift the
+    /// queue and delete a never-applied op (stage-3 review). Guarded by
+    /// `parkLock` like everything else here.
+    private static var isDraining = false
 
     private static func parkDurable(_ data: Data) {
         parkLock.lock(); defer { parkLock.unlock() }
         var queue = (UserDefaults.standard.array(forKey: parkedOpsKey) as? [Data]) ?? []
         queue.append(data)
-        if queue.count > parkedCap { queue.removeFirst(queue.count - parkedCap) }
+        if !isDraining, queue.count > parkedCap {
+            queue.removeFirst(queue.count - parkedCap)
+        }
         UserDefaults.standard.set(queue, forKey: parkedOpsKey)
     }
 
@@ -104,7 +111,13 @@ final class WatchStore: NSObject, WCSessionDelegate {
     func drainDurable() {
         Self.parkLock.lock()
         let queue = (UserDefaults.standard.array(forKey: Self.parkedOpsKey) as? [Data]) ?? []
+        Self.isDraining = true
         Self.parkLock.unlock()
+        defer {
+            Self.parkLock.lock()
+            Self.isDraining = false
+            Self.parkLock.unlock()
+        }
         guard !queue.isEmpty else { return }
         for data in queue {
             guard let op = try? WatchSync.decode(LiveSession.Op.self, from: data) else { continue }

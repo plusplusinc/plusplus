@@ -47,6 +47,10 @@ struct LiveSessionTests {
         s.apply(Op(opId: UUID(), sessionId: session, origin: .phone, seq: 1,
                    at: pauseAt, kind: .paused(at: pauseAt)))
         #expect(!s.isPaused)
+        // The pause registers count as activity: displacement's guard
+        // reads latestStamp, and a register it misses is a window for a
+        // stale foreign birth (stage-3 review).
+        #expect(s.latestStamp == s.pauseStamp)
     }
 
     @Test("A steps change replaces the birth list and survives merge")

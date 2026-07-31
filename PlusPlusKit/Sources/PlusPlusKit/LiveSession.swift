@@ -207,9 +207,12 @@ public enum LiveSession {
         /// The newest stamp folded into any register — when this session
         /// last verifiably moved. Displacement (below) compares against
         /// it so an op-stream replay can never resurrect a dead session.
+        /// ⚠️ EVERY register belongs here: a register this misses is a
+        /// window where a stale foreign birth can displace a live session
+        /// (stage-3 review — pause/steps were briefly missing).
         public var latestStamp: Stamp? {
             var best = logs.map(\.stamp).max()
-            for candidate in [cursorStamp, restStamp, lifecycleStamp] {
+            for candidate in [cursorStamp, restStamp, lifecycleStamp, pauseStamp, stepsStamp] {
                 if let candidate, best.map({ candidate > $0 }) ?? true { best = candidate }
             }
             return best

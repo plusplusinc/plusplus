@@ -227,6 +227,11 @@ final class LiveMirror {
         // CAN deliver an op twice, and a reachability flip can deliver a
         // live op before its queued `.started`. A duplicate returns; an
         // early op parks durably and replays when its session appears.
+        // ⚠️ Known window (stage-3 review, accepted): the two inbound
+        // threads (main actor + delegate queue) make the fetch→park and
+        // fetch→materialize decisions non-atomically, so a dual-channel
+        // duplicate landing within milliseconds can slip the ledger.
+        // Per-session serialization is the follow-up if it ever bites.
         if hasApplied(op) { return }
         var isStartedOp = false
         if case .started = op.kind { isStartedOp = true }
@@ -377,12 +382,11 @@ final class LiveMirror {
         if map.removeValue(forKey: sessionId.uuidString) != nil {
             UserDefaults.standard.set(map, forKey: liveElsewhereKey)
         }
-        // The session's lifecycle is over: its op ledger and any parked
-        // ops go with it (#512).
-        var ledger = (UserDefaults.standard.dictionary(forKey: appliedKey) as? [String: [String]]) ?? [:]
-        if ledger.removeValue(forKey: sessionId.uuidString) != nil {
-            UserDefaults.standard.set(ledger, forKey: appliedKey)
-        }
+        // The session's lifecycle is over: its parked ops go with it —
+        // but its LEDGER stays as a tombstone (#512, stage-3 review): a
+        // duplicate `.started` from the error-fallback queue would
+        // otherwise re-materialize the dead session as a ghost. The
+        // session-cap prune retires the tombstone later.
         var parked = (UserDefaults.standard.dictionary(forKey: pendingKey) as? [String: [Data]]) ?? [:]
         if parked.removeValue(forKey: sessionId.uuidString) != nil {
             UserDefaults.standard.set(parked, forKey: pendingKey)
@@ -418,6 +422,9 @@ final class LiveMirror {
         ids.append(op.opId.uuidString)
         if ids.count > appliedCapPerSession { ids.removeFirst(ids.count - appliedCapPerSession) }
         ledger[op.sessionId.uuidString] = ids
+        // Past the cap an ARBITRARY other session's ledger goes (plist
+        // dictionaries carry no order) — a backstop against sessions
+        // whose lifecycle never arrived, far above any real concurrency.
         while ledger.count > ledgerSessionCap, let victim = ledger.keys.first(where: { $0 != op.sessionId.uuidString }) {
             ledger.removeValue(forKey: victim)
         }
@@ -432,6 +439,11 @@ final class LiveMirror {
         queue.append(data)
         if queue.count > pendingCapPerSession { queue.removeFirst(queue.count - pendingCapPerSession) }
         parked[op.sessionId.uuidString] = queue
+        // Same session-count backstop as the ledger: a park whose
+        // `.started` never arrives must not grow the plist forever.
+        while parked.count > ledgerSessionCap, let victim = parked.keys.first(where: { $0 != op.sessionId.uuidString }) {
+            parked.removeValue(forKey: victim)
+        }
         UserDefaults.standard.set(parked, forKey: pendingKey)
     }
 
