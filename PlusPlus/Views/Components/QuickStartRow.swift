@@ -104,13 +104,21 @@ enum QuickStartLabel {
 /// Grammar: `RaisedKey`-family caps, because each one COMMITS to starting
 /// something. The trailing key is a `CreateRow`-style green bordered cap —
 /// it configures the row rather than starting a workout, so it reads as
-/// creation, not as a sport. The scroll runs full-bleed with the surface's
-/// 16 pt content margin, so a long row slides under the screen edge
-/// instead of clipping at a column boundary.
+/// creation, not as a sport.
+///
+/// ⚠️ The row NEVER scrolls (Dave, build 159: "the horizontal scroll isn't
+/// great") — hidden overflow in a pinned band has no affordance at all. It
+/// fits what it can and collapses the tail into an "N more" key, exactly
+/// the muscle tags' rule (`OverflowCapsuleRow`, 2026-07-19) at key scale:
+/// widths from `UIFont` metrics, never a geometry probe (the morph law).
+/// "N more" is a Menu of the hidden sports, so every pick stays reachable —
+/// the visible keys at one tap, the tail at two.
 struct QuickStartRow: View {
     let exercises: [Exercise]
     let onPick: (Exercise) -> Void
     let onEdit: () -> Void
+
+    @State private var containerWidth: CGFloat = 0
 
     /// The key's imperative — unless two picks resolve to the same verb
     /// (both climbers, a custom bike beside Cycling), where the colliding
@@ -123,51 +131,139 @@ struct QuickStartRow: View {
     }
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(exercises, id: \.persistentModelID) { exercise in
-                    Button {
-                        onPick(exercise)
-                    } label: {
-                        HStack(spacing: 7) {
-                            Image(systemName: exercise.modalitySymbolName)
-                                .font(.system(.footnote, weight: .semibold))
-                                .accessibilityHidden(true)
-                            Text(label(for: exercise))
-                                .font(.system(.footnote, weight: .semibold))
-                                .lineLimit(1)
-                        }
-                        .foregroundStyle(Theme.textPrimary)
-                        .padding(.horizontal, 14)
-                        .frame(minHeight: 42)
-                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
-                        .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius)
-                            .strokeBorder(Theme.borderStrong))
-                    }
-                    .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: Theme.keyRadius, travel: 3))
-                    .accessibilityIdentifier("quickStart-\(exercise.name)")
-                }
-
-                Button(action: onEdit) {
-                    Image(systemName: "plus")
-                        .font(.system(.footnote, weight: .bold))
-                        // Creation is green (#202) — this key edits the row,
-                        // it does not start a workout.
-                        .foregroundStyle(Theme.accent)
-                        .padding(.horizontal, 14)
-                        .frame(minHeight: 42)
-                        .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
-                        .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius)
-                            .strokeBorder(Theme.accent.opacity(0.5)))
-                }
-                .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: Theme.keyRadius, travel: 3))
-                .accessibilityLabel("Choose which workouts appear here")
-                .accessibilityIdentifier("quickStartEditButton")
+        let fit = fitting(width: containerWidth)
+        HStack(spacing: 8) {
+            ForEach(fit.visible, id: \.persistentModelID) { exercise in
+                sportKey(exercise)
             }
-            // 2 pt of slack so the caps' press travel never clips against
-            // the scroll bounds; the surface margin rides contentMargins.
-            .padding(.horizontal, 2)
+            if !fit.hidden.isEmpty {
+                moreKey(fit.hidden)
+            }
+            editKey
         }
-        .contentMargins(.horizontal, 14, for: .scrollContent)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        // Container width from a background reader, the OverflowCapsuleRow
+        // idiom: reading into state from a BACKGROUND avoids the layout
+        // feedback loop, and nothing here observes scroll geometry.
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear { containerWidth = geo.size.width }
+                    .onChange(of: geo.size.width) { _, width in containerWidth = width }
+            }
+        )
+        .padding(.horizontal, 16)
+    }
+
+    private func sportKey(_ exercise: Exercise) -> some View {
+        Button {
+            onPick(exercise)
+        } label: {
+            HStack(spacing: 7) {
+                Image(systemName: exercise.modalitySymbolName)
+                    .font(.system(.footnote, weight: .semibold))
+                    .accessibilityHidden(true)
+                Text(label(for: exercise))
+                    .font(.system(.footnote, weight: .semibold))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(Theme.textPrimary)
+            .padding(.horizontal, 14)
+            .frame(minHeight: 42)
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+            .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius)
+                .strokeBorder(Theme.borderStrong))
+        }
+        .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: Theme.keyRadius, travel: 3))
+        .accessibilityIdentifier("quickStart-\(exercise.name)")
+    }
+
+    /// The overflow: a Menu of the sports that didn't fit, each starting
+    /// its workout exactly like a visible key. Key chrome in secondary ink
+    /// (a continuation, not a sport), no press travel — Menus manage their
+    /// own presentation, the FacetChip precedent.
+    private func moreKey(_ hidden: [Exercise]) -> some View {
+        Menu {
+            ForEach(hidden, id: \.persistentModelID) { exercise in
+                Button(label(for: exercise)) { onPick(exercise) }
+            }
+        } label: {
+            Text("\(hidden.count) more")
+                .font(.system(.footnote, weight: .semibold))
+                .foregroundStyle(Theme.textSecondary)
+                .lineLimit(1)
+                .padding(.horizontal, 14)
+                .frame(minHeight: 42)
+                .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+                .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius)
+                    .strokeBorder(Theme.borderStrong))
+        }
+        .accessibilityLabel("\(hidden.count) more sports")
+        .accessibilityIdentifier("quickStartMore")
+    }
+
+    private var editKey: some View {
+        Button(action: onEdit) {
+            Image(systemName: "plus")
+                .font(.system(.footnote, weight: .bold))
+                // Creation is green (#202) — this key edits the row,
+                // it does not start a workout.
+                .foregroundStyle(Theme.accent)
+                .padding(.horizontal, 14)
+                .frame(minHeight: 42)
+                .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+                .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius)
+                    .strokeBorder(Theme.accent.opacity(0.5)))
+        }
+        .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: Theme.keyRadius, travel: 3))
+        .accessibilityLabel("Choose which workouts appear here")
+        .accessibilityIdentifier("quickStartEditButton")
+    }
+
+    // MARK: - Fitting
+
+    /// Greedy left-to-right fit, reserving the edit key always and the
+    /// "N more" key whenever anything is left over. At least one sport
+    /// key always shows — one real key plus "N more" beats only chrome.
+    private func fitting(width: CGFloat) -> (visible: [Exercise], hidden: [Exercise]) {
+        guard width > 0, exercises.count > 1 else { return (exercises, []) }
+        let spacing: CGFloat = 8
+        let widths = exercises.map { Self.keyWidth(label(for: $0), hasGlyph: true) }
+        var used: CGFloat = Self.editKeyWidth
+        var shown = 0
+        for index in exercises.indices {
+            let next = used + spacing + widths[index]
+            let remaining = exercises.count - (shown + 1)
+            let reserve = remaining > 0 ? spacing + Self.keyWidth("\(remaining) more", hasGlyph: false) : 0
+            if next + reserve <= width {
+                used = next
+                shown += 1
+            } else {
+                break
+            }
+        }
+        if shown == 0 { shown = 1 }
+        return (Array(exercises.prefix(shown)), Array(exercises.dropFirst(shown)))
+    }
+
+    /// A key's rendered width from `UIFont` metrics — mirrors the key's
+    /// footnote-semibold text, the 14 pt pads, and the glyph's share.
+    /// An estimate, exactly like the tag row's: never a geometry probe.
+    private static func keyWidth(_ text: String, hasGlyph: Bool) -> CGFloat {
+        let base = UIFont.preferredFont(forTextStyle: .footnote)
+        let font = UIFont(
+            descriptor: base.fontDescriptor.addingAttributes(
+                [.traits: [UIFontDescriptor.TraitKey.weight: UIFont.Weight.semibold]]
+            ),
+            size: base.pointSize
+        )
+        var width = ceil((text as NSString).size(withAttributes: [.font: font]).width)
+        if hasGlyph { width += font.pointSize * 1.2 + 7 }
+        return width + 28 + 2
+    }
+
+    /// The green "+" cap: a bold footnote glyph between 14 pt pads.
+    private static var editKeyWidth: CGFloat {
+        UIFont.preferredFont(forTextStyle: .footnote).pointSize * 1.2 + 28 + 2
     }
 }

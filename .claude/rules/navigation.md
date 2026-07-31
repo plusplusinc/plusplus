@@ -278,24 +278,30 @@ nothing to attach to (build 140). `CatalogTabHeader` is DELETED and Today's
 hand-rolled twin with it; the system bar handles the Dynamic-Type reflow the
 old hand rules policed.
 
-- ⚠️ **Today's WEEK STRIP (tally + `BlockBar`) is a STICKY band inside the
-  scroll** (2026-07-27) — the scroll's first content, held at the visible top
-  by a `visualEffect` (`offset(y: minY < 0 ? -minY : 0)` against
-  `.scrollView`) that does nothing on overscroll, so it rides the rubber
-  band. PINNED between bar and scroll broke the pull: content rubber-bands
-  and UIKit walks the large title down with it, so "Today" slid over the
-  block bar (Dave, build 152). **Anything a large title can travel over has
-  to be scroll content** — a `safeAreaInset` is pinned too and fails the same
-  way. ⚠️ That `visualEffect` is a pure render-time read (no state write),
-  which keeps it clear of the morph law; `onScrollGeometryChange` is NOT.
-  ⚠️ **A sticky band floats, so it stops reserving its space**: a hidden
-  second copy (`weekStripBand.hidden()`) sits below the today anchor so the
-  opening `scrollTo` doesn't seat the date line under it — exact at every
-  Dynamic Type size. Floating also means the band needs an OPAQUE background
-  (rows slide under it) and the 16 pt content column lives on the scroll
-  stack's CHILDREN, not the stack, or rows show through the gutters. ⚠️ It
-  does NOT ride the rail (Dave): the tally is the surface's week header, not
-  an entry on the timeline.
+- ⚠️ **Today's header band (tally + `BlockBar` + quick start) is PINNED
+  CHROME on the scroll's shell** — a top `safeAreaInset`, the catalogs'
+  #494 mount (Dave, build 159, REVERSING the 2026-07-27 sticky-in-scroll
+  law: the band is "not part of the timeline or the overall page scroll",
+  its only shared motion the large-title collapse). The sticky-band era's
+  machinery — the `visualEffect` offset, the hidden reservation copy, the
+  anchor compensation — is DELETED; the scroll holds rail items only, so
+  item spacing is uniform by construction, and pinned chrome hit-tests
+  plainly (no float offset under the keys). The band keeps its OPAQUE
+  background + hairline shelf (rows slide under it), and the 16 pt content
+  column stays on the scroll stack's CHILDREN.
+  ⚠️ **The known cost is build 152's ghost, accepted knowingly this time**:
+  on pull-to-refresh the rubber-band walks the large title down over pinned
+  chrome — the exact failure that created the sticky law ("Today" slid over
+  the block bar). Today HAS the app's one `.refreshable`, so this is the #1
+  device check for the pinned band; the pull's answer line must also still
+  render in the gap the pull opens (below the band now). If the pull reads
+  broken on glass, the recorded fallback is the sticky-in-scroll mechanism
+  at 8b9e16b (boundary-mounted, no reservation), not build 152's revert.
+  ⚠️ It does NOT ride the rail (Dave): the tally is the surface's week
+  header, not an entry on the timeline — and the KEYS never scroll
+  horizontally either (build 159): the row fits what it can and collapses
+  the tail into an "N more" Menu, `OverflowCapsuleRow`'s rule at key scale,
+  widths from `UIFont` metrics.
 - ⚠️ **The pull's answer (the refresh line) renders in the SPACE THE PULL
   OPENS**, not in the timeline — a zero-height `Color.clear` at the very top
   of the content with the line `.overlay(alignment: .bottom)` on it, so the

@@ -270,34 +270,15 @@ struct TodayView: View {
                                     .id(Self.todayAnchorID)
                             }
                             .padding(.horizontal, 16)
-                            // The week strip, mounted AT THE TODAY BOUNDARY
-                            // it divides — its natural slot sits between the
-                            // week ahead and the date line, so the band IS
-                            // its own reservation (Dave, build 159: the
-                            // reserved gap read as inconsistent item spacing;
-                            // the hidden-copy mechanism died with it). The
-                            // landing seats the anchor at the viewport top,
-                            // which puts this band exactly under the title —
-                            // same geometry as before, no measuring, and one
-                            // mount instead of two.
-                            weekStripBand
-                                // A pure RENDER-TIME geometry read — no state
-                                // is written, so this is NOT the pattern that
-                                // breaks the search-role morph (that one is
-                                // layout feeding back into state). Scrolled
-                                // past, the band climbs back to the visible
-                                // top; while the week ahead is in view its
-                                // minY is POSITIVE and the offset is zero, so
-                                // it sits in the rail's flow as the boundary
-                                // between future and today — which is why no
-                                // reserved gap exists at any scroll position.
-                                .visualEffect { band, geometry in
-                                    let minY = geometry.frame(in: .scrollView).minY
-                                    return band.offset(y: minY < 0 ? -minY : 0)
-                                }
-                                // It floats over what scrolls beneath it, so
-                                // it has to draw above its later siblings.
-                                .zIndex(1)
+                            // ⚠️ The week strip is NOT here. It is pinned
+                            // CHROME on the scroll's shell (the
+                            // safeAreaInset below), not scroll content —
+                            // Dave, build 159: the tally, the bar and the
+                            // quick starts are not part of the timeline OR
+                            // the page scroll; the only motion they share
+                            // is the large title collapsing into the bar.
+                            // The scroll holds rail items and nothing else,
+                            // so item spacing is uniform by construction.
                             // Lazy: the committed section is the whole
                             // history — eager building made every render
                             // O(sessions) (bug hunt perf finding).
@@ -415,6 +396,26 @@ struct TodayView: View {
                         // system refresh spinner (below), and without this the
                         // content would inherit that clear.
                         .tint(Theme.textPrimary)
+                    }
+                    // The week strip + quick start, pinned as CHROME above
+                    // the scroll (Dave, build 159: not part of the timeline
+                    // or the page scroll — "except just the little scroll
+                    // that moves the heading into the top", which is the
+                    // large-title collapse and belongs to the bar, not to
+                    // this band). The catalogs' #494 filter row is the
+                    // precedent, same mount. What this buys beyond the ask:
+                    // the keys no longer sit inside a visualEffect offset,
+                    // so the hit-where-it-draws device concern is GONE, and
+                    // the landing needs no anchor compensation — the inset
+                    // shrinks the content area and scrollTo(.top) seats the
+                    // date line right under the band.
+                    // ⚠️ Device check this trades INTO: the pull-to-refresh
+                    // gap now opens below the pinned band, and the pull's
+                    // answer line must still render in it; plus the large
+                    // title collapsing over an inset band on overscroll
+                    // (the #494 tension, now on a refreshable surface).
+                    .safeAreaInset(edge: .top, spacing: 0) {
+                        weekStripBand
                     }
                     // SOFT at the bottom — same call as the catalogs. The
                     // `.hard` slab is what Dave killed; hiding the effect
@@ -1498,29 +1499,21 @@ struct TodayView: View {
 
     // MARK: - Week strip
 
-    /// ⚠️ There is NO reservation copy of the band any more, and that is
-    /// the point of the boundary mount (Dave, build 159): mounted between
-    /// the week ahead and the date line, the band occupies its own slot at
-    /// every scroll position, so nothing needs reserving and the rail has
-    /// no phantom gap. The build-158 hidden-copy-with-spine mechanism this
-    /// replaces existed only because the band used to mount at the top of
-    /// the scroll, away from the space the landing needed held.
+    /// The Today header band: the week strip and quick start, as PINNED
+    /// CHROME on the scroll's shell (`safeAreaInset`, the catalogs' #494
+    /// mount). Not scroll content, not a sticky trick, no reservation, no
+    /// visualEffect — Dave, build 159, after three rounds of in-scroll
+    /// placements each still reading as "part of the timeline": the band
+    /// is chrome, the scroll holds rail items only, and the only motion
+    /// the band shares is the large title collapsing into the bar.
     private var weekStripBand: some View {
         VStack(alignment: .leading, spacing: 0) {
             weekStrip
                 .padding(.horizontal, 16)
-            // ⚠️ Quick start rides IN the band (Dave, build 159, second
-            // round: below-the-band still read as "in the timeline" —
-            // anything in the scroll flow between rail segments does).
-            // Inside the pinned header it is unambiguously chrome, and it
-            // stays a thumb away however deep the scroll sits.
-            //
-            // ⚠️ THE device-pass check this placement buys: the sticky
-            // band moves on a `visualEffect` offset, and these are the
-            // first INTERACTIVE elements inside it — confirm a key hits
-            // where it draws while the band is floating. If it misses,
-            // the recorded fallback is the header row below the band
-            // (this view, one mount down), not the rail.
+            // Quick start rides IN the band: unambiguously chrome, and a
+            // thumb away however deep the scroll sits. Plain pinned
+            // chrome hit-tests normally — the old float-offset concern
+            // died with the in-scroll mounts.
             quickStartBand
         }
         .frame(maxWidth: .infinity, alignment: .leading)
