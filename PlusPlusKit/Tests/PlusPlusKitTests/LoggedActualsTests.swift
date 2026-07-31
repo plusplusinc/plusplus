@@ -67,6 +67,22 @@ struct LoggedActualsTests {
         #expect(abs(mile - 550) < 0.001)
     }
 
+    @Test("A pool's own split reference beats the unit's convention")
+    func paceHonoursTheProfileReference() throws {
+        // 1000 m in 20:00. A metric pool is denominated in meters exactly
+        // like an erg, so the unit alone says per 500 — and prints 10:00
+        // for a swim whose split is 2:00. The profile's reference is the
+        // one that knows better, which is the whole reason PaceReference
+        // was split off the distance unit.
+        let ergConvention = try #require(LoggedActuals.pace(distance: 1000, elapsedSeconds: 1200, unit: .meters))
+        #expect(abs(ergConvention - 600) < 0.001)
+
+        let poolSplit = try #require(LoggedActuals.pace(
+            distance: 1000, elapsedSeconds: 1200, unit: .meters, paceReference: .per100Meters
+        ))
+        #expect(abs(poolSplit - 120) < 0.001)
+    }
+
     @Test("Pace needs both halves and refuses to divide by nothing")
     func paceDegenerate() {
         #expect(LoggedActuals.pace(distance: nil, elapsedSeconds: 600, unit: .miles) == nil)
