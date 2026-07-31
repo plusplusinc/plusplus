@@ -292,23 +292,10 @@ struct TodayView: View {
                             }
                             .padding(.horizontal, 16)
                             weekStripReservation
-                            // ⚠️ Quick start is HEADER FURNITURE, not a
-                            // timeline entry (Dave, build 159: the keys
-                            // "don't belong in the timeline" — revising
-                            // build 158's under-the-date rail placement).
-                            // The rail records OCCURRENCES; a row of keys
-                            // is an OFFER, so it takes the zone the week
-                            // strip established for surface furniture:
-                            // full width, no spine, directly above the
-                            // date line where the timeline begins. Still
-                            // scroll content (anything a large title can
-                            // travel over has to be), and deliberately
-                            // NOT inside the sticky band itself: the band
-                            // floats on a visualEffect offset, and keys
-                            // that render offset from where they hit-test
-                            // are a class of bug a fact-only band never
-                            // has to answer for.
-                            quickStartBand
+                            // Quick start lives INSIDE the band above —
+                            // see weekStripBand. Nothing sits between the
+                            // reservation and the date line, so the rail
+                            // runs unbroken from the week ahead to today.
                             // Lazy: the committed section is the whole
                             // history — eager building made every render
                             // O(sessions) (bug hunt perf finding).
@@ -1039,15 +1026,15 @@ struct TodayView: View {
         .fixedSize(horizontal: false, vertical: true)
     }
 
-    /// One-tap starts for the sports you actually do — the surface's own
-    /// furniture, in the header zone under the week strip.
+    /// One-tap starts for the sports you actually do — mounted inside
+    /// `weekStripBand`, so they are part of the pinned header, never a
+    /// thing sitting between rail segments.
     ///
-    /// Full width and no spine: the rail records occurrences, and these
-    /// keys are an offer, so they sit ABOVE the date line where the
-    /// timeline begins (the week strip's own precedent: the tally is the
-    /// surface's header, not an entry). The keys carry their own raised
-    /// chrome, so the band needs no card; its bottom breathing room is
-    /// what separates the header zone from the timeline.
+    /// The rail records occurrences and these keys are an offer; two
+    /// rounds of device feedback said any placement IN the scroll flow
+    /// still read as timeline, so they live with the tally now. The keys
+    /// carry their own raised chrome (no card), and the rack scrolls
+    /// full-bleed under the band's edges.
     ///
     /// ⚠️ It renders nothing while the setup scaffold is running: a full
     /// viewport of "3 of 3" steps with a Run key floating above it offers two
@@ -1060,8 +1047,12 @@ struct TodayView: View {
                 onPick: { quickStartConfig = SessionExerciseConfig(exercise: $0) },
                 onEdit: { editingQuickStarts = true }
             )
-            .padding(.top, 8)
-            .padding(.bottom, 4)
+            // Thin on top (the strip's own bottom clearance carries the
+            // gap when the tally shows); real clearance below, because
+            // the keys are now the band's last element and the rows
+            // slide under THEM.
+            .padding(.top, 2)
+            .padding(.bottom, 10)
         }
     }
 
@@ -1531,14 +1522,32 @@ struct TodayView: View {
     }
 
     private var weekStripBand: some View {
-        weekStrip
-            .padding(.horizontal, 16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            // Opaque, because the timeline slides UNDER it. Same call the
-            // pinned search headings make for the same reason. It draws
-            // nothing when the strip is empty: a zero-height view with a
-            // background is invisible.
-            .background(Theme.background)
+        VStack(alignment: .leading, spacing: 0) {
+            weekStrip
+                .padding(.horizontal, 16)
+            // ⚠️ Quick start rides IN the band (Dave, build 159, second
+            // round: below-the-band still read as "in the timeline" —
+            // anything in the scroll flow between rail segments does).
+            // Inside the pinned header it is unambiguously chrome, and it
+            // stays a thumb away however deep the scroll sits. Because
+            // the band mounts twice (sticky + hidden reservation), the
+            // reservation reserves the taller height automatically and
+            // the spine passes through untouched.
+            //
+            // ⚠️ THE device-pass check this placement buys: the sticky
+            // band moves on a `visualEffect` offset, and these are the
+            // first INTERACTIVE elements inside it — confirm a key hits
+            // where it draws while the band is floating. If it misses,
+            // the recorded fallback is the header row below the band
+            // (this view, one mount down), not the rail.
+            quickStartBand
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        // Opaque, because the timeline slides UNDER it. Same call the
+        // pinned search headings make for the same reason. It draws
+        // nothing when the strip is empty: a zero-height view with a
+        // background is invisible.
+        .background(Theme.background)
     }
 
     /// The week's status: the tally line + the block bar, holding the top of
