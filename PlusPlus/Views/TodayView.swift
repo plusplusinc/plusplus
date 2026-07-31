@@ -1424,10 +1424,16 @@ struct TodayView: View {
         // routine must never become a committed 0-set session.
         guard !routine.groups.isEmpty else { return }
         // Re-checked at FIRE time, not just tap time: StartFlashButton
-        // defers ~0.85 s, long enough for a second Start to flash — and a
+        // defers ~0.85 s — long enough for a second Start to flash (a
         // double start orphans a session, which would wedge every future
-        // start and salvage (swift-reviewer). The later tap simply loses.
-        guard activeSession == nil else { return }
+        // start and salvage) or for a band key to raise a sheet (the
+        // config sheet, the picker, the Health primer) — and setting
+        // activeSession under a live sheet is the documented
+        // presentation-drop class: the cover never presents, the saved
+        // session has no screen (swift-reviewer, twice). A tap that
+        // raced a presentation simply loses.
+        guard activeSession == nil, quickStartConfig == nil,
+              !editingQuickStarts, healthStartRequest == nil else { return }
         // First workout gets the Health primer; after that (or under UI
         // test) this begins immediately. The start runs from the primer's
         // onDismiss, so re-check activeSession at fire time — the sheet can
@@ -1977,7 +1983,10 @@ struct TodayView: View {
                         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.borderStrong))
                     }
                     .buttonStyle(.raisedKey(cornerRadius: 10))
-                    .accessibilityIdentifier("startWorkoutButton")
+                    // Not "startWorkoutButton": routine detail already
+                    // uses that for its own Start, and one identifier
+                    // naming two different acts is a test trap.
+                    .accessibilityIdentifier("startScratchWorkoutButton")
                 }
                 // The schedule offer (#246): routines exist, none
                 // scheduled, and nothing on Today ever said scheduling
