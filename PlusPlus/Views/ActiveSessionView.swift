@@ -1093,9 +1093,13 @@ struct ActiveSessionView: View {
         // Duration-driven sets have no +1 (their dock is the auto-timer;
         // the timer reaching zero IS the flourish) — no beat to wait for.
         // Ad-hoc sessions never auto-finish (routine == nil): the body's
-        // stagedWorkDoneStage takes over when pending sets run out.
+        // stagedWorkDoneStage takes over when pending sets run out — except
+        // when there was only ever ONE effort, where it asks about
+        // repetition at the moment there is none ("All added exercises
+        // done. Add another, or finish"). A run ends when you stop.
+        let endsTheWorkout = !hasNext && (session.routine != nil || session.isSingleEffort)
         guard Self.playsLogBeat, !heroIsClock(for: log) else {
-            if !hasNext, session.routine != nil { finishSession(dismissAfter: false) }
+            if endsTheWorkout { finishSession(dismissAfter: false) }
             return
         }
         lingeringLog = log
@@ -1112,7 +1116,8 @@ struct ActiveSessionView: View {
             // rule): a redo reopening a set mid-beat must not get
             // stamped into a finished record. Ad-hoc sessions (routine
             // == nil) never auto-finish — see stagedWorkDoneStage.
-            if session.nextPendingLog == nil && !session.isFinished && session.routine != nil {
+            if session.nextPendingLog == nil, !session.isFinished,
+               session.routine != nil || session.isSingleEffort {
                 finishSession(dismissAfter: false)
             }
         }
@@ -2192,6 +2197,22 @@ private struct SetLoggingView: View {
         log.setActual(metric, to: stepped)
     }
 
+    /// What the commit key says.
+    ///
+    /// Normally the exercise's own noun — "Log set" in the rack, "Log piece"
+    /// on an erg, plain "Log" for a walk, since walkers do not do eight of
+    /// anything. On a session that is ONE continuous effort it names the
+    /// ENDING instead: a run has nothing to count, so logging it and
+    /// finishing are the same decision and one key should say so.
+    ///
+    /// "Finish workout" rather than a new phrase, because the exit dialog
+    /// already uses those words for the same act, and two strings for one
+    /// state is how "Log it" and "Log" ended up on the same screen.
+    private var commitKeyLabel: String {
+        if session.isSingleEffort { return "Finish workout" }
+        return log.workUnit.map { "Log \($0.singular)" } ?? "Log"
+    }
+
     // MARK: - Log dock
     // Log set stands alone: a full 28 pt of clear air above it, nothing
     // adjacent to mis-hit.
@@ -2205,7 +2226,12 @@ private struct SetLoggingView: View {
                     // piece" on an erg, plain "Log" for a walk. The
                     // identifier stays completeSetButton so the smoke
                     // suite keeps finding it.
-                    Text(log.workUnit.map { "Log \($0.singular)" } ?? "Log")
+                    //
+                    // ⚠️ On a session that is ONE effort it names the
+                    // ending instead. Logging it and finishing are the
+                    // same decision there, so one key says so, in the
+                    // exit dialog's own words.
+                    Text(commitKeyLabel)
                         .font(.system(.body, weight: .bold))
                         .foregroundStyle(Theme.onPrimary)
                         .lineLimit(1)
@@ -2273,6 +2299,7 @@ private struct SetLoggingView: View {
                 // effort ends when you say so.
                 countdownSeconds: countdownSeconds,
                 unit: setsTotal > 1 ? log.workUnit : nil,
+                finishesWorkout: session.isSingleEffort,
                 degradeLine: degradeLine,
                 startedAt: effortStartedAt,
                 banked: effortBanked
@@ -2489,6 +2516,11 @@ private struct DurationTimerCard: View {
     /// The sport's noun for the commit key. nil where a sport counts
     /// nothing (a walk is a walk), and the key says "Log it".
     let unit: WorkUnit?
+    /// Whether this effort IS the workout, so the key ends it. Passed in
+    /// rather than re-derived: the kicker, the block bar, the island and
+    /// this key all answer one question, and deriving it four times is how
+    /// they drift.
+    let finishesWorkout: Bool
     /// Printed under the clock when a target exists that nothing here can
     /// watch.
     let degradeLine: String?
@@ -2607,7 +2639,15 @@ private struct DurationTimerCard: View {
                     // "Log rep" on a single continuous forty-minute run is
                     // the count-of-one lie `WorkUnit.kicker` already
                     // refuses to tell.
-                    Text(unit.map { "Log \($0.singular)" } ?? "Log")
+                    //
+                    // ⚠️ When the effort IS the workout the key names the
+                    // ending instead. This is the case the whole card
+                    // exists for — you go for a run, then you stop — and
+                    // "Log" followed by a separate Finish asks twice for
+                    // one decision.
+                    Text(finishesWorkout
+                         ? "Finish workout"
+                         : (unit.map { "Log \($0.singular)" } ?? "Log"))
                         .font(.system(.subheadline, weight: .bold))
                         .foregroundStyle(Theme.onPrimary)
                         .lineLimit(1)

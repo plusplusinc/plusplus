@@ -105,6 +105,29 @@ final class WorkoutSession {
         )
     }
 
+    /// Whether this whole session is ONE continuous effort — a run, a ride,
+    /// a swim — rather than a set of things you work through.
+    ///
+    /// The app already refuses to count to one: `WorkUnit.kicker` prints no
+    /// kicker, the block bar hides, the island shows no progress. This
+    /// extends that rule from the VOCABULARY to the shape of the ending,
+    /// which is where it was still missing (Dave, build 158: "if I go for a
+    /// run, usually I'm just gonna run, and then stop, not log rep").
+    ///
+    /// With one effort, "log it" and "finish" are the same decision, and
+    /// asking for both is the repetition assumption showing. A routine
+    /// session already merged them for a clock hero; an ad-hoc one — which
+    /// is exactly what quick start creates — did not, so a run ended with
+    /// "All added exercises done. Add another, or finish", which asks about
+    /// repetition at the one moment there is none.
+    ///
+    /// ⚠️ Live, not stored: adding a second exercise mid-session makes it
+    /// false immediately, and the key goes back to logging. Adding one is
+    /// still reachable while the effort runs, from the overview sheet.
+    var isSingleEffort: Bool {
+        sortedSetLogs.count == 1
+    }
+
     /// How many sets of this log's exercise its own block holds.
     func blockCount(of log: SetLog) -> Int {
         sortedSetLogs.filter {
