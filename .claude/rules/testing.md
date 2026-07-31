@@ -8,6 +8,8 @@ paths:
 
 # Testing patterns
 
+**Bug fixes start with the failing test:** write a test that reproduces the bug and watch it fail BEFORE touching the fix — in Kit/CLI run it locally (`swift test`), for app targets add it to the suite CI runs. A fix without a red-first test has no proof it fixed anything, and the regression has no tripwire.
+
 **SwiftData test containers:** ⚠️ in-memory configurations (`isStoredInMemoryOnly: true`) share state across containers in one process — **even uniquely named ones** (proved twice on CI 2026-07-08; Swift Testing runs suites in parallel, so the corruption is scheduling-dependent ~50% flake). The only real isolation is a throwaway on-disk store per container:
 ```swift
 let schema = Schema([Exercise.self, Equipment.self, Routine.self, ExerciseGroup.self, RoutineExercise.self])
