@@ -251,14 +251,23 @@ struct QuickStartRow: View {
     /// An estimate, exactly like the tag row's: never a geometry probe.
     private static func keyWidth(_ text: String, hasGlyph: Bool) -> CGFloat {
         let base = UIFont.preferredFont(forTextStyle: .footnote)
+        // ⚠️ `.rawValue`, not the Weight struct: the traits dictionary
+        // wants an NSNumber, and a boxed Swift struct is silently ignored
+        // — the measurement would resolve at REGULAR while the key
+        // renders semibold, under-measuring every label (swift-reviewer).
         let font = UIFont(
             descriptor: base.fontDescriptor.addingAttributes(
-                [.traits: [UIFontDescriptor.TraitKey.weight: UIFont.Weight.semibold]]
+                [.traits: [UIFontDescriptor.TraitKey.weight: UIFont.Weight.semibold.rawValue]]
             ),
             size: base.pointSize
         )
         var width = ceil((text as NSString).size(withAttributes: [.font: font]).width)
-        if hasGlyph { width += font.pointSize * 1.2 + 7 }
+        // 1.6 em: the cardio `figure.*` symbols this row actually renders
+        // (pool.swim, outdoor.cycle, mixed.cardio) run well past square —
+        // the tag row's 1.2 em was calibrated on a near-square calendar
+        // glyph. Overestimating is the safe side: a key drops into
+        // "N more" one width early instead of truncating mid-label.
+        if hasGlyph { width += font.pointSize * 1.6 + 7 }
         return width + 28 + 2
     }
 

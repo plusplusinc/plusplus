@@ -26,9 +26,10 @@ scopes, the accessory's retirement, the morph's state-write rule) are in
 `navigation.md`; read them before changing anything in it.
 
 **Today** — the unified timeline: scheduled work, carried-over work, and
-committed sessions, over a sticky week strip that lives INSIDE the scroll.
-Pull-to-refresh answers in the gap the pull opens (mechanics in
-`navigation.md`).
+committed sessions, under a PINNED header band (quick-start keys · week
+tally · block bar — chrome on the scroll's shell, not scroll content;
+laws in `navigation.md`). Pull-to-refresh answers in the gap the pull
+opens (mechanics in `navigation.md`).
 
 **Routines / Exercises / Kit** — catalog surfaces over `CatalogScopeView`,
 MINE then CATALOG, a single-select facet row per scope (muscle/movement/

@@ -386,10 +386,11 @@ struct TodayView: View {
                             // timelines make this a no-op.
                             .frame(minHeight: viewport.size.height, alignment: .top)
                         }
-                        // ⚠️ The 16 pt content column is per-child now, NOT on
-                        // this stack: the sticky band draws a background that
-                        // has to span the full width, or rows show through the
-                        // gutters as they slide under it.
+                        // ⚠️ The 16 pt content column stays per-child, NOT on
+                        // this stack: the pinned band above is full-width
+                        // chrome, and rows scrolling under its edge must
+                        // reach the screen edge too, or the gutters show
+                        // content sliding past the band's flanks.
                         .padding(.bottom, 24)
                         // The app's ambient tint, restored INSIDE the scroll:
                         // the ScrollView itself wears a clear tint to kill the
@@ -416,6 +417,14 @@ struct TodayView: View {
                     // (the #494 tension, now on a refreshable surface).
                     .safeAreaInset(edge: .top, spacing: 0) {
                         weekStripBand
+                            // ⚠️ The band sits INSIDE the spinner-kill's
+                            // `.tint(.clear)` below, and the restore lives
+                            // one level into the scroll CONTENT — without
+                            // its own restore, any future default-styled
+                            // control in this chrome renders invisible,
+                            // with the cause seventeen lines away
+                            // (swift-reviewer).
+                            .tint(Theme.textPrimary)
                     }
                     // SOFT at the bottom — same call as the catalogs. The
                     // `.hard` slab is what Dave killed; hiding the effect
@@ -1036,8 +1045,9 @@ struct TodayView: View {
     /// The rail records occurrences and these keys are an offer; two
     /// rounds of device feedback said any placement IN the scroll flow
     /// still read as timeline, so they live with the tally now. The keys
-    /// carry their own raised chrome (no card), and the rack scrolls
-    /// full-bleed under the band's edges.
+    /// carry their own raised chrome (no card), and the rack NEVER
+    /// scrolls — it fits what it can and collapses the tail into an
+    /// "N more" Menu (see QuickStartRow).
     ///
     /// ⚠️ It renders nothing while the setup scaffold is running: a full
     /// viewport of "3 of 3" steps with a Run key floating above it offers two
@@ -1550,19 +1560,14 @@ struct TodayView: View {
     /// The week's status: the tally line + the block bar, holding the top of
     /// the scroll, directly under the navigation bar.
     ///
-    /// ⚠️ **STICKY, not pinned** (2026-07-27). Pinned between the bar and the
-    /// scroll is where it started, and that broke the pull: content
-    /// rubber-bands and UIKit walks the large title DOWN with it, while
-    /// anything outside the scroll keeps the frame it was laid out with — so
-    /// "Today" slid over the block bar (Dave, build 152). The general law:
-    /// **anything a large title can travel over has to be scroll content**, and
-    /// a top `safeAreaInset` is pinned the same way and fails identically. But
-    /// plain scroll content scrolls away, and the strip has always been there
-    /// at every scroll position. Sticky is both: `visualEffect` climbs it back
-    /// to the visible top while you scroll (a pure render-time geometry read —
-    /// no state is written, so it is NOT the pattern that breaks the
-    /// search-role morph), and lets go on overscroll, where it rides the
-    /// content down with the title.
+    /// ⚠️ **PINNED CHROME, by Dave's build-159 reversal of the 2026-07-27
+    /// sticky law** — mounted via the shell's top `safeAreaInset`, never
+    /// scroll content (see the mount + navigation.md's rewritten bullet).
+    /// The history matters: pinned is where this STARTED, and build 152
+    /// killed it because the pull walks the large title down over pinned
+    /// chrome. That cost is now accepted knowingly — the pull is the #1
+    /// device check, and the sticky mechanism at 8b9e16b is the recorded
+    /// fallback if it reads broken on glass.
     ///
     /// ⚠️ It does NOT ride the rail (Dave, reversing the first cut of this
     /// round): it keeps the screen's 16 pt content column and its full-width
