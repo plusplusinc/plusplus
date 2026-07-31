@@ -28,11 +28,11 @@ struct SessionRow: View {
 
     private var subtitle: String {
         var parts = [session.startedAt.formatted(.dateTime.month(.abbreviated).day())]
-        // The FIRST log's unit, not the whole session's: `session.modality`
-        // walks every set's equipment relationship, and this runs on every
-        // body pass of every row in the list.
+        // The snapshot `finish()` stamped — one string read per row, and
+        // the same noun the finish screen printed. (Pre-field records fall
+        // back to the first log's unit inside `summaryWorkUnit`.)
         if let count = WorkUnit.summaryCount(
-            session.sortedSetLogs.first?.workUnit,
+            session.summaryWorkUnit,
             session.completedSetLogs.count
         ) {
             parts.append(count)
@@ -306,7 +306,7 @@ struct SessionDetailView: View {
     private var subtitle: String {
         var parts = [session.startedAt.formatted(.dateTime.month(.abbreviated).day())]
         if let count = WorkUnit.summaryCount(
-            session.sortedSetLogs.first?.workUnit,
+            session.summaryWorkUnit,
             session.completedSetLogs.count
         ) {
             parts.append(count)

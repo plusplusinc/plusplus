@@ -71,6 +71,14 @@ import PlusPlusKit
 ///                    sessionId → EXCLUDED (live-mirror cross-device id, inert once finished)
 ///                    runStartedAt·segmentStartedAt → EXCLUDED (live-clock state, nil when finished)
 ///                    cursorOrder → EXCLUDED (live session position)
+///                    summaryModalityRaw → EXCLUDED (display vocabulary the record
+///                    surfaces read; derivable from the logs, and a restored store
+///                    re-derives it to the fidelity its snapshot profiles support —
+///                    exporting it would freeze a word where the data already
+///                    carries the fact)
+///                    effortAnchorSeconds → EXCLUDED (live effort-clock anchor in
+///                    elapsed() space, like runStartedAt/segmentStartedAt; inert
+///                    once finished)
 ///                    transitionSeconds → EXCLUDED (execution pacing config, inert once
 ///                    finished — a record's real gaps live in completedAt)
 /// SetLog             order·groupIndex·setNumber·exerciseName·exerciseType·

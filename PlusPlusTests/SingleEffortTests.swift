@@ -19,10 +19,13 @@ struct SingleEffortTests {
         return try ModelContainer(for: schema, configurations: [config])
     }
 
+    /// A bare log reads as strength; pass `cardio: true` for the
+    /// continuous-effort shape the suite is about.
     @discardableResult
-    private func addLog(_ session: WorkoutSession, _ context: ModelContext, order: Int, name: String) -> SetLog {
+    private func addLog(_ session: WorkoutSession, _ context: ModelContext, order: Int, name: String, cardio: Bool = false) -> SetLog {
         let log = SetLog(order: order, groupIndex: order, setNumber: 1, exerciseName: name)
         context.insert(log)
+        if cardio { log.metricProfile = MetricProfile([.distance, .duration, .pace]) }
         log.session = session
         return log
     }
@@ -31,8 +34,19 @@ struct SingleEffortTests {
     func lonelyRun() throws {
         let context = ModelContext(try makeContainer())
         let session = WorkoutSession.startEmpty(context: context)
-        addLog(session, context, order: 0, name: "Probe Run")
+        addLog(session, context, order: 0, name: "Probe Run", cardio: true)
         #expect(session.isSingleEffort)
+    }
+
+    @Test("One strength set is a count of one, not a single effort")
+    func oneSetIsNotAnEffort() throws {
+        let context = ModelContext(try makeContainer())
+        let session = WorkoutSession.startEmpty(context: context)
+        addLog(session, context, order: 0, name: "Probe Press")
+        // Ad-hoc sessions never auto-finish (design-review 9): one bench
+        // set is a session you probably ADD to, so the key keeps logging
+        // and the staged Add-or-Finish ask keeps its job.
+        #expect(!session.isSingleEffort)
     }
 
     @Test("A second effort ends it, whether it is rounds or another exercise")
@@ -54,7 +68,7 @@ struct SingleEffortTests {
     func addingDuringTheEffort() throws {
         let context = ModelContext(try makeContainer())
         let session = WorkoutSession.startEmpty(context: context)
-        addLog(session, context, order: 0, name: "Probe Run")
+        addLog(session, context, order: 0, name: "Probe Run", cardio: true)
         #expect(session.isSingleEffort)
 
         // Reachable from the overview sheet while the effort runs, which is

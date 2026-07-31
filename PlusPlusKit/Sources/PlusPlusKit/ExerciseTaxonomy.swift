@@ -126,9 +126,9 @@ public enum ExerciseModality: String, Codable, CaseIterable, Sendable {
         return .strength
     }
 
-    /// Words that should reach this exercise in a search field. The
-    /// catalog carries no facet for modality, so typing is one of the two
-    /// ways to find a run among two hundred lifts.
+    /// Words that should reach this exercise in a search field. The Kind
+    /// facet is the other way to find a run among two hundred lifts; this
+    /// is the half for people who type.
     public var searchTerms: [String] {
         switch self {
         case .strength: ["strength", "lifting", "weights"]

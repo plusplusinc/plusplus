@@ -1778,7 +1778,7 @@ struct TodayView: View {
     private func committedSubtitle(_ session: WorkoutSession) -> String {
         var parts = [session.startedAt.formatted(.dateTime.month(.abbreviated).day()).lowercased()]
         if let count = WorkUnit.summaryCount(
-            session.sortedSetLogs.first?.workUnit,
+            session.summaryWorkUnit,
             session.completedSetLogs.count
         ) {
             parts.append(count)

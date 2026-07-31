@@ -47,6 +47,19 @@ final class WorkoutSession {
     /// log the user is doing now. `currentLog` falls back to the first
     /// pending log when the cursor's log is already done.
     var cursorOrder: Int = 0
+    /// Where the CURRENT effort's clock starts, in `elapsed()` space —
+    /// the running-time ledger's own coordinate, so pauses are excluded
+    /// for free and nothing view-side has to bank anything.
+    ///
+    /// ⚠️ PERSISTED, not view `@State`, and that is the whole point. The
+    /// first fix for the count-up data-loss bug moved the anchor from the
+    /// timer card (unmounted by pause) up to the session view — one level
+    /// short: the view dies with the process, and in count-up mode the
+    /// displayed elapsed IS the logged duration. On the model, the anchor
+    /// survives everything the session itself survives, and the pause
+    /// arithmetic lives where the pause ledger already is.
+    /// nil reads as zero: the first effort starts when the clock does.
+    var effortAnchorSeconds: Double?
     /// Session heart-rate summary in bpm. Watch-run sessions carry it in
     /// the result payload (the wrist's live builder); phone-run sessions
     /// read it from Health at the finish, and the record backfills later
@@ -54,6 +67,18 @@ final class WorkoutSession {
     /// sensor, no Health access) — never zero.
     var averageHeartRate: Int?
     var maxHeartRate: Int?
+    /// The resolved primary modality, SNAPSHOTTED at finish — the noun
+    /// source every record surface reads (`summaryWorkUnit`), stamped once
+    /// so the finish screen, the history rows and Today's committed cards
+    /// can never disagree about what a session counts in. Before this,
+    /// the finish screen resolved `modality` live while the list rows
+    /// read the FIRST log's unit (a per-row relationship walk was too
+    /// expensive there), so a run-then-lifting session said "5 sets" on
+    /// one surface and "5 reps" on another. The sessions-snapshot law is
+    /// the fix: resolve once, at the moment the session becomes a record.
+    /// Additive optional — nil on every pre-field record, which falls
+    /// back to the first-log read those surfaces already did.
+    var summaryModalityRaw: String?
     /// GPX 1.1 bytes of this session's outdoor route (#378) — the EXACT
     /// sidecar the repo sync replays (`history/YYYY/<basename>.gpx`), so
     /// storing the bytes verbatim is what keeps sync deterministic; parse
@@ -105,6 +130,23 @@ final class WorkoutSession {
         )
     }
 
+    /// The noun this FINISHED session's summaries count in, from the
+    /// snapshot `finish()` stamped. One source for the finish screen, the
+    /// history rows, the record header and Today's committed cards — the
+    /// live screen keeps resolving `modality` fresh, because a live
+    /// session's answer can still change.
+    ///
+    /// A pre-field record (nil snapshot) falls back to its FIRST log's
+    /// unit — the read the list surfaces already did, cheap and right for
+    /// every single-modality session, which is what all of them are from
+    /// before cardio existed.
+    var summaryWorkUnit: WorkUnit? {
+        if let raw = summaryModalityRaw, let modality = ExerciseModality(rawValue: raw) {
+            return modality.workUnit
+        }
+        return sortedSetLogs.first?.workUnit
+    }
+
     /// Whether this whole session is ONE continuous effort — a run, a ride,
     /// a swim — rather than a set of things you work through.
     ///
@@ -124,8 +166,16 @@ final class WorkoutSession {
     /// ⚠️ Live, not stored: adding a second exercise mid-session makes it
     /// false immediately, and the key goes back to logging. Adding one is
     /// still reachable while the effort runs, from the overview sheet.
+    ///
+    /// ⚠️ Gated on CARDIO, not on the count alone. A one-set ad-hoc
+    /// strength session is a count of one too, and an ungated test made
+    /// logging that set auto-finish the workout — overriding the law that
+    /// ad-hoc sessions never auto-finish (design-review 9, Dave-decided)
+    /// for a shape Dave's quote never covered. One bench set is a session
+    /// you probably ADD to; one run is a session you end. The gate is the
+    /// sentence itself: "a run, a ride, a swim."
     var isSingleEffort: Bool {
-        sortedSetLogs.count == 1
+        sortedSetLogs.count == 1 && modality.primary.isCardio
     }
 
     /// How many sets of this log's exercise its own block holds.
@@ -279,6 +329,22 @@ final class WorkoutSession {
         if segmentStartedAt == nil { segmentStartedAt = date }
     }
 
+    /// Stamps the current effort's start on the running-time ledger.
+    /// Called where an effort genuinely begins: the clock engaging, the
+    /// cursor moving to a new log, and a rest ending — the LAST stamp
+    /// wins, which is what keeps a recovery out of the next effort's
+    /// clock.
+    func markEffortStart(at date: Date = Date()) {
+        effortAnchorSeconds = elapsed(at: date)
+    }
+
+    /// Running seconds of the current effort at `now` — what a count-up
+    /// hero displays, and therefore what it logs. Paused stretches are
+    /// excluded by construction: both terms read the same ledger.
+    func effortElapsed(at now: Date = Date()) -> TimeInterval {
+        max(0, elapsed(at: now) - (effortAnchorSeconds ?? 0))
+    }
+
     /// Banks the running segment and holds the timer. A no-op when it
     /// isn't running (never started, or already paused).
     func pauseClock(at date: Date = Date()) {
@@ -295,6 +361,9 @@ final class WorkoutSession {
     func finish(at date: Date = Date()) {
         // Bank the final running segment so duration counts active time.
         pauseClock(at: date)
+        // The summary noun is decided HERE, while the exercise
+        // relationships are still warm — see `summaryModalityRaw`.
+        summaryModalityRaw = modality.primary.rawValue
         endedAt = date
     }
 

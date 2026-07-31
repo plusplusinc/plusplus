@@ -26,6 +26,24 @@ enum QuickStartPicks {
     static func raw(from names: [String]) -> String {
         names.joined(separator: "\u{1F}")
     }
+
+    /// Follow a renamed exercise, so a pick keyed to the old name doesn't
+    /// silently fall off the row. Name-keying is the fragility here —
+    /// this PR's own indoor-bike merge renames a row precisely because a
+    /// rename KEEPS the object, and a device-local pick should keep it
+    /// too. Called from the two places a catalog name changes: the
+    /// exercise editor's save, and the launch merge.
+    static func rename(from old: String, to new: String, defaults: UserDefaults = .standard) {
+        guard old != new, let stored = defaults.string(forKey: key) else { return }
+        var list = names(from: stored)
+        guard let index = list.firstIndex(of: old) else { return }
+        if list.contains(new) {
+            list.remove(at: index)
+        } else {
+            list[index] = new
+        }
+        defaults.set(raw(from: list), forKey: key)
+    }
 }
 
 /// The start tray's one-tap row: the sports you actually do, plus a key to

@@ -192,6 +192,10 @@ enum SeedData {
         )) ?? []
         guard let legacy = builtIns.first(where: { $0.name.lowercased() == "stationary bike" }) else { return }
         let modern = builtIns.first { $0.name.lowercased() == "indoor cycling" }
+        // Whatever branch wins below, the surviving row is named Indoor
+        // Cycling — so a quick-start pick keyed to the old name (built
+        // 158 offered it) follows the row instead of vanishing.
+        QuickStartPicks.rename(from: "Stationary Bike", to: "Indoor Cycling")
 
         guard let modern else {
             // The common case: rename in place. The profile comes with it,

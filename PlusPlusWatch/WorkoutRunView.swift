@@ -476,9 +476,17 @@ struct WorkoutRunView: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.title3)
                 .foregroundStyle(WatchTheme.done)
-            Text("\(results.count) \(results.count == 1 ? (results.first?.step.workUnit?.singular ?? "set") : (results.first?.step.workUnit?.plural ?? "sets")) logged")
-                .font(.system(.footnote, design: .monospaced))
-                .foregroundStyle(.secondary)
+            // The PLAN's resolved noun (one plan, one noun — a first-step
+            // read gets a mixed plan wrong), through the same
+            // count-of-one refusal every phone record surface applies: a
+            // walk logged from the wrist used to say "1 set logged",
+            // which is the exact line #491 removed from the phone.
+            // "Synced to your iPhone." below carries the confirmation.
+            if let counted = WorkUnit.summaryCount(routine.sessionModality.primary.workUnit, results.count) {
+                Text("\(counted) logged")
+                    .font(.system(.footnote, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
             Text("Synced to your iPhone.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)

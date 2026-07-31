@@ -710,7 +710,13 @@ struct ExerciseEditorView: View {
         // body pass can see the name without its exemption.
         savedName = draft.trimmedName
         if let exercise = editingExercise {
+            let oldName = exercise.name
             draft.apply(to: exercise)
+            // A quick-start pick is keyed by NAME (device-local), so a
+            // rename would silently drop its key off Today's rail.
+            if oldName != exercise.name {
+                QuickStartPicks.rename(from: oldName, to: exercise.name)
+            }
         } else {
             let exercise = Exercise(name: draft.trimmedName, muscleGroup: draft.muscleGroup)
             modelContext.insert(exercise)

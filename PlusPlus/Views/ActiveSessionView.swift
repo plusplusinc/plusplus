@@ -61,23 +61,18 @@ struct ActiveSessionView: View {
     @State private var showingExitDialog = false
     @State private var showingOverview = false
     @State private var burstCount = 0
-    /// When the current effort's count-up clock started, and what it
-    /// banked before the last pause.
-    ///
-    /// ⚠️ These live on the SESSION view, not inside the timer card, and
-    /// that is a data-integrity fix rather than tidiness. Pausing swaps
-    /// the whole body to `pausedView`, which UNMOUNTS the card, so an
-    /// `@State` anchor seeded in `onAppear` restarted at zero on resume —
-    /// and in count-up mode the displayed elapsed IS the logged duration.
-    /// A 29-minute ride with one water stop recorded as four minutes,
-    /// unrecoverably. Same law `bankRestForPause` exists for, same shape.
-    @State private var effortStartedAt = Date()
-    @State private var effortBanked: TimeInterval = 0
+    // The count-up effort clock has NO view state: its anchor is
+    // `session.effortAnchorSeconds`, persisted on the running-time
+    // ledger, so a pause (which unmounts the timer card), a re-present,
+    // and process death all leave the elapsed intact. The first fix
+    // hoisted a wall-clock anchor from the card to this view and
+    // re-implemented pause banking beside the ledger that already does
+    // it; the model anchor deletes both.
     /// When the live set became live — the window a per-set heart-rate
-    /// summary is drawn over. Distinct from `effortStartedAt`, which
-    /// re-anchors on RESUME so the clock doesn't double-count a pause;
-    /// the heart-rate window wants the whole set, pause included, because
-    /// the recovery in the middle is part of what the set cost.
+    /// summary is drawn over. Distinct from the effort clock's anchor,
+    /// which lives in RUNNING time so pauses drop out; the heart-rate
+    /// window wants the whole set, pause included, because the recovery
+    /// in the middle is part of what the set cost.
     @State private var currentSetStartedAt = Date()
     /// Drives the island's measured-value refresh. A publisher rather than
     /// a `TimelineView` because nothing on screen depends on it — the
@@ -248,8 +243,6 @@ struct ActiveSessionView: View {
                         burstCount: burstCount,
                         heartRate: heartRate,
                         location: isOutdoorNow ? location : nil,
-                        effortStartedAt: effortStartedAt,
-                        effortBanked: effortBanked,
                         onComplete: { completeCurrentSet(displayLog) }
                     )
                     .id(displayLog.order)
@@ -408,16 +401,14 @@ struct ActiveSessionView: View {
             syncLocation()
             announceVoiceCue()
         }
-        // A new set is a new effort: re-anchor the count-up clock, drop
-        // what the last one banked, and stamp the heart-rate window.
+        // A new set is a new effort: stamp the effort clock's anchor and
+        // the heart-rate window.
         // ⚠️ Keys on the LOG's order, since the cursor moves for a new
         // round of the same block as well as a new exercise. It fires on
-        // the way into the rest screen too, which is correct for both: the
-        // next set starts when the last one ended, and the rest is the
-        // recovery, not the effort.
+        // the way into the rest screen too, and the rest-end stamp below
+        // then wins — so the recovery lands in neither effort's clock.
         .onChange(of: session.currentLog?.order) { _, _ in
-            effortStartedAt = Date()
-            effortBanked = 0
+            session.markEffortStart()
             currentSetStartedAt = Date()
             // Bank the meter where this round starts. Self-correcting
             // against `syncLocation`'s re-base whichever order the two
@@ -425,15 +416,17 @@ struct ActiveSessionView: View {
             // banking zero is exactly right.
             distanceAtRoundStart = location.totalDistanceInUnit ?? 0
         }
-        // Bank the count-up across a pause, for the same reason and on the
-        // same edge as `bankRestForPause`: by the time this fires the body
-        // has already rendered `pausedView`, so no frame observes the
-        // un-banked state, and the resume side re-anchors.
-        .onChange(of: session.isPaused) { _, paused in
-            if paused {
-                effortBanked += Date().timeIntervalSince(effortStartedAt)
-            } else {
-                effortStartedAt = Date()
+        // A rest ending (expiry or skip, through any of its doors) is
+        // where the next effort genuinely begins, so its stamp WINS over
+        // the cursor-move stamp above — without it, round two of an
+        // open-ended interval block started its count-up two minutes in,
+        // and in count-up mode the displayed elapsed is what gets logged.
+        // ⚠️ The paused-bank guard: `bankRestForPause` clears the date
+        // while parking the remaining interval, and that transition is a
+        // HOLD, not an ending.
+        .onChange(of: restEndDate) { _, newValue in
+            if newValue == nil, restPausedRemaining == nil {
+                session.markEffortStart()
             }
         }
         // ⚠️ The island's distance and pace are pushed values, not
@@ -1426,7 +1419,9 @@ struct ActiveSessionView: View {
     private var finishedFactLine: String {
         let parts: [String?] = [
             session.routineName.lowercased(),
-            WorkUnit.summaryCount(sessionWorkUnit, completedSets),
+            // The SNAPSHOT, not the live resolve: this screen is the first
+            // record surface, and it must say what every later one says.
+            WorkUnit.summaryCount(session.summaryWorkUnit, completedSets),
             finalElapsedText
         ]
         return parts.compactMap { $0 }.joined(separator: " · ")
@@ -1916,11 +1911,6 @@ private struct SetLoggingView: View {
     /// Non-nil only on an outdoor run — its presence drives the live
     /// pace/distance rows.
     let location: RunLocationMonitor?
-    /// The count-up clock's anchor and its banked time, owned by the
-    /// session view so a pause cannot discard them — see the properties
-    /// there for why that matters.
-    let effortStartedAt: Date
-    let effortBanked: TimeInterval
     let onComplete: () -> Void
 
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue
@@ -2506,8 +2496,10 @@ private struct SetLoggingView: View {
                 unit: setsTotal > 1 ? log.workUnit : nil,
                 finishesWorkout: session.isSingleEffort,
                 degradeLine: degradeLine,
-                startedAt: effortStartedAt,
-                banked: effortBanked
+                // The model's ledger, not view state: pauses drop out by
+                // construction, and the anchor survives everything the
+                // session does.
+                elapsed: { session.effortElapsed(at: $0) }
             ) {
                 onComplete()
             }
@@ -2755,13 +2747,13 @@ private struct DurationTimerCard: View {
     /// Printed under the clock when a target exists that nothing here can
     /// watch.
     let degradeLine: String?
-    /// ⚠️ The count-up anchor is passed IN, not seeded in `onAppear`.
+    /// ⚠️ The count-up reading comes from OUTSIDE — the session's
+    /// running-time ledger — never from an anchor seeded in `onAppear`.
     /// Pausing unmounts this card, and in count-up mode the displayed
     /// elapsed is the value that gets logged — a locally-seeded anchor
-    /// silently discarded everything before the last resume. The session
-    /// view owns these and banks them across a pause.
-    let startedAt: Date
-    let banked: TimeInterval
+    /// silently discarded everything before the last resume, and a
+    /// view-held one still died with the process.
+    let elapsed: (Date) -> TimeInterval
     let onComplete: () -> Void
 
     /// The COUNTDOWN's own state stays local: it is derived from the
@@ -2916,7 +2908,7 @@ private struct DurationTimerCard: View {
     /// Seconds to render: remaining on a countdown, elapsed counting up.
     private func displaySeconds(at date: Date) -> Int {
         if countsUp {
-            return max(0, Int(banked + date.timeIntervalSince(startedAt)))
+            return max(0, Int(elapsed(date)))
         }
         if let pausedRemaining {
             return max(0, Int(pausedRemaining.rounded(.up)))

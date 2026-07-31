@@ -357,12 +357,13 @@ struct SessionExerciseSheet: View {
 
     private var pending: [SetLog] { logs.filter { !$0.isCompleted } }
 
-    /// What this block counts in — pieces on an erg, reps on the track,
-    /// sets in the rack. Falls back to "set" for the sports that count
-    /// nothing (a walk), because this sheet's rows and its stepper still
-    /// need a word even where the live screen shows none.
-    /// The noun for a block's rounds. ⚠️ `.divider`, not `?? .set` — see
-    /// `WorkUnit.divider`. Only ever printed where there IS more than one.
+    /// The noun for a block's rounds — pieces on an erg, reps on the
+    /// track, sets in the rack. ⚠️ `.divider`, not `?? .set` — see
+    /// `WorkUnit.divider`. It labels the AUTHORING controls (the count
+    /// stepper, the targets caption, the remove confirm), where the
+    /// divider's noun is right even at a count of one; the per-row
+    /// labels go through `WorkUnit.rowLabel`, which refuses to number a
+    /// row with no siblings.
     private var blockUnit: WorkUnit { WorkUnit.divider(logs.first?.workUnit) }
     private var isLive: Bool {
         session.currentLog.map { current in logs.contains { $0.order == current.order } } ?? false
@@ -688,10 +689,15 @@ struct SessionExerciseSheet: View {
             ForEach(Array(logs.enumerated()), id: \.offset) { _, log in
                 let isCurrent = session.currentLog?.order == log.order
                 HStack(spacing: 10) {
-                    Text("\(blockUnit.singular.capitalized) \(log.setNumber)")
-                        .font(.system(.footnote))
-                        .foregroundStyle(Theme.textSecondary)
-                        .frame(width: 44, alignment: .leading)
+                    // Nothing at a count of one — the record rows, the
+                    // kicker and the island already refuse to number what
+                    // has no siblings, and this list was the straggler.
+                    if let label = WorkUnit.rowLabel(log.workUnit, index: log.setNumber, total: logs.count) {
+                        Text(label)
+                            .font(.system(.footnote))
+                            .foregroundStyle(Theme.textSecondary)
+                            .frame(width: 44, alignment: .leading)
+                    }
                     Text(setResult(log, isCurrent: isCurrent))
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(setColor(log, isCurrent: isCurrent))
@@ -720,7 +726,9 @@ struct SessionExerciseSheet: View {
 
     private func setResult(_ log: SetLog, isCurrent: Bool) -> String {
         if log.isCompleted { return log.resultSummary(weightUnit: weightUnit) }
-        if isCurrent { return "current \(blockUnit.singular)" }
+        // "current round" on a block of one names a sibling that does not
+        // exist; "live" is what the overview list already says there.
+        if isCurrent { return logs.count > 1 ? "current \(blockUnit.singular)" : "live" }
         return "pending"
     }
 
