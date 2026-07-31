@@ -51,6 +51,9 @@ Bad (the classes the 2026-07-17 sweep removed — don't reintroduce):
 - **OperatorPersona.swift** — deliberate first-person character; exempt from principles 1–2 only.
 - **FormCues + exercise-specific catalog descriptions** stay specific: a barbell cue SHOULD name the bar. Principle 8 governs generic surfaces only.
 - **Bare "—" placeholder glyphs** for missing values are not prose; they stay.
+- **"own" survives for data ownership** ("a git repo you own") and the
+  reflexive idiom ("its own numbers", "own every position"); the vocabulary
+  ban is the equipment-possession sense only.
 - **"let's go"** (ignition beat) and the RefreshQuips are identity moments, held to principles 4 and 6 but allowed their warmth.
 
 ## Rewrite checklist
