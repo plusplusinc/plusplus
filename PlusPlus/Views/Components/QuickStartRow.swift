@@ -113,20 +113,10 @@ enum QuickStartLabel {
 /// widths from `UIFont` metrics, never a geometry probe (the morph law).
 /// "N more" is a Menu of the hidden sports, so every pick stays reachable —
 /// the visible keys at one tap, the tail at two.
-///
-/// ⚠️ TWO live mounts while the start tray is up (the header band + the
-/// tray — one system, two mouths), so the accessibility identifiers here
-/// exist twice in the hierarchy at that moment. No test queries them
-/// today; a future one must scope its query to the sheet or the band, or
-/// `app.buttons["quickStart-Running"]` is a multiple-match ambiguity.
 struct QuickStartRow: View {
     let exercises: [Exercise]
     let onPick: (Exercise) -> Void
     let onEdit: () -> Void
-    /// The row's own margin — 16 in the header band (full-width chrome
-    /// padding itself), 0 inside the start tray, whose content column
-    /// already carries the sheet's 18.
-    var horizontalPadding: CGFloat = 16
 
     @State private var containerWidth: CGFloat = 0
 
@@ -162,7 +152,7 @@ struct QuickStartRow: View {
                     .onChange(of: geo.size.width) { _, width in containerWidth = width }
             }
         )
-        .padding(.horizontal, horizontalPadding)
+        .padding(.horizontal, 16)
     }
 
     private func sportKey(_ exercise: Exercise) -> some View {

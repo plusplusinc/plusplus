@@ -54,14 +54,9 @@ struct TodayView: View {
     @State private var showingNewRoutine = false
     @State private var pendingCreateFromSwapIn = false
     @State private var pendingStartEmpty = false
-    /// The tray's quick-start handoffs, same drop class as the flags
-    /// above: a sheet presented while another is dismissing gets dropped,
-    /// so the tray sets these and the sheet's onDismiss acts.
-    @State private var pendingQuickStartFromTray: Exercise?
-    @State private var pendingEditQuickStartsFromTray = false
-    /// The config sheet's committed Start, carried across ITS dismissal
-    /// for the same reason — the session cover must not present in the
-    /// sheet's own dismissing transaction.
+    /// The config sheet's committed Start, carried across its dismissal
+    /// for the same reason as the flags above — the session cover must
+    /// not present in the sheet's own dismissing transaction.
     @State private var pendingStartQuickConfig: SessionExerciseConfig?
     @State private var newRoutineName = ""
     /// Hero zooms (#216): starting a workout grows the pending card
@@ -627,15 +622,9 @@ struct TodayView: View {
                 } else if pendingStartEmpty {
                     pendingStartEmpty = false
                     startEmptySession()
-                } else if let exercise = pendingQuickStartFromTray {
-                    pendingQuickStartFromTray = nil
-                    quickStartConfig = SessionExerciseConfig(exercise: exercise)
-                } else if pendingEditQuickStartsFromTray {
-                    pendingEditQuickStartsFromTray = false
-                    editingQuickStarts = true
                 }
             }) {
-                SwapInSheet(routines: swapInCandidates, dueIDs: Set(dueRoutines.map(\.persistentModelID)), quickStartExercises: quickStartExercises, onPick: { routine in
+                SwapInSheet(routines: swapInCandidates, dueIDs: Set(dueRoutines.map(\.persistentModelID)), onPick: { routine in
                     swapInPick = routine
                     showingSwapIn = false
                 }, onCreate: {
@@ -645,15 +634,6 @@ struct TodayView: View {
                     showingSwapIn = false
                 }, onStartEmpty: {
                     pendingStartEmpty = true
-                    showingSwapIn = false
-                }, onQuickStart: { exercise in
-                    // The config sheet waits for this one to finish
-                    // dismissing — the same drop class as every other
-                    // act this tray hands off.
-                    pendingQuickStartFromTray = exercise
-                    showingSwapIn = false
-                }, onEditQuickStarts: {
-                    pendingEditQuickStartsFromTray = true
                     showingSwapIn = false
                 })
             }
@@ -2411,38 +2391,33 @@ private struct SetupRow: View {
     }
 }
 
-/// The start tray: the COMPLETE start surface behind the play key
-/// (Dave, build 159's merge). The root offers everything startable,
-/// likeliest first — today's scheduled routine primed, the quick-start
-/// rack (the band's own component, second mouth of one system), then
-/// "Choose a routine" (PUSHES the picker: rows + creation) and the
-/// no-plan escape. Choosing anything starts it — it commits to the
-/// timeline like any other session. The push became a real
-/// `NavigationStack` on 2026-07-28; it used to be a hand-rolled slide.
-/// The root SCROLLS: at accessibility type sizes four sections outgrow
-/// the `.medium` detent, and content below a fold with no scroll is
-/// unreachable (the job the retired ScaledMetric detent used to do).
+/// The start tray behind the play key: what you CHOOSE, likeliest
+/// first — today's scheduled routine primed (build 159's merge, its
+/// surviving piece), then "Choose a routine" (PUSHES the picker: rows +
+/// creation) and the no-plan escape. ⚠️ The quick-start rack is NOT
+/// here: the band is pinned, so a copy in this tray put identical UI on
+/// screen twice at once (Dave, build 159 — see the menu comment).
+/// Choosing anything starts it — it commits to the timeline like any
+/// other session. The push became a real `NavigationStack` on
+/// 2026-07-28; it used to be a hand-rolled slide. The root SCROLLS: at
+/// accessibility type sizes the sections outgrow the `.medium` detent,
+/// and content below a fold with no scroll is unreachable (the job the
+/// retired ScaledMetric detent used to do).
 private struct SwapInSheet: View {
     @Environment(\.dismiss) private var dismiss
     let routines: [Routine]
     /// Routines due today — the primed key at the top, and the pill in
     /// the picker; everyone else shows their cadence.
     let dueIDs: Set<PersistentIdentifier>
-    /// The quick-start picks — the SAME rack the header band shows (one
-    /// component, two mouths: the band is the fast path, this tray is the
-    /// complete start surface — Dave, build 159).
-    let quickStartExercises: [Exercise]
     let onPick: (Routine) -> Void
     let onCreate: () -> Void
     let onStartEmpty: () -> Void
-    let onQuickStart: (Exercise) -> Void
-    let onEditQuickStarts: () -> Void
 
     /// One route, but an explicit path rather than a bare `NavigationLink`
     /// — the host owns the stack (ui-interaction.md), and depth once drove
-    /// the detent. The two-keys-tall compact detent died when the tray
-    /// became the complete start surface (today's key + the rack + the two
-    /// choose keys): `.medium` is the honest height for both stages now.
+    /// the detent. The two-keys-tall compact detent died in build 159's
+    /// tray round (the primed today key made the root three keys tall):
+    /// `.medium` is the honest height for both stages now.
     private enum Route: Hashable { case picker }
 
     @State private var path: [Route] = []
@@ -2481,7 +2456,7 @@ private struct SwapInSheet: View {
         .presentationDetents([.medium, .large])
     }
 
-    // MARK: - The complete start surface
+    // MARK: - What you choose to start
 
     /// The routine to prime at the top: today's scheduled one, when it
     /// exists. First due wins — multiple dues are rare and the picker
@@ -2525,29 +2500,12 @@ private struct SwapInSheet: View {
                 .accessibilityIdentifier("swapInTodayRoutine")
             }
 
-            // The SAME rack the header band shows — one component, so the
-            // tray and the band cannot drift; same label, claiming the
-            // keys, for the same reason. Quick start returned to this
-            // tray (build 158 removed it as the ONLY home; as the second
-            // mouth of one system it belongs) so the play key opens
-            // everything startable in one place.
-            if !quickStartExercises.isEmpty {
-                VStack(alignment: .leading, spacing: 7) {
-                    Text("QUICK START")
-                        .font(.system(.caption2, design: .monospaced, weight: .semibold))
-                        .kerning(0.8)
-                        .foregroundStyle(Theme.textFaint)
-                    QuickStartRow(
-                        exercises: quickStartExercises,
-                        onPick: onQuickStart,
-                        onEdit: onEditQuickStarts,
-                        horizontalPadding: 0
-                    )
-                }
-                .padding(.top, 2)
-                .padding(.bottom, 2)
-            }
-
+            // ⚠️ The quick-start rack is deliberately NOT here (Dave,
+            // build 159, closing the merge question): the band is PINNED,
+            // so a copy in this tray put identical UI on screen twice at
+            // once — redundancy, not completeness. The primed key above
+            // is the merge's surviving piece; the rack is the band's
+            // alone, and this tray holds what you CHOOSE.
             Button {
                 path.append(.picker)
             } label: {
