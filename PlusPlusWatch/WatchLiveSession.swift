@@ -23,6 +23,13 @@ final class WatchLiveSession {
     private(set) var reducer = LiveSession.Reducer()
     var state: LiveSession.State? { reducer.state }
 
+    /// The session the WRIST is authoring, frozen at begin. The reducer's
+    /// state can be DISPLACED by a newer phone session (#510) while the
+    /// run view is still mid-workout, and a wrist log must never land on
+    /// a session it didn't come from — reading `state?.sessionId` live
+    /// would redirect it.
+    private var authoringSessionId: UUID?
+
     /// Per-origin monotonic sequence (origination = 0).
     private var seq = 0
 
@@ -36,10 +43,15 @@ final class WatchLiveSession {
     func beginIfNeeded(routine: WatchSync.PlanRoutine, startedAt: Date) {
         // isClosed, not isFinished: a discarded session never sets
         // endedAt, and adopting one would log into a dead id (#510).
-        if let state, !state.isClosed, state.routineName == routine.name { return }
+        if let state, !state.isClosed, state.routineName == routine.name {
+            authoringSessionId = state.sessionId
+            return
+        }
         reducer = LiveSession.Reducer()
         seq = 0
-        emit(UUID(), .started(
+        let id = UUID()
+        authoringSessionId = id
+        emit(id, .started(
             routineName: routine.name,
             startedAt: startedAt,
             restSeconds: routine.restSeconds,
@@ -48,28 +60,30 @@ final class WatchLiveSession {
     }
 
     func logged(index: Int, weight: Double?, reps: Int?, duration: Int?, extras: [String: Double], at date: Date) {
-        guard let id = state?.sessionId else { return }
+        guard let id = authoringSessionId else { return }
         emit(id, .logSet(index: index, actualWeight: weight, actualReps: reps, actualDuration: duration, extras: extras, completedAt: date))
     }
 
     func restStarted(endsAt: Date, total: Int) {
-        guard let id = state?.sessionId else { return }
+        guard let id = authoringSessionId else { return }
         emit(id, .restStarted(endsAt: endsAt, total: total))
     }
 
     func restEnded() {
-        guard let id = state?.sessionId else { return }
+        guard let id = authoringSessionId else { return }
         emit(id, .restEnded)
     }
 
     func finished(at date: Date) {
-        guard let id = state?.sessionId else { return }
+        guard let id = authoringSessionId else { return }
         emit(id, .finished(endedAt: date))
+        authoringSessionId = nil
     }
 
     func discarded() {
-        guard let id = state?.sessionId else { return }
+        guard let id = authoringSessionId else { return }
         emit(id, .discarded)
+        authoringSessionId = nil
     }
 
     // MARK: - Phone authored
