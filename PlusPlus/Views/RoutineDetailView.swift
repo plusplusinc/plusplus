@@ -2192,6 +2192,14 @@ struct RoutineSettingsScreen: View {
     /// write live like every other field on this autosaving page.
     @State private var nameDraft: String
     @State private var notesDraft: String
+    /// Which field holds the keyboard. Every way out clears it: Return, a
+    /// scroll, a tap on the page's ground, and anything that opens a tray,
+    /// a wheel or the delete alert over the page.
+    @FocusState private var focusedField: Field?
+
+    private enum Field: Hashable {
+        case name, notes
+    }
 
     init(routine: Routine, onDelete: @escaping () -> Void) {
         self.routine = routine
@@ -2212,6 +2220,7 @@ struct RoutineSettingsScreen: View {
                         .frame(minHeight: 44)
                         .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
                         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+                        .focused($focusedField, equals: .name)
                         .submitLabel(.done)
                         .onSubmit { commitName() }
                         .accessibilityIdentifier("routineNameField")
@@ -2229,6 +2238,10 @@ struct RoutineSettingsScreen: View {
                     // primarily reached from the header's schedule chip. This
                     // row is the second door for anyone who looks in settings.
                     Button {
+                        // Nothing opens over this page under a standing
+                        // keyboard — the tray, both wheels and the delete
+                        // alert all put it away first.
+                        focusedField = nil
                         showingScheduleTray = true
                     } label: {
                         HStack(spacing: 10) {
@@ -2263,7 +2276,10 @@ struct RoutineSettingsScreen: View {
                         label: "Rest",
                         value: WorkoutMetric.rest.displayText(Double(routine.restSeconds)),
                         identifier: "rest",
-                        onTapValue: { showingRestScrubber = true },
+                        onTapValue: {
+                            focusedField = nil
+                            showingRestScrubber = true
+                        },
                         onDecrement: { routine.restSeconds = Int(WorkoutMetric.rest.decremented(Double(routine.restSeconds))) },
                         onIncrement: { routine.restSeconds = Int(WorkoutMetric.rest.incremented(Double(routine.restSeconds))) }
                     )
@@ -2288,7 +2304,10 @@ struct RoutineSettingsScreen: View {
                         label: "Transition",
                         value: WorkoutMetric.transition.displayText(Double(routine.transitionSeconds)),
                         identifier: "transition",
-                        onTapValue: { showingTransitionScrubber = true },
+                        onTapValue: {
+                            focusedField = nil
+                            showingTransitionScrubber = true
+                        },
                         onDecrement: { routine.transitionSeconds = Int(WorkoutMetric.transition.decremented(Double(routine.transitionSeconds))) },
                         onIncrement: { routine.transitionSeconds = Int(WorkoutMetric.transition.incremented(Double(routine.transitionSeconds))) }
                     )
@@ -2320,6 +2339,7 @@ struct RoutineSettingsScreen: View {
                     // Inline (#207) — the tray was ceremony.
                     TextField("Add notes", text: $notesDraft, axis: .vertical)
                         .font(.system(.footnote))
+                        .focused($focusedField, equals: .notes)
                         .lineLimit(3...8)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 11)
@@ -2333,7 +2353,14 @@ struct RoutineSettingsScreen: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 30)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .keyboardGround(clearing: $focusedField)
             }
+            // Same law the exercise editor learned (#489): a plain ScrollView
+            // does NOT dismiss the keyboard on scroll, so a page holding
+            // fields has to say so. This one has two, and the notes field
+            // grows to eight lines under a keyboard covering half the page.
+            .scrollDismissesKeyboard(.immediately)
         }
         .background(Theme.background)
         // A static "Routine settings" heading (Dave, build-78): the
@@ -2342,9 +2369,13 @@ struct RoutineSettingsScreen: View {
         // commits live and the name commits on any exit, so the page is
         // simply always saved. Delete nests behind "…" — present, not
         // primary.
-        .pushedScreenChrome(title: "Routine settings", onBack: { commitName(); dismiss() }) {
+        .pushedScreenChrome(
+            title: "Routine settings",
+            onBack: { focusedField = nil; commitName(); dismiss() }
+        ) {
             HeaderMenuKey(systemImage: "ellipsis", accessibilityLabel: "Routine options", identifier: "routineSettingsMenu") {
                 Button("Delete routine", role: .destructive) {
+                    focusedField = nil
                     confirmingDelete = true
                 }
             }
@@ -2354,6 +2385,9 @@ struct RoutineSettingsScreen: View {
         // uncommitted rename. Idempotent; guarded so the delete path
         // can't race a write onto a deleted model.
         .onDisappear {
+            // Also the swipe-back's only chance to drop focus — that pop
+            // never reaches onBack either (SearchFieldBody's idiom, #213).
+            focusedField = nil
             if !routine.isDeleted { commitName() }
         }
         // A centered alert, not a confirmationDialog: triggered from the

@@ -178,7 +178,7 @@ struct ExerciseEditorView: View {
             // conspicuous blank space in the sheet, directly above the field
             // that holds the keyboard. Tapping the obvious empty place has
             // to work (swift-reviewer).
-            .background(keyboardGround)
+            .keyboardGround(clearing: $focusedField)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -403,7 +403,7 @@ struct ExerciseEditorView: View {
                 // future section that is NOT flexible can't quietly shrink
                 // the ground out from under the side margins.
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(keyboardGround)
+                .keyboardGround(clearing: $focusedField)
             }
             // The keyboard's other exit, and the one this form was missing
             // entirely: scrolling. Every other scrolling surface in the app
@@ -456,29 +456,6 @@ struct ExerciseEditorView: View {
             Button("Discard changes", role: .destructive) { dismiss() }
             Button("Keep editing", role: .cancel) {}
         }
-    }
-
-    /// Tapping the sheet's GROUND puts the keyboard away.
-    ///
-    /// It is a layer BEHIND the content, deliberately, rather than an
-    /// `.onTapGesture` on the stack itself: behind, it can only ever receive
-    /// a touch nothing in front of it took, so the chips still toggle and —
-    /// the case that matters — the three fields still take their own focus
-    /// tap. An ancestor gesture RACES the text field for that tap, and losing
-    /// that race blinks the keyboard shut on the way IN, which is worse than
-    /// the bug this fixes. Taps are not pans, so nothing here claims the
-    /// scroll (ui-interaction.md's claim-vs-does law is about drags).
-    ///
-    /// ⚠️ The price of sitting behind is a THIN catchment, and it is thinner
-    /// than "the gaps": section labels, captions, each field's own filled
-    /// chrome (padding ring included) and the defaults card all take the tap
-    /// first. What is left is the 18 pt side margins, the 24 pt bands between
-    /// sections, and the header. So this is the SECOND exit, never the first
-    /// — `.scrollDismissesKeyboard` is the one that always works.
-    private var keyboardGround: some View {
-        Color.clear
-            .contentShape(Rectangle())
-            .onTapGesture { focusedField = nil }
     }
 
     // MARK: - Defaults (#187)
