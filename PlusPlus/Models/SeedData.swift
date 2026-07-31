@@ -168,6 +168,67 @@ enum SeedData {
         if changed { try? context.save() }
     }
 
+    /// Fold the retired "Stationary Bike" exercise into "Indoor Cycling"
+    /// (Dave, build 158: they are the same thing).
+    ///
+    /// Dropping a definition is not enough on a store that already has the
+    /// row — `loadIfNeeded` only ever ADDS what is missing, so both would sit
+    /// in the catalog forever, and one of them is probably in the user's
+    /// routines and history.
+    ///
+    /// ⚠️ So this MERGES rather than deletes. The old row is renamed when it
+    /// is the only one, which carries every routine entry and every logged
+    /// set with it untouched — a rename keeps the same object, so nothing
+    /// dangles. When both rows exist the one nothing references is the one
+    /// that goes, whichever that is; if both are referenced, both stay and
+    /// this does nothing, because merging two histories is not a thing a
+    /// launch pass should attempt behind someone's back.
+    ///
+    /// Content-keyed and idempotent: once no built-in "Stationary Bike"
+    /// exercise exists it is a no-op, so it is safe every launch.
+    static func mergeIndoorBikeExercises(context: ModelContext) {
+        let builtIns = (try? context.fetch(
+            FetchDescriptor<Exercise>(predicate: #Predicate { $0.isBuiltIn == true })
+        )) ?? []
+        guard let legacy = builtIns.first(where: { $0.name.lowercased() == "stationary bike" }) else { return }
+        let modern = builtIns.first { $0.name.lowercased() == "indoor cycling" }
+
+        guard let modern else {
+            // The common case: rename in place. The profile comes with it,
+            // since the old row's was the poorer of the two.
+            legacy.name = "Indoor Cycling"
+            legacy.metricProfile = MetricProfile(
+                [.duration, .distance, .resistance, .power, .cadence],
+                distanceUnit: .miles
+            )
+            try? context.save()
+            return
+        }
+
+        // Both present. Whichever nothing points at is the duplicate.
+        if !isReferenced(legacy, context: context) {
+            context.delete(legacy)
+            try? context.save()
+        } else if !isReferenced(modern, context: context) {
+            context.delete(modern)
+            legacy.name = "Indoor Cycling"
+            legacy.metricProfile = MetricProfile(
+                [.duration, .distance, .resistance, .power, .cadence],
+                distanceUnit: .miles
+            )
+            try? context.save()
+        }
+    }
+
+    /// Whether any routine entry or logged set points at this exercise.
+    /// `Exercise` declares no inverse for either, so this asks them.
+    private static func isReferenced(_ exercise: Exercise, context: ModelContext) -> Bool {
+        let entries = (try? context.fetch(FetchDescriptor<RoutineExercise>())) ?? []
+        if entries.contains(where: { $0.exercise === exercise }) { return true }
+        let logs = (try? context.fetch(FetchDescriptor<SetLog>())) ?? []
+        return logs.contains { $0.exercise === exercise }
+    }
+
     /// One-shot ownership reset (#232): equipment seeded fully-owned on
     /// fresh stores until build 32 — backwards, since an all-owned list
     /// filters nothing — and Dave chose to reset existing stores rather
@@ -737,16 +798,22 @@ enum SeedData {
             // deliberate configuration (bump Sets, add a block rest).
             e("Rowing", .fullBody, ["Rowing Machine"], .duration, also: [.back, .quads], sets: 1),
             e("Assault Bike", .fullBody, ["Air Bike"], .duration, also: [.quads], sets: 1),
-            e("Stationary Bike", .fullBody, ["Stationary Bike"], .duration, also: [.quads], sets: 1),
-            // A studio class is not a stationary-bike session with the
-            // same numbers: it is dialled by resistance and cadence and
-            // measured in watts, and it was missing entirely.
+            // ⚠️ ONE row for riding a bike indoors (Dave, build 158). This
+            // shipped as two — a "Stationary Bike" exercise named after its
+            // own equipment, and an "Indoor Cycling" added beside it on the
+            // theory that a studio class is dialled differently. It is not a
+            // different activity, it is the same activity with cadence on the
+            // console, so the catalog offered a choice with no answer. The
+            // activity noun wins, as it does for Rowing (not "Rowing
+            // Machine") and Treadmill Run; the equipment keeps its own name.
+            // `mergeIndoorBikeExercises` folds the old row into this one on
+            // stores that already have both.
             // ⚠️ No duration default, deliberately, and the coherence test
             // enforces it: a duration prescription on a profile that also
-            // tracks distance decides the driver behind your back. A class
+            // tracks distance decides the driver behind your back. A ride
             // that runs long would count DOWN to a number nobody chose and
             // stop; open-ended is both the honest default and the one
-            // Rowing, Assault Bike and Stationary Bike already carry.
+            // Rowing and Assault Bike already carry.
             e("Indoor Cycling", .fullBody, ["Stationary Bike"], .duration,
               also: [.quads, .glutes],
               metrics: MetricProfile([.duration, .distance, .resistance, .power, .cadence], distanceUnit: .miles),

@@ -264,6 +264,103 @@ struct CardioFindabilityTests {
         // class that runs long would count down to a number nobody chose.
         #expect(SeedData.builtInDefinition(named: "Indoor Cycling")?.defaultDurationSeconds == nil)
     }
+
+    @Test("There is exactly one way to ride a bike indoors")
+    func oneIndoorBikeRow() {
+        // It shipped as two: a "Stationary Bike" exercise named after its own
+        // equipment, and an "Indoor Cycling" added beside it. Same activity,
+        // same machine, so the catalog was offering a choice with no answer
+        // (Dave, build 158). The EQUIPMENT keeps its name — an exercise named
+        // after its gear is the confusion, not the gear itself.
+        #expect(SeedData.builtInDefinition(named: "Stationary Bike") == nil)
+        #expect(SeedData.builtInDefinition(named: "Indoor Cycling") != nil)
+        #expect(SeedData.builtInEquipment.contains { $0.name == "Stationary Bike" })
+    }
+}
+
+/// The store side of that merge. Dropping a definition never removes a row
+/// that already exists — `loadIfNeeded` only ever adds what is missing — so a
+/// device seeded before build 158 keeps both rows unless something folds them.
+@Suite("Indoor bike merge")
+struct IndoorBikeMergeTests {
+    private func makeContainer() throws -> ModelContainer {
+        let schema = Schema([
+            Exercise.self, Equipment.self, EquipmentLibrary.self, Routine.self, ExerciseGroup.self,
+            RoutineExercise.self, WorkoutSession.self, SetLog.self,
+        ])
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("indoorbike-\(UUID().uuidString).store")
+        let config = ModelConfiguration(schema: schema, url: url, allowsSave: true, cloudKitDatabase: .none)
+        return try ModelContainer(for: schema, configurations: [config])
+    }
+
+    private func makeBuiltIn(_ name: String, in context: ModelContext) -> Exercise {
+        let exercise = Exercise(name: name, muscleGroup: .fullBody)
+        exercise.isBuiltIn = true
+        context.insert(exercise)
+        return exercise
+    }
+
+    private func exercises(_ context: ModelContext) -> [String] {
+        ((try? context.fetch(FetchDescriptor<Exercise>())) ?? []).map(\.name).sorted()
+    }
+
+    @Test("The old row is RENAMED, so everything pointing at it comes along")
+    func renamesInPlace() throws {
+        let context = ModelContext(try makeContainer())
+        let legacy = makeBuiltIn("Stationary Bike", in: context)
+        let routine = Routine(name: "Probe Ride")
+        context.insert(routine)
+        let group = routine.addExerciseInNewGroup(legacy, context: context)
+
+        SeedData.mergeIndoorBikeExercises(context: context)
+
+        #expect(exercises(context) == ["Indoor Cycling"])
+        // The same object, so the routine entry never dangled.
+        #expect(group.sortedExercises.first?.exercise === legacy)
+        #expect(legacy.metricProfile.contains(.cadence))
+    }
+
+    @Test("With both present, the unreferenced one goes")
+    func dropsTheDuplicate() throws {
+        let context = ModelContext(try makeContainer())
+        let legacy = makeBuiltIn("Stationary Bike", in: context)
+        _ = makeBuiltIn("Indoor Cycling", in: context)
+        let routine = Routine(name: "Probe Ride")
+        context.insert(routine)
+        _ = routine.addExerciseInNewGroup(legacy, context: context)
+
+        // The referenced row is the legacy one here, so IT is the survivor
+        // and the freshly seeded duplicate is what goes.
+        SeedData.mergeIndoorBikeExercises(context: context)
+        #expect(exercises(context) == ["Indoor Cycling"])
+        #expect(legacy.name == "Indoor Cycling")
+    }
+
+    @Test("A referenced pair is left alone rather than merged behind your back")
+    func keepsBothWhenBothAreUsed() throws {
+        let context = ModelContext(try makeContainer())
+        let legacy = makeBuiltIn("Stationary Bike", in: context)
+        let modern = makeBuiltIn("Indoor Cycling", in: context)
+        let routine = Routine(name: "Probe Ride")
+        context.insert(routine)
+        _ = routine.addExerciseInNewGroup(legacy, context: context)
+        _ = routine.addExerciseInNewGroup(modern, context: context)
+
+        SeedData.mergeIndoorBikeExercises(context: context)
+        // Both carry history; folding them would mean choosing whose logs
+        // survive, which a launch pass has no business doing silently.
+        #expect(exercises(context) == ["Indoor Cycling", "Stationary Bike"])
+    }
+
+    @Test("It is a no-op once there is nothing to merge")
+    func idempotent() throws {
+        let context = ModelContext(try makeContainer())
+        _ = makeBuiltIn("Indoor Cycling", in: context)
+        SeedData.mergeIndoorBikeExercises(context: context)
+        SeedData.mergeIndoorBikeExercises(context: context)
+        #expect(exercises(context) == ["Indoor Cycling"])
+    }
 }
 
 @Suite("Quick start")
