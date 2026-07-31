@@ -82,9 +82,6 @@ No third-party dependencies without discussion first.
 - Horizontal ticker — takes every MEASURED metric; ⚠️ the law is **a measured quantity scrubs, an enumerated scale wheels** (only resistance and RPE keep the wheel). Trays agree on top row, height and elevation (#462)
 - Colour audit — one selection look (tinted ground + ring + bright text, never a solid fill), kit names wear the data-tag treatment, `BrandPalette` is the single hue source, WCAG pass (#461)
 - Set screen — says "prev:", prints no delta, its bar carries the state grammar, one column; the rail's swipe law is DUPE leads / DELETE trails (#460)
-- Today — the pull's answer renders in the gap the pull opens; the week strip is a sticky band inside the scroll (#455, #459)
-- Rest — a dial, not take-it-or-leave-it (`−15s · +15s · Skip`, no primary key on the screen); Pause works mid-rest (#457)
-- Scroll — the intermittent dead scroll fixed by guarding the gesture's *claim*, not its effect (#458)
 
 **In flight:** `claude/plusplus-cardio-workouts-whh64j` — the cardio integration branch, open as one PR into main, awaiting Dave's device pass. PR 10 of that plan (the phone originating its own `HKWorkoutSession`) is deliberately NOT started; the PR body says why.
 
