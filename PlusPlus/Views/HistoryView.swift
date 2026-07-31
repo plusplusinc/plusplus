@@ -31,8 +31,12 @@ struct SessionRow: View {
         // The FIRST log's unit, not the whole session's: `session.modality`
         // walks every set's equipment relationship, and this runs on every
         // body pass of every row in the list.
-        let unit = session.sortedSetLogs.first?.workUnit ?? .set
-        parts.append(unit.counted(session.completedSetLogs.count))
+        if let count = WorkUnit.summaryCount(
+            session.sortedSetLogs.first?.workUnit,
+            session.completedSetLogs.count
+        ) {
+            parts.append(count)
+        }
         if let duration = session.duration {
             parts.append(Self.durationText(duration))
         }
@@ -199,9 +203,18 @@ struct SessionDetailView: View {
                             }
                             ForEach(Array(block.sets.enumerated()), id: \.offset) { _, log in
                                 HStack {
-                                    Text("\((log.workUnit ?? .set).singular.capitalized) \(log.setNumber)")
-                                        .font(.system(.caption))
-                                        .foregroundStyle(log.isCompleted ? Theme.textSecondary : Theme.textFaint)
+                                    // No label at all when the block holds
+                                    // one (Dave, build 158): a run is one
+                                    // continuous thing, and "Set 1" both
+                                    // numbers what has no siblings and
+                                    // borrows a noun the sport never uses.
+                                    if let label = WorkUnit.rowLabel(
+                                        log.workUnit, index: log.setNumber, total: block.sets.count
+                                    ) {
+                                        Text(label)
+                                            .font(.system(.caption))
+                                            .foregroundStyle(log.isCompleted ? Theme.textSecondary : Theme.textFaint)
+                                    }
                                     // What your heart did during THIS set,
                                     // between the label and the result. Faint
                                     // and unlabelled beyond the glyph: it is a
@@ -292,7 +305,12 @@ struct SessionDetailView: View {
 
     private var subtitle: String {
         var parts = [session.startedAt.formatted(.dateTime.month(.abbreviated).day())]
-        parts.append((session.sortedSetLogs.first?.workUnit ?? .set).counted(session.completedSetLogs.count))
+        if let count = WorkUnit.summaryCount(
+            session.sortedSetLogs.first?.workUnit,
+            session.completedSetLogs.count
+        ) {
+            parts.append(count)
+        }
         if let duration = session.duration {
             parts.append(SessionRow.durationText(duration))
         }

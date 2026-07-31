@@ -66,7 +66,9 @@ struct ExerciseDetailSheet: View {
     /// What this block counts in — pieces on an erg, reps on the track.
     /// Sports that count nothing still need a stepper label here, so they
     /// fall back to "set".
-    private var blockUnit: WorkUnit { exercise?.modality.workUnit ?? .set }
+    /// The divider control's noun. ⚠️ `.divider`, not `?? .set`: a walk
+    /// counts nothing of its own, and this row was offering it SETS.
+    private var blockUnit: WorkUnit { WorkUnit.divider(exercise?.modality.workUnit) }
 
     private var groupIndex: Int? {
         guard let group else { return nil }

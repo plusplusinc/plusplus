@@ -30,6 +30,29 @@ struct WorkUnitTests {
         #expect(countable.count == ExerciseModality.allCases.count - 2)
     }
 
+    @Test("The control that DIVIDES an effort never borrows the rack's noun")
+    func dividerNoun() {
+        // A walk counts nothing, and both prescription sheets used to fall
+        // back to `.set` — offering, on a walk, three SETS. Rounds is the
+        // sport-neutral word the app already owns.
+        #expect(WorkUnit.divider(ExerciseModality.walking.workUnit) == .round)
+        #expect(WorkUnit.divider(ExerciseModality.hiking.workUnit) == .round)
+        // Everything that DOES count keeps its own word.
+        #expect(WorkUnit.divider(ExerciseModality.strength.workUnit) == .set)
+        #expect(WorkUnit.divider(ExerciseModality.rowing.workUnit) == .piece)
+        #expect(WorkUnit.divider(ExerciseModality.running.workUnit) == .rep)
+        #expect(WorkUnit.divider(ExerciseModality.cycling.workUnit) == .effort)
+    }
+
+    @Test("Dividing is not counting: the kicker and the key still say nothing")
+    func dividerDoesNotLeakIntoExecution() {
+        // ⚠️ The whole point of the split. `divider` gives the AUTHORING
+        // control a word; the execution surfaces keep the nil, so a walk
+        // still prints no kicker and its key still reads "Log".
+        #expect(WorkUnit.kicker(ExerciseModality.walking.workUnit, index: 1, total: 4) == nil)
+        #expect(WorkUnit.inline(ExerciseModality.hiking.workUnit, index: 2, total: 4) == nil)
+    }
+
     @Test("The kicker disappears at a count of one")
     func kickerHiddenAtOne() {
         // A steady forty-minute ride must not read "EFFORT 1 OF 1" — it
@@ -56,6 +79,48 @@ struct WorkUnitTests {
         #expect(WorkUnit.piece.counted(1) == "1 piece")
         #expect(WorkUnit.piece.counted(4) == "4 pieces")
         #expect(WorkUnit.effort.counted(2) == "2 efforts")
+    }
+
+    @Test("A record claims no count when there was one of it")
+    func summaryCountHiddenAtOne() {
+        // The record surfaces used to say `?? .set`, so a logged walk's
+        // card read "1 set" — the count-of-one rule, missed one surface
+        // later than the kicker that established it.
+        #expect(WorkUnit.summaryCount(ExerciseModality.walking.workUnit, 1) == nil)
+        #expect(WorkUnit.summaryCount(.set, 1) == nil)
+        #expect(WorkUnit.summaryCount(.rep, 1) == nil)
+        // Zero is the same answer: an abandoned session claims nothing.
+        #expect(WorkUnit.summaryCount(.set, 0) == nil)
+    }
+
+    @Test("Above one a record counts in the sport's own noun")
+    func summaryCountRendering() {
+        #expect(WorkUnit.summaryCount(.set, 18) == "18 sets")
+        #expect(WorkUnit.summaryCount(.rep, 6) == "6 reps")
+        #expect(WorkUnit.summaryCount(.piece, 4) == "4 pieces")
+        // Hill repeats on a walk: the count exists because the divider
+        // authored it, so it reads back in the divider's word.
+        #expect(WorkUnit.summaryCount(ExerciseModality.walking.workUnit, 3) == "3 rounds")
+    }
+
+    @Test("A record's single row wears no label at all")
+    func rowLabelHiddenAtOne() {
+        // Dave, on build 158: a run is one continuous thing, so its record
+        // row has nothing to be told apart from.
+        #expect(WorkUnit.rowLabel(ExerciseModality.walking.workUnit, index: 1, total: 1) == nil)
+        #expect(WorkUnit.rowLabel(.rep, index: 1, total: 1) == nil)
+        #expect(WorkUnit.rowLabel(.set, index: 1, total: 1) == nil)
+    }
+
+    @Test("Rows in a list of them are numbered in the sport's noun")
+    func rowLabelRendering() {
+        #expect(WorkUnit.rowLabel(.set, index: 3, total: 4) == "Set 3")
+        #expect(WorkUnit.rowLabel(.piece, index: 1, total: 4) == "Piece 1")
+        #expect(WorkUnit.rowLabel(.rep, index: 6, total: 6) == "Rep 6")
+        // ⚠️ A nil unit takes the divider here and NOT in the live caption:
+        // a row has siblings, a caption describes the one thing you are
+        // doing. `dividerDoesNotLeakIntoExecution` guards the other side.
+        #expect(WorkUnit.rowLabel(ExerciseModality.hiking.workUnit, index: 2, total: 3) == "Round 2")
     }
 }
 

@@ -58,6 +58,51 @@ public struct WorkUnit: Equatable, Sendable {
     }
 }
 
+public extension WorkUnit {
+    /// What to call the control that DIVIDES an effort, for a sport that
+    /// counts nothing of its own.
+    ///
+    /// A walk has no "sets" — that is the whole point of `workUnit` being
+    /// nil there — but the control still has to say something, because a
+    /// hill repeat is a real thing to author even where one continuous
+    /// effort is the honest default. "Rounds" is the sport-neutral word the
+    /// app already owns (jump rope counts in them), so the control keeps
+    /// the capability without borrowing the rack's noun. Before this, both
+    /// prescription sheets fell back to `.set` and offered to give a walk
+    /// three sets.
+    ///
+    /// ⚠️ For the DIVIDER only. The kicker, the inline caption and the
+    /// commit key keep the nil and print nothing at all — a walk still says
+    /// "Log", never "Log round", and shows no `ROUND 1 OF 1`.
+    static func divider(_ unit: WorkUnit?) -> WorkUnit { unit ?? .round }
+
+    /// How much work a finished session claims on its card and in its
+    /// header: "18 sets", "6 reps", "3 rounds" — and NOTHING at a count of
+    /// one.
+    ///
+    /// `kicker`'s rule, one surface later. A steady forty-minute walk is
+    /// not "1 set"; it is not "1 round" either. It is one continuous thing,
+    /// and the honest subtitle names the date and the duration and stops.
+    /// Above one the divider's noun applies, because a count above one is
+    /// precisely what the divider authored.
+    static func summaryCount(_ unit: WorkUnit?, _ count: Int) -> String? {
+        guard count > 1 else { return nil }
+        return divider(unit).counted(count)
+    }
+
+    /// The label on ONE row of a finished record — "Set 3", "Round 2" —
+    /// and NOTHING when the record holds a single row.
+    ///
+    /// ⚠️ The one place a nil unit still earns the divider's noun mid-list,
+    /// and the reason is the list: a row has siblings to be told apart
+    /// from, where the live caption describes the single thing in front of
+    /// you. Both agree on the case that matters — at one there is no label.
+    static func rowLabel(_ unit: WorkUnit?, index: Int, total: Int) -> String? {
+        guard total > 1 else { return nil }
+        return "\(divider(unit).singular.capitalized) \(index)"
+    }
+}
+
 public extension ExerciseModality {
     /// The noun this family counts in, or nil where counting is not a
     /// thing the sport does. `.strength` and `.flexibility` keep "set",

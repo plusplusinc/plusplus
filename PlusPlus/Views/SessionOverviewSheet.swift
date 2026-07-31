@@ -361,7 +361,9 @@ struct SessionExerciseSheet: View {
     /// sets in the rack. Falls back to "set" for the sports that count
     /// nothing (a walk), because this sheet's rows and its stepper still
     /// need a word even where the live screen shows none.
-    private var blockUnit: WorkUnit { logs.first?.workUnit ?? .set }
+    /// The noun for a block's rounds. ⚠️ `.divider`, not `?? .set` — see
+    /// `WorkUnit.divider`. Only ever printed where there IS more than one.
+    private var blockUnit: WorkUnit { WorkUnit.divider(logs.first?.workUnit) }
     private var isLive: Bool {
         session.currentLog.map { current in logs.contains { $0.order == current.order } } ?? false
     }
