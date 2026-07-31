@@ -9,7 +9,19 @@ usually lives here.
 > Record architectural and significant implementation decisions as they're made.
 > Format: **Date — Decision — Reason**
 
-**2026-07-31 (latest) — A measured target ends its own effort, and an outdoor round finally records its own split** — the last unbuilt piece of PR 7. Dave's answer to "which targets should auto-advance" was **only measured ones**, and the interesting part is what that excludes: a console number you type at the finish never advances anything, because the alternative is the app guessing when a machine's readout got there — the class of lie this whole push exists to remove.
+**2026-07-31 (latest) — The finish states what a cardio effort measured beside what it measured last time, and prints no delta** — the fourth moment the cardio plan promised (find · prescribe · do · **finish**), and the one easiest to lose as a footnote.
+
+It reuses `DiffLedger` rather than growing a second grammar: two columns, the arithmetic left to the reader, an em-dash where there is nothing to compare. The card only needed the left column to be nameable — a plan says "target", a finished workout says "did" — so `leadingTitle` is the whole addition, and the reflow, the truncation floor and the one-sentence VoiceOver row come along unchanged.
+
+⚠️ **`changed` is deliberately EMPTY, so nothing inks.** Direction ink (2026-07-30) marks a PLAN moving against a performance. Here both columns are performances, and painting one green would be **#453 arriving through a different door** — which is the whole reason this surface needed rebuilding.
+
+**And the paced exercises now LEAVE the delta tally.** That is the substantive half. `RoutineDiff.delta` compares a static plan target against a past actual and calls the gap an improvement, so a routine asking 8:00/mi printed a green PR over a 9:00 run that nobody ran. Weight and reps do not have that failure — both of their sides are performances — so the split is by `isPaced`: a profile carrying distance or pace takes the two-column recap, everything else keeps the tally it was always right for. A signed number is unrepresentable in the recap, so the misread cannot recur, and `netText` stops aggregating a fabricated pace gain into the session total.
+
+⚠️ The recap sits ABOVE the tally: on a run-plus-core session the run is what you just did and the core is the footnote. On a pure run the tally is empty and the recap is the whole thing.
+
+⚠️ This does not close **#453** — the record screen still runs the old comparison, and Today's pending card is the surface that already fixed it. The finish is the second of three.
+
+**2026-07-31 — A measured target ends its own effort, and an outdoor round finally records its own split** — the last unbuilt piece of PR 7. Dave's answer to "which targets should auto-advance" was **only measured ones**, and the interesting part is what that excludes: a console number you type at the finish never advances anything, because the alternative is the app guessing when a machine's readout got there — the class of lie this whole push exists to remove.
 
 **Duration already did it** (the auto-timer expires and logs itself), so the work was distance under a live GPS fix. Building it surfaced the reason it had never been built: **the meter re-bases per EXERCISE, never per round.** Its total describes the whole 6 × 400 m, not the rep you are running, so there was no honest way to say a rep was over — and for the same reason `completeCurrentSet` refused to record distance at all unless the block held exactly one round. A 6 × 400 m logged six efforts with no distance on any of them.
 

@@ -113,6 +113,10 @@ struct ActiveSessionView: View {
     /// record no distance at all unless its block held exactly one.
     @State private var distanceAtRoundStart: Double = 0
 
+    /// Whether the finish recap shows every cardio effort or the first
+    /// four. Ephemeral: the screen is a moment, not a place you return to.
+    @State private var recapExpanded = false
+
     private var totalSets: Int { session.sortedSetLogs.count }
 
     /// The noun this WHOLE session counts in, or nil for a sport that
@@ -1418,6 +1422,24 @@ struct ActiveSessionView: View {
                             .foregroundStyle(Theme.textSecondary)
                     }
 
+                    // What the cardio efforts measured, beside last time.
+                    // ⚠️ ABOVE the delta tally, because on a run-plus-core
+                    // session the run is what you just did and the core is
+                    // the footnote. On a pure run the tally is empty and
+                    // this is the whole recap.
+                    if !cardioRecapRows.isEmpty {
+                        DiffLedger(
+                            rows: cardioRecapRows,
+                            leadingTitle: "did",
+                            expanded: $recapExpanded
+                        )
+                        .padding(14)
+                        .frame(maxWidth: .infinity)
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
+                        .padding(.horizontal, 20)
+                    }
+
                     if !movedTally.isEmpty {
                         tallyCard(movedTally)
                             .padding(.horizontal, 20)
@@ -1578,6 +1600,53 @@ struct ActiveSessionView: View {
         return names
     }
 
+    /// Whether an exercise's numbers are the shape #453 is about.
+    ///
+    /// A signed delta over a distance or a pace is where the diff
+    /// manufactures achievements: it compares a STATIC plan target against
+    /// a past actual and calls the gap an improvement, so a routine asking
+    /// for 8:00/mi against a 9:00 run prints a green PR nobody ran. Weight
+    /// and reps do not have that failure — both sides are performances.
+    /// So the paced exercises leave the delta tally and take the
+    /// two-column recap, where a signed number is unrepresentable.
+    private func isPaced(_ profile: MetricProfile) -> Bool {
+        profile.contains(.pace) || profile.contains(.distance)
+    }
+
+    /// What the cardio efforts of this workout actually measured, beside
+    /// the same effort last time — and no delta anywhere.
+    ///
+    /// The fourth moment the plan promised (find · prescribe · do ·
+    /// FINISH), in `DiffLedger`'s grammar rather than a second one: two
+    /// columns, the arithmetic left to the reader, an em-dash placeholder
+    /// where there is nothing to compare. ⚠️ `changed` is deliberately
+    /// EMPTY, so nothing inks. Direction ink marks a PLAN moving against a
+    /// performance; here both columns are performances, and painting one
+    /// green would be #453 arriving by a different door.
+    private var cardioRecapRows: [DiffLedgerRow] {
+        sessionExerciseNames.compactMap { name in
+            let mine = session.completedSetLogs.filter { $0.exerciseName == name }
+            guard let last = mine.last, isPaced(last.metricProfile) else { return nil }
+            let profile = last.metricProfile
+            let did = RoutineDiff.Prior(
+                sets: mine.map(\.setNumber).max(),
+                weight: nil,
+                reps: nil,
+                durationSeconds: last.actualDuration,
+                extras: last.extraActuals
+            )
+            let previous = prior(for: name)
+            return DiffLedgerRow(
+                id: name,
+                label: name,
+                target: Prescription.blockRuns(prior: did, profile: profile, weightUnit: weightUnit),
+                prev: previous.map { Prescription.blockRuns(prior: $0, profile: profile, weightUnit: weightUnit) } ?? [],
+                changed: [],
+                isNew: previous == nil
+            )
+        }
+    }
+
     /// Per-exercise movement vs the previous performance: this
     /// session's top completed set (weight with THAT set's reps — the
     /// Today-diff rule; mixed maxima describe sets that never
@@ -1585,7 +1654,7 @@ struct ActiveSessionView: View {
     private var diffTally: [TallyLine] {
         sessionExerciseNames.compactMap { name in
             let mine = session.completedSetLogs.filter { $0.exerciseName == name }
-            guard let last = mine.last else { return nil }
+            guard let last = mine.last, !isPaced(last.metricProfile) else { return nil }
             let top = mine.max { ($0.actualWeight ?? 0) < ($1.actualWeight ?? 0) } ?? last
             let target = RoutineDiff.Target(
                 name: name,
