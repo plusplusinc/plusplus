@@ -43,9 +43,23 @@ final class WatchBridge: NSObject, WCSessionDelegate {
             // the max HR (Health's date of birth); the wrist only
             // compares numbers.
             let maxHeartRate = HealthAccess.resolvedMaxHeartRate()
+            // The quick-start sports ride the plan as one-step scratch
+            // plans (#513) — the wrist is the device actually worn on a
+            // spontaneous run. Same source as Today's rail: the user's
+            // device-local picks, resolved by name; a stale pick drops.
+            let pickNames = QuickStartPicks.names(
+                from: UserDefaults.standard.string(forKey: QuickStartPicks.key)
+                    ?? QuickStartPicks.raw(from: QuickStartPicks.fallback)
+            )
+            let exercises = (try? context.fetch(FetchDescriptor<Exercise>())) ?? []
+            let byName = Dictionary(
+                exercises.filter { !$0.isDeleted }.map { ($0.name, $0) },
+                uniquingKeysWith: { first, _ in first }
+            )
+            let quickStarts = pickNames.compactMap { byName[$0] }.map(Self.quickStartPlan)
             let plan = WatchSync.Plan(
                 generatedAt: Date(),
-                routines: routines.map { Self.planRoutine($0, maxHeartRate: maxHeartRate) }
+                routines: routines.map { Self.planRoutine($0, maxHeartRate: maxHeartRate) } + quickStarts
             )
             do {
                 let data = try WatchSync.encode(plan)
@@ -96,6 +110,30 @@ final class WatchBridge: NSObject, WCSessionDelegate {
             transitionSeconds: routine.transitionSeconds,
             steps: steps,
             uuid: routine.uuid
+        )
+    }
+
+    /// One untargeted step wearing the sport's own modality (#513). The
+    /// run view already says nothing for an untargeted effort and counts
+    /// no "1/1" at a count of one (#514), so the scratch plan renders
+    /// clean; a single step means rest never schedules and the first log
+    /// finishes, exactly like the phone's quick start.
+    @MainActor
+    private static func quickStartPlan(_ exercise: Exercise) -> WatchSync.PlanRoutine {
+        let profile = exercise.metricProfile
+        return WatchSync.PlanRoutine(
+            name: exercise.name,
+            restSeconds: 90,
+            steps: [WatchSync.Step(
+                exerciseName: exercise.name,
+                groupIndex: 0,
+                setNumber: 1,
+                isDuration: false,
+                distanceUnit: profile.distanceUnit,
+                isOutdoor: profile.isOutdoor ? true : nil,
+                modality: exercise.modality
+            )],
+            isQuickStart: true
         )
     }
 

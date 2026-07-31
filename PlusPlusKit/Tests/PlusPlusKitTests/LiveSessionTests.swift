@@ -129,6 +129,7 @@ struct LiveSessionTests {
         """
         let routine = try WatchSync.decode(WatchSync.PlanRoutine.self, from: Data(plan.utf8))
         #expect(routine.uuid == nil)
+        #expect(routine.isQuickStart == nil)
     }
 
     @Test("The identity fields survive the codec round-trip")
