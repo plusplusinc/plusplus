@@ -285,12 +285,17 @@ final class WatchBridge: NSObject, WCSessionDelegate {
                 log.extraActuals = actuals
             }
             // The snapshot profile spans what the log now holds — same
-            // rule as the fresh-import path above.
+            // rule as the fresh-import path above. isOutdoor/paceReference
+            // ride along: the init defaults them, and losing the flag
+            // would re-file an outdoor workout in Health.
             let profile = log.metricProfile
             let newKeys = log.extraActuals.keys.filter { !profile.contains($0) }
             if !newKeys.isEmpty {
                 log.metricsData = MetricProfile(
-                    profile.metrics + newKeys, distanceUnit: profile.distanceUnit
+                    profile.metrics + newKeys,
+                    distanceUnit: profile.distanceUnit,
+                    isOutdoor: profile.isOutdoor,
+                    paceReference: profile.paceReference
                 ).encoded()
             }
         }

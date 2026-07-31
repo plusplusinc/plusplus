@@ -204,11 +204,13 @@ final class LiveMirror {
             guard session == nil else { return } // already materialized
             materialize(sessionId: sessionId, routineName: routineName, startedAt: startedAt, restSeconds: restSeconds, steps: steps, into: context)
         case let .logSet(index, w, r, d, extras, completedAt):
-            // The finished-guard keeps a late op from mutating a committed
-            // record (stage 1, #510) — the result-import merge is the door
-            // for anything that still needs to land after the finish.
-            guard let session, !session.isFinished,
-                  let log = session.sortedSetLogs.first(where: { $0.order == index }) else { return }
+            // On a FINISHED session a late op may only FILL A HOLE (an
+            // un-completed log — a set the ops lost that no result will
+            // ever repair, e.g. an abandoned wrist session salvage
+            // closed), never rewrite a committed set (stage 1, #510).
+            guard let session,
+                  let log = session.sortedSetLogs.first(where: { $0.order == index }),
+                  !session.isFinished || log.completedAt == nil else { return }
             // Timestamp LWW on the slot: a stale redelivery never clobbers
             // a newer completion.
             if let existing = log.completedAt, existing > completedAt { return }
@@ -221,18 +223,27 @@ final class LiveMirror {
                 // A measured extra on an untargeted step must still be a
                 // tracked metric, or the record can't render what it holds
                 // — importResult's own rule, arriving here (stage 1, B17).
+                // ⚠️ Carry isOutdoor/paceReference through: the init
+                // defaults them, and a widened outdoor profile that lost
+                // its flag would re-file the workout in Health.
                 let profile = log.metricProfile
                 let newKeys = extraValues.keys.filter { !profile.contains($0) }
                 if !newKeys.isEmpty {
                     log.metricsData = MetricProfile(
-                        profile.metrics + newKeys, distanceUnit: profile.distanceUnit
+                        profile.metrics + newKeys,
+                        distanceUnit: profile.distanceUnit,
+                        isOutdoor: profile.isOutdoor,
+                        paceReference: profile.paceReference
                     ).encoded()
                 }
             }
             log.completedAt = completedAt
-            // Advance the cursor the way the phone's own complete() does.
-            let pending = session.sortedSetLogs.filter { !$0.isCompleted }
-            session.cursorOrder = (pending.first { $0.order > index } ?? pending.first)?.order ?? session.cursorOrder
+            // Advance the cursor the way the phone's own complete() does —
+            // on a live session only; a committed record has no cursor.
+            if !session.isFinished {
+                let pending = session.sortedSetLogs.filter { !$0.isCompleted }
+                session.cursorOrder = (pending.first { $0.order > index } ?? pending.first)?.order ?? session.cursorOrder
+            }
         case let .reopen(index):
             guard let session, !session.isFinished,
                   let log = session.sortedSetLogs.first(where: { $0.order == index }) else { return }
@@ -263,8 +274,14 @@ final class LiveMirror {
     /// A wrist session this stale with no ops is no longer live — salvage
     /// may take it, with the honest last-activity anchor.
     private nonisolated static let liveElsewhereWindow: TimeInterval = 12 * 3600
+    /// The registry mutates from the WCSession delegate queue AND the
+    /// main actor; an unlocked read-modify-write could drop a fresh
+    /// session's only entry and hand it back to salvage — the exact bug
+    /// this registry exists to fix, made intermittent (swift-reviewer).
+    private nonisolated static let registryLock = NSLock()
 
     nonisolated static func noteRemoteActivity(_ sessionId: UUID, at date: Date = Date()) {
+        registryLock.lock(); defer { registryLock.unlock() }
         var map = (UserDefaults.standard.dictionary(forKey: liveElsewhereKey) as? [String: Double]) ?? [:]
         map[sessionId.uuidString] = date.timeIntervalSince1970
         let floor = Date().addingTimeInterval(-2 * liveElsewhereWindow).timeIntervalSince1970
@@ -273,12 +290,14 @@ final class LiveMirror {
     }
 
     nonisolated static func clearRemoteActivity(_ sessionId: UUID) {
+        registryLock.lock(); defer { registryLock.unlock() }
         var map = (UserDefaults.standard.dictionary(forKey: liveElsewhereKey) as? [String: Double]) ?? [:]
         guard map.removeValue(forKey: sessionId.uuidString) != nil else { return }
         UserDefaults.standard.set(map, forKey: liveElsewhereKey)
     }
 
     nonisolated static func isLiveElsewhere(_ sessionId: UUID) -> Bool {
+        registryLock.lock(); defer { registryLock.unlock() }
         guard let map = UserDefaults.standard.dictionary(forKey: liveElsewhereKey) as? [String: Double],
               let last = map[sessionId.uuidString] else { return false }
         return Date().timeIntervalSince1970 - last < liveElsewhereWindow

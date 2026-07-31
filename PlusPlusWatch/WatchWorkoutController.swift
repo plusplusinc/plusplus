@@ -247,6 +247,9 @@ extension WatchWorkoutController: HKWorkoutSessionDelegate {
         guard toState == .ended || toState == .stopped else { return }
         DispatchQueue.main.async { [weak self] in
             guard let self, self.session === workoutSession else { return }
+            // Same builder hygiene as the failure twin: an abandoned
+            // builder holds its samples open.
+            self.builder?.discardWorkout()
             self.session = nil
             self.builder = nil
             self.latestBPM = nil
