@@ -67,4 +67,8 @@ sessions syncing back as append-only history.
 
 ⚠️ **A session that misses Finish/Discard is salvaged on Today's next
 appearance** (crash, or any dismissal the exit dialog never saw) rather than
-becoming an invisible orphan. Anything that ends a session must keep this true.
+becoming an invisible orphan. Anything that ends a session must keep this
+true. Two riders (#510/#503): a session whose mirror ops are still arriving
+from the wrist is NOT an orphan and is exempt (`LiveMirror.isLiveElsewhere`);
+a salvaged finish anchors to `lastActivityAt`, never to relaunch time, and
+emits the lifecycle op so the wrist journal closes too.

@@ -358,6 +358,14 @@ final class WorkoutSession {
         return elapsed(at: endedAt)
     }
 
+    /// The last moment this session verifiably did something — the newest
+    /// completed set, else its start. What crash salvage anchors to: the
+    /// gap between a crash and whenever the app is next opened is not
+    /// training time (#503).
+    var lastActivityAt: Date {
+        completedSetLogs.compactMap(\.completedAt).max() ?? startedAt
+    }
+
     func finish(at date: Date = Date()) {
         // Bank the final running segment so duration counts active time.
         pauseClock(at: date)

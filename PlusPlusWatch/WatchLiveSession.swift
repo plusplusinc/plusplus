@@ -34,7 +34,9 @@ final class WatchLiveSession {
     /// same routine is already in hand (a resume after relaunch, or a
     /// session the phone already started and we adopted).
     func beginIfNeeded(routine: WatchSync.PlanRoutine, startedAt: Date) {
-        if let state, !state.isFinished, state.routineName == routine.name { return }
+        // isClosed, not isFinished: a discarded session never sets
+        // endedAt, and adopting one would log into a dead id (#510).
+        if let state, !state.isClosed, state.routineName == routine.name { return }
         reducer = LiveSession.Reducer()
         seq = 0
         emit(UUID(), .started(
@@ -109,7 +111,10 @@ final class WatchLiveSession {
     }
 
     private func persist() {
-        guard let state, !state.isFinished, let data = try? WatchSync.encode(state) else {
+        // isClosed, not isFinished: a phone discard used to leave the
+        // journal in place forever, and the dead state swallowed every
+        // future phone session's ops (#510).
+        guard let state, !state.isClosed, let data = try? WatchSync.encode(state) else {
             UserDefaults.standard.removeObject(forKey: Self.journalKey)
             return
         }

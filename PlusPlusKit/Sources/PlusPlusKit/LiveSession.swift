@@ -166,6 +166,22 @@ public enum LiveSession {
         public var completedCount: Int { logs.filter { $0.completedAt != nil }.count }
         public var isFinished: Bool { endedAt != nil }
         public var isResting: Bool { restEndsAt != nil }
+        /// Over, either way. `.discarded` never sets `endedAt`, so
+        /// `isFinished` alone under-reports "this session is done with" —
+        /// the journal-that-never-cleared bug (stage 1 of the watch
+        /// repair, #510).
+        public var isClosed: Bool { isFinished || discarded }
+
+        /// The newest stamp folded into any register — when this session
+        /// last verifiably moved. Displacement (below) compares against
+        /// it so an op-stream replay can never resurrect a dead session.
+        public var latestStamp: Stamp? {
+            var best = logs.map(\.stamp).max()
+            for candidate in [cursorStamp, restStamp, lifecycleStamp] {
+                if let candidate, best.map({ candidate > $0 }) ?? true { best = candidate }
+            }
+            return best
+        }
 
         public func log(at index: Int) -> LoggedSet? {
             logs.first { $0.index == index }
@@ -264,7 +280,25 @@ public enum LiveSession {
         public init() {}
 
         public mutating func apply(_ op: Op) {
-            if state != nil {
+            if let current = state {
+                // A newer `.started` for a DIFFERENT session displaces the
+                // state (stage 1 of the watch repair, #510): there is one
+                // human, so a session that has genuinely begun means the
+                // old one is over in reality even when its `.finished`/
+                // `.discarded` was lost — a dead journal used to swallow
+                // every future peer session forever. A replay can't
+                // resurrect the past: an old `.started` carries an older
+                // stamp than the state's latest activity and is refused.
+                if current.sessionId != op.sessionId, case .started = op.kind,
+                   op.stamp > (current.latestStamp
+                       ?? Stamp(at: current.startedAt, origin: current.origin, seq: 0)),
+                   let born = State(started: op) {
+                    state = born
+                    let buffered = pending
+                    pending = []
+                    for p in buffered { apply(p) }
+                    return
+                }
                 state?.apply(op)
             } else if let born = State(started: op) {
                 state = born
