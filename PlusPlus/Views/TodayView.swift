@@ -59,6 +59,10 @@ struct TodayView: View {
     /// so the tray sets these and the sheet's onDismiss acts.
     @State private var pendingQuickStartFromTray: Exercise?
     @State private var pendingEditQuickStartsFromTray = false
+    /// The config sheet's committed Start, carried across ITS dismissal
+    /// for the same reason — the session cover must not present in the
+    /// sheet's own dismissing transaction.
+    @State private var pendingStartQuickConfig: SessionExerciseConfig?
     @State private var newRoutineName = ""
     /// Hero zooms (#216): starting a workout grows the pending card
     /// into the session screen; a committed card grows into its
@@ -659,10 +663,20 @@ struct TodayView: View {
             // One optional-target sheet, then go (Dave). It is the same
             // "configure before you do it" card the picker uses, so the
             // prescription reads identically whichever way you started.
-            .sheet(item: $quickStartConfig) { config in
-                ExerciseConfigSheet(config: config, actionLabel: "Start") {
-                    quickStartConfig = nil
+            // ⚠️ The start rides onDismiss, not the commit closure:
+            // presenting the session cover in the same transaction as
+            // this sheet's dismissal is the drop class every other
+            // handoff here already avoids — it shipped leaning on the
+            // orphan salvage as a backstop (swift-reviewer).
+            .sheet(item: $quickStartConfig, onDismiss: {
+                if let config = pendingStartQuickConfig {
+                    pendingStartQuickConfig = nil
                     startQuick(config)
+                }
+            }) { config in
+                ExerciseConfigSheet(config: config, actionLabel: "Start") {
+                    pendingStartQuickConfig = config
+                    quickStartConfig = nil
                 }
             }
             .sheet(isPresented: $editingQuickStarts) {
@@ -2397,14 +2411,17 @@ private struct SetupRow: View {
     }
 }
 
-/// The start tray, restructured as a two-step menu (Dave, build-45:
-/// a routine listed directly under the title read as part of the
-/// title, not an option). The root offers the two WAYS to start —
-/// "Choose a routine" and the no-plan escape — and PUSHES the routine
-/// picker (rows + creation), the sheet growing a detent with the depth.
-/// Choosing a routine starts it — it commits to the timeline like any
-/// other session. The push became a real `NavigationStack` on
-/// 2026-07-28; it used to be a hand-rolled horizontal slide.
+/// The start tray: the COMPLETE start surface behind the play key
+/// (Dave, build 159's merge). The root offers everything startable,
+/// likeliest first — today's scheduled routine primed, the quick-start
+/// rack (the band's own component, second mouth of one system), then
+/// "Choose a routine" (PUSHES the picker: rows + creation) and the
+/// no-plan escape. Choosing anything starts it — it commits to the
+/// timeline like any other session. The push became a real
+/// `NavigationStack` on 2026-07-28; it used to be a hand-rolled slide.
+/// The root SCROLLS: at accessibility type sizes four sections outgrow
+/// the `.medium` detent, and content below a fold with no scroll is
+/// unreachable (the job the retired ScaledMetric detent used to do).
 private struct SwapInSheet: View {
     @Environment(\.dismiss) private var dismiss
     let routines: [Routine]
@@ -2439,8 +2456,18 @@ private struct SwapInSheet: View {
                 // button opens this same tray (#266), and starting is what
                 // every path in it does.
                 SheetHeader(title: "Start a workout", closeOnly: true) { dismiss() }
-                menu
-                Spacer(minLength: 0)
+                // ⚠️ The menu SCROLLS (swift-reviewer): the retired
+                // ScaledMetric detent grew with Dynamic Type, and the
+                // fixed .medium that replaced it does not — at AX sizes
+                // the four sections sum past the fold, and a key below
+                // an unscrollable fold is unreachable chrome. The pushed
+                // picker already scrolls; now both stages do.
+                ScrollView {
+                    menu
+                        // Clearance for the last cap's 3 pt plate, so the
+                        // press travel never clips at the scroll's edge.
+                        .padding(.bottom, 8)
+                }
             }
             .padding(.horizontal, 18)
             .toolbar(.hidden, for: .navigationBar)

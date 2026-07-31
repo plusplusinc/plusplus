@@ -113,6 +113,12 @@ enum QuickStartLabel {
 /// widths from `UIFont` metrics, never a geometry probe (the morph law).
 /// "N more" is a Menu of the hidden sports, so every pick stays reachable —
 /// the visible keys at one tap, the tail at two.
+///
+/// ⚠️ TWO live mounts while the start tray is up (the header band + the
+/// tray — one system, two mouths), so the accessibility identifiers here
+/// exist twice in the hierarchy at that moment. No test queries them
+/// today; a future one must scope its query to the sheet or the band, or
+/// `app.buttons["quickStart-Running"]` is a multiple-match ambiguity.
 struct QuickStartRow: View {
     let exercises: [Exercise]
     let onPick: (Exercise) -> Void
