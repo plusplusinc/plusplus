@@ -61,7 +61,7 @@ No third-party dependencies without discussion first.
 > **.claude/rules/** (path-scoped). Delete an item once it has shipped and been validated —
 > this section tracks what is live now, not what happened.
 
-**Last updated:** 2026-07-30 · **Latest TestFlight build:** 158, from `claude/plusplus-cardio-workouts-whh64j` (the cardio push, cut from the branch so #482 could stay open for review; every earlier build came from main).
+**Last updated:** 2026-07-31 · **Latest TestFlight build:** 159, from `claude/plusplus-cardio-workouts-whh64j` (the cardio push + its six follow-ons, cut from the branch so #482 could stay open for review; every build before 158 came from main).
 ⚠️ Build number = workflow RUN number, not last-build+1 — check `actions_list` before writing a What's-New entry.
 
 **On main, awaiting Dave's device pass** (reasoning in docs/DECISIONS.md under the dated entry):

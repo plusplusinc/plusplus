@@ -1112,6 +1112,7 @@ private struct AboutTray: View {
 /// dispatch (one line each, no obligation words).
 enum WhatsNew {
     static let entries: [(build: String, notes: String)] = [
+        ("159", "A run ends when you stop · one effort, and the key says finish · quick start sits right on Today now · reach a distance you asked for and the next effort starts itself · a 6 × 400 m keeps all six splits · the finish shows what you did beside last time and leaves the verdict to you · and your iPhone can record the workout as it happens, for calories and a heart rate that keeps up (Settings → Apple Health)"),
         ("158", "A run, ride, row or swim gets a clock that counts and numbers that mean something · start one from the tray in a tap · prescribe any two of distance, duration and pace and the third works itself out · your heart rate lands on every set · and a ride files to Health as a ride, not as strength training"),
         ("154", "Rest bends to you · add or take off 15 seconds while it runs, from the phone or the Lock Screen · pause mid rest and the countdown waits where you left it · paused now says what it caught and what comes next"),
         ("116", "Find or create: one search for the whole app · the search key beside the tabs finds routines, exercises, and equipment, yours or the catalog's · type what's missing and create it on the spot"),
