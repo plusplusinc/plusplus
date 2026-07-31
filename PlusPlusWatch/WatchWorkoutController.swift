@@ -128,6 +128,7 @@ final class WatchWorkoutController: NSObject, HKLiveWorkoutBuilderDelegate {
             let builder = session.associatedWorkoutBuilder()
             builder.dataSource = HKLiveWorkoutDataSource(healthStore: store, workoutConfiguration: configuration)
             builder.delegate = self
+            session.delegate = self
             let now = Date()
             sessionStart = now
             session.startActivity(with: now)
@@ -217,4 +218,42 @@ final class WatchWorkoutController: NSObject, HKLiveWorkoutBuilderDelegate {
     }
 
     func workoutBuilderDidCollectEvent(_ workoutBuilder: HKLiveWorkoutBuilder) {}
+}
+
+// MARK: - HKWorkoutSessionDelegate (stage 1, #510)
+
+extension WatchWorkoutController: HKWorkoutSessionDelegate {
+    /// The system can end the session under us (another workout started,
+    /// resources reclaimed). Without a delegate that death was silent —
+    /// HR simply stopped streaming and the screen kept its last number.
+    /// Degrade honestly: drop the runtime and clear the LIVE readings so
+    /// the UI stops claiming a sensor it lost; the summary values stay,
+    /// they are the best truth collected.
+    func workoutSession(_ workoutSession: HKWorkoutSession, didFailWithError error: Error) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.session === workoutSession else { return }
+            self.builder?.discardWorkout()
+            self.session = nil
+            self.builder = nil
+            self.latestBPM = nil
+            self.currentPaceSeconds = nil
+        }
+    }
+
+    func workoutSession(_ workoutSession: HKWorkoutSession, didChangeTo toState: HKWorkoutSessionState, from fromState: HKWorkoutSessionState, date: Date) {
+        // Our own finish()/discard() nil the session BEFORE ending it, so
+        // this guard only passes when something ELSE ended the session —
+        // same honest degrade as a failure.
+        guard toState == .ended || toState == .stopped else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.session === workoutSession else { return }
+            // Same builder hygiene as the failure twin: an abandoned
+            // builder holds its samples open.
+            self.builder?.discardWorkout()
+            self.session = nil
+            self.builder = nil
+            self.latestBPM = nil
+            self.currentPaceSeconds = nil
+        }
+    }
 }

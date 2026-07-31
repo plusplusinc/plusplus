@@ -32,18 +32,33 @@ laws in `navigation.md`). Pull-to-refresh answers in the gap the pull
 opens (mechanics in `navigation.md`).
 
 **Routines / Exercises / Kit** — catalog surfaces over `CatalogScopeView`,
-MINE then CATALOG, a single-select facet row per scope (muscle/movement/
-mechanic/sides · category · focus/effort/style — laws in `navigation.md`),
-with the swipe law LEADING is curation / TRAILING is destructive. Routine
-detail keeps the superset rail.
+MINE then CATALOG, a single-select facet row per scope (exercises kind/
+muscle/movement/mechanic/sides · kit type · routines focus/effort/style —
+laws in `navigation.md`), with the swipe law LEADING is curation / TRAILING
+is destructive. Routine detail keeps the superset rail.
+
+**The drawer** — the top-left ++ key (and a leading-edge drag on any tab
+root) slides the whole app right, revealing `RevealSurface`: settings folded
+inline (appearance, units, GitHub / Health / calendar sync, the active kit
+as the hero card), Operator, and tiles opening trays (data, what's new,
+about). Mechanics in `ui-interaction.md`.
+
+**First run** — `WelcomeView` fuses splash and welcome into one continuous
+shot; there is no onboarding flow — a fresh install's Today shows three
+setup steps as timeline entries, gated bottom-up (`SetupState`).
+
+**The session record** — a committed session opens `SessionDetailView`
+(`Views/HistoryView.swift`; the standalone History screen died with #109 —
+Today's timeline is the record).
 
 **Platform surfaces** — a Live Activity spanning the workout (Dynamic Island +
 Lock Screen), `.working` (exercise · set N/M · elapsed) swapping to `.resting`
 (countdown + the same Skip / −15s / +15s row the phone shows), driven from
 `ActiveSessionView`'s lifecycle by `WorkoutActivityController`. *Due today* and
 *Streak* widgets read a `WidgetSnapshot` written to the App Group
-(`group.com.davidcole.plusplus`) on launch/backgrounding; App Intents
-(StartRoutine / DueToday / OpenToday) read that same snapshot. ⚠️ There are NO
+(`group.com.davidcole.plusplus`) on launch/backgrounding; App Intents:
+StartRoutine / DueToday read that same snapshot; OpenToday just opens the
+app. ⚠️ There are NO
 phone rest/timer local notifications — the rest cue is watch haptics plus the
 island (#322 removed them, and the permission prompt with them).
 
@@ -53,4 +68,8 @@ sessions syncing back as append-only history.
 
 ⚠️ **A session that misses Finish/Discard is salvaged on Today's next
 appearance** (crash, or any dismissal the exit dialog never saw) rather than
-becoming an invisible orphan. Anything that ends a session must keep this true.
+becoming an invisible orphan. Anything that ends a session must keep this
+true. Two riders (#510/#503): a session whose mirror ops are still arriving
+from the wrist is NOT an orphan and is exempt (`LiveMirror.isLiveElsewhere`);
+a salvaged finish anchors to `lastActivityAt`, never to relaunch time, and
+emits the lifecycle op so the wrist journal closes too.

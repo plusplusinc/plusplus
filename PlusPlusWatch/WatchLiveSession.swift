@@ -23,6 +23,14 @@ final class WatchLiveSession {
     private(set) var reducer = LiveSession.Reducer()
     var state: LiveSession.State? { reducer.state }
 
+    /// The session the WRIST is authoring, frozen at begin. The reducer's
+    /// state can be DISPLACED by a newer phone session (#510) while the
+    /// run view is still mid-workout, and a wrist log must never land on
+    /// a session it didn't come from — reading `state?.sessionId` live
+    /// would redirect it. Readable so the finish can stamp the result
+    /// payload with the same identity the ops carried (#511).
+    private(set) var authoringSessionId: UUID?
+
     /// Per-origin monotonic sequence (origination = 0).
     private var seq = 0
 
@@ -34,40 +42,60 @@ final class WatchLiveSession {
     /// same routine is already in hand (a resume after relaunch, or a
     /// session the phone already started and we adopted).
     func beginIfNeeded(routine: WatchSync.PlanRoutine, startedAt: Date) {
-        if let state, !state.isFinished, state.routineName == routine.name { return }
+        // isClosed, not isFinished: a discarded session never sets
+        // endedAt, and adopting one would log into a dead id (#510).
+        // Identity match: the routine's stable uuid when both sides
+        // carry one (#511 — names are not unique), the name for older
+        // peers.
+        if let state, !state.isClosed, Self.matches(state, routine) {
+            authoringSessionId = state.sessionId
+            return
+        }
         reducer = LiveSession.Reducer()
         seq = 0
-        emit(UUID(), .started(
+        let id = UUID()
+        authoringSessionId = id
+        emit(id, .started(
             routineName: routine.name,
             startedAt: startedAt,
             restSeconds: routine.restSeconds,
-            steps: routine.steps
+            steps: routine.steps,
+            routineUuid: routine.uuid
         ))
     }
 
+    private static func matches(_ state: LiveSession.State, _ routine: WatchSync.PlanRoutine) -> Bool {
+        if let stateUuid = state.routineUuid, let planUuid = routine.uuid {
+            return stateUuid == planUuid
+        }
+        return state.routineName == routine.name
+    }
+
     func logged(index: Int, weight: Double?, reps: Int?, duration: Int?, extras: [String: Double], at date: Date) {
-        guard let id = state?.sessionId else { return }
+        guard let id = authoringSessionId else { return }
         emit(id, .logSet(index: index, actualWeight: weight, actualReps: reps, actualDuration: duration, extras: extras, completedAt: date))
     }
 
     func restStarted(endsAt: Date, total: Int) {
-        guard let id = state?.sessionId else { return }
+        guard let id = authoringSessionId else { return }
         emit(id, .restStarted(endsAt: endsAt, total: total))
     }
 
     func restEnded() {
-        guard let id = state?.sessionId else { return }
+        guard let id = authoringSessionId else { return }
         emit(id, .restEnded)
     }
 
     func finished(at date: Date) {
-        guard let id = state?.sessionId else { return }
+        guard let id = authoringSessionId else { return }
         emit(id, .finished(endedAt: date))
+        authoringSessionId = nil
     }
 
     func discarded() {
-        guard let id = state?.sessionId else { return }
+        guard let id = authoringSessionId else { return }
         emit(id, .discarded)
+        authoringSessionId = nil
     }
 
     // MARK: - Phone authored
@@ -78,6 +106,49 @@ final class WatchLiveSession {
     func ingest(_ op: LiveSession.Op) {
         reducer.apply(op)
         persist()
+        syncRestNotifier(after: op)
+    }
+
+    /// Phone-driven rests finally cue the wrist (#511): the "rest over"
+    /// notification tracks the phone's rest register — an adjustment
+    /// reschedules it, Skip and the session's end cancel it. Wrist-
+    /// authored rests are scheduled by the run view itself; this answers
+    /// PHONE ops only, and never resurrects a stale rest (a drained
+    /// queue can deliver hours-old ops).
+    private func syncRestNotifier(after op: LiveSession.Op) {
+        guard op.origin == .phone else { return }
+        // The wrist's own run owns its notifier: a phone op for a
+        // DIFFERENT session (a displaced reducer state — stage 1's
+        // authoring freeze exists for exactly this) must not cancel or
+        // hijack the pending cue of the rest the wrist user is in.
+        guard authoringSessionId == nil || authoringSessionId == op.sessionId else { return }
+        switch op.kind {
+        case .restStarted, .restEnded, .finished, .discarded, .paused, .resumed:
+            // A HELD session's rest must not buzz mid-hold (#512): the
+            // phone banks the countdown and re-emits restStarted with the
+            // re-based date on resume, so pause falls to cancel here and
+            // resume reschedules from that op.
+            guard let state, !state.isClosed, !state.isPaused,
+                  let endsAt = state.restEndsAt, endsAt.timeIntervalSinceNow > 1,
+                  let name = Self.upNextName(state) else {
+                WatchRestNotifier.cancel()
+                return
+            }
+            WatchRestNotifier.schedule(at: endsAt, exerciseName: name)
+        default:
+            break
+        }
+    }
+
+    /// The step the rest is counting down TO — the cursor's step, or the
+    /// last one when the cursor has run past the plan. nil only for a
+    /// zero-step mirror (a phone scratch session), which has no honest
+    /// name to promise.
+    private static func upNextName(_ state: LiveSession.State) -> String? {
+        if state.steps.indices.contains(state.currentIndex) {
+            return state.steps[state.currentIndex].exerciseName
+        }
+        return state.steps.last?.exerciseName
     }
 
     // MARK: - Internals
@@ -109,7 +180,10 @@ final class WatchLiveSession {
     }
 
     private func persist() {
-        guard let state, !state.isFinished, let data = try? WatchSync.encode(state) else {
+        // isClosed, not isFinished: a phone discard used to leave the
+        // journal in place forever, and the dead state swallowed every
+        // future phone session's ops (#510).
+        guard let state, !state.isClosed, let data = try? WatchSync.encode(state) else {
             UserDefaults.standard.removeObject(forKey: Self.journalKey)
             return
         }

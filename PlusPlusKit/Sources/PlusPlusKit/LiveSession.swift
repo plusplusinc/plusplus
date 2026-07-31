@@ -74,8 +74,10 @@ public enum LiveSession {
         /// Session birth. Carries the plan so a watch-originated session
         /// can materialize on a phone that never saw it. `steps` are in
         /// execution order (supersets already rotated); `restSeconds` is
-        /// the routine default.
-        case started(routineName: String, startedAt: Date, restSeconds: Int, steps: [WatchSync.Step])
+        /// the routine default. `routineUuid` is the routine's stable
+        /// cross-device identity (#511 — names are not unique); additive
+        /// optional, nil from builds that predate it.
+        case started(routineName: String, startedAt: Date, restSeconds: Int, steps: [WatchSync.Step], routineUuid: UUID?)
         /// A set logged (or re-logged) at `index`.
         case logSet(index: Int, actualWeight: Double?, actualReps: Int?, actualDuration: Int?, extras: [String: Double], completedAt: Date)
         /// A logged set reopened (redo) — clears its actuals/completion.
@@ -90,6 +92,19 @@ public enum LiveSession {
         case finished(endedAt: Date)
         /// Session discarded (the record is deleted).
         case discarded
+        /// The session was put on hold / taken off hold (#512). Carries
+        /// display semantics only: each device banks elapsed time in its
+        /// own ledger; the peer just shows the held state honestly.
+        /// ⚠️ An OLDER peer cannot decode an op carrying an unknown kind
+        /// — its `try? decode` drops the whole op silently. Pause state
+        /// degrades to invisible there, exactly the pre-#512 behavior.
+        case paused(at: Date)
+        case resumed(at: Date)
+        /// The step list changed mid-session (#512 — an added exercise,
+        /// a swap, a resize). Carries the WHOLE new list, `.started`-style:
+        /// the list is small and replacement is idempotent where a diff
+        /// would need its own ordering protocol.
+        case stepsChanged(steps: [WatchSync.Step])
     }
 
     /// One logged set inside the reduced state.
@@ -123,6 +138,10 @@ public enum LiveSession {
         /// Which device minted the session.
         public var origin: Origin
         public var routineName: String
+        /// The routine's stable identity (#511) — what adoption keys on
+        /// when both sides carry it; names are not unique. Additive
+        /// optional: old journals decode nil.
+        public var routineUuid: UUID?
         public var startedAt: Date
         public var restSeconds: Int
         public var steps: [WatchSync.Step]
@@ -135,16 +154,25 @@ public enum LiveSession {
         public var endedAt: Date?
         public var discarded: Bool
         public var lifecycleStamp: Stamp?
+        /// Held since this moment; nil when running (#512). Additive
+        /// optionals: an old journal decodes un-paused, and the stamp
+        /// register keeps pause/resume LWW like every other field.
+        public var pausedAt: Date?
+        public var pauseStamp: Stamp?
+        /// Stamp of the last steps replacement (#512); the birth list
+        /// carries no stamp and always loses to an explicit change.
+        public var stepsStamp: Stamp?
         /// opIds folded in — a grow-only set, so coverage compares
         /// order-independently and criss-cross merges converge.
         public var applied: Set<UUID>
 
         /// Births a state from a `.started` op.
         public init?(started op: Op) {
-            guard case let .started(routineName, startedAt, restSeconds, steps) = op.kind else { return nil }
+            guard case let .started(routineName, startedAt, restSeconds, steps, routineUuid) = op.kind else { return nil }
             self.sessionId = op.sessionId
             self.origin = op.origin
             self.routineName = routineName
+            self.routineUuid = routineUuid
             self.startedAt = startedAt
             self.restSeconds = restSeconds
             self.steps = steps
@@ -157,6 +185,9 @@ public enum LiveSession {
             self.endedAt = nil
             self.discarded = false
             self.lifecycleStamp = nil
+            self.pausedAt = nil
+            self.pauseStamp = nil
+            self.stepsStamp = nil
             self.applied = [op.opId]
         }
 
@@ -166,6 +197,26 @@ public enum LiveSession {
         public var completedCount: Int { logs.filter { $0.completedAt != nil }.count }
         public var isFinished: Bool { endedAt != nil }
         public var isResting: Bool { restEndsAt != nil }
+        public var isPaused: Bool { pausedAt != nil }
+        /// Over, either way. `.discarded` never sets `endedAt`, so
+        /// `isFinished` alone under-reports "this session is done with" —
+        /// the journal-that-never-cleared bug (stage 1 of the watch
+        /// repair, #510).
+        public var isClosed: Bool { isFinished || discarded }
+
+        /// The newest stamp folded into any register — when this session
+        /// last verifiably moved. Displacement (below) compares against
+        /// it so an op-stream replay can never resurrect a dead session.
+        /// ⚠️ EVERY register belongs here: a register this misses is a
+        /// window where a stale foreign birth can displace a live session
+        /// (stage-3 review — pause/steps were briefly missing).
+        public var latestStamp: Stamp? {
+            var best = logs.map(\.stamp).max()
+            for candidate in [cursorStamp, restStamp, lifecycleStamp, pauseStamp, stepsStamp] {
+                if let candidate, best.map({ candidate > $0 }) ?? true { best = candidate }
+            }
+            return best
+        }
 
         public func log(at index: Int) -> LoggedSet? {
             logs.first { $0.index == index }
@@ -211,6 +262,12 @@ public enum LiveSession {
                 if Self.beats(stamp, lifecycleStamp) { self.endedAt = endedAt; discarded = false; lifecycleStamp = stamp }
             case .discarded:
                 if Self.beats(stamp, lifecycleStamp) { discarded = true; lifecycleStamp = stamp }
+            case let .paused(at):
+                if Self.beats(stamp, pauseStamp) { pausedAt = at; pauseStamp = stamp }
+            case .resumed:
+                if Self.beats(stamp, pauseStamp) { pausedAt = nil; pauseStamp = stamp }
+            case let .stepsChanged(steps):
+                if Self.beats(stamp, stepsStamp) { self.steps = steps; stepsStamp = stamp }
             }
             return true
         }
@@ -229,6 +286,12 @@ public enum LiveSession {
             }
             if Self.beats(other.lifecycleStamp, lifecycleStamp) {
                 endedAt = other.endedAt; discarded = other.discarded; lifecycleStamp = other.lifecycleStamp
+            }
+            if Self.beats(other.pauseStamp, pauseStamp) {
+                pausedAt = other.pausedAt; pauseStamp = other.pauseStamp
+            }
+            if Self.beats(other.stepsStamp, stepsStamp) {
+                steps = other.steps; stepsStamp = other.stepsStamp
             }
             applied.formUnion(other.applied)
         }
@@ -260,20 +323,59 @@ public enum LiveSession {
     public struct Reducer {
         public private(set) var state: State?
         private var pending: [Op] = []
+        /// Cross-session holding is bounded — a foreign session's ops
+        /// wait for their `.started` (#512), they don't grow forever.
+        private static let pendingCap = 256
 
         public init() {}
 
         public mutating func apply(_ op: Op) {
-            if state != nil {
-                state?.apply(op)
+            if let current = state {
+                if current.sessionId == op.sessionId {
+                    state?.apply(op)
+                    return
+                }
+                // A newer `.started` for a DIFFERENT session displaces the
+                // state (stage 1, #510): there is one human, so a session
+                // that has genuinely begun means the old one is over in
+                // reality even when its `.finished`/`.discarded` was lost.
+                // A replay can't resurrect the past: an old `.started`
+                // carries an older stamp than the state's latest activity
+                // and is refused — and a losing birth DROPS rather than
+                // buffers (it is dead history and would only churn
+                // through every future replay).
+                if case .started = op.kind {
+                    if op.stamp > (current.latestStamp
+                           ?? Stamp(at: current.startedAt, origin: current.origin, seq: 0)),
+                       let born = State(started: op) {
+                        state = born
+                        replayPending()
+                    }
+                    return
+                }
+                // Not ours, not a birth: hold it for the session it
+                // belongs to (#512) — a reachability flip can deliver a
+                // new session's live ops before its queued `.started`.
+                buffer(op)
             } else if let born = State(started: op) {
                 state = born
-                let buffered = pending
-                pending = []
-                for p in buffered { apply(p) }
+                replayPending()
             } else {
-                pending.append(op)
+                buffer(op)
             }
+        }
+
+        private mutating func buffer(_ op: Op) {
+            pending.append(op)
+            if pending.count > Self.pendingCap {
+                pending.removeFirst(pending.count - Self.pendingCap)
+            }
+        }
+
+        private mutating func replayPending() {
+            let buffered = pending
+            pending = []
+            for p in buffered { apply(p) }
         }
 
         /// Adopts an authoritative peer snapshot: merges if it's the same
