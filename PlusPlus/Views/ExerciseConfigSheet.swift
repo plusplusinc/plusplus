@@ -34,7 +34,10 @@ struct ExerciseConfigSheet: View {
     private var profile: MetricProfile { config.profile }
 
     /// What this block counts in, for the stepper label.
-    private var blockUnit: WorkUnit { exercise.modality.workUnit ?? .set }
+    /// The divider control's noun. ⚠️ `.divider`, not `?? .set`: a walk
+    /// counts nothing, and offering it three SETS is the rack's word on a
+    /// surface that has never been in a rack.
+    private var blockUnit: WorkUnit { WorkUnit.divider(exercise.modality.workUnit) }
 
     var body: some View {
         VStack(spacing: 0) {

@@ -30,6 +30,29 @@ struct WorkUnitTests {
         #expect(countable.count == ExerciseModality.allCases.count - 2)
     }
 
+    @Test("The control that DIVIDES an effort never borrows the rack's noun")
+    func dividerNoun() {
+        // A walk counts nothing, and both prescription sheets used to fall
+        // back to `.set` — offering, on a walk, three SETS. Rounds is the
+        // sport-neutral word the app already owns.
+        #expect(WorkUnit.divider(ExerciseModality.walking.workUnit) == .round)
+        #expect(WorkUnit.divider(ExerciseModality.hiking.workUnit) == .round)
+        // Everything that DOES count keeps its own word.
+        #expect(WorkUnit.divider(ExerciseModality.strength.workUnit) == .set)
+        #expect(WorkUnit.divider(ExerciseModality.rowing.workUnit) == .piece)
+        #expect(WorkUnit.divider(ExerciseModality.running.workUnit) == .rep)
+        #expect(WorkUnit.divider(ExerciseModality.cycling.workUnit) == .effort)
+    }
+
+    @Test("Dividing is not counting: the kicker and the key still say nothing")
+    func dividerDoesNotLeakIntoExecution() {
+        // ⚠️ The whole point of the split. `divider` gives the AUTHORING
+        // control a word; the execution surfaces keep the nil, so a walk
+        // still prints no kicker and its key still reads "Log".
+        #expect(WorkUnit.kicker(ExerciseModality.walking.workUnit, index: 1, total: 4) == nil)
+        #expect(WorkUnit.inline(ExerciseModality.hiking.workUnit, index: 2, total: 4) == nil)
+    }
+
     @Test("The kicker disappears at a count of one")
     func kickerHiddenAtOne() {
         // A steady forty-minute ride must not read "EFFORT 1 OF 1" — it
