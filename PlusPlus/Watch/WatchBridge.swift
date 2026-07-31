@@ -94,7 +94,8 @@ final class WatchBridge: NSObject, WCSessionDelegate {
             name: routine.name,
             restSeconds: routine.restSeconds,
             transitionSeconds: routine.transitionSeconds,
-            steps: steps
+            steps: steps,
+            uuid: routine.uuid
         )
     }
 
@@ -170,10 +171,17 @@ final class WatchBridge: NSObject, WCSessionDelegate {
     /// result merges the same values onto the same row.
     private func importResult(_ result: WatchSync.SessionResult, into context: ModelContext) {
         let existing = (try? context.fetch(FetchDescriptor<WorkoutSession>())) ?? []
-        if let match = existing.first(where: {
+        // The live session's own id is the honest key (#511): the mirror
+        // row was materialized with it, so the match cannot confuse two
+        // same-named sessions the way the (name, startedAt) heuristic
+        // can. The heuristic stays as the fallback for older watches.
+        let match = result.sessionId.flatMap { sid in
+            existing.first { $0.sessionId == sid }
+        } ?? existing.first {
             $0.routineName == result.routineName
                 && abs($0.startedAt.timeIntervalSince(result.startedAt)) < 1
-        }) {
+        }
+        if let match {
             merge(result, into: match, context: context)
             return
         }
@@ -183,6 +191,9 @@ final class WatchBridge: NSObject, WCSessionDelegate {
             startedAt: result.startedAt,
             restSeconds: result.restSeconds
         )
+        // Keep the wire identity so a redelivery of this same result
+        // dedupes by id, not just by the heuristic.
+        if let sid = result.sessionId { session.sessionId = sid }
         context.insert(session)
         // The wrist's live-builder summary; nil when Health said no
         // there. The phone never re-derives it for watch sessions —
@@ -301,9 +312,14 @@ final class WatchBridge: NSObject, WCSessionDelegate {
         }
         // The wrist's end is the honest one. The `.finished` op already
         // closed the row in the common case; correct the stamp when a
-        // different door closed it first.
+        // different door closed it first. ⚠️ Never end a session the
+        // PHONE is actively authoring (#511, the adopted-session edge):
+        // the wrist wrapping up its share must not finish the workout
+        // the phone user is still in — their own Finish does that.
         if !session.isFinished {
-            session.finish(at: result.endedAt)
+            if !LiveMirror.phoneIsAuthoring(session.sessionId) {
+                session.finish(at: result.endedAt)
+            }
         } else if let ended = session.endedAt, abs(ended.timeIntervalSince(result.endedAt)) > 1 {
             session.endedAt = result.endedAt
         }

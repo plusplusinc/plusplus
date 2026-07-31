@@ -450,6 +450,10 @@ struct WorkoutRunView: View {
         WatchRestNotifier.cancel()
         health.finish()
         let now = Date()
+        // ⚠️ Capture BEFORE the finished op — it clears the authoring id.
+        // The result carries the same identity the ops carried, so the
+        // phone's import keys on it instead of (name, startedAt) (#511).
+        let sessionId = store.live.authoringSessionId
         // Tell the phone the mirrored session is done (#322). The full
         // SessionResult below still ships as the durable history import;
         // the op just closes the live session promptly.
@@ -463,7 +467,8 @@ struct WorkoutRunView: View {
             // The wrist's own live-builder summary — the phone stamps
             // it onto the imported session (nil when Health said no).
             averageHeartRate: health.averageBPM,
-            maxHeartRate: health.maxBPM
+            maxHeartRate: health.maxBPM,
+            sessionId: sessionId
         ))
         WKInterfaceDevice.current().play(.success)
         finished = true

@@ -40,12 +40,14 @@ final class LiveMirror {
     func begin(_ session: WorkoutSession) {
         guard !session.isFinished else { return }
         activeId = session.sessionId
+        Self.setPhoneAuthoring(session.sessionId)
         seq = 0
         emit(session, .started(
             routineName: session.routineName,
             startedAt: session.effectiveStart,
             restSeconds: session.restSeconds,
-            steps: Self.steps(for: session)
+            steps: Self.steps(for: session),
+            routineUuid: session.routine?.uuid
         ))
     }
 
@@ -111,6 +113,7 @@ final class LiveMirror {
     /// Stops authoring — the workout is over on this device.
     private func end() {
         activeId = nil
+        Self.setPhoneAuthoring(nil)
     }
 
     private func emit(_ session: WorkoutSession, _ kind: LiveSession.Kind) {
@@ -200,9 +203,9 @@ final class LiveMirror {
         let session = (try? context.fetch(descriptor))?.first
 
         switch op.kind {
-        case let .started(routineName, startedAt, restSeconds, steps):
+        case let .started(routineName, startedAt, restSeconds, steps, routineUuid):
             guard session == nil else { return } // already materialized
-            materialize(sessionId: sessionId, routineName: routineName, startedAt: startedAt, restSeconds: restSeconds, steps: steps, into: context)
+            materialize(sessionId: sessionId, routineName: routineName, startedAt: startedAt, restSeconds: restSeconds, steps: steps, routineUuid: routineUuid, into: context)
         case let .logSet(index, w, r, d, extras, completedAt):
             // On a FINISHED session a late op may only FILL A HOLE (an
             // un-completed log — a set the ops lost that no result will
@@ -255,10 +258,17 @@ final class LiveMirror {
         case .restStarted, .restEnded:
             break // rest is view state on the phone, not stored
         case let .finished(endedAt):
-            guard let session, !session.isFinished else { return }
+            // ⚠️ The wrist ending its share of an ADOPTED session must not
+            // end the workout the phone user is still in (#511) — and this
+            // op, not the result import, is what arrives first, so the
+            // guard lives HERE. Their own Finish closes it; the result
+            // merge fills the wrist's data either way.
+            guard let session, !session.isFinished,
+                  !phoneIsAuthoring(session.sessionId) else { return }
             session.finish(at: endedAt)
         case .discarded:
-            if let session { context.delete(session) }
+            guard let session, !phoneIsAuthoring(session.sessionId) else { return }
+            context.delete(session)
         }
         try? context.save()
     }
@@ -274,6 +284,21 @@ final class LiveMirror {
     /// A wrist session this stale with no ops is no longer live — salvage
     /// may take it, with the honest last-activity anchor.
     private nonisolated static let liveElsewhereWindow: TimeInterval = 12 * 3600
+    /// The session the PHONE is actively authoring, readable from the
+    /// WCSession delegate queue (#511): the result-import merge must
+    /// never end a session the phone user is mid-workout in. In-memory
+    /// only — process death ends authoring by definition.
+    private nonisolated(unsafe) static var phoneAuthoringId: UUID?
+
+    nonisolated static func phoneIsAuthoring(_ sessionId: UUID) -> Bool {
+        registryLock.lock(); defer { registryLock.unlock() }
+        return phoneAuthoringId == sessionId
+    }
+
+    nonisolated fileprivate static func setPhoneAuthoring(_ sessionId: UUID?) {
+        registryLock.lock(); defer { registryLock.unlock() }
+        phoneAuthoringId = sessionId
+    }
     /// The registry mutates from the WCSession delegate queue AND the
     /// main actor; an unlocked read-modify-write could drop a fresh
     /// session's only entry and hand it back to salvage — the exact bug
@@ -303,15 +328,21 @@ final class LiveMirror {
         return Date().timeIntervalSince1970 - last < liveElsewhereWindow
     }
 
-    nonisolated private static func materialize(sessionId: UUID, routineName: String, startedAt: Date, restSeconds: Int, steps: [WatchSync.Step], into context: ModelContext) {
+    nonisolated private static func materialize(sessionId: UUID, routineName: String, startedAt: Date, restSeconds: Int, steps: [WatchSync.Step], routineUuid: UUID?, into context: ModelContext) {
         let session = WorkoutSession(routineName: routineName, startedAt: startedAt, restSeconds: restSeconds)
         // The `.started` op predates transitions (#369), so snapshot the
-        // routine's own setting by name — it covers a custody switch to
-        // the phone mid-run. A scratch name resolves nothing and keeps
-        // the default.
-        if let routine = try? context.fetch(
+        // routine's own setting — by its stable uuid when the op carries
+        // one (#511; names are not unique), by name for older peers. A
+        // scratch name resolves nothing and keeps the default.
+        let byUuid = routineUuid.flatMap { uuid in
+            (try? context.fetch(
+                FetchDescriptor<Routine>(predicate: #Predicate { $0.uuid == uuid })
+            ))?.first
+        }
+        let byName = byUuid == nil ? (try? context.fetch(
             FetchDescriptor<Routine>(predicate: #Predicate { $0.name == routineName })
-        ).first {
+        ))?.first : nil
+        if let routine = byUuid ?? byName {
             session.transitionSeconds = routine.transitionSeconds
         }
         session.sessionId = sessionId

@@ -85,6 +85,26 @@ struct LiveMirrorProjectionTests {
         #expect(profile.paceReference == .per100Yards)
     }
 
+    @Test("A started op resolves its routine by uuid, not name")
+    func materializeResolvesByUuid() throws {
+        let context = ModelContext(try makeContainer())
+        let routine = Routine(name: "Probe Push", transitionSeconds: 77)
+        context.insert(routine)
+        try context.save()
+
+        // The wrist knew this routine by an old name; the uuid is the
+        // identity that survives the rename (#511).
+        let sid = UUID()
+        defer { LiveMirror.clearRemoteActivity(sid) }
+        LiveMirror.project(op(sid, seq: 0, .started(
+            routineName: "Renamed Since", startedAt: Date(), restSeconds: 60,
+            steps: [], routineUuid: routine.uuid
+        )), into: context)
+        let sessions = try context.fetch(FetchDescriptor<WorkoutSession>())
+        let materialized = try #require(sessions.first { $0.sessionId == sid })
+        #expect(materialized.transitionSeconds == 77)
+    }
+
     @Test("The live-elsewhere registry answers within its window and clears")
     func registryRoundTrip() {
         let id = UUID()

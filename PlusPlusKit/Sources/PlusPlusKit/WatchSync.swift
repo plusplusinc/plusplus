@@ -27,14 +27,20 @@ public enum WatchSync {
         /// the wrist rests everywhere, exactly as before.
         public var transitionSeconds: Int?
         public var steps: [Step]
+        /// The routine's stable cross-device identity (#511) — what
+        /// session adoption keys on; names are not unique. Additive
+        /// optional: a plan from an older phone decodes nil and adoption
+        /// falls back to the name, exactly as before.
+        public var uuid: UUID?
 
         public var id: String { name }
 
-        public init(name: String, restSeconds: Int, transitionSeconds: Int? = nil, steps: [Step]) {
+        public init(name: String, restSeconds: Int, transitionSeconds: Int? = nil, steps: [Step], uuid: UUID? = nil) {
             self.name = name
             self.restSeconds = restSeconds
             self.transitionSeconds = transitionSeconds
             self.steps = steps
+            self.uuid = uuid
         }
 
         /// Whether this routine runs as an OUTDOOR workout on the wrist —
@@ -163,6 +169,12 @@ public enum WatchSync {
         /// (or runs where Health was declined) decode with nil.
         public var averageHeartRate: Int?
         public var maxHeartRate: Int?
+        /// The live session's shared identity (#511) — the same id the
+        /// mirror ops carried, so the phone's import can key on it
+        /// instead of the (name, startedAt) heuristic. Additive optional:
+        /// a result from an older watch decodes nil and the import falls
+        /// back to the heuristic.
+        public var sessionId: UUID?
 
         public init(
             routineName: String,
@@ -171,7 +183,8 @@ public enum WatchSync {
             restSeconds: Int,
             steps: [StepResult],
             averageHeartRate: Int? = nil,
-            maxHeartRate: Int? = nil
+            maxHeartRate: Int? = nil,
+            sessionId: UUID? = nil
         ) {
             self.routineName = routineName
             self.startedAt = startedAt
@@ -180,6 +193,7 @@ public enum WatchSync {
             self.steps = steps
             self.averageHeartRate = averageHeartRate
             self.maxHeartRate = maxHeartRate
+            self.sessionId = sessionId
         }
     }
 
