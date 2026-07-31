@@ -293,6 +293,9 @@ struct ActiveSessionView: View {
             Button("Discard workout", role: .destructive) {
                 LiveMirror.shared.discarded(session)
                 WorkoutActivityController.shared.end()
+                // Discarded means discarded everywhere: a live recording
+                // that merely ended would still save the workout to Health.
+                LiveWorkoutController.shared.discard()
                 modelContext.delete(session)
                 dismiss()
             }
@@ -361,6 +364,7 @@ struct ActiveSessionView: View {
             if !session.isFinished, session.isWorkoutStarted {
                 heartRate.start(from: session.effectiveStart)
                 syncLocation()
+                startLiveRecordingIfEnabled()
             }
             // The session's FIRST exercise announces here (no key change
             // to observe); later exercises ride activeExerciseKey below.
@@ -380,6 +384,9 @@ struct ActiveSessionView: View {
         // and `.onChange` fires after the render that observed it.
         .onChange(of: session.isPaused) { _, paused in
             paused ? location.pause() : location.resume()
+            // The live recording holds with the clock, so paused minutes
+            // are not filed as effort. No-op when nothing is recording.
+            paused ? LiveWorkoutController.shared.pause() : LiveWorkoutController.shared.resume()
             // Belt for the Pause key's braces, and cover for any future
             // pause affordance (#157's island controls would post a
             // notification, exactly like `.plusplusAdjustRest` does).
@@ -859,6 +866,20 @@ struct ActiveSessionView: View {
         session.startClock()
         heartRate.start(from: session.effectiveStart)
         syncLocation()
+        startLiveRecordingIfEnabled()
+    }
+
+    /// Hand the recording to the phone's own `HKWorkoutSession` when the
+    /// user has opted in (off by default). Idempotent, and inert when the
+    /// switch is off — with it off nothing below changes and the finish
+    /// still writes retrospectively.
+    ///
+    /// ⚠️ It rides the WORKOUT CLOCK, not the screen: an ad-hoc session
+    /// exists while its exercises are being assembled, and a session that
+    /// began recording then would file the assembly time as training.
+    /// Both callers are the two places the clock engages.
+    private func startLiveRecordingIfEnabled() {
+        LiveWorkoutController.shared.start(modality: session.modality, at: session.effectiveStart)
     }
 
     // MARK: - Paused
@@ -1265,7 +1286,21 @@ struct ActiveSessionView: View {
             // recorded by the wrist's own live session (#90). Health gets
             // the route only when the durable record calls it a run — the
             // two must not disagree about a degenerate zero-distance track.
-            HealthRecorder.record(session, route: hasRealRun ? runRoute : [])
+            //
+            // ⚠️ EXACTLY ONE writer. When the phone ran its own live
+            // session it has been recording all along and saves the
+            // workout itself, so the retrospective write would be a
+            // duplicate in Health — the one failure mode worse than
+            // either path alone. `finish` answers synchronously, before
+            // its own asynchronous end sequence, precisely so this
+            // decision never waits on a callback that might not arrive.
+            let route = hasRealRun ? runRoute : []
+            let liveOwnsTheSave = LiveWorkoutController.shared.finish(
+                at: session.endedAt ?? Date(), route: route
+            )
+            if !liveOwnsTheSave {
+                HealthRecorder.record(session, route: route)
+            }
         }
         if dismissAfter {
             dismiss()
@@ -2507,12 +2542,38 @@ private struct LiveHeartRateLabel: View {
     let target: HeartRateTarget?
     var chrome = false
 
+    /// The number to show, live stream first (#418).
+    ///
+    /// ⚠️ The phone's own workout session, when one is running, is the
+    /// better source and the whole reason it exists: the anchored query
+    /// reads whatever Health has, and watch→phone delivery is batched, so
+    /// the newest visible sample was routinely older than the 180 s gate
+    /// and the capsule stayed blank for a whole workout. A live builder
+    /// delivers what it collects, which is why its window is far shorter —
+    /// a stream that has gone quiet for 30 s has genuinely stopped.
+    /// Read from the singleton rather than threaded through three call
+    /// sites: there is one recorder per process, as with
+    /// `WorkoutActivityController.shared`, and observation tracks it here
+    /// just the same.
+    @MainActor
+    private func reading(at date: Date) -> Int? {
+        let live = LiveWorkoutController.shared
+        if let bpm = live.latestBPM, let at = live.latestBPMAt,
+           date.timeIntervalSince(at) < LiveWorkoutController.bpmFreshWindow {
+            return bpm
+        }
+        if let bpm = monitor.latestBPM, let at = monitor.latestAt,
+           date.timeIntervalSince(at) < HeartRateMonitor.freshWindow {
+            return bpm
+        }
+        return nil
+    }
+
     var body: some View {
         // Ticks to EXPIRE a reading, not to display one — updates
         // arrive through the monitor's observation.
         TimelineView(.periodic(from: .now, by: 5)) { context in
-            if let bpm = monitor.latestBPM, let at = monitor.latestAt,
-               context.date.timeIntervalSince(at) < HeartRateMonitor.freshWindow {
+            if let bpm = reading(at: context.date) {
                 let inTarget = target?.contains(bpm, maxHeartRate: monitor.maxHeartRate) ?? false
                 let label = (Text("\(Image(systemName: "heart.fill")) ")
                     .foregroundStyle(inTarget ? Theme.accent : Theme.textSecondary)
