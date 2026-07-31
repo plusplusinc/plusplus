@@ -1065,12 +1065,12 @@ struct TodayView: View {
                     onEdit: { editingQuickStarts = true }
                 )
             }
-            // Thin on top (the strip's own bottom clearance carries the
-            // gap when the tally shows); real clearance below, because
-            // the keys are the band's last element and the rows slide
-            // under THEM.
-            .padding(.top, 2)
-            .padding(.bottom, 10)
+            // The band's FIRST element now: real clearance above (under
+            // the collapsed bar), thin below — the strip's own top pad
+            // carries the inter-section gap, and its bottom pad is the
+            // shelf's clearance.
+            .padding(.top, 8)
+            .padding(.bottom, 2)
         }
     }
 
@@ -1508,13 +1508,16 @@ struct TodayView: View {
     /// the band shares is the large title collapsing into the bar.
     private var weekStripBand: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // Quick start LEADS the band (Dave, build 159): the actions
+            // first, the week's facts under them. Each section's caption
+            // still sits directly above its own content — QUICK START
+            // over the keys, the tally sentence over its bar — so the
+            // caption-adoption misread stays impossible in either order.
+            // Plain pinned chrome hit-tests normally; the old
+            // float-offset concern died with the in-scroll mounts.
+            quickStartBand
             weekStrip
                 .padding(.horizontal, 16)
-            // Quick start rides IN the band: unambiguously chrome, and a
-            // thumb away however deep the scroll sits. Plain pinned
-            // chrome hit-tests normally — the old float-offset concern
-            // died with the in-scroll mounts.
-            quickStartBand
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         // Opaque, because the timeline slides UNDER it. Same call the
