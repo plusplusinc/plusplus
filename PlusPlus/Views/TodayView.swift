@@ -292,6 +292,23 @@ struct TodayView: View {
                             }
                             .padding(.horizontal, 16)
                             weekStripReservation
+                            // ⚠️ Quick start is HEADER FURNITURE, not a
+                            // timeline entry (Dave, build 159: the keys
+                            // "don't belong in the timeline" — revising
+                            // build 158's under-the-date rail placement).
+                            // The rail records OCCURRENCES; a row of keys
+                            // is an OFFER, so it takes the zone the week
+                            // strip established for surface furniture:
+                            // full width, no spine, directly above the
+                            // date line where the timeline begins. Still
+                            // scroll content (anything a large title can
+                            // travel over has to be), and deliberately
+                            // NOT inside the sticky band itself: the band
+                            // floats on a visualEffect offset, and keys
+                            // that render offset from where they hit-test
+                            // are a class of bug a fact-only band never
+                            // has to answer for.
+                            quickStartBand
                             // Lazy: the committed section is the whole
                             // history — eager building made every render
                             // O(sessions) (bug hunt perf finding).
@@ -300,22 +317,6 @@ struct TodayView: View {
                                 // on the item it names — and it's the
                                 // line the opening scroll lands on.
                                 todayMarker
-                                // ⚠️ Quick start lives HERE, not in the start
-                                // tray (Dave, build 158, overruling the
-                                // placement #476 shipped). Cardio is
-                                // spontaneous — the whole point is that going
-                                // for a run is one tap — and a tap that first
-                                // has to open a sheet is not one tap. It sits
-                                // directly under today's date because that is
-                                // what it belongs to, and it is the first
-                                // thing under the opening scroll's landing.
-                                //
-                                // Scroll CONTENT on the rail, never chrome
-                                // beside it: anything a large title can travel
-                                // over has to be scroll content (the sticky
-                                // band's law), and a pinned row here would
-                                // fight both the title and the band.
-                                quickStartItem
                                 // The rest-day item yields to the setup scaffold
                                 // until a startable routine exists — "nothing
                                 // scheduled" and "schedule it (3 of 3)" saying
@@ -1037,34 +1038,29 @@ struct TodayView: View {
         .fixedSize(horizontal: false, vertical: true)
     }
 
-    /// One-tap start for the sports you actually do, on the rail under
-    /// today's date.
+    /// One-tap starts for the sports you actually do — the surface's own
+    /// furniture, in the header zone under the week strip.
     ///
-    /// Spine only, no node: a node marks an OCCURRENCE, and these keys are
-    /// an offer rather than an entry on the timeline — the same call
-    /// `beyondThisWeekBlock` makes. The keys carry their own raised chrome,
-    /// so the row needs no card around them.
+    /// Full width and no spine: the rail records occurrences, and these
+    /// keys are an offer, so they sit ABOVE the date line where the
+    /// timeline begins (the week strip's own precedent: the tally is the
+    /// surface's header, not an entry). The keys carry their own raised
+    /// chrome, so the band needs no card; its bottom breathing room is
+    /// what separates the header zone from the timeline.
     ///
     /// ⚠️ It renders nothing while the setup scaffold is running: a full
     /// viewport of "3 of 3" steps with a Run key floating above it offers two
     /// beginnings at once, and setup is the one that has to finish.
     @ViewBuilder
-    private var quickStartItem: some View {
+    private var quickStartBand: some View {
         if !setupActive || allSetupDone, !quickStartExercises.isEmpty {
-            HStack(alignment: .top, spacing: 10) {
-                Rectangle()
-                    .fill(Theme.border)
-                    .frame(width: 2)
-                    .frame(maxHeight: .infinity)
-                    .frame(width: 20)
-                QuickStartRow(
-                    exercises: quickStartExercises,
-                    onPick: { quickStartConfig = SessionExerciseConfig(exercise: $0) },
-                    onEdit: { editingQuickStarts = true }
-                )
-                .padding(.vertical, 4)
-            }
-            .fixedSize(horizontal: false, vertical: true)
+            QuickStartRow(
+                exercises: quickStartExercises,
+                onPick: { quickStartConfig = SessionExerciseConfig(exercise: $0) },
+                onEdit: { editingQuickStarts = true }
+            )
+            .padding(.top, 8)
+            .padding(.bottom, 4)
         }
     }
 

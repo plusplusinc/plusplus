@@ -46,8 +46,55 @@ enum QuickStartPicks {
     }
 }
 
-/// The start tray's one-tap row: the sports you actually do, plus a key to
-/// choose which ones sit here.
+/// What a quick-start key SAYS: the imperative, not the activity noun
+/// ("Run", never "Running" — Dave, build 159). A key is a command, and a
+/// gerund on a command reads as a label on a thing rather than a thing
+/// to do.
+///
+/// Authored per built-in name (the FormCues shape), because verbs need
+/// judgment a derivation can't make — Cycling rides, Indoor Cycling
+/// spins, a pool swim is just "Swim" while open water says where.
+/// Customs fall back to their modality's verb; where no honest verb
+/// exists (a generic-cardio custom, an elliptical) the name stands — a
+/// noun key beats a wrong verb.
+enum QuickStartLabel {
+    private static let byName: [String: String] = [
+        "Running": "Run",
+        "Treadmill Run": "Run inside",
+        "Walking": "Walk",
+        "Hiking": "Hike",
+        "Cycling": "Ride",
+        "Indoor Cycling": "Spin",
+        "Rowing": "Row",
+        "Pool Swim": "Swim",
+        "Open Water Swim": "Swim open water",
+    ]
+
+    static func text(for exercise: Exercise) -> String {
+        if let authored = byName[exercise.name] { return authored }
+        if let verb = verb(for: exercise.modality) { return verb }
+        return exercise.name
+    }
+
+    private static func verb(for modality: ExerciseModality) -> String? {
+        switch modality {
+        case .running: "Run"
+        case .walking: "Walk"
+        case .hiking: "Hike"
+        case .cycling: "Ride"
+        case .rowing: "Row"
+        case .swimming: "Swim"
+        case .jumpRope: "Jump rope"
+        case .stairClimbing: "Climb"
+        // No honest imperative: "ellipt" is not a thing you tell
+        // someone to do, and generic cardio has no verb of its own.
+        case .elliptical, .cardio, .strength, .flexibility: nil
+        }
+    }
+}
+
+/// The one-tap row: the sports you actually do, plus a key to choose
+/// which ones sit here.
 ///
 /// Cardio is mostly spontaneous — nobody authors a template before stepping
 /// out the door — and before this, going for a run meant the start tray,
@@ -57,11 +104,23 @@ enum QuickStartPicks {
 /// Grammar: `RaisedKey`-family caps, because each one COMMITS to starting
 /// something. The trailing key is a `CreateRow`-style green bordered cap —
 /// it configures the row rather than starting a workout, so it reads as
-/// creation, not as a sport.
+/// creation, not as a sport. The scroll runs full-bleed with the surface's
+/// 16 pt content margin, so a long row slides under the screen edge
+/// instead of clipping at a column boundary.
 struct QuickStartRow: View {
     let exercises: [Exercise]
     let onPick: (Exercise) -> Void
     let onEdit: () -> Void
+
+    /// The key's imperative — unless two picks resolve to the same verb
+    /// (both climbers, a custom bike beside Cycling), where the colliding
+    /// keys fall back to their own names: two keys both saying "Ride"
+    /// is a coin flip, and a noun beats a coin flip.
+    private func label(for exercise: Exercise) -> String {
+        let mine = QuickStartLabel.text(for: exercise)
+        let twins = exercises.filter { QuickStartLabel.text(for: $0) == mine }
+        return twins.count > 1 ? exercise.name : mine
+    }
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -74,7 +133,7 @@ struct QuickStartRow: View {
                             Image(systemName: exercise.modalitySymbolName)
                                 .font(.system(.footnote, weight: .semibold))
                                 .accessibilityHidden(true)
-                            Text(exercise.name)
+                            Text(label(for: exercise))
                                 .font(.system(.footnote, weight: .semibold))
                                 .lineLimit(1)
                         }
@@ -105,7 +164,10 @@ struct QuickStartRow: View {
                 .accessibilityLabel("Choose which workouts appear here")
                 .accessibilityIdentifier("quickStartEditButton")
             }
+            // 2 pt of slack so the caps' press travel never clips against
+            // the scroll bounds; the surface margin rides contentMargins.
             .padding(.horizontal, 2)
         }
+        .contentMargins(.horizontal, 14, for: .scrollContent)
     }
 }
