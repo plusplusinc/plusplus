@@ -258,10 +258,17 @@ final class LiveMirror {
         case .restStarted, .restEnded:
             break // rest is view state on the phone, not stored
         case let .finished(endedAt):
-            guard let session, !session.isFinished else { return }
+            // ⚠️ The wrist ending its share of an ADOPTED session must not
+            // end the workout the phone user is still in (#511) — and this
+            // op, not the result import, is what arrives first, so the
+            // guard lives HERE. Their own Finish closes it; the result
+            // merge fills the wrist's data either way.
+            guard let session, !session.isFinished,
+                  !phoneIsAuthoring(session.sessionId) else { return }
             session.finish(at: endedAt)
         case .discarded:
-            if let session { context.delete(session) }
+            guard let session, !phoneIsAuthoring(session.sessionId) else { return }
+            context.delete(session)
         }
         try? context.save()
     }

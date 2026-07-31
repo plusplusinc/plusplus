@@ -117,6 +117,11 @@ final class WatchLiveSession {
     /// queue can deliver hours-old ops).
     private func syncRestNotifier(after op: LiveSession.Op) {
         guard op.origin == .phone else { return }
+        // The wrist's own run owns its notifier: a phone op for a
+        // DIFFERENT session (a displaced reducer state — stage 1's
+        // authoring freeze exists for exactly this) must not cancel or
+        // hijack the pending cue of the rest the wrist user is in.
+        guard authoringSessionId == nil || authoringSessionId == op.sessionId else { return }
         switch op.kind {
         case .restStarted, .restEnded, .finished, .discarded:
             guard let state, !state.isClosed,
