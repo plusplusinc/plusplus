@@ -476,9 +476,11 @@ final class SmokeTests: XCTestCase {
     /// The facet row (filtering returns, 2026-07-31): a muscle chip
     /// narrows the Exercises catalog, the summary chip appears, and
     /// Clear all restores the full list. First-screen elements only
-    /// (the lazy-list law): equipment-free chest movers are a short
-    /// doable run, so Push-Up realizes; after clearing, the list leads
-    /// with the early-alphabet mobility rows.
+    /// (the lazy-list law) — and --uitest-reset PRE-FILLS the kit
+    /// (`populateLibrary`), so everything is doable and the narrowed
+    /// run is alphabetical from the top: assert early-alphabet rows
+    /// ("Bench Press" under Chest, "Arm Circles" after clearing),
+    /// never a P-row (the first run of this test failed exactly there).
     func testExerciseFilterNarrowsAndClears() throws {
         goToCatalog("exercises")
 
@@ -489,7 +491,7 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(chest.waitForExistence(timeout: 5), "the muscle menu offers Chest")
         chest.tap()
 
-        XCTAssertTrue(app.staticTexts["Push-Up"].waitForExistence(timeout: 5), "a chest row survives the filter")
+        XCTAssertTrue(app.staticTexts["Bench Press"].waitForExistence(timeout: 5), "a chest row survives the filter")
         snap("exercise-filter-chest")
 
         let summary = app.buttons["filterSummary"]
