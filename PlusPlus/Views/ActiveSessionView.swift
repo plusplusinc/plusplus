@@ -106,11 +106,17 @@ struct ActiveSessionView: View {
 
     private var totalSets: Int { session.sortedSetLogs.count }
 
-    /// The noun this WHOLE session counts in — for the header pill, the
-    /// exit dialog and the finish line, which describe the session rather
-    /// than any one exercise. A mixed session resolves to "set", which is
-    /// the right generic: a run plus a lifting block is not four pieces.
-    private var sessionUnit: WorkUnit { session.modality.primary.workUnit ?? .set }
+    /// The noun this WHOLE session counts in, or nil for a sport that
+    /// counts nothing. A MIXED session is never nil — `SessionModality`
+    /// files strength-plus-cardio as strength — which is the right generic:
+    /// a run plus a lifting block is not four pieces.
+    private var sessionWorkUnit: WorkUnit? { session.modality.primary.workUnit }
+
+    /// The same noun where a count ABOVE ONE has to be named out loud: the
+    /// island's progress, the block bar's VoiceOver subject, the Live
+    /// Activity's word. All three render only above one, and a count above
+    /// one on a walk is exactly what the divider authored.
+    private var sessionUnit: WorkUnit { WorkUnit.divider(sessionWorkUnit) }
 
     /// The set whose screen is up (the lingering freeze-frame, else the
     /// live current). What "the active exercise" means for live vitals.
@@ -243,7 +249,13 @@ struct ActiveSessionView: View {
             Button("Keep going", role: .cancel) {}
         } message: {
             if completedSets > 0 {
-                Text("Finish keeps the \(sessionUnit.counted(completedSets)) you logged; Discard deletes the session.")
+                // One effort has no count worth naming, so the sentence
+                // names the act instead of saying "the 1 set you logged".
+                if let logged = WorkUnit.summaryCount(sessionWorkUnit, completedSets) {
+                    Text("Finish keeps the \(logged) you logged; Discard deletes the session.")
+                } else {
+                    Text("Finish keeps what you logged; Discard deletes the session.")
+                }
             } else {
                 Text("Nothing has been logged yet.")
             }
@@ -1297,6 +1309,20 @@ struct ActiveSessionView: View {
     /// session in the hue jobs, with a bold net row — then the week
     /// block bar and (when one is real) a ★ new-best line. All
     /// numbers real; no XP, no levels.
+    /// The finish screen's fact line: name · count · elapsed. ⚠️ The count
+    /// drops out at one — "the finish screen counts a run as 1 set" was on
+    /// the cardio audit's list of things the app stated untruthfully, and
+    /// it outlived the four beside it because the finish screen is the one
+    /// record surface you reach before the session is a record.
+    private var finishedFactLine: String {
+        let parts: [String?] = [
+            session.routineName.lowercased(),
+            WorkUnit.summaryCount(sessionWorkUnit, completedSets),
+            finalElapsedText
+        ]
+        return parts.compactMap { $0 }.joined(separator: " · ")
+    }
+
     private var finishedView: some View {
         VStack(spacing: 0) {
             ScrollView {
@@ -1310,7 +1336,7 @@ struct ActiveSessionView: View {
                         .padding(.top, 18)
                     Text("Workout Complete")
                         .font(.system(.title3, weight: .bold))
-                    Text("\(session.routineName.lowercased()) · \(sessionUnit.counted(completedSets)) · \(finalElapsedText)")
+                    Text(finishedFactLine)
                         .font(.system(.footnote, design: .monospaced))
                         .foregroundStyle(Theme.textSecondary)
 

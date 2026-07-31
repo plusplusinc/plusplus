@@ -9,7 +9,19 @@ usually lives here.
 > Record architectural and significant implementation decisions as they're made.
 > Format: **Date — Decision — Reason**
 
-**2026-07-31 (latest) — One effort is not a repetition of anything: the commit key becomes the ending** — Dave, on build 158: "it's weird to me that the cardio workout execution view assumes repetition. Like if I go for a run, usually I'm just gonna run, and then stop, not log rep."
+**2026-07-31 (latest) — A record of one thing numbers nothing** — the pass the entry below deferred. The record surfaces still said `?? .set`, so a logged walk's row read "Set 1" and its card said "1 set", and the fix is not a better fallback noun: at a count of one there is no label, full stop.
+
+`WorkUnit.summaryCount(_:_:)` and `WorkUnit.rowLabel(_:index:total:)` are the two shapes a record needs, and both are `kicker`'s rule one surface later — nil at one, the sport's own word above it. Five surfaces consume them: Today's committed card, the record card and its subtitle, the record's per-set rows, and the live session's finish line and exit dialog. **A steady forty-minute walk now reads "jul 31 · 42 min"**, and its record row carries its result and no leading label at all.
+
+⚠️ **The exit dialog needed a second sentence, not a substituted word.** "Finish keeps the 1 set you logged" has no repair that keeps the count — the honest form names the act ("Finish keeps what you logged"), so the count-of-one rule costs one branch rather than one lookup, and that is the shape to copy anywhere else the noun is load-bearing in a sentence.
+
+⚠️ **`rowLabel` takes the DIVIDER where the live caption keeps the nil, and the split is deliberate.** A row in a list of rows has siblings to be told apart from — a walk divided into three hill repeats reads "Round 1/2/3", which is the word the divider authored it with — while the kicker describes the single thing in front of you and prints nothing. Both agree on the case the whole entry is about; only above one do they diverge. A Kit test asserts each side, because a fallback that leaked the other way would undo this.
+
+⚠️ **`summaryCount` also drops the count from a genuine one-SET strength session**, which is a real behavior change and the intended one: the rule is a property of the count, not of the sport, and a card that prints "1 set" for a lift while printing nothing for a walk is two rules wearing one coat. The duration already says how long it was.
+
+⚠️ Left in place: `RoutineCardContent.factLine` still says `?? .set`. It has no call sites — the routine-detail rebuild (#470) replaced it with the spec table — so changing it would assert a rule about a surface nobody can see. Delete it or wire it up before deciding what it should say.
+
+**2026-07-31 — One effort is not a repetition of anything: the commit key becomes the ending** — Dave, on build 158: "it's weird to me that the cardio workout execution view assumes repetition. Like if I go for a run, usually I'm just gonna run, and then stop, not log rep."
 
 He is right, and the interesting part is that the app already knew. `WorkUnit.kicker` refuses to print a count of one, the block bar hides at one, the island shows no progress at one, and the commit key already drops the noun at a block total of one — so a quick-started run said "Log", not "Log rep". The rule existed; it had just never been applied to the SHAPE of the ending.
 
