@@ -1382,12 +1382,15 @@ struct CatalogScopeView: View {
     // MARK: - Reorder
 
     /// Drag-reorder belongs to your own routines, in the list you actually
-    /// sequence: the routines scope, on a tab, with no query narrowing or
-    /// ranking the rows, over the MINE tier's doable group.
+    /// sequence: the routines scope, on a tab, with no query OR FACETS
+    /// narrowing the rows, over the MINE tier's doable group. A facet-
+    /// narrowed list has no order to write back — writing one demotes
+    /// every filtered-out routine to the bottom (swift-reviewer, this PR).
     private func moveHandler(for section: FindOrCreateEngine.Section) -> ((IndexSet, Int) -> Void)? {
         let reorderable = scope == .routines
             && mode.isTab
             && trimmedQuery.isEmpty
+            && filters.isEmpty(for: scope)
             && section.id == "MINE"
         return reorderable ? moveRoutines : nil
     }
@@ -1429,17 +1432,20 @@ struct CatalogScopeView: View {
             if !routine.gearAvailability(activeNames: kitNames).allSatisfy(\.available) {
                 expandMissingGroups()
             }
+            clearFiltersHiding(filters.allows(routine))
             newlyAdded = routine.persistentModelID
         case .exercises:
             guard let pending = ExerciseArrival.pending else { return }
             ExerciseArrival.pending = nil
             path = NavigationPath()
             expandMissingGroups()
+            clearFiltersHiding(allExercises.first { $0.persistentModelID == pending }.map { filters.allows($0) })
             newlyAdded = pending
         case .kit:
             guard let pending = EquipmentArrival.pending else { return }
             EquipmentArrival.pending = nil
             path = NavigationPath()
+            clearFiltersHiding(allEquipment.first { $0.persistentModelID == pending }.map { filters.allowsEquipment(named: $0.name) })
             newlyAdded = pending
         }
     }
@@ -1448,6 +1454,18 @@ struct CatalogScopeView: View {
     /// so its entrance flash isn't playing on a hidden row.
     private func expandMissingGroups() {
         expandedMissing = ["MISSING_MINE", "MISSING_CATALOG"]
+    }
+
+    /// The facet row is the OTHER thing that can hide a landed row
+    /// (swift-reviewer, this PR): a just-created custom answers none of
+    /// the attribute chips, so an active facet would swallow its landing
+    /// — no row, no flash, reads as a failed save. Same rule as
+    /// `expandMissingGroups`: a landing never targets a hidden row.
+    /// `allowed` nil means the model couldn't be resolved against the
+    /// live query — clear then too, visibility can't be proven.
+    private func clearFiltersHiding(_ allowed: Bool?) {
+        guard !filters.isEmpty(for: scope), allowed != true else { return }
+        filters.clear(scope: scope)
     }
 
 }
