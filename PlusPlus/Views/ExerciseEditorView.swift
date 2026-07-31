@@ -35,6 +35,15 @@ struct ExerciseEditorView: View {
     /// way out. A rename does the same, since its exclusion is the OLD
     /// name and the newly written one is not it.
     @State private var savedName: String?
+    /// Which of the form's three fields holds the keyboard. Every way OUT of
+    /// the keyboard clears this: Return, a scroll, a tap on the form's ground,
+    /// and anything that opens a screen over the form (a pick-list push, a
+    /// defaults wheel, the discard dialog).
+    @FocusState private var focusedField: Field?
+
+    private enum Field: Hashable {
+        case name, notes, video
+    }
 
     init(editing exercise: Exercise) {
         editingExercise = exercise
@@ -152,6 +161,9 @@ struct ExerciseEditorView: View {
                     // deliberate exception to Cancel-is-instant, matched
                     // by the blocked swipe below (the Mail-compose
                     // pattern). A clean sheet still closes instantly.
+                    // The keyboard goes first either way, so the discard
+                    // dialog doesn't arrive on top of it.
+                    focusedField = nil
                     if isDirty {
                         confirmingDiscard = true
                     } else {
@@ -161,6 +173,12 @@ struct ExerciseEditorView: View {
                 action: { save() }
             )
             .padding(.horizontal, 18)
+            // The header is a SIBLING of the scroll, so neither of the
+            // scroll's two exits reaches it — and it is ~90 pt of the most
+            // conspicuous blank space in the sheet, directly above the field
+            // that holds the keyboard. Tapping the obvious empty place has
+            // to work (swift-reviewer).
+            .background(keyboardGround)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -174,6 +192,15 @@ struct ExerciseEditorView: View {
                         .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
                         .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
                         .disabled(isBuiltIn)
+                        .focused($focusedField, equals: .name)
+                        // Relabels the key cap only: the soft keyboard's
+                        // Return ends editing and this field has no
+                        // `onSubmit`, so it commits nothing. (With a HARDWARE
+                        // keyboard, SheetHeader's Save carries
+                        // `.keyboardShortcut(.defaultAction)` and Return is a
+                        // candidate for it — deliberate there, and not this
+                        // field's to override.)
+                        .submitLabel(.done)
                         .accessibilityIdentifier("exerciseNameField")
                     if isBuiltIn {
                         Text("Built-in names are fixed. History and sync key on them. Create a custom exercise for a different name.")
@@ -329,6 +356,7 @@ struct ExerciseEditorView: View {
                         .padding(.top, 24)
                     TextField("Form cues, tempo…", text: $draft.notes, axis: .vertical)
                         .font(.system(.footnote))
+                        .focused($focusedField, equals: .notes)
                         .lineLimit(3...8)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 11)
@@ -339,6 +367,8 @@ struct ExerciseEditorView: View {
                         .padding(.top, 24)
                     TextField("Link (optional)", text: $draft.videoURL)
                         .font(.system(.footnote))
+                        .focused($focusedField, equals: .video)
+                        .submitLabel(.done)
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
@@ -366,7 +396,22 @@ struct ExerciseEditorView: View {
                 }
                 .padding(.horizontal, 18)
                 .padding(.bottom, 30)
+                // Belt-and-braces: today every one of these children is
+                // width-flexible (FlowLayout takes the whole proposal, so do
+                // the fields and the segmented picker), so the stack already
+                // fills the scroll and this changes nothing. It is here so a
+                // future section that is NOT flexible can't quietly shrink
+                // the ground out from under the side margins.
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(keyboardGround)
             }
+            // The keyboard's other exit, and the one this form was missing
+            // entirely: scrolling. Every other scrolling surface in the app
+            // that holds a field already declares it — this is the biggest
+            // form in the app and the keyboard covers half of it, so with no
+            // scroll dismissal and no ground to tap, the name field kept the
+            // keyboard until the sheet closed.
+            .scrollDismissesKeyboard(.immediately)
         }
         // A new exercise adopts its gear's suggested profile as the gear
         // changes — until the user touches the chips, which latches
@@ -413,6 +458,29 @@ struct ExerciseEditorView: View {
         }
     }
 
+    /// Tapping the sheet's GROUND puts the keyboard away.
+    ///
+    /// It is a layer BEHIND the content, deliberately, rather than an
+    /// `.onTapGesture` on the stack itself: behind, it can only ever receive
+    /// a touch nothing in front of it took, so the chips still toggle and —
+    /// the case that matters — the three fields still take their own focus
+    /// tap. An ancestor gesture RACES the text field for that tap, and losing
+    /// that race blinks the keyboard shut on the way IN, which is worse than
+    /// the bug this fixes. Taps are not pans, so nothing here claims the
+    /// scroll (ui-interaction.md's claim-vs-does law is about drags).
+    ///
+    /// ⚠️ The price of sitting behind is a THIN catchment, and it is thinner
+    /// than "the gaps": section labels, captions, each field's own filled
+    /// chrome (padding ring included) and the defaults card all take the tap
+    /// first. What is left is the 18 pt side margins, the 24 pt bands between
+    /// sections, and the header. So this is the SECOND exit, never the first
+    /// — `.scrollDismissesKeyboard` is the one that always works.
+    private var keyboardGround: some View {
+        Color.clear
+            .contentShape(Rectangle())
+            .onTapGesture { focusedField = nil }
+    }
+
     // MARK: - Defaults (#187)
 
     private var weightUnit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .lb }
@@ -427,7 +495,12 @@ struct ExerciseEditorView: View {
                         label: "Reps",
                         value: RepTarget(lower: draft.defaultReps, upper: draft.defaultRepsUpper).display,
                         identifier: "defaultReps",
-                        onTapValue: { showingDefaultRepsWheel = true },
+                        // Same rule as the pushes: a wheel must not open
+                        // under a keyboard the form left standing.
+                        onTapValue: {
+                            focusedField = nil
+                            showingDefaultRepsWheel = true
+                        },
                         onDecrement: { applyDefaultReps(RepTarget(lower: draft.defaultReps, upper: draft.defaultRepsUpper).decremented()) },
                         onIncrement: { applyDefaultReps(RepTarget(lower: draft.defaultReps, upper: draft.defaultRepsUpper).incremented()) }
                     )
@@ -438,7 +511,10 @@ struct ExerciseEditorView: View {
                             ? defaultDurationText
                             : metric.displayText(draft.defaultTarget(metric), weightUnit: weightUnit, distanceUnit: draft.distanceUnit),
                         identifier: "default-\(metric.rawValue)",
-                        onTapValue: { defaultsWheel = metric },
+                        onTapValue: {
+                            focusedField = nil
+                            defaultsWheel = metric
+                        },
                         onDecrement: { stepDefault(metric, -1) },
                         onIncrement: { stepDefault(metric, 1) }
                     )
@@ -549,7 +625,13 @@ struct ExerciseEditorView: View {
         @ViewBuilder destination: () -> Destination
     ) -> some View {
         NavigationLink {
+            // A push while focused must not strand the keyboard (#213) — the
+            // pick list would arrive with the editor's keyboard still up over
+            // it. On the destination, not a gesture on the link: a
+            // simultaneous tap layered on a NavigationLink is the kind of
+            // thing that eats the activation.
             destination()
+                .onAppear { focusedField = nil }
         } label: {
             HStack(spacing: 5) {
                 Text("+")
@@ -632,6 +714,13 @@ struct ExerciseEditorView: View {
     }
 
     private func save() {
+        // Save is the exit that HANDS OFF, which makes it the one that most
+        // needs this: on the picker path `onCreated` runs `onPick`, and the
+        // picker answers by presenting `ExerciseConfigSheet` — so a standing
+        // keyboard would follow the dismissal into a brand-new sheet. Same
+        // rule as the wheels and the pushes; this is just the route where
+        // the next surface is a whole sheet rather than a tray.
+        focusedField = nil
         var created: Exercise?
         // Before the write, so no frame between the insert and the next
         // body pass can see the name without its exemption.
