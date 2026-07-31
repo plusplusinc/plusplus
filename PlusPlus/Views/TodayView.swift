@@ -1766,6 +1766,13 @@ struct TodayView: View {
             .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
         }
         .buttonStyle(.plain)
+        // The smoke suite's only handle on the way into a record. Today prints
+        // a routine's name in more than one row (the card, and the "Routine
+        // created" entry under it), so a text match reached one that goes
+        // nowhere and the flow sat here waiting for a screen it never opened.
+        // An identifier only — no traits, no `.combine` — since either would
+        // flatten the row and take its child texts out of the tree.
+        .accessibilityIdentifier("committedSessionCard")
     }
 
     private func committedSubtitle(_ session: WorkoutSession) -> String {
