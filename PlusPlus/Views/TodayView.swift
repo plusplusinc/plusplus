@@ -1042,15 +1042,30 @@ struct TodayView: View {
     @ViewBuilder
     private var quickStartBand: some View {
         if !setupActive || allSetupDone, !quickStartExercises.isEmpty {
-            QuickStartRow(
-                exercises: quickStartExercises,
-                onPick: { quickStartConfig = SessionExerciseConfig(exercise: $0) },
-                onEdit: { editingQuickStarts = true }
-            )
+            VStack(alignment: .leading, spacing: 7) {
+                // The label CLAIMS the keys (Dave, build 159, third round:
+                // the week tally directly above them read as if it were
+                // describing the buttons). One label, not two — the tally
+                // is its own sentence and self-labels; only the section
+                // that can be misattributed gets a name. ALL-CAPS mono is
+                // the section-label treatment, which is exactly what this
+                // is; "Quick start" is the feature's settled name (the
+                // picker sheet already wears it).
+                Text("QUICK START")
+                    .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                    .kerning(0.8)
+                    .foregroundStyle(Theme.textFaint)
+                    .padding(.horizontal, 16)
+                QuickStartRow(
+                    exercises: quickStartExercises,
+                    onPick: { quickStartConfig = SessionExerciseConfig(exercise: $0) },
+                    onEdit: { editingQuickStarts = true }
+                )
+            }
             // Thin on top (the strip's own bottom clearance carries the
             // gap when the tally shows); real clearance below, because
-            // the keys are now the band's last element and the rows
-            // slide under THEM.
+            // the keys are the band's last element and the rows slide
+            // under THEM.
             .padding(.top, 2)
             .padding(.bottom, 10)
         }
@@ -1548,6 +1563,26 @@ struct TodayView: View {
         // nothing when the strip is empty: a zero-height view with a
         // background is invisible.
         .background(Theme.background)
+        // The shelf: the hairline routine detail's pinned band already
+        // draws (2026-07-30, its fourth job now) — rows sliding under a
+        // band that now holds interactive keys need the band's edge to
+        // be a drawn fact, not an inference.
+        // ⚠️ Gated, because a zero-HEIGHT band still has WIDTH and an
+        // overlaid hairline would draw across it: during the setup
+        // scaffold both sections collapse (the strip's own gate, and
+        // quickStartBand's), and a stray line under the title is the
+        // exact invisible-edge class the shelf exists to fix. The gate
+        // mirrors those two conditions — change either there, change it
+        // here.
+        .overlay(alignment: .bottom) {
+            let stripShows = !(setupActive && !allSetupDone) && weekPlan.planned > 0
+            let keysShow = (!setupActive || allSetupDone) && !quickStartExercises.isEmpty
+            if stripShows || keysShow {
+                Rectangle()
+                    .fill(Theme.border)
+                    .frame(height: 1)
+            }
+        }
     }
 
     /// The week's status: the tally line + the block bar, holding the top of
