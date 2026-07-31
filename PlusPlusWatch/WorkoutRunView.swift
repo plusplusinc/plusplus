@@ -102,6 +102,16 @@ struct WorkoutRunView: View {
 
     // MARK: - Step
 
+    /// A phone-authored hold on the session the wrist is authoring —
+    /// the adopted-session case; a displaced foreign state can't reach
+    /// this (ids won't match). Stage 4 renders the whole reducer state;
+    /// until then this one read keeps the commit key honest (#512).
+    private var phonePaused: Bool {
+        guard let state = store.live.state,
+              store.live.authoringSessionId == state.sessionId else { return false }
+        return state.isPaused
+    }
+
     private func stepView(_ step: WatchSync.Step) -> some View {
         VStack(spacing: 8) {
             // The plan's own noun — pieces on an erg, reps on the track.
@@ -148,6 +158,16 @@ struct WorkoutRunView: View {
                     .accessibilityValue(health.livePaceSeconds.map { "\(WorkoutMetric.pace.formatted($0)) \(runUnit.paceLabel)" } ?? "")
             }
 
+            // A phone-side hold reaches the wrist now (#512): logging
+            // into a session the phone believes is on hold had no honest
+            // representation on either device. The fact reads under the
+            // dimmed key; End early stays available.
+            if phonePaused {
+                Text("Paused on your iPhone.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
             // The wrist's one big commit, in the phone's grammar: a
             // cream raised key (actions are ink/cream — green stays on
             // data), sinking onto its plate.
@@ -162,6 +182,8 @@ struct WorkoutRunView: View {
                     .background(WatchTheme.primaryFill, in: RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(WatchRaisedKeyStyle())
+            .disabled(phonePaused)
+            .opacity(phonePaused ? 0.4 : 1)
 
             // The early exit: logged sets ship as a partial session
             // (append-only history keeps what happened); an untouched

@@ -140,6 +140,8 @@ struct SessionOverviewSheet: View {
         .sheet(isPresented: $showingAddExercise) {
             ExercisePickerView(onConfigured: { config in
                 session.appendExercise(config: config, context: modelContext)
+                // The wrist's step list follows the change (#512).
+                LiveMirror.shared.stepsChanged(in: session)
             })
         }
         // The duration auto-timer can finish the session under a
@@ -458,6 +460,9 @@ struct SessionExerciseSheet: View {
                 if !isLive, let first = pending.first, !session.isFinished {
                     Button {
                         session.jump(to: first)
+                        // The phone finally SAYS what it did (#512) — a
+                        // silent jump left the wrist's cursor stale.
+                        LiveMirror.shared.cursorMoved(to: first.order, in: session)
                         onJumped()
                         dismiss()
                     } label: {
@@ -659,6 +664,8 @@ struct SessionExerciseSheet: View {
             to: count,
             context: modelContext
         )
+        // The wrist's step list follows the change (#512).
+        LiveMirror.shared.stepsChanged(in: session)
     }
 
     private func step(_ metric: WorkoutMetric, on log: SetLog, direction: Double) {
@@ -704,7 +711,13 @@ struct SessionExerciseSheet: View {
                     Spacer()
                     if !session.isFinished && !isCurrent {
                         Button {
-                            session.jump(to: log, redo: log.isCompleted)
+                            let redo = log.isCompleted
+                            session.jump(to: log, redo: redo)
+                            // The phone finally SAYS what it did (#512):
+                            // a redo reopens the slot on the wrist too,
+                            // and either way the cursor follows.
+                            if redo { LiveMirror.shared.reopened(log, in: session) }
+                            LiveMirror.shared.cursorMoved(to: log.order, in: session)
                             onJumped()
                             dismiss()
                         } label: {
