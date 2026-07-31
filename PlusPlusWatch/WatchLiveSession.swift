@@ -41,6 +41,16 @@ final class WatchLiveSession {
     /// Originates a session for `routine` unless an unfinished one for the
     /// same routine is already in hand (a resume after relaunch, or a
     /// session the phone already started and we adopted).
+    /// Adopts an existing unfinished session for this routine WITHOUT
+    /// originating one — what the run view calls on appear (#513), so
+    /// resume-after-relaunch and both-devices handoff seat at the shared
+    /// cursor before any log. Origination stays at first log
+    /// (`beginIfNeeded`): browsing a routine must not birth a session.
+    func adoptIfPresent(routine: WatchSync.PlanRoutine) {
+        guard let state, !state.isClosed, Self.matches(state, routine) else { return }
+        authoringSessionId = state.sessionId
+    }
+
     func beginIfNeeded(routine: WatchSync.PlanRoutine, startedAt: Date) {
         // isClosed, not isFinished: a discarded session never sets
         // endedAt, and adopting one would log into a dead id (#510).
@@ -95,6 +105,14 @@ final class WatchLiveSession {
     func discarded() {
         guard let id = authoringSessionId else { return }
         emit(id, .discarded)
+        authoringSessionId = nil
+    }
+
+    /// The PHONE closed the session the wrist was authoring (#513) —
+    /// nothing to emit, but the authoring claim must drop or the next
+    /// phone session's ops would be treated as foreign (the rest-cue
+    /// guard keys on it).
+    func releaseAuthoring() {
         authoringSessionId = nil
     }
 

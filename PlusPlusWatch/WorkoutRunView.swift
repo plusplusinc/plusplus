@@ -1,11 +1,15 @@
 import SwiftUI
 import WatchKit
+import WatchConnectivity
 import PlusPlusKit
 
-/// Wrist execution (#6, v1): walk the pre-expanded step list — big Log
-/// button, date-based rest countdown with haptics, done summary. Logs
-/// as planned (weight editing stays on the phone for v1); the result
-/// ships to the phone as append-only history.
+/// Wrist execution. Since #513 the screen RENDERS THE REDUCER: step
+/// index, completion, rest, pause and lifecycle all read the journaled
+/// live-session state, so a set logged on the phone advances the wrist,
+/// a phone finish closes this view, a relaunch resumes at the first
+/// incomplete step, and both devices stop clobbering each other's logs.
+/// What stays LOCAL is what only this wrist knows: the measured results
+/// (per-step HR, GPS splits) it ships home at finish.
 struct WorkoutRunView: View {
     @Environment(WatchStore.self) private var store
     @Environment(\.dismiss) private var dismiss
@@ -30,24 +34,55 @@ struct WorkoutRunView: View {
     /// from the running total is what gives one piece its own split
     /// instead of the whole session's.
     @State private var distanceAtStepStart: Double?
-    @State private var results: [WatchSync.StepResult] = []
-    @State private var restEndsAt: Date?
+    /// What THIS WRIST measured, by step index (#513) — the reducer is
+    /// the shared truth for completion, but only the wrist knows a set's
+    /// HR window and GPS split, and only for the sets it logged itself.
+    @State private var measuredByIndex: [Int: WatchSync.StepResult] = [:]
     /// Whether the current countdown is a transition — a different
     /// exercise or block up next (#369) — so the label says "switch".
+    /// The op can't carry the flavor, so a phone-authored rest says
+    /// "rest" (accepted, stage-3 review).
     @State private var currentRestIsTransition = false
-    /// The current rest's configured length — the recharge blocks'
-    /// denominator (per-block overrides make it vary between sets).
-    @State private var currentRestTotal = 90
     @State private var finished = false
+    /// The PHONE closed the session (discard) — suppresses the
+    /// onDisappear partial-finish, which would resurrect a discarded
+    /// session through the import.
+    @State private var closedRemotely = false
 
     /// One HealthKit workout session per run view (#90). @Observable in
     /// @State: stable storage across re-renders, and the live bpm
     /// readings re-render the step/rest views as they arrive.
     @State private var health = WatchWorkoutController()
 
-    private var stepIndex: Int { results.count }
+    /// The reducer state, only while it is the session THIS WRIST is
+    /// authoring — a displaced foreign session renders nothing here.
+    private var authoringState: LiveSession.State? {
+        guard let state = store.live.state,
+              store.live.authoringSessionId == state.sessionId else { return nil }
+        return state
+    }
+
+    /// The step list the session actually holds: the reducer's (which
+    /// follows the phone's mid-session appends/swaps/removes via
+    /// `.stepsChanged`) once authoring, the frozen plan before. A plan
+    /// RE-PUSH still never swaps a live list — only deliberate ops do.
+    private var activeSteps: [WatchSync.Step] { authoringState?.steps ?? routine.steps }
+
+    /// Where the session is: the shared cursor, except that a cursor
+    /// parked on an already-completed slot (the phone jumped there, then
+    /// a set landed) yields to the first incomplete step.
+    private var stepIndex: Int {
+        guard let state = authoringState else { return measuredByIndex.count }
+        if state.log(at: state.currentIndex)?.completedAt == nil { return state.currentIndex }
+        return state.firstIncompleteIndex
+    }
+
+    private var completedCount: Int {
+        authoringState?.completedCount ?? measuredByIndex.count
+    }
+
     private var currentStep: WatchSync.Step? {
-        routine.steps.indices.contains(stepIndex) ? routine.steps[stepIndex] : nil
+        activeSteps.indices.contains(stepIndex) ? activeSteps[stepIndex] : nil
     }
 
     /// The run's pace/distance denomination (an outdoor routine is
@@ -68,8 +103,14 @@ struct WorkoutRunView: View {
         Group {
             if finished {
                 doneView
-            } else if let restEndsAt {
-                restView(until: restEndsAt)
+            } else if authoringState?.isPaused == true {
+                pausedView
+            } else if let restEnd = authoringState?.restEndsAt,
+                      restEnd.timeIntervalSinceNow > -1 {
+                // An EXPIRED journaled rest (a relaunch mid-rest, the
+                // emit that would have cleared it lost to suspension)
+                // falls through to the step — never a 0:00 screen.
+                restView(until: restEnd)
             } else if let step = currentStep {
                 stepView(step)
             } else {
@@ -79,19 +120,38 @@ struct WorkoutRunView: View {
         .navigationTitle(routine.name)
         .navigationBarBackButtonHidden(startedAt != nil && !finished)
         // The HK session starts as soon as the routine is opened —
-        // runtime + heart rate from the first set, not the first log. The
-        // plan's modality decides the activity type, so a wrist-logged
-        // ride files as cycling and an erg as rowing; an outdoor plan
-        // still collects GPS distance for live pace.
-        .onAppear { health.start(modality: routine.sessionModality, unit: runUnit) }
+        // runtime + heart rate from the first set, not the first log.
+        // Adoption seats the shared cursor BEFORE any log (#513):
+        // resume-after-relaunch and both-devices handoff both land here.
+        .onAppear {
+            store.live.adoptIfPresent(routine: routine)
+            if authoringState != nil { startedAt = authoringState?.startedAt }
+            health.start(modality: routine.sessionModality, unit: runUnit)
+        }
+        // The PHONE can close the session under us now that we render the
+        // shared state (#513): a finish ships our measured share home; a
+        // discard means discarded EVERYWHERE — sending a result would
+        // resurrect the session through the import.
+        .onChange(of: authoringState?.isFinished) { _, ended in
+            guard ended == true, !finished else { return }
+            finishClosedByPhone()
+        }
+        .onChange(of: authoringState?.discarded) { _, discarded in
+            guard discarded == true, !finished else { return }
+            closedRemotely = true
+            WatchRestNotifier.cancel()
+            health.discard()
+            store.live.releaseAuthoring()
+            dismiss()
+        }
         // If the system pops us mid-session (plan row vanished after a
         // rename/delete on the phone), the logged sets still count:
-        // partial history beats lost history, and the phone-side
-        // (name, startedAt) dedupe makes a later resend harmless.
+        // partial history beats lost history, and the sessionId dedupe
+        // makes a later resend harmless.
         .onDisappear {
-            if startedAt != nil && !finished && !results.isEmpty {
+            if startedAt != nil && !finished && !closedRemotely && !measuredByIndex.isEmpty {
                 finish()
-            } else {
+            } else if !finished {
                 // Browsed in and left without logging: no workout
                 // happened, so nothing reaches Health. No-op if finish()
                 // already saved the HK session.
@@ -100,25 +160,64 @@ struct WorkoutRunView: View {
         }
     }
 
-    // MARK: - Step
-
-    /// A phone-authored hold on the session the wrist is authoring —
-    /// the adopted-session case; a displaced foreign state can't reach
-    /// this (ids won't match). Stage 4 renders the whole reducer state;
-    /// until then this one read keeps the commit key honest (#512).
-    private var phonePaused: Bool {
-        guard let state = store.live.state,
-              store.live.authoringSessionId == state.sessionId else { return false }
-        return state.isPaused
+    /// The phone finished the shared session; the wrist's share of the
+    /// record still goes home (the import MERGES it — HR, splits — and
+    /// the phone-authoring guard means the finish itself is respected,
+    /// never repeated).
+    private func finishClosedByPhone() {
+        WatchRestNotifier.cancel()
+        health.finish()
+        if !measuredByIndex.isEmpty {
+            let sessionId = store.live.authoringSessionId
+            store.send(WatchSync.SessionResult(
+                routineName: authoringState?.routineName ?? routine.name,
+                startedAt: authoringState?.startedAt ?? startedAt ?? Date(),
+                endedAt: authoringState?.endedAt ?? Date(),
+                restSeconds: routine.restSeconds,
+                steps: builtResults(),
+                averageHeartRate: health.averageBPM,
+                maxHeartRate: health.maxBPM,
+                sessionId: sessionId
+            ))
+        }
+        store.live.releaseAuthoring()
+        finished = true
     }
+
+    /// The phone is holding the workout (#512/#513): the wrist shows the
+    /// hold rather than a rest that can't tick or a key that shouldn't
+    /// log. End early stays available — ending is not logging.
+    private var pausedView: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "pause.circle.fill")
+                .font(.title3)
+                .foregroundStyle(.secondary)
+            Text("Paused on your iPhone.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            Button {
+                if measuredByIndex.isEmpty { dismiss() } else { finish() }
+            } label: {
+                Text(measuredByIndex.isEmpty ? "Leave" : "End early")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    // MARK: - Step
 
     private func stepView(_ step: WatchSync.Step) -> some View {
         VStack(spacing: 8) {
             // The plan's own noun — pieces on an erg, reps on the track.
-            // Absent where the sport counts nothing, or on a plan pushed
-            // by a phone that predates modalities.
-            if let unit = step.workUnit, routine.steps.count > 1 {
-                Text("\(unit.singular) \(stepIndex + 1)/\(routine.steps.count)")
+            // Absent where the sport counts nothing, on a plan pushed by
+            // a phone that predates modalities, and at a count of ONE —
+            // a single-effort run is not "rep 1/1" (#514).
+            if let unit = step.workUnit, activeSteps.count > 1 {
+                Text("\(unit.singular) \(stepIndex + 1)/\(activeSteps.count)")
                     .font(.system(.caption2, design: .monospaced))
                     .foregroundStyle(.secondary)
             }
@@ -126,8 +225,12 @@ struct WorkoutRunView: View {
                 .font(.headline)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
-            Text(targetText(step))
-                .font(.system(.body, design: .monospaced, weight: .semibold))
+            // An untargeted effort states nothing rather than "— reps"
+            // (#514) — CardioHero's say-nothing rule, on the wrist.
+            if !targetText(step).isEmpty {
+                Text(targetText(step))
+                    .font(.system(.body, design: .monospaced, weight: .semibold))
+            }
 
             // Live heart rate from the workout session, accent while
             // it sits inside the step's target band; the resolved
@@ -158,23 +261,14 @@ struct WorkoutRunView: View {
                     .accessibilityValue(health.livePaceSeconds.map { "\(WorkoutMetric.pace.formatted($0)) \(runUnit.paceLabel)" } ?? "")
             }
 
-            // A phone-side hold reaches the wrist now (#512): logging
-            // into a session the phone believes is on hold had no honest
-            // representation on either device. The fact reads under the
-            // dimmed key; End early stays available.
-            if phonePaused {
-                Text("Paused on your iPhone.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-
             // The wrist's one big commit, in the phone's grammar: a
             // cream raised key (actions are ink/cream — green stays on
-            // data), sinking onto its plate.
+            // data), sinking onto its plate. A count of one drops the
+            // noun — "Log", never "Log rep", about a single run (#514).
             Button {
                 log(step)
             } label: {
-                Text(step.workUnit.map { "Log \($0.singular)" } ?? "Log")
+                Text(activeSteps.count > 1 ? (step.workUnit.map { "Log \($0.singular)" } ?? "Log") : "Log")
                     .font(.headline)
                     .foregroundStyle(WatchTheme.onPrimary)
                     .frame(maxWidth: .infinity)
@@ -182,26 +276,27 @@ struct WorkoutRunView: View {
                     .background(WatchTheme.primaryFill, in: RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(WatchRaisedKeyStyle())
-            .disabled(phonePaused)
-            .opacity(phonePaused ? 0.4 : 1)
 
             // The early exit: logged sets ship as a partial session
             // (append-only history keeps what happened); an untouched
-            // session just leaves.
+            // session just leaves. The extra top gap is the rest
+            // screen's own adjacency lesson (#514): a commit key and an
+            // end-the-workout key must not sit one slip apart.
             Button {
-                if results.isEmpty {
+                if measuredByIndex.isEmpty {
                     dismiss()
                 } else {
                     finish()
                 }
             } label: {
-                Text(results.isEmpty ? "Leave" : "End early")
+                Text(measuredByIndex.isEmpty ? "Leave" : "End early")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, minHeight: 44)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .padding(.top, 10)
         }
         // The step's own clock and odometer start when its screen does.
         // Re-entering the same step (a rest ending) restarts neither —
@@ -242,6 +337,9 @@ struct WorkoutRunView: View {
         if step.isDuration {
             return WorkoutMetric.duration.displayText(step.targetDuration.map(Double.init))
         }
+        // An untargeted effort (a quick-started run: no reps, no weight,
+        // no extras) says NOTHING rather than "— reps" (#514).
+        guard step.targetRepsLower != nil || step.targetRepsUpper != nil else { return "" }
         var text = RepTarget(lower: step.targetRepsLower, upper: step.targetRepsUpper).display + " reps"
         if let weight = step.targetWeight, weight > 0 {
             text += " @ " + WorkoutMetric.weight.formatted(weight)
@@ -321,6 +419,8 @@ struct WorkoutRunView: View {
 
     private func log(_ step: WatchSync.Step) {
         let now = Date()
+        // Capture the slot BEFORE the emit advances the shared cursor.
+        let index = stepIndex
         if startedAt == nil {
             startedAt = now
             // Originate (or resume) the mirrored session on first log (#322).
@@ -355,7 +455,7 @@ struct WorkoutRunView: View {
             ? (elapsed.map { Int($0.rounded()) } ?? step.targetDuration)
             : nil
 
-        results.append(WatchSync.StepResult(
+        measuredByIndex[index] = WatchSync.StepResult(
             step: step,
             actualWeight: weight,
             actualReps: reps,
@@ -367,29 +467,31 @@ struct WorkoutRunView: View {
             averageHeartRate: health.stepAverageBPM,
             maxHeartRate: health.stepMaxBPM,
             completedAt: now
-        ))
+        )
         distanceAtStepStart = health.totalDistance
         health.beginStep()
-        // Mirror the logged set to the phone (its execution order is the
-        // step's index in the shared plan).
-        store.live.logged(index: results.count - 1, weight: weight, reps: reps, duration: duration, extras: MetricValues.toRaw(extras) ?? [:], at: now)
-        if results.count < routine.steps.count {
+        // Mirror the logged set to the phone — at the SHARED cursor's
+        // slot, not a local count (#513): the phone may have logged sets
+        // of this session too, and each log lands where it happened.
+        store.live.logged(index: index, weight: weight, reps: reps, duration: duration, extras: MetricValues.toRaw(extras) ?? [:], at: now)
+        // The emit already folded into the reducer, so the shared state
+        // answers "what's next" — including sets the PHONE completed.
+        let nextIndex = authoringState?.firstIncompleteIndex ?? measuredByIndex.count
+        if nextIndex < activeSteps.count {
             // A new round of the same block rests — the just-logged
             // block's override (interval blocks) wins over the routine
             // default, same rule as the phone. Moving to a different
             // exercise or block is the shorter transition (#369); a plan
             // from a pre-transition phone (nil) rests everywhere.
-            let next = routine.steps[results.count]
+            let next = activeSteps[nextIndex]
             let newRoundOfSameBlock = next.groupIndex == step.groupIndex && next.setNumber != step.setNumber
             let restLength = newRoundOfSameBlock
                 ? (step.restSecondsOverride ?? routine.restSeconds)
                 : (routine.transitionSeconds ?? step.restSecondsOverride ?? routine.restSeconds)
             // A 0-second transition means no countdown at all.
             if restLength > 0 {
-                currentRestTotal = restLength
                 currentRestIsTransition = !newRoundOfSameBlock && routine.transitionSeconds != nil
                 let end = now.addingTimeInterval(TimeInterval(restLength))
-                restEndsAt = end
                 store.live.restStarted(endsAt: end, total: restLength)
                 // The in-app haptic only fires while the app is frontmost;
                 // with the wrist down the app suspends, so a local
@@ -425,7 +527,6 @@ struct WorkoutRunView: View {
                 }
                 Button {
                     WatchRestNotifier.cancel()
-                    restEndsAt = nil
                     store.live.restEnded()
                 } label: {
                     Text("Skip")
@@ -439,9 +540,11 @@ struct WorkoutRunView: View {
             }
             .onChange(of: remaining <= 0) { _, expired in
                 if expired {
+                    // Fires for PHONE-authored rests too now that the
+                    // screen renders the shared rest (#513) — the haptic
+                    // parity the assessment called B9.
                     WKInterfaceDevice.current().play(.notification)
                     WatchRestNotifier.cancel()
-                    restEndsAt = nil
                     store.live.restEnded()
                 }
             }
@@ -452,7 +555,9 @@ struct WorkoutRunView: View {
     /// denominator, so a long rest and a short one both read as one
     /// full recharge.
     private func rechargeBlocks(remaining: TimeInterval) -> some View {
-        let total = max(currentRestTotal, 1)
+        // The shared rest carries its own denominator (#513) — a phone
+        // ±15s adjustment re-emits restStarted with the new total.
+        let total = max(authoringState?.restTotal ?? 90, 1)
         let filled = min(12, Int((remaining / Double(total) * 12).rounded(.up)))
         return HStack(spacing: 2) {
             ForEach(0..<12, id: \.self) { index in
@@ -468,6 +573,31 @@ struct WorkoutRunView: View {
 
     // MARK: - Done
 
+    /// The result's step list, index-faithful (#513): the wrist's own
+    /// measured entries where it logged, the reducer's slots where the
+    /// PHONE logged (their actuals, no wrist measurements to claim), and
+    /// bare incompletes for what never happened — so the phone's import
+    /// can walk it by order whatever mix of devices did the work.
+    private func builtResults() -> [WatchSync.StepResult] {
+        guard let state = authoringState else {
+            // Never originated on this wrist: the measured map is dense
+            // 0..n by construction (the pre-#513 shape).
+            return (0..<measuredByIndex.count).compactMap { measuredByIndex[$0] }
+        }
+        return state.steps.enumerated().map { index, step in
+            if let mine = measuredByIndex[index] { return mine }
+            let slot = state.log(at: index)
+            return WatchSync.StepResult(
+                step: step,
+                actualWeight: slot?.actualWeight,
+                actualReps: slot?.actualReps,
+                actualDuration: slot?.actualDuration,
+                extraActuals: (slot?.extras.isEmpty ?? true) ? nil : slot?.extras,
+                completedAt: slot?.completedAt
+            )
+        }
+    }
+
     private func finish() {
         WatchRestNotifier.cancel()
         health.finish()
@@ -476,16 +606,17 @@ struct WorkoutRunView: View {
         // The result carries the same identity the ops carried, so the
         // phone's import keys on it instead of (name, startedAt) (#511).
         let sessionId = store.live.authoringSessionId
+        let steps = builtResults()
         // Tell the phone the mirrored session is done (#322). The full
         // SessionResult below still ships as the durable history import;
         // the op just closes the live session promptly.
         store.live.finished(at: now)
         store.send(WatchSync.SessionResult(
-            routineName: routine.name,
-            startedAt: startedAt ?? now,
+            routineName: authoringState?.routineName ?? routine.name,
+            startedAt: authoringState?.startedAt ?? startedAt ?? now,
             endedAt: now,
             restSeconds: routine.restSeconds,
-            steps: results,
+            steps: steps,
             // The wrist's own live-builder summary — the phone stamps
             // it onto the imported session (nil when Health said no).
             averageHeartRate: health.averageBPM,
@@ -508,13 +639,15 @@ struct WorkoutRunView: View {
             // count-of-one refusal every phone record surface applies: a
             // walk logged from the wrist used to say "1 set logged",
             // which is the exact line #491 removed from the phone.
-            // "Synced to your iPhone." below carries the confirmation.
-            if let counted = WorkUnit.summaryCount(routine.sessionModality.primary.workUnit, results.count) {
+            if let counted = WorkUnit.summaryCount(routine.sessionModality.primary.workUnit, completedCount) {
                 Text("\(counted) logged")
                     .font(.system(.footnote, design: .monospaced))
                     .foregroundStyle(.secondary)
             }
-            Text("Synced to your iPhone.")
+            // Honest about delivery (#514): reachable means the live op
+            // just landed; otherwise the queue delivers when the phone
+            // is next in range — "synced" would be a claim, not a fact.
+            Text(WCSession.default.isReachable ? "Synced to your iPhone." : "On its way to your iPhone.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
             Button {
