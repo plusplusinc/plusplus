@@ -21,6 +21,15 @@ struct WorkoutRunView: View {
     }
 
     @State private var startedAt: Date?
+    /// When the CURRENT step's work began — set as its screen appears, so
+    /// a logged effort records how long it actually took rather than how
+    /// long it was prescribed. Rest sits on its own screen, so a step's
+    /// clock never includes the recovery before it.
+    @State private var stepStartedAt: Date?
+    /// The measured cumulative distance as this step began. Subtracting it
+    /// from the running total is what gives one piece its own split
+    /// instead of the whole session's.
+    @State private var distanceAtStepStart: Double?
     @State private var results: [WatchSync.StepResult] = []
     @State private var restEndsAt: Date?
     /// Whether the current countdown is a transition — a different
@@ -45,6 +54,16 @@ struct WorkoutRunView: View {
     /// homogeneous, so the first step's unit speaks for it).
     private var runUnit: DistanceUnit { routine.steps.first?.distanceUnit ?? .miles }
 
+    /// How far THIS step covered, measured. nil indoors (nothing is
+    /// collected) and nil for a non-positive delta — standing still for a
+    /// whole piece is not a distance, the same positive-measurement gate
+    /// the phone's run summary applies.
+    private func measuredStepDistance() -> Double? {
+        guard let total = health.totalDistance else { return nil }
+        let delta = total - (distanceAtStepStart ?? 0)
+        return delta > 0 ? delta : nil
+    }
+
     var body: some View {
         Group {
             if finished {
@@ -60,9 +79,11 @@ struct WorkoutRunView: View {
         .navigationTitle(routine.name)
         .navigationBarBackButtonHidden(startedAt != nil && !finished)
         // The HK session starts as soon as the routine is opened —
-        // runtime + heart rate from the first set, not the first log. An
-        // all-outdoor routine runs as a GPS running session for live pace.
-        .onAppear { health.start(outdoorRun: routine.isOutdoorRun, unit: runUnit) }
+        // runtime + heart rate from the first set, not the first log. The
+        // plan's modality decides the activity type, so a wrist-logged
+        // ride files as cycling and an erg as rowing; an outdoor plan
+        // still collects GPS distance for live pace.
+        .onAppear { health.start(modality: routine.sessionModality, unit: runUnit) }
         // If the system pops us mid-session (plan row vanished after a
         // rename/delete on the phone), the logged sets still count:
         // partial history beats lost history, and the phone-side
@@ -83,9 +104,14 @@ struct WorkoutRunView: View {
 
     private func stepView(_ step: WatchSync.Step) -> some View {
         VStack(spacing: 8) {
-            Text("set \(stepIndex + 1)/\(routine.steps.count)")
-                .font(.system(.caption2, design: .monospaced))
-                .foregroundStyle(.secondary)
+            // The plan's own noun — pieces on an erg, reps on the track.
+            // Absent where the sport counts nothing, or on a plan pushed
+            // by a phone that predates modalities.
+            if let unit = step.workUnit, routine.steps.count > 1 {
+                Text("\(unit.singular) \(stepIndex + 1)/\(routine.steps.count)")
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
             Text(step.exerciseName)
                 .font(.headline)
                 .multilineTextAlignment(.center)
@@ -103,6 +129,16 @@ struct WorkoutRunView: View {
                     .accessibilityValue(health.latestBPM.map { "\($0) beats per minute" } ?? "")
             }
 
+            // What this step has actually covered, against what it asked
+            // for. The wrist was MEASURING this the whole time (it is what
+            // a logged piece records) and never showed it, so a rower
+            // pulling a 500 had no way to know how far in they were.
+            if let distance = distanceLine(for: step) {
+                distance
+                    .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                    .accessibilityLabel("Distance")
+            }
+
             // Live GPS pace on an outdoor run, accent while meeting the
             // step's pace target — same treatment as the heart line.
             if let pace = paceLine(for: step) {
@@ -118,7 +154,7 @@ struct WorkoutRunView: View {
             Button {
                 log(step)
             } label: {
-                Text("Log set")
+                Text(step.workUnit.map { "Log \($0.singular)" } ?? "Log")
                     .font(.headline)
                     .foregroundStyle(WatchTheme.onPrimary)
                     .frame(maxWidth: .infinity)
@@ -145,6 +181,14 @@ struct WorkoutRunView: View {
             }
             .buttonStyle(.plain)
         }
+        // The step's own clock and odometer start when its screen does.
+        // Re-entering the same step (a rest ending) restarts neither —
+        // the id keeps this to genuine step changes.
+        .onAppear {
+            stepStartedAt = Date()
+            if distanceAtStepStart == nil { distanceAtStepStart = health.totalDistance }
+        }
+        .id(stepIndex)
     }
 
     private func targetText(_ step: WatchSync.Step) -> String {
@@ -221,6 +265,24 @@ struct WorkoutRunView: View {
         return line
     }
 
+    /// "1,240 m · 500 m" — this step's measured distance beside its
+    /// target, the distance going accent once the target is met. Mirrors
+    /// the pace line's grammar exactly (live value first, target after the
+    /// separator). nil when nothing is measuring, which is every indoor
+    /// step and every strength one.
+    private func distanceLine(for step: WatchSync.Step) -> Text? {
+        guard let covered = measuredStepDistance() else { return nil }
+        let unit = step.distanceUnit ?? health.distanceUnit
+        let target = step.extraTargets?[WorkoutMetric.distance.rawValue]
+        let reached = target.map { covered >= $0 } ?? false
+        var line = Text("\(Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")) \(WorkoutMetric.distance.displayText(covered, distanceUnit: unit))")
+            .foregroundStyle(reached ? WatchTheme.accent : .secondary)
+        if let target {
+            line = line + Text(" · \(WorkoutMetric.distance.displayText(target, distanceUnit: unit))").foregroundStyle(.secondary)
+        }
+        return line
+    }
+
     /// "♥ 128  🏃 8:30 /mi" — the rest screen's recovery vitals, quiet
     /// (no target judgment). nil when neither reading is live.
     private var restVitalsLine: Text? {
@@ -243,19 +305,52 @@ struct WorkoutRunView: View {
             store.live.beginIfNeeded(routine: routine, startedAt: now)
         }
         WKInterfaceDevice.current().play(.success)
+        // Load and reps are the user's ASSERTION — tapping Log is the
+        // claim that the prescribed set happened, and the wrist has no
+        // way to measure otherwise (editing stays on the phone).
         let weight = step.isDuration ? nil : step.targetWeight
         let reps = step.isDuration ? nil : step.targetRepsLower
-        let duration = step.isDuration ? step.targetDuration : nil
+
+        // Everything below is MEASURED, and measurement beats the plan.
+        // This is the fix for the wrist recording your target as your
+        // result: a 500 m piece rowed to 412 m logged as 500 m.
+        let elapsed = stepStartedAt.map { now.timeIntervalSince($0) }
+        let stepDistance = measuredStepDistance()
+        let unit = step.distanceUnit ?? health.distanceUnit
+        var measured: [WorkoutMetric: Double] = [:]
+        if let stepDistance { measured[.distance] = stepDistance }
+        if let split = LoggedActuals.pace(distance: stepDistance, elapsedSeconds: elapsed, unit: unit) {
+            measured[.pace] = split
+        }
+        let extras = LoggedActuals.extras(
+            planned: MetricValues.fromRaw(step.extraTargets),
+            measured: measured
+        )
+        // A timed hold ran for as long as it ran. Falling back to the
+        // target only when the step was never timed keeps a plan pushed
+        // by an older phone behaving as it did.
+        let duration = step.isDuration
+            ? (elapsed.map { Int($0.rounded()) } ?? step.targetDuration)
+            : nil
+
         results.append(WatchSync.StepResult(
             step: step,
             actualWeight: weight,
             actualReps: reps,
             actualDuration: duration,
+            extraActuals: MetricValues.toRaw(extras),
+            // The wrist wears the sensor, so it is the device that
+            // actually knows what this step cost. Per STEP, not per
+            // session — the builder's own statistics are the wrong window.
+            averageHeartRate: health.stepAverageBPM,
+            maxHeartRate: health.stepMaxBPM,
             completedAt: now
         ))
+        distanceAtStepStart = health.totalDistance
+        health.beginStep()
         // Mirror the logged set to the phone (its execution order is the
         // step's index in the shared plan).
-        store.live.logged(index: results.count - 1, weight: weight, reps: reps, duration: duration, extras: step.extraTargets ?? [:], at: now)
+        store.live.logged(index: results.count - 1, weight: weight, reps: reps, duration: duration, extras: MetricValues.toRaw(extras) ?? [:], at: now)
         if results.count < routine.steps.count {
             // A new round of the same block rests — the just-logged
             // block's override (interval blocks) wins over the routine
@@ -381,9 +476,17 @@ struct WorkoutRunView: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.title3)
                 .foregroundStyle(WatchTheme.done)
-            Text("\(results.count) sets logged")
-                .font(.system(.footnote, design: .monospaced))
-                .foregroundStyle(.secondary)
+            // The PLAN's resolved noun (one plan, one noun — a first-step
+            // read gets a mixed plan wrong), through the same
+            // count-of-one refusal every phone record surface applies: a
+            // walk logged from the wrist used to say "1 set logged",
+            // which is the exact line #491 removed from the phone.
+            // "Synced to your iPhone." below carries the confirmation.
+            if let counted = WorkUnit.summaryCount(routine.sessionModality.primary.workUnit, results.count) {
+                Text("\(counted) logged")
+                    .font(.system(.footnote, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
             Text("Synced to your iPhone.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)

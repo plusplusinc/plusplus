@@ -21,6 +21,10 @@ struct MetricWheelSheet: View {
     let metric: WorkoutMetric
     var weightUnit: WeightUnit = .lb
     var distanceUnit: DistanceUnit = .meters
+    /// The profile's pace denominator, when it overrides its unit's own.
+    /// Carried so a swim's split reads /100yd on the picker as well as on
+    /// the row that opened it.
+    var paceReference: PaceReference?
     @Binding var value: Double?
 
     var body: some View {
@@ -36,7 +40,7 @@ struct MetricWheelSheet: View {
             .padding(.horizontal, 18)
 
             if metric.usesTapeScrubber {
-                MetricScrubberPane(metric: metric, weightUnit: weightUnit, distanceUnit: distanceUnit, value: $value)
+                MetricScrubberPane(metric: metric, weightUnit: weightUnit, distanceUnit: distanceUnit, paceReference: paceReference, value: $value)
             } else {
                 wheel
             }
@@ -47,11 +51,11 @@ struct MetricWheelSheet: View {
 
     private var wheel: some View {
         Picker(metric.label, selection: Binding(
-            get: { metric.nearestWheelValue(to: value, weightUnit: weightUnit, distanceUnit: distanceUnit) },
+            get: { metric.nearestWheelValue(to: value, weightUnit: weightUnit, distanceUnit: distanceUnit, paceReference: paceReference) },
             set: { value = $0 }
         )) {
-            ForEach(metric.wheelValues(weightUnit: weightUnit, distanceUnit: distanceUnit), id: \.self) { candidate in
-                Text(metric.displayText(candidate, weightUnit: weightUnit, distanceUnit: distanceUnit))
+            ForEach(metric.wheelValues(weightUnit: weightUnit, distanceUnit: distanceUnit, paceReference: paceReference), id: \.self) { candidate in
+                Text(metric.displayText(candidate, weightUnit: weightUnit, distanceUnit: distanceUnit, paceReference: paceReference))
                     .font(.system(.body, design: .monospaced))
                     .tag(candidate)
             }

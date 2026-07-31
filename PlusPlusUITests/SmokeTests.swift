@@ -587,6 +587,11 @@ final class SmokeTests: XCTestCase {
         // weight/reps, so it derives to strength and the row's noun is "Set" —
         // the work-unit vocabulary does not rewrite this one.
         //
+        // ⚠️ It depends on THREE sets, not just on the noun: a record row
+        // wears no label at all when its block holds one (the count-of-one
+        // rule). Drop this flow to a single set and the assertion is looking
+        // for a string the app is right not to print.
+        //
         // ⚠️ By absolute coordinate, the same dispatch the swipe row needed:
         // an element tap goes through accessibility, and every one of those
         // this flow tried was swallowed.

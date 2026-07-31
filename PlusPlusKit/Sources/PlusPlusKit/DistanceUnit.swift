@@ -9,6 +9,9 @@ public enum DistanceUnit: String, Codable, CaseIterable, Sendable {
     case meters = "m"
     case kilometers = "km"
     case miles = "mi"
+    /// The pool's unit in the US, and the reason swimming needed a pace
+    /// reference of its own: a 25-yard pool counts lengths, not meters.
+    case yards = "yd"
 
     public var symbol: String { rawValue }
 
@@ -17,6 +20,7 @@ public enum DistanceUnit: String, Codable, CaseIterable, Sendable {
         case .meters: "meters"
         case .kilometers: "kilometers"
         case .miles: "miles"
+        case .yards: "yards"
         }
     }
 
@@ -26,6 +30,8 @@ public enum DistanceUnit: String, Codable, CaseIterable, Sendable {
         case .meters: 50
         case .kilometers: 0.25
         case .miles: 0.25
+        // One length of a 25-yard pool, so a set reads in lengths.
+        case .yards: 25
         }
     }
 
@@ -36,6 +42,7 @@ public enum DistanceUnit: String, Codable, CaseIterable, Sendable {
         case .meters: 25
         case .kilometers: 0.25
         case .miles: 0.25
+        case .yards: 25
         }
     }
 
@@ -44,6 +51,8 @@ public enum DistanceUnit: String, Codable, CaseIterable, Sendable {
         case .meters: 25...50000
         case .kilometers: 0.25...100
         case .miles: 0.25...100
+        // A length at the bottom, an English Channel crossing at the top.
+        case .yards: 25...40000
         }
     }
 
@@ -54,81 +63,87 @@ public enum DistanceUnit: String, Codable, CaseIterable, Sendable {
         case .meters: 500
         case .kilometers: 5
         case .miles: 3
+        // Twenty lengths of a short-course pool.
+        case .yards: 500
         }
     }
 
     // MARK: - Pace
-    // Pace is time over a reference distance, and the reference rides the
-    // unit: meters mean an erg, and ergs speak splits per 500 m; miles and
-    // kilometers pace per mile/km. Values are stored as plain seconds.
+    //
+    // The denominator itself lives in `PaceReference` now. A unit still
+    // implies one, because it very nearly always names the sport too: an
+    // erg thinks in meters and speaks /500m, a road run in miles and
+    // speaks /mi, a pool in yards and speaks /100yd. What changed is that
+    // the implication is now a DEFAULT rather than the whole story, so a
+    // metric pool can say /100m without pretending to be an erg. A
+    // `MetricProfile` carrying its own reference overrides these.
 
-    /// "/500m", "/km", "/mi" — the suffix a pace value renders with.
-    public var paceLabel: String {
+    /// The convention this unit implies when a profile states nothing.
+    public var defaultPaceReference: PaceReference {
         switch self {
-        case .meters: "/500m"
-        case .kilometers: "/km"
-        case .miles: "/mi"
+        case .meters: .per500Meters
+        case .kilometers: .perKilometer
+        case .miles: .perMile
+        case .yards: .per100Yards
         }
     }
+
+    /// "/500m", "/km", "/mi", "/100yd" — the suffix a pace value renders
+    /// with, at this unit's own convention.
+    public var paceLabel: String { defaultPaceReference.label }
 
     /// The reference distance, in meters, a pace is quoted over — the
-    /// denominator that turns a live speed into a "per unit" split:
-    /// 500 m for an erg, 1 km, 1609.344 m for a mile. Matches `paceLabel`.
-    public var paceReferenceMeters: Double {
-        switch self {
-        case .meters: 500
-        case .kilometers: 1000
-        case .miles: 1609.344
-        }
-    }
+    /// denominator that turns a live speed into a "per unit" split.
+    public var paceReferenceMeters: Double { defaultPaceReference.meters }
 
     /// A raw meter distance expressed in this unit — for showing a live
     /// GPS distance ("1.24 mi", "1500 m") in the exercise's own
-    /// denomination. Meters stay meters; km/mi divide by the reference.
+    /// denomination. Meters stay meters; the rest divide by their worth.
     public func value(fromMeters meters: Double) -> Double {
+        self == .meters ? meters : meters / metersPerUnit
+    }
+
+    /// How many meters one unit is worth — the inverse of
+    /// `value(fromMeters:)`, needed the moment anything has to relate a
+    /// distance to a pace (whose reference is always in meters).
+    public var metersPerUnit: Double {
         switch self {
-        case .meters: meters
-        case .kilometers: meters / 1000
-        case .miles: meters / 1609.344
+        case .meters: 1
+        case .kilometers: 1000
+        case .miles: 1609.344
+        case .yards: 0.9144
         }
     }
 
-    public var paceRange: ClosedRange<Double> {
-        switch self {
-        case .meters: 60...300      // 1:00–5:00 per 500 m
-        case .kilometers: 120...1200 // 2:00–20:00 per km
-        case .miles: 180...1800      // 3:00–30:00 per mi
-        }
+    /// A distance in this unit expressed in raw meters.
+    public func meters(from value: Double) -> Double {
+        value * metersPerUnit
     }
 
-    /// 2:00 /500m, 6:00 /km, 10:00 /mi.
-    public var paceDefault: Double {
-        switch self {
-        case .meters: 120
-        case .kilometers: 360
-        case .miles: 600
-        }
-    }
+    public var paceRange: ClosedRange<Double> { defaultPaceReference.range }
 
-    /// Splits are dialed in single seconds on an erg; road paces in 5 s.
-    public var paceWheelStep: Double {
-        self == .meters ? 1 : 5
-    }
+    public var paceDefault: Double { defaultPaceReference.defaultValue }
+
+    public var paceWheelStep: Double { defaultPaceReference.wheelStep }
 
     // MARK: - Speed
     // A treadmill's dial, denominated to match the distance unit. Meters
     // fall back to km/h — a meters-denominated exercise showing a speed
     // row is already an exotic combination.
 
+    /// Yards rides with miles: both are US denominations, so a treadmill
+    /// dial beside them reads in mph.
+    private var usesImperialSpeed: Bool { self == .miles || self == .yards }
+
     public var speedLabel: String {
-        self == .miles ? "mph" : "km/h"
+        usesImperialSpeed ? "mph" : "km/h"
     }
 
     public var speedRange: ClosedRange<Double> {
-        self == .miles ? 0.5...15 : 1...25
+        usesImperialSpeed ? 0.5...15 : 1...25
     }
 
     public var speedDefault: Double {
-        self == .miles ? 6 : 10
+        usesImperialSpeed ? 6 : 10
     }
 }

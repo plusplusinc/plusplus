@@ -434,6 +434,7 @@ struct ExerciseEditorView: View {
                 metric: metric,
                 weightUnit: weightUnit,
                 distanceUnit: draft.distanceUnit,
+                paceReference: draft.paceReference,
                 value: Binding(
                     get: { draft.defaultTarget(metric) },
                     set: { draft.setDefaultTarget(metric, to: $0) }
@@ -492,7 +493,7 @@ struct ExerciseEditorView: View {
                         label: metric.label,
                         value: metric == .duration
                             ? defaultDurationText
-                            : metric.displayText(draft.defaultTarget(metric), weightUnit: weightUnit, distanceUnit: draft.distanceUnit),
+                            : metric.displayText(draft.defaultTarget(metric), weightUnit: weightUnit, distanceUnit: draft.distanceUnit, paceReference: draft.paceReference),
                         identifier: "default-\(metric.rawValue)",
                         onTapValue: {
                             focusedField = nil
@@ -523,8 +524,8 @@ struct ExerciseEditorView: View {
         let stepOverride = metric == .weight ? draftWeightStep : nil
         let current = draft.defaultTarget(metric)
         let stepped = direction > 0
-            ? metric.incremented(current, weightUnit: weightUnit, distanceUnit: draft.distanceUnit, stepOverride: stepOverride)
-            : metric.decremented(current, weightUnit: weightUnit, distanceUnit: draft.distanceUnit, stepOverride: stepOverride)
+            ? metric.incremented(current, weightUnit: weightUnit, distanceUnit: draft.distanceUnit, stepOverride: stepOverride, paceReference: draft.paceReference)
+            : metric.decremented(current, weightUnit: weightUnit, distanceUnit: draft.distanceUnit, stepOverride: stepOverride, paceReference: draft.paceReference)
         draft.setDefaultTarget(metric, to: stepped)
     }
 
@@ -709,7 +710,13 @@ struct ExerciseEditorView: View {
         // body pass can see the name without its exemption.
         savedName = draft.trimmedName
         if let exercise = editingExercise {
+            let oldName = exercise.name
             draft.apply(to: exercise)
+            // A quick-start pick is keyed by NAME (device-local), so a
+            // rename would silently drop its key off Today's rail.
+            if oldName != exercise.name {
+                QuickStartPicks.rename(from: oldName, to: exercise.name)
+            }
         } else {
             let exercise = Exercise(name: draft.trimmedName, muscleGroup: draft.muscleGroup)
             modelContext.insert(exercise)

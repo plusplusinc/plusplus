@@ -13,18 +13,23 @@ import PlusPlusKit
 @Suite("Exercise attributes")
 struct ExerciseAttributeTests {
     /// Strength compounds with no honest program bucket — conditioning
-    /// drills, complexes, get-ups, rollouts, slams, and the console
-    /// cardio whose profile carries no distance/pace/calories (its
-    /// derived modality reads .strength). Adding a row here is a
-    /// DECISION: the Movement facet will never reach it.
+    /// drills, complexes, get-ups, rollouts, slams. Adding a row here is
+    /// a DECISION: the Movement facet will never reach it.
+    ///
+    /// The console machines (Elliptical, Stair Climber, Vertical
+    /// Climber) left this list when the cardio push taught
+    /// `ExerciseModality.derive` their equipment: they resolve as cardio
+    /// now, which exempts them by modality rather than by name. The
+    /// Upper Body Ergometer stays — `derive` carries no key for it and
+    /// its duration-plus-resistance profile still reads .strength.
     private static let deliberatelyPatternless: Set<String> = [
         "Ab Wheel Rollout", "Agility Ladder Drills", "Battle Rope Slams",
         "Battle Rope Waves", "Bear Crawl", "Burpee", "Butt Kicks",
-        "Devil Press", "Elliptical", "Heavy Bag Rounds", "High Knees",
+        "Devil Press", "Heavy Bag Rounds", "High Knees",
         "Jumping Jacks", "Man Maker", "Medicine Ball Slam",
         "Mountain Climber", "Slam Ball Slam", "Squat Thrust",
-        "Stability Ball Rollout", "Stair Climber", "Turkish Get-Up",
-        "Upper Body Ergometer", "Vertical Climber",
+        "Stability Ball Rollout", "Turkish Get-Up",
+        "Upper Body Ergometer",
     ]
 
     /// A definition's modality as the app resolves it: authored

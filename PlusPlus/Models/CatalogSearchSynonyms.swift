@@ -69,10 +69,10 @@ enum CatalogSearchSynonyms {
         // Cardio the console names differently
         "Rowing": "erg ergometer rower",
         "Assault Bike": "air fan bike",
-        "Stationary Bike": "spin",
+        "Indoor Cycling": "spin stationary bike",
         "Cycling": "bike biking",
         "Running": "run jog jogging",
-        "Swimming": "swim laps pool",
+        "Pool Swim": "laps",
         "Jump Rope": "skipping",
         "Elliptical": "cross trainer",
         "Stair Climber": "stairmaster stairs",

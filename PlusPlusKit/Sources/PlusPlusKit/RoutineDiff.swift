@@ -393,11 +393,12 @@ public enum RoutineDiff {
         return (value > 0 ? "+" : "−") + text + " " + unit
     }
 
-    /// "−0:05 /500m" — pace deltas read as clock time like pace itself.
-    static func signedPace(_ value: Double, unit: DistanceUnit) -> String {
+    /// "−0:05 /500m" — pace deltas read as clock time like pace itself,
+    /// and against the same denominator the pace itself was quoted over.
+    static func signedPace(_ value: Double, unit: DistanceUnit, paceReference: PaceReference? = nil) -> String {
         let total = Int(abs(value).rounded())
         let clock = String(format: "%d:%02d", total / 60, total % 60)
-        return (value > 0 ? "+" : "−") + clock + " " + unit.paceLabel
+        return (value > 0 ? "+" : "−") + clock + " " + (paceReference ?? unit.defaultPaceReference).label
     }
 
     // MARK: - Net chip (committed entries)

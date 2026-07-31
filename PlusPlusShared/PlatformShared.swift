@@ -48,6 +48,60 @@ struct WorkoutActivityAttributes: ActivityAttributes {
         /// exercise or block up next (#369) — so the label says SWITCH
         /// instead of REST. Additive optional; absent reads as rest.
         var isTransition: Bool? = nil
+        /// The noun this workout counts its work in — "set", "piece",
+        /// "rep", "effort". Additive optional; absent reads as "set",
+        /// which is what the island said before it could tell a rower
+        /// from a bench press.
+        var workUnit: String? = nil
+        /// The live measured distance and split, ALREADY FORMATTED in the
+        /// exercise's own denominations ("3.11 mi", "8:42 /mi").
+        ///
+        /// ⚠️ Formatted rather than raw, deliberately, and for the same
+        /// reason `workUnit` is a String: the widget extension has no
+        /// profile, no distance unit and no pace reference to denominate a
+        /// number with, and shipping three more fields so it could
+        /// re-derive what the app already knows would be three more ways
+        /// for the two to disagree. Additive optionals following the
+        /// `isTransition` precedent; absent on every non-cardio set and on
+        /// any set with no live reading.
+        var distanceText: String? = nil
+        var paceText: String? = nil
+
+        /// The noun to render, defaulting to what the island said before
+        /// it could tell a rower from a bench press.
+        var unitNoun: String { workUnit ?? "set" }
+
+        /// "3.11 mi · 8:42 /mi" — whichever of the two are live. nil when
+        /// neither is, which is every strength set.
+        var cardioLine: String? {
+            let parts = [distanceText, paceText].compactMap { $0 }
+            return parts.isEmpty ? nil : parts.joined(separator: " · ")
+        }
+
+        /// The line under the exercise name: what you're covering when
+        /// something is measuring it, else how far through the block you
+        /// are. ⚠️ nil on a single continuous effort with no reading —
+        /// "0/1 done" is the island's version of the count-of-one lie,
+        /// and it sat there saying it for forty minutes.
+        var progressLine: String? {
+            if let cardioLine { return cardioLine }
+            return totalSets > 1 ? "\(setsCompleted)/\(totalSets) done" : nil
+        }
+
+        /// "Rowing · piece 3", or a bare exercise name where the sport
+        /// counts nothing (a walk) or there is only one of them.
+        var positionLine: String {
+            totalSets > 1
+                ? "\(exerciseName) · \(unitNoun) \(setNumber)"
+                : exerciseName
+        }
+
+        /// "PIECE 3" over the island's leading region. nil on a single
+        /// continuous effort, where the exercise name below already says
+        /// everything true and a count of one says nothing.
+        var unitKicker: String? {
+            totalSets > 1 ? "\(unitNoun.uppercased()) \(setNumber)" : nil
+        }
     }
 
     /// Fixed for the activity's life: the routine being performed.

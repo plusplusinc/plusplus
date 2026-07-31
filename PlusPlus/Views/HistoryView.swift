@@ -28,8 +28,15 @@ struct SessionRow: View {
 
     private var subtitle: String {
         var parts = [session.startedAt.formatted(.dateTime.month(.abbreviated).day())]
-        let sets = session.completedSetLogs.count
-        parts.append("\(sets) \(sets == 1 ? "set" : "sets")")
+        // The snapshot `finish()` stamped — one string read per row, and
+        // the same noun the finish screen printed. (Pre-field records fall
+        // back to the first log's unit inside `summaryWorkUnit`.)
+        if let count = WorkUnit.summaryCount(
+            session.summaryWorkUnit,
+            session.completedSetLogs.count
+        ) {
+            parts.append(count)
+        }
         if let duration = session.duration {
             parts.append(Self.durationText(duration))
         }
@@ -196,9 +203,30 @@ struct SessionDetailView: View {
                             }
                             ForEach(Array(block.sets.enumerated()), id: \.offset) { _, log in
                                 HStack {
-                                    Text("Set \(log.setNumber)")
-                                        .font(.system(.caption))
-                                        .foregroundStyle(log.isCompleted ? Theme.textSecondary : Theme.textFaint)
+                                    // No label at all when the block holds
+                                    // one (Dave, build 158): a run is one
+                                    // continuous thing, and "Set 1" both
+                                    // numbers what has no siblings and
+                                    // borrows a noun the sport never uses.
+                                    if let label = WorkUnit.rowLabel(
+                                        log.workUnit, index: log.setNumber, total: block.sets.count
+                                    ) {
+                                        Text(label)
+                                            .font(.system(.caption))
+                                            .foregroundStyle(log.isCompleted ? Theme.textSecondary : Theme.textFaint)
+                                    }
+                                    // What your heart did during THIS set,
+                                    // between the label and the result. Faint
+                                    // and unlabelled beyond the glyph: it is a
+                                    // fact about the set, not its headline,
+                                    // and it is absent whenever nothing
+                                    // measured it (never a zero).
+                                    if let bpm = log.actualAverageHeartRate {
+                                        Text("\(Image(systemName: "heart.fill")) \(bpm)")
+                                            .font(.system(.caption2, design: .monospaced))
+                                            .foregroundStyle(Theme.textFaint)
+                                            .accessibilityLabel("Average heart rate \(bpm)")
+                                    }
                                     Spacer()
                                     Text(log.isCompleted ? log.resultSummary(weightUnit: weightUnit) : "skipped")
                                         .font(.system(.caption, design: .monospaced))
@@ -277,7 +305,12 @@ struct SessionDetailView: View {
 
     private var subtitle: String {
         var parts = [session.startedAt.formatted(.dateTime.month(.abbreviated).day())]
-        parts.append("\(session.completedSetLogs.count) sets")
+        if let count = WorkUnit.summaryCount(
+            session.summaryWorkUnit,
+            session.completedSetLogs.count
+        ) {
+            parts.append(count)
+        }
         if let duration = session.duration {
             parts.append(SessionRow.durationText(duration))
         }

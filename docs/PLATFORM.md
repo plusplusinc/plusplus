@@ -190,6 +190,16 @@ The app's single-file export (backup / manual transport) is a bundle:
       "name": "Trail Run"
     },
     {
+      "distanceUnit": "yd",
+      "equipment": [],
+      "exerciseType": "duration",
+      "isBuiltIn": false,
+      "metrics": ["distance", "duration", "pace"],
+      "muscleGroup": "fullBody",
+      "name": "Pool Swim",
+      "paceReference": "100yd"
+    },
+    {
       "equipment": ["Bench", "Dumbbells"],
       "exerciseType": "weightReps",
       "isBuiltIn": false,
@@ -289,7 +299,9 @@ The app's single-file export (backup / manual transport) is a bundle:
       },
       "sets": [
         {
+          "actualAverageHeartRate": 148,
           "actualDuration": 1745,
+          "actualMaxHeartRate": 171,
           "completedAt": "2026-07-07T07:31:40Z",
           "distanceUnit": "mi",
           "exerciseName": "Trail Run", "exerciseType": "duration",
@@ -336,10 +348,18 @@ Semantics worth writing down:
   `distance`, `calories`, or `duration`). `exerciseType` stays authoritative
   for old readers and must agree: profiles tracking `reps` are `weightReps`,
   everything else is `duration`. Absent `metrics` means exactly what
-  `exerciseType` always meant. `distanceUnit` (`m` / `km` / `mi`, absent =
-  meters) declares what distance/pace/speed numbers mean — a declaration,
-  never a conversion, like `units`; pace values are plain seconds against the
-  unit's reference (`/500m` for meters, else per km/mi). Values for metrics
+  `exerciseType` always meant. `distanceUnit` (`m` / `km` / `mi` / `yd`,
+  absent = meters) declares what distance/pace/speed numbers mean — a
+  declaration, never a conversion, like `units`; pace values are plain
+  seconds against a reference distance. That reference normally rides the
+  unit (`/500m` for meters, `/km`, `/mi`, `/100yd` for yards), and
+  `paceReference` (`100m` / `500m` / `km` / `100yd` / `mi`, absent = the
+  unit's own) overrides it for the case where the unit is not enough: a
+  metric pool is denominated in meters exactly like an erg and splits per
+  100, not per 500. It rides the explicit `metrics` profile like
+  `distanceUnit`, and a session set may snapshot its own. A reader that
+  doesn't know a given reference falls back to the unit's convention rather
+  than rejecting the profile. Values for metrics
   beyond the dedicated weight/reps/duration fields ride string-keyed maps:
   `extraDefaults` (exercises), `extraTargets` (routine entries and session
   sets), `extraActuals` (session sets). Keys must come from the vocabulary and
@@ -402,7 +422,14 @@ Semantics worth writing down:
   It appears as `defaultHeartRateTarget` on an exercise (the prefill for new
   entries), `heartRateTarget` on a routine entry (the prescription), and
   `targetHeartRate` on a session set (the snapshot the set ran under). Absent
-  everywhere means no prescription.
+  everywhere means no prescription. A session set may also carry
+  `actualAverageHeartRate` / `actualMaxHeartRate` — what the heart actually
+  did during THAT set, in bpm, mirroring the session-level pair. They are
+  measurements rather than prescriptions, so they are absent (never zero)
+  whenever nothing measured them, which is every set written before the
+  fields existed. Deliberately not metric-vocabulary keys: a metric is an
+  editable scalar you dial, a heart-rate target is a zone or a range, and an
+  actual is measured.
 - **Outdoor runs** (#378, additive to schema v1): an exercise whose profile
   happens outdoors under GPS declares `isOutdoor: true` — the flag that
   engages live pace/distance and route capture. It rides the explicit

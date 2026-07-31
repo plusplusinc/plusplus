@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import SwiftData
 import CoreLocation
 import UIKit
@@ -60,6 +61,29 @@ struct ActiveSessionView: View {
     @State private var showingExitDialog = false
     @State private var showingOverview = false
     @State private var burstCount = 0
+    // The count-up effort clock has NO view state: its anchor is
+    // `session.effortAnchorSeconds`, persisted on the running-time
+    // ledger, so a pause (which unmounts the timer card), a re-present,
+    // and process death all leave the elapsed intact. The first fix
+    // hoisted a wall-clock anchor from the card to this view and
+    // re-implemented pause banking beside the ledger that already does
+    // it; the model anchor deletes both.
+    /// When the live set became live — the window a per-set heart-rate
+    /// summary is drawn over. Distinct from the effort clock's anchor,
+    /// which lives in RUNNING time so pauses drop out; the heart-rate
+    /// window wants the whole set, pause included, because the recovery
+    /// in the middle is part of what the set cost.
+    @State private var currentSetStartedAt = Date()
+    /// Drives the island's measured-value refresh. A publisher rather than
+    /// a `TimelineView` because nothing on screen depends on it — the
+    /// on-screen readings have their own timelines.
+    ///
+    /// ⚠️ `@State`, not a computed property and not a plain `let`. A
+    /// publisher rebuilt on each body pass is a NEW publisher, so
+    /// `onReceive` resubscribes and `autoconnect()` restarts the timer
+    /// from zero — on a screen that re-renders every second, a 30 s timer
+    /// built that way never fires at all.
+    @State private var islandRefresh = Timer.publish(every: 30, tolerance: 5, on: .main, in: .common).autoconnect()
     /// Flips on appear of the finished screen to fire the checkmark's
     /// one-shot bounce.
     @State private var completeBounce = false
@@ -75,7 +99,32 @@ struct ActiveSessionView: View {
     /// OWN distance/pace — but persists across the rounds of one exercise.
     @State private var outdoorExerciseKey: String?
 
+    /// What the meter read when THIS round began.
+    ///
+    /// ⚠️ The meter re-bases per EXERCISE, never per round, so its total
+    /// describes the whole 6 × 400 m rather than the rep you are running.
+    /// The wrist has banked per step since #473 for exactly this reason
+    /// and the phone never did — which is why an outdoor round used to
+    /// record no distance at all unless its block held exactly one.
+    @State private var distanceAtRoundStart: Double = 0
+
+    /// Whether the finish recap shows every cardio effort or the first
+    /// four. Ephemeral: the screen is a moment, not a place you return to.
+    @State private var recapExpanded = false
+
     private var totalSets: Int { session.sortedSetLogs.count }
+
+    /// The noun this WHOLE session counts in, or nil for a sport that
+    /// counts nothing. A MIXED session is never nil — `SessionModality`
+    /// files strength-plus-cardio as strength — which is the right generic:
+    /// a run plus a lifting block is not four pieces.
+    private var sessionWorkUnit: WorkUnit? { session.modality.primary.workUnit }
+
+    /// The same noun where a count ABOVE ONE has to be named out loud: the
+    /// island's progress, the block bar's VoiceOver subject, the Live
+    /// Activity's word. All three render only above one, and a count above
+    /// one on a walk is exactly what the divider authored.
+    private var sessionUnit: WorkUnit { WorkUnit.divider(sessionWorkUnit) }
 
     /// The set whose screen is up (the lingering freeze-frame, else the
     /// live current). What "the active exercise" means for live vitals.
@@ -108,6 +157,43 @@ struct ActiveSessionView: View {
         location.stop()
         location.start(from: session.effectiveStart, unit: runUnit)
         outdoorExerciseKey = key
+        distanceAtRoundStart = 0
+    }
+
+    /// This ROUND's own measured distance — the meter's total less what it
+    /// read when the round began — or nil when nothing is measuring.
+    private var measuredRoundDistance: Double? {
+        guard isOutdoorNow, location.isFresh, let total = location.totalDistanceInUnit else { return nil }
+        return max(0, total - distanceAtRoundStart)
+    }
+
+    /// Log the effort the moment a MEASURED target is reached, and let the
+    /// existing commit path carry it into rest.
+    ///
+    /// ⚠️ **MEASURED only** (Dave). A distance under a live GPS fix, and
+    /// the duration the auto-timer already ends itself on. A console
+    /// number you type at the finish is not a measurement, so it advances
+    /// nothing — the alternative is the app guessing when a machine's
+    /// readout got there, which is the class of lie this whole push exists
+    /// to remove.
+    ///
+    /// ⚠️ **Not while paused, and not mid-rest** — the two cases the plan
+    /// flagged as needing an answer rather than falling out. Paused, the
+    /// meter is paused too and advancing a workout the user is holding is
+    /// the app acting behind their back. Mid-rest, `currentLog` is the
+    /// effort that has NOT started, so its target has not been reached by
+    /// anything. `lingeringLog` covers the +1 beat, where the commit has
+    /// happened but the screen has not caught up.
+    private func autoAdvanceIfTargetReached() {
+        guard !session.isPaused, !session.isFinished, restEndDate == nil, lingeringLog == nil,
+              let log = session.currentLog, !log.isCompleted,
+              let target = log.target(.distance), target > 0,
+              let covered = measuredRoundDistance, covered >= target else { return }
+        // Its own texture, distinct from the medium thud a tap earns:
+        // the workout moved without you asking, and the hand should be
+        // told something happened rather than that you did it.
+        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+        completeCurrentSet(log)
     }
     private var completedSets: Int { session.completedSetLogs.count }
 
@@ -200,13 +286,22 @@ struct ActiveSessionView: View {
             Button("Discard workout", role: .destructive) {
                 LiveMirror.shared.discarded(session)
                 WorkoutActivityController.shared.end()
+                // Discarded means discarded everywhere: a live recording
+                // that merely ended would still save the workout to Health.
+                LiveWorkoutController.shared.discard()
                 modelContext.delete(session)
                 dismiss()
             }
             Button("Keep going", role: .cancel) {}
         } message: {
             if completedSets > 0 {
-                Text("Finish keeps the \(completedSets) logged \(completedSets == 1 ? "set" : "sets"); Discard deletes the session.")
+                // One effort has no count worth naming, so the sentence
+                // names the act instead of saying "the 1 set you logged".
+                if let logged = WorkUnit.summaryCount(sessionWorkUnit, completedSets) {
+                    Text("Finish keeps the \(logged) you logged; Discard deletes the session.")
+                } else {
+                    Text("Finish keeps what you logged; Discard deletes the session.")
+                }
             } else {
                 Text("Nothing has been logged yet.")
             }
@@ -237,7 +332,7 @@ struct ActiveSessionView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Today's exercises, sets, and weights become the template.")
+            Text("Today's exercises and everything you logged become the template.")
         }
         .interactiveDismissDisabled()
         .task {
@@ -252,7 +347,8 @@ struct ActiveSessionView: View {
                     setNumber: log?.setNumber ?? 1,
                     setsCompleted: completedSets,
                     totalSets: totalSets,
-                    startedAt: session.effectiveStart
+                    startedAt: session.effectiveStart,
+                    workUnit: sessionUnit.singular
                 )
             }
             // HR monitoring rides the workout clock: a routine session
@@ -261,6 +357,7 @@ struct ActiveSessionView: View {
             if !session.isFinished, session.isWorkoutStarted {
                 heartRate.start(from: session.effectiveStart)
                 syncLocation()
+                startLiveRecordingIfEnabled()
             }
             // The session's FIRST exercise announces here (no key change
             // to observe); later exercises ride activeExerciseKey below.
@@ -280,6 +377,9 @@ struct ActiveSessionView: View {
         // and `.onChange` fires after the render that observed it.
         .onChange(of: session.isPaused) { _, paused in
             paused ? location.pause() : location.resume()
+            // The live recording holds with the clock, so paused minutes
+            // are not filed as effort. No-op when nothing is recording.
+            paused ? LiveWorkoutController.shared.pause() : LiveWorkoutController.shared.resume()
             // Belt for the Pause key's braces, and cover for any future
             // pause affordance (#157's island controls would post a
             // notification, exactly like `.plusplusAdjustRest` does).
@@ -300,6 +400,65 @@ struct ActiveSessionView: View {
         .onChange(of: activeExerciseKey) {
             syncLocation()
             announceVoiceCue()
+        }
+        // A new set is a new effort: stamp the effort clock's anchor and
+        // the heart-rate window.
+        // ⚠️ Keys on the LOG's order, since the cursor moves for a new
+        // round of the same block as well as a new exercise. It fires on
+        // the way into the rest screen too, and the rest-end stamp below
+        // then wins — so the recovery lands in neither effort's clock.
+        .onChange(of: session.currentLog?.order) { _, _ in
+            // Discard cascades the logs, so this fires against a deleted
+            // model during the animated dismissal — the crash class the
+            // delete paths pop screens to avoid.
+            guard !session.isDeleted else { return }
+            session.markEffortStart()
+            currentSetStartedAt = Date()
+            // Bank the meter where this round starts. Self-correcting
+            // against `syncLocation`'s re-base whichever order the two
+            // land in: a fresh exercise re-reads a meter at zero, and
+            // banking zero is exactly right.
+            distanceAtRoundStart = location.totalDistanceInUnit ?? 0
+        }
+        // A rest ending (expiry or skip, through any of its doors) is
+        // where the next effort genuinely begins, so its stamp WINS over
+        // the cursor-move stamp above — without it, round two of an
+        // open-ended interval block started its count-up two minutes in,
+        // and in count-up mode the displayed elapsed is what gets logged.
+        // ⚠️ The paused-bank guard: `bankRestForPause` clears the date
+        // while parking the remaining interval, and that transition is a
+        // HOLD, not an ending. (The paused doors that conclude a rest
+        // with no date transition stamp inside `endRest` instead.)
+        // ⚠️ The anchor is the rest's TRUE end, not this handler's run
+        // time: a rest can expire while the phone is locked, and RestView
+        // only fires its expiry when it next renders — anchoring at
+        // unlock would silently drop the whole locked stretch from the
+        // clock, the same data-loss class this anchor exists to kill. A
+        // skip's still-future date clamps to now.
+        .onChange(of: restEndDate) { oldValue, newValue in
+            if newValue == nil, restPausedRemaining == nil, !session.isDeleted {
+                session.markEffortStart(at: min(Date(), oldValue ?? Date()))
+            }
+        }
+        // ⚠️ The island's distance and pace are pushed values, not
+        // date-derived ones like the elapsed clock, so without this they
+        // would freeze at whatever they read when the set began and sit
+        // there for forty minutes — a stalled number the island cannot
+        // tell you is stale, which is the exact class of lie this push is
+        // removing. Every 30 s, and only while an outdoor effort is
+        // actually running: ActivityKit budgets app-driven updates, and a
+        // strength session must not spend any of them.
+        .onReceive(islandRefresh) { _ in
+            guard isOutdoorNow, !session.isPaused, !session.isFinished, restEndDate == nil else { return }
+            syncActivityWorking()
+        }
+        // Auto-advance rides every new GPS reading, not the 30 s island
+        // tick: a target reached is the moment the effort is over, and
+        // half a minute of running past it is not "when the target was
+        // reached". The guards live in the function, so this stays one
+        // line for the one thing that can move a measured distance.
+        .onChange(of: location.totalDistanceInUnit) { _, _ in
+            autoAdvanceIfTargetReached()
         }
         // A WATCH-driven finish swaps this screen to the purple record
         // while a cue may still be talking — the phone-side finish path
@@ -329,6 +488,15 @@ struct ActiveSessionView: View {
         // always reads REST here (#369 deferred the kind op-field).
         .onReceive(NotificationCenter.default.publisher(for: LiveMirror.restChanged)) { note in
             guard let endsAt = note.object as? Date else {
+                // A wrist-ended rest, which the wrist can do to a rest the
+                // phone has BANKED (paused: no date transition, so the
+                // observer never fires) — stamp the effort start here, as
+                // `endRest` does, or the pre-pause rest seconds land in
+                // the next count-up. Frozen `elapsed()` while paused is
+                // the right anchor.
+                if restEndDate != nil || restPausedRemaining != nil {
+                    session.markEffortStart()
+                }
                 restEndDate = nil
                 restPausedRemaining = nil
                 return
@@ -445,6 +613,13 @@ struct ActiveSessionView: View {
         guard restEndDate != nil || restPausedRemaining != nil else { return }
         restEndDate = nil
         restPausedRemaining = nil
+        // The effort stamp, HERE as well as in the `restEndDate` observer:
+        // this is the one door that concludes a BANKED rest (paused, no
+        // date transition for the observer to see), and a skip from the
+        // island while paused took it. Stamping while paused writes the
+        // frozen `elapsed()`, which is exactly the right anchor — the
+        // effort starts when the workout resumes.
+        session.markEffortStart()
         LiveMirror.shared.restEnded(in: session)
         syncActivityWorking()
     }
@@ -501,8 +676,31 @@ struct ActiveSessionView: View {
             exerciseName: log?.exerciseName ?? session.routineName,
             setNumber: log?.setNumber ?? 1,
             setsCompleted: completedSets,
-            totalSets: totalSets
+            totalSets: totalSets,
+            distanceText: islandDistanceText,
+            paceText: islandPaceText
         )
+    }
+
+    /// The live distance for the island, formatted here because the app is
+    /// the only side that knows the exercise's denomination. Only while
+    /// the fix is FRESH — a stale reading frozen on the Lock Screen reads
+    /// as a stalled run, and the island cannot tell you it is stale.
+    private var islandDistanceText: String? {
+        guard isOutdoorNow, location.isFresh, let value = location.totalDistanceInUnit else { return nil }
+        let profile = session.currentLog?.metricProfile
+        return WorkoutMetric.distance.displayText(
+            value,
+            distanceUnit: profile?.distanceUnit ?? location.unit,
+            paceReference: profile?.paceReference
+        )
+    }
+
+    private var islandPaceText: String? {
+        guard isOutdoorNow, location.isFresh, let pace = location.currentPaceSeconds else { return nil }
+        let profile = session.currentLog?.metricProfile
+        let reference = profile?.resolvedPaceReference ?? location.unit.defaultPaceReference
+        return WorkoutMetric.pace.formatted(pace) + " " + reference.label
     }
 
     // MARK: - Header
@@ -634,9 +832,9 @@ struct ActiveSessionView: View {
                     TimelineView(.periodic(from: .now, by: 1)) { context in
                         // "set 1/0" is nonsense on an empty scratch
                         // session — the clock state alone carries it.
-                        Text(totalSets == 0
+                        Text(totalSets <= 1
                             ? clockText(at: context.date)
-                            : "set \(min(completedSets + 1, max(totalSets, 1)))/\(totalSets) · \(clockText(at: context.date))")
+                            : "\(sessionUnit.singular) \(min(completedSets + 1, totalSets))/\(totalSets) · \(clockText(at: context.date))")
                             .font(.system(.caption, design: .monospaced))
                             .foregroundStyle(Theme.textPrimary)
                             .lineLimit(1).minimumScaleFactor(0.6)
@@ -688,6 +886,20 @@ struct ActiveSessionView: View {
         session.startClock()
         heartRate.start(from: session.effectiveStart)
         syncLocation()
+        startLiveRecordingIfEnabled()
+    }
+
+    /// Hand the recording to the phone's own `HKWorkoutSession` when the
+    /// user has opted in (off by default). Idempotent, and inert when the
+    /// switch is off — with it off nothing below changes and the finish
+    /// still writes retrospectively.
+    ///
+    /// ⚠️ It rides the WORKOUT CLOCK, not the screen: an ad-hoc session
+    /// exists while its exercises are being assembled, and a session that
+    /// began recording then would file the assembly time as training.
+    /// Both callers are the two places the clock engages.
+    private func startLiveRecordingIfEnabled() {
+        LiveWorkoutController.shared.start(modality: session.modality, at: session.effectiveStart)
     }
 
     // MARK: - Paused
@@ -813,7 +1025,7 @@ struct ActiveSessionView: View {
             return "\(restIsTransition ? "Switch" : "Rest") · \(clock) left"
         }
         guard let log = session.currentLog else { return nil }
-        return "\(log.exerciseName) · \(log.driver == .reps ? "set" : "round") \(log.setNumber)"
+        return log.caption
     }
 
     /// Mid-rest, the set the countdown leads into. Mid-exercise, the next
@@ -822,7 +1034,7 @@ struct ActiveSessionView: View {
     private var pausedUpNext: String? {
         guard let current = session.currentLog else { return nil }
         if heldRestRemaining != nil {
-            return "\(current.exerciseName) · \(current.driver == .reps ? "set" : "round") \(current.setNumber)"
+            return current.caption
         }
         // Keyed on (group, name), not name alone: a routine that comes
         // back to an exercise in a later block would otherwise skip past
@@ -857,23 +1069,72 @@ struct ActiveSessionView: View {
                 if setLog.isCompleted { return .done }
                 return setLog.order == log.order ? .live : .upcoming
             }
-            BlockBar(
-                total: block.count,
-                // Colour comes from `states`; this is the VoiceOver count.
-                filled: block.filter(\.isCompleted).count,
-                states: states,
-                // Paused banks the rest and clears the date, so holding a
-                // workout stops the breathing too.
-                breathing: restEndDate != nil && !reduceMotion
-            )
+            // ⚠️ A one-block bar states nothing, and on a continuous
+            // effort it states nothing for forty minutes. Same law the
+            // kicker already follows (`WorkUnit.kicker` returns nil at a
+            // total of one): a count of one is not a count. The hero owns
+            // progress for a single effort — a countdown fills its own
+            // bar, and an open-ended one has nothing to fill toward.
+            if block.count > 1 {
+                BlockBar(
+                    total: block.count,
+                    // Colour comes from `states`; this is the VoiceOver count.
+                    filled: block.filter(\.isCompleted).count,
+                    states: states,
+                    // Paused banks the rest and clears the date, so holding a
+                    // workout stops the breathing too.
+                    breathing: restEndDate != nil && !reduceMotion
+                )
                 // No caption sibling here, so the bar needs its own
                 // subject or VoiceOver hears a bare "2 of 4" (a11y,
                 // 2026-07-23).
-                .accessibilityLabel("Sets")
+                .accessibilityLabel(sessionUnit.plural.capitalized)
+            }
         }
     }
 
     // MARK: - Actions
+
+    /// Whether a log's dock is the timer rather than the stage — the
+    /// same question `SetLoggingView.showsClock` asks, so the +1 beat and
+    /// the dock can't disagree about which screen you are on. It used to
+    /// key on `driver != .duration`, which after the hero chain meant a
+    /// count-up rower got a 0.75 s beat on a dock that has no `+1` to
+    /// show, while a count-up plank was excluded from one it could use.
+    private func heroIsClock(for log: SetLog) -> Bool {
+        var measurable: Set<WorkoutMetric> = [.duration]
+        if isOutdoorNow, location.isFresh { measurable.formUnion([.distance, .pace]) }
+        return CardioHero.resolve(
+            profile: log.metricProfile,
+            target: { log.target($0) },
+            measurable: measurable
+        )?.hero.isClock == true
+    }
+
+    /// What this set's heart rate was, over THIS set's own window.
+    ///
+    /// The window is the interesting part. Drawing it from the session
+    /// start would average an hour of lifting and resting into one
+    /// number that says almost nothing; drawing it from the previous
+    /// set's completion would fold the rest in and drag every set down.
+    /// `currentSetStartedAt` is stamped when the cursor moves, so the
+    /// window is the effort itself.
+    ///
+    /// Applies to EVERY workout, not just cardio — a heavy triple spikes
+    /// a heart rate too, and the set that spiked it is the unit worth
+    /// recording. Health answers asynchronously and on the main queue;
+    /// nil stays nil (no sensor, no access, no samples), because a
+    /// fabricated zero is the anti-shame rule's inverse.
+    private func recordHeartRate(for log: SetLog) {
+        let from = currentSetStartedAt
+        let to = Date()
+        guard to > from else { return }
+        HeartRateMonitor.summary(from: from, to: to) { average, peak in
+            guard !log.isDeleted else { return }
+            if let average { log.actualAverageHeartRate = average }
+            if let peak { log.actualMaxHeartRate = peak }
+        }
+    }
 
     /// The +1 beat plays only where a human is watching — under UI test
     /// the transition is immediate (the delay would slow every logging
@@ -892,17 +1153,34 @@ struct ActiveSessionView: View {
         // Taps during the beat are the double-log class — the button is
         // still on screen while the view lingers.
         guard lingeringLog == nil else { return }
+        recordHeartRate(for: log)
         // An outdoor run's measured distance/pace become the logged
         // actuals, so the record reflects the GPS run instead of a hand
-        // guess. Only for a single-round piece (the meter tracks the whole
-        // exercise, not a per-round split), only with a FRESH reading (so
-        // a still-acquiring re-base can't log stale values), and only when
-        // not already edited — a manual actual always wins.
-        if isOutdoorNow, location.isFresh, roundsInBlock(of: log) == 1 {
-            if log.actual(.distance) == nil, let distance = location.totalDistanceInUnit {
+        // guess. Only with a FRESH reading (a still-acquiring re-base must
+        // not log stale values), and only when not already edited — a
+        // manual actual always wins.
+        //
+        // ⚠️ `storedActual`, not `actual`: pace derives from distance and
+        // duration (#302), so an `actual(.pace) == nil` guard would read a
+        // derivation as an edit and drop the GPS reading.
+        if isOutdoorNow, location.isFresh {
+            // THIS round's distance, from the per-round bank. Before the
+            // bank existed this was gated to single-round blocks, because
+            // the meter is per EXERCISE and there was no honest way to
+            // attribute a split — so a 6 × 400 m recorded no distance at
+            // all. Now it records six.
+            if log.storedActual(.distance) == nil,
+               let distance = measuredRoundDistance, distance > 0 {
                 log.setActual(.distance, to: distance)
             }
-            if log.actual(.pace) == nil, let pace = location.averagePaceSeconds {
+            // ⚠️ Pace stays SINGLE-ROUND only. The meter's average is over
+            // the whole EXERCISE's moving time, so on rep four it would
+            // describe the whole run and call it that rep's split. A
+            // multi-round effort gets its pace from #302's derivation
+            // instead — this round's distance over this round's time,
+            // which is the split it actually wanted.
+            if roundsInBlock(of: log) == 1, log.storedActual(.pace) == nil,
+               let pace = location.averagePaceSeconds {
                 log.setActual(.pace, to: pace)
             }
         }
@@ -947,9 +1225,13 @@ struct ActiveSessionView: View {
         // Duration-driven sets have no +1 (their dock is the auto-timer;
         // the timer reaching zero IS the flourish) — no beat to wait for.
         // Ad-hoc sessions never auto-finish (routine == nil): the body's
-        // stagedWorkDoneStage takes over when pending sets run out.
-        guard Self.playsLogBeat, log.driver != .duration else {
-            if !hasNext, session.routine != nil { finishSession(dismissAfter: false) }
+        // stagedWorkDoneStage takes over when pending sets run out — except
+        // when there was only ever ONE effort, where it asks about
+        // repetition at the moment there is none ("All added exercises
+        // done. Add another, or finish"). A run ends when you stop.
+        let endsTheWorkout = !hasNext && (session.routine != nil || session.isSingleEffort)
+        guard Self.playsLogBeat, !heroIsClock(for: log) else {
+            if endsTheWorkout { finishSession(dismissAfter: false) }
             return
         }
         lingeringLog = log
@@ -966,7 +1248,8 @@ struct ActiveSessionView: View {
             // rule): a redo reopening a set mid-beat must not get
             // stamped into a finished record. Ad-hoc sessions (routine
             // == nil) never auto-finish — see stagedWorkDoneStage.
-            if session.nextPendingLog == nil && !session.isFinished && session.routine != nil {
+            if session.nextPendingLog == nil, !session.isFinished,
+               session.routine != nil || session.isSingleEffort {
                 finishSession(dismissAfter: false)
             }
         }
@@ -1023,7 +1306,21 @@ struct ActiveSessionView: View {
             // recorded by the wrist's own live session (#90). Health gets
             // the route only when the durable record calls it a run — the
             // two must not disagree about a degenerate zero-distance track.
-            HealthRecorder.record(session, route: hasRealRun ? runRoute : [])
+            //
+            // ⚠️ EXACTLY ONE writer. When the phone ran its own live
+            // session it has been recording all along and saves the
+            // workout itself, so the retrospective write would be a
+            // duplicate in Health — the one failure mode worse than
+            // either path alone. `finish` answers synchronously, before
+            // its own asynchronous end sequence, precisely so this
+            // decision never waits on a callback that might not arrive.
+            let route = hasRealRun ? runRoute : []
+            let liveOwnsTheSave = LiveWorkoutController.shared.finish(
+                at: session.endedAt ?? Date(), route: route
+            )
+            if !liveOwnsTheSave {
+                HealthRecorder.record(session, route: route)
+            }
         }
         if dismissAfter {
             dismiss()
@@ -1141,6 +1438,22 @@ struct ActiveSessionView: View {
     /// session in the hue jobs, with a bold net row — then the week
     /// block bar and (when one is real) a ★ new-best line. All
     /// numbers real; no XP, no levels.
+    /// The finish screen's fact line: name · count · elapsed. ⚠️ The count
+    /// drops out at one — "the finish screen counts a run as 1 set" was on
+    /// the cardio audit's list of things the app stated untruthfully, and
+    /// it outlived the four beside it because the finish screen is the one
+    /// record surface you reach before the session is a record.
+    private var finishedFactLine: String {
+        let parts: [String?] = [
+            session.routineName.lowercased(),
+            // The SNAPSHOT, not the live resolve: this screen is the first
+            // record surface, and it must say what every later one says.
+            WorkUnit.summaryCount(session.summaryWorkUnit, completedSets),
+            finalElapsedText
+        ]
+        return parts.compactMap { $0 }.joined(separator: " · ")
+    }
+
     private var finishedView: some View {
         VStack(spacing: 0) {
             ScrollView {
@@ -1154,7 +1467,7 @@ struct ActiveSessionView: View {
                         .padding(.top, 18)
                     Text("Workout Complete")
                         .font(.system(.title3, weight: .bold))
-                    Text("\(session.routineName.lowercased()) · \(completedSets) \(completedSets == 1 ? "set" : "sets") · \(finalElapsedText)")
+                    Text(finishedFactLine)
                         .font(.system(.footnote, design: .monospaced))
                         .foregroundStyle(Theme.textSecondary)
 
@@ -1164,6 +1477,24 @@ struct ActiveSessionView: View {
                         heartLine
                             .font(.system(.footnote, design: .monospaced))
                             .foregroundStyle(Theme.textSecondary)
+                    }
+
+                    // What the cardio efforts measured, beside last time.
+                    // ⚠️ ABOVE the delta tally, because on a run-plus-core
+                    // session the run is what you just did and the core is
+                    // the footnote. On a pure run the tally is empty and
+                    // this is the whole recap.
+                    if !cardioRecapRows.isEmpty {
+                        DiffLedger(
+                            rows: cardioRecapRows,
+                            leadingTitle: "did",
+                            expanded: $recapExpanded
+                        )
+                        .padding(14)
+                        .frame(maxWidth: .infinity)
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
+                        .padding(.horizontal, 20)
                     }
 
                     if !movedTally.isEmpty {
@@ -1326,6 +1657,53 @@ struct ActiveSessionView: View {
         return names
     }
 
+    /// Whether an exercise's numbers are the shape #453 is about.
+    ///
+    /// A signed delta over a distance or a pace is where the diff
+    /// manufactures achievements: it compares a STATIC plan target against
+    /// a past actual and calls the gap an improvement, so a routine asking
+    /// for 8:00/mi against a 9:00 run prints a green PR nobody ran. Weight
+    /// and reps do not have that failure — both sides are performances.
+    /// So the paced exercises leave the delta tally and take the
+    /// two-column recap, where a signed number is unrepresentable.
+    private func isPaced(_ profile: MetricProfile) -> Bool {
+        profile.contains(.pace) || profile.contains(.distance)
+    }
+
+    /// What the cardio efforts of this workout actually measured, beside
+    /// the same effort last time — and no delta anywhere.
+    ///
+    /// The fourth moment the plan promised (find · prescribe · do ·
+    /// FINISH), in `DiffLedger`'s grammar rather than a second one: two
+    /// columns, the arithmetic left to the reader, an em-dash placeholder
+    /// where there is nothing to compare. ⚠️ `changed` is deliberately
+    /// EMPTY, so nothing inks. Direction ink marks a PLAN moving against a
+    /// performance; here both columns are performances, and painting one
+    /// green would be #453 arriving by a different door.
+    private var cardioRecapRows: [DiffLedgerRow] {
+        sessionExerciseNames.compactMap { name in
+            let mine = session.completedSetLogs.filter { $0.exerciseName == name }
+            guard let last = mine.last, isPaced(last.metricProfile) else { return nil }
+            let profile = last.metricProfile
+            let did = RoutineDiff.Prior(
+                sets: mine.map(\.setNumber).max(),
+                weight: nil,
+                reps: nil,
+                durationSeconds: last.actualDuration,
+                extras: last.extraActuals
+            )
+            let previous = prior(for: name)
+            return DiffLedgerRow(
+                id: name,
+                label: name,
+                target: Prescription.blockRuns(prior: did, profile: profile, weightUnit: weightUnit),
+                prev: previous.map { Prescription.blockRuns(prior: $0, profile: profile, weightUnit: weightUnit) } ?? [],
+                changed: [],
+                isNew: previous == nil
+            )
+        }
+    }
+
     /// Per-exercise movement vs the previous performance: this
     /// session's top completed set (weight with THAT set's reps — the
     /// Today-diff rule; mixed maxima describe sets that never
@@ -1333,7 +1711,7 @@ struct ActiveSessionView: View {
     private var diffTally: [TallyLine] {
         sessionExerciseNames.compactMap { name in
             let mine = session.completedSetLogs.filter { $0.exerciseName == name }
-            guard let last = mine.last else { return nil }
+            guard let last = mine.last, !isPaced(last.metricProfile) else { return nil }
             let top = mine.max { ($0.actualWeight ?? 0) < ($1.actualWeight ?? 0) } ?? last
             let target = RoutineDiff.Target(
                 name: name,
@@ -1594,6 +1972,13 @@ private struct SetLoggingView: View {
         let shown: [WorkoutMetric] = driver == .reps
             ? (loadMetric.map { [$0, .reps] } ?? [.reps])
             : [driver]
+        return trackedWithStranded.filter { !shown.contains($0) }
+    }
+
+    /// Everything the profile tracks, plus any classic metric carrying a
+    /// stored target the profile no longer tracks — a pre-flip
+    /// prescription stays visible mid-workout rather than vanishing.
+    private var trackedWithStranded: [WorkoutMetric] {
         var metrics = profile.metrics
         if log.targetWeight != nil, !profile.contains(.weight), !profile.contains(.assistance) {
             metrics.append(.weight)
@@ -1605,7 +1990,77 @@ private struct SetLoggingView: View {
             metrics.append(.duration)
         }
         return MetricProfile(metrics, distanceUnit: profile.distanceUnit).metrics
-            .filter { !shown.contains($0) }
+    }
+
+    // MARK: - The hero
+
+    /// What the device can read RIGHT NOW — not what the exercise tracks.
+    /// The clock always; distance and pace only while a location fix is
+    /// actually live. `location` is non-nil only on an outdoor run, and a
+    /// denied or lost fix is exactly the case the chain degrades for.
+    private var measurableNow: Set<WorkoutMetric> {
+        var metrics: Set<WorkoutMetric> = [.duration]
+        if let location, let at = location.latestAt,
+           Date().timeIntervalSince(at) < RunLocationMonitor.freshWindow {
+            metrics.formUnion([.distance, .pace])
+        }
+        return metrics
+    }
+
+    /// What the big number counts. nil on rep work, which keeps the stage
+    /// it has always had — that gate is what makes every strength surface
+    /// identical.
+    private var hero: CardioHero.Resolution? {
+        CardioHero.resolve(
+            profile: profile,
+            // ⚠️ The PRESCRIPTION, never `actual ?? target`. A hero keyed
+            // on the running actual feeds its own output back into its own
+            // configuration: one tap on the distance stepper conjures a
+            // "target" out of nothing, and committing a count-up effort
+            // writes a duration that instantly re-resolves the card into a
+            // countdown while the +1 beat is still on screen.
+            target: { log.target($0) },
+            measurable: measurableNow
+        )
+    }
+
+    /// Whether the timer dock owns this effort. ⚠️ This replaces the old
+    /// `driver == .duration` test, and the difference is the point: an
+    /// UNTARGETED cardio effort used to fall through to a metric card
+    /// reading "—" with a Log key under it and nothing moving on screen.
+    private var showsClock: Bool { hero?.hero.isClock == true }
+
+    /// The cards riding above the timer dock: everything tracked except
+    /// the metric the clock already shows. ⚠️ Not `secondaryMetricsList`,
+    /// which excludes the DRIVER — on a calorie-driven effort the clock is
+    /// the hero and calories still needs its card, and using the driver
+    /// list there made it disappear.
+    private var clockStageMetrics: [WorkoutMetric] {
+        trackedWithStranded.filter { $0 != .duration }
+    }
+
+    /// How long the countdown runs, or nil to count up. ⚠️ The old card
+    /// derived this itself and fell back to a hard-coded thirty seconds
+    /// when nothing was prescribed, so an open-ended effort counted down
+    /// from a number nobody chose and logged itself at zero.
+    private var countdownSeconds: Int? {
+        guard case .progress(.duration, let target)? = hero?.hero else { return nil }
+        return max(1, Int(target.rounded()))
+    }
+
+    /// Why the hero is not the number you asked for. Only rendered when a
+    /// target exists that nothing can watch: silently showing a stopwatch
+    /// where a five-mile countdown was prescribed is the kind of quiet
+    /// substitution this whole push is removing.
+    private var degradeLine: String? {
+        // ⚠️ `unmeasurableTarget` is only ever set on an OUTDOOR profile
+        // now (`CardioHero` hands an indoor target to `.selfReported`
+        // instead), so this can only mean one thing and never appears
+        // beside a pool or an erg. It said "no gps fix" in a chlorinated
+        // pool before that split existed, and "calories isn't measured
+        // here" on an air bike.
+        guard hero?.unmeasurableTarget != nil else { return nil }
+        return "no gps fix · timing it instead"
     }
 
     /// Sets in this exercise's block (same group + name).
@@ -1624,23 +2079,24 @@ private struct SetLoggingView: View {
 
     private var distanceTargetText: Text {
         guard let target = log.target(.distance) else { return Text("—").foregroundStyle(Theme.textFaint) }
-        return Text(WorkoutMetric.distance.displayText(target, weightUnit: weightUnit, distanceUnit: profile.distanceUnit))
+        return Text(WorkoutMetric.distance.displayText(target, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, paceReference: profile.paceReference))
             .foregroundStyle(Theme.textPrimary)
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            if driver == .duration {
-                // Duration is driven by the auto-timer dock; its secondary
-                // metrics (a treadmill's incline) ride the header scroll as
-                // cards, above the timer.
+            if showsClock {
+                // The clock is the hero: a countdown to a duration target,
+                // or elapsed counting up when nothing else can be watched.
+                // Everything else tracked (a treadmill's incline, a spin
+                // bike's resistance) rides the header scroll as cards.
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
                         exerciseHeader
                             .padding(.horizontal, 16)
-                        if !secondaryMetricsList.isEmpty {
+                        if !clockStageMetrics.isEmpty {
                             VStack(spacing: 12) {
-                                ForEach(secondaryMetricsList) { metricCard($0) }
+                                ForEach(clockStageMetrics) { metricCard($0) }
                             }
                             .padding(.horizontal, 16)
                             .padding(.top, 16)
@@ -1673,6 +2129,7 @@ private struct SetLoggingView: View {
                 metric: metric,
                 weightUnit: weightUnit,
                 distanceUnit: profile.distanceUnit,
+                paceReference: profile.paceReference,
                 value: Binding(
                     get: { log.actual(metric) ?? log.target(metric) },
                     set: { log.setActual(metric, to: $0) }
@@ -1686,6 +2143,7 @@ private struct SetLoggingView: View {
                 metric: metric,
                 weightUnit: weightUnit,
                 distanceUnit: profile.distanceUnit,
+                paceReference: profile.paceReference,
                 current: stepValue(metric)
             ) { choice in
                 log.exercise?.setStep(choice, for: metric)
@@ -1699,18 +2157,25 @@ private struct SetLoggingView: View {
     /// horizontal padding of its own; call sites inset it by 20.
     private var exerciseHeader: some View {
         VStack(alignment: .leading, spacing: 0) {
-                    // The kicker keeps the set count alone. Cardio work
-                    // (a timed piece, a distance repeat) counts ROUNDS:
-                    // "round 3 of 8" is the honest name for an interval.
-                    Text("\(driver == .reps ? "SET" : "ROUND") \(log.setNumber) OF \(setsTotal)")
-                        .foregroundStyle(Theme.accent)
-                        .font(.system(.footnote, design: .monospaced, weight: .semibold))
-                        .kerning(0.7)
-                        .padding(.top, 20)
+                    // The kicker keeps the count alone, in the sport's own
+                    // noun — a rower does PIECES, a runner REPS, a lifter
+                    // SETS. It is absent entirely on a single continuous
+                    // effort, so a steady ride never claims a second one
+                    // is coming.
+                    let kicker = WorkUnit.kicker(log.workUnit, index: log.setNumber, total: setsTotal)
+                    if let kicker {
+                        Text(kicker)
+                            .foregroundStyle(Theme.accent)
+                            .font(.system(.footnote, design: .monospaced, weight: .semibold))
+                            .kerning(0.7)
+                            .padding(.top, 20)
+                    }
 
                     Text(log.exerciseName)
                         .font(.system(.title, weight: .bold))
-                        .padding(.top, 6)
+                        // The name carries the top margin itself when no
+                        // kicker sits above it.
+                        .padding(.top, kicker == nil ? 20 : 6)
 
                     // What comes after this set: a superset partner, or
                     // the exercise after this block, with its prescription.
@@ -1732,9 +2197,9 @@ private struct SetLoggingView: View {
                     // Weight/reps sets carry target + prev INSIDE the
                     // value cards now (mock 08); this line survives
                     // only for duration-driven sets, which have no cards.
-                    if driver == .duration {
+                    if showsClock, targetDescription != nil || lastTime != nil {
                         HStack(spacing: 12) {
-                            Text(targetDescription)
+                            if let targetDescription { Text(targetDescription) }
                             if let lastTime {
                                 (Text("prev: ").foregroundStyle(Theme.textSecondary)
                                     + Text(lastTime.resultSummary(weightUnit: weightUnit))
@@ -1861,7 +2326,7 @@ private struct SetLoggingView: View {
     /// full-width hold-to-repeat stepper keys.
     private func metricCard(_ metric: WorkoutMetric) -> some View {
         let current = log.actual(metric) ?? log.target(metric)
-        let unitText = metric.unit(for: current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit)
+        let unitText = metric.unit(for: current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, paceReference: profile.paceReference)
         let canAdjust = log.exercise?.canAdjustStep(for: metric) ?? false
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
@@ -1949,9 +2414,25 @@ private struct SetLoggingView: View {
         }
         let current = log.actual(metric) ?? log.target(metric)
         let stepped = direction > 0
-            ? metric.incremented(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, stepOverride: override)
-            : metric.decremented(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, stepOverride: override)
+            ? metric.incremented(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, stepOverride: override, paceReference: profile.paceReference)
+            : metric.decremented(current, weightUnit: weightUnit, distanceUnit: profile.distanceUnit, stepOverride: override, paceReference: profile.paceReference)
         log.setActual(metric, to: stepped)
+    }
+
+    /// What the commit key says.
+    ///
+    /// Normally the exercise's own noun — "Log set" in the rack, "Log piece"
+    /// on an erg, plain "Log" for a walk, since walkers do not do eight of
+    /// anything. On a session that is ONE continuous effort it names the
+    /// ENDING instead: a run has nothing to count, so logging it and
+    /// finishing are the same decision and one key should say so.
+    ///
+    /// "Finish workout" rather than a new phrase, because the exit dialog
+    /// already uses those words for the same act, and two strings for one
+    /// state is how "Log it" and "Log" ended up on the same screen.
+    private var commitKeyLabel: String {
+        if session.isSingleEffort { return "Finish workout" }
+        return log.workUnit.map { "Log \($0.singular)" } ?? "Log"
     }
 
     // MARK: - Log dock
@@ -1962,7 +2443,17 @@ private struct SetLoggingView: View {
         VStack(spacing: 0) {
             ZStack {
                 Button(action: onComplete) {
-                    Text("Log set")
+                    // The commit key names what it commits, in the
+                    // exercise's own noun: "Log set" in the rack, "Log
+                    // piece" on an erg, plain "Log" for a walk. The
+                    // identifier stays completeSetButton so the smoke
+                    // suite keeps finding it.
+                    //
+                    // ⚠️ On a session that is ONE effort it names the
+                    // ending instead. Logging it and finishing are the
+                    // same decision there, so one key says so, in the
+                    // exit dialog's own words.
+                    Text(commitKeyLabel)
                         .font(.system(.body, weight: .bold))
                         .foregroundStyle(Theme.onPrimary)
                         .lineLimit(1)
@@ -2005,10 +2496,15 @@ private struct SetLoggingView: View {
             weightUnit: weightUnit,
             repsText: next.targetReps.lower != nil ? next.targetReps.display : nil,
             value: { next.target($0) }
-        ) ?? "\(next.driver == .reps ? "set" : "round") \(next.setNumber)"
-        return Text(next.exerciseName)
+        ) ?? WorkUnit.inline(next.workUnit, index: next.setNumber, total: session.blockCount(of: next))
+        let name = Text(next.exerciseName)
             .font(.system(.footnote, weight: .semibold))
             .foregroundStyle(Theme.textPrimary)
+        // An open-ended effort states no prescription and counts nothing,
+        // so there is no detail to separate — the name stands alone rather
+        // than trailing a naked "·".
+        guard let detail, !detail.isEmpty else { return name }
+        return name
             + Text(" · ")
             .font(.system(.footnote))
             .foregroundStyle(Theme.textFaint)
@@ -2019,7 +2515,19 @@ private struct SetLoggingView: View {
 
     private var durationDock: some View {
         VStack(spacing: 10) {
-            DurationTimerCard(log: log) {
+            DurationTimerCard(
+                log: log,
+                // nil counts UP. A countdown ends itself; an open-ended
+                // effort ends when you say so.
+                countdownSeconds: countdownSeconds,
+                unit: setsTotal > 1 ? log.workUnit : nil,
+                finishesWorkout: session.isSingleEffort,
+                degradeLine: degradeLine,
+                // The model's ledger, not view state: pauses drop out by
+                // construction, and the anchor survives everything the
+                // session does.
+                elapsed: { session.effortElapsed(at: $0) }
+            ) {
                 onComplete()
             }
         }
@@ -2028,14 +2536,16 @@ private struct SetLoggingView: View {
         .padding(.bottom, 12)
     }
 
-    private var targetDescription: String {
+    private var targetDescription: String? {
         guard let line = MetricSummary.line(
             profile: profile,
             weightUnit: weightUnit,
             repsText: log.targetReps.lower != nil ? log.targetReps.display : nil,
             value: { log.target($0) }
         ) else {
-            return "\(driver == .reps ? "set" : "round") \(log.setNumber)"
+            // Nothing prescribed. The position is worth stating; the
+            // exercise name is not — it is four lines up in .title bold.
+            return WorkUnit.inline(log.workUnit, index: log.setNumber, total: setsTotal)
         }
         return "target \(line)"
     }
@@ -2051,12 +2561,38 @@ private struct LiveHeartRateLabel: View {
     let target: HeartRateTarget?
     var chrome = false
 
+    /// The number to show, live stream first (#418).
+    ///
+    /// ⚠️ The phone's own workout session, when one is running, is the
+    /// better source and the whole reason it exists: the anchored query
+    /// reads whatever Health has, and watch→phone delivery is batched, so
+    /// the newest visible sample was routinely older than the 180 s gate
+    /// and the capsule stayed blank for a whole workout. A live builder
+    /// delivers what it collects, which is why its window is far shorter —
+    /// a stream that has gone quiet for 30 s has genuinely stopped.
+    /// Read from the singleton rather than threaded through three call
+    /// sites: there is one recorder per process, as with
+    /// `WorkoutActivityController.shared`, and observation tracks it here
+    /// just the same.
+    @MainActor
+    private func reading(at date: Date) -> Int? {
+        let live = LiveWorkoutController.shared
+        if let bpm = live.latestBPM, let at = live.latestBPMAt,
+           date.timeIntervalSince(at) < LiveWorkoutController.bpmFreshWindow {
+            return bpm
+        }
+        if let bpm = monitor.latestBPM, let at = monitor.latestAt,
+           date.timeIntervalSince(at) < HeartRateMonitor.freshWindow {
+            return bpm
+        }
+        return nil
+    }
+
     var body: some View {
         // Ticks to EXPIRE a reading, not to display one — updates
         // arrive through the monitor's observation.
         TimelineView(.periodic(from: .now, by: 5)) { context in
-            if let bpm = monitor.latestBPM, let at = monitor.latestAt,
-               context.date.timeIntervalSince(at) < HeartRateMonitor.freshWindow {
+            if let bpm = reading(at: context.date) {
                 let inTarget = target?.contains(bpm, maxHeartRate: monitor.maxHeartRate) ?? false
                 let label = (Text("\(Image(systemName: "heart.fill")) ")
                     .foregroundStyle(inTarget ? Theme.accent : Theme.textSecondary)
@@ -2208,63 +2744,114 @@ private struct PlusOneBurst: View {
 
 // MARK: - Duration auto-timer
 
-/// AUTO TIMER card (#66): counts down from the target, pauses/resets, and
-/// logs the set automatically at zero (or logs elapsed via "log now").
-/// Date-based like the rest timer; pausing stores the remaining interval.
+/// The timer dock, in its two shapes.
+///
+/// **Counting down** (#66) is the original: it starts at the target,
+/// pauses and resets, and logs the set by itself at zero. A screen that
+/// completes on its own has no primary key, so its commit is a quiet
+/// "log now" beside the explanation.
+///
+/// **Counting up** is what an open-ended effort gets, and it is the
+/// reason this card was rebuilt. Before, an untargeted timed effort
+/// counted down from a hard-coded thirty seconds and logged itself; an
+/// untargeted DISTANCE effort — which is what quick start and a studio
+/// ride produce — never reached this card at all and showed a metric row
+/// reading "—" with nothing moving. A count-up effort ends when you say
+/// so, so it earns the filled commit key, labelled in the sport's own
+/// noun (#302's primitive: a start `Date`, never an end one).
 private struct DurationTimerCard: View {
     @Bindable var log: SetLog
+    /// The countdown target in seconds, or nil to count up.
+    let countdownSeconds: Int?
+    /// The sport's noun for the commit key. nil where a sport counts
+    /// nothing (a walk is a walk), and the key says "Log it".
+    let unit: WorkUnit?
+    /// Whether this effort IS the workout, so the key ends it. Passed in
+    /// rather than re-derived: the kicker, the block bar, the island and
+    /// this key all answer one question, and deriving it four times is how
+    /// they drift.
+    let finishesWorkout: Bool
+    /// Printed under the clock when a target exists that nothing here can
+    /// watch.
+    let degradeLine: String?
+    /// ⚠️ The count-up reading comes from OUTSIDE — the session's
+    /// running-time ledger — never from an anchor seeded in `onAppear`.
+    /// Pausing unmounts this card, and in count-up mode the displayed
+    /// elapsed is the value that gets logged — a locally-seeded anchor
+    /// silently discarded everything before the last resume, and a
+    /// view-held one still died with the process.
+    let elapsed: (Date) -> TimeInterval
     let onComplete: () -> Void
 
+    /// The COUNTDOWN's own state stays local: it is derived from the
+    /// target rather than accumulated, so a remount rebuilds it exactly.
+    /// Date-based like the rest timer — an interval, never a tick count,
+    /// so backgrounding and a locked screen cannot drift it.
     @State private var endDate: Date?
+    /// Remaining, banked while the countdown is paused.
     @State private var pausedRemaining: TimeInterval?
 
-    private var totalSeconds: Int {
-        max(1, log.actualDuration ?? log.targetDuration ?? 30)
-    }
+    private var countsUp: Bool { countdownSeconds == nil }
+    /// The card's own pause key only ever pauses the COUNTDOWN. A
+    /// count-up effort is paused by pausing the workout, which is the
+    /// thing that actually stops the clock everywhere (the rest engine,
+    /// GPS, the island) — two pause affordances meaning different things
+    /// on one screen is how the banked-time bug got in.
+    private var isPaused: Bool { pausedRemaining != nil }
+    private var totalSeconds: Int { max(1, countdownSeconds ?? 1) }
 
     var body: some View {
         VStack(spacing: 8) {
             VStack(spacing: 0) {
                 TimelineView(.periodic(from: .now, by: 0.25)) { context in
-                    let remaining = remainingSeconds(at: context.date)
+                    let seconds = displaySeconds(at: context.date)
                     VStack(spacing: 2) {
-                        Text("AUTO TIMER")
+                        Text(countsUp ? "ELAPSED" : "AUTO TIMER")
                             .font(.system(.caption2, design: .monospaced, weight: .semibold))
                             .foregroundStyle(Theme.accent)
                             .kerning(0.8)
-                        Text(String(format: "%d:%02d", remaining / 60, remaining % 60))
+                        Text(clock(seconds))
                             .font(.system(size: 36, weight: .bold, design: .monospaced))
-                        ProgressView(value: Double(totalSeconds - remaining), total: Double(totalSeconds))
-                            .tint(Theme.accent)
-                            .padding(.horizontal, 16)
-                            .padding(.top, 6)
+                            .contentTransition(.numericText())
+                        // Nothing to fill toward when the effort is
+                        // open-ended, and an empty bar reads as a stalled
+                        // one.
+                        if !countsUp {
+                            ProgressView(value: Double(totalSeconds - seconds), total: Double(totalSeconds))
+                                .tint(Theme.accent)
+                                .padding(.horizontal, 16)
+                                .padding(.top, 6)
+                        }
                     }
                     .padding(.vertical, 11)
-                    .onChange(of: remaining) { _, newValue in
-                        if newValue <= 0 && endDate != nil {
+                    .onChange(of: seconds) { _, newValue in
+                        if !countsUp && newValue <= 0 && endDate != nil {
                             expire()
                         }
                     }
                 }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(countsUp ? "Elapsed" : "Time remaining")
 
+                if !countsUp {
                 Divider().overlay(Theme.border)
 
                 HStack(spacing: 0) {
                     Button(action: togglePause) {
                         HStack(spacing: 6) {
-                            Image(systemName: pausedRemaining != nil ? "play.fill" : "pause.fill")
+                            Image(systemName: isPaused ? "play.fill" : "pause.fill")
                                 .font(.system(.caption, weight: .bold))
                                 .contentTransition(.symbolEffect(.replace))
-                            Text(pausedRemaining != nil ? "Resume" : "Pause")
+                            Text(isPaused ? "Resume" : "Pause")
                                 .font(.system(.footnote, weight: .bold))
                         }
                         .foregroundStyle(Theme.textPrimary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 46)
-                        .animation(Theme.Anim.standard, value: pausedRemaining != nil)
+                        .animation(Theme.Anim.standard, value: isPaused)
                     }
                     Divider().frame(height: 46).overlay(Theme.border)
-                    Button(action: reset) {
+                    Button(action: start) {
                         HStack(spacing: 6) {
                             Image(systemName: "arrow.counterclockwise")
                                 .font(.system(.caption, weight: .bold))
@@ -2276,26 +2863,80 @@ private struct DurationTimerCard: View {
                         .frame(height: 46)
                     }
                 }
+                }
             }
             .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
             .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
 
-            HStack(spacing: 8) {
-                Text("Logs automatically at 0:00")
-                    .font(.system(.caption))
-                    .foregroundStyle(Theme.textFaint)
-                Text("·").foregroundStyle(Theme.borderStrong)
-                Button("log now") { logNow() }
-                    .font(.system(.caption, design: .monospaced, weight: .semibold))
-                    .foregroundStyle(Theme.accent)
-                    .accessibilityIdentifier("completeSetButton")
+            if let degradeLine {
+                Text(degradeLine)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(Theme.notes)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(height: 40)
+
+            if countsUp {
+                // ⚠️ The one filled key on this dock, and only in this
+                // mode: a countdown finishes by itself, so a primaryFill
+                // cap there would make ending it early read as the thing
+                // to do (the rest-screen law, 2026-07-27). An open-ended
+                // effort has no other ending.
+                Button(action: logNow) {
+                    // ⚠️ The same expression `logDock` uses, plain "Log"
+                    // included: two strings for one state is how "Log it"
+                    // and "Log" ended up on the same screen. And the noun
+                    // is dropped at a block total of one by the caller —
+                    // "Log rep" on a single continuous forty-minute run is
+                    // the count-of-one lie `WorkUnit.kicker` already
+                    // refuses to tell.
+                    //
+                    // ⚠️ When the effort IS the workout the key names the
+                    // ending instead. This is the case the whole card
+                    // exists for — you go for a run, then you stop — and
+                    // "Log" followed by a separate Finish asks twice for
+                    // one decision.
+                    Text(finishesWorkout
+                         ? "Finish workout"
+                         : (unit.map { "Log \($0.singular)" } ?? "Log"))
+                        .font(.system(.subheadline, weight: .bold))
+                        .foregroundStyle(Theme.onPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 50)
+                        .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
+                }
+                .buttonStyle(.raisedPrimaryKey(cornerRadius: 12))
+                // Return commits the effort for external-keyboard users
+                // (WCAG 2.1.1), exactly as it does in `logDock`.
+                .keyboardShortcut(.defaultAction)
+                .accessibilityIdentifier("completeSetButton")
+            } else {
+                HStack(spacing: 8) {
+                    Text("Logs automatically at 0:00")
+                        .font(.system(.caption))
+                        .foregroundStyle(Theme.textFaint)
+                    Text("·").foregroundStyle(Theme.borderStrong)
+                    Button("log now") { logNow() }
+                        .font(.system(.caption, design: .monospaced, weight: .semibold))
+                        .foregroundStyle(Theme.accent)
+                        .accessibilityIdentifier("completeSetButton")
+                }
+                .frame(height: 40)
+            }
         }
         .onAppear(perform: start)
+        // A prescription can change under the card (the overview sheet
+        // edits a live set), and a countdown that keeps running to the old
+        // number is the same class of lie as the rest of this push.
+        .onChange(of: countdownSeconds) { _, _ in start() }
     }
 
-    private func remainingSeconds(at date: Date) -> Int {
+    /// Seconds to render: remaining on a countdown, elapsed counting up.
+    private func displaySeconds(at date: Date) -> Int {
+        if countsUp {
+            return max(0, Int(elapsed(date)))
+        }
         if let pausedRemaining {
             return max(0, Int(pausedRemaining.rounded(.up)))
         }
@@ -2303,25 +2944,27 @@ private struct DurationTimerCard: View {
         return max(0, Int(endDate.timeIntervalSince(date).rounded(.up)))
     }
 
+    /// h:mm:ss once an effort passes the hour — a ninety-minute hike read
+    /// "90:00" before, which is a minutes value on a clock face.
+    private func clock(_ seconds: Int) -> String {
+        seconds >= 3600
+            ? String(format: "%d:%02d:%02d", seconds / 3600, (seconds % 3600) / 60, seconds % 60)
+            : String(format: "%d:%02d", seconds / 60, seconds % 60)
+    }
+
     private func start() {
-        let end = Date().addingTimeInterval(TimeInterval(totalSeconds))
-        endDate = end
         pausedRemaining = nil
+        endDate = countsUp ? nil : Date().addingTimeInterval(TimeInterval(totalSeconds))
     }
 
     private func togglePause() {
-        if let remaining = pausedRemaining {
-            let end = Date().addingTimeInterval(remaining)
-            endDate = end
-            pausedRemaining = nil
+        if let pausedRemaining {
+            endDate = Date().addingTimeInterval(pausedRemaining)
+            self.pausedRemaining = nil
         } else if let endDate {
             pausedRemaining = max(0, endDate.timeIntervalSinceNow)
             self.endDate = nil
         }
-    }
-
-    private func reset() {
-        start()
     }
 
     private func expire() {
@@ -2334,15 +2977,11 @@ private struct DurationTimerCard: View {
     }
 
     private func logNow() {
-        let elapsed: Int
-        if let pausedRemaining {
-            elapsed = totalSeconds - Int(pausedRemaining.rounded(.up))
-        } else if let endDate {
-            elapsed = totalSeconds - max(0, Int(endDate.timeIntervalSinceNow.rounded(.up)))
-        } else {
-            elapsed = totalSeconds
-        }
+        let elapsed = countsUp
+            ? displaySeconds(at: Date())
+            : totalSeconds - displaySeconds(at: Date())
         endDate = nil
+        pausedRemaining = nil
         log.actualDuration = max(1, elapsed)
         onComplete()
     }
@@ -2458,7 +3097,7 @@ private struct RestView: View {
                         .font(.system(.caption2, design: .monospaced, weight: .semibold))
                         .foregroundStyle(Theme.textFaint)
                         .kerning(0.8)
-                    Text("\(upNext.exerciseName) · \(upNext.driver == .reps ? "set" : "round") \(upNext.setNumber)")
+                    Text(upNext.caption)
                         .font(.system(.body, weight: .semibold))
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)

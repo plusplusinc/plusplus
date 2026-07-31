@@ -171,6 +171,16 @@ struct ExerciseRowContent: View {
     /// Match ranges in `exercise.name` to paint (universal search).
     var nameHighlight: [Range<String.Index>] = []
 
+    /// The one word this row leads with: the muscle a lift trains, or the
+    /// family a cardio effort belongs to. Cardio has no useful muscle —
+    /// the whole catalog files it as Full Body — so the family is the
+    /// honest identity there.
+    private var identityTag: String {
+        exercise.modality.isCardio
+            ? exercise.modality.displayName
+            : exercise.muscleGroup.displayName
+    }
+
     var body: some View {
         HStack(spacing: 10) {
             if let leadingSymbol {
@@ -210,7 +220,14 @@ struct ExerciseRowContent: View {
                 // row is an identity line: the primary is what the move IS.
                 // The full set reads on the detail screen and the planning
                 // sheet, and search reaches every group either way.
-                OverflowCapsuleRow(capsules: [CardCapsule(text: exercise.muscleGroup.displayName)]
+                //
+                // ⚠️ Except on cardio, where the primary group is a LIE of
+                // omission: every cardio exercise is filed `fullBody`, so
+                // Running wore a tag reading "Full Body" — true, useless,
+                // and actively misleading next to a row of lifts wearing
+                // the muscle they train. The movement family is what a run
+                // IS, so it takes the slot.
+                OverflowCapsuleRow(capsules: [CardCapsule(text: identityTag)]
                     + RoutineCardCapsules.gearCapsules(gear))
             }
             .frame(maxWidth: .infinity, alignment: .leading)

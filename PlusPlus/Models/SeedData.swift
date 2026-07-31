@@ -168,6 +168,77 @@ enum SeedData {
         if changed { try? context.save() }
     }
 
+    /// Fold the retired "Stationary Bike" exercise into "Indoor Cycling"
+    /// (Dave, build 158: they are the same thing).
+    ///
+    /// Dropping a definition is not enough on a store that already has the
+    /// row — `loadIfNeeded` only ever ADDS what is missing, so both would sit
+    /// in the catalog forever, and one of them is probably in the user's
+    /// routines and history.
+    ///
+    /// ⚠️ So this MERGES rather than deletes. The old row is renamed when it
+    /// is the only one, which carries every routine entry and every logged
+    /// set with it untouched — a rename keeps the same object, so nothing
+    /// dangles. When both rows exist the one nothing references is the one
+    /// that goes, whichever that is; if both are referenced, both stay and
+    /// this does nothing, because merging two histories is not a thing a
+    /// launch pass should attempt behind someone's back.
+    ///
+    /// Content-keyed and idempotent: once no built-in "Stationary Bike"
+    /// exercise exists it is a no-op, so it is safe every launch.
+    static func mergeIndoorBikeExercises(context: ModelContext) {
+        let builtIns = (try? context.fetch(
+            FetchDescriptor<Exercise>(predicate: #Predicate { $0.isBuiltIn == true })
+        )) ?? []
+        guard let legacy = builtIns.first(where: { $0.name.lowercased() == "stationary bike" }) else { return }
+        let modern = builtIns.first { $0.name.lowercased() == "indoor cycling" }
+        // Where a branch below retires the "Stationary Bike" NAME, a
+        // quick-start pick keyed to it (build 158 offered it) follows to
+        // "Indoor Cycling" instead of vanishing — but ONLY those
+        // branches. The both-referenced fall-through keeps the legacy row
+        // and its name, and re-pointing a pick at a different exercise
+        // the user didn't choose would be worse than the gap.
+        let repointPick = { QuickStartPicks.rename(from: "Stationary Bike", to: "Indoor Cycling") }
+
+        guard let modern else {
+            // The common case: rename in place. The profile comes with it,
+            // since the old row's was the poorer of the two.
+            legacy.name = "Indoor Cycling"
+            legacy.metricProfile = MetricProfile(
+                [.duration, .distance, .resistance, .power, .cadence],
+                distanceUnit: .miles
+            )
+            try? context.save()
+            repointPick()
+            return
+        }
+
+        // Both present. Whichever nothing points at is the duplicate.
+        if !isReferenced(legacy, context: context) {
+            context.delete(legacy)
+            try? context.save()
+            repointPick()
+        } else if !isReferenced(modern, context: context) {
+            context.delete(modern)
+            legacy.name = "Indoor Cycling"
+            legacy.metricProfile = MetricProfile(
+                [.duration, .distance, .resistance, .power, .cadence],
+                distanceUnit: .miles
+            )
+            try? context.save()
+            repointPick()
+        }
+    }
+
+    /// Whether any routine entry or logged set points at this exercise.
+    /// `Exercise` declares no inverse for either, so this asks them.
+    private static func isReferenced(_ exercise: Exercise, context: ModelContext) -> Bool {
+        let entries = (try? context.fetch(FetchDescriptor<RoutineExercise>())) ?? []
+        if entries.contains(where: { $0.exercise === exercise }) { return true }
+        let logs = (try? context.fetch(FetchDescriptor<SetLog>())) ?? []
+        return logs.contains { $0.exercise === exercise }
+    }
+
     /// One-shot ownership reset (#232): equipment seeded fully-owned on
     /// fresh stores until build 32 — backwards, since an all-owned list
     /// filters nothing — and Dave chose to reset existing stores rather
@@ -753,7 +824,26 @@ enum SeedData {
             // deliberate configuration (bump Sets, add a block rest).
             e("Rowing", .fullBody, ["Rowing Machine"], .duration, also: [.back, .quads], sets: 1),
             e("Assault Bike", .fullBody, ["Air Bike"], .duration, also: [.quads], sets: 1),
-            e("Stationary Bike", .fullBody, ["Stationary Bike"], .duration, also: [.quads], sets: 1),
+            // ⚠️ ONE row for riding a bike indoors (Dave, build 158). This
+            // shipped as two — a "Stationary Bike" exercise named after its
+            // own equipment, and an "Indoor Cycling" added beside it on the
+            // theory that a studio class is dialled differently. It is not a
+            // different activity, it is the same activity with cadence on the
+            // console, so the catalog offered a choice with no answer. The
+            // activity noun wins, as it does for Rowing (not "Rowing
+            // Machine") and Treadmill Run; the equipment keeps its own name.
+            // `mergeIndoorBikeExercises` folds the old row into this one on
+            // stores that already have both.
+            // ⚠️ No duration default, deliberately, and the coherence test
+            // enforces it: a duration prescription on a profile that also
+            // tracks distance decides the driver behind your back. A ride
+            // that runs long would count DOWN to a number nobody chose and
+            // stop; open-ended is both the honest default and the one
+            // Rowing and Assault Bike already carry.
+            e("Indoor Cycling", .fullBody, ["Stationary Bike"], .duration,
+              also: [.quads, .glutes],
+              metrics: MetricProfile([.duration, .distance, .resistance, .power, .cadence], distanceUnit: .miles),
+              sets: 1),
             e("Treadmill Run", .fullBody, ["Treadmill"], .duration, also: [.quads, .calves], sets: 1),
             e("Sandbag Carry", .fullBody, ["Sandbag"], .duration, also: [.back, .core], pattern: .carry),
             // Road cardio (flexible metrics): the road is not gear, but
@@ -764,11 +854,47 @@ enum SeedData {
             // the Bicycle, whose declared profile derives the same
             // [distance, duration, speed] the old explicit override
             // spelled out. Running/Walking stay genuinely equipment-free.
+            // ⚠️ Modality is AUTHORED on these two. Running and Walking
+            // are equipment-free and metrically identical, so derivation
+            // cannot tell them apart and lands both on generic `.cardio`
+            // — which would file every GPS run in Health as Mixed Cardio
+            // instead of Running. The catalog knows; derivation can't.
             e("Running", .fullBody, [], .duration,
-              also: [.quads, .calves], metrics: MetricProfile([.distance, .duration, .pace], distanceUnit: .miles, isOutdoor: true), sets: 1),
+              also: [.quads, .calves], metrics: MetricProfile([.distance, .duration, .pace], distanceUnit: .miles, isOutdoor: true), sets: 1, modality: .running),
             e("Walking", .fullBody, [], .duration,
-              metrics: MetricProfile([.distance, .duration, .pace], distanceUnit: .miles, isOutdoor: true), sets: 1),
+              metrics: MetricProfile([.distance, .duration, .pace], distanceUnit: .miles, isOutdoor: true), sets: 1, modality: .walking),
             e("Cycling", .fullBody, ["Bicycle"], .duration, also: [.quads], sets: 1),
+            // Hiking is equipment-free like Running and Walking (the
+            // trail is not gear), and authored for the same reason they
+            // are: derivation cannot tell three metrically identical
+            // road efforts apart.
+            e("Hiking", .fullBody, [], .duration,
+              also: [.quads, .glutes, .calves],
+              metrics: MetricProfile([.distance, .duration, .pace], distanceUnit: .miles, isOutdoor: true),
+              sets: 1, modality: .hiking),
+            // Swimming, in YARDS and split per 100 — the short-course
+            // convention, and the reason `PaceReference` exists: a metric
+            // pool is denominated in meters like an erg but splits per 100,
+            // not per 500. Both rows state the reference explicitly, so the
+            // meaning survives a unit change in the editor.
+            // ⚠️ Equipment-free like Running and Walking (a pool is not
+            // gear), so the modality is AUTHORED — derivation cannot tell
+            // metrically identical water and road efforts apart.
+            e("Pool Swim", .fullBody, [], .duration,
+              also: [.back, .shoulders, .core],
+              metrics: MetricProfile([.distance, .duration, .pace],
+                                     distanceUnit: .yards,
+                                     paceReference: .per100Yards),
+              sets: 1, modality: .swimming),
+            // Open water is the outdoor one: GPS engages, and Health files
+            // it against the open-water location.
+            e("Open Water Swim", .fullBody, [], .duration,
+              also: [.back, .shoulders, .core],
+              metrics: MetricProfile([.distance, .duration, .pace],
+                                     distanceUnit: .yards,
+                                     isOutdoor: true,
+                                     paceReference: .per100Yards),
+              sets: 1, modality: .swimming),
 
             // #235: every equipment type gates at least one exercise —
             // the 60 types the #222 sweep added get their movements.
@@ -959,10 +1085,13 @@ enum SeedData {
             e("Suspension Hamstring Curl", .hamstrings, ["Suspension Trainer"], also: [.glutes], mechanic: .isolation),
             e("Battle Rope Slams", .fullBody, ["Battle Ropes"], .duration, also: [.core, .shoulders], seconds: 30),
 
-            // Swimming: the missing cardio modality. Equipment-free like
-            // Running (a pool is a place, not equipment); lengths are
-            // meters, one steady piece by default.
-            e("Swimming", .fullBody, [], .duration, also: [.back, .shoulders], metrics: MetricProfile([.distance, .duration, .pace]), sets: 1),
+            // ⚠️ No bare "Swimming" row. The expansion round (#494) and the
+            // cardio push (#478) added swimming independently; this merge
+            // keeps the cardio pair — Pool Swim / Open Water Swim, above —
+            // because they carry what #478 built swimming ON: yard lengths,
+            // the per-100 `PaceReference`, and the authored `.swimming`
+            // modality that files it to Health as swimming. Neither row had
+            // shipped in a build, so nothing in any store loses a name.
 
             // MARK: Stretches + mobility
             // Warmup and cooldown work, first-class (Dave, 2026-07-11:

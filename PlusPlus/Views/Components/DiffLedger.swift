@@ -42,6 +42,12 @@ struct DiffLedgerRow: Identifiable {
 /// being compared against rather than the thing being read.
 struct DiffLedger: View {
     let rows: [DiffLedgerRow]
+    /// What the LEFT column is. A plan states what it will ask for, so it
+    /// says "target"; a finished workout states what happened, so it says
+    /// "did". The table is the same either way, which is the point — two
+    /// columns and no delta, so the arithmetic stays the reader's whether
+    /// you are reading forwards or back.
+    var leadingTitle: String = "target"
     /// Rows shown before the rest go behind a key. Four is roughly where the
     /// card stops being scannable.
     var cap: Int = 4
@@ -89,7 +95,7 @@ struct DiffLedger: View {
         Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 10, verticalSpacing: 3) {
             GridRow {
                 Color.clear.frame(height: 0).gridColumnAlignment(.leading)
-                columnHeader("target").gridColumnAlignment(.trailing)
+                columnHeader(leadingTitle).gridColumnAlignment(.trailing)
                 columnHeader("prev").gridColumnAlignment(.trailing)
             }
             ForEach(visible) { row in
@@ -114,7 +120,7 @@ struct DiffLedger: View {
             ForEach(visible) { row in
                 VStack(alignment: .leading, spacing: 3) {
                     rowLabel(row.label)
-                    stackedLine("target", runs: row.target, changed: row.changed, directions: row.directions, column: .target)
+                    stackedLine(leadingTitle, runs: row.target, changed: row.changed, directions: row.directions, column: .target)
                     stackedLine("prev", runs: row.prev, changed: row.changed, directions: row.directions, column: .prev)
                 }
                 .accessibilityElement(children: .ignore)
@@ -212,8 +218,9 @@ struct DiffLedger: View {
         // Keyed on the row's own flag, not on an empty column: a blank prev
         // can also mean this one metric is missing from an exercise that was
         // very much done, and announcing "not done before" there is false.
-        if row.isNew { return "\(row.label). Target \(target). Not done before." }
-        guard !prev.isEmpty else { return "\(row.label). Target \(target)." }
-        return "\(row.label). Target \(target). Previously \(prev)."
+        let lead = leadingTitle.sentenceCasedFirst
+        if row.isNew { return "\(row.label). \(lead) \(target). Not done before." }
+        guard !prev.isEmpty else { return "\(row.label). \(lead) \(target)." }
+        return "\(row.label). \(lead) \(target). Previously \(prev)."
     }
 }

@@ -6,24 +6,36 @@ import PlusPlusKit
 ///
 /// It used to hold the exercise catalog's and the picker's filter state — a
 /// search string, favorites, muscle groups, equipment — hence the name. All of
-/// that is GONE (2026-07-25): the catalog surfaces carry no facet chips, the
-/// picker is the catalog, and each surface owns its own query. So this is an
-/// `enum` now, which makes "there is no state left" a thing the compiler
-/// enforces rather than a comment. The name is kept because it appears across
-/// half a dozen call sites and every rename is a diff nobody reads; the next
-/// person to touch this file should feel free to rename it.
+/// that left on 2026-07-25; the facet state that RETURNED on 2026-07-31 lives
+/// in `CatalogFilterState`, not here. So this is an `enum` now, which makes
+/// "there is no state left" a thing the compiler enforces rather than a
+/// comment. The name is kept because it appears across half a dozen call
+/// sites and every rename is a diff nobody reads; the next person to touch
+/// this file should feel free to rename it.
 enum ExerciseFilterState {
 
-    /// Name plus EVERY muscle group it works, so "hamstring curl" finds Leg
-    /// Curl even though no exercise carries the word "hamstring" in its
-    /// name, and "triceps" finds Bench Press even though it's filed under
-    /// chest. Since 2026-07-31 the haystack also carries the movement
-    /// pattern's display name ("hinge" finds the deadlifts) and the hidden
-    /// synonym terms ("rdl", "tgu" — `CatalogSearchSynonyms`). One
-    /// haystack, one scoring pass; highlighting stays name-only, and an
-    /// unhighlighted row reads fine.
+    /// Name, EVERY muscle group it works, the words its movement family
+    /// goes by, the movement pattern's display name, and the hidden
+    /// synonym terms. One haystack, one scoring pass; highlighting stays
+    /// name-only, and an unhighlighted row reads fine.
+    ///
+    /// Muscles are why "hamstring curl" finds Leg Curl even though no
+    /// exercise carries the word "hamstring" in its name, and "triceps"
+    /// finds Bench Press even though it's filed under chest.
+    ///
+    /// Modality is why "cardio" finds anything at all. Every cardio
+    /// exercise is filed under the `fullBody` muscle group, so before this
+    /// the catalog offered no word that reached the cardio rows as a set —
+    /// you had to already know the app called it "Rowing" and not "erg".
+    /// Now "cardio", "run", "bike", "row", "hike" and "swim" all land.
+    ///
+    /// Pattern is why "hinge" finds the deadlifts (2026-07-31, #494), and
+    /// the synonyms ("rdl", "tgu" — `CatalogSearchSynonyms`) carry the
+    /// gym slang the names don't.
     static func searchHaystack(_ exercise: Exercise) -> String {
-        var parts = [exercise.name] + exercise.muscleGroups.map(\.displayName)
+        var parts = [exercise.name]
+            + exercise.muscleGroups.map(\.displayName)
+            + exercise.modality.searchTerms
         if let pattern = exercise.movementPattern { parts.append(pattern.displayName) }
         let synonyms = CatalogSearchSynonyms.exerciseTerms(named: exercise.name)
         if !synonyms.isEmpty { parts.append(synonyms) }

@@ -188,7 +188,7 @@ struct SessionOverviewSheet: View {
             // is completion vocabulary and this session hasn't started.
             return session.sortedSetLogs.isEmpty ? "nothing added yet" : "done"
         }
-        return "\(current.exerciseName) · set \(current.setNumber)"
+        return current.caption
     }
 
     /// A block's status in the running session, driving its row color:
@@ -295,7 +295,8 @@ struct SessionOverviewSheet: View {
     private func subText(for block: Block, isLive: Bool) -> String {
         let done = block.logs.filter(\.isCompleted)
         if isLive, let current = session.currentLog {
-            return "live · \(current.driver == .reps ? "set" : "round") \(current.setNumber)/\(block.logs.count)"
+            guard let unit = current.workUnit, block.logs.count > 1 else { return "live" }
+            return "live · \(unit.singular) \(current.setNumber)/\(block.logs.count)"
         }
         if !done.isEmpty {
             return done.map { resultFragment($0) }.joined(separator: " · ")
@@ -313,7 +314,8 @@ struct SessionOverviewSheet: View {
         default:
             let target = template.driver.displayText(
                 template.target(template.driver),
-                distanceUnit: template.metricProfile.distanceUnit
+                distanceUnit: template.metricProfile.distanceUnit,
+                paceReference: template.metricProfile.paceReference
             )
             return "\(block.logs.count)×\(target)"
         }
@@ -328,7 +330,7 @@ struct SessionOverviewSheet: View {
         case .duration:
             WorkoutMetric.duration.formatted(log.actualDuration.map(Double.init))
         default:
-            log.driver.displayText(log.actual(log.driver), distanceUnit: log.metricProfile.distanceUnit)
+            log.driver.displayText(log.actual(log.driver), distanceUnit: log.metricProfile.distanceUnit, paceReference: log.metricProfile.paceReference)
         }
     }
 }
@@ -354,6 +356,15 @@ struct SessionExerciseSheet: View {
     }
 
     private var pending: [SetLog] { logs.filter { !$0.isCompleted } }
+
+    /// The noun for a block's rounds — pieces on an erg, reps on the
+    /// track, sets in the rack. ⚠️ `.divider`, not `?? .set` — see
+    /// `WorkUnit.divider`. It labels the AUTHORING controls (the count
+    /// stepper, the targets caption, the remove confirm), where the
+    /// divider's noun is right even at a count of one; the per-row
+    /// labels go through `WorkUnit.rowLabel`, which refuses to number a
+    /// row with no siblings.
+    private var blockUnit: WorkUnit { WorkUnit.divider(logs.first?.workUnit) }
     private var isLive: Bool {
         session.currentLog.map { current in logs.contains { $0.order == current.order } } ?? false
     }
@@ -424,13 +435,13 @@ struct SessionExerciseSheet: View {
                         SheetSectionLabel("TARGETS")
                             .padding(.top, 14)
                         targetEditor
-                        Text("Edits apply to the remaining sets")
+                        Text("Edits apply to the remaining \(blockUnit.plural)")
                             .font(.system(.caption2))
                             .foregroundStyle(Theme.textFaint)
                             .padding(.top, 5)
                     }
 
-                    SheetSectionLabel("SETS")
+                    SheetSectionLabel(blockUnit.plural.uppercased())
                         .padding(.top, 14)
                     setRows
 
@@ -572,8 +583,8 @@ struct SessionExerciseSheet: View {
                 dismiss()
             })
         }
-        .confirmationDialog("Remove the remaining sets?", isPresented: $confirmingRemove, titleVisibility: .visible) {
-            Button("Remove \(pending.count) pending set\(pending.count == 1 ? "" : "s")", role: .destructive) {
+        .confirmationDialog("Remove the remaining \(blockUnit.plural)?", isPresented: $confirmingRemove, titleVisibility: .visible) {
+            Button("Remove \(pending.count) pending \(pending.count == 1 ? blockUnit.singular : blockUnit.plural)", role: .destructive) {
                 session.removePendingBlock(
                     groupIndex: block.groupIndex,
                     exerciseName: block.name,
@@ -583,13 +594,13 @@ struct SessionExerciseSheet: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Done sets stay in the record.")
+            Text("Whatever you finished stays in the record.")
         }
     }
 
     private var statusText: String {
         if isLive, let current = session.currentLog {
-            return "LIVE · \(current.driver == .reps ? "SET" : "ROUND") \(current.setNumber) OF \(logs.count)"
+            return WorkUnit.kicker(current.workUnit, index: current.setNumber, total: logs.count).map { "LIVE · \($0)" } ?? "LIVE"
         }
         return logs.allSatisfy(\.isCompleted) ? "DONE" : "UPCOMING"
     }
@@ -605,7 +616,7 @@ struct SessionExerciseSheet: View {
             // pending sets (completed sets and the live set are never
             // removed). The set count is a structural fact, so it leads.
             MetricStepperRow(
-                label: "Sets",
+                label: blockUnit.plural.capitalized,
                 value: "\(logs.count)",
                 identifier: "sxSets",
                 onTapValue: nil,
@@ -627,7 +638,8 @@ struct SessionExerciseSheet: View {
                         value: metric.displayText(
                             reference?.target(metric),
                             weightUnit: weightUnit,
-                            distanceUnit: reference?.metricProfile.distanceUnit ?? .meters
+                            distanceUnit: reference?.metricProfile.distanceUnit ?? .meters,
+                            paceReference: reference?.metricProfile.paceReference
                         ),
                         identifier: metric == .weight ? "sxWeight" : (metric == .duration ? "sxDuration" : "sx-\(metric.rawValue)"),
                         onDecrement: { editPending { step(metric, on: $0, direction: -1) } },
@@ -677,10 +689,15 @@ struct SessionExerciseSheet: View {
             ForEach(Array(logs.enumerated()), id: \.offset) { _, log in
                 let isCurrent = session.currentLog?.order == log.order
                 HStack(spacing: 10) {
-                    Text("Set \(log.setNumber)")
-                        .font(.system(.footnote))
-                        .foregroundStyle(Theme.textSecondary)
-                        .frame(width: 44, alignment: .leading)
+                    // Nothing at a count of one — the record rows, the
+                    // kicker and the island already refuse to number what
+                    // has no siblings, and this list was the straggler.
+                    if let label = WorkUnit.rowLabel(log.workUnit, index: log.setNumber, total: logs.count) {
+                        Text(label)
+                            .font(.system(.footnote))
+                            .foregroundStyle(Theme.textSecondary)
+                            .frame(width: 44, alignment: .leading)
+                    }
                     Text(setResult(log, isCurrent: isCurrent))
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(setColor(log, isCurrent: isCurrent))
@@ -709,7 +726,9 @@ struct SessionExerciseSheet: View {
 
     private func setResult(_ log: SetLog, isCurrent: Bool) -> String {
         if log.isCompleted { return log.resultSummary(weightUnit: weightUnit) }
-        if isCurrent { return "current set" }
+        // "current round" on a block of one names a sibling that does not
+        // exist; "live" is what the overview list already says there.
+        if isCurrent { return logs.count > 1 ? "current \(blockUnit.singular)" : "live" }
         return "pending"
     }
 

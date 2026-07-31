@@ -277,13 +277,21 @@ final class Exercise {
     }
 
     /// The modality's SF Symbol (16 pt faint ink on search rows).
+    /// Exhaustive on purpose — a new family has to pick a figure rather
+    /// than falling to a default that quietly reads as something else.
     var modalitySymbolName: String {
         switch modality {
         case .strength: "figure.strengthtraining.traditional"
-        case .cardio: "figure.run"
-        case .rowing: "figure.indoor.rowing"
-        case .jumpRope: "figure.jumprope"
+        case .cardio: "figure.mixed.cardio"
+        case .running: "figure.run"
+        case .walking: "figure.walk"
+        case .hiking: "figure.hiking"
         case .cycling: "figure.outdoor.cycle"
+        case .rowing: "figure.indoor.rowing"
+        case .swimming: "figure.pool.swim"
+        case .elliptical: "figure.elliptical"
+        case .stairClimbing: "figure.stair.stepper"
+        case .jumpRope: "figure.jumprope"
         case .flexibility: "figure.flexibility"
         }
     }

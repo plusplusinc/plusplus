@@ -74,6 +74,118 @@ struct WatchSyncTests {
         #expect(decoded.steps[0].step.targetHeartRateLowerBPM == 114)
     }
 
+    @Test("A wrist result carries what was MEASURED, and it round-trips")
+    func measuredActualsRoundTrip() throws {
+        let step = WatchSync.Step(
+            exerciseName: "Rowing",
+            groupIndex: 0,
+            setNumber: 1,
+            isDuration: true,
+            extraTargets: ["distance": 500, "resistance": 5],
+            distanceUnit: .meters,
+            modality: .rowing
+        )
+        // Rowed 412 of a planned 500. The result must say 412.
+        let actuals = LoggedActuals.extras(
+            planned: MetricValues.fromRaw(step.extraTargets),
+            measured: [.distance: 412, .pace: 128]
+        )
+        let started = Date(timeIntervalSince1970: 1_780_000_100)
+        let result = WatchSync.SessionResult(
+            routineName: "Erg",
+            startedAt: started,
+            endedAt: started.addingTimeInterval(600),
+            restSeconds: 120,
+            steps: [WatchSync.StepResult(
+                step: step,
+                actualDuration: 128,
+                extraActuals: MetricValues.toRaw(actuals),
+                completedAt: started.addingTimeInterval(128)
+            )]
+        )
+        let decoded = try WatchSync.decode(WatchSync.SessionResult.self, from: WatchSync.encode(result))
+        #expect(decoded == result)
+        let landed = MetricValues.fromRaw(decoded.steps[0].extraActuals)
+        #expect(landed[.distance] == 412)
+        #expect(landed[.pace] == 128)
+        // The damper is what the user set, so it carries; the target
+        // distance does not masquerade as a result.
+        #expect(landed[.resistance] == 5)
+        #expect(decoded.steps[0].step.extraTargets?["distance"] == 500)
+        #expect(decoded.steps[0].step.modality == .rowing)
+    }
+
+    @Test("A step carries the heart rate it was performed at, per step")
+    func stepCarriesHeartRate() throws {
+        let step = WatchSync.Step(exerciseName: "Rowing", groupIndex: 0, setNumber: 1, isDuration: true)
+        let started = Date(timeIntervalSince1970: 1_780_000_100)
+        let result = WatchSync.SessionResult(
+            routineName: "Erg",
+            startedAt: started,
+            endedAt: started.addingTimeInterval(600),
+            restSeconds: 120,
+            steps: [WatchSync.StepResult(
+                step: step,
+                actualDuration: 128,
+                averageHeartRate: 162,
+                maxHeartRate: 178,
+                completedAt: started.addingTimeInterval(128)
+            )]
+        )
+        let decoded = try WatchSync.decode(WatchSync.SessionResult.self, from: WatchSync.encode(result))
+        #expect(decoded == result)
+        // Per STEP: the wrist wears the sensor, and a 4 × 500 m piece
+        // wants four numbers rather than one session average.
+        #expect(decoded.steps[0].averageHeartRate == 162)
+        #expect(decoded.steps[0].maxHeartRate == 178)
+    }
+
+    @Test("A result from a watch that predates measured actuals decodes clean")
+    func resultWithoutExtraActualsDecodes() throws {
+        let step = WatchSync.Step(exerciseName: "Rowing", groupIndex: 0, setNumber: 1, isDuration: true)
+        let started = Date(timeIntervalSince1970: 1_780_000_100)
+        let result = WatchSync.SessionResult(
+            routineName: "Erg",
+            startedAt: started,
+            endedAt: started.addingTimeInterval(600),
+            restSeconds: 120,
+            steps: [WatchSync.StepResult(step: step, actualDuration: 600, completedAt: started)]
+        )
+        let decoded = try WatchSync.decode(WatchSync.SessionResult.self, from: WatchSync.encode(result))
+        #expect(decoded.steps[0].extraActuals == nil)
+        #expect(decoded.steps[0].step.modality == nil)
+        // Same additive tolerance for the heart-rate pair: absent stays
+        // absent rather than becoming a zero.
+        #expect(decoded.steps[0].averageHeartRate == nil)
+        #expect(decoded.steps[0].maxHeartRate == nil)
+    }
+
+    @Test("A plan's modality resolves the session, and falls back when absent")
+    func planModality() {
+        let outdoor = WatchSync.Step(
+            exerciseName: "Running", groupIndex: 0, setNumber: 1, isDuration: true,
+            isOutdoor: true, modality: .running
+        )
+        let plan = WatchSync.PlanRoutine(name: "R", restSeconds: 60, steps: [outdoor])
+        #expect(plan.sessionModality.primary == .running)
+        #expect(plan.sessionModality.isOutdoor)
+
+        // A plan pushed before modalities existed has nothing to go on
+        // but the outdoor flag, and guessing strength for a run would be
+        // worse than the old answer.
+        let legacy = WatchSync.Step(
+            exerciseName: "Running", groupIndex: 0, setNumber: 1, isDuration: true, isOutdoor: true
+        )
+        let legacyPlan = WatchSync.PlanRoutine(name: "R", restSeconds: 60, steps: [legacy])
+        #expect(legacyPlan.sessionModality.primary == .running)
+        #expect(legacyPlan.sessionModality.isOutdoor)
+
+        let legacyIndoor = WatchSync.Step(exerciseName: "Bench", groupIndex: 0, setNumber: 1, isDuration: false)
+        let indoorPlan = WatchSync.PlanRoutine(name: "B", restSeconds: 60, steps: [legacyIndoor])
+        #expect(indoorPlan.sessionModality.primary == .strength)
+        #expect(!indoorPlan.sessionModality.isOutdoor)
+    }
+
     @Test func payloadsWithoutHeartRateStillDecode() throws {
         // Version skew both ways: an older watch's result (no HR keys)
         // and an older phone's plan must decode on new builds — the HR

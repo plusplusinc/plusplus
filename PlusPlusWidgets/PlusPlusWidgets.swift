@@ -43,10 +43,16 @@ struct WorkoutLiveActivity: Widget {
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                         Text(context.state.phase == .resting
-                             ? "Up next: \(context.state.exerciseName) · set \(context.state.setNumber)"
-                             : "\(context.state.exerciseName) · set \(context.state.setNumber)")
+                             ? "Up next: \(context.state.positionLine)"
+                             : context.state.positionLine)
                             .font(.system(.footnote, weight: .semibold))
                             .lineLimit(1)
+                        if context.state.phase != .resting, let cardio = context.state.cardioLine {
+                            Text(cardio)
+                                .font(.system(.caption2, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
                     }
                     Spacer()
                     trailingTimer(context.state, size: 32)
@@ -54,7 +60,7 @@ struct WorkoutLiveActivity: Widget {
                 }
                 if context.state.phase == .resting {
                     RestControlButtons()
-                } else {
+                } else if context.state.totalSets > 1 {
                     WorkoutProgressBar(completed: context.state.setsCompleted, total: context.state.totalSets)
                 }
             }
@@ -64,17 +70,29 @@ struct WorkoutLiveActivity: Widget {
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(context.state.phase == .resting
-                         ? (context.state.isTransition == true ? "SWITCH" : "REST")
-                         : "SET \(context.state.setNumber)")
-                            .font(.system(.caption2, design: .monospaced, weight: .semibold))
-                            .foregroundStyle(.secondary)
+                        // nil on a single continuous effort — the name
+                        // below already says everything true.
+                        if let kicker = context.state.phase == .resting
+                            ? (context.state.isTransition == true ? "SWITCH" : "REST")
+                            : context.state.unitKicker {
+                            Text(kicker)
+                                .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                        }
                         Text(context.state.exerciseName)
                             .font(.system(.footnote, weight: .semibold))
                             .lineLimit(1)
-                        Text("\(context.state.setsCompleted)/\(context.state.totalSets) done")
-                            .font(.system(.caption2, design: .monospaced))
-                            .foregroundStyle(.secondary)
+                        // What you're covering when something measures it,
+                        // else how far through the block you are. ⚠️ nil on
+                        // a single continuous effort with nothing live:
+                        // "0/1 done" sat on the island saying nothing for
+                        // forty minutes of a ride.
+                        if let progress = context.state.progressLine {
+                            Text(progress)
+                                .font(.system(.caption2, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
                     }
                 }
                 DynamicIslandExpandedRegion(.trailing) {
@@ -85,7 +103,9 @@ struct WorkoutLiveActivity: Widget {
                     if context.state.phase == .resting {
                         RestControlButtons()
                             .padding(.top, 6)
-                    } else {
+                    } else if context.state.totalSets > 1 {
+                        // Same law the app's own block bar follows: a
+                        // one-block bar is not a progress bar.
                         WorkoutProgressBar(completed: context.state.setsCompleted, total: context.state.totalSets)
                             .padding(.top, 4)
                     }

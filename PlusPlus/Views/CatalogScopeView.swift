@@ -871,6 +871,11 @@ struct CatalogScopeView: View {
                 }
                 switch scope {
                 case .exercises:
+                    // Kind leads: the coarsest axis, and the reason the
+                    // cardio push wanted a facet at all — every cardio
+                    // exercise files under Full Body, so no other facet
+                    // reaches the cardio rows as a set (#475).
+                    FacetChip(name: "Kind", options: CatalogKind.allCases, display: \.label, selection: $filters.kind, identifier: "facetKind")
                     FacetChip(name: "Muscle", options: MuscleGroup.allCases, display: \.displayName, selection: $filters.muscle, identifier: "facetMuscle")
                     FacetChip(name: "Movement", options: MovementPattern.allCases, display: \.displayName, selection: $filters.pattern, identifier: "facetMovement")
                     FacetChip(name: "Mechanic", options: ExerciseMechanic.allCases, display: \.displayName, selection: $filters.mechanic, identifier: "facetMechanic")

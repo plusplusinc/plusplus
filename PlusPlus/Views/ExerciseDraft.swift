@@ -35,7 +35,22 @@ final class ExerciseDraft {
     /// editor's TRACKED VALUES chips. Normalized through MetricProfile
     /// on read, so order and duplicates never matter here.
     var trackedMetrics: [WorkoutMetric] = MetricProfile.weightReps.metrics
-    var distanceUnit: DistanceUnit = .meters
+    var distanceUnit: DistanceUnit = .meters {
+        // ⚠️ A reference was chosen against the OLD denomination, so it
+        // does not survive a unit change: "/100yd" on a kilometer profile
+        // is not a thing anyone meant. Every `load` below re-applies the
+        // stored one on the line AFTER the unit, so a load is unaffected.
+        didSet { if distanceUnit != oldValue { paceReference = nil } }
+    }
+    /// What a PACE is quoted over, when the unit's own convention is the
+    /// wrong one (a metric pool is denominated in meters like an erg but
+    /// splits per 100, not per 500). Carried faithfully through the draft
+    /// for the same reason `isOutdoor` is: rebuilding the profile without
+    /// it silently rewrites what the exercise means.
+    /// ⚠️ Changing the UNIT clears it — the reference was chosen against
+    /// the old denomination, and "/100yd" on a kilometer profile is not a
+    /// thing anyone meant.
+    var paceReference: PaceReference?
     /// Whether the exercise happens outdoors under GPS (#378). Carried
     /// faithfully through the draft — dropping it was a live bug: the
     /// rebuilt profile defaulted `isOutdoor: false`, so ANY edit of
@@ -71,6 +86,7 @@ final class ExerciseDraft {
         let profile = exercise.metricProfile
         trackedMetrics = profile.metrics
         distanceUnit = profile.distanceUnit
+        paceReference = profile.paceReference
         isOutdoor = profile.isOutdoor
         // Editing an existing exercise: its profile is a fact, not a
         // suggestion — equipment changes must not rewrite it.
@@ -98,7 +114,8 @@ final class ExerciseDraft {
         // Dropping the last distance/pace metric drops the flag (the #187
         // stale-defaults rule generalized): a bare isOutdoor would fail
         // interchange validation and could make a repo restore throw.
-        MetricProfile(trackedMetrics, distanceUnit: distanceUnit, isOutdoor: isOutdoor && canBeOutdoor)
+        MetricProfile(trackedMetrics, distanceUnit: distanceUnit, isOutdoor: isOutdoor && canBeOutdoor,
+                      paceReference: paceReference.flatMap { $0 == distanceUnit.defaultPaceReference ? nil : $0 })
     }
 
     /// A value snapshot of every user-EDITABLE field, for the editor's
@@ -113,6 +130,7 @@ final class ExerciseDraft {
             muscleGroups.map(\.rawValue).joined(separator: ","),
             trackedMetrics.map { String(describing: $0) }.joined(separator: ","),
             String(describing: distanceUnit),
+            String(describing: paceReference),
             String(isOutdoor),
             selectedEquipment.map(\.name).sorted().joined(separator: ","),
             notes,
@@ -157,6 +175,7 @@ final class ExerciseDraft {
         guard !metricsTouched else { return }
         trackedMetrics = profile.metrics
         distanceUnit = profile.distanceUnit
+        paceReference = profile.paceReference
         isOutdoor = profile.isOutdoor
     }
 
@@ -175,6 +194,7 @@ final class ExerciseDraft {
     func setProfile(_ profile: MetricProfile) {
         trackedMetrics = profile.metrics
         distanceUnit = profile.distanceUnit
+        paceReference = profile.paceReference
         isOutdoor = profile.isOutdoor
         metricsTouched = true
     }

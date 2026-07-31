@@ -552,6 +552,7 @@ private struct HealthTray: View {
     let health: HealthSyncCoordinator
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
+    @AppStorage(LiveWorkoutSettings.key) private var liveWorkoutEnabled = false
 
     private var enabledBinding: Binding<Bool> {
         Binding(
@@ -582,6 +583,8 @@ private struct HealthTray: View {
                 if health.isAvailable, health.isEnabled {
                     Divider().overlay(Theme.border)
                     statusBlock
+                    Divider().overlay(Theme.border)
+                    liveRecordingBlock
                 }
             }
             .padding(14)
@@ -638,6 +641,27 @@ private struct HealthTray: View {
                 .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: Theme.keyRadius, travel: 3))
                 .accessibilityIdentifier("healthConnectButton")
             }
+        }
+    }
+
+    /// The phone recording the workout as it happens, rather than writing
+    /// it down at the end. Off by default and its own switch, because it
+    /// changes who measures the workout — not just whether Health hears
+    /// about it.
+    @ViewBuilder
+    private var liveRecordingBlock: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Toggle(isOn: $liveWorkoutEnabled) {
+                Text("Record workouts as they happen")
+                    .font(.system(.subheadline, weight: .bold))
+                    .foregroundStyle(Theme.textPrimary)
+            }
+            .tint(Theme.selected)
+            .accessibilityIdentifier("liveWorkoutToggle")
+
+            Text("Your iPhone tracks the workout while you do it, so calories reach your rings and your heart rate shows up without waiting on your watch to catch up. Off, the workout is saved to Health when you finish.")
+                .font(.system(.caption))
+                .foregroundStyle(Theme.textSecondary)
         }
     }
 
@@ -1088,6 +1112,8 @@ private struct AboutTray: View {
 /// dispatch (one line each, no obligation words).
 enum WhatsNew {
     static let entries: [(build: String, notes: String)] = [
+        ("159", "A run ends when you stop · one effort, and the key says finish · quick start sits right on Today now · reach a distance you asked for and the next effort starts itself · a 6 × 400 m keeps all six splits · the finish shows what you did beside last time and leaves the verdict to you · and your iPhone can record the workout as it happens, for calories and a heart rate that keeps up (Settings → Apple Health)"),
+        ("158", "A run, ride, row or swim gets a clock that counts and numbers that mean something · start one from the tray in a tap · prescribe any two of distance, duration and pace and the third works itself out · your heart rate lands on every set · and a ride files to Health as a ride, not as strength training"),
         ("154", "Rest bends to you · add or take off 15 seconds while it runs, from the phone or the Lock Screen · pause mid rest and the countdown waits where you left it · paused now says what it caught and what comes next"),
         ("116", "Find or create: one search for the whole app · the search key beside the tabs finds routines, exercises, and equipment, yours or the catalog's · type what's missing and create it on the spot"),
         ("108", "Rest countdowns beep the last three seconds, a higher tone starts the next move · the live workout is back on the Dynamic Island and Lock Screen · the set overview colors every exercise: done, now, and up next"),

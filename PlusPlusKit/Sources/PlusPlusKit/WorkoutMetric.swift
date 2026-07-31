@@ -94,7 +94,7 @@ public enum WorkoutMetric: String, Codable, CaseIterable, Sendable, Identifiable
         unit(weightUnit: .lb, distanceUnit: .meters)
     }
 
-    private func unit(weightUnit: WeightUnit, distanceUnit: DistanceUnit) -> String {
+    private func unit(weightUnit: WeightUnit, distanceUnit: DistanceUnit, paceReference: PaceReference? = nil) -> String {
         switch self {
         case .weight, .assistance: weightUnit.symbol
         case .reps: "reps"
@@ -102,7 +102,7 @@ public enum WorkoutMetric: String, Codable, CaseIterable, Sendable, Identifiable
         case .distance: distanceUnit.symbol
         case .calories: "cal"
         case .duration, .rest, .transition: "sec"
-        case .pace: distanceUnit.paceLabel
+        case .pace: (paceReference ?? distanceUnit.defaultPaceReference).label
         case .speed: distanceUnit.speedLabel
         case .incline: "%"
         case .resistance: "lvl"
@@ -146,7 +146,7 @@ public enum WorkoutMetric: String, Codable, CaseIterable, Sendable, Identifiable
         wheelStep(weightUnit: .lb, distanceUnit: .meters)
     }
 
-    private func wheelStep(weightUnit: WeightUnit, distanceUnit: DistanceUnit) -> Double {
+    private func wheelStep(weightUnit: WeightUnit, distanceUnit: DistanceUnit, paceReference: PaceReference? = nil) -> Double {
         switch self {
         case .weight, .assistance: weightUnit.wheelStep
         case .reps: 1
@@ -156,7 +156,7 @@ public enum WorkoutMetric: String, Codable, CaseIterable, Sendable, Identifiable
         case .duration: 5
         case .rest: 15
         case .transition: 5
-        case .pace: distanceUnit.paceWheelStep
+        case .pace: (paceReference ?? distanceUnit.defaultPaceReference).wheelStep
         case .speed: 0.5
         case .incline: 0.5
         case .resistance: 1
@@ -174,7 +174,7 @@ public enum WorkoutMetric: String, Codable, CaseIterable, Sendable, Identifiable
     /// because the scrubber tape has to span the same range the wheel and
     /// the steppers do — a tape built from the unit-less `range` would let
     /// a kg-denominated height scrub past its own ceiling.
-    public func range(weightUnit: WeightUnit, distanceUnit: DistanceUnit = .meters) -> ClosedRange<Double> {
+    public func range(weightUnit: WeightUnit, distanceUnit: DistanceUnit = .meters, paceReference: PaceReference? = nil) -> ClosedRange<Double> {
         switch self {
         case .weight: 0...1000
         case .assistance: 0...500
@@ -186,7 +186,7 @@ public enum WorkoutMetric: String, Codable, CaseIterable, Sendable, Identifiable
         case .rest: 15...600
         // 0 is legal and means "no countdown" — back-to-back stations.
         case .transition: 0...600
-        case .pace: distanceUnit.paceRange
+        case .pace: (paceReference ?? distanceUnit.defaultPaceReference).range
         case .speed: distanceUnit.speedRange
         case .incline: 0...15
         case .resistance: 1...30
@@ -205,8 +205,8 @@ public enum WorkoutMetric: String, Codable, CaseIterable, Sendable, Identifiable
         min(max(value, range.lowerBound), range.upperBound)
     }
 
-    private func clamped(_ value: Double, weightUnit: WeightUnit, distanceUnit: DistanceUnit) -> Double {
-        let range = range(weightUnit: weightUnit, distanceUnit: distanceUnit)
+    private func clamped(_ value: Double, weightUnit: WeightUnit, distanceUnit: DistanceUnit, paceReference: PaceReference? = nil) -> Double {
+        let range = range(weightUnit: weightUnit, distanceUnit: distanceUnit, paceReference: paceReference)
         return min(max(value, range.lowerBound), range.upperBound)
     }
 
@@ -217,7 +217,7 @@ public enum WorkoutMetric: String, Codable, CaseIterable, Sendable, Identifiable
     // parameters default (.lb, .meters) so unit-indifferent callers and
     // pre-units code read unchanged.
 
-    public func defaultValue(weightUnit: WeightUnit, distanceUnit: DistanceUnit = .meters) -> Double {
+    public func defaultValue(weightUnit: WeightUnit, distanceUnit: DistanceUnit = .meters, paceReference: PaceReference? = nil) -> Double {
         switch self {
         case .weight: weightUnit.defaultValue
         case .assistance: weightUnit.defaultValue
@@ -231,7 +231,7 @@ public enum WorkoutMetric: String, Codable, CaseIterable, Sendable, Identifiable
         // stored value; this is the prescription for NEW ones.
         case .rest: 45
         case .transition: 15
-        case .pace: distanceUnit.paceDefault
+        case .pace: (paceReference ?? distanceUnit.defaultPaceReference).defaultValue
         case .speed: distanceUnit.speedDefault
         case .incline: 1
         case .resistance: 5
@@ -245,14 +245,14 @@ public enum WorkoutMetric: String, Codable, CaseIterable, Sendable, Identifiable
     /// `stepOverride` replaces the unit step when set — per-equipment
     /// increments (a microplate barbell steps 2.5, a pin stack 10)
     /// without touching wheel granularity or defaults.
-    public func incremented(_ value: Double?, weightUnit: WeightUnit = .lb, distanceUnit: DistanceUnit = .meters, stepOverride: Double? = nil) -> Double {
-        guard let value else { return defaultValue(weightUnit: weightUnit, distanceUnit: distanceUnit) }
-        return clamped(value + (stepOverride ?? step(weightUnit: weightUnit, distanceUnit: distanceUnit)), weightUnit: weightUnit, distanceUnit: distanceUnit)
+    public func incremented(_ value: Double?, weightUnit: WeightUnit = .lb, distanceUnit: DistanceUnit = .meters, stepOverride: Double? = nil, paceReference: PaceReference? = nil) -> Double {
+        guard let value else { return defaultValue(weightUnit: weightUnit, distanceUnit: distanceUnit, paceReference: paceReference) }
+        return clamped(value + (stepOverride ?? step(weightUnit: weightUnit, distanceUnit: distanceUnit)), weightUnit: weightUnit, distanceUnit: distanceUnit, paceReference: paceReference)
     }
 
-    public func decremented(_ value: Double?, weightUnit: WeightUnit = .lb, distanceUnit: DistanceUnit = .meters, stepOverride: Double? = nil) -> Double {
-        guard let value else { return defaultValue(weightUnit: weightUnit, distanceUnit: distanceUnit) }
-        return clamped(value - (stepOverride ?? step(weightUnit: weightUnit, distanceUnit: distanceUnit)), weightUnit: weightUnit, distanceUnit: distanceUnit)
+    public func decremented(_ value: Double?, weightUnit: WeightUnit = .lb, distanceUnit: DistanceUnit = .meters, stepOverride: Double? = nil, paceReference: PaceReference? = nil) -> Double {
+        guard let value else { return defaultValue(weightUnit: weightUnit, distanceUnit: distanceUnit, paceReference: paceReference) }
+        return clamped(value - (stepOverride ?? step(weightUnit: weightUnit, distanceUnit: distanceUnit)), weightUnit: weightUnit, distanceUnit: distanceUnit, paceReference: paceReference)
     }
 
     /// Preset per-tap increments offered when someone changes a metric's
@@ -262,7 +262,7 @@ public enum WorkoutMetric: String, Codable, CaseIterable, Sendable, Identifiable
     /// resolved step is folded in by the caller when it isn't already here
     /// (a custom gear stride like 1.25), so the list never hides the value
     /// that's actually in force. Every entry is finite and positive.
-    public func stepChoices(weightUnit: WeightUnit = .lb, distanceUnit: DistanceUnit = .meters) -> [Double] {
+    public func stepChoices(weightUnit: WeightUnit = .lb, distanceUnit: DistanceUnit = .meters, paceReference: PaceReference? = nil) -> [Double] {
         switch self {
         case .weight, .assistance:
             return weightUnit == .kg ? [0.5, 1, 1.25, 2.5, 5, 10, 20] : [1, 2.5, 5, 10, 25, 45]
@@ -270,12 +270,15 @@ public enum WorkoutMetric: String, Codable, CaseIterable, Sendable, Identifiable
         case .height: return weightUnit == .kg ? [1, 2.5, 5] : [1, 2, 5]
         case .distance:
             switch distanceUnit {
-            case .meters: return [25, 50, 100, 250, 500]
+            // Pool and erg both count in lengths and hundreds.
+            case .meters, .yards: return [25, 50, 100, 250, 500]
             case .kilometers, .miles: return [0.1, 0.25, 0.5, 1]
             }
         case .calories: return [1, 5, 10, 25]
         case .duration: return [5, 15, 30, 60]
-        case .pace: return distanceUnit == .meters ? [1, 2, 5] : [5, 10, 15]
+        // A short reference is dialed in single seconds; a road pace in
+        // fives. The reference itself decides, not the unit.
+        case .pace: return (paceReference ?? distanceUnit.defaultPaceReference).wheelStep == 1 ? [1, 2, 5] : [5, 10, 15]
         case .speed: return [0.1, 0.5, 1]
         case .incline: return [0.5, 1, 2]
         case .resistance: return [1, 2, 5]
@@ -293,7 +296,7 @@ public enum WorkoutMetric: String, Codable, CaseIterable, Sendable, Identifiable
         wheelValues(weightUnit: .lb)
     }
 
-    public func wheelValues(weightUnit: WeightUnit, distanceUnit: DistanceUnit = .meters) -> [Double] {
+    public func wheelValues(weightUnit: WeightUnit, distanceUnit: DistanceUnit = .meters, paceReference: PaceReference? = nil) -> [Double] {
         switch self {
         case .duration:
             var values = Array(stride(from: 5.0, to: 120, by: 5))
@@ -309,21 +312,21 @@ public enum WorkoutMetric: String, Codable, CaseIterable, Sendable, Identifiable
             values += Array(stride(from: 10000.0, through: 50000, by: 500))
             return values
         default:
-            let range = range(weightUnit: weightUnit, distanceUnit: distanceUnit)
+            let range = range(weightUnit: weightUnit, distanceUnit: distanceUnit, paceReference: paceReference)
             return Array(stride(
                 from: range.lowerBound, through: range.upperBound,
-                by: wheelStep(weightUnit: weightUnit, distanceUnit: distanceUnit)
+                by: wheelStep(weightUnit: weightUnit, distanceUnit: distanceUnit, paceReference: paceReference)
             ))
         }
     }
 
     /// Snaps an arbitrary stored value onto the wheel so the picker has a
     /// valid selection; nil lands on `defaultValue`.
-    public func nearestWheelValue(to value: Double?, weightUnit: WeightUnit = .lb, distanceUnit: DistanceUnit = .meters) -> Double {
-        guard let value else { return defaultValue(weightUnit: weightUnit, distanceUnit: distanceUnit) }
-        let bounded = clamped(value, weightUnit: weightUnit, distanceUnit: distanceUnit)
-        return wheelValues(weightUnit: weightUnit, distanceUnit: distanceUnit).min { abs($0 - bounded) < abs($1 - bounded) }
-            ?? defaultValue(weightUnit: weightUnit, distanceUnit: distanceUnit)
+    public func nearestWheelValue(to value: Double?, weightUnit: WeightUnit = .lb, distanceUnit: DistanceUnit = .meters, paceReference: PaceReference? = nil) -> Double {
+        guard let value else { return defaultValue(weightUnit: weightUnit, distanceUnit: distanceUnit, paceReference: paceReference) }
+        let bounded = clamped(value, weightUnit: weightUnit, distanceUnit: distanceUnit, paceReference: paceReference)
+        return wheelValues(weightUnit: weightUnit, distanceUnit: distanceUnit, paceReference: paceReference).min { abs($0 - bounded) < abs($1 - bounded) }
+            ?? defaultValue(weightUnit: weightUnit, distanceUnit: distanceUnit, paceReference: paceReference)
     }
 
     /// Whole numbers render without a decimal; fractional values keep the
@@ -348,16 +351,16 @@ public enum WorkoutMetric: String, Codable, CaseIterable, Sendable, Identifiable
     /// Unit suffix appropriate for a specific rendered value. Empty when
     /// `formatted` already carries the units (m:ss durations) or the label
     /// does (RPE).
-    public func unit(for value: Double?, weightUnit: WeightUnit = .lb, distanceUnit: DistanceUnit = .meters) -> String {
+    public func unit(for value: Double?, weightUnit: WeightUnit = .lb, distanceUnit: DistanceUnit = .meters, paceReference: PaceReference? = nil) -> String {
         if self == .duration, let value, value >= 60 { return "" }
-        return unit(weightUnit: weightUnit, distanceUnit: distanceUnit)
+        return unit(weightUnit: weightUnit, distanceUnit: distanceUnit, paceReference: paceReference)
     }
 
     /// Value and unit as one display string: "45 sec", "25:00", "135 lb",
     /// "2000 m", "2:05 /500m". Level-like metrics read label-first
     /// ("lvl 7", "RPE 8") and incline binds tight ("3%") — "7 lvl" isn't
     /// English.
-    public func displayText(_ value: Double?, weightUnit: WeightUnit = .lb, distanceUnit: DistanceUnit = .meters) -> String {
+    public func displayText(_ value: Double?, weightUnit: WeightUnit = .lb, distanceUnit: DistanceUnit = .meters, paceReference: PaceReference? = nil) -> String {
         switch self {
         case .resistance:
             return "lvl \(formatted(value))"
@@ -366,7 +369,7 @@ public enum WorkoutMetric: String, Codable, CaseIterable, Sendable, Identifiable
         case .incline:
             return value == nil ? "—" : "\(formatted(value))%"
         default:
-            let suffix = unit(for: value, weightUnit: weightUnit, distanceUnit: distanceUnit)
+            let suffix = unit(for: value, weightUnit: weightUnit, distanceUnit: distanceUnit, paceReference: paceReference)
             return suffix.isEmpty ? formatted(value) : "\(formatted(value)) \(suffix)"
         }
     }

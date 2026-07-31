@@ -40,6 +40,13 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
     /// in. Absent means meters. Never converts values — a declaration,
     /// like the bundle's `units`.
     public var distanceUnit: DistanceUnit?
+    /// What this exercise's PACE is quoted over, when the distance unit's
+    /// own convention is the wrong one. Absent means the unit decides
+    /// (meters → /500m, miles → /mi, yards → /100yd), which is right for
+    /// every file written before swimming, so those stay byte-identical.
+    /// A metric pool is the case that needs saying: also meters, but
+    /// /100m. Rides the explicit-profile gate like `metrics`.
+    public var paceReference: PaceReference?
     /// Default targets for metrics beyond the three dedicated fields
     /// above, keyed by metric identifier.
     public var extraDefaults: [String: Double]?
@@ -99,6 +106,7 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
         defaultDurationSeconds: Int? = nil,
         metrics: [String]? = nil,
         distanceUnit: DistanceUnit? = nil,
+        paceReference: PaceReference? = nil,
         isOutdoor: Bool? = nil,
         extraDefaults: [String: Double]? = nil,
         inLibrary: Bool? = nil,
@@ -126,6 +134,7 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
         self.defaultDurationSeconds = defaultDurationSeconds
         self.metrics = metrics?.sorted()
         self.distanceUnit = distanceUnit
+        self.paceReference = paceReference
         self.isOutdoor = isOutdoor
         self.extraDefaults = extraDefaults
         self.inLibrary = inLibrary
@@ -287,6 +296,11 @@ public struct SessionDTO: Codable, Equatable, Sendable {
         public var actualWeight: Double?
         public var actualReps: Int?
         public var actualDuration: Int?
+        /// What the heart actually did during THIS set. Additive; absent
+        /// on every set nobody measured, which is every set written before
+        /// this field existed.
+        public var actualAverageHeartRate: Int?
+        public var actualMaxHeartRate: Int?
         public var completedAt: Date?
         /// Targets/actuals for metrics beyond the dedicated fields, keyed
         /// by metric identifier. Sessions snapshot everything, so these
@@ -308,6 +322,10 @@ public struct SessionDTO: Codable, Equatable, Sendable {
         /// exercise's unit later changes or the exercise is gone. Absent
         /// means meters (or, for a pre-field file, resolve from the exercise).
         public var distanceUnit: DistanceUnit?
+        /// The set's own pace denominator, snapshotted with the rest of
+        /// its profile. Same gate as `metrics`; absent means the unit's
+        /// own convention.
+        public var paceReference: PaceReference?
         /// Snapshot of the profile's outdoor flag (#378), riding the same
         /// only-when-the-profile-is-written gate as `metrics`. Written only
         /// when TRUE; absent means indoor, byte-stable with pre-field files.
@@ -326,6 +344,8 @@ public struct SessionDTO: Codable, Equatable, Sendable {
             actualWeight: Double? = nil,
             actualReps: Int? = nil,
             actualDuration: Int? = nil,
+            actualAverageHeartRate: Int? = nil,
+            actualMaxHeartRate: Int? = nil,
             completedAt: Date? = nil,
             extraTargets: [String: Double]? = nil,
             extraActuals: [String: Double]? = nil,
@@ -333,6 +353,7 @@ public struct SessionDTO: Codable, Equatable, Sendable {
             targetHeartRate: HeartRateTarget? = nil,
             metrics: [String]? = nil,
             distanceUnit: DistanceUnit? = nil,
+            paceReference: PaceReference? = nil,
             isOutdoor: Bool? = nil
         ) {
             self.order = order
@@ -347,6 +368,8 @@ public struct SessionDTO: Codable, Equatable, Sendable {
             self.actualWeight = actualWeight
             self.actualReps = actualReps
             self.actualDuration = actualDuration
+            self.actualAverageHeartRate = actualAverageHeartRate
+            self.actualMaxHeartRate = actualMaxHeartRate
             self.completedAt = completedAt
             self.extraTargets = extraTargets
             self.extraActuals = extraActuals
@@ -354,6 +377,7 @@ public struct SessionDTO: Codable, Equatable, Sendable {
             self.targetHeartRate = targetHeartRate
             self.metrics = metrics?.sorted()
             self.distanceUnit = distanceUnit
+            self.paceReference = paceReference
             self.isOutdoor = isOutdoor
         }
     }

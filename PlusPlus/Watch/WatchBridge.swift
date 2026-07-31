@@ -84,7 +84,8 @@ final class WatchBridge: NSObject, WCSessionDelegate {
                         extraTargets: MetricValues.toRaw(extras),
                         distanceUnit: extras.isEmpty ? nil : profile.distanceUnit,
                         restSecondsOverride: group.restSecondsOverride,
-                        isOutdoor: profile.isOutdoor ? true : nil
+                        isOutdoor: profile.isOutdoor ? true : nil,
+                        modality: exercise.modality
                     ))
                 }
             }
@@ -207,16 +208,31 @@ final class WatchBridge: NSObject, WCSessionDelegate {
             log.actualReps = stepResult.actualReps
             log.actualDuration = stepResult.actualDuration
             log.completedAt = stepResult.completedAt
+            // The wrist wears the sensor, so a watch-logged set carries
+            // the same per-set heart-rate fact a phone-logged one does.
+            // Absent from an older watch build, which stays nil.
+            log.actualAverageHeartRate = stepResult.averageHeartRate
+            log.actualMaxHeartRate = stepResult.maxHeartRate
             let extras = MetricValues.fromRaw(stepResult.step.extraTargets)
-            if !extras.isEmpty {
+            // What the wrist MEASURED, which is a different thing from
+            // what it was asked to do.
+            //
+            // ⚠️ This used to be `log.extraActuals = extras` — the step's
+            // own targets, recorded as though they had happened. A 500 m
+            // piece rowed to 412 m came home as 500 m. A result from a
+            // watch build that predates `extraActuals` now records no
+            // extra actuals at all, which is the honest answer: unknown,
+            // and fillable on the phone.
+            let actuals = MetricValues.fromRaw(stepResult.extraActuals)
+            if !extras.isEmpty || !actuals.isEmpty {
                 log.extraTargets = extras
-                // The wrist logs targets as performed (same rule as its
-                // weight/reps handling) — extras editing is a phone
-                // affordance.
-                if stepResult.completedAt != nil {
-                    log.extraActuals = extras
+                if stepResult.completedAt != nil, !actuals.isEmpty {
+                    log.extraActuals = actuals
                 }
-                var metrics = Array(extras.keys)
+                // The snapshot profile spans both sides: a measured
+                // distance on an untargeted run must still be a tracked
+                // metric, or the record cannot render what it holds.
+                var metrics = Array(Set(extras.keys).union(actuals.keys))
                 if stepResult.step.targetWeight != nil { metrics.append(.weight) }
                 if stepResult.step.targetRepsLower != nil { metrics.append(.reps) }
                 if stepResult.step.targetDuration != nil { metrics.append(.duration) }

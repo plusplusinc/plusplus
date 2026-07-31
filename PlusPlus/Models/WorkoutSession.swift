@@ -47,6 +47,19 @@ final class WorkoutSession {
     /// log the user is doing now. `currentLog` falls back to the first
     /// pending log when the cursor's log is already done.
     var cursorOrder: Int = 0
+    /// Where the CURRENT effort's clock starts, in `elapsed()` space —
+    /// the running-time ledger's own coordinate, so pauses are excluded
+    /// for free and nothing view-side has to bank anything.
+    ///
+    /// ⚠️ PERSISTED, not view `@State`, and that is the whole point. The
+    /// first fix for the count-up data-loss bug moved the anchor from the
+    /// timer card (unmounted by pause) up to the session view — one level
+    /// short: the view dies with the process, and in count-up mode the
+    /// displayed elapsed IS the logged duration. On the model, the anchor
+    /// survives everything the session itself survives, and the pause
+    /// arithmetic lives where the pause ledger already is.
+    /// nil reads as zero: the first effort starts when the clock does.
+    var effortAnchorSeconds: Double?
     /// Session heart-rate summary in bpm. Watch-run sessions carry it in
     /// the result payload (the wrist's live builder); phone-run sessions
     /// read it from Health at the finish, and the record backfills later
@@ -54,6 +67,18 @@ final class WorkoutSession {
     /// sensor, no Health access) — never zero.
     var averageHeartRate: Int?
     var maxHeartRate: Int?
+    /// The resolved primary modality, SNAPSHOTTED at finish — the noun
+    /// source every record surface reads (`summaryWorkUnit`), stamped once
+    /// so the finish screen, the history rows and Today's committed cards
+    /// can never disagree about what a session counts in. Before this,
+    /// the finish screen resolved `modality` live while the list rows
+    /// read the FIRST log's unit (a per-row relationship walk was too
+    /// expensive there), so a run-then-lifting session said "5 sets" on
+    /// one surface and "5 reps" on another. The sessions-snapshot law is
+    /// the fix: resolve once, at the moment the session becomes a record.
+    /// Additive optional — nil on every pre-field record, which falls
+    /// back to the first-log read those surfaces already did.
+    var summaryModalityRaw: String?
     /// GPX 1.1 bytes of this session's outdoor route (#378) — the EXACT
     /// sidecar the repo sync replays (`history/YYYY/<basename>.gpx`), so
     /// storing the bytes verbatim is what keeps sync deterministic; parse
@@ -88,6 +113,92 @@ final class WorkoutSession {
 
     var completedSetLogs: [SetLog] {
         sortedSetLogs.filter(\.isCompleted)
+    }
+
+    /// What KIND of workout this was — the one answer Health files it
+    /// under, and the reason a bike ride stopped arriving as strength
+    /// training. Resolved from the sets rather than stored, so it stays
+    /// right as an ad-hoc session grows.
+    ///
+    /// ⚠️ `isOutdoor` reads off each set's DECODED snapshot profile (the
+    /// reconstructed-profile law in `MetricProfile`), never a rebuilt one.
+    var modality: SessionModality {
+        SessionModality.resolve(
+            sortedSetLogs.map {
+                SessionModality.Leg(modality: $0.modality, isOutdoor: $0.metricProfile.isOutdoor)
+            }
+        )
+    }
+
+    /// The noun this FINISHED session's summaries count in, from the
+    /// snapshot `finish()` stamped. One source for the finish screen, the
+    /// history rows, the record header and Today's committed cards — the
+    /// live screen keeps resolving `modality` fresh, because a live
+    /// session's answer can still change.
+    ///
+    /// A pre-field record (nil snapshot) falls back to its FIRST log's
+    /// unit — the read the list surfaces already did, cheap and right for
+    /// every single-modality session, which is what all of them are from
+    /// before cardio existed.
+    var summaryWorkUnit: WorkUnit? {
+        if let raw = summaryModalityRaw, let modality = ExerciseModality(rawValue: raw) {
+            return modality.workUnit
+        }
+        return sortedSetLogs.first?.workUnit
+    }
+
+    /// Whether this whole session is ONE continuous effort — a run, a ride,
+    /// a swim — rather than a set of things you work through.
+    ///
+    /// The app already refuses to count to one: `WorkUnit.kicker` prints no
+    /// kicker, the block bar hides, the island shows no progress. This
+    /// extends that rule from the VOCABULARY to the shape of the ending,
+    /// which is where it was still missing (Dave, build 158: "if I go for a
+    /// run, usually I'm just gonna run, and then stop, not log rep").
+    ///
+    /// With one effort, "log it" and "finish" are the same decision, and
+    /// asking for both is the repetition assumption showing. A routine
+    /// session already merged them for a clock hero; an ad-hoc one — which
+    /// is exactly what quick start creates — did not, so a run ended with
+    /// "All added exercises done. Add another, or finish", which asks about
+    /// repetition at the one moment there is none.
+    ///
+    /// ⚠️ Live, not stored: adding a second exercise mid-session makes it
+    /// false immediately, and the key goes back to logging. Adding one is
+    /// still reachable while the effort runs, from the overview sheet.
+    ///
+    /// ⚠️ Gated on CARDIO, not on the count alone. A one-set ad-hoc
+    /// strength session is a count of one too, and an ungated test made
+    /// logging that set auto-finish the workout — overriding the law that
+    /// ad-hoc sessions never auto-finish (design-review 9, Dave-decided)
+    /// for a shape Dave's quote never covered. One bench set is a session
+    /// you probably ADD to; one run is a session you end. The gate is the
+    /// sentence itself: "a run, a ride, a swim."
+    var isSingleEffort: Bool {
+        sortedSetLogs.count == 1 && modality.primary.isCardio
+    }
+
+    /// How many sets of this log's exercise its own block holds.
+    func blockCount(of log: SetLog) -> Int {
+        sortedSetLogs.filter {
+            $0.groupIndex == log.groupIndex && $0.exerciseName == log.exerciseName
+        }.count
+    }
+
+    /// "Bench Press · set 3", "Rowing · piece 2", or a bare "Running".
+    ///
+    /// One place, because five surfaces used to hand-roll
+    /// `driver == .reps ? "set" : "round"` and a sixth forgot to. The
+    /// position drops away when the block holds one of them, or when the
+    /// sport has no countable unit — "Running · effort 1 of 1" is three
+    /// words of noise on a screen you glance at mid-stride.
+    func caption(for log: SetLog) -> String {
+        guard let position = WorkUnit.inline(
+            log.workUnit, index: log.setNumber, total: blockCount(of: log)
+        ) else {
+            return log.exerciseName
+        }
+        return "\(log.exerciseName) · \(position)"
     }
 
     /// The set the user should do next; nil when everything is logged.
@@ -128,7 +239,15 @@ final class WorkoutSession {
     /// (wrapping to the first pending).
     func complete(_ log: SetLog, at date: Date = Date()) {
         let profile = log.metricProfile
-        for metric in profile.metrics where log.actual(metric) == nil {
+        // ⚠️ A pace the record can COMPUTE is never prefilled from the plan
+        // (#302). Copying the target would freeze the prescription's pace
+        // onto an effort that may have covered a different distance in a
+        // different time — and it would win forever, since a stored value
+        // is the override. Left unwritten, it tracks its inputs: correct
+        // the duration afterwards and the pace follows.
+        let derivesPace = [.pace, .distance, .duration].allSatisfy(profile.contains)
+        for metric in profile.metrics where log.storedActual(metric) == nil {
+            if metric == .pace, derivesPace { continue }
             log.setActual(metric, to: log.target(metric))
         }
         for metric in Self.carryForwardMetrics where profile.contains(metric) {
@@ -210,6 +329,22 @@ final class WorkoutSession {
         if segmentStartedAt == nil { segmentStartedAt = date }
     }
 
+    /// Stamps the current effort's start on the running-time ledger.
+    /// Called where an effort genuinely begins: the clock engaging, the
+    /// cursor moving to a new log, and a rest ending — the LAST stamp
+    /// wins, which is what keeps a recovery out of the next effort's
+    /// clock.
+    func markEffortStart(at date: Date = Date()) {
+        effortAnchorSeconds = elapsed(at: date)
+    }
+
+    /// Running seconds of the current effort at `now` — what a count-up
+    /// hero displays, and therefore what it logs. Paused stretches are
+    /// excluded by construction: both terms read the same ledger.
+    func effortElapsed(at now: Date = Date()) -> TimeInterval {
+        max(0, elapsed(at: now) - (effortAnchorSeconds ?? 0))
+    }
+
     /// Banks the running segment and holds the timer. A no-op when it
     /// isn't running (never started, or already paused).
     func pauseClock(at date: Date = Date()) {
@@ -226,6 +361,9 @@ final class WorkoutSession {
     func finish(at date: Date = Date()) {
         // Bank the final running segment so duration counts active time.
         pauseClock(at: date)
+        // The summary noun is decided HERE, while the exercise
+        // relationships are still warm — see `summaryModalityRaw`.
+        summaryModalityRaw = modality.primary.rawValue
         endedAt = date
     }
 
@@ -611,7 +749,13 @@ extension WorkoutSession {
                     // into the template with its duration.
                     entry.heartRateTargetData = last.targetHeartRateData
                 default:
-                    extras[metric] = last.actual(metric) ?? last.target(metric)
+                    // ⚠️ `storedActual`: a template is a PRESCRIPTION, and a
+                    // derived pace written here would store all three of
+                    // distance/duration/pace, which is the state
+                    // `CardioTargets` exists to prevent — the sheet would
+                    // then read every one of them as entered and evict one
+                    // on the next edit.
+                    extras[metric] = last.storedActual(metric) ?? last.target(metric)
                 }
             }
             entry.extraTargets = extras
@@ -742,6 +886,25 @@ final class SetLog {
     var actualReps: Int?
     var actualDuration: Int?
     var extraActualsData: Data?
+    /// What your heart actually did during THIS set, mirroring the
+    /// session-level pair. Additive optionals: a lightweight migration
+    /// gives every existing row nil, which is the honest answer — nobody
+    /// was measuring per set before.
+    ///
+    /// ⚠️ Deliberately NOT a `WorkoutMetric`, and the reason is not lint
+    /// compatibility. A `WorkoutMetric` is an editable quantity you DIAL:
+    /// it carries a step, a range, wheel values, `incremented`/
+    /// `decremented`, and one `Double`. A heart-rate TARGET is a zone or a
+    /// bpm range, which no scalar expresses (hence `HeartRateTarget`), and
+    /// an actual is MEASURED rather than set, so the whole stepper
+    /// apparatus would be dead weight on both sides.
+    ///
+    /// ⚠️ Applies to every workout, not just cardio. A heavy triple spikes
+    /// a heart rate too, and the set that spiked it is the interesting
+    /// unit — a session average over an hour of lifting and resting says
+    /// almost nothing.
+    var actualAverageHeartRate: Int?
+    var actualMaxHeartRate: Int?
     var completedAt: Date?
 
     init(
@@ -807,6 +970,32 @@ final class SetLog {
         metricProfile.driver { target($0) }
     }
 
+    /// The movement family this set belongs to.
+    ///
+    /// Prefers the live exercise, which carries the catalog's authored
+    /// override and the equipment derivation keys on. Falls back to
+    /// deriving from the SNAPSHOT profile when the exercise is gone
+    /// (renamed, deleted) — the sessions-snapshot law means history has to
+    /// keep answering without it, and a profile alone still tells cardio
+    /// from strength even if it can't tell a run from a walk.
+    var modality: ExerciseModality {
+        exercise?.modality
+            ?? ExerciseModality.derive(equipmentNames: [], metrics: metricProfile.metrics)
+    }
+
+    /// The noun one unit of this exercise's work goes by — "piece" on an
+    /// erg, "rep" on the track, "set" in the rack.
+    var workUnit: WorkUnit? {
+        modality.workUnit
+    }
+
+    /// "Bench Press · set 3", "Rowing · piece 2", or a bare "Running".
+    /// Reached through the owning session because the position needs the
+    /// block's total; a detached log names itself and stops there.
+    var caption: String {
+        session?.caption(for: self) ?? exerciseName
+    }
+
     /// One lookup for any metric's target/actual, columns and bags alike.
     func target(_ metric: WorkoutMetric) -> Double? {
         switch metric {
@@ -830,8 +1019,60 @@ final class SetLog {
         // pre-profile logs stored the stack value in the weight column,
         // so "last time" still resolves there.
         case .assistance: extraActuals[.assistance] ?? actualWeight
+        case .pace: extraActuals[.pace] ?? derivedActualPace
         default: extraActuals[metric]
         }
+    }
+
+    /// The value actually WRITTEN for this metric, with nothing computed.
+    ///
+    /// ⚠️ Anything deciding whether to RECORD something asks this; anything
+    /// displaying a fact asks `actual(_:)`. Since pace derives (#302), an
+    /// `actual(.pace) == nil` guard silently means "and nothing to derive
+    /// from either" — which would stop a GPS-measured pace being written
+    /// the moment a distance and a duration existed, and a measurement
+    /// beats a derivation every time.
+    func storedActual(_ metric: WorkoutMetric) -> Double? {
+        switch metric {
+        case .weight: actualWeight
+        case .reps: actualReps.map(Double.init)
+        case .duration: actualDuration.map(Double.init)
+        case .assistance: extraActuals[.assistance] ?? actualWeight
+        default: extraActuals[metric]
+        }
+    }
+
+    /// The pace this effort actually held, computed from what it actually
+    /// covered and how long it actually took (#302).
+    ///
+    /// An entered pace always wins — the console read 1:52 and that is the
+    /// number. Absent one, asking for a third value is asking the user to
+    /// do arithmetic on two facts the record already holds.
+    ///
+    /// Two clauses keep it honest, and both are the point rather than
+    /// caution:
+    ///
+    /// - **Both inputs must be ACTUALS.** Deriving from a planned distance
+    ///   and a measured time would manufacture a pace for an effort that
+    ///   never covered that ground — the same fabrication `LoggedActuals`
+    ///   exists to stop, arriving by the back door. Row 400 m of a planned
+    ///   500 in 1:40 and the pace is 2:05/500m, not 2:00.
+    /// - **It is never stored.** A stored derivation stops tracking its
+    ///   inputs: correct the distance afterwards and the pace would keep
+    ///   the old answer while claiming to describe the new one. Same law as
+    ///   `CardioTargets`, for the same reason, one layer down.
+    ///
+    /// Gated on the profile tracking pace, so nothing else in the app grows
+    /// a metric its exercise doesn't have.
+    private var derivedActualPace: Double? {
+        let profile = metricProfile
+        guard profile.contains(.pace) else { return nil }
+        return LoggedActuals.pace(
+            distance: extraActuals[.distance],
+            elapsedSeconds: actualDuration.map(Double.init),
+            unit: profile.distanceUnit,
+            paceReference: profile.paceReference
+        )
     }
 
     func setActual(_ metric: WorkoutMetric, to value: Double?) {

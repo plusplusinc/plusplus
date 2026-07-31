@@ -42,9 +42,9 @@ enum FormCues {
     /// timing) and skill cardio (Jump Rope, Heavy Bag Rounds) keep
     /// their cues — sequencing is real coaching.
     static let deliberatelySilent: Set<String> = [
-        "Running", "Walking", "Cycling", "Treadmill Run",
-        "Stationary Bike", "Assault Bike", "Elliptical", "Stair Climber",
-        "Vertical Climber", "Upper Body Ergometer", "Swimming",
+        "Running", "Walking", "Hiking", "Cycling", "Treadmill Run",
+        "Indoor Cycling", "Assault Bike", "Elliptical",
+        "Stair Climber", "Vertical Climber", "Upper Body Ergometer",
     ]
 
     private static let linesByName: [String: String] = [
@@ -223,6 +223,10 @@ enum FormCues {
         "Box Jump": "Land soft with your whole foot, stand tall, step down.",
         "Jump Rope": "Bounce on the balls of your feet, spin from the wrists, stay relaxed.",
         "Rowing": "Legs, then body, then arms, and reverse it on the way back.",
+        // Swimming is skill cardio, so it keeps its cues (the same reason
+        // Rowing and Ski Erg do): stroke sequencing is real coaching.
+        "Pool Swim": "Reach long, roll from the hips, and breathe on the same count both sides.",
+        "Open Water Swim": "Sight forward every few strokes. You will drift more than you think.",
         "Sandbag Carry": "Hug it high on your chest, brace, walk tall.",
 
         // Specialty bars

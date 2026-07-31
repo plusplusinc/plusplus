@@ -32,6 +32,9 @@ struct TodayView: View {
     private var routines: [Routine]
     @Query(sort: \Equipment.name) private var equipment: [Equipment]
     @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
+    /// The catalog, for resolving quick-start picks by name and offering
+    /// the cardio rows when the row is edited.
+    @Query(sort: \Exercise.name) private var allExercises: [Exercise]
     @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
     @Query(
         filter: #Predicate<WorkoutSession> { $0.endedAt != nil },
@@ -62,6 +65,13 @@ struct TodayView: View {
     /// The two-step "Schedule a routine" tray (pick a routine → schedule it),
     /// opened from the rest-day card's schedule offer (2026-07-24).
     @State private var showingScheduleRoutine = false
+    /// Quick start (2026-07-30). The pending flags exist for the same
+    /// reason `pendingStartEmpty` does: a sheet presented from a sheet
+    /// that is still dismissing is the documented presentation-drop class,
+    /// so the tray sets a flag and `onDismiss` acts.
+    @AppStorage(QuickStartPicks.key) private var quickStartRaw = QuickStartPicks.raw(from: QuickStartPicks.fallback)
+    @State private var quickStartConfig: SessionExerciseConfig?
+    @State private var editingQuickStarts = false
     @State private var activeSession: WorkoutSession?
     /// The first-workout Health primer, raised by the start gate.
     @State private var healthStartRequest: HealthStartRequest?
@@ -281,18 +291,7 @@ struct TodayView: View {
                                     .id(Self.todayAnchorID)
                             }
                             .padding(.horizontal, 16)
-                            // ⚠️ The sticky band FLOATS once it is holding the
-                            // top, so it stops reserving its own space — and
-                            // the opening scroll seats the anchor above at the
-                            // very top, which would put today's date line
-                            // under it. A hidden second copy reserves exactly
-                            // the right height, at every Dynamic Type size and
-                            // however the tally wraps, with no measuring and no
-                            // constant to keep in sync. It is what the band
-                            // covers on arrival; scrolled up to the week ahead
-                            // it reads as the space the strip lives in.
-                            weekStripBand
-                                .hidden()
+                            weekStripReservation
                             // Lazy: the committed section is the whole
                             // history — eager building made every render
                             // O(sessions) (bug hunt perf finding).
@@ -301,6 +300,22 @@ struct TodayView: View {
                                 // on the item it names — and it's the
                                 // line the opening scroll lands on.
                                 todayMarker
+                                // ⚠️ Quick start lives HERE, not in the start
+                                // tray (Dave, build 158, overruling the
+                                // placement #476 shipped). Cardio is
+                                // spontaneous — the whole point is that going
+                                // for a run is one tap — and a tap that first
+                                // has to open a sheet is not one tap. It sits
+                                // directly under today's date because that is
+                                // what it belongs to, and it is the first
+                                // thing under the opening scroll's landing.
+                                //
+                                // Scroll CONTENT on the rail, never chrome
+                                // beside it: anything a large title can travel
+                                // over has to be scroll content (the sticky
+                                // band's law), and a pinned row here would
+                                // fight both the title and the band.
+                                quickStartItem
                                 // The rest-day item yields to the setup scaffold
                                 // until a startable routine exists — "nothing
                                 // scheduled" and "schedule it (3 of 3)" saying
@@ -619,6 +634,43 @@ struct TodayView: View {
             }
             .sheet(isPresented: $showingScheduleRoutine) {
                 ScheduleRoutineTray(routines: routines)
+            }
+            // One optional-target sheet, then go (Dave). It is the same
+            // "configure before you do it" card the picker uses, so the
+            // prescription reads identically whichever way you started.
+            .sheet(item: $quickStartConfig) { config in
+                ExerciseConfigSheet(config: config, actionLabel: "Start") {
+                    quickStartConfig = nil
+                    startQuick(config)
+                }
+            }
+            .sheet(isPresented: $editingQuickStarts) {
+                NavigationStack {
+                    SheetPickList(
+                        title: "Quick start",
+                        sections: [SheetPickList.Section(
+                            title: nil,
+                            options: quickStartCandidates.map { SheetPickList.Option($0.name) }
+                        )],
+                        selected: Set(QuickStartPicks.names(from: quickStartRaw)),
+                        searchPrompt: "Search cardio",
+                        note: "These get a one-tap key when you start a workout."
+                    ) { name in
+                        var names = QuickStartPicks.names(from: quickStartRaw)
+                        if let index = names.firstIndex(of: name) {
+                            names.remove(at: index)
+                        } else {
+                            names.append(name)
+                        }
+                        // Never empty: an empty row would hide the "+" that
+                        // is the only way back to this screen.
+                        quickStartRaw = QuickStartPicks.raw(from: names.isEmpty ? QuickStartPicks.fallback : names)
+                    }
+                    .navigationTitle("Quick start")
+                    .navigationBarTitleDisplayMode(.inline)
+                }
+                .presentationBackground(Theme.background)
+                .presentationDetents([.medium, .large])
             }
             .fullScreenCover(item: $activeSession, onDismiss: resolveOrphanedSessions) { session in
                 // The card→session zoom is deliberate large-scale motion, so
@@ -983,6 +1035,37 @@ struct TodayView: View {
             Spacer(minLength: 0)
         }
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// One-tap start for the sports you actually do, on the rail under
+    /// today's date.
+    ///
+    /// Spine only, no node: a node marks an OCCURRENCE, and these keys are
+    /// an offer rather than an entry on the timeline — the same call
+    /// `beyondThisWeekBlock` makes. The keys carry their own raised chrome,
+    /// so the row needs no card around them.
+    ///
+    /// ⚠️ It renders nothing while the setup scaffold is running: a full
+    /// viewport of "3 of 3" steps with a Run key floating above it offers two
+    /// beginnings at once, and setup is the one that has to finish.
+    @ViewBuilder
+    private var quickStartItem: some View {
+        if !setupActive || allSetupDone, !quickStartExercises.isEmpty {
+            HStack(alignment: .top, spacing: 10) {
+                Rectangle()
+                    .fill(Theme.border)
+                    .frame(width: 2)
+                    .frame(maxHeight: .infinity)
+                    .frame(width: 20)
+                QuickStartRow(
+                    exercises: quickStartExercises,
+                    onPick: { quickStartConfig = SessionExerciseConfig(exercise: $0) },
+                    onEdit: { editingQuickStarts = true }
+                )
+                .padding(.vertical, 4)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     /// "sat · jul 11" — the timeline's own weekday·date grammar (matches
@@ -1356,6 +1439,46 @@ struct TodayView: View {
         }, orPresent: { healthStartRequest = $0 })
     }
 
+    /// The quick-start picks, resolved from names to live catalog rows.
+    /// A name that no longer resolves (a deleted custom) simply drops out
+    /// rather than rendering a dead key.
+    private var quickStartExercises: [Exercise] {
+        let names = QuickStartPicks.names(from: quickStartRaw)
+        let byName = Dictionary(
+            allExercises.filter { !$0.isDeleted }.map { ($0.name, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        return names.compactMap { byName[$0] }
+    }
+
+    /// Everything a quick-start key could reasonably be: the cardio the
+    /// catalog knows. A one-tap row for a bench press is not the problem
+    /// this solves, and an unfiltered catalog would bury the four rows
+    /// that are.
+    private var quickStartCandidates: [Exercise] {
+        allExercises
+            .filter { !$0.isDeleted && $0.modality.isCardio }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    /// One tap from the tray to moving: start a scratch session and plant
+    /// the configured block in it.
+    ///
+    /// ⚠️ It IS a scratch session (#239), not a parallel mechanism — so it
+    /// lands in history, salvages on crash, never auto-finishes, and can
+    /// graduate to a routine afterwards, all for free. And it routes
+    /// through `HealthStartGate` like every other start, or the first
+    /// workout would skip the Health primer.
+    private func startQuick(_ config: SessionExerciseConfig) {
+        guard activeSession == nil else { return }
+        HealthStartGate.begin({
+            guard activeSession == nil else { return }
+            let session = WorkoutSession.startEmpty(context: modelContext)
+            _ = session.appendExercise(config: config, context: modelContext)
+            activeSession = session
+        }, orPresent: { healthStartRequest = $0 })
+    }
+
     /// The no-plan session (#239): starts empty, gets filled on the
     /// gym floor. An empty scratch session is safe to abandon — the
     /// orphan salvage deletes 0-set sessions, and the empty stage never
@@ -1374,6 +1497,42 @@ struct TodayView: View {
     /// column inside it. Used TWICE, and they must stay identical — once as
     /// the sticky band, once hidden underneath the today anchor to reserve the
     /// band's height (see the mount site).
+    /// The space the sticky band occupies, reserved INSIDE the rail.
+    ///
+    /// ⚠️ The band FLOATS once it is holding the top, so it stops reserving
+    /// its own height — and the opening scroll seats the anchor at the very
+    /// top, which would put today's date line under it. A hidden copy of the
+    /// band reserves exactly the right height, at every Dynamic Type size and
+    /// however the tally wraps, with no measuring (which would write state
+    /// during layout and break the search-role morph) and no constant to keep
+    /// in sync.
+    ///
+    /// ⚠️ It reserves that height WITH the spine, not as a blank band beside
+    /// it. Hiding the copy outright hid the rail through it too, so scrolling
+    /// up to the week ahead showed the timeline coming apart — a floating gap
+    /// with no line through it, which reads as a rendering fault rather than
+    /// as the space the strip lives in (Dave, build 158). Spine only and no
+    /// node, exactly like `beyondThisWeekBlock`: nothing happens here, the
+    /// timeline simply passes through.
+    private var weekStripReservation: some View {
+        weekStripBand
+            .hidden()
+            .overlay(alignment: .topLeading) {
+                // The rail's own geometry, not a derived constant: the same
+                // 20 pt gutter holding the same 2 pt spine, inside the same
+                // 16 pt content column.
+                HStack(spacing: 10) {
+                    Rectangle()
+                        .fill(Theme.border)
+                        .frame(width: 2)
+                        .frame(maxHeight: .infinity)
+                        .frame(width: 20)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 16)
+            }
+    }
+
     private var weekStripBand: some View {
         weekStrip
             .padding(.horizontal, 16)
@@ -1618,8 +1777,12 @@ struct TodayView: View {
 
     private func committedSubtitle(_ session: WorkoutSession) -> String {
         var parts = [session.startedAt.formatted(.dateTime.month(.abbreviated).day()).lowercased()]
-        let sets = session.completedSetLogs.count
-        parts.append("\(sets) \(sets == 1 ? "set" : "sets")")
+        if let count = WorkUnit.summaryCount(
+            session.summaryWorkUnit,
+            session.completedSetLogs.count
+        ) {
+            parts.append(count)
+        }
         if let duration = session.duration {
             let minutes = Int(duration / 60)
             parts.append(minutes < 1 ? "<1 min" : "\(minutes) min")
@@ -2274,6 +2437,10 @@ private struct SwapInSheet: View {
 
     private var menu: some View {
         VStack(alignment: .leading, spacing: 10) {
+            // ⚠️ Quick start is NOT here any more (Dave, build 158). It sits
+            // on Today's rail under the date, because a one-tap start that
+            // first has to open a sheet is not a one-tap start. This tray is
+            // the two ways to start something you have to CHOOSE.
             Button {
                 path.append(.picker)
             } label: {
