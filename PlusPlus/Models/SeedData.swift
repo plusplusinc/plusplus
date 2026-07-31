@@ -474,6 +474,16 @@ enum SeedData {
         /// see carry one — the stretch/mobility rows are `.flexibility`
         /// (a stretch and a plank look identical to the metrics).
         let modality: ExerciseModality?
+        /// The program bucket (hinge, vertical pull, carry…). Authored on
+        /// compound strength rows — `ExerciseAttributeTests` fails a
+        /// strength compound that names no pattern and no exemption.
+        /// nil on cardio (identity is modality) and most isolation.
+        let movementPattern: MovementPattern?
+        /// Compound vs isolation, programming semantics (see the enum).
+        /// nil = unclassified — the stretch/mobility/roll shapes.
+        let mechanic: ExerciseMechanic?
+        /// Per-side work? Unilateral when a SET belongs to a side.
+        let laterality: ExerciseLaterality
 
         /// The group this exercise is FOR — every single-group reader's
         /// view of it (the interchange's required field, the substitution
@@ -526,191 +536,197 @@ enum SeedData {
         //     genuinely dominates (a Clean's quads and back).
         //   • Stretches and mobility drills name what they lengthen, so
         //     they keep their single group.
-        func e(_ name: String, _ muscle: MuscleGroup, _ eqNames: [String], _ type: ExerciseType = .weightReps, also: [MuscleGroup] = [], metrics: MetricProfile? = nil, sets: Int = 3, reps: Int? = nil, seconds: Int? = nil, heartRate: Bool = true, modality: ExerciseModality? = nil) -> BuiltInExerciseDefinition {
-            BuiltInExerciseDefinition(name: name, muscleGroups: MuscleGroups.normalized(primary: muscle, others: also), equipmentNames: eqNames, exerciseType: type, metrics: metrics, defaultSets: sets, defaultReps: reps, defaultDurationSeconds: seconds, supportsHeartRate: heartRate, modality: modality)
+        func e(_ name: String, _ muscle: MuscleGroup, _ eqNames: [String], _ type: ExerciseType = .weightReps, also: [MuscleGroup] = [], metrics: MetricProfile? = nil, sets: Int = 3, reps: Int? = nil, seconds: Int? = nil, heartRate: Bool = true, modality: ExerciseModality? = nil, pattern: MovementPattern? = nil, mechanic: ExerciseMechanic? = .compound, laterality: ExerciseLaterality = .bilateral) -> BuiltInExerciseDefinition {
+            BuiltInExerciseDefinition(name: name, muscleGroups: MuscleGroups.normalized(primary: muscle, others: also), equipmentNames: eqNames, exerciseType: type, metrics: metrics, defaultSets: sets, defaultReps: reps, defaultDurationSeconds: seconds, supportsHeartRate: heartRate, modality: modality, movementPattern: pattern, mechanic: mechanic, laterality: laterality)
         }
-        // The two mobility-work shapes, defined ONCE: a static stretch is
-        // a single 30 s hold (the standard prescription — and what the
+        // The three mobility-work shapes, defined ONCE: a static stretch
+        // is a single 30 s hold (the standard prescription — and what the
         // Full Body Stretch routine already prescribes per entry); a
-        // dynamic drill is one pass of reps. Neither takes a heart-rate
-        // prescription. Static HOLDS that build strength (Plank, Wall
-        // Sit) are NOT stretches — they keep their 3-set blocks and
-        // declare `heartRate: false` on their own rows.
-        func stretch(_ name: String, _ muscle: MuscleGroup) -> BuiltInExerciseDefinition {
-            e(name, muscle, [], .duration, sets: 1, seconds: 30, heartRate: false, modality: .flexibility)
+        // dynamic drill is one pass of reps; a foam roll is a 30 s pass
+        // on the roller. None takes a heart-rate prescription or a
+        // mechanic (compound/isolation doesn't apply to mobility work).
+        // Static HOLDS that build strength (Plank, Wall Sit) are NOT
+        // stretches — they keep their 3-set blocks, declare
+        // `heartRate: false` on their own rows, and file under the
+        // `.hold` pattern.
+        func stretch(_ name: String, _ muscle: MuscleGroup, sides: ExerciseLaterality = .bilateral) -> BuiltInExerciseDefinition {
+            e(name, muscle, [], .duration, sets: 1, seconds: 30, heartRate: false, modality: .flexibility, mechanic: nil, laterality: sides)
         }
-        func mobility(_ name: String, _ muscle: MuscleGroup) -> BuiltInExerciseDefinition {
-            e(name, muscle, [], sets: 1, heartRate: false, modality: .flexibility)
+        func mobility(_ name: String, _ muscle: MuscleGroup, sides: ExerciseLaterality = .bilateral) -> BuiltInExerciseDefinition {
+            e(name, muscle, [], sets: 1, heartRate: false, modality: .flexibility, mechanic: nil, laterality: sides)
+        }
+        func roll(_ name: String, _ muscle: MuscleGroup) -> BuiltInExerciseDefinition {
+            e(name, muscle, ["Foam Roller"], .duration, sets: 1, seconds: 30, heartRate: false, modality: .flexibility, mechanic: nil)
         }
 
         return [
             // Chest
-            e("Bench Press", .chest, ["Barbell", "Bench"], also: [.triceps, .shoulders]),
-            e("Incline Bench Press", .chest, ["Barbell", "Incline Bench"], also: [.shoulders, .triceps]),
-            e("Dumbbell Bench Press", .chest, ["Dumbbells", "Bench"], also: [.triceps, .shoulders]),
-            e("Incline Dumbbell Press", .chest, ["Dumbbells", "Incline Bench"], also: [.shoulders, .triceps]),
-            e("Machine Chest Press", .chest, ["Chest Press Machine"], also: [.triceps, .shoulders]),
-            e("Smith Machine Bench Press", .chest, ["Smith Machine", "Bench"], also: [.triceps, .shoulders]),
-            e("Dumbbell Fly", .chest, ["Dumbbells", "Bench"], also: [.shoulders]),
-            e("Cable Fly", .chest, ["Cable Machine"], also: [.shoulders]),
-            e("Low-to-High Cable Fly", .chest, ["Cable Machine"], also: [.shoulders]),
-            e("Pec Deck", .chest, ["Pec Deck Machine"]),
-            e("Chest Dip", .chest, ["Dip Station"], also: [.triceps, .shoulders]),
-            e("Push-Up", .chest, [], also: [.triceps, .shoulders]),
-            e("Deficit Push-Up", .chest, [], also: [.triceps, .shoulders]),
-            e("Ring Push-Up", .chest, ["Gymnastic Rings"], also: [.triceps, .shoulders]),
-            e("Band Chest Press", .chest, ["Resistance Band"], also: [.triceps, .shoulders]),
-            e("Svend Press", .chest, ["Weight Plate"], also: [.shoulders]),
+            e("Bench Press", .chest, ["Barbell", "Bench"], also: [.triceps, .shoulders], pattern: .horizontalPush),
+            e("Incline Bench Press", .chest, ["Barbell", "Incline Bench"], also: [.shoulders, .triceps], pattern: .horizontalPush),
+            e("Dumbbell Bench Press", .chest, ["Dumbbells", "Bench"], also: [.triceps, .shoulders], pattern: .horizontalPush),
+            e("Incline Dumbbell Press", .chest, ["Dumbbells", "Incline Bench"], also: [.shoulders, .triceps], pattern: .horizontalPush),
+            e("Machine Chest Press", .chest, ["Chest Press Machine"], also: [.triceps, .shoulders], pattern: .horizontalPush),
+            e("Smith Machine Bench Press", .chest, ["Smith Machine", "Bench"], also: [.triceps, .shoulders], pattern: .horizontalPush),
+            e("Dumbbell Fly", .chest, ["Dumbbells", "Bench"], also: [.shoulders], mechanic: .isolation),
+            e("Cable Fly", .chest, ["Cable Machine"], also: [.shoulders], mechanic: .isolation),
+            e("Low-to-High Cable Fly", .chest, ["Cable Machine"], also: [.shoulders], mechanic: .isolation),
+            e("Pec Deck", .chest, ["Pec Deck Machine"], mechanic: .isolation),
+            e("Chest Dip", .chest, ["Dip Station"], also: [.triceps, .shoulders], pattern: .verticalPush),
+            e("Push-Up", .chest, [], also: [.triceps, .shoulders], pattern: .horizontalPush),
+            e("Deficit Push-Up", .chest, [], also: [.triceps, .shoulders], pattern: .horizontalPush),
+            e("Ring Push-Up", .chest, ["Gymnastic Rings"], also: [.triceps, .shoulders], pattern: .horizontalPush),
+            e("Band Chest Press", .chest, ["Resistance Band"], also: [.triceps, .shoulders], pattern: .horizontalPush),
+            e("Svend Press", .chest, ["Weight Plate"], also: [.shoulders], mechanic: .isolation),
 
             // Back
-            e("Deadlift", .back, ["Barbell"], also: [.hamstrings, .glutes]),
-            e("Trap Bar Deadlift", .back, ["Trap Bar"], also: [.quads, .glutes, .hamstrings]),
-            e("Barbell Row", .back, ["Barbell"], also: [.biceps]),
-            e("Pendlay Row", .back, ["Barbell"], also: [.biceps]),
-            e("Dumbbell Row", .back, ["Dumbbells", "Bench"], also: [.biceps]),
-            e("Chest-Supported Row", .back, ["Dumbbells", "Incline Bench"], also: [.biceps]),
-            e("Seated Cable Row", .back, ["Seated Row Machine"], also: [.biceps]),
-            e("Cable Row", .back, ["Cable Machine"], also: [.biceps]),
-            e("Machine Row", .back, ["Seated Row Machine"], also: [.biceps]),
+            e("Deadlift", .back, ["Barbell"], also: [.hamstrings, .glutes], pattern: .hinge),
+            e("Trap Bar Deadlift", .back, ["Trap Bar"], also: [.quads, .glutes, .hamstrings], pattern: .hinge),
+            e("Barbell Row", .back, ["Barbell"], also: [.biceps], pattern: .horizontalPull),
+            e("Pendlay Row", .back, ["Barbell"], also: [.biceps], pattern: .horizontalPull),
+            e("Dumbbell Row", .back, ["Dumbbells", "Bench"], also: [.biceps], pattern: .horizontalPull, laterality: .unilateral),
+            e("Chest-Supported Row", .back, ["Dumbbells", "Incline Bench"], also: [.biceps], pattern: .horizontalPull),
+            e("Seated Cable Row", .back, ["Seated Row Machine"], also: [.biceps], pattern: .horizontalPull),
+            e("Cable Row", .back, ["Cable Machine"], also: [.biceps], pattern: .horizontalPull),
+            e("Machine Row", .back, ["Seated Row Machine"], also: [.biceps], pattern: .horizontalPull),
             // A landmine is a sleeve for a BARBELL — the bar is required
             // (equipment audit; the Chain Bench Press convention).
-            e("Landmine Row", .back, ["Barbell", "Landmine"], also: [.biceps]),
-            e("Pull-Up", .back, ["Pull-Up Bar"], also: [.biceps]),
-            e("Chin-Up", .back, ["Pull-Up Bar"], also: [.biceps]),
-            e("Neutral-Grip Pull-Up", .back, ["Pull-Up Bar"], also: [.biceps]),
-            e("Lat Pulldown", .back, ["Lat Pulldown Machine"], also: [.biceps]),
-            e("Straight-Arm Pulldown", .back, ["Cable Machine"]),
-            e("Ring Row", .back, ["Gymnastic Rings"], also: [.biceps]),
-            e("Suspension Row", .back, ["Suspension Trainer"], also: [.biceps]),
-            e("Band Pull-Apart", .back, ["Resistance Band"], also: [.shoulders]),
-            e("Back Extension", .back, ["Back Extension Bench"], also: [.glutes, .hamstrings]),
-            e("Good Morning", .back, ["Barbell"], also: [.hamstrings, .glutes]),
+            e("Landmine Row", .back, ["Barbell", "Landmine"], also: [.biceps], pattern: .horizontalPull, laterality: .unilateral),
+            e("Pull-Up", .back, ["Pull-Up Bar"], also: [.biceps], pattern: .verticalPull),
+            e("Chin-Up", .back, ["Pull-Up Bar"], also: [.biceps], pattern: .verticalPull),
+            e("Neutral-Grip Pull-Up", .back, ["Pull-Up Bar"], also: [.biceps], pattern: .verticalPull),
+            e("Lat Pulldown", .back, ["Lat Pulldown Machine"], also: [.biceps], pattern: .verticalPull),
+            e("Straight-Arm Pulldown", .back, ["Cable Machine"], mechanic: .isolation),
+            e("Ring Row", .back, ["Gymnastic Rings"], also: [.biceps], pattern: .horizontalPull),
+            e("Suspension Row", .back, ["Suspension Trainer"], also: [.biceps], pattern: .horizontalPull),
+            e("Band Pull-Apart", .back, ["Resistance Band"], also: [.shoulders], mechanic: .isolation),
+            e("Back Extension", .back, ["Back Extension Bench"], also: [.glutes, .hamstrings], pattern: .hinge),
+            e("Good Morning", .back, ["Barbell"], also: [.hamstrings, .glutes], pattern: .hinge),
 
             // Shoulders
-            e("Overhead Press", .shoulders, ["Barbell"], also: [.triceps]),
-            e("Seated Dumbbell Press", .shoulders, ["Dumbbells", "Bench"], also: [.triceps]),
-            e("Dumbbell Shoulder Press", .shoulders, ["Dumbbells"], also: [.triceps]),
-            e("Machine Shoulder Press", .shoulders, ["Shoulder Press Machine"], also: [.triceps]),
-            e("Arnold Press", .shoulders, ["Dumbbells"], also: [.triceps]),
-            e("Push Press", .shoulders, ["Barbell"], also: [.triceps, .quads]),
-            e("Landmine Press", .shoulders, ["Barbell", "Landmine"], also: [.triceps]),
-            e("Lateral Raise", .shoulders, ["Dumbbells"]),
-            e("Cable Lateral Raise", .shoulders, ["Cable Machine"]),
-            e("Front Raise", .shoulders, ["Dumbbells"]),
-            e("Plate Front Raise", .shoulders, ["Weight Plate"]),
-            e("Rear Delt Fly", .shoulders, ["Dumbbells"], also: [.back]),
-            e("Reverse Pec Deck", .shoulders, ["Pec Deck Machine"], also: [.back]),
-            e("Face Pull", .shoulders, ["Cable Machine"], also: [.back]),
-            e("Upright Row", .shoulders, ["Barbell"], also: [.back]),
-            e("Barbell Shrug", .shoulders, ["Barbell"], also: [.back]),
-            e("Dumbbell Shrug", .shoulders, ["Dumbbells"], also: [.back]),
-            e("Pike Push-Up", .shoulders, [], also: [.triceps]),
+            e("Overhead Press", .shoulders, ["Barbell"], also: [.triceps], pattern: .verticalPush),
+            e("Seated Dumbbell Press", .shoulders, ["Dumbbells", "Bench"], also: [.triceps], pattern: .verticalPush),
+            e("Dumbbell Shoulder Press", .shoulders, ["Dumbbells"], also: [.triceps], pattern: .verticalPush),
+            e("Machine Shoulder Press", .shoulders, ["Shoulder Press Machine"], also: [.triceps], pattern: .verticalPush),
+            e("Arnold Press", .shoulders, ["Dumbbells"], also: [.triceps], pattern: .verticalPush),
+            e("Push Press", .shoulders, ["Barbell"], also: [.triceps, .quads], pattern: .verticalPush),
+            e("Landmine Press", .shoulders, ["Barbell", "Landmine"], also: [.triceps], pattern: .verticalPush, laterality: .unilateral),
+            e("Lateral Raise", .shoulders, ["Dumbbells"], mechanic: .isolation),
+            e("Cable Lateral Raise", .shoulders, ["Cable Machine"], mechanic: .isolation, laterality: .unilateral),
+            e("Front Raise", .shoulders, ["Dumbbells"], mechanic: .isolation),
+            e("Plate Front Raise", .shoulders, ["Weight Plate"], mechanic: .isolation),
+            e("Rear Delt Fly", .shoulders, ["Dumbbells"], also: [.back], mechanic: .isolation),
+            e("Reverse Pec Deck", .shoulders, ["Pec Deck Machine"], also: [.back], mechanic: .isolation),
+            e("Face Pull", .shoulders, ["Cable Machine"], also: [.back], pattern: .horizontalPull),
+            e("Upright Row", .shoulders, ["Barbell"], also: [.back], pattern: .verticalPull),
+            e("Barbell Shrug", .shoulders, ["Barbell"], also: [.back], mechanic: .isolation),
+            e("Dumbbell Shrug", .shoulders, ["Dumbbells"], also: [.back], mechanic: .isolation),
+            e("Pike Push-Up", .shoulders, [], also: [.triceps], pattern: .verticalPush),
 
             // Biceps
-            e("Barbell Curl", .biceps, ["Barbell"]),
-            e("EZ Bar Curl", .biceps, ["EZ Bar"]),
-            e("Dumbbell Curl", .biceps, ["Dumbbells"]),
-            e("Hammer Curl", .biceps, ["Dumbbells"]),
-            e("Incline Dumbbell Curl", .biceps, ["Dumbbells", "Incline Bench"]),
-            e("Preacher Curl", .biceps, ["EZ Bar", "Preacher Bench"]),
-            e("Concentration Curl", .biceps, ["Dumbbells", "Bench"]),
-            e("Cable Curl", .biceps, ["Cable Machine"]),
-            e("Band Curl", .biceps, ["Resistance Band"]),
-            e("Zottman Curl", .biceps, ["Dumbbells"]),
-            e("Spider Curl", .biceps, ["Dumbbells", "Incline Bench"]),
+            e("Barbell Curl", .biceps, ["Barbell"], mechanic: .isolation),
+            e("EZ Bar Curl", .biceps, ["EZ Bar"], mechanic: .isolation),
+            e("Dumbbell Curl", .biceps, ["Dumbbells"], mechanic: .isolation),
+            e("Hammer Curl", .biceps, ["Dumbbells"], mechanic: .isolation),
+            e("Incline Dumbbell Curl", .biceps, ["Dumbbells", "Incline Bench"], mechanic: .isolation),
+            e("Preacher Curl", .biceps, ["EZ Bar", "Preacher Bench"], mechanic: .isolation),
+            e("Concentration Curl", .biceps, ["Dumbbells", "Bench"], mechanic: .isolation, laterality: .unilateral),
+            e("Cable Curl", .biceps, ["Cable Machine"], mechanic: .isolation),
+            e("Band Curl", .biceps, ["Resistance Band"], mechanic: .isolation),
+            e("Zottman Curl", .biceps, ["Dumbbells"], mechanic: .isolation),
+            e("Spider Curl", .biceps, ["Dumbbells", "Incline Bench"], mechanic: .isolation),
 
             // Triceps
-            e("Close-Grip Bench Press", .triceps, ["Barbell", "Bench"], also: [.chest, .shoulders]),
-            e("Tricep Pushdown", .triceps, ["Cable Machine"]),
-            e("Rope Pushdown", .triceps, ["Cable Machine"]),
-            e("Overhead Tricep Extension", .triceps, ["Dumbbells"]),
-            e("Cable Overhead Extension", .triceps, ["Cable Machine"]),
-            e("Skull Crusher", .triceps, ["EZ Bar", "Bench"]),
-            e("Tricep Dip", .triceps, ["Dip Station"], also: [.chest, .shoulders]),
-            e("Bench Dip", .triceps, ["Bench"], also: [.chest, .shoulders]),
-            e("Diamond Push-Up", .triceps, [], also: [.chest, .shoulders]),
-            e("Band Pushdown", .triceps, ["Resistance Band"]),
-            e("Tricep Kickback", .triceps, ["Dumbbells"]),
+            e("Close-Grip Bench Press", .triceps, ["Barbell", "Bench"], also: [.chest, .shoulders], pattern: .horizontalPush),
+            e("Tricep Pushdown", .triceps, ["Cable Machine"], mechanic: .isolation),
+            e("Rope Pushdown", .triceps, ["Cable Machine"], mechanic: .isolation),
+            e("Overhead Tricep Extension", .triceps, ["Dumbbells"], mechanic: .isolation),
+            e("Cable Overhead Extension", .triceps, ["Cable Machine"], mechanic: .isolation),
+            e("Skull Crusher", .triceps, ["EZ Bar", "Bench"], mechanic: .isolation),
+            e("Tricep Dip", .triceps, ["Dip Station"], also: [.chest, .shoulders], pattern: .verticalPush),
+            e("Bench Dip", .triceps, ["Bench"], also: [.chest, .shoulders], pattern: .verticalPush),
+            e("Diamond Push-Up", .triceps, [], also: [.chest, .shoulders], pattern: .horizontalPush),
+            e("Band Pushdown", .triceps, ["Resistance Band"], mechanic: .isolation),
+            e("Tricep Kickback", .triceps, ["Dumbbells"], mechanic: .isolation, laterality: .unilateral),
 
             // Quads
-            e("Squat", .quads, ["Barbell", "Squat Rack"], also: [.glutes, .hamstrings]),
-            e("Front Squat", .quads, ["Barbell", "Squat Rack"], also: [.glutes, .core]),
-            e("Smith Machine Squat", .quads, ["Smith Machine"], also: [.glutes]),
-            e("Goblet Squat", .quads, ["Dumbbells"], also: [.glutes, .core]),
-            e("Kettlebell Goblet Squat", .quads, ["Kettlebell"], also: [.glutes, .core]),
-            e("Hack Squat", .quads, ["Hack Squat Machine"], also: [.glutes]),
-            e("Leg Press", .quads, ["Leg Press Machine"], also: [.glutes, .hamstrings]),
-            e("Leg Extension", .quads, ["Leg Extension Machine"]),
-            e("Bulgarian Split Squat", .quads, ["Dumbbells", "Bench"], also: [.glutes, .hamstrings]),
-            e("Walking Lunge", .quads, ["Dumbbells"], also: [.glutes, .hamstrings]),
-            e("Reverse Lunge", .quads, ["Dumbbells"], also: [.glutes, .hamstrings]),
-            e("Step-Up", .quads, ["Dumbbells", "Plyo Box"], also: [.glutes]),
-            e("Box Squat", .quads, ["Barbell", "Squat Rack", "Plyo Box"], also: [.glutes, .hamstrings]),
-            e("Bodyweight Squat", .quads, [], also: [.glutes]),
-            e("Jump Squat", .quads, [], also: [.glutes, .calves]),
-            e("Wall Sit", .quads, [], .duration, heartRate: false),
-            e("Sissy Squat", .quads, []),
+            e("Squat", .quads, ["Barbell", "Squat Rack"], also: [.glutes, .hamstrings], pattern: .squat),
+            e("Front Squat", .quads, ["Barbell", "Squat Rack"], also: [.glutes, .core], pattern: .squat),
+            e("Smith Machine Squat", .quads, ["Smith Machine"], also: [.glutes], pattern: .squat),
+            e("Goblet Squat", .quads, ["Dumbbells"], also: [.glutes, .core], pattern: .squat),
+            e("Kettlebell Goblet Squat", .quads, ["Kettlebell"], also: [.glutes, .core], pattern: .squat),
+            e("Hack Squat", .quads, ["Hack Squat Machine"], also: [.glutes], pattern: .squat),
+            e("Leg Press", .quads, ["Leg Press Machine"], also: [.glutes, .hamstrings], pattern: .squat),
+            e("Leg Extension", .quads, ["Leg Extension Machine"], mechanic: .isolation),
+            e("Bulgarian Split Squat", .quads, ["Dumbbells", "Bench"], also: [.glutes, .hamstrings], pattern: .lunge, laterality: .unilateral),
+            e("Walking Lunge", .quads, ["Dumbbells"], also: [.glutes, .hamstrings], pattern: .lunge, laterality: .unilateral),
+            e("Reverse Lunge", .quads, ["Dumbbells"], also: [.glutes, .hamstrings], pattern: .lunge, laterality: .unilateral),
+            e("Step-Up", .quads, ["Dumbbells", "Plyo Box"], also: [.glutes], pattern: .lunge, laterality: .unilateral),
+            e("Box Squat", .quads, ["Barbell", "Squat Rack", "Plyo Box"], also: [.glutes, .hamstrings], pattern: .squat),
+            e("Bodyweight Squat", .quads, [], also: [.glutes], pattern: .squat),
+            e("Jump Squat", .quads, [], also: [.glutes, .calves], pattern: .jump),
+            e("Wall Sit", .quads, [], .duration, heartRate: false, pattern: .hold),
+            e("Sissy Squat", .quads, [], mechanic: .isolation),
 
             // Hamstrings
-            e("Romanian Deadlift", .hamstrings, ["Barbell"], also: [.glutes, .back]),
-            e("Dumbbell Romanian Deadlift", .hamstrings, ["Dumbbells"], also: [.glutes, .back]),
-            e("Stiff-Leg Deadlift", .hamstrings, ["Barbell"], also: [.glutes, .back]),
-            e("Single-Leg Romanian Deadlift", .hamstrings, ["Dumbbells"], also: [.glutes, .core]),
-            e("Leg Curl", .hamstrings, ["Leg Curl Machine"]),
+            e("Romanian Deadlift", .hamstrings, ["Barbell"], also: [.glutes, .back], pattern: .hinge),
+            e("Dumbbell Romanian Deadlift", .hamstrings, ["Dumbbells"], also: [.glutes, .back], pattern: .hinge),
+            e("Stiff-Leg Deadlift", .hamstrings, ["Barbell"], also: [.glutes, .back], pattern: .hinge),
+            e("Single-Leg Romanian Deadlift", .hamstrings, ["Dumbbells"], also: [.glutes, .core], pattern: .hinge, laterality: .unilateral),
+            e("Leg Curl", .hamstrings, ["Leg Curl Machine"], mechanic: .isolation),
             // Nordics are near-maximal eccentrics — 5 is a real set.
-            e("Nordic Curl", .hamstrings, [], also: [.glutes], reps: 5),
-            e("Glute-Ham Raise", .hamstrings, ["Back Extension Bench"], also: [.glutes, .calves]),
-            e("Cable Pull-Through", .hamstrings, ["Cable Machine"], also: [.glutes, .back]),
+            e("Nordic Curl", .hamstrings, [], also: [.glutes], reps: 5, mechanic: .isolation),
+            e("Glute-Ham Raise", .hamstrings, ["Back Extension Bench"], also: [.glutes, .calves], mechanic: .isolation),
+            e("Cable Pull-Through", .hamstrings, ["Cable Machine"], also: [.glutes, .back], pattern: .hinge),
             // Sliders required, like Slider Lunge/Body Saw (equipment
             // audit — this one shipped as bodyweight).
-            e("Slider Leg Curl", .hamstrings, ["Sliders"], also: [.glutes]),
+            e("Slider Leg Curl", .hamstrings, ["Sliders"], also: [.glutes], mechanic: .isolation),
 
             // Glutes
-            e("Hip Thrust", .glutes, ["Barbell", "Bench"], also: [.hamstrings]),
-            e("Machine Hip Thrust", .glutes, ["Hip Thrust Machine"], also: [.hamstrings]),
-            e("Glute Bridge", .glutes, [], also: [.hamstrings]),
-            e("Single-Leg Glute Bridge", .glutes, [], also: [.hamstrings]),
-            e("Kettlebell Swing", .glutes, ["Kettlebell"], also: [.hamstrings, .back, .core]),
-            e("Sumo Deadlift", .glutes, ["Barbell"], also: [.back, .quads, .hamstrings]),
-            e("Cable Kickback", .glutes, ["Cable Machine"], also: [.hamstrings]),
-            e("Curtsy Lunge", .glutes, ["Dumbbells"], also: [.quads]),
-            e("Frog Pump", .glutes, []),
-            e("Banded Lateral Walk", .glutes, ["Resistance Band"]),
-            e("Fire Hydrant", .glutes, []),
+            e("Hip Thrust", .glutes, ["Barbell", "Bench"], also: [.hamstrings], pattern: .hinge),
+            e("Machine Hip Thrust", .glutes, ["Hip Thrust Machine"], also: [.hamstrings], pattern: .hinge),
+            e("Glute Bridge", .glutes, [], also: [.hamstrings], pattern: .hinge),
+            e("Single-Leg Glute Bridge", .glutes, [], also: [.hamstrings], pattern: .hinge, laterality: .unilateral),
+            e("Kettlebell Swing", .glutes, ["Kettlebell"], also: [.hamstrings, .back, .core], pattern: .hinge),
+            e("Sumo Deadlift", .glutes, ["Barbell"], also: [.back, .quads, .hamstrings], pattern: .hinge),
+            e("Cable Kickback", .glutes, ["Cable Machine"], also: [.hamstrings], mechanic: .isolation, laterality: .unilateral),
+            e("Curtsy Lunge", .glutes, ["Dumbbells"], also: [.quads], pattern: .lunge, laterality: .unilateral),
+            e("Frog Pump", .glutes, [], mechanic: .isolation),
+            e("Banded Lateral Walk", .glutes, ["Resistance Band"], mechanic: .isolation),
+            e("Fire Hydrant", .glutes, [], mechanic: .isolation, laterality: .unilateral),
 
             // Calves
-            e("Standing Calf Raise", .calves, ["Calf Raise Machine"]),
-            e("Seated Calf Raise", .calves, ["Calf Raise Machine"]),
-            e("Smith Machine Calf Raise", .calves, ["Smith Machine"]),
-            e("Single-Leg Calf Raise", .calves, []),
-            e("Donkey Calf Raise", .calves, []),
-            e("Calf Raise", .calves, ["Calf Raise Machine"]),
+            e("Standing Calf Raise", .calves, ["Calf Raise Machine"], mechanic: .isolation),
+            e("Seated Calf Raise", .calves, ["Calf Raise Machine"], mechanic: .isolation),
+            e("Smith Machine Calf Raise", .calves, ["Smith Machine"], mechanic: .isolation),
+            e("Single-Leg Calf Raise", .calves, [], mechanic: .isolation, laterality: .unilateral),
+            e("Donkey Calf Raise", .calves, [], mechanic: .isolation),
+            e("Calf Raise", .calves, ["Calf Raise Machine"], mechanic: .isolation),
 
             // Core. The isometric holds are strength work (3-set blocks
             // stay), but take no heart-rate prescription; per-side and
             // positional holds start at an honest 30 s where the plank
             // keeps 45.
-            e("Plank", .core, [], .duration, heartRate: false),
-            e("Side Plank", .core, [], .duration, seconds: 30, heartRate: false),
-            e("Dead Bug", .core, [], .duration, seconds: 30, heartRate: false),
-            e("Bird Dog", .core, [], .duration, seconds: 30, heartRate: false),
-            e("Hollow Hold", .core, [], .duration, seconds: 30, heartRate: false),
-            e("Crunch", .core, []),
-            e("Cable Crunch", .core, ["Cable Machine"]),
-            e("Sit-Up", .core, []),
-            e("Russian Twist", .core, ["Medicine Ball"]),
-            e("Hanging Knee Raise", .core, ["Pull-Up Bar"], also: [.back]),
-            e("Hanging Leg Raise", .core, ["Pull-Up Bar"], also: [.back]),
-            e("Toes to Bar", .core, ["Pull-Up Bar"], also: [.back]),
+            e("Plank", .core, [], .duration, heartRate: false, pattern: .hold),
+            e("Side Plank", .core, [], .duration, seconds: 30, heartRate: false, pattern: .hold, laterality: .unilateral),
+            e("Dead Bug", .core, [], .duration, seconds: 30, heartRate: false, pattern: .hold),
+            e("Bird Dog", .core, [], .duration, seconds: 30, heartRate: false, pattern: .hold),
+            e("Hollow Hold", .core, [], .duration, seconds: 30, heartRate: false, pattern: .hold),
+            e("Crunch", .core, [], mechanic: .isolation),
+            e("Cable Crunch", .core, ["Cable Machine"], mechanic: .isolation),
+            e("Sit-Up", .core, [], mechanic: .isolation),
+            e("Russian Twist", .core, ["Medicine Ball"], pattern: .rotation, mechanic: .isolation),
+            e("Hanging Knee Raise", .core, ["Pull-Up Bar"], also: [.back], mechanic: .isolation),
+            e("Hanging Leg Raise", .core, ["Pull-Up Bar"], also: [.back], mechanic: .isolation),
+            e("Toes to Bar", .core, ["Pull-Up Bar"], also: [.back], mechanic: .isolation),
             e("Ab Wheel Rollout", .core, ["Ab Wheel"], also: [.back]),
             e("Mountain Climber", .core, [], .duration, also: [.shoulders], seconds: 30),
-            e("Bicycle Crunch", .core, []),
-            e("V-Up", .core, []),
-            e("Leg Raise", .core, []),
-            e("Pallof Press", .core, ["Cable Machine"]),
-            e("Suitcase Carry", .core, ["Kettlebell"], .duration, also: [.back]),
-            e("Farmer's Carry", .core, ["Dumbbells"], .duration, also: [.back]),
-            e("Woodchopper", .core, ["Cable Machine"], also: [.shoulders]),
+            e("Bicycle Crunch", .core, [], mechanic: .isolation),
+            e("V-Up", .core, [], mechanic: .isolation),
+            e("Leg Raise", .core, [], mechanic: .isolation),
+            e("Pallof Press", .core, ["Cable Machine"], pattern: .rotation, mechanic: .isolation, laterality: .unilateral),
+            e("Suitcase Carry", .core, ["Kettlebell"], .duration, also: [.back], pattern: .carry, laterality: .unilateral),
+            e("Farmer's Carry", .core, ["Dumbbells"], .duration, also: [.back], pattern: .carry),
+            e("Woodchopper", .core, ["Cable Machine"], also: [.shoulders], pattern: .rotation, mechanic: .isolation, laterality: .unilateral),
             e("Medicine Ball Slam", .core, ["Medicine Ball"], also: [.back, .shoulders]),
 
             // Full Body
@@ -718,19 +734,19 @@ enum SeedData {
             // Technical/max-effort movements: nobody's prescription is
             // the global 10-rep floor — cleans live at 3-5, a get-up
             // at 3 a side.
-            e("Clean and Press", .fullBody, ["Barbell"], also: [.quads, .back, .shoulders], reps: 5),
-            e("Power Clean", .fullBody, ["Barbell"], also: [.quads, .back], reps: 3),
-            e("Kettlebell Clean and Press", .fullBody, ["Kettlebell"], also: [.shoulders, .glutes], reps: 5),
-            e("Kettlebell Snatch", .fullBody, ["Kettlebell"], also: [.shoulders, .glutes]),
-            e("Thruster", .fullBody, ["Barbell", "Squat Rack"], also: [.quads, .shoulders]),
-            e("Dumbbell Thruster", .fullBody, ["Dumbbells"], also: [.quads, .shoulders]),
-            e("Turkish Get-Up", .fullBody, ["Kettlebell"], also: [.shoulders, .core], reps: 3),
-            e("Sled Push", .fullBody, ["Sled"], .duration, also: [.quads, .glutes]),
+            e("Clean and Press", .fullBody, ["Barbell"], also: [.quads, .back, .shoulders], reps: 5, pattern: .hinge),
+            e("Power Clean", .fullBody, ["Barbell"], also: [.quads, .back], reps: 3, pattern: .hinge),
+            e("Kettlebell Clean and Press", .fullBody, ["Kettlebell"], also: [.shoulders, .glutes], reps: 5, pattern: .hinge, laterality: .unilateral),
+            e("Kettlebell Snatch", .fullBody, ["Kettlebell"], also: [.shoulders, .glutes], pattern: .hinge, laterality: .unilateral),
+            e("Thruster", .fullBody, ["Barbell", "Squat Rack"], also: [.quads, .shoulders], pattern: .squat),
+            e("Dumbbell Thruster", .fullBody, ["Dumbbells"], also: [.quads, .shoulders], pattern: .squat),
+            e("Turkish Get-Up", .fullBody, ["Kettlebell"], also: [.shoulders, .core], reps: 3, laterality: .unilateral),
+            e("Sled Push", .fullBody, ["Sled"], .duration, also: [.quads, .glutes], pattern: .carry),
             // Interval-shaped conditioning keeps 3 "rounds" but gets an
             // honest round length: battle ropes burn out in 30 s, a bag
             // round is boxing's 3 minutes, a jump-rope round a minute.
             e("Battle Rope Waves", .fullBody, ["Battle Ropes"], .duration, also: [.shoulders], seconds: 30),
-            e("Box Jump", .fullBody, ["Plyo Box"], also: [.quads, .calves]),
+            e("Box Jump", .fullBody, ["Plyo Box"], also: [.quads, .calves], pattern: .jump),
             e("Jump Rope", .fullBody, ["Jump Rope"], .duration, also: [.calves], seconds: 60),
             // Machine cardio defaults to ONE steady piece — 3 "sets" of
             // rowing is an interval prescription, which stays a
@@ -739,7 +755,7 @@ enum SeedData {
             e("Assault Bike", .fullBody, ["Air Bike"], .duration, also: [.quads], sets: 1),
             e("Stationary Bike", .fullBody, ["Stationary Bike"], .duration, also: [.quads], sets: 1),
             e("Treadmill Run", .fullBody, ["Treadmill"], .duration, also: [.quads, .calves], sets: 1),
-            e("Sandbag Carry", .fullBody, ["Sandbag"], .duration, also: [.back, .core]),
+            e("Sandbag Carry", .fullBody, ["Sandbag"], .duration, also: [.back, .core], pattern: .carry),
             // Road cardio (flexible metrics): the road is not gear, but
             // running is training — these make distance intervals
             // (6×400 m) and steady pieces first-class. One steady piece
@@ -757,40 +773,40 @@ enum SeedData {
             // #235: every equipment type gates at least one exercise —
             // the 60 types the #222 sweep added get their movements.
             // Specialty bars
-            e("Safety Bar Squat", .quads, ["Safety Squat Bar", "Squat Rack"], also: [.glutes, .hamstrings, .back]),
-            e("Safety Bar Good Morning", .hamstrings, ["Safety Squat Bar", "Squat Rack"], also: [.glutes, .back]),
-            e("Swiss Bar Bench Press", .chest, ["Swiss Bar", "Bench"], also: [.triceps, .shoulders]),
-            e("Swiss Bar Overhead Press", .shoulders, ["Swiss Bar"], also: [.triceps]),
-            e("Cambered Bar Squat", .quads, ["Cambered Squat Bar", "Squat Rack"], also: [.glutes, .hamstrings]),
-            e("Axle Deadlift", .back, ["Axle Bar"], also: [.hamstrings, .glutes]),
-            e("Axle Clean and Press", .fullBody, ["Axle Bar"], also: [.quads, .back, .shoulders], reps: 5),
+            e("Safety Bar Squat", .quads, ["Safety Squat Bar", "Squat Rack"], also: [.glutes, .hamstrings, .back], pattern: .squat),
+            e("Safety Bar Good Morning", .hamstrings, ["Safety Squat Bar", "Squat Rack"], also: [.glutes, .back], pattern: .hinge),
+            e("Swiss Bar Bench Press", .chest, ["Swiss Bar", "Bench"], also: [.triceps, .shoulders], pattern: .horizontalPush),
+            e("Swiss Bar Overhead Press", .shoulders, ["Swiss Bar"], also: [.triceps], pattern: .verticalPush),
+            e("Cambered Bar Squat", .quads, ["Cambered Squat Bar", "Squat Rack"], also: [.glutes, .hamstrings], pattern: .squat),
+            e("Axle Deadlift", .back, ["Axle Bar"], also: [.hamstrings, .glutes], pattern: .hinge),
+            e("Axle Clean and Press", .fullBody, ["Axle Bar"], also: [.quads, .back, .shoulders], reps: 5, pattern: .hinge),
             // Benches + stations
-            e("Decline Bench Press", .chest, ["Barbell", "Decline Bench"], also: [.triceps, .shoulders]),
-            e("Decline Sit-Up", .core, ["Decline Bench"]),
-            e("GHD Raise", .hamstrings, ["Glute-Ham Developer"], also: [.glutes, .back]),
-            e("GHD Sit-Up", .core, ["Glute-Ham Developer"]),
-            e("Reverse Hyperextension", .glutes, ["Reverse Hyper Machine"], also: [.hamstrings, .back]),
-            e("Nordic Bench Curl", .hamstrings, ["Nordic Bench"], also: [.glutes], reps: 5),
-            e("Weighted Sissy Squat", .quads, ["Sissy Squat Bench", "Weight Plate"]),
-            e("Captain's Chair Leg Raise", .core, ["Captain's Chair"]),
+            e("Decline Bench Press", .chest, ["Barbell", "Decline Bench"], also: [.triceps, .shoulders], pattern: .horizontalPush),
+            e("Decline Sit-Up", .core, ["Decline Bench"], mechanic: .isolation),
+            e("GHD Raise", .hamstrings, ["Glute-Ham Developer"], also: [.glutes, .back], mechanic: .isolation),
+            e("GHD Sit-Up", .core, ["Glute-Ham Developer"], mechanic: .isolation),
+            e("Reverse Hyperextension", .glutes, ["Reverse Hyper Machine"], also: [.hamstrings, .back], pattern: .hinge),
+            e("Nordic Bench Curl", .hamstrings, ["Nordic Bench"], also: [.glutes], reps: 5, mechanic: .isolation),
+            e("Weighted Sissy Squat", .quads, ["Sissy Squat Bench", "Weight Plate"], mechanic: .isolation),
+            e("Captain's Chair Leg Raise", .core, ["Captain's Chair"], mechanic: .isolation),
             // Plate-loaded machines
-            e("T-Bar Row", .back, ["T-Bar Row Machine"], also: [.biceps]),
-            e("Belt Squat", .quads, ["Belt Squat Machine"], also: [.glutes]),
-            e("Pendulum Squat", .quads, ["Pendulum Squat Machine"], also: [.glutes]),
-            e("Machine Pullover", .back, ["Pullover Machine"], also: [.chest, .triceps]),
+            e("T-Bar Row", .back, ["T-Bar Row Machine"], also: [.biceps], pattern: .horizontalPull),
+            e("Belt Squat", .quads, ["Belt Squat Machine"], also: [.glutes], pattern: .squat),
+            e("Pendulum Squat", .quads, ["Pendulum Squat Machine"], also: [.glutes], pattern: .squat),
+            e("Machine Pullover", .back, ["Pullover Machine"], also: [.chest, .triceps], mechanic: .isolation),
             // Selectorized machines
-            e("Hip Abduction", .glutes, ["Hip Abduction Machine"]),
-            e("Hip Adduction", .quads, ["Hip Adduction Machine"]),
-            e("Assisted Pull-Up", .back, ["Assisted Pull-Up Machine"], also: [.biceps]),
-            e("Assisted Dip", .triceps, ["Assisted Pull-Up Machine"], also: [.chest, .shoulders]),
-            e("Machine Crunch", .core, ["Ab Crunch Machine"]),
-            e("Torso Rotation", .core, ["Torso Rotation Machine"]),
-            e("Machine Lateral Raise", .shoulders, ["Lateral Raise Machine"]),
-            e("Machine Bicep Curl", .biceps, ["Bicep Curl Machine"]),
-            e("Machine Tricep Extension", .triceps, ["Tricep Extension Machine"]),
-            e("Machine Back Extension", .back, ["Low Back Extension Machine"], also: [.glutes, .hamstrings]),
-            e("Multi-Hip Kickback", .glutes, ["Multi-Hip Machine"], also: [.hamstrings]),
-            e("Machine Glute Kickback", .glutes, ["Glute Kickback Machine"], also: [.hamstrings]),
+            e("Hip Abduction", .glutes, ["Hip Abduction Machine"], mechanic: .isolation),
+            e("Hip Adduction", .quads, ["Hip Adduction Machine"], mechanic: .isolation),
+            e("Assisted Pull-Up", .back, ["Assisted Pull-Up Machine"], also: [.biceps], pattern: .verticalPull),
+            e("Assisted Dip", .triceps, ["Assisted Pull-Up Machine"], also: [.chest, .shoulders], pattern: .verticalPush),
+            e("Machine Crunch", .core, ["Ab Crunch Machine"], mechanic: .isolation),
+            e("Torso Rotation", .core, ["Torso Rotation Machine"], pattern: .rotation, mechanic: .isolation),
+            e("Machine Lateral Raise", .shoulders, ["Lateral Raise Machine"], mechanic: .isolation),
+            e("Machine Bicep Curl", .biceps, ["Bicep Curl Machine"], mechanic: .isolation),
+            e("Machine Tricep Extension", .triceps, ["Tricep Extension Machine"], mechanic: .isolation),
+            e("Machine Back Extension", .back, ["Low Back Extension Machine"], also: [.glutes, .hamstrings], pattern: .hinge),
+            e("Multi-Hip Kickback", .glutes, ["Multi-Hip Machine"], also: [.hamstrings], mechanic: .isolation, laterality: .unilateral),
+            e("Machine Glute Kickback", .glutes, ["Glute Kickback Machine"], also: [.hamstrings], mechanic: .isolation, laterality: .unilateral),
             // Cardio — one steady piece, like the other machines. The
             // ones whose ONLY work metric is duration (no distance or
             // calories on the console profile) get an honest 10-minute
@@ -804,46 +820,46 @@ enum SeedData {
             e("Vertical Climber", .fullBody, ["Vertical Climber"], .duration, also: [.quads, .back], sets: 1, seconds: 600),
             e("Upper Body Ergometer", .fullBody, ["Upper Body Ergometer"], .duration, also: [.shoulders, .back], sets: 1, seconds: 600),
             // Strongman
-            e("Yoke Carry", .fullBody, ["Yoke"], .duration, also: [.back, .quads]),
-            e("Farmers Handle Carry", .fullBody, ["Farmers Walk Handles"], .duration, also: [.back, .core]),
-            e("Log Clean and Press", .fullBody, ["Log Bar"], also: [.quads, .back, .shoulders], reps: 5),
-            e("Atlas Stone Load", .fullBody, ["Atlas Stone"], also: [.back, .quads], reps: 5),
-            e("Circus Dumbbell Press", .shoulders, ["Circus Dumbbell"], also: [.triceps, .core]),
-            e("Husafell Carry", .fullBody, ["Husafell Stone"], .duration, also: [.back, .core]),
-            e("Tire Flip", .fullBody, ["Tire"], also: [.back, .quads]),
-            e("Sledgehammer Slam", .fullBody, ["Sledgehammer", "Tire"], also: [.core, .back]),
+            e("Yoke Carry", .fullBody, ["Yoke"], .duration, also: [.back, .quads], pattern: .carry),
+            e("Farmers Handle Carry", .fullBody, ["Farmers Walk Handles"], .duration, also: [.back, .core], pattern: .carry),
+            e("Log Clean and Press", .fullBody, ["Log Bar"], also: [.quads, .back, .shoulders], reps: 5, pattern: .hinge),
+            e("Atlas Stone Load", .fullBody, ["Atlas Stone"], also: [.back, .quads], reps: 5, pattern: .hinge),
+            e("Circus Dumbbell Press", .shoulders, ["Circus Dumbbell"], also: [.triceps, .core], pattern: .verticalPush, laterality: .unilateral),
+            e("Husafell Carry", .fullBody, ["Husafell Stone"], .duration, also: [.back, .core], pattern: .carry),
+            e("Tire Flip", .fullBody, ["Tire"], also: [.back, .quads], pattern: .hinge),
+            e("Sledgehammer Slam", .fullBody, ["Sledgehammer", "Tire"], also: [.core, .back], pattern: .rotation),
             // Gymnastics + calisthenics: an L-sit is measured in tens of
             // seconds, and a climb "rep" is a whole ascent.
-            e("Parallette L-Sit", .core, ["Parallettes"], .duration, also: [.shoulders, .triceps], seconds: 20, heartRate: false),
-            e("Parallette Push-Up", .chest, ["Parallettes"], also: [.triceps, .shoulders]),
-            e("Rope Climb", .back, ["Climbing Rope"], also: [.biceps, .core], reps: 3),
-            e("Peg Board Ascent", .back, ["Peg Board"], also: [.biceps, .core], reps: 3),
-            e("Stall Bar Leg Raise", .core, ["Stall Bars"]),
+            e("Parallette L-Sit", .core, ["Parallettes"], .duration, also: [.shoulders, .triceps], seconds: 20, heartRate: false, pattern: .hold),
+            e("Parallette Push-Up", .chest, ["Parallettes"], also: [.triceps, .shoulders], pattern: .horizontalPush),
+            e("Rope Climb", .back, ["Climbing Rope"], also: [.biceps, .core], reps: 3, pattern: .verticalPull),
+            e("Peg Board Ascent", .back, ["Peg Board"], also: [.biceps, .core], reps: 3, pattern: .verticalPull),
+            e("Stall Bar Leg Raise", .core, ["Stall Bars"], mechanic: .isolation),
             // Small equipment
             e("Slam Ball Slam", .fullBody, ["Slam Ball"], also: [.core, .back]),
-            e("Stability Ball Leg Curl", .hamstrings, ["Stability Ball"], also: [.glutes]),
+            e("Stability Ball Leg Curl", .hamstrings, ["Stability Ball"], also: [.glutes], mechanic: .isolation),
             e("Stability Ball Rollout", .core, ["Stability Ball"], also: [.back]),
-            e("Balance Trainer Squat", .quads, ["Balance Trainer"], also: [.glutes, .core]),
-            e("Slider Lunge", .quads, ["Sliders"], also: [.glutes, .hamstrings]),
-            e("Body Saw", .core, ["Sliders"], .duration, also: [.shoulders], seconds: 30, heartRate: false),
-            e("Chain Bench Press", .chest, ["Barbell", "Bench", "Weightlifting Chains"], also: [.triceps, .shoulders]),
-            e("Weighted Dip", .chest, ["Dip Station", "Dip Belt"], also: [.triceps, .shoulders]),
-            e("Weighted Pull-Up", .back, ["Pull-Up Bar", "Dip Belt"], also: [.biceps]),
-            e("Weighted Push-Up", .chest, ["Weight Vest"], also: [.triceps, .shoulders]),
+            e("Balance Trainer Squat", .quads, ["Balance Trainer"], also: [.glutes, .core], pattern: .squat),
+            e("Slider Lunge", .quads, ["Sliders"], also: [.glutes, .hamstrings], pattern: .lunge, laterality: .unilateral),
+            e("Body Saw", .core, ["Sliders"], .duration, also: [.shoulders], seconds: 30, heartRate: false, pattern: .hold),
+            e("Chain Bench Press", .chest, ["Barbell", "Bench", "Weightlifting Chains"], also: [.triceps, .shoulders], pattern: .horizontalPush),
+            e("Weighted Dip", .chest, ["Dip Station", "Dip Belt"], also: [.triceps, .shoulders], pattern: .verticalPush),
+            e("Weighted Pull-Up", .back, ["Pull-Up Bar", "Dip Belt"], also: [.biceps], pattern: .verticalPull),
+            e("Weighted Push-Up", .chest, ["Weight Vest"], also: [.triceps, .shoulders], pattern: .horizontalPush),
             e("Ruck", .fullBody, ["Weight Vest"], .duration,
-              also: [.quads, .back], metrics: MetricProfile([.weight, .distance, .duration], distanceUnit: .miles), sets: 1),
-            e("Mace 360", .shoulders, ["Macebell"], also: [.core, .back]),
-            e("Steel Club Mill", .shoulders, ["Steel Club"], also: [.core]),
-            e("Bulgarian Bag Spin", .fullBody, ["Bulgarian Bag"], also: [.shoulders, .core]),
+              also: [.quads, .back], metrics: MetricProfile([.weight, .distance, .duration], distanceUnit: .miles), sets: 1, pattern: .carry),
+            e("Mace 360", .shoulders, ["Macebell"], also: [.core, .back], pattern: .rotation),
+            e("Steel Club Mill", .shoulders, ["Steel Club"], also: [.core], pattern: .rotation, laterality: .unilateral),
+            e("Bulgarian Bag Spin", .fullBody, ["Bulgarian Bag"], also: [.shoulders, .core], pattern: .rotation),
             // A roll-up is a full up-and-down trip — 3 torches forearms.
-            e("Wrist Roller Roll-Up", .biceps, ["Wrist Roller"], reps: 3),
-            e("Neck Harness Extension", .shoulders, ["Neck Harness"]),
-            e("Gripper Close", .biceps, ["Hand Gripper"]),
+            e("Wrist Roller Roll-Up", .biceps, ["Wrist Roller"], reps: 3, mechanic: .isolation),
+            e("Neck Harness Extension", .shoulders, ["Neck Harness"], mechanic: .isolation),
+            e("Gripper Close", .biceps, ["Hand Gripper"], mechanic: .isolation, laterality: .unilateral),
             // A bag round is boxing's three minutes, not a 45 s hold.
             e("Heavy Bag Rounds", .fullBody, ["Heavy Bag"], .duration, also: [.shoulders, .core], seconds: 180),
             e("Agility Ladder Drills", .fullBody, ["Agility Ladder"], .duration, also: [.calves, .quads]),
-            e("Tibialis Raise", .calves, ["Tibialis Bar"]),
-            e("Slant Board Squat", .quads, ["Slant Board"]),
+            e("Tibialis Raise", .calves, ["Tibialis Bar"], mechanic: .isolation),
+            e("Slant Board Squat", .quads, ["Slant Board"], pattern: .squat),
 
             // MARK: Stretches + mobility
             // Warmup and cooldown work, first-class (Dave, 2026-07-11:
@@ -860,33 +876,33 @@ enum SeedData {
             // Static holds (timed): the `stretch` shape — ONE 30 s hold,
             // no HR prescription (config audit, 2026-07-15). Repeats
             // stay one Sets-tap away.
-            stretch("Standing Hamstring Stretch", .hamstrings),
-            stretch("Standing Quad Stretch", .quads),
-            stretch("Kneeling Hip Flexor Stretch", .quads),
-            stretch("Figure-Four Stretch", .glutes),
-            stretch("Pigeon Pose", .glutes),
+            stretch("Standing Hamstring Stretch", .hamstrings, sides: .unilateral),
+            stretch("Standing Quad Stretch", .quads, sides: .unilateral),
+            stretch("Kneeling Hip Flexor Stretch", .quads, sides: .unilateral),
+            stretch("Figure-Four Stretch", .glutes, sides: .unilateral),
+            stretch("Pigeon Pose", .glutes, sides: .unilateral),
             stretch("Butterfly Stretch", .glutes),
-            stretch("Standing Calf Stretch", .calves),
+            stretch("Standing Calf Stretch", .calves, sides: .unilateral),
             stretch("Downward Dog", .fullBody),
             stretch("Doorway Chest Stretch", .chest),
-            stretch("Cross-Body Shoulder Stretch", .shoulders),
-            stretch("Neck Stretch", .shoulders),
-            stretch("Overhead Triceps Stretch", .triceps),
-            stretch("Standing Biceps Stretch", .biceps),
+            stretch("Cross-Body Shoulder Stretch", .shoulders, sides: .unilateral),
+            stretch("Neck Stretch", .shoulders, sides: .unilateral),
+            stretch("Overhead Triceps Stretch", .triceps, sides: .unilateral),
+            stretch("Standing Biceps Stretch", .biceps, sides: .unilateral),
             stretch("Child's Pose", .back),
-            stretch("Seated Spinal Twist", .back),
-            stretch("Lat Stretch", .back),
+            stretch("Seated Spinal Twist", .back, sides: .unilateral),
+            stretch("Lat Stretch", .back, sides: .unilateral),
             stretch("Cobra Stretch", .core),
-            stretch("Standing Side Bend Stretch", .core),
+            stretch("Standing Side Bend Stretch", .core, sides: .unilateral),
             // Dynamic warmup drills: the `mobility` shape — one pass of
             // reps through a warmup, not a 3-set block.
             mobility("Arm Circles", .shoulders),
-            mobility("Leg Swings", .hamstrings),
+            mobility("Leg Swings", .hamstrings, sides: .unilateral),
             mobility("Hip Circles", .glutes),
             mobility("Walking Knee Hug", .glutes),
             mobility("Standing Torso Twist", .core),
             mobility("Cat-Cow", .back),
-            mobility("World's Greatest Stretch", .fullBody),
+            mobility("World's Greatest Stretch", .fullBody, sides: .unilateral),
             mobility("Inchworm", .fullBody),
         ]
     }()
