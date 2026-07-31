@@ -104,6 +104,15 @@ struct ActiveSessionView: View {
     /// OWN distance/pace — but persists across the rounds of one exercise.
     @State private var outdoorExerciseKey: String?
 
+    /// What the meter read when THIS round began.
+    ///
+    /// ⚠️ The meter re-bases per EXERCISE, never per round, so its total
+    /// describes the whole 6 × 400 m rather than the rep you are running.
+    /// The wrist has banked per step since #473 for exactly this reason
+    /// and the phone never did — which is why an outdoor round used to
+    /// record no distance at all unless its block held exactly one.
+    @State private var distanceAtRoundStart: Double = 0
+
     private var totalSets: Int { session.sortedSetLogs.count }
 
     /// The noun this WHOLE session counts in, or nil for a sport that
@@ -149,6 +158,43 @@ struct ActiveSessionView: View {
         location.stop()
         location.start(from: session.effectiveStart, unit: runUnit)
         outdoorExerciseKey = key
+        distanceAtRoundStart = 0
+    }
+
+    /// This ROUND's own measured distance — the meter's total less what it
+    /// read when the round began — or nil when nothing is measuring.
+    private var measuredRoundDistance: Double? {
+        guard isOutdoorNow, location.isFresh, let total = location.totalDistanceInUnit else { return nil }
+        return max(0, total - distanceAtRoundStart)
+    }
+
+    /// Log the effort the moment a MEASURED target is reached, and let the
+    /// existing commit path carry it into rest.
+    ///
+    /// ⚠️ **MEASURED only** (Dave). A distance under a live GPS fix, and
+    /// the duration the auto-timer already ends itself on. A console
+    /// number you type at the finish is not a measurement, so it advances
+    /// nothing — the alternative is the app guessing when a machine's
+    /// readout got there, which is the class of lie this whole push exists
+    /// to remove.
+    ///
+    /// ⚠️ **Not while paused, and not mid-rest** — the two cases the plan
+    /// flagged as needing an answer rather than falling out. Paused, the
+    /// meter is paused too and advancing a workout the user is holding is
+    /// the app acting behind their back. Mid-rest, `currentLog` is the
+    /// effort that has NOT started, so its target has not been reached by
+    /// anything. `lingeringLog` covers the +1 beat, where the commit has
+    /// happened but the screen has not caught up.
+    private func autoAdvanceIfTargetReached() {
+        guard !session.isPaused, !session.isFinished, restEndDate == nil, lingeringLog == nil,
+              let log = session.currentLog, !log.isCompleted,
+              let target = log.target(.distance), target > 0,
+              let covered = measuredRoundDistance, covered >= target else { return }
+        // Its own texture, distinct from the medium thud a tap earns:
+        // the workout moved without you asking, and the hand should be
+        // told something happened rather than that you did it.
+        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+        completeCurrentSet(log)
     }
     private var completedSets: Int { session.completedSetLogs.count }
 
@@ -362,6 +408,11 @@ struct ActiveSessionView: View {
             effortStartedAt = Date()
             effortBanked = 0
             currentSetStartedAt = Date()
+            // Bank the meter where this round starts. Self-correcting
+            // against `syncLocation`'s re-base whichever order the two
+            // land in: a fresh exercise re-reads a meter at zero, and
+            // banking zero is exactly right.
+            distanceAtRoundStart = location.totalDistanceInUnit ?? 0
         }
         // Bank the count-up across a pause, for the same reason and on the
         // same edge as `bankRestForPause`: by the time this fires the body
@@ -385,6 +436,14 @@ struct ActiveSessionView: View {
         .onReceive(islandRefresh) { _ in
             guard isOutdoorNow, !session.isPaused, !session.isFinished, restEndDate == nil else { return }
             syncActivityWorking()
+        }
+        // Auto-advance rides every new GPS reading, not the 30 s island
+        // tick: a target reached is the moment the effort is over, and
+        // half a minute of running past it is not "when the target was
+        // reached". The guards live in the function, so this stays one
+        // line for the one thing that can move a measured distance.
+        .onChange(of: location.totalDistanceInUnit) { _, _ in
+            autoAdvanceIfTargetReached()
         }
         // A WATCH-driven finish swaps this screen to the purple record
         // while a cue may still be talking — the phone-side finish path
@@ -1052,20 +1111,31 @@ struct ActiveSessionView: View {
         recordHeartRate(for: log)
         // An outdoor run's measured distance/pace become the logged
         // actuals, so the record reflects the GPS run instead of a hand
-        // guess. Only for a single-round piece (the meter tracks the whole
-        // exercise, not a per-round split), only with a FRESH reading (so
-        // a still-acquiring re-base can't log stale values), and only when
-        // not already edited — a manual actual always wins.
-        if isOutdoorNow, location.isFresh, roundsInBlock(of: log) == 1 {
-            // ⚠️ `storedActual`, not `actual`: pace derives from distance and
-            // duration (#302), so an `actual(.pace) == nil` guard would read
-            // a derivation as an edit and drop the GPS reading. The meter's
-            // average is over MOVING time; a derivation divides by elapsed,
-            // so the measurement is the better number and must win.
-            if log.storedActual(.distance) == nil, let distance = location.totalDistanceInUnit {
+        // guess. Only with a FRESH reading (a still-acquiring re-base must
+        // not log stale values), and only when not already edited — a
+        // manual actual always wins.
+        //
+        // ⚠️ `storedActual`, not `actual`: pace derives from distance and
+        // duration (#302), so an `actual(.pace) == nil` guard would read a
+        // derivation as an edit and drop the GPS reading.
+        if isOutdoorNow, location.isFresh {
+            // THIS round's distance, from the per-round bank. Before the
+            // bank existed this was gated to single-round blocks, because
+            // the meter is per EXERCISE and there was no honest way to
+            // attribute a split — so a 6 × 400 m recorded no distance at
+            // all. Now it records six.
+            if log.storedActual(.distance) == nil,
+               let distance = measuredRoundDistance, distance > 0 {
                 log.setActual(.distance, to: distance)
             }
-            if log.storedActual(.pace) == nil, let pace = location.averagePaceSeconds {
+            // ⚠️ Pace stays SINGLE-ROUND only. The meter's average is over
+            // the whole EXERCISE's moving time, so on rep four it would
+            // describe the whole run and call it that rep's split. A
+            // multi-round effort gets its pace from #302's derivation
+            // instead — this round's distance over this round's time,
+            // which is the split it actually wanted.
+            if roundsInBlock(of: log) == 1, log.storedActual(.pace) == nil,
+               let pace = location.averagePaceSeconds {
                 log.setActual(.pace, to: pace)
             }
         }

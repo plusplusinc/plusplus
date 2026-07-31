@@ -9,7 +9,21 @@ usually lives here.
 > Record architectural and significant implementation decisions as they're made.
 > Format: **Date — Decision — Reason**
 
-**2026-07-31 (latest) — A record of one thing numbers nothing** — the pass the entry below deferred. The record surfaces still said `?? .set`, so a logged walk's row read "Set 1" and its card said "1 set", and the fix is not a better fallback noun: at a count of one there is no label, full stop.
+**2026-07-31 (latest) — A measured target ends its own effort, and an outdoor round finally records its own split** — the last unbuilt piece of PR 7. Dave's answer to "which targets should auto-advance" was **only measured ones**, and the interesting part is what that excludes: a console number you type at the finish never advances anything, because the alternative is the app guessing when a machine's readout got there — the class of lie this whole push exists to remove.
+
+**Duration already did it** (the auto-timer expires and logs itself), so the work was distance under a live GPS fix. Building it surfaced the reason it had never been built: **the meter re-bases per EXERCISE, never per round.** Its total describes the whole 6 × 400 m, not the rep you are running, so there was no honest way to say a rep was over — and for the same reason `completeCurrentSet` refused to record distance at all unless the block held exactly one round. A 6 × 400 m logged six efforts with no distance on any of them.
+
+`distanceAtRoundStart` is the fix, and it is the wrist's own pattern arriving late: `WatchWorkoutController.beginStep()` has banked per step since #473. Bank the meter's reading on the same edge that already re-anchors the count-up clock, subtract, and a round's own distance exists. Auto-advance compares against it, and the record keeps six splits instead of none. ⚠️ It is self-correcting against `syncLocation`'s re-base whichever order the two land in: a fresh exercise re-reads a meter at zero, and banking zero is exactly right.
+
+⚠️ **Pace stays SINGLE-ROUND, deliberately.** The meter's average is over the whole exercise's moving time, so on rep four it would describe the entire run and file it as that rep's split. A multi-round effort takes its pace from #302's derivation instead — this round's distance over this round's time — which is the split it wanted in the first place, and a derived value is never stored so it cannot leak into the ledger.
+
+⚠️ **The two cases the plan flagged, answered rather than left to fall out.** **Paused:** no advance. The meter is paused too, and moving a workout the user is holding is the app acting behind their back. **Mid-rest:** no advance. `currentLog` during rest is the effort that has NOT started, so nothing has reached its target. Both ride the same guard shape the GPS re-base and the island refresh already use, plus `lingeringLog` for the +1 beat, where the commit has landed and the screen has not caught up.
+
+⚠️ It rides **every new GPS reading**, not the 30 s island tick: a target reached is the moment the effort is over, and half a minute of running past it is not that moment. Its haptic is `.rigid` rather than the tap's `.medium` — the workout moved without you asking, and the hand should be told something happened rather than that you did it.
+
+⚠️ Indoors this is silent by construction and that is the point: distance is not measurable there, so the hero is the clock and a duration target ends the effort. A treadmill's distance stays yours to enter, and stays a number nothing advances on.
+
+**2026-07-31 — A record of one thing numbers nothing** — the pass the entry below deferred. The record surfaces still said `?? .set`, so a logged walk's row read "Set 1" and its card said "1 set", and the fix is not a better fallback noun: at a count of one there is no label, full stop.
 
 `WorkUnit.summaryCount(_:_:)` and `WorkUnit.rowLabel(_:index:total:)` are the two shapes a record needs, and both are `kicker`'s rule one surface later — nil at one, the sport's own word above it. Five surfaces consume them: Today's committed card, the record card and its subtitle, the record's per-set rows, and the live session's finish line and exit dialog. **A steady forty-minute walk now reads "jul 31 · 42 min"**, and its record row carries its result and no leading label at all.
 
