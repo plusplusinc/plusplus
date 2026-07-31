@@ -18,11 +18,13 @@ struct ExerciseAttributeTests {
     /// derived modality reads .strength). Adding a row here is a
     /// DECISION: the Movement facet will never reach it.
     private static let deliberatelyPatternless: Set<String> = [
-        "Ab Wheel Rollout", "Agility Ladder Drills", "Battle Rope Waves",
-        "Burpee", "Elliptical", "Heavy Bag Rounds", "Medicine Ball Slam",
-        "Mountain Climber", "Slam Ball Slam", "Stability Ball Rollout",
-        "Stair Climber", "Turkish Get-Up", "Upper Body Ergometer",
-        "Vertical Climber",
+        "Ab Wheel Rollout", "Agility Ladder Drills", "Battle Rope Slams",
+        "Battle Rope Waves", "Bear Crawl", "Burpee", "Butt Kicks",
+        "Devil Press", "Elliptical", "Heavy Bag Rounds", "High Knees",
+        "Jumping Jacks", "Man Maker", "Medicine Ball Slam",
+        "Mountain Climber", "Slam Ball Slam", "Squat Thrust",
+        "Stability Ball Rollout", "Stair Climber", "Turkish Get-Up",
+        "Upper Body Ergometer", "Vertical Climber",
     ]
 
     /// A definition's modality as the app resolves it: authored

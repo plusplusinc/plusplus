@@ -321,7 +321,7 @@ enum SeedData {
             "Weight Vest", "Sliders", "Macebell", "Steel Club",
             "Bulgarian Bag", "Wrist Roller", "Neck Harness",
             "Hand Gripper", "Heavy Bag", "Agility Ladder",
-            "Tibialis Bar", "Slant Board",
+            "Tibialis Bar", "Slant Board", "Foam Roller",
         ].map { Equipment(name: $0, isBuiltIn: true) }
     }
 
@@ -392,7 +392,7 @@ enum SeedData {
                 "Sissy Squat Bench", "Captain's Chair", "Plyo Box",
                 "Parallettes", "Peg Board", "Stall Bars", "Stability Ball",
                 "Balance Trainer", "Ab Wheel", "Sliders", "Neck Harness",
-                "Hand Gripper", "Tibialis Bar", "Slant Board",
+                "Hand Gripper", "Tibialis Bar", "Slant Board", "Foam Roller",
             ]),
         ]
         for (category, names) in buckets {
@@ -861,6 +861,109 @@ enum SeedData {
             e("Tibialis Raise", .calves, ["Tibialis Bar"], mechanic: .isolation),
             e("Slant Board Squat", .quads, ["Slant Board"], pattern: .squat),
 
+            // MARK: Catalog expansion (gap audit, 2026-07-31)
+            // Six gap clusters + depth behind the types that gated one
+            // lone exercise. Same authoring rules as the whole table.
+
+            // Calisthenics progressions + skills. Rings and the
+            // suspension trainer stop being one-exercise gear.
+            e("Pistol Squat", .quads, [], also: [.glutes, .core], reps: 5, pattern: .squat, laterality: .unilateral),
+            e("Cossack Squat", .quads, [], also: [.glutes, .hamstrings], pattern: .lunge, laterality: .unilateral),
+            e("Incline Push-Up", .chest, [], also: [.triceps, .shoulders], pattern: .horizontalPush),
+            e("Knee Push-Up", .chest, [], also: [.triceps, .shoulders], pattern: .horizontalPush),
+            // An inverted row hangs under a racked bar (the squat-family
+            // convention names the rack).
+            e("Inverted Row", .back, ["Barbell", "Squat Rack"], also: [.biceps], pattern: .horizontalPull),
+            e("Dead Hang", .back, ["Pull-Up Bar"], .duration, also: [.biceps], seconds: 30, heartRate: false, pattern: .hold),
+            e("Scapular Pull-Up", .back, ["Pull-Up Bar"], mechanic: .isolation),
+            e("Wall Handstand Hold", .shoulders, [], .duration, also: [.core], seconds: 30, heartRate: false, pattern: .hold),
+            e("Handstand Push-Up", .shoulders, [], also: [.triceps], reps: 5, pattern: .verticalPush),
+            e("Ring Dip", .chest, ["Gymnastic Rings"], also: [.triceps, .shoulders], pattern: .verticalPush),
+            e("Ring Muscle-Up", .back, ["Gymnastic Rings"], also: [.biceps, .chest, .triceps], reps: 3, pattern: .verticalPull),
+            e("Bar Muscle-Up", .back, ["Pull-Up Bar"], also: [.biceps, .chest, .triceps], reps: 3, pattern: .verticalPull),
+            e("Ring Support Hold", .shoulders, ["Gymnastic Rings"], .duration, also: [.triceps, .core], seconds: 20, heartRate: false, pattern: .hold),
+            e("L-Sit", .core, [], .duration, also: [.shoulders], seconds: 20, heartRate: false, pattern: .hold),
+            e("Superman", .back, [], also: [.glutes], pattern: .hinge),
+            e("Bear Crawl", .fullBody, [], .duration, also: [.shoulders, .core], seconds: 30),
+            e("Broad Jump", .fullBody, [], also: [.quads, .glutes], reps: 3, pattern: .jump),
+
+            // Olympic lifting: the bar's technical lifts, prescribed the
+            // way they're trained — doubles and triples, never a 10-floor.
+            e("Snatch", .fullBody, ["Barbell"], also: [.quads, .back, .shoulders], reps: 2, pattern: .hinge),
+            e("Clean and Jerk", .fullBody, ["Barbell"], also: [.quads, .back, .shoulders], reps: 2, pattern: .hinge),
+            e("Hang Power Clean", .fullBody, ["Barbell"], also: [.quads, .back], reps: 3, pattern: .hinge),
+            e("Overhead Squat", .quads, ["Barbell", "Squat Rack"], also: [.shoulders, .core], reps: 5, pattern: .squat),
+            e("Front Rack Lunge", .quads, ["Barbell", "Squat Rack"], also: [.glutes, .core], pattern: .lunge, laterality: .unilateral),
+            e("Wall Ball", .fullBody, ["Medicine Ball"], also: [.quads, .shoulders], pattern: .squat),
+
+            // Everyday staples the catalog was oddly missing.
+            e("Lunge", .quads, [], also: [.glutes, .hamstrings], pattern: .lunge, laterality: .unilateral),
+            e("Barbell Lunge", .quads, ["Barbell", "Squat Rack"], also: [.glutes, .hamstrings], pattern: .lunge, laterality: .unilateral),
+            e("Split Squat", .quads, ["Dumbbells"], also: [.glutes], pattern: .lunge, laterality: .unilateral),
+            e("Lateral Lunge", .quads, [], also: [.glutes], pattern: .lunge, laterality: .unilateral),
+            e("Floor Press", .chest, ["Barbell"], also: [.triceps], pattern: .horizontalPush),
+            e("Dumbbell Floor Press", .chest, ["Dumbbells"], also: [.triceps], pattern: .horizontalPush),
+            e("Rack Pull", .back, ["Barbell", "Squat Rack"], also: [.glutes, .hamstrings], reps: 5, pattern: .hinge),
+            e("Zercher Squat", .quads, ["Barbell", "Squat Rack"], also: [.glutes, .core], pattern: .squat),
+            e("Decline Dumbbell Press", .chest, ["Dumbbells", "Decline Bench"], also: [.triceps, .shoulders], pattern: .horizontalPush),
+            e("Reverse Curl", .biceps, ["EZ Bar"], mechanic: .isolation),
+            e("Wrist Curl", .biceps, ["Dumbbells", "Bench"], mechanic: .isolation),
+            e("Reverse Wrist Curl", .biceps, ["Dumbbells", "Bench"], mechanic: .isolation),
+            e("Reverse Crunch", .core, [], mechanic: .isolation),
+            e("Dumbbell Side Bend", .core, ["Dumbbells"], mechanic: .isolation, laterality: .unilateral),
+            e("Close-Grip Lat Pulldown", .back, ["Lat Pulldown Machine"], also: [.biceps], pattern: .verticalPull),
+            e("Leg Press Calf Raise", .calves, ["Leg Press Machine"], mechanic: .isolation),
+
+            // Kettlebell depth: one bell covers a whole session.
+            e("Kettlebell Press", .shoulders, ["Kettlebell"], also: [.triceps, .core], pattern: .verticalPush, laterality: .unilateral),
+            e("Kettlebell Row", .back, ["Kettlebell"], also: [.biceps], pattern: .horizontalPull, laterality: .unilateral),
+            e("Kettlebell Deadlift", .back, ["Kettlebell"], also: [.glutes, .hamstrings], pattern: .hinge),
+            e("Kettlebell Front Rack Squat", .quads, ["Kettlebell"], also: [.glutes, .core], pattern: .squat),
+            e("Kettlebell Halo", .shoulders, ["Kettlebell"], also: [.core], pattern: .rotation),
+
+            // Prehab: the Shoulder Care pool gets real depth, and the
+            // hips and adductors join it.
+            e("Band External Rotation", .shoulders, ["Resistance Band"], mechanic: .isolation, laterality: .unilateral),
+            e("Cable External Rotation", .shoulders, ["Cable Machine"], mechanic: .isolation, laterality: .unilateral),
+            e("Clamshell", .glutes, [], mechanic: .isolation, laterality: .unilateral),
+            e("Copenhagen Plank", .core, ["Bench"], .duration, also: [.quads], seconds: 20, heartRate: false, pattern: .hold, laterality: .unilateral),
+            e("YTW Raise", .shoulders, ["Incline Bench", "Dumbbells"], also: [.back], mechanic: .isolation),
+            e("Scapular Push-Up", .chest, [], also: [.shoulders], mechanic: .isolation),
+
+            // Conditioning drills + the dumbbell complexes (the
+            // compound sweep — a thruster's whole extended family).
+            e("Jumping Jacks", .fullBody, [], .duration, also: [.calves], seconds: 30),
+            e("High Knees", .fullBody, [], .duration, also: [.quads, .calves], seconds: 30),
+            e("Butt Kicks", .fullBody, [], .duration, also: [.hamstrings, .calves], seconds: 30),
+            e("Squat Thrust", .fullBody, [], also: [.quads, .chest]),
+            e("Renegade Row", .back, ["Dumbbells"], also: [.core, .chest, .biceps], pattern: .horizontalPull, laterality: .unilateral),
+            e("Man Maker", .fullBody, ["Dumbbells"], also: [.chest, .back, .shoulders], reps: 5),
+            e("Devil Press", .fullBody, ["Dumbbells"], also: [.shoulders, .chest], reps: 5),
+            e("Dumbbell Snatch", .fullBody, ["Dumbbells"], also: [.shoulders, .glutes], reps: 5, pattern: .hinge, laterality: .unilateral),
+            e("Dumbbell Clean and Press", .fullBody, ["Dumbbells"], also: [.quads, .shoulders], reps: 5, pattern: .hinge),
+
+            // Depth behind the one-exercise types.
+            e("Trap Bar Carry", .fullBody, ["Trap Bar"], .duration, also: [.back, .core], pattern: .carry),
+            e("Trap Bar Shrug", .shoulders, ["Trap Bar"], also: [.back], mechanic: .isolation),
+            e("Sandbag Clean", .fullBody, ["Sandbag"], also: [.quads, .back], reps: 5, pattern: .hinge),
+            e("Sandbag Squat", .quads, ["Sandbag"], also: [.glutes, .core], pattern: .squat),
+            e("Sandbag Over Shoulder", .fullBody, ["Sandbag"], also: [.back, .quads], reps: 5, pattern: .hinge),
+            e("Sled Drag", .fullBody, ["Sled"], .duration, also: [.quads, .glutes], pattern: .carry),
+            e("Backward Sled Drag", .quads, ["Sled"], .duration, also: [.calves], pattern: .carry),
+            e("Landmine Squat", .quads, ["Barbell", "Landmine"], also: [.glutes], pattern: .squat),
+            e("Landmine Rotation", .core, ["Barbell", "Landmine"], also: [.shoulders], pattern: .rotation),
+            e("Landmine Romanian Deadlift", .hamstrings, ["Barbell", "Landmine"], also: [.glutes, .back], pattern: .hinge),
+            e("Suspension Chest Press", .chest, ["Suspension Trainer"], also: [.triceps, .shoulders], pattern: .horizontalPush),
+            e("Suspension Pike", .core, ["Suspension Trainer"], also: [.shoulders], mechanic: .isolation),
+            e("Suspension Face Pull", .shoulders, ["Suspension Trainer"], also: [.back], pattern: .horizontalPull),
+            e("Suspension Hamstring Curl", .hamstrings, ["Suspension Trainer"], also: [.glutes], mechanic: .isolation),
+            e("Battle Rope Slams", .fullBody, ["Battle Ropes"], .duration, also: [.core, .shoulders], seconds: 30),
+
+            // Swimming: the missing cardio modality. Equipment-free like
+            // Running (a pool is a place, not equipment); lengths are
+            // meters, one steady piece by default.
+            e("Swimming", .fullBody, [], .duration, also: [.back, .shoulders], metrics: MetricProfile([.distance, .duration, .pace]), sets: 1),
+
             // MARK: Stretches + mobility
             // Warmup and cooldown work, first-class (Dave, 2026-07-11:
             // "finish with stretching, sometimes at the start after a
@@ -894,6 +997,7 @@ enum SeedData {
             stretch("Lat Stretch", .back, sides: .unilateral),
             stretch("Cobra Stretch", .core),
             stretch("Standing Side Bend Stretch", .core, sides: .unilateral),
+            stretch("Deep Squat Hold", .glutes),
             // Dynamic warmup drills: the `mobility` shape — one pass of
             // reps through a warmup, not a 3-set block.
             mobility("Arm Circles", .shoulders),
@@ -904,6 +1008,23 @@ enum SeedData {
             mobility("Cat-Cow", .back),
             mobility("World's Greatest Stretch", .fullBody, sides: .unilateral),
             mobility("Inchworm", .fullBody),
+            mobility("Ankle Circles", .calves),
+            mobility("Wrist Circles", .biceps),
+            mobility("Glute Bridge March", .glutes),
+            mobility("90/90 Hip Switch", .glutes),
+            mobility("Thread the Needle", .back, sides: .unilateral),
+            // Dislocates ride a band, and the band is loadable — the
+            // explicit reps profile keeps derivation from stamping
+            // weight×reps onto a mobility drill.
+            e("Shoulder Dislocates", .shoulders, ["Resistance Band"], also: [.chest], metrics: .repsOnly, sets: 1, heartRate: false, modality: .flexibility, mechanic: nil),
+            // Foam rolls: recovery passes on the roller, the stretch
+            // shape (one 30 s pass, no heart-rate prescription).
+            roll("Foam Roll Quads", .quads),
+            roll("Foam Roll Hamstrings", .hamstrings),
+            roll("Foam Roll Calves", .calves),
+            roll("Foam Roll Upper Back", .back),
+            roll("Foam Roll Lats", .back),
+            roll("Foam Roll IT Band", .quads),
         ]
     }()
 
