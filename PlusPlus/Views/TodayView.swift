@@ -54,6 +54,11 @@ struct TodayView: View {
     @State private var showingNewRoutine = false
     @State private var pendingCreateFromSwapIn = false
     @State private var pendingStartEmpty = false
+    /// The tray's quick-start handoffs, same drop class as the flags
+    /// above: a sheet presented while another is dismissing gets dropped,
+    /// so the tray sets these and the sheet's onDismiss acts.
+    @State private var pendingQuickStartFromTray: Exercise?
+    @State private var pendingEditQuickStartsFromTray = false
     @State private var newRoutineName = ""
     /// Hero zooms (#216): starting a workout grows the pending card
     /// into the session screen; a committed card grows into its
@@ -618,9 +623,15 @@ struct TodayView: View {
                 } else if pendingStartEmpty {
                     pendingStartEmpty = false
                     startEmptySession()
+                } else if let exercise = pendingQuickStartFromTray {
+                    pendingQuickStartFromTray = nil
+                    quickStartConfig = SessionExerciseConfig(exercise: exercise)
+                } else if pendingEditQuickStartsFromTray {
+                    pendingEditQuickStartsFromTray = false
+                    editingQuickStarts = true
                 }
             }) {
-                SwapInSheet(routines: swapInCandidates, dueIDs: Set(dueRoutines.map(\.persistentModelID)), onPick: { routine in
+                SwapInSheet(routines: swapInCandidates, dueIDs: Set(dueRoutines.map(\.persistentModelID)), quickStartExercises: quickStartExercises, onPick: { routine in
                     swapInPick = routine
                     showingSwapIn = false
                 }, onCreate: {
@@ -630,6 +641,15 @@ struct TodayView: View {
                     showingSwapIn = false
                 }, onStartEmpty: {
                     pendingStartEmpty = true
+                    showingSwapIn = false
+                }, onQuickStart: { exercise in
+                    // The config sheet waits for this one to finish
+                    // dismissing — the same drop class as every other
+                    // act this tray hands off.
+                    pendingQuickStartFromTray = exercise
+                    showingSwapIn = false
+                }, onEditQuickStarts: {
+                    pendingEditQuickStartsFromTray = true
                     showingSwapIn = false
                 })
             }
@@ -2388,28 +2408,27 @@ private struct SetupRow: View {
 private struct SwapInSheet: View {
     @Environment(\.dismiss) private var dismiss
     let routines: [Routine]
-    /// Routines due today — they wear the pill, everyone else shows
-    /// their cadence.
+    /// Routines due today — the primed key at the top, and the pill in
+    /// the picker; everyone else shows their cadence.
     let dueIDs: Set<PersistentIdentifier>
+    /// The quick-start picks — the SAME rack the header band shows (one
+    /// component, two mouths: the band is the fast path, this tray is the
+    /// complete start surface — Dave, build 159).
+    let quickStartExercises: [Exercise]
     let onPick: (Routine) -> Void
     let onCreate: () -> Void
     let onStartEmpty: () -> Void
+    let onQuickStart: (Exercise) -> Void
+    let onEditQuickStarts: () -> Void
 
-    /// The menu is two keys tall — a compact detent; the picker grows
-    /// to .medium (user-expandable to .large). The detent rides the stack
-    /// DEPTH, so the sheet resizes with the push. The compact height
-    /// scales with Dynamic Type so the two keys don't clip at large
-    /// accessibility sizes (a11y audit 2026-07-13).
-    @ScaledMetric(relativeTo: .body) private var menuDetentHeight: CGFloat = 280
-    private var menuDetent: PresentationDetent { .height(menuDetentHeight) }
-
-    /// One route, but an explicit path rather than a bare `NavigationLink`,
-    /// because the DETENT has to follow the depth — a compact sheet with a
-    /// routine list pushed into it would be two rows tall.
+    /// One route, but an explicit path rather than a bare `NavigationLink`
+    /// — the host owns the stack (ui-interaction.md), and depth once drove
+    /// the detent. The two-keys-tall compact detent died when the tray
+    /// became the complete start surface (today's key + the rack + the two
+    /// choose keys): `.medium` is the honest height for both stages now.
     private enum Route: Hashable { case picker }
 
     @State private var path: [Route] = []
-    @State private var detent: PresentationDetent = .height(280)
 
     var body: some View {
         // A real NavigationStack, not the hand-rolled stage slide it
@@ -2432,23 +2451,76 @@ private struct SwapInSheet: View {
             }
         }
         .presentationBackground(Theme.background)
-        .presentationDetents([menuDetent, .medium, .large], selection: $detent)
-        .onAppear { if path.isEmpty { detent = menuDetent } }
-        // Depth, not a stage flag: this fires for the back SWIPE too, which
-        // is the whole reason the stack replaced the slide.
-        .onChange(of: path.count) { _, depth in
-            detent = depth > 0 ? .medium : menuDetent
-        }
+        .presentationDetents([.medium, .large])
     }
 
-    // MARK: - The two ways to start
+    // MARK: - The complete start surface
+
+    /// The routine to prime at the top: today's scheduled one, when it
+    /// exists. First due wins — multiple dues are rare and the picker
+    /// (one key down) pills every one of them.
+    private var dueToday: Routine? {
+        routines.first { dueIDs.contains($0.persistentModelID) }
+    }
 
     private var menu: some View {
         VStack(alignment: .leading, spacing: 10) {
-            // ⚠️ Quick start is NOT here any more (Dave, build 158). It sits
-            // on Today's rail under the date, because a one-tap start that
-            // first has to open a sheet is not a one-tap start. This tray is
-            // the two ways to start something you have to CHOOSE.
+            // Today's plan leads when one is scheduled — the likeliest
+            // intent behind the play key, one tap deep. Green start
+            // grammar is lawful here: this IS today's occurrence.
+            if let routine = dueToday {
+                Button {
+                    onPick(routine)
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "play.fill")
+                            .font(.system(.subheadline, weight: .semibold))
+                            .foregroundStyle(Theme.accent)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(routine.name)
+                                .font(.system(.footnote, weight: .semibold))
+                                .lineLimit(1).minimumScaleFactor(0.6)
+                            Text("scheduled today")
+                                .font(.system(.caption2, design: .monospaced))
+                                .foregroundStyle(Theme.textFaint)
+                        }
+                        Spacer(minLength: 8)
+                        CardTagCapsule(text: "today", tint: Theme.accent)
+                    }
+                    .foregroundStyle(Theme.textPrimary)
+                    .padding(.horizontal, 14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(minHeight: 56)
+                    .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
+                }
+                .buttonStyle(.raisedKey())
+                .accessibilityIdentifier("swapInTodayRoutine")
+            }
+
+            // The SAME rack the header band shows — one component, so the
+            // tray and the band cannot drift; same label, claiming the
+            // keys, for the same reason. Quick start returned to this
+            // tray (build 158 removed it as the ONLY home; as the second
+            // mouth of one system it belongs) so the play key opens
+            // everything startable in one place.
+            if !quickStartExercises.isEmpty {
+                VStack(alignment: .leading, spacing: 7) {
+                    Text("QUICK START")
+                        .font(.system(.caption2, design: .monospaced, weight: .semibold))
+                        .kerning(0.8)
+                        .foregroundStyle(Theme.textFaint)
+                    QuickStartRow(
+                        exercises: quickStartExercises,
+                        onPick: onQuickStart,
+                        onEdit: onEditQuickStarts,
+                        horizontalPadding: 0
+                    )
+                }
+                .padding(.top, 2)
+                .padding(.bottom, 2)
+            }
+
             Button {
                 path.append(.picker)
             } label: {

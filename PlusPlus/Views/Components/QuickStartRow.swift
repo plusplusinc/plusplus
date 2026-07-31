@@ -117,6 +117,10 @@ struct QuickStartRow: View {
     let exercises: [Exercise]
     let onPick: (Exercise) -> Void
     let onEdit: () -> Void
+    /// The row's own margin — 16 in the header band (full-width chrome
+    /// padding itself), 0 inside the start tray, whose content column
+    /// already carries the sheet's 18.
+    var horizontalPadding: CGFloat = 16
 
     @State private var containerWidth: CGFloat = 0
 
@@ -152,7 +156,7 @@ struct QuickStartRow: View {
                     .onChange(of: geo.size.width) { _, width in containerWidth = width }
             }
         )
-        .padding(.horizontal, 16)
+        .padding(.horizontal, horizontalPadding)
     }
 
     private func sportKey(_ exercise: Exercise) -> some View {
