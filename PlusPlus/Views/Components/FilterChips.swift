@@ -1,23 +1,139 @@
 import SwiftUI
 
-/// What's left of the filter-row vocabulary (#237).
-///
-/// The chips themselves — `FacetChip`, `MultiFacetChip`, `TrayFilterChip`,
-/// `FilterSummaryChip`, `SortChip`, `ActiveFacet` — are DELETED (2026-07-25).
-/// Every surface that had a filter row lost it when the catalog tabs and the
-/// search scopes became one view: the Exercises tab's Favorites and Muscle, the
-/// equipment catalog's Kit facet, Type tray and Name/Most-exercises sort, and
-/// the picker's Muscle/Equipment/Favorites bar all went at once. Dave's call —
-/// the three catalogs read alike now, narrowed only by the search field, which
-/// already scores muscle groups and equipment categories. Nothing in the app
-/// filters by facet any more, so the controls that did it are in git history
-/// rather than in the binary.
-///
-/// The SHAPE outlives them, because it isn't about filtering: it's the rule
-/// that every interactive key in the app is a rounded rectangle at one radius
-/// (Dave, 2026-07-20 — the r11 raised keys, the header icon squares), so shape
-/// carries role, rounded-rect = control vs the capsule `CardTagCapsule` = inert
-/// data tag. A dozen call sites still lean on it.
+/// The filter-row vocabulary. Retired 2026-07-25, returned 2026-07-31
+/// (Dave's call) — REBUILT under the current selection law, not
+/// restored from git: the deleted chips wore the retired solid-blue
+/// fill, and these wear `SelectableChip`'s anatomy (tinted ground +
+/// ring + bright ink, 36 pt chip in a 44 pt vertical-only hit frame,
+/// r11). Single-select Menus only in v1 — a multi-select is a list,
+/// not a Menu (ui-interaction.md); a facet that outgrows a Menu gets a
+/// tray, not more Menu.
 enum FilterChipShape {
     static let cornerRadius: CGFloat = Theme.keyRadius
+}
+
+/// One single-select facet: a Menu chip. The active value becomes the
+/// chip's label; "Any" clears. Never value-cycling — the Menu shows a
+/// checkmark on the current pick so state is visible before changing it.
+struct FacetChip<Value: Hashable>: View {
+    let name: String
+    let options: [Value]
+    let display: (Value) -> String
+    @Binding var selection: Value?
+    var identifier: String? = nil
+
+    private var isActive: Bool { selection != nil }
+
+    var body: some View {
+        Menu {
+            Button {
+                selection = nil
+            } label: {
+                if selection == nil {
+                    Label("Any", systemImage: "checkmark")
+                } else {
+                    Text("Any")
+                }
+            }
+            ForEach(options, id: \.self) { option in
+                Button {
+                    selection = option
+                } label: {
+                    if selection == option {
+                        Label(display(option), systemImage: "checkmark")
+                    } else {
+                        Text(display(option))
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Text(selection.map(display) ?? name)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(.caption2, weight: .semibold))
+                    .accessibilityHidden(true)
+            }
+            .font(.system(.footnote, weight: .semibold))
+            .padding(.horizontal, 14)
+            .frame(height: 36)
+            .background(isActive ? Theme.selectedTint : Color.clear)
+            .foregroundStyle(isActive ? Theme.selectedInk : Theme.textPrimary)
+            .clipShape(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius))
+            .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius)
+                .strokeBorder(isActive ? Theme.selectedRing : Theme.borderStrong, lineWidth: 1))
+            // 36 pt chip inside a 44 pt hit target, growing VERTICALLY ONLY
+            // (the SelectableChip alignment lesson, 2026-07-24).
+            .frame(height: 44)
+            .contentShape(Rectangle())
+        }
+        .animation(Theme.Anim.selection, value: isActive)
+        .sensoryFeedback(.selection, trigger: selection)
+        .accessibilityIdentifier(identifier ?? "facet\(name)")
+        .accessibilityLabel("\(name) filter")
+        .accessibilityValue(selection.map(display) ?? "Any")
+    }
+}
+
+/// The mandated active-state summary (design-grammar: "active filters
+/// summarize, never insta-clear"): a selection-look count chip leading
+/// the row, opening a popover that names each active facet's value,
+/// says how far the list narrowed, and holds Clear all. `total` is a
+/// closure so the unfiltered count is computed only when the popover
+/// opens, never per keystroke.
+struct FilterSummaryChip: View {
+    let facets: [ActiveFacet]
+    let shown: Int
+    let total: () -> Int
+    let onClearAll: () -> Void
+
+    @State private var showingDetail = false
+
+    var body: some View {
+        Button {
+            showingDetail = true
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "line.3.horizontal.decrease")
+                    .font(.system(.caption2, weight: .semibold))
+                    .accessibilityHidden(true)
+                Text("\(facets.count)")
+            }
+            .font(.system(.footnote, weight: .semibold))
+            .padding(.horizontal, 12)
+            .frame(height: 36)
+            .background(Theme.selectedTint)
+            .foregroundStyle(Theme.selectedInk)
+            .clipShape(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius))
+            .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius)
+                .strokeBorder(Theme.selectedRing, lineWidth: 1))
+            .frame(height: 44)
+            .contentShape(Rectangle())
+        }
+        .accessibilityIdentifier("filterSummary")
+        .accessibilityLabel("Active filters")
+        .accessibilityValue("\(facets.count)")
+        .popover(isPresented: $showingDetail, arrowEdge: .top) {
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(facets) { facet in
+                    HStack(spacing: 6) {
+                        Text(facet.name)
+                            .foregroundStyle(Theme.textSecondary)
+                        Text(facet.value)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(Theme.textPrimary)
+                    }
+                    .font(.system(.footnote))
+                }
+                Text("\(shown) of \(total()) shown")
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(Theme.textFaint)
+                QuietKey(label: "Clear all", identifier: "clearAllFilters") {
+                    showingDetail = false
+                    onClearAll()
+                }
+            }
+            .padding(16)
+            .presentationCompactAdaptation(.popover)
+        }
+    }
 }

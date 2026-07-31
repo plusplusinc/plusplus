@@ -473,6 +473,37 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(app.buttons["startWorkoutButton"].waitForExistence(timeout: 5))
     }
 
+    /// The facet row (filtering returns, 2026-07-31): a muscle chip
+    /// narrows the Exercises catalog, the summary chip appears, and
+    /// Clear all restores the full list. First-screen elements only
+    /// (the lazy-list law): equipment-free chest movers are a short
+    /// doable run, so Push-Up realizes; after clearing, the list leads
+    /// with the early-alphabet mobility rows.
+    func testExerciseFilterNarrowsAndClears() throws {
+        goToCatalog("exercises")
+
+        let muscleChip = app.buttons["facetMuscle"]
+        XCTAssertTrue(muscleChip.waitForExistence(timeout: 10), "the facet row rides the catalog")
+        muscleChip.tap()
+        let chest = app.buttons["Chest"]
+        XCTAssertTrue(chest.waitForExistence(timeout: 5), "the muscle menu offers Chest")
+        chest.tap()
+
+        XCTAssertTrue(app.staticTexts["Push-Up"].waitForExistence(timeout: 5), "a chest row survives the filter")
+        snap("exercise-filter-chest")
+
+        let summary = app.buttons["filterSummary"]
+        XCTAssertTrue(summary.waitForExistence(timeout: 5), "active filters summarize")
+        summary.tap()
+        let clearAll = app.buttons["clearAllFilters"]
+        XCTAssertTrue(clearAll.waitForExistence(timeout: 5), "the summary popover holds Clear all")
+        clearAll.tap()
+
+        // A non-chest row near the top of the full run proves the clear.
+        XCTAssertTrue(app.staticTexts["Arm Circles"].waitForExistence(timeout: 5), "clearing restores the whole catalog")
+        XCTAssertFalse(summary.exists, "the summary chip leaves with the filters")
+    }
+
     func testExecuteWorkoutAndSeeHistory() throws {
         createRoutine(named: "Quick Session")
         addExercise(searching: "Push-Up")
