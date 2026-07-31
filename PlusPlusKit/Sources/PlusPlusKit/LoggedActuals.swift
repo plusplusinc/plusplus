@@ -53,17 +53,24 @@ public enum LoggedActuals {
     /// Pace over one effort, from its own measured distance and elapsed
     /// time — a per-piece split rather than the whole session's average,
     /// which is what an interval workout actually wants.
+    /// ⚠️ Pass the PROFILE's reference wherever you have one, exactly as
+    /// `CardioTargets.derive` asks: the unit's own convention is only a
+    /// fallback, and it is wrong for the case `PaceReference` exists for —
+    /// a metric pool is denominated in meters and splits per 100, where
+    /// the unit alone would say per 500 and print a swim's pace 5x slow.
     public static func pace(
         distance: Double?,
         elapsedSeconds: Double?,
-        unit: DistanceUnit
+        unit: DistanceUnit,
+        paceReference: PaceReference? = nil
     ) -> Double? {
         CardioTargets.derive(
             .pace,
             distance: distance,
             durationSeconds: elapsedSeconds,
             paceSeconds: nil,
-            unit: unit
+            unit: unit,
+            paceReference: paceReference
         )
     }
 }
