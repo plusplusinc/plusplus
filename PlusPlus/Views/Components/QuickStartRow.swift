@@ -1,7 +1,7 @@
 import SwiftUI
 import PlusPlusKit
 
-/// Which exercises get a one-tap key in the start tray.
+/// Which exercises get a one-tap key in Today's pinned band.
 ///
 /// Device-local, like the active kit pointer: this is a preference about
 /// how you use this phone, not part of the program, so it stays out of the
@@ -116,6 +116,11 @@ enum QuickStartLabel {
 struct QuickStartRow: View {
     let exercises: [Exercise]
     let onPick: (Exercise) -> Void
+    /// The scratch start — the one way to begin that had no other home
+    /// once the play key died (Dave, build 159: the today card and the
+    /// Routines tab already serve the tray's other rows). It LEADS the
+    /// rack: the universal start anchors, the picked sports follow.
+    let onWorkOut: () -> Void
     let onEdit: () -> Void
 
     @State private var containerWidth: CGFloat = 0
@@ -133,6 +138,7 @@ struct QuickStartRow: View {
     var body: some View {
         let fit = fitting(width: containerWidth)
         HStack(spacing: 8) {
+            trainKey
             ForEach(fit.visible, id: \.persistentModelID) { exercise in
                 sportKey(exercise)
             }
@@ -153,6 +159,33 @@ struct QuickStartRow: View {
             }
         )
         .padding(.horizontal, 16)
+    }
+
+    /// The scratch session: walk in, start logging, keep the result as a
+    /// routine at the finish if it earned it (#239). "Train" is the
+    /// imperative for the workout that isn't one sport — the voice's own
+    /// verb — and the dashed square is the build-as-you-go glyph the
+    /// empty-workout path has always worn.
+    private var trainKey: some View {
+        Button(action: onWorkOut) {
+            HStack(spacing: 7) {
+                Image(systemName: "plus.square.dashed")
+                    .font(.system(.footnote, weight: .semibold))
+                    .accessibilityHidden(true)
+                Text("Train")
+                    .font(.system(.footnote, weight: .semibold))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(Theme.textPrimary)
+            .padding(.horizontal, 14)
+            .frame(minHeight: 42)
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+            .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius)
+                .strokeBorder(Theme.borderStrong))
+        }
+        .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: Theme.keyRadius, travel: 3))
+        .accessibilityLabel("Train, build the workout as you go")
+        .accessibilityIdentifier("quickStartTrain")
     }
 
     private func sportKey(_ exercise: Exercise) -> some View {
@@ -229,7 +262,8 @@ struct QuickStartRow: View {
         guard width > 0, exercises.count > 1 else { return (exercises, []) }
         let spacing: CGFloat = 8
         let widths = exercises.map { Self.keyWidth(label(for: $0), hasGlyph: true) }
-        var used: CGFloat = Self.editKeyWidth
+        // The Train and edit keys always show; sports fit around them.
+        var used: CGFloat = Self.keyWidth("Train", hasGlyph: true) + spacing + Self.editKeyWidth
         var shown = 0
         for index in exercises.indices {
             let next = used + spacing + widths[index]

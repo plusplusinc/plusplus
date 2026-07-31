@@ -46,17 +46,13 @@ struct TodayView: View {
         EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)
     }
 
-    @State private var showingSwapIn = false
-    @State private var swapInPick: Routine?
-    /// Programmatic pushes (#208: land in a routine created from the
-    /// swap-in tray).
+    /// Programmatic pushes (#208: land in a freshly created routine).
     @State private var todayPath = NavigationPath()
     @State private var showingNewRoutine = false
-    @State private var pendingCreateFromSwapIn = false
-    @State private var pendingStartEmpty = false
-    /// The config sheet's committed Start, carried across its dismissal
-    /// for the same reason as the flags above — the session cover must
-    /// not present in the sheet's own dismissing transaction.
+    /// The config sheet's committed Start, carried across its dismissal:
+    /// presenting the session cover in the sheet's own dismissing
+    /// transaction is the documented presentation-drop class, so the
+    /// sheet sets this and `onDismiss` acts.
     @State private var pendingStartQuickConfig: SessionExerciseConfig?
     @State private var newRoutineName = ""
     /// Hero zooms (#216): starting a workout grows the pending card
@@ -69,10 +65,7 @@ struct TodayView: View {
     /// The two-step "Schedule a routine" tray (pick a routine → schedule it),
     /// opened from the rest-day card's schedule offer (2026-07-24).
     @State private var showingScheduleRoutine = false
-    /// Quick start (2026-07-30). The pending flags exist for the same
-    /// reason `pendingStartEmpty` does: a sheet presented from a sheet
-    /// that is still dismissing is the documented presentation-drop class,
-    /// so the tray sets a flag and `onDismiss` acts.
+    /// Quick start (2026-07-30): the picked sports on the pinned band.
     @AppStorage(QuickStartPicks.key) private var quickStartRaw = QuickStartPicks.raw(from: QuickStartPicks.fallback)
     @State private var quickStartConfig: SessionExerciseConfig?
     @State private var editingQuickStarts = false
@@ -185,12 +178,10 @@ struct TodayView: View {
         dynamicTypeSize.isAccessibilitySize ? 2 : 1
     }
 
-    /// Startable routines for the start tray (#208): empty routines
-    /// can't stage (the 0-set-session bug class), so they don't appear.
-    /// The rest-day card still gates on candidates existing; the header
-    /// start button (#266) opens the tray unconditionally — its create
-    /// and empty-workout rows carry the no-candidates case.
-    private var swapInCandidates: [Routine] {
+    /// Startable routines (#208): empty routines can't stage (the
+    /// 0-set-session bug class), so they don't count. Gates the rest-day
+    /// card's creation-vs-prompt branch and the schedule offer.
+    private var startableRoutines: [Routine] {
         routines.filter { !$0.groups.isEmpty }
     }
 
@@ -311,7 +302,7 @@ struct TodayView: View {
                                 // (promptsWorkout) still shows.
                                 if dueRoutines.isEmpty && missedEntries.isEmpty
                                     && !(completedAnyToday && !promptsWorkout)
-                                    && (!setupActive || allSetupDone || !swapInCandidates.isEmpty) {
+                                    && (!setupActive || allSetupDone || !startableRoutines.isEmpty) {
                                     restDayItem
                                 }
                                 ForEach(dueButEmptyRoutines) { routine in
@@ -575,14 +566,11 @@ struct TodayView: View {
                 // capsule — same as the catalog tabs.
                 ToolbarItem(placement: .topBarLeading) { AppMenuKey() }
                     .sharedBackgroundVisibility(.hidden)
-                // Settings' old seat starts workouts instead (#266): the one
-                // action that should never be more than a tap away.
-                ToolbarItem(placement: .topBarTrailing) {
-                    HeaderIconButton(systemImage: "play.fill", accessibilityLabel: "Start a workout", identifier: "startTrayButton") {
-                        showingSwapIn = true
-                    }
-                }
-                .sharedBackgroundVisibility(.hidden)
+                // ⚠️ NO trailing play key (Dave, build 159, retiring #266's
+                // tray with it): every start it offered has a first-class
+                // home — today's routine on its own card, the routine
+                // library on its tab, and the scratch start as the band's
+                // Train key. A second door to each is chrome, not access.
             }
             .navigationDestination(for: RoutineRef.self) { ref in
                 // Resolve by stable uuid, not by pushing the @Model (whose
@@ -608,35 +596,9 @@ struct TodayView: View {
             // catalog, 2026-07-24: templates are found/added on the Find or
             // create stack now, which registers its own; nothing pushes a
             // template onto Today's path anymore.)
-            .sheet(isPresented: $showingSwapIn, onDismiss: {
-                // Start only once the sheet is fully gone: dismissing a
-                // sheet and presenting a cover in one transaction can
-                // drop the presentation — with the session already
-                // inserted, that left an invisible orphan (bug hunt).
-                if let routine = swapInPick {
-                    swapInPick = nil
-                    start(routine)
-                } else if pendingCreateFromSwapIn {
-                    pendingCreateFromSwapIn = false
-                    showingNewRoutine = true
-                } else if pendingStartEmpty {
-                    pendingStartEmpty = false
-                    startEmptySession()
-                }
-            }) {
-                SwapInSheet(routines: swapInCandidates, dueIDs: Set(dueRoutines.map(\.persistentModelID)), onPick: { routine in
-                    swapInPick = routine
-                    showingSwapIn = false
-                }, onCreate: {
-                    // Same drop class as swapInPick above: the alert
-                    // waits for the sheet to finish dismissing.
-                    pendingCreateFromSwapIn = true
-                    showingSwapIn = false
-                }, onStartEmpty: {
-                    pendingStartEmpty = true
-                    showingSwapIn = false
-                })
-            }
+            // (The start tray died with the play key, build 159: today's
+            // routine starts from its card, routines start from their
+            // tab, and the scratch start is the band's Train key.)
             .sheet(isPresented: $showingScheduleRoutine) {
                 ScheduleRoutineTray(routines: routines)
             }
@@ -1086,6 +1048,7 @@ struct TodayView: View {
                 QuickStartRow(
                     exercises: quickStartExercises,
                     onPick: { quickStartConfig = SessionExerciseConfig(exercise: $0) },
+                    onWorkOut: { startEmptySession() },
                     onEdit: { editingQuickStarts = true }
                 )
             }
@@ -1451,13 +1414,10 @@ struct TodayView: View {
         // routine must never become a committed 0-set session.
         guard !routine.groups.isEmpty else { return }
         // Re-checked at FIRE time, not just tap time: StartFlashButton
-        // defers ~0.85 s, long enough for a second Start to flash
-        // (double-start orphan) or the start tray to present — setting
-        // activeSession under a live sheet is the documented
-        // presentation-drop class, and a dropped cover with a non-nil
-        // activeSession would wedge every future start and salvage
-        // (swift-reviewer). A tap that raced the tray simply loses.
-        guard activeSession == nil, !showingSwapIn else { return }
+        // defers ~0.85 s, long enough for a second Start to flash — and a
+        // double start orphans a session, which would wedge every future
+        // start and salvage (swift-reviewer). The later tap simply loses.
+        guard activeSession == nil else { return }
         // First workout gets the Health primer; after that (or under UI
         // test) this begins immediately. The start runs from the primer's
         // onDismiss, so re-check activeSession at fire time — the sheet can
@@ -1949,16 +1909,14 @@ struct TodayView: View {
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(Theme.textSecondary)
                 // A true rest day carries NO start key (Dave, 2026-07-12):
-                // rest is the point, swapping in a workout is possible but
-                // not primary — the header's play key (always a tap away)
-                // owns starting. The card only offers an action when it's
-                // NOT resting: creation when no routine can start, or the
-                // "Work out now" prompt when one is due-but-empty / mid-setup.
-                if swapInCandidates.isEmpty {
-                    // No candidates → no dead tray (#208): offer
-                    // creation directly instead, with the no-plan
-                    // escape (#239) beside it — the tray's picker
-                    // would be empty, so the card keeps both paths.
+                // rest is the point, and the pinned band's keys stay a tap
+                // away for a workout anyway. The card only offers an
+                // action when it's NOT resting: creation when no routine
+                // can start, or the "Start a workout" prompt when one is
+                // due-but-empty / mid-setup.
+                if startableRoutines.isEmpty {
+                    // No startable routine → offer creation directly,
+                    // with the no-plan escape (#239) beside it.
                     Button {
                         showingNewRoutine = true
                     } label: {
@@ -1987,17 +1945,16 @@ struct TodayView: View {
                     // first-workout step). Keep the start key here — the
                     // rest-day silence would misread as "nothing to do".
                     Button {
-                        showingSwapIn = true
+                        startEmptySession()
                     } label: {
                         HStack(spacing: 6) {
-                            // play.fill, not the old swap arrows: the
-                            // button STARTS something (same glyph as
-                            // the header's start key); "swap" was a
-                            // pre-#266 framing this card outgrew.
+                            // play.fill: the button STARTS something. It
+                            // begins a build-as-you-go session directly —
+                            // the start tray died with the play key
+                            // (build 159); routines start from their own
+                            // cards and the Routines tab.
                             Image(systemName: "play.fill")
                                 .font(.system(.caption, weight: .semibold))
-                            // Shares the tray's vocabulary ("Start a
-                            // workout") since #266 retitled it.
                             Text("Start a workout")
                                 .font(.system(.footnote, weight: .semibold))
                                 .lineLimit(1)
@@ -2010,7 +1967,7 @@ struct TodayView: View {
                         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.borderStrong))
                     }
                     .buttonStyle(.raisedKey(cornerRadius: 10))
-                    .accessibilityIdentifier("swapInButton")
+                    .accessibilityIdentifier("startWorkoutButton")
                 }
                 // The schedule offer (#246): routines exist, none
                 // scheduled, and nothing on Today ever said scheduling
@@ -2018,7 +1975,7 @@ struct TodayView: View {
                 // schedule does. Below the action: it's a footnote-
                 // weight suggestion, not this card's job. During setup
                 // the scaffold's own step is the offer.
-                if !setupActive, !scheduledRoutinesExist, !swapInCandidates.isEmpty {
+                if !setupActive, !scheduledRoutinesExist, !startableRoutines.isEmpty {
                     QuietKey(
                         label: "Schedule a routine",
                         identifier: "scheduleOfferButton"
@@ -2391,293 +2348,6 @@ private struct SetupRow: View {
     }
 }
 
-/// The start tray behind the play key: what you CHOOSE, likeliest
-/// first — today's scheduled routine primed (build 159's merge, its
-/// surviving piece), then "Choose a routine" (PUSHES the picker: rows +
-/// creation) and the no-plan escape. ⚠️ The quick-start rack is NOT
-/// here: the band is pinned, so a copy in this tray put identical UI on
-/// screen twice at once (Dave, build 159 — see the menu comment).
-/// Choosing anything starts it — it commits to the timeline like any
-/// other session. The push became a real `NavigationStack` on
-/// 2026-07-28; it used to be a hand-rolled slide. The root SCROLLS: at
-/// accessibility type sizes the sections outgrow the `.medium` detent,
-/// and content below a fold with no scroll is unreachable (the job the
-/// retired ScaledMetric detent used to do).
-private struct SwapInSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    let routines: [Routine]
-    /// Routines due today — the primed key at the top, and the pill in
-    /// the picker; everyone else shows their cadence.
-    let dueIDs: Set<PersistentIdentifier>
-    let onPick: (Routine) -> Void
-    let onCreate: () -> Void
-    let onStartEmpty: () -> Void
-
-    /// One route, but an explicit path rather than a bare `NavigationLink`
-    /// — the host owns the stack (ui-interaction.md), and depth once drove
-    /// the detent. The two-keys-tall compact detent died in build 159's
-    /// tray round (the primed today key made the root three keys tall):
-    /// `.medium` is the honest height for both stages now.
-    private enum Route: Hashable { case picker }
-
-    @State private var path: [Route] = []
-
-    var body: some View {
-        // A real NavigationStack, not the hand-rolled stage slide it
-        // shipped with (2026-07-28) — see .claude/rules/ui-interaction.md.
-        NavigationStack(path: $path) {
-            VStack(alignment: .leading, spacing: 0) {
-                // "Start a workout", not "Swap in": the header's start
-                // button opens this same tray (#266), and starting is what
-                // every path in it does.
-                SheetHeader(title: "Start a workout", closeOnly: true) { dismiss() }
-                // ⚠️ The menu SCROLLS (swift-reviewer): the retired
-                // ScaledMetric detent grew with Dynamic Type, and the
-                // fixed .medium that replaced it does not — at AX sizes
-                // the four sections sum past the fold, and a key below
-                // an unscrollable fold is unreachable chrome. The pushed
-                // picker already scrolls; now both stages do.
-                ScrollView {
-                    menu
-                        // Clearance for the last cap's 3 pt plate, so the
-                        // press travel never clips at the scroll's edge.
-                        .padding(.bottom, 8)
-                }
-            }
-            .padding(.horizontal, 18)
-            .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(for: Route.self) { _ in
-                picker
-                    .navigationTitle("Choose a routine")
-                    .navigationBarTitleDisplayMode(.inline)
-            }
-        }
-        .presentationBackground(Theme.background)
-        .presentationDetents([.medium, .large])
-    }
-
-    // MARK: - What you choose to start
-
-    /// The routine to prime at the top: today's scheduled one, when it
-    /// exists. First due wins — multiple dues are rare and the picker
-    /// (one key down) pills every one of them.
-    private var dueToday: Routine? {
-        routines.first { dueIDs.contains($0.persistentModelID) }
-    }
-
-    private var menu: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            // Today's plan leads when one is scheduled — the likeliest
-            // intent behind the play key, one tap deep. Green start
-            // grammar is lawful here: this IS today's occurrence.
-            if let routine = dueToday {
-                Button {
-                    onPick(routine)
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "play.fill")
-                            .font(.system(.subheadline, weight: .semibold))
-                            .foregroundStyle(Theme.accent)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(routine.name)
-                                .font(.system(.footnote, weight: .semibold))
-                                .lineLimit(1).minimumScaleFactor(0.6)
-                            Text("scheduled today")
-                                .font(.system(.caption2, design: .monospaced))
-                                .foregroundStyle(Theme.textFaint)
-                        }
-                        Spacer(minLength: 8)
-                        CardTagCapsule(text: "today", tint: Theme.accent)
-                    }
-                    .foregroundStyle(Theme.textPrimary)
-                    .padding(.horizontal, 14)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .frame(minHeight: 56)
-                    .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
-                    .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
-                }
-                .buttonStyle(.raisedKey())
-                .accessibilityIdentifier("swapInTodayRoutine")
-            }
-
-            // ⚠️ The quick-start rack is deliberately NOT here (Dave,
-            // build 159, closing the merge question): the band is PINNED,
-            // so a copy in this tray put identical UI on screen twice at
-            // once — redundancy, not completeness. The primed key above
-            // is the merge's surviving piece; the rack is the band's
-            // alone, and this tray holds what you CHOOSE.
-            Button {
-                path.append(.picker)
-            } label: {
-                HStack(spacing: 10) {
-                    // The Routines tab's own glyph: this key drills
-                    // into that library.
-                    Image(systemName: "square.stack")
-                        .font(.system(.subheadline, weight: .semibold))
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("Choose a routine")
-                            .font(.system(.footnote, weight: .semibold))
-                            .lineLimit(1).minimumScaleFactor(0.6)
-                        Text(routineCountCaption)
-                            .font(.system(.caption2, design: .monospaced))
-                            .foregroundStyle(Theme.textFaint)
-                            .lineLimit(1).minimumScaleFactor(0.6)
-                    }
-                    Spacer(minLength: 8)
-                    Image(systemName: "chevron.right")
-                        .font(.system(.caption2, weight: .bold))
-                        .foregroundStyle(Theme.textFaint)
-                }
-                .foregroundStyle(Theme.textPrimary)
-                .padding(.horizontal, 14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(minHeight: 56)
-                .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
-                .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
-            }
-            .buttonStyle(.raisedKey())
-            .accessibilityIdentifier("chooseRoutineButton")
-
-            // The no-plan path (#239): walk in, start logging, keep the
-            // result as a routine at the finish if it earned it. A full
-            // primary key equal to "Choose a routine" (Dave, build-78) —
-            // the two ways to start now read as siblings of equal weight.
-            Button {
-                onStartEmpty()
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: "plus.square.dashed")
-                        .font(.system(.subheadline, weight: .semibold))
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("Work out now")
-                            .font(.system(.footnote, weight: .semibold))
-                            .lineLimit(1).minimumScaleFactor(0.6)
-                        Text("build the routine as you go")
-                            .font(.system(.caption2, design: .monospaced))
-                            .foregroundStyle(Theme.textFaint)
-                            .lineLimit(1).minimumScaleFactor(0.6)
-                    }
-                    Spacer(minLength: 8)
-                }
-                .foregroundStyle(Theme.textPrimary)
-                .padding(.horizontal, 14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(minHeight: 56)
-                .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
-                .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
-            }
-            .buttonStyle(.raisedKey())
-            .accessibilityIdentifier("swapInStartEmpty")
-        }
-        .padding(.top, 14)
-    }
-
-    private var routineCountCaption: String {
-        routines.isEmpty
-            ? "none startable yet"
-            : "\(routines.count) routine\(routines.count == 1 ? "" : "s")"
-    }
-
-    // MARK: - The routine picker, pushed
-
-    private var picker: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                if routines.isEmpty {
-                    // Only empty routines (or none) exist — name the
-                    // state; the creation key below is the fix.
-                    Text("nothing startable yet · a routine needs at least one exercise")
-                        .font(.system(.caption, design: .monospaced))
-                        .foregroundStyle(Theme.textFaint)
-                        .padding(.vertical, 10)
-                }
-                ForEach(routines) { routine in
-                    Button {
-                        onPick(routine)
-                    } label: {
-                        HStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(routine.name)
-                                    .font(.system(.subheadline, weight: .semibold))
-                                    .foregroundStyle(Theme.textPrimary)
-                                    .lineLimit(2)
-                                Text(rowCaption(for: routine))
-                                    .font(.system(.caption2, design: .monospaced))
-                                    .foregroundStyle(Theme.textFaint)
-                                    .lineLimit(1)
-                            }
-                            Spacer(minLength: 8)
-                            if dueIDs.contains(routine.persistentModelID) {
-                                // Green data tag: today's occurrence is
-                                // data (the next increment), not
-                                // selection — soft r6, no stroke (the
-                                // stroked capsule predated the
-                                // 2026-07-20 shape sweep).
-                                CardTagCapsule(text: "today", tint: Theme.accent)
-                            } else {
-                                Text(routine.schedule.shortLabel)
-                                    .font(.system(.caption2, design: .monospaced))
-                                    .foregroundStyle(Theme.textFaint)
-                            }
-                        }
-                        .frame(minHeight: 52)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .overlay(alignment: .bottom) { Divider().overlay(Theme.border) }
-                }
-
-                // Creation lives in the picker (Dave, build-45) —
-                // green content on a raised key, like every in-list
-                // creation row.
-                Button {
-                    onCreate()
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "plus")
-                            .font(.system(.caption, weight: .semibold))
-                        Text("New routine")
-                            .font(.system(.footnote, weight: .semibold))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.6)
-                    }
-                    .foregroundStyle(Theme.accent)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 14)
-                    .frame(minHeight: 48)
-                    .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: Theme.controlRadius)
-                            .strokeBorder(Theme.borderStrong)
-                    )
-                }
-                .buttonStyle(.raisedKey(cornerRadius: Theme.controlRadius))
-                .accessibilityIdentifier("swapInCreateRoutine")
-                .padding(.top, 14)
-
-                // Only when something IS scheduled today — on a rest
-                // day there's no swap to explain.
-                if !dueIDs.isEmpty {
-                    Text("picking a different routine here IS the swap · it runs today without rescheduling")
-                        .font(.system(.caption2, design: .monospaced))
-                        .foregroundStyle(Theme.textFaint)
-                        .padding(.top, 10)
-                }
-            }
-            .padding(.top, 4)
-            .padding(.bottom, 24)
-            // The pushed screen carries the gutters itself: the root's
-            // padding stops at the root.
-            .padding(.horizontal, 18)
-        }
-    }
-
-    /// "6 exercises · ~40 min" — the go/no-go facts for picking.
-    private func rowCaption(for routine: Routine) -> String {
-        let count = routine.sortedGroups.reduce(0) { $0 + $1.sortedExercises.count }
-        return "\(count) exercise\(count == 1 ? "" : "s") · \(routine.estimateText)"
-    }
-}
 
 /// The "Schedule a routine" tray (Dave, 2026-07-24): PICK a routine, then
 /// push its SCHEDULER. Reached from the rest-day card's schedule offer, and

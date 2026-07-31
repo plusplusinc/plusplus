@@ -267,8 +267,11 @@ this surface the control effectively is.
 
 A **tab root** wears the SYSTEM navigation bar — `.navigationTitle` +
 `.navigationBarTitleDisplayMode(.large)`, the ++ key (`AppMenuKey`) as a
-leading `ToolbarItem` and the root's own accessory (Today's Start key, the
-catalogs' kit switcher) as a trailing one. Both keys carry
+leading `ToolbarItem` and the root's own accessory (the catalogs' kit
+switcher) as a trailing one — Today carries NONE since build 159: the play
+key and its start tray are deleted, the pinned band holds every start
+(sport keys + the Train key), and routines start from their own cards and
+the Routines tab. Both keys carry
 **`.sharedBackgroundVisibility(.hidden)`** — they bring their own raised-key
 chrome and would otherwise nest inside the toolbar's shared glass (a box in a
 box). ⚠️ **A tab root must NOT hide its navigation bar.** `.searchable` AND
