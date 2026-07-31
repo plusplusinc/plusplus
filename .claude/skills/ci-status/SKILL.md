@@ -5,10 +5,22 @@ description: Check, diagnose, and rerun PlusPlus CI from a remote (Linux) Claude
 
 # CI status and diagnosis from a remote session
 
-The sandbox cannot reach Actions job logs or artifacts (they live on Azure
-blob storage, which the network policy blocks with 403 on CONNECT). Use
-these paths instead; they are all reachable and need no auth on this
-public repo.
+The sandbox cannot reach Actions **artifacts** (they live on Azure blob
+storage, which the network policy blocks — a `curl` of the download URL dies
+on CONNECT). Job **logs** it CAN reach, through the GitHub MCP rather than
+`curl`:
+
+```
+mcp__github__get_job_logs  { job_id, return_content: true, tail_lines: 200 }
+```
+
+⚠️ That corrects a claim this skill carried until 2026-07-30, which sent
+several sessions hunting for evidence they already had access to. The check
+run's id IS the job id, so `.../commits/<SHA>/check-runs` → `id` feeds
+straight in. `tail_lines` defaults to 500 and the log runs to thousands, so
+ask for the tail you need — the failure summary is at the end.
+
+The paths below are all reachable and need no auth on this public repo.
 
 ## Check state
 
@@ -22,12 +34,15 @@ curl -s "https://api.github.com/repos/plusplusinc/plusplus/actions/runs?branch=m
 ```
 
 ⚠️ **`kit-test` can fail for a non-Swift reason**: its first step is the agent-doc size
-budget (2026-07-28) — **25 KB** on CLAUDE.md, and a **~2 KB line-length cap** on CLAUDE.md
-and every `.claude/rules/*.md`. It rides an already-required job so the budget binds without
-a branch-protection change. `docs/DECISIONS.md` is deliberately exempt: it is append-only and
-its long entries are the record, not drift.
+budget (2026-07-28; per-rules-file cap 2026-07-31) — **25 KB** on CLAUDE.md, **24 KB** per
+`.claude/rules/*.md` file, and a **~2 KB line-length cap** on CLAUDE.md and every rules
+file. It rides an already-required job so the budget binds without a branch-protection
+change. `docs/DECISIONS.md` is deliberately exempt: it is append-only and its long entries
+are the record, not drift.
 
-Annotations read `CLAUDE.md too large` or `Line too long in <file>`. The fix is to move
+Annotations read `CLAUDE.md too large`, `<rules file> too large`, or `Line too long in
+<file>`. For an oversized rules file, split it by path scope (narrower `paths:`
+frontmatter) or move history to docs/DECISIONS.md — don't raise the cap. Otherwise the fix is to move
 detail into docs/DECISIONS.md (dated entry) or a path-scoped rules file, and to add a NEW
 line rather than grow an existing one — **never to raise the limit**. Swift never ran in that
 case, so don't go hunting a test failure. The line cap is not only about merge conflicts: the
@@ -46,6 +61,22 @@ curl -s "https://api.github.com/repos/plusplusinc/plusplus/check-runs/<CHECK_RUN
 Annotations titled "CI failure detail" carry the grep of xcodebuild.log
 (failing test names, Fatal error lines, TEST FAILED). If they're missing,
 the failure predates the annotation step or the job died before it ran.
+
+## ⚠️ ui-test is not required, so check it deliberately
+
+`test`, `kit-test` and `cli-test` gate main. `ui-test` does not — and a
+non-required check can sit red for weeks without anyone noticing. It was red
+on every push to main from 2026-07-24 to 2026-07-30 (22 of them, and two
+TestFlight builds) while the required three went green every time (#483).
+
+Since 2026-07-30 a red `ui-test` on **main** files one tracking issue titled
+"ui-test is red on main" and then stays quiet until that issue is closed, so
+the state reaches the backlog exactly once instead of never. **An open issue
+with that title means the suite is currently red** — a later red push adds
+nothing, by design.
+
+Making it required was considered and rejected: it is the slowest job and has
+two documented flake modes below, so one bad runner would block every merge.
 
 ## Known flake modes (check before suspecting code)
 

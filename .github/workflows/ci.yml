@@ -112,8 +112,11 @@ jobs:
       - name: Agent-doc size budget
         shell: bash
         run: |
-          max_bytes=25600   # 25 KB — CLAUDE.md only (it loads every session)
-          max_line=2048     # ~2 KB any single line, in every agent doc
+          max_bytes=25600        # 25 KB — CLAUDE.md only (it loads every session)
+          max_rule_bytes=24576   # 24 KB per rules file (added 2026-07-31: app-surfaces.md
+                                 # hit 48 KB and loaded on every app-code task; split it
+                                 # by path scope when this cap binds, don't raise it)
+          max_line=2048          # ~2 KB any single line, in every agent doc
           fail=0
 
           bytes=$(wc -c < CLAUDE.md)
@@ -123,12 +126,21 @@ jobs:
           fi
           echo "CLAUDE.md: ${bytes} bytes (budget ${max_bytes})"
 
+          for f in .claude/rules/*.md; do
+            [ -f "$f" ] || continue
+            rbytes=$(wc -c < "$f")
+            if [ "$rbytes" -gt "$max_rule_bytes" ]; then
+              echo "::error title=${f} too large::${rbytes} bytes exceeds the ${max_rule_bytes}-byte per-rules-file budget. Split by path scope (narrower paths: frontmatter), or move history to docs/DECISIONS.md — rules hold current laws, not changelogs."
+              fail=1
+            fi
+            echo "  ${f}: ${rbytes} bytes (budget ${max_rule_bytes})"
+          done
+
           # Line length applies to the RULES files too — app-surfaces.md grew an
           # 8.7 KB paragraph the same way, and it had drifted into stating things
-          # that were no longer true (2026-07-28). No byte budget on these: they
-          # are path-scoped and load lazily, so length is fine and a mega-line
-          # is not. DECISIONS.md is deliberately EXEMPT — append-only, and its
-          # long entries are the record, not drift.
+          # that were no longer true (2026-07-28). DECISIONS.md is deliberately
+          # EXEMPT from every budget — append-only, and its long entries are the
+          # record, not drift.
           for f in CLAUDE.md .claude/rules/*.md; do
             [ -f "$f" ] || continue
             longest=$(awk '{ if (length($0) > m) { m = length($0); n = NR } } END { print m ":" n }' "$f")
@@ -192,6 +204,11 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
     runs-on: macos-26
     timeout-minutes: 45
+    # For the tracking issue below. Scoped to this job, so nothing else in
+    # the workflow gains write access.
+    permissions:
+      contents: read
+      issues: write
     steps:
       - uses: actions/checkout@v4
 
@@ -274,3 +291,45 @@ jobs:
             echo "::error title=ui-test failure detail::$(echo "$line" | tr -d '\r' | cut -c1-400)"
           done
           exit 0
+
+      # ui-test is NOT a required check, and a non-required check can sit red
+      # indefinitely with nobody finding out: it failed on every push to main
+      # from 2026-07-24 to 2026-07-30 — 22 of them — while the three required
+      # checks went green and merged each one, and two TestFlight builds
+      # shipped in that state (#483). Making it required is the wrong trade:
+      # it is the slowest job and has two documented flake modes, so a bad
+      # runner would block every merge. Instead a red main opens ONE tracking
+      # issue and then stays quiet until that issue is closed, which turns a
+      # silent red into something that reaches the backlog exactly once.
+      - name: File a tracking issue when main's smoke suite is red
+        if: failure() && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          TITLE="ui-test is red on main"
+          EXISTING=$(gh issue list --state open --search "in:title \"$TITLE\"" --json number --jq '.[0].number // empty' 2>/dev/null || true)
+          if [ -n "$EXISTING" ]; then
+            echo "Already tracked in #$EXISTING; staying quiet."
+            exit 0
+          fi
+          FAILING=$(grep -oE "SmokeTests.swift:[0-9]+: error: -\[[^]]+\]" ui-xcodebuild.log 2>/dev/null | sort -u | head -8 || true)
+          gh issue create --title "$TITLE" --body "$(printf '%s\n' \
+            "The UI smoke suite failed on a push to \`main\` (\`${GITHUB_SHA}\`)." \
+            "" \
+            "It is not a required check, so the merge went through on the three that are." \
+            "" \
+            "Failing:" \
+            '```' \
+            "${FAILING:-see the run}" \
+            '```' \
+            "" \
+            "Run: ${RUN_URL}" \
+            "" \
+            "The \`ui-screenshots\` artifact on that run shows what the app actually rendered at each step." \
+            "" \
+            "This issue is filed once and not repeated: while it is open, later red runs stay quiet. Close it when the suite is green." \
+            "" \
+            "---" \
+            "_Generated by [Claude Code](https://claude.ai/code)_")" \
+            || echo "::warning title=tracking issue::could not file one (needs issues: write)"

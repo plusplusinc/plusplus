@@ -140,9 +140,7 @@ final class SmokeTests: XCTestCase {
         // library root (so a delete from the new routine returns to the
         // library, not the catalog), a single Back returns straight to the
         // list — there is no intermediate catalog to step through.
-        let back = app.buttons["backButton"]
-        XCTAssertTrue(back.waitForExistence(timeout: 5))
-        back.tap()
+        tapBack("routine detail")
 
         let card = app.staticTexts["Swipe Target"]
         XCTAssertTrue(card.waitForExistence(timeout: 5))
@@ -165,9 +163,37 @@ final class SmokeTests: XCTestCase {
         // (isHittable is documented false for nonexistent elements, so
         // the predicate is safe whether the closed action is pruned
         // from the tree or merely unhittable).
-        card.tap()
+        // ⚠️ Tap an ABSOLUTE point between the screen's edge and DELETE, not a
+        // normalized offset into the row. The instrumented run gave the reason
+        // outright: with the swipe open the cell's frame is
+        // `(-92,154 420x69)` — it has slid 92 pt LEFT, so its leading fifth is
+        // off the display and a `dx: 0.15` tap landed at x = -29, on nothing
+        // at all. Every earlier round tapped into that dead zone and read the
+        // silence as "the row ignored it".
+        //
+        // Half of DELETE's own minX is inside the visible row content and
+        // clear of the revealed actions, whatever the shift happens to be.
+        let row = app.cells.containing(.staticText, identifier: "Swipe Target").firstMatch
+        let rowTarget = row.exists ? row : card
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: delete.frame.minX / 2, dy: rowTarget.frame.midY))
+            .tap()
         let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == 0"), object: delete)
-        XCTAssertEqual(XCTWaiter().wait(for: [closed], timeout: 3), .completed, "a tap while open must close the row")
+        // ⚠️ The generic inventory is useless here — it returns the tab bar,
+        // not the row. This reports the geometry instead, which is what tells
+        // "the row ignored the tap" apart from "the tap landed somewhere
+        // else": where DELETE is, where the tap went, and whether we ended up
+        // inside the routine.
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [closed], timeout: 3),
+            .completed,
+            """
+            a tap while open must close the row · \
+            DELETE \(rect(delete.frame)) hittable=\(delete.isHittable) · \
+            tapped \(row.exists ? "cell" : "label") \(rect(rowTarget.frame)) · \
+            navigated=\(app.buttons["addExerciseButton"].exists)
+            """
+        )
         XCTAssertFalse(
             app.buttons["addExerciseButton"].waitForExistence(timeout: 3),
             "a tap while open must close, not navigate into the routine"
@@ -311,14 +337,24 @@ final class SmokeTests: XCTestCase {
 
         // Back returns to the RESULTS with the query intact — search is
         // a stack, not a modal (decision A's round-trip promise).
-        app.buttons["backButton"].tap()
+        tapBack("template detail")
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         XCTAssertEqual(field.value as? String, "Bodyweight Basics")
 
         // The native field's own Cancel clears the query; the catalog stays
         // put, since the SCOPE — not the field — decides which one you're on.
-        app.buttons["Cancel"].firstMatch.tap()
-        XCTAssertTrue(plus.waitForExistence(timeout: 5))
+        // ⚠️ It is labelled **Close**, beside a "Clear text" key. The
+        // affordance is the SYSTEM's — the field is morphed out of the
+        // search-role tab — so its noun is not the app's to choose, and
+        // "Cancel" stopped matching when #452 reworked this surface. Both
+        // are accepted: the assertion is about leaving search, not about
+        // which word the platform picked.
+        let cancel = app.buttons
+            .matching(NSPredicate(format: "label IN {'Cancel', 'Close'} OR identifier IN {'Cancel', 'Close'}"))
+            .firstMatch
+        XCTAssertTrue(cancel.waitForExistence(timeout: 5), "the search field's own Close · \(buttonInventory())")
+        cancel.tap()
+        XCTAssertTrue(plus.waitForExistence(timeout: 5), "cancelling search returns the catalog · \(buttonInventory())")
     }
 
     /// The universal surface end to end: open search from the bar, switch to
@@ -480,9 +516,61 @@ final class SmokeTests: XCTestCase {
         // Generous timeouts: on a loaded CI simulator, the first snapshot
         // after navigation can take most of a minute to evaluate.
         XCTAssertTrue(app.staticTexts["Quick Session"].waitForExistence(timeout: 30))
-        app.staticTexts["Quick Session"].tap()
-        XCTAssertTrue(app.staticTexts["Set 1"].waitForExistence(timeout: 15))
+        // ⚠️ Tap the CARD, not its title. The committed card is a
+        // `NavigationLink` whose label is the whole row, and Today prints the
+        // routine's name more than once — the card, and the "Routine created"
+        // entry under it. Tapping the bare text resolved to one that goes
+        // nowhere, and the test then sat on Today waiting for a record it had
+        // never opened.
+        let recordCard = app.buttons["committedSessionCard"].firstMatch
+        XCTAssertTrue(
+            recordCard.waitForExistence(timeout: 10),
+            "the committed card on Today · \(buttonInventory())"
+        )
+        // ⚠️ TWO floating bars, and the card has to clear both. The
+        // navigation bar sits over the top of the timeline and the tab bar
+        // over the bottom; XCUITest models neither as covering, so a card
+        // under either reports hittable and the tap lands on the bar. Dave
+        // confirmed on build 158 that tapping a finished workout opens its
+        // record, so the app was never the problem — the probe kept aiming at
+        // covered points. It has been found under each bar in turn: below the
+        // fold while the setup scaffold held a full viewport, then at y = 52
+        // of a 912 pt screen, tucked under the large title, after zero
+        // scrolls.
+        //
+        // So scroll toward whichever band it is in, rather than assuming the
+        // fold is always the problem, and stop when it is clear of both.
+        let bandHeight: CGFloat = 140
+        var scrolls = 0
+        while scrolls < 8 {
+            let frame = recordCard.frame
+            let clearsTop = frame.minY > bandHeight
+            let clearsBottom = frame.maxY < app.frame.height - bandHeight
+            if recordCard.isHittable, clearsTop, clearsBottom { break }
+            if clearsTop { app.swipeUp() } else { app.swipeDown() }
+            scrolls += 1
+        }
+        // The record lists one row per logged set. Push-Up is equipment-free
+        // weight/reps, so it derives to strength and the row's noun is "Set" —
+        // the work-unit vocabulary does not rewrite this one.
+        //
+        // ⚠️ By absolute coordinate, the same dispatch the swipe row needed:
+        // an element tap goes through accessibility, and every one of those
+        // this flow tried was swallowed.
+        let setRow = app.staticTexts["Set 1"]
+        let card = recordCard.frame
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: card.midX, dy: card.midY))
+            .tap()
         snap("history-detail")
+        XCTAssertTrue(
+            setRow.waitForExistence(timeout: 15),
+            """
+            the record lists the logged sets · \
+            card \(rect(card)) in screen \(rect(app.frame)) after \(scrolls) scrolls · \
+            \(textInventory(6))
+            """
+        )
     }
 
     /// Regression for the third-strike scroll bug: with enough exercises
@@ -552,7 +640,7 @@ final class SmokeTests: XCTestCase {
             XCTAssertTrue(add.waitForExistence(timeout: 5), "\(name) detail should show the kit toggle")
             if (add.value as? String) != "1" { add.tap() }
             XCTAssertTrue(waitForValue(add, "1"), "adding \(name) should flip the kit toggle on")
-            app.buttons["backButton"].firstMatch.tap()
+            tapBack("\(name) detail")
             XCTAssertTrue(setEquipment.waitForExistence(timeout: 5), "back from \(name) detail should land on the catalog")
         }
         setEquipment.tap()
@@ -602,23 +690,34 @@ final class SmokeTests: XCTestCase {
         snap("setup-step3")
         scheduleCTA.tap()
 
-        // Scheduling lives in its own tray now (#429): the pushed
-        // settings page shows a Schedule row that opens it, the tray's
-        // segment reads "Days of the week", and a view-only tray
+        // Scheduling lives in its own tray now (#429): the pushed settings
+        // page shows a Schedule row that opens it, and a view-only tray
         // dismisses with the Done text key.
+        //
+        // ⚠️ The mode is no longer a segment. #445 retired the custom
+        // `SegmentedTabs` control, and multi-word modes moved to a
+        // `NavigationSelectRow` — a row showing the current mode that PUSHES
+        // the option list (a segmented control truncates three phrases). So
+        // reaching "Days of the week" is two taps: open the row, pick the
+        // option. Picking dismisses the pushed screen itself.
         let scheduleRow = app.buttons["scheduleRow"]
         XCTAssertTrue(scheduleRow.waitForExistence(timeout: 5))
         scheduleRow.tap()
-        let daysTab = app.buttons["Days of the week"]
-        XCTAssertTrue(daysTab.waitForExistence(timeout: 5))
-        daysTab.tap()
+
+        let modeRow = app.buttons["scheduleModeRow"]
+        XCTAssertTrue(modeRow.waitForExistence(timeout: 5), "the schedule tray's mode row · \(buttonInventory())")
+        modeRow.tap()
+        let daysOption = app.buttons["Days of the week"]
+        XCTAssertTrue(daysOption.waitForExistence(timeout: 5), "the pushed mode list · \(buttonInventory())")
+        daysOption.tap()
+
         let weekday = Calendar.current.component(.weekday, from: Date())
         let dayChip = app.buttons["scheduleDay\(weekday)"]
-        XCTAssertTrue(dayChip.waitForExistence(timeout: 5))
+        XCTAssertTrue(dayChip.waitForExistence(timeout: 5), "picking weekdays reveals the day chips · \(buttonInventory())")
         dayChip.tap()
         app.buttons["Done"].tap()
         // Then pop routine settings back to Today.
-        app.buttons["backButton"].tap()
+        tapBack("routine settings")
 
         // Scaffold fully committed; the real thing appears above it —
         // Bodyweight Basics staged and startable.
@@ -702,6 +801,60 @@ final class SmokeTests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    /// Pop the pushed screen, whichever chrome it wears.
+    ///
+    /// The app has TWO back controls. Most pushed screens keep
+    /// `pushedScreenChrome`'s custom key (`backButton`): catalog and template
+    /// details, the record, routine settings. Routine detail does NOT — it
+    /// moved to a system large title on 2026-07-29 (#470) for the native
+    /// collapse, and the system supplies Back, so the custom key went with the
+    /// chrome. A helper that knows only one of them walks off a cliff the
+    /// moment a screen changes chrome, which is exactly what happened.
+    private func tapBack(_ context: String, timeout: TimeInterval = 5) {
+        let custom = app.buttons["backButton"]
+        if custom.waitForExistence(timeout: timeout) {
+            custom.tap()
+            return
+        }
+        // The system bar's back button is the leading item; routine detail's
+        // own keys are all trailing.
+        let system = app.navigationBars.buttons.element(boundBy: 0)
+        if system.exists {
+            system.tap()
+            return
+        }
+        XCTFail("no back control on \(context): \(buttonInventory())")
+    }
+
+    /// The buttons currently on screen, for a failure message.
+    ///
+    /// A remote session cannot reach the `ui-screenshots` artifact (it lives
+    /// on blob storage the sandbox is blocked from), but the ui-test job
+    /// publishes assertion text as `::error::` annotations, which the API
+    /// does serve. So when a query misses, the message is the only channel
+    /// that can say what was actually on screen — worth the characters.
+    private func buttonInventory(_ limit: Int = 10) -> String {
+        inventory(app.buttons, limit: limit)
+    }
+
+    private func textInventory(_ limit: Int = 10) -> String {
+        inventory(app.staticTexts, limit: limit)
+    }
+
+    /// A frame as four integers, short enough to survive the annotation's
+    /// 400-character cut.
+    private func rect(_ frame: CGRect) -> String {
+        "(\(Int(frame.minX)),\(Int(frame.minY)) \(Int(frame.width))x\(Int(frame.height)))"
+    }
+
+    private func inventory(_ query: XCUIElementQuery, limit: Int) -> String {
+        let names = query.allElementsBoundByIndex.prefix(limit).map { element -> String in
+            let id = element.identifier
+            return id.isEmpty ? element.label : id
+        }
+        return "on screen: " + names.filter { !$0.isEmpty }.joined(separator: " · ")
     }
 
     private func createRoutine(named name: String) {
