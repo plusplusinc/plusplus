@@ -317,6 +317,8 @@ struct ActiveSessionView: View {
         .sheet(isPresented: $showingAddExercise) {
             ExercisePickerView(onConfigured: { config in
                 session.appendExercise(config: config, context: modelContext)
+                // The wrist's step list follows the change (#512).
+                LiveMirror.shared.stepsChanged(in: session)
             })
         }
         .alert("Save as routine", isPresented: $showingSaveAsRoutine) {
@@ -584,11 +586,9 @@ struct ActiveSessionView: View {
         guard let end = restEndDate else { return }
         restPausedRemaining = max(0, end.timeIntervalSinceNow)
         restEndDate = nil
-        // Deliberately NOT LiveMirror.restEnded: the op vocabulary has no
-        // "held" kind, and telling the wrist the rest is OVER is further
-        // from the truth than leaving it showing a rest it can't tick.
-        // A real pause op is the honest fix and a Kit change (#322's
-        // deferred pile).
+        // Still not LiveMirror.restEnded — the rest is HELD, not over.
+        // The `.paused` op the Pause key emits right after this (#512)
+        // is what tells the wrist the truth now.
         syncActivityWorking()
     }
 
@@ -804,6 +804,8 @@ struct ActiveSessionView: View {
                         // Bank BEFORE the flip; see bankRestForPause.
                         bankRestForPause()
                         session.pauseClock()
+                        // The op vocabulary can finally say "held" (#512).
+                        LiveMirror.shared.paused(at: Date(), in: session)
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "pause.fill").font(.system(.caption, weight: .semibold))
@@ -937,6 +939,7 @@ struct ActiveSessionView: View {
                         // RestView reads an expired date and ends the rest.
                         resumeRestAfterPause()
                         session.startClock()
+                        LiveMirror.shared.resumed(at: Date(), in: session)
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "play.fill").font(.system(.footnote, weight: .bold))

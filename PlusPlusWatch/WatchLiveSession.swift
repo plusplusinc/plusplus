@@ -123,8 +123,12 @@ final class WatchLiveSession {
         // hijack the pending cue of the rest the wrist user is in.
         guard authoringSessionId == nil || authoringSessionId == op.sessionId else { return }
         switch op.kind {
-        case .restStarted, .restEnded, .finished, .discarded:
-            guard let state, !state.isClosed,
+        case .restStarted, .restEnded, .finished, .discarded, .paused, .resumed:
+            // A HELD session's rest must not buzz mid-hold (#512): the
+            // phone banks the countdown and re-emits restStarted with the
+            // re-based date on resume, so pause falls to cancel here and
+            // resume reschedules from that op.
+            guard let state, !state.isClosed, !state.isPaused,
                   let endsAt = state.restEndsAt, endsAt.timeIntervalSinceNow > 1,
                   let name = Self.upNextName(state) else {
                 WatchRestNotifier.cancel()

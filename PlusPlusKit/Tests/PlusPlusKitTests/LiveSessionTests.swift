@@ -28,6 +28,78 @@ struct LiveSessionTests {
            kind: .logSet(index: index, actualWeight: nil, actualReps: reps, actualDuration: nil, extras: [:], completedAt: t0.addingTimeInterval(offset)))
     }
 
+    // MARK: Pause, steps, and cross-session buffering (stage 3, #512)
+
+    @Test("Pause and resume fold LWW like every other register")
+    func pauseResumeLWW() throws {
+        let pauseAt = t0.addingTimeInterval(30)
+        var s = try #require(LiveSession.reduce([
+            started(steps: steps(["Bench"])),
+            Op(opId: UUID(), sessionId: session, origin: .phone, seq: 1,
+               at: pauseAt, kind: .paused(at: pauseAt)),
+        ]))
+        #expect(s.isPaused)
+        // A stale duplicate of the pause cannot un-resume.
+        let resumeAt = t0.addingTimeInterval(60)
+        s.apply(Op(opId: UUID(), sessionId: session, origin: .phone, seq: 2,
+                   at: resumeAt, kind: .resumed(at: resumeAt)))
+        #expect(!s.isPaused)
+        s.apply(Op(opId: UUID(), sessionId: session, origin: .phone, seq: 1,
+                   at: pauseAt, kind: .paused(at: pauseAt)))
+        #expect(!s.isPaused)
+        // The pause registers count as activity: displacement's guard
+        // reads latestStamp, and a register it misses is a window for a
+        // stale foreign birth (stage-3 review).
+        #expect(s.latestStamp == s.pauseStamp)
+    }
+
+    @Test("A steps change replaces the birth list and survives merge")
+    func stepsChangedReplaces() throws {
+        var s = try #require(LiveSession.reduce([started(steps: steps(["Bench", "Row"]))]))
+        let grown = steps(["Bench", "Row", "Squat"])
+        s.apply(Op(opId: UUID(), sessionId: session, origin: .phone, seq: 1,
+                   at: t0.addingTimeInterval(120), kind: .stepsChanged(steps: grown)))
+        #expect(s.totalSteps == 3)
+        // A peer still holding the birth list merges to the changed one.
+        var peer = try #require(LiveSession.reduce([started(steps: steps(["Bench", "Row"]))]))
+        peer.merge(s)
+        #expect(peer.totalSteps == 3)
+    }
+
+    @Test("A foreign session's ops buffer across displacement instead of dropping")
+    func crossSessionBuffering() {
+        var reducer = LiveSession.Reducer()
+        reducer.apply(started(steps: steps(["Bench"])))
+        // A NEW session's log arrives BEFORE its queued birth (the
+        // reachability flip): held, not dropped.
+        let other = UUID()
+        let lateLog = Op(opId: UUID(), sessionId: other, origin: .watch, seq: 1,
+                         at: t0.addingTimeInterval(3700),
+                         kind: .logSet(index: 0, actualWeight: nil, actualReps: 7,
+                                       actualDuration: nil, extras: [:],
+                                       completedAt: t0.addingTimeInterval(3700)))
+        reducer.apply(lateLog)
+        let birth = Op(opId: UUID(), sessionId: other, origin: .watch, seq: 0,
+                       at: t0.addingTimeInterval(3600),
+                       kind: .started(routineName: "Legs", startedAt: t0.addingTimeInterval(3600),
+                                      restSeconds: 60, steps: steps(["Squat"]), routineUuid: nil))
+        reducer.apply(birth)
+        #expect(reducer.state?.sessionId == other)
+        #expect(reducer.state?.log(at: 0)?.actualReps == 7)
+    }
+
+    @Test("An op with an unknown kind fails to decode, so ingest drops just that op")
+    func unknownKindDecodeThrows() {
+        // A FUTURE peer's op kind: the documented degrade is that the
+        // whole op is dropped by the ingest sites' try?, nothing more.
+        let json = """
+        {"at":"2026-07-30T12:00:00Z","kind":{"teleported":{}},"opId":"\(UUID().uuidString)","origin":"watch","seq":1,"sessionId":"\(UUID().uuidString)"}
+        """
+        #expect(throws: (any Error).self) {
+            _ = try WatchSync.decode(Op.self, from: Data(json.utf8))
+        }
+    }
+
     // MARK: Identity fields (stage 2 of the watch repair, #511)
 
     @Test("A started op from a build without routineUuid still decodes")
