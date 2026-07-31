@@ -173,6 +173,12 @@ struct ExerciseEditorView: View {
                 action: { save() }
             )
             .padding(.horizontal, 18)
+            // The header is a SIBLING of the scroll, so neither of the
+            // scroll's two exits reaches it — and it is ~90 pt of the most
+            // conspicuous blank space in the sheet, directly above the field
+            // that holds the keyboard. Tapping the obvious empty place has
+            // to work (swift-reviewer).
+            .background(keyboardGround)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -187,8 +193,13 @@ struct ExerciseEditorView: View {
                         .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
                         .disabled(isBuiltIn)
                         .focused($focusedField, equals: .name)
-                        // Return puts the keyboard away. It does NOT save —
-                        // Return never commits or navigates in this app.
+                        // Relabels the key cap only: the soft keyboard's
+                        // Return ends editing and this field has no
+                        // `onSubmit`, so it commits nothing. (With a HARDWARE
+                        // keyboard, SheetHeader's Save carries
+                        // `.keyboardShortcut(.defaultAction)` and Return is a
+                        // candidate for it — deliberate there, and not this
+                        // field's to override.)
                         .submitLabel(.done)
                         .accessibilityIdentifier("exerciseNameField")
                     if isBuiltIn {
@@ -385,25 +396,14 @@ struct ExerciseEditorView: View {
                 }
                 .padding(.horizontal, 18)
                 .padding(.bottom, 30)
-                // The form's whole width, so the ground below reaches the
-                // margins beside a chip and not just the content column.
+                // Belt-and-braces: today every one of these children is
+                // width-flexible (FlowLayout takes the whole proposal, so do
+                // the fields and the segmented picker), so the stack already
+                // fills the scroll and this changes nothing. It is here so a
+                // future section that is NOT flexible can't quietly shrink
+                // the ground out from under the side margins.
                 .frame(maxWidth: .infinity, alignment: .leading)
-                // Tapping the form's GROUND puts the keyboard away. It is a
-                // layer BEHIND the form, deliberately, rather than an
-                // `.onTapGesture` on the content stack: behind, it can only
-                // ever receive a touch no control in front of it took, so
-                // the chips still toggle and — the case that matters — the
-                // three fields still take their own focus tap. An ancestor
-                // gesture races the text field for that tap, and losing that
-                // race means the keyboard blinks shut on the way IN, which
-                // is a worse bug than the one being fixed. Taps are not
-                // pans, so nothing here claims the scroll
-                // (ui-interaction.md's claim-vs-does law is about drags).
-                .background(
-                    Color.clear
-                        .contentShape(Rectangle())
-                        .onTapGesture { focusedField = nil }
-                )
+                .background(keyboardGround)
             }
             // The keyboard's other exit, and the one this form was missing
             // entirely: scrolling. Every other scrolling surface in the app
@@ -456,6 +456,29 @@ struct ExerciseEditorView: View {
             Button("Discard changes", role: .destructive) { dismiss() }
             Button("Keep editing", role: .cancel) {}
         }
+    }
+
+    /// Tapping the sheet's GROUND puts the keyboard away.
+    ///
+    /// It is a layer BEHIND the content, deliberately, rather than an
+    /// `.onTapGesture` on the stack itself: behind, it can only ever receive
+    /// a touch nothing in front of it took, so the chips still toggle and —
+    /// the case that matters — the three fields still take their own focus
+    /// tap. An ancestor gesture RACES the text field for that tap, and losing
+    /// that race blinks the keyboard shut on the way IN, which is worse than
+    /// the bug this fixes. Taps are not pans, so nothing here claims the
+    /// scroll (ui-interaction.md's claim-vs-does law is about drags).
+    ///
+    /// ⚠️ The price of sitting behind is a THIN catchment, and it is thinner
+    /// than "the gaps": section labels, captions, each field's own filled
+    /// chrome (padding ring included) and the defaults card all take the tap
+    /// first. What is left is the 18 pt side margins, the 24 pt bands between
+    /// sections, and the header. So this is the SECOND exit, never the first
+    /// — `.scrollDismissesKeyboard` is the one that always works.
+    private var keyboardGround: some View {
+        Color.clear
+            .contentShape(Rectangle())
+            .onTapGesture { focusedField = nil }
     }
 
     // MARK: - Defaults (#187)
@@ -691,6 +714,13 @@ struct ExerciseEditorView: View {
     }
 
     private func save() {
+        // Save is the exit that HANDS OFF, which makes it the one that most
+        // needs this: on the picker path `onCreated` runs `onPick`, and the
+        // picker answers by presenting `ExerciseConfigSheet` — so a standing
+        // keyboard would follow the dismissal into a brand-new sheet. Same
+        // rule as the wheels and the pushes; this is just the route where
+        // the next surface is a whole sheet rather than a tray.
+        focusedField = nil
         var created: Exercise?
         // Before the write, so no frame between the insert and the next
         // body pass can see the name without its exemption.
