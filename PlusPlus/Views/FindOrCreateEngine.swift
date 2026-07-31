@@ -280,10 +280,13 @@ enum FindOrCreateEngine {
         rank(equipment.compactMap { item in
             guard !item.isDeleted else { return nil }
             let category = SeedData.equipmentCategory(named: item.name)?.rawValue ?? ""
+            // Hidden synonym terms ride the same candidate ("erg" reaches
+            // the Rowing Machine); customs contribute "" and lose nothing.
+            let synonyms = CatalogSearchSynonyms.equipmentTerms(named: item.name)
             let score: Double
             if q.isEmpty {
                 score = 0
-            } else if let s = FuzzySearch.score(query: q, candidate: "\(item.name) \(category)") {
+            } else if let s = FuzzySearch.score(query: q, candidate: "\(item.name) \(category) \(synonyms)") {
                 score = s
             } else {
                 return nil

@@ -17,10 +17,17 @@ enum ExerciseFilterState {
     /// Name plus EVERY muscle group it works, so "hamstring curl" finds Leg
     /// Curl even though no exercise carries the word "hamstring" in its
     /// name, and "triceps" finds Bench Press even though it's filed under
-    /// chest. This is also why the Exercises surface needs no Muscle facet:
-    /// typing reaches it.
+    /// chest. Since 2026-07-31 the haystack also carries the movement
+    /// pattern's display name ("hinge" finds the deadlifts) and the hidden
+    /// synonym terms ("rdl", "tgu" — `CatalogSearchSynonyms`). One
+    /// haystack, one scoring pass; highlighting stays name-only, and an
+    /// unhighlighted row reads fine.
     static func searchHaystack(_ exercise: Exercise) -> String {
-        ([exercise.name] + exercise.muscleGroups.map(\.displayName)).joined(separator: " ")
+        var parts = [exercise.name] + exercise.muscleGroups.map(\.displayName)
+        if let pattern = exercise.movementPattern { parts.append(pattern.displayName) }
+        let synonyms = CatalogSearchSynonyms.exerciseTerms(named: exercise.name)
+        if !synonyms.isEmpty { parts.append(synonyms) }
+        return parts.joined(separator: " ")
     }
 
     /// Equipment the exercise needs but the given set doesn't have — drives the
