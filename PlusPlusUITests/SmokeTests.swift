@@ -527,23 +527,27 @@ final class SmokeTests: XCTestCase {
             recordCard.waitForExistence(timeout: 10),
             "the committed card on Today · \(buttonInventory())"
         )
-        // ⚠️ Hittable is not enough here, and the tab bar is why. It FLOATS
-        // over the timeline, so a card resting in the bottom band reports
-        // hittable and the tap lands on the bar instead. Dave confirmed on
-        // build 158 that tapping a finished workout opens its record, so the
-        // app was never the problem — the probe was aiming at a covered
-        // point. Scroll until the card's own frame clears that band.
+        // ⚠️ TWO floating bars, and the card has to clear both. The
+        // navigation bar sits over the top of the timeline and the tab bar
+        // over the bottom; XCUITest models neither as covering, so a card
+        // under either reports hittable and the tap lands on the bar. Dave
+        // confirmed on build 158 that tapping a finished workout opens its
+        // record, so the app was never the problem — the probe kept aiming at
+        // covered points. It has been found under each bar in turn: below the
+        // fold while the setup scaffold held a full viewport, then at y = 52
+        // of a 912 pt screen, tucked under the large title, after zero
+        // scrolls.
         //
-        // The card starts BELOW THE FOLD as well: while onboarding is
-        // unfinished the setup scaffold takes `minHeight: viewportHeight`, a
-        // full screen by design, so the card is realized in the tree (every
-        // query found it) and off the bottom of the display. Existence is not
-        // visibility.
-        let barBand: CGFloat = 140
+        // So scroll toward whichever band it is in, rather than assuming the
+        // fold is always the problem, and stop when it is clear of both.
+        let bandHeight: CGFloat = 140
         var scrolls = 0
-        while scrolls < 8,
-              !recordCard.isHittable || recordCard.frame.maxY > app.frame.height - barBand {
-            app.swipeUp()
+        while scrolls < 8 {
+            let frame = recordCard.frame
+            let clearsTop = frame.minY > bandHeight
+            let clearsBottom = frame.maxY < app.frame.height - bandHeight
+            if recordCard.isHittable, clearsTop, clearsBottom { break }
+            if clearsTop { app.swipeUp() } else { app.swipeDown() }
             scrolls += 1
         }
         // The record lists one row per logged set. Push-Up is equipment-free
