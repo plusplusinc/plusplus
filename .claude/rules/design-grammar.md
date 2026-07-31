@@ -150,12 +150,15 @@ Siblings: `navigation.md` (tab bar, search, scroll/landing mechanics),
   only the dark side, and that target doesn't compile PlusPlusShared.
 - **Two tag tiers, rounded rects not pills, all-caps is section-labels-only**
   (2026-07-18, shapes/mono revised 2026-07-20): a **selectable chip** is a
-  button — sentence-case plain font, border unselected, solid blue fill
-  selected. `SelectableChip` is the last of them: the FACET chips
-  (`FacetChip`/`MultiFacetChip`/`TrayFilterChip`/`FilterSummaryChip`/
-  `SortChip`, `KitFilterChip`) are **all DELETED as of 2026-07-25** — no
-  catalog surface filters by facet. If a facet is ever wanted again, git
-  history has them; don't re-derive. A **card data tag** is not a button — it
+  button — sentence-case plain font, border unselected, tinted ground + ring
+  selected (`SelectableChip`'s anatomy). **Facet filtering RETURNED
+  2026-07-31** (Dave, reversing the 2026-07-25 retirement) as `FacetChip` +
+  `FilterSummaryChip` (`Views/Components/FilterChips.swift`), REBUILT on that
+  anatomy — ⚠️ the git-history versions wear the retired solid-blue fill; do
+  not copy them. Single-select Menus only (a multi-select is a list, not a
+  `Menu` — ui-interaction.md); the summarize-never-insta-clear law below has
+  its live consumer again. `MultiFacetChip`/`TrayFilterChip`/`SortChip`/
+  `KitFilterChip` stay deleted — no sort, no kit facet. A **card data tag** is not a button — it
   shows a property, so it wears the soft `surfaceRaised` fill with NO stroke
   (a stroked tag reads as a button). That style is the shared
   `CardTagCapsule` (routine gear pills too). **Both tiers are ROUNDED

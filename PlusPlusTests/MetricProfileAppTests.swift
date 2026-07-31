@@ -62,6 +62,15 @@ struct CatalogProfileTests {
         #expect(SeedData.builtInProfile(named: "Walking")
                 == MetricProfile([.distance, .duration, .pace], distanceUnit: .miles, isOutdoor: true))
         #expect(SeedData.builtInProfile(named: "Cycling")?.isOutdoor == false)
+        // Swimming (#478): yard lengths split per 100 — the reason
+        // PaceReference exists. The pool is indoors to GPS; open water is
+        // the outdoor one.
+        #expect(SeedData.builtInProfile(named: "Pool Swim")
+                == MetricProfile([.distance, .duration, .pace], distanceUnit: .yards, paceReference: .per100Yards))
+        #expect(SeedData.builtInProfile(named: "Pool Swim")?.isOutdoor == false)
+        #expect(SeedData.builtInProfile(named: "Open Water Swim")?.isOutdoor == true)
+        // Foam rolls ride plain duration like the stretches.
+        #expect(SeedData.builtInProfile(named: "Foam Roll Quads") == .durationOnly)
     }
 
     @Test("Road cardio joined the catalog; only the runnable kind is equipment-free")

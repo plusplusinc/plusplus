@@ -393,6 +393,18 @@ enum RoutineCatalog {
                 b(4, r("Seated Calf Raise", 15)),
             ]
         ),
+        .init(
+            name: "Olympic Power",
+            summary: "Snatch and clean and jerk doubles, then squats. Fast bar, long rests.",
+            focus: .fullBody, effort: .intense, style: .strength, restSeconds: 180,
+            blocks: [
+                b(5, r("Snatch", 2)),
+                b(5, r("Clean and Jerk", 2)),
+                b(3, r("Front Squat", 3)),
+                b(3, r("Overhead Squat", 5)),
+                b(3, r("Box Jump", 5)),
+            ]
+        ),
 
         // MARK: Push / Pull / Legs
         .init(
@@ -453,6 +465,18 @@ enum RoutineCatalog {
                 b(3, r("Dumbbell Row", 10)),
                 b(3, r("Rear Delt Fly", 12, 15)),
                 b(3, r("Barbell Curl", 10), r("Barbell Shrug", 12)),
+            ]
+        ),
+        .init(
+            name: "Leg Day B",
+            summary: "Front-squat led leg day to pair with A. Same muscles, different angles.",
+            focus: .lower, effort: .moderate, style: .build, restSeconds: 120,
+            blocks: [
+                b(4, r("Front Squat", 6, 8)),
+                b(3, r("Romanian Deadlift", 8, 10)),
+                b(3, r("Split Squat", 10)),
+                b(3, r("Leg Extension", 12, 15)),
+                b(4, r("Seated Calf Raise", 12, 15)),
             ]
         ),
 
@@ -625,6 +649,43 @@ enum RoutineCatalog {
                 b(3, r("Bicycle Crunch", 20)),
             ]
         ),
+        .init(
+            name: "Bands Only",
+            summary: "A full session from one band. Packs flatter than a T-shirt.",
+            focus: .fullBody, effort: .light, style: .build, restSeconds: 60,
+            blocks: [
+                b(3, r("Band Chest Press", 12, 15)),
+                b(3, r("Band Pull-Apart", 15, 20)),
+                b(3, r("Band Curl", 12, 15)),
+                b(3, r("Band Pushdown", 12, 15)),
+                b(3, r("Banded Lateral Walk", 15)),
+                b(2, r("Band External Rotation", 12, 15)),
+            ]
+        ),
+        .init(
+            name: "Suspension Trainer Full Body",
+            summary: "Push, pull, hinge, and brace from two straps and an anchor.",
+            focus: .fullBody, effort: .moderate, style: .build, restSeconds: 90,
+            blocks: [
+                b(3, r("Suspension Row", 10, 12)),
+                b(3, r("Suspension Chest Press", 10, 12)),
+                b(3, r("Suspension Hamstring Curl", 10)),
+                b(3, r("Suspension Pike", 8, 10)),
+                b(3, r("Suspension Face Pull", 12, 15)),
+            ]
+        ),
+        .init(
+            name: "Calisthenics Skills",
+            summary: "Holds and progressions that buy the big skills. Strength you can take anywhere.",
+            focus: .fullBody, effort: .moderate, style: .strength, restSeconds: 90,
+            blocks: [
+                b(3, d("Wall Handstand Hold", 30)),
+                b(3, r("Pistol Squat", 5)),
+                b(3, d("L-Sit", 15)),
+                b(3, r("Scapular Pull-Up", 8)),
+                b(3, d("Dead Hang", 30)),
+            ]
+        ),
 
         // MARK: Kettlebell
         .init(
@@ -724,6 +785,26 @@ enum RoutineCatalog {
                 b(4, d("Farmer's Carry", 40)),
                 b(3, d("Sandbag Carry", 40)),
                 b(3, d("Battle Rope Waves", 30)),
+            ]
+        ),
+        .init(
+            name: "Running Intervals",
+            summary: "Six hard two-minute efforts with full recoveries.",
+            focus: .conditioning, effort: .intense, style: .conditioning, restSeconds: 90,
+            blocks: [
+                b(6, d("Running", 120)),
+            ]
+        ),
+        .init(
+            name: "Strongman Day",
+            summary: "Pick things up, carry them, flip them. An events day.",
+            focus: .fullBody, effort: .intense, style: .strength, restSeconds: 120,
+            blocks: [
+                b(4, d("Yoke Carry", 40)),
+                b(4, d("Farmers Handle Carry", 40)),
+                b(3, r("Sandbag Clean", 5)),
+                b(3, r("Tire Flip", 8)),
+                b(3, d("Sled Drag", 30)),
             ]
         ),
         .init(
@@ -892,6 +973,22 @@ enum RoutineCatalog {
                 b(1, d("Cross-Body Shoulder Stretch", 30)),
                 b(1, d("Child's Pose", 30)),
                 b(1, d("Seated Spinal Twist", 30)),
+            ]
+        ),
+        .init(
+            name: "Roll and Stretch",
+            summary: "Roll the tight spots, then hold the stretches. The slow end of a hard week.",
+            focus: .fullBody, effort: .light, style: .recovery, restSeconds: 20,
+            blocks: [
+                b(1, d("Foam Roll Quads", 30)),
+                b(1, d("Foam Roll Hamstrings", 30)),
+                b(1, d("Foam Roll Calves", 30)),
+                b(1, d("Foam Roll Upper Back", 30)),
+                b(1, d("Foam Roll Lats", 30)),
+                b(1, d("Foam Roll IT Band", 30)),
+                b(1, d("Standing Hamstring Stretch", 30)),
+                b(1, d("Kneeling Hip Flexor Stretch", 30)),
+                b(1, d("Child's Pose", 30)),
             ]
         ),
     ]

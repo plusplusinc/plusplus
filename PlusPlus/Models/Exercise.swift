@@ -241,6 +241,28 @@ final class Exercise {
         catalogDefinition?.supportsHeartRate ?? true
     }
 
+    // MARK: - Authored attributes (catalog expansion, 2026-07-31)
+    // Movement pattern, mechanic, and laterality resolve from the catalog
+    // row like `modality` and `supportsHeartRateTarget` — app-side static,
+    // nil for customs (can't classify intent), zero storage.
+
+    /// The program bucket this move files under (hinge, carry…); nil for
+    /// customs and for rows with no canonical pattern.
+    var movementPattern: MovementPattern? {
+        catalogDefinition?.movementPattern
+    }
+
+    /// Compound vs isolation (programming semantics); nil for customs
+    /// and the stretch/mobility rows.
+    var mechanic: ExerciseMechanic? {
+        catalogDefinition?.mechanic
+    }
+
+    /// Bilateral vs unilateral; nil for customs.
+    var laterality: ExerciseLaterality? {
+        catalogDefinition?.laterality
+    }
+
     /// The movement family this exercise READS as — the universal-search
     /// row's figure icon. Catalog stretch/mobility rows carry an authored
     /// override (derivation can't tell a stretch from a plank); everything

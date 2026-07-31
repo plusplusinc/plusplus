@@ -31,8 +31,10 @@ Pull-to-refresh answers in the gap the pull opens (mechanics in
 `navigation.md`).
 
 **Routines / Exercises / Kit** — catalog surfaces over `CatalogScopeView`,
-MINE then CATALOG, with the swipe law LEADING is curation / TRAILING is
-destructive. Routine detail keeps the superset rail.
+MINE then CATALOG, a single-select facet row per scope (muscle/movement/
+mechanic/sides · category · focus/effort/style — laws in `navigation.md`),
+with the swipe law LEADING is curation / TRAILING is destructive. Routine
+detail keeps the superset rail.
 
 **Platform surfaces** — a Live Activity spanning the workout (Dynamic Island +
 Lock Screen), `.working` (exercise · set N/M · elapsed) swapping to `.resting`
