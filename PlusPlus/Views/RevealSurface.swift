@@ -552,6 +552,7 @@ private struct HealthTray: View {
     let health: HealthSyncCoordinator
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
+    @AppStorage(LiveWorkoutSettings.key) private var liveWorkoutEnabled = false
 
     private var enabledBinding: Binding<Bool> {
         Binding(
@@ -582,6 +583,8 @@ private struct HealthTray: View {
                 if health.isAvailable, health.isEnabled {
                     Divider().overlay(Theme.border)
                     statusBlock
+                    Divider().overlay(Theme.border)
+                    liveRecordingBlock
                 }
             }
             .padding(14)
@@ -638,6 +641,27 @@ private struct HealthTray: View {
                 .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: Theme.keyRadius, travel: 3))
                 .accessibilityIdentifier("healthConnectButton")
             }
+        }
+    }
+
+    /// The phone recording the workout as it happens, rather than writing
+    /// it down at the end. Off by default and its own switch, because it
+    /// changes who measures the workout — not just whether Health hears
+    /// about it.
+    @ViewBuilder
+    private var liveRecordingBlock: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Toggle(isOn: $liveWorkoutEnabled) {
+                Text("Record workouts as they happen")
+                    .font(.system(.subheadline, weight: .bold))
+                    .foregroundStyle(Theme.textPrimary)
+            }
+            .tint(Theme.selected)
+            .accessibilityIdentifier("liveWorkoutToggle")
+
+            Text("Your iPhone tracks the workout while you do it, so calories reach your rings and your heart rate shows up without waiting on your watch to catch up. Off, the workout is saved to Health when you finish.")
+                .font(.system(.caption))
+                .foregroundStyle(Theme.textSecondary)
         }
     }
 
