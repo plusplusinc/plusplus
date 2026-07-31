@@ -74,8 +74,10 @@ public enum LiveSession {
         /// Session birth. Carries the plan so a watch-originated session
         /// can materialize on a phone that never saw it. `steps` are in
         /// execution order (supersets already rotated); `restSeconds` is
-        /// the routine default.
-        case started(routineName: String, startedAt: Date, restSeconds: Int, steps: [WatchSync.Step])
+        /// the routine default. `routineUuid` is the routine's stable
+        /// cross-device identity (#511 — names are not unique); additive
+        /// optional, nil from builds that predate it.
+        case started(routineName: String, startedAt: Date, restSeconds: Int, steps: [WatchSync.Step], routineUuid: UUID?)
         /// A set logged (or re-logged) at `index`.
         case logSet(index: Int, actualWeight: Double?, actualReps: Int?, actualDuration: Int?, extras: [String: Double], completedAt: Date)
         /// A logged set reopened (redo) — clears its actuals/completion.
@@ -123,6 +125,10 @@ public enum LiveSession {
         /// Which device minted the session.
         public var origin: Origin
         public var routineName: String
+        /// The routine's stable identity (#511) — what adoption keys on
+        /// when both sides carry it; names are not unique. Additive
+        /// optional: old journals decode nil.
+        public var routineUuid: UUID?
         public var startedAt: Date
         public var restSeconds: Int
         public var steps: [WatchSync.Step]
@@ -141,10 +147,11 @@ public enum LiveSession {
 
         /// Births a state from a `.started` op.
         public init?(started op: Op) {
-            guard case let .started(routineName, startedAt, restSeconds, steps) = op.kind else { return nil }
+            guard case let .started(routineName, startedAt, restSeconds, steps, routineUuid) = op.kind else { return nil }
             self.sessionId = op.sessionId
             self.origin = op.origin
             self.routineName = routineName
+            self.routineUuid = routineUuid
             self.startedAt = startedAt
             self.restSeconds = restSeconds
             self.steps = steps

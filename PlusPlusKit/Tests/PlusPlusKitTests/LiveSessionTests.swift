@@ -18,14 +18,60 @@ struct LiveSessionTests {
         }
     }
 
-    func started(origin: Origin = .phone, at offset: TimeInterval = 0, steps: [WatchSync.Step]) -> Op {
+    func started(origin: Origin = .phone, at offset: TimeInterval = 0, steps: [WatchSync.Step], routineUuid: UUID? = nil) -> Op {
         Op(opId: UUID(), sessionId: session, origin: origin, seq: 0, at: t0.addingTimeInterval(offset),
-           kind: .started(routineName: "Push Day", startedAt: t0.addingTimeInterval(offset), restSeconds: 90, steps: steps))
+           kind: .started(routineName: "Push Day", startedAt: t0.addingTimeInterval(offset), restSeconds: 90, steps: steps, routineUuid: routineUuid))
     }
 
     func logSet(_ index: Int, reps: Int, origin: Origin = .phone, seq: Int, at offset: TimeInterval, opId: UUID = UUID()) -> Op {
         Op(opId: opId, sessionId: session, origin: origin, seq: seq, at: t0.addingTimeInterval(offset),
            kind: .logSet(index: index, actualWeight: nil, actualReps: reps, actualDuration: nil, extras: [:], completedAt: t0.addingTimeInterval(offset)))
+    }
+
+    // MARK: Identity fields (stage 2 of the watch repair, #511)
+
+    @Test("A started op from a build without routineUuid still decodes")
+    func oldStartedOpDecodes() throws {
+        // Hand-written pre-#511 wire format: no routineUuid key.
+        let json = """
+        {"at":"2026-07-30T12:00:00Z","kind":{"started":{"restSeconds":90,"routineName":"Push Day","startedAt":"2026-07-30T12:00:00Z","steps":[]}},"opId":"\(UUID().uuidString)","origin":"watch","seq":0,"sessionId":"\(UUID().uuidString)"}
+        """
+        let op = try WatchSync.decode(Op.self, from: Data(json.utf8))
+        guard case let .started(name, _, _, _, uuid) = op.kind else {
+            Issue.record("decoded op is not .started")
+            return
+        }
+        #expect(name == "Push Day")
+        #expect(uuid == nil)
+    }
+
+    @Test("A result and a plan routine from older builds decode with nil identity")
+    func oldResultAndPlanDecode() throws {
+        let result = """
+        {"endedAt":"2026-07-30T13:00:00Z","restSeconds":90,"routineName":"Push Day","startedAt":"2026-07-30T12:00:00Z","steps":[]}
+        """
+        let decoded = try WatchSync.decode(WatchSync.SessionResult.self, from: Data(result.utf8))
+        #expect(decoded.sessionId == nil)
+        let plan = """
+        {"name":"Push Day","restSeconds":90,"steps":[]}
+        """
+        let routine = try WatchSync.decode(WatchSync.PlanRoutine.self, from: Data(plan.utf8))
+        #expect(routine.uuid == nil)
+    }
+
+    @Test("The identity fields survive the codec round-trip")
+    func identityRoundTrip() throws {
+        let rid = UUID()
+        let sid = UUID()
+        let op = Op(opId: UUID(), sessionId: sid, origin: .phone, seq: 0, at: t0,
+                    kind: .started(routineName: "Push Day", startedAt: t0, restSeconds: 90,
+                                   steps: [], routineUuid: rid))
+        let back = try WatchSync.decode(Op.self, from: WatchSync.encode(op))
+        #expect(back == op)
+        let result = WatchSync.SessionResult(routineName: "Push Day", startedAt: t0, endedAt: t0,
+                                             restSeconds: 90, steps: [], sessionId: sid)
+        let resultBack = try WatchSync.decode(WatchSync.SessionResult.self, from: WatchSync.encode(result))
+        #expect(resultBack.sessionId == sid)
     }
 
     // MARK: Displacement (stage 1 of the watch repair, #510)
@@ -42,7 +88,7 @@ struct LiveSessionTests {
             opId: UUID(), sessionId: other, origin: .phone, seq: 0,
             at: t0.addingTimeInterval(3600),
             kind: .started(routineName: "Legs", startedAt: t0.addingTimeInterval(3600),
-                           restSeconds: 60, steps: steps(["Squat"]))
+                           restSeconds: 60, steps: steps(["Squat"]), routineUuid: nil)
         )
         reducer.apply(fresh)
         #expect(reducer.state?.sessionId == other)
@@ -59,7 +105,7 @@ struct LiveSessionTests {
             opId: UUID(), sessionId: UUID(), origin: .watch, seq: 0,
             at: t0.addingTimeInterval(-3600),
             kind: .started(routineName: "Yesterday", startedAt: t0.addingTimeInterval(-3600),
-                           restSeconds: 60, steps: steps(["Row"]))
+                           restSeconds: 60, steps: steps(["Row"]), routineUuid: nil)
         )
         reducer.apply(old)
         #expect(reducer.state?.routineName == "Push Day")
