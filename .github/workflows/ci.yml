@@ -112,8 +112,11 @@ jobs:
       - name: Agent-doc size budget
         shell: bash
         run: |
-          max_bytes=25600   # 25 KB — CLAUDE.md only (it loads every session)
-          max_line=2048     # ~2 KB any single line, in every agent doc
+          max_bytes=25600        # 25 KB — CLAUDE.md only (it loads every session)
+          max_rule_bytes=24576   # 24 KB per rules file (added 2026-07-31: app-surfaces.md
+                                 # hit 48 KB and loaded on every app-code task; split it
+                                 # by path scope when this cap binds, don't raise it)
+          max_line=2048          # ~2 KB any single line, in every agent doc
           fail=0
 
           bytes=$(wc -c < CLAUDE.md)
@@ -123,12 +126,21 @@ jobs:
           fi
           echo "CLAUDE.md: ${bytes} bytes (budget ${max_bytes})"
 
+          for f in .claude/rules/*.md; do
+            [ -f "$f" ] || continue
+            rbytes=$(wc -c < "$f")
+            if [ "$rbytes" -gt "$max_rule_bytes" ]; then
+              echo "::error title=${f} too large::${rbytes} bytes exceeds the ${max_rule_bytes}-byte per-rules-file budget. Split by path scope (narrower paths: frontmatter), or move history to docs/DECISIONS.md — rules hold current laws, not changelogs."
+              fail=1
+            fi
+            echo "  ${f}: ${rbytes} bytes (budget ${max_rule_bytes})"
+          done
+
           # Line length applies to the RULES files too — app-surfaces.md grew an
           # 8.7 KB paragraph the same way, and it had drifted into stating things
-          # that were no longer true (2026-07-28). No byte budget on these: they
-          # are path-scoped and load lazily, so length is fine and a mega-line
-          # is not. DECISIONS.md is deliberately EXEMPT — append-only, and its
-          # long entries are the record, not drift.
+          # that were no longer true (2026-07-28). DECISIONS.md is deliberately
+          # EXEMPT from every budget — append-only, and its long entries are the
+          # record, not drift.
           for f in CLAUDE.md .claude/rules/*.md; do
             [ -f "$f" ] || continue
             longest=$(awk '{ if (length($0) > m) { m = length($0); n = NR } } END { print m ":" n }' "$f")

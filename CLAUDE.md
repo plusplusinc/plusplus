@@ -25,6 +25,8 @@ No third-party dependencies without discussion first.
 
 **Remote (Linux) sessions** have no Xcode/Simulator — CI verifies app targets (see the ci-status skill). The Kit/CLI suites DO run locally: `./scripts/install-swift.sh`, add `$HOME/.swift/usr/bin` to PATH, `swift test` in `PlusPlusKit/` / `PlusPlusCLI/`.
 
+**Remote is the PRIMARY surface** (Dave, 2026-07-31): most development happens from the Claude iOS app, Mac sessions are rare. Treat the remote path — CI verification, `ui-screenshots` artifacts, device passes via TestFlight — as the default workflow; don't park work on "next Mac session" unless it genuinely needs the Simulator. (Deliberate: no checked-in `.mcp.json` for XcodeBuildMCP — a project-scoped entry would fail-load in every remote session; Mac sessions configure it locally.)
+
 ---
 
 ## Claude Code Setup (committed)
@@ -32,8 +34,9 @@ No third-party dependencies without discussion first.
 - **Skills** — `/ci-status` (check/diagnose/rerun CI from a sandbox that can't reach job logs), `/pr-flow` (the parallel feature-branch PR workflow), `/testflight` (shipping a build + the entitlement mechanism and its failure modes), `/voice` (the brand voice — read BEFORE writing any user-facing copy). Read the matching skill BEFORE re-deriving any of that from scratch.
 - **Agents** — `swift-reviewer` (adversarial review tuned to this repo's proven bug classes; run it on any non-trivial diff before pushing, layered with the built-in `/code-review`), `copy-reviewer` (voice/copy-law audit; run it on any diff touching user-facing strings), and `doc-verifier` (claim-by-claim docs audit; fan out one per doc).
 - **Subagent model economy** (Dave, 2026-07-17): when launching subagents, assess which models will do an excellent job at the task and pick the cheapest of those — don't throw the top-tier model at tasks a lower model can do. Explorations and mechanical sweeps → Sonnet or Haiku; design and adversarial-review passes where quality genuinely diverges → the top tier; repo agents keep their frontmatter-pinned models.
-- **Rules** (`.claude/rules/`) — path-scoped patterns: `swiftdata.md`, `testing.md`, `ui-interaction.md`, `app-surfaces.md` (surface map + design grammar). They load when you read matching files; skim them anyway before big app work.
-- **Hooks** — `docs-drift` (PostToolUse): editing interchange/CLI/workflow/project.yml files injects a reminder naming the doc that owns the claim.
+- **Rules** (`.claude/rules/`) — path-scoped patterns: `swiftdata.md`, `testing.md`, `ui-interaction.md`, `app-surfaces.md` (surface map), `design-grammar.md` (color/keys/tags/motion/copy laws), `navigation.md` (tab bar/search/scroll laws). They load when you read matching files; skim them anyway before big app work.
+- **Hooks** — `docs-drift` (PostToolUse): editing interchange/CLI/workflow/project.yml files injects a reminder naming the doc that owns the claim. `protect-generated` (PreToolUse): blocks Edit/Write inside generated `.xcodeproj` bundles (edit project.yml + regenerate instead).
+- **Permissions** — `.claude/settings.json` carries a shared allowlist (swift test/build, read-only + branch-workflow git, read-only GitHub MCP tools) so routine verification doesn't prompt — matters most from the phone. Extend it when a safe call keeps prompting; never allowlist merges, dispatches, or force pushes.
 - **Plugin — `axiom@axiom-marketplace`** (Apple-platform skills + auditor agents; marketplace `CharlesWiltgen/Axiom`, declared in `.claude/settings.json`): a large library covering accessibility, SwiftUI layout/nav/architecture, concurrency, performance, memory, Core Data / SwiftData, testing, crashes, HIG/design/typography, shipping, HealthKit… **Reach for it whenever a task falls in its wheelhouse** — before hand-rolling an audit or re-deriving Apple guidance, use the matching skill/agent (accessibility → `accessibility-auditor` + `axiom-accessibility`; Dynamic Type / layout → `swiftui-layout-auditor` + `axiom-design`'s typography/hig refs; HealthKit → `axiom-health`; a review → the relevant `*-auditor`). Its knowledge skills AND reasoning/auditor agents (pure static Glob/Grep/Read) DO load and run in remote Linux sessions; only the Xcode/Simulator-backed tooling (`xcui`/`xclog`/`xcsym`/`xcprof`, build/run/screenshot/simulator, `/axiom:*` device commands) is inert remotely. ⚠️ An ephemeral remote container does NOT auto-install it from `enabledPlugins`; the `SessionStart` hook `.claude/hooks/ensure-axiom.sh` installs it each session (baked into the cached container). Treat its keyword-triggered hook matches as advisory. See docs/DECISIONS.md 2026-07-13 (Axiom).
 - **Docs stay true by construction where possible**: PLATFORM.md's JSON examples are executable (`DocsConformanceTests`, Linux CI). Otherwise: a PR that changes an interface touches the doc that describes it, or says why not.
 
@@ -80,7 +83,7 @@ No third-party dependencies without discussion first.
 **In flight:** nothing.
 
 **Org + license:** both repos live in the **plusplusinc** org, PUBLIC. App/repo **AGPL-3.0**; **PlusPlusKit + PlusPlusCLI are MIT** (the contract is meant for adoption). Actions minutes are free on public repos — macOS included.
-**Branch protection** (repository ruleset): merges to main require `test`, `kit-test`, `cli-test` to PASS on the head SHA; squash is the only merge method. A cancelled required check blocks merge until re-run; only push-triggered runs satisfy the ruleset (a green `workflow_dispatch` run does not). Docs-only pushes still run CI deliberately. ⚠️ `kit-test`'s FIRST step is the agent-doc size budget — 25 KB on CLAUDE.md, and a ~2 KB line-length cap on CLAUDE.md AND every `.claude/rules/*.md` (docs/DECISIONS.md is exempt: append-only, its long entries are the record). It rides an already-required job so the budget binds without a ruleset change, which means kit-test can go red for a docs reason before Swift ever runs. See the ci-status skill.
+**Branch protection** (repository ruleset): merges to main require `test`, `kit-test`, `cli-test` to PASS on the head SHA; squash is the only merge method. A cancelled required check blocks merge until re-run; only push-triggered runs satisfy the ruleset (a green `workflow_dispatch` run does not). Docs-only pushes still run CI deliberately. ⚠️ `kit-test`'s FIRST step is the agent-doc size budget — 25 KB on CLAUDE.md, 24 KB per `.claude/rules/*.md` file (split by path scope when it binds, don't raise it — 2026-07-31), and a ~2 KB line-length cap on CLAUDE.md AND every rules file (docs/DECISIONS.md is exempt: append-only, its long entries are the record). It rides an already-required job so the budget binds without a ruleset change, which means kit-test can go red for a docs reason before Swift ever runs. See the ci-status skill.
 
 **CI flakes:** ui-test has two known flavors — `app.launch()` wedging on a runner simulator, and exit-65 runs where the identical tree passes on re-run. Re-run once before suspecting code. (The swipe test's synthesized-drag flake, #273/#274 — the degraded-runner signature that used to need a two-re-run budget — was fixed 2026-07-15: `testSwipeRevealActionSurvivesRelease` now reveals through `revealDelete`, which waits for the action to be hittable and re-drags to absorb runner jitter, so a dropped drag no longer fails the run.) All four jobs surface failing-test names as `::error::` annotations readable via the check-runs API. ⚠️ Job LOGS are reachable after all (2026-07-30): `mcp__github__get_job_logs` with `return_content: true` serves them through the API, so only the ARTIFACTS are genuinely out of reach from a sandbox.
 
@@ -140,7 +143,7 @@ Lives in **docs/DECISIONS.md** — append-only, same format (**Date — Decision
 
 ## Patterns Reference
 
-Split into path-scoped rules in `.claude/rules/` (they auto-load when you touch matching files): `swiftdata.md` (container/relationship laws), `testing.md` (test isolation, XCUITest blind spots), `ui-interaction.md` (swipe/navigation/gesture laws), `app-surfaces.md` (surface map + design grammar). Add new patterns to the matching rule file — or a new one — not here.
+Split into path-scoped rules in `.claude/rules/` (they auto-load when you touch matching files): `swiftdata.md` (container/relationship laws), `testing.md` (test isolation + red-first bug fixes, XCUITest blind spots), `ui-interaction.md` (swipe/gesture laws), `design-grammar.md` (color/keys/tags/motion/copy), `navigation.md` (tab bar/search/scroll), `app-surfaces.md` (surface map). Add new patterns to the matching rule file — or a new one — not here.
 
 ---
 
@@ -168,6 +171,8 @@ Task: [one sentence]
 Context: [what already exists that's relevant]
 Done when: [specific, testable completion criteria]
 ```
+
+**Uncertain scope → plan first**: when the shape of the change isn't obvious (new surface, cross-target work, anything touching the interchange), explore and propose a plan before editing — plan mode, or a short written plan in-thread. Small clear fixes skip this.
 
 ### Before Marking Any Task Complete
 

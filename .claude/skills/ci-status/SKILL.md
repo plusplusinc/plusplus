@@ -34,12 +34,15 @@ curl -s "https://api.github.com/repos/plusplusinc/plusplus/actions/runs?branch=m
 ```
 
 ⚠️ **`kit-test` can fail for a non-Swift reason**: its first step is the agent-doc size
-budget (2026-07-28) — **25 KB** on CLAUDE.md, and a **~2 KB line-length cap** on CLAUDE.md
-and every `.claude/rules/*.md`. It rides an already-required job so the budget binds without
-a branch-protection change. `docs/DECISIONS.md` is deliberately exempt: it is append-only and
-its long entries are the record, not drift.
+budget (2026-07-28; per-rules-file cap 2026-07-31) — **25 KB** on CLAUDE.md, **24 KB** per
+`.claude/rules/*.md` file, and a **~2 KB line-length cap** on CLAUDE.md and every rules
+file. It rides an already-required job so the budget binds without a branch-protection
+change. `docs/DECISIONS.md` is deliberately exempt: it is append-only and its long entries
+are the record, not drift.
 
-Annotations read `CLAUDE.md too large` or `Line too long in <file>`. The fix is to move
+Annotations read `CLAUDE.md too large`, `<rules file> too large`, or `Line too long in
+<file>`. For an oversized rules file, split it by path scope (narrower `paths:`
+frontmatter) or move history to docs/DECISIONS.md — don't raise the cap. Otherwise the fix is to move
 detail into docs/DECISIONS.md (dated entry) or a path-scoped rules file, and to add a NEW
 line rather than grow an existing one — **never to raise the limit**. Swift never ran in that
 case, so don't go hunting a test failure. The line cap is not only about merge conflicts: the
