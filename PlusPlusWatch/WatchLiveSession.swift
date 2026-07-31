@@ -78,7 +78,16 @@ final class WatchLiveSession {
         if let stateUuid = state.routineUuid, let planUuid = routine.uuid {
             return stateUuid == planUuid
         }
-        return state.routineName == routine.name
+        // A uuid-bearing side never name-matches a uuid-less one
+        // (quick-start review): names are not unique, and a scratch
+        // "Running" must not adopt a ROUTINE named Running or vice
+        // versa. Both-nil keeps the legacy name path for old peers —
+        // the skew case degrades to a parallel session, the pre-#511
+        // behavior.
+        if state.routineUuid == nil, routine.uuid == nil {
+            return state.routineName == routine.name
+        }
+        return false
     }
 
     func logged(index: Int, weight: Double?, reps: Int?, duration: Int?, extras: [String: Double], at date: Date) {

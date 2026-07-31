@@ -402,6 +402,10 @@ struct WorkoutRunView: View {
             if let line { return line }
         }
         if step.isDuration {
+            // An untargeted timed effort (a quick-started ride) says
+            // nothing rather than "—" — the same say-nothing rule as
+            // the reps branch below (#514, quick-start review).
+            guard step.targetDuration != nil else { return "" }
             return WorkoutMetric.duration.displayText(step.targetDuration.map(Double.init))
         }
         // An untargeted effort (a quick-started run: no reps, no weight,
