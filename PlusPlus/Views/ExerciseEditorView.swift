@@ -357,6 +357,12 @@ struct ExerciseEditorView: View {
                     TextField("Form cues, tempo…", text: $draft.notes, axis: .vertical)
                         .font(.system(.footnote))
                         .focused($focusedField, equals: .notes)
+                        // Opts out of the form's `.immediately` — see the twin
+                        // in RoutineSettingsScreen. The setting is an
+                        // environment value and reaches this field's OWN
+                        // scroll once notes outgrow eight lines, so a drag
+                        // inside the field would drop the keyboard mid-edit.
+                        .scrollDismissesKeyboard(.never)
                         .lineLimit(3...8)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 11)

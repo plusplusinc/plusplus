@@ -2192,9 +2192,10 @@ struct RoutineSettingsScreen: View {
     /// write live like every other field on this autosaving page.
     @State private var nameDraft: String
     @State private var notesDraft: String
-    /// Which field holds the keyboard. Every way out clears it: Return, a
-    /// scroll, a tap on the page's ground, and anything that opens a tray,
-    /// a wheel or the delete alert over the page.
+    /// Which field holds the keyboard. Every way out clears it: a scroll, a
+    /// tap on the page's ground, anything that opens a tray, a wheel or the
+    /// delete alert over the page, and leaving. Return is the NAME field's
+    /// exit only — in notes it types a newline.
     @FocusState private var focusedField: Field?
 
     private enum Field: Hashable {
@@ -2340,6 +2341,15 @@ struct RoutineSettingsScreen: View {
                     TextField("Add notes", text: $notesDraft, axis: .vertical)
                         .font(.system(.footnote))
                         .focused($focusedField, equals: .notes)
+                        // ⚠️ The page's `.immediately` is an ENVIRONMENT value
+                        // and reaches every scrollable thing under it — this
+                        // field included, once notes outgrow eight lines and
+                        // it scrolls internally. Without this, dragging inside
+                        // the field to reach line 12 drops the keyboard
+                        // mid-edit. Innermost wins, so the page keeps its
+                        // setting and the field opts out (swift-reviewer;
+                        // Apple documents the same carve-out for TextEditor).
+                        .scrollDismissesKeyboard(.never)
                         .lineLimit(3...8)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 11)
