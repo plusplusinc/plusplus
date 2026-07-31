@@ -61,11 +61,12 @@ No third-party dependencies without discussion first.
 > **.claude/rules/** (path-scoped). Delete an item once it has shipped and been validated —
 > this section tracks what is live now, not what happened.
 
-**Last updated:** 2026-07-30 · **Latest TestFlight build:** 157, from main.
+**Last updated:** 2026-07-31 · **Latest TestFlight build:** 157, from main.
 ⚠️ Build number = workflow RUN number, not last-build+1 — check `actions_list` before writing a What's-New entry.
 
 **On main, awaiting Dave's device pass** (reasoning in docs/DECISIONS.md under the dated entry):
 
+- Catalog expansion round — 345 exercises (+88, every audit gap), Foam Roller, 50 templates (+8), authored pattern/mechanic/laterality columns, hidden search synonyms (`CatalogSearchSynonyms`: "erg"→rower, "rdl"), and the FACET ROW RETURNS (single-select Menu chips per scope, reverses 2026-07-25 — laws rewritten in design-grammar/navigation); ⚠️ device pass pending: filter row vs large-title overscroll, popover feel, synonym search feel
 - Keyboard dismissal is a shared law now — `View.keyboardGround(clearing:)` (`Views/Components/KeyboardGround.swift`) carries the reasoning, and routine settings joins the exercise editor; ⚠️ `.scrollDismissesKeyboard` is the LOAD-BEARING exit and the ground tap is always the second (its catchment is thinner than "the gaps" — labels, captions and field chrome all take the tap first), ⚠️ a header that is a SIBLING of the scroll needs its own ground, ⚠️ `pushedScreenChrome`'s band still has none (shared by every pushed screen, own round); device pass pending
 - Exercise editor keyboard — the form had NO dismissal (a plain `ScrollView` doesn't dismiss on scroll; five other surfaces declare `.scrollDismissesKeyboard` and this one was missed); now scroll · ground tap · Return · focus cleared on every push/wheel/discard; ⚠️ the ground tap is a layer BEHIND the form, never `.onTapGesture` on the content — an ancestor gesture races the field's own focus tap; ⚠️ invisible to XCUITest, device pass pending (#489)
 - ui-test was red on EVERY main push from 2026-07-24 to 2026-07-30 (22 of them, two TestFlight builds) because the smoke suite drifted from the app while nobody could see it — #445 moved the schedule mode off a segment onto a pushed `NavigationSelectRow`, #452 changed the search surface, #470 took routine detail off `pushedScreenChrome`; ⚠️ back is now TWO controls, so the suite pops through `tapBack`, and a failed query prints an on-screen inventory because a sandbox can read `::error::` annotations but never the screenshots artifact; a red main now files ONE tracking issue (#483)
