@@ -527,39 +527,45 @@ final class SmokeTests: XCTestCase {
             recordCard.waitForExistence(timeout: 10),
             "the committed card on Today · \(buttonInventory())"
         )
-        // ⚠️ The card is BELOW THE FOLD, which is why three rounds of tapping
-        // it did nothing. While onboarding is unfinished the setup scaffold
-        // takes `minHeight: viewportHeight` — a full screen by design — so
-        // Today's committed card is realized in the tree (every query found
-        // it) and simply off the bottom of the display. Existence is not
-        // visibility, and a tap at an off-screen frame lands on nothing at
-        // all. Scroll it up first, then tap.
+        // ⚠️ Hittable is not enough here, and the tab bar is why. It FLOATS
+        // over the timeline, so a card resting in the bottom band reports
+        // hittable and the tap lands on the bar instead. Dave confirmed on
+        // build 158 that tapping a finished workout opens its record, so the
+        // app was never the problem — the probe was aiming at a covered
+        // point. Scroll until the card's own frame clears that band.
+        //
+        // The card starts BELOW THE FOLD as well: while onboarding is
+        // unfinished the setup scaffold takes `minHeight: viewportHeight`, a
+        // full screen by design, so the card is realized in the tree (every
+        // query found it) and off the bottom of the display. Existence is not
+        // visibility.
+        let barBand: CGFloat = 140
         var scrolls = 0
-        while !recordCard.isHittable, scrolls < 8 {
+        while scrolls < 8,
+              !recordCard.isHittable || recordCard.frame.maxY > app.frame.height - barBand {
             app.swipeUp()
             scrolls += 1
         }
-        XCTAssertTrue(
-            recordCard.isHittable,
-            "the committed card must be reachable after \(scrolls) scrolls · \(buttonInventory())"
-        )
         // The record lists one row per logged set. Push-Up is equipment-free
         // weight/reps, so it derives to strength and the row's noun is "Set" —
         // the work-unit vocabulary does not rewrite this one.
         //
-        // ⚠️ Retried once: a tap synthesized while the scroll above is still
-        // settling gets eaten as a scroll-stop, which is the same drop
-        // `skipRest` absorbs after a view transition. The first attempt landed
-        // on a card that was hittable and went nowhere.
+        // ⚠️ By absolute coordinate, the same dispatch the swipe row needed:
+        // an element tap goes through accessibility, and every one of those
+        // this flow tried was swallowed.
         let setRow = app.staticTexts["Set 1"]
-        recordCard.tap()
-        if !setRow.waitForExistence(timeout: 8), recordCard.exists {
-            recordCard.tap()
-        }
+        let card = recordCard.frame
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: card.midX, dy: card.midY))
+            .tap()
         snap("history-detail")
         XCTAssertTrue(
             setRow.waitForExistence(timeout: 15),
-            "the record lists the logged sets · \(textInventory())"
+            """
+            the record lists the logged sets · \
+            card \(rect(card)) in screen \(rect(app.frame)) after \(scrolls) scrolls · \
+            \(textInventory(6))
+            """
         )
     }
 
