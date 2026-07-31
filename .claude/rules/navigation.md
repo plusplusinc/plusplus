@@ -257,11 +257,11 @@ this surface the control effectively is.
   Collapse state is ephemeral per-surface `@State`, reset on entry; a
   cross-tab arrival that needs gear expands the group so its entrance flash
   isn't on a hidden row.
-- Cross-scope discovery rides **per-scope result counts on the scope labels**
-  (no number at rest), never link rows — each surface publishes its OWN count
-  by summing its own sections (a central `matchCounts` meant a second ranking
-  pass per keystroke). Prompts and empty states use `FindScope.searchNoun`,
-  not `label`.
+- **Cross-scope discovery is the scope control itself** — never link rows,
+  and per-scope result counts are GONE (2026-07-25, with the hand-drawn bar:
+  a glyph-only segment has nowhere to paint a number, and the central
+  `matchCounts` they'd need costs a second ranking pass per keystroke).
+  Prompts and empty states use `FindScope.searchNoun`, not `label`.
 
 ## Tab roots and scroll
 

@@ -16,9 +16,11 @@ Siblings: `navigation.md` (tab bar, search, scroll/landing mechanics),
 
 - **Green is data/creation** (deltas, net chips, the ++ glyph, create
   affordances, the Start play key) — never chrome.
-- **Blue (#1668D2/#5CA8F5) is selection/interactive state** — a TINTED
-  GROUND + ring + bright blue text (`selectedTint`/`selectedRing`/`selected`),
-  one blue on screen outside a live ring gesture. ⚠️ Solid blue fills are
+- **Blue (#1668D2/#5CA8F5) is selection state, never decoration** — ONE look
+  (tinted ground + ring + `selectedInk` label), worn by every currently
+  selected control, however many share the screen (the facet row's active
+  chips + summary chip are the precedent, 2026-07-31); outside selection,
+  blue appears only in the live ring gesture. ⚠️ Solid blue fills are
   RETIRED (2026-07-28, Dave, reversing #210): chips, the increment sheet and
   the schedule day circles select the way selectable ROWS do — one selection
   look. ⚠️ A selected LABEL takes `Theme.selectedInk`, NOT `selected` — plain
@@ -64,8 +66,10 @@ Siblings: `navigation.md` (tab bar, search, scroll/landing mechanics),
   everywhere** (2026-07-19; the all-circles round and the sheet-corner
   concentric experiment were both reverted by Dave — uneven concentric corners
   read wrong): `HeaderIconButton`/`HeaderMenuKey`/`AppMenuKey`/Operator
-  send-stop use `RoundedRectangle(cornerRadius: 11)` (`ConfigIconButton` 8) +
-  `.raisedKey()`. No per-context corner variation. Every "New …" / "Add …" /
+  send-stop use `RoundedRectangle(cornerRadius: 11)` + `.raisedKey()`. The one
+  sanctioned variant is `ConfigIconButton` (30 pt cap, r8, FLAT bordered — it
+  configures a value in place, it doesn't commit or navigate; the radius
+  scales with the cap). No other per-context corner variation. Every "New …" / "Add …" /
   "Create …" list row is the shared `CreateRow` (a green bordered raised key),
   so creation reads as a button, not floating text. Keys that carry TEXT keep
   the rounded-rect pill: `QuietKey`, `LibrarySwitcherKey`, `SheetDismissKey`,
