@@ -380,6 +380,156 @@ struct FindOrCreateEngineTests {
         #expect(byName["Probe Press"] == false)
     }
 
+    // MARK: - Facet filters (2026-07-31)
+
+    /// A catalog exercise as the seeder would create it — real names so
+    /// the attribute lookups resolve (Probe fixtures carry no catalog
+    /// row, which is itself a case under test: can't-answer drops out).
+    private func realBuiltIn(_ name: String, context: ModelContext) throws -> Exercise {
+        let def = try #require(SeedData.builtInDefinition(named: name))
+        let exercise = Exercise(name: def.name, muscleGroup: def.muscleGroup, exerciseType: def.exerciseType, isBuiltIn: true)
+        context.insert(exercise)
+        return exercise
+    }
+
+    @Test("A muscle facet narrows, and customs still answer it")
+    func muscleFacetNarrows() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+
+        var filters = CatalogFilterState()
+        filters.muscle = .biceps
+        let sections = FindOrCreateEngine.sections(
+            query: "", scope: .exercises, filters: filters,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines, templates: [], kitNames: world.kitNames
+        )
+        // Probe Curl files under biceps; the custom (core) and the rest drop.
+        #expect(sections.flatMap(\.results).map(\.name) == ["Probe Curl"])
+
+        filters.muscle = .core
+        let coreSections = FindOrCreateEngine.sections(
+            query: "", scope: .exercises, filters: filters,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines, templates: [], kitNames: world.kitNames
+        )
+        // The custom answers the muscle chip from its own model data.
+        #expect(coreSections.flatMap(\.results).map(\.name) == ["Probe Custom Move"])
+    }
+
+    @Test("Attribute facets reach catalog rows; rows that can't answer drop out")
+    func attributeFacetsNarrow() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        let deadlift = try realBuiltIn("Deadlift", context: context)
+        let lateralRaise = try realBuiltIn("Lateral Raise", context: context)
+        try? context.save()
+        let pool = world.exercises + [deadlift, lateralRaise]
+
+        var filters = CatalogFilterState()
+        filters.pattern = .hinge
+        let hinge = FindOrCreateEngine.sections(
+            query: "", scope: .exercises, filters: filters,
+            exercises: pool, equipment: world.equipment,
+            routines: world.routines, templates: [], kitNames: world.kitNames
+        )
+        // Only the real hinge answers; Probe fixtures have no catalog row
+        // and drop out under the chip (the can't-classify rule).
+        #expect(hinge.flatMap(\.results).map(\.name) == ["Deadlift"])
+
+        filters = CatalogFilterState()
+        filters.mechanic = .isolation
+        let isolation = FindOrCreateEngine.sections(
+            query: "", scope: .exercises, filters: filters,
+            exercises: pool, equipment: world.equipment,
+            routines: world.routines, templates: [], kitNames: world.kitNames
+        )
+        #expect(isolation.flatMap(\.results).map(\.name) == ["Lateral Raise"])
+    }
+
+    @Test("The kit scope's category facet narrows, and customs drop out")
+    func equipmentCategoryFacet() throws {
+        let context = ModelContext(try makeContainer())
+        let rower = Equipment(name: "Rowing Machine", isBuiltIn: true)
+        let barbell = Equipment(name: "Barbell", isBuiltIn: true)
+        let custom = Equipment(name: "Probe Widget")
+        for item in [rower, barbell, custom] { context.insert(item) }
+        try? context.save()
+
+        var filters = CatalogFilterState()
+        filters.equipmentCategory = .cardio
+        let sections = FindOrCreateEngine.sections(
+            query: "", scope: .kit, filters: filters,
+            exercises: [], equipment: [rower, barbell, custom],
+            routines: [], templates: [], kitNames: []
+        )
+        #expect(sections.flatMap(\.results).map(\.name) == ["Rowing Machine"])
+    }
+
+    @Test("Routine facets: focus derives for hand-built; effort/style drop them")
+    func routineFacets() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        // Probe Day contains Probe Curl (biceps) → derived focus Upper.
+        var filters = CatalogFilterState()
+        filters.focus = .upper
+        let upper = FindOrCreateEngine.sections(
+            query: "", scope: .routines, filters: filters,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines,
+            templates: [template("Probe Plan")],  // authored .fullBody — drops
+            kitNames: world.kitNames
+        )
+        #expect(upper.flatMap(\.results).map(\.name) == ["Probe Day"])
+
+        // Under Effort, a hand-built routine can't answer and drops out;
+        // the authored template answers.
+        filters = CatalogFilterState()
+        filters.effort = .moderate
+        let moderate = FindOrCreateEngine.sections(
+            query: "", scope: .routines, filters: filters,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines,
+            templates: [template("Probe Plan")],
+            kitNames: world.kitNames
+        )
+        #expect(moderate.flatMap(\.results).map(\.name) == ["Probe Plan"])
+    }
+
+    @Test("Filters compose with the query and keep the missing partition")
+    func filtersComposeWithQueryAndMissing() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+
+        var filters = CatalogFilterState()
+        filters.muscle = .chest
+        let sections = FindOrCreateEngine.sections(
+            query: "probe", scope: .exercises, filters: filters,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines, templates: [], kitNames: world.kitNames
+        )
+        // Probe Press (chest) needs gear the kit lacks: it survives the
+        // filter AND still lands in its missing group, never hidden.
+        let missing = try #require(sections.first { $0.kind == .missing(noun: "exercise") })
+        #expect(missing.results.map(\.name) == ["Probe Press"])
+        #expect(sections.filter { $0.kind == .results }.flatMap(\.results).isEmpty)
+    }
+
+    @Test("Facet bookkeeping: activeFacets, isEmpty, and clear are per scope")
+    func facetBookkeeping() {
+        var filters = CatalogFilterState()
+        filters.muscle = .chest
+        filters.pattern = .hinge
+        filters.equipmentCategory = .machines
+        #expect(filters.activeFacets(for: .exercises).map(\.name) == ["Muscle", "Movement"])
+        #expect(filters.activeFacets(for: .kit).map(\.value) == ["Machines"])
+        #expect(filters.isEmpty(for: .routines))
+        filters.clear(scope: .exercises)
+        #expect(filters.isEmpty(for: .exercises))
+        // Clearing one scope leaves the others alone.
+        #expect(!filters.isEmpty(for: .kit))
+    }
+
     @Test("A routine the kit can't do groups under the missing section")
     func missingRoutineGroups() throws {
         let context = ModelContext(try makeContainer())
