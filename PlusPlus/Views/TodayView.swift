@@ -258,27 +258,6 @@ struct TodayView: View {
                                             .transition(.opacity)
                                     }
                                 }
-                            // The week strip, STICKY at the top of the scroll
-                            // (see weekStrip). Sticky, not pinned outside the
-                            // scroll: it holds the top through every scroll
-                            // position but lets go during the rubber band, so
-                            // it travels with the pull.
-                            weekStripBand
-                                // A pure RENDER-TIME geometry read — no state
-                                // is written, so this is NOT the pattern that
-                                // breaks the search-role morph (that one is
-                                // layout feeding back into state). Below the
-                                // content top the band climbs back to the
-                                // visible top; on overscroll minY goes
-                                // POSITIVE and the offset drops to zero, which
-                                // is what leaves it riding the content down.
-                                .visualEffect { band, geometry in
-                                    let minY = geometry.frame(in: .scrollView).minY
-                                    return band.offset(y: minY < 0 ? -minY : 0)
-                                }
-                                // It floats over what scrolls beneath it, so
-                                // it has to draw above its later siblings.
-                                .zIndex(1)
                             VStack(spacing: 0) {
                                 if showsFutureSection {
                                     futureSection
@@ -291,11 +270,34 @@ struct TodayView: View {
                                     .id(Self.todayAnchorID)
                             }
                             .padding(.horizontal, 16)
-                            weekStripReservation
-                            // Quick start lives INSIDE the band above —
-                            // see weekStripBand. Nothing sits between the
-                            // reservation and the date line, so the rail
-                            // runs unbroken from the week ahead to today.
+                            // The week strip, mounted AT THE TODAY BOUNDARY
+                            // it divides — its natural slot sits between the
+                            // week ahead and the date line, so the band IS
+                            // its own reservation (Dave, build 159: the
+                            // reserved gap read as inconsistent item spacing;
+                            // the hidden-copy mechanism died with it). The
+                            // landing seats the anchor at the viewport top,
+                            // which puts this band exactly under the title —
+                            // same geometry as before, no measuring, and one
+                            // mount instead of two.
+                            weekStripBand
+                                // A pure RENDER-TIME geometry read — no state
+                                // is written, so this is NOT the pattern that
+                                // breaks the search-role morph (that one is
+                                // layout feeding back into state). Scrolled
+                                // past, the band climbs back to the visible
+                                // top; while the week ahead is in view its
+                                // minY is POSITIVE and the offset is zero, so
+                                // it sits in the rail's flow as the boundary
+                                // between future and today — which is why no
+                                // reserved gap exists at any scroll position.
+                                .visualEffect { band, geometry in
+                                    let minY = geometry.frame(in: .scrollView).minY
+                                    return band.offset(y: minY < 0 ? -minY : 0)
+                                }
+                                // It floats over what scrolls beneath it, so
+                                // it has to draw above its later siblings.
+                                .zIndex(1)
                             // Lazy: the committed section is the whole
                             // history — eager building made every render
                             // O(sessions) (bug hunt perf finding).
@@ -1496,46 +1498,13 @@ struct TodayView: View {
 
     // MARK: - Week strip
 
-    /// The week strip as it mounts: full-bleed background, the 16 pt content
-    /// column inside it. Used TWICE, and they must stay identical — once as
-    /// the sticky band, once hidden underneath the today anchor to reserve the
-    /// band's height (see the mount site).
-    /// The space the sticky band occupies, reserved INSIDE the rail.
-    ///
-    /// ⚠️ The band FLOATS once it is holding the top, so it stops reserving
-    /// its own height — and the opening scroll seats the anchor at the very
-    /// top, which would put today's date line under it. A hidden copy of the
-    /// band reserves exactly the right height, at every Dynamic Type size and
-    /// however the tally wraps, with no measuring (which would write state
-    /// during layout and break the search-role morph) and no constant to keep
-    /// in sync.
-    ///
-    /// ⚠️ It reserves that height WITH the spine, not as a blank band beside
-    /// it. Hiding the copy outright hid the rail through it too, so scrolling
-    /// up to the week ahead showed the timeline coming apart — a floating gap
-    /// with no line through it, which reads as a rendering fault rather than
-    /// as the space the strip lives in (Dave, build 158). Spine only and no
-    /// node, exactly like `beyondThisWeekBlock`: nothing happens here, the
-    /// timeline simply passes through.
-    private var weekStripReservation: some View {
-        weekStripBand
-            .hidden()
-            .overlay(alignment: .topLeading) {
-                // The rail's own geometry, not a derived constant: the same
-                // 20 pt gutter holding the same 2 pt spine, inside the same
-                // 16 pt content column.
-                HStack(spacing: 10) {
-                    Rectangle()
-                        .fill(Theme.border)
-                        .frame(width: 2)
-                        .frame(maxHeight: .infinity)
-                        .frame(width: 20)
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, 16)
-            }
-    }
-
+    /// ⚠️ There is NO reservation copy of the band any more, and that is
+    /// the point of the boundary mount (Dave, build 159): mounted between
+    /// the week ahead and the date line, the band occupies its own slot at
+    /// every scroll position, so nothing needs reserving and the rail has
+    /// no phantom gap. The build-158 hidden-copy-with-spine mechanism this
+    /// replaces existed only because the band used to mount at the top of
+    /// the scroll, away from the space the landing needed held.
     private var weekStripBand: some View {
         VStack(alignment: .leading, spacing: 0) {
             weekStrip
@@ -1544,10 +1513,7 @@ struct TodayView: View {
             // round: below-the-band still read as "in the timeline" —
             // anything in the scroll flow between rail segments does).
             // Inside the pinned header it is unambiguously chrome, and it
-            // stays a thumb away however deep the scroll sits. Because
-            // the band mounts twice (sticky + hidden reservation), the
-            // reservation reserves the taller height automatically and
-            // the spine passes through untouched.
+            // stays a thumb away however deep the scroll sits.
             //
             // ⚠️ THE device-pass check this placement buys: the sticky
             // band moves on a `visualEffect` offset, and these are the
