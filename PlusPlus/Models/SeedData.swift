@@ -192,10 +192,13 @@ enum SeedData {
         )) ?? []
         guard let legacy = builtIns.first(where: { $0.name.lowercased() == "stationary bike" }) else { return }
         let modern = builtIns.first { $0.name.lowercased() == "indoor cycling" }
-        // Whatever branch wins below, the surviving row is named Indoor
-        // Cycling — so a quick-start pick keyed to the old name (built
-        // 158 offered it) follows the row instead of vanishing.
-        QuickStartPicks.rename(from: "Stationary Bike", to: "Indoor Cycling")
+        // Where a branch below retires the "Stationary Bike" NAME, a
+        // quick-start pick keyed to it (build 158 offered it) follows to
+        // "Indoor Cycling" instead of vanishing — but ONLY those
+        // branches. The both-referenced fall-through keeps the legacy row
+        // and its name, and re-pointing a pick at a different exercise
+        // the user didn't choose would be worse than the gap.
+        let repointPick = { QuickStartPicks.rename(from: "Stationary Bike", to: "Indoor Cycling") }
 
         guard let modern else {
             // The common case: rename in place. The profile comes with it,
@@ -206,6 +209,7 @@ enum SeedData {
                 distanceUnit: .miles
             )
             try? context.save()
+            repointPick()
             return
         }
 
@@ -213,6 +217,7 @@ enum SeedData {
         if !isReferenced(legacy, context: context) {
             context.delete(legacy)
             try? context.save()
+            repointPick()
         } else if !isReferenced(modern, context: context) {
             context.delete(modern)
             legacy.name = "Indoor Cycling"
@@ -221,6 +226,7 @@ enum SeedData {
                 distanceUnit: .miles
             )
             try? context.save()
+            repointPick()
         }
     }
 

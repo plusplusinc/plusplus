@@ -408,6 +408,10 @@ struct ActiveSessionView: View {
         // the way into the rest screen too, and the rest-end stamp below
         // then wins — so the recovery lands in neither effort's clock.
         .onChange(of: session.currentLog?.order) { _, _ in
+            // Discard cascades the logs, so this fires against a deleted
+            // model during the animated dismissal — the crash class the
+            // delete paths pop screens to avoid.
+            guard !session.isDeleted else { return }
             session.markEffortStart()
             currentSetStartedAt = Date()
             // Bank the meter where this round starts. Self-correcting
@@ -423,10 +427,17 @@ struct ActiveSessionView: View {
         // and in count-up mode the displayed elapsed is what gets logged.
         // ⚠️ The paused-bank guard: `bankRestForPause` clears the date
         // while parking the remaining interval, and that transition is a
-        // HOLD, not an ending.
-        .onChange(of: restEndDate) { _, newValue in
-            if newValue == nil, restPausedRemaining == nil {
-                session.markEffortStart()
+        // HOLD, not an ending. (The paused doors that conclude a rest
+        // with no date transition stamp inside `endRest` instead.)
+        // ⚠️ The anchor is the rest's TRUE end, not this handler's run
+        // time: a rest can expire while the phone is locked, and RestView
+        // only fires its expiry when it next renders — anchoring at
+        // unlock would silently drop the whole locked stretch from the
+        // clock, the same data-loss class this anchor exists to kill. A
+        // skip's still-future date clamps to now.
+        .onChange(of: restEndDate) { oldValue, newValue in
+            if newValue == nil, restPausedRemaining == nil, !session.isDeleted {
+                session.markEffortStart(at: min(Date(), oldValue ?? Date()))
             }
         }
         // ⚠️ The island's distance and pace are pushed values, not
@@ -477,6 +488,15 @@ struct ActiveSessionView: View {
         // always reads REST here (#369 deferred the kind op-field).
         .onReceive(NotificationCenter.default.publisher(for: LiveMirror.restChanged)) { note in
             guard let endsAt = note.object as? Date else {
+                // A wrist-ended rest, which the wrist can do to a rest the
+                // phone has BANKED (paused: no date transition, so the
+                // observer never fires) — stamp the effort start here, as
+                // `endRest` does, or the pre-pause rest seconds land in
+                // the next count-up. Frozen `elapsed()` while paused is
+                // the right anchor.
+                if restEndDate != nil || restPausedRemaining != nil {
+                    session.markEffortStart()
+                }
                 restEndDate = nil
                 restPausedRemaining = nil
                 return
@@ -593,6 +613,13 @@ struct ActiveSessionView: View {
         guard restEndDate != nil || restPausedRemaining != nil else { return }
         restEndDate = nil
         restPausedRemaining = nil
+        // The effort stamp, HERE as well as in the `restEndDate` observer:
+        // this is the one door that concludes a BANKED rest (paused, no
+        // date transition for the observer to see), and a skip from the
+        // island while paused took it. Stamping while paused writes the
+        // frozen `elapsed()`, which is exactly the right anchor — the
+        // effort starts when the workout resumes.
+        session.markEffortStart()
         LiveMirror.shared.restEnded(in: session)
         syncActivityWorking()
     }
