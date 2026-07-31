@@ -314,8 +314,9 @@ struct TodayView: View {
                             // O(sessions) (bug hunt perf finding).
                             LazyVStack(spacing: 0) {
                                 // The date lives here now (Dave's ask),
-                                // on the item it names — and it's the
-                                // line the opening scroll lands on.
+                                // on the item it names — the first RAIL
+                                // line under the landed header stack
+                                // (band, then keys, then this).
                                 todayMarker
                                 // The rest-day item yields to the setup scaffold
                                 // until a startable routine exists — "nothing
