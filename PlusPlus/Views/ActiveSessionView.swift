@@ -59,6 +59,9 @@ struct ActiveSessionView: View {
     /// only the VIEW lingers. Nil outside the beat.
     @State private var lingeringLog: SetLog?
     @State private var showingExitDialog = false
+    /// One landing per recap (#503): Continue's dismiss animates, and a
+    /// second tap before the cover clears must not re-post the finish.
+    @State private var recapContinued = false
     @State private var showingOverview = false
     @State private var burstCount = 0
     // The count-up effort clock has NO view state: its anchor is
@@ -280,7 +283,13 @@ struct ActiveSessionView: View {
         .confirmationDialog("End this workout?", isPresented: $showingExitDialog, titleVisibility: .visible) {
             if completedSets > 0 && !session.isFinished {
                 Button("Finish workout") {
-                    finishSession()
+                    // Through the RECAP like every other finish door
+                    // (#503): the default dismissAfter here skipped the
+                    // diff tally, the HR summary, save-as-routine, the
+                    // first-finish tip — and the finish notification,
+                    // which only Continue posts, so Today's landing and
+                    // the green→purple conversion never fired either.
+                    finishSession(dismissAfter: false)
                 }
             }
             Button("Discard workout", role: .destructive) {
@@ -1612,10 +1621,19 @@ struct ActiveSessionView: View {
                 // dismiss so Today is already staging the animation as
                 // the cover pulls away. Only a finished session reaches
                 // here — Discard deletes and dismisses on its own path.
-                NotificationCenter.default.post(
-                    name: .plusplusWorkoutFinished,
-                    object: session.persistentModelID
-                )
+                // ⚠️ Exactly once (#503): the dismiss animates, so a
+                // second tap landing before the cover clears must not
+                // post a second landing. Only the POST is one-shot —
+                // dismiss() is idempotent, and gating it too would
+                // strand the recap if a first dismiss were ever
+                // swallowed by a presentation race (review).
+                if !recapContinued {
+                    recapContinued = true
+                    NotificationCenter.default.post(
+                        name: .plusplusWorkoutFinished,
+                        object: session.persistentModelID
+                    )
+                }
                 dismiss()
             } label: {
                 Text("Continue")
@@ -2460,30 +2478,34 @@ private struct SetLoggingView: View {
     private var logDock: some View {
         VStack(spacing: 0) {
             ZStack {
-                Button(action: onComplete) {
-                    // The commit key names what it commits, in the
-                    // exercise's own noun: "Log set" in the rack, "Log
-                    // piece" on an erg, plain "Log" for a walk. The
-                    // identifier stays completeSetButton so the smoke
-                    // suite keeps finding it.
-                    //
-                    // ⚠️ On a session that is ONE effort it names the
-                    // ending instead. Logging it and finishing are the
-                    // same decision there, so one key says so, in the
-                    // exit dialog's own words.
-                    Text(commitKeyLabel)
-                        .font(.system(.body, weight: .bold))
-                        .foregroundStyle(Theme.onPrimary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: 54)
-                        .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
+                if session.isSingleEffort {
+                    // ⚠️ On a session that is ONE effort the key names
+                    // the ENDING, in the exit dialog's own words — and
+                    // it SLIDES (#503, Q4): logging it and finishing
+                    // are the same decision, and that decision must
+                    // never belong to a stray tap.
+                    SlideToFinishKey(label: commitKeyLabel, onCommit: onComplete)
+                } else {
+                    Button(action: onComplete) {
+                        // The commit key names what it commits, in the
+                        // exercise's own noun: "Log set" in the rack,
+                        // "Log piece" on an erg, plain "Log" for a
+                        // walk. The identifier stays completeSetButton
+                        // so the smoke suite keeps finding it.
+                        Text(commitKeyLabel)
+                            .font(.system(.body, weight: .bold))
+                            .foregroundStyle(Theme.onPrimary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                            .frame(maxWidth: .infinity)
+                            .frame(minHeight: 54)
+                            .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.raisedPrimaryKey(cornerRadius: 12))
+                    // Return logs the set for external-keyboard users (WCAG 2.1.1).
+                    .keyboardShortcut(.defaultAction)
+                    .accessibilityIdentifier("completeSetButton")
                 }
-                .buttonStyle(.raisedPrimaryKey(cornerRadius: 12))
-                // Return logs the set for external-keyboard users (WCAG 2.1.1).
-                .keyboardShortcut(.defaultAction)
-                .accessibilityIdentifier("completeSetButton")
 
                 PlusOneBurst(trigger: burstCount)
                     .offset(y: -40)
@@ -2899,36 +2921,44 @@ private struct DurationTimerCard: View {
                 // cap there would make ending it early read as the thing
                 // to do (the rest-screen law, 2026-07-27). An open-ended
                 // effort has no other ending.
-                Button(action: logNow) {
-                    // ⚠️ The same expression `logDock` uses, plain "Log"
-                    // included: two strings for one state is how "Log it"
-                    // and "Log" ended up on the same screen. And the noun
-                    // is dropped at a block total of one by the caller —
-                    // "Log rep" on a single continuous forty-minute run is
-                    // the count-of-one lie `WorkUnit.kicker` already
-                    // refuses to tell.
-                    //
-                    // ⚠️ When the effort IS the workout the key names the
-                    // ending instead. This is the case the whole card
-                    // exists for — you go for a run, then you stop — and
-                    // "Log" followed by a separate Finish asks twice for
-                    // one decision.
-                    Text(finishesWorkout
-                         ? "Finish workout"
-                         : (unit.map { "Log \($0.singular)" } ?? "Log"))
-                        .font(.system(.subheadline, weight: .bold))
-                        .foregroundStyle(Theme.onPrimary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: 50)
-                        .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
+                if finishesWorkout {
+                    // ⚠️ When the effort IS the workout the key names
+                    // the ending — the exit dialog's own words — and it
+                    // SLIDES (#503, Q4). This is the case the whole
+                    // card exists for: you go for a run, then you stop,
+                    // and stopping is decided with a pull, never a
+                    // stray tap forty minutes in.
+                    SlideToFinishKey(
+                        label: "Finish workout",
+                        minHeight: 50,
+                        font: .system(.subheadline, weight: .bold),
+                        onCommit: logNow
+                    )
+                } else {
+                    Button(action: logNow) {
+                        // ⚠️ The same expression `logDock` uses, plain
+                        // "Log" included: two strings for one state is
+                        // how "Log it" and "Log" ended up on the same
+                        // screen. And the noun is dropped at a block
+                        // total of one by the caller — "Log rep" on a
+                        // single continuous forty-minute run is the
+                        // count-of-one lie `WorkUnit.kicker` already
+                        // refuses to tell.
+                        Text(unit.map { "Log \($0.singular)" } ?? "Log")
+                            .font(.system(.subheadline, weight: .bold))
+                            .foregroundStyle(Theme.onPrimary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                            .frame(maxWidth: .infinity)
+                            .frame(minHeight: 50)
+                            .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.raisedPrimaryKey(cornerRadius: 12))
+                    // Return commits the effort for external-keyboard users
+                    // (WCAG 2.1.1), exactly as it does in `logDock`.
+                    .keyboardShortcut(.defaultAction)
+                    .accessibilityIdentifier("completeSetButton")
                 }
-                .buttonStyle(.raisedPrimaryKey(cornerRadius: 12))
-                // Return commits the effort for external-keyboard users
-                // (WCAG 2.1.1), exactly as it does in `logDock`.
-                .keyboardShortcut(.defaultAction)
-                .accessibilityIdentifier("completeSetButton")
             } else {
                 HStack(spacing: 8) {
                     Text("Logs automatically at 0:00")

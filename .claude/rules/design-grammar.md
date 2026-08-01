@@ -74,6 +74,21 @@ Siblings: `navigation.md` (tab bar, search, scroll/landing mechanics),
   so creation reads as a button, not floating text. Keys that carry TEXT keep
   the rounded-rect pill: `QuietKey`, `LibrarySwitcherKey`, `SheetDismissKey`,
   the primary action bars.
+  ⚠️ **A key that ENDS the workout in one gesture SLIDES** (Q4, 2026-08-01):
+  the single-effort commit key ("Finish workout" in the log and timer docks)
+  is `SlideToFinishKey` — the cap slides the length of its own base plate
+  (worn full-width as the track) and commits at the end of travel; a tap
+  only wiggles it, which is the affordance teaching the slide. VoiceOver /
+  Switch Control / Voice Control activate it DIRECTLY
+  (`accessibilityRepresentation` Button, same `completeSetButton`
+  identifier) and Return still finishes (hidden keyboard-shortcut sibling)
+  — but XCUITest does NOT ride that representation: `tap()` is a
+  synthesized TOUCH, not an activation, so under `--uitest-reset` a tap
+  commits (test-only door, StartFlashButton's precedent). The exit
+  dialog's Finish stays a TAP — it already sits behind a confirm. The
+  slide itself is XCUITest-invisible: device pass. Drag transients are
+  `@GestureState` (a cancelled touch must spring the cap home, never
+  strand it — ui-interaction.md's latch law extended).
   ⚠️ **A screen that completes on its own has NO primary key** (2026-07-27,
   Dave, from the rest screen): a filled `primaryFill` cap is the commit
   grammar, so putting one on a screen whose job is to finish by itself makes

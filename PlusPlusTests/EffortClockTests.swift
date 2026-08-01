@@ -72,4 +72,30 @@ struct EffortClockTests {
         let reading = session.effortElapsed(at: t0.addingTimeInterval(120))
         #expect(abs(reading - 120) < 0.001, "the first effort starts when the clock does")
     }
+
+    @Test("Salvage finishes at the last real activity and banks nothing after it")
+    func salvageCarriesHonestDuration() throws {
+        let context = ModelContext(try makeContainer())
+        let session = WorkoutSession.startEmpty(context: context, at: t0)
+        session.startClock(at: t0)
+
+        // One set logged ten minutes in; the crash comes some time
+        // after, and the app is next opened days later.
+        let log = SetLog(order: 0, groupIndex: 0, setNumber: 1, exerciseName: "Probe Row")
+        context.insert(log)
+        log.actualReps = 8
+        log.completedAt = t0.addingTimeInterval(600)
+        log.session = session
+
+        // What `resolveOrphanedSessions` does to a non-empty orphan
+        // (#503): finish at the last verifiable activity. The running
+        // segment banks only up to that stamp — the crash-to-reopen gap
+        // is not training time, and there is no editor to fix a record
+        // that claimed it was.
+        session.finish(at: session.lastActivityAt)
+
+        #expect(session.endedAt == t0.addingTimeInterval(600))
+        let duration = session.duration ?? 0
+        #expect(abs(duration - 600) < 0.001, "banked \(duration) s; the two-day gap must not count")
+    }
 }
