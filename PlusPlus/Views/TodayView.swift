@@ -283,51 +283,42 @@ struct TodayView: View {
                             // history — eager building made every render
                             // O(sessions) (bug hunt perf finding).
                             LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
-                                // The week band is this section's HEADER, so
-                                // it pins the way the month landmarks below
-                                // do (build 162 device pass: mounted as a top
+                                // ONE section holds the whole timeline, and
+                                // the week band is its HEADER — which is what
+                                // pins the band (build 162: as a top
                                 // `safeAreaInset` it desynced the system
-                                // large-title bar — the title never drew at
-                                // rest, leaving a title-sized dead band, the
-                                // #521 failure proved on this surface too).
-                                // ⚠️ Deliberate consequence: one header pins
-                                // at a time, so the band owns the top through
-                                // the present and HANDS OFF to the first
-                                // month landmark as history begins. That is
-                                // the honest division — the week tally
-                                // describes now; in July, "JULY" is what
-                                // orients you.
+                                // large-title bar; a section header lives
+                                // inside the scroll's own layout, where the
+                                // bar never sees it).
+                                //
+                                // ⚠️ The band owns the pin OUTRIGHT (Dave:
+                                // "the band must pin at the top and not be
+                                // usurped by anything else"). A scroll gets
+                                // exactly ONE sticky header at a time, so
+                                // nothing else on this surface may be a
+                                // `Section` — the month landmarks are plain
+                                // rows (see `committedHistory`). Everything
+                                // below the landing lives in this section so
+                                // the band stays pinned the whole way down.
                                 Section {
                                     presentEntries(viewportHeight: viewport.size.height)
+                                    committedHistory
+                                    // Once real history exists the interactive
+                                    // scaffold is gone, but the finished setup
+                                    // steps stay as permanent "origin"
+                                    // milestones at the very bottom (Dave,
+                                    // 2026-07-24): the done steps read as
+                                    // committed cards, and any step left
+                                    // unfinished stays actionable so setup is
+                                    // still reachable. The onboarding anchors
+                                    // it carries are inert here (the
+                                    // reveal-scroll only runs while setup is
+                                    // active).
+                                    if !setupActive {
+                                        setupSection(viewportHeight: viewport.size.height)
+                                    }
                                 } header: {
                                     weekStripBand
-                                }
-                                // Committed history carries MONTH landmarks
-                                // (#506, Q11-A): one flat newest-first run
-                                // had nothing to orient by at depth. Real
-                                // `Section`s with a pinned header, so a
-                                // month's name holds the top until the next
-                                // takes over — the same IDEA the search
-                                // results use, though they get it from a
-                                // `List`'s own `.plain` pinning and this is
-                                // `LazyVStack(pinnedViews:)`. ⚠️ NOT the
-                                // week strip's sticky `visualEffect` (the
-                                // issue's hint): builds 159/160 deleted that
-                                // machinery, and a render-time offset can't
-                                // hand off between headers anyway.
-                                committedHistory
-                                // Once real history exists the interactive
-                                // scaffold is gone, but the finished setup
-                                // steps stay as permanent "origin" milestones
-                                // at the very bottom (Dave, 2026-07-24): the
-                                // done steps read as committed cards, and any
-                                // step left unfinished stays actionable so
-                                // setup is still reachable. The onboarding
-                                // anchors/geometry it carries are inert here
-                                // (the reveal-scroll only runs while setup is
-                                // active).
-                                if !setupActive {
-                                    setupSection(viewportHeight: viewport.size.height)
                                 }
                                 // Reveal-upward headroom (2026-07-16): the
                                 // setup scaffold reveals its steps by
@@ -1285,22 +1276,29 @@ struct TodayView: View {
         }
     }
 
+    /// History's MONTH landmarks (#506, Q11-A): one flat newest-first run
+    /// had nothing to orient by at depth.
+    ///
+    /// ⚠️ They are plain ROWS, not pinned `Section` headers (build 162,
+    /// Dave: "the band must pin at the top and not be usurped by anything
+    /// else"). A scroll gets exactly ONE sticky header, the week band owns
+    /// it, and a second `Section` here would take the pin away the moment
+    /// history came into view. The landmark still does its job — it names
+    /// the month you are reading — it just travels with the rail instead
+    /// of holding the top.
     @ViewBuilder
     private var committedHistory: some View {
         ForEach(sessionMonths, id: \.key) { month in
-            Section {
-                ForEach(month.sessions) { session in
-                    // The just-finished session converts on landing
-                    // (recap-close animation): its node turns from
-                    // actionable green to the done purple checkmark,
-                    // which seals it. Every other committed card rests
-                    // at that filled checkmark node. The date rides the
-                    // entry's own row (build 161) — two workouts one day
-                    // print the day twice, which is what a log does.
-                    committedEntry(session)
-                }
-            } header: {
-                monthHeader(month.label)
+            monthHeader(month.label)
+            ForEach(month.sessions) { session in
+                // The just-finished session converts on landing
+                // (recap-close animation): its node turns from
+                // actionable green to the done purple checkmark,
+                // which seals it. Every other committed card rests
+                // at that filled checkmark node. The date rides the
+                // entry's own row (build 161) — two workouts one day
+                // print the day twice, which is what a log does.
+                committedEntry(session)
             }
         }
     }

@@ -287,13 +287,13 @@ old hand rules policed.
   background + hairline shelf, both BLED past the 16 pt column with
   `.padding(.horizontal, -16)` (the month landmarks' idiom) since it now
   sits inside a padded stack.
-  ⚠️ **One header pins at a time, so the band HANDS OFF**: it owns the top
-  through the present and yields to the first month landmark as history
-  begins. Deliberate — the week tally describes now; in July, "JULY" is
-  what orients you. The band therefore heads a section holding the
-  present entries ONLY (anytime · today · setup · carried), which also
-  keeps the landing honest: the anchor sits just above that section, so
-  `scrollTo(.top)` seats it with the band pinned directly beneath.
+  ⚠️ **The band owns the pin OUTRIGHT** (Dave, build 162: "the band must
+  pin at the top and not be usurped by anything else"). A scroll gets
+  exactly ONE sticky header, so nothing else on Today may be a `Section` —
+  the month landmarks were demoted to plain rows for this. Its section
+  holds the whole timeline below the landing, so it stays pinned all the
+  way down; the anchor sits just above that section, so `scrollTo(.top)`
+  still seats the anytime row with the band pinned directly beneath.
   ⚠️ **Still to check on glass: build 152's ghost** — on pull-to-refresh
   the rubber-band walks the large title down over pinned chrome. Today HAS
   the app's one `.refreshable`; the pull's answer line must render in the
@@ -326,15 +326,13 @@ old hand rules policed.
   cap in a bigger frame makes the style plate a second box around it).
   The green + opens the picker SHEET (a multi-select is a searchable
   list).
-- ⚠️ **Committed history's MONTH landmarks are real pinned `Section`
-  headers** (#506): `pinnedViews: [.sectionHeaders]` on the rail's
-  LazyVStack, grouped year+month. NOT a sticky `visualEffect` — that
-  machinery died with the band, and a render-time offset cannot hand off
-  between headers. Lowercase mono like every dateline (all-caps headings
-  stay dead; a month is a DATE), year only when it isn't this one. The
-  spine draws THROUGH the header, and its background BLEEDS past the
-  16 pt column — rows slide UNDER a pin, and the gutters would show them
-  through. ⚠️ Device pass: the pull, and the month-to-month hand-off.
+- ⚠️ **Committed history's MONTH landmarks are plain ROWS** (#506, demoted
+  build 162): grouped year+month, lowercase mono like every dateline
+  (all-caps headings stay dead; a month is a DATE), year only when it
+  isn't this one, spine drawing through, background bleeding past the
+  16 pt column. They are NOT `Section` headers — the scroll's one pin
+  belongs to the band (law above), and a second section would take it the
+  moment history came into view.
 - ⚠️ **The pull's answer (the refresh line) renders in the SPACE THE PULL
   OPENS**, not in the timeline — a zero-height `Color.clear` at the very top
   of the content with the line `.overlay(alignment: .bottom)` on it, so the
