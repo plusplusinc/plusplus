@@ -296,6 +296,19 @@ struct DerivedMetricRow: View {
     }
 }
 
+/// The triad's rule, said out loud (#508, b26). It used to live ONLY in
+/// `DerivedMetricRow`'s `accessibilityHint`, so a sighted user met the
+/// eviction by suffering it: set a pace, watch the duration you entered
+/// quietly become the derived one. A rule that surprises you is a rule
+/// that has to be visible.
+///
+/// One caption per CARD, never per row — the triad has one rule, and
+/// three copies of it under three rows would read as three rules. The
+/// hint stays too: a caption is not announced when focus lands on the row.
+enum DerivedMetricPhrasing {
+    static let caption = "Set any two and the third is derived. Tap the derived one to set it instead, and another steps back to make room."
+}
+
 /// Metric row in the v2 sheet style: label, tappable mono value, and a
 /// bordered −/+ pair. Increment/decrement identifiers are derived from
 /// `identifier` ("weightIncrement" etc.) for the UI tests.

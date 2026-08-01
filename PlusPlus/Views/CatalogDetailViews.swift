@@ -396,9 +396,13 @@ struct EquipmentDetailScreen: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Bindable var equipment: Equipment
-    /// Setup context (onboarding + the Settings re-run) strips the screen
-    /// to the add-and-configure task: the exercises/routines cross-links
-    /// distract from it (Dave, 2026-07-17). Off in the Equipment tab.
+    /// GENUINE first run strips the screen to the add-and-configure task:
+    /// the exercises/routines cross-links distract from it (Dave,
+    /// 2026-07-17). Off in the Equipment tab — and, since #508 (b13), off
+    /// for the drawer's "Edit your kit" too: that entry wants the guided
+    /// Done-bar chrome, not the stripped screen, and the graph is most
+    /// useful exactly when curating a kit you already have. The caller
+    /// decides (`CatalogScopeView.isFirstRunSetup`); this stays a dumb flag.
     var isOnboarding = false
 
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw: String = WeightUnit.lb.rawValue

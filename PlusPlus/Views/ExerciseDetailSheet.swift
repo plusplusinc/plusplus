@@ -376,6 +376,20 @@ struct ExerciseDetailSheet: View {
                     heartRateTargetRow
                 }
             }
+            // The triad's rule, once per card and only while it applies
+            // (#508, b26). Inside the card, under the rows it governs: the
+            // eviction is a property of these three metrics, not of the
+            // sheet.
+            if derivedMetric != nil {
+                Text(DerivedMetricPhrasing.caption)
+                    .font(.system(.caption))
+                    .foregroundStyle(Theme.textFaint)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 14)
+                    .padding(.top, 10)
+                    .padding(.bottom, 2)
+            }
             // The cardio prescription rides with the cardio profiles —
             // same placement the duration branch gave it; stretches and
             // holds drop it (Exercise.showsHeartRateTargetRow owns the

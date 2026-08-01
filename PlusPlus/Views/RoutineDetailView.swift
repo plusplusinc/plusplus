@@ -38,6 +38,13 @@ struct RoutineDetailView: View {
     }
 
     @State private var pickerDestination: PickerDestination?
+    /// The slot to reopen if a browse-all swap is CANCELLED (#508, b27).
+    /// "Browse all exercises" is a detour inside the swap flow, not a new
+    /// errand: backing out of the catalog used to drop you on routine
+    /// detail with the sheet you started from gone, so the way back to the
+    /// exercise you were configuring was to find and tap it again. Set when
+    /// the swap picker opens, cleared the moment a pick lands.
+    @State private var swapReturnTarget: IdentifiedUUID?
     @State private var activeSession: WorkoutSession?
     /// The first-workout Health primer, raised by the start gate.
     @State private var healthStartRequest: HealthStartRequest?
@@ -305,7 +312,16 @@ struct RoutineDetailView: View {
         // as a sheet it no longer competes with the detail's own stack.
         // PickerDestination is UUID-keyed, so no persistentModelID re-key
         // flicker while it's open.
-        .sheet(item: $pickerDestination) { destination in
+        // ⚠️ The return runs in `onDismiss`, never under the live sheet —
+        // presenting one sheet while another tears down is the documented
+        // drop class on this codebase. A pick clears the target first, so
+        // only a genuine cancel reopens.
+        .sheet(item: $pickerDestination, onDismiss: {
+            if let target = swapReturnTarget {
+                swapReturnTarget = nil
+                selectedExercise = target
+            }
+        }) { destination in
             // Labeled onSelect: the picker also has an onConfigured: param, so
             // an unlabeled trailing closure would backward-match (a deprecation
             // warning, and would misbind to onConfigured under strict
@@ -340,7 +356,12 @@ struct RoutineDetailView: View {
                 ExerciseDetailSheet(
                     routine: routine,
                     routineExercise: routineExercise,
-                    onSwap: { entry in entry.uuid.map { pickerDestination = .swap($0) } }
+                    onSwap: { entry in
+                        entry.uuid.map {
+                            swapReturnTarget = IdentifiedUUID(id: $0)
+                            pickerDestination = .swap($0)
+                        }
+                    }
                 )
                 .presentationDetents([.large])
             }
@@ -1405,6 +1426,9 @@ struct RoutineDetailView: View {
             // linger on a bodyweight sub). Sets/rest are group facts and
             // stay.
             routine.replaceExercise(entry, with: exercise)
+            // A pick is not a cancel: the swap is done, so don't reopen the
+            // sheet behind it (#508, b27).
+            swapReturnTarget = nil
         }
         // Persist the freshly inserted group/exercise. This screen's trays
         // now key on the stable `uuid` (not persistentModelID), so they no

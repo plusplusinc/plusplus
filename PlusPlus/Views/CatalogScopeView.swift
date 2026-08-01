@@ -215,6 +215,16 @@ struct CatalogScopeView: View {
 
     /// The baked-in null kit is immutable: nothing lands in it, so its rows
     /// carry no membership swipe.
+    /// GENUINE first-run, not merely "presented with the guided Done bar"
+    /// (#508, b13). `setupMode` had two effects wired together: the Done-bar
+    /// chrome, and stripping equipment detail down to add-and-configure by
+    /// hiding its EXERCISES/ROUTINES graph. The drawer's "Edit your kit"
+    /// passes the flag for the CHROME, so it lost the graph too — most
+    /// useful exactly when curating an established kit, which is the only
+    /// time you reach that entry. Once the equipment step is done, setup is
+    /// over by definition, so the graph comes back and the chrome stays.
+    private var isFirstRunSetup: Bool { mode.setupMode && !SetupState.equipmentDone }
+
     private var isBodyweightKit: Bool { activeLibrary?.isBodyweight ?? false }
 
     /// A control label, so it always names the kit even when there's one
@@ -589,7 +599,7 @@ struct CatalogScopeView: View {
             case .equipment(let equipment):
                 // Setup context strips the detail to add + configure: the
                 // exercises/routines cross-links distract from the task.
-                EquipmentDetailScreen(equipment: equipment, isOnboarding: mode.setupMode)
+                EquipmentDetailScreen(equipment: equipment, isOnboarding: isFirstRunSetup)
             }
         }
         .safeAreaInset(edge: .bottom) {
