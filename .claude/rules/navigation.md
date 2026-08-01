@@ -233,14 +233,22 @@ this surface the control effectively is.
   shown" computed only on open, Clear all inside); empty results add a
   "Clear filters" QuietKey; the create row never filters; an item that can't
   answer an active facet drops out under it (customs under the attribute
-  chips) — muscle excepted, customs carry their own groups. The row is a top
-  `safeAreaInset` on the List — pinned, opaque, no geometry probes;
-  ⚠️ the large title travels over it on tab-root overscroll (cosmetic — the
-  catalogs have no `.refreshable`; device-pass item, fallback is
-  first-list-content). Typing still reaches everything without chips: muscle
-  groups, movement patterns and hidden synonyms (`CatalogSearchSynonyms` —
-  "erg", "rdl", "trx") ride `ExerciseFilterState.searchHaystack` and the
-  equipment scorer.
+  chips) — muscle excepted, customs carry their own groups. ⚠️ **On tab roots
+  the row is the list's FIRST CONTENT** (2026-08-01 device pass took the
+  named fallback): pinned as a top `safeAreaInset` it shifted the list's
+  resting offset by its own height, and the system large-title bar read that
+  as "already collapsed" — the large title never drew (a title-sized dead
+  band above the chips at rest), no inline title replaced it, and the bar's
+  scrolled-under hairline showed permanently, ~8 pt below the bar and 4 pt
+  above the chips (the 44 pt hit frame), Dave's "imbalanced" line. The Today
+  week-strip law covers this: anything a large title can travel over has to
+  be scroll content. Chips scrolling away with the list is the accepted
+  cost; invisible to CI, so re-pinning needs a device pass. PRESENTED and
+  PICKER surfaces keep the pinned, opaque top `safeAreaInset` (app-drawn
+  chrome, no large-title machinery); no geometry probes anywhere. Typing
+  still reaches everything without chips: muscle groups, movement patterns
+  and hidden synonyms (`CatalogSearchSynonyms` — "erg", "rdl", "trx") ride
+  `ExerciseFilterState.searchHaystack` and the equipment scorer.
 - **Kit availability is NOT a filter** (2026-07-25): nothing is HIDDEN by the
   active kit. What the kit can't do groups under a collapsible **"N
   exercises/routines require more equipment"** disclosure
@@ -285,44 +293,47 @@ old hand rules policed.
 
 - ⚠️ **Today's header band is FACTS ONLY (tally + `BlockBar`), PINNED
   CHROME on the scroll's shell** — a top `safeAreaInset`, the catalogs'
-  #494 mount (Dave, build 159, REVERSING the 2026-07-27 sticky-in-scroll
-  law; build 160 moved the quick-start keys OUT of it onto the rail). The
+  #494 mount (build 159 reversed the sticky-in-scroll law; build 160
+  moved the quick-start keys onto the rail). The
   sticky-band era's machinery — the `visualEffect` offset, the hidden
   reservation copy, the anchor compensation — is DELETED; the scroll holds
   rail items only, the band keeps its OPAQUE background + hairline shelf
   (rows slide under it), and the 16 pt content column stays on the scroll
   stack's CHILDREN.
-  ⚠️ **The known cost is build 152's ghost, accepted knowingly this time**:
-  on pull-to-refresh the rubber-band walks the large title down over pinned
-  chrome — the exact failure that created the sticky law ("Today" slid over
-  the block bar). Today HAS the app's one `.refreshable`, so this is the #1
+  ⚠️ **The known cost is build 152's ghost, accepted knowingly**: on
+  pull-to-refresh the rubber-band walks the large title down over pinned
+  chrome — the exact failure that created the sticky law. Today HAS the
+  app's one `.refreshable`, so this is the #1
   device check for the pinned band; the pull's answer line must also still
   render in the gap the pull opens (below the band now). If the pull reads
   broken on glass, the recorded fallback is the sticky-in-scroll mechanism
   at 8b9e16b (boundary-mounted, no reservation), not build 152's revert.
+  ⚠️ **#521 adds a second check on this same mount**: the catalogs
+  measured a pinned top inset desyncing the large-title bar (no title at
+  rest) and moved their row into the list — that was a `List`; Today's
+  `ScrollView` is unproven. Check the TITLE AT REST on device; the
+  8b9e16b fallback covers this failure too.
 - ⚠️ **The rail is DATE-FIRST, and quick start is its ANYTIME entry**
-  (Dave, build 160). Every dated entry renders its date on its OWN row —
-  popped out of the card — with the node CENTERED on that row (both stand
-  one node-diameter tall) and the card hanging below; per-ENTRY, so two
-  workouts one day print the day twice, which is what a log does. Today is
-  ONE dated group ("today · thu · jul 31") holding all of the day's cards
-  under one node; the carried lane's date row is its "was tue · jul 7"
-  line in advisory amber (tense, never an obligation word); setup rows
-  stay the one undated class. **The anytime entry sits below the future
-  items and above today, every day**: a DASHED node ("anytime" in the date
-  position — the entry with no date) and the dashed-shell `AnytimeCard` —
-  the dash is the offer grammar, one visual idea with the future cards'
-  "not yet" dash. The landing seats the ANYTIME row under the band.
-  ⚠️ The card's keys morph IN PLACE (tap → the key's chrome grows into a
+  (Dave, build 160). Every dated entry renders its date on its OWN row,
+  node CENTERED on it (both stand one node-diameter tall), card below;
+  per-ENTRY, so two workouts one day print the day twice — what a log
+  does. Today is ONE dated group ("today · thu · jul 31") holding the
+  day's cards under one node; the carried lane's date row is its "was
+  tue · jul 7" line in advisory amber; setup rows stay the one undated
+  class. **The anytime entry sits below the future items and above
+  today, every day**: a DASHED node, "anytime" in the date position (the
+  entry with no date), the dashed-shell `AnytimeCard` — the dash is the
+  offer grammar, one idea with the future cards' "not yet" stroke. The
+  landing seats the ANYTIME row under the band.
+  ⚠️ The card's keys morph IN PLACE (the key's chrome grows into a
   config panel via `matchedGeometryEffect`; the panel's solid border
   OVERTAKES the dashed shell while open): morph the CHROME, fade the
   content — matched content reflows text mid-flight — and NEVER a
-  measured FLIP, which would write layout state in the TabView subtree
-  (the morph law above). The rack never scrolls horizontally: it fits
-  what it can and collapses the tail into an "N more" key (widths from
-  `UIFont` metrics) whose panel holds the hidden sports one level deeper.
-  The green + opens the picker SHEET (a multi-select is a searchable
-  list, never an in-place chip grid).
+  measured FLIP, which writes layout state where the morph law above
+  forbids it. The rack never scrolls horizontally: the tail collapses
+  into an "N more" key (widths from `UIFont` metrics) whose panel holds
+  the hidden sports one level deeper. The green + opens the picker SHEET
+  (a multi-select is a searchable list, never an in-place chip grid).
 - ⚠️ **The pull's answer (the refresh line) renders in the SPACE THE PULL
   OPENS**, not in the timeline — a zero-height `Color.clear` at the very top
   of the content with the line `.overlay(alignment: .bottom)` on it, so the

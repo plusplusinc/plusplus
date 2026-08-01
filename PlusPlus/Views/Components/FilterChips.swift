@@ -109,6 +109,12 @@ struct FilterSummaryChip: View {
             .frame(height: 44)
             .contentShape(Rectangle())
         }
+        // ⚠️ Plain, never the default: on tab roots the facet row is LIST
+        // CONTENT now, and inside a `List` row taps route into default-styled
+        // buttons anywhere in the row (the build-12 class) — a tap on the
+        // row's dead band would pop this popover. The chip draws all its own
+        // chrome, so plain is visually identical.
+        .buttonStyle(.plain)
         .accessibilityIdentifier("filterSummary")
         .accessibilityLabel("Active filters")
         .accessibilityValue("\(facets.count)")

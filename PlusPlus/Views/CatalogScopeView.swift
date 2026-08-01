@@ -712,8 +712,31 @@ struct CatalogScopeView: View {
         // the query, so an un-hoisted read is three extra full passes per
         // keystroke for lists nobody is looking at.
         let sections = displayedSections
+        let shown = sections.reduce(0) { $0 + $1.count }
         return ScrollViewReader { proxy in
             List {
+                // On TAB roots the facet row is the list's FIRST CONTENT, not
+                // a pinned inset (2026-08-01 device pass, the fallback named
+                // when the row shipped). Pinned as a top `safeAreaInset`, the
+                // system large-title bar never left its scrolled-under state
+                // (measured off the device screenshots): the large title
+                // never drew — a title-sized dead band above the chips at
+                // rest, no inline title in its place — and the bar painted
+                // its scrolled-under hairline in BOTH states, ~8 pt below the
+                // bar but only 4 pt above the chips (the 44 pt hit frame
+                // around a 36 pt chip), the imbalance Dave photographed.
+                // Likely mechanism: the pinned band shifts the list's resting
+                // offset by its own height, one large-title zone, which the
+                // bar reads as "already collapsed". Either way the Today
+                // week-strip law covers it: anything a large title can travel
+                // over has to be scroll content. Cost accepted: the chips
+                // scroll away with the list.
+                if mode.isTab {
+                    filterRow(shown: shown)
+                        .listRowInsets(EdgeInsets())
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                }
                 if showsCreateRow(collisions) {
                     createRow
                 }
@@ -765,17 +788,18 @@ struct CatalogScopeView: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .scrollDismissesKeyboard(.immediately)
-            // The facet row (filtering returns, 2026-07-31): pinned above
-            // the list in every mode — below the system bar on tabs, below
-            // the kit bar when presented, below the picker header. Opaque,
-            // rows scroll under it. No geometry probes (the morph law); it
-            // never touches the `.principal` toolbar row. ⚠️ Named tension:
-            // a safeAreaInset is pinned, so the large title travels over it
-            // on tab-root overscroll — catalogs have no `.refreshable`, so
-            // the exposure is cosmetic; on Dave's device-pass list, with
-            // "row as first list content" as the fallback.
+            // PRESENTED and PICKER surfaces keep the facet row PINNED here —
+            // below the kit bar when presented, below the picker header.
+            // Opaque, rows scroll under it, no geometry probes (the morph
+            // law). Their chrome is app-drawn, so the system large-title
+            // machinery that broke the pinned form on tab roots (see the
+            // first-list-content note inside the List above) never runs on
+            // them. ⚠️ Do NOT re-pin this on tabs without a device pass —
+            // the failure is invisible to CI.
             .safeAreaInset(edge: .top, spacing: 0) {
-                filterRow(shown: sections.reduce(0) { $0 + $1.count })
+                if !mode.isTab {
+                    filterRow(shown: shown)
+                }
             }
             // SOFT at the bottom — the system's own gradient dissolve, which is
             // the third answer this edge has had and the one that holds both
@@ -855,6 +879,11 @@ struct CatalogScopeView: View {
     /// Per-scope single-select facet chips in a horizontal run, led by the
     /// summary chip whenever anything is active (the summarize-never-
     /// insta-clear law). State is `filters`; the engine applies it.
+    ///
+    /// Mounted two ways: the list's FIRST CONTENT on tab roots (scrolls away
+    /// — a pinned band under the system large-title bar broke the bar, see
+    /// `listBody`), a pinned top `safeAreaInset` on presented/picker
+    /// surfaces, whose chrome is app-drawn.
     private func filterRow(shown: Int) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 7) {
