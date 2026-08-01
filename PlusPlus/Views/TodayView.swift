@@ -358,34 +358,7 @@ struct TodayView: View {
                                 // 159/160 deleted that machinery, and a
                                 // render-time offset can't hand off between
                                 // headers anyway.
-                                ForEach(sessionMonths, id: \.key) { month in
-                                    Section {
-                                        ForEach(month.sessions) { session in
-                                            // The just-finished session converts
-                                            // on landing (recap-close animation):
-                                            // its node turns from actionable green
-                                            // to the done purple checkmark, which
-                                            // seals it. Every other committed card
-                                            // rests at that filled checkmark node.
-                                            // The date rides the entry's own row
-                                            // (build 160) — two workouts one day
-                                            // print the day twice, which is what a
-                                            // log does.
-                                            let converting = justCompletedID == session.persistentModelID
-                                            TimelineItem(
-                                                node: .committed,
-                                                dateline: railDay(session.startedAt),
-                                                converting: converting,
-                                                converted: converting && completionConverted
-                                            ) {
-                                                committedCard(session)
-                                                    .scaleEffect(converting && !completionConverted ? 0.97 : 1.0)
-                                            }
-                                        }
-                                    } header: {
-                                        monthHeader(month.label)
-                                    }
-                                }
+                                committedHistory
                                 // Once real history exists the interactive
                                 // scaffold is gone, but the finished setup
                                 // steps stay as permanent "origin" milestones
@@ -1282,6 +1255,51 @@ struct TodayView: View {
                     : .dateTime.month(.wide).year())
                 .lowercased()
             return (key, label, run)
+        }
+    }
+
+    /// The committed run, in month sections (#506, Q11-A).
+    ///
+    /// ⚠️ EXTRACTED, not inlined in the timeline stack: nesting a
+    /// `Section` + inner `ForEach` inside that already-enormous
+    /// ViewBuilder pushed it past the type-checker's budget outright
+    /// ("unable to type-check this expression in reasonable time",
+    /// CI on the first push). A `some View` boundary is what keeps the
+    /// stack checkable — anything added to this timeline from here on
+    /// belongs in its own property for the same reason.
+    @ViewBuilder
+    private var committedHistory: some View {
+        ForEach(sessionMonths, id: \.key) { month in
+            Section {
+                ForEach(month.sessions) { session in
+                    // The just-finished session converts on landing
+                    // (recap-close animation): its node turns from
+                    // actionable green to the done purple checkmark,
+                    // which seals it. Every other committed card rests
+                    // at that filled checkmark node. The date rides the
+                    // entry's own row (build 160) — two workouts one day
+                    // print the day twice, which is what a log does.
+                    committedEntry(session)
+                }
+            } header: {
+                monthHeader(month.label)
+            }
+        }
+    }
+
+    /// One committed entry. Its own function so neither the conversion
+    /// ternaries nor `TimelineItem`'s five arguments land inside a
+    /// `ForEach` inside a `Section` inside the timeline stack.
+    private func committedEntry(_ session: WorkoutSession) -> some View {
+        let converting = justCompletedID == session.persistentModelID
+        return TimelineItem(
+            node: .committed,
+            dateline: railDay(session.startedAt),
+            converting: converting,
+            converted: converting && completionConverted
+        ) {
+            committedCard(session)
+                .scaleEffect(converting && !completionConverted ? 0.97 : 1.0)
         }
     }
 
