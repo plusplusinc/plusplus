@@ -332,7 +332,12 @@ final class GitHubSyncCoordinator {
         // export, discarded it, then paid again inside `sync()` — the
         // persistently-offline case, in the one function whose job is to be
         // cheap.
-        guard ApplicationSupportBaseStore().hasStoredBase else { return true }
+        // ⚠️ The init THROWS (it creates the Application Support directory),
+        // which is why the old code's single `try` sat on the construction
+        // as much as on the load. A store we can't even open is the
+        // can't-tell case, so it takes the same answer as every other
+        // failure here: let the pass decide.
+        guard let store = try? ApplicationSupportBaseStore(), store.hasStoredBase else { return true }
 
         let inputs: (bundle: ExportBundle, routes: [String: Data])
         do {
