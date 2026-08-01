@@ -154,6 +154,11 @@ struct CatalogScopeView: View {
     private var routines: [Routine]
     @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
     @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
+    /// Observed, not read through `SetupState` (review): a plain UserDefaults
+    /// read in a body is stale the moment anything writes it while the screen
+    /// is up, with nothing to invalidate the render. `RootTabView` already
+    /// binds this key the same way.
+    @AppStorage(SetupState.equipmentDoneKey) private var equipmentStepDone = false
 
     /// The presented and picker forms' own query (unused in `.tab` mode, where
     /// the field is the bottom bar's and the query lives in the root).
@@ -218,6 +223,16 @@ struct CatalogScopeView: View {
 
     /// The baked-in null kit is immutable: nothing lands in it, so its rows
     /// carry no membership swipe.
+    /// GENUINE first-run, not merely "presented with the guided Done bar"
+    /// (#508, b13). `setupMode` had two effects wired together: the Done-bar
+    /// chrome, and stripping equipment detail down to add-and-configure by
+    /// hiding its EXERCISES/ROUTINES graph. The drawer's "Edit your kit"
+    /// passes the flag for the CHROME, so it lost the graph too — most
+    /// useful exactly when curating an established kit, which is the only
+    /// time you reach that entry. Once the equipment step is done, setup is
+    /// over by definition, so the graph comes back and the chrome stays.
+    private var isFirstRunSetup: Bool { mode.setupMode && !equipmentStepDone }
+
     private var isBodyweightKit: Bool { activeLibrary?.isBodyweight ?? false }
 
     /// A control label, so it always names the kit even when there's one
@@ -565,7 +580,11 @@ struct CatalogScopeView: View {
             // Onboarding is a guided single-kit setup with its own Done bar; a
             // switch-kits control there is out of place. Everywhere else, name
             // the kit these adds land in.
-            if !mode.setupMode { activeKitBar }
+            // Keyed on FIRST RUN, not on the chrome flag (#508, b13 +
+            // review): "adds land in ⟨kit⟩" is exactly what someone curating
+            // an established kit needs, and it was hidden for the same
+            // reason the graph was.
+            if !isFirstRunSetup { activeKitBar }
             listBody
         }
         .background(Theme.background)
@@ -592,7 +611,7 @@ struct CatalogScopeView: View {
             case .equipment(let equipment):
                 // Setup context strips the detail to add + configure: the
                 // exercises/routines cross-links distract from the task.
-                EquipmentDetailScreen(equipment: equipment, isOnboarding: mode.setupMode)
+                EquipmentDetailScreen(equipment: equipment, isOnboarding: isFirstRunSetup)
             }
         }
         .safeAreaInset(edge: .bottom) {
@@ -690,7 +709,12 @@ struct CatalogScopeView: View {
     private var setupDoneBar: some View {
         Button {
             touchedSetup = true
-            SetupState.markEquipmentDone()
+            // ⚠️ Guarded, like the onDisappear path above (review):
+            // `markEquipmentDone` rewrites the completion DATE, so an
+            // established user tapping Done from the drawer's "Edit your
+            // kit" moved their setup milestone's date to today. Setup is
+            // finished once; finishing it again is not an event.
+            if !equipmentStepDone { SetupState.markEquipmentDone() }
             dismiss()
         } label: {
             Text(kitNames.isEmpty ? "Done · bodyweight only" : "Done · \(kitNames.count) item\(kitNames.count == 1 ? "" : "s")")
