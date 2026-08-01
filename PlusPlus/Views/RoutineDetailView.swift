@@ -27,6 +27,16 @@ struct RoutineDetailView: View {
         EquipmentLibrary.active(in: libraries, storedID: activeLibraryID)?.memberNames ?? []
     }
 
+    /// Resolve a header kit chip's name to its piece for the detail sheet —
+    /// a direct fetch (the `ModelContext.routine(uuid:)` pattern), so this
+    /// view carries no standing all-equipment query for one tap. Kit
+    /// membership is a set of `Equipment` objects, so an in-kit name always
+    /// resolves; nil (a vanished piece) just means no sheet.
+    private func equipment(named name: String) -> Equipment? {
+        let descriptor = FetchDescriptor<Equipment>(predicate: #Predicate { $0.name == name })
+        return (try? modelContext.fetch(descriptor))?.first
+    }
+
     @State private var pickerDestination: PickerDestination?
     @State private var activeSession: WorkoutSession?
     /// The first-workout Health primer, raised by the start gate.
@@ -37,9 +47,10 @@ struct RoutineDetailView: View {
     @State private var showingScheduleTray = false
     /// The merged rest + transition tray, raised by the header's pauses row.
     @State private var showingPausesTray = false
-    /// Your kit, raised by tapping a piece the active kit HAS (a piece it
-    /// lacks opens the resolve sheet instead).
-    @State private var showingKitCatalog = false
+    /// A piece the active kit HAS, tapped in the header: its own detail
+    /// screen (membership toggle, config, cross-links). A piece the kit
+    /// lacks opens the resolve sheet instead (`resolveTarget`).
+    @State private var kitDetailTarget: Equipment?
     /// The estimate column's width. Scaled so the spec table's labels start
     /// at the same place at every Dynamic Type size.
     @ScaledMetric(relativeTo: .body) private var estimateColumnWidth: Double = 104
@@ -347,10 +358,17 @@ struct RoutineDetailView: View {
         .sheet(isPresented: $showingPausesTray) {
             PausesTray(routine: routine)
         }
-        // A piece the kit already has opens the kit itself — the surface
-        // where you'd manage it. The missing case has its own sheet below.
-        .sheet(isPresented: $showingKitCatalog) {
-            CatalogScopeView(scope: .kit)
+        // A piece the kit already has opens THAT PIECE (2026-08-01): its
+        // detail screen holds membership, config and the cross-links, so the
+        // chip answers about the thing tapped. (#470 presented the whole
+        // catalog here — unanchored to the piece, and bare of the
+        // `NavigationStack` its presented form pushes rows with, so every
+        // row tap inside was a silent no-op.) The stack is load-bearing:
+        // the detail screen's cross-links push within this sheet.
+        .sheet(item: $kitDetailTarget) { equipment in
+            NavigationStack {
+                EquipmentDetailScreen(equipment: equipment)
+            }
         }
         // Tapping an amber "not in your kit" gear chip opens ways to resolve it
         // (add to kit · switch kit · swap the moves). Keyed on the name.
@@ -365,8 +383,11 @@ struct RoutineDetailView: View {
         // the pop wins every rightward drag and DUPE would be unreachable.
         // Narrowed to the 44 pt edge band on THIS screen only, and turned
         // off while routine settings is pushed on top so that screen keeps
-        // its full-width pop.
-        .leadingRevealHost(active: !showingRoutineSettings)
+        // its full-width pop. Same for the kit chip's equipment sheet: the
+        // gate count is GLOBAL, so while it's raised the sheet's own stack
+        // (cross-links push in it) would lose full-width pop too — and the
+        // rail under the sheet can't take a drag anyway.
+        .leadingRevealHost(active: !showingRoutineSettings && kitDetailTarget == nil)
     }
 
     /// The share link for this routine — built fresh on each render so
@@ -531,9 +552,16 @@ struct RoutineDetailView: View {
             if !meta.gear.isEmpty {
                 specHairline
                 RoutineSpecRow(label: "kit", showsChevron: false) {
-                    RoutineEquipmentTags(gear: meta.gear, interactive: true) { name in
+                    // An equipment-free routine's tag is the synthetic
+                    // "Bodyweight" stand-in — not a piece of equipment, so
+                    // there is nothing to open and it renders INERT (no
+                    // ring, no tap). Real gear stays interactive per-piece.
+                    RoutineEquipmentTags(
+                        gear: meta.gear,
+                        interactive: !routine.equipmentNames.isEmpty
+                    ) { name in
                         if availableEquipmentNames.contains(name) {
-                            showingKitCatalog = true
+                            kitDetailTarget = equipment(named: name)
                         } else {
                             resolveTarget = ResolveTarget(name: name)
                         }
