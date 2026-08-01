@@ -291,6 +291,15 @@ struct BlockBar: View {
     /// animates whenever it's true).
     var breathing: Bool = false
 
+    /// Tapping a DONE block offers a correction (#504, Q8-B): the handler
+    /// receives the block's index and the CALLER presents the set's
+    /// values with an explicit confirm — a segment tap must never move
+    /// the cursor by itself. nil (every mount but the live set bar)
+    /// leaves the bar inert, exactly as before. ⚠️ VoiceOver keeps the
+    /// bar as one summary element (children stay ignored below); the
+    /// overview sheet's Redo is the accessible correction route.
+    var onCorrect: ((Int) -> Void)? = nil
+
     /// Toggled under a `repeatForever` animation, exactly as the overview
     /// sheet's up-next pulse does (#421) — a deliberate flourish, and a
     /// named exception to the Anim-token rule: a countdown is a waiting
@@ -341,17 +350,19 @@ struct BlockBar: View {
     var body: some View {
         HStack(alignment: .center, spacing: 3) {
             ForEach(0..<max(total, 1), id: \.self) { index in
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(isHollow(at: index) ? Color.clear : color(at: index))
-                    .overlay {
-                        if isHollow(at: index) {
-                            RoundedRectangle(cornerRadius: 2)
-                                .strokeBorder(Theme.borderStrong, lineWidth: 1)
-                        }
-                    }
-                    .frame(height: height(at: index))
-                    .frame(maxWidth: .infinity)
-                    .opacity(breathing && isLive(at: index) ? (breathIn ? 1.0 : 0.35) : 1.0)
+                // ONE identity per block whatever its state (review): a
+                // branch between Button and bare shape remounts the
+                // segment when it crosses into `.done`, turning the
+                // green→purple roll into a crossfade. The Button is
+                // layout-neutral; hit testing is the only thing gated.
+                Button {
+                    onCorrect?(index)
+                } label: {
+                    segment(at: index)
+                        .contentShape(BlockHitInflation())
+                }
+                .buttonStyle(.plain)
+                .allowsHitTesting(onCorrect != nil && blockState(at: index) == .done)
             }
         }
         .animation(Theme.Anim.standard, value: filled)
@@ -373,8 +384,43 @@ struct BlockBar: View {
         // subject ("Sets") or hide the bar when a sibling caption
         // already states the fact — a bare "2 of 4" with no subject is
         // the a11y bug this comment used to merely hope against
-        // (2026-07-23).
+        // (2026-07-23). Correction taps (#504) deliberately stay out of
+        // the tree too: the overview's Redo is the accessible route.
         .accessibilityElement(children: .ignore)
         .accessibilityValue("\(filled) of \(total)")
+    }
+
+    private func segment(at index: Int) -> some View {
+        RoundedRectangle(cornerRadius: 2)
+            .fill(isHollow(at: index) ? Color.clear : color(at: index))
+            .overlay {
+                if isHollow(at: index) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .strokeBorder(Theme.borderStrong, lineWidth: 1)
+                }
+            }
+            .frame(height: height(at: index))
+            .frame(maxWidth: .infinity)
+            .opacity(breathing && isLive(at: index) ? (breathIn ? 1.0 : 0.35) : 1.0)
+    }
+}
+
+/// A 9 pt block sits far under the 44 pt hit floor, so the hit shape
+/// inflates past the bounds without moving layout (MetricStepperRow's
+/// negative-inset precedent) — but ASYMMETRICALLY (review): a uniform
+/// −17 overlapped neighbors by 31 pt horizontally (later siblings
+/// hit-test first, so the right ~third of every done block routed to
+/// its NEIGHBOR's dialog), and reached 17 pt up into the header band.
+/// Sides take half the bar's 3 pt spacing; vertically the reach is
+/// 12 pt up (inside the bar's own top padding) and 24 pt down (the
+/// stage's non-interactive kicker zone), for a 45 pt hit height.
+private struct BlockHitInflation: Shape {
+    func path(in rect: CGRect) -> Path {
+        Path(CGRect(
+            x: rect.minX - 1.5,
+            y: rect.minY - 12,
+            width: rect.width + 3,
+            height: rect.height + 36
+        ))
     }
 }

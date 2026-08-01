@@ -66,6 +66,11 @@ struct HoldRepeatKey: View {
     /// is swallowed instead of adding a stray step. Reset when the next press
     /// begins (and defensively when the swallow happens).
     @State private var didRepeat = false
+    /// The hold's on-screen echo (#504, b4): the mechanism had none — a
+    /// held key looked exactly like a resting one while the value climbed.
+    /// While repeating the cap wears the raised fill and a data-green
+    /// stroke (green is data in motion), dropping back on release/cancel.
+    @State private var repeating = false
 
     var body: some View {
         Button {
@@ -79,8 +84,9 @@ struct HoldRepeatKey: View {
                 .minimumScaleFactor(0.7)
                 .frame(maxWidth: width == nil ? .infinity : nil)
                 .frame(width: width, height: height)
-                .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.borderStrong))
+                .background(repeating ? Theme.surfaceRaised : Theme.background, in: RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(repeating ? Theme.accent : Theme.borderStrong))
+                .animation(Theme.Anim.press, value: repeating)
         }
         .buttonStyle(.raisedKey(cornerRadius: 12))
         .accessibilityIdentifier(identifier)
@@ -102,6 +108,7 @@ struct HoldRepeatKey: View {
     private func beginRepeat() {
         endRepeat()
         didRepeat = true
+        repeating = true
         let haptic = UIImpactFeedbackGenerator(style: .light)
         haptic.prepare()
         repeatTask = Task { @MainActor in
@@ -120,6 +127,7 @@ struct HoldRepeatKey: View {
     private func endRepeat() {
         repeatTask?.cancel()
         repeatTask = nil
+        repeating = false
     }
 }
 
