@@ -275,7 +275,7 @@ struct TodayView: View {
                             // not part of the timeline OR the page scroll;
                             // the only motion they share is the large
                             // title collapsing into the bar. The quick
-                            // starts moved the OTHER way in build 160:
+                            // starts moved the OTHER way in build 161:
                             // they ride the rail as the anytime entry.
                             // The scroll holds rail items and nothing else,
                             // so item spacing is uniform by construction.
@@ -283,11 +283,12 @@ struct TodayView: View {
                             // history — eager building made every render
                             // O(sessions) (bug hunt perf finding).
                             LazyVStack(spacing: 0) {
-                                // The ANYTIME entry (Dave, build 160): quick
+                                // The ANYTIME entry (Dave, build 161): quick
                                 // start as a card ON the rail — below the
                                 // future, above whatever today holds, every
-                                // day. The dashed node says what it is: an
-                                // offer, not an occurrence. It absorbs
+                                // day. Its node is solid like every other;
+                                // the card's dashed shell is what says
+                                // "offer, not occurrence". It absorbs
                                 // nothing from setup — the scaffold keeps
                                 // its one beginning (the same gate the old
                                 // pinned rack had).
@@ -302,22 +303,25 @@ struct TodayView: View {
                                         anytimeCard
                                     }
                                 }
-                                // TODAY is ONE dated group now (the build-160
+                                // TODAY is ONE dated group (the build-160
                                 // restructure: dates pop out of the cards,
                                 // the node centers on the date row, cards
                                 // hang below). Every card of the day shares
-                                // this date; the group renders even empty —
-                                // today's date always marks the rail's now.
-                                TimelineItem(
-                                    node: dueRoutines.isEmpty ? .inert : .pending,
-                                    dateline: "today · \(todayDateText)"
-                                ) {
-                                    // Gated as a WHOLE: a zero-child VStack
-                                    // still takes the group's 8 pt dateline
-                                    // gap; an EmptyView doesn't, so a
-                                    // card-less today is the date row alone
-                                    // (swift-reviewer).
-                                    if todayGroupHasCards {
+                                // this one date row.
+                                // ⚠️ The whole ENTRY is gated, not just its
+                                // cards: a date row with nothing under it is
+                                // a rail entry that isn't one (Dave, build
+                                // 160 device pass — carried-over work
+                                // suppresses the rest-day card, which left
+                                // "today · sat · aug 1" standing alone over
+                                // the amber lane). Today earns a row when it
+                                // has something to show; the carried entries
+                                // right below carry their own dates.
+                                if todayGroupHasCards {
+                                    TimelineItem(
+                                        node: dueRoutines.isEmpty ? .inert : .pending,
+                                        dateline: "today · \(todayDateText)"
+                                    ) {
                                         VStack(alignment: .leading, spacing: 10) {
                                             if showsRestDayCard {
                                                 restDayCard
@@ -355,7 +359,7 @@ struct TodayView: View {
                                     // seals it. Every other committed card
                                     // rests at that filled checkmark node.
                                     // The date rides the entry's own row
-                                    // (build 160) — two workouts one day
+                                    // (build 161) — two workouts one day
                                     // print the day twice, which is what a
                                     // log does.
                                     let converting = justCompletedID == session.persistentModelID
@@ -420,7 +424,7 @@ struct TodayView: View {
                     // page scroll — "except just the little scroll that
                     // moves the heading into the top", which is the
                     // large-title collapse and belongs to the bar, not to
-                    // this band). Facts only since build 160: the quick
+                    // this band). Facts only since build 161: the quick
                     // starts left for the rail's anytime card. The
                     // catalogs' #494 filter row is the precedent, same
                     // mount; the landing needs no anchor compensation —
@@ -983,7 +987,7 @@ struct TodayView: View {
             // Inert grey: green rings stay exclusive to today's
             // actionable cards (rail grammar) — a future day is a
             // calendar fact, not a call to action. Its date rides the
-            // entry's own row (build 160); two routines on one future
+            // entry's own row (build 161); two routines on one future
             // day each print it, the per-entry rule everywhere.
             TimelineItem(node: .inert, dateline: railDay(entry.day)) {
                 futureCard(entry)
@@ -1140,7 +1144,7 @@ struct TodayView: View {
     }
 
     /// "~40 min" — the date left the card for the entry's own date row
-    /// (build 160), so the caption is down to the estimate.
+    /// (build 161), so the caption is down to the estimate.
     private func futureCaption(for entry: UpcomingEntry) -> String {
         entry.routine.estimateText
     }
@@ -1152,7 +1156,7 @@ struct TodayView: View {
     /// (Kit `.missed`, 2026-07-14). No marker, no caption (Dave,
     /// 2026-07-23: the rail's all-caps headings died, and the old
     /// explainer line truncated mid-sentence on device) — the cards
-    /// carry it alone: amber ink, an amber node, and a "was wed" caption
+    /// carry it alone: amber ink, an amber node, and a past-dated row
     /// say lapsed-but-open without an obligation word.
     @ViewBuilder
     private var carriedOverSection: some View {
@@ -1160,23 +1164,30 @@ struct TodayView: View {
             // Amber node, amber card: a lapsed occurrence is neither the
             // green "today" nor the grey "not yet" — it's the warm
             // in-between (the notes/advisory amber already in the grammar).
-            // Its "was" line IS its date row (build 160): the lapsed day
-            // named plainly, tense carrying what an obligation word never
-            // may — and never dressed up as today's date.
+            // The lapsed day IS its date row (build 161), printed plain
+            // since 2026-08-01: amber ink, an amber node and the rail
+            // position carry the tense, and VoiceOver hears "carried
+            // over" from the row's own label. Never today's date.
             TimelineItem(
                 node: .inert,
                 strokeOverride: Theme.notes,
                 dateline: missedDateline(entry),
-                datelineColor: Theme.notes
+                datelineColor: Theme.notes,
+                datelineAccessibilityLabel: "\(missedDateline(entry)), carried over"
             ) {
                 missedCard(entry)
             }
         }
     }
 
-    /// "was tue · jul 7" — the carried entry's date row.
+    /// "tue · jul 7" — the carried entry's date row, in the rail's one
+    /// date grammar. ⚠️ The "was" prefix is GONE (Dave, build 161 device
+    /// pass): every other entry prints a bare date, and a date in the
+    /// past under an amber node beside an amber card is already past
+    /// tense. The word was carrying tense the position had covered since
+    /// the dates left the cards.
     private func missedDateline(_ entry: MissedEntry) -> String {
-        "was \(railDay(entry.since))"
+        railDay(entry.since)
     }
 
     /// The gentle carried-over card: name, the day it was scheduled, and
@@ -1540,11 +1551,11 @@ struct TodayView: View {
     /// Not scroll content, not a sticky trick, no reservation, no
     /// visualEffect — Dave, build 159, after three rounds of in-scroll
     /// placements each still reading as "part of the timeline". Facts
-    /// only since build 160: the quick-start rack moved to the rail's
+    /// only since build 161: the quick-start rack moved to the rail's
     /// anytime card, and the band is back to the week's two quiet lines.
     private var weekStripBand: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // FACTS ONLY (Dave, build 160): the quick-start rack left the
+            // FACTS ONLY (Dave, build 161): the quick-start rack left the
             // band for the rail's anytime card, so the band is back to
             // two quiet lines — the tally and its bar. Still pinned
             // chrome; the starts are timeline content now.
@@ -1801,7 +1812,7 @@ struct TodayView: View {
     }
 
     private func committedSubtitle(_ session: WorkoutSession) -> String {
-        // No date here (build 160): it rides the entry's own date row,
+        // No date here (build 161): it rides the entry's own date row,
         // and a fact printed twice an inch apart reads as a glitch.
         var parts: [String] = []
         if let count = WorkUnit.summaryCount(
@@ -2208,9 +2219,11 @@ private enum TimelineNode: Equatable {
     /// A setup step whose prerequisite isn't met yet — border-faint,
     /// so the rail reads "not yet yours".
     case gated
-    /// An OFFER on the rail (the anytime entry) — a dashed ring: present,
-    /// but not an occurrence. The same dash the future cards and the
-    /// anytime shell wear; "not yet a thing" is one visual idea.
+    /// An OFFER on the rail (the anytime entry) — a neutral ring, same
+    /// as `.inert`. ⚠️ It shipped build 161 DASHED, to echo the card's
+    /// shell; on glass an 18 pt circle of 2.6 pt dashes reads as a
+    /// rendering fault rather than a grammar (Dave). The card's own
+    /// dashed border carries "offer"; the dot just marks the row.
     case offer
 
     var strokeColor: Color {
@@ -2234,9 +2247,16 @@ private struct TimelineItem<Content: View>: View {
     /// the node beside the content's first line — the setup rows' look,
     /// the one undated entry class left.
     var dateline: String? = nil
-    /// The dateline's ink — faint by default; the carried lane's "was"
-    /// line stays advisory amber.
+    /// The dateline's ink — faint by default; the carried lane's date
+    /// stays advisory amber.
     var datelineColor: Color = Theme.textFaint
+    /// What the date row SAYS when the ink is the only thing saying it.
+    /// ⚠️ The carried lane needs this (2026-08-01): with the "was" prefix
+    /// gone, a lapsed entry prints the same bare date a future one does
+    /// and differs only in amber ink and rail position — colour alone
+    /// (WCAG 1.4.1), and nothing at all through VoiceOver. The visible
+    /// row stays bare; the state rides the spoken label.
+    var datelineAccessibilityLabel: String? = nil
     /// The just-finished card animates green → purple done on landing.
     /// While `converting` is true and `converted` is false the node shows
     /// the pre-flip green ring; once `converted`, it seals into the done
@@ -2278,6 +2298,7 @@ private struct TimelineItem<Content: View>: View {
                     Text(dateline)
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(datelineColor)
+                        .accessibilityLabel(datelineAccessibilityLabel ?? dateline)
                         // minHeight, not height: AX type sizes outgrow
                         // 18 pt and a fixed frame doesn't clip — the row
                         // grows and the node reads top-aligned there,
@@ -2308,14 +2329,6 @@ private struct TimelineItem<Content: View>: View {
                 // committed node, so it fires exactly once (swift-reviewer).
                 .symbolEffect(.bounce, options: .nonRepeating, value: showsDoneFill)
                 .transition(.scale.combined(with: .opacity))
-        } else if node == .offer {
-            // The dash carries "not an occurrence" — same stroke weight
-            // as its solid siblings so the rail's rhythm holds.
-            Circle()
-                .strokeBorder(node.strokeColor, style: StrokeStyle(lineWidth: 2, dash: [2.6, 2.6]))
-                .frame(width: dot, height: dot)
-                .background(Circle().fill(Theme.background))
-                .transition(.opacity)
         } else {
             Circle()
                 .strokeBorder(strokeOverride ?? (converting ? Theme.accent : node.strokeColor), lineWidth: 2)
