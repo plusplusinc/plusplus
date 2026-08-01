@@ -52,17 +52,52 @@ struct CardCapsule {
 
 /// A single line of capsules that never truncates or wraps: it lays them out
 /// left to right and, when they don't all fit, collapses the tail into a
-/// trailing "N more" capsule (Dave's rule, 2026-07-19). Container width comes
-/// from a background `GeometryReader`, so there is no state feedback loop with
-/// the layout pass.
+/// trailing "N more" capsule (Dave's rule, 2026-07-19).
+///
+/// ⚠️ **The container width is a PURE `GeometryReader` read** — used straight
+/// in this render and never written to state (the `ScopeSegmentedControl` /
+/// `RoutineDetailView` precedent). It used to arrive as `@State` written from
+/// a background `GeometryReader`'s `onAppear`/`onChange`, which is a
+/// layout-phase state write, and this row renders inside every catalog row and
+/// every routine card — i.e. inside the `TabView` subtree, where that write is
+/// the documented iOS 26 trigger for `Tab(role: .search)`'s morph failing
+/// (nav-diag 4e). The symptom it shipped: the field is born in the NAVIGATION
+/// BAR and travels down the screen on activation instead of expanding out of
+/// the search tab at the bottom.
+///
+/// A `GeometryReader` fills whatever it is offered in BOTH axes, so it cannot
+/// simply wrap the row inside a card's stack — it would eat the stack's whole
+/// height. The row's height comes from ONE hidden capsule underneath instead
+/// (every capsule is a single `lineLimit(1)` line, so any one of them measures
+/// the row), and the reader draws the real capsules over it. The read also
+/// lands on the FIRST pass, so the row no longer renders one frame with every
+/// capsule spilling past the edge while the state caught up.
 struct OverflowCapsuleRow: View {
     let capsules: [CardCapsule]
     var spacing: CGFloat = 6
-    @State private var containerWidth: CGFloat = 0
 
+    @ViewBuilder
     var body: some View {
-        let result = fitting(width: containerWidth)
-        HStack(spacing: spacing) {
+        if let first = capsules.first {
+            first.view()
+                .hidden()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .overlay {
+                    GeometryReader { geo in
+                        fittedRow(width: geo.size.width)
+                    }
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(capsules.map(\.spokenText).joined(separator: ", "))
+        }
+    }
+
+    private func fittedRow(width: CGFloat) -> some View {
+        let result = fitting(width: width)
+        // The reader places this at its top-leading corner and the capsules
+        // hold their own widths, so the row reads left to right in the space
+        // the fit already proved it has.
+        return HStack(spacing: spacing) {
             ForEach(result.visible.indices, id: \.self) { index in
                 result.visible[index].view()
             }
@@ -70,16 +105,6 @@ struct OverflowCapsuleRow: View {
                 CardTagCapsule(text: "\(result.overflow) more", tint: Theme.textFaint)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            GeometryReader { geo in
-                Color.clear
-                    .onAppear { containerWidth = geo.size.width }
-                    .onChange(of: geo.size.width) { _, width in containerWidth = width }
-            }
-        )
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(capsules.map(\.spokenText).joined(separator: ", "))
     }
 
     /// Greedily fit capsules left to right, reserving room for the "N more"

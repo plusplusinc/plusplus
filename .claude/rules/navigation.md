@@ -37,9 +37,10 @@ Search** (`Tab(role: .search)`).
   `GeometryReader` + `PreferenceKey`) anywhere in the TabView subtree breaks
   the search-role morph on FIRST activation (nav-diag 4e; recheck: iOS 27).
   Measure from `UIFont` metrics, or read geometry WITHOUT writing state
-  (`ScopeSegmentedControl`'s width). ⚠️ Not `OverflowCapsuleRow` — it writes
-  `@State` from a `GeometryReader` and renders inside catalog rows, i.e.
-  inside this very subtree; only its TAG widths come from `UIFont`.
+  (`ScopeSegmentedControl`'s width). ⚠️ `OverflowCapsuleRow` was the last
+  offender and it SHIPPED the bug on 163; it is a PURE READ now (a hidden
+  capsule gives the row its height, so the reader can wrap it), TAG widths
+  still `UIFont`.
 - ⚠️ Because **a `Tab`'s content is its own view tree**, the four
   catalog-showing tabs are four live INSTANCES, so every broadcast needs one
   named owner: `ownsLandings` (`tabKey == scope.tab.rawValue`) makes the
@@ -54,9 +55,8 @@ Search** (`Tab(role: .search)`).
   the point — search opens on the catalog you were already in. The query is
   search's and dies with it.
 - ⚠️ **Scroll-position sync between a catalog tab and search is RETIRED**
-  (tried in 139): `.scrollPosition(id:)` doesn't take on a `List` the way it
-  does on `ScrollView` + `scrollTargetLayout()`, and the remaining route
-  observes scroll GEOMETRY — the documented way to break the morph.
+  (139): `.scrollPosition(id:)` doesn't take on a `List`, and the only other
+  route observes scroll GEOMETRY — the law above.
 
 ## One view: CatalogScopeView
 
@@ -101,7 +101,10 @@ exercises / equipment").
   (nav-diag 4e). Since this surface HIDES the nav bar's title, the failure is
   NO visible field on first entry, not a top bar. #1 device check on the
   shipping OS; if it recurs, kill the morph trigger at its source, don't
-  revert.
+  revert. ⚠️ **Its LOUDER face** (163): the field born TOP RIGHT and flying
+  down the screen instead of expanding out of the search circle — the same
+  fallback, caught mid-correction. `OverflowCapsuleRow` caused it;
+  DECISIONS.md 2026-08-01 has the next lever.
 - **The SEARCH surface carries no title** (Dave, 2026-07-26): the scope
   control names the catalog, and a large title FLASHES on entry then collapses
   as search presents. `.navigationTitle("")` + `.inline` there; the other four
@@ -342,9 +345,8 @@ old hand rules policed.
   of the content with the line `.overlay(alignment: .bottom)` on it, so the
   line's bottom edge lands exactly on the content's top: above the first row,
   reserving nothing, clipped at rest. ⚠️ Plain alignment, not a custom guide (an
-  `alignmentGuide(.top) { $0[.bottom] }` overlay was NOT honoured and collided
-  with the week tally, 154; two earlier placements missed the gap entirely,
-  153). It lives in the gap so it is
+  `alignmentGuide(.top) { $0[.bottom] }` overlay was NOT honoured, 154; two
+  earlier placements missed the gap entirely, 153). It is
   visible only while the gap is open, and the system holds that open until
   the `refreshable` closure returns — the closure waits a beat before
   returning, a connected sync says "Syncing…" BEFORE the network, and
