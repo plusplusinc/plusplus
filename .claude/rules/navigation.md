@@ -272,26 +272,32 @@ nothing to attach to (build 140). `CatalogTabHeader` is DELETED and Today's
 hand-rolled twin with it; the system bar handles the Dynamic-Type reflow the
 old hand rules policed.
 
-- ⚠️ **Today's header band is FACTS ONLY (tally + `BlockBar`), PINNED
-  CHROME on the scroll's shell** — a top `safeAreaInset`, the catalogs'
-  #494 mount (build 159 reversed the sticky-in-scroll law; build 161
-  moved the quick-start keys onto the rail). The
-  sticky-band era's machinery — the `visualEffect` offset, the hidden
-  reservation copy, the anchor compensation — is DELETED; the scroll holds
-  rail items only, the band keeps its OPAQUE background + hairline shelf
-  (rows slide under it), and the 16 pt content column stays on the scroll
-  stack's CHILDREN.
-  ⚠️ **The known cost is build 152's ghost, accepted knowingly**: on
-  pull-to-refresh the rubber-band walks the large title down over pinned
-  chrome — the exact failure that created the sticky law. Today HAS the
-  app's one `.refreshable`, so this is the #1
-  device check for the pinned band; the pull's answer line must also still
-  render in the gap the pull opens (below the band now). If the pull reads
-  broken on glass, the recorded fallback is the sticky-in-scroll mechanism
-  at 8b9e16b (boundary-mounted, no reservation), not build 152's revert.
-  ⚠️ #521 adds a second check here: a pinned top inset desynced the
-  catalogs' large-title bar (a `List`; Today's `ScrollView` is unproven).
-  Check the TITLE AT REST; the same fallback covers it.
+- ⚠️ **Today's header band is FACTS ONLY (tally + `BlockBar`), pinned as
+  the timeline's FIRST SECTION HEADER** — never a top `safeAreaInset`
+  (build 162). ⚠️ **A pinned top inset costs the system large title**,
+  measured twice: it shifts the scroll's resting offset by the band's own
+  height and the bar reads that as "already collapsed", so the title never
+  draws at rest and a title-sized dead band sits where it should be (#521
+  on the catalogs' `List`, then Dave's build-162 screenshots on Today's
+  `ScrollView`). A section header lives inside the scroll's own layout,
+  where the bar never sees it — that is the whole reason it works, and it
+  is the same mount the catalogs' facet row and the month landmarks use.
+  The sticky-band era's machinery (`visualEffect` offset, reservation
+  copy, anchor compensation) stays DELETED; the band keeps its OPAQUE
+  background + hairline shelf, both BLED past the 16 pt column with
+  `.padding(.horizontal, -16)` (the month landmarks' idiom) since it now
+  sits inside a padded stack.
+  ⚠️ **One header pins at a time, so the band HANDS OFF**: it owns the top
+  through the present and yields to the first month landmark as history
+  begins. Deliberate — the week tally describes now; in July, "JULY" is
+  what orients you. The band therefore heads a section holding the
+  present entries ONLY (anytime · today · setup · carried), which also
+  keeps the landing honest: the anchor sits just above that section, so
+  `scrollTo(.top)` seats it with the band pinned directly beneath.
+  ⚠️ **Still to check on glass: build 152's ghost** — on pull-to-refresh
+  the rubber-band walks the large title down over pinned chrome. Today HAS
+  the app's one `.refreshable`; the pull's answer line must render in the
+  gap it opens.
 - ⚠️ **The rail is DATE-FIRST, and quick start is its ANYTIME entry**
   (Dave, build 161). Every dated entry renders its date on its OWN row,
   node CENTERED on it (both stand one node-diameter tall), card below;
