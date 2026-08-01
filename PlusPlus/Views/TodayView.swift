@@ -282,7 +282,7 @@ struct TodayView: View {
                             // Lazy: the committed section is the whole
                             // history — eager building made every render
                             // O(sessions) (bug hunt perf finding).
-                            LazyVStack(spacing: 0) {
+                            LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
                                 // The ANYTIME entry (Dave, build 161): quick
                                 // start as a card ON the rail — below the
                                 // future, above whatever today holds, every
@@ -351,28 +351,20 @@ struct TodayView: View {
                                 if !missedEntries.isEmpty {
                                     carriedOverSection
                                 }
-                                ForEach(sessions) { session in
-                                    // The just-finished session converts
-                                    // on landing (recap-close animation):
-                                    // its node turns from actionable green
-                                    // to the done purple checkmark, which
-                                    // seals it. Every other committed card
-                                    // rests at that filled checkmark node.
-                                    // The date rides the entry's own row
-                                    // (build 161) — two workouts one day
-                                    // print the day twice, which is what a
-                                    // log does.
-                                    let converting = justCompletedID == session.persistentModelID
-                                    TimelineItem(
-                                        node: .committed,
-                                        dateline: railDay(session.startedAt),
-                                        converting: converting,
-                                        converted: converting && completionConverted
-                                    ) {
-                                        committedCard(session)
-                                            .scaleEffect(converting && !completionConverted ? 0.97 : 1.0)
-                                    }
-                                }
+                                // Committed history carries MONTH landmarks
+                                // (#506, Q11-A): one flat newest-first run
+                                // had nothing to orient by at depth. Real
+                                // `Section`s with a pinned header, so a
+                                // month's name holds the top until the next
+                                // takes over — the same IDEA the search
+                                // results use, though they get it from a
+                                // `List`'s own `.plain` pinning and this is
+                                // `LazyVStack(pinnedViews:)`. ⚠️ NOT the
+                                // week strip's sticky `visualEffect` (the
+                                // issue's hint): builds 159/160 deleted that
+                                // machinery, and a render-time offset can't
+                                // hand off between headers anyway.
+                                committedHistory
                                 // Once real history exists the interactive
                                 // scaffold is gone, but the finished setup
                                 // steps stay as permanent "origin" milestones
@@ -1246,6 +1238,118 @@ struct TodayView: View {
         // rail, the tab icon, the widget and the recap must never
         // disagree about what completed a routine.
         WorkoutSession.recentCompletionDates(of: routine, in: sessions)
+    }
+
+    /// Committed history in month runs, newest first (#506, Q11-A) —
+    /// the record's only landmarks. Keyed by year AND month so a
+    /// December→January crossing never folds two years into one run;
+    /// the label carries the year only when it isn't this one, which
+    /// keeps the common case short ("august", not "august 2026").
+    private var sessionMonths: [(key: String, label: String, sessions: [WorkoutSession])] {
+        // The day token, so a run resident across midnight (or New
+        // Year) re-derives its labels with the rest of the surface.
+        _ = dayToken
+        let calendar = Calendar.current
+        let now = Date()
+        // ⚠️ ADJACENT walk, not a dictionary of `dateComponents` (the
+        // #506 review): the query is newest-first, so months are
+        // already contiguous — one `isDate(equalTo:toGranularity:)`
+        // per session, no components allocation, no keyed lookups.
+        // This body re-runs on every pull frame and every landing beat,
+        // and eager per-session work here is the exact O(sessions)
+        // class the LazyVStack comment above memorializes.
+        var runs: [(key: String, label: String, sessions: [WorkoutSession])] = []
+        for session in sessions {
+            let date = session.startedAt
+            if var last = runs.last,
+               let head = last.sessions.first,
+               calendar.isDate(head.startedAt, equalTo: date, toGranularity: .month),
+               calendar.isDate(head.startedAt, equalTo: date, toGranularity: .year) {
+                last.sessions.append(session)
+                runs[runs.count - 1] = last
+                continue
+            }
+            let sameYear = calendar.isDate(date, equalTo: now, toGranularity: .year)
+            let label = date
+                .formatted(sameYear ? .dateTime.month(.wide) : .dateTime.month(.wide).year())
+                .lowercased()
+            let parts = calendar.dateComponents([.year, .month], from: date)
+            runs.append((key: "\(parts.year ?? 0)-\(parts.month ?? 0)", label: label, sessions: [session]))
+        }
+        return runs
+    }
+
+    /// The committed run, in month sections (#506, Q11-A).
+    ///
+    /// ⚠️ EXTRACTED, not inlined in the timeline stack: nesting a
+    /// `Section` + inner `ForEach` inside that already-enormous
+    /// ViewBuilder pushed it past the type-checker's budget outright
+    /// ("unable to type-check this expression in reasonable time",
+    /// CI on the first push). A `some View` boundary is what keeps the
+    /// stack checkable — anything added to this timeline from here on
+    /// belongs in its own property for the same reason.
+    @ViewBuilder
+    private var committedHistory: some View {
+        ForEach(sessionMonths, id: \.key) { month in
+            Section {
+                ForEach(month.sessions) { session in
+                    // The just-finished session converts on landing
+                    // (recap-close animation): its node turns from
+                    // actionable green to the done purple checkmark,
+                    // which seals it. Every other committed card rests
+                    // at that filled checkmark node. The date rides the
+                    // entry's own row (build 161) — two workouts one day
+                    // print the day twice, which is what a log does.
+                    committedEntry(session)
+                }
+            } header: {
+                monthHeader(month.label)
+            }
+        }
+    }
+
+    /// One committed entry. Its own function so neither the conversion
+    /// ternaries nor `TimelineItem`'s five arguments land inside a
+    /// `ForEach` inside a `Section` inside the timeline stack.
+    private func committedEntry(_ session: WorkoutSession) -> some View {
+        let converting = justCompletedID == session.persistentModelID
+        return TimelineItem(
+            node: .committed,
+            dateline: railDay(session.startedAt),
+            converting: converting,
+            converted: converting && completionConverted
+        ) {
+            committedCard(session)
+                .scaleEffect(converting && !completionConverted ? 0.97 : 1.0)
+        }
+    }
+
+    /// A month landmark on the rail. Lowercase mono like every other
+    /// date line (the rail's all-caps headings died 2026-07-23 round 2b
+    /// — this is a DATE, and it speaks the datelines' own grammar).
+    /// ⚠️ Two things the pin needs: the spine draws THROUGH it so the
+    /// rail reads unbroken while it holds the top, and its background
+    /// bleeds past the stack's 16 pt column — rows slide under a pinned
+    /// header, and the gutters would otherwise show them through (the
+    /// sticky-band law's own trap).
+    private func monthHeader(_ label: String) -> some View {
+        HStack(alignment: .center, spacing: 10) {
+            Rectangle()
+                .fill(Theme.border)
+                .frame(width: 2)
+                .frame(maxHeight: .infinity)
+                .frame(width: 20)
+            Text(label)
+                .font(.system(.caption, design: .monospaced, weight: .semibold))
+                .foregroundStyle(Theme.textSecondary)
+            Spacer(minLength: 0)
+        }
+        .frame(minHeight: 32)
+        .background {
+            Theme.background
+                .padding(.horizontal, -16)
+        }
+        .accessibilityAddTraits(.isHeader)
     }
 
     /// The last time each staged exercise was performed, summarized
