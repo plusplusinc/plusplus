@@ -22,6 +22,15 @@ struct ApplicationSupportBaseStore: SyncBaseStore {
         self.fileURL = directory.appendingPathComponent(fileName)
     }
 
+    /// Has a base ever been written? A `fileExists` probe, deliberately —
+    /// the dirty gate uses it to answer "never synced" WITHOUT building the
+    /// export bundle first (#509, b15 review). `loadBase` still returns an
+    /// empty map for a present-but-empty file, so the full check downstream
+    /// stays the authority; this only skips work that would be discarded.
+    var hasStoredBase: Bool {
+        FileManager.default.fileExists(atPath: fileURL.path)
+    }
+
     func loadBase() throws -> [String: Data] {
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return [:] }
         let raw = try Data(contentsOf: fileURL)
