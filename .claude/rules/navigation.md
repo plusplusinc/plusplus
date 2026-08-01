@@ -34,8 +34,7 @@ Search** (`Tab(role: .search)`).
 - ⚠️ **Do NOT hide the catalog tabs while search is active.** `Tab.hidden(_:)`
   works and preserves state, but the bar does NOT REFLOW around hidden tabs —
   what's left is a full-width group capsule with Today rattling around alone
-  (build 139, Dave's screenshot). `searchActive` survives as the accessory's
-  animated `isEnabled` only.
+  (build 139, Dave's screenshot).
 - A native `Tab` item is not a view the app can decorate — per-scope counts
   can never ride tab labels (retired).
 - ⚠️ **Anything that writes state during layout** (`.onGeometryChange`,
@@ -122,22 +121,21 @@ exercises / equipment").
   borderStrong stroke, r11, mono text, the #233 one-shot focus intent).
   Because `xmark` is the collapse glyph, sheets dismiss with a text
   `SheetDismissKey`, never a ✕ (`design-grammar.md`).
-- **Creation is the TOP list row, verb-keyed**: **Create** (`New <object>` /
-  `Create "<query>"`) when it makes a custom object inline, **Add**
-  (`Add <object>` / `Add "<query>"`) when it navigates. Since the tab IS the
-  scope (2026-07-25) every catalog's top row CREATES inline
-  (`FindOrCreateLaunch` is gone; onboarding step 2 lands on the Routines tab).
-  Query casing is `String.sentenceCasedFirst`. Empty results NEVER dead-end:
-  the create/add row is always present + a "Clear filters" `QuietKey` when
-  facets are active. The ONE thing that removes a create is an EXACT-name
-  collision (2026-07-24): when the trimmed query case-insensitively equals an
-  existing item's name, that type's create is suppressed
-  (`FindOrCreateEngine.Collisions`) — never a dead end, because an exact match
-  always ranks into results. Partial matches still offer create.
-- `.listStyle(.plain)` PINS one header at a time, and the catalog spends
-  that pin on the FACET ROW (one section wraps the list; MINE/CATALOG are
-  plain rows — law below). A pinned header wears solid `Theme.background`:
-  it occludes the rows beneath it.
+- **Creation is the TOP list row, and the verb PREDICTS the tap**: **Create**
+  (`New <object>` empty, `Create "<query>"` queried) COMMITS inline; **Add**
+  OPENS something ("Add to routine…", the overview's "Add exercise"). Since
+  the tab IS the scope (2026-07-25) all three catalogs create, so all three
+  read alike — Kit's "Add … as equipment" was the one row that said Add and
+  committed anyway, converged #507. Casing is `String.sentenceCasedFirst`.
+  Empty results NEVER dead-end: the create row is always present + a "Clear
+  filters" `QuietKey` when facets are active. The ONE thing that removes a
+  create is an EXACT-name collision (2026-07-24): trimmed query
+  case-insensitively equals an existing name → that type's create is
+  suppressed (`FindOrCreateEngine.Collisions`), never a dead end since an
+  exact match always ranks into results. Partial matches still offer create.
+- `.listStyle(.plain)` PINS one header at a time; the catalog spends that pin
+  on the FACET ROW (law below). A pinned header wears solid
+  `Theme.background` — it occludes the rows beneath it.
 - Search state on the universal surface is EPHEMERAL per-entry (a stale
   invisible query reads as data loss).
 - **Return does not navigate** (Dave, 2026-07-26): submitting puts the
@@ -214,12 +212,24 @@ this surface the control effectively is.
   Menus per scope (exercises muscle · movement · mechanic · sides; kit
   category; routines focus · effort · style), state in `CatalogFilterState` —
   ephemeral per `CatalogScopeView` INSTANCE, reset on scope change, applied in
-  `FindOrCreateEngine` BEFORE scoring so facets narrow and the query ranks.
-  Active facets lead with `FilterSummaryChip` (popover names values, "N of M
-  shown" computed only on open, Clear all inside); empty results add a
+  `FindOrCreateEngine` so facets narrow and the query ranks.
+  ⚠️ **What a facet hides is NAMED, and counted in the pass that built the
+  list** (#507): `FindOrCreateEngine.outcome` scores each candidate first and
+  classifies it by facet second, so an excluded MATCH is counted where it was
+  already examined. One number feeds all three readers — an "N hidden by
+  filters · show" QuietKey ABOVE the create row (which is the easy path to a
+  near-duplicate), the empty state naming the filters, and
+  `FilterSummaryChip`'s "N of M shown". Deriving it as "unfiltered total minus
+  shown" is a second ranking pass per keystroke, the cost the per-scope counts
+  were retired over; don't reintroduce it. Empty results add a
   "Clear filters" QuietKey; the create row never filters; an item that can't
   answer an active facet drops out under it (customs under the attribute
-  chips) — muscle excepted, customs carry their own groups. ⚠️ **On tab roots
+  chips) — muscle excepted, customs carry their own groups. ⚠️ Except where it
+  can't answer AT ALL: a hand-built routine has no Effort or Style (both
+  resolve through `catalogTemplate`), so under those two it groups as **"not
+  rated"** — the missing-equipment shape and law, narrowed never vanished, one
+  `.unrated` section after both tiers (#507); it still clears every facet it
+  CAN answer. ⚠️ **On tab roots
   the row is the SECTION HEADER of the ONE section holding the whole list**
   (2026-08-01; mechanism and cost in the pinning law above). Both other
   mounts are RETIRED: a top `safeAreaInset` desynced the large-title bar
@@ -249,20 +259,19 @@ this surface the control effectively is.
   cross-tab arrival that needs gear expands the group so its entrance flash
   isn't on a hidden row.
 - **Cross-scope discovery is the scope control itself** — never link rows,
-  and per-scope result counts are GONE (2026-07-25, with the hand-drawn bar:
-  a glyph-only segment has nowhere to paint a number, and the central
-  `matchCounts` they'd need costs a second ranking pass per keystroke).
-  Prompts and empty states use `FindScope.searchNoun`, not `label`.
+  and per-scope result counts are GONE (2026-07-25: a glyph-only segment has
+  nowhere to paint a number, and the central `matchCounts` costs a second
+  ranking pass per keystroke). Prompts and empty states use
+  `FindScope.searchNoun`, not `label`.
 
 ## Tab roots and scroll
 
 A **tab root** wears the SYSTEM navigation bar — `.navigationTitle` +
 `.navigationBarTitleDisplayMode(.large)`, the ++ key (`AppMenuKey`) as a
 leading `ToolbarItem` and the root's own accessory (the catalogs' kit
-switcher) as a trailing one — Today carries NONE since build 159: the play
-key and its start tray are deleted, every start lives on the rail (the
-anytime card's sport keys + Train, build 161), and routines start from
-their own cards and the Routines tab. Both keys carry
+switcher) as a trailing one — Today carries NONE: every start lives on the
+rail (the anytime card's sport keys + Train) or on a routine's own card.
+Both keys carry
 **`.sharedBackgroundVisibility(.hidden)`** — they bring their own raised-key
 chrome and would otherwise nest inside the toolbar's shared glass (a box in a
 box). ⚠️ **A tab root must NOT hide its navigation bar.** `.searchable` AND
@@ -309,11 +318,9 @@ old hand rules policed.
   `AnytimeCard` — the dash is the offer grammar, one idea with the future
   cards' "not yet" stroke. The landing seats the ANYTIME row under the
   band.
-  ⚠️ The card's keys morph IN PLACE (chrome grows into the config panel
-  via `matchedGeometryEffect`, its solid border overtaking the dashed
-  shell): morph the CHROME, fade the content — matched content reflows
-  mid-flight — and NEVER a measured FLIP, which writes layout state where
-  the morph law above forbids it. The rack **WRAPS** (`FlowLayout`, equal
+  ⚠️ The card's keys morph IN PLACE into their config panels (the offer-
+  morph law, `design-grammar.md`: chrome grows, content fades, never a
+  measured FLIP). The rack **WRAPS** (`FlowLayout`, equal
   pads, every pick a full key): the greedy `UIFont` fit and its "N more"
   overflow are DELETED — estimating what a layout can measure was the
   bug. A raised key's cap and its hit target are ONE rectangle (a smaller
@@ -335,10 +342,9 @@ old hand rules policed.
   line's bottom edge lands exactly on the content's top: above the first row,
   reserving nothing, clipped at rest. ⚠️ Plain alignment, not a custom guide:
   `alignmentGuide(.top) { $0[.bottom] }` on an overlay of the content stack
-  was NOT honoured — it collided with the week tally (build 154). THREE
-  placements were wrong before this one (below the today anchor: a screenful
-  past the pull; first content: shoved the timeline down, 153; the
-  alignment-guide overlay: collided, 154). It lives in the gap so it is
+  was NOT honoured — it collided with the week tally (154). Two placements
+  failed before it: below the today anchor (a screenful past the pull) and
+  first content (shoved the timeline down, 153). It lives in the gap so it is
   visible only while the gap is open, and the system holds that open until
   the `refreshable` closure returns — the closure waits a beat before
   returning, a connected sync says "Syncing…" BEFORE the network, and

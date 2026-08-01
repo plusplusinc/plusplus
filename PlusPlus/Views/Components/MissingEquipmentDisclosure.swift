@@ -21,10 +21,15 @@ struct MissingEquipmentHeaderRow: View {
     let isExpanded: Bool
     /// Disambiguates the a11y identifier across the surfaces that use it.
     var identifier: String = "missingEquipmentToggle"
+    /// Overrides the equipment sentence for a disclosure that groups by
+    /// something else — today only "not rated" (#507, Q14-A). The SHAPE
+    /// is the point: narrowed, never vanished, describing the ITEMS
+    /// rather than the user (the no-obligation law).
+    var sentence: String? = nil
     let onToggle: () -> Void
 
     private var label: String {
-        MissingEquipmentPhrasing.header(count: count, noun: noun)
+        sentence ?? MissingEquipmentPhrasing.header(count: count, noun: noun)
     }
 
     var body: some View {
@@ -59,5 +64,17 @@ enum MissingEquipmentPhrasing {
         count == 1
             ? "1 \(noun) requires more equipment"
             : "\(count) \(noun)s require more equipment"
+    }
+}
+
+/// The "not rated" disclosure's one sentence (#507, Q14-A). Effort and
+/// Style are catalog ratings, so a routine you built yourself simply
+/// has none — the sentence states that about the ROUTINES, never about
+/// the user, and never as something to fix.
+enum UnratedPhrasing {
+    static func line(count: Int) -> String {
+        count == 1
+            ? "1 routine you built has no effort or style rating"
+            : "\(count) routines you built have no effort or style rating"
     }
 }

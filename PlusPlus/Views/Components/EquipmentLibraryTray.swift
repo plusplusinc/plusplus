@@ -17,6 +17,13 @@ struct EquipmentLibraryTray: View {
     /// switch / create / rename / delete capability set is always present
     /// regardless — this is the one contextual extra.
     var onEditContents: (() -> Void)? = nil
+    /// Why the tray opened, when it opened as a REDIRECT rather than a
+    /// choice (#507, b9): "Add Barbell" on a bodyweight-only kit can't
+    /// add anything — the null kit is immutable — so it opens this tray
+    /// instead, and a tray that arrives unexplained reads as the tap
+    /// having gone wrong. Consequence before mechanism: what happened,
+    /// then what to do about it.
+    var reason: String? = nil
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -37,6 +44,18 @@ struct EquipmentLibraryTray: View {
         VStack(alignment: .leading, spacing: 0) {
             SheetHeader(title: "Kits", closeOnly: true, action: { dismiss() })
                 .padding(.horizontal, 18)
+
+            // Why you're here, when the tray came as a redirect (#507,
+            // b9). Advisory amber: it explains a detour, it is not an
+            // alarm and not a failure.
+            if let reason {
+                Text(reason)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(Theme.notes)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 6)
+                    .padding(.horizontal, 18)
+            }
 
             // The one canonical kit explainer — see EquipmentLibrary.switchingBlurb.
             Text(EquipmentLibrary.switchingBlurb)
