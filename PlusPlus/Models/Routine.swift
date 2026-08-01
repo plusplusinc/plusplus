@@ -177,8 +177,8 @@ final class Routine {
     static let assumedSetSeconds = 45
 
     /// "~40 min" — the shared rendering of `estimatedSeconds` (Today
-    /// cards, detail meta, the start tray), rounded to 5-minute steps
-    /// so it never pretends to precision the estimate doesn't have.
+    /// cards, detail meta), rounded to 5-minute steps so it never
+    /// pretends to precision the estimate doesn't have.
     var estimateText: String {
         let minutes = max(5, Int((Double(estimatedSeconds) / 300).rounded()) * 5)
         return "~\(minutes) min"
