@@ -283,100 +283,42 @@ struct TodayView: View {
                             // history — eager building made every render
                             // O(sessions) (bug hunt perf finding).
                             LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
-                                // The ANYTIME entry (Dave, build 161): quick
-                                // start as a card ON the rail — below the
-                                // future, above whatever today holds, every
-                                // day. Its node is solid like every other;
-                                // the card's dashed shell is what says
-                                // "offer, not occurrence". It absorbs
-                                // nothing from setup — the scaffold keeps
-                                // its one beginning (the same gate the old
-                                // pinned rack had).
-                                // The anytime entry reveals once the KIT
-                                // is settled (#505, Q25-A): step 1 keeps
-                                // the landing's focus, and from step 2 on
-                                // a spontaneous run is a valid second
-                                // door — a committed session dissolves
-                                // the scaffold naturally.
-                                if !setupActive || equipmentStepDone {
-                                    TimelineItem(node: .offer, dateline: "anytime") {
-                                        anytimeCard
+                                // ONE section holds the whole timeline, and
+                                // the week band is its HEADER — which is what
+                                // pins the band (build 162: as a top
+                                // `safeAreaInset` it desynced the system
+                                // large-title bar; a section header lives
+                                // inside the scroll's own layout, where the
+                                // bar never sees it).
+                                //
+                                // ⚠️ The band owns the pin OUTRIGHT (Dave:
+                                // "the band must pin at the top and not be
+                                // usurped by anything else"). A scroll gets
+                                // exactly ONE sticky header at a time, so
+                                // nothing else on this surface may be a
+                                // `Section` — the month landmarks are plain
+                                // rows (see `committedHistory`). Everything
+                                // below the landing lives in this section so
+                                // the band stays pinned the whole way down.
+                                Section {
+                                    presentEntries(viewportHeight: viewport.size.height)
+                                    committedHistory
+                                    // Once real history exists the interactive
+                                    // scaffold is gone, but the finished setup
+                                    // steps stay as permanent "origin"
+                                    // milestones at the very bottom (Dave,
+                                    // 2026-07-24): the done steps read as
+                                    // committed cards, and any step left
+                                    // unfinished stays actionable so setup is
+                                    // still reachable. The onboarding anchors
+                                    // it carries are inert here (the
+                                    // reveal-scroll only runs while setup is
+                                    // active).
+                                    if !setupActive {
+                                        setupSection(viewportHeight: viewport.size.height)
                                     }
-                                }
-                                // TODAY is ONE dated group (the build-160
-                                // restructure: dates pop out of the cards,
-                                // the node centers on the date row, cards
-                                // hang below). Every card of the day shares
-                                // this one date row.
-                                // ⚠️ The whole ENTRY is gated, not just its
-                                // cards: a date row with nothing under it is
-                                // a rail entry that isn't one (Dave, build
-                                // 160 device pass — carried-over work
-                                // suppresses the rest-day card, which left
-                                // "today · sat · aug 1" standing alone over
-                                // the amber lane). Today earns a row when it
-                                // has something to show; the carried entries
-                                // right below carry their own dates.
-                                if todayGroupHasCards {
-                                    TimelineItem(
-                                        node: dueRoutines.isEmpty ? .inert : .pending,
-                                        dateline: "today · \(todayDateText)"
-                                    ) {
-                                        VStack(alignment: .leading, spacing: 10) {
-                                            if showsRestDayCard {
-                                                restDayCard
-                                            }
-                                            ForEach(dueButEmptyRoutines) { routine in
-                                                // Inert grey by intent lives on the
-                                                // CARD now (the group node reads the
-                                                // day): the routine isn't startable —
-                                                // its CTA repairs, it doesn't perform.
-                                                emptyRoutineCard(routine)
-                                            }
-                                            ForEach(dueRoutines) { routine in
-                                                pendingCard(routine)
-                                                    .matchedTransitionSource(id: routine.persistentModelID, in: zoomNamespace)
-                                            }
-                                        }
-                                    }
-                                }
-                                if setupActive {
-                                    setupSection(viewportHeight: viewport.size.height)
-                                }
-                                // Carried-over occurrences (Kit .missed):
-                                // a past scheduled day that lapsed, shown
-                                // calmly between today's work and the
-                                // history below — never as a green due, and
-                                // never dressed up as today's date.
-                                if !missedEntries.isEmpty {
-                                    carriedOverSection
-                                }
-                                // Committed history carries MONTH landmarks
-                                // (#506, Q11-A): one flat newest-first run
-                                // had nothing to orient by at depth. Real
-                                // `Section`s with a pinned header, so a
-                                // month's name holds the top until the next
-                                // takes over — the same IDEA the search
-                                // results use, though they get it from a
-                                // `List`'s own `.plain` pinning and this is
-                                // `LazyVStack(pinnedViews:)`. ⚠️ NOT the
-                                // week strip's sticky `visualEffect` (the
-                                // issue's hint): builds 159/160 deleted that
-                                // machinery, and a render-time offset can't
-                                // hand off between headers anyway.
-                                committedHistory
-                                // Once real history exists the interactive
-                                // scaffold is gone, but the finished setup
-                                // steps stay as permanent "origin" milestones
-                                // at the very bottom (Dave, 2026-07-24): the
-                                // done steps read as committed cards, and any
-                                // step left unfinished stays actionable so
-                                // setup is still reachable. The onboarding
-                                // anchors/geometry it carries are inert here
-                                // (the reveal-scroll only runs while setup is
-                                // active).
-                                if !setupActive {
-                                    setupSection(viewportHeight: viewport.size.height)
+                                } header: {
+                                    weekStripBand
                                 }
                                 // Reveal-upward headroom (2026-07-16): the
                                 // setup scaffold reveals its steps by
@@ -411,33 +353,16 @@ struct TodayView: View {
                         // content would inherit that clear.
                         .tint(Theme.textPrimary)
                     }
-                    // The week strip, pinned as CHROME above the scroll
-                    // (Dave, build 159: not part of the timeline or the
-                    // page scroll — "except just the little scroll that
-                    // moves the heading into the top", which is the
-                    // large-title collapse and belongs to the bar, not to
-                    // this band). Facts only since build 161: the quick
-                    // starts left for the rail's anytime card. The
-                    // catalogs' #494 filter row is the precedent, same
-                    // mount; the landing needs no anchor compensation —
-                    // the inset shrinks the content area and
-                    // scrollTo(.top) seats the anytime row under the band.
-                    // ⚠️ Device check this trades INTO: the pull-to-refresh
-                    // gap now opens below the pinned band, and the pull's
-                    // answer line must still render in it; plus the large
-                    // title collapsing over an inset band on overscroll
-                    // (the #494 tension, now on a refreshable surface).
-                    .safeAreaInset(edge: .top, spacing: 0) {
-                        weekStripBand
-                            // ⚠️ The band sits INSIDE the spinner-kill's
-                            // `.tint(.clear)` below, and the restore lives
-                            // one level into the scroll CONTENT — without
-                            // its own restore, any future default-styled
-                            // control in this chrome renders invisible,
-                            // with the cause seventeen lines away
-                            // (swift-reviewer).
-                            .tint(Theme.textPrimary)
-                    }
+                    // ⚠️ NO top `safeAreaInset` here. The week band used to
+                    // pin from one (build 159) and it cost the large title:
+                    // insetting the scroll's safe area shifts its resting
+                    // offset by the band's own height, which the system bar
+                    // reads as "already collapsed" — so "Today" never drew
+                    // at rest, leaving a title-sized dead band above the
+                    // tally (Dave's build-162 screenshots; the catalogs
+                    // measured the same thing in #521). The band pins as
+                    // the timeline's first SECTION HEADER instead, inside
+                    // the scroll's own layout where the bar never sees it.
                     // SOFT at the bottom — same call as the catalogs. The
                     // `.hard` slab is what Dave killed; hiding the effect
                     // outright let content read through the bar. Soft is
@@ -1288,22 +1213,92 @@ struct TodayView: View {
     /// CI on the first push). A `some View` boundary is what keeps the
     /// stack checkable — anything added to this timeline from here on
     /// belongs in its own property for the same reason.
+    /// Everything on the rail that is NOT history: the anytime offer,
+    /// today's dated group, the setup scaffold while it runs, and the
+    /// carried-over lane. Its own property for the reason the comment on
+    /// `committedHistory` gives — this timeline stack is at the
+    /// type-checker's budget, and a `Section` wrapping four more entries
+    /// inline is exactly what tips it.
+    @ViewBuilder
+    private func presentEntries(viewportHeight: CGFloat) -> some View {
+        // The ANYTIME entry (Dave, build 161): quick start as a card ON
+        // the rail — below the future, above whatever today holds, every
+        // day. Its node is solid like every other; the card's dashed
+        // shell is what says "offer, not occurrence".
+        // It reveals once the KIT is settled (#505, Q25-A): step 1 keeps
+        // the landing's focus, and from step 2 on a spontaneous run is a
+        // valid second door — a committed session dissolves the scaffold
+        // naturally.
+        if !setupActive || equipmentStepDone {
+            TimelineItem(node: .offer, dateline: "anytime") {
+                anytimeCard
+            }
+        }
+        // TODAY is ONE dated group (the build-161 restructure: dates pop
+        // out of the cards, the node centers on the date row, cards hang
+        // below). Every card of the day shares this one date row.
+        // ⚠️ The whole ENTRY is gated, not just its cards: a date row with
+        // nothing under it is a rail entry that isn't one (Dave, build 161
+        // device pass — carried-over work suppresses the rest-day card,
+        // which left "today · sat · aug 1" standing alone over the amber
+        // lane). Today earns a row when it has something to show; the
+        // carried entries right below carry their own dates.
+        if todayGroupHasCards {
+            TimelineItem(
+                node: dueRoutines.isEmpty ? .inert : .pending,
+                dateline: "today · \(todayDateText)"
+            ) {
+                VStack(alignment: .leading, spacing: 10) {
+                    if showsRestDayCard {
+                        restDayCard
+                    }
+                    ForEach(dueButEmptyRoutines) { routine in
+                        // Inert grey by intent lives on the CARD now (the
+                        // group node reads the day): the routine isn't
+                        // startable — its CTA repairs, it doesn't perform.
+                        emptyRoutineCard(routine)
+                    }
+                    ForEach(dueRoutines) { routine in
+                        pendingCard(routine)
+                            .matchedTransitionSource(id: routine.persistentModelID, in: zoomNamespace)
+                    }
+                }
+            }
+        }
+        if setupActive {
+            setupSection(viewportHeight: viewportHeight)
+        }
+        // Carried-over occurrences (Kit .missed): a past scheduled day
+        // that lapsed, shown calmly between today's work and the history
+        // below — never as a green due, never dressed as today's date.
+        if !missedEntries.isEmpty {
+            carriedOverSection
+        }
+    }
+
+    /// History's MONTH landmarks (#506, Q11-A): one flat newest-first run
+    /// had nothing to orient by at depth.
+    ///
+    /// ⚠️ They are plain ROWS, not pinned `Section` headers (build 162,
+    /// Dave: "the band must pin at the top and not be usurped by anything
+    /// else"). A scroll gets exactly ONE sticky header, the week band owns
+    /// it, and a second `Section` here would take the pin away the moment
+    /// history came into view. The landmark still does its job — it names
+    /// the month you are reading — it just travels with the rail instead
+    /// of holding the top.
     @ViewBuilder
     private var committedHistory: some View {
         ForEach(sessionMonths, id: \.key) { month in
-            Section {
-                ForEach(month.sessions) { session in
-                    // The just-finished session converts on landing
-                    // (recap-close animation): its node turns from
-                    // actionable green to the done purple checkmark,
-                    // which seals it. Every other committed card rests
-                    // at that filled checkmark node. The date rides the
-                    // entry's own row (build 161) — two workouts one day
-                    // print the day twice, which is what a log does.
-                    committedEntry(session)
-                }
-            } header: {
-                monthHeader(month.label)
+            monthHeader(month.label)
+            ForEach(month.sessions) { session in
+                // The just-finished session converts on landing
+                // (recap-close animation): its node turns from
+                // actionable green to the done purple checkmark,
+                // which seals it. Every other committed card rests
+                // at that filled checkmark node. The date rides the
+                // entry's own row (build 161) — two workouts one day
+                // print the day twice, which is what a log does.
+                committedEntry(session)
             }
         }
     }
@@ -1667,11 +1662,17 @@ struct TodayView: View {
                 .padding(.horizontal, 16)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        // Opaque, because the timeline slides UNDER it. Same call the
-        // pinned search headings make for the same reason. It draws
-        // nothing when the strip is empty: a zero-height view with a
-        // background is invisible.
-        .background(Theme.background)
+        // Opaque, because the timeline slides UNDER it — and BLED back
+        // out past the timeline's 16 pt column, the month landmarks'
+        // own idiom: the band is full-width chrome sitting inside a
+        // padded stack, so without this the rows would show at the
+        // margins as they pass beneath it. It draws nothing when the
+        // strip is empty: a zero-height view with a background is
+        // invisible.
+        .background {
+            Theme.background
+                .padding(.horizontal, -16)
+        }
         // The shelf: the hairline routine detail's pinned band already
         // draws (2026-07-30) — rows sliding under the band need its edge
         // to be a drawn fact, not an inference.
@@ -1685,6 +1686,7 @@ struct TodayView: View {
                 Rectangle()
                     .fill(Theme.border)
                     .frame(height: 1)
+                    .padding(.horizontal, -16)
             }
         }
     }
@@ -1693,8 +1695,9 @@ struct TodayView: View {
     /// the scroll, directly under the navigation bar.
     ///
     /// ⚠️ **PINNED CHROME, by Dave's build-159 reversal of the 2026-07-27
-    /// sticky law** — mounted via the shell's top `safeAreaInset`, never
-    /// scroll content (see the mount + navigation.md's rewritten bullet).
+    /// sticky law** — pinned as the timeline's first SECTION HEADER since
+    /// build 162, never a top `safeAreaInset` (which desynced the system
+    /// large title; see the mount).
     /// The history matters: pinned is where this STARTED, and build 152
     /// killed it because the pull walks the large title down over pinned
     /// chrome. That cost is now accepted knowingly — the pull is the #1

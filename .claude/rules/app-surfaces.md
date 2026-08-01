@@ -30,9 +30,9 @@ committed sessions on a DATE-FIRST rail (each entry's date on its own row,
 node centered on it, card below, never a date row with nothing under it),
 with quick start as the rail's ANYTIME entry (dashed-shell `AnytimeCard`
 below the future and above today; its wrapping keys morph in place into
-config panels). The pinned
-header band holds the week's FACTS only (tally · block bar — chrome on
-the scroll's shell; laws in `navigation.md`). Pull-to-refresh answers in
+config panels). The week's FACTS
+(tally · block bar) pin as the surface's ONE section header — nothing
+else on Today may pin (laws in `navigation.md`). Pull-to-refresh answers in
 the gap the pull opens (mechanics in `navigation.md`).
 
 **Routines / Exercises / Kit** — catalog surfaces over `CatalogScopeView`,
