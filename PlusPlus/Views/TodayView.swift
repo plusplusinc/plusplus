@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import SwiftData
 import PlusPlusKit
+import UIKit        // UIFont metrics: the pinned band's height, derived not measured
 
 /// Today — the unified timeline (#110, Claude Design v3 §3): pending
 /// (staged) routines on top, committed sessions below, one scroll on a
@@ -218,15 +219,16 @@ struct TodayView: View {
             GeometryReader { viewport in
                 ScrollViewReader { proxy in
                     ScrollView {
-                        // The week ahead rides ABOVE today (#267) in a
-                        // plain VStack: laziness above the anchor would
-                        // give the opening scrollTo estimated heights to
-                        // aim at (a LazyVStack sizes unrealized content
-                        // approximately, so an anchor below lazy rows
-                        // can land off by their estimation error). The
-                        // future section is small by construction — at
-                        // most a summary block plus 7 days of occurrence
-                        // cards — so eager layout is cheap; the
+                        // The week ahead rides ABOVE today (#267), and since
+                        // build 163 it rides INSIDE the band's section so the
+                        // band can sit above it (see the Section below). It
+                        // stays EAGER either way — a LazyVStack sizes
+                        // unrealized content approximately, and the opening
+                        // scrollTo aims at an anchor below it, so lazy rows
+                        // above that anchor land the landing off by their
+                        // estimation error. The future block is small by
+                        // construction (a summary plus at most 7 days of
+                        // occurrence cards), so eager layout is cheap;
                         // committed history below the anchor stays lazy.
                         VStack(spacing: 0) {
                             // The pull's answer hangs ABOVE the content, in
@@ -256,29 +258,6 @@ struct TodayView: View {
                                             .transition(.opacity)
                                     }
                                 }
-                            VStack(spacing: 0) {
-                                if showsFutureSection {
-                                    futureSection
-                                }
-                                // The opening anchor: today's content
-                                // top-aligns here; the week above is
-                                // reachable by scrolling up.
-                                Color.clear
-                                    .frame(height: 0)
-                                    .id(Self.todayAnchorID)
-                            }
-                            .padding(.horizontal, 16)
-                            // ⚠️ The week strip is NOT here. It is pinned
-                            // CHROME on the scroll's shell (the
-                            // safeAreaInset below), not scroll content —
-                            // Dave, build 159: the tally and the bar are
-                            // not part of the timeline OR the page scroll;
-                            // the only motion they share is the large
-                            // title collapsing into the bar. The quick
-                            // starts moved the OTHER way in build 161:
-                            // they ride the rail as the anytime entry.
-                            // The scroll holds rail items and nothing else,
-                            // so item spacing is uniform by construction.
                             // Lazy: the committed section is the whole
                             // history — eager building made every render
                             // O(sessions) (bug hunt perf finding).
@@ -301,8 +280,34 @@ struct TodayView: View {
                                 // below the landing lives in this section so
                                 // the band stays pinned the whole way down.
                                 Section {
-                                    presentEntries(viewportHeight: viewport.size.height)
-                                    committedHistory
+                                    // The week ahead is INSIDE the band's
+                                    // section (build 163, Dave: the bar
+                                    // "should always sit fully above the
+                                    // timeline, including future items").
+                                    // A section header renders where its
+                                    // section BEGINS, so while the future
+                                    // block sat above the section the band
+                                    // drew between the week ahead and
+                                    // today — chrome wedged into the middle
+                                    // of the rail. (Its eagerness and its
+                                    // anchor are load-bearing — see
+                                    // `weekAheadBlock`.)
+                                    weekAheadBlock
+                                    // ⚠️ The min-height binds the BELOW-ANCHOR
+                                    // region ONLY, which is why it moved off
+                                    // the outer stack (review): with the band
+                                    // header and the week ahead now inside
+                                    // that stack, a min-height there is eaten
+                                    // by content ABOVE the anchor and stops
+                                    // guaranteeing today can reach the top.
+                                    // Nested and LAZY — an eager stack here
+                                    // would reinstate the O(sessions) render
+                                    // the bug hunt killed; as the section's
+                                    // last child its size only feeds the
+                                    // outer stack's estimate.
+                                    LazyVStack(spacing: 0) {
+                                        presentEntries(viewportHeight: viewport.size.height)
+                                        committedHistory
                                     // Once real history exists the interactive
                                     // scaffold is gone, but the finished setup
                                     // steps stay as permanent "origin"
@@ -314,9 +319,11 @@ struct TodayView: View {
                                     // it carries are inert here (the
                                     // reveal-scroll only runs while setup is
                                     // active).
-                                    if !setupActive {
-                                        setupSection(viewportHeight: viewport.size.height)
+                                        if !setupActive {
+                                            setupSection(viewportHeight: viewport.size.height)
+                                        }
                                     }
+                                    .frame(minHeight: viewport.size.height, alignment: .top)
                                 } header: {
                                     weekStripBand
                                 }
@@ -335,11 +342,6 @@ struct TodayView: View {
                                 // the first logged session.
                             }
                             .padding(.horizontal, 16)
-                            // Pad the below-anchor region to at least a
-                            // screen so today can always scroll to the
-                            // top (see the GeometryReader note); taller
-                            // timelines make this a no-op.
-                            .frame(minHeight: viewport.size.height, alignment: .top)
                         }
                         // ⚠️ The 16 pt content column stays per-child, NOT on
                         // this stack: the pinned band above is full-width
@@ -442,7 +444,15 @@ struct TodayView: View {
                         // at first, its siblings above it off-screen);
                         // otherwise today's content, with the week above
                         // it something you go looking for.
-                        proxy.scrollTo(openingScrollTarget, anchor: .top)
+                        // ⚠️ Deferred a runloop, like the three re-anchors
+                        // below: the anchor lives inside the LazyVStack now,
+                        // and `scrollTo` against an id the lazy container
+                        // has not created yet is a SILENT no-op — which,
+                        // with the one-shot flag already burned, would skip
+                        // the landing permanently for that appearance.
+                        Task { @MainActor in
+                            proxy.scrollTo(openingScrollTarget, anchor: .top)
+                        }
                     }
                     .onChange(of: viewport.size.height) { _, height in
                         // GeometryReader can publish the real height a
@@ -453,7 +463,10 @@ struct TodayView: View {
                         // user has since moved.
                         guard !hasAnchoredToday, height > 0 else { return }
                         hasAnchoredToday = true
-                        proxy.scrollTo(openingScrollTarget, anchor: .top)
+                        // Deferred for the same reason as onAppear's.
+                        Task { @MainActor in
+                            proxy.scrollTo(openingScrollTarget, anchor: .top)
+                        }
                     }
                     .onChange(of: isTodayRootVisible) { _, visible in
                         // Sent back to Today after finishing a setup step
@@ -1745,6 +1758,74 @@ struct TodayView: View {
             .padding(.top, 6)
             .padding(.bottom, 12)
         }
+    }
+
+    /// The week ahead, plus the opening anchor — ONE eager child of the
+    /// band's section (build 163).
+    ///
+    /// ⚠️ Eager, and that is load-bearing: it makes the whole block one
+    /// realized `LazyVStack` child, laid out in full with an exact height.
+    /// A `LazyVStack` sizes UNREALIZED children approximately, and the
+    /// opening `scrollTo` aims at an anchor below this block, so lazy rows
+    /// above that anchor land the landing off by their estimation error
+    /// (#267). Hoisted out of the `Section` builder to keep this file's
+    /// largest ViewBuilder under the type-checker's budget.
+    ///
+    /// ⚠️ **The anchor is a zero-LAYOUT overlay held one band-height above
+    /// this block's bottom, not a zero-height row at the bottom** (review).
+    /// `ScrollViewProxy.scrollTo(anchor: .top)` aligns to the visible
+    /// content top and knows nothing about a pinned header, so a bottom-
+    /// seated anchor puts today's first row BEHIND the band by exactly the
+    /// band's height. The old placement escaped this only because the
+    /// section used to BEGIN at the anchor, which made the band the first
+    /// thing on screen by construction rather than by intent. An overlay
+    /// reserves no space, so nothing moves at rest.
+    @ViewBuilder
+    private var weekAheadBlock: some View {
+        VStack(spacing: 0) {
+            if showsFutureSection {
+                futureSection
+            }
+        }
+        // ⚠️ No horizontal padding here: the enclosing stack already carries
+        // the 16 pt column. It needed its own while it was a SIBLING of that
+        // stack; inside it, a second pad insets the week ahead by 32 and jogs
+        // the rail's spine 16 pt at the anytime boundary (review).
+        .overlay(alignment: .bottom) {
+            Color.clear
+                .frame(height: bandHeight)
+                .allowsHitTesting(false)
+                .id(Self.todayAnchorID)
+        }
+    }
+
+    /// The pinned band's height, DERIVED from UIFont metrics rather than
+    /// measured — the landing has to seat today's content below the pin, and
+    /// a geometry probe that writes state is the one thing navigation.md
+    /// bans anywhere in the TabView subtree (it breaks the search-role
+    /// morph). Zero while the band draws nothing, so the landing degrades to
+    /// its old exact behaviour during setup.
+    ///
+    /// ⚠️ This mirrors `weekStrip`'s own gating and constants. Change one,
+    /// change the other — the same rule the shelf overlay already carries.
+    private var bandHeight: CGFloat {
+        let plan = weekPlan
+        let showsBar = !(setupActive && !allSetupDone) && plan.planned > 0
+        let hasLine = caption(plan: plan) != nil
+        guard hasLine || showsBar else { return 0 }
+        // The band's own vertical pads (6 top, 12 bottom). The hairline shelf
+        // is an overlay, so it costs no layout height.
+        var height: CGFloat = 6 + 12
+        if hasLine {
+            height += UIFont.preferredFont(forTextStyle: .caption1).lineHeight
+        }
+        if showsBar {
+            // BlockBar's top pad, then the bar itself (9 pt; the 13 pt
+            // variant is the live-block Differentiate Without Color case,
+            // which a plain progress bar never enters).
+            height += 8 + 9
+        }
+        return height
     }
 
     private var weekPlan: (completed: Int, planned: Int) {
