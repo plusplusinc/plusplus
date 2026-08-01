@@ -469,8 +469,18 @@ struct GitHubSyncTray: View {
     /// universal link back to the app, so an in-app install would forfeit the
     /// post-install auto-return (plusplus.fit/github/connected → the app). The
     /// other steps have no such dependency and stay in-app.
+    /// Same two-step as `openCreateRepo` below (#509, b18): prefer the
+    /// GitHub app via the universal link, and fall back to the in-app
+    /// browser when it doesn't claim it. Without the completion handler a
+    /// device with no GitHub app and no handler for the link got NOTHING —
+    /// a Continue step whose only action silently did nothing, on the step
+    /// that is already the easiest one to miss.
     private func openInstall() {
-        UIApplication.shared.open(GitHubSyncSettings.installURL)
+        UIApplication.shared.open(GitHubSyncSettings.installURL, options: [.universalLinksOnly: true]) { opened in
+            if !opened {
+                browser = BrowserURL(url: GitHubSyncSettings.installURL)
+            }
+        }
     }
 
     private func startConnect() {
