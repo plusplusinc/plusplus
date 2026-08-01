@@ -52,8 +52,9 @@ Siblings: `navigation.md` (tab bar, search, scroll/landing mechanics),
   (do/create) nor grey (inert). Two jobs: form-cue / "needs X gear" notes, AND
   a **carried-over occurrence** (2026-07-14) — a scheduled day lapsed within
   the 6-day window shows in Today's carried-over lane (below today's cards,
-  above history) as an amber tap-to-open card ("was wed · jul 22"), never a
-  green due. The lane is UNLABELED (2026-07-23 round 2b: the rail's all-caps
+  above history) as an amber tap-to-open card under a plain past-dated rail
+  row ("wed · jul 22"; the "was" prefix retired 2026-08-01, the amber and
+  the position carrying the tense), never a green due. The lane is UNLABELED (2026-07-23 round 2b: the rail's all-caps
   headings died; date line, cadence lines, and the cards' border/node/
   caption-tense grammar carry the structure). Green + one-click Start is
   reserved for TODAY's occurrence only; future and carried cards navigate to

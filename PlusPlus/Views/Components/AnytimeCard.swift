@@ -1,19 +1,23 @@
 import SwiftUI
 import PlusPlusKit
 
-/// The rail's ANYTIME entry (Dave, build 160): quick start as a card on
+/// The rail's ANYTIME entry (Dave, build 161): quick start as a card on
 /// the timeline — below the future items, above whatever today holds,
 /// every day. The dashed shell is the offer grammar at card scale (the
-/// dashed node beside it, the future cards' "not yet" dash): outlined,
-/// unfilled, not yet a thing.
+/// future cards' "not yet" dash): outlined, unfilled, not yet a thing.
+/// Its rail NODE is solid, like every other (build 161 device pass: a
+/// dashed dot at 18 pt reads as a rendering fault, not a grammar).
 ///
 /// The shell is LIVE. Tapping a key GROWS it into a panel filling the
 /// card — a sport gets its last outing, preset target chips and Start;
-/// Train gets the scratch start and the routine handoff; "N more" gets
-/// the sports that didn't fit, each one level deeper. The back key
+/// Train gets the scratch start and the routine handoff. The back key
 /// shrinks the panel home. At the end of the morph the panel's solid
 /// border has OVERTAKEN the dashed one; the dashes fade back in on the
 /// way out.
+///
+/// Every pick shows: the rack WRAPS rather than fitting what it can and
+/// hiding a tail behind "N more" (build 161 device pass — the estimate
+/// that drove the fit truncated a key it thought fit).
 ///
 /// ⚠️ The morph is `matchedGeometryEffect` on the CHROME ONLY — the key's
 /// background pairs with the panel's background; content fades. Matching
@@ -47,7 +51,6 @@ struct AnytimeCard: View {
     /// The picked preset per open panel; nil is Open (no target).
     /// Reset on every stage change.
     @State private var pickedPreset: QuickStartPresets.Preset?
-    @State private var containerWidth: CGFloat = 0
 
     /// Panels key on the exercise NAME: stable, Equatable, and already
     /// how the picks themselves are stored.
@@ -55,7 +58,6 @@ struct AnytimeCard: View {
         case rack
         case sport(String)
         case train
-        case more
     }
 
     var body: some View {
@@ -75,8 +77,6 @@ struct AnytimeCard: View {
                 }
             case .train:
                 panel(sourceID: "key-train") { trainPanel }
-            case .more:
-                panel(sourceID: "key-more") { morePanel }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -105,31 +105,44 @@ struct AnytimeCard: View {
 
     // MARK: - The rack
 
+    /// The rack WRAPS (Dave, build 161 device pass: "we should never be
+    /// truncating items … let's allow wrapping items"). Every pick is a
+    /// full key on one of however many rows it takes — which deletes three
+    /// things at once: the greedy width fit that under-measured and
+    /// truncated "Train" to "Tr…" (it measured the row BEFORE the card's
+    /// own 12 pt pads, so it always believed it had 24 pt it didn't have),
+    /// the "N more" overflow that existed only to hide the tail, and the
+    /// geometry reader that fed the fit — a state write during layout,
+    /// which is the class navigation.md bans anywhere in the TabView
+    /// subtree. `FlowLayout` measures each key's ideal width and wraps;
+    /// nothing is estimated, so nothing can be mis-estimated.
     private var rack: some View {
-        let fit = fitting(width: containerWidth)
-        return HStack(spacing: 8) {
+        FlowLayout(spacing: Self.keyGap) {
             trainKey
-            ForEach(fit.visible, id: \.persistentModelID) { exercise in
+            ForEach(exercises, id: \.persistentModelID) { exercise in
                 sportKey(exercise)
-            }
-            if !fit.hidden.isEmpty {
-                moreKey(count: fit.hidden.count)
             }
             editKey
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        // Container width from a background reader, the OverflowCapsuleRow
-        // idiom: reading into state from a BACKGROUND avoids the layout
-        // feedback loop, and nothing here observes scroll geometry.
-        .background(
-            GeometryReader { geo in
-                Color.clear
-                    .onAppear { containerWidth = geo.size.width }
-                    .onChange(of: geo.size.width) { _, width in containerWidth = width }
-            }
-        )
-        .padding(12)
+        // Equal on all four sides (Dave, same pass). The raised key's
+        // plate is visible ink under its cap, so the key's FRAME is its
+        // visual box and one pad value reads even everywhere.
+        .padding(Self.cardPad)
     }
+
+    /// One gap value, horizontal and vertical: the keys carry no
+    /// transparent hit-target inset (unlike `SelectableChip`, whose 36 pt
+    /// chip rides a 44 pt frame), so rows and columns space alike.
+    private static let keyGap: CGFloat = 8
+    private static let cardPad: CGFloat = 12
+    /// The key's resting height — a MINIMUM, never a fixed frame. ⚠️ It
+    /// shipped fixed, to keep a wrapped row from staggering; a fixed frame
+    /// does not clip, so at accessibility text sizes the label simply drew
+    /// outside its own cap and into the row below (swift-reviewer). It is
+    /// the same law the rail's dateline already carries: type grows, so
+    /// the box has to.
+    private static let keyHeight: CGFloat = 42
 
     /// A morphing key's chrome — the ONLY thing the morph moves. The id
     /// pairs it with the panel that grows out of it.
@@ -154,10 +167,11 @@ struct AnytimeCard: View {
                 Text("Train")
                     .font(.system(.footnote, weight: .semibold))
                     .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             }
             .foregroundStyle(Theme.textPrimary)
             .padding(.horizontal, 14)
-            .frame(minHeight: 42)
+            .frame(minHeight: Self.keyHeight)
             .background(keyChrome(id: "key-train"))
         }
         .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: Theme.keyRadius, travel: 3))
@@ -174,32 +188,17 @@ struct AnytimeCard: View {
                 Text(label(for: exercise))
                     .font(.system(.footnote, weight: .semibold))
                     .lineLimit(1)
+                    // The last-resort guard on a very long custom name:
+                    // scale it, never clip it (Dave: never truncate).
+                    .minimumScaleFactor(0.85)
             }
             .foregroundStyle(Theme.textPrimary)
             .padding(.horizontal, 14)
-            .frame(minHeight: 42)
+            .frame(minHeight: Self.keyHeight)
             .background(keyChrome(id: "key-\(exercise.name)"))
         }
         .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: Theme.keyRadius, travel: 3))
         .accessibilityIdentifier("quickStart-\(exercise.name)")
-    }
-
-    /// The overflow: key chrome in secondary ink (a continuation, not a
-    /// sport). It morphs into the more panel, where every hidden sport
-    /// sits one tap deeper — nothing becomes unreachable by not fitting.
-    private func moreKey(count: Int) -> some View {
-        Button { open(.more) } label: {
-            Text("\(count) more")
-                .font(.system(.footnote, weight: .semibold))
-                .foregroundStyle(Theme.textSecondary)
-                .lineLimit(1)
-                .padding(.horizontal, 14)
-                .frame(minHeight: 42)
-                .background(keyChrome(id: "key-more"))
-        }
-        .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: Theme.keyRadius, travel: 3))
-        .accessibilityLabel("\(count) more sports")
-        .accessibilityIdentifier("quickStartMore")
     }
 
     private var editKey: some View {
@@ -211,7 +210,7 @@ struct AnytimeCard: View {
                 // picker sheet (see the header note).
                 .foregroundStyle(Theme.accent)
                 .padding(.horizontal, 14)
-                .frame(minHeight: 42)
+                .frame(minHeight: Self.keyHeight)
                 .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
                 .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius)
                     .strokeBorder(Theme.accent.opacity(0.5)))
@@ -241,20 +240,26 @@ struct AnytimeCard: View {
             .transition(.opacity)
     }
 
-    /// The way home: an icon-only r11 raised key (the icon-key law), the
-    /// left chevron because the morph is navigation within the card.
+    /// The way home: the app's icon-key anatomy verbatim
+    /// (`HeaderIconButton`) — ONE 44 pt frame carrying the cap's fill and
+    /// border, then `.raisedKey()`.
+    ///
+    /// ⚠️ It shipped build 161 as a 34 pt cap inside a 44 pt hit frame,
+    /// and the raised style plates the frame it is GIVEN: the plate drew
+    /// a second, larger rounded rect around the small cap — the broken
+    /// double-box Dave photographed. A raised key's cap and its hit
+    /// target are the same rectangle; grow the padding, never the frame
+    /// under the style.
     private var backKey: some View {
         Button { open(.rack) } label: {
             Image(systemName: "chevron.left")
                 .font(.system(.footnote, weight: .bold))
                 .foregroundStyle(Theme.textPrimary)
-                .frame(width: 34, height: 34)
+                .frame(width: 44, height: 44)
                 .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
                 .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
         }
-        .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: Theme.keyRadius, travel: 3))
+        .buttonStyle(.raisedKey())
         .accessibilityLabel("Back")
         .accessibilityIdentifier("anytimeBack")
     }
@@ -324,22 +329,6 @@ struct AnytimeCard: View {
         }
     }
 
-    /// Every sport the rack couldn't fit, one level deeper — each key
-    /// morphs on into its own config panel (the ids pair panel-to-panel
-    /// exactly as they pair rack-to-panel).
-    private var morePanel: some View {
-        let hidden = fitting(width: containerWidth).hidden
-        return VStack(alignment: .leading, spacing: 0) {
-            panelHeader("More sports")
-            FlowLayout(spacing: 8) {
-                ForEach(hidden, id: \.persistentModelID) { exercise in
-                    sportKey(exercise)
-                }
-            }
-            .padding(.top, 10)
-        }
-    }
-
     private func commitSportStart(_ exercise: Exercise) {
         let config = SessionExerciseConfig(exercise: exercise)
         // The chip's word is the whole prescription: clear the prefilled
@@ -354,7 +343,7 @@ struct AnytimeCard: View {
         onStart(config)
     }
 
-    // MARK: - Labels & fitting
+    // MARK: - Labels
 
     /// The key's imperative — unless two picks resolve to the same verb
     /// (both climbers, a custom bike beside Cycling), where the colliding
@@ -364,61 +353,6 @@ struct AnytimeCard: View {
         let mine = QuickStartLabel.text(for: exercise)
         let twins = exercises.filter { QuickStartLabel.text(for: $0) == mine }
         return twins.count > 1 ? exercise.name : mine
-    }
-
-    /// Greedy left-to-right fit, reserving the Train and edit keys always
-    /// and the "N more" key whenever anything is left over. At least one
-    /// sport key always shows — one real key plus "N more" beats only
-    /// chrome. Width available to keys: the container minus the rack's
-    /// own 12 pt pads.
-    private func fitting(width: CGFloat) -> (visible: [Exercise], hidden: [Exercise]) {
-        guard width > 0, exercises.count > 1 else { return (exercises, []) }
-        let spacing: CGFloat = 8
-        let widths = exercises.map { Self.keyWidth(label(for: $0), hasGlyph: true) }
-        var used: CGFloat = Self.keyWidth("Train", hasGlyph: true) + spacing + Self.editKeyWidth
-        var shown = 0
-        for index in exercises.indices {
-            let next = used + spacing + widths[index]
-            let remaining = exercises.count - (shown + 1)
-            let reserve = remaining > 0 ? spacing + Self.keyWidth("\(remaining) more", hasGlyph: false) : 0
-            if next + reserve <= width {
-                used = next
-                shown += 1
-            } else {
-                break
-            }
-        }
-        if shown == 0 { shown = 1 }
-        return (Array(exercises.prefix(shown)), Array(exercises.dropFirst(shown)))
-    }
-
-    /// A key's rendered width from `UIFont` metrics — mirrors the key's
-    /// footnote-semibold text, the 14 pt pads, and the glyph's share.
-    /// An estimate, exactly like the tag row's: never a geometry probe.
-    private static func keyWidth(_ text: String, hasGlyph: Bool) -> CGFloat {
-        let base = UIFont.preferredFont(forTextStyle: .footnote)
-        // ⚠️ `.rawValue`, not the Weight struct: the traits dictionary
-        // wants an NSNumber, and a boxed Swift struct is silently ignored
-        // — the measurement would resolve at REGULAR while the key
-        // renders semibold, under-measuring every label (swift-reviewer).
-        let font = UIFont(
-            descriptor: base.fontDescriptor.addingAttributes(
-                [.traits: [UIFontDescriptor.TraitKey.weight: UIFont.Weight.semibold.rawValue]]
-            ),
-            size: base.pointSize
-        )
-        var width = ceil((text as NSString).size(withAttributes: [.font: font]).width)
-        // 1.6 em: the cardio `figure.*` symbols this row actually renders
-        // (pool.swim, outdoor.cycle, mixed.cardio) run well past square —
-        // overestimating is the safe side: a key drops into "N more" one
-        // width early instead of truncating mid-label.
-        if hasGlyph { width += font.pointSize * 1.6 + 7 }
-        return width + 28 + 2
-    }
-
-    /// The green "+" cap: a bold footnote glyph between 14 pt pads.
-    private static var editKeyWidth: CGFloat {
-        UIFont.preferredFont(forTextStyle: .footnote).pointSize * 1.2 + 28 + 2
     }
 }
 
