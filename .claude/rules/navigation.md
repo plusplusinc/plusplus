@@ -283,24 +283,31 @@ old hand rules policed.
   offset by the band's own height, the bar reads that as "already collapsed",
   and the title never draws at rest — a title-sized dead band sits where it
   should be. A section header lives inside the scroll's own layout, where the
-  bar never sees it. That is the whole reason it works, and it is the mount
-  the catalogs' facet row uses too.
-  The sticky-band era's machinery (`visualEffect` offset, reservation
-  copy, anchor compensation) stays DELETED; the band keeps its OPAQUE
-  background + hairline shelf, both BLED past the 16 pt column with
-  `.padding(.horizontal, -16)` (the month landmarks' idiom) since it now
-  sits inside a padded stack.
+  bar never sees it — the whole reason it works, and the facet row's mount too.
+  The sticky-band era's machinery (`visualEffect` offset, reservation copy,
+  anchor compensation) stays DELETED; the band keeps its OPAQUE background +
+  hairline shelf, both BLED past the 16 pt column (`.padding(.horizontal,
+  -16)`) since it sits inside a padded stack.
   ⚠️ **The band owns the pin OUTRIGHT** (Dave, build 162: "the band must
   pin at the top and not be usurped by anything else"). A scroll gets
   exactly ONE sticky header, so nothing else on Today may be a `Section` —
-  the month landmarks were demoted to plain rows for this. Its section
-  holds the whole timeline below the landing, so it stays pinned all the
-  way down; the anchor sits just above that section, so `scrollTo(.top)`
-  still seats the anytime row with the band pinned directly beneath.
-  ⚠️ **Still to check on glass: build 152's ghost** — on pull-to-refresh
-  the rubber-band walks the large title down over pinned chrome. Today HAS
-  the app's one `.refreshable`; the pull's answer line must render in the
-  gap it opens.
+  the month landmarks were demoted to plain rows for this. ⚠️ **Its section
+  holds the WEEK AHEAD too** (Dave, build 163: the bar "should always sit
+  fully above the timeline, including future items") — a header renders where
+  its section BEGINS, so with the future block above the section the band drew
+  mid-rail. That block stays EAGER inside it as ONE `VStack` child: a
+  `LazyVStack` sizes unrealized children approximately and the anchor sits
+  below it (#267).
+  ⚠️ Three riders, all invisible until they bite. The landing's anchor is a
+  zero-LAYOUT overlay held one band-height ABOVE that block's bottom, its
+  height DERIVED from `UIFont` (never probed — a state write here is the
+  search-morph ban): `scrollTo` ignores pinned headers, so a bottom-seated
+  anchor puts today's first row BEHIND the band. The below-anchor
+  `minHeight` wraps below-anchor content ONLY, or content above the anchor
+  eats it and a short timeline can't scroll today to the top. And the
+  opening `scrollTo` is DEFERRED a runloop — against an id its lazy
+  container hasn't created yet it is a silent no-op, one-shot flag
+  already burned.
 - ⚠️ **The rail is DATE-FIRST, and quick start is its ANYTIME entry**
   (Dave, build 161). Every dated entry renders its date on its OWN row,
   node CENTERED on it (both stand one node-diameter tall), card below;
