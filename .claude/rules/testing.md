@@ -39,3 +39,7 @@ let context = ModelContext(container)
 **`#expect` with `allSatisfy`:** extract to a local first: `let allMatch = items.allSatisfy(\.prop); #expect(allMatch)`. Direct inline call causes macro expansion issues.
 
 **The app supports `--uitest-reset`** (in-memory store, flourishes/tips/notifications disabled) for clean smoke-test launches; `--uitest-welcome` opts the welcome-flow test in.
+
+**CI flakes (moved from CLAUDE.md, 2026-08-01):** ui-test has two known flavors — `app.launch()` wedging on a runner simulator, and exit-65 runs where the identical tree passes on re-run. Re-run once before suspecting code. (The swipe test's synthesized-drag flake, #273/#274, was fixed 2026-07-15: `testSwipeRevealActionSurvivesRelease` reveals through `revealDelete`, which waits for hittability and re-drags to absorb runner jitter.) All four jobs surface failing-test names as `::error::` annotations readable via the check-runs API. ⚠️ Job LOGS are API-reachable (2026-07-30): `mcp__github__get_job_logs` with `return_content: true` — only the ARTIFACTS are out of reach from a sandbox.
+
+**Remote validation layer:** 9 XCUITest smoke flows (`ui-test` job: dispatch + main pushes) upload a `ui-screenshots` artifact reviewable from a browser — the onboarding timeline, welcome flow, template-detail open, swipe-release regression contracts, and the mascot form-demo sheet.
