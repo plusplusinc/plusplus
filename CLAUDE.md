@@ -61,7 +61,7 @@ No third-party dependencies without discussion first.
 > **.claude/rules/** (path-scoped). Delete an item once it has shipped and been validated —
 > this section tracks what is live now, not what happened.
 
-**Last updated:** 2026-08-01 · **Latest TestFlight build:** 162, from main (this device-pass round; 160/161 also from main, 159 from the cardio branch).
+**Last updated:** 2026-08-01 · **Latest TestFlight build:** 163, from main (the large-title fix; 160-162 also from main, 159 from the cardio branch).
 ⚠️ Build number = workflow RUN number, not last-build+1 — check `actions_list` before writing a What's-New entry.
 
 **On main, awaiting Dave's device pass** (reasoning in docs/DECISIONS.md under the dated entry):
