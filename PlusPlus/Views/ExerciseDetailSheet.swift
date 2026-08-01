@@ -35,6 +35,10 @@ struct ExerciseDetailSheet: View {
     @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
     @State private var swapping = false
+    /// Remove asks first (#508, Q22-B): one small tap in a compact pair
+    /// permanently dropped the slot AND everything configured on it, then
+    /// auto-dismissed, so there was nothing left on screen to undo from.
+    @State private var confirmingRemove = false
     /// Set while the swap tray dismisses toward the full-catalog push, so the
     /// handoff runs from `onDismiss` (after the tray is fully gone) instead of
     /// racing a second teardown against a nav push (swift-reviewer).
@@ -256,6 +260,17 @@ struct ExerciseDetailSheet: View {
                     }
                 )
             }
+        }
+        // An ALERT, not a confirmationDialog: this sheet is presented over a
+        // pushed screen, and a dialog raised from here adapts to a popover
+        // anchored to nothing (RoutineDetailView's delete confirm carries the
+        // full post-mortem). Same shape as that one, so destroying a slot and
+        // destroying a routine read alike.
+        .alert(removeConfirmTitle, isPresented: $confirmingRemove) {
+            Button("Remove", role: .destructive) { removeExercise() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Logged history is untouched.")
         }
         .sheet(isPresented: $showingHeartRateSheet) {
             HeartRateTargetSheet(
@@ -630,7 +645,7 @@ struct ExerciseDetailSheet: View {
                     }
                 }
                 SheetActionButton("Remove", destructive: true) {
-                    removeExercise()
+                    confirmingRemove = true
                 }
             }
         }
@@ -658,6 +673,14 @@ struct ExerciseDetailSheet: View {
         }
         _ = group
         dismiss()
+    }
+
+    /// Names the slot being dropped, so the confirm can't be answered on
+    /// muscle memory alone. Falls back to the noun when the exercise is
+    /// gone from the catalog (a deleted custom leaves a nameless slot).
+    private var removeConfirmTitle: String {
+        guard let name = exercise?.name else { return "Remove this exercise?" }
+        return "Remove \u{201C}\(name)\u{201D}?"
     }
 
     /// "Remove", not "Delete exercise" (round 2a): the slot leaves the
