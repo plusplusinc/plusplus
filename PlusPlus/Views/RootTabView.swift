@@ -86,6 +86,9 @@ struct RootTabView: View {
     @Query(filter: #Predicate<WorkoutSession> { $0.endedAt != nil })
     private var finishedSessions: [WorkoutSession]
     @AppStorage(SetupState.equipmentDoneKey) private var equipmentDone = false
+    /// The schedule step's no-schedule completion (#505, Q26-A) — the
+    /// tab icon must agree with the timeline's 3-of-3.
+    @AppStorage(SetupState.trainingFreestyleKey) private var trainingFreestyle = false
     /// Bumped on day change so the Today icon re-derives at midnight (the
     /// same guard TodayView uses against a resident app rendering
     /// yesterday's plan).
@@ -160,6 +163,7 @@ struct RootTabView: View {
             routines: routines,
             sessions: finishedSessions,
             equipmentDone: equipmentDone,
+            trainingFreestyle: trainingFreestyle,
             today: Date(),
             calendar: .current
         )

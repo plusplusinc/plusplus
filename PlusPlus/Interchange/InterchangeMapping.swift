@@ -81,6 +81,11 @@ import PlusPlusKit
 ///                    once finished)
 ///                    transitionSeconds → EXCLUDED (execution pacing config, inert once
 ///                    finished — a record's real gaps live in completedAt)
+///                    isQuickStart → EXCLUDED (#505 quick-start origin marker, the
+///                    completion-pool guard; a RESTORED quick-start session degrades
+///                    to unmarked and re-enters the name fallback — accepted for now:
+///                    the exposure needs export→restore→same-named routine, and an
+///                    interchange field is the Kit contract's own change, not a rider)
 /// SetLog             order·groupIndex·setNumber·exerciseName·exerciseType·
 ///                    metricsData·restSecondsOverride·targetWeight·
 ///                    targetRepsLower·targetRepsUpper·targetDuration·

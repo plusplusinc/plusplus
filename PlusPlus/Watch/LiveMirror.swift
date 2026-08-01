@@ -531,6 +531,13 @@ final class LiveMirror {
             session.transitionSeconds = routine.transitionSeconds
         }
         session.sessionId = sessionId
+        // A wrist QUICK START (#505): its plan uuid is the
+        // deterministic name-derived identity, never a routine's —
+        // recompute and compare, so the completion-pool guard covers
+        // wrist-born quick starts without a payload change. An old
+        // watch that ships no uuid degrades to unmarked, the pre-#505
+        // exposure.
+        session.isQuickStart = routineUuid == WatchBridge.quickStartIdentity(routineName)
         session.startClock(at: startedAt)
         context.insert(session)
         for (order, step) in steps.enumerated() {

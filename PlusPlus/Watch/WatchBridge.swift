@@ -153,8 +153,11 @@ final class WatchBridge: NSObject, WCSessionDelegate {
     /// unfinished wrist quick start re-adopts after a re-push. What keeps
     /// a scratch "Running" from adopting a ROUTINE literally named
     /// "Running" (quick-start review): adoption matches uuid-to-uuid,
-    /// and these can never equal a routine's.
-    private static func quickStartIdentity(_ name: String) -> UUID {
+    /// and these can never equal a routine's. Internal (not private)
+    /// because determinism is the point: `LiveMirror.materialize`
+    /// RECOMPUTES it to recognize a wrist quick start on arrival and
+    /// stamp `WorkoutSession.isQuickStart` (#505) with no wire change.
+    static func quickStartIdentity(_ name: String) -> UUID {
         let digest = SHA256.hash(data: Data("quickStart.\(name)".utf8))
         let b = Array(digest.prefix(16))
         return UUID(uuid: (b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7],

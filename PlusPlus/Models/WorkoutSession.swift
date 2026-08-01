@@ -19,6 +19,16 @@ final class WorkoutSession {
     /// session adopts the id its `.started` op carried. Old rows migrate
     /// to a default (inert — finished history never mirrors).
     var sessionId: UUID = UUID()
+    /// Born from a quick start (#505): sport-NAMED but never a routine's
+    /// performance, which is what keeps a scratch "Running" out of a
+    /// routine-named-Running's completion pool (`completions(of:in:)`).
+    /// Explicit because every proxy failed review: `routine == nil` is
+    /// also every wrist import, and single-effort-ness changes when core
+    /// work joins the run. Constant default — old rows migrate false,
+    /// which is true of them (they predate sport naming). Phone quick
+    /// starts stamp it at `startQuick`; wrist ones at `materialize`, by
+    /// recomputing the deterministic quick-start plan identity.
+    var isQuickStart: Bool = false
     /// Snapshot of the routine's rest setting at start time.
     var restSeconds: Int = 90
     /// Snapshot of the routine's transition setting at start time (#369):
@@ -373,6 +383,32 @@ final class WorkoutSession {
         // relationships are still warm — see `summaryModalityRaw`.
         summaryModalityRaw = modality.primary.rawValue
         endedAt = date
+    }
+
+    /// The sessions that count as completions OF `routine` — ONE
+    /// definition for its four consumers (Today's rail, the tab icon,
+    /// the widget snapshot, the recap's next-up), which must never
+    /// disagree (#505 review; they had drifted into three variants).
+    /// Identity wins. The name fallback serves STALE references only —
+    /// a deleted-then-recreated routine, a wrist import that never
+    /// linked the relationship — so it requires `routine == nil` (a
+    /// LIVE reference to a different same-named routine is that
+    /// routine's performance, never this one's) and excludes
+    /// QUICK-START-born sessions: a sport-named scratch "Running" is
+    /// not a completion of a routine named Running.
+    static func completions(of routine: Routine, in sessions: [WorkoutSession]) -> [WorkoutSession] {
+        let identity = sessions.filter { $0.routine === routine }
+        if !identity.isEmpty { return identity }
+        return sessions.filter {
+            $0.routine == nil && $0.routineName == routine.name && !$0.isQuickStart
+        }
+    }
+
+    /// The two most recent completion dates — `.last` drives due-ness,
+    /// `.previous` lets the Kit tell an extra session from a make-up.
+    static func recentCompletionDates(of routine: Routine, in sessions: [WorkoutSession]) -> (last: Date?, previous: Date?) {
+        let dates = completions(of: routine, in: sessions).compactMap(\.endedAt).sorted(by: >)
+        return (dates.first, dates.count > 1 ? dates[1] : nil)
     }
 
     /// The most recent completed log for the same exercise as `log` from an
