@@ -319,9 +319,13 @@ struct RoutineEquipmentTags: View {
     /// Same ground, one added stroke, identical metrics.
     ///
     /// EVERY piece taps now, not just the missing one: an available piece
-    /// opens your kit, a missing one opens the ways to fix it. A tag that
-    /// looks tappable and isn't is the fault the 2026-07-23 round was trying
-    /// to avoid in the first place.
+    /// opens ITS OWN detail screen (2026-08-01; #470 opened the whole
+    /// catalog, unanchored to the piece), a missing one opens the ways to
+    /// fix it. A tag that looks tappable and isn't is the fault the
+    /// 2026-07-23 round was trying to avoid in the first place — which is
+    /// also why routine detail passes `interactive: false` for the synthetic
+    /// Bodyweight stand-in: not a piece of equipment, nothing to open, so it
+    /// must not wear the ring.
     private func tag(_ piece: (name: String, available: Bool)) -> some View {
         Button { onEquipmentTap(piece.name) } label: {
             Text(piece.name)
@@ -343,7 +347,7 @@ struct RoutineEquipmentTags: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(piece.available ? piece.name : "\(piece.name), not in your kit")
-        .accessibilityHint(piece.available ? "Opens your kit" : "Opens ways to fix it")
+        .accessibilityHint(piece.available ? "Opens this equipment" : "Opens ways to fix it")
         .accessibilityAddTraits(.isButton)
     }
 }
