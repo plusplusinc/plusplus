@@ -13,6 +13,13 @@ import PlusPlusKit
 /// resistance, plus whatever custom rest it ran. It contradicted the
 /// function's own "with its targets" doc comment, and nothing caught it
 /// because the function was private to a `View`.
+///
+/// ⚠️ Honest about what these are: GUARDS, not red-first proofs. The law
+/// says a bug fix starts with a failing test, and none of these could have
+/// failed against the old code — `Routine.duplicateExercise` did not exist
+/// then, which is the bug's own root cause. The fix that made them possible
+/// (moving the mutation out of the view) is what the law was really asking
+/// for here.
 @Suite("Routine.duplicateExercise")
 struct RoutineDuplicateTests {
     private func makeContainer() throws -> ModelContainer {
@@ -51,7 +58,7 @@ struct RoutineDuplicateTests {
         try context.save()
 
         let copy = try #require(
-            world.routine.duplicateExercise(world.entry, in: world.group, context: context)
+            world.routine.duplicateExercise(world.entry, context: context)
         )
 
         #expect(copy.weight == 42)
@@ -75,7 +82,7 @@ struct RoutineDuplicateTests {
         try context.save()
 
         let copy = try #require(
-            world.routine.duplicateExercise(world.entry, in: world.group, context: context)
+            world.routine.duplicateExercise(world.entry, context: context)
         )
         let copyGroup = try #require(copy.group)
         #expect(copyGroup.restSecondsOverride == 15)
@@ -95,7 +102,7 @@ struct RoutineDuplicateTests {
         try context.save()
 
         let copy = try #require(
-            world.routine.duplicateExercise(world.entry, in: world.group, context: context)
+            world.routine.duplicateExercise(world.entry, context: context)
         )
         #expect(copy.group?.restSecondsOverride == nil)
     }

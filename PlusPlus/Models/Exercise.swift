@@ -192,7 +192,10 @@ final class Exercise {
     /// The full target prefill for a fresh routine entry or session
     /// config — ONE resolution, so the two add paths can never drift.
     /// Untracked metrics resolve nil.
-    struct AddTimeTargets {
+    /// `Equatable` so the Operator's before-image snapshots can compare
+    /// (#508): a synthesized conformance, and the one place the target
+    /// field list lives (see `RoutineExercise.targets`).
+    struct AddTimeTargets: Equatable {
         var weight: Double?
         var reps: Int?
         var repsUpper: Int?

@@ -45,6 +45,12 @@ struct RoutineDetailView: View {
     /// exercise you were configuring was to find and tap it again. Set when
     /// the swap picker opens, cleared the moment a pick lands.
     @State private var swapReturnTarget: IdentifiedUUID?
+    /// The slot a VoiceOver "Delete" action is asking about (#508, Q22-B +
+    /// review). The visible Remove gained a confirm; the a11y action is its
+    /// closest analogue — one activation, no gesture to think twice during —
+    /// so it routes through the same question. The SWIPE keeps its
+    /// no-confirm directness: a two-stage drag is its own confirmation.
+    @State private var confirmingRailDelete: RailDeleteTarget?
     @State private var activeSession: WorkoutSession?
     /// The first-workout Health primer, raised by the start gate.
     @State private var healthStartRequest: HealthStartRequest?
@@ -349,9 +355,32 @@ struct RoutineDetailView: View {
                 }
             }
         }
+        .alert(
+            confirmingRailDelete.map { target in
+                target.name.map { "Remove \u{201C}\($0)\u{201D}?" } ?? "Remove this exercise?"
+            } ?? "",
+            isPresented: Binding(
+                get: { confirmingRailDelete != nil },
+                set: { if !$0 { confirmingRailDelete = nil } }
+            )
+        ) {
+            Button("Remove", role: .destructive) {
+                if let target = confirmingRailDelete {
+                    deleteExercise(target.entry, in: target.group)
+                }
+                confirmingRailDelete = nil
+            }
+            Button("Cancel", role: .cancel) { confirmingRailDelete = nil }
+        } message: {
+            Text("Logged history is untouched.")
+        }
         .sheet(item: $selectedExercise) { ref in
             // Resolve the RoutineExercise from its stable uuid within the
             // live routine graph. Nothing to show if it was deleted.
+            // ⚠️ `.sheet(item:)` presents whether or not the builder yields
+            // content, so an unresolvable ref must render something with a
+            // way out — an empty sheet dismissable only by drag is the
+            // failure this replaces (review).
             if let routineExercise = routine.sortedGroups.flatMap(\.sortedExercises).first(where: { $0.uuid == ref.id }) {
                 ExerciseDetailSheet(
                     routine: routine,
@@ -364,6 +393,19 @@ struct RoutineDetailView: View {
                     }
                 )
                 .presentationDetents([.large])
+            } else {
+                VStack(spacing: 0) {
+                    SheetHeader(title: "Exercise", actionLabel: "Done", closeOnly: true) {
+                        selectedExercise = nil
+                    }
+                    .padding(.horizontal, 18)
+                    Text("This exercise is no longer in the routine.")
+                        .font(.system(.footnote))
+                        .foregroundStyle(Theme.textFaint)
+                        .padding(.top, 24)
+                    Spacer(minLength: 0)
+                }
+                .presentationBackground(Theme.background)
             }
         }
         .fullScreenCover(item: $activeSession) { session in
@@ -948,11 +990,15 @@ struct RoutineDetailView: View {
         }
         a11yActions.append(SwipeRowAction(name: "Duplicate") {
             openSwipeRow = nil
-            duplicateExercise(routineExercise, in: group)
+            duplicateExercise(routineExercise)
         })
         a11yActions.append(SwipeRowAction(name: "Delete") {
             openSwipeRow = nil
-            deleteExercise(routineExercise, in: group)
+            confirmingRailDelete = RailDeleteTarget(
+                name: routineExercise.exercise?.name,
+                entry: routineExercise,
+                group: group
+            )
         })
 
         // Activation is the component's onTap (see the SwipeRevealRow
@@ -999,7 +1045,7 @@ struct RoutineDetailView: View {
         } leadingActions: {
             SwipeActionButton(label: "DUPE", color: Theme.primaryFill, labelColor: Theme.onPrimary) {
                 openSwipeRow = nil
-                duplicateExercise(routineExercise, in: group)
+                duplicateExercise(routineExercise)
             }
         }
         .frame(height: height)
@@ -1417,6 +1463,12 @@ struct RoutineDetailView: View {
         case .newGroup:
             routine.addExerciseInNewGroup(exercise, context: modelContext)
         case .swap(let uuid):
+            // ⚠️ Cleared BEFORE the guard, not after (review): a pick is not
+            // a cancel whether or not the slot still resolves, and leaving
+            // the target set here reopened a sheet for a slot that no longer
+            // exists — which presents EMPTY, because `.sheet(item:)` presents
+            // whether or not its builder produces content.
+            swapReturnTarget = nil
             // Resolve the slot within the live graph; a slot deleted while
             // the picker was up (another device, an Operator apply) is a
             // clean no-op, not a crash.
@@ -1426,9 +1478,6 @@ struct RoutineDetailView: View {
             // linger on a bodyweight sub). Sets/rest are group facts and
             // stay.
             routine.replaceExercise(entry, with: exercise)
-            // A pick is not a cancel: the swap is done, so don't reopen the
-            // sheet behind it (#508, b27).
-            swapReturnTarget = nil
         }
         // Persist the freshly inserted group/exercise. This screen's trays
         // now key on the stable `uuid` (not persistentModelID), so they no
@@ -1459,8 +1508,8 @@ struct RoutineDetailView: View {
 
     /// The design's DUPE. The mutation itself is `Routine.duplicateExercise`
     /// (#508, b19) — this is the interactive door, which owns the save.
-    private func duplicateExercise(_ routineExercise: RoutineExercise, in group: ExerciseGroup) {
-        routine.duplicateExercise(routineExercise, in: group, context: modelContext)
+    private func duplicateExercise(_ routineExercise: RoutineExercise) {
+        routine.duplicateExercise(routineExercise, context: modelContext)
         // Permanent id before the duplicated row can be tapped open — an
         // item-keyed tray re-keys and flickers if the id swaps under it on
         // a later autosave (see addExercise for the full mechanism).
@@ -1663,6 +1712,17 @@ private struct SupersetTipInline: View {
 
 /// Where a picked exercise should land: a fresh group at the end, or an
 /// existing group (forming a superset).
+/// What a VoiceOver "Delete" is asking about (#508, Q22-B + review). Holds
+/// the models directly rather than a uuid: the alert is raised and answered
+/// within one screen's lifetime, and re-resolving would only reintroduce the
+/// unresolvable-ref case the sheet builder now guards against.
+struct RailDeleteTarget: Identifiable {
+    let name: String?
+    let entry: RoutineExercise
+    let group: ExerciseGroup
+    var id: ObjectIdentifier { ObjectIdentifier(entry) }
+}
+
 enum PickerDestination: Identifiable, Hashable {
     case newGroup
     /// A swap target (round 2a): the RoutineExercise slot whose exercise

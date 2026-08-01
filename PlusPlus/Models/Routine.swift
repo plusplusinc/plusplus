@@ -339,13 +339,13 @@ final class Routine {
     /// `restSecondsOverride` travels with it — a custom rest is part of what
     /// the block IS, so a dupe that silently reverted to the routine default
     /// rewrote the thing it claimed to copy.
+    /// ⚠️ The group is DERIVED from the entry, not taken on trust (review):
+    /// as a model API with tests, a caller passing the wrong group would
+    /// silently duplicate into the wrong position carrying the wrong sets
+    /// and rest. The entry knows which block it is in; nobody else has to.
     @discardableResult
-    func duplicateExercise(
-        _ entry: RoutineExercise,
-        in group: ExerciseGroup,
-        context: ModelContext
-    ) -> RoutineExercise? {
-        guard let exercise = entry.exercise else { return nil }
+    func duplicateExercise(_ entry: RoutineExercise, context: ModelContext) -> RoutineExercise? {
+        guard let exercise = entry.exercise, let group = entry.group else { return nil }
 
         for later in sortedGroups where later.order > group.order {
             later.order += 1

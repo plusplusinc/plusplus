@@ -78,20 +78,20 @@ struct ExerciseSnapshot: Equatable {
 /// undo). Keyed by the entry's stable uuid.
 struct EntryTargetsSnapshot: Equatable {
     let uuid: UUID?
-    let weight: Double?
-    let reps: Int?
-    let repsUpper: Int?
-    let durationSeconds: Int?
-    let extraTargetsData: Data?
+    /// The WHOLE prescription, via the one accessor that owns the field
+    /// list (#508, b19 + review). This used to spell five of the six out
+    /// by hand and was ALREADY missing `heartRateTargetData` — the same
+    /// drift class the dupe bug came from, one file away and latent: no
+    /// tracked mutation clears a heart-rate target today, so the undo has
+    /// never had to restore one. The first one that does would have kept
+    /// the clear silently. A list nobody can forget to extend cannot do
+    /// that again.
+    let targets: Exercise.AddTimeTargets
 
     @MainActor
     init(entry: RoutineExercise) {
         uuid = entry.uuid
-        weight = entry.weight
-        reps = entry.reps
-        repsUpper = entry.repsUpper
-        durationSeconds = entry.durationSeconds
-        extraTargetsData = entry.extraTargetsData
+        targets = entry.targets
     }
 }
 
@@ -400,11 +400,7 @@ extension ChangeEngine {
     private func restoreEntry(_ snapshot: EntryTargetsSnapshot, entriesByUUID: [UUID: RoutineExercise]) {
         guard let uuid = snapshot.uuid,
               let entry = entriesByUUID[uuid], !entry.isDeleted else { return }
-        entry.weight = snapshot.weight
-        entry.reps = snapshot.reps
-        entry.repsUpper = snapshot.repsUpper
-        entry.durationSeconds = snapshot.durationSeconds
-        entry.extraTargetsData = snapshot.extraTargetsData
+        entry.targets = snapshot.targets
     }
 
     @MainActor

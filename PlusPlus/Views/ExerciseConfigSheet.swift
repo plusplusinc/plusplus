@@ -186,23 +186,15 @@ struct ExerciseConfigSheet: View {
                         onIncrement: { stepTarget(metric, 1) }
                     )
                 }
+                // Under the triad it governs, and ABOVE the heart-rate
+                // row (#508, b26 + review): after the ForEach it read as
+                // annotating heart rate, which is not part of the triad.
+                if metric == triadAnchor {
+                    DerivedMetricCaption()
+                }
                 if metric == heartRateAnchor {
                     heartRateTargetRow
                 }
-            }
-            // The triad's rule, once per card and only while it applies
-            // (#508, b26). Inside the card, under the rows it governs: the
-            // eviction is a property of these three metrics, not of the
-            // sheet.
-            if derivedMetric != nil {
-                Text(DerivedMetricPhrasing.caption)
-                    .font(.system(.caption))
-                    .foregroundStyle(Theme.textFaint)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 14)
-                    .padding(.top, 10)
-                    .padding(.bottom, 2)
             }
             // Stretches and static holds drop the HR prescription
             // (Exercise.showsHeartRateTargetRow owns the rule,
@@ -271,7 +263,16 @@ struct ExerciseConfigSheet: View {
     }
 
     private var heartRateAnchor: WorkoutMetric? {
-        guard showsHeartRate, CardioTargets.applies(to: profile) else { return nil }
+        guard showsHeartRate else { return nil }
+        return triadAnchor
+    }
+
+    /// The last triad row on screen — what the eviction caption hangs
+    /// under. Profile-gated, NOT value-gated: a legacy entry with all
+    /// three stored has no derived metric yet, and that is precisely the
+    /// state whose next edit evicts one (review).
+    private var triadAnchor: WorkoutMetric? {
+        guard CardioTargets.applies(to: profile) else { return nil }
         return profile.metrics.last { CardioTargets.triad.contains($0) }
     }
 

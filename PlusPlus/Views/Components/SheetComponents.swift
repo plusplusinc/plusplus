@@ -296,15 +296,39 @@ struct DerivedMetricRow: View {
     }
 }
 
-/// The triad's rule, said out loud (#508, b26). It used to live ONLY in
-/// `DerivedMetricRow`'s `accessibilityHint`, so a sighted user met the
-/// eviction by suffering it: set a pace, watch the duration you entered
-/// quietly become the derived one. A rule that surprises you is a rule
-/// that has to be visible.
+/// The triad's rule, said out loud (#508, b26) — the caption AND its
+/// chrome, so the two sheets that mount it can't drift apart (the same
+/// argument this round makes for `RoutineExercise.targets`).
 ///
-/// One caption per CARD, never per row — the triad has one rule, and
-/// three copies of it under three rows would read as three rules. The
-/// hint stays too: a caption is not announced when focus lands on the row.
+/// Distance, duration and pace are three views of one effort: set two and
+/// the third follows. Before this, that rule lived only in a source
+/// comment — `DerivedMetricRow`'s `accessibilityHint` says "Set it
+/// yourself instead", which describes the TAP and never the eviction — so
+/// every user, sighted or not, met the rule by suffering it: set a pace,
+/// watch the duration you entered become the derived one.
+///
+/// ⚠️ It is gated on the PROFILE, not on `derivedMetric != nil` (review).
+/// Gating on the derived value hid the caption in the one state where the
+/// surprise actually fires: a legacy entry with all three stored has no
+/// derived metric yet, so the card said nothing, and the next edit evicted
+/// one. The rule is a property of the card, not of today's values.
+///
+/// ⚠️ ONE per card, under the triad it governs and ABOVE the heart-rate
+/// row — placed after the ForEach it read as annotating heart rate, which
+/// is not part of the triad.
+struct DerivedMetricCaption: View {
+    var body: some View {
+        Text(DerivedMetricPhrasing.caption)
+            .font(.system(.caption))
+            .foregroundStyle(Theme.textFaint)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 14)
+            .padding(.top, 10)
+            .padding(.bottom, 2)
+    }
+}
+
 enum DerivedMetricPhrasing {
     static let caption = "Set any two and the third is derived. Tap the derived one to set it instead, and another steps back to make room."
 }
