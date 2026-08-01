@@ -2,6 +2,7 @@ import WidgetKit
 import SwiftUI
 import ActivityKit
 import AppIntents
+import PlusPlusKit   // WorkoutCalendarLink: the start-link route the widget reuses (#509, b25)
 
 /// The widget extension (#147): the rest-countdown Live Activity plus
 /// Home/Lock Screen widgets fed by the app's snapshot.
@@ -331,7 +332,33 @@ struct DueTodayView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .widgetURL(URL(string: "plusplus://today"))
+        // Tapping a scheduled day STARTS it (#509, b25) — the widget's whole
+        // job is the one workout you're about to do, and landing on Today to
+        // find and tap the same card again is a step for nothing. A rest day
+        // has nothing to start, so it opens Today as before.
+        //
+        // ⚠️ A `widgetURL`, not `Button(intent:)`, and deliberately (Dave's
+        // call): `StartRoutineIntent` lives in the APP target, which the
+        // widget extension does not compile, and its `perform()` posts on
+        // `NotificationCenter` — in-process, so from an extension it would
+        // reach nobody. This route already exists and is already handled:
+        // `plusplus://start/<name>` is what a calendar event's link uses
+        // (#333), landing in `RootTabView.onOpenURL` and handing off to the
+        // same pathway Siri's intent does. Reusing it means the widget
+        // inherits a path that is already exercised rather than minting a
+        // second one that isn't.
+        .widgetURL(startURL)
+    }
+
+    /// The due routine's start link, or Today when nothing is scheduled.
+    /// Falls back to Today if the name can't be encoded, so the tap always
+    /// goes somewhere.
+    private var startURL: URL? {
+        guard let due = snapshot?.dueList(at: entryDate), let first = due.first else {
+            return URL(string: "plusplus://today")
+        }
+        return WorkoutCalendarLink.appURL(forRoutineNamed: first.name)
+            ?? URL(string: "plusplus://today")
     }
 }
 
