@@ -271,9 +271,9 @@ A **tab root** wears the SYSTEM navigation bar — `.navigationTitle` +
 `.navigationBarTitleDisplayMode(.large)`, the ++ key (`AppMenuKey`) as a
 leading `ToolbarItem` and the root's own accessory (the catalogs' kit
 switcher) as a trailing one — Today carries NONE since build 159: the play
-key and its start tray are deleted, the pinned band holds every start
-(sport keys + the Train key), and routines start from their own cards and
-the Routines tab. Both keys carry
+key and its start tray are deleted, every start lives on the rail (the
+anytime card's sport keys + Train, build 160), and routines start from
+their own cards and the Routines tab. Both keys carry
 **`.sharedBackgroundVisibility(.hidden)`** — they bring their own raised-key
 chrome and would otherwise nest inside the toolbar's shared glass (a box in a
 box). ⚠️ **A tab root must NOT hide its navigation bar.** `.searchable` AND
@@ -283,17 +283,15 @@ nothing to attach to (build 140). `CatalogTabHeader` is DELETED and Today's
 hand-rolled twin with it; the system bar handles the Dynamic-Type reflow the
 old hand rules policed.
 
-- ⚠️ **Today's header band (tally + `BlockBar` + quick start) is PINNED
+- ⚠️ **Today's header band is FACTS ONLY (tally + `BlockBar`), PINNED
   CHROME on the scroll's shell** — a top `safeAreaInset`, the catalogs'
   #494 mount (Dave, build 159, REVERSING the 2026-07-27 sticky-in-scroll
-  law: the band is "not part of the timeline or the overall page scroll",
-  its only shared motion the large-title collapse). The sticky-band era's
-  machinery — the `visualEffect` offset, the hidden reservation copy, the
-  anchor compensation — is DELETED; the scroll holds rail items only, so
-  item spacing is uniform by construction, and pinned chrome hit-tests
-  plainly (no float offset under the keys). The band keeps its OPAQUE
-  background + hairline shelf (rows slide under it), and the 16 pt content
-  column stays on the scroll stack's CHILDREN.
+  law; build 160 moved the quick-start keys OUT of it onto the rail). The
+  sticky-band era's machinery — the `visualEffect` offset, the hidden
+  reservation copy, the anchor compensation — is DELETED; the scroll holds
+  rail items only, the band keeps its OPAQUE background + hairline shelf
+  (rows slide under it), and the 16 pt content column stays on the scroll
+  stack's CHILDREN.
   ⚠️ **The known cost is build 152's ghost, accepted knowingly this time**:
   on pull-to-refresh the rubber-band walks the large title down over pinned
   chrome — the exact failure that created the sticky law ("Today" slid over
@@ -302,11 +300,29 @@ old hand rules policed.
   render in the gap the pull opens (below the band now). If the pull reads
   broken on glass, the recorded fallback is the sticky-in-scroll mechanism
   at 8b9e16b (boundary-mounted, no reservation), not build 152's revert.
-  ⚠️ It does NOT ride the rail (Dave): the tally is the surface's week
-  header, not an entry on the timeline — and the KEYS never scroll
-  horizontally either (build 159): the row fits what it can and collapses
-  the tail into an "N more" Menu, `OverflowCapsuleRow`'s rule at key scale,
-  widths from `UIFont` metrics.
+- ⚠️ **The rail is DATE-FIRST, and quick start is its ANYTIME entry**
+  (Dave, build 160). Every dated entry renders its date on its OWN row —
+  popped out of the card — with the node CENTERED on that row (both stand
+  one node-diameter tall) and the card hanging below; per-ENTRY, so two
+  workouts one day print the day twice, which is what a log does. Today is
+  ONE dated group ("today · thu · jul 31") holding all of the day's cards
+  under one node; the carried lane's date row is its "was tue · jul 7"
+  line in advisory amber (tense, never an obligation word); setup rows
+  stay the one undated class. **The anytime entry sits below the future
+  items and above today, every day**: a DASHED node ("anytime" in the date
+  position — the entry with no date) and the dashed-shell `AnytimeCard` —
+  the dash is the offer grammar, one visual idea with the future cards'
+  "not yet" dash. The landing seats the ANYTIME row under the band.
+  ⚠️ The card's keys morph IN PLACE (tap → the key's chrome grows into a
+  config panel via `matchedGeometryEffect`; the panel's solid border
+  OVERTAKES the dashed shell while open): morph the CHROME, fade the
+  content — matched content reflows text mid-flight — and NEVER a
+  measured FLIP, which would write layout state in the TabView subtree
+  (the morph law above). The rack never scrolls horizontally: it fits
+  what it can and collapses the tail into an "N more" key (widths from
+  `UIFont` metrics) whose panel holds the hidden sports one level deeper.
+  The green + opens the picker SHEET (a multi-select is a searchable
+  list, never an in-place chip grid).
 - ⚠️ **The pull's answer (the refresh line) renders in the SPACE THE PULL
   OPENS**, not in the timeline — a zero-height `Color.clear` at the very top
   of the content with the line `.overlay(alignment: .bottom)` on it, so the

@@ -26,10 +26,13 @@ scopes, the accessory's retirement, the morph's state-write rule) are in
 `navigation.md`; read them before changing anything in it.
 
 **Today** — the unified timeline: scheduled work, carried-over work, and
-committed sessions, under a PINNED header band (quick-start keys · week
-tally · block bar — chrome on the scroll's shell, not scroll content;
-laws in `navigation.md`). Pull-to-refresh answers in the gap the pull
-opens (mechanics in `navigation.md`).
+committed sessions on a DATE-FIRST rail (each entry's date on its own row,
+node centered on it, card below), with quick start as the rail's ANYTIME
+entry (dashed node + dashed-shell `AnytimeCard`, below the future and
+above today; its keys morph in place into config panels). The pinned
+header band holds the week's FACTS only (tally · block bar — chrome on
+the scroll's shell; laws in `navigation.md`). Pull-to-refresh answers in
+the gap the pull opens (mechanics in `navigation.md`).
 
 **Routines / Exercises / Kit** — catalog surfaces over `CatalogScopeView`,
 MINE then CATALOG, a single-select facet row per scope (exercises kind/

@@ -268,55 +268,74 @@ struct TodayView: View {
                             // ⚠️ The week strip is NOT here. It is pinned
                             // CHROME on the scroll's shell (the
                             // safeAreaInset below), not scroll content —
-                            // Dave, build 159: the tally, the bar and the
-                            // quick starts are not part of the timeline OR
-                            // the page scroll; the only motion they share
-                            // is the large title collapsing into the bar.
+                            // Dave, build 159: the tally and the bar are
+                            // not part of the timeline OR the page scroll;
+                            // the only motion they share is the large
+                            // title collapsing into the bar. The quick
+                            // starts moved the OTHER way in build 160:
+                            // they ride the rail as the anytime entry.
                             // The scroll holds rail items and nothing else,
                             // so item spacing is uniform by construction.
                             // Lazy: the committed section is the whole
                             // history — eager building made every render
                             // O(sessions) (bug hunt perf finding).
                             LazyVStack(spacing: 0) {
-                                // The date lives here now (Dave's ask),
-                                // on the item it names — the first RAIL
-                                // line under the landed header stack
-                                // (band, then keys, then this).
-                                todayMarker
-                                // The rest-day item yields to the setup scaffold
-                                // until a startable routine exists — "nothing
-                                // scheduled" and "schedule it (3 of 3)" saying
-                                // the same thing twice reads broken. Once a
-                                // routine CAN start, the item returns (#246):
-                                // scheduling is optional and must not read as
-                                // the only path to working out. It also yields
-                                // when carried-over work exists (2026-07-14):
-                                // the CARRIED OVER lane is the actionable
-                                // surface then, so a "rest day · start whenever"
-                                // line above it would read as a blind claim.
-                                // A won day (a workout completed, nothing
-                                // scheduled outstanding) shows no placeholder
-                                // (Dave, 2026-07-24) — the completed card +
-                                // week-ahead already say what's done and
-                                // what's next. A due-but-empty repair prompt
-                                // (promptsWorkout) still shows.
-                                if dueRoutines.isEmpty && missedEntries.isEmpty
-                                    && !(completedAnyToday && !promptsWorkout)
-                                    && (!setupActive || allSetupDone || !startableRoutines.isEmpty) {
-                                    restDayItem
-                                }
-                                ForEach(dueButEmptyRoutines) { routine in
-                                    // Inert grey by intent: the ROUTINE isn't
-                                    // startable — the card's CTA repairs, it
-                                    // doesn't perform (rail grammar call).
-                                    TimelineItem(node: .inert) {
-                                        emptyRoutineCard(routine)
+                                // The ANYTIME entry (Dave, build 160): quick
+                                // start as a card ON the rail — below the
+                                // future, above whatever today holds, every
+                                // day. The dashed node says what it is: an
+                                // offer, not an occurrence. It absorbs
+                                // nothing from setup — the scaffold keeps
+                                // its one beginning (the same gate the old
+                                // pinned rack had).
+                                if !setupActive || allSetupDone {
+                                    TimelineItem(node: .offer, dateline: "anytime") {
+                                        anytimeCard
                                     }
                                 }
-                                ForEach(dueRoutines) { routine in
-                                    TimelineItem(node: .pending) {
-                                        pendingCard(routine)
-                                            .matchedTransitionSource(id: routine.persistentModelID, in: zoomNamespace)
+                                // TODAY is ONE dated group now (the build-160
+                                // restructure: dates pop out of the cards,
+                                // the node centers on the date row, cards
+                                // hang below). Every card of the day shares
+                                // this date; the group renders even empty —
+                                // today's date always marks the rail's now.
+                                TimelineItem(
+                                    node: dueRoutines.isEmpty ? .inert : .pending,
+                                    dateline: "today · \(todayDateText)"
+                                ) {
+                                    VStack(alignment: .leading, spacing: 10) {
+                                        // The rest-day card yields to the setup
+                                        // scaffold until a startable routine
+                                        // exists — "nothing scheduled" and
+                                        // "schedule it (3 of 3)" saying the same
+                                        // thing twice reads broken. Once a
+                                        // routine CAN start, it returns (#246):
+                                        // scheduling is optional and must not
+                                        // read as the only path to working out.
+                                        // It also yields when carried-over work
+                                        // exists (2026-07-14): the CARRIED OVER
+                                        // lane is the actionable surface then.
+                                        // A won day (a workout completed,
+                                        // nothing scheduled outstanding) shows
+                                        // no placeholder (Dave, 2026-07-24). A
+                                        // due-but-empty repair prompt
+                                        // (promptsWorkout) still shows.
+                                        if dueRoutines.isEmpty && missedEntries.isEmpty
+                                            && !(completedAnyToday && !promptsWorkout)
+                                            && (!setupActive || allSetupDone || !startableRoutines.isEmpty) {
+                                            restDayCard
+                                        }
+                                        ForEach(dueButEmptyRoutines) { routine in
+                                            // Inert grey by intent lives on the
+                                            // CARD now (the group node reads the
+                                            // day): the routine isn't startable —
+                                            // its CTA repairs, it doesn't perform.
+                                            emptyRoutineCard(routine)
+                                        }
+                                        ForEach(dueRoutines) { routine in
+                                            pendingCard(routine)
+                                                .matchedTransitionSource(id: routine.persistentModelID, in: zoomNamespace)
+                                        }
                                     }
                                 }
                                 if setupActive {
@@ -337,9 +356,14 @@ struct TodayView: View {
                                     // to the done purple checkmark, which
                                     // seals it. Every other committed card
                                     // rests at that filled checkmark node.
+                                    // The date rides the entry's own row
+                                    // (build 160) — two workouts one day
+                                    // print the day twice, which is what a
+                                    // log does.
                                     let converting = justCompletedID == session.persistentModelID
                                     TimelineItem(
                                         node: .committed,
+                                        dateline: railDay(session.startedAt),
                                         converting: converting,
                                         converted: converting && completionConverted
                                     ) {
@@ -393,18 +417,17 @@ struct TodayView: View {
                         // content would inherit that clear.
                         .tint(Theme.textPrimary)
                     }
-                    // The week strip + quick start, pinned as CHROME above
-                    // the scroll (Dave, build 159: not part of the timeline
-                    // or the page scroll — "except just the little scroll
-                    // that moves the heading into the top", which is the
+                    // The week strip, pinned as CHROME above the scroll
+                    // (Dave, build 159: not part of the timeline or the
+                    // page scroll — "except just the little scroll that
+                    // moves the heading into the top", which is the
                     // large-title collapse and belongs to the bar, not to
-                    // this band). The catalogs' #494 filter row is the
-                    // precedent, same mount. What this buys beyond the ask:
-                    // the keys no longer sit inside a visualEffect offset,
-                    // so the hit-where-it-draws device concern is GONE, and
-                    // the landing needs no anchor compensation — the inset
-                    // shrinks the content area and scrollTo(.top) seats the
-                    // date line right under the band.
+                    // this band). Facts only since build 160: the quick
+                    // starts left for the rail's anytime card. The
+                    // catalogs' #494 filter row is the precedent, same
+                    // mount; the landing needs no anchor compensation —
+                    // the inset shrinks the content area and
+                    // scrollTo(.top) seats the anytime row under the band.
                     // ⚠️ Device check this trades INTO: the pull-to-refresh
                     // gap now opens below the pinned band, and the pull's
                     // answer line must still render in it; plus the large
@@ -961,8 +984,10 @@ struct TodayView: View {
         ForEach(upcomingEntries) { entry in
             // Inert grey: green rings stay exclusive to today's
             // actionable cards (rail grammar) — a future day is a
-            // calendar fact, not a call to action.
-            TimelineItem(node: .inert) {
+            // calendar fact, not a call to action. Its date rides the
+            // entry's own row (build 160); two routines on one future
+            // day each print it, the per-entry rule everywhere.
+            TimelineItem(node: .inert, dateline: railDay(entry.day)) {
                 futureCard(entry)
             }
         }
@@ -1001,74 +1026,52 @@ struct TodayView: View {
         .fixedSize(horizontal: false, vertical: true)
     }
 
-    /// The rail's "now" line, sitting directly on today's first item:
-    /// the date left the header (Dave's ask) for the item it describes,
-    /// and this marker is what the opening scroll (#267) seats at the
-    /// top. A spine-only divider like the beyond-this-week block — no
-    /// node, because it names a moment, it isn't an entry. The date
-    /// alone since 2026-07-23 (the rail's all-caps headings died; the
-    /// date IS today's label, and the green card below says the rest).
-    private var todayMarker: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Rectangle()
-                .fill(Theme.border)
-                .frame(width: 2)
-                .frame(maxHeight: .infinity)
-                .frame(width: 20)
-            Text(todayDateText)
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(Theme.textFaint)
-                .padding(.vertical, 10)
-            Spacer(minLength: 0)
-        }
-        .fixedSize(horizontal: false, vertical: true)
+    /// The anytime card, wired to Today's start machinery. Quick starts
+    /// commit through `startQuick` (the pending-flag config-sheet route
+    /// stays the CUSTOM escape); Train's two paths are the scratch start
+    /// and a handoff to the Routines tab — a pointer, never a second
+    /// copy of the library.
+    private var anytimeCard: some View {
+        AnytimeCard(
+            exercises: quickStartExercises,
+            lastOuting: { lastOutingLine(for: $0) },
+            onStart: { startQuick($0) },
+            onCustom: { quickStartConfig = SessionExerciseConfig(exercise: $0) },
+            onStartEmpty: { startEmptySession() },
+            onChooseRoutine: { onGoToRoutines() },
+            onEdit: { editingQuickStarts = true }
+        )
     }
 
-    /// One-tap starts for the sports you actually do — mounted inside
-    /// `weekStripBand`, so they are part of the pinned header, never a
-    /// thing sitting between rail segments.
-    ///
-    /// The rail records occurrences and these keys are an offer; two
-    /// rounds of device feedback said any placement IN the scroll flow
-    /// still read as timeline, so they live with the tally now. The keys
-    /// carry their own raised chrome (no card), and the rack NEVER
-    /// scrolls — it fits what it can and collapses the tail into an
-    /// "N more" Menu (see QuickStartRow).
-    ///
-    /// ⚠️ It renders nothing while the setup scaffold is running: a full
-    /// viewport of "3 of 3" steps with a Run key floating above it offers two
-    /// beginnings at once, and setup is the one that has to finish.
-    @ViewBuilder
-    private var quickStartBand: some View {
-        if !setupActive || allSetupDone, !quickStartExercises.isEmpty {
-            VStack(alignment: .leading, spacing: 7) {
-                // The label CLAIMS the keys (Dave, build 159, third round:
-                // the week tally directly above them read as if it were
-                // describing the buttons). One label, not two — the tally
-                // is its own sentence and self-labels; only the section
-                // that can be misattributed gets a name. ALL-CAPS mono is
-                // the section-label treatment, which is exactly what this
-                // is; "Quick start" is the feature's settled name (the
-                // picker sheet already wears it).
-                Text("QUICK START")
-                    .font(.system(.caption2, design: .monospaced, weight: .semibold))
-                    .kerning(0.8)
-                    .foregroundStyle(Theme.textFaint)
-                    .padding(.horizontal, 16)
-                QuickStartRow(
-                    exercises: quickStartExercises,
-                    onPick: { quickStartConfig = SessionExerciseConfig(exercise: $0) },
-                    onWorkOut: { startEmptySession() },
-                    onEdit: { editingQuickStarts = true }
-                )
-            }
-            // The band's FIRST element now: real clearance above (under
-            // the collapsed bar), thin below — the strip's own top pad
-            // carries the inter-section gap, and its bottom pad is the
-            // shelf's clearance.
-            .padding(.top, 8)
-            .padding(.bottom, 2)
+    /// "last · 5.1 km · 28 min" — the sport panel's memory, from the most
+    /// recent finished session that logged this exercise. One exercise,
+    /// first match, panel-only: never the per-row relationship walk the
+    /// history list can't afford. nil when there's no history (a first
+    /// outing needs no caption).
+    private func lastOutingLine(for exercise: Exercise) -> String? {
+        let profile = exercise.metricProfile
+        guard let session = sessions.first(where: { session in
+            session.completedSetLogs.contains { $0.exerciseName == exercise.name }
+        }) else { return nil }
+        let logs = session.completedSetLogs.filter { $0.exerciseName == exercise.name }
+        var parts: [String] = []
+        let distance = logs.compactMap { $0.actual(.distance) }.reduce(0, +)
+        if distance > 0 {
+            parts.append(WorkoutMetric.distance.displayText(distance, distanceUnit: profile.distanceUnit))
         }
+        let seconds = logs.compactMap(\.actualDuration).reduce(0, +)
+        if seconds > 0 {
+            parts.append(seconds < 60 ? "<1 min" : "\(seconds / 60) min")
+        }
+        guard !parts.isEmpty else { return nil }
+        return "last · " + parts.joined(separator: " · ")
+    }
+
+    /// "sat · aug 2" — one grammar for every entry's date row.
+    private func railDay(_ date: Date) -> String {
+        let weekday = date.formatted(.dateTime.weekday(.abbreviated)).lowercased()
+        let day = date.formatted(.dateTime.month(.abbreviated).day()).lowercased()
+        return "\(weekday) · \(day)"
     }
 
     /// "sat · jul 11" — the timeline's own weekday·date grammar (matches
@@ -1134,12 +1137,10 @@ struct TodayView: View {
         return String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
     }
 
-    /// "fri · jul 11 · ~40 min" — plain calendar facts, lowercase like
-    /// every caption on the rail.
+    /// "~40 min" — the date left the card for the entry's own date row
+    /// (build 160), so the caption is down to the estimate.
     private func futureCaption(for entry: UpcomingEntry) -> String {
-        let weekday = entry.day.formatted(.dateTime.weekday(.abbreviated)).lowercased()
-        let date = entry.day.formatted(.dateTime.month(.abbreviated).day()).lowercased()
-        return "\(weekday) · \(date) · \(entry.routine.estimateText)"
+        entry.routine.estimateText
     }
 
     // MARK: - Carried over (missed occurrences)
@@ -1157,10 +1158,23 @@ struct TodayView: View {
             // Amber node, amber card: a lapsed occurrence is neither the
             // green "today" nor the grey "not yet" — it's the warm
             // in-between (the notes/advisory amber already in the grammar).
-            TimelineItem(node: .inert, strokeOverride: Theme.notes) {
+            // Its "was" line IS its date row (build 160): the lapsed day
+            // named plainly, tense carrying what an obligation word never
+            // may — and never dressed up as today's date.
+            TimelineItem(
+                node: .inert,
+                strokeOverride: Theme.notes,
+                dateline: missedDateline(entry),
+                datelineColor: Theme.notes
+            ) {
                 missedCard(entry)
             }
         }
+    }
+
+    /// "was tue · jul 7" — the carried entry's date row.
+    private func missedDateline(_ entry: MissedEntry) -> String {
+        "was \(railDay(entry.since))"
     }
 
     /// The gentle carried-over card: name, the day it was scheduled, and
@@ -1200,13 +1214,10 @@ struct TodayView: View {
         .accessibilityIdentifier("missedRoutine-\(entry.routine.name)")
     }
 
-    /// "was tue · jul 7 · ~30 min" — the lapsed day named plainly (the
-    /// "was" reads it as past without any obligation word), then the
-    /// estimate.
+    /// "~30 min" — the lapsed day moved to the entry's date row (build
+    /// 160), leaving the card the estimate.
     private func missedCaption(_ entry: MissedEntry) -> String {
-        let weekday = entry.since.formatted(.dateTime.weekday(.abbreviated)).lowercased()
-        let date = entry.since.formatted(.dateTime.month(.abbreviated).day()).lowercased()
-        return "was \(weekday) · \(date) · \(entry.routine.estimateText)"
+        entry.routine.estimateText
     }
 
     /// The two most recent completions of a routine: `.last` drives
@@ -1426,8 +1437,8 @@ struct TodayView: View {
         // Re-checked at FIRE time, not just tap time: StartFlashButton
         // defers ~0.85 s — long enough for a second Start to flash (a
         // double start orphans a session, which would wedge every future
-        // start and salvage) or for a band key to raise a sheet (the
-        // config sheet, the picker, the Health primer) — and setting
+        // start and salvage) or for an anytime-card key to raise a sheet
+        // (the config sheet, the picker, the Health primer) — and setting
         // activeSession under a live sheet is the documented
         // presentation-drop class: the cover never presents, the saved
         // session has no screen (swift-reviewer, twice). A tap that
@@ -1499,23 +1510,19 @@ struct TodayView: View {
 
     // MARK: - Week strip
 
-    /// The Today header band: the week strip and quick start, as PINNED
-    /// CHROME on the scroll's shell (`safeAreaInset`, the catalogs' #494
-    /// mount). Not scroll content, not a sticky trick, no reservation, no
+    /// The Today header band: the week strip alone, as PINNED CHROME on
+    /// the scroll's shell (`safeAreaInset`, the catalogs' #494 mount).
+    /// Not scroll content, not a sticky trick, no reservation, no
     /// visualEffect — Dave, build 159, after three rounds of in-scroll
-    /// placements each still reading as "part of the timeline": the band
-    /// is chrome, the scroll holds rail items only, and the only motion
-    /// the band shares is the large title collapsing into the bar.
+    /// placements each still reading as "part of the timeline". Facts
+    /// only since build 160: the quick-start rack moved to the rail's
+    /// anytime card, and the band is back to the week's two quiet lines.
     private var weekStripBand: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Quick start LEADS the band (Dave, build 159): the actions
-            // first, the week's facts under them. Each section's caption
-            // still sits directly above its own content — QUICK START
-            // over the keys, the tally sentence over its bar — so the
-            // caption-adoption misread stays impossible in either order.
-            // Plain pinned chrome hit-tests normally; the old
-            // float-offset concern died with the in-scroll mounts.
-            quickStartBand
+            // FACTS ONLY (Dave, build 160): the quick-start rack left the
+            // band for the rail's anytime card, so the band is back to
+            // two quiet lines — the tally and its bar. Still pinned
+            // chrome; the starts are timeline content now.
             weekStrip
                 .padding(.horizontal, 16)
         }
@@ -1526,20 +1533,15 @@ struct TodayView: View {
         // background is invisible.
         .background(Theme.background)
         // The shelf: the hairline routine detail's pinned band already
-        // draws (2026-07-30, its fourth job now) — rows sliding under a
-        // band that now holds interactive keys need the band's edge to
-        // be a drawn fact, not an inference.
+        // draws (2026-07-30) — rows sliding under the band need its edge
+        // to be a drawn fact, not an inference.
         // ⚠️ Gated, because a zero-HEIGHT band still has WIDTH and an
         // overlaid hairline would draw across it: during the setup
-        // scaffold both sections collapse (the strip's own gate, and
-        // quickStartBand's), and a stray line under the title is the
-        // exact invisible-edge class the shelf exists to fix. The gate
-        // mirrors those two conditions — change either there, change it
-        // here.
+        // scaffold the strip collapses, and a stray line under the title
+        // is the exact invisible-edge class the shelf exists to fix. The
+        // gate mirrors the strip's own — change it there, change it here.
         .overlay(alignment: .bottom) {
-            let stripShows = !(setupActive && !allSetupDone) && weekPlan.planned > 0
-            let keysShow = (!setupActive || allSetupDone) && !quickStartExercises.isEmpty
-            if stripShows || keysShow {
+            if !(setupActive && !allSetupDone) && weekPlan.planned > 0 {
                 Rectangle()
                     .fill(Theme.border)
                     .frame(height: 1)
@@ -1774,7 +1776,9 @@ struct TodayView: View {
     }
 
     private func committedSubtitle(_ session: WorkoutSession) -> String {
-        var parts = [session.startedAt.formatted(.dateTime.month(.abbreviated).day()).lowercased()]
+        // No date here (build 160): it rides the entry's own date row,
+        // and a fact printed twice an inch apart reads as a glitch.
+        var parts: [String] = []
         if let count = WorkUnit.summaryCount(
             session.summaryWorkUnit,
             session.completedSetLogs.count
@@ -1914,19 +1918,20 @@ struct TodayView: View {
 
     // MARK: - Empty states
 
-    /// A timeline ITEM, not a floating empty state: rest days are part
-    /// of the record too.
-    private var restDayItem: some View {
-        TimelineItem(node: .inert) {
-            VStack(alignment: .leading, spacing: 8) {
+    /// A card in TODAY's dated group, not a floating empty state: rest
+    /// days are part of the record too. (Its TimelineItem wrapper died
+    /// in the build-160 restructure — the group's date row carries the
+    /// node now.)
+    private var restDayCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
                 Text(restDayTitle)
                     .font(.system(.body, weight: .semibold))
                 Text(restDayItemCaption)
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(Theme.textSecondary)
                 // A true rest day carries NO start key (Dave, 2026-07-12):
-                // rest is the point, and the pinned band's keys stay a tap
-                // away for a workout anyway. The card only offers an
+                // rest is the point, and the anytime card sits directly
+                // above for a workout anyway. The card only offers an
                 // action when it's NOT resting: creation when no routine
                 // can start, or the "Start a workout" prompt when one is
                 // due-but-empty / mid-setup.
@@ -2007,7 +2012,6 @@ struct TodayView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
             .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
-        }
     }
 
     /// A scheduled routine with nothing in it, on its day (#246): name
@@ -2144,11 +2148,15 @@ private enum TimelineNode: Equatable {
     /// A setup step whose prerequisite isn't met yet — border-faint,
     /// so the rail reads "not yet yours".
     case gated
+    /// An OFFER on the rail (the anytime entry) — a dashed ring: present,
+    /// but not an occurrence. The same dash the future cards and the
+    /// anytime shell wear; "not yet a thing" is one visual idea.
+    case offer
 
     var strokeColor: Color {
         switch self {
         case .pending: Theme.accent
-        case .inert: Theme.textFaint
+        case .inert, .offer: Theme.textFaint
         case .gated: Theme.borderStrong
         case .committed: Theme.done
         }
@@ -2160,6 +2168,15 @@ private struct TimelineItem<Content: View>: View {
     /// Overrides a RING node's color (the carried-over lane's amber node).
     /// Ignored by the committed done-fill, which is always purple.
     var strokeOverride: Color? = nil
+    /// The entry's own date row (Dave, the build-160 restructure: dates
+    /// POP OUT of the cards). When set, it renders as the entry's first
+    /// line, the node centers on IT, and the cards hang below. nil keeps
+    /// the node beside the content's first line — the setup rows' look,
+    /// the one undated entry class left.
+    var dateline: String? = nil
+    /// The dateline's ink — faint by default; the carried lane's "was"
+    /// line stays advisory amber.
+    var datelineColor: Color = Theme.textFaint
     /// The just-finished card animates green → purple done on landing.
     /// While `converting` is true and `converted` is false the node shows
     /// the pre-flip green ring; once `converted`, it seals into the done
@@ -2188,13 +2205,25 @@ private struct TimelineItem<Content: View>: View {
                     .frame(width: 2)
                     .frame(maxHeight: .infinity)
                 marker(diameter: Self.diameter)
-                    // Center the (bigger) dot on the card's first line.
-                    .padding(.top, 14)
+                    // Dot and date share a centerline: the date row stands
+                    // exactly one node-diameter tall inside the content's
+                    // 5 pt pad, so a 5 pt top inset centers the dot on it.
+                    // Undated entries keep the old card-first-line seat.
+                    .padding(.top, dateline == nil ? 14 : 5)
             }
             .frame(width: 20)
 
-            content()
-                .padding(.vertical, 5)
+            VStack(alignment: .leading, spacing: 8) {
+                if let dateline {
+                    Text(dateline)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(datelineColor)
+                        .frame(height: Self.diameter)
+                }
+                content()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 5)
         }
         .fixedSize(horizontal: false, vertical: true)
     }
@@ -2215,6 +2244,14 @@ private struct TimelineItem<Content: View>: View {
                 // committed node, so it fires exactly once (swift-reviewer).
                 .symbolEffect(.bounce, options: .nonRepeating, value: showsDoneFill)
                 .transition(.scale.combined(with: .opacity))
+        } else if node == .offer {
+            // The dash carries "not an occurrence" — same stroke weight
+            // as its solid siblings so the rail's rhythm holds.
+            Circle()
+                .strokeBorder(node.strokeColor, style: StrokeStyle(lineWidth: 2, dash: [2.6, 2.6]))
+                .frame(width: dot, height: dot)
+                .background(Circle().fill(Theme.background))
+                .transition(.opacity)
         } else {
             Circle()
                 .strokeBorder(strokeOverride ?? (converting ? Theme.accent : node.strokeColor), lineWidth: 2)

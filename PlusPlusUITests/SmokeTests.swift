@@ -534,9 +534,10 @@ final class SmokeTests: XCTestCase {
         // flow: the root switches to Today and the just-finished card
         // converts to done). The workout started from a routine detail
         // in the Routines tab, yet the record is right here — no back-out,
-        // no manual tab hop. The pinned band's quick-start edit key is a
-        // Today-only element (routine detail has none), so its presence
-        // proves the auto-landing.
+        // no manual tab hop. The anytime card's quick-start edit key is a
+        // Today-only element (routine detail has none), and the landing
+        // seats the anytime row at the top, so its presence proves the
+        // auto-landing.
         XCTAssertTrue(
             app.buttons["quickStartEditButton"].waitForExistence(timeout: 10),
             "closing the recap must land on the Today screen"
