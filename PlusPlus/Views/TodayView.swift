@@ -286,8 +286,9 @@ struct TodayView: View {
                                 // The ANYTIME entry (Dave, build 160): quick
                                 // start as a card ON the rail — below the
                                 // future, above whatever today holds, every
-                                // day. The dashed node says what it is: an
-                                // offer, not an occurrence. It absorbs
+                                // day. Its node is solid like every other;
+                                // the card's dashed shell is what says
+                                // "offer, not occurrence". It absorbs
                                 // nothing from setup — the scaffold keeps
                                 // its one beginning (the same gate the old
                                 // pinned rack had).
@@ -1163,14 +1164,16 @@ struct TodayView: View {
             // Amber node, amber card: a lapsed occurrence is neither the
             // green "today" nor the grey "not yet" — it's the warm
             // in-between (the notes/advisory amber already in the grammar).
-            // Its "was" line IS its date row (build 160): the lapsed day
-            // named plainly, tense carrying what an obligation word never
-            // may — and never dressed up as today's date.
+            // The lapsed day IS its date row (build 160), printed plain
+            // since 2026-08-01: amber ink, an amber node and the rail
+            // position carry the tense, and VoiceOver hears "carried
+            // over" from the row's own label. Never today's date.
             TimelineItem(
                 node: .inert,
                 strokeOverride: Theme.notes,
                 dateline: missedDateline(entry),
-                datelineColor: Theme.notes
+                datelineColor: Theme.notes,
+                datelineAccessibilityLabel: "\(missedDateline(entry)), carried over"
             ) {
                 missedCard(entry)
             }
@@ -2244,9 +2247,16 @@ private struct TimelineItem<Content: View>: View {
     /// the node beside the content's first line — the setup rows' look,
     /// the one undated entry class left.
     var dateline: String? = nil
-    /// The dateline's ink — faint by default; the carried lane's "was"
-    /// line stays advisory amber.
+    /// The dateline's ink — faint by default; the carried lane's date
+    /// stays advisory amber.
     var datelineColor: Color = Theme.textFaint
+    /// What the date row SAYS when the ink is the only thing saying it.
+    /// ⚠️ The carried lane needs this (2026-08-01): with the "was" prefix
+    /// gone, a lapsed entry prints the same bare date a future one does
+    /// and differs only in amber ink and rail position — colour alone
+    /// (WCAG 1.4.1), and nothing at all through VoiceOver. The visible
+    /// row stays bare; the state rides the spoken label.
+    var datelineAccessibilityLabel: String? = nil
     /// The just-finished card animates green → purple done on landing.
     /// While `converting` is true and `converted` is false the node shows
     /// the pre-flip green ring; once `converted`, it seals into the done
@@ -2288,6 +2298,7 @@ private struct TimelineItem<Content: View>: View {
                     Text(dateline)
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(datelineColor)
+                        .accessibilityLabel(datelineAccessibilityLabel ?? dateline)
                         // minHeight, not height: AX type sizes outgrow
                         // 18 pt and a fixed frame doesn't clip — the row
                         // grows and the node reads top-aligned there,

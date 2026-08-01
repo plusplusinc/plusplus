@@ -95,26 +95,35 @@ struct FlowLayout: Layout {
             var x = bounds.minX
             for subview in row {
                 let size = subview.sizeThatFits(.unspecified)
-                subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
-                x += size.width + horizontalSpacing
+                let width = min(size.width, bounds.width)
+                subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(width: width, height: size.height))
+                x += width + horizontalSpacing
             }
             y += rowHeight + verticalSpacing
         }
     }
 
+    /// ⚠️ Each subview's width is CLAMPED to the container (2026-08-01,
+    /// swift-reviewer). Placed at its ideal width, a subview wider than the
+    /// row simply drew past the edge — and, handed exactly its ideal width,
+    /// a `Text` inside it could never honour `minimumScaleFactor` or
+    /// truncate, because nothing ever squeezed it. One long label (a custom
+    /// exercise name, "Swim open water" at an accessibility text size) was
+    /// enough. Clamped, the subview gets a real constraint and shrinks or
+    /// truncates INSIDE the layout instead of spilling out of it.
     private func computeRows(proposal: ProposedViewSize, subviews: Subviews) -> [[LayoutSubviews.Element]] {
         let maxWidth = proposal.width ?? .infinity
         var rows: [[LayoutSubviews.Element]] = [[]]
         var currentWidth: CGFloat = 0
 
         for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if currentWidth + size.width > maxWidth && !rows[rows.count - 1].isEmpty {
+            let width = min(subview.sizeThatFits(.unspecified).width, maxWidth)
+            if currentWidth + width > maxWidth && !rows[rows.count - 1].isEmpty {
                 rows.append([])
                 currentWidth = 0
             }
             rows[rows.count - 1].append(subview)
-            currentWidth += size.width + horizontalSpacing
+            currentWidth += width + horizontalSpacing
         }
         return rows
     }

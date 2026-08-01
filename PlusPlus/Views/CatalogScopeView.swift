@@ -835,7 +835,14 @@ struct CatalogScopeView: View {
                         }
                         try await Task.sleep(for: .milliseconds(60))
                         withAnimation(Theme.Anim.standard) {
-                            proxy.scrollTo(AnyHashable(target), anchor: .top)
+                            // ⚠️ `.center`, not `.top` (2026-08-01): the facet
+                            // row is a PINNED header now, and the top of the
+                            // scroll bounds is exactly where it floats — a row
+                            // seated there lands behind the chips, taking its
+                            // entrance flash with it. Same class as the rule
+                            // that expands a missing-equipment group so an
+                            // arrival never flashes on a hidden row.
+                            proxy.scrollTo(AnyHashable(target), anchor: .center)
                         }
                         // Hold the identity until the flash has finished
                         // FADING, not merely started: `newlyAdded = nil`

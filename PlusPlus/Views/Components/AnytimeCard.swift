@@ -136,9 +136,12 @@ struct AnytimeCard: View {
     /// chip rides a 44 pt frame), so rows and columns space alike.
     private static let keyGap: CGFloat = 8
     private static let cardPad: CGFloat = 12
-    /// Every key stands the same height, glyph or no glyph: a fixed frame
-    /// rather than a minimum, so an SF Symbol's taller line box can't make
-    /// one key deeper than its neighbours and stagger a wrapped row.
+    /// The key's resting height — a MINIMUM, never a fixed frame. ⚠️ It
+    /// shipped fixed, to keep a wrapped row from staggering; a fixed frame
+    /// does not clip, so at accessibility text sizes the label simply drew
+    /// outside its own cap and into the row below (swift-reviewer). It is
+    /// the same law the rail's dateline already carries: type grows, so
+    /// the box has to.
     private static let keyHeight: CGFloat = 42
 
     /// A morphing key's chrome — the ONLY thing the morph moves. The id
@@ -168,7 +171,7 @@ struct AnytimeCard: View {
             }
             .foregroundStyle(Theme.textPrimary)
             .padding(.horizontal, 14)
-            .frame(height: Self.keyHeight)
+            .frame(minHeight: Self.keyHeight)
             .background(keyChrome(id: "key-train"))
         }
         .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: Theme.keyRadius, travel: 3))
@@ -191,7 +194,7 @@ struct AnytimeCard: View {
             }
             .foregroundStyle(Theme.textPrimary)
             .padding(.horizontal, 14)
-            .frame(height: Self.keyHeight)
+            .frame(minHeight: Self.keyHeight)
             .background(keyChrome(id: "key-\(exercise.name)"))
         }
         .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: Theme.keyRadius, travel: 3))
@@ -207,7 +210,7 @@ struct AnytimeCard: View {
                 // picker sheet (see the header note).
                 .foregroundStyle(Theme.accent)
                 .padding(.horizontal, 14)
-                .frame(height: Self.keyHeight)
+                .frame(minHeight: Self.keyHeight)
                 .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
                 .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius)
                     .strokeBorder(Theme.accent.opacity(0.5)))
