@@ -1433,27 +1433,10 @@ struct RoutineDetailView: View {
         for (newOrder, moved) in sorted.enumerated() { moved.order = newOrder }
     }
 
-    /// The design's DUPE: copy the exercise (with its targets) into a new
-    /// solo group directly below this one.
+    /// The design's DUPE. The mutation itself is `Routine.duplicateExercise`
+    /// (#508, b19) — this is the interactive door, which owns the save.
     private func duplicateExercise(_ routineExercise: RoutineExercise, in group: ExerciseGroup) {
-        guard let exercise = routineExercise.exercise else { return }
-
-        for later in routine.sortedGroups where later.order > group.order {
-            later.order += 1
-        }
-        let copyGroup = ExerciseGroup(order: group.order + 1, sets: group.sets)
-        copyGroup.routine = routine
-        modelContext.insert(copyGroup)
-
-        let copy = RoutineExercise(exercise: exercise, order: 0)
-        copy.weight = routineExercise.weight
-        copy.reps = routineExercise.reps
-        copy.repsUpper = routineExercise.repsUpper
-        copy.durationSeconds = routineExercise.durationSeconds
-        copy.heartRateTargetData = routineExercise.heartRateTargetData
-        copy.group = copyGroup
-        modelContext.insert(copy)
-        routine.reindexGroups()
+        routine.duplicateExercise(routineExercise, in: group, context: modelContext)
         // Permanent id before the duplicated row can be tapped open — an
         // item-keyed tray re-keys and flickers if the id swaps under it on
         // a later autosave (see addExercise for the full mechanism).
