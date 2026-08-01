@@ -1305,24 +1305,39 @@ struct ActiveSessionView: View {
                     if let peak { finished.maxHeartRate = peak }
                 }
             }
-            // Phone-logged sessions reach Health here; watch imports are
-            // recorded by the wrist's own live session (#90). Health gets
-            // the route only when the durable record calls it a run — the
-            // two must not disagree about a degenerate zero-distance track.
+            // ⚠️ EXACTLY ONE writer, and a watch involved in the session
+            // is the writer (#519, Dave, 2026-08-01). A wrist `.logSet`
+            // op means the watch TRAINED here (rest/cursor ops mark only
+            // liveness — a glance must not stand us down), its live
+            // builder measuring the whole time — HR and energy the phone
+            // never had — and it saves its own HK session when our
+            // finish op lands (or saved already, on its early exit). So
+            // BOTH phone writers stand down: no retrospective write, and
+            // a live phone recording is discarded, not saved. Accepted
+            // edge: a wrist that logged OFFLINE hasn't delivered its ops
+            // yet, so both sides write once — chosen over a rule that
+            // waits on connectivity to decide.
             //
-            // ⚠️ EXACTLY ONE writer. When the phone ran its own live
-            // session it has been recording all along and saves the
-            // workout itself, so the retrospective write would be a
-            // duplicate in Health — the one failure mode worse than
-            // either path alone. `finish` answers synchronously, before
-            // its own asynchronous end sequence, precisely so this
-            // decision never waits on a callback that might not arrive.
+            // Otherwise the phone writes. Health gets the route only
+            // when the durable record calls it a run — the two must not
+            // disagree about a degenerate zero-distance track. When the
+            // phone ran its own live session it has been recording all
+            // along and saves the workout itself; the retrospective
+            // write would be a duplicate in Health — the one failure
+            // mode worse than either path alone. `finish` answers
+            // synchronously, before its own asynchronous end sequence,
+            // precisely so this decision never waits on a callback that
+            // might not arrive.
             let route = hasRealRun ? runRoute : []
-            let liveOwnsTheSave = LiveWorkoutController.shared.finish(
-                at: session.endedAt ?? Date(), route: route
-            )
-            if !liveOwnsTheSave {
-                HealthRecorder.record(session, route: route)
+            if LiveMirror.watchParticipated(session.sessionId) {
+                LiveWorkoutController.shared.discard()
+            } else {
+                let liveOwnsTheSave = LiveWorkoutController.shared.finish(
+                    at: session.endedAt ?? Date(), route: route
+                )
+                if !liveOwnsTheSave {
+                    HealthRecorder.record(session, route: route)
+                }
             }
         }
         if dismissAfter {

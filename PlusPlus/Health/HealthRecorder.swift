@@ -4,9 +4,11 @@ import CoreLocation
 import PlusPlusKit
 
 /// Writes finished phone-logged sessions to Health as workouts (#90).
-/// Watch-logged sessions never pass through here — the wrist records its
-/// own live workout (WatchWorkoutController), and a second write would
-/// double-count the training.
+/// Sessions a watch took part in never pass through here (#519: a watch
+/// involved in the session writes Health) — the wrist records its own
+/// live workout (WatchWorkoutController) and saves it, and a second
+/// write would double-count the training. The caller gates on
+/// `LiveMirror.watchParticipated`.
 ///
 /// Health is a bonus, never a gate: unavailable, undecided, or denied all
 /// mean "skip silently". Disabled under --uitest-reset so the permission

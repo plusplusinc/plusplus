@@ -147,7 +147,7 @@ struct SheetHeader: View {
 /// Retires the circular ✕ close so every top-of-sheet button reads the
 /// same, and so ✕ can mean ONLY "collapse the expanded search". Matches
 /// `SheetHeader`'s cancel styling; reused by the hand-built trays
-/// (Operator, GitHub, the start tray) so they stop drifting.
+/// (Operator, GitHub) so they stop drifting.
 struct SheetDismissKey: View {
     var label: String = "Done"
     var identifier: String?

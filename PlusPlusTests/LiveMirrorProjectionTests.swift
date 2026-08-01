@@ -114,4 +114,28 @@ struct LiveMirrorProjectionTests {
         LiveMirror.clearRemoteActivity(id)
         #expect(!LiveMirror.isLiveElsewhere(id))
     }
+
+    @Test("Participation keys on logged sets; a glance's rest ops mark only liveness")
+    func participationKeysOnLogs() throws {
+        let context = ModelContext(try makeContainer())
+        let id = UUID()
+        defer { LiveMirror.clearRemoteActivity(id) }
+        // A wrist that adopted a session to glance mid-rest emits
+        // `.restEnded` when the countdown expires: LIVE, but it has not
+        // trained — the phone must keep its Health writer (#519).
+        LiveMirror.project(op(id, seq: 1, .restEnded), into: context)
+        #expect(LiveMirror.isLiveElsewhere(id))
+        #expect(!LiveMirror.watchParticipated(id))
+        // A logged set is participation, even parked ahead of its
+        // `.started` — the mark precedes the fetch.
+        LiveMirror.project(op(id, seq: 2, .logSet(
+            index: 0, actualWeight: nil, actualReps: 5, actualDuration: nil,
+            extras: [:], completedAt: Date()
+        )), into: context)
+        #expect(LiveMirror.watchParticipated(id))
+        // Lifecycle closure ends both registries.
+        LiveMirror.clearRemoteActivity(id)
+        #expect(!LiveMirror.watchParticipated(id))
+        #expect(!LiveMirror.isLiveElsewhere(id))
+    }
 }

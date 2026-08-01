@@ -9,7 +9,8 @@ import PlusPlusKit
 ///
 /// ⚠️ **Drilling in inside a sheet is a `NavigationStack`, never a
 /// hand-rolled stage slide.** The ZStack + `.move` transition idiom
-/// (`SwapInSheet`, `ScheduleRoutineTray`) reads janky and the reasons are
+/// (`ScheduleRoutineTray`, and `SwapInSheet` before its deletion) reads
+/// janky and the reasons are
 /// structural, not tunable: there is no interactive back-swipe, both stages
 /// exist mid-transition so the sheet's height resolves to the taller one
 /// and settles, the header sits outside the ZStack so the title hard-swaps

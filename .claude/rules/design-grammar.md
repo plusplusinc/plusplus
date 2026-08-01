@@ -118,7 +118,12 @@ Siblings: `navigation.md` (tab bar, search, scroll/landing mechanics),
   to the routine it becomes.
 - **Motion carries meaning, one mechanism each**: selection slides, data
   rolls, completion thuds (impact per set, `.success` only at the purple
-  finish), navigation zooms. Tempo lives in `Theme.Anim` tokens, never inline
+  finish), navigation zooms — and an OFFER morphs in place (the anytime
+  card, 2026-08-01: a tapped key's CHROME grows into its config panel via
+  `matchedGeometryEffect` on `Theme.Anim.selection`, content fading; never
+  match content views — text reflows mid-flight — and never a measured
+  FLIP, which writes layout state where the morph law forbids it). Tempo
+  lives in `Theme.Anim` tokens, never inline
   curves: `.selection` (snappy spring, front-loaded, no overshoot — an
   ease-out's decelerating tail made a sliding pill read muddy, 2026-07-12),
   `.standard` (~0.15 s ease-out for data rolls, opacity, search expansion),

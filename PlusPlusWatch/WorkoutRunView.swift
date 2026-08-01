@@ -170,18 +170,40 @@ struct WorkoutRunView: View {
         }
     }
 
+    /// Whether the WRIST trained in this session — the Health save gate
+    /// (#519), and it must match the phone's `watchParticipated` (which
+    /// marks on `.logSet` ops), or the two stand down together and
+    /// nobody writes. `measuredByIndex` alone is view `@State` and
+    /// rebuilds empty across a relaunch, so the journaled reducer's
+    /// watch-origin logs are the durable half of the answer
+    /// (swift-reviewer).
+    private var wristLogged: Bool {
+        if !measuredByIndex.isEmpty { return true }
+        guard let state = authoringState else { return false }
+        return state.logs.contains { $0.stamp.origin == .watch }
+    }
+
     /// The phone finished the shared session; the wrist's share of the
     /// record still goes home (the import MERGES it — HR, splits — and
     /// the phone-authoring guard means the finish itself is respected,
     /// never repeated).
     private func finishClosedByPhone() {
         WatchRestNotifier.cancel()
-        // ⚠️ ONE Health writer per session: the phone finished it, so the
-        // phone records it — saving the wrist's HK session too would
-        // double-count the training, and a glance that logged nothing
-        // must reach Health not at all (the browse rule). The wrist's
-        // HR/splits still reach the RECORD through the result merge.
-        health.discard()
+        // ⚠️ ONE Health writer per session, and a watch involved in the
+        // session is the writer (#519, Dave, 2026-08-01): the wrist's
+        // live builder measured the training — HR, energy — so when it
+        // logged anything its HK session SAVES and the phone stands
+        // down (our logSet ops sit in its registry, so it skips its own
+        // write). A glance that logged nothing still reaches Health not
+        // at all — the browse rule.
+        if wristLogged {
+            health.finish()
+        } else {
+            health.discard()
+        }
+        // The result carries what the ops could not — HR, splits — so
+        // it ships only when THIS process measured something; after a
+        // relaunch the journal's logs already reached the phone as ops.
         if !measuredByIndex.isEmpty {
             let sessionId = store.live.authoringSessionId
             store.send(WatchSync.SessionResult(
@@ -229,8 +251,17 @@ struct WorkoutRunView: View {
 
     private func shipShareAndLeave() {
         WatchRestNotifier.cancel()
-        // One Health writer: the phone owns this session's finish.
-        health.discard()
+        // A watch involved writes Health (#519): logged means save, a
+        // glance means discard — the phone-closed finish's rule. This is
+        // the wrist's LAST chance to write (no view code runs when the
+        // phone's finish op arrives later), so the workout's Health
+        // window ends here even though the phone may keep going —
+        // accepted: what the wrist measured is what it records.
+        if wristLogged {
+            health.finish()
+        } else {
+            health.discard()
+        }
         if !measuredByIndex.isEmpty {
             store.send(WatchSync.SessionResult(
                 routineName: authoringState?.routineName ?? routine.name,
