@@ -352,12 +352,14 @@ struct TodayView: View {
                                 // had nothing to orient by at depth. Real
                                 // `Section`s with a pinned header, so a
                                 // month's name holds the top until the next
-                                // takes over — the search results' own
-                                // mechanic. ⚠️ NOT the week strip's sticky
-                                // `visualEffect` (the issue's hint): build
-                                // 159/160 deleted that machinery, and a
-                                // render-time offset can't hand off between
-                                // headers anyway.
+                                // takes over — the same IDEA the search
+                                // results use, though they get it from a
+                                // `List`'s own `.plain` pinning and this is
+                                // `LazyVStack(pinnedViews:)`. ⚠️ NOT the
+                                // week strip's sticky `visualEffect` (the
+                                // issue's hint): builds 159/160 deleted that
+                                // machinery, and a render-time offset can't
+                                // hand off between headers anyway.
                                 committedHistory
                                 // Once real history exists the interactive
                                 // scaffold is gone, but the finished setup
@@ -1233,29 +1235,37 @@ struct TodayView: View {
     /// the label carries the year only when it isn't this one, which
     /// keeps the common case short ("august", not "august 2026").
     private var sessionMonths: [(key: String, label: String, sessions: [WorkoutSession])] {
+        // The day token, so a run resident across midnight (or New
+        // Year) re-derives its labels with the rest of the surface.
+        _ = dayToken
         let calendar = Calendar.current
-        let thisYear = calendar.component(.year, from: Date())
-        var order: [String] = []
-        var runs: [String: [WorkoutSession]] = [:]
+        let now = Date()
+        // ⚠️ ADJACENT walk, not a dictionary of `dateComponents` (the
+        // #506 review): the query is newest-first, so months are
+        // already contiguous — one `isDate(equalTo:toGranularity:)`
+        // per session, no components allocation, no keyed lookups.
+        // This body re-runs on every pull frame and every landing beat,
+        // and eager per-session work here is the exact O(sessions)
+        // class the LazyVStack comment above memorializes.
+        var runs: [(key: String, label: String, sessions: [WorkoutSession])] = []
         for session in sessions {
-            let parts = calendar.dateComponents([.year, .month], from: session.startedAt)
-            let key = "\(parts.year ?? 0)-\(parts.month ?? 0)"
-            if runs[key] == nil {
-                order.append(key)
-                runs[key] = []
+            let date = session.startedAt
+            if var last = runs.last,
+               let head = last.sessions.first,
+               calendar.isDate(head.startedAt, equalTo: date, toGranularity: .month),
+               calendar.isDate(head.startedAt, equalTo: date, toGranularity: .year) {
+                last.sessions.append(session)
+                runs[runs.count - 1] = last
+                continue
             }
-            runs[key]?.append(session)
-        }
-        return order.compactMap { key in
-            guard let run = runs[key], let first = run.first else { return nil }
-            let year = calendar.component(.year, from: first.startedAt)
-            let label = first.startedAt
-                .formatted(year == thisYear
-                    ? .dateTime.month(.wide)
-                    : .dateTime.month(.wide).year())
+            let sameYear = calendar.isDate(date, equalTo: now, toGranularity: .year)
+            let label = date
+                .formatted(sameYear ? .dateTime.month(.wide) : .dateTime.month(.wide).year())
                 .lowercased()
-            return (key, label, run)
+            let parts = calendar.dateComponents([.year, .month], from: date)
+            runs.append((key: "\(parts.year ?? 0)-\(parts.month ?? 0)", label: label, sessions: [session]))
         }
+        return runs
     }
 
     /// The committed run, in month sections (#506, Q11-A).
@@ -1313,13 +1323,11 @@ struct TodayView: View {
     /// sticky-band law's own trap).
     private func monthHeader(_ label: String) -> some View {
         HStack(alignment: .center, spacing: 10) {
-            ZStack {
-                Rectangle()
-                    .fill(Theme.border)
-                    .frame(width: 2)
-                    .frame(maxHeight: .infinity)
-            }
-            .frame(width: 20)
+            Rectangle()
+                .fill(Theme.border)
+                .frame(width: 2)
+                .frame(maxHeight: .infinity)
+                .frame(width: 20)
             Text(label)
                 .font(.system(.caption, design: .monospaced, weight: .semibold))
                 .foregroundStyle(Theme.textSecondary)
