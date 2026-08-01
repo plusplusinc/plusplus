@@ -4,7 +4,9 @@ import PlusPlusKit
 
 // The standalone History screen died with the v3 nav restructure
 // (#109): Today's timeline is the record now. The session card and the
-// per-set session record live on, rendered from the Today tab.
+// per-set session record live on, rendered from the Today tab — and the
+// file is named for what it holds since #508 (b1), the rename deferred
+// out of #482 to dodge a conflict.
 
 /// Completed-session card: name + mono "jul 3 · 18 sets · 42 min".
 struct SessionRow: View {

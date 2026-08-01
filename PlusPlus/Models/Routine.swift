@@ -294,13 +294,7 @@ final class Routine {
     /// floor) shared with the session add sheet, so the two paths can
     /// never prefill differently.
     private func applyDefaultTargets(to entry: RoutineExercise, for exercise: Exercise) {
-        let targets = exercise.addTimeTargets
-        entry.weight = targets.weight
-        entry.reps = targets.reps
-        entry.repsUpper = targets.repsUpper
-        entry.durationSeconds = targets.durationSeconds
-        entry.heartRateTargetData = targets.heartRateTargetData
-        entry.extraTargets = targets.extraTargets
+        entry.targets = exercise.addTimeTargets
     }
 
     /// Adds an exercise to an existing group, making (or extending) a
@@ -328,6 +322,48 @@ final class Routine {
         guard entry.exercise !== exercise else { return }
         entry.exercise = exercise
         applyDefaultTargets(to: entry, for: exercise)
+    }
+
+    /// The design's DUPE: copy an entry, WITH everything it prescribes, into
+    /// a new solo group directly below its own.
+    ///
+    /// ⚠️ It lives here rather than in the view (#508, b19) because it is a
+    /// structure mutation like its siblings above — and because a private
+    /// func on a `View` cannot be tested, which is why its field list drifted
+    /// unnoticed in the first place. The interactive call site keeps the
+    /// synchronous save (swiftdata.md: shared mutations run in import/seed
+    /// loops too, so the save belongs at the door, not in here).
+    ///
+    /// "With its targets" is load-bearing and now literal: `entry.targets`
+    /// carries the whole prescription in one assignment, and the group's own
+    /// `restSecondsOverride` travels with it — a custom rest is part of what
+    /// the block IS, so a dupe that silently reverted to the routine default
+    /// rewrote the thing it claimed to copy.
+    /// ⚠️ The group is DERIVED from the entry, not taken on trust (review):
+    /// as a model API with tests, a caller passing the wrong group would
+    /// silently duplicate into the wrong position carrying the wrong sets
+    /// and rest. The entry knows which block it is in; nobody else has to.
+    @discardableResult
+    func duplicateExercise(_ entry: RoutineExercise, context: ModelContext) -> RoutineExercise? {
+        guard let exercise = entry.exercise, let group = entry.group else { return nil }
+
+        for later in sortedGroups where later.order > group.order {
+            later.order += 1
+        }
+        let copyGroup = ExerciseGroup(order: group.order + 1, sets: group.sets)
+        copyGroup.restSecondsOverride = group.restSecondsOverride
+        copyGroup.routine = self
+        context.insert(copyGroup)
+
+        let copy = RoutineExercise(exercise: exercise, order: 0)
+        // Insert BEFORE the relationship assignment (swiftdata.md's
+        // pre-insert rule) — `targets` is plain attributes and safe either
+        // way, but `group` is a relationship onto an inserted model.
+        context.insert(copy)
+        copy.targets = entry.targets
+        copy.group = copyGroup
+        reindexGroups()
+        return copy
     }
 
     /// Removes a slot from the routine, dropping its group if that empties it

@@ -186,6 +186,12 @@ struct ExerciseConfigSheet: View {
                         onIncrement: { stepTarget(metric, 1) }
                     )
                 }
+                // Under the triad it governs, and ABOVE the heart-rate
+                // row (#508, b26 + review): after the ForEach it read as
+                // annotating heart rate, which is not part of the triad.
+                if metric == triadAnchor {
+                    DerivedMetricCaption()
+                }
                 if metric == heartRateAnchor {
                     heartRateTargetRow
                 }
@@ -257,7 +263,16 @@ struct ExerciseConfigSheet: View {
     }
 
     private var heartRateAnchor: WorkoutMetric? {
-        guard showsHeartRate, CardioTargets.applies(to: profile) else { return nil }
+        guard showsHeartRate else { return nil }
+        return triadAnchor
+    }
+
+    /// The last triad row on screen — what the eviction caption hangs
+    /// under. Profile-gated, NOT value-gated: a legacy entry with all
+    /// three stored has no derived metric yet, and that is precisely the
+    /// state whose next edit evicts one (review).
+    private var triadAnchor: WorkoutMetric? {
+        guard CardioTargets.applies(to: profile) else { return nil }
         return profile.metrics.last { CardioTargets.triad.contains($0) }
     }
 

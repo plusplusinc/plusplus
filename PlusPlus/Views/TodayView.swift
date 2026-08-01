@@ -189,8 +189,13 @@ struct TodayView: View {
         routines.filter { !$0.groups.isEmpty }
     }
 
-    /// Mirrors RoutineListView's create flow, then lands in the new
-    /// routine so exercises can be added immediately (#208).
+    /// BLANK creation lands in detail, because creating starts editing
+    /// (#208; the design-review landing law). ⚠️ It does NOT mirror the
+    /// catalog's create row, and the comment that said so was stale twice
+    /// over (#508, b28): `RoutineListView` was replaced by
+    /// `CatalogScopeView`, and that row lands on the Routines LIST with the
+    /// entrance flash rather than pushing anywhere. Named-from-a-query
+    /// creation lands; blank creation pushes. Both are deliberate.
     private func createRoutine() {
         let name = newRoutineName.trimmingCharacters(in: .whitespacesAndNewlines)
         newRoutineName = ""

@@ -54,7 +54,7 @@ shot; there is no onboarding flow — a fresh install's Today shows three
 setup steps as timeline entries, gated bottom-up (`SetupState`).
 
 **The session record** — a committed session opens `SessionDetailView`
-(`Views/HistoryView.swift`; the standalone History screen died with #109 —
+(`Views/SessionDetailView.swift`; the standalone History screen died with #109 —
 Today's timeline is the record).
 
 **Platform surfaces** — a Live Activity spanning the workout (Dynamic Island +
