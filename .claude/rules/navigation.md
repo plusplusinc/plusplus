@@ -22,26 +22,24 @@ Search** (`Tab(role: .search)`).
 - ⚠️ **The tab bar does NOT minimize on scroll** (Dave, 2026-07-27):
   `.tabBarMinimizeBehavior(.onScrollDown)` is GONE — it existed only to move
   the retired bottom accessory between placements. The `.soft` bottom scroll
-  edge effect handles content passing under a full-size bar. (Historic, for
-  whoever brings an accessory back: `tabViewBottomAccessoryPlacement` is
-  READ-ONLY, `.inline` means "beside a MINIMIZED bar" — a scrolled-down state,
-  never the resting one.)
+  edge effect handles content passing under a full-size bar.
 - ⚠️ **The bottom scroll edge effect is `.soft` on every scrolling tab root**
-  — the THIRD answer this edge has had: `.hard` (139) drew a full-width slab
-  Dave killed on 148; hiding it (148) brought read-through straight back. Soft
-  shows only where content is actually under the chrome. It goes ON THE
+  — `.hard` (139, a full-width slab) and hiding it outright (148, read-through)
+  are both RETIRED. Soft shows only where content is actually under the chrome. It goes ON THE
   SCROLLING CONTENT, never as a background on the bar (build 133's mistake).
 - ⚠️ **Do NOT hide the catalog tabs while search is active.** `Tab.hidden(_:)`
   works and preserves state, but the bar does NOT REFLOW around hidden tabs —
   what's left is a full-width group capsule with Today rattling around alone
-  (build 139, Dave's screenshot). `searchActive` survives as the accessory's
-  animated `isEnabled` only.
+  (build 139, Dave's screenshot).
 - A native `Tab` item is not a view the app can decorate — per-scope counts
   can never ride tab labels (retired).
 - ⚠️ **Anything that writes state during layout** (`.onGeometryChange`,
   `GeometryReader` + `PreferenceKey`) anywhere in the TabView subtree breaks
   the search-role morph on FIRST activation (nav-diag 4e; recheck: iOS 27).
-  Measure from `UIFont` metrics instead, as `OverflowCapsuleRow` does.
+  Measure from `UIFont` metrics, or read geometry WITHOUT writing state
+  (`ScopeSegmentedControl`'s width). ⚠️ Not `OverflowCapsuleRow` — it writes
+  `@State` from a `GeometryReader` and renders inside catalog rows, i.e.
+  inside this very subtree; only its TAG widths come from `UIFont`.
 - ⚠️ Because **a `Tab`'s content is its own view tree**, the four
   catalog-showing tabs are four live INSTANCES, so every broadcast needs one
   named owner: `ownsLandings` (`tabKey == scope.tab.rawValue`) makes the
@@ -120,24 +118,23 @@ exercises / equipment").
   `xmark` COLLAPSE key where the magnifier was; the centered title hides while
   searching. Both fields share ONE anatomy (`SearchFieldBody` — surface fill,
   borderStrong stroke, r11, mono text, the #233 one-shot focus intent).
-  Because `xmark` is the collapse glyph, sheets dismiss with a text
-  `SheetDismissKey`, never a ✕ (`design-grammar.md`).
-- **Creation is the TOP list row, verb-keyed**: **Create** (`New <object>` /
-  `Create "<query>"`) when it makes a custom object inline, **Add**
-  (`Add <object>` / `Add "<query>"`) when it navigates. Since the tab IS the
-  scope (2026-07-25) every catalog's top row CREATES inline
-  (`FindOrCreateLaunch` is gone; onboarding step 2 lands on the Routines tab).
-  Query casing is `String.sentenceCasedFirst`. Empty results NEVER dead-end:
-  the create/add row is always present + a "Clear filters" `QuietKey` when
-  facets are active. The ONE thing that removes a create is an EXACT-name
-  collision (2026-07-24): when the trimmed query case-insensitively equals an
-  existing item's name, that type's create is suppressed
-  (`FindOrCreateEngine.Collisions`) — never a dead end, because an exact match
-  always ranks into results. Partial matches still offer create.
-- `.listStyle(.plain)` PINS one header at a time, and the catalog spends
-  that pin on the FACET ROW (one section wraps the list; MINE/CATALOG are
-  plain rows — law below). A pinned header wears solid `Theme.background`:
-  it occludes the rows beneath it.
+  `xmark` is the COLLAPSE glyph here, which is why design-grammar's no-✕
+  dismissal law exists.
+- **Creation is the TOP list row, and the verb PREDICTS the tap**: **Create**
+  (`New <object>` empty, `Create "<query>"` queried) COMMITS inline; **Add**
+  OPENS something ("Add to routine…", the overview's "Add exercise"). Since
+  the tab IS the scope (2026-07-25) all three catalogs create, so all three
+  read alike — Kit's "Add … as equipment" was the one row that said Add and
+  committed anyway, converged #507. Casing is `String.sentenceCasedFirst`.
+  Empty results NEVER dead-end (the scopes law below covers what they show).
+  The ONE thing that removes a
+  create is an EXACT-name collision (2026-07-24): trimmed query
+  case-insensitively equals an existing name → that type's create is
+  suppressed (`FindOrCreateEngine.Collisions`), never a dead end since an
+  exact match always ranks into results. Partial matches still offer create.
+- `.listStyle(.plain)` PINS one header at a time; the catalog spends that pin
+  on the FACET ROW (law below). A pinned header wears solid
+  `Theme.background` — it occludes the rows beneath it.
 - Search state on the universal surface is EPHEMERAL per-entry (a stale
   invisible query reads as data loss).
 - **Return does not navigate** (Dave, 2026-07-26): submitting puts the
@@ -154,12 +151,10 @@ this surface the control effectively is.
 
 - ⚠️ **The search surface builds that row ITSELF**: one `.principal`
   `ToolbarItem` holding all three pieces at an explicit `width - 32`, with no
-  leading or trailing items. A principal item is a TITLE VIEW, and UIKit
-  centres a title view in the BAR, not between the side items — its two gaps
-  differ by exactly the difference in the side items' widths (a 42 pt ++ key
-  against a 78 pt kit switcher gave 76 pt left / 40 pt right), and that
-  difference moves with the kit's name. `.frame(maxWidth: .infinity)` doesn't
-  help: the bar proposes unbounded width. With no side items the title view
+  leading or trailing items. A principal item is a TITLE VIEW, and UIKit centres
+  it in the BAR, not between the side items — so ANY side item makes the two
+  gaps asymmetric by its own width, and `.frame(maxWidth: .infinity)` cannot
+  fix it (the bar proposes unbounded width). With no side items the title view
   gets the whole bar and every gap is the app's. The width is a PURE
   `GeometryReader` read (never written to state), gated to this surface — the
   closure re-runs on height changes, and rebuilding re-runs the ranking
@@ -170,11 +165,10 @@ this surface the control effectively is.
   and `.padding(.bottom, 4)` because `RaisedKeyStyle` pads each key by its
   travel, seating caps 2 pt above the row's centre.
 - ⚠️ **The segments are GLYPHS ONLY — a platform limit, not a preference**: a
-  `UISegmentedControl` segment takes a title OR an image, never both (DTS
-  confirmed for SwiftUI, forums thread 816517 — `.titleAndIcon` drops the
-  icon), and three words beside the ++ key and a variable-width kit switcher
-  overflow the principal slot (a segmented control truncates, it doesn't
-  scroll). Same symbols the tab bar uses for the same scopes. Each segment
+  `UISegmentedControl` segment takes a title OR an image, never both
+  (`.titleAndIcon` drops the icon; DTS-confirmed), and three words beside the
+  ++ key and a variable-width kit switcher overflow the principal slot. Same
+  symbols the tab bar uses for the same scopes. Each segment
   carries an explicit `.accessibilityLabel` (without it VoiceOver reads the
   symbol name); the smoke helper falls back to POSITION if the label doesn't
   reach XCUITest. It wears `.tint(Theme.background)` — a dark selected segment
@@ -211,21 +205,32 @@ this surface the control effectively is.
 - **All three scopes read alike: MINE then CATALOG, plus ONE facet row**
   (filtering returned 2026-07-31, reversing 2026-07-25) — the Kit tab means
   "equipment, mine first", not "my kit". The row: single-select `FacetChip`
-  Menus per scope (exercises muscle · movement · mechanic · sides; kit
-  category; routines focus · effort · style), state in `CatalogFilterState` —
+  Menus per scope (exercises kind · muscle · movement · mechanic · sides; kit
+  type; routines focus · effort · style), state in `CatalogFilterState` —
   ephemeral per `CatalogScopeView` INSTANCE, reset on scope change, applied in
-  `FindOrCreateEngine` BEFORE scoring so facets narrow and the query ranks.
-  Active facets lead with `FilterSummaryChip` (popover names values, "N of M
-  shown" computed only on open, Clear all inside); empty results add a
+  `FindOrCreateEngine` so facets narrow and the query ranks.
+  ⚠️ **What a facet hides is NAMED, and counted in the pass that built the
+  list** (#507): `FindOrCreateEngine.outcome` scores each candidate first and
+  classifies by facet second, so an excluded MATCH is counted where it was
+  already examined. That one number feeds the "N hidden by filters · show"
+  QuietKey above the create row (QUERIED lists only: the create row is the
+  near-duplicate path, and with no query the summary chip already says it),
+  the empty state naming the filters, and "N of M shown". Never derive it as
+  "unfiltered total minus shown" — deferred behind the popover that pass was
+  fine, in the render path it is one per keystroke, the cost the per-scope
+  counts were retired over. Empty results add a
   "Clear filters" QuietKey; the create row never filters; an item that can't
   answer an active facet drops out under it (customs under the attribute
-  chips) — muscle excepted, customs carry their own groups. ⚠️ **On tab roots
+  chips) — muscle excepted, customs carry their own groups. ⚠️ Except where it
+  can't answer AT ALL: a hand-built routine has no Effort or Style (both
+  resolve through `catalogTemplate`), so under those two it groups as **"not
+  rated"** — the missing-equipment shape and law, narrowed never vanished, one
+  `.unrated` section after both tiers (#507); it still clears every facet it
+  CAN answer. ⚠️ **On tab roots
   the row is the SECTION HEADER of the ONE section holding the whole list**
-  (2026-08-01; mechanism and cost in the pinning law above). Both other
-  mounts are RETIRED: a top `safeAreaInset` desynced the large-title bar
-  (#521, measured), first-list-content let the chips scroll away; a header
-  sits inside the list's own layout, touching neither the safe area nor the
-  nav bar. PRESENTED and PICKER keep the pinned, opaque top
+  (2026-08-01). Both other mounts are RETIRED — a top `safeAreaInset` (#521)
+  and first-list-content (the chips scrolled away) — for the reason the Today
+  band law below states in full. PRESENTED and PICKER keep the pinned, opaque top
   `safeAreaInset` (app-drawn chrome); no geometry probes anywhere. Typing
   still reaches everything without chips: muscle groups, movement patterns
   and hidden synonyms (`CatalogSearchSynonyms` — "erg", "rdl", "trx") ride
@@ -249,20 +254,19 @@ this surface the control effectively is.
   cross-tab arrival that needs gear expands the group so its entrance flash
   isn't on a hidden row.
 - **Cross-scope discovery is the scope control itself** — never link rows,
-  and per-scope result counts are GONE (2026-07-25, with the hand-drawn bar:
-  a glyph-only segment has nowhere to paint a number, and the central
-  `matchCounts` they'd need costs a second ranking pass per keystroke).
-  Prompts and empty states use `FindScope.searchNoun`, not `label`.
+  and per-scope result counts are GONE (2026-07-25: a glyph-only segment has
+  nowhere to paint a number, and the central `matchCounts` costs a second
+  ranking pass per keystroke). Prompts and empty states use
+  `FindScope.searchNoun`, not `label`.
 
 ## Tab roots and scroll
 
 A **tab root** wears the SYSTEM navigation bar — `.navigationTitle` +
 `.navigationBarTitleDisplayMode(.large)`, the ++ key (`AppMenuKey`) as a
 leading `ToolbarItem` and the root's own accessory (the catalogs' kit
-switcher) as a trailing one — Today carries NONE since build 159: the play
-key and its start tray are deleted, every start lives on the rail (the
-anytime card's sport keys + Train, build 161), and routines start from
-their own cards and the Routines tab. Both keys carry
+switcher) as a trailing one — Today carries NONE: every start lives on the
+rail (the anytime card's sport keys + Train) or on a routine's own card.
+Both keys carry
 **`.sharedBackgroundVisibility(.hidden)`** — they bring their own raised-key
 chrome and would otherwise nest inside the toolbar's shared glass (a box in a
 box). ⚠️ **A tab root must NOT hide its navigation bar.** `.searchable` AND
@@ -274,14 +278,13 @@ old hand rules policed.
 
 - ⚠️ **Today's header band is FACTS ONLY (tally + `BlockBar`), pinned as
   the timeline's FIRST SECTION HEADER** — never a top `safeAreaInset`
-  (build 162). ⚠️ **A pinned top inset costs the system large title**,
-  measured twice: it shifts the scroll's resting offset by the band's own
-  height and the bar reads that as "already collapsed", so the title never
-  draws at rest and a title-sized dead band sits where it should be (#521
-  on the catalogs' `List`, then Dave's build-162 screenshots on Today's
-  `ScrollView`). A section header lives inside the scroll's own layout,
-  where the bar never sees it — that is the whole reason it works, and it
-  is the same mount the catalogs' facet row and the month landmarks use.
+  (build 162). ⚠️ **A pinned top inset costs the system large title**, on a
+  `List` (#521) and a `ScrollView` (162) alike: it shifts the scroll's resting
+  offset by the band's own height, the bar reads that as "already collapsed",
+  and the title never draws at rest — a title-sized dead band sits where it
+  should be. A section header lives inside the scroll's own layout, where the
+  bar never sees it. That is the whole reason it works, and it is the mount
+  the catalogs' facet row uses too.
   The sticky-band era's machinery (`visualEffect` offset, reservation
   copy, anchor compensation) stays DELETED; the band keeps its OPAQUE
   background + hairline shelf, both BLED past the 16 pt column with
@@ -315,17 +318,11 @@ old hand rules policed.
   `AnytimeCard` — the dash is the offer grammar, one idea with the future
   cards' "not yet" stroke. The landing seats the ANYTIME row under the
   band.
-  ⚠️ The card's keys morph IN PLACE (chrome grows into the config panel
-  via `matchedGeometryEffect`, its solid border overtaking the dashed
-  shell): morph the CHROME, fade the content — matched content reflows
-  mid-flight — and NEVER a measured FLIP, which writes layout state where
-  the morph law above forbids it. The rack **WRAPS** (`FlowLayout`, equal
+  ⚠️ The card's keys morph IN PLACE into their config panels
+  (design-grammar's offer-morph law). The rack **WRAPS** (`FlowLayout`, equal
   pads, every pick a full key): the greedy `UIFont` fit and its "N more"
-  overflow are DELETED — estimating what a layout can measure was the
-  bug. A raised key's cap and its hit target are ONE rectangle (a smaller
-  cap in a bigger frame makes the style plate a second box around it).
-  The green + opens the picker SHEET (a multi-select is a searchable
-  list).
+  overflow are DELETED — estimating what a layout can measure was the bug.
+  The green + opens the picker SHEET (a multi-select is a searchable list).
 - ⚠️ **Committed history's MONTH landmarks are plain ROWS** (#506, demoted
   build 162): grouped year+month, lowercase mono like every dateline
   (all-caps headings stay dead; a month is a DATE), year only when it
@@ -337,12 +334,10 @@ old hand rules policed.
   OPENS**, not in the timeline — a zero-height `Color.clear` at the very top
   of the content with the line `.overlay(alignment: .bottom)` on it, so the
   line's bottom edge lands exactly on the content's top: above the first row,
-  reserving nothing, clipped at rest. ⚠️ Plain alignment, not a custom guide:
-  `alignmentGuide(.top) { $0[.bottom] }` on an overlay of the content stack
-  was NOT honoured — it collided with the week tally (build 154). THREE
-  placements were wrong before this one (below the today anchor: a screenful
-  past the pull; first content: shoved the timeline down, 153; the
-  alignment-guide overlay: collided, 154). It lives in the gap so it is
+  reserving nothing, clipped at rest. ⚠️ Plain alignment, not a custom guide (an
+  `alignmentGuide(.top) { $0[.bottom] }` overlay was NOT honoured and collided
+  with the week tally, 154; two earlier placements missed the gap entirely,
+  153). It lives in the gap so it is
   visible only while the gap is open, and the system holds that open until
   the `refreshable` closure returns — the closure waits a beat before
   returning, a connected sync says "Syncing…" BEFORE the network, and
@@ -362,10 +357,8 @@ Every add from any surface LANDS on its list with the entrance flash
 one landing for every add; cross-tab delivery is the pending-SLOT law above).
 ⚠️ **The flash is a leading GUTTER MARK on the row BACKGROUND, never a ring in
 an overlay** (2026-07-28): a 3 pt accent capsule 5 pt in from the screen edge,
-growing from its centre then fading. A cardless list has no boundary drawn
-AROUND content, so a rounded stroke reads as a state badge, and an overlay has
-to guess the row's bounds (which put the old ring 2 pt off the text). A
-background gets the true full-bleed bounds free, the leading margin never
+growing from its centre then fading. A background gets the row's true
+full-bleed bounds free (an overlay has to GUESS them), the leading margin never
 holds content, and it sits UNDER the swipe actions. Reduce Motion drops the
 bloom ONLY; the flash itself is never gated. ⚠️ The mark's view exists only
 while the arrival id is set, so **the owning surface must hold that id for

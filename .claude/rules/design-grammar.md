@@ -74,7 +74,10 @@ Siblings: `navigation.md` (tab bar, search, scroll/landing mechanics),
   send-stop use `RoundedRectangle(cornerRadius: 11)` + `.raisedKey()`. The one
   sanctioned variant is `ConfigIconButton` (30 pt cap, r8, FLAT bordered — it
   configures a value in place, it doesn't commit or navigate; the radius
-  scales with the cap). No other per-context corner variation. Every "New …" / "Add …" /
+  scales with the cap). No other per-context corner variation. ⚠️ **A raised
+  key's cap and its hit target are ONE rectangle** (build 161): `RaisedKeyStyle`
+  plates the frame it is GIVEN, so a smaller cap inside a bigger hit frame draws
+  the plate as a second box around it. Grow the frame, not the gap. Every "New …" / "Add …" /
   "Create …" list row is the shared `CreateRow` (a green bordered raised key),
   so creation reads as a button, not floating text. Keys that carry TEXT keep
   the rounded-rect pill: `QuietKey`, `LibrarySwitcherKey`, `SheetDismissKey`,

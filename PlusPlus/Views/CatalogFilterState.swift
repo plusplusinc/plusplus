@@ -148,4 +148,22 @@ struct CatalogFilterState: Equatable {
         if let style { guard routine.catalogTemplate?.style == style else { return false } }
         return true
     }
+
+    /// The same test with the two RATING facets skipped — what decides
+    /// whether a hand-built routine surfaces as "not rated" rather than
+    /// vanishing (#507, Q14-A). It still has to clear Focus, which every
+    /// routine can answer (authored when template-born, derived
+    /// otherwise), so this only ever forgives the two facets that
+    /// resolve through `catalogTemplate`.
+    func allowsIgnoringRating(_ routine: Routine) -> Bool {
+        guard effort != nil || style != nil else { return false }
+        if let focus {
+            let resolved = routine.catalogTemplate?.focus
+                ?? RoutineTemplate.Focus.derived(fromMuscles: routine.muscleGroups, isCardio: routine.isCardio)
+            guard resolved == focus else { return false }
+        }
+        // A template-born routine CAN answer effort/style; if it got here
+        // it genuinely failed them, so it stays out.
+        return routine.catalogTemplate == nil
+    }
 }

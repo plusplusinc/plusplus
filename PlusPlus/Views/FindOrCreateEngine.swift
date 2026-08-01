@@ -42,6 +42,21 @@ enum FindScope: String, CaseIterable {
         case .kit: return "equipment"
         }
     }
+
+    /// The same noun, COUNTED, for the hidden-by-filters row (#507).
+    /// ⚠️ "equipment" is a mass noun and cannot take a bare numeral
+    /// ("3 more equipment"), so the kit scope counts in **pieces** — the
+    /// app's own countable word for one item of equipment (the live
+    /// session's "piece 3", the resolve sheet's "add the piece", routine
+    /// detail's in-kit chip). `searchNoun` keeps the mass noun for
+    /// prompts and empty states, where nothing is counting.
+    func searchNoun(for count: Int) -> String {
+        switch self {
+        case .routines: return count == 1 ? "routine" : "routines"
+        case .exercises: return count == 1 ? "exercise" : "exercises"
+        case .kit: return count == 1 ? "piece" : "pieces"
+        }
+    }
 }
 
 /// Pure result collection for the Find-or-create surface: score, rank,
@@ -79,6 +94,21 @@ enum FindOrCreateEngine {
         /// Curl" on a row whose own name says nothing about the query).
         let matchedExerciseName: String?
         let id: AnyHashable
+        /// False only for a hand-built routine surfacing under an
+        /// Effort/Style facet it cannot answer (#507, Q14-A) — those
+        /// group under "not rated" instead of vanishing. True for
+        /// everything else, so no other call site changes.
+        var rated: Bool = true
+    }
+
+    /// One pass's whole answer: what to draw, and what the facets are
+    /// holding back for the same query (#507, Q13-A).
+    struct Outcome {
+        let sections: [Section]
+        /// Query matches excluded by an active facet — the rows the
+        /// "N hidden by filters" key offers to bring back. Zero when no
+        /// facet is on, since nothing can then be hiding anything.
+        let hiddenByFilters: Int
     }
 
     struct Section: Identifiable {
@@ -87,6 +117,13 @@ enum FindOrCreateEngine {
         enum Kind: Equatable {
             case results
             case missing(noun: String)
+            /// Hand-built routines under an Effort or Style facet (#507,
+            /// Q14-A). Those two resolve only through `catalogTemplate`,
+            /// so a from-scratch library EMPTIED under them — the
+            /// flag-don't-hide law's own failure, in a corner nobody
+            /// looked at. Same disclosure shape as `.missing`: narrowed,
+            /// never vanished.
+            case unrated
         }
 
         let id: String
@@ -154,12 +191,11 @@ enum FindOrCreateEngine {
     /// scope splits into the doable rows, then a collapsible `.missing(noun:)`
     /// group of what the active kit can't do. Equipment is never partitioned
     /// (a piece of gear isn't a thing you "do").
-    /// `filters` narrows the candidate set BEFORE scoring (facet chips,
-    /// 2026-07-31): filters and query AND-compose — the filter decides
-    /// who competes, the query ranks them. The missing-equipment
-    /// partition runs after filtering, unchanged (kit availability is
-    /// still not a filter), and `collisions` never sees filters
-    /// (creation is unaffected by narrowing).
+    /// `filters` and the query AND-compose — the filter decides who
+    /// competes, the query ranks them (facet chips, 2026-07-31). The
+    /// missing-equipment partition runs after filtering, unchanged (kit
+    /// availability is still not a filter), and `collisions` never sees
+    /// filters (creation is unaffected by narrowing).
     static func sections(
         query: String,
         scope: FindScope,
@@ -170,20 +206,58 @@ enum FindOrCreateEngine {
         templates: [RoutineTemplate],
         kitNames: Set<String>
     ) -> [Section] {
+        outcome(
+            query: query, scope: scope, filters: filters,
+            exercises: exercises, equipment: equipment,
+            routines: routines, templates: templates, kitNames: kitNames
+        ).sections
+    }
+
+    /// The sections PLUS how many query matches the active facets kept
+    /// off the screen — both from ONE pass (#507, Q13-A).
+    ///
+    /// ⚠️ The count has to be free, and that is what fixes the order of
+    /// operations here: each candidate is SCORED first and classified by
+    /// facet second, so a hidden row is counted where it was already
+    /// being examined. Deriving it instead as "unfiltered total minus
+    /// shown" would put a second full ranking pass in the RENDER path —
+    /// per keystroke, which is the cost the per-scope match counts were
+    /// retired over (2026-07-25). (The `unfilteredCount()` this replaces
+    /// was that same second pass, but deferred behind a closure the
+    /// summary popover fired on OPEN; a row in the list cannot defer.)
+    /// Output is unchanged by the reorder: scoring is per-item pure, so
+    /// filtering before or after it yields the same set in the same
+    /// order. ⚠️ It is not free in the other direction: with a facet
+    /// active a keystroke now scores every candidate rather than the
+    /// surviving subset — the same work an unfiltered pass has always
+    /// done, and the price of being able to say what was hidden.
+    static func outcome(
+        query: String,
+        scope: FindScope,
+        filters: CatalogFilterState = CatalogFilterState(),
+        exercises: [Exercise],
+        equipment: [Equipment],
+        routines: [Routine],
+        templates: [RoutineTemplate],
+        kitNames: Set<String>
+    ) -> Outcome {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         switch scope {
         case .routines:
-            return groupedWithMissing(
-                routineResults(q, routines: routines, templates: templates, kitNames: kitNames, filters: filters),
-                noun: "routine"
+            let pass = routineResults(q, routines: routines, templates: templates, kitNames: kitNames, filters: filters)
+            return Outcome(
+                sections: groupedWithMissing(pass.results, noun: "routine"),
+                hiddenByFilters: pass.hidden
             )
         case .exercises:
-            return groupedWithMissing(
-                exerciseResults(q, exercises: exercises, kitNames: kitNames, filters: filters),
-                noun: "exercise"
+            let pass = exerciseResults(q, exercises: exercises, kitNames: kitNames, filters: filters)
+            return Outcome(
+                sections: groupedWithMissing(pass.results, noun: "exercise"),
+                hiddenByFilters: pass.hidden
             )
         case .kit:
-            return grouped(equipmentResults(q, equipment: equipment, kitNames: kitNames, filters: filters))
+            let pass = equipmentResults(q, equipment: equipment, kitNames: kitNames, filters: filters)
+            return Outcome(sections: grouped(pass.results), hiddenByFilters: pass.hidden)
         }
     }
 
@@ -219,8 +293,15 @@ enum FindOrCreateEngine {
     /// A tier drops out entirely when it has nothing, in either half.
     private static func groupedWithMissing(_ results: [Result], noun: String) -> [Section] {
         var sections: [Section] = []
+        // Unrated rows (#507, Q14-A) leave the tiers entirely and group
+        // once at the end: they are not a narrower slice of MINE, they
+        // are the rows the active facet has no opinion about, and
+        // splitting them per tier would print the disclosure twice for
+        // a distinction only hand-built routines can have.
+        let rated = results.filter(\.rated)
+        let unrated = results.filter { !$0.rated }
         for (title, isMine) in [("MINE", true), ("CATALOG", false)] {
-            let tier = results.filter { $0.mine == isMine }
+            let tier = rated.filter { $0.mine == isMine }
             let doable = tier.filter(\.doable)
             let missing = tier.filter { !$0.doable }
             if !doable.isEmpty {
@@ -235,6 +316,15 @@ enum FindOrCreateEngine {
                     kind: .missing(noun: noun)
                 ))
             }
+        }
+        if !unrated.isEmpty {
+            sections.append(Section(
+                id: "UNRATED",
+                title: "MINE",
+                count: unrated.count,
+                results: unrated,
+                kind: .unrated
+            ))
         }
         return sections
     }
@@ -260,9 +350,10 @@ enum FindOrCreateEngine {
         }
     }
 
-    private static func exerciseResults(_ q: String, exercises: [Exercise], kitNames: Set<String>, filters: CatalogFilterState = CatalogFilterState()) -> [Result] {
-        rank(exercises.compactMap { exercise in
-            guard !exercise.isDeleted, filters.allows(exercise) else { return nil }
+    private static func exerciseResults(_ q: String, exercises: [Exercise], kitNames: Set<String>, filters: CatalogFilterState = CatalogFilterState()) -> Pass {
+        var hidden = 0
+        let results = exercises.compactMap { exercise -> Result? in
+            guard !exercise.isDeleted else { return nil }
             let score: Double
             if q.isEmpty {
                 score = 0
@@ -271,6 +362,9 @@ enum FindOrCreateEngine {
             } else {
                 return nil
             }
+            // Scored, so it MATCHES — a facet dropping it now is the
+            // filters hiding a match, which is exactly what gets counted.
+            guard filters.allows(exercise) else { hidden += 1; return nil }
             return Result(
                 item: .exercise(exercise),
                 name: exercise.name,
@@ -280,12 +374,14 @@ enum FindOrCreateEngine {
                 matchedExerciseName: nil,
                 id: AnyHashable(exercise.persistentModelID)
             )
-        }, query: q)
+        }
+        return Pass(results: rank(results, query: q), hidden: hidden)
     }
 
-    private static func equipmentResults(_ q: String, equipment: [Equipment], kitNames: Set<String>, filters: CatalogFilterState = CatalogFilterState()) -> [Result] {
-        rank(equipment.compactMap { item in
-            guard !item.isDeleted, filters.allowsEquipment(named: item.name) else { return nil }
+    private static func equipmentResults(_ q: String, equipment: [Equipment], kitNames: Set<String>, filters: CatalogFilterState = CatalogFilterState()) -> Pass {
+        var hidden = 0
+        let results = equipment.compactMap { item -> Result? in
+            guard !item.isDeleted else { return nil }
             let category = SeedData.equipmentCategory(named: item.name)?.rawValue ?? ""
             // Hidden synonym terms ride the same candidate ("erg" reaches
             // the Rowing Machine); customs contribute "" and lose nothing.
@@ -298,6 +394,7 @@ enum FindOrCreateEngine {
             } else {
                 return nil
             }
+            guard filters.allowsEquipment(named: item.name) else { hidden += 1; return nil }
             return Result(
                 item: .equipment(item),
                 name: item.name,
@@ -307,7 +404,8 @@ enum FindOrCreateEngine {
                 matchedExerciseName: nil,
                 id: AnyHashable(item.persistentModelID)
             )
-        }, query: q)
+        }
+        return Pass(results: rank(results, query: q), hidden: hidden)
     }
 
     private static func routineResults(
@@ -316,11 +414,20 @@ enum FindOrCreateEngine {
         templates: [RoutineTemplate],
         kitNames: Set<String>,
         filters: CatalogFilterState = CatalogFilterState()
-    ) -> [Result] {
+    ) -> Pass {
         var results: [Result] = []
-        for routine in routines where !routine.isDeleted && filters.allows(routine) {
+        var hidden = 0
+        for routine in routines where !routine.isDeleted {
             let contained = routine.sortedGroups.flatMap(\.sortedExercises).compactMap { $0.exercise?.name }
             guard let (score, matched) = deepScore(q, name: routine.name, contained: contained, extra: "") else { continue }
+            // A hand-built routine can't answer Effort or Style (they
+            // resolve only via `catalogTemplate`), so under those facets
+            // it is UNRATED, not excluded — it still has to clear every
+            // facet it CAN answer (#507, Q14-A). Only a routine that
+            // fails a facet it COULD answer counts as hidden.
+            let rated = filters.allows(routine)
+            let unrated = !rated && filters.allowsIgnoringRating(routine)
+            guard rated || unrated else { hidden += 1; continue }
             let doable = routine.gearAvailability(activeNames: kitNames).allSatisfy(\.available)
             results.append(Result(
                 item: .routine(routine),
@@ -329,7 +436,8 @@ enum FindOrCreateEngine {
                 score: score,
                 doable: doable,
                 matchedExerciseName: matched,
-                id: AnyHashable(routine.persistentModelID)
+                id: AnyHashable(routine.persistentModelID),
+                rated: !unrated
             ))
         }
         // An added template leaves CATALOG (name-keyed, the routine
@@ -339,10 +447,15 @@ enum FindOrCreateEngine {
         // template with no row at all (matching the routine loop's filter
         // also closes the exact-name collision dead-end, swift-reviewer).
         let inLibrary = Set(routines.filter { !$0.isDeleted }.map { $0.name.lowercased() })
-        for template in templates where !inLibrary.contains(template.name.lowercased()) && filters.allows(template) {
+        for template in templates where !inLibrary.contains(template.name.lowercased()) {
             let contained = template.blocks.flatMap(\.entries).map(\.exercise)
             let extra = "\(template.summary) \(template.style.rawValue)"
             guard let (score, matched) = deepScore(q, name: template.name, contained: contained, extra: extra) else { continue }
+            // A template answers every routine facet, so a failure here
+            // is always the filters hiding a match. (An in-library
+            // template is NOT hidden — its own routine row represents
+            // it, and that row is subject to the same facets.)
+            guard filters.allows(template) else { hidden += 1; continue }
             let doable = template.equipmentNames.allSatisfy { kitNames.contains($0) }
             results.append(Result(
                 item: .template(template),
@@ -354,7 +467,14 @@ enum FindOrCreateEngine {
                 id: AnyHashable("template-\(template.name)")
             ))
         }
-        return rank(results, query: q)
+        return Pass(results: rank(results, query: q), hidden: hidden)
+    }
+
+    /// One type's collection pass: the rows, and the query matches its
+    /// facets excluded (counted in the same sweep — see `outcome`).
+    private struct Pass {
+        let results: [Result]
+        let hidden: Int
     }
 
     /// The routine-family score: the name is the headline; a hit anywhere

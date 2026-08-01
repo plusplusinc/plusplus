@@ -310,7 +310,7 @@ struct FindOrCreateEngineTests {
         let context = ModelContext(try makeContainer())
         let world = makeWorld(context: context)
         // The screenshot's bug: typing an existing gear name still offered
-        // "Add … as equipment".
+        // the create row.
         #expect(collisions("Probe Barbell", world: world).equipment)
         #expect(collisions("probe barbell", world: world).equipment)
         #expect(collisions("  Probe Barbell  ", world: world).equipment)
@@ -466,7 +466,7 @@ struct FindOrCreateEngineTests {
         #expect(sections.flatMap(\.results).map(\.name) == ["Rowing Machine"])
     }
 
-    @Test("Routine facets: focus derives for hand-built; effort/style drop them")
+    @Test("Routine facets: focus derives for hand-built; effort/style group them as unrated")
     func routineFacets() throws {
         let context = ModelContext(try makeContainer())
         let world = makeWorld(context: context)
@@ -482,8 +482,10 @@ struct FindOrCreateEngineTests {
         )
         #expect(upper.flatMap(\.results).map(\.name) == ["Probe Day"])
 
-        // Under Effort, a hand-built routine can't answer and drops out;
-        // the authored template answers.
+        // Under Effort, a hand-built routine can't answer — and since
+        // #507 (Q14-A) that groups it as UNRATED rather than emptying
+        // the MINE tier of a from-scratch library. The authored
+        // template answers and stays a normal result.
         filters = CatalogFilterState()
         filters.effort = .moderate
         let moderate = FindOrCreateEngine.sections(
@@ -493,7 +495,142 @@ struct FindOrCreateEngineTests {
             templates: [template("Probe Plan")],
             kitNames: world.kitNames
         )
-        #expect(moderate.flatMap(\.results).map(\.name) == ["Probe Plan"])
+        let rated = moderate.filter { $0.kind == .results }.flatMap(\.results).map(\.name)
+        #expect(rated == ["Probe Plan"])
+        let unrated = try #require(moderate.first { $0.kind == .unrated })
+        #expect(unrated.results.map(\.name) == ["Probe Day"])
+        // It sits at the END, after both tiers — it is not a slice of MINE.
+        #expect(moderate.last?.id == "UNRATED")
+    }
+
+    @Test("An unrated routine that fails a facet it CAN answer still drops")
+    func unratedStillClearsAnswerableFacets() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        // Probe Day derives focus Upper (Probe Curl, biceps). Effort it
+        // cannot answer; Lower it can, and fails.
+        var filters = CatalogFilterState()
+        filters.effort = .moderate
+        filters.focus = .lower
+        let sections = FindOrCreateEngine.sections(
+            query: "", scope: .routines, filters: filters,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines, templates: [], kitNames: world.kitNames
+        )
+        #expect(sections.isEmpty)
+    }
+
+    // MARK: - What the filters hide (#507, Q13-A)
+
+    @Test("The hidden count is what the facets kept from a query that matched")
+    func hiddenByFiltersCountsQueryMatches() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+
+        // No facets: nothing can be hiding anything.
+        let open = FindOrCreateEngine.outcome(
+            query: "probe", scope: .exercises,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines, templates: [], kitNames: world.kitNames
+        )
+        #expect(open.hiddenByFilters == 0)
+
+        // Chest keeps Probe Press alone; the other three matched "probe"
+        // and are exactly what the chip is holding back.
+        var filters = CatalogFilterState()
+        filters.muscle = .chest
+        let narrowed = FindOrCreateEngine.outcome(
+            query: "probe", scope: .exercises, filters: filters,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines, templates: [], kitNames: world.kitNames
+        )
+        #expect(narrowed.sections.flatMap(\.results).map(\.name) == ["Probe Press"])
+        #expect(narrowed.hiddenByFilters == 3)
+    }
+
+    @Test("A row the query never matched is not hidden by the filters")
+    func hiddenExcludesQueryMisses() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        // "curl" reaches one exercise. A muscle facet that excludes it
+        // hides ONE row — the three the query already missed are not the
+        // filters' doing, and counting them would overstate the offer.
+        // Stated, not assumed: if the query ever reached more than this
+        // one row, the count below would be arguing about the wrong thing.
+        let reached = FindOrCreateEngine.sections(
+            query: "probe curl", scope: .exercises,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines, templates: [], kitNames: world.kitNames
+        ).flatMap(\.results).map(\.name)
+        #expect(reached == ["Probe Curl"])
+
+        var filters = CatalogFilterState()
+        filters.muscle = .chest
+        let outcome = FindOrCreateEngine.outcome(
+            query: "probe curl", scope: .exercises, filters: filters,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines, templates: [], kitNames: world.kitNames
+        )
+        #expect(outcome.sections.isEmpty)
+        #expect(outcome.hiddenByFilters == 1)
+    }
+
+    @Test("shown + hidden equals the unfiltered total, which is what the popover prints")
+    func hiddenCompletesTheUnfilteredTotal() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        var filters = CatalogFilterState()
+        filters.muscle = .chest
+
+        let narrowed = FindOrCreateEngine.outcome(
+            query: "probe", scope: .exercises, filters: filters,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines, templates: [], kitNames: world.kitNames
+        )
+        let unfiltered = FindOrCreateEngine.sections(
+            query: "probe", scope: .exercises,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines, templates: [], kitNames: world.kitNames
+        ).reduce(0) { $0 + $1.count }
+        let shown = narrowed.sections.reduce(0) { $0 + $1.count }
+        // The identity the "N of M shown" line rides now that the second
+        // ranking pass is gone.
+        #expect(shown + narrowed.hiddenByFilters == unfiltered)
+    }
+
+    @Test("An unrated routine is shown, never counted as hidden")
+    func unratedIsNotHidden() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        var filters = CatalogFilterState()
+        filters.effort = .moderate
+        let outcome = FindOrCreateEngine.outcome(
+            query: "", scope: .routines, filters: filters,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines,
+            // The fixture template IS .moderate, so it passes the facet
+            // and shows — nothing here is hidden by anything.
+            templates: [template("Probe Plan")],
+            kitNames: world.kitNames
+        )
+        #expect(outcome.hiddenByFilters == 0)
+        #expect(outcome.sections.contains { $0.kind == .unrated })
+    }
+
+    @Test("A template that fails a routine facet counts as hidden")
+    func hiddenCountsTemplates() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        var filters = CatalogFilterState()
+        filters.effort = .intense  // the fixture template is .moderate
+        let outcome = FindOrCreateEngine.outcome(
+            query: "probe", scope: .routines, filters: filters,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: [], templates: [template("Probe Plan")],
+            kitNames: world.kitNames
+        )
+        #expect(outcome.sections.isEmpty)
+        #expect(outcome.hiddenByFilters == 1)
     }
 
     @Test("Filters compose with the query and keep the missing partition")

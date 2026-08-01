@@ -141,7 +141,12 @@ jobs:
           # that were no longer true (2026-07-28). DECISIONS.md is deliberately
           # EXEMPT from every budget — append-only, and its long entries are the
           # record, not drift.
-          for f in CLAUDE.md .claude/rules/*.md; do
+          # docs/DEVICE-PASS.md joins the LINE cap but not the size cap
+          # (2026-08-01): it is a QUEUE, so its length is a function of how
+          # much unvalidated work is outstanding, not of doc hygiene — but it
+          # is written one-item-per-line for exactly the merge reason above,
+          # and every round appends to it from a different branch.
+          for f in CLAUDE.md .claude/rules/*.md docs/DEVICE-PASS.md; do
             [ -f "$f" ] || continue
             longest=$(awk '{ if (length($0) > m) { m = length($0); n = NR } } END { print m ":" n }' "$f")
             len=${longest%%:*}

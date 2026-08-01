@@ -168,6 +168,10 @@ struct CatalogScopeView: View {
     /// ("MISSING_MINE" / "MISSING_CATALOG"). Collapsed by default.
     @State private var expandedMissing: Set<String> = []
     @State private var showingLibraryTray = false
+    /// Set only when the tray opens as a REDIRECT (#507, b9); cleared on
+    /// every other route in so a later deliberate open never inherits a
+    /// stale explanation.
+    @State private var libraryTrayReason: String?
     @State private var creatingExercise = false
     @State private var namingRoutine = false
     @State private var newRoutineName = ""
@@ -225,8 +229,22 @@ struct CatalogScopeView: View {
         routines.filter { $0.persistentModelID != newlyAdded || revealNewCard }
     }
 
-    private var sections: [FindOrCreateEngine.Section] {
-        FindOrCreateEngine.sections(
+    /// The scope's whole answer for the live query: sections to draw, and
+    /// how many matches the active facets are holding back. ONE pass —
+    /// the engine counts the hidden rows where it already examines them,
+    /// so both the "N hidden by filters" key and the summary popover's
+    /// "N of M shown" come free (#507).
+    ///
+    /// ⚠️ The alternative was `unfilteredCount() - shown`, and the trap
+    /// is that it looks cheap: the old `unfilteredCount()` really was a
+    /// second full ranking pass, but it was a CLOSURE the popover fired
+    /// on OPEN, so it cost nothing while you typed. Reading it from a
+    /// row in the list would have moved that pass into the render path —
+    /// per keystroke, for a list nobody had asked a question about. The
+    /// number being always-in-hand is also why the chip's `total` stops
+    /// being a closure: there is nothing left to defer.
+    private var outcome: FindOrCreateEngine.Outcome {
+        FindOrCreateEngine.outcome(
             query: trimmedQuery,
             scope: scope,
             filters: filters,
@@ -238,21 +256,8 @@ struct CatalogScopeView: View {
         )
     }
 
-    /// The unfiltered count behind "N of M shown" — computed ONLY when the
-    /// summary popover opens (a closure, never per keystroke: a second
-    /// ranking pass per render is the exact cost the per-scope-counts
-    /// design retired).
-    private func unfilteredCount() -> Int {
-        FindOrCreateEngine.sections(
-            query: trimmedQuery,
-            scope: scope,
-            exercises: allExercises,
-            equipment: allEquipment,
-            routines: displayedRoutines,
-            templates: RoutineCatalog.all,
-            kitNames: kitNames
-        ).reduce(0) { $0 + $1.count }
-    }
+    /// For actions, which run once and can afford their own pass.
+    private var sections: [FindOrCreateEngine.Section] { outcome.sections }
 
     /// What this surface actually draws. Everywhere except the PRESENTED
     /// equipment catalog that is `sections` verbatim.
@@ -265,8 +270,7 @@ struct CatalogScopeView: View {
     /// hardest in onboarding step 1. The in-kit checkmark carries membership
     /// here; the MINE/CATALOG split earns its keep on the TAB, where you
     /// arrive fresh and want yours first.
-    private var displayedSections: [FindOrCreateEngine.Section] {
-        let sections = self.sections
+    private func displayed(_ sections: [FindOrCreateEngine.Section]) -> [FindOrCreateEngine.Section] {
         guard case .presented = mode, scope == .kit else { return sections }
         let flat = sections.flatMap(\.results).sorted {
             $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
@@ -286,10 +290,16 @@ struct CatalogScopeView: View {
             }
         }
         .sheet(isPresented: $showingLibraryTray) {
-            EquipmentLibraryTray()
+            EquipmentLibraryTray(reason: libraryTrayReason)
         }
         .sheet(isPresented: $creatingExercise) {
-            ExerciseEditorView(prefillName: trimmedQuery) { exercise in
+            // The muscle facet prefills the create (#507, b8): the
+            // editor's `prefillMuscleGroup` had existed with ZERO call
+            // sites, so a create under an active Chest→Back filter still
+            // defaulted to Chest and landed outside the very facet you
+            // were browsing. Only the muscle chip threads — no other
+            // facet maps to a draft field.
+            ExerciseEditorView(prefillName: trimmedQuery, prefillMuscleGroup: filters.muscle) { exercise in
                 // The editor only INSERTS — save here so the id the landing
                 // (or the pick) keys on is permanent, not the temporary one an
                 // autosave would swap out from under it (swiftdata.md).
@@ -352,7 +362,7 @@ struct CatalogScopeView: View {
         //
         // ⚠️ It is still not free, which is why the other four roots don't pay
         // for it: the closure re-runs on every size change, height included, and
-        // rebuilding this view re-runs the ranking pipeline (`displayedSections`
+        // rebuilding this view re-runs the ranking pipeline (`outcome`
         // is hoisted in `listBody` precisely because it is expensive). On the
         // search tab that pipeline already runs per keystroke, so the extra
         // passes are marginal; on a scrolling catalog the tab bar minimising
@@ -423,6 +433,7 @@ struct CatalogScopeView: View {
                                     // the three line up.
                                     .padding(.bottom, 4)
                                 LibrarySwitcherKey(name: activeKitName, identifier: scope.switcherIdentifier) {
+                                    libraryTrayReason = nil
                                     showingLibraryTray = true
                                 }
                             }
@@ -449,6 +460,7 @@ struct CatalogScopeView: View {
                         // more equipment" group below.
                         ToolbarItem(placement: .topBarTrailing) {
                             LibrarySwitcherKey(name: activeKitName, identifier: scope.switcherIdentifier) {
+                                libraryTrayReason = nil
                                 showingLibraryTray = true
                             }
                         }
@@ -663,6 +675,7 @@ struct CatalogScopeView: View {
                 .font(.system(.footnote))
                 .foregroundStyle(Theme.textSecondary)
             LibrarySwitcherKey(name: activeKitName, identifier: "catalogKitSwitcher") {
+                libraryTrayReason = nil
                 showingLibraryTray = true
             }
             Spacer(minLength: 0)
@@ -706,13 +719,15 @@ struct CatalogScopeView: View {
         // "N exercises" capsule.
         let unlockedCounts = exerciseCountsByEquipment
         let collisions = self.collisions
-        // HOISTED, and it matters: `sections` is a computed property that runs
-        // the whole rank-and-group pipeline, and the body reads it twice (the
-        // ForEach and the empty check). All three scopes stay mounted and share
-        // the query, so an un-hoisted read is three extra full passes per
-        // keystroke for lists nobody is looking at.
-        let sections = displayedSections
+        // HOISTED, and it matters: `outcome` is a computed property that runs
+        // the whole rank-and-group pipeline, and the body reads its sections
+        // twice (the ForEach and the empty check). All three scopes stay
+        // mounted and share the query, so an un-hoisted read is three extra
+        // full passes per keystroke for lists nobody is looking at.
+        let outcome = self.outcome
+        let sections = displayed(outcome.sections)
         let shown = sections.reduce(0) { $0 + $1.count }
+        let hiddenByFilters = outcome.hiddenByFilters
         return ScrollViewReader { proxy in
             List {
                 // ONE section holds the whole list, and on a TAB root its
@@ -742,6 +757,15 @@ struct CatalogScopeView: View {
                 // divider you read once, the chips are a control you reach
                 // for at any depth.
                 Section {
+                    // ⚠️ ABOVE the create row, and a plain row — not a
+                    // second pinned header (#507): the facet row is this
+                    // list's ONE header, and only one can pin. The
+                    // create row is the easy path to a near-duplicate,
+                    // so what the filters are HIDING has to be read
+                    // before it, not after.
+                    if !trimmedQuery.isEmpty, hiddenByFilters > 0 {
+                        hiddenByFiltersRow(hiddenByFilters)
+                    }
                     if showsCreateRow(collisions) {
                         createRow
                     }
@@ -778,14 +802,35 @@ struct CatalogScopeView: View {
                                     resultRow(result, unlockedCounts: unlockedCounts)
                                 }
                             }
+                        case .unrated:
+                            // Hand-built routines under an Effort/Style
+                            // facet (#507, Q14-A) — the same collapsible
+                            // shape as the missing-equipment group, and
+                            // the same law: narrowed, never vanished.
+                            MissingEquipmentHeaderRow(
+                                count: section.count,
+                                noun: "routine",
+                                isExpanded: expandedMissing.contains(section.id),
+                                identifier: "unratedToggle",
+                                sentence: UnratedPhrasing.line(count: section.count)
+                            ) {
+                                withAnimation(Theme.Anim.standard) {
+                                    toggleMissing(section.id)
+                                }
+                            }
+                            if expandedMissing.contains(section.id) {
+                                ForEach(section.results) { result in
+                                    resultRow(result, unlockedCounts: unlockedCounts)
+                                }
+                            }
                         }
                     }
                     if sections.isEmpty {
-                        emptyState
+                        emptyState(hiddenByFilters: hiddenByFilters)
                     }
                 } header: {
                     if mode.isTab {
-                        filterRow(shown: shown)
+                        filterRow(shown: shown, hidden: hiddenByFilters)
                             .listRowInsets(EdgeInsets())
                             .listRowSeparator(.hidden)
                             .textCase(nil)
@@ -805,7 +850,7 @@ struct CatalogScopeView: View {
             // tabs back onto this inset — the failure is invisible to CI.
             .safeAreaInset(edge: .top, spacing: 0) {
                 if !mode.isTab {
-                    filterRow(shown: shown)
+                    filterRow(shown: shown, hidden: hiddenByFilters)
                 }
             }
             // SOFT at the bottom — the system's own gradient dissolve, which is
@@ -869,11 +914,15 @@ struct CatalogScopeView: View {
     /// and un-doable items are grouped rather than hidden. Active facets get
     /// the promised escape (navigation.md: empty results never dead-end) —
     /// the create row is present regardless.
-    private var emptyState: some View {
+    private func emptyState(hiddenByFilters: Int) -> some View {
         VStack(spacing: 10) {
-            Text("Nothing matches.")
+            // Name the FACET as the reason where it provably is one
+            // (#507, Q13-A): "Nothing matches" over a live filter that
+            // is doing the hiding tells you nothing you can act on.
+            Text(emptyStateLine(hiddenByFilters: hiddenByFilters))
                 .font(.system(.footnote))
                 .foregroundStyle(Theme.textFaint)
+                .multilineTextAlignment(.center)
             if !filters.isEmpty(for: scope) {
                 QuietKey(label: "Clear filters", identifier: "clearCatalogFilters") {
                     withAnimation(Theme.Anim.standard) {
@@ -888,6 +937,42 @@ struct CatalogScopeView: View {
         .listRowSeparator(.hidden)
     }
 
+    /// "Nothing matches", plus the filters' share of the blame when they
+    /// are provably holding something back for this exact query.
+    private func emptyStateLine(hiddenByFilters: Int) -> String {
+        hiddenByFilters > 0 ? "Nothing matches with these filters on." : "Nothing matches."
+    }
+
+    /// What the ACTIVE FACETS are keeping off the screen for the current
+    /// query (#507, Q13-A), named and tappable.
+    ///
+    /// The exact-name guard already checks the UNFILTERED set, so an
+    /// exact match can never be hidden behind a create row; a PARTIAL
+    /// one could ("bench" under Kind=Cardio hides Bench Press and offers
+    /// Create "Bench" — the easy path to a near-duplicate). This is that
+    /// gap. The count rides `outcome`, so it costs nothing.
+    ///
+    /// ⚠️ QUERIED lists only. With no query there is no near-duplicate to
+    /// guard against (the create row reads "New exercise" and opens the
+    /// editor), and the summary chip's "N of M shown" is already saying
+    /// the same thing one row above — a permanent second copy of it over
+    /// every browse (swift-reviewer). The count still feeds that chip.
+    private func hiddenByFiltersRow(_ count: Int) -> some View {
+        QuietKey(
+            label: "\(count) more \(scope.searchNoun(for: count)) hidden by filters · show",
+            systemImage: "line.3.horizontal.decrease",
+            identifier: "hiddenByFilters"
+        ) {
+            withAnimation(Theme.Anim.standard) {
+                filters.clear(scope: scope)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 0, trailing: 16))
+    }
+
     // MARK: - The facet row (filtering returns, 2026-07-31)
 
     /// Per-scope single-select facet chips in a horizontal run, led by the
@@ -898,14 +983,14 @@ struct CatalogScopeView: View {
     /// roots (list-internal, so the system large-title bar never sees it —
     /// see `listBody`), and a top `safeAreaInset` on presented/picker
     /// surfaces, whose chrome is app-drawn.
-    private func filterRow(shown: Int) -> some View {
+    private func filterRow(shown: Int, hidden: Int) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 7) {
                 if !filters.isEmpty(for: scope) {
                     FilterSummaryChip(
                         facets: filters.activeFacets(for: scope),
                         shown: shown,
-                        total: unfilteredCount
+                        total: shown + hidden
                     ) {
                         withAnimation(Theme.Anim.standard) {
                             filters.clear(scope: scope)
@@ -1322,8 +1407,16 @@ struct CatalogScopeView: View {
         "\u{201C}\(trimmedQuery.sentenceCasedFirst)\u{201D}"
     }
 
+    // ONE verb grammar across the three catalogs (#507, b12): `New <object>`
+    // with no query, `Create "<query>"` with one. The verb predicts the tap —
+    // CREATE commits inline, ADD opens something ("Add to routine…", the
+    // overview's "Add exercise"), and all three of these commit. Kit's
+    // "Add … as equipment" was the one row that said Add and committed
+    // anyway; the tab it sits on already names the type its empty-query form
+    // spells out, and the new piece lands in MINE with the entrance flash,
+    // which is where its kit membership reads.
     private var routinesCreateLabel: String {
-        trimmedQuery.isEmpty ? "New routine" : "New routine \(quotedQuery)"
+        trimmedQuery.isEmpty ? "New routine" : "Create \(quotedQuery)"
     }
 
     private var exercisesCreateLabel: String {
@@ -1331,7 +1424,7 @@ struct CatalogScopeView: View {
     }
 
     private var kitCreateLabel: String {
-        trimmedQuery.isEmpty ? "New equipment" : "Add \(quotedQuery) as equipment"
+        trimmedQuery.isEmpty ? "New equipment" : "Create \(quotedQuery)"
     }
 
     /// A queried create is direct — the query IS the name; an empty one asks
@@ -1365,6 +1458,15 @@ struct CatalogScopeView: View {
         // create would land on its empty list and read as data loss. Adding
         // means switching first: open the tray, which explains and offers it.
         guard !isBodyweightKit else {
+            // …and now it SAYS so (#507, b9): the tray used to arrive
+            // with no connection to the create row that summoned it.
+            // ⚠️ It names the kit the way the SWITCHER does — the raw
+            // reserved name, which is the only string the user has ever
+            // seen for it — and borrows `kitHint`'s explanation verbatim
+            // so the app has ONE account of what null is. A hand-written
+            // description ("Bodyweight only…") named a kit that exists
+            // under no such name (swift-reviewer).
+            libraryTrayReason = "\(EquipmentLibrary.bodyweightName) is the no-equipment kit, so \(quotedQuery) can't go in it. Pick another kit."
             showingLibraryTray = true
             return
         }
@@ -1498,10 +1600,14 @@ struct CatalogScopeView: View {
         }
     }
 
-    /// A landed item that needs gear sits in a collapsed group; open both tiers
-    /// so its entrance flash isn't playing on a hidden row.
+    /// A landed item that needs gear sits in a collapsed group; open the
+    /// tier it actually landed in so its entrance flash isn't playing on
+    /// a hidden row. ⚠️ Its OWN tier only (#507, b11): a landing is
+    /// always something you just made, so it is always MINE, and opening
+    /// CATALOG's group too dumped a wall of unrelated rows on screen at
+    /// the exact moment the eye was going to the flash.
     private func expandMissingGroups() {
-        expandedMissing = ["MISSING_MINE", "MISSING_CATALOG"]
+        expandedMissing.insert("MISSING_MINE")
     }
 
     /// The facet row is the OTHER thing that can hide a landed row
@@ -1511,6 +1617,11 @@ struct CatalogScopeView: View {
     /// `expandMissingGroups`: a landing never targets a hidden row.
     /// `allowed` nil means the model couldn't be resolved against the
     /// live query — clear then too, visibility can't be proven.
+    /// ⚠️ This is why the "not rated" group (#507) can never swallow a
+    /// landing: a hand-built routine under an Effort facet fails
+    /// `allows`, so the facets clear here and it lands in MINE. Do NOT
+    /// "fix" that by expanding UNRATED instead — the group is collapsed
+    /// by default, so the flash would still play on a hidden row.
     private func clearFiltersHiding(_ allowed: Bool?) {
         guard !filters.isEmpty(for: scope), allowed != true else { return }
         filters.clear(scope: scope)

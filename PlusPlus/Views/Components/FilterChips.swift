@@ -77,13 +77,15 @@ struct FacetChip<Value: Hashable>: View {
 /// The mandated active-state summary (design-grammar: "active filters
 /// summarize, never insta-clear"): a selection-look count chip leading
 /// the row, opening a popover that names each active facet's value,
-/// says how far the list narrowed, and holds Clear all. `total` is a
-/// closure so the unfiltered count is computed only when the popover
-/// opens, never per keystroke.
+/// says how far the list narrowed, and holds Clear all. `total` was a
+/// CLOSURE while the unfiltered count meant a second ranking pass — the
+/// engine now counts what the facets hid in the pass that built the
+/// sections (#507), so shown + hidden is already in hand and there is
+/// nothing left to defer.
 struct FilterSummaryChip: View {
     let facets: [ActiveFacet]
     let shown: Int
-    let total: () -> Int
+    let total: Int
     let onClearAll: () -> Void
 
     @State private var showingDetail = false
@@ -130,7 +132,7 @@ struct FilterSummaryChip: View {
                     }
                     .font(.system(.footnote))
                 }
-                Text("\(shown) of \(total()) shown")
+                Text("\(shown) of \(total) shown")
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(Theme.textFaint)
                 QuietKey(label: "Clear all", identifier: "clearAllFilters") {
