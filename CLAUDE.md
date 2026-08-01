@@ -63,7 +63,7 @@ No third-party dependencies without discussion first.
 > certain files → **.claude/rules/** (`paths:` frontmatter); a procedure → **.claude/skills/**.
 > The test for living here: would a session need it BEFORE knowing what it was about to touch?
 
-**Last updated:** 2026-08-01 · **Latest TestFlight build:** 163, from main (the large-title fix; 160-162 also from main, 159 from the cardio branch).
+**Last updated:** 2026-08-01 · **Latest TestFlight build:** 165, from the search-morph BRANCH (#534 — shipped unmerged so Dave can watch where the search field comes from; 160-164 from main, 159 from the cardio branch).
 ⚠️ Build number = workflow RUN number, not last-build+1 — check `actions_list` before writing a What's-New entry.
 
 **On main, awaiting Dave's device pass:** the queue lives in
