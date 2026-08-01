@@ -184,6 +184,20 @@ struct RootTabView: View {
     /// it (the one-landing law), and that landing has to be VISIBLE — left
     /// searching, the entrance flash would play behind a filtered list.
     @MainActor
+    /// A share link from anywhere — a tapped URL or a pasted one (#509,
+    /// b17). One handler, so both entry points fail the same way.
+    private func openShareLink(_ url: URL) {
+        guard RoutineShareLink.isShareLink(url) else { return }
+        if let payload = try? RoutineShareLink.payload(from: url) {
+            shareImport = ShareImport(payload: payload)
+        } else {
+            // A raw plusplus://r#… link pasted in Messages/Notes has no
+            // viewer webpage to explain a bad payload — say it here instead
+            // of swallowing the tap (design review 2026-07-23).
+            showShareLinkError = true
+        }
+    }
+
     private func land(on newTab: AppTab) {
         query = ""
         tab = newTab
@@ -345,17 +359,13 @@ struct RootTabView: View {
                 NotificationCenter.default.post(name: .plusplusStartRoutine, object: name)
                 return
             }
-            if RoutineShareLink.isShareLink(url) {
-                if let payload = try? RoutineShareLink.payload(from: url) {
-                    shareImport = ShareImport(payload: payload)
-                } else {
-                    // A raw plusplus://r#… link pasted in Messages/Notes has
-                    // no viewer webpage to explain a bad payload — say it
-                    // here instead of swallowing the tap (design review
-                    // 2026-07-23).
-                    showShareLinkError = true
-                }
-            }
+            openShareLink(url)
+        }
+        // The Data tray's paste (#509, b17) lands in the SAME handler a tap
+        // does — so an unreadable payload gets the one explanation that
+        // already exists rather than a second, quieter failure path.
+        .onReceive(NotificationCenter.default.publisher(for: .plusplusPastedShareLink)) { note in
+            (note.object as? URL).map(openShareLink)
         }
         // Universal-link form of the same GitHub Setup-URL return
         // (https://plusplus.fit/github/…), for when it opens the app directly.

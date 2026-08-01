@@ -10,6 +10,11 @@ import AppIntents
 extension Notification.Name {
     /// Posted by StartRoutineIntent with the routine name as `object`.
     static let plusplusStartRoutine = Notification.Name("plusplusStartRoutine")
+    /// A share link that arrived as TEXT rather than as a tap (#509, b17):
+    /// the Data tray's paste. Object is the `URL`. It routes into the same
+    /// handler `onOpenURL` uses, so a bad payload gets the same explanation
+    /// instead of a second, quieter failure path.
+    static let plusplusPastedShareLink = Notification.Name("plusplusPastedShareLink")
     /// Posted when the recap's Continue closes a finished workout, with
     /// the session's `PersistentIdentifier` as `object`. The root switches
     /// to Today and Today plays the pending→done conversion on that card —
