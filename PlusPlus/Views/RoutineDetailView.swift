@@ -383,8 +383,11 @@ struct RoutineDetailView: View {
         // the pop wins every rightward drag and DUPE would be unreachable.
         // Narrowed to the 44 pt edge band on THIS screen only, and turned
         // off while routine settings is pushed on top so that screen keeps
-        // its full-width pop.
-        .leadingRevealHost(active: !showingRoutineSettings)
+        // its full-width pop. Same for the kit chip's equipment sheet: the
+        // gate count is GLOBAL, so while it's raised the sheet's own stack
+        // (cross-links push in it) would lose full-width pop too — and the
+        // rail under the sheet can't take a drag anyway.
+        .leadingRevealHost(active: !showingRoutineSettings && kitDetailTarget == nil)
     }
 
     /// The share link for this routine — built fresh on each render so
