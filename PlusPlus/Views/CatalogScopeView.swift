@@ -729,7 +729,8 @@ struct CatalogScopeView: View {
                 // on tab roots: no title at rest, a title-sized dead band,
                 // a hairline in both states (measured off Dave's
                 // screenshots, #521). First-list-CONTENT (#521's fix) kept
-                // the title honest but scrolls away, which is this note.
+                // the title honest, but the chips then scrolled away with
+                // the list — which is the complaint this note answers.
                 // A section header is inside the list's own layout, so it
                 // touches neither the safe area nor the nav bar: the title
                 // behaves and the chips stay put.
