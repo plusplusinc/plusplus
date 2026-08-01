@@ -27,18 +27,20 @@ scopes, the accessory's retirement, the morph's state-write rule) are in
 
 **Today** — the unified timeline: scheduled work, carried-over work, and
 committed sessions on a DATE-FIRST rail (each entry's date on its own row,
-node centered on it, card below), with quick start as the rail's ANYTIME
-entry (dashed node + dashed-shell `AnytimeCard`, below the future and
-above today; its keys morph in place into config panels). The pinned
+node centered on it, card below, never a date row with nothing under it),
+with quick start as the rail's ANYTIME entry (dashed-shell `AnytimeCard`
+below the future and above today; its wrapping keys morph in place into
+config panels). The pinned
 header band holds the week's FACTS only (tally · block bar — chrome on
 the scroll's shell; laws in `navigation.md`). Pull-to-refresh answers in
 the gap the pull opens (mechanics in `navigation.md`).
 
 **Routines / Exercises / Kit** — catalog surfaces over `CatalogScopeView`,
 MINE then CATALOG, a single-select facet row per scope (exercises kind/
-muscle/movement/mechanic/sides · kit type · routines focus/effort/style —
-laws in `navigation.md`), with the swipe law LEADING is curation / TRAILING
-is destructive. Routine detail keeps the superset rail.
+muscle/movement/mechanic/sides · kit type · routines focus/effort/style),
+PINNED as the list's one section header on tabs and as a top inset on
+presented/picker surfaces (laws in `navigation.md`), with the swipe law
+LEADING is curation / TRAILING is destructive. Routine detail keeps the superset rail.
 
 **The drawer** — the top-left ++ key (and a leading-edge drag on any tab
 root) slides the whole app right, revealing `RevealSurface`: settings folded

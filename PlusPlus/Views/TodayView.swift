@@ -302,22 +302,25 @@ struct TodayView: View {
                                         anytimeCard
                                     }
                                 }
-                                // TODAY is ONE dated group now (the build-160
+                                // TODAY is ONE dated group (the build-160
                                 // restructure: dates pop out of the cards,
                                 // the node centers on the date row, cards
                                 // hang below). Every card of the day shares
-                                // this date; the group renders even empty —
-                                // today's date always marks the rail's now.
-                                TimelineItem(
-                                    node: dueRoutines.isEmpty ? .inert : .pending,
-                                    dateline: "today · \(todayDateText)"
-                                ) {
-                                    // Gated as a WHOLE: a zero-child VStack
-                                    // still takes the group's 8 pt dateline
-                                    // gap; an EmptyView doesn't, so a
-                                    // card-less today is the date row alone
-                                    // (swift-reviewer).
-                                    if todayGroupHasCards {
+                                // this one date row.
+                                // ⚠️ The whole ENTRY is gated, not just its
+                                // cards: a date row with nothing under it is
+                                // a rail entry that isn't one (Dave, build
+                                // 160 device pass — carried-over work
+                                // suppresses the rest-day card, which left
+                                // "today · sat · aug 1" standing alone over
+                                // the amber lane). Today earns a row when it
+                                // has something to show; the carried entries
+                                // right below carry their own dates.
+                                if todayGroupHasCards {
+                                    TimelineItem(
+                                        node: dueRoutines.isEmpty ? .inert : .pending,
+                                        dateline: "today · \(todayDateText)"
+                                    ) {
                                         VStack(alignment: .leading, spacing: 10) {
                                             if showsRestDayCard {
                                                 restDayCard
@@ -1152,7 +1155,7 @@ struct TodayView: View {
     /// (Kit `.missed`, 2026-07-14). No marker, no caption (Dave,
     /// 2026-07-23: the rail's all-caps headings died, and the old
     /// explainer line truncated mid-sentence on device) — the cards
-    /// carry it alone: amber ink, an amber node, and a "was wed" caption
+    /// carry it alone: amber ink, an amber node, and a past-dated row
     /// say lapsed-but-open without an obligation word.
     @ViewBuilder
     private var carriedOverSection: some View {
@@ -1174,9 +1177,14 @@ struct TodayView: View {
         }
     }
 
-    /// "was tue · jul 7" — the carried entry's date row.
+    /// "tue · jul 7" — the carried entry's date row, in the rail's one
+    /// date grammar. ⚠️ The "was" prefix is GONE (Dave, build 160 device
+    /// pass): every other entry prints a bare date, and a date in the
+    /// past under an amber node beside an amber card is already past
+    /// tense. The word was carrying tense the position had covered since
+    /// the dates left the cards.
     private func missedDateline(_ entry: MissedEntry) -> String {
-        "was \(railDay(entry.since))"
+        railDay(entry.since)
     }
 
     /// The gentle carried-over card: name, the day it was scheduled, and
@@ -2208,9 +2216,11 @@ private enum TimelineNode: Equatable {
     /// A setup step whose prerequisite isn't met yet — border-faint,
     /// so the rail reads "not yet yours".
     case gated
-    /// An OFFER on the rail (the anytime entry) — a dashed ring: present,
-    /// but not an occurrence. The same dash the future cards and the
-    /// anytime shell wear; "not yet a thing" is one visual idea.
+    /// An OFFER on the rail (the anytime entry) — a neutral ring, same
+    /// as `.inert`. ⚠️ It shipped build 160 DASHED, to echo the card's
+    /// shell; on glass an 18 pt circle of 2.6 pt dashes reads as a
+    /// rendering fault rather than a grammar (Dave). The card's own
+    /// dashed border carries "offer"; the dot just marks the row.
     case offer
 
     var strokeColor: Color {
@@ -2308,14 +2318,6 @@ private struct TimelineItem<Content: View>: View {
                 // committed node, so it fires exactly once (swift-reviewer).
                 .symbolEffect(.bounce, options: .nonRepeating, value: showsDoneFill)
                 .transition(.scale.combined(with: .opacity))
-        } else if node == .offer {
-            // The dash carries "not an occurrence" — same stroke weight
-            // as its solid siblings so the rail's rhythm holds.
-            Circle()
-                .strokeBorder(node.strokeColor, style: StrokeStyle(lineWidth: 2, dash: [2.6, 2.6]))
-                .frame(width: dot, height: dot)
-                .background(Circle().fill(Theme.background))
-                .transition(.opacity)
         } else {
             Circle()
                 .strokeBorder(strokeOverride ?? (converting ? Theme.accent : node.strokeColor), lineWidth: 2)

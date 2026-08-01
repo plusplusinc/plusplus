@@ -715,42 +715,42 @@ struct CatalogScopeView: View {
         let shown = sections.reduce(0) { $0 + $1.count }
         return ScrollViewReader { proxy in
             List {
-                // On TAB roots the facet row is the list's FIRST CONTENT, not
-                // a pinned inset (2026-08-01 device pass, the fallback named
-                // when the row shipped). Pinned as a top `safeAreaInset`, the
-                // system large-title bar never left its scrolled-under state
-                // (measured off the device screenshots): the large title
-                // never drew — a title-sized dead band above the chips at
-                // rest, no inline title in its place — and the bar painted
-                // its scrolled-under hairline in BOTH states, ~8 pt below the
-                // bar but only 4 pt above the chips (the 44 pt hit frame
-                // around a 36 pt chip), the imbalance Dave photographed.
-                // Likely mechanism: the pinned band shifts the list's resting
-                // offset by its own height, one large-title zone, which the
-                // bar reads as "already collapsed". Either way the Today
-                // week-strip law covers it: anything a large title can travel
-                // over has to be scroll content. Cost accepted: the chips
-                // scroll away with the list.
-                if mode.isTab {
-                    filterRow(shown: shown)
-                        .listRowInsets(EdgeInsets())
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
-                }
-                if showsCreateRow(collisions) {
-                    createRow
-                }
-                if showsKitHint {
-                    kitHint
-                }
-                // Real Sections (not loose header rows) so `.listStyle(.plain)`
-                // PINS each heading until the next pushes it up. A `.missing`
-                // section is the collapsible "require more equipment" group:
-                // its rows show only when expanded, behind a plain header row.
-                ForEach(sections) { section in
-                    switch section.kind {
-                    case .results:
-                        Section {
+                // ONE section holds the whole list, and on a TAB root its
+                // HEADER is the facet row — which is what makes the chips
+                // stick (Dave, 2026-08-01 device pass: "the filter menu
+                // triggers … aren't sticky, they're scrolling out the top
+                // of the viewport"). `.listStyle(.plain)` pins the current
+                // section's header, so a header over ALL the rows pins for
+                // the whole scroll.
+                //
+                // ⚠️ This is the THIRD mount, and the other two are both
+                // ruled out — do not re-try either. A pinned top
+                // `safeAreaInset` (#494) broke the system large-title bar
+                // on tab roots: no title at rest, a title-sized dead band,
+                // a hairline in both states (measured off Dave's
+                // screenshots, #521). First-list-CONTENT (#521's fix) kept
+                // the title honest but scrolls away, which is this note.
+                // A section header is inside the list's own layout, so it
+                // touches neither the safe area nor the nav bar: the title
+                // behaves and the chips stay put.
+                //
+                // ⚠️ The cost, accepted: the MINE/CATALOG tier labels stop
+                // pinning (they are plain rows now). Only one header can
+                // pin at a time, and the facet row has to outlive the tier
+                // boundaries or it isn't sticky — a tier label is a
+                // divider you read once, the chips are a control you reach
+                // for at any depth.
+                Section {
+                    if showsCreateRow(collisions) {
+                        createRow
+                    }
+                    if showsKitHint {
+                        kitHint
+                    }
+                    ForEach(sections) { section in
+                        switch section.kind {
+                        case .results:
+                            tierLabelRow(section)
                             ForEach(section.results) { result in
                                 resultRow(result, unlockedCounts: unlockedCounts)
                             }
@@ -758,11 +758,10 @@ struct CatalogScopeView: View {
                             // own doable ones with no query: a ranked or
                             // narrowed list has no order to write back.
                             .onMove(perform: moveHandler(for: section))
-                        } header: {
-                            sectionHeaderView(section)
-                        }
-                    case .missing(let noun):
-                        Section {
+                        case .missing(let noun):
+                            // The collapsible "require more equipment" group:
+                            // its rows show only when expanded, behind a
+                            // plain (never pinned) header row.
                             MissingEquipmentHeaderRow(
                                 count: section.count,
                                 noun: noun,
@@ -780,22 +779,29 @@ struct CatalogScopeView: View {
                             }
                         }
                     }
-                }
-                if sections.isEmpty {
-                    emptyState
+                    if sections.isEmpty {
+                        emptyState
+                    }
+                } header: {
+                    if mode.isTab {
+                        filterRow(shown: shown)
+                            .listRowInsets(EdgeInsets())
+                            .listRowSeparator(.hidden)
+                            .textCase(nil)
+                    }
                 }
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .scrollDismissesKeyboard(.immediately)
-            // PRESENTED and PICKER surfaces keep the facet row PINNED here —
-            // below the kit bar when presented, below the picker header.
-            // Opaque, rows scroll under it, no geometry probes (the morph
-            // law). Their chrome is app-drawn, so the system large-title
-            // machinery that broke the pinned form on tab roots (see the
-            // first-list-content note inside the List above) never runs on
-            // them. ⚠️ Do NOT re-pin this on tabs without a device pass —
-            // the failure is invisible to CI.
+            // PRESENTED and PICKER surfaces keep the facet row on a top
+            // `safeAreaInset` — below the kit bar when presented, below the
+            // picker header. Opaque, rows scroll under it, no geometry
+            // probes (the morph law). Their chrome is app-drawn, so the
+            // system large-title machinery that broke this mount on tab
+            // roots never runs on them; tabs pin the row as the list's own
+            // section header instead (see the List above). ⚠️ Do NOT move
+            // tabs back onto this inset — the failure is invisible to CI.
             .safeAreaInset(edge: .top, spacing: 0) {
                 if !mode.isTab {
                     filterRow(shown: shown)
@@ -880,9 +886,9 @@ struct CatalogScopeView: View {
     /// summary chip whenever anything is active (the summarize-never-
     /// insta-clear law). State is `filters`; the engine applies it.
     ///
-    /// Mounted two ways: the list's FIRST CONTENT on tab roots (scrolls away
-    /// — a pinned band under the system large-title bar broke the bar, see
-    /// `listBody`), a pinned top `safeAreaInset` on presented/picker
+    /// Mounted two ways, both PINNED: the single section's header on tab
+    /// roots (list-internal, so the system large-title bar never sees it —
+    /// see `listBody`), and a top `safeAreaInset` on presented/picker
     /// surfaces, whose chrome is app-drawn.
     private func filterRow(shown: Int) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -954,23 +960,23 @@ struct CatalogScopeView: View {
         }
     }
 
+    /// The MINE / CATALOG divider — a plain ROW since 2026-08-01, not a
+    /// pinned section header: the list's one pinning header is the facet
+    /// row (see `listBody`). It keeps its opaque fill anyway, so it reads
+    /// as a divider rather than a floating label.
     @ViewBuilder
-    private func sectionHeaderView(_ section: FindOrCreateEngine.Section) -> some View {
+    private func tierLabelRow(_ section: FindOrCreateEngine.Section) -> some View {
         // An untitled section is the flat run (the presented equipment
-        // catalog): no tiers, so nothing to head.
-        if section.title.isEmpty {
-            EmptyView()
-        } else {
+        // catalog): no tiers, so nothing to divide.
+        if !section.title.isEmpty {
             SheetSectionLabel("\(section.title) · \(section.count)")
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, 12)
             .padding(.horizontal, 16)
-            // Full-bleed SOLID background: a pinned header floats over the rows
-            // scrolling beneath it, so a clear fill would let their text show
-            // through.
             .background(Theme.background)
             .listRowInsets(EdgeInsets())
             .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
             .textCase(nil)
         }
     }
