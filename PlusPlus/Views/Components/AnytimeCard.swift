@@ -214,7 +214,7 @@ struct AnytimeCard: View {
                     .strokeBorder(Theme.accent.opacity(0.5)))
         }
         .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: Theme.keyRadius, travel: 3))
-        .accessibilityLabel("Choose which workouts appear here")
+        .accessibilityLabel("Pick which workouts appear here")
         .accessibilityIdentifier("quickStartEditButton")
     }
 
@@ -305,7 +305,7 @@ struct AnytimeCard: View {
     private var trainPanel: some View {
         VStack(alignment: .leading, spacing: 0) {
             panelHeader("Train")
-            Text("Starts empty. Add exercises as you go.")
+            Text("Starts empty. Build as you go.")
                 .font(.system(.footnote))
                 .foregroundStyle(Theme.textSecondary)
                 .padding(.top, 8)
@@ -313,7 +313,7 @@ struct AnytimeCard: View {
                 onStartEmpty()
             }
             .padding(.top, 12)
-            QuietKey(label: "Choose a routine", identifier: "anytimeChooseRoutine") {
+            QuietKey(label: "Pick a routine", identifier: "anytimeChooseRoutine") {
                 open(.rack)
                 onChooseRoutine()
             }
