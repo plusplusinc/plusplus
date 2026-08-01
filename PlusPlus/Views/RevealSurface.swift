@@ -279,7 +279,14 @@ struct RevealSurface: View {
         // fault flag can't paint it red).
         let faulted = sync.connection == .disconnected && sync.faulted
         let dot: Color = connected ? Theme.accent : (faulted ? Theme.destructive : Theme.textFaint)
-        let secondary: String? = connected ? "connected" : (faulted ? "disconnected" : nil)
+        // A pass in flight outranks the resting word (#509, b16): the row
+        // read "connected" throughout a multi-second sync, so the one place
+        // that summarises sync never showed it doing anything. `isSyncing`
+        // was already surfaced inside the tray and on the pull; the summary
+        // was the gap.
+        let secondary: String? = sync.isSyncing
+            ? "Syncing…"
+            : (connected ? "connected" : (faulted ? "disconnected" : nil))
         return statusRow(
             dot: dot,
             icon: { Image("GitHubMark").resizable().scaledToFit().frame(width: 16, height: 16).accessibilityHidden(true) },
