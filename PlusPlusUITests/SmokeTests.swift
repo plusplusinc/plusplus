@@ -612,6 +612,44 @@ final class SmokeTests: XCTestCase {
         )
     }
 
+    /// #503's exit-door regression: the dialog's Finish used to dismiss
+    /// instantly — no recap, and no finish notification, so Today never
+    /// landed or converted the card. Every finish door goes through the
+    /// recap now, and Continue is the ONE place the landing posts, so
+    /// reaching Today at the end proves the notification fired for this
+    /// door too.
+    func testEarlyFinishRoutesThroughRecap() throws {
+        createRoutine(named: "Early Out")
+        addExercise(searching: "Push-Up")
+
+        app.buttons["startWorkoutButton"].tap()
+
+        // Log ONE of the three sets, then end early from the HUD.
+        let complete = app.buttons["completeSetButton"]
+        XCTAssertTrue(complete.waitForExistence(timeout: 10), "the first set screen")
+        complete.tap()
+        skipRest(afterSet: 1)
+
+        let end = app.buttons["End workout"]
+        XCTAssertTrue(end.waitForExistence(timeout: 5), "the HUD's End key")
+        end.tap()
+        let finish = app.buttons["Finish workout"]
+        XCTAssertTrue(finish.waitForExistence(timeout: 5), "the exit dialog offers Finish with sets logged")
+        finish.tap()
+
+        XCTAssertTrue(
+            app.staticTexts["Workout Complete"].waitForExistence(timeout: 5),
+            "the exit dialog's Finish shows the recap, like every other finish door (#503)"
+        )
+        snap("early-finish-recap")
+        app.buttons["sessionDoneButton"].tap()
+
+        XCTAssertTrue(
+            app.buttons["quickStartEditButton"].waitForExistence(timeout: 10),
+            "closing the recap lands on Today — the landing this door used to skip"
+        )
+    }
+
     /// Regression for the third-strike scroll bug: with enough exercises
     /// to overflow the screen, the detail list must actually scroll (the
     /// long-press rail gestures used to starve the scroll pan).
