@@ -244,14 +244,31 @@ struct RootTabView: View {
             // bar this screen hides, which is why build 135 had no visible input
             // at all. Only THIS tab carries the field, for the same reason.
             Tab(value: AppTab.search, role: .search) {
-                // ⚠️ The field and the scope bar are NOT attached here. They go
-                // INSIDE `CatalogScopeView`'s own `NavigationStack` — see its
-                // `searchScope` note. Build 140 attached them out here and the
-                // scope bar never appeared: `.searchScopes` needs `.searchable`
-                // on a view inside a navigation container, and out here the
-                // modifier lands above that stack. The FIELD still morphed
-                // (the tab role does that), which is what made it look wired up.
+                // ⚠️ The FIELD is attached HERE, above the surface's
+                // `NavigationStack` — restored on build 166 after two builds of
+                // the field flying in from the top right (163, 165).
+                //
+                // It sat inside that stack from 2026-07-24, and the only reason
+                // was `.searchScopes`, which needs a presentation inside a
+                // navigation container. Native scopes were retired the very next
+                // day (the scope control is a `.principal` toolbar row now), so
+                // what remained was a field OWNED BY A NAVIGATION BAR on a
+                // surface whose whole point is the tab-bar morph. iOS 26 seats
+                // that field in the bar first — top trailing, where a collapsed
+                // search item goes — and then relocates it into the morph, which
+                // is precisely the flight across the screen Dave reported. Out
+                // here the tab owns it from the first frame and has nothing to
+                // relocate. Build 140 already recorded that the field morphs
+                // from this placement; only the scope bar ever needed the other.
                 catalog(scope, on: .search, searchScope: $scope)
+                    .searchable(text: $query, prompt: "Search \(scope.searchNoun)")
+                    // Keep the bar's OTHER content — the ++ key, the kit
+                    // switcher and the scope control — while search is active
+                    // (Dave, build 147). The system's `.automatic` behaviour
+                    // clears the bar to give search room, which is what emptied
+                    // the top band on 143. It travels DOWN the environment, so
+                    // attached out here it still governs the nav bar inside.
+                    .searchPresentationToolbarBehavior(.avoidHidingContent)
             }
         }
         // ⚠️ NOTHING rides `tabViewBottomAccessory` any more. The scope control
