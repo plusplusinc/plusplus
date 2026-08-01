@@ -338,7 +338,19 @@ final class WatchBridge: NSObject, WCSessionDelegate {
     /// extras, a completion the ops lost — and never downgrades a value
     /// the row already holds, so a re-delivered result is a no-op.
     private func merge(_ result: WatchSync.SessionResult, into session: WorkoutSession, context: ModelContext) {
-        LiveMirror.clearRemoteActivity(session.sessionId)
+        // The import used to close the registry entry unconditionally —
+        // but on a session the PHONE is still authoring, the entry IS
+        // the participation fact the Health single-writer decision reads
+        // at finish (#519): the wrist ended its share early, saved its
+        // HK session, and shipped this result while the phone user kept
+        // going. Clearing here made `watchParticipated` answer false at
+        // the phone's later finish, and the phone wrote a duplicate on
+        // top of the wrist's save. A finished/foreign session still
+        // clears — the backstop for a wrist-solo import whose lifecycle
+        // op was lost.
+        if !LiveMirror.phoneIsAuthoring(session.sessionId) {
+            LiveMirror.clearRemoteActivity(session.sessionId)
+        }
         if result.averageHeartRate != nil { session.averageHeartRate = result.averageHeartRate }
         if result.maxHeartRate != nil { session.maxHeartRate = result.maxHeartRate }
         let logs = session.sortedSetLogs

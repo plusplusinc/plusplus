@@ -215,6 +215,17 @@ final class LiveMirror {
         // undone by the ledger write that follows it (#512).
         switch op.kind {
         case .finished, .discarded: break
+        case .logSet:
+            noteRemoteActivity(sessionId)
+            // A logged set is PARTICIPATION (#519) — the mark the Health
+            // single-writer decision reads. Deliberately here, before the
+            // fetch: an op parked ahead of its `.started` still proves
+            // the wrist trained. Rest/cursor ops mark only liveness — a
+            // wrist that adopted a session to glance mid-rest emits
+            // `.restEnded` when the countdown expires, and counting that
+            // as participation stood the phone's writer down with the
+            // wrist having nothing to save (swift-reviewer).
+            noteWatchLogged(sessionId)
         default: noteRemoteActivity(sessionId)
         }
         var descriptor = FetchDescriptor<WorkoutSession>(
@@ -382,6 +393,10 @@ final class LiveMirror {
         if map.removeValue(forKey: sessionId.uuidString) != nil {
             UserDefaults.standard.set(map, forKey: liveElsewhereKey)
         }
+        var logged = (UserDefaults.standard.dictionary(forKey: watchLoggedKey) as? [String: Double]) ?? [:]
+        if logged.removeValue(forKey: sessionId.uuidString) != nil {
+            UserDefaults.standard.set(logged, forKey: watchLoggedKey)
+        }
         // The session's lifecycle is over: its parked ops go with it —
         // but its LEDGER stays as a tombstone (#512, stage-3 review): a
         // duplicate `.started` from the error-fallback queue would
@@ -466,6 +481,36 @@ final class LiveMirror {
         guard let map = UserDefaults.standard.dictionary(forKey: liveElsewhereKey) as? [String: Double],
               let last = map[sessionId.uuidString] else { return false }
         return Date().timeIntervalSince1970 - last < liveElsewhereWindow
+    }
+
+    // MARK: - Watch participation (#519)
+
+    /// sessionIds the wrist LOGGED a set in — its own registry, marked
+    /// only on `.logSet` (rest/cursor ops prove liveness, not training),
+    /// with no time window: the Health single-writer rule keys on
+    /// participation, and a set logged on the watch this morning still
+    /// means the watch wrote the training, however long the phone held
+    /// the session open after. Bounded by session count (oldest out),
+    /// cleared with the liveness entry on lifecycle closure.
+    private nonisolated static let watchLoggedKey = "liveMirrorWatchLogged"
+
+    nonisolated static func noteWatchLogged(_ sessionId: UUID, at date: Date = Date()) {
+        registryLock.lock(); defer { registryLock.unlock() }
+        var map = (UserDefaults.standard.dictionary(forKey: watchLoggedKey) as? [String: Double]) ?? [:]
+        if map[sessionId.uuidString] == nil { map[sessionId.uuidString] = date.timeIntervalSince1970 }
+        while map.count > ledgerSessionCap,
+              let victim = map.filter({ $0.key != sessionId.uuidString }).min(by: { $0.value < $1.value })?.key {
+            map.removeValue(forKey: victim)
+        }
+        UserDefaults.standard.set(map, forKey: watchLoggedKey)
+    }
+
+    /// Whether the wrist logged in this session — what `finishSession`
+    /// reads to stand the phone's Health writers down (#519).
+    nonisolated static func watchParticipated(_ sessionId: UUID) -> Bool {
+        registryLock.lock(); defer { registryLock.unlock() }
+        let map = (UserDefaults.standard.dictionary(forKey: watchLoggedKey) as? [String: Double]) ?? [:]
+        return map[sessionId.uuidString] != nil
     }
 
     nonisolated private static func materialize(sessionId: UUID, routineName: String, startedAt: Date, restSeconds: Int, steps: [WatchSync.Step], routineUuid: UUID?, into context: ModelContext) {
