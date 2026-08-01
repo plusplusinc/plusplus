@@ -233,14 +233,22 @@ this surface the control effectively is.
   shown" computed only on open, Clear all inside); empty results add a
   "Clear filters" QuietKey; the create row never filters; an item that can't
   answer an active facet drops out under it (customs under the attribute
-  chips) — muscle excepted, customs carry their own groups. The row is a top
-  `safeAreaInset` on the List — pinned, opaque, no geometry probes;
-  ⚠️ the large title travels over it on tab-root overscroll (cosmetic — the
-  catalogs have no `.refreshable`; device-pass item, fallback is
-  first-list-content). Typing still reaches everything without chips: muscle
-  groups, movement patterns and hidden synonyms (`CatalogSearchSynonyms` —
-  "erg", "rdl", "trx") ride `ExerciseFilterState.searchHaystack` and the
-  equipment scorer.
+  chips) — muscle excepted, customs carry their own groups. ⚠️ **On tab roots
+  the row is the list's FIRST CONTENT** (2026-08-01 device pass took the
+  named fallback): pinned as a top `safeAreaInset` it shifted the list's
+  resting offset by its own height, and the system large-title bar read that
+  as "already collapsed" — the large title never drew (a title-sized dead
+  band above the chips at rest), no inline title replaced it, and the bar's
+  scrolled-under hairline showed permanently, ~8 pt below the bar and 4 pt
+  above the chips (the 44 pt hit frame), Dave's "imbalanced" line. The Today
+  week-strip law covers this: anything a large title can travel over has to
+  be scroll content. Chips scrolling away with the list is the accepted
+  cost; invisible to CI, so re-pinning needs a device pass. PRESENTED and
+  PICKER surfaces keep the pinned, opaque top `safeAreaInset` (app-drawn
+  chrome, no large-title machinery); no geometry probes anywhere. Typing
+  still reaches everything without chips: muscle groups, movement patterns
+  and hidden synonyms (`CatalogSearchSynonyms` — "erg", "rdl", "trx") ride
+  `ExerciseFilterState.searchHaystack` and the equipment scorer.
 - **Kit availability is NOT a filter** (2026-07-25): nothing is HIDDEN by the
   active kit. What the kit can't do groups under a collapsible **"N
   exercises/routines require more equipment"** disclosure
