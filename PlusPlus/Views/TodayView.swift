@@ -303,38 +303,27 @@ struct TodayView: View {
                                     node: dueRoutines.isEmpty ? .inert : .pending,
                                     dateline: "today · \(todayDateText)"
                                 ) {
-                                    VStack(alignment: .leading, spacing: 10) {
-                                        // The rest-day card yields to the setup
-                                        // scaffold until a startable routine
-                                        // exists — "nothing scheduled" and
-                                        // "schedule it (3 of 3)" saying the same
-                                        // thing twice reads broken. Once a
-                                        // routine CAN start, it returns (#246):
-                                        // scheduling is optional and must not
-                                        // read as the only path to working out.
-                                        // It also yields when carried-over work
-                                        // exists (2026-07-14): the CARRIED OVER
-                                        // lane is the actionable surface then.
-                                        // A won day (a workout completed,
-                                        // nothing scheduled outstanding) shows
-                                        // no placeholder (Dave, 2026-07-24). A
-                                        // due-but-empty repair prompt
-                                        // (promptsWorkout) still shows.
-                                        if dueRoutines.isEmpty && missedEntries.isEmpty
-                                            && !(completedAnyToday && !promptsWorkout)
-                                            && (!setupActive || allSetupDone || !startableRoutines.isEmpty) {
-                                            restDayCard
-                                        }
-                                        ForEach(dueButEmptyRoutines) { routine in
-                                            // Inert grey by intent lives on the
-                                            // CARD now (the group node reads the
-                                            // day): the routine isn't startable —
-                                            // its CTA repairs, it doesn't perform.
-                                            emptyRoutineCard(routine)
-                                        }
-                                        ForEach(dueRoutines) { routine in
-                                            pendingCard(routine)
-                                                .matchedTransitionSource(id: routine.persistentModelID, in: zoomNamespace)
+                                    // Gated as a WHOLE: a zero-child VStack
+                                    // still takes the group's 8 pt dateline
+                                    // gap; an EmptyView doesn't, so a
+                                    // card-less today is the date row alone
+                                    // (swift-reviewer).
+                                    if todayGroupHasCards {
+                                        VStack(alignment: .leading, spacing: 10) {
+                                            if showsRestDayCard {
+                                                restDayCard
+                                            }
+                                            ForEach(dueButEmptyRoutines) { routine in
+                                                // Inert grey by intent lives on the
+                                                // CARD now (the group node reads the
+                                                // day): the routine isn't startable —
+                                                // its CTA repairs, it doesn't perform.
+                                                emptyRoutineCard(routine)
+                                            }
+                                            ForEach(dueRoutines) { routine in
+                                                pendingCard(routine)
+                                                    .matchedTransitionSource(id: routine.persistentModelID, in: zoomNamespace)
+                                            }
                                         }
                                     }
                                 }
@@ -1049,7 +1038,6 @@ struct TodayView: View {
     /// history list can't afford. nil when there's no history (a first
     /// outing needs no caption).
     private func lastOutingLine(for exercise: Exercise) -> String? {
-        let profile = exercise.metricProfile
         guard let session = sessions.first(where: { session in
             session.completedSetLogs.contains { $0.exerciseName == exercise.name }
         }) else { return nil }
@@ -1057,7 +1045,12 @@ struct TodayView: View {
         var parts: [String] = []
         let distance = logs.compactMap { $0.actual(.distance) }.reduce(0, +)
         if distance > 0 {
-            parts.append(WorkoutMetric.distance.displayText(distance, distanceUnit: profile.distanceUnit))
+            // ⚠️ The LOG's snapshot unit, never the live profile's: the
+            // stored distance is in the unit it was logged under, and a
+            // later unit edit must not relabel history (rule-5 class;
+            // the overview reads the same way — swift-reviewer).
+            let unit = logs.first?.metricProfile.distanceUnit ?? exercise.metricProfile.distanceUnit
+            parts.append(WorkoutMetric.distance.displayText(distance, distanceUnit: unit))
         }
         let seconds = logs.compactMap(\.actualDuration).reduce(0, +)
         if seconds > 0 {
@@ -1487,7 +1480,15 @@ struct TodayView: View {
     /// through `HealthStartGate` like every other start, or the first
     /// workout would skip the Health primer.
     private func startQuick(_ config: SessionExerciseConfig) {
-        guard activeSession == nil else { return }
+        // The same fire-time guard row as start(_:), and for the same
+        // reason since the anytime panels wired StartFlashButton straight
+        // in: the deferred fire can land after a same-panel Custom… tap
+        // has already presented the config sheet (the panel's removal
+        // transition outlives nothing — the 0.85 s flash outlives IT),
+        // and setting activeSession under a live sheet is the
+        // presentation-drop class (swift-reviewer, anytime round).
+        guard activeSession == nil, quickStartConfig == nil,
+              !editingQuickStarts, healthStartRequest == nil else { return }
         HealthStartGate.begin({
             guard activeSession == nil else { return }
             let session = WorkoutSession.startEmpty(context: modelContext)
@@ -1501,7 +1502,10 @@ struct TodayView: View {
     /// orphan salvage deletes 0-set sessions, and the empty stage never
     /// auto-finishes, so nothing 0-set can commit.
     private func startEmptySession() {
-        guard activeSession == nil else { return }
+        // Same fire-time guard row as start(_:)/startQuick — Train's
+        // "Start empty" rides the same deferred flash (swift-reviewer).
+        guard activeSession == nil, quickStartConfig == nil,
+              !editingQuickStarts, healthStartRequest == nil else { return }
         HealthStartGate.begin({
             guard activeSession == nil else { return }
             activeSession = WorkoutSession.startEmpty(context: modelContext)
@@ -2064,6 +2068,27 @@ struct TodayView: View {
         (setupActive && !allSetupDone) || !dueButEmptyRoutines.isEmpty
     }
 
+    /// The rest-day card yields to the setup scaffold until a startable
+    /// routine exists — "nothing scheduled" and "schedule it (3 of 3)"
+    /// saying the same thing twice reads broken. Once a routine CAN start,
+    /// it returns (#246): scheduling is optional and must not read as the
+    /// only path to working out. It also yields when carried-over work
+    /// exists (2026-07-14): the CARRIED OVER lane is the actionable surface
+    /// then. A won day (a workout completed, nothing scheduled outstanding)
+    /// shows no placeholder (Dave, 2026-07-24). A due-but-empty repair
+    /// prompt (promptsWorkout) still shows.
+    private var showsRestDayCard: Bool {
+        dueRoutines.isEmpty && missedEntries.isEmpty
+            && !(completedAnyToday && !promptsWorkout)
+            && (!setupActive || allSetupDone || !startableRoutines.isEmpty)
+    }
+
+    /// Whether TODAY's dated group holds any card at all — a card-less day
+    /// renders its date row alone, with no phantom content gap.
+    private var todayGroupHasCards: Bool {
+        showsRestDayCard || !dueButEmptyRoutines.isEmpty || !dueRoutines.isEmpty
+    }
+
     /// "Rest day" is a claim — don't make it while an empty scheduled
     /// routine is due (the card above names that state) or mid-setup.
     private var restDayTitle: String {
@@ -2218,7 +2243,11 @@ private struct TimelineItem<Content: View>: View {
                     Text(dateline)
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(datelineColor)
-                        .frame(height: Self.diameter)
+                        // minHeight, not height: AX type sizes outgrow
+                        // 18 pt and a fixed frame doesn't clip — the row
+                        // grows and the node reads top-aligned there,
+                        // which beats overlap (swift-reviewer).
+                        .frame(minHeight: Self.diameter, alignment: .leading)
                 }
                 content()
             }

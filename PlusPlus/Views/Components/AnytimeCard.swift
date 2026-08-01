@@ -89,7 +89,10 @@ struct AnytimeCard: View {
                 .strokeBorder(Theme.borderStrong, style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
                 .opacity(stage == .rack ? 1 : 0)
         )
-        .animation(Theme.Anim.standard, value: stage == .rack)
+        // No `.animation(value:)` here: the overlay's fade rides the
+        // stage change's own withAnimation transaction, and a root-level
+        // animation override would re-time the whole morph off the
+        // selection spring (swift-reviewer).
     }
 
     private func open(_ next: Stage) {
