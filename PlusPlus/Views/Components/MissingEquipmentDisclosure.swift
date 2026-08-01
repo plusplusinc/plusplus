@@ -68,13 +68,18 @@ enum MissingEquipmentPhrasing {
 }
 
 /// The "not rated" disclosure's one sentence (#507, Q14-A). Effort and
-/// Style are catalog ratings, so a routine you built yourself simply
-/// has none — the sentence states that about the ROUTINES, never about
-/// the user, and never as something to fix.
+/// Style are catalog ratings, so a routine with no catalog template
+/// simply has none — the sentence states that about the ROUTINES, never
+/// about the user, and never as something to fix.
+///
+/// ⚠️ It says nothing about WHO made them. "routines you built" was
+/// false for an imported one (`ShareImportSheet` produces routines with
+/// no `catalogTemplate` too), and provenance was never the point
+/// (swift-reviewer).
 enum UnratedPhrasing {
     static func line(count: Int) -> String {
         count == 1
-            ? "1 routine you built has no effort or style rating"
-            : "\(count) routines you built have no effort or style rating"
+            ? "1 routine has no effort or style rating"
+            : "\(count) routines have no effort or style rating"
     }
 }

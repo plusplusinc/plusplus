@@ -233,8 +233,16 @@ struct CatalogScopeView: View {
     /// how many matches the active facets are holding back. ONE pass —
     /// the engine counts the hidden rows where it already examines them,
     /// so both the "N hidden by filters" key and the summary popover's
-    /// "N of M shown" come free (#507; the second-pass cost that made
-    /// that total a closure is gone with it).
+    /// "N of M shown" come free (#507).
+    ///
+    /// ⚠️ The alternative was `unfilteredCount() - shown`, and the trap
+    /// is that it looks cheap: the old `unfilteredCount()` really was a
+    /// second full ranking pass, but it was a CLOSURE the popover fired
+    /// on OPEN, so it cost nothing while you typed. Reading it from a
+    /// row in the list would have moved that pass into the render path —
+    /// per keystroke, for a list nobody had asked a question about. The
+    /// number being always-in-hand is also why the chip's `total` stops
+    /// being a closure: there is nothing left to defer.
     private var outcome: FindOrCreateEngine.Outcome {
         FindOrCreateEngine.outcome(
             query: trimmedQuery,
@@ -354,7 +362,7 @@ struct CatalogScopeView: View {
         //
         // ⚠️ It is still not free, which is why the other four roots don't pay
         // for it: the closure re-runs on every size change, height included, and
-        // rebuilding this view re-runs the ranking pipeline (`displayedSections`
+        // rebuilding this view re-runs the ranking pipeline (`outcome`
         // is hoisted in `listBody` precisely because it is expensive). On the
         // search tab that pipeline already runs per keystroke, so the extra
         // passes are marginal; on a scrolling catalog the tab bar minimising
@@ -755,7 +763,7 @@ struct CatalogScopeView: View {
                     // create row is the easy path to a near-duplicate,
                     // so what the filters are HIDING has to be read
                     // before it, not after.
-                    if hiddenByFilters > 0 {
+                    if !trimmedQuery.isEmpty, hiddenByFilters > 0 {
                         hiddenByFiltersRow(hiddenByFilters)
                     }
                     if showsCreateRow(collisions) {
@@ -943,6 +951,12 @@ struct CatalogScopeView: View {
     /// one could ("bench" under Kind=Cardio hides Bench Press and offers
     /// Create "Bench" — the easy path to a near-duplicate). This is that
     /// gap. The count rides `outcome`, so it costs nothing.
+    ///
+    /// ⚠️ QUERIED lists only. With no query there is no near-duplicate to
+    /// guard against (the create row reads "New exercise" and opens the
+    /// editor), and the summary chip's "N of M shown" is already saying
+    /// the same thing one row above — a permanent second copy of it over
+    /// every browse (swift-reviewer). The count still feeds that chip.
     private func hiddenByFiltersRow(_ count: Int) -> some View {
         QuietKey(
             label: "\(count) more \(scope.searchNoun(for: count)) hidden by filters · show",
@@ -1446,12 +1460,13 @@ struct CatalogScopeView: View {
         guard !isBodyweightKit else {
             // …and now it SAYS so (#507, b9): the tray used to arrive
             // with no connection to the create row that summoned it.
-            // The kit is named through `activeKitPhrase` — mid-sentence
-            // prose takes the NOUN ("the null kit"), never a bare name
-            // (design-grammar's KitTag rule); hardcoding a description
-            // of it named a kit that doesn't exist under that name.
-            let kit = EquipmentLibrary.activeKitPhrase(in: libraries, storedID: activeLibraryID)
-            libraryTrayReason = "\(kit.sentenceCasedFirst) is always empty, so \(quotedQuery) can't go in it. Pick another kit."
+            // ⚠️ It names the kit the way the SWITCHER does — the raw
+            // reserved name, which is the only string the user has ever
+            // seen for it — and borrows `kitHint`'s explanation verbatim
+            // so the app has ONE account of what null is. A hand-written
+            // description ("Bodyweight only…") named a kit that exists
+            // under no such name (swift-reviewer).
+            libraryTrayReason = "\(EquipmentLibrary.bodyweightName) is the no-equipment kit, so \(quotedQuery) can't go in it. Pick another kit."
             showingLibraryTray = true
             return
         }

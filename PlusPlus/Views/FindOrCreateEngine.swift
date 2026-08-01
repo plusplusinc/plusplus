@@ -43,14 +43,18 @@ enum FindScope: String, CaseIterable {
         }
     }
 
-    /// The same noun, counted — "1 routine", "3 exercises", and
-    /// "equipment" either way (it is already a mass noun, the kit-vs-
-    /// equipment vocabulary law). For the hidden-by-filters row (#507).
+    /// The same noun, COUNTED, for the hidden-by-filters row (#507).
+    /// ⚠️ "equipment" is a mass noun and cannot take a bare numeral
+    /// ("3 more equipment"), so the kit scope counts in **pieces** — the
+    /// app's own countable word for one item of equipment (the live
+    /// session's "piece 3", the resolve sheet's "add the piece", routine
+    /// detail's in-kit chip). `searchNoun` keeps the mass noun for
+    /// prompts and empty states, where nothing is counting.
     func searchNoun(for count: Int) -> String {
         switch self {
         case .routines: return count == 1 ? "routine" : "routines"
         case .exercises: return count == 1 ? "exercise" : "exercises"
-        case .kit: return "equipment"
+        case .kit: return count == 1 ? "piece" : "pieces"
         }
     }
 }
@@ -216,12 +220,17 @@ enum FindOrCreateEngine {
     /// operations here: each candidate is SCORED first and classified by
     /// facet second, so a hidden row is counted where it was already
     /// being examined. Deriving it instead as "unfiltered total minus
-    /// shown" costs a second full ranking pass per keystroke — the exact
-    /// cost the per-scope match counts were retired over (2026-07-25),
-    /// and the reason `FilterSummaryChip`'s total used to be a closure.
+    /// shown" would put a second full ranking pass in the RENDER path —
+    /// per keystroke, which is the cost the per-scope match counts were
+    /// retired over (2026-07-25). (The `unfilteredCount()` this replaces
+    /// was that same second pass, but deferred behind a closure the
+    /// summary popover fired on OPEN; a row in the list cannot defer.)
     /// Output is unchanged by the reorder: scoring is per-item pure, so
     /// filtering before or after it yields the same set in the same
-    /// order.
+    /// order. ⚠️ It is not free in the other direction: with a facet
+    /// active a keystroke now scores every candidate rather than the
+    /// surviving subset — the same work an unfiltered pass has always
+    /// done, and the price of being able to say what was hidden.
     static func outcome(
         query: String,
         scope: FindScope,

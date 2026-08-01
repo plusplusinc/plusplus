@@ -215,13 +215,14 @@ this surface the control effectively is.
   `FindOrCreateEngine` so facets narrow and the query ranks.
   ⚠️ **What a facet hides is NAMED, and counted in the pass that built the
   list** (#507): `FindOrCreateEngine.outcome` scores each candidate first and
-  classifies it by facet second, so an excluded MATCH is counted where it was
-  already examined. One number feeds all three readers — an "N hidden by
-  filters · show" QuietKey ABOVE the create row (which is the easy path to a
-  near-duplicate), the empty state naming the filters, and
-  `FilterSummaryChip`'s "N of M shown". Deriving it as "unfiltered total minus
-  shown" is a second ranking pass per keystroke, the cost the per-scope counts
-  were retired over; don't reintroduce it. Empty results add a
+  classifies by facet second, so an excluded MATCH is counted where it was
+  already examined. That one number feeds the "N hidden by filters · show"
+  QuietKey above the create row (QUERIED lists only: the create row is the
+  near-duplicate path, and with no query the summary chip already says it),
+  the empty state naming the filters, and "N of M shown". Never derive it as
+  "unfiltered total minus shown" — deferred behind the popover that pass was
+  fine, in the render path it is one per keystroke, the cost the per-scope
+  counts were retired over. Empty results add a
   "Clear filters" QuietKey; the create row never filters; an item that can't
   answer an active facet drops out under it (customs under the attribute
   chips) — muscle excepted, customs carry their own groups. ⚠️ Except where it
@@ -298,9 +299,8 @@ old hand rules policed.
   render in the gap the pull opens (below the band now). If the pull reads
   broken on glass, the recorded fallback is the sticky-in-scroll mechanism
   at 8b9e16b (boundary-mounted, no reservation), not build 152's revert.
-  ⚠️ #521 adds a second check here: a pinned top inset desynced the
-  catalogs' large-title bar (a `List`; Today's `ScrollView` is unproven).
-  Check the TITLE AT REST; the same fallback covers it.
+  ⚠️ And check the TITLE AT REST: a pinned top inset desynced the
+  catalogs' large-title bar (#521; Today's `ScrollView` is unproven).
 - ⚠️ **The rail is DATE-FIRST, and quick start is its ANYTIME entry**
   (Dave, build 161). Every dated entry renders its date on its OWN row,
   node CENTERED on it (both stand one node-diameter tall), card below;
@@ -340,11 +340,10 @@ old hand rules policed.
   OPENS**, not in the timeline — a zero-height `Color.clear` at the very top
   of the content with the line `.overlay(alignment: .bottom)` on it, so the
   line's bottom edge lands exactly on the content's top: above the first row,
-  reserving nothing, clipped at rest. ⚠️ Plain alignment, not a custom guide:
-  `alignmentGuide(.top) { $0[.bottom] }` on an overlay of the content stack
-  was NOT honoured — it collided with the week tally (154). Two placements
-  failed before it: below the today anchor (a screenful past the pull) and
-  first content (shoved the timeline down, 153). It lives in the gap so it is
+  reserving nothing, clipped at rest. ⚠️ Plain alignment, not a custom guide (an
+  `alignmentGuide(.top) { $0[.bottom] }` overlay was NOT honoured and collided
+  with the week tally, 154; two earlier placements missed the gap entirely,
+  153). It lives in the gap so it is
   visible only while the gap is open, and the system holds that open until
   the `refreshable` closure returns — the closure waits a beat before
   returning, a connected sync says "Syncing…" BEFORE the network, and
