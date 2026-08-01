@@ -67,6 +67,9 @@ struct TodayView: View {
     @State private var showingScheduleRoutine = false
     /// Quick start (2026-07-30): the picked sports on the pinned band.
     @AppStorage(QuickStartPicks.key) private var quickStartRaw = QuickStartPicks.raw(from: QuickStartPicks.fallback)
+    /// The schedule step's no-schedule completion (#505, Q26-A) —
+    /// @AppStorage so choosing it re-renders the scaffold.
+    @AppStorage(SetupState.trainingFreestyleKey) private var trainingFreestyle = false
     @State private var quickStartConfig: SessionExerciseConfig?
     @State private var editingQuickStarts = false
     @State private var activeSession: WorkoutSession?
@@ -288,7 +291,13 @@ struct TodayView: View {
                                 // nothing from setup — the scaffold keeps
                                 // its one beginning (the same gate the old
                                 // pinned rack had).
-                                if !setupActive || allSetupDone {
+                                // The anytime entry reveals once the KIT
+                                // is settled (#505, Q25-A): step 1 keeps
+                                // the landing's focus, and from step 2 on
+                                // a spontaneous run is a valid second
+                                // door — a committed session dissolves
+                                // the scaffold naturally.
+                                if !setupActive || equipmentStepDone {
                                     TimelineItem(node: .offer, dateline: "anytime") {
                                         anytimeCard
                                     }
@@ -1222,12 +1231,10 @@ struct TodayView: View {
     /// "Latest" is by endedAt, matching the comparison the schedule
     /// engine makes.
     private func recentCompletions(of routine: Routine) -> (last: Date?, previous: Date?) {
-        let identityMatches = sessions.filter { $0.routine === routine }
-        let pool = identityMatches.isEmpty
-            ? sessions.filter { $0.routineName == routine.name }
-            : identityMatches
-        let dates = pool.compactMap(\.endedAt).sorted(by: >)
-        return (dates.first, dates.count > 1 ? dates[1] : nil)
+        // ONE pool definition, four consumers (#505 review) — the
+        // rail, the tab icon, the widget and the recap must never
+        // disagree about what completed a routine.
+        WorkoutSession.recentCompletionDates(of: routine, in: sessions)
     }
 
     /// The last time each staged exercise was performed, summarized
@@ -1409,12 +1416,18 @@ struct TodayView: View {
         // Identity when both sessions still reference a routine; name
         // otherwise. "Previous" is the max endedAt below this one — the
         // query's startedAt order isn't the comparison order (bug hunt).
+        let names = Set(session.completedSetLogs.map(\.exerciseName))
         let candidates = sessions.filter { other in
             let sameRoutine: Bool
             if let a = other.routine, let b = session.routine {
                 sameRoutine = a === b
             } else {
+                // The same shared-exercise gate the record's Δ header
+                // wears (#505, b7): the card's net chip and the record
+                // must resolve the SAME previous session, and a name
+                // pair with nothing in common is a number about nothing.
                 sameRoutine = other.routineName == session.routineName
+                    && !names.isDisjoint(with: other.completedSetLogs.map(\.exerciseName))
             }
             return sameRoutine && (other.endedAt ?? .distantPast) < (session.endedAt ?? .distantPast)
         }
@@ -1492,6 +1505,14 @@ struct TodayView: View {
         HealthStartGate.begin({
             guard activeSession == nil else { return }
             let session = WorkoutSession.startEmpty(context: modelContext)
+            // The sport is the name (#505, Q9-A): a week of runs read
+            // as identical "Scratch workout" cards forever, and the
+            // Δ-vs-previous matcher paired every scratch session by
+            // that one shared name. The marker is what keeps the
+            // sport name OUT of a same-named routine's completion
+            // pool (`WorkoutSession.completions`).
+            session.routineName = config.exercise.name
+            session.isQuickStart = true
             _ = session.appendExercise(config: config, context: modelContext)
             activeSession = session
         }, orPresent: { healthStartRequest = $0 })
@@ -1812,7 +1833,10 @@ struct TodayView: View {
     private var equipmentStepDone: Bool { SetupState.equipmentDone }
     private var routineStepDone: Bool { !routines.isEmpty }
     private var scheduleStepDone: Bool {
-        routines.contains { $0.schedule.normalized != .unscheduled }
+        // No-schedule is a fully valid completion (#505, Q26-A — the
+        // anti-obligation stance): the stored freestyle choice counts,
+        // exactly as equipment's own done flag does (#232).
+        routines.contains { $0.schedule.normalized != .unscheduled } || trainingFreestyle
     }
 
     private var allSetupDone: Bool { equipmentStepDone && routineStepDone && scheduleStepDone }
@@ -1825,13 +1849,21 @@ struct TodayView: View {
                 state: scheduleStepDone ? .done : (routineStepDone ? .ready : .gated),
                 badge: "3 of 3",
                 title: "Schedule it",
-                doneTitle: "Schedule set",
+                // Freestyle-done names the CHOICE, not a schedule that
+                // doesn't exist; a later real schedule takes the title
+                // back (#505, Q26-A).
+                doneTitle: scheduledRoutines.isEmpty ? "Training freestyle" : "Schedule set",
                 sub: scheduleStepDone ? scheduleDoneSub : "Days or a pace. It shows up here on its day.",
                 gatedSub: "Needs a routine first",
                 cta: "Choose days or a pace",
                 identifier: "setupScheduleStep",
                 action: { scheduleEditTarget = scheduleEditRoutine?.uuid.map(IdentifiedUUID.init)},
-                edit: { scheduleEditTarget = scheduleEditRoutine?.uuid.map(IdentifiedUUID.init)}
+                edit: { scheduleEditTarget = scheduleEditRoutine?.uuid.map(IdentifiedUUID.init)},
+                quietCTA: (
+                    label: "Train freestyle",
+                    identifier: "setupTrainFreestyle",
+                    run: { trainingFreestyle = true }
+                )
             )
             // Stable per-step scroll anchor (constant across the step's
             // gated/ready/done states, so identity never churns): the
@@ -1910,6 +1942,9 @@ struct TodayView: View {
 
     private var scheduleDoneSub: String {
         let scheduled = routines.filter { $0.schedule.normalized != .unscheduled }
+        // Freestyle-done (#505, Q26-A): a valid state in its own words,
+        // never an apology for a schedule that isn't there.
+        if scheduled.isEmpty { return "No set days. Workouts land here as you do them." }
         let labels = scheduled.prefix(2).map(\.schedule.shortLabel).joined(separator: " · ")
         return scheduled.count > 2 ? labels + " · …" : labels
     }
@@ -2312,6 +2347,10 @@ private struct SetupRow: View {
     let identifier: String
     let action: () -> Void
     let edit: () -> Void
+    /// A quiet second door under the CTA (#505, Q26-A): the schedule
+    /// step's "no schedule" completion — a fully valid choice, so it
+    /// renders as the escape-hatch key grammar, never as a skip.
+    var quietCTA: (label: String, identifier: String, run: () -> Void)? = nil
 
     /// Pending/gated setup cards render on a translucent surface so they read
     /// as not-yet-real. Under Reduce Transparency they go fully opaque so the
@@ -2398,6 +2437,11 @@ private struct SetupRow: View {
                 .buttonStyle(.raisedPrimaryKey())
                 .accessibilityIdentifier(identifier)
                 .padding(.top, 10)
+                if let quietCTA {
+                    QuietKey(label: quietCTA.label, identifier: quietCTA.identifier, action: quietCTA.run)
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 8)
+                }
             }
             .padding(12)
             .background(cardFill, in: RoundedRectangle(cornerRadius: Theme.cardRadius))

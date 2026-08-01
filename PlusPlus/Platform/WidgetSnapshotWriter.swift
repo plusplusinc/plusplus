@@ -25,12 +25,9 @@ enum WidgetSnapshotWriter {
         // Kit's banking rule — same identity-wins-else-name pool as
         // TodayView's recentCompletions.
         func recentCompletions(of routine: Routine) -> (last: Date?, previous: Date?) {
-            let identity = finished.filter { $0.routine === routine }
-            let pool = identity.isEmpty
-                ? finished.filter { $0.routineName == routine.name }
-                : identity
-            let dates = pool.compactMap(\.endedAt).sorted(by: >)
-            return (dates.first, dates.count > 1 ? dates[1] : nil)
+            // ONE pool definition, four consumers (#505 review): the
+            // widget's due-ness must match Today's rail exactly.
+            WorkoutSession.recentCompletionDates(of: routine, in: finished)
         }
 
         var due: [WidgetSnapshot.DueRoutine] = []

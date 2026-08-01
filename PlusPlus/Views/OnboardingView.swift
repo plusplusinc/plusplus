@@ -26,6 +26,17 @@ enum SetupState {
         return stamp > 0 ? Date(timeIntervalSince1970: stamp) : nil
     }
 
+    /// The schedule step's no-schedule completion (#505, Q26-A): like
+    /// equipment's flag, "done" can't be derived — training without a
+    /// schedule IS the completion, fully valid by the anti-obligation
+    /// stance. Written via `@AppStorage` in TodayView so the scaffold
+    /// re-renders on the choice.
+    static let trainingFreestyleKey = "setupTrainingFreestyle"
+
+    static var trainingFreestyle: Bool {
+        UserDefaults.standard.bool(forKey: trainingFreestyleKey)
+    }
+
     // The welcome beat (now ONE screen — the idea and a jumping-off
     // point, no mechanics tour, no up-front Health ask). Shown once per
     // install; the flag is deliberately NOT tied to store contents, so

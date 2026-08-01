@@ -2022,12 +2022,10 @@ struct ActiveSessionView: View {
     /// TodayView's recentCompletions, so this screen and Today can't
     /// disagree about "next".
     private func recentCompletions(of routine: Routine) -> (last: Date?, previous: Date?) {
-        let identityMatches = finishedSessions.filter { $0.routine === routine }
-        let pool = identityMatches.isEmpty
-            ? finishedSessions.filter { $0.routine == nil && $0.routineName == routine.name }
-            : identityMatches
-        let dates = pool.compactMap(\.endedAt).sorted(by: >)
-        return (dates.first, dates.count > 1 ? dates[1] : nil)
+        // ONE pool definition, four consumers (#505 review) — this
+        // copy's stale-reference nuance (`routine == nil` in the
+        // fallback) is the shared function's rule now.
+        WorkoutSession.recentCompletionDates(of: routine, in: finishedSessions)
     }
 }
 

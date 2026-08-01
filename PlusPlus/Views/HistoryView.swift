@@ -87,6 +87,11 @@ struct SessionDetailView: View {
         if let routine = session.routine, !routine.isDeleted {
             return routine
         }
+        // A quick-start record links to NO routine (#505 review): its
+        // sport name now collides with routine names, and "the routine
+        // this record links back to" must never be one it didn't come
+        // from.
+        guard !session.isQuickStart else { return nil }
         return routines.first { $0.name.lowercased() == session.routineName.lowercased() }
     }
 
@@ -115,13 +120,20 @@ struct SessionDetailView: View {
     /// cross-contaminate), and "previous" is the max endedAt below this
     /// one — the query's startedAt order isn't the comparison order.
     private var previousSession: WorkoutSession? {
-        allFinished
+        let names = Set(session.completedSetLogs.map(\.exerciseName))
+        return allFinished
             .filter { other in
                 guard other !== session else { return false }
                 if let a = other.routine, let b = session.routine {
                     return a === b && (other.endedAt ?? .distantPast) < (session.endedAt ?? .distantPast)
                 }
+                // The name fallback gates on sharing ≥1 exercise (#505,
+                // b7): sport-named quick starts and stale same-name
+                // pairs must not print a Δ against a session with
+                // nothing in common — a delta between disjoint workouts
+                // is a number about nothing.
                 return other.routineName == session.routineName
+                    && !names.isDisjoint(with: other.completedSetLogs.map(\.exerciseName))
                     && (other.endedAt ?? .distantPast) < (session.endedAt ?? .distantPast)
             }
             .max { ($0.endedAt ?? .distantPast) < ($1.endedAt ?? .distantPast) }

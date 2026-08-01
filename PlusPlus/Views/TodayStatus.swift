@@ -54,6 +54,11 @@ enum TodayStatus: Equatable {
         routines: [Routine],
         sessions rawSessions: [WorkoutSession],
         equipmentDone: Bool,
+        // The schedule step's no-schedule completion (#505, Q26-A):
+        // without it a freestyle choice left the tab icon on the to-do
+        // clock while the timeline read 3 of 3 done. Defaulted so the
+        // existing test fixtures keep their meaning.
+        trainingFreestyle: Bool = false,
         today: Date,
         calendar: Calendar
     ) -> TodayStatus {
@@ -70,7 +75,7 @@ enum TodayStatus: Equatable {
         // the next thing to do rather than a premature checkmark.
         if sessions.isEmpty {
             let routineDone = !routines.isEmpty
-            let scheduleDone = routines.contains { $0.schedule.normalized != .unscheduled }
+            let scheduleDone = routines.contains { $0.schedule.normalized != .unscheduled } || trainingFreestyle
             guard equipmentDone && routineDone && scheduleDone else { return .toDo }
         }
 
@@ -168,12 +173,11 @@ enum TodayStatus: Equatable {
     /// routine (two routines sharing a name must not satisfy each other's
     /// schedules).
     private static func recentCompletions(of routine: Routine, in sessions: [WorkoutSession]) -> (last: Date?, previous: Date?) {
-        let identityMatches = sessions.filter { $0.routine === routine }
-        let pool = identityMatches.isEmpty
-            ? sessions.filter { $0.routineName == routine.name }
-            : identityMatches
-        let dates = pool.compactMap(\.endedAt).sorted(by: >)
-        return (dates.first, dates.count > 1 ? dates[1] : nil)
+        // ONE pool definition, four consumers (#505 review): the icon
+        // and the timeline can never disagree — which this copy's own
+        // header promises, and which four hand-rolled variants had
+        // already quietly broken.
+        WorkoutSession.recentCompletionDates(of: routine, in: sessions)
     }
 
     /// Whether `day` is one of a weekday schedule's marked days. Frequency
