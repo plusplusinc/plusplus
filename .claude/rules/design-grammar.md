@@ -43,7 +43,11 @@ Siblings: `navigation.md` (tab bar, search, scroll/landing mechanics),
   done purple · live green · upcoming inert, and the live block BREATHES while
   a rest countdown runs (the cursor has advanced, so that block IS the up-next
   set). ⚠️ Status is per LOG, never `index < filled` — a jump completes sets
-  out of order.
+  out of order. A DONE block is a correction DOOR (#504, Q8-B): its tap
+  PRESENTS the set's values with an explicit confirm in the block's own
+  noun ("Correct piece 2?"), and only that confirm moves the cursor —
+  never the tap itself. VoiceOver keeps the bar as one summary element;
+  the overview's Redo is the accessible correction route.
 - **Amber (`Theme.notes`) is advisory, never alarm** — neither green
   (do/create) nor grey (inert). Two jobs: form-cue / "needs X gear" notes, AND
   a **carried-over occurrence** (2026-07-14) — a scheduled day lapsed within

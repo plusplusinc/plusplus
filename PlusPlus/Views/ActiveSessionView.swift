@@ -62,6 +62,20 @@ struct ActiveSessionView: View {
     /// One landing per recap (#503): Continue's dismiss animates, and a
     /// second tap before the cover clears must not re-post the finish.
     @State private var recapContinued = false
+    /// The completed set a BlockBar segment tap offered to correct
+    /// (#504, Q8-B). Presents the confirmation dialog; the explicit
+    /// action is the only thing that moves the cursor. ⚠️ The noun and
+    /// summary are STRINGS captured at tap time (review): the dialog's
+    /// title/message closures re-run on every body pass while it
+    /// stands, and a wrist discard can delete the session (and its
+    /// logs) under an open dialog — only the ACTION touches the model,
+    /// behind an isDeleted-first guard.
+    private struct CorrectionOffer {
+        let log: SetLog
+        let noun: String
+        let summary: String
+    }
+    @State private var correctionOffer: CorrectionOffer?
     @State private var showingOverview = false
     @State private var burstCount = 0
     // The count-up effort clock has NO view state: its anchor is
@@ -313,6 +327,39 @@ struct ActiveSessionView: View {
                 }
             } else {
                 Text("Nothing has been logged yet.")
+            }
+        }
+        // A tapped DONE segment presents, never jumps (#504, Q8-B): the
+        // set's values and an explicit action, in the block's own noun.
+        // Title and message read the CAPTURED strings, never the model.
+        .confirmationDialog(
+            correctionOffer.map { "Correct \($0.noun)?" } ?? "",
+            isPresented: Binding(
+                get: { correctionOffer != nil },
+                set: { if !$0 { correctionOffer = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button(correctionOffer.map { "Correct \($0.noun)" } ?? "Correct") {
+                // Re-checked at fire time, not trusted from tap time
+                // (the one-shot deferred rule): the set can have been
+                // deleted (a wrist discard), reopened, or the session
+                // finished while the dialog stood. isDeleted FIRST —
+                // reading any other property to decide whether the
+                // model is safe to read defeats the check.
+                guard let target = correctionOffer?.log, !target.isDeleted,
+                      target.isCompleted, !session.isFinished else { return }
+                session.jump(to: target, redo: true)
+                // The phone says what it did (#512): the redo reopens
+                // the slot on the wrist too, and the cursor follows.
+                LiveMirror.shared.reopened(target, in: session)
+                LiveMirror.shared.cursorMoved(to: target.order, in: session)
+                endRest()
+            }
+            Button("Keep it", role: .cancel) {}
+        } message: {
+            if let offer = correctionOffer {
+                Text("Logged \(offer.summary). Correcting reopens it with these values ready to log again.")
             }
         }
         .sheet(isPresented: $showingOverview) {
@@ -1095,7 +1142,22 @@ struct ActiveSessionView: View {
                     states: states,
                     // Paused banks the rest and clears the date, so holding a
                     // workout stops the breathing too.
-                    breathing: restEndDate != nil && !reduceMotion
+                    breathing: restEndDate != nil && !reduceMotion,
+                    // A DONE segment offers a correction (#504, Q8-B —
+                    // Dave: "Don't jump to redo unexpectedly, but make
+                    // redo an option"): the tap only PRESENTS the set's
+                    // values; the dialog's explicit action is what moves
+                    // the cursor.
+                    onCorrect: { index in
+                        guard block.indices.contains(index) else { return }
+                        let target = block[index]
+                        guard target.isCompleted, target.order != log.order else { return }
+                        correctionOffer = CorrectionOffer(
+                            log: target,
+                            noun: correctionNoun(target),
+                            summary: target.resultSummary(weightUnit: weightUnit)
+                        )
+                    }
                 )
                 // No caption sibling here, so the bar needs its own
                 // subject or VoiceOver hears a bare "2 of 4" (a11y,
@@ -1106,6 +1168,13 @@ struct ActiveSessionView: View {
     }
 
     // MARK: - Actions
+
+    /// The correction dialog's noun for a completed set, in the block's
+    /// own vocabulary — "set 2" in the rack, "piece 3" on an erg (#504).
+    private func correctionNoun(_ target: SetLog) -> String {
+        WorkUnit.rowLabel(target.workUnit, index: target.setNumber, total: session.blockCount(of: target))?.lowercased()
+            ?? "this \(target.workUnit?.singular ?? "set")"
+    }
 
     /// Whether a log's dock is the timer rather than the stage — the
     /// same question `SetLoggingView.showsClock` asks, so the +1 beat and
@@ -2167,7 +2236,21 @@ private struct SetLoggingView: View {
                 distanceUnit: profile.distanceUnit,
                 paceReference: profile.paceReference,
                 value: Binding(
-                    get: { log.actual(metric) ?? log.target(metric) },
+                    // Self-reported cardio seeds an untouched duration
+                    // scrub with the session's own clock (#504, b5): the
+                    // phone timed the effort even though the console owns
+                    // the numbers, so the tape opens AT the elapsed time
+                    // instead of blank. A suggestion, never a write —
+                    // nothing lands on the log until the user commits,
+                    // and an entered value or target always wins.
+                    get: {
+                        if let value = log.actual(metric) ?? log.target(metric) { return value }
+                        if metric == .duration, case .selfReported = hero?.hero {
+                            let elapsed = session.effortElapsed(at: Date()).rounded()
+                            return elapsed >= 1 ? elapsed : nil
+                        }
+                        return nil
+                    },
                     set: { log.setActual(metric, to: $0) }
                 )
             )
@@ -2384,7 +2467,7 @@ private struct SetLoggingView: View {
                     .padding(.vertical, -7)
                 }
             }
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+            HStack(alignment: .center, spacing: 8) {
                 Button {
                     wheel = metric
                 } label: {
@@ -2400,9 +2483,26 @@ private struct SetLoggingView: View {
                         // with the raw value (#216).
                         .contentTransition(.numericText(value: current ?? 0))
                         .animation(Theme.Anim.standard, value: current)
+                        // The most-tapped value in the app wears input
+                        // chrome (#504, Q7-A) — `MetricStepperRow`'s
+                        // outlined treatment, which never reached this
+                        // card: bare mono text read as a readout and
+                        // the whole scrubber went unfound. The box
+                        // stretches, so a short numeral keeps the same
+                        // wide target; ≥52 pt tall clears the 44 pt
+                        // floor with the numeral's own bulk.
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: 52)
+                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.border))
+                        .contentShape(Rectangle())
                 }
                 .accessibilityIdentifier(metric == .weight ? "logWeightValue" : "log-\(metric.rawValue)-value")
-                Spacer(minLength: 8)
+                // No Spacer here (review): a second infinitely-flexible
+                // sibling would split the row's slack with the greedy box
+                // and close the outline mid-card — the HStack's own
+                // spacing separates the pair, and the box takes ALL the
+                // slack so the annotation hugs the trailing edge.
                 if let annotation = previousAnnotation(metric) {
                     Text(annotation)
                         .font(.system(.caption, design: .monospaced))
