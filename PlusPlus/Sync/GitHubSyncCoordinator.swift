@@ -282,7 +282,13 @@ final class GitHubSyncCoordinator {
                 try? await Task.sleep(for: .milliseconds(300))
                 guard !Task.isCancelled else { return }
             }
-            guard Self.hasLocalChanges(context: context, units: units) else { return }
+            guard await Self.hasLocalChanges(context: context, units: units) else { return }
+            // ⚠️ Re-checked AFTER the await (review): `hasLocalChanges` is
+            // async now, so a newer boundary close can cancel this task
+            // while the compare runs. Without this a cancelled debounce
+            // still pushed — one commit per boundary instead of the ONE the
+            // coalescing contract above promises, and one network pass each.
+            guard !Task.isCancelled else { return }
             await sync(context: context, units: units)
         }
     }
@@ -290,23 +296,70 @@ final class GitHubSyncCoordinator {
     /// Cheap, network-free: does the local program differ from the base snapshot
     /// saved at the last sync? True when there's something to push. Errs toward
     /// syncing if it can't tell (the pass itself is safe and single-flighted).
-    private static func hasLocalChanges(context: ModelContext, units: WeightUnit) -> Bool {
+    /// ⚠️ **The encode and the base read leave the caller's actor; the
+    /// SwiftData reads cannot** (#509, b15). This fires 1500 ms after every
+    /// tab-root close, and it used to do the whole job on the main actor —
+    /// load the base off disk, rebuild the archive, encode every file,
+    /// compare. That is the stall `ui-interaction.md` names: a blocked main
+    /// thread delivers a touch sequence late and collapsed, so a flick does
+    /// nothing and the user retries, which reads like a dead hit region but
+    /// tracks a MOMENT rather than a place.
+    ///
+    /// `ModelContext` is not `Sendable`, so `exportBundle` and
+    /// `routeSidecars` stay put. Everything after them is pure computation
+    /// over `Sendable` values, so it hops off.
+    ///
+    /// ⚠️ **This REDUCES the stall; it does not end it** (review, and why
+    /// `ui-interaction.md` still names this function). What stays is bigger
+    /// than what left: `exportBundle` runs five unbounded fetches plus DTO
+    /// mapping, and `routeSidecars` reads every finished session's
+    /// `routeData` — an `.externalStorage` attribute, so N disk reads of
+    /// ~800 KB tracks. Moving those needs the route DIGEST the issue also
+    /// asks for, which is correctness-sensitive (the base holds real bytes
+    /// at those paths, so both sides must reduce identically or the check
+    /// reads dirty forever) and wants its own pass.
+    ///
+    /// ⚠️ `Task.detached`, not a `nonisolated async func`: under SE-0461 a
+    /// plain nonisolated async function runs on the CALLER's actor, which
+    /// would put all of this back on the main thread with no diagnostic.
+    /// The statics it calls are explicitly `nonisolated` for the same
+    /// reason — the type is `@MainActor`, so without that the closure does
+    /// not compile, and `await`ing instead would hop straight back.
+    private static func hasLocalChanges(context: ModelContext, units: WeightUnit) async -> Bool {
+        // Cheap probe FIRST (review): the old order answered "never synced"
+        // BEFORE building anything. Moving that check into the detached
+        // block meant a never-synced store paid for the whole main-actor
+        // export, discarded it, then paid again inside `sync()` — the
+        // persistently-offline case, in the one function whose job is to be
+        // cheap.
+        guard ApplicationSupportBaseStore().hasStoredBase else { return true }
+
+        let inputs: (bundle: ExportBundle, routes: [String: Data])
         do {
-            let base = try ApplicationSupportBaseStore().loadBase()
-            if base.isEmpty { return true }   // never synced → a first pass matters
-            let bundle = try InterchangeMapping.exportBundle(context: context, units: units)
-            // Routes AND banked orphans included — the base carries sidecars
-            // after a sync, so a map built without them would read as dirty
-            // forever.
-            let local = try localFileMap(
-                for: bundle,
-                routes: routeSidecars(context: context),
-                orphans: OrphanSidecarStore()?.all() ?? [:]
+            inputs = (
+                try InterchangeMapping.exportBundle(context: context, units: units),
+                routeSidecars(context: context)
             )
-            return local != base
         } catch {
-            return true
+            return true   // can't tell → let the pass decide; it is safe and single-flighted
         }
+        return await Task.detached(priority: .utility) {
+            do {
+                let base = try ApplicationSupportBaseStore().loadBase()
+                if base.isEmpty { return true }   // never synced → a first pass matters
+                // Routes AND banked orphans included — the base carries
+                // sidecars after a sync, so a map built without them would
+                // read as dirty forever.
+                let local = try localFileMap(
+                    for: inputs.bundle,
+                    routes: inputs.routes,
+                    orphans: OrphanSidecarStore()?.all() ?? [:]
+                )
+                return local != base
+            } catch {
+                return true
+            }
+        }.value
     }
 
     func disconnect() {
@@ -335,7 +388,7 @@ final class GitHubSyncCoordinator {
     /// bytes VERBATIM (#378) — they must appear in EVERY map or the planner
     /// re-pulls them each pass, and they must never be re-encoded or the
     /// byte-diff churns.
-    static func localFileMap(
+    nonisolated static func localFileMap(
         for bundle: ExportBundle,
         routes: [String: Data] = [:],
         orphans: [String: Data] = [:]
@@ -380,7 +433,7 @@ final class GitHubSyncCoordinator {
         )
     }
 
-    private static func routeKey(_ routineName: String, _ startedAt: Date) -> String {
+    nonisolated private static func routeKey(_ routineName: String, _ startedAt: Date) -> String {
         "\(routineName.lowercased())|\(startedAt.timeIntervalSince1970)"
     }
 
