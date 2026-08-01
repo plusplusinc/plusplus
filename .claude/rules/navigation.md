@@ -277,8 +277,11 @@ this surface the control effectively is.
 
 A **tab root** wears the SYSTEM navigation bar — `.navigationTitle` +
 `.navigationBarTitleDisplayMode(.large)`, the ++ key (`AppMenuKey`) as a
-leading `ToolbarItem` and the root's own accessory (Today's Start key, the
-catalogs' kit switcher) as a trailing one. Both keys carry
+leading `ToolbarItem` and the root's own accessory (the catalogs' kit
+switcher) as a trailing one — Today carries NONE since build 159: the play
+key and its start tray are deleted, every start lives on the rail (the
+anytime card's sport keys + Train, build 160), and routines start from
+their own cards and the Routines tab. Both keys carry
 **`.sharedBackgroundVisibility(.hidden)`** — they bring their own raised-key
 chrome and would otherwise nest inside the toolbar's shared glass (a box in a
 box). ⚠️ **A tab root must NOT hide its navigation bar.** `.searchable` AND
@@ -288,24 +291,49 @@ nothing to attach to (build 140). `CatalogTabHeader` is DELETED and Today's
 hand-rolled twin with it; the system bar handles the Dynamic-Type reflow the
 old hand rules policed.
 
-- ⚠️ **Today's WEEK STRIP (tally + `BlockBar`) is a STICKY band inside the
-  scroll** (2026-07-27) — the scroll's first content, held at the visible top
-  by a `visualEffect` (`offset(y: minY < 0 ? -minY : 0)` against
-  `.scrollView`) that does nothing on overscroll, so it rides the rubber
-  band. PINNED between bar and scroll broke the pull: content rubber-bands
-  and UIKit walks the large title down with it, so "Today" slid over the
-  block bar (Dave, build 152). **Anything a large title can travel over has
-  to be scroll content** — a `safeAreaInset` is pinned too and fails the same
-  way. ⚠️ That `visualEffect` is a pure render-time read (no state write),
-  which keeps it clear of the morph law; `onScrollGeometryChange` is NOT.
-  ⚠️ **A sticky band floats, so it stops reserving its space**: a hidden
-  second copy (`weekStripBand.hidden()`) sits below the today anchor so the
-  opening `scrollTo` doesn't seat the date line under it — exact at every
-  Dynamic Type size. Floating also means the band needs an OPAQUE background
-  (rows slide under it) and the 16 pt content column lives on the scroll
-  stack's CHILDREN, not the stack, or rows show through the gutters. ⚠️ It
-  does NOT ride the rail (Dave): the tally is the surface's week header, not
-  an entry on the timeline.
+- ⚠️ **Today's header band is FACTS ONLY (tally + `BlockBar`), PINNED
+  CHROME on the scroll's shell** — a top `safeAreaInset`, the catalogs'
+  #494 mount (build 159 reversed the sticky-in-scroll law; build 160
+  moved the quick-start keys onto the rail). The
+  sticky-band era's machinery — the `visualEffect` offset, the hidden
+  reservation copy, the anchor compensation — is DELETED; the scroll holds
+  rail items only, the band keeps its OPAQUE background + hairline shelf
+  (rows slide under it), and the 16 pt content column stays on the scroll
+  stack's CHILDREN.
+  ⚠️ **The known cost is build 152's ghost, accepted knowingly**: on
+  pull-to-refresh the rubber-band walks the large title down over pinned
+  chrome — the exact failure that created the sticky law. Today HAS the
+  app's one `.refreshable`, so this is the #1
+  device check for the pinned band; the pull's answer line must also still
+  render in the gap the pull opens (below the band now). If the pull reads
+  broken on glass, the recorded fallback is the sticky-in-scroll mechanism
+  at 8b9e16b (boundary-mounted, no reservation), not build 152's revert.
+  ⚠️ **#521 adds a second check on this same mount**: the catalogs
+  measured a pinned top inset desyncing the large-title bar (no title at
+  rest) and moved their row into the list — that was a `List`; Today's
+  `ScrollView` is unproven. Check the TITLE AT REST on device; the
+  8b9e16b fallback covers this failure too.
+- ⚠️ **The rail is DATE-FIRST, and quick start is its ANYTIME entry**
+  (Dave, build 160). Every dated entry renders its date on its OWN row,
+  node CENTERED on it (both stand one node-diameter tall), card below;
+  per-ENTRY, so two workouts one day print the day twice — what a log
+  does. Today is ONE dated group ("today · thu · jul 31") holding the
+  day's cards under one node; the carried lane's date row is its "was
+  tue · jul 7" line in advisory amber; setup rows stay the one undated
+  class. **The anytime entry sits below the future items and above
+  today, every day**: a DASHED node, "anytime" in the date position (the
+  entry with no date), the dashed-shell `AnytimeCard` — the dash is the
+  offer grammar, one idea with the future cards' "not yet" stroke. The
+  landing seats the ANYTIME row under the band.
+  ⚠️ The card's keys morph IN PLACE (the key's chrome grows into a
+  config panel via `matchedGeometryEffect`; the panel's solid border
+  OVERTAKES the dashed shell while open): morph the CHROME, fade the
+  content — matched content reflows text mid-flight — and NEVER a
+  measured FLIP, which writes layout state where the morph law above
+  forbids it. The rack never scrolls horizontally: the tail collapses
+  into an "N more" key (widths from `UIFont` metrics) whose panel holds
+  the hidden sports one level deeper. The green + opens the picker SHEET
+  (a multi-select is a searchable list, never an in-place chip grid).
 - ⚠️ **The pull's answer (the refresh line) renders in the SPACE THE PULL
   OPENS**, not in the timeline — a zero-height `Color.clear` at the very top
   of the content with the line `.overlay(alignment: .bottom)` on it, so the

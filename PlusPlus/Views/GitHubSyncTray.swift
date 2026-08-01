@@ -169,9 +169,9 @@ struct GitHubSyncTray: View {
     private var wizard: some View {
         VStack(alignment: .leading, spacing: 14) {
             stepBar
-            // Overlap the outgoing/incoming steps in a ZStack (the repo's
-            // SwapInSheet idiom) so the slide doesn't lay them out as vertical
-            // siblings and briefly double the height, shoving the error note.
+            // Overlap the outgoing/incoming steps in a ZStack so the slide
+            // doesn't lay them out as vertical siblings and briefly double
+            // the height, shoving the error note.
             // Clipped so the moving step can't draw past the edges mid-slide.
             // Direction follows `advancing`: Continue slides right-to-left,
             // Back reverses.
