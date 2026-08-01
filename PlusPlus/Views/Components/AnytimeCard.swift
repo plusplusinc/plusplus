@@ -1,11 +1,11 @@
 import SwiftUI
 import PlusPlusKit
 
-/// The rail's ANYTIME entry (Dave, build 160): quick start as a card on
+/// The rail's ANYTIME entry (Dave, build 161): quick start as a card on
 /// the timeline — below the future items, above whatever today holds,
 /// every day. The dashed shell is the offer grammar at card scale (the
 /// future cards' "not yet" dash): outlined, unfilled, not yet a thing.
-/// Its rail NODE is solid, like every other (build 160 device pass: a
+/// Its rail NODE is solid, like every other (build 161 device pass: a
 /// dashed dot at 18 pt reads as a rendering fault, not a grammar).
 ///
 /// The shell is LIVE. Tapping a key GROWS it into a panel filling the
@@ -16,7 +16,7 @@ import PlusPlusKit
 /// way out.
 ///
 /// Every pick shows: the rack WRAPS rather than fitting what it can and
-/// hiding a tail behind "N more" (build 160 device pass — the estimate
+/// hiding a tail behind "N more" (build 161 device pass — the estimate
 /// that drove the fit truncated a key it thought fit).
 ///
 /// ⚠️ The morph is `matchedGeometryEffect` on the CHROME ONLY — the key's
@@ -105,7 +105,7 @@ struct AnytimeCard: View {
 
     // MARK: - The rack
 
-    /// The rack WRAPS (Dave, build 160 device pass: "we should never be
+    /// The rack WRAPS (Dave, build 161 device pass: "we should never be
     /// truncating items … let's allow wrapping items"). Every pick is a
     /// full key on one of however many rows it takes — which deletes three
     /// things at once: the greedy width fit that under-measured and
@@ -244,7 +244,7 @@ struct AnytimeCard: View {
     /// (`HeaderIconButton`) — ONE 44 pt frame carrying the cap's fill and
     /// border, then `.raisedKey()`.
     ///
-    /// ⚠️ It shipped build 160 as a 34 pt cap inside a 44 pt hit frame,
+    /// ⚠️ It shipped build 161 as a 34 pt cap inside a 44 pt hit frame,
     /// and the raised style plates the frame it is GIVEN: the plate drew
     /// a second, larger rounded rect around the small cap — the broken
     /// double-box Dave photographed. A raised key's cap and its hit

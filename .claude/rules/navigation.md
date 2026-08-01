@@ -276,7 +276,7 @@ A **tab root** wears the SYSTEM navigation bar — `.navigationTitle` +
 leading `ToolbarItem` and the root's own accessory (the catalogs' kit
 switcher) as a trailing one — Today carries NONE since build 159: the play
 key and its start tray are deleted, every start lives on the rail (the
-anytime card's sport keys + Train, build 160), and routines start from
+anytime card's sport keys + Train, build 161), and routines start from
 their own cards and the Routines tab. Both keys carry
 **`.sharedBackgroundVisibility(.hidden)`** — they bring their own raised-key
 chrome and would otherwise nest inside the toolbar's shared glass (a box in a
@@ -289,7 +289,7 @@ old hand rules policed.
 
 - ⚠️ **Today's header band is FACTS ONLY (tally + `BlockBar`), PINNED
   CHROME on the scroll's shell** — a top `safeAreaInset`, the catalogs'
-  #494 mount (build 159 reversed the sticky-in-scroll law; build 160
+  #494 mount (build 159 reversed the sticky-in-scroll law; build 161
   moved the quick-start keys onto the rail). The
   sticky-band era's machinery — the `visualEffect` offset, the hidden
   reservation copy, the anchor compensation — is DELETED; the scroll holds
@@ -308,7 +308,7 @@ old hand rules policed.
   catalogs' large-title bar (a `List`; Today's `ScrollView` is unproven).
   Check the TITLE AT REST; the same fallback covers it.
 - ⚠️ **The rail is DATE-FIRST, and quick start is its ANYTIME entry**
-  (Dave, build 160). Every dated entry renders its date on its OWN row,
+  (Dave, build 161). Every dated entry renders its date on its OWN row,
   node CENTERED on it (both stand one node-diameter tall), card below;
   per-ENTRY, so two workouts one day print the day twice — what a log
   does. Today is ONE dated group ("today · thu · jul 31") holding the

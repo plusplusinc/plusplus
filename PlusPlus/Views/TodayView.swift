@@ -275,7 +275,7 @@ struct TodayView: View {
                             // not part of the timeline OR the page scroll;
                             // the only motion they share is the large
                             // title collapsing into the bar. The quick
-                            // starts moved the OTHER way in build 160:
+                            // starts moved the OTHER way in build 161:
                             // they ride the rail as the anytime entry.
                             // The scroll holds rail items and nothing else,
                             // so item spacing is uniform by construction.
@@ -283,7 +283,7 @@ struct TodayView: View {
                             // history — eager building made every render
                             // O(sessions) (bug hunt perf finding).
                             LazyVStack(spacing: 0) {
-                                // The ANYTIME entry (Dave, build 160): quick
+                                // The ANYTIME entry (Dave, build 161): quick
                                 // start as a card ON the rail — below the
                                 // future, above whatever today holds, every
                                 // day. Its node is solid like every other;
@@ -359,7 +359,7 @@ struct TodayView: View {
                                     // seals it. Every other committed card
                                     // rests at that filled checkmark node.
                                     // The date rides the entry's own row
-                                    // (build 160) — two workouts one day
+                                    // (build 161) — two workouts one day
                                     // print the day twice, which is what a
                                     // log does.
                                     let converting = justCompletedID == session.persistentModelID
@@ -424,7 +424,7 @@ struct TodayView: View {
                     // page scroll — "except just the little scroll that
                     // moves the heading into the top", which is the
                     // large-title collapse and belongs to the bar, not to
-                    // this band). Facts only since build 160: the quick
+                    // this band). Facts only since build 161: the quick
                     // starts left for the rail's anytime card. The
                     // catalogs' #494 filter row is the precedent, same
                     // mount; the landing needs no anchor compensation —
@@ -987,7 +987,7 @@ struct TodayView: View {
             // Inert grey: green rings stay exclusive to today's
             // actionable cards (rail grammar) — a future day is a
             // calendar fact, not a call to action. Its date rides the
-            // entry's own row (build 160); two routines on one future
+            // entry's own row (build 161); two routines on one future
             // day each print it, the per-entry rule everywhere.
             TimelineItem(node: .inert, dateline: railDay(entry.day)) {
                 futureCard(entry)
@@ -1144,7 +1144,7 @@ struct TodayView: View {
     }
 
     /// "~40 min" — the date left the card for the entry's own date row
-    /// (build 160), so the caption is down to the estimate.
+    /// (build 161), so the caption is down to the estimate.
     private func futureCaption(for entry: UpcomingEntry) -> String {
         entry.routine.estimateText
     }
@@ -1164,7 +1164,7 @@ struct TodayView: View {
             // Amber node, amber card: a lapsed occurrence is neither the
             // green "today" nor the grey "not yet" — it's the warm
             // in-between (the notes/advisory amber already in the grammar).
-            // The lapsed day IS its date row (build 160), printed plain
+            // The lapsed day IS its date row (build 161), printed plain
             // since 2026-08-01: amber ink, an amber node and the rail
             // position carry the tense, and VoiceOver hears "carried
             // over" from the row's own label. Never today's date.
@@ -1181,7 +1181,7 @@ struct TodayView: View {
     }
 
     /// "tue · jul 7" — the carried entry's date row, in the rail's one
-    /// date grammar. ⚠️ The "was" prefix is GONE (Dave, build 160 device
+    /// date grammar. ⚠️ The "was" prefix is GONE (Dave, build 161 device
     /// pass): every other entry prints a bare date, and a date in the
     /// past under an amber node beside an amber card is already past
     /// tense. The word was carrying tense the position had covered since
@@ -1551,11 +1551,11 @@ struct TodayView: View {
     /// Not scroll content, not a sticky trick, no reservation, no
     /// visualEffect — Dave, build 159, after three rounds of in-scroll
     /// placements each still reading as "part of the timeline". Facts
-    /// only since build 160: the quick-start rack moved to the rail's
+    /// only since build 161: the quick-start rack moved to the rail's
     /// anytime card, and the band is back to the week's two quiet lines.
     private var weekStripBand: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // FACTS ONLY (Dave, build 160): the quick-start rack left the
+            // FACTS ONLY (Dave, build 161): the quick-start rack left the
             // band for the rail's anytime card, so the band is back to
             // two quiet lines — the tally and its bar. Still pinned
             // chrome; the starts are timeline content now.
@@ -1812,7 +1812,7 @@ struct TodayView: View {
     }
 
     private func committedSubtitle(_ session: WorkoutSession) -> String {
-        // No date here (build 160): it rides the entry's own date row,
+        // No date here (build 161): it rides the entry's own date row,
         // and a fact printed twice an inch apart reads as a glitch.
         var parts: [String] = []
         if let count = WorkUnit.summaryCount(
@@ -2220,7 +2220,7 @@ private enum TimelineNode: Equatable {
     /// so the rail reads "not yet yours".
     case gated
     /// An OFFER on the rail (the anytime entry) — a neutral ring, same
-    /// as `.inert`. ⚠️ It shipped build 160 DASHED, to echo the card's
+    /// as `.inert`. ⚠️ It shipped build 161 DASHED, to echo the card's
     /// shell; on glass an 18 pt circle of 2.6 pt dashes reads as a
     /// rendering fault rather than a grammar (Dave). The card's own
     /// dashed border carries "offer"; the dot just marks the row.
