@@ -61,13 +61,15 @@ No third-party dependencies without discussion first.
 > **.claude/rules/** (path-scoped). Delete an item once it has shipped and been validated —
 > this section tracks what is live now, not what happened.
 
-**Last updated:** 2026-08-01 · **Latest TestFlight build:** 159, from `claude/plusplus-cardio-workouts-whh64j` (the cardio push + its six follow-ons, cut so #482 could stay open; every build before 158 came from main).
+**Last updated:** 2026-08-01 · **Latest TestFlight build:** 159, from `claude/plusplus-cardio-workouts-whh64j` (every build before 158 came from main).
 ⚠️ Build number = workflow RUN number, not last-build+1 — check `actions_list` before writing a What's-New entry.
 
 **On main, awaiting Dave's device pass** (reasoning in docs/DECISIONS.md under the dated entry):
 
 - Today's rail is DATE-FIRST (dates out of cards, node centered on the date row) and quick start is its ANYTIME entry — dashed node + shell `AnytimeCard`, keys MORPH in place into config panels (chrome-only `matchedGeometryEffect` — laws in navigation.md), Train = Start empty / Pick a routine, band = FACTS only; ⚠️ device pass: morph feel, offer-above-plan, the PULL + title at rest (#521's inset class — fallback 8b9e16b), "Spin"/"Swim open water"
 - Facet row rides the LIST on tab roots (2026-08-01): pinned as a `safeAreaInset` it held the large-title bar scrolled-under (no title at rest, permanent hairline); chips scroll away on tabs now, presented/picker keep the pin; ⚠️ device pass: title expands/collapses, no resting hairline
+- Watch↔phone repair program (#515–#518, #520; per-stage entries in docs/DECISIONS.md): the assessment's verdict was "sound model, half-finished implementation" — salvage/import/journal data loss closed, one identity on the wire, the phone gains reducer discipline + pause/steps ops, the wrist RENDERS the reducer (resume, both-devices handoff, rest parity), wrist quick start; ⚠️ wrist behavior is XCUITest-invisible end to end — the whole program rides the device pass
+- Design-law audit + decision sheet (#501; docs/DECISIONS.md): five law docs verified claim-by-claim, typography law added, recheck tags on OS-bug laws; Dave answered 26 decisions + 28 bulk approvals — implementation rounds tracked as #503–#509
 - Design-review round on #482 — ONE facet grammar (KIND leads the exercises facets), a finished session's noun is a SNAPSHOT (`summaryWorkUnit`), the count-up clock anchors on the session's ledger (`effortAnchorSeconds` — survives pause AND process death), `isSingleEffort` is cardio-gated, count-of-one holds everywhere, picks follow renames
 - Catalog expansion round — 345 exercises (+88, every audit gap), Foam Roller, 50 templates (+8), authored pattern/mechanic/laterality columns, hidden search synonyms (`CatalogSearchSynonyms`: "erg"→rower, "rdl"), and the FACET ROW RETURNS (single-select Menu chips per scope, reverses 2026-07-25 — laws rewritten in design-grammar/navigation); ⚠️ device pass pending: popover feel, synonym search feel (the filter-row/large-title clash failed and is fixed — 2026-08-01 item)
 - Keyboard dismissal is a shared law now — `View.keyboardGround(clearing:)` (`Views/Components/KeyboardGround.swift`) carries the reasoning, and routine settings joins the exercise editor; ⚠️ `.scrollDismissesKeyboard` is the LOAD-BEARING exit and the ground tap is always the second (its catchment is thinner than "the gaps" — labels, captions and field chrome all take the tap first), ⚠️ a header that is a SIBLING of the scroll needs its own ground, ⚠️ `pushedScreenChrome`'s band still has none (shared by every pushed screen, own round); device pass pending
@@ -80,29 +82,27 @@ No third-party dependencies without discussion first.
 - Cardio prescriptions are TWO of distance/duration/pace with the third DERIVED and never stored (`CardioTargets` — a stored derived distance would silently turn "30 min at 9:00/mi" into an odometer), and swimming ships in yards at /100yd now that `PaceReference` splits the denominator off the unit; ⚠️ one triad slot always stays empty, so entering a third evicts pace-then-duration, and every target write goes through the sheets' `writeTarget`
 - One modality resolves the Health type, the work-unit noun and the estimate (`SessionModality`/`WorkUnit` — a bike ride filed as strength training before), and heart rate is a logged fact per SET on every workout; ⚠️ the wrist records what it MEASURED, never its targets, and a count of one prints no kicker, no block bar and no island progress
 
-**In flight:** nothing — #502 (the Today design loop: pinned band → play-key kill → date-first rail + anytime morph) landed on Dave's word; the device pass needs a fresh build (159 predates it all).
+**In flight:** the decision-sheet implementation rounds (#503–#509) + the #519 Health single-writer rule (Dave, 2026-08-01: a watch involved in the session writes Health; otherwise the phone). ONE TestFlight build follows once they land (Dave's call, 2026-08-01) — build 159 predates the whole 2026-08-01 run, #502's Today loop included. `LiveWorkoutSettings` (phone's own `HKWorkoutSession`) remains off by default.
 
 **Org + license:** both repos live in the **plusplusinc** org, PUBLIC. App/repo **AGPL-3.0**; **PlusPlusKit + PlusPlusCLI are MIT** (the contract is meant for adoption). Actions minutes are free on public repos — macOS included.
 **Branch protection** (repository ruleset): merges to main require `test`, `kit-test`, `cli-test` to PASS on the head SHA; squash is the only merge method. A cancelled required check blocks merge until re-run; only push-triggered runs satisfy the ruleset (a green `workflow_dispatch` run does not). Docs-only pushes still run CI deliberately. ⚠️ `kit-test`'s FIRST step is the agent-doc size budget — 25 KB on CLAUDE.md, 24 KB per `.claude/rules/*.md` file (split by path scope when it binds, don't raise it — 2026-07-31), and a ~2 KB line-length cap on CLAUDE.md AND every rules file (docs/DECISIONS.md is exempt: append-only, its long entries are the record). It rides an already-required job so the budget binds without a ruleset change, which means kit-test can go red for a docs reason before Swift ever runs. See the ci-status skill.
 
-**CI flakes:** ui-test has two known flavors — `app.launch()` wedging on a runner simulator, and exit-65 runs where the identical tree passes on re-run. Re-run once before suspecting code. (The swipe test's synthesized-drag flake was fixed 2026-07-15; history in #273/#274.) All four jobs surface failing-test names as `::error::` annotations readable via the check-runs API. ⚠️ Job LOGS are reachable after all (2026-07-30): `mcp__github__get_job_logs` with `return_content: true` serves them through the API, so only the ARTIFACTS are genuinely out of reach from a sandbox.
+**CI flakes + the remote validation layer:** moved to `.claude/rules/testing.md` (2026-08-01). The one-liner: re-run ui-test ONCE before suspecting code; job logs ARE API-reachable, only artifacts aren't.
 
-**TestFlight:** `.github/workflows/testflight.yml` (manual dispatch, any ref) archives unsigned, re-signs bundles with a throwaway self-signed identity to embed entitlements, cloud-signs at export (Admin-role ASC API key), uploads. ⚠️ Build number = workflow RUN number, not last-build+1 — check `actions_list` for the latest run number BEFORE writing the What's-New entry. New capability = enable on the App ID in the portal + entitlements file in project.yml. Full genealogy + failure modes: docs/DECISIONS.md appendix + the testflight skill.
+**TestFlight:** `.github/workflows/testflight.yml` (manual dispatch, any ref). ⚠️ Build number = workflow RUN number — check `actions_list` BEFORE writing the What's-New entry. Mechanism, entitlements, and every failure mode: the testflight skill + docs/DECISIONS.md appendix.
 
-**Vocabulary (#144) + voice:** templates are **routines**, performed things are **workouts** — `Routine`/`RoutineExercise` vs `WorkoutSession`/`SetLog`. Never write obligation words ("due") on user-facing surfaces (#172); regressions render neutral (anti-shame). Equipment is **availability, not ownership** (2026-07-11): what gear you "have" is membership in the ACTIVE `EquipmentLibrary` (one active, device-local pointer); copy says "have", never "own" (kept only for data ownership and the reflexive idiom) and never "have access to" (retired 2026-07-17). The user-facing term for an equipment library is **"kit"**, default kit **`main`** (in-app rename landed 2026-07-17 with the equipment-catalog redesign; the **tab itself is labeled "Kit"** as of 2026-07-20; the interchange path stays `equipment-libraries`). The word **"gear" is retired from user-facing copy** (2026-07-20): use **kit** for the your-set sense and **equipment** for the single-item / catalog sense ("Equipment catalog" keeps its name). Libraries + gear config are in the interchange (`program/equipment/`, `program/equipment-libraries/` — paths frozen); the active pointer is not (device state). **The full brand voice is `.claude/skills/voice/SKILL.md`** — read it before writing ANY user-facing string. See docs/DECISIONS.md 2026-07-11 + 2026-07-17.
+**Vocabulary + voice:** templates are **routines**, performed things are **workouts** (#144); the equipment set is a **kit** (default `main`, tab labeled Kit); "gear"/"own"/"have access to" retired; no obligation words (#172); anti-shame. The FULL laws live in `.claude/skills/voice/SKILL.md` (read before ANY user-facing string) and design-grammar.md's equipment section (interchange paths frozen there); history in docs/DECISIONS.md 2026-07-11/17.
 
-**plusplus.fit:** LIVE on Vercel, connected to `plusplusinc/plusplus.fit` — pushes to its main deploy production, PRs get previews. AASA serves the real Team ID; the app ships associated domains. Deploy by merging to the site repo's main (the Vercel MCP's file-upload path is broken from remote sessions). Tagline: "A hackable workout tracker for incrementing yourself" (was "The …"; softened 2026-07-17 — the marketing site still carries the old wording and needs a `plusplus.fit` PR to match).
+**plusplus.fit:** LIVE on Vercel (`plusplusinc/plusplus.fit`); deploy = merge to the site repo's main (the Vercel MCP file-upload path is broken remotely). Tagline: "A hackable workout tracker for incrementing yourself" — the site still carries the older "The …" wording and needs a site PR.
 
 **Work tracking:** backlog = GitHub issues on `plusplusinc/plusplus` (auto-added to Dave's project board). Changes land via PRs, self-merged once required checks are green, `Closes #N` linking. **The expected output of any implementation session is a PR — open it without being asked** (Dave, 2026-07-11); never leave finished work sitting on a branch.
-
-**Remote validation layer:** 9 XCUITest smoke flows (`ui-test` job: dispatch + main pushes) upload a `ui-screenshots` artifact reviewable from a browser — includes the onboarding timeline, welcome flow, template-detail open, swipe-release regression contracts, and the mascot form-demo sheet.
 
 **Targets:**
 - **PlusPlus** — iOS app (iOS 26.1; App Group, Live Activities)
 - **PlusPlusWatch** — watchOS companion (WatchConnectivity; depends on PlusPlusKit)
 - **PlusPlusWidgets** — widget extension: Live Activity + Today/Streak widgets + App Intents
 - **PlusPlusKit** — pure SwiftPM package, Linux-tested (the platform contract)
-- **PlusPlusTests / PlusPlusUITests** — ~146 app unit tests + 9 UI smoke flows; 442 Kit + 26 CLI tests run on Linux (counts verified 2026-07-23, mascot scale-out round)
+- **PlusPlusTests / PlusPlusUITests** — ~150 app unit tests + 9 UI smoke flows; 616 Kit + 26 CLI tests run on Linux (counts verified 2026-08-01, watch repair round)
 
 **Project structure** (annotated per-file map lives in the directories themselves; these are the load-bearing locations):
 ```
@@ -125,13 +125,10 @@ scripts/install-swift.sh # Linux toolchain for remote sessions
 .github/workflows/       # ci.yml (4 jobs), testflight.yml, release.yml
 ```
 
-**Known TODOs (tracked as GitHub issues):**
-- Open batch: #157 Live Activity controls, #158 platform batch 2, #160/#161 contribution/CI-trigger widening, #162 diff share cards, #163 README streak recipe, #164 accessibility completion, #165 Foundation Models importer, #168 full-swipe-to-commit, #169 scroll dead-zone (needs device repro), #295 Health metrics batch 2 (waits on a trends-surface design pass)
-- Flexible-metrics follow-ons, deliberately not shipped: AMRAP #298, EMOM #299, pyramids #300, drop sets #301, count-up stopwatch #302
-- Strategy backlog #116–#123 (`fable-token-maxing`): written for a future agent or Dave
-- Held by Dave: #93 community sharing repo, #94 monetization; un-held: #90 Apple Health (shipped through HR batch)
+**Known TODOs:** the issue tracker is the backlog — don't mirror it here.
+- Strategy backlog #116–#123 (`fable-token-maxing`); held by Dave: #93 community sharing, #94 monetization
 - Dave-side: public TestFlight link, repo settings hardening, plusplus.fit stale-copy archive
-- Deliberate: per-workout rest only (per-exercise deferred; interval blocks now carry group overrides); set ranges collapse to one number
+- Deliberate non-features: per-workout rest only (interval blocks carry group overrides); set ranges collapse to one number
 
 ---
 
