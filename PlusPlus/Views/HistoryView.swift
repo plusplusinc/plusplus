@@ -112,7 +112,20 @@ struct SessionDetailView: View {
             }
             byKey[key]?.sets.append(log)
         }
-        return order.compactMap { byKey[$0] }
+        let built = order.compactMap { byKey[$0] }
+        // A run's headline, printed twice (#506, b6): `RunRecordSection`
+        // states distance · time · elevation above, and the block below
+        // restated the same numbers as a row. ⚠️ Only a block of ONE
+        // outdoor effort is redundant — that single row IS the summary.
+        // Outdoor INTERVALS (4 × 400 m) each carry a fact the aggregate
+        // does not, so a multi-log block always stays. The gate is the
+        // stat line's own condition, so a route-only record (foreign
+        // sidecar, no summary) keeps every row it has.
+        guard session.runDistanceMeters != nil else { return built }
+        return built.filter { block in
+            guard block.sets.count == 1, let only = block.sets.first else { return true }
+            return !(MetricProfile.decode(from: only.metricsData)?.isOutdoor ?? false)
+        }
     }
 
     /// The previous committed session of the same routine, if any.
@@ -137,6 +150,20 @@ struct SessionDetailView: View {
                     && (other.endedAt ?? .distantPast) < (session.endedAt ?? .distantPast)
             }
             .max { ($0.endedAt ?? .distantPast) < ($1.endedAt ?? .distantPast) }
+    }
+
+    /// That day's prescription for one set, in the shared metric
+    /// vocabulary (#506, Q12-A). nil when the set asked for nothing —
+    /// an open-ended effort has no reference to print, and a completed
+    /// set with no target says nothing rather than "asked: —".
+    private func askedLine(_ log: SetLog) -> String? {
+        guard log.isCompleted else { return nil }
+        return MetricSummary.line(
+            profile: log.metricProfile,
+            weightUnit: weightUnit,
+            repsText: log.targetReps.lower != nil ? log.targetReps.display : nil,
+            value: { log.target($0) }
+        )
     }
 
     private func topWeight(of name: String, in candidate: WorkoutSession) -> Double? {
@@ -240,9 +267,28 @@ struct SessionDetailView: View {
                                             .accessibilityLabel("Average heart rate \(bpm)")
                                     }
                                     Spacer()
-                                    Text(log.isCompleted ? log.resultSummary(weightUnit: weightUnit) : "skipped")
-                                        .font(.system(.caption, design: .monospaced))
-                                        .foregroundStyle(log.isCompleted ? Theme.textPrimary : Theme.textFaint)
+                                    VStack(alignment: .trailing, spacing: 2) {
+                                        Text(log.isCompleted ? log.resultSummary(weightUnit: weightUnit) : "skipped")
+                                            .font(.system(.caption, design: .monospaced))
+                                            .foregroundStyle(log.isCompleted ? Theme.textPrimary : Theme.textFaint)
+                                        // What the plan ASKED for, beside what
+                                        // happened (#506, Q12-A): the SetLog
+                                        // has carried that day's targets all
+                                        // along and no record surface read
+                                        // them. ⚠️ FLAT ink, always — the
+                                        // direction inks mark a PLAN's
+                                        // movement against a performance,
+                                        // never a performance against its
+                                        // plan, and a line that appeared only
+                                        // on a miss would make its own
+                                        // presence the judgment the flat ink
+                                        // exists to avoid.
+                                        if let asked = askedLine(log) {
+                                            Text("asked: \(asked)")
+                                                .font(.system(.caption2, design: .monospaced))
+                                                .foregroundStyle(Theme.textFaint)
+                                        }
+                                    }
                                 }
                             }
                         }

@@ -184,35 +184,20 @@ this surface the control effectively is.
   track; the toolbar's shared glass would wrap it in a second shape) and
   `.searchPresentationToolbarBehavior(.avoidHidingContent)` on the search
   presentation.
-- **It is app-placed because every system-owned home failed, and each failure
-  is a law**:
-  ⚠️ `tabViewBottomAccessory` does not rise with the keyboard (137–139, 144;
-  recheck: iOS 27) — search's own keyboard buries anything in it.
-  ⚠️ **Native `.searchScopes` renders exactly ONCE per app run** on a
-  bottom-aligned field morphed out of `Tab(role: .search)`, and renders at the
-  TOP, nowhere near the field (140–143; recheck: iOS 27). Tried, in order, all still once:
-  `.onSearchPresentation` activation; `.searchable` moved INSIDE the stack
-  (the documented requirement, and what made scopes appear at all); a real
-  navigation bar; `.tabViewSearchActivation(.searchTabSelection)` for a fresh
-  presentation per arrival.
-  ⚠️ A `.bottomBar` `ToolbarItem` lands in the SAME ROW the search-role field
-  expands into (145; recheck: iOS 27), so it sits behind the field. Photos' recipe works there
-  only because Photos' search is a small BUTTON in that row. The `.principal`
-  slot has no such competition — the field expands out of the TAB BAR.
-  ⚠️ A TOP `safeAreaInset` under the bar (147) was right but one row too many:
-  a band holding a control directly under a bar holding two keys.
-  ⚠️ **Do NOT hand-roll the segmented control.** iOS 26's interactive glass
-  belongs to exactly TWO components, tab bars and SEGMENTED CONTROLS
-  (`ryanashcraft/FabBar` hosts a real `UISegmentedControl` for this reason).
-  And **app-authored animation does not survive inside the accessory** — it
-  re-renders outside the app's transactions; even the canonical
-  `matchedGeometryEffect` pill refused to travel on device (build 139).
-  ⚠️ The accessory's "double background" was PADDING, not the Picker: it
-  always draws a Liquid Glass capsule (no API removes it), and insetting the
-  Picker's own track drew two concentric shapes; edge to edge they coincide.
-  (Photos' Years/Months/All is a THIRD thing: a `.bottomBar` item with
-  `.sharedBackgroundVisibility(.hidden)` + `.controlSize(.large)` — the
-  remaining escape if the principal row ever fails.)
+- **It is app-placed because every system-owned home failed** — four
+  retired mechanisms, none to be re-tried (post-mortems: docs/DECISIONS.md
+  + git, per this file's header). ⚠️ `tabViewBottomAccessory` does not rise
+  with the keyboard (137–139, 144), and app-authored animation does not
+  survive inside it (139). ⚠️ Native `.searchScopes` renders exactly ONCE
+  per app run on a bottom-morphed search field, and at the TOP (140–143;
+  four activation routes tried). ⚠️ A `.bottomBar` `ToolbarItem` lands in
+  the SAME ROW the field expands into (145) — Photos' recipe works only
+  because its search is a small button there. ⚠️ A TOP `safeAreaInset`
+  under the bar (147) was one row too many. All four: recheck iOS 27.
+  ⚠️ **Do NOT hand-roll the segmented control** — iOS 26's interactive
+  glass belongs to tab bars and SEGMENTED CONTROLS alone. Remaining escape
+  if the principal row ever fails: Photos' `.bottomBar` item with
+  `.sharedBackgroundVisibility(.hidden)` + `.controlSize(.large)`.
 - The custom `SegmentedTabs` was RETIRED (2026-07-24) — every other former
   segmented site is native `Picker` (`.segmented` for short unit/mode toggles,
   a pushed `NavigationSelectRow` for multi-word modes).
@@ -334,6 +319,15 @@ old hand rules policed.
   into an "N more" key (widths from `UIFont` metrics) whose panel holds
   the hidden sports one level deeper. The green + opens the picker SHEET
   (a multi-select is a searchable list, never an in-place chip grid).
+- ⚠️ **Committed history's MONTH landmarks are real pinned `Section`
+  headers** (#506): `pinnedViews: [.sectionHeaders]` on the rail's
+  LazyVStack, grouped year+month. NOT a sticky `visualEffect` — that
+  machinery died with the band, and a render-time offset cannot hand off
+  between headers. Lowercase mono like every dateline (all-caps headings
+  stay dead; a month is a DATE), year only when it isn't this one. The
+  spine draws THROUGH the header, and its background BLEEDS past the
+  16 pt column — rows slide UNDER a pin, and the gutters would show them
+  through. ⚠️ Device pass: the pull, and the month-to-month hand-off.
 - ⚠️ **The pull's answer (the refresh line) renders in the SPACE THE PULL
   OPENS**, not in the timeline — a zero-height `Color.clear` at the very top
   of the content with the line `.overlay(alignment: .bottom)` on it, so the
