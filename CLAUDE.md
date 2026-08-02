@@ -63,7 +63,7 @@ No third-party dependencies without discussion first.
 > certain files → **.claude/rules/** (`paths:` frontmatter); a procedure → **.claude/skills/**.
 > The test for living here: would a session need it BEFORE knowing what it was about to touch?
 
-**Last updated:** 2026-08-02 · **Latest TestFlight build:** 168, from the search-morph BRANCH (#534 — 167's probe exonerated the search nav bar and surfaced a corner-snap artifact, so the drawer's full-app `.shadow` moved to a sibling; 165-167 all failed to move the fly-in; 160-164 from main).
+**Last updated:** 2026-08-02 · **Latest TestFlight build:** 168, from the search-morph BRANCH (#534 — 165-168 ALL failed to move the search fly-in; it is PARKED with four causes ruled out, and the round lands as cleanup: `navigation.md` carries the list, don't re-tread it; 160-164 from main).
 ⚠️ Build number = workflow RUN number, not last-build+1 — check `actions_list` before writing a What's-New entry.
 
 **On main, awaiting Dave's device pass:** the queue lives in

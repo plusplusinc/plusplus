@@ -39,8 +39,7 @@ Search** (`Tab(role: .search)`).
   Measure from `UIFont` metrics, or read geometry WITHOUT writing state
   (`ScopeSegmentedControl`'s width). ⚠️ `OverflowCapsuleRow` was the last
   offender and is a PURE READ now (a hidden capsule gives it height so the
-  reader can wrap it), TAG widths still `UIFont` — 165 proved it was NOT
-  bending the morph.
+  reader can wrap it), TAG widths still `UIFont`.
 - ⚠️ Because **a `Tab`'s content is its own view tree**, the four
   catalog-showing tabs are four live INSTANCES, so every broadcast needs one
   named owner: `ownsLandings` (`tabKey == scope.tab.rawValue`) makes the
@@ -98,13 +97,14 @@ equipment"), read from the root's `scope`.
   seen from this end: the field falls back to the top `.navigationBarDrawer`
   placement on FIRST activation instead of morphing (nav-diag 4e), and since
   this surface hides the bar's TITLE the failure is NO visible field, not a top
-  bar. Kill the trigger at its source, never revert the surface.
-- ⚠️ **A field that FLIES IN from the top right is PLACEMENT, not that bug**
-  (163 + 165). `.searchable` INSIDE the stack makes the field a nav bar's to
-  own; iOS 26 seats it top-trailing then relocates it into the morph, and the
-  relocation IS the flight. It rides the search `Tab` (166), which owns it from
-  frame one. ⚠️ 165 is the evidence: killing the subtree's last layout-fed
-  state write changed nothing — don't spend a third build there.
+  bar. Kill the trigger at its source, don't revert.
+- ⚠️ **The field FLIES IN from the top right; cause UNKNOWN** (163-168).
+  RULED OUT BY EXPERIMENT, do not re-try: the subtree's layout-fed state
+  writes (165), `.searchable` inside vs outside the stack (166 — it attaches to
+  the first `NavigationStack` it finds either way), this surface's whole
+  navigation bar including `.avoidHidingContent` (167, stripped bare), and
+  `RevealContainer`'s full-app `.shadow` (168). PARKED for a Simulator or
+  iOS 27; read DECISIONS first — remote guessing cost four builds.
 - **The SEARCH surface carries no title** (Dave, 2026-07-26): the scope
   control names the catalog, and a large title FLASHES on entry then collapses
   as search presents. `.navigationTitle("")` + `.inline` there; the other four
