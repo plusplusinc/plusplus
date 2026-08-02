@@ -80,6 +80,28 @@ struct SimilarityReasonTests {
         #expect(!both.contains(.sharedMuscle))
     }
 
+    @Test("A shared fullBody primary says nothing, so it is not reported")
+    func fullBodyIsACatchAllNotAClaim() {
+        // Every cardio move files under fullBody, so "same muscle" there
+        // would be true of every neighbour — the same says-nothing failure
+        // the display order exists to avoid.
+        let origin = ExerciseSimilarityFeatures(
+            muscleGroups: [.fullBody], modality: .rowing, equipmentNames: ["Rowing Machine"]
+        )
+        let sameErg = ExerciseSimilarityFeatures(
+            muscleGroups: [.fullBody], modality: .rowing, equipmentNames: ["Rowing Machine"]
+        )
+        let reasons = ExerciseSimilarity.reasons(candidate: sameErg, origin: origin)
+        #expect(!reasons.contains(.samePrimaryMuscle))
+        #expect(!reasons.contains(.sharedMuscle))
+        // It falls through to what the pair actually shares.
+        #expect(reasons == [.sameEquipment])
+
+        // A real muscle still reports normally.
+        let chest = ExerciseSimilarityFeatures(muscleGroups: [.chest], modality: .strength, equipmentNames: [])
+        #expect(ExerciseSimilarity.reasons(candidate: chest, origin: chest).contains(.samePrimaryMuscle))
+    }
+
     @Test("Nothing in common reports nothing")
     func noOverlapIsEmpty() {
         let origin = bag([.chest], gear: ["Barbell"], pattern: .horizontalPush)

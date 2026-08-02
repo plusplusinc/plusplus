@@ -220,8 +220,14 @@ public enum ExerciseSimilarity {
         if let a = candidate.movementPattern, let b = origin.movementPattern, a == b {
             found.append(.samePattern)
         }
+        // ⚠️ `.fullBody` is a CATCH-ALL, not a claim. Every cardio move is
+        // filed under it, so for a cardio origin "same muscle" would be
+        // true of every neighbour and say exactly nothing — the failure
+        // this ordering exists to avoid, arriving through the bucket
+        // instead of through the pool. A fullBody pair falls through to
+        // what it actually shares: the gear, or the lack of it.
         let sharesPrimary = candidate.muscleGroup == origin.muscleGroup
-        if sharesPrimary {
+        if sharesPrimary, candidate.muscleGroup != .fullBody {
             found.append(.samePrimaryMuscle)
         }
         if candidate.equipmentNames.isEmpty && origin.equipmentNames.isEmpty {
