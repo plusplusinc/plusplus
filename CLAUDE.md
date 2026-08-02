@@ -63,8 +63,9 @@ No third-party dependencies without discussion first.
 > certain files → **.claude/rules/** (`paths:` frontmatter); a procedure → **.claude/skills/**.
 > The test for living here: would a session need it BEFORE knowing what it was about to touch?
 
-**Last updated:** 2026-08-02 · **Latest TestFlight build:** 168, from the search-morph BRANCH — a DEAD END, all of it REVERTED (#534/#539: builds 165-168 each tried a fix for the search fly-in, none worked, and main never took any of them; 160-164 from main are the last builds whose code is real).
+**Last updated:** 2026-08-02 · **Latest TestFlight build:** 169, from main. Builds 165-168 were a DEAD END, all REVERTED — they chased an OS bug (#534/#539, closed: the search fly-in reproduces in Slack, so no app change can fix it).
 ⚠️ Build number = workflow RUN number, not last-build+1 — check `actions_list` before writing a What's-New entry.
+⚠️ **Dave's device runs an iOS 27 BETA** (2026-08-02), while the deployment target is iOS 26.1 — so a device-pass artifact may be the beta OS's rather than ours, every "(recheck: iOS 27)" law in `.claude/rules/` is now checkable, and the FIRST question for any UI oddity he reports is **"does it reproduce in another app?"** (one minute, no code; #539 cost four TestFlight builds for want of asking it).
 
 **On main, awaiting Dave's device pass:** the queue lives in
 **docs/DEVICE-PASS.md** (18 items) — one line each, newest first, with the

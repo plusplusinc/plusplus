@@ -9,7 +9,21 @@ usually lives here.
 > Record architectural and significant implementation decisions as they're made.
 > Format: **Date — Decision — Reason**
 
-**2026-08-02 (latest) — The search fly-in is NOT a regression: it reproduces on build 150, the first build the surface ever had** — Dave, bisecting through TestFlight: "I went all the way back to 150 and it still happens. Guess I just never noticed it."
+**2026-08-02 (latest) — The search fly-in is an iOS 27 BETA bug: it reproduces in Slack. Four builds were spent because nobody opened another app** — Dave: "This thing appears to be an iOS 27 beta bug. Just realized I can repro it in the Slack app too. So there's nothing we need to do."
+
+**The bug was never ours and no app-side change could have fixed it.** #539 is closed not-planned. Everything the round shipped was reverted before this was known, so the tree is unaffected either way.
+
+⚠️ **The order-of-questions lesson, now complete, and it is the only durable output of this round.** For a UI oddity that might belong to the platform, the questions have a cost order and this round ran it exactly backwards:
+
+1. **Does it reproduce in another app?** One minute, no code, needs only the device already in hand. **Never asked.** It is the whole answer.
+2. **Does the oldest build with this feature also have it?** One TestFlight install. Asked fifth; it retired the entire commit-archaeology plan in a single test.
+3. **Mechanism, bisect, code.** Asked FIRST, four times, at a TestFlight build and a device install each.
+
+Each cheap question, when it was finally asked, invalidated more than all the expensive work preceding it. The failure was not any individual hypothesis — three of the four were reasonable readings of real laws in this repo. It was never testing the assumption UNDER them: that the bug belonged to PlusPlus at all. ⚠️ **A repo full of hard-won app-side laws makes app-side explanations cheap to generate and easy to believe**, which is exactly the condition under which the platform question stops getting asked.
+
+**The standing fact this surfaced, now in CLAUDE.md:** Dave's device passes run on an **iOS 27 beta** while the deployment target is iOS 26.1. Two consequences. Any device-pass artifact may be the beta OS's rather than ours, so "does it reproduce in another app" belongs at the front of every device-pass report. And the several `(recheck: iOS 27)` laws in `.claude/rules/` are now genuinely checkable rather than aspirational.
+
+**2026-08-02 — The search fly-in is NOT a regression: it reproduces on build 150, the first build the surface ever had** — Dave, bisecting through TestFlight: "I went all the way back to 150 and it still happens. Guess I just never noticed it."
 
 **One test retired the entire archaeology.** Build 150 (`bb866f3f`) is from the branch where the search surface was built, before #452 merged it to main — the earliest build that has a morphing search tab at all. It flies in there too. That exonerates every commit since 2026-07-26 in a single move, including the two that looked strongest by subject line: #521 ("the pinned inset broke the large-title bar", touching `CatalogScopeView`) and #502 (283 lines of `TodayView`). The commit-hunt I had ranked was about to spend real effort on a search space that does not contain the answer.
 
