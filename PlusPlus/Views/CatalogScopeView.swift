@@ -1041,13 +1041,16 @@ struct CatalogScopeView: View {
     /// no query, no facet. Any of either hides it, which is what makes a
     /// chip tap read as an answer rather than as a mode.
     ///
-    /// ⚠️ The SEARCH tab is excluded (Dave's call). Search is a query
-    /// surface, and its facet row starts in its pinned seat under a
-    /// `listSectionSpacing(.custom(0))` + `contentMargins(.top, 0)` pair
-    /// that exists to close a 22 pt gap — putting a different block at the
-    /// top of that list is exactly the change that law was written after.
+    /// ⚠️ The `!isSearchSurface` term this shipped with is GONE, and it did
+    /// not need replacing (2026-08-02, the floating-key merge). It excluded
+    /// the search TAB, which no longer exists — search is a QUERY on this
+    /// very instance now, so "no query" already excludes exactly what that
+    /// term excluded, on every tab. The seating pair it cited
+    /// (`listSectionSpacing(.custom(0))` + `contentMargins(.top, 0)`) went
+    /// with the tab too. ⚠️ What survives is the reason behind it: do not put
+    /// a second block above the facet row's pinned seat.
     private var showsFrontPage: Bool {
-        mode.isTab && !isSearchSurface && trimmedQuery.isEmpty && filters.isEmpty(for: scope)
+        mode.isTab && trimmedQuery.isEmpty && filters.isEmpty(for: scope)
     }
 
     /// What the front matter's counts depend on. Membership is the whole
@@ -1063,9 +1066,22 @@ struct CatalogScopeView: View {
 
     /// ⚠️ `nil` off the surfaces that can show the block, so nothing is
     /// built where it can never be read. This is evaluated on every body
-    /// pass, and the search surface has a body pass per KEYSTROKE — a key
-    /// there would allocate a ~100-name `Set` per character for a block
-    /// that instance never renders.
+    /// pass, and a body pass happens per KEYSTROKE while searching — a live
+    /// key there would allocate a ~100-name `Set` per character for a block
+    /// that is not on screen.
+    ///
+    /// ⚠️ **That guard used to be `!isSearchSurface` and it had to become
+    /// `trimmedQuery.isEmpty`** (2026-08-02, the floating-key merge), which
+    /// is a stronger requirement, not a looser one. Searching was its own TAB
+    /// — a different instance — so excluding that instance was enough to keep
+    /// the per-keystroke cost away. Typing now happens on THIS instance, so
+    /// dropping the term without replacing it would have put the `Set`
+    /// allocation back on every character of every catalog search. Keeping
+    /// `!isSearchSurface`'s spirit means gating on the QUERY.
+    ///
+    /// ⚠️ Deliberately NOT gated on `filters`: the counts are computed at
+    /// empty filters regardless, so a facet change cannot move them, and
+    /// gating there would rebuild the whole thing every time filters clear.
     ///
     /// ⚠️ It tracks CARDINALITY, not content, so it cannot see an EDIT: a
     /// muscle changed in the exercise editor moves a bucket without moving
@@ -1075,7 +1091,7 @@ struct CatalogScopeView: View {
     /// instead would fault every relationship on every body pass, which is
     /// the cost this whole design is arranged to avoid.
     private var frontMatterKey: FrontMatterKey? {
-        guard mode.isTab, !isSearchSurface else { return nil }
+        guard mode.isTab, trimmedQuery.isEmpty else { return nil }
         return FrontMatterKey(
             scope: scope,
             kitNames: kitNames,
@@ -1089,7 +1105,10 @@ struct CatalogScopeView: View {
     /// the counts state the whole catalog whatever the live query happens to
     /// be when the key changes.
     private func rebuildFrontMatter() {
-        guard mode.isTab, !isSearchSurface else { return }
+        // Matches `frontMatterKey`'s guard exactly; if the two drift, the
+        // onChange either rebuilds into a view that cannot show it or skips a
+        // rebuild the key just asked for.
+        guard mode.isTab, trimmedQuery.isEmpty else { return }
         let outcome = FindOrCreateEngine.outcome(
             query: "",
             scope: scope,
