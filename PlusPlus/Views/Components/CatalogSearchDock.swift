@@ -31,15 +31,29 @@ import SwiftUI
 ///   `navigationDestination` screens. That is how the key hides the moment you
 ///   push a detail, with no flag and no at-root signal to thread.
 ///
-/// The anatomy is the app's one search-field grammar, unchanged: an in-field
-/// `delete.left` CLEAR that empties the query and keeps you typing, and a
-/// separate `xmark` COLLAPSE key that clears AND closes, sitting exactly where
-/// the magnifier was. `xmark` means "collapse the search" here as everywhere,
-/// which is why a sheet never dismisses with one.
+/// ⚠️ **It is the app's ONE Liquid Glass surface, and that is a scoped
+/// exception Dave took deliberately** (2026-08-02): a glass CIRCLE that morphs
+/// into a glass CAPSULE, i.e. the native search-tab look this replaced. Three
+/// standing laws bend for it and only for it — icon keys are r11 rounded
+/// squares (2026-07-19, an all-circles round was reverted), controls are
+/// rounded rects not capsules (2026-07-20), and key chrome is app-drawn over
+/// Liquid Glass (build 42). **The reason is the NEIGHBOUR**: this dock floats
+/// directly above the system tab bar, which is glass, so it matches what it
+/// sits against rather than chrome most of a screen away. Nothing else in the
+/// app moves — `SearchFieldBody`'s other three mounts sit among app-drawn keys
+/// and keep the r11 opaque anatomy.
 ///
-/// The morph follows the anytime card (design-grammar, 2026-08-01): the CHROME
-/// travels via `matchedGeometryEffect`, the contents crossfade. Never match the
-/// content views — text reflows mid-flight — and never a measured flip.
+/// The morph is therefore the SYSTEM's, not the anytime card's: a
+/// `GlassEffectContainer` plus a shared `glassEffectID`, which is the same
+/// mechanism the search-role tab used to expand out of the bar. ⚠️ Do NOT
+/// reach back for `matchedGeometryEffect` here — it cannot fluidly reshape
+/// glass, and the two would fight over the same geometry.
+///
+/// The anatomy inside the glass is the app's own search grammar, unchanged: an
+/// in-field `delete.left` CLEAR that empties the query and keeps you typing,
+/// and a separate `xmark` COLLAPSE key that clears AND closes, sitting exactly
+/// where the magnifier was. `xmark` means "collapse the search" here as
+/// everywhere, which is why a sheet never dismisses with one.
 struct CatalogSearchDock: View {
 
     /// The shared id for the travelling ground. Lives here because
@@ -67,31 +81,41 @@ struct CatalogSearchDock: View {
     @State private var wantsFocus = false
 
     var body: some View {
-        // ⚠️ A ZStack with explicit transitions and a zIndex, NOT a bare
-        // `Group { if/else }` — the anytime card's shape, and for its reasons.
-        // A plain branch swap leaves both matched shapes inserted in the same
-        // frame with nothing saying which draws on top, so the outgoing
-        // magnifier can paint over the incoming field mid-morph.
-        ZStack(alignment: .topTrailing) {
+        // ⚠️ `GlassEffectContainer` is what makes the two shapes ONE morphing
+        // surface — it is not a performance wrapper here, it is the mechanism.
+        // Without it the shared `glassEffectID` has no container to morph
+        // within and the swap is a hard cut.
+        GlassEffectContainer(spacing: 10) {
             if isOpen {
                 openField
                     .zIndex(1)
-                    .transition(.opacity)
             } else {
-                searchKey
-                    .transition(.opacity)
+                HStack(spacing: 0) {
+                    // Trailing seat, so the key sits above the RIGHTMOST tab
+                    // and the collapse key lands back on this exact spot.
+                    // ⚠️ The Spacer is INSIDE the container's row rather than
+                    // a layer over the list: rows scroll under this inset and
+                    // stay visible through the empty side, so a full-width
+                    // hit-testing layer here would be a standing dead column
+                    // (ui-interaction.md), invisible to XCUITest.
+                    Spacer(minLength: 0)
+                        .allowsHitTesting(false)
+                    searchKey
+                }
             }
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
-        // No band behind the dock: both states bring their own opaque chrome,
-        // so the `.soft` bottom scroll edge effect keeps doing its job under
-        // them. A solid strip here would be the full-width slab build 148
-        // killed, one row higher.
+        // No band behind the dock: glass IS the ground, and the `.soft` bottom
+        // scroll edge effect keeps rows legible under it. A solid strip here
+        // would be the full-width slab build 148 killed, one row higher.
         .padding(.bottom, 6)
     }
 
     private var openField: some View {
+        // Default `HStack` spacing would crowd two glass shapes; 10 matches
+        // the container's own spacing so they read as one group without
+        // merging into a single blob.
         HStack(spacing: 10) {
             SearchFieldBody(
                 config: HeaderSearchConfig(
@@ -102,67 +126,65 @@ struct CatalogSearchDock: View {
                     identifier: "catalogDockSearchField"
                 ),
                 wantsFocus: $wantsFocus,
-                morph: morph
+                glass: SearchFieldGlass(namespace: morph)
             )
-            // ⚠️ The field is 44 pt tall and a raised key is 48 — `RaisedKeyStyle`
-            // pads the bottom by its 4 pt travel to leave room for the plate, so
-            // a centred `HStack` seats the field's cap 2 pt BELOW the key's.
-            // Match the padding and the two line up, at rest and at the end of
-            // the morph. (The retired `.principal` scope row carried exactly
-            // this compensation for exactly this reason.)
-            .padding(.bottom, 4)
-            HeaderIconButton(
-                systemImage: "xmark",
-                accessibilityLabel: "Close search",
-                identifier: "catalogDockCloseButton"
-            ) {
-                query = ""
-                withAnimation(Theme.Anim.selection) { isOpen = false }
-            }
+            closeKey
         }
     }
 
-    /// The collapsed key, seated at the trailing edge so it sits above the
-    /// RIGHTMOST tab and the collapse key lands back on this exact spot.
+    /// The collapse key: clears the query AND closes, landing exactly where the
+    /// magnifier was. A glass circle, like the key it replaces on screen —
+    /// `HeaderIconButton` is not reusable here for the same reason the search
+    /// key is not (see below).
+    private var closeKey: some View {
+        Button {
+            query = ""
+            withAnimation(Theme.Anim.selection) { isOpen = false }
+        } label: {
+            glassGlyph("xmark")
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Close search")
+        .accessibilityIdentifier("catalogDockCloseButton")
+    }
+
+    /// The collapsed key. Built here rather than reusing `HeaderIconButton`
+    /// because that component IS the app's opaque r11 raised-key anatomy, which
+    /// is exactly what this one control does not wear — and because its ground
+    /// has to carry the `glassEffectID` that pairs it with the field.
     ///
-    /// Built here rather than reusing `HeaderIconButton` for one reason: its
-    /// ground has to carry the `matchedGeometryEffect` that pairs it with the
-    /// field. Everything else — 44 pt cap, r11, `Theme.background` fill,
-    /// `borderStrong` stroke, raised travel — is that component's anatomy, kept
-    /// identical so the dock key reads as one of the app's icon keys.
-    ///
-    /// ⚠️ Trailing ALIGNMENT, never an `HStack` + `Spacer`. The dock is a
-    /// `safeAreaInset`, so list rows scroll under it and stay visible through
-    /// the empty side of this row — and a spacer there is a standing full-width
-    /// layer over live rows, which is the hit-testing-ghost class XCUITest
-    /// cannot see (ui-interaction.md).
-    ///
-    /// ⚠️ The FILL differs between the two states on purpose (a key wears
-    /// `background`, a field wears `surface`) and that is fine: geometry is
-    /// what the effect matches, and the two grounds crossfade as the branches
-    /// swap.
+    /// ⚠️ No `.raisedKey()`, and nothing to compensate for. A raised key is
+    /// 48 pt tall (`RaisedKeyStyle` pads the bottom by its 4 pt travel to leave
+    /// room for the plate), which used to seat the 44 pt field 2 pt low beside
+    /// it. Glass has no plate, so every shape here is a plain 44 and the row
+    /// lines up on its own. `.interactive()` supplies the press response the
+    /// plate used to.
     private var searchKey: some View {
         Button {
             wantsFocus = true
             withAnimation(Theme.Anim.selection) { isOpen = true }
         } label: {
-            Image(systemName: "magnifyingglass")
-                .font(.system(.body, weight: .medium))
-                .foregroundStyle(Theme.textSecondary)
-                .frame(width: 44, height: 44)
-                .background(
-                    RoundedRectangle(cornerRadius: Theme.keyRadius)
-                        .fill(Theme.background)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: Theme.keyRadius)
-                                .strokeBorder(Theme.borderStrong)
-                        )
-                        .matchedGeometryEffect(id: Self.chromeID, in: morph)
-                )
+            glassGlyph("magnifyingglass")
         }
-        .buttonStyle(.raisedKey())
+        .buttonStyle(.plain)
         .accessibilityLabel("Search")
         .accessibilityIdentifier("catalogSearchToggle")
-        .frame(maxWidth: .infinity, alignment: .trailing)
+    }
+
+    /// One 44 pt glass circle carrying a glyph — the dock's key anatomy, shared
+    /// by the magnifier and the collapse ✕ so they are visibly the same object
+    /// in two states.
+    ///
+    /// ⚠️ Only the MAGNIFIER carries the `glassEffectID`. The field takes the
+    /// same id when open, so the pair morphs; giving the ✕ that id too would
+    /// claim the id twice in one frame and leave the container with two
+    /// candidate shapes for one surface.
+    private func glassGlyph(_ systemImage: String) -> some View {
+        Image(systemName: systemImage)
+            .font(.system(.body, weight: .medium))
+            .foregroundStyle(Theme.textPrimary)
+            .frame(width: 44, height: 44)
+            .glassEffect(.regular.interactive(), in: Circle())
+            .glassEffectID(systemImage == "magnifyingglass" ? Self.chromeID : "\(Self.chromeID)-close", in: morph)
     }
 }

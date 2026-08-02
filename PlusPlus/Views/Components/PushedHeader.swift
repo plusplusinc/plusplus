@@ -154,26 +154,13 @@ struct HeaderSearchField: View {
 struct SearchFieldBody: View {
     let config: HeaderSearchConfig
     @Binding var wantsFocus: Bool
-    /// When set, the field's OWN chrome carries the morph — the floating
-    /// dock's magnifier key grows into this shape (`CatalogSearchDock`).
-    /// The effect has to ride the real background rather than a second
-    /// shape behind it: a coincident un-matched ground would snap to full
-    /// size on the first frame while the matched one was still travelling,
-    /// which is the morph not happening. `nil` on the three header/picker
-    /// mounts, which don't morph.
-    var morph: Namespace.ID?
-    var morphID: String = CatalogSearchDock.chromeID
+    /// Set ONLY by the floating dock (`CatalogSearchDock`), where this field
+    /// is a Liquid Glass capsule that the magnifier key morphs into. `nil`
+    /// everywhere else, which keeps the app's own r11 opaque anatomy on the
+    /// three header/picker mounts.
+    var glass: SearchFieldGlass?
 
     @FocusState private var focused: Bool
-
-    /// The field's ground. Fill and stroke are the shared search anatomy;
-    /// only the matched-geometry id is per-mount.
-    private var chrome: some View {
-        RoundedRectangle(cornerRadius: Theme.keyRadius)
-            .fill(Theme.surface)
-            .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
-            .modifier(OptionalMorph(namespace: morph, id: morphID))
-    }
 
     var body: some View {
         let hasText = !config.text.wrappedValue.isEmpty
@@ -227,25 +214,37 @@ struct SearchFieldBody: View {
         .padding(.trailing, hasText ? 10 : 13)
         .frame(height: 44)
         .frame(maxWidth: .infinity)
-        .background(chrome)
+        .modifier(SearchFieldChrome(glass: glass))
     }
 }
 
-/// `matchedGeometryEffect` where the namespace is optional — a plain
-/// pass-through when there is none. Written as a modifier because the
-/// effect returns a different concrete type in each arm, and a
-/// `@ViewBuilder` if/else around a whole background breaks the shape's
-/// identity across the branch (which is the one thing the morph needs
-/// to keep).
-private struct OptionalMorph: ViewModifier {
-    let namespace: Namespace.ID?
-    let id: String
+/// The dock's glass pairing: the namespace the key and the field share, and
+/// the id that makes them one morphing shape.
+struct SearchFieldGlass {
+    let namespace: Namespace.ID
+    var id: String = CatalogSearchDock.chromeID
+}
+
+/// The field's ground, in one of the app's TWO search materials.
+///
+/// ⚠️ Two, deliberately, and the split is by NEIGHBOUR (Dave, 2026-08-02).
+/// The floating dock sits directly above the tab bar, which is system Liquid
+/// Glass, so it wears glass in a capsule and morphs natively. Every other
+/// mount sits among the app's own opaque keys, so it keeps the r11 surface
+/// fill and `borderStrong` stroke. Do not converge them — the point is that
+/// each matches what it is next to.
+private struct SearchFieldChrome: ViewModifier {
+    let glass: SearchFieldGlass?
 
     func body(content: Content) -> some View {
-        if let namespace {
-            content.matchedGeometryEffect(id: id, in: namespace)
+        if let glass {
+            content
+                .glassEffect(.regular, in: Capsule())
+                .glassEffectID(glass.id, in: glass.namespace)
         } else {
             content
+                .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+                .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
         }
     }
 }

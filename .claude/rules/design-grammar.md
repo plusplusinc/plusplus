@@ -75,7 +75,18 @@ Siblings: `navigation.md` (tab bar, search, scope control, landings),
   send-stop use `RoundedRectangle(cornerRadius: 11)` + `.raisedKey()`. The one
   sanctioned variant is `ConfigIconButton` (30 pt cap, r8, FLAT bordered — it
   configures a value in place, it doesn't commit or navigate; the radius
-  scales with the cap). No other per-context corner variation. ⚠️ **A raised
+  scales with the cap). No other per-context corner variation.
+  ⚠️ **ONE scoped exception, and it is scoped by NEIGHBOUR** (Dave, 2026-08-02):
+  the floating search dock (`CatalogSearchDock`) is a Liquid Glass CIRCLE that
+  morphs into a glass CAPSULE — the native search-tab look it replaced. It
+  bends this law, the rounded-rects-not-capsules law below, and the
+  app-drawn-chrome-over-Liquid-Glass call from build 42, because it floats
+  directly above the system tab bar, which IS glass: it matches what it sits
+  against rather than chrome most of a screen away. **The exception does not
+  generalize.** It is the app's only glass surface; nothing else moves, and
+  `SearchFieldBody`'s three other mounts sit among app-drawn keys and keep the
+  r11 opaque anatomy. Before wearing glass anywhere else, ask what the thing is
+  NEXT TO — if the answer is app chrome, this precedent says use app chrome. ⚠️ **A raised
   key's cap and its hit target are ONE rectangle** (build 161): `RaisedKeyStyle`
   plates the frame it is GIVEN, so a smaller cap inside a bigger hit frame draws
   the plate as a second box around it. Grow the frame, not the gap. Every "New …" / "Add …" /
@@ -146,7 +157,14 @@ Siblings: `navigation.md` (tab bar, search, scope control, landings),
   card, 2026-08-01: a tapped key's CHROME grows into its config panel via
   `matchedGeometryEffect` on `Theme.Anim.selection`, content fading; never
   match content views — text reflows mid-flight — and never a measured
-  FLIP, which writes layout state where the morph law forbids it). Tempo
+  FLIP, which writes layout state where the morph law forbids it).
+  ⚠️ **A GLASS morph is the system's, not that recipe** (2026-08-02): the
+  search dock pairs a `GlassEffectContainer` with a shared `glassEffectID`,
+  which is the mechanism the search-role tab used to expand out of the bar.
+  `matchedGeometryEffect` cannot fluidly reshape glass, and running both makes
+  them fight over the same geometry. The rule follows the MATERIAL: app-drawn
+  chrome morphs with `matchedGeometryEffect`, glass morphs with
+  `glassEffectID`, and neither borrows the other's mechanism. Tempo
   lives in `Theme.Anim` tokens, never inline
   curves: `.selection` (snappy spring, front-loaded, no overshoot — an
   ease-out's decelerating tail made a sliding pill read muddy, 2026-07-12),
@@ -206,7 +224,9 @@ Siblings: `navigation.md` (tab bar, search, scope control, landings),
   `CardTagCapsule` (routine gear pills too). **Both tiers are ROUNDED
   RECTANGLES, not capsules** (2026-07-20): every interactive key is a rounded
   rect, so filter controls sit at `FilterChipShape.cornerRadius` (11) and data
-  tags at r6 — shape carries role by radius, control vs data. Data-tag text is
+  tags at r6 — shape carries role by radius, control vs data. (The search
+  dock's glass capsule is the one exception, scoped by neighbour — see the
+  icon-key law above.) Data-tag text is
   sentence-case, standard (non-mono) caption. ALL-CAPS mono stays reserved for
   section labels. The property a filter/sort controls appears as a
   `CardTagCapsule` on the cards it narrows, so the two connect. One item reads

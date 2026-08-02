@@ -118,18 +118,28 @@ inside a filtered list.
   this deleted). ⚠️ This makes each catalog's
   `.scrollDismissesKeyboard(.immediately)` LOAD-BEARING, not incidental: it is
   the only route back to the tabs. Do not weaken it to `.interactively`.
-- **The morph is `matchedGeometryEffect` on the CHROME only**, contents
-  crossfading, `Theme.Anim.selection` — the anytime-card recipe
-  (design-grammar). The effect rides `SearchFieldBody`'s REAL background via
-  its optional `morph:` namespace; a second coincident shape behind it would
-  snap to full size on frame one while the matched one was still travelling,
-  which is the morph not happening. The two grounds differ in FILL on purpose
-  (a key wears `background`, a field wears `surface`) and crossfade.
+- ⚠️ **It is the app's ONE Liquid Glass surface** (Dave, 2026-08-02): a glass
+  CIRCLE morphing into a glass CAPSULE, i.e. the native search-tab look it
+  replaced. Scoped by NEIGHBOUR — it floats above the system tab bar, which is
+  glass — and it does not generalize; the full exception with its three bent
+  laws is in design-grammar. `SearchFieldBody` takes a `glass:` pairing ONLY
+  here; its three other mounts keep the r11 opaque anatomy.
+- **The morph is therefore the SYSTEM's**: a `GlassEffectContainer` plus a
+  shared `glassEffectID`, the mechanism the search-role tab used to expand out
+  of the bar. ⚠️ Do NOT reach back for `matchedGeometryEffect` — it cannot
+  fluidly reshape glass and the two fight over the same geometry. ⚠️ Only the
+  MAGNIFIER shares the field's id; the ✕ carries its own, or the container gets
+  two candidate shapes for one surface in the same frame.
+- **No `.raisedKey()` on either dock key, and nothing to compensate for.** A
+  raised key is 48 pt (the style pads the bottom by its 4 pt travel for the
+  plate) against the field's 44, which used to seat the field 2 pt low beside
+  it. Glass has no plate, every shape is a plain 44, and `.interactive()`
+  supplies the press response.
 - **It does NOT auto-focus on tab arrival** — the key is a key; the keyboard
   rises when you tap it. The one-shot focus intent (#233) is armed by that tap
   and consumed by the field's `onAppear`.
-- **Anatomy is the app's single search grammar** (`SearchFieldBody`): surface
-  fill, borderStrong stroke, r11, mono text, an in-field `delete.left` CLEAR
+- **Anatomy INSIDE the chrome is the app's single search grammar**
+  (`SearchFieldBody`): mono text, an in-field `delete.left` CLEAR
   that empties the query and KEEPS focus, and a separate `xmark` COLLAPSE key
   that clears and closes, landing exactly where the magnifier was. The same
   body serves pushed catalogs, pickers and sheets through `HeaderSearchField`.
