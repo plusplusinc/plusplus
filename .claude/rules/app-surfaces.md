@@ -13,8 +13,9 @@ and round-by-round history live in docs/DECISIONS.md under dated entries.
 Correct a claim here when the app changes; don't append a dated paragraph
 beside it. The laws that constrain these surfaces live in the sibling rules:
 **`design-grammar.md`** (color · keys · tags · motion · copy laws) and
-**`navigation.md`** (tab bar, search surface, scope control, landings) and
-**`today-rail.md`** (Today's band, rail, landmarks and pull) —
+**`navigation.md`** (tab bar, search surface, scope control, landings),
+**`catalog-scopes.md`** (what the catalog shows: scopes, tiers, facets, front
+matter) and **`today-rail.md`** (Today's band, rail, landmarks and pull) —
 both load when you touch view code; read them before changing what they govern.
 
 **Four tabs** on the native iOS 26 Liquid Glass `TabView` (`RootTabView`):
@@ -52,7 +53,8 @@ toolbar. A TAB with no query and
 no facet leads with FRONT MATTER (`CatalogFrontPage`) above the whole list:
 what the scope and the kit come to, then the scope's axes as chips that
 write facets. Not the search tab, and never a replacement for the list
-(laws in `navigation.md`). Routine detail keeps the superset rail. Exercise detail ends with **NEAR THIS**: the catalog's nearest moves, kit-doable first, each saying why it is near, pushing exercise detail recursively (`ExerciseSimilarity.reasons` + the swap tray's own `swapSuggestions`).
+(laws in `navigation.md`). On Kit the CATALOG tier is ordered by what each
+piece would OPEN rather than by alphabet, stating it as an `opens N` tag. Routine detail keeps the superset rail. Exercise detail ends with **NEAR THIS**: the catalog's nearest moves, kit-doable first, each saying why it is near, pushing exercise detail recursively (`ExerciseSimilarity.reasons` + the swap tray's own `swapSuggestions`).
 
 **The drawer** — the top-left ++ key (and a leading-edge drag on any tab
 root) slides the whole app right, revealing `RevealSurface`: settings folded

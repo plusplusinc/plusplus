@@ -861,13 +861,22 @@ struct EquipmentDetailScreen: View {
     /// and everything else they need is already in the active kit. The
     /// truthful delta — the catalog rows' "N exercises" counts every
     /// user of the piece; a beat that overclaims would train distrust.
+    ///
+    /// Reads from the shared calculator since 2026-08-02 (#251): the Kit
+    /// catalog tier now ORDERS by the same number, and a beat that said
+    /// "+7" over a row that promised "opens 5" would train exactly the
+    /// distrust this count was written to avoid. One function, one answer.
+    /// ⚠️ Fed only the exercises that USE this piece, not the whole
+    /// catalog, and that cannot change the answer: a piece can only ever be
+    /// the sole thing missing from a move that requires it, so every other
+    /// row contributes to other keys and never to this one. The narrower
+    /// input keeps this off the catalog on a tap that also plays an
+    /// animation.
     private func newlyDoableCount() -> Int {
-        let available = activeLibrary?.memberNames ?? []
-        return usedByExercises.count { exercise in
-            exercise.equipment
-                .filter { !$0.isDeleted }
-                .allSatisfy { $0.name == equipment.name || available.contains($0.name) }
-        }
+        CatalogReachCalculator.unlocks(
+            usedByExercises.map(ExerciseFilterState.similarityFeatures),
+            kit: activeLibrary?.memberNames ?? []
+        )[equipment.name] ?? 0
     }
 
     /// Raise the "+N exercises" chip, hold it a beat, let it go. Reduce
