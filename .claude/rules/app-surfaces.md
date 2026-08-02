@@ -13,7 +13,8 @@ and round-by-round history live in docs/DECISIONS.md under dated entries.
 Correct a claim here when the app changes; don't append a dated paragraph
 beside it. The laws that constrain these surfaces live in the sibling rules:
 **`design-grammar.md`** (color · keys · tags · motion · copy laws) and
-**`navigation.md`** (tab bar, search surface, scroll and landing mechanics) —
+**`navigation.md`** (tab bar, search surface, scope control, landings) and
+**`today-rail.md`** (Today's band, rail, landmarks and pull) —
 both load when you touch view code; read them before changing what they govern.
 
 **Five tabs** on the native iOS 26 Liquid Glass `TabView` (`RootTabView`):
@@ -33,11 +34,11 @@ below the future and above today; its wrapping keys morph in place into
 config panels). The week's FACTS
 (tally · block bar) pin as the surface's ONE section header, above the whole
 timeline including the week ahead — nothing else on Today may pin (laws in
-`navigation.md`). A sync that WAS working and has broken adds one amber
+`today-rail.md`). A sync that WAS working and has broken adds one amber
 advisory entry directly under the anytime card, sharing that row's gate so it
 can never take the landing slot; it presents the GitHub tray directly.
 Pull-to-refresh answers in the gap the pull opens (mechanics in
-`navigation.md`).
+`today-rail.md`).
 
 **Routines / Exercises / Kit** — catalog surfaces over `CatalogScopeView`,
 MINE then CATALOG, a single-select facet row per scope (exercises kind/

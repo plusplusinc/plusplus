@@ -11,7 +11,8 @@ paths:
 
 Current since the Quiet Arcade refresh (reasoning: docs/DECISIONS.md,
 2026-07-07 → 2026-07-10 entries, plus the dated entry each law cites).
-Siblings: `navigation.md` (tab bar, search, scroll/landing mechanics),
+Siblings: `navigation.md` (tab bar, search, scope control, landings),
+`today-rail.md` (Today's band, rail, landmarks, pull),
 `app-surfaces.md` (what each screen is), `ui-interaction.md` (gesture laws).
 
 - **Green is data/creation** (deltas, net chips, the ++ glyph, create
