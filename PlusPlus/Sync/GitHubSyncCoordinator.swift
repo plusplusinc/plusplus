@@ -51,6 +51,21 @@ final class GitHubSyncCoordinator {
     /// reasoning — the short version is that `lastSyncedAt` is destroyed by
     /// the very failure the advisory exists to report.
     private(set) var everSynced: Bool
+    /// This device holds a user token, whether or not a repo has been found
+    /// yet (#509, Q18-A). The reordered wizard authorizes FIRST, which
+    /// creates a real third state between "never connected" and
+    /// "connected": authorized, still waiting for the Sync App to be
+    /// installed somewhere. `connection` can't express it — a token alone
+    /// syncs nothing — so the wizard asks this instead.
+    ///
+    /// ⚠️ STORED, not a computed Keychain read (swift-reviewer). Computed,
+    /// it touched no stored property, so `@Observable` registered no
+    /// dependency and a change that flipped only this would not invalidate
+    /// the view — it happened to work because every mutation also assigned
+    /// an observed property in the same turn, which is an accident, not an
+    /// invariant, and the wizard's step seating and its only escape key both
+    /// depend on it. It also ran `SecItemCopyMatching` on every body pass.
+    private(set) var hasToken: Bool
     /// True when disconnected because a connect attempt failed or a live
     /// connection expired/broke (not a clean, never-connected state). Drives
     /// the red "disconnected" trigger and starts a reconnect on the authorize
@@ -80,18 +95,22 @@ final class GitHubSyncCoordinator {
         self.client = client
         self.coordinate = savedCoordinate
         self.lastSyncedAt = GitHubSyncSettings.lastSyncedAt
-        // ⚠️ Backfill for installs that synced before this flag existed: a
-        // stored coordinate or a last-synced stamp both prove a pass
-        // succeeded, and reading them here is the only chance to notice.
-        // Without it, everyone syncing today loses the broken-sync advisory
-        // until their next successful pass writes the flag.
+        // ⚠️ Backfill for installs that synced before this flag existed —
+        // from the last-synced stamp ALONE. A saved coordinate does NOT
+        // qualify (swift-reviewer): `bootstrap()` writes it at connect
+        // time, strictly before the first pass, so an install that
+        // connected on a flaky network and never completed a sync would
+        // backfill to true and then claim "nothing lost" about a repo that
+        // has never received one byte — the exact false claim this flag
+        // exists to prevent. `lastSyncedAt` is written only by a completed
+        // pass, which is the whole distinction.
         self.everSynced = GitHubSyncSettings.everSynced
-            || savedCoordinate != nil
             || GitHubSyncSettings.lastSyncedAt != nil
 
         // Use the local, not self.coordinate — `connection` (the last stored
         // property) isn't initialized yet, so touching self is illegal here.
         let hasToken = ((try? tokens.load()) ?? nil) != nil
+        self.hasToken = hasToken
         if config == nil {
             connection = .unconfigured
         } else if hasToken, savedCoordinate != nil {
@@ -146,13 +165,6 @@ final class GitHubSyncCoordinator {
 
     // MARK: - Connect (authorize → verify install → adopt)
 
-    /// True once this device holds a user token, whether or not a repo has
-    /// been found yet (#509, Q18-A). The reordered wizard authorizes FIRST,
-    /// which creates a real third state between "never connected" and
-    /// "connected": authorized, still waiting for the Sync App to be
-    /// installed somewhere. `connection` can't express it — the token alone
-    /// syncs nothing — so the wizard asks this instead.
-    var hasToken: Bool { ((try? tokens.load()) ?? nil) != nil }
 
     /// The device flow ALONE: run it, save the token, stop (#509, Q18-A).
     ///
@@ -177,11 +189,21 @@ final class GitHubSyncCoordinator {
             let token = try await flow.pollForToken(for: verification)
             try Task.checkCancellation()
             try tokens.save(token)
+            hasToken = true
             activity = .idle
-            // A token is the opposite of a fault, even though the
-            // connection is still down: the wizard is mid-setup, which
-            // reads neutral gray in the drawer, never red.
-            clearFault()
+            // ⚠️ Does NOT clear the fault, and that is load-bearing
+            // (swift-reviewer). A token is not a connection: `clearFault()`
+            // persists `connectionFaulted = false`, and under the reorder
+            // that is now FOUR user actions before a connection exists. The
+            // commonest repair path — expired token, tap Today's advisory,
+            // authorize, then close the tray believing you are done —
+            // would leave `faulted` false, `connection` disconnected and a
+            // live token in the Keychain: Today's advisory gone, the drawer
+            // row painted the same gray as a never-connected install, and
+            // nothing left that can ever re-raise either, since `sync()`
+            // guards on `isConnected`. Starting the repair would silence
+            // every signal that the repair was needed. `finishConnecting()`
+            // clears it, because that is where the connection begins.
             return true
         } catch is CancellationError {
             return false
@@ -211,11 +233,31 @@ final class GitHubSyncCoordinator {
         return repos.first
     }
 
+    /// Drop a token GitHub has stopped accepting (#509 review). The install
+    /// check is the one place that can discover this while DISCONNECTED —
+    /// `sync()`'s auth branch only ever runs on a live connection — and
+    /// leaving a dead string in the Keychain would keep sending the wizard
+    /// to a step that can only fail.
+    ///
+    /// ⚠️ Does NOT touch `faulted` or `everSynced`: the connection was
+    /// already down and whatever was true about the backup still is. This
+    /// forgets a credential, not a history.
+    func forgetDeadToken() {
+        try? tokens.clear()
+        hasToken = false
+        activity = .error("This phone needs to reconnect to GitHub.")
+    }
+
     /// Adopt the verified install and go connected (#509, Q18-A) — the
     /// second half of `connect()` for a device that already authorized.
     @discardableResult
     func finishConnecting() async -> Bool {
-        guard hasToken else { return false }
+        // ⚠️ Never a silent no-op (swift-reviewer): this is a primary key,
+        // and a Finish that does nothing at all reads as a broken app.
+        guard hasToken else {
+            activity = .error("This phone isn't connected to GitHub yet.")
+            return false
+        }
         do {
             try await bootstrap()
             connection = .connected
@@ -331,6 +373,7 @@ final class GitHubSyncCoordinator {
             // banner, so auto-sync keeps trying and "Sync now" stays reachable.
             if Self.isAuthFailure(error) {
                 try? tokens.clear()
+                hasToken = false
                 GitHubSyncSettings.clearCoordinate()
                 self.coordinate = nil
                 connection = .disconnected
@@ -456,6 +499,7 @@ final class GitHubSyncCoordinator {
 
     func disconnect() {
         try? tokens.clear()
+        hasToken = false
         GitHubSyncSettings.clearCoordinate()
         try? ApplicationSupportBaseStore.reset()
         // Repo-derived caches go with the connection.

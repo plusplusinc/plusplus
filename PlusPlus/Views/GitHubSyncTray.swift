@@ -26,10 +26,13 @@ import PlusPlusKit
 /// invisible to us. The install check covers both — you cannot install on a
 /// repo that doesn't exist.
 struct GitHubSyncTray: View {
-    /// Present already advanced to the authorize step. The post-install
-    /// auto-return sets this: GitHub only bounces back after a completed
-    /// install, so create-repo and install are behind us and we auto-start
-    /// the device flow to finish connecting.
+    /// Auto-start the device flow on arrival, for the post-install bounce.
+    ///
+    /// ⚠️ Consulted ONLY when this device has no token (#509, Q18-A): with
+    /// one, the token decides where you land and the install check tells
+    /// you the rest. Since the reorder authorizes FIRST, the real
+    /// post-install bounce always has a token and never reads this — it
+    /// survives for the case where a bounce somehow arrives without one.
     var startAtConnect: Bool = false
 
     @Environment(\.dismiss) private var dismiss
@@ -37,7 +40,7 @@ struct GitHubSyncTray: View {
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw = WeightUnit.lb.rawValue
 
     @State private var sync = GitHubSyncCoordinator.shared
-    @State private var step: Step = .createRepo
+    @State private var step: Step = .authorize
     @State private var connectTask: Task<Void, Never>?
     @State private var didInit = false
     @State private var codeCopied = false
@@ -107,11 +110,24 @@ struct GitHubSyncTray: View {
         .onChange(of: isAuthorizing) { _, authorizing in
             if authorizing { detent = .large }
         }
-        // The authorize step opens GitHub in the in-app browser; once the poll
-        // lands the token, dismiss it so the connected state is revealed
-        // instead of sitting behind GitHub's "authorized" page.
+        // Connecting reveals the connected state; `startAuthorize` owns
+        // closing the browser (the token lands two steps before this fires).
         .onChange(of: sync.isConnected) { _, connected in
-            guard connected else { return }
+            guard connected else {
+                // ⚠️ Disconnecting from the connected card drops the user
+                // straight back into the wizard, and `didInit` means
+                // `onAppear` will never re-seat it (swift-reviewer). Without
+                // this reset they landed on STEP 3 OF 3 showing a stale
+                // "installed on owner/repo ✓" for a token that no longer
+                // exists, over a Finish that was enabled and did nothing.
+                installCheckTask?.cancel()
+                installCheck = .idle
+                withAnimation(Theme.Anim.selection) {
+                    advancing = false
+                    step = .authorize
+                }
+                return
+            }
             browser = nil
             // Connecting never backgrounds the app (the authorize step is an
             // in-app browser, not an external one), so no scenePhase → .active
@@ -154,6 +170,14 @@ struct GitHubSyncTray: View {
             // install step can tell it in one request which of the
             // remaining states it is actually in. Without a token there is
             // exactly one thing to do, and it is step 1.
+            // ⚠️ Nothing to seed while CONNECTED: the wizard isn't on
+            // screen, and checking would spend a `/user/installations`
+            // round trip on every tray open to fill a verdict nobody sees —
+            // which then went stale and misleading the moment the user
+            // tapped Disconnect (swift-reviewer).
+            if sync.isConnected {
+                return
+            }
             if sync.hasToken {
                 step = .install
                 checkInstall()
@@ -262,7 +286,12 @@ struct GitHubSyncTray: View {
                 connectTask?.cancel()
                 installCheck = .idle
                 sync.disconnect()
-                step = .authorize
+                // Slide back the way Back does; a hard cut from step 3 to
+                // step 1 reads as a glitch.
+                withAnimation(Theme.Anim.selection) {
+                    advancing = false
+                    step = .authorize
+                }
             } label: {
                 Text("Stop syncing")
                     .font(.system(.footnote, weight: .semibold))
@@ -637,6 +666,15 @@ struct GitHubSyncTray: View {
         connectTask = Task {
             let authorized = await sync.authorize()
             guard !Task.isCancelled, authorized else { return }
+            // ⚠️ Dismiss the in-app browser HERE (swift-reviewer). It used
+            // to close off `sync.isConnected`, which the old `connect()`
+            // set at the end of the device flow — `authorize()` deliberately
+            // does not, so the sheet would have stayed up over GitHub's
+            // "device activated" page while the wizard advanced invisibly
+            // beneath it. `SafariView` sets no delegate, so its own Done
+            // button does nothing and the only exit is a swipe-down the
+            // user has no reason to try: the wizard reads as hung.
+            browser = nil
             advance(to: .createRepo)
         }
     }
@@ -657,14 +695,34 @@ struct GitHubSyncTray: View {
                 }
             } catch {
                 guard !Task.isCancelled else { return }
-                // Deliberately not `describe(error)`: every failure here is
-                // "the question didn't get answered", and the action is the
-                // same one either way.
+                // ⚠️ ONE error is not "the question didn't get answered",
+                // and it is the one this feature exists for (swift-reviewer):
+                // a revoked or expired token 401s here. Reported as a
+                // network blip it left Finish permanently dead under a
+                // "Check again" that could only ever fail the same way,
+                // with the actual fix two un-obvious Back taps away. Drop
+                // the dead token and put the user on step 1, which is now
+                // the only thing that can help them.
+                if Self.isTokenDead(error) {
+                    sync.forgetDeadToken()
+                    installCheck = .idle
+                    withAnimation(Theme.Anim.selection) {
+                        advancing = false
+                        step = .authorize
+                    }
+                    return
+                }
                 withAnimation(Theme.Anim.standard) {
                     installCheck = .failed("Couldn't reach GitHub to check.")
                 }
             }
         }
+    }
+
+    /// A 401 or an empty stored token — this phone's authorization is gone,
+    /// which no amount of re-checking will fix.
+    private static func isTokenDead(_ error: Error) -> Bool {
+        (error as? GitHubAccount.AccountError) == .notAuthenticated
     }
 
     /// Step 3's Finish: adopt the repo the check already named.

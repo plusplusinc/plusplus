@@ -147,8 +147,10 @@ struct RootTabView: View {
         /// Post-authorize return from github.com — opens on the connect step.
         case connect
         /// Today's broken-sync advisory, and any other plain entry: the tray
-        /// at its top, where a reconnect starts anyway (the tray seats a
-        /// faulted connection on `.connect` itself) and where Disconnect is.
+        /// where it seats itself. That is decided by whether this device
+        /// holds a token, not by which door opened it (#509, Q18-A) — a
+        /// broken sync has none, so it lands on step 1, which is the only
+        /// thing that can help it.
         case tray
         var id: String { rawValue }
     }
