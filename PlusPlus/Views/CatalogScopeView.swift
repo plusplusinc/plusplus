@@ -557,11 +557,15 @@ struct CatalogScopeView: View {
     /// field at the BOTTOM (Dave, 2026-07-25) — where the app's own field is,
     /// and reachable from a sheet that came up from down there.
     private var pickerBody: some View {
+        NavigationStack {
         VStack(spacing: 0) {
-            pickerHeader
             listBody
         }
         .background(Theme.background)
+        // Cancel was ALREADY on the left here (the picker mirrored a pushed
+        // screen's back key), so this is the one sheet whose keys do not move.
+        // Picking a row is the action; leaving without one is a cancel.
+        .sheetChrome(title: pickerTitle, cancel: SheetAction("Cancel") { dismiss() })
         .safeAreaInset(edge: .bottom, spacing: 0) {
             SearchFieldBody(
                 config: HeaderSearchConfig(
@@ -581,27 +585,7 @@ struct CatalogScopeView: View {
             // has no scroll edge to hang it on.)
             .background(Theme.background)
         }
-    }
-
-    /// Mirrors the pushed catalogs' chrome (centered title flanked by keys) so
-    /// the picker reads as one of the catalog family — with a text "Cancel"
-    /// where a pushed screen has its back key. Dismissal is a WORD, never a ✕
-    /// (✕ collapses search).
-    private var pickerHeader: some View {
-        ZStack {
-            Text(pickerTitle)
-                .font(.system(.subheadline, weight: .bold))
-                .foregroundStyle(Theme.textPrimary)
-                .lineLimit(1)
-                .padding(.horizontal, 90)
-            HStack(spacing: 10) {
-                SheetDismissKey(label: "Cancel") { dismiss() }
-                Spacer(minLength: 0)
-            }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 14)
-        .padding(.bottom, 6)
     }
 
     private var presentedTitle: String {

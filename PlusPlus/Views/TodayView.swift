@@ -2832,11 +2832,11 @@ private struct ScheduleRoutineTray: View {
         // height all come from the system now.
         NavigationStack {
             VStack(alignment: .leading, spacing: 0) {
-                SheetHeader(title: "Schedule a routine", closeOnly: true) { dismiss() }
-                    .padding(.horizontal, 18)
                 picker
             }
-            .toolbar(.hidden, for: .navigationBar)
+            // ⚠️ The root bar is VISIBLE now (2026-08-02) — it IS the header,
+            // so hiding it takes the title and the Done key with it.
+            .sheetChrome(title: "Schedule a routine", done: SheetAction("Done") { dismiss() })
         }
         .presentationBackground(Theme.background)
         .presentationDetents([.medium, .large])

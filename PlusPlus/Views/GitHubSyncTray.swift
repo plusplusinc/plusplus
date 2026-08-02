@@ -86,9 +86,8 @@ struct GitHubSyncTray: View {
     }
 
     var body: some View {
+        NavigationStack {
         VStack(alignment: .leading, spacing: 0) {
-            header
-                .padding(.horizontal, 18)
             Text("Keep your data in sync with a GitHub repo")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textSecondary)
@@ -104,6 +103,20 @@ struct GitHubSyncTray: View {
                 .padding(.bottom, 8)
                 .padding(.horizontal, 18)
             }
+        }
+        .sheetChrome(title: "GitHub sync", done: SheetAction("Done", identifier: "closeGitHubSync") { dismiss() })
+        // The mark is the tray's IDENTITY, so it stays in the bar rather than
+        // moving into the body — a leading ornament, not a control. It is not
+        // a `.principal` title view on purpose: UIKit centres one of those in
+        // the BAR rather than between the side items, so any trailing key
+        // makes the two gaps differ by its own width (navigation.md, the
+        // build-150 measurement).
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Image("GitHubMark").resizable().scaledToFit().frame(width: 20, height: 20)
+                    .accessibilityHidden(true)
+            }
+        }
         }
         .presentationDetents([.medium, .large], selection: $detent)
         .presentationDragIndicator(.visible)
@@ -195,26 +208,6 @@ struct GitHubSyncTray: View {
             installCheckTask?.cancel()
             sync.authorizingAborted()
         }
-    }
-
-    // MARK: - Header
-
-    private var header: some View {
-        HStack(alignment: .center, spacing: 10) {
-            Image("GitHubMark").resizable().scaledToFit().frame(width: 22, height: 22)
-                .accessibilityHidden(true)
-            Text("GitHub sync")
-                .font(.system(.title3, weight: .bold))
-                .foregroundStyle(Theme.textPrimary)
-                .lineLimit(1)
-            Spacer(minLength: 12)
-            // One dismissal vocabulary across every tray (2026-07-18): a
-            // text key, never a ✕ (✕ is the search-collapse glyph).
-            SheetDismissKey(label: "Done", identifier: "closeGitHubSync") {
-                dismiss()
-            }
-        }
-        .padding(.top, 24)
     }
 
     // MARK: - Description

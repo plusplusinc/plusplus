@@ -4,8 +4,9 @@ import PlusPlusKit
 /// A searchable MULTI-SELECT list, pushed from inside a sheet (Dave,
 /// 2026-07-28). The multi-select sibling of `NavigationSelectRow`, and it
 /// works the same way: the host wraps itself in a self-contained
-/// `NavigationStack` with the root nav bar hidden, so its own `SheetHeader`
-/// stays the header and only the pushed list wears a system bar.
+/// `NavigationStack`. ⚠️ As of 2026-08-02 that stack's ROOT bar is visible too
+/// — every sheet wears the system bar via `sheetChrome`, so the "hide the root
+/// bar so our own header stays the header" step is gone from all of them.
 ///
 /// ⚠️ **Drilling in inside a sheet is a `NavigationStack`, never a
 /// hand-rolled stage slide.** The ZStack + `.move` transition idiom

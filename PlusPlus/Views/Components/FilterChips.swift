@@ -136,9 +136,6 @@ struct FacetTrayChip<Value>: View where Value: Hashable & RawRepresentable, Valu
             // The HOST owns the stack (ui-interaction.md), and the
             // presentation modifiers sit outside it.
             NavigationStack {
-                VStack(spacing: 0) {
-                    SheetHeader(title: name, actionLabel: "Done") { showingTray = false }
-                        .padding(18)
                     SheetPickList(
                         title: name,
                         sections: [SheetPickList.Section(title: nil, options: options.map {
@@ -155,8 +152,11 @@ struct FacetTrayChip<Value>: View where Value: Hashable & RawRepresentable, Valu
                             selection.insert(value)
                         }
                     }
-                    .toolbar(.hidden, for: .navigationBar)
-                }
+                    // ⚠️ The root bar is VISIBLE now (2026-08-02) and IS the
+                    // header. `SheetPickList` already declares the same title
+                    // for the case where it is PUSHED; stating it here keeps
+                    // the root and pushed forms one call.
+                    .sheetChrome(title: name, confirm: SheetAction("Done") { showingTray = false })
             }
             .presentationDetents([.medium, .large])
             .presentationBackground(Theme.background)

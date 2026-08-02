@@ -26,14 +26,13 @@ struct ScheduleTray: View {
         // are stacks, the editor is plain content and nothing nests.
         NavigationStack {
             VStack(alignment: .leading, spacing: 0) {
-                SheetHeader(title: "Schedule", closeOnly: true) { dismiss() }
-                    .padding(.horizontal, 18)
-
                 ScheduleEditor(routine: routine)
 
                 Spacer(minLength: 0)
             }
-            .toolbar(.hidden, for: .navigationBar)
+            // ⚠️ The root bar is VISIBLE now (2026-08-02): it IS the header, so
+            // hiding it would take the title and the Done key with it.
+            .sheetChrome(title: "Schedule", done: SheetAction("Done") { dismiss() })
         }
         .presentationBackground(Theme.background)
         .presentationDetents([.medium, .large])
@@ -43,7 +42,7 @@ struct ScheduleTray: View {
 /// The schedule editor proper: mode picker + day chips / frequency steppers +
 /// captions, writing `routine.schedule` live. Carries NO header, navigation
 /// or presentation chrome so it can be embedded: the standalone
-/// `ScheduleTray` wraps it with a `SheetHeader` + detents, and Today's
+/// `ScheduleTray` wraps it with `sheetChrome` + detents, and Today's
 /// `ScheduleRoutineTray` PUSHES it. Both supply the `NavigationStack` its
 /// schedule-mode row needs.
 struct ScheduleEditor: View {

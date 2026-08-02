@@ -233,10 +233,8 @@ struct GearCheckTray: View {
     }
 
     var body: some View {
+        NavigationStack {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "Equipment check", closeOnly: true, action: { dismiss() })
-                .padding(.horizontal, 18)
-
             // Name the kit these toggles write to: the marks land in the
             // ACTIVE kit, so say which one (shared prose rule).
             Text("Marking what you have in \(EquipmentLibrary.activeKitPhrase(in: libraries, storedID: activeLibraryID)). It determines which exercises your routines can include.")
@@ -278,6 +276,8 @@ struct GearCheckTray: View {
             }
 
             Spacer(minLength: 0)
+        }
+        .sheetChrome(title: "Equipment check", done: SheetAction("Done") { dismiss() })
         }
         .presentationBackground(Theme.background)
         .presentationDetents([.medium, .large])

@@ -398,16 +398,15 @@ struct RoutineDetailView: View {
                 )
                 .presentationDetents([.large])
             } else {
-                VStack(spacing: 0) {
-                    SheetHeader(title: "Exercise", actionLabel: "Done", closeOnly: true) {
-                        selectedExercise = nil
+                NavigationStack {
+                    VStack(spacing: 0) {
+                        Text("This exercise is no longer in the routine.")
+                            .font(.system(.footnote))
+                            .foregroundStyle(Theme.textFaint)
+                            .padding(.top, 24)
+                        Spacer(minLength: 0)
                     }
-                    .padding(.horizontal, 18)
-                    Text("This exercise is no longer in the routine.")
-                        .font(.system(.footnote))
-                        .foregroundStyle(Theme.textFaint)
-                        .padding(.top, 24)
-                    Spacer(minLength: 0)
+                    .sheetChrome(title: "Exercise", done: SheetAction("Done") { selectedExercise = nil })
                 }
                 .presentationBackground(Theme.background)
             }
@@ -1602,16 +1601,13 @@ private struct PausesTray: View {
     @State private var showingTransitionScrubber = false
 
     var body: some View {
+        NavigationStack {
         VStack(alignment: .leading, spacing: 0) {
-            // ⚠️ `SheetHeader` carries NO horizontal padding of its own — the
-            // tray supplies it, at 18, because the scrolling content below has
-            // to be full-bleed so rows clip at the sheet's edges rather than
-            // at a padded inset. Every other tray in the app does this; this
-            // one shipped without it (2026-07-29), which put the title flush
-            // against the sheet's left edge and ran "Done" off the right.
-            SheetHeader(title: "Pauses", closeOnly: true) { dismiss() }
-                .padding(.horizontal, 18)
-
+            // ⚠️ The header's own padding problem is GONE with the header
+            // (2026-08-02): the system bar insets its title and keys itself.
+            // The scrolling content below still supplies its own 18, and still
+            // has to, because it must be full-bleed so rows clip at the
+            // sheet's edges rather than at a padded inset.
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     MetricStepperRow(
@@ -1640,12 +1636,14 @@ private struct PausesTray: View {
                         .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
                 }
-                // 18, matching the header above and every sibling tray.
+                // 18, matching every sibling tray.
                 .padding(.horizontal, 18)
                 .padding(.bottom, 30)
             }
         }
         .background(Theme.background)
+        .sheetChrome(title: "Pauses", done: SheetAction("Done") { dismiss() })
+        }
         .presentationDetents([.medium])
         .sheet(isPresented: $showingRestScrubber) {
             MetricWheelSheet(

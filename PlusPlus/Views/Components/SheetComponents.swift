@@ -39,129 +39,126 @@ extension PresentationDetent {
     static let appTall = Self.fraction(0.85)
 }
 
-/// Sheet title bar (v4 §C): title upper-left with an optional context
-/// subtitle; on the right, auxiliary text (Cancel/Clear) beside the
-/// tray's single commit — a primaryFill capsule, because committing a
-/// form is an ACTION, not a selection (ink, never blue). The ✕ variant
-/// exists only for pickers where tapping a row IS the action.
-struct SheetHeader: View {
-    let title: String
-    var subtitle: String?
-    var actionLabel: String?
-    var actionEnabled: Bool
-    var actionIdentifier: String?
-    var onCancel: (() -> Void)?
-    var cancelLabel: String
-    var closeOnly: Bool
+// MARK: - Sheet chrome
+
+/// One action in a sheet's navigation bar.
+///
+/// `isEnabled` exists for the commit key alone (a form that cannot be saved
+/// yet); a cancel is never disabled, because the way out of a sheet must
+/// always work.
+struct SheetAction {
+    let label: String
+    var identifier: String?
+    var isEnabled: Bool = true
     let action: () -> Void
 
-    init(
-        title: String,
-        subtitle: String? = nil,
-        actionLabel: String? = "Done",
-        actionEnabled: Bool = true,
-        actionIdentifier: String? = nil,
-        onCancel: (() -> Void)? = nil,
-        cancelLabel: String = "Cancel",
-        closeOnly: Bool = false,
-        action: @escaping () -> Void
-    ) {
-        self.title = title
-        self.subtitle = subtitle
-        self.actionLabel = actionLabel
-        self.actionEnabled = actionEnabled
-        self.actionIdentifier = actionIdentifier
-        self.onCancel = onCancel
-        self.cancelLabel = cancelLabel
-        self.closeOnly = closeOnly
+    init(_ label: String, identifier: String? = nil, isEnabled: Bool = true, action: @escaping () -> Void) {
+        self.label = label
+        self.identifier = identifier
+        self.isEnabled = isEnabled
         self.action = action
     }
+}
 
-    var body: some View {
-        // The title centers against the buttons row (#211 — with a
-        // subtitle it used to ride high); the subtitle hangs beneath.
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(alignment: .center, spacing: 14) {
-                Text(title)
-                    .font(.system(.title3, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary)
-                    // Wrap to two lines rather than growing the row unbounded
-                    // (2026-07-18): a long sheet title used to have no limit.
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 12)
-                headerButtons
-            }
-            if let subtitle {
-                Text(subtitle)
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(Theme.textFaint)
-                    .lineLimit(1)
-            }
-        }
-        // Clear the sheet's drag grabber so the title isn't cramped against it
-        // (worst at the .medium detent). Shared across every tray.
-        .padding(.top, 24)
-    }
+/// The sheet chrome, native edition (Dave, 2026-08-02: "also sheets", after
+/// the toolbar keys and the pushed headers). A sheet wears the SYSTEM
+/// navigation bar — inline title, optional `.navigationSubtitle`, a leading
+/// `.cancellationAction` and a trailing `.confirmationAction` — exactly as a
+/// pushed screen does, so there is one header mechanism left in the app.
+///
+/// ⚠️ **The HOST supplies the `NavigationStack`, not this modifier**, and that
+/// is `ui-interaction.md`'s law, not a convenience: several of these sheets
+/// already bring one to push a destination, and a stack nested inside a stack
+/// is exactly the bug that law was written for. A sheet with no push of its
+/// own still needs one — a `.navigationTitle` with no bar to land in renders
+/// nothing at all, silently.
+///
+/// ⚠️ **Presentation modifiers go OUTSIDE that stack** (detents,
+/// `.presentationBackground`, `.interactiveDismissDisabled`). Inside, they
+/// address the stack's root screen instead of the sheet.
+///
+/// What changed from the hand-drawn `SheetHeader` it replaces (deleted with
+/// `SheetDismissKey` in the same pass), all of it deliberate: Cancel moves to
+/// the LEFT — it used to sit beside the commit on the right — and the commit
+/// loses its green `primaryFill` capsule for the bar's own text button. The
+/// capsule said "committing a form is an ACTION"; true, and the system says it
+/// with position and weight instead. What the app KEEPS is the law underneath:
+/// a sheet dismisses with a WORD, never a ✕, which is why ✕ can still mean
+/// only "collapse the search".
+///
+/// ⚠️ One loss worth naming rather than discovering: a `SheetHeader` was the
+/// app's own view, so `ExerciseEditorView` could hang a `.keyboardGround` on
+/// it and make ~90 pt of blank space above a text field answer a tap. A system
+/// bar cannot carry one. `.scrollDismissesKeyboard` is load-bearing in any
+/// sheet that holds a field (ui-interaction.md).
+private struct SheetChrome: ViewModifier {
+    let title: String
+    var subtitle: String?
+    var confirm: SheetAction?
+    var cancel: SheetAction?
 
-    @ViewBuilder
-    private var headerButtons: some View {
-        Group {
-            if closeOnly {
-                // A view-only sheet dismisses with a text key, never a ✕:
-                // ✕ is reserved for collapsing an expanded search, so the two
-                // never read alike (2026-07-18). Label defaults to "Done".
-                SheetDismissKey(label: actionLabel ?? "Done", identifier: actionIdentifier, action: action)
-            } else {
-                if let onCancel {
-                    Button(cancelLabel, action: onCancel)
-                        .font(.system(.subheadline))
-                        .foregroundStyle(Theme.textSecondary)
-                        .frame(minHeight: 44)
-                        .keyboardShortcut(.cancelAction)
-                }
-                if let actionLabel {
-                    Button(action: action) {
-                        Text(actionLabel)
-                            .font(.system(.subheadline, weight: .bold))
-                            .foregroundStyle(actionEnabled ? Theme.onPrimary : Theme.textFaint)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.6)
-                            .padding(.horizontal, 16)
-                            .frame(minHeight: 36)
-                            .background(actionEnabled ? Theme.primaryFill : Theme.surface, in: Capsule())
-                            .overlay(Capsule().strokeBorder(actionEnabled ? Color.clear : Theme.borderStrong, lineWidth: 1))
+    func body(content: Content) -> some View {
+        content
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                if let cancel {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(cancel.label, action: cancel.action)
+                            // Escape is NOT wired automatically on iOS; the
+                            // hand-drawn key declared it and so does this.
+                            .keyboardShortcut(.cancelAction)
+                            .accessibilityIdentifier(cancel.identifier ?? "")
                     }
-                    .disabled(!actionEnabled)
-                    // Return commits the sheet's primary action.
-                    .keyboardShortcut(.defaultAction)
-                    .accessibilityIdentifier(actionIdentifier ?? "")
+                }
+                if let confirm {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(confirm.label, action: confirm.action)
+                            .disabled(!confirm.isEnabled)
+                            // Return commits the sheet, as it always has.
+                            .keyboardShortcut(.defaultAction)
+                            .accessibilityIdentifier(confirm.identifier ?? "")
+                    }
                 }
             }
+            .modifier(SheetSubtitle(subtitle: subtitle))
+    }
+}
+
+/// iOS 26's second title line. Split out because the modifier returns a
+/// different concrete type, so it cannot be applied inline behind an `if`.
+private struct SheetSubtitle: ViewModifier {
+    let subtitle: String?
+
+    func body(content: Content) -> some View {
+        if let subtitle {
+            content.navigationSubtitle(subtitle)
+        } else {
+            content
         }
     }
 }
 
-/// The one sheet/tray dismissal key (2026-07-18): a plain text key —
-/// "Cancel" to abandon edits, "Done"/"Close" to leave a view-only sheet.
-/// Retires the circular ✕ close so every top-of-sheet button reads the
-/// same, and so ✕ can mean ONLY "collapse the expanded search". Matches
-/// `SheetHeader`'s cancel styling; reused by the hand-built trays
-/// (Operator, GitHub) so they stop drifting.
-struct SheetDismissKey: View {
-    var label: String = "Done"
-    var identifier: String?
-    let action: () -> Void
+extension View {
+    /// One call per sheet: the system navigation bar with an inline title, an
+    /// optional subtitle, and up to two actions. See `SheetChrome` for the two
+    /// things the CALL SITE still owns — the `NavigationStack`, and keeping
+    /// presentation modifiers outside it.
+    func sheetChrome(
+        title: String,
+        subtitle: String? = nil,
+        confirm: SheetAction? = nil,
+        cancel: SheetAction? = nil
+    ) -> some View {
+        modifier(SheetChrome(title: title, subtitle: subtitle, confirm: confirm, cancel: cancel))
+    }
 
-    var body: some View {
-        Button(label, action: action)
-            .font(.system(.subheadline))
-            .foregroundStyle(Theme.textSecondary)
-            .frame(minHeight: 44)
-            .keyboardShortcut(.cancelAction)
-            .accessibilityIdentifier(identifier ?? "")
+    /// A view-only sheet: a title and one word to leave by.
+    func sheetChrome(title: String, subtitle: String? = nil, done: SheetAction) -> some View {
+        modifier(SheetChrome(title: title, subtitle: subtitle, confirm: done, cancel: nil))
     }
 }
+
 
 /// Mono section caption used inside v2 sheets.
 struct SheetSectionLabel: View {

@@ -68,22 +68,21 @@ Siblings: `navigation.md` (tab bar, search, scope control, landings),
   cap depressing onto a fixed base plate (4 pt standard / 3 pt quiet, 0.06 s
   ease-out); flat controls (chips, toggles, segments, rows) stay flat.
   ⚠️ **The app's chrome stops at the navigation bar** (Dave, 2026-08-02,
-  reversing the build-42 call for the TOOLBAR only): a key that lives in a
-  system `ToolbarItem` is NATIVE — a bare `Image` label, no frame, no ground,
-  no `.raisedKey()` — and the bar plates it, sizes it, tints it and gives it
-  the press feedback. `pushedScreenChrome` is the system bar too now (inline
-  title, `.navigationSubtitle`, `.searchable`), so the hand-drawn header band
-  is gone from every pushed screen. `HeaderKeyChrome` is the switch:
+  reversing the build-42 call for the TOOLBAR only): a key in a system
+  `ToolbarItem` is NATIVE — a bare `Image` label, no frame, no ground, no
+  `.raisedKey()` — and the bar plates, sizes, tints and presses it.
+  `pushedScreenChrome` AND `sheetChrome` are the system bar now, so no
+  hand-drawn header band survives anywhere. `HeaderKeyChrome` is the switch:
   `HeaderIconButton`/`HeaderMenuKey`/`LibrarySwitcherKey` take `.toolbar` in a
-  bar and `.raised` everywhere else; `AppMenuKey` is toolbar-only and has no
-  raised variant at all. Its glyph keeps brand GREEN — the mark, not chrome.
+  bar, `.raised` everywhere else; `AppMenuKey` is toolbar-only with no raised
+  variant. Its glyph keeps brand GREEN — the mark, not chrome.
   ⚠️ **Tint is OPTIONAL and `nil` is the default on purpose**: a toolbar
   control takes the BAR's tint unless the app means something by its colour
-  (the lit favourite star goes `Theme.accent`, because that is the user's own
-  data). ⚠️ And `.sharedBackgroundVisibility(.hidden)` came OFF every toolbar
-  key with the app-drawn ground — it existed to stop a raised cap nesting
-  inside the toolbar's shared glass (a box in a box), and a bare glyph WANTS
-  that glass. **Icon-only keys are 11-pt ROUNDED SQUARES
+  (the lit favourite star goes `Theme.accent` — the user's own data).
+  ⚠️ `.sharedBackgroundVisibility(.hidden)` came OFF every toolbar key with the
+  app-drawn ground: it stopped a raised cap nesting inside the toolbar's shared
+  glass (a box in a box), and a bare glyph WANTS that glass.
+  **Icon-only keys are 11-pt ROUNDED SQUARES
   everywhere the app still draws them** (2026-07-19; the all-circles round and
   the sheet-corner concentric experiment were both reverted by Dave — uneven
   concentric corners read wrong): `HeaderIconButton`/`HeaderMenuKey` in sheets
@@ -108,7 +107,7 @@ Siblings: `navigation.md` (tab bar, search, scope control, landings),
   the plate as a second box around it. Grow the frame, not the gap. Every "New …" / "Add …" /
   "Create …" list row is the shared `CreateRow` (a green bordered raised key),
   so creation reads as a button, not floating text. Keys that carry TEXT keep
-  the rounded-rect pill: `QuietKey`, `LibrarySwitcherKey`, `SheetDismissKey`,
+  the rounded-rect pill: `QuietKey`, `LibrarySwitcherKey`,
   the primary action bars.
   ⚠️ **A key that ENDS the workout in one gesture SLIDES** (Q4, 2026-08-01):
   the single-effort commit key ("Finish workout" in the log and timer docks)
@@ -135,16 +134,29 @@ Siblings: `navigation.md` (tab bar, search, scope control, landings),
   beside `.raisedPrimaryKey`, not `.quietKey`'s 3 pt) so caps sit on one
   baseline; carry the quiet reading in fill, ink and type instead.
 - **Sheet dismissal and ✕**: ✕ means ONLY "collapse search", everywhere. A
-  sheet/tray NEVER dismisses with a ✕ — it uses a text `SheetDismissKey`
-  ("Cancel" to abandon edits, "Done" view-only). Full search-field anatomy and
-  the create/add verb grammar: `navigation.md`.
+  sheet/tray NEVER dismisses with a ✕ — it dismisses with a WORD ("Cancel" to
+  abandon edits or to leave a picker without picking, "Done" view-only). ⚠️
+  That law SURVIVED the native conversion; the control under it did not
+  (2026-08-02). **A sheet wears the SYSTEM navigation bar** via `sheetChrome`
+  — the same bar as a pushed screen: inline title, optional
+  `.navigationSubtitle`, Cancel LEADING (`.cancellationAction`), commit
+  TRAILING (`.confirmationAction`). `SheetHeader`/`SheetDismissKey` are
+  DELETED. Two visible changes, both chosen: Cancel moved left from beside the
+  commit, and the commit lost its green `primaryFill` capsule (the capsule
+  said "committing is an ACTION"; the bar says it with position and weight).
+  ⚠️ The HOST owns the `NavigationStack` and presentation modifiers stay
+  outside it (`ui-interaction.md`) — a `.navigationTitle` with no bar to land
+  in renders nothing, silently. ⚠️ No header can carry a `.keyboardGround` any
+  more; `SheetComponents.swift` and `KeyboardGround.swift` carry the rest.
+  Search-field anatomy and the create/add verbs: `navigation.md`.
 - **Pushed-screen titles follow the nature of the title** (2026-07-18): a
   **pushed utility/catalog screen** with a fixed label keeps the small
   centered `pushedScreenChrome` title; a **pushed detail screen showing a
   dynamic name** clears its chrome title (`title: ""`) and leads the body with
   a large left header wrapping to two lines (`.lineLimit(2)` + `.fixedSize` +
   `.isHeader`) — Exercise / Equipment / Template / Routine detail.
-  `SheetHeader` titles wrap to two lines. The record screen
+  A SHEET's title is the system bar's, so it does not wrap — where a sheet
+  needs a second line it takes a subtitle. The record screen
   (`SessionDetailView`) is the deliberate exception: centered title + mono
   subtitle, since routine names are short and the facts ride the subtitle.
   Tab-root chrome (system large-title bar) is `navigation.md`'s.

@@ -349,9 +349,8 @@ private struct AddToRoutineSheet: View {
     }
 
     var body: some View {
+        NavigationStack {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "Add to routine", subtitle: exercise.name, actionLabel: "Cancel", closeOnly: true) { dismiss() }
-                .padding(.horizontal, 18)
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     CreateRow(label: "New routine with \(exercise.name)", identifier: "newRoutineWithExercise") {
@@ -379,6 +378,14 @@ private struct AddToRoutineSheet: View {
                 .padding(.horizontal, 18)
                 .padding(.bottom, 24)
             }
+        }
+        // Picking a routine IS the action, so leaving without picking is a
+        // cancel and rides the leading placement.
+        .sheetChrome(
+            title: "Add to routine",
+            subtitle: exercise.name,
+            cancel: SheetAction("Cancel") { dismiss() }
+        )
         }
         .presentationBackground(Theme.background)
         .presentationDetents([.medium, .large])
