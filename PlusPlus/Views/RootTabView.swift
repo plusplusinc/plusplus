@@ -3,19 +3,16 @@ import SwiftUI
 import SwiftData
 import PlusPlusKit
 
-/// The app's roots: Today, the three catalogs, and search (Dave, 2026-07-26).
+/// The app's roots: Today and the three catalogs (Dave, 2026-08-02 — the
+/// SEARCH tab is gone; search is a floating key above the bar,
+/// `CatalogSearchDock`).
 ///
-/// The catalog cases are NOT four different screens — all four render the same
-/// `CatalogScopeView`, and picking one only sets `scope`. Switching between them
-/// is meant to read as one surface changing scope, which is why nothing in that
-/// path re-mounts.
+/// The catalog cases are NOT three different screens — all three render the
+/// same `CatalogScopeView`, and picking one only decides which catalog it
+/// looks at. Switching between them is meant to read as one surface changing
+/// scope, which is why nothing in that path re-mounts.
 enum AppTab: String, CaseIterable {
     case today, routines, exercises, equipment
-    /// It wears `Tab(role: .search)`, so the system renders it as the separated
-    /// circle and morphs the bar into the search field when it's selected. The
-    /// field narrows whichever catalog the scope is already on — selecting it
-    /// deliberately leaves `scope` alone.
-    case search
 
     var label: String { rawValue }
 }
@@ -30,15 +27,16 @@ extension FindScope {
         }
     }
 
-    /// The scope a tab selects — `nil` for the two that don't pick one: Today
-    /// (a timeline of derived state, not a list of typed items) and search
-    /// (which keeps whatever scope you were already on).
+    /// The scope a tab selects — `nil` for Today, which is a timeline of
+    /// derived state rather than a list of typed items and so has nothing to
+    /// narrow. Non-nil is exactly "this tab can be searched", which is what
+    /// gates the floating search key.
     init?(tab: AppTab) {
         switch tab {
         case .routines: self = .routines
         case .exercises: self = .exercises
         case .equipment: self = .kit
-        case .today, .search: return nil
+        case .today: return nil
         }
     }
 }
@@ -56,25 +54,25 @@ extension FindScope {
 /// chips deliberately were NOT — the three read alike now, and the field
 /// reaches what the chips used to).
 ///
-/// The chrome is the SYSTEM'S (Dave, 2026-07-25), and the bar carries FIVE tabs
-/// (Dave, 2026-07-26): Today · Routines · Exercises · Kit · Search. The
-/// hand-drawn `AppBottomBar` is deleted; its three device bugs (content
-/// scrolling through it unreadably, no home-indicator clearance, labels off a
-/// common baseline) were all things a real tab bar does for free.
+/// The chrome is the SYSTEM'S (Dave, 2026-07-25), and the bar carries FOUR tabs
+/// (Dave, 2026-08-02): Today · Routines · Exercises · Kit. The hand-drawn
+/// `AppBottomBar` is deleted; its three device bugs (content scrolling through
+/// it unreadably, no home-indicator clearance, labels off a common baseline)
+/// were all things a real tab bar does for free.
 ///
 /// The catalogs spent one build as a scope you dialled on a bottom-accessory
 /// wheel while the bar carried only Today and Search. They are tabs again —
 /// but now that `CatalogScopeView` exists they are tabs over ONE screen, which
 /// is what the two-tab round was really after.
 ///
-/// **The tab bar is the scope control; inside search, a NAVIGATION BAR item
-/// is** — a native segmented `Picker` in the `.principal` slot, between the ++
-/// key and the kit switcher (Dave, 2026-07-26). It does NOT live in
-/// `tabViewBottomAccessory` (that container never rises with the keyboard), it
-/// is NOT native `.searchScopes` (which renders once per app run on a
-/// bottom-aligned field), and it is NOT a `.bottomBar` item (that row is the
-/// one the search-role field expands into); see `ScopeSegmentedControl` for the
-/// whole account and the rules that survived seven builds of it.
+/// **The tab bar is the scope control, full stop** (Dave, 2026-08-02). The
+/// SEARCH tab and its segmented scope `Picker` are both gone: search is a
+/// floating key above the bar (`CatalogSearchDock`, which carries the whole
+/// account), so the tabs stay visible and usable while you search and there is
+/// nothing left for a second scope control to do. The one accepted cost is that
+/// the keyboard covers the tab bar, so changing catalog mid-query means
+/// dismissing it first — which is what makes the catalogs'
+/// `.scrollDismissesKeyboard` load-bearing rather than incidental.
 struct RootTabView: View {
 
     /// The Today tab's icon reflects whether there's anything to do today
@@ -95,15 +93,23 @@ struct RootTabView: View {
     @State private var dayToken = 0
 
     @State private var tab: AppTab = .today
-    /// The query, and which catalog SEARCH is looking at. Both live here
-    /// because both belong to the system's search presentation on the
-    /// search-role tab, not to the surface they drive.
+    /// The search query and whether the field is open — ONE source of truth for
+    /// all three catalogs (Dave, 2026-08-02). They live at the root, not in
+    /// `CatalogScopeView`, because a `Tab`'s content is its own view tree: three
+    /// live instances would otherwise carry three unrelated queries.
     ///
-    /// `scope` only ever decides what the SEARCH tab shows — the three catalog
-    /// tabs carry their own — and it follows whichever of them you last picked,
-    /// so opening search narrows where you already were.
+    /// Both SURVIVE a tab switch, deliberately. Typing "bench" on Routines and
+    /// tapping Exercises keeps the query, and a trip to Today (where the dock
+    /// doesn't render) restores the open field on the way back rather than
+    /// dropping what you typed. That does not violate the "a stale invisible
+    /// query reads as data loss" law — it satisfies it: the query is only ever
+    /// hidden on a tab that couldn't have been filtered by it, and it comes back
+    /// visible, in an open field, with its own clear key.
+    ///
+    /// The three things that DO clear it: the in-field `delete.left`, the
+    /// collapse key, and `land(on:)`.
     @State private var query = ""
-    @State private var scope: FindScope = .routines
+    @State private var searchOpen = false
     // Scroll-position sync between a catalog tab and search is GONE (build 139
     // shipped it; it did nothing on device). `.scrollPosition(id:)` does not
     // take on a `List` the way it does on a `ScrollView` + `scrollTargetLayout`,
@@ -221,47 +227,50 @@ struct RootTabView: View {
         }
     }
 
+    /// ⚠️ A landing CLOSES search as well as clearing it. The one-landing law
+    /// says every add lands on its list with the entrance flash, and that
+    /// landing has to be VISIBLE — left searching, the flash would play on a
+    /// row inside a filtered list, or on no row at all.
     private func land(on newTab: AppTab) {
         query = ""
+        searchOpen = false
         tab = newTab
     }
 
-    /// The catalog, once, parameterized by which one. Every catalog tab and the
-    /// search tab render THIS — there is one catalog screen in the app, and a
-    /// tab only decides what it is looking at.
+    /// The catalog, once, parameterized by which one. Every catalog tab renders
+    /// THIS — there is one catalog screen in the app, and a tab only decides
+    /// what it is looking at.
     ///
-    /// The three catalog tabs pass their own scope as a literal rather than
-    /// reading `scope`: a `Tab`'s content is its own view tree, so it would
-    /// otherwise render one frame with the OUTGOING scope before
-    /// `onChange(of: tab)` caught up — a flash of the previous catalog every
-    /// switch. Search is the one that reads the state, which is the whole point
-    /// of the state: it keeps the catalog you were already on.
-    private func catalog(
-        _ shown: FindScope,
-        on appTab: AppTab,
-        searchScope: Binding<FindScope>? = nil
-    ) -> some View {
-        CatalogScopeView(scope: shown, query: $query, tab: appTab, searchScope: searchScope)
+    /// Each tab passes its own scope as a LITERAL. It has to: a `Tab`'s content
+    /// is its own view tree, so a shared `scope` would render one frame with the
+    /// OUTGOING catalog before any `onChange` caught up — a flash of the
+    /// previous list on every switch.
+    private func catalog(_ shown: FindScope, on appTab: AppTab) -> some View {
+        CatalogScopeView(
+            scope: shown,
+            query: $query,
+            searchOpen: $searchOpen,
+            tab: appTab
+        )
     }
 
     private var appContent: some View {
-        // Today · Routines · Exercises · Kit · Search (Dave, 2026-07-26). The
-        // three catalog tabs and the search tab all render THE SAME view: a tab
-        // decides which catalog, never which screen, so moving between them
-        // reads as one surface changing scope rather than four screens.
+        // Today · Routines · Exercises · Kit (Dave, 2026-08-02). The three
+        // catalog tabs all render THE SAME view: a tab decides which catalog,
+        // never which screen, so moving between them reads as one surface
+        // changing scope rather than three screens.
         TabView(selection: $tab) {
             // Operator's context: the tab line comes from the onChange below;
             // pushed details report (and clear) their own via .operatorContext.
             Tab("Today", systemImage: todayStatus.systemImage, value: AppTab.today) {
                 TodayView(onGoToRoutines: { land(on: .routines) })
             }
-            // ⚠️ These do NOT hide while search is active, though `Tab.hidden(_:)`
-            // makes it easy to (build 139 did). It delivers Today beside the
-            // morphed field, but the bar does not REFLOW around the hidden
-            // tabs: what's left is a full-width group capsule with Today
-            // rattling around alone in the middle of it (Dave's screenshot).
-            // Which tab the system parks beside the field is a smaller problem
-            // than that.
+            // ⚠️ These do NOT hide while search is active, and now they must
+            // not: the whole point of the floating key is that the tabs stay
+            // usable during a search, so they ARE the scope control. (They
+            // never should have: `Tab.hidden(_:)` works but the bar does not
+            // REFLOW around hidden tabs — build 139 left a full-width group
+            // capsule with Today rattling around alone in it.)
             Tab(FindScope.routines.label, systemImage: FindScope.routines.symbolName, value: AppTab.routines) {
                 catalog(.routines, on: .routines)
             }
@@ -272,37 +281,20 @@ struct RootTabView: View {
             Tab(FindScope.kit.label, systemImage: FindScope.kit.symbolName, value: AppTab.equipment) {
                 catalog(.kit, on: .equipment)
             }
-            // The SEARCH ROLE (Dave, 2026-07-26: "the sort of search tab that
-            // makes the search input expand out of it to the side"). The role is
-            // a package deal — the system floats it apart as the separated
-            // circle AND gives it the morph into the field — and the morph is
-            // the half worth having. A plain tab seats search in the group but
-            // leaves the field homeless: `.searchable` then wants the navigation
-            // bar this screen hides, which is why build 135 had no visible input
-            // at all. Only THIS tab carries the field, for the same reason.
-            Tab(value: AppTab.search, role: .search) {
-                // ⚠️ The field and the scope bar are NOT attached here. They go
-                // INSIDE `CatalogScopeView`'s own `NavigationStack` — see its
-                // `searchScope` note. Build 140 attached them out here and the
-                // scope bar never appeared: `.searchScopes` needs `.searchable`
-                // on a view inside a navigation container, and out here the
-                // modifier lands above that stack. The FIELD still morphed
-                // (the tab role does that), which is what made it look wired up.
-                catalog(scope, on: .search, searchScope: $scope)
-            }
         }
-        // ⚠️ NOTHING rides `tabViewBottomAccessory` any more. The scope control
-        // lived there for four builds and the container was always wrong: it
-        // does not rise with the keyboard, so search's own keyboard buried it.
-        // It is a `.principal` NAVIGATION BAR item on the search surface now —
-        // see `ScopeSegmentedControl`, which carries the whole account.
+        // ⚠️ NOTHING rides `tabViewBottomAccessory`, and the floating search
+        // dock must not either. The scope control lived there for four builds
+        // and the container was always wrong: it does not rise with the
+        // keyboard, so search's own keyboard buried it — and it refuses
+        // app-authored animation (138), so the dock's morph would die there
+        // too. The dock is a bottom `safeAreaInset` INSIDE each catalog tab's
+        // navigation stack; see `CatalogSearchDock`.
         //
-        // ⚠️ NO `.tabViewSearchActivation(.searchTabSelection)` here, and that
-        // absence is deliberate. Build 143 added it to force a fresh scope-bar
-        // presentation on every arrival; native scopes are gone, so that
-        // justification went with them. Arriving without the keyboard also
-        // means arriving with the whole surface in view — pick a catalog first,
-        // tap the field when you actually want to type.
+        // ⚠️ There is no `Tab(role: .search)` any more (Dave, 2026-08-02), so
+        // `.tabViewSearchActivation` has nothing to activate and the iOS 26
+        // morph bug (nav-diag 4e — a state-writing geometry read in this
+        // subtree breaking the search-role morph on first activation) has lost
+        // its consumer along with it.
         //
         // ⚠️ NO `.tabBarMinimizeBehavior(.onScrollDown)` either (Dave,
         // 2026-07-27). It only ever existed to move the bottom accessory
@@ -323,15 +315,10 @@ struct RootTabView: View {
             reveal.activeTab = newTab.rawValue
             viewContext.tab = newTab.rawValue
             viewContext.detail = nil
-            // Picking a catalog tab IS picking a scope, so search opens on the
-            // catalog you were just looking at. Search itself sets nothing —
-            // that's what makes it a narrowing of where you already are.
-            if let picked = FindScope(tab: newTab) { scope = picked }
-            // The query belongs to search and dies with it. Only the search tab
-            // has a field, so a query that outlived it would leave a filtered
-            // list with nothing on screen explaining the filter and no way to
-            // clear it — the "stale invisible query reads as data loss" law.
-            if newTab != .search { query = "" }
+            // ⚠️ The query is NOT cleared here (Dave, 2026-08-02, reversing
+            // the search-tab behaviour). It is one query across all three
+            // catalogs and it survives Today; see `query`'s own note for why
+            // that keeps the data-loss law rather than breaking it.
         }
         // Operator's outcome navigation: the root switches tabs; the
         // owning tab root resolves and pushes (the .plusplusStartRoutine

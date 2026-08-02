@@ -2,11 +2,12 @@ import SwiftUI
 import SwiftData
 import PlusPlusKit
 
-/// ONE view per catalog type, rendered by BOTH the tab and the search scope
-/// (Dave, 2026-07-25): tapping **Routines** with search closed and scoping to
-/// **Routines** with it open land here, on the same screen. Search only adds a
-/// query. That is the whole point of this file — the universal-search surface
-/// had become a second copy of the three catalog tabs, so the two became one.
+/// ONE view per catalog type (Dave, 2026-07-25): searching a catalog and
+/// browsing it are the same screen, because search only adds a QUERY. That is
+/// the whole point of this file — the universal-search surface had become a
+/// second copy of the three catalog tabs, so the two became one. As of
+/// 2026-08-02 there is no separate search surface left at all: the query
+/// arrives from a floating key above the tab bar (`CatalogSearchDock`).
 ///
 /// It replaces four screens: `RoutineListView`, `ExercisesTabView`,
 /// `EquipmentTabView`, `FindOrCreateView`, and the pushed
@@ -75,10 +76,14 @@ struct CatalogScopeView: View {
     let scope: FindScope
     let mode: Mode
 
-    /// The query. In `.tab` mode it lives in the ROOT — the segmented scope
-    /// picker sits outside this view and switching scope must not lose what you
-    /// typed; in `.presented` mode the surface owns it.
+    /// The query. In `.tab` mode it lives in the ROOT — one query shared by all
+    /// three catalogs, so switching tabs mid-search keeps what you typed; in
+    /// `.presented` mode the surface owns it.
     @Binding private var boundQuery: String
+    /// Whether the floating search field is open. Root-owned in `.tab` mode for
+    /// the same reason the query is: three tabs are three live instances of
+    /// this view, and search is one thing.
+    @Binding private var searchOpen: Bool
     // Per-scope match COUNTS are gone with the hand-drawn bar (2026-07-25):
     // there are no scope labels in the chrome to paint them on. The segmented
     // picker in the tab bar's accessory is the cross-scope affordance now.
@@ -86,39 +91,28 @@ struct CatalogScopeView: View {
     /// it, and so does `ownsLandings`.
     ///
     /// That second job is load-bearing since the catalogs became tabs again
-    /// (2026-07-26): a `Tab`'s content is its own view tree, so the Routines tab
-    /// and a search tab dialled to routines are two live instances of this view.
-    /// Anything answering a broadcast has to name one of them.
+    /// (2026-07-26): a `Tab`'s content is its own view tree, so the three
+    /// catalog tabs are three live instances of this view. Anything answering a
+    /// broadcast has to name one of them.
     private let tabKey: String
-    /// The SEARCH tab's scope selection, and nothing else's.
-    ///
-    /// ⚠️ The field and the scope bar live INSIDE this view's `NavigationStack`,
-    /// not on the `Tab` in `RootTabView` (build 140 put them there and the scope
-    /// bar never rendered). `.searchScopes` needs `.searchable` on a view inside
-    /// a NAVIGATION CONTAINER; attached to `CatalogScopeView` from outside, the
-    /// modifier sits ABOVE this stack, so the field still morphed — the tab role
-    /// gives it that — but the scope bar had no search presentation to attach
-    /// to. Non-nil marks the one instance that owns both.
-    private let searchScope: Binding<FindScope>?
     /// Picker mode only: a row tap (or a fresh create) hands the item back
     /// here instead of opening it.
     private let onPick: ((Exercise) -> Void)?
     /// Picker mode's sheet title ("Add exercise" / "Swap for…").
     private var pickerTitle = ""
 
-    /// A tab root. `searchScope` is non-nil ONLY on the search tab — that is
-    /// what makes this instance the one carrying the field and the scope bar.
+    /// A tab root: its own stack, the system bar, and the floating search dock.
     init(
         scope: FindScope,
         query: Binding<String>,
-        tab: AppTab,
-        searchScope: Binding<FindScope>? = nil
+        searchOpen: Binding<Bool>,
+        tab: AppTab
     ) {
         self.scope = scope
         self.mode = .tab
         self._boundQuery = query
+        self._searchOpen = searchOpen
         self.tabKey = tab.rawValue
-        self.searchScope = searchScope
         self.onPick = nil
     }
 
@@ -127,8 +121,8 @@ struct CatalogScopeView: View {
         self.scope = scope
         self.mode = .presented(setupMode: setupMode)
         self._boundQuery = .constant("")
+        self._searchOpen = .constant(false)
         self.tabKey = ""
-        self.searchScope = nil
         self.onPick = nil
     }
 
@@ -137,8 +131,8 @@ struct CatalogScopeView: View {
         self.scope = scope
         self.mode = .picker
         self._boundQuery = .constant("")
+        self._searchOpen = .constant(false)
         self.tabKey = ""
-        self.searchScope = nil
         self.onPick = onPick
         self.pickerTitle = title
     }
@@ -192,9 +186,9 @@ struct CatalogScopeView: View {
     /// done. Never trap the user in a step.
     @State private var touchedSetup = false
     /// The facet row's state (filtering returns, 2026-07-31): one value
-    /// struct per surface INSTANCE, never persisted, reset on scope change
-    /// (the search tab dialling scopes must not carry invisible narrowing).
-    /// The summary chip keeps surviving state announced on the tabs.
+    /// struct per surface INSTANCE, never persisted. Each tab owns its own,
+    /// so switching catalogs cannot carry invisible narrowing across; the
+    /// summary chip keeps surviving state announced within a tab.
     @State private var filters = CatalogFilterState()
 
     // MARK: - Derived state
@@ -204,9 +198,6 @@ struct CatalogScopeView: View {
     }
 
     private var isPicking: Bool { mode == .picker }
-
-    /// The one tab that hosts the system search field.
-    private var isSearchSurface: Bool { searchScope != nil }
 
     private var trimmedQuery: String {
         queryBinding.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -299,7 +290,7 @@ struct CatalogScopeView: View {
     var body: some View {
         Group {
             switch mode {
-            case .tab: tabBody
+            case .tab: tabStack
             case .presented: presentedBody
             case .picker: pickerBody
             }
@@ -345,146 +336,55 @@ struct CatalogScopeView: View {
         }
     }
 
-    /// The app's content column, and every gap in the search surface's bar row:
-    /// the ++ key sits this far from the screen edge, so the control's two gaps
-    /// match it and the row reads as evenly spaced (Dave, build 150).
-    private let barGap: CGFloat = 16
-
-    /// A tab root: its own stack, the SYSTEM navigation bar, and the bottom
-    /// bar's field. Every value destination registers HERE, at the stack root
+    /// A tab root: its own stack, the SYSTEM navigation bar, and the floating
+    /// search dock. Every value destination registers HERE, at the stack root
     /// (#262), so back returns to the results with query and scroll intact.
     ///
     /// **The hand-drawn `CatalogTabHeader` is gone** (Dave, 2026-07-26: "fuck
     /// it, let's kill our custom header"). The app hid the navigation bar on
-    /// every tab root and drew its own title row, which is the one thing search
-    /// cannot live with: `.searchable` and its scope bar belong to the
-    /// navigation bar's presentation, so hiding it left the field with nowhere
-    /// to fall back to (build 135's invisible input) and the scope bar with
-    /// nothing to attach to (build 140's missing scopes). The title, the ++ key
-    /// and the kit switcher move into the real bar; nothing is lost but the
-    /// hand-drawing.
-    @ViewBuilder
-    private var tabBody: some View {
-        // The SEARCH surface — and ONLY it — measures its own width, because
-        // only it lays out the bar row by hand.
-        //
-        // ⚠️ A PURE layout read: the proxy's size is used directly and never
-        // written to state. That distinction is the law — an
-        // `.onGeometryChange` or a `PreferenceKey` probe inside the TabView
-        // subtree is the documented iOS 26 trigger for the search-role morph
-        // failing on first activation, because it feeds layout back into state.
-        // A `GeometryReader` that merely reads is not that.
-        //
-        // ⚠️ It is still not free, which is why the other four roots don't pay
-        // for it: the closure re-runs on every size change, height included, and
-        // rebuilding this view re-runs the ranking pipeline (`outcome`
-        // is hoisted in `listBody` precisely because it is expensive). On the
-        // search tab that pipeline already runs per keystroke, so the extra
-        // passes are marginal; on a scrolling catalog the tab bar minimising
-        // would have re-ranked the whole list mid-scroll for nothing.
-        if isSearchSurface {
-            GeometryReader { proxy in
-                tabStack(barWidth: proxy.size.width)
-            }
-        } else {
-            tabStack(barWidth: nil)
-        }
-    }
-
-    private func tabStack(barWidth: CGFloat?) -> some View {
+    /// every tab root and drew its own title row; the title, the ++ key and the
+    /// kit switcher moved into the real bar and nothing was lost but the
+    /// hand-drawing. ⚠️ A tab root still must not hide that bar — the reasons
+    /// have changed but the rule has not: it carries the large title, both keys,
+    /// and the Dynamic-Type reflow the old hand rules policed by hand.
+    ///
+    /// ⚠️ The `GeometryReader` that used to wrap this is GONE with the search
+    /// tab (2026-08-02). It existed to measure the bar for the hand-laid
+    /// `.principal` scope row, and it was a pure read specifically to stay
+    /// clear of the morph law. All three catalogs now take the same ordinary
+    /// path, so nothing here measures anything.
+    private var tabStack: some View {
         NavigationStack(path: $path) {
             listBody
                 .background(Theme.background)
-                // The SEARCH surface carries no title (Dave, 2026-07-26): the
-                // scope control already names the catalog, so a title is
-                // duplicative — and a large one FLASHES on entry, collapsing
-                // away as search presents and leaving the top area empty. The
-                // bar itself stays: hiding it is what left `.searchable` with
-                // nowhere to fall back to in the first place.
-                .navigationTitle(isSearchSurface ? "" : scope.label)
-                .navigationBarTitleDisplayMode(isSearchSurface ? .inline : .large)
+                .navigationTitle(scope.label)
+                .navigationBarTitleDisplayMode(.large)
                 .toolbar {
-                    if let searchScope {
-                        // ⚠️ On the SEARCH surface the app owns the WHOLE bar
-                        // row as one `.principal` item, rather than letting the
-                        // system place three (Dave, build 150: make the control
-                        // take the available width, less an even gap).
-                        //
-                        // Why it has to be one item: a principal item is a
-                        // TITLE VIEW, and UIKit centres a title view **in the
-                        // bar**, not in the space left between the side items.
-                        // So the two gaps differ by exactly the difference in
-                        // the side items' widths — measured on build 150, a
-                        // 42 pt ++ key against a 78 pt kit switcher gave 76 pt
-                        // of gap on the left and 40 pt on the right. No amount
-                        // of padding fixes that class, and it moves with the
-                        // kit's name. `.frame(maxWidth: .infinity)` did nothing
-                        // either: the bar proposes an unbounded width, so the
-                        // control just takes its ideal size.
-                        //
-                        // With no leading or trailing items the title view gets
-                        // the whole bar, so an explicit width of the screen
-                        // less two `barGap`s lands the row on the app's own
-                        // content column, and every gap in it is ours to set.
-                        ToolbarItem(placement: .principal) {
-                            HStack(spacing: barGap) {
-                                AppMenuKey()
-                                ScopeSegmentedControl(scope: searchScope)
-                                    // Absorbs whatever the two keys leave. No
-                                    // minimum: an `HStack` never offers one
-                                    // flexible child more than its share, so
-                                    // the switcher can't take more than half of
-                                    // what's left — it shrinks and truncates
-                                    // its own text first, which is the right
-                                    // thing to yield here. A hard floor would
-                                    // instead make the ROW overflow on a narrow
-                                    // screen and shear the keys off both ends.
-                                    .frame(maxWidth: .infinity)
-                                    // The raised keys are 4 pt taller than they
-                                    // look: `RaisedKeyStyle` pads the bottom by
-                                    // its travel to leave room for the plate,
-                                    // so their visible caps centre 2 pt above
-                                    // this row's centre. Match the padding and
-                                    // the three line up.
-                                    .padding(.bottom, 4)
-                                LibrarySwitcherKey(name: activeKitName, identifier: scope.switcherIdentifier) {
-                                    libraryTrayReason = nil
-                                    showingLibraryTray = true
-                                }
-                            }
-                            // ⚠️ Optional, not `max(0, …)`: a tab's content is
-                            // built lazily and the first layout pass can report
-                            // a zero size — on the search tab that first pass IS
-                            // the first activation. `nil` leaves the row at its
-                            // ideal size for that frame instead of collapsing
-                            // it to nothing.
-                            .frame(width: barWidth.flatMap { $0 > barGap * 2 ? $0 - barGap * 2 : nil })
-                        }
-                        // The row brings its own key chrome and the control
-                        // brings its own track, so it opts out of the toolbar's
-                        // shared glass — without this they nest inside a system
-                        // capsule, the box-in-a-box that killed the accessory.
+                    // ⚠️ ONE chrome for all three catalogs now (2026-08-02).
+                    // The search tab used to build this row BY HAND as a single
+                    // `.principal` item — a title view UIKit centres in the BAR
+                    // rather than between the side items, so any side item made
+                    // the two gaps differ by its own width (measured build 150:
+                    // a 42 pt ++ key against a 78 pt kit switcher gave 76 pt of
+                    // gap on the left and 40 pt on the right, and
+                    // `.frame(maxWidth: .infinity)` could not fix it because the
+                    // bar proposes an unbounded width). That row existed only to
+                    // seat the segmented scope control. The control is gone with
+                    // the search tab, so the row is too, and the system places
+                    // these two the way it does on every other root.
+                    ToolbarItem(placement: .topBarLeading) { AppMenuKey() }
                         .sharedBackgroundVisibility(.hidden)
-                    } else {
-                        // Every other root: the system places the two keys, and
-                        // the title sits between them.
-                        ToolbarItem(placement: .topBarLeading) { AppMenuKey() }
-                            .sharedBackgroundVisibility(.hidden)
-                        // The kit is CONTEXT on every catalog, never a filter
-                        // chip: it decides which rows fall into the "require
-                        // more equipment" group below.
-                        ToolbarItem(placement: .topBarTrailing) {
-                            LibrarySwitcherKey(name: activeKitName, identifier: scope.switcherIdentifier) {
-                                libraryTrayReason = nil
-                                showingLibraryTray = true
-                            }
+                    // The kit is CONTEXT on every catalog, never a filter
+                    // chip: it decides which rows fall into the "require
+                    // more equipment" group below.
+                    ToolbarItem(placement: .topBarTrailing) {
+                        LibrarySwitcherKey(name: activeKitName, identifier: scope.switcherIdentifier) {
+                            libraryTrayReason = nil
+                            showingLibraryTray = true
                         }
-                        .sharedBackgroundVisibility(.hidden)
                     }
+                    .sharedBackgroundVisibility(.hidden)
                 }
-            // The system field, on the SEARCH tab only, and INSIDE the stack —
-            // see `searchScope`.
-                .modifier(SearchPresentation(query: $boundQuery, scope: searchScope))
                 .navigationDestination(for: Exercise.self) { exercise in
                     ExerciseDetailScreen(exercise: exercise)
                 }
@@ -516,23 +416,14 @@ struct CatalogScopeView: View {
         // GitHub. Native tabs fire `onDisappear` on a switch, so this is the
         // same close trigger every other surface uses.
         .syncsProgramOnClose()
-        // Changing scope is the search tab dialling the accessory — the same
-        // surface looking at something else, so it stays MOUNTED (an `.id(scope)`
-        // would rebuild it, which is exactly what stops a scope change feeling
-        // like one). Only what can't survive the change resets: a pushed detail
-        // belonging to the old catalog, and which groups were opened in it.
-        .onChange(of: scope) { _, _ in
-            // ⚠️ Guarded, and it matters more than it looks. This fires on
-            // EVERY scope tap, and on the search tab those taps happen while a
-            // search presentation is live — inside the very NavigationStack
-            // `path` belongs to. Assigning an already-empty path still
-            // publishes a change and re-evaluates the stack, which is churn
-            // underneath the thing that must not be re-created beneath itself.
-            if !path.isEmpty { path = NavigationPath() }
-            if !expandedMissing.isEmpty { expandedMissing = [] }
-            // Facets die with the scope they narrowed (same guard rule).
-            if filters != CatalogFilterState() { filters = CatalogFilterState() }
-        }
+        // ⚠️ The `.onChange(of: scope)` reset is GONE with the search tab
+        // (2026-08-02). It existed because ONE instance changed scope under
+        // you — search dialling its segmented control — and had to drop the
+        // pushed detail, the opened groups and the facets that belonged to the
+        // old catalog. Every instance's `scope` is a per-tab LITERAL now, so it
+        // never changes and the handler could never fire; each tab keeps its
+        // own path, groups and facets for as long as it lives, which is what a
+        // tab is meant to do.
         // A cross-tab add lands HERE with the entrance flash — consumed on
         // receive when this tab is already built, on appear when the landing is
         // what brought it forward.
@@ -554,11 +445,11 @@ struct CatalogScopeView: View {
     /// Whether landings addressed to this scope belong to THIS instance.
     ///
     /// The catalog tab that owns the scope is the answer, never "whichever
-    /// instance is showing it" — the search tab dialled to routines shows
-    /// routines too, and a landing switches away from search by definition, so
-    /// letting search consume would play the entrance flash on the surface
-    /// you're being taken off. Both slots survive an unbuilt tab, so the
-    /// owner can consume late, on appear.
+    /// instance is showing it". It reads trivially now that each tab is its own
+    /// scope, and it stays because the SLOT mechanism behind it does not: both
+    /// slots survive an unbuilt tab, so the owner can consume late, on appear.
+    /// (It earned its keep when a search tab dialled to routines was a second
+    /// live instance showing the same rows.)
     private var ownsLandings: Bool { tabKey == scope.tab.rawValue }
 
     /// Push the routine an Operator outcome is steering to. The path resets
@@ -752,12 +643,6 @@ struct CatalogScopeView: View {
         let sections = displayed(outcome.sections)
         let shown = sections.reduce(0) { $0 + $1.count }
         let hiddenByFilters = outcome.hiddenByFilters
-        // The facet row's seat on the search surface — the law is on the two
-        // modifiers that consume these. Hoisted and explicitly typed so the
-        // ternaries never enter the `List`'s own inference (the type-check
-        // budget law, ui-interaction.md).
-        let headerSpacing: ListSectionSpacing = isSearchSurface ? .custom(0) : .default
-        let topContentMargin: CGFloat? = isSearchSurface ? 0 : nil
         return ScrollViewReader { proxy in
             List {
                 // ONE section holds the whole list, and on a TAB root its
@@ -868,38 +753,42 @@ struct CatalogScopeView: View {
                 }
             }
             .listStyle(.plain)
-            // ⚠️ On the SEARCH surface the facet row starts in its PINNED seat
-            // (Dave, 2026-08-02, from a three-shot scroll sequence — pixel
-            // measured at 3x). A `.plain` List puts its own top padding ABOVE
-            // the first section header, and that padding SCROLLS: the row sat
-            // ~22 pt low at rest and only reached its seat after 22 pt of
-            // travel. Two faults, one cause. (1) The gap: on a surface with no
-            // large title there is nothing for that space to hold, so the
-            // chips read as floating below the bar. (2) The hairline: the row
-            // pins with its top exactly on the navigation bar's scrolled-under
-            // edge (the 4 pt you see below the line is `FacetChip`'s 44 pt hit
-            // frame around its 36 pt cap — the same 4 pt #521 measured), so an
-            // OPAQUE pinned row occludes that line — but only once it has
-            // arrived. During those 22 pt the bar was in its scrolled state
-            // with nothing over it, which is the hairline blinking in and out.
-            // Seated from rest, the line is covered at every offset > 0 and
-            // the bar is in its edge state at 0, so it never draws.
-            //
-            // Both knobs, because the padding has been either one across
-            // releases and neither is observable from a Linux session: the
-            // section-header top padding (`listSectionSpacing`) and any
-            // default scroll-content top margin. Zeroing an absent one is a
-            // no-op.
-            //
-            // ⚠️ SEARCH ONLY. The other four roots wear the system LARGE
-            // title, and that title travels through this very space — closing
-            // it there would seat the chips against the bar and re-open the
-            // #521 class of large-title argument. `nil`/`.default` leaves them
-            // exactly as they shipped.
-            .listSectionSpacing(headerSpacing)
-            .contentMargins(.top, topContentMargin, for: .scrollContent)
+            // ⚠️ NO `.listSectionSpacing(.custom(0))` / `.contentMargins(.top, 0)`
+            // here any more (2026-08-02). That pair seated the facet row against
+            // the bar from rest, and it was SEARCH-ONLY: on a surface with no
+            // large title, a `.plain` List's scrolling top padding left the row
+            // ~22 pt low and blinked the bar's scrolled-under hairline for
+            // exactly that window. All three catalogs wear the system LARGE
+            // title now, and that title travels through this very space —
+            // closing it here would seat the chips against the bar and re-open
+            // the #521 class of large-title argument.
             .scrollContentBackground(.hidden)
+            // ⚠️ LOAD-BEARING since the search tab died (2026-08-02), not
+            // merely conformant. The floating field lives above the tab bar and
+            // the keyboard covers that bar, so scrolling the list is the ONLY
+            // way back to the tabs mid-query — which is the accepted cost of
+            // deleting the scope control (Dave's call: dismiss the keyboard to
+            // change tab). Do not weaken it to `.interactively`: a partial drag
+            // that snaps back leaves the bar covered.
             .scrollDismissesKeyboard(.immediately)
+            // The floating search key, and the field it morphs into. ⚠️ It
+            // mounts HERE — a bottom `safeAreaInset` on the stack's ROOT
+            // content — for three separate reasons, all of them in
+            // `CatalogSearchDock`'s own note: inside the stack it rises with the
+            // keyboard (which `tabViewBottomAccessory` provably does not), an
+            // inset gives the list bottom clearance an overlay would not, and
+            // a root-content inset does not apply to `navigationDestination`
+            // screens, which is how the key hides on a pushed detail with no
+            // at-root flag to thread.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if mode.isTab {
+                    CatalogSearchDock(
+                        query: $boundQuery,
+                        isOpen: $searchOpen,
+                        scope: scope
+                    )
+                }
+            }
             // PRESENTED and PICKER surfaces keep the facet row on a top
             // `safeAreaInset` — below the kit bar when presented, below the
             // picker header. Opaque, rows scroll under it, no geometry
@@ -1724,43 +1613,3 @@ private extension FindOrCreateEngine.Result {
 }
 
 
-/// The system search field and the scope control, attached INSIDE a catalog
-/// tab's `NavigationStack` and only on the search tab.
-///
-/// A modifier so the branch lives in one place rather than forking the stack's
-/// body. The condition is safe to branch on because it is fixed per instance:
-/// `searchScope` is a `let` decided at init, so a given `CatalogScopeView`
-/// either always carries search or never does. Search presentation must not be
-/// re-created underneath itself, and this can't do that.
-private struct SearchPresentation: ViewModifier {
-    @Binding var query: String
-    /// Non-nil only on the search tab. Everywhere else this modifier is inert.
-    let scope: Binding<FindScope>?
-
-    func body(content: Content) -> some View {
-        if let scope {
-            content
-                // The scope control is NOT here — it's a `.principal`
-                // `ToolbarItem` on the navigation bar, between the ++ key and
-                // the kit switcher (see `tabBody`'s toolbar, and
-                // `ScopeSegmentedControl` for the five placements that came
-                // before it). ⚠️ NO `.searchScopes` either: on a bottom-aligned
-                // field morphed out of `Tab(role: .search)` the system's own
-                // scope bar renders exactly once per app run, at the top,
-                // nowhere near the field it scopes.
-                .searchable(text: $query, prompt: "Search \(scope.wrappedValue.searchNoun)")
-                // Keep the bar's OTHER content — the ++ key, the kit switcher,
-                // and now the scope control itself — while search is active
-                // (Dave, build 147). Activating search otherwise tells the
-                // navigation bar to clear its content and give search the room:
-                // the system's `.automatic` behaviour, and the same mechanism
-                // that emptied the top band on 143 before the title came off.
-                // Those keys are how you reach the drawer and change kit;
-                // losing them the moment you tap the field is a dead end, not a
-                // decluttering. ⚠️ Now LOAD-BEARING for the scope control too.
-                .searchPresentationToolbarBehavior(.avoidHidingContent)
-        } else {
-            content
-        }
-    }
-}

@@ -14,11 +14,19 @@ re-test it on the next major SDK before assuming it still binds. Siblings: `toda
 
 ## The tab bar
 
-**The chrome is the SYSTEM'S, and the bar carries FIVE tabs** (2026-07-26 —
-the hand-drawn `AppBottomBar` is DELETED after three device rounds; scroll
-legibility, home-indicator clearance and label alignment are all things a real
-tab bar does for free). `TabView` = **Today · Routines · Exercises · Kit ·
-Search** (`Tab(role: .search)`).
+**The chrome is the SYSTEM'S, and the bar carries FOUR tabs** (2026-08-02 —
+the hand-drawn `AppBottomBar` was DELETED 2026-07-26 after three device
+rounds; scroll legibility, home-indicator clearance and label alignment are all
+things a real tab bar does for free). `TabView` = **Today · Routines ·
+Exercises · Kit**.
+
+**The tab bar IS the scope control, searching or not.** The fifth
+`Tab(role: .search)` is GONE and search is a floating key above the bar
+(`CatalogSearchDock`, section below), which is what lets the tabs stay visible
+and usable mid-query. Everything the search tab needed — a hand-laid
+`.principal` toolbar row, a title/spacing/margin exception set on one surface,
+and a ban on state-writing geometry reads across the whole subtree — went with
+it.
 
 - ⚠️ **The tab bar does NOT minimize on scroll** (Dave, 2026-07-27):
   `.tabBarMinimizeBehavior(.onScrollDown)` is GONE — it existed only to move
@@ -26,46 +34,42 @@ Search** (`Tab(role: .search)`).
   edge effect handles content passing under a full-size bar.
 - ⚠️ **The bottom scroll edge effect is `.soft` on every scrolling tab root**
   — `.hard` (139, a full-width slab) and hiding it outright (148, read-through)
-  are both RETIRED. Soft shows only where content is actually under the chrome. It goes ON THE
-  SCROLLING CONTENT, never as a background on the bar (build 133's mistake).
-- ⚠️ **Do NOT hide the catalog tabs while search is active.** `Tab.hidden(_:)`
-  works and preserves state, but the bar does NOT REFLOW around hidden tabs —
-  what's left is a full-width group capsule with Today rattling around alone
-  (build 139, Dave's screenshot).
+  are both RETIRED. Soft shows only where content is actually under the chrome.
+  It goes ON THE SCROLLING CONTENT, never as a background on the bar (build
+  133's mistake).
+- ⚠️ **Never hide tabs.** `Tab.hidden(_:)` works and preserves state, but the
+  bar does NOT REFLOW around hidden tabs — build 139 hid the catalogs during
+  search and got a full-width group capsule with Today rattling around alone in
+  it (Dave's screenshot). Moot as a search behaviour now; still true.
 - A native `Tab` item is not a view the app can decorate — per-scope counts
   can never ride tab labels (retired).
-- ⚠️ **Anything that writes state during layout** (`.onGeometryChange`,
-  `GeometryReader` + `PreferenceKey`) anywhere in the TabView subtree breaks
-  the search-role morph on FIRST activation (nav-diag 4e; recheck: iOS 27).
-  Measure from `UIFont` metrics, or read geometry WITHOUT writing state
-  (`ScopeSegmentedControl`'s width). ⚠️ Not `OverflowCapsuleRow` — it writes
-  `@State` from a `GeometryReader` and renders inside catalog rows, i.e.
-  inside this very subtree; only its TAG widths come from `UIFont`.
-- ⚠️ Because **a `Tab`'s content is its own view tree**, the four
-  catalog-showing tabs are four live INSTANCES, so every broadcast needs one
-  named owner: `ownsLandings` (`tabKey == scope.tab.rawValue`) makes the
-  catalog TAB the consumer of arrivals and Operator pushes, never "whichever
-  instance shows that scope". ⚠️ And because a tab's content is built on FIRST
-  selection, a notification alone reaches nobody on a never-visited tab —
-  every cross-tab landing rides a pending SLOT consumed on receive OR on
-  appear (`RoutineArrival`, `OperatorArrival`); a bare post is the build-76
-  silent-dead-tap class. The three catalog tabs pass their scope as a LITERAL
-  (shared state renders one frame of the outgoing catalog before
-  `onChange(of: tab)` catches up); only the search tab reads `scope`, which is
-  the point — search opens on the catalog you were already in. The query is
-  search's and dies with it.
-- ⚠️ **Scroll-position sync between a catalog tab and search is RETIRED**
-  (tried in 139): `.scrollPosition(id:)` doesn't take on a `List` the way it
-  does on `ScrollView` + `scrollTargetLayout()`, and the remaining route
-  observes scroll GEOMETRY — the documented way to break the morph.
+- **State-writing geometry reads are no longer banned in this subtree**
+  (2026-08-02). The ban existed because `.onGeometryChange` / `GeometryReader`
+  + `PreferenceKey` anywhere under the `TabView` broke `Tab(role: .search)`'s
+  morph on FIRST activation (nav-diag 4e), and there is no search role left to
+  break. Reading WITHOUT writing is still the cheaper habit and the two live
+  reads (`RoutineDetailView`'s rail width, `OverflowCapsuleRow`) stay as they
+  are; `UIFont` metrics still beat a probe where they answer.
+- ⚠️ Because **a `Tab`'s content is its own view tree**, the three catalog
+  tabs are three live INSTANCES, so every broadcast needs one named owner:
+  `ownsLandings` (`tabKey == scope.tab.rawValue`) makes the catalog TAB the
+  consumer of arrivals and Operator pushes. ⚠️ And because a tab's content is
+  built on FIRST selection, a notification alone reaches nobody on a
+  never-visited tab — every cross-tab landing rides a pending SLOT consumed on
+  receive OR on appear (`RoutineArrival`, `OperatorArrival`); a bare post is
+  the build-76 silent-dead-tap class. Each tab passes its scope as a LITERAL
+  (shared state renders one frame of the outgoing catalog before any `onChange`
+  catches up).
+- ⚠️ **Scroll-position sync between catalog tabs is RETIRED** (tried in 139):
+  `.scrollPosition(id:)` doesn't take on a `List` the way it does on
+  `ScrollView` + `scrollTargetLayout()`.
 
 ## One view: CatalogScopeView
 
-**The catalog tabs and the search scopes are ONE view** (2026-07-25). Tapping
-**Routines** with search closed and scoping to **Routines** with it open land
-on the same screen: `CatalogScopeView`, one per `FindScope`. Search adds a
-QUERY, never a destination — `RootTabView` mounts the three and shows them on
-`tab` alone, keying nothing on `searching`. It replaced `RoutineListView` /
+**Searching a catalog and browsing it are ONE view** (2026-07-25). Search adds
+a QUERY, never a destination — `RootTabView` mounts the three
+`CatalogScopeView`s, one per `FindScope`, and shows them on `tab` alone, keying
+nothing on `searching`. It replaced `RoutineListView` /
 `ExercisesTabView` / `EquipmentTabView` / `FindOrCreateView` AND the pushed
 `EquipmentCatalogScreen`; the same view serves as a `.tab` (own stack, query
 bound from the root because the field lives in the bar) and
@@ -79,124 +83,95 @@ the ADD surface, and with tiers every quick-add lifts the row you just swiped
 to the top and shifts the rows under your thumb — worst in onboarding step 1.
 The in-kit checkmark carries membership there.
 
-## The search surface
+## The search surface: a floating key above the tab bar
 
-The field is the NATIVE `.searchable` (2026-07-24, Dave — superseding the
-custom bottom-bar takeover), placed INSIDE the search tab's stack (placement
-B) so its prompt can read the scope; the search-role tab morphs the tab bar
-into the system field at the bottom, carrying the native clear (✕) and Cancel.
-The placeholder is per-scope (`FindScope.searchNoun` — "Search routines /
-exercises / equipment").
+**Search is a key pinned above the bar on the three catalog tabs, morphing in
+place into a field** (`CatalogSearchDock`, Dave 2026-08-02). Today has no key —
+a timeline of derived state has nothing to narrow.
 
-- **It does NOT auto-focus on entry**: no
-  `.tabViewSearchActivation(.searchTabSelection)`, so the keyboard rises only
-  on a field tap (`.searchFocused` is used solely for the "type a name first"
-  refocus). ⚠️ That absence is LOAD-BEARING: **the bottom accessory does not
-  rise with the keyboard**, so auto-raising it on arrival buries the scope
-  control at the moment you land on it (build 144). There is NO custom Done
-  key: leaving is a normal tab tap.
-- ⚠️ **The iOS 26 morph bug is live** (recheck: iOS 27): an
-  `.onGeometryChange` in the TabView
-  subtree (a sibling tab's probe) can make the field fall back to the top
-  `.navigationBarDrawer` placement on FIRST activation instead of morphing
-  (nav-diag 4e). Since this surface HIDES the nav bar's title, the failure is
-  NO visible field on first entry, not a top bar. #1 device check on the
-  shipping OS; if it recurs, kill the morph trigger at its source, don't
-  revert.
-- **The SEARCH surface carries no title** (Dave, 2026-07-26): the scope
-  control names the catalog, and a large title FLASHES on entry then collapses
-  as search presents. `.navigationTitle("")` + `.inline` there; the other four
-  roots keep `.large`. The bar itself stays — hiding it is what left
-  `.searchable` with nowhere to fall back to.
-- ⚠️ **The bar's OTHER content needs
-  `.searchPresentationToolbarBehavior(.avoidHidingContent)`** (iOS 17.1+) or
-  activating search empties it — the system's `.automatic` clears the bar to
-  give search room, which took the ++ key and kit switcher away on the one
-  surface you reach them from.
-- **Pushed catalogs, pickers, and sheets keep the expanding in-header field**
-  (`HeaderSearchField`): a top-right magnifier expanding into a field spanning
-  the row, an in-field `delete.left` CLEAR that keeps focus, and a separate
-  `xmark` COLLAPSE key where the magnifier was; the centered title hides while
-  searching. Both fields share ONE anatomy (`SearchFieldBody` — surface fill,
-  borderStrong stroke, r11, mono text, the #233 one-shot focus intent).
-  `xmark` is the COLLAPSE glyph here, which is why design-grammar's no-✕
-  dismissal law exists.
+⚠️ **It mounts as a bottom `safeAreaInset` on `listBody`, INSIDE each catalog
+tab's `NavigationStack`.** Every word is load-bearing, and all three of these
+are why it is not somewhere else:
+
+- **Inside the stack** it RISES WITH THE KEYBOARD. That is precisely what
+  `tabViewBottomAccessory` cannot do (137–139, 144) — and the accessory also
+  refuses app-authored animation (138), so the morph would die there too.
+- **A `safeAreaInset`, not an overlay**, so the list's scroll content is inset
+  and the last row clears the key. An overlay strands the final row under it.
+- **On the stack's ROOT content**, so it does not apply to
+  `navigationDestination` screens. That is how the key hides the moment you
+  push a detail — no flag, no at-root signal threaded from the root.
+
+**One query, one open state, both owned by `RootTabView`** and shared by all
+three catalogs. Typing on Routines and tapping Exercises KEEPS the query; a
+trip to Today (no key there) restores the open field on the way back. ⚠️ That
+does not break the "a stale invisible query reads as data loss" law, it
+satisfies it: the query is only ever hidden on a tab it could not have
+filtered, and it returns visible in an open field with its own clear key. The
+three things that clear it: the in-field `delete.left`, the collapse key, and
+`land(on:)` — a landing must also CLOSE search, or the entrance flash plays
+inside a filtered list.
+
+- **The accepted cost: the keyboard covers the tab bar**, so changing catalog
+  mid-query means dismissing it first (Dave's call, 2026-08-02 — the
+  alternative was scope glyphs inside the field, which rebuilds the control
+  this deleted). ⚠️ This makes each catalog's
+  `.scrollDismissesKeyboard(.immediately)` LOAD-BEARING, not incidental: it is
+  the only route back to the tabs. Do not weaken it to `.interactively`.
+- **The morph is `matchedGeometryEffect` on the CHROME only**, contents
+  crossfading, `Theme.Anim.selection` — the anytime-card recipe
+  (design-grammar). The effect rides `SearchFieldBody`'s REAL background via
+  its optional `morph:` namespace; a second coincident shape behind it would
+  snap to full size on frame one while the matched one was still travelling,
+  which is the morph not happening. The two grounds differ in FILL on purpose
+  (a key wears `background`, a field wears `surface`) and crossfade.
+- **It does NOT auto-focus on tab arrival** — the key is a key; the keyboard
+  rises when you tap it. The one-shot focus intent (#233) is armed by that tap
+  and consumed by the field's `onAppear`.
+- **Anatomy is the app's single search grammar** (`SearchFieldBody`): surface
+  fill, borderStrong stroke, r11, mono text, an in-field `delete.left` CLEAR
+  that empties the query and KEEPS focus, and a separate `xmark` COLLAPSE key
+  that clears and closes, landing exactly where the magnifier was. The same
+  body serves pushed catalogs, pickers and sheets through `HeaderSearchField`.
+  `xmark` is the COLLAPSE glyph, which is why design-grammar's no-✕ dismissal
+  law exists.
 - **Creation is the TOP list row, and the verb PREDICTS the tap**: **Create**
   (`New <object>` empty, `Create "<query>"` queried) COMMITS inline; **Add**
-  OPENS something ("Add to routine…", the overview's "Add exercise"). Since
-  the tab IS the scope (2026-07-25) all three catalogs create, so all three
-  read alike — Kit's "Add … as equipment" was the one row that said Add and
-  committed anyway, converged #507. Casing is `String.sentenceCasedFirst`.
-  Empty results NEVER dead-end (the scopes law below covers what they show).
-  The ONE thing that removes a
-  create is an EXACT-name collision (2026-07-24): trimmed query
-  case-insensitively equals an existing name → that type's create is
-  suppressed (`FindOrCreateEngine.Collisions`), never a dead end since an
-  exact match always ranks into results. Partial matches still offer create.
+  OPENS something ("Add to routine…", the overview's "Add exercise"). All three
+  catalogs create, so all three read alike — Kit's "Add … as equipment" was the
+  one row that said Add and committed anyway, converged #507. Casing is
+  `String.sentenceCasedFirst`. Empty results NEVER dead-end. The ONE thing that
+  removes a create is an EXACT-name collision (2026-07-24): trimmed query
+  case-insensitively equals an existing name → that type's create is suppressed
+  (`FindOrCreateEngine.Collisions`), never a dead end since an exact match
+  always ranks into results. Partial matches still offer create.
 - `.listStyle(.plain)` PINS one header at a time; the catalog spends that pin
   on the FACET ROW (law below). A pinned header wears solid
   `Theme.background` — it occludes the rows beneath it.
-- Search state on the universal surface is EPHEMERAL per-entry (a stale
-  invisible query reads as data loss).
-- **Return does not navigate** (Dave, 2026-07-26): submitting puts the
-  keyboard away, it does not choose a result — no `onSubmit` action on any
-  field in the app.
+- **Return does not navigate** (Dave, 2026-07-26): submitting puts the keyboard
+  away, it does not choose a result — no `onSubmit` action on any field.
 
-## The scope control
+## Retired: the search tab and its scope control
 
-**Scope selection is the TAB BAR, and — on the search surface — a native
-segmented `Picker` in the NAVIGATION BAR, between the ++ key and the kit
-switcher** (`ScopeSegmentedControl`, settled 2026-07-26 after SEVEN builds in
-six placements). That's the slot the other roots put their title in, which on
-this surface the control effectively is.
-
-- ⚠️ **The search surface builds that row ITSELF**: one `.principal`
-  `ToolbarItem` holding all three pieces at an explicit `width - 32`, with no
-  leading or trailing items. A principal item is a TITLE VIEW, and UIKit centres
-  it in the BAR, not between the side items — so ANY side item makes the two
-  gaps asymmetric by its own width, and `.frame(maxWidth: .infinity)` cannot
-  fix it (the bar proposes unbounded width). With no side items the title view
-  gets the whole bar and every gap is the app's. The width is a PURE
-  `GeometryReader` read (never written to state), gated to this surface — the
-  closure re-runs on height changes, and rebuilding re-runs the ranking
-  pipeline, so a scrolling catalog would re-rank mid-scroll. No hard
-  `minWidth` on the control (an `HStack` already caps a flexible sibling; a
-  floor makes the ROW overflow and shear keys off a narrow screen), an
-  OPTIONAL width so a zero-size first pass leaves the row at its ideal size,
-  and `.padding(.bottom, 4)` because `RaisedKeyStyle` pads each key by its
-  travel, seating caps 2 pt above the row's centre.
-- ⚠️ **The segments are GLYPHS ONLY — a platform limit, not a preference**: a
-  `UISegmentedControl` segment takes a title OR an image, never both
-  (`.titleAndIcon` drops the icon; DTS-confirmed), and three words beside the
-  ++ key and a variable-width kit switcher overflow the principal slot. Same
-  symbols the tab bar uses for the same scopes. Each segment
-  carries an explicit `.accessibilityLabel` (without it VoiceOver reads the
-  symbol name); the smoke helper falls back to POSITION if the label doesn't
-  reach XCUITest. It wears `.tint(Theme.background)` — a dark selected segment
-  in dark mode (build 146 dropped the tint and got the inverse of the tab bar
-  below; it's back) — and NO `.controlSize(.large)` (taller than the bar).
-- ⚠️ Two modifiers make a segmented control legal in a toolbar at all:
-  `.sharedBackgroundVisibility(.hidden)` on the item (it brings its own
-  track; the toolbar's shared glass would wrap it in a second shape) and
-  `.searchPresentationToolbarBehavior(.avoidHidingContent)` on the search
-  presentation.
-- **It is app-placed because every system-owned home failed** — four
-  retired mechanisms, none to be re-tried (post-mortems: docs/DECISIONS.md
-  + git, per this file's header). ⚠️ `tabViewBottomAccessory` does not rise
-  with the keyboard (137–139, 144), and app-authored animation does not
-  survive inside it (139). ⚠️ Native `.searchScopes` renders exactly ONCE
-  per app run on a bottom-morphed search field, and at the TOP (140–143;
-  four activation routes tried). ⚠️ A `.bottomBar` `ToolbarItem` lands in
-  the SAME ROW the field expands into (145) — Photos' recipe works only
-  because its search is a small button there. ⚠️ A TOP `safeAreaInset`
-  under the bar (147) was one row too many. All four: recheck iOS 27.
-  ⚠️ **Do NOT hand-roll the segmented control** — iOS 26's interactive
-  glass belongs to tab bars and SEGMENTED CONTROLS alone. Remaining escape
-  if the principal row ever fails: Photos' `.bottomBar` item with
-  `.sharedBackgroundVisibility(.hidden)` + `.controlSize(.large)`.
-- The custom `SegmentedTabs` was RETIRED (2026-07-24) — every other former
-  segmented site is native `Picker` (`.segmented` for short unit/mode toggles,
-  a pushed `NavigationSelectRow` for multi-word modes).
+Two years of placements in one paragraph, kept so nobody re-walks them. **A
+segmented scope control existed only because search was its own TAB** and
+needed to say which catalog it was narrowing; it settled after SEVEN builds in
+six placements as a native `Picker` in a hand-built `.principal` toolbar row,
+and it died with the tab on 2026-08-02. ⚠️ **None of these are to be re-tried**
+(post-mortems: docs/DECISIONS.md + git). `tabViewBottomAccessory` does not rise
+with the keyboard (137–139, 144) and kills app-authored animation (139).
+Native `.searchScopes` renders exactly ONCE per app run on a bottom-morphed
+field, and at the TOP (140–143, four activation routes). A `.bottomBar`
+`ToolbarItem` lands in the SAME ROW a search-role field expands into (145).
+A TOP `safeAreaInset` under the bar (147) was one row too many. A `.principal`
+item is a TITLE VIEW that UIKit centres in the BAR, not between the side items,
+so ANY side item makes the two gaps asymmetric by its own width and
+`.frame(maxWidth: .infinity)` cannot fix it (150). All: recheck iOS 27.
+⚠️ **Do NOT hand-roll a segmented control** if one is ever wanted again —
+iOS 26's interactive glass belongs to tab bars and segmented controls alone.
+The custom `SegmentedTabs` was RETIRED 2026-07-24; every other former segmented
+site is a native `Picker` (`.segmented` for short unit/mode toggles, a pushed
+`NavigationSelectRow` for multi-word modes).
 
 ## Scopes, tiers, and the missing-equipment group
 
@@ -234,18 +209,14 @@ this surface the control effectively is.
   band law states in full (`today-rail.md`: a pinned top inset costs the
   system large title, on a `List` and a `ScrollView` alike). PRESENTED and PICKER keep the pinned, opaque top
   `safeAreaInset` (app-drawn chrome); no geometry probes anywhere.
-  ⚠️ **On the SEARCH surface that header starts in its PINNED seat**
-  (2026-08-02): a `.plain` List pads above its first section header and that
-  padding SCROLLS, so the row began 22 pt low and only arrived after 22 pt of
-  travel — and the nav bar's scrolled-under hairline was visible for exactly
-  that window, because the seated row's opaque band lands ON the line and
-  occludes it (the 4 pt you see under the line is `FacetChip`'s 44 pt hit
-  frame around its 36 pt cap). Closed with `listSectionSpacing(.custom(0))` +
-  `contentMargins(.top, 0, for: .scrollContent)`, both, gated to
-  `isSearchSurface`. ⚠️ Do NOT close it on the other four roots — the system
-  large title travels through that space. ⚠️ And do NOT reach for a top
-  `scrollEdgeEffectStyle` to kill the hairline: seating the row IS the fix,
-  and the line never draws at offset 0. Typing
+  ⚠️ **`listSectionSpacing(.custom(0))` + `contentMargins(.top, 0)` are GONE**
+  (2026-08-02). That pair seated the row from rest on the SEARCH surface, where
+  a `.plain` List's scrolling top padding left it 22 pt low and blinked the nav
+  bar's scrolled-under hairline for exactly that window. All three catalogs
+  wear the system LARGE title now and it travels through that space, so
+  closing it would seat the chips against the bar and re-open the #521
+  argument. ⚠️ If that hairline is ever chased again, seating the row is the
+  fix, never a top `scrollEdgeEffectStyle`. Typing
   still reaches everything without chips: muscle groups, movement patterns
   and hidden synonyms (`CatalogSearchSynonyms` — "erg", "rdl", "trx") ride
   `ExerciseFilterState.searchHaystack` and the equipment scorer.
@@ -267,11 +238,11 @@ this surface the control effectively is.
   Collapse state is ephemeral per-surface `@State`, reset on entry; a
   cross-tab arrival that needs gear expands the group so its entrance flash
   isn't on a hidden row.
-- **Cross-scope discovery is the scope control itself** — never link rows,
-  and per-scope result counts are GONE (2026-07-25: a glyph-only segment has
-  nowhere to paint a number, and the central `matchCounts` costs a second
-  ranking pass per keystroke). Prompts and empty states use
-  `FindScope.searchNoun`, not `label`.
+- **Cross-scope discovery is the TAB BAR** — never link rows, and per-scope
+  result counts are GONE (2026-07-25: the central `matchCounts` costs a second
+  ranking pass per keystroke, and a `Tab` item is not a view the app can paint
+  a number on anyway). Prompts and empty states use `FindScope.searchNoun`,
+  not `label`.
 
 ## Tab roots and scroll
 
@@ -283,12 +254,14 @@ rail (the anytime card's sport keys + Train) or on a routine's own card.
 Both keys carry
 **`.sharedBackgroundVisibility(.hidden)`** — they bring their own raised-key
 chrome and would otherwise nest inside the toolbar's shared glass (a box in a
-box). ⚠️ **A tab root must NOT hide its navigation bar.** `.searchable` AND
-its scope bar belong to that bar's presentation, so hiding it left the field
-with nowhere to fall back to (build 135's invisible input) and the scope bar
-nothing to attach to (build 140). `CatalogTabHeader` is DELETED and Today's
-hand-rolled twin with it; the system bar handles the Dynamic-Type reflow the
-old hand rules policed.
+box). **All three catalogs share that one chrome now** — the search surface's
+hand-laid `.principal` row and its `""`/`.inline` title exception died with the
+tab (2026-08-02). ⚠️ **A tab root must NOT hide its navigation bar.** The
+original reason retired with `.searchable` (hiding it left the field with
+nowhere to fall back to, build 135's invisible input, and the scope bar nothing
+to attach to, build 140) — the rule stands on what the bar still carries: the
+large title, both keys, and the Dynamic-Type reflow the old hand rules policed.
+`CatalogTabHeader` is DELETED and Today's hand-rolled twin with it.
 
 **Today's own laws moved to `today-rail.md`** (2026-08-02) — the header band's
 pin, the date-first rail and its anytime entry, history's month landmarks, and
@@ -296,7 +269,7 @@ the pull's answer. They are one surface's layout, not tab-bar or search
 architecture, and they were loading on every file under `PlusPlus/Views/**` to
 say so. That file is scoped to `TodayView.swift` + `AnytimeCard.swift`. Read it
 before touching Today; the one law that stays HERE is the tab-root chrome above,
-which binds all five roots.
+which binds all four roots.
 
 ## Landings and the entrance flash
 

@@ -17,13 +17,14 @@ beside it. The laws that constrain these surfaces live in the sibling rules:
 **`today-rail.md`** (Today's band, rail, landmarks and pull) —
 both load when you touch view code; read them before changing what they govern.
 
-**Five tabs** on the native iOS 26 Liquid Glass `TabView` (`RootTabView`):
-**Today · Routines · Exercises · Kit · Search**. The last wears
-`Tab(role: .search)`, so the system separates it and gives it the bar→field
-morph. The three catalog tabs and the search tab all render the same
-`CatalogScopeView` — a tab picks which CATALOG, never which screen. The
-container laws that constrain that row (the `.principal` toolbar row, search
-scopes, the accessory's retirement, the morph's state-write rule) are in
+**Four tabs** on the native iOS 26 Liquid Glass `TabView` (`RootTabView`):
+**Today · Routines · Exercises · Kit**. The three catalog tabs all render the
+same `CatalogScopeView` — a tab picks which CATALOG, never which screen.
+**Search is a floating key pinned above the tab bar** on those three
+(`CatalogSearchDock`), morphing in place into a field; one query and one open
+state, root-owned and shared by all three, so the tab bar stays the only scope
+control. The container laws that constrain all of it (where the dock mounts and
+why, the retired search tab and its six scope-control placements) are in
 `navigation.md`; read them before changing anything in it.
 
 **Today** — the unified timeline: scheduled work, carried-over work, and
@@ -45,7 +46,9 @@ MINE then CATALOG, a single-select facet row per scope (exercises kind/
 muscle/movement/mechanic/sides · kit type · routines focus/effort/style),
 PINNED as the list's one section header on tabs and as a top inset on
 presented/picker surfaces (laws in `navigation.md`), with the swipe law
-LEADING is curation / TRAILING is destructive. Routine detail keeps the superset rail.
+LEADING is curation / TRAILING is destructive. Each carries the floating search
+key above the tab bar, which hides on a pushed detail. Routine detail keeps the
+superset rail.
 
 **The drawer** — the top-left ++ key (and a leading-edge drag on any tab
 root) slides the whole app right, revealing `RevealSurface`: settings folded

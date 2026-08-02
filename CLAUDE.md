@@ -67,14 +67,14 @@ No third-party dependencies without discussion first.
 ⚠️ Build number = workflow RUN number, not last-build+1 — check `actions_list` before writing a What's-New entry. It moves on a PARALLEL SESSION's dispatch from any branch, so a number read an hour ago is already stale (2026-08-02: 165–168 landed from a feature branch mid-round).
 
 **On main, awaiting Dave's device pass:** the queue lives in
-**docs/DEVICE-PASS.md** (18 items) — one line each, newest first, with the
+**docs/DEVICE-PASS.md** (19 items) — one line each, newest first, with the
 ⚠️ rider that says what to poke. It left this file on 2026-08-01: it is read
 by a different person at a different moment (Dave, at device-pass time) than
 the standing laws around it, and it was 8.4 KB of a 25 KB budget, growing by
 one line per round with no drain until a build ships. **Read it before
 touching a surface it names**, and delete an item once it has been passed.
 
-**In flight:** nothing. The decision-sheet rounds (#503–#509) all landed on main 2026-08-01/02; the ONE build Dave asked for follows them (see the build line above). `LiveWorkoutSettings` (phone's own `HKWorkoutSession`) remains off by default.
+**In flight:** the floating search key (`claude/tabview-floating-search-krhbnz`) — four tabs, the search TAB and its scope control deleted, one shared query. The decision-sheet rounds (#503–#509) all landed on main 2026-08-01/02; the ONE build Dave asked for follows them (see the build line above). `LiveWorkoutSettings` (phone's own `HKWorkoutSession`) remains off by default.
 
 **Org + license:** both repos live in the **plusplusinc** org, PUBLIC. App/repo **AGPL-3.0**; **PlusPlusKit + PlusPlusCLI are MIT** (the contract is meant for adoption). Actions minutes are free on public repos — macOS included.
 **Branch protection** (repository ruleset): merges to main require `test`, `kit-test`, `cli-test` to PASS on the head SHA; squash is the only merge method. A cancelled required check blocks merge until re-run; only push-triggered runs satisfy the ruleset (a green `workflow_dispatch` run does not). Docs-only pushes still run CI deliberately. ⚠️ `kit-test`'s FIRST step is the agent-doc size budget — 25 KB on CLAUDE.md, 24 KB per `.claude/rules/*.md` file (split by path scope when it binds, don't raise it — 2026-07-31), and a ~2 KB line-length cap on CLAUDE.md, every rules file AND docs/DEVICE-PASS.md (which takes the LINE cap only — a queue's length tracks outstanding work, not hygiene; docs/DECISIONS.md is exempt from both: append-only, its long entries are the record). It rides an already-required job so the budget binds without a ruleset change, which means kit-test can go red for a docs reason before Swift ever runs. See the ci-status skill.

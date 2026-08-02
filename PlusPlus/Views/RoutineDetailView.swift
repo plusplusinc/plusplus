@@ -237,10 +237,12 @@ struct RoutineDetailView: View {
     }
 
     private var detailContent: some View {
-        // ⚠️ A PURE width read (the ScopeSegmentedControl precedent): the
-        // value goes straight into this render's row heights and is never
-        // written to state — `onScrollGeometryChange`/`PreferenceKey` here
-        // would break the search-role morph (nav-diag 4e).
+        // A PURE width read: the value goes straight into this render's row
+        // heights and is never written to state. That distinction used to be a
+        // hard law — a layout observer anywhere in the TabView subtree broke
+        // `Tab(role: .search)`'s morph on first activation (nav-diag 4e) — and
+        // the search tab is gone as of 2026-08-02, so the ban has no consumer
+        // left. Reading without writing is still the cheaper habit; keep it.
         GeometryReader { geo in
             railList(width: geo.size.width)
         }

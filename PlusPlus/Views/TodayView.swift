@@ -2240,13 +2240,16 @@ struct TodayView: View {
             // pushed off.
             //
             // This replaces a `Color.clear` spacer sized `viewport - stepHeight`
-            // from an `.onGeometryChange` probe on this row. That probe is the
+            // from an `.onGeometryChange` probe on this row. That probe was the
             // documented iOS 26 morph trigger (nav-diag 4e): a layout observer
-            // anywhere in the TabView subtree breaks `Tab(role: .search)`'s
-            // morph on FIRST activation, and since the catalog surface hides its
-            // nav bar the fallback placement has nowhere to render — the failure
-            // is no visible field at all. Build 126 shipped straight into it.
-            // The measurement is gone rather than moved.
+            // anywhere in the TabView subtree broke `Tab(role: .search)`'s morph
+            // on FIRST activation, and the catalog surface hid its nav bar, so
+            // the fallback placement had nowhere to render — no visible field at
+            // all. Build 126 shipped straight into it. ⚠️ The search tab is gone
+            // (2026-08-02) and with it that trigger, but the measurement stays
+            // deleted on its own merits: `UIFont` metrics answer this without a
+            // probe, and a probe here re-runs the whole timeline on every size
+            // change.
             .frame(minHeight: setupActive ? viewportHeight : 0, alignment: .top)
         }
     }

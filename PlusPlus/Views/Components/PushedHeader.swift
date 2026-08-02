@@ -154,8 +154,26 @@ struct HeaderSearchField: View {
 struct SearchFieldBody: View {
     let config: HeaderSearchConfig
     @Binding var wantsFocus: Bool
+    /// When set, the field's OWN chrome carries the morph — the floating
+    /// dock's magnifier key grows into this shape (`CatalogSearchDock`).
+    /// The effect has to ride the real background rather than a second
+    /// shape behind it: a coincident un-matched ground would snap to full
+    /// size on the first frame while the matched one was still travelling,
+    /// which is the morph not happening. `nil` on the three header/picker
+    /// mounts, which don't morph.
+    var morph: Namespace.ID?
+    var morphID: String = CatalogSearchDock.chromeID
 
     @FocusState private var focused: Bool
+
+    /// The field's ground. Fill and stroke are the shared search anatomy;
+    /// only the matched-geometry id is per-mount.
+    private var chrome: some View {
+        RoundedRectangle(cornerRadius: Theme.keyRadius)
+            .fill(Theme.surface)
+            .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
+            .modifier(OptionalMorph(namespace: morph, id: morphID))
+    }
 
     var body: some View {
         let hasText = !config.text.wrappedValue.isEmpty
@@ -209,8 +227,26 @@ struct SearchFieldBody: View {
         .padding(.trailing, hasText ? 10 : 13)
         .frame(height: 44)
         .frame(maxWidth: .infinity)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
-        .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
+        .background(chrome)
+    }
+}
+
+/// `matchedGeometryEffect` where the namespace is optional — a plain
+/// pass-through when there is none. Written as a modifier because the
+/// effect returns a different concrete type in each arm, and a
+/// `@ViewBuilder` if/else around a whole background breaks the shape's
+/// identity across the branch (which is the one thing the morph needs
+/// to keep).
+private struct OptionalMorph: ViewModifier {
+    let namespace: Namespace.ID?
+    let id: String
+
+    func body(content: Content) -> some View {
+        if let namespace {
+            content.matchedGeometryEffect(id: id, in: namespace)
+        } else {
+            content
+        }
     }
 }
 
