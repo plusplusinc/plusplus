@@ -112,27 +112,25 @@ struct GitHubBackupBrokenTests {
     @Test("A relaunch after an expired token still reports the broken backup")
     func relaunchAfterExpiredTokenStillReportsBroken() {
         withRestoredDefaults {
-        // A working connection: a pass succeeded, so both stamps are written.
-        GitHubSyncSettings.save(GitHubRepoCoordinate(owner: "probe", repo: "probe-data", branch: "main"))
-        GitHubSyncSettings.lastSyncedAt = Date()
-        GitHubSyncSettings.everSynced = true
+            // A working connection: a pass succeeded, so both stamps land.
+            GitHubSyncSettings.save(GitHubRepoCoordinate(owner: "probe", repo: "probe-data", branch: "main"))
+            GitHubSyncSettings.lastSyncedAt = Date()
+            GitHubSyncSettings.everSynced = true
 
-        // …then the token expires. This is verbatim what the auth-failure
-        // branch does, minus the SwiftData work.
-        GitHubSyncSettings.clearCoordinate()
-        GitHubSyncSettings.connectionFaulted = true
-        // ⚠️ The evidence the first cut relied on is gone at this point.
-        #expect(GitHubSyncSettings.lastSyncedAt == nil)
+            // …then the token expires. This is verbatim what the
+            // auth-failure branch does, minus the SwiftData work.
+            GitHubSyncSettings.clearCoordinate()
+            GitHubSyncSettings.connectionFaulted = true
+            // ⚠️ The evidence the first cut relied on is gone at this point.
+            #expect(GitHubSyncSettings.lastSyncedAt == nil)
 
-        let sync = relaunch()
-        #expect(sync.connection == .disconnected)
-        #expect(sync.lastSyncedAt == nil)
-        #expect(sync.isBackupBroken, "the advisory must survive the relaunch that follows a revoked token")
+            let sync = relaunch()
+            #expect(sync.connection == .disconnected)
+            #expect(sync.lastSyncedAt == nil)
+            #expect(sync.isBackupBroken, "the advisory must survive the relaunch that follows a revoked token")
         }
     }
 
-    /// A deliberate disconnect is the ONE thing that forgets a backup
-    /// existed — otherwise the advisory would outlive the feature.
     /// A deliberate disconnect is the ONE thing that forgets a backup
     /// existed — otherwise the advisory would outlive the feature.
     ///
