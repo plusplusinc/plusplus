@@ -1,4 +1,5 @@
 import Foundation
+import PlusPlusKit
 
 /// Hidden search terms for built-in catalog names (2026-07-31): what
 /// people actually type when they mean an item whose canonical name
@@ -130,5 +131,27 @@ enum CatalogSearchSynonyms {
 
     static func equipmentTerms(named name: String) -> String {
         equipment[name] ?? ""
+    }
+
+    // MARK: - Fuzzy ranking beyond the catalog surfaces (#497)
+
+    /// A name plus its hidden terms, for any fuzzy ranking that should
+    /// answer what people TYPE rather than only what the catalog calls
+    /// things. Returns the bare name when nothing is known about it, so
+    /// it is safe to key on for mixed lists (routine and kit names pass
+    /// straight through). Both tables are consulted because a few names
+    /// are in each — "Jump Rope" is an exercise AND a piece of equipment.
+    static func searchKey(for name: String) -> String {
+        let terms = [exerciseTerms(named: name), equipmentTerms(named: name)]
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        return terms.isEmpty ? name : "\(name) \(terms)"
+    }
+
+    /// `FuzzySearch.bestMatch` with the hidden terms in play — the same
+    /// one-canonical-name contract, now reachable by "rdl". Used by
+    /// Operator's READ paths; write-target resolution stays strict.
+    static func bestMatch(query: String, in candidates: [String]) -> String? {
+        FuzzySearch.ranked(candidates, query: query, key: { searchKey(for: $0) }).first
     }
 }

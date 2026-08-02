@@ -113,6 +113,42 @@ struct OperatorDataServiceTests {
         #expect(glued.contains("Probe Legs"))
     }
 
+    /// #497: the catalog's hidden terms reach Operator's READ paths, so
+    /// the assistant answers "rdl" the way the search field does. Real
+    /// catalog names here on purpose — the synonym table is keyed on them.
+    @Test("A catalog synonym finds its exercise")
+    func synonymFragment() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let rdl = Exercise(name: "Romanian Deadlift", muscleGroup: .hamstrings, isBuiltIn: true)
+        let press = Exercise(name: "Bench Press", muscleGroup: .chest, isBuiltIn: true)
+        context.insert(rdl)
+        context.insert(press)
+
+        let digest = service(context, today: date(2026, 7, 15)).findItems(kind: .exercise, nameContains: "rdl")
+        #expect(digest.contains("Romanian Deadlift"))
+        #expect(!digest.contains("Bench Press"))
+    }
+
+    /// Same forgiveness on the history lookups, which resolve a spoken
+    /// name to ONE canonical logged name before counting anything.
+    @Test("A synonym resolves to the canonical logged name")
+    func synonymResolvesHistory() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let today = date(2026, 7, 15)
+        let session = finishedSession("Probe Pull", on: date(2026, 7, 8), in: context)
+        let log = SetLog(order: 0, groupIndex: 0, setNumber: 1, exerciseName: "Romanian Deadlift", targetWeight: 100)
+        log.actualWeight = 100
+        log.completedAt = session.startedAt
+        log.session = session
+        context.insert(log)
+
+        let digest = service(context, today: today).stats(kind: .lastDone, exerciseName: "rdl")
+        #expect(digest.contains("Romanian Deadlift"))
+        #expect(!digest.contains("no logged sets"))
+    }
+
     @Test("Library digest marks the active library and names the gear")
     func libraryDigest() throws {
         let container = try makeContainer()
