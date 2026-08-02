@@ -9,7 +9,15 @@ usually lives here.
 > Record architectural and significant implementation decisions as they're made.
 > Format: **Date — Decision — Reason**
 
-**2026-08-02 (latest) — Every code change from the search fly-in round is REVERTED. The round produced knowledge and nothing else, and the tree should say so** — Dave: "For now, can you undo all of your failed attempts? Seems worse than when we started this session."
+**2026-08-02 (latest) — The search fly-in is NOT a regression: it reproduces on build 150, the first build the surface ever had** — Dave, bisecting through TestFlight: "I went all the way back to 150 and it still happens. Guess I just never noticed it."
+
+**One test retired the entire archaeology.** Build 150 (`bb866f3f`) is from the branch where the search surface was built, before #452 merged it to main — the earliest build that has a morphing search tab at all. It flies in there too. That exonerates every commit since 2026-07-26 in a single move, including the two that looked strongest by subject line: #521 ("the pinned inset broke the large-title bar", touching `CatalogScopeView`) and #502 (283 lines of `TodayView`). The commit-hunt I had ranked was about to spend real effort on a search space that does not contain the answer.
+
+⚠️ **The lesson is about ORDER, not about the suspects.** Dave's bisect cost him a few app installs from builds TestFlight was already holding, and it invalidated more hypotheses than four builds of mine did. **When a bug might be a regression, establish whether it IS one before reasoning about causes** — "does the oldest build that has this feature also have this bug" is one question, answerable with no new code, and it either hands you a bisect range or tells you the whole diff-hunting frame is wrong. I went straight to mechanism four times and then to archaeology, and both came after the cheap question.
+
+**What the two facts leave.** The repro needs a TAB SWITCH (Dave, build 168) and the behaviour is original (build 150). Together they point at something structural and unchanged — `RevealContainer`'s remaining whole-app `.clipShape`, or the `scope` write on tab switch that dirties the search tab's tree while it is off-screen (the write set dates from 2026-07-24, consistent with the bug being original) — or at iOS 26 itself, which an Apple forum thread reports behaving this way inside a `TabView`. It is also, on this evidence, a long-standing cosmetic quirk rather than something that broke, so there is no urgency behind it. Everything is in #539.
+
+**2026-08-02 — Every code change from the search fly-in round is REVERTED. The round produced knowledge and nothing else, and the tree should say so** — Dave: "For now, can you undo all of your failed attempts? Seems worse than when we started this session."
 
 **He is right, and the cleanest fact is that main never took any of it.** Builds 165-168 all shipped from an unmerged branch, so `main` has been correct throughout; the "undo" is a branch operation, not a repair. All four code changes are gone: `OverflowCapsuleRow`'s pure-read width, `.searchable` moved onto the `Tab` (`SearchPresentation` restored), the `SearchMorphProbe` bar strip, and `RevealContainer`'s sibling shadow. Every app file on the branch is now byte-identical to main.
 

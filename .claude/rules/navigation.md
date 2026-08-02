@@ -102,8 +102,8 @@ exercises / equipment").
   NO visible field on first entry, not a top bar. #1 device check on the
   shipping OS; if it recurs, kill the morph trigger at its source, don't
   revert.
-- ⚠️ **Fly-in on activation: read #539 first** (163-168, four causes ruled out
-  by experiment and all reverted; the repro needs a TAB SWITCH).
+- ⚠️ **Fly-in on activation: read #539 first** (since build 150, NOT a
+  regression; needs a TAB SWITCH; four causes ruled out, all reverted).
 - **The SEARCH surface carries no title** (Dave, 2026-07-26): the scope
   control names the catalog, and a large title FLASHES on entry then collapses
   as search presents. `.navigationTitle("")` + `.inline` there; the other four
