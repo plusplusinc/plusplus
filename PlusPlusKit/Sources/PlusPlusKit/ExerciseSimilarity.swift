@@ -61,6 +61,25 @@ public struct ExerciseSimilarityFeatures: Sendable, Equatable {
     }
 }
 
+/// What one move has in common with another, in the order worth SAYING.
+/// `allCases` order IS the display precedence — `ExerciseSimilarity.reasons`
+/// returns its findings in it, and a caller showing one reason takes the
+/// first. Adding a case means deciding where it ranks.
+public enum SimilarityReason: String, Sendable, CaseIterable {
+    /// Both file under the same movement family. The most specific thing
+    /// that can be true of two moves that already share a muscle.
+    case samePattern
+    /// Both are FOR the same group, not merely touching it.
+    case samePrimaryMuscle
+    /// The same requirement list, and it is not empty.
+    case sameEquipment
+    /// Neither needs anything. A real answer, not an absence.
+    case noEquipment
+    /// A secondary group in common, with different primaries. The weakest
+    /// claim, and the fallback when nothing better is true.
+    case sharedMuscle
+}
+
 /// How good a substitute one exercise is for another — the "Swap for…"
 /// suggestions ranker (2026-07-24). Deliberately blunt: the model carries
 /// exactly three comparable signals, so the score is a fixed weighted sum
@@ -175,6 +194,47 @@ public enum ExerciseSimilarity {
     /// pre-#495 formula and needs the same gear term.
     static func jaccardForTesting(_ a: Set<String>, _ b: Set<String>) -> Double {
         jaccard(a, b)
+    }
+
+    /// WHY a candidate is near the origin, strongest first — the
+    /// classification behind the "Near this" rows (2026-08-02). Returns
+    /// what is TRUE, never a score; the app picks the words, so the voice
+    /// laws stay in the app and this stays Linux-tested.
+    ///
+    /// ⚠️ The order is a DISPLAY order, not the score's weighting, and it
+    /// differs from it on purpose. `score` leads with muscle because muscle
+    /// is the spine of substitution — but every candidate the app ranks
+    /// already shares a muscle group with the origin (the pool is built
+    /// that way), so "shares a muscle" is true of every row and therefore
+    /// says nothing. What distinguishes one row from the next is the
+    /// pattern, then what it is FOR, then the gear. Same reason mechanic is
+    /// absent entirely: compound-vs-isolation earns its weight in the
+    /// ranking and reads as jargon in a caption.
+    ///
+    /// ⚠️ An attribute either side lacks yields NO reason rather than a
+    /// false one — the same absent-is-unavailable rule `score`
+    /// renormalizes by (#495).
+    public static func reasons(candidate: ExerciseSimilarityFeatures,
+                               origin: ExerciseSimilarityFeatures) -> [SimilarityReason] {
+        var found: [SimilarityReason] = []
+        if let a = candidate.movementPattern, let b = origin.movementPattern, a == b {
+            found.append(.samePattern)
+        }
+        let sharesPrimary = candidate.muscleGroup == origin.muscleGroup
+        if sharesPrimary {
+            found.append(.samePrimaryMuscle)
+        }
+        if candidate.equipmentNames.isEmpty && origin.equipmentNames.isEmpty {
+            found.append(.noEquipment)
+        } else if !candidate.equipmentNames.isEmpty, candidate.equipmentNames == origin.equipmentNames {
+            found.append(.sameEquipment)
+        }
+        // Only worth saying when the primary DIDN'T match — otherwise it is
+        // a weaker restatement of the line above it.
+        if !sharesPrimary, !Set(candidate.muscleGroups).isDisjoint(with: Set(origin.muscleGroups)) {
+            found.append(.sharedMuscle)
+        }
+        return SimilarityReason.allCases.filter(found.contains)
     }
 
     /// Set overlap, |A ∩ B| / |A ∪ B|. Two bodyweight moves (both empty)

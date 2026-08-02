@@ -49,7 +49,7 @@ LEADING is curation / TRAILING is destructive. A TAB with no query and no
 facet leads with FRONT MATTER (`CatalogFrontPage`) above the whole list:
 what the scope and the kit come to, then the scope's axes as chips that
 write facets. Not the search tab, and never a replacement for the list
-(laws in `navigation.md`). Routine detail keeps the superset rail.
+(laws in `navigation.md`). Routine detail keeps the superset rail. Exercise detail ends with **NEAR THIS**: the catalog's nearest moves, kit-doable first, each saying why it is near, pushing exercise detail recursively (`ExerciseSimilarity.reasons` + the swap tray's own `swapSuggestions`).
 
 **The drawer** — the top-left ++ key (and a leading-edge drag on any tab
 root) slides the whole app right, revealing `RevealSurface`: settings folded
