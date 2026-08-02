@@ -1374,7 +1374,7 @@ struct CatalogScopeView: View {
                 // first is a proposition about your kit, so only the
                 // CATALOG tier takes the opens count — and only where the
                 // ordering that count drives is live (the tab).
-                opensCount: inKit || equipmentUnlocks.isEmpty ? nil : equipmentUnlocks[equipment.name] ?? 0,
+                opensCount: (inKit || equipmentUnlocks.isEmpty) ? nil : (equipmentUnlocks[equipment.name] ?? 0),
                 inKit: inKit ? true : nil,
                 nameHighlight: highlight(equipment.name)
             )
