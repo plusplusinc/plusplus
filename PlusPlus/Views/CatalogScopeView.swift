@@ -403,13 +403,33 @@ struct CatalogScopeView: View {
                 // declared type property on `SearchToolbarBehavior` is
                 // `minimize`. The declaration wins over the prose.
                 //
+                // ⚠️ **`placement: .toolbar` is STATED, not inferred** (build
+                // 175: open search, close it, open it again, and the field came
+                // back at the TOP — in the navigation bar, above the large
+                // title, with the ++ key and kit switcher gone). The first
+                // activation landed in the bottom toolbar and every later one
+                // fell back. `.automatic` is a GUESS the system re-makes on
+                // each presentation, and `searchToolbarBehavior`'s own
+                // Discussion says to place it after "the searchable modifier
+                // that RENDERS SEARCH IN THE TOOLBAR" — the behavior modifier
+                // styles a toolbar field, it does not put one there. Asking for
+                // the placement is the documented way to be in the toolbar.
+                // ⚠️ Placement is still only a PREFERENCE: Apple states SwiftUI
+                // falls back to automatic when it cannot satisfy one, so this
+                // makes the request explicit rather than guaranteeing it.
+                //
                 // `isPresented` is bound so open/closed still SURVIVES a tab
                 // switch and a trip to Today, which is the behaviour Dave
                 // chose; the query binding is unchanged, so one query still
-                // serves all three catalogs.
+                // serves all three catalogs. ⚠️ If the top-placement relapse
+                // outlives this fix, the binding is the next suspect — a
+                // programmatic re-presentation is exactly what differs between
+                // the first activation and the ones that failed — and dropping
+                // it costs that carry-over behaviour.
                 .searchable(
                     text: $boundQuery,
                     isPresented: $searchOpen,
+                    placement: .toolbar,
                     prompt: "Search \(scope.searchNoun)"
                 )
                 .searchToolbarBehavior(.minimize)
