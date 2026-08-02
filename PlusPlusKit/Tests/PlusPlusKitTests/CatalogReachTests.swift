@@ -98,6 +98,61 @@ struct CatalogReachTests {
         #expect(reach.byMuscle.map(\.value) == [.chest, .back])
     }
 
+    // MARK: - unlocks
+
+    @Test("A piece opens the moves it is the ONLY thing standing in front of")
+    func unlocksCountsTheLastMissingPiece() {
+        let catalog = [
+            move([.chest], gear: ["Barbell"]),              // barbell alone
+            move([.back], gear: ["Barbell"]),               // barbell alone
+            move([.quads], gear: ["Barbell", "Squat Rack"]), // needs both
+            move([.core]),                                  // already doable
+        ]
+        let unlocks = CatalogReachCalculator.unlocks(catalog, kit: [])
+        #expect(unlocks["Barbell"] == 2)
+        // The two-piece move counts for NEITHER: each is one of two.
+        #expect(unlocks["Squat Rack"] == nil)
+    }
+
+    @Test("A piece that is one of two missing scores nothing until the other arrives")
+    func unlocksAreMarginal() {
+        let catalog = [move([.quads], gear: ["Barbell", "Squat Rack"])]
+        #expect(CatalogReachCalculator.unlocks(catalog, kit: [])["Squat Rack"] == nil)
+        // Own the barbell, and the rack becomes the last thing in the way.
+        #expect(CatalogReachCalculator.unlocks(catalog, kit: ["Barbell"])["Squat Rack"] == 1)
+    }
+
+    @Test("Pieces already in the kit are absent, never zero")
+    func ownedPiecesDropOut() {
+        let catalog = [move([.chest], gear: ["Dumbbells"]), move([.back], gear: ["Barbell"])]
+        let unlocks = CatalogReachCalculator.unlocks(catalog, kit: ["Dumbbells"])
+        #expect(unlocks["Dumbbells"] == nil)
+        #expect(unlocks["Barbell"] == 1)
+    }
+
+    @Test("A piece nothing needs is absent from the map")
+    func unusedPieceIsAbsent() {
+        let catalog = [move([.chest], gear: ["Dumbbells"])]
+        #expect(CatalogReachCalculator.unlocks(catalog, kit: [])["Yoke"] == nil)
+    }
+
+    @Test("An unlock count is exactly what the doable count would gain")
+    func unlocksAgreeWithReach() {
+        // The invariant that lets the equipment screen's "+N" beat and the
+        // catalog's ordering read from one function without disagreeing.
+        let catalog = [
+            move([.chest], gear: ["Barbell"]),
+            move([.back], gear: ["Barbell"]),
+            move([.quads], gear: ["Barbell", "Squat Rack"]),
+            move([.core]),
+        ]
+        let kit: Set<String> = ["Squat Rack"]
+        let before = CatalogReachCalculator.reach(catalog, kit: kit).doable
+        let claimed = CatalogReachCalculator.unlocks(catalog, kit: kit)["Barbell"] ?? 0
+        let after = CatalogReachCalculator.reach(catalog, kit: kit.union(["Barbell"])).doable
+        #expect(after - before == claimed)
+    }
+
     @Test("An empty catalog reports zeros and no buckets")
     func emptyCatalog() {
         let reach = CatalogReachCalculator.reach([], kit: ["Barbell"])
