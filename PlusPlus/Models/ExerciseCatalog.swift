@@ -103,9 +103,9 @@ extension SeedData {
         }
     }
 
-    // Internal, not private: `loadIfNeeded` (SeedData.swift) and the
-    // profile table (EquipmentCatalog.swift) both read it across the
-    // #499 file split.
+    // Internal, not private: `loadIfNeeded` (SeedData.swift) tops up an
+    // existing store from it, and that is the one read that crosses a
+    // file after the #499 split.
     static let builtInExerciseDefinitions: [BuiltInExerciseDefinition] = {
         // `also:` lists the SECONDARY muscle groups a move works — the ones
         // that do real work under load, not every muscle that fires. The

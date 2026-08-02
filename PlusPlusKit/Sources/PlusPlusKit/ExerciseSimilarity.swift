@@ -79,13 +79,21 @@ public enum ExerciseSimilarity {
     /// ⚠️ They sum to 1 only when EVERY signal is comparable. When an
     /// attribute is absent on either side the score renormalizes over
     /// what is left (see `score`), so these are ratios, not a fixed
-    /// budget — which is what keeps a nil-attribute pair scoring exactly
-    /// as it did before the attributes existed.
-    static let muscleWeight = 0.45
+    /// budget.
+    ///
+    /// ⚠️ The base three are deliberately the PRE-ATTRIBUTE ratios
+    /// (0.6 : 0.25 : 0.15) scaled by the 0.7 they now share, so a pair
+    /// carrying no attributes renormalizes back to exactly the old
+    /// weights and scores exactly what it scored before #495. That is a
+    /// real invariant, pinned by `preAttributeScoresAreUnchanged` — the
+    /// first cut of these numbers only LOOKED like it held it (the Kit
+    /// suite passed on margin, not on equality) and quietly reordered
+    /// attribute-less pairs.
+    static let muscleWeight = 0.42      // 0.60 × 0.7
+    static let modalityWeight = 0.175   // 0.25 × 0.7
+    static let equipmentWeight = 0.105  // 0.15 × 0.7
     static let patternWeight = 0.20
-    static let modalityWeight = 0.15
     static let mechanicWeight = 0.10
-    static let equipmentWeight = 0.10
     /// How much of the muscle score the PRIMARY group carries, the rest
     /// going to overlap across the full lists.
     static let primaryShare = 0.7
@@ -161,6 +169,12 @@ public enum ExerciseSimilarity {
     static func muscleScore(_ a: [MuscleGroup], _ b: [MuscleGroup]) -> Double {
         let primary = a.first == b.first ? 1.0 : 0.0
         return primaryShare * primary + (1 - primaryShare) * jaccard(Set(a.map(\.rawValue)), Set(b.map(\.rawValue)))
+    }
+
+    /// Exposed for `preAttributeScoresAreUnchanged`, which recomputes the
+    /// pre-#495 formula and needs the same gear term.
+    static func jaccardForTesting(_ a: Set<String>, _ b: Set<String>) -> Double {
+        jaccard(a, b)
     }
 
     /// Set overlap, |A ∩ B| / |A ∪ B|. Two bodyweight moves (both empty)

@@ -133,11 +133,33 @@ struct ExerciseSimilarityTests {
             > ExerciseSimilarity.score(candidate: legCurl, origin: rdl))
     }
 
+    /// The invariant the weights are chosen for: with no attributes to
+    /// compare, the score is EXACTLY the pre-#495 formula. Asserting
+    /// `score(x, x) == 1` proves nothing here — that holds under any
+    /// normalization — so this recomputes the old weighted sum over
+    /// pairs whose three base signals all differ.
+    @Test("Attribute-less pairs score exactly what they scored before #495")
+    func preAttributeScoresAreUnchanged() {
+        func legacy(_ candidate: ExerciseSimilarityFeatures, _ origin: ExerciseSimilarityFeatures) -> Double {
+            ExerciseSimilarity.muscleScore(candidate.muscleGroups, origin.muscleGroups) * 0.60
+                + ExerciseSimilarity.modalityScore(candidate.modality, origin.modality) * 0.25
+                + ExerciseSimilarity.jaccardForTesting(candidate.equipmentNames, origin.equipmentNames) * 0.15
+        }
+        let cases: [(ExerciseSimilarityFeatures, ExerciseSimilarityFeatures)] = [
+            (bag([.chest, .triceps, .shoulders]), bag([.chest])),
+            (bag([.chest], .flexibility), bag([.chest, .triceps], .strength, ["Barbell"])),
+            (bag([.quads], .cardio, ["Treadmill"]), bag([.core], .strength, ["Barbell", "Bench"])),
+            (bag([.back, .biceps], .strength, ["Pull-Up Bar"]), bag([.back], .strength, [])),
+        ]
+        for (candidate, origin) in cases {
+            let now = ExerciseSimilarity.score(candidate: candidate, origin: origin)
+            let before = legacy(candidate, origin)
+            #expect(abs(now - before) < 1e-12, "score moved: \(before) → \(now)")
+        }
+    }
+
     @Test("An absent attribute is unavailable, never a mismatch")
     func absentAttributeRenormalizes() {
-        // A pair carrying NO attributes scores exactly what it scored
-        // before the attributes existed — that is what keeps every
-        // pre-#495 ranking test honest.
         let plain = bag([.quads], .strength, ["Barbell"])
         #expect(ExerciseSimilarity.score(candidate: plain, origin: plain) == 1.0)
 

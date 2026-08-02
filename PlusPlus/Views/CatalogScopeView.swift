@@ -312,11 +312,14 @@ struct CatalogScopeView: View {
             // editor's `prefillMuscleGroup` had existed with ZERO call
             // sites, so a create under an active Chest→Back filter still
             // defaulted to Chest and landed outside the very facet you
-            // were browsing. Only the muscle chip threads — no other
-            // facet maps to a draft field.
-            // One selected muscle is an intent worth prefilling; several
-            // is a browse, and picking one of them arbitrarily would be a
-            // guess (#498).
+            // were browsing. ⚠️ Only the muscle chip threads, and the
+            // others deliberately do not: ONE selected muscle is an
+            // intent worth prefilling, while several is a browse and
+            // picking one of them would be a guess (#498), and the
+            // attribute facets (#496) would be guessing outright — a
+            // fresh custom has no pattern until its owner gives it one.
+            // The landing covers both: `clearFiltersHiding` drops any
+            // facet the new row fails, so it is never flashed off-list.
             ExerciseEditorView(prefillName: trimmedQuery,
                                prefillMuscleGroup: filters.muscles.count == 1 ? filters.muscles.first : nil) { exercise in
                 // The editor only INSERTS — save here so the id the landing
