@@ -113,6 +113,76 @@ struct OperatorDataServiceTests {
         #expect(glued.contains("Probe Legs"))
     }
 
+    /// #497: the catalog's hidden terms reach Operator's READ paths, so
+    /// the assistant answers "erg" the way the search field does. Real
+    /// catalog names here on purpose — the synonym table is keyed on them.
+    ///
+    /// ⚠️ "erg", not "rdl": FuzzySearch's abbreviation walk already
+    /// resolved "rdl" → Romanian Deadlift from the NAME alone, so a test
+    /// built on it passes with this whole change reverted and guards
+    /// nothing (the red-first rule). "erg" shares no letter run with
+    /// "Rowing" and only reaches it through the hidden terms.
+    @Test("A catalog synonym finds its exercise")
+    func synonymFragment() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let rowing = Exercise(name: "Rowing", muscleGroup: .fullBody, isBuiltIn: true)
+        let press = Exercise(name: "Bench Press", muscleGroup: .chest, isBuiltIn: true)
+        context.insert(rowing)
+        context.insert(press)
+
+        let digest = service(context, today: date(2026, 7, 15)).findItems(kind: .exercise, nameContains: "erg")
+        #expect(digest.contains("Rowing"))
+        #expect(!digest.contains("Bench Press"))
+    }
+
+    /// Same forgiveness on the history lookups, which resolve a spoken
+    /// name to ONE canonical logged name before counting anything.
+    @Test("A synonym resolves to the canonical logged name")
+    func synonymResolvesHistory() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let today = date(2026, 7, 15)
+        let session = finishedSession("Probe Pull", on: date(2026, 7, 8), in: context)
+        let log = SetLog(order: 0, groupIndex: 0, setNumber: 1, exerciseName: "Rowing", targetWeight: 100)
+        log.actualWeight = 100
+        log.completedAt = session.startedAt
+        log.session = session
+        context.insert(log)
+
+        let digest = service(context, today: today).stats(kind: .lastDone, exerciseName: "erg")
+        #expect(digest.contains("Rowing"))
+        #expect(!digest.contains("no logged sets"))
+    }
+
+    /// ⚠️ The resolver's two contracts, both learned in review. A blank
+    /// name resolves to NOTHING (`ranked` passes items through unchanged
+    /// when the query is blank, so `.first` would attribute a number to
+    /// an arbitrary exercise), and a LITERAL hit always outranks a
+    /// hidden-term one — "bike" is Assault Bike's own word and only
+    /// Cycling's synonym, and reporting Cycling's sets under a question
+    /// about bikes is a confidently wrong answer.
+    @Test("The resolver refuses a blank name and prefers the literal hit")
+    func resolverContracts() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let today = date(2026, 7, 15)
+        let session = finishedSession("Probe Cardio", on: date(2026, 7, 8), in: context)
+        for (index, name) in ["Assault Bike", "Cycling"].enumerated() {
+            let log = SetLog(order: index, groupIndex: 0, setNumber: 1, exerciseName: name)
+            log.completedAt = session.startedAt
+            log.session = session
+            context.insert(log)
+        }
+
+        let literal = service(context, today: today).stats(kind: .lastDone, exerciseName: "bike")
+        #expect(literal.contains("Assault Bike"))
+        #expect(!literal.contains("Cycling"))
+
+        let blank = service(context, today: today).stats(kind: .lastDone, exerciseName: "")
+        #expect(blank.contains("no logged sets"), "a blank name must not resolve to an arbitrary exercise")
+    }
+
     @Test("Library digest marks the active library and names the gear")
     func libraryDigest() throws {
         let container = try makeContainer()

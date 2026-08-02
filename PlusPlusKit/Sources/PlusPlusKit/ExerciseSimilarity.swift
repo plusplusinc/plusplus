@@ -12,20 +12,52 @@ public struct ExerciseSimilarityFeatures: Sendable, Equatable {
     public var modality: ExerciseModality
     /// The exercise's required equipment, by name. Empty = bodyweight.
     public var equipmentNames: Set<String>
+    /// The authored program bucket, when the exercise has one (#495).
+    /// nil is the common, honest case — cardio carries none, most
+    /// isolation carries none, and a custom carries none until its
+    /// owner says otherwise — so the score treats it as UNAVAILABLE
+    /// rather than as a mismatch (see `score`).
+    public var movementPattern: MovementPattern?
+    /// Compound vs isolation. Present on nearly every strength row, and
+    /// the signal that separates the case #495 was filed for: a
+    /// Romanian Deadlift and a Leg Curl share hamstrings and gear-lessness
+    /// but are not substitutes, and only this tells them apart (the
+    /// curl carries no pattern to compare).
+    public var mechanic: ExerciseMechanic?
 
     /// The group the move is FOR. A feature bag is always built from a real
     /// exercise, which always has one; the fallback keeps this total rather
     /// than making every reader unwrap.
     public var muscleGroup: MuscleGroup { muscleGroups.first ?? .fullBody }
 
-    public init(muscleGroups: [MuscleGroup], modality: ExerciseModality, equipmentNames: Set<String>) {
+    public init(
+        muscleGroups: [MuscleGroup],
+        modality: ExerciseModality,
+        equipmentNames: Set<String>,
+        movementPattern: MovementPattern? = nil,
+        mechanic: ExerciseMechanic? = nil
+    ) {
         self.muscleGroups = muscleGroups.isEmpty ? [.fullBody] : muscleGroups
         self.modality = modality
         self.equipmentNames = equipmentNames
+        self.movementPattern = movementPattern
+        self.mechanic = mechanic
     }
 
-    public init(muscleGroup: MuscleGroup, modality: ExerciseModality, equipmentNames: Set<String>) {
-        self.init(muscleGroups: [muscleGroup], modality: modality, equipmentNames: equipmentNames)
+    public init(
+        muscleGroup: MuscleGroup,
+        modality: ExerciseModality,
+        equipmentNames: Set<String>,
+        movementPattern: MovementPattern? = nil,
+        mechanic: ExerciseMechanic? = nil
+    ) {
+        self.init(
+            muscleGroups: [muscleGroup],
+            modality: modality,
+            equipmentNames: equipmentNames,
+            movementPattern: movementPattern,
+            mechanic: mechanic
+        )
     }
 }
 
@@ -39,10 +71,29 @@ public struct ExerciseSimilarityFeatures: Sendable, Equatable {
 /// bodyweight alternative is still a fine swap, so it is the lightest
 /// weight). All three normalize to 0…1, so `score` is 0…1.
 public enum ExerciseSimilarity {
-    /// Relative weights, summing to 1. Muscle is the spine of the score.
-    static let muscleWeight = 0.6
-    static let modalityWeight = 0.25
-    static let equipmentWeight = 0.15
+    /// Relative weights. Muscle stays the spine; the two authored
+    /// attributes (#495) sit between it and the gear term, since "same
+    /// bucket of movement" is a stronger substitution signal than "same
+    /// gear" and a weaker one than "same muscle".
+    ///
+    /// ⚠️ They sum to 1 only when EVERY signal is comparable. When an
+    /// attribute is absent on either side the score renormalizes over
+    /// what is left (see `score`), so these are ratios, not a fixed
+    /// budget.
+    ///
+    /// ⚠️ The base three are deliberately the PRE-ATTRIBUTE ratios
+    /// (0.6 : 0.25 : 0.15) scaled by the 0.7 they now share, so a pair
+    /// carrying no attributes renormalizes back to exactly the old
+    /// weights and scores exactly what it scored before #495. That is a
+    /// real invariant, pinned by `preAttributeScoresAreUnchanged` — the
+    /// first cut of these numbers only LOOKED like it held it (the Kit
+    /// suite passed on margin, not on equality) and quietly reordered
+    /// attribute-less pairs.
+    static let muscleWeight = 0.42      // 0.60 × 0.7
+    static let modalityWeight = 0.175   // 0.25 × 0.7
+    static let equipmentWeight = 0.105  // 0.15 × 0.7
+    static let patternWeight = 0.20
+    static let mechanicWeight = 0.10
     /// How much of the muscle score the PRIMARY group carries, the rest
     /// going to overlap across the full lists.
     static let primaryShare = 0.7
@@ -62,14 +113,31 @@ public enum ExerciseSimilarity {
 
     /// A 0…1 substitutability score: 1 means an identical feature bag, 0
     /// means nothing in common. Symmetric in its inputs.
+    ///
+    /// ⚠️ An ABSENT attribute is unavailable, not a mismatch (#495). A
+    /// pattern or mechanic that either side doesn't carry drops out of
+    /// the sum and its weight is redistributed across the rest — scoring
+    /// it zero would push every cardio row, every stretch and every
+    /// custom down the list for saying nothing, and scoring it one would
+    /// hand them free credit. Renormalizing keeps a pair with no
+    /// attributes scoring exactly what it scored before they existed,
+    /// which is why the pre-attribute ranking tests still hold.
     public static func score(candidate: ExerciseSimilarityFeatures,
                              origin: ExerciseSimilarityFeatures) -> Double {
-        let muscle = muscleScore(candidate.muscleGroups, origin.muscleGroups)
-        let modality = modalityScore(candidate.modality, origin.modality)
-        let equipment = jaccard(candidate.equipmentNames, origin.equipmentNames)
-        return muscle * muscleWeight
-            + modality * modalityWeight
-            + equipment * equipmentWeight
+        var weighted = muscleScore(candidate.muscleGroups, origin.muscleGroups) * muscleWeight
+            + modalityScore(candidate.modality, origin.modality) * modalityWeight
+            + jaccard(candidate.equipmentNames, origin.equipmentNames) * equipmentWeight
+        var total = muscleWeight + modalityWeight + equipmentWeight
+
+        if let a = candidate.movementPattern, let b = origin.movementPattern {
+            weighted += (a == b ? 1.0 : 0.0) * patternWeight
+            total += patternWeight
+        }
+        if let a = candidate.mechanic, let b = origin.mechanic {
+            weighted += (a == b ? 1.0 : 0.0) * mechanicWeight
+            total += mechanicWeight
+        }
+        return weighted / total
     }
 
     /// Rank `items` best-first by their similarity to `origin`. A stable
@@ -101,6 +169,12 @@ public enum ExerciseSimilarity {
     static func muscleScore(_ a: [MuscleGroup], _ b: [MuscleGroup]) -> Double {
         let primary = a.first == b.first ? 1.0 : 0.0
         return primaryShare * primary + (1 - primaryShare) * jaccard(Set(a.map(\.rawValue)), Set(b.map(\.rawValue)))
+    }
+
+    /// Exposed for `preAttributeScoresAreUnchanged`, which recomputes the
+    /// pre-#495 formula and needs the same gear term.
+    static func jaccardForTesting(_ a: Set<String>, _ b: Set<String>) -> Double {
+        jaccard(a, b)
     }
 
     /// Set overlap, |A ∩ B| / |A ∪ B|. Two bodyweight moves (both empty)

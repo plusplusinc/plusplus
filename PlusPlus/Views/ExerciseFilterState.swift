@@ -102,12 +102,17 @@ enum ExerciseFilterState {
         return rank(doable) + rank(rest)
     }
 
-    /// Maps an `Exercise` into the Kit ranker's pure feature bag.
+    /// Maps an `Exercise` into the Kit ranker's pure feature bag. The two
+    /// authored attributes ride along (#495); a row that carries neither
+    /// is not penalized for it — the ranker renormalizes over what it can
+    /// actually compare.
     private static func similarityFeatures(_ exercise: Exercise) -> ExerciseSimilarityFeatures {
         ExerciseSimilarityFeatures(
             muscleGroups: exercise.muscleGroups,
             modality: exercise.modality,
-            equipmentNames: Set(exercise.equipment.filter { !$0.isDeleted }.map(\.name))
+            equipmentNames: Set(exercise.equipment.filter { !$0.isDeleted }.map(\.name)),
+            movementPattern: exercise.movementPattern,
+            mechanic: exercise.mechanic
         )
     }
 }

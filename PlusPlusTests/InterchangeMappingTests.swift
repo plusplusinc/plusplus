@@ -278,6 +278,10 @@ struct InterchangeMappingTests {
         row.metricProfile = MetricProfile([.weight, .reps, .duration, .distance], distanceUnit: .miles, isOutdoor: true, paceReference: .per100Meters)
         // Several muscle groups, primary first: the whole list must survive.
         row.muscleGroups = [.back, .biceps, .core]
+        // Authored attributes (#496): a custom's overrides are its own data.
+        row.movementPatternOverride = .horizontalPull
+        row.mechanicOverride = .compound
+        row.lateralityOverride = .unilateral
         row.defaultWeight = 60
         row.defaultReps = 8
         row.defaultRepsUpper = 12
@@ -365,6 +369,9 @@ struct InterchangeMappingTests {
         let importedRow = try #require(importedExercises.first { $0.name == "Probe Row" })
         #expect(importedRow.muscleGroup == .back)
         #expect(importedRow.muscleGroups == [.back, .biceps, .core], "every muscle group round-trips, primary first")
+        #expect(importedRow.movementPatternOverride == .horizontalPull, "movement pattern round-trips")
+        #expect(importedRow.mechanicOverride == .compound, "mechanic round-trips")
+        #expect(importedRow.lateralityOverride == .unilateral, "laterality round-trips")
         #expect(importedRow.equipment.map(\.name) == ["Probe Rower"])
         #expect(importedRow.notes == "Drive with the legs.")
         #expect(importedRow.videoURL == "https://youtu.be/probe")

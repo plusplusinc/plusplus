@@ -74,6 +74,96 @@ struct FacetChip<Value: Hashable>: View {
     }
 }
 
+/// A MULTI-select facet (#498): the chip opens a tray holding the
+/// app's standard `SheetPickList`, because a multi-select is a list,
+/// not a `Menu` (ui-interaction.md — a Menu can't be searched, closes
+/// on every pick, and shows no selection state). Binary facets keep
+/// `FacetChip` above: "both" and "neither" mean the same thing there,
+/// so a two-option list would be ceremony around a toggle.
+///
+/// The chip states its own selection the way the row's summary chip
+/// states the row's: the value when there is one, a count when there
+/// are several.
+struct FacetTrayChip<Value>: View where Value: Hashable & RawRepresentable, Value.RawValue == String {
+    let name: String
+    let options: [Value]
+    let display: (Value) -> String
+    @Binding var selection: Set<Value>
+    var identifier: String?
+    /// A list you can take in at a glance has nothing to search, and an
+    /// empty field over five rows is a keyboard waiting to cover them
+    /// (the SheetPickList rule).
+    var searchPrompt: String?
+
+    @State private var showingTray = false
+
+    private var isActive: Bool { !selection.isEmpty }
+
+    private var label: String {
+        guard let only = selection.first, selection.count == 1 else {
+            return isActive ? "\(name) · \(selection.count)" : name
+        }
+        return display(only)
+    }
+
+    var body: some View {
+        Button {
+            showingTray = true
+        } label: {
+            HStack(spacing: 5) {
+                Text(label)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(.caption2, weight: .semibold))
+                    .accessibilityHidden(true)
+            }
+            .font(.system(.footnote, weight: .semibold))
+            .padding(.horizontal, 14)
+            .frame(height: 36)
+            .background(isActive ? Theme.selectedTint : Color.clear)
+            .foregroundStyle(isActive ? Theme.selectedInk : Theme.textPrimary)
+            .clipShape(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius))
+            .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius)
+                .strokeBorder(isActive ? Theme.selectedRing : Theme.borderStrong, lineWidth: 1))
+            .frame(height: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .animation(Theme.Anim.selection, value: isActive)
+        .accessibilityIdentifier(identifier ?? "facet\(name)")
+        .accessibilityLabel("\(name) filter")
+        .accessibilityValue(selection.isEmpty ? "Any" : selection.map(display).sorted().joined(separator: ", "))
+        .sheet(isPresented: $showingTray) {
+            // The HOST owns the stack (ui-interaction.md), and the
+            // presentation modifiers sit outside it.
+            NavigationStack {
+                VStack(spacing: 0) {
+                    SheetHeader(title: name, actionLabel: "Done") { showingTray = false }
+                        .padding(18)
+                    SheetPickList(
+                        title: name,
+                        sections: [SheetPickList.Section(title: nil, options: options.map {
+                            SheetPickList.Option(id: $0.rawValue, name: display($0))
+                        })],
+                        selected: Set(selection.map(\.rawValue)),
+                        searchPrompt: searchPrompt,
+                        searchIdentifier: "facetPickSearchField"
+                    ) { rawValue in
+                        guard let value = options.first(where: { $0.rawValue == rawValue }) else { return }
+                        if selection.contains(value) {
+                            selection.remove(value)
+                        } else {
+                            selection.insert(value)
+                        }
+                    }
+                    .toolbar(.hidden, for: .navigationBar)
+                }
+            }
+            .presentationDetents([.medium, .large])
+            .presentationBackground(Theme.background)
+        }
+    }
+}
+
 /// The mandated active-state summary (design-grammar: "active filters
 /// summarize, never insta-clear"): a selection-look count chip leading
 /// the row, opening a popover that names each active facet's value,

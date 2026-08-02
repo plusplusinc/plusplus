@@ -43,7 +43,13 @@ struct OperatorDataService {
                     if favoritesOnly, !exercise.isFavorite { return false }
                     return true
                 }
-                let matched = fragment.map { q in FuzzySearch.ranked(filtered, query: q) { $0.name } } ?? filtered
+                // Keyed on the SYNONYM key (#497), so "rdl" reaches the
+                // Romanian Deadlift here exactly as it does in the
+                // catalog's own search field. Read path: a forgiving
+                // match only ever changes which lines the digest shows.
+                let matched = fragment.map { q in
+                    FuzzySearch.ranked(filtered, query: q) { CatalogSearchSynonyms.searchKey(for: $0.name) }
+                } ?? filtered
                 return digest(matched.map(exerciseLine), of: matched.count, kind: "exercises", cap: cap, fragment: fragment)
 
             case .superset:
@@ -171,7 +177,7 @@ struct OperatorDataService {
                 // canonical exercise, count only it — "benchpres" must
                 // never sum Bench Press AND Incline Bench Press.
                 let exercise = exerciseName.map { name in
-                    FuzzySearch.bestMatch(query: name, in: distinct(windowLogs.map(\.exerciseName))) ?? name
+                    CatalogSearchSynonyms.bestMatch(query: name, in: distinct(windowLogs.map(\.exerciseName))) ?? name
                 }
                 let logs = exercise.map { name in
                     windowLogs.filter { $0.exerciseName.compare(name, options: .caseInsensitive) == .orderedSame }
@@ -193,7 +199,7 @@ struct OperatorDataService {
             // counting — a loose match must not sum sets across, say,
             // Bench Press and Overhead Press in the same session.
             let byName = Dictionary(grouping: session.completedSetLogs, by: \.exerciseName)
-            guard let canonical = FuzzySearch.bestMatch(query: name, in: byName.keys.sorted()),
+            guard let canonical = CatalogSearchSynonyms.bestMatch(query: name, in: byName.keys.sorted()),
                   let logs = byName[canonical], !logs.isEmpty else { continue }
             var line = "\(canonical) last done \(dateText(session.startedAt)) · \(logs.count) sets"
             if let topWeight = logs.compactMap(\.actualWeight).max() {

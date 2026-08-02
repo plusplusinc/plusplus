@@ -101,4 +101,102 @@ struct ExerciseSimilarityTests {
         #expect(viaSingle == viaList)
         #expect(viaList.muscleGroup == .quads)
     }
+
+    // MARK: - Authored attributes (#495)
+
+    private func attributed(_ groups: [MuscleGroup],
+                            pattern: MovementPattern? = nil,
+                            mechanic: ExerciseMechanic? = nil,
+                            gear: Set<String> = []) -> ExerciseSimilarityFeatures {
+        ExerciseSimilarityFeatures(muscleGroups: groups, modality: .strength,
+                                   equipmentNames: gear, movementPattern: pattern, mechanic: mechanic)
+    }
+
+    @Test("Sharing the movement pattern beats a different one, same muscles")
+    func patternSeparatesSameMuscle() {
+        let squat = attributed([.quads, .glutes], pattern: .squat, mechanic: .compound, gear: ["Barbell"])
+        let anotherSquat = attributed([.quads, .glutes], pattern: .squat, mechanic: .compound, gear: ["Barbell"])
+        let lunge = attributed([.quads, .glutes], pattern: .lunge, mechanic: .compound, gear: ["Barbell"])
+        #expect(ExerciseSimilarity.score(candidate: anotherSquat, origin: squat)
+            > ExerciseSimilarity.score(candidate: lunge, origin: squat))
+    }
+
+    /// The case #495 was filed for. An RDL and a Leg Curl share hamstrings
+    /// and need no shared gear to look alike; the curl carries NO pattern,
+    /// so mechanic is the signal that has to do the work.
+    @Test("Mechanic separates a hinge from an isolation on the same muscle")
+    func mechanicSeparatesCompoundFromIsolation() {
+        let rdl = attributed([.hamstrings, .glutes], pattern: .hinge, mechanic: .compound)
+        let goodMorning = attributed([.hamstrings, .glutes], pattern: .hinge, mechanic: .compound)
+        let legCurl = attributed([.hamstrings, .glutes], mechanic: .isolation)
+        #expect(ExerciseSimilarity.score(candidate: goodMorning, origin: rdl)
+            > ExerciseSimilarity.score(candidate: legCurl, origin: rdl))
+    }
+
+    /// The invariant the weights are chosen for: with no attributes to
+    /// compare, the score is EXACTLY the pre-#495 formula. Asserting
+    /// `score(x, x) == 1` proves nothing here — that holds under any
+    /// normalization — so this recomputes the old weighted sum over
+    /// pairs whose three base signals all differ.
+    @Test("Attribute-less pairs score exactly what they scored before #495")
+    func preAttributeScoresAreUnchanged() {
+        func legacy(_ candidate: ExerciseSimilarityFeatures, _ origin: ExerciseSimilarityFeatures) -> Double {
+            ExerciseSimilarity.muscleScore(candidate.muscleGroups, origin.muscleGroups) * 0.60
+                + ExerciseSimilarity.modalityScore(candidate.modality, origin.modality) * 0.25
+                + ExerciseSimilarity.jaccardForTesting(candidate.equipmentNames, origin.equipmentNames) * 0.15
+        }
+        let cases: [(ExerciseSimilarityFeatures, ExerciseSimilarityFeatures)] = [
+            (bag([.chest, .triceps, .shoulders]), bag([.chest])),
+            (bag([.chest], .flexibility), bag([.chest, .triceps], .strength, ["Barbell"])),
+            (bag([.quads], .cardio, ["Treadmill"]), bag([.core], .strength, ["Barbell", "Bench"])),
+            (bag([.back, .biceps], .strength, ["Pull-Up Bar"]), bag([.back], .strength, [])),
+        ]
+        for (candidate, origin) in cases {
+            let now = ExerciseSimilarity.score(candidate: candidate, origin: origin)
+            let before = legacy(candidate, origin)
+            #expect(abs(now - before) < 1e-12, "score moved: \(before) → \(now)")
+        }
+    }
+
+    @Test("An absent attribute is unavailable, never a mismatch")
+    func absentAttributeRenormalizes() {
+        let plain = bag([.quads], .strength, ["Barbell"])
+        #expect(ExerciseSimilarity.score(candidate: plain, origin: plain) == 1.0)
+
+        // And a row that simply says nothing is not punished for it: an
+        // attribute-less twin still outranks a genuine mismatch that DOES
+        // carry attributes.
+        let origin = attributed([.quads], pattern: .squat, mechanic: .compound, gear: ["Barbell"])
+        let silentTwin = bag([.quads], .strength, ["Barbell"])
+        let wrongPattern = attributed([.quads], pattern: .carry, mechanic: .isolation, gear: ["Barbell"])
+        #expect(ExerciseSimilarity.score(candidate: silentTwin, origin: origin)
+            > ExerciseSimilarity.score(candidate: wrongPattern, origin: origin))
+    }
+
+    @Test("Muscle still outranks the attributes combined")
+    func muscleStillDominates() {
+        let origin = attributed([.chest], pattern: .horizontalPush, mechanic: .compound)
+        // Right muscle, both attributes wrong...
+        let sameMuscle = attributed([.chest], pattern: .carry, mechanic: .isolation)
+        // ...still beats wrong muscle with both attributes right.
+        let otherMuscle = attributed([.quads], pattern: .horizontalPush, mechanic: .compound)
+        #expect(ExerciseSimilarity.score(candidate: sameMuscle, origin: origin)
+            > ExerciseSimilarity.score(candidate: otherMuscle, origin: origin))
+    }
+
+    @Test("Every score stays inside 0…1 whatever is present")
+    func scoresStayNormalized() {
+        let bags = [
+            attributed([.chest], pattern: .horizontalPush, mechanic: .compound, gear: ["Barbell"]),
+            attributed([.quads], mechanic: .isolation),
+            bag([.core], .cardio, ["Treadmill"]),
+            attributed([.back], pattern: .verticalPull),
+        ]
+        for candidate in bags {
+            for origin in bags {
+                let score = ExerciseSimilarity.score(candidate: candidate, origin: origin)
+                #expect(score >= 0 && score <= 1, "score \(score) out of range")
+            }
+        }
+    }
 }

@@ -244,26 +244,53 @@ final class Exercise {
         catalogDefinition?.supportsHeartRate ?? true
     }
 
-    // MARK: - Authored attributes (catalog expansion, 2026-07-31)
-    // Movement pattern, mechanic, and laterality resolve from the catalog
-    // row like `modality` and `supportsHeartRateTarget` — app-side static,
-    // nil for customs (can't classify intent), zero storage.
+    // MARK: - Authored attributes (catalog expansion 2026-07-31; editable 2026-08-02, #496)
+    // Movement pattern, mechanic, and laterality resolve exactly as
+    // `muscleGroups` does: an explicit stored override wins, else the
+    // catalog row, else nothing. The override columns are additive
+    // optionals, so they migrate lightweight and existing rows read nil.
+    //
+    // ⚠️ nil means FOLLOW THE CATALOG, not "none" — which is why the
+    // editor only offers a "Not set" option where the catalog says
+    // nothing (a custom, or a built-in with no authored value). On a
+    // built-in that HAS one, picking it back stores nil again, so
+    // catalog authoring keeps reaching untouched rows.
 
-    /// The program bucket this move files under (hinge, carry…); nil for
-    /// customs and for rows with no canonical pattern.
+    /// The user's explicit pattern, or nil to follow the catalog.
+    var movementPatternOverride: MovementPattern?
+    /// The user's explicit mechanic, or nil to follow the catalog.
+    var mechanicOverride: ExerciseMechanic?
+    /// The user's explicit laterality, or nil to follow the catalog.
+    var lateralityOverride: ExerciseLaterality?
+
+    /// The program bucket this move files under (hinge, carry…); nil when
+    /// neither the user nor the catalog says.
     var movementPattern: MovementPattern? {
-        catalogDefinition?.movementPattern
+        movementPatternOverride ?? catalogDefinition?.movementPattern
     }
 
-    /// Compound vs isolation (programming semantics); nil for customs
-    /// and the stretch/mobility rows.
+    /// Compound vs isolation (programming semantics); nil when unclassified.
     var mechanic: ExerciseMechanic? {
-        catalogDefinition?.mechanic
+        mechanicOverride ?? catalogDefinition?.mechanic
     }
 
-    /// Bilateral vs unilateral; nil for customs.
+    /// Bilateral vs unilateral; nil when unclassified.
     var laterality: ExerciseLaterality? {
-        catalogDefinition?.laterality
+        lateralityOverride ?? catalogDefinition?.laterality
+    }
+
+    /// Whether the user has overridden any authored attribute — one of
+    /// the "this built-in is annotated, so export it" conditions.
+    var hasAttributeOverrides: Bool {
+        movementPatternOverride != nil || mechanicOverride != nil || lateralityOverride != nil
+    }
+
+    /// What the CATALOG says, ignoring any override — the editor's
+    /// fallback comparison (an override equal to this stays unstored) and
+    /// what decides whether a "Not set" option is offerable at all.
+    var catalogAttributeDefaults: (pattern: MovementPattern?, mechanic: ExerciseMechanic?, laterality: ExerciseLaterality?) {
+        let definition = catalogDefinition
+        return (definition?.movementPattern, definition?.mechanic, definition?.laterality)
     }
 
     /// The movement family this exercise READS as — the universal-search
