@@ -7,7 +7,7 @@ import PlusPlusKit
 /// the whole point of this file — the universal-search surface had become a
 /// second copy of the three catalog tabs, so the two became one. As of
 /// 2026-08-02 there is no separate search surface left at all: the query
-/// arrives from a floating key above the tab bar (`CatalogSearchDock`).
+/// arrives from the SYSTEM's own bottom search field, minimized to a key.
 ///
 /// It replaces four screens: `RoutineListView`, `ExercisesTabView`,
 /// `EquipmentTabView`, `FindOrCreateView`, and the pushed
@@ -392,6 +392,33 @@ struct CatalogScopeView: View {
                     }
                     .sharedBackgroundVisibility(.hidden)
                 }
+                // ⚠️ THE NATIVE SEARCH UI (spike, 2026-08-02). `.searchable`
+                // on a view INSIDE the stack, then `.searchToolbarBehavior`
+                // AFTER it — Apple's documented order ("place this modifier
+                // after the searchable modifier that renders search in the
+                // toolbar"). On iPhone iOS 26 that yields a bottom-toolbar
+                // search field which `.minimize` renders as a button-like
+                // control when inactive: the floating search key, system-owned.
+                //
+                // ⚠️ It is `.minimize`, NOT `.minimized`. Apple's own Discussion
+                // sample writes `.minimized`, which does not exist — the
+                // declared type property on `SearchToolbarBehavior` is
+                // `minimize`. The declaration wins over the prose.
+                //
+                // `isPresented` is bound so open/closed still SURVIVES a tab
+                // switch and a trip to Today, which is the behaviour Dave
+                // chose; the query binding is unchanged, so one query still
+                // serves all three catalogs.
+                .searchable(
+                    text: $boundQuery,
+                    isPresented: $searchOpen,
+                    prompt: "Search \(scope.searchNoun)"
+                )
+                .searchToolbarBehavior(.minimize)
+                // Keeps the ++ key and the kit switcher while search is active
+                // — without it the system clears the bar to make room, which is
+                // the build-143 emptying. Still load-bearing.
+                .searchPresentationToolbarBehavior(.avoidHidingContent)
                 .navigationDestination(for: Exercise.self) { exercise in
                     ExerciseDetailScreen(exercise: exercise)
                 }
@@ -782,31 +809,6 @@ struct CatalogScopeView: View {
             // change tab). Do not weaken it to `.interactively`: a partial drag
             // that snaps back leaves the bar covered.
             .scrollDismissesKeyboard(.immediately)
-            // The floating search key, and the field it morphs into. ⚠️ It
-            // mounts HERE — a bottom `safeAreaInset` on the stack's ROOT
-            // content — for three separate reasons, all of them in
-            // `CatalogSearchDock`'s own note: a `safeAreaInset` rises with the
-            // keyboard (which `tabViewBottomAccessory` opts out of) AND gives
-            // the list bottom clearance an overlay would not, and a
-            // root-content inset does not apply to `navigationDestination`
-            // screens, which is how the key hides on a pushed detail with no
-            // at-root flag to thread.
-            //
-            // ⚠️ It attaches ABOVE `.scrollDismissesKeyboard`, so the dock's
-            // field is not in that environment. That is fine — the modifier
-            // configures the SCROLL VIEW, which resigns the first responder
-            // wherever it lives — but it is the one behaviour the whole
-            // "dismiss the keyboard to change tab" trade rests on, so it is a
-            // named device-pass check rather than an assumption.
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                if mode.isTab {
-                    CatalogSearchDock(
-                        query: $boundQuery,
-                        isOpen: $searchOpen,
-                        scope: scope
-                    )
-                }
-            }
             // PRESENTED and PICKER surfaces keep the facet row on a top
             // `safeAreaInset` — below the kit bar when presented, below the
             // picker header. Opaque, rows scroll under it, no geometry

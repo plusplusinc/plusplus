@@ -154,28 +154,18 @@ struct HeaderSearchField: View {
 struct SearchFieldBody: View {
     let config: HeaderSearchConfig
     @Binding var wantsFocus: Bool
-    /// Set ONLY by the floating dock (`CatalogSearchDock`), where this field
-    /// is a Liquid Glass capsule that the magnifier key morphs into. `nil`
-    /// everywhere else, which keeps the app's own r11 opaque anatomy on the
-    /// three header/picker mounts.
-    var glass: SearchFieldGlass?
-
     @FocusState private var focused: Bool
 
-    /// ⚠️ The dock is bigger and NOT mono (Dave, 2026-08-02, on build 171):
-    /// it is imitating the system search field, which is body-sized system
-    /// type at roughly the tab bar's own height. The app's mono-is-DATA law
-    /// still binds every other mount — a query typed into app chrome is data,
-    /// a query typed into a system-looking field is a system field. Same
-    /// scope-by-neighbour reasoning as the glass itself.
-    private var isGlass: Bool { glass != nil }
-    private var height: CGFloat { isGlass ? 50 : 44 }
-    private var textFont: Font {
-        isGlass ? .system(.body) : .system(.footnote, design: .monospaced)
-    }
-    private var glyphFont: Font { isGlass ? .system(.body) : .system(.footnote) }
-    private var leadingInset: CGFloat { isGlass ? 16 : 13 }
-    private var trailingInset: CGFloat { isGlass ? 6 : 13 }
+    /// ⚠️ ONE anatomy again (spike, 2026-08-02): the floating key is the
+    /// SYSTEM's `.searchable` field now, so this body serves only app-drawn
+    /// chrome — pushed catalogs, pickers and sheets — and the mono-is-DATA law
+    /// binds all of them without exception. The glass/native variant that used
+    /// to be selected by a `glass:` pairing went with the hand-built dock.
+    private let height: CGFloat = 44
+    private let textFont: Font = .system(.footnote, design: .monospaced)
+    private let glyphFont: Font = .system(.footnote)
+    private let leadingInset: CGFloat = 13
+    private let trailingInset: CGFloat = 13
 
     var body: some View {
         let hasText = !config.text.wrappedValue.isEmpty
@@ -237,40 +227,11 @@ struct SearchFieldBody: View {
         .padding(.trailing, hasText ? trailingInset : leadingInset)
         .frame(height: height)
         .frame(maxWidth: .infinity)
-        .modifier(SearchFieldChrome(glass: glass))
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+        .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
     }
 }
 
-/// The dock's glass pairing: the namespace the key and the field share, and
-/// the id that makes them one morphing shape.
-struct SearchFieldGlass {
-    let namespace: Namespace.ID
-    var id: String = CatalogSearchDock.chromeID
-}
-
-/// The field's ground, in one of the app's TWO search materials.
-///
-/// ⚠️ Two, deliberately, and the split is by NEIGHBOUR (Dave, 2026-08-02).
-/// The floating dock sits directly above the tab bar, which is system Liquid
-/// Glass, so it wears glass in a capsule and morphs natively. Every other
-/// mount sits among the app's own opaque keys, so it keeps the r11 surface
-/// fill and `borderStrong` stroke. Do not converge them — the point is that
-/// each matches what it is next to.
-private struct SearchFieldChrome: ViewModifier {
-    let glass: SearchFieldGlass?
-
-    func body(content: Content) -> some View {
-        if let glass {
-            content
-                .glassEffect(.regular, in: Capsule())
-                .glassEffectID(glass.id, in: glass.namespace)
-        } else {
-            content
-                .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
-                .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
-        }
-    }
-}
 
 /// A trailing header key wrapping a Menu — `.menuStyle(.button)` routes
 /// the label through the raised-key ButtonStyle so menus press like

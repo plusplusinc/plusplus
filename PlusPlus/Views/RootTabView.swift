@@ -4,8 +4,8 @@ import SwiftData
 import PlusPlusKit
 
 /// The app's roots: Today and the three catalogs (Dave, 2026-08-02 — the
-/// SEARCH tab is gone; search is a floating key above the bar,
-/// `CatalogSearchDock`).
+/// SEARCH tab is gone; search is the SYSTEM's, via `.searchable` +
+/// `.searchToolbarBehavior(.minimize)` on each catalog stack).
 ///
 /// The catalog cases are NOT three different screens — all three render the
 /// same `CatalogScopeView`, and picking one only decides which catalog it
@@ -54,8 +54,9 @@ extension FindScope {
 ///
 /// **The tab bar is the scope control, full stop** (Dave, 2026-08-02). The
 /// SEARCH tab and its segmented scope `Picker` are both gone: search is a
-/// floating key above the bar (`CatalogSearchDock`, which carries the whole
-/// account), so the tabs stay visible and usable while you search and there is
+/// floating key above the bar — the SYSTEM's, from `.searchable` +
+/// `.searchToolbarBehavior(.minimize)` (see `CatalogScopeView.tabStack`), so
+/// the tabs stay visible and usable while you search and there is
 /// nothing left for a second scope control to do. The one accepted cost is that
 /// the keyboard covers the tab bar, so changing catalog mid-query means
 /// dismissing it first — which is what makes the catalogs'
@@ -278,7 +279,7 @@ struct RootTabView: View {
         // keyboard, so search's own keyboard buried it — and it refuses
         // app-authored animation (138), so the dock's morph would die there
         // too. The dock is a bottom `safeAreaInset` INSIDE each catalog tab's
-        // navigation stack; see `CatalogSearchDock`.
+        // navigation stack; the system owns it now.
         //
         // ⚠️ There is no `Tab(role: .search)` any more (Dave, 2026-08-02), so
         // `.tabViewSearchActivation` has nothing to activate and the iOS 26

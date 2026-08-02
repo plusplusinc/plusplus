@@ -47,35 +47,32 @@ final class SmokeTests: XCTestCase {
         key.tap()
     }
 
-    /// The app's OWN search field, floating above the tab bar. A plain
-    /// `textField` with an identifier, not a system `searchField` — the native
-    /// `.searchable` element died with the search-role tab.
-    ///
-    /// ⚠️ Its identifier is the DOCK's own, distinct from the presented
-    /// catalog's header field (`catalogSearchField`). Both can be in the tree at
-    /// once — the drawer's "Edit your kit" presents over the Kit tab — and a
-    /// bare identifier lookup resolves to whichever the tree yields first, not
-    /// the front surface.
+    /// The SYSTEM search field again (spike): `.searchable` renders a real
+    /// `searchField` element, so there is no app identifier to hit.
     private var searchField: XCUIElement {
-        app.textFields["catalogDockSearchField"].firstMatch
+        app.searchFields.firstMatch
     }
 
-    /// Expand the floating search key on whichever catalog tab is showing.
-    /// ⚠️ Unlike the old `openSearch()`, this does NOT change tab: search
-    /// narrows the catalog you are already on, so the caller picks the scope
-    /// first with `goToCatalog`.
+    /// Expand the system's minimized search control on whichever catalog tab is
+    /// showing. ⚠️ It does NOT change tab: search narrows the catalog you are
+    /// already on, so the caller picks the scope first with `goToCatalog`.
     private func openSearch() {
-        let key = app.buttons["catalogSearchToggle"]
-        XCTAssertTrue(key.waitForExistence(timeout: 10), "the search key floats above the tab bar on every catalog")
+        // The minimized control is the system's, so match it by LABEL — there
+        // is no identifier the app can set on it.
+        let key = app.buttons["Search"].firstMatch
+        XCTAssertTrue(key.waitForExistence(timeout: 10), "the minimized search control sits in the bottom toolbar · \(buttonInventory())")
         key.tap()
         XCTAssertTrue(searchField.waitForExistence(timeout: 5))
     }
 
-    /// Collapse the floating field. Clears the query and returns the key to
-    /// where it was — the `xmark` COLLAPSE key, never a ✕ dismissal.
+    /// Dismiss the system field. Its noun belongs to the platform (Cancel or
+    /// Close depending on release), so match either rather than asserting which
+    /// word Apple picked — the assertion is about LEAVING search.
     private func closeSearch() {
-        let key = app.buttons["catalogDockCloseButton"]
-        XCTAssertTrue(key.waitForExistence(timeout: 5), "the collapse key sits beside the field · \(buttonInventory())")
+        let key = app.buttons
+            .matching(NSPredicate(format: "label IN {'Cancel', 'Close'} OR identifier IN {'Cancel', 'Close'}"))
+            .firstMatch
+        XCTAssertTrue(key.waitForExistence(timeout: 5), "the system field's own dismiss · \(buttonInventory())")
         key.tap()
     }
 
