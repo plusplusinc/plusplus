@@ -196,7 +196,7 @@ struct RootTabView: View {
         // The whole app rides inside the reveal drawer: tapping ++ slides
         // this TabView aside to uncover the app surface beneath it.
         RevealContainer(controller: reveal) {
-            appContent
+            routedAppContent
         }
         // Injected here so BOTH layers see it: the tabs report context,
         // the reveal surface (Operator) reads it.
@@ -359,6 +359,19 @@ struct RootTabView: View {
                 .transition(.opacity)
             }
         }
+    }
+
+    /// ⚠️ The URL/notification routing and every app-level presentation live
+    /// in their OWN `some View`, split off `appContent` (CI, 2026-08-02).
+    /// That chain is ~230 lines of modifiers on one expression and it went
+    /// over the type-checker's budget outright — "unable to type-check this
+    /// expression in reasonable time" — the moment the GitHub sheet became
+    /// an `item:` presentation with a ternary in its builder. Same budget
+    /// `TodayView.committedHistory` was extracted for. A `some View`
+    /// boundary is what keeps it checkable, so anything added here from now
+    /// on belongs BELOW this line, not above it.
+    private var routedAppContent: some View {
+        appContent
         // plusplus://r#… (and, once universal links land, the https
         // viewer URL) opens the import preview. A bad payload is
         // ignored — the viewer webpage is the place that explains.

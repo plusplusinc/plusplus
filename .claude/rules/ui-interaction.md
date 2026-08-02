@@ -43,4 +43,6 @@ paths:
 
 **One-shot deferred UI beats re-check preconditions at fire time** (StartFlashButton's deferred fire, the lingering +1 finish): cancel on disappear, check `isDeleted`/session state before acting.
 
+**A long modifier chain is ONE expression, and the type-checker has a budget for it** (2026-08-02, CI red on #509; `TodayView.committedHistory` learned it first). `RootTabView.appContent` carried ~230 lines of `.onReceive`/`.onOpenURL`/`.sheet`/`.alert` and went over the moment a `.sheet(isPresented:)` pair became one `.sheet(item:)` with a ternary in its builder: **"the compiler is unable to type-check this expression in reasonable time"**, which fails the build, not just the file. ⚠️ Invisible to `swiftc -parse` — the budget is a TYPE-checking limit and parse-only has no SDK to type-check against (testing.md), so a Linux session gets a clean parse and a red `test` job. The fix is a `some View` boundary, never a smaller change to the modifier that tipped it: split the chain into a second computed property (`routedAppContent` wraps `appContent`) and add below the split from then on. Same law for a big `@ViewBuilder` stack — extract, don't inline one more `Section`.
+
 **Shared controls live in `Views/Components/`** once they appear in a second view — never redefined across screens.
