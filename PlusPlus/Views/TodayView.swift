@@ -1252,6 +1252,24 @@ struct TodayView: View {
                 anytimeCard
             }
         }
+        // A broken sync, said once, where you already are (#509, Q19-A).
+        // ⚠️ Moved UP from the bottom of this stack (review): under the
+        // carried-over lane it was an advisory a long timeline hides, and
+        // an advisory nobody scrolls to is the drawer's red dot again.
+        //
+        // ⚠️ But NOT first, which is where the review put it. First is the
+        // landing slot — the opening `scrollTo` seats whatever follows the
+        // week-ahead directly under the band, and navigation.md spends that
+        // slot on the ANYTIME row deliberately. Taking over the landing on
+        // every open until someone fixes their token is what an ALARM does,
+        // and design-grammar's amber law is explicit that this isn't one:
+        // nothing is lost, the edits are on the device, they push the
+        // moment the connection is repaired. Second is enough — it is on
+        // screen at landing either way, directly under the card it sits
+        // below, and it costs the rail's normal content nothing.
+        if sync.isBackupBroken {
+            brokenSyncEntry
+        }
         // TODAY is ONE dated group (the build-161 restructure: dates pop
         // out of the cards, the node centers on the date row, cards hang
         // below). Every card of the day shares this one date row.
@@ -1292,10 +1310,6 @@ struct TodayView: View {
         if !missedEntries.isEmpty {
             carriedOverSection
         }
-        // A broken sync, said once, where you already are (#509, Q19-A).
-        if syncIsBroken {
-            brokenSyncEntry
-        }
     }
 
     /// An expired or revoked GitHub connection. It used to live ONLY as a
@@ -1303,13 +1317,16 @@ struct TodayView: View {
     /// local edits piled up un-backed-up, which is the one thing a backup
     /// failing quietly must not do.
     ///
-    /// ⚠️ The same predicate the drawer's row uses, deliberately: `faulted`
-    /// alone can be a stale flag, so it is gated on the connection actually
-    /// being down. Change one, change the other.
-    private var syncIsBroken: Bool {
-        sync.connection == .disconnected && sync.faulted
-    }
-
+    /// ⚠️ It is gated on `sync.isBackupBroken`, NOT on the drawer row's
+    /// `isFaulted` (review): `faulted` is set by any failed CONNECT attempt
+    /// — a dropped wifi mid-device-flow, an expired code, a Cancel on
+    /// github.com — so someone who tried sync once, failed, and never came
+    /// back would otherwise get a permanent card promising their workouts
+    /// were safe in a backup that never existed. `lastSyncedAt` is written
+    /// only by a pass that SUCCEEDED, so it is the honest gate. The drawer
+    /// row keeps the broader predicate on purpose: a red dot on a row you
+    /// went looking for is a status, not a claim.
+    ///
     /// ⚠️ The dateline is a TIME, not a label (copy review): every rail
     /// entry puts a temporal value in that slot — a date, "today",
     /// "anytime" — so a categorical noun there reads as a rendering fault
@@ -1349,7 +1366,13 @@ struct TodayView: View {
                             .font(.system(.body, weight: .semibold))
                             .foregroundStyle(Theme.textPrimary)
                             .lineLimit(2)
-                        Text("your workouts are safe on this phone · tap to reconnect")
+                        // ⚠️ Metadata shape, like every other caption on the
+                        // rail (review): lowercase mono facts joined by "·",
+                        // not a sentence. "tap to reconnect" left with the
+                        // chevron that already says it — a card whose whole
+                        // body is one button doesn't need the instruction
+                        // spelled out, and VoiceOver gets it as a hint.
+                        Text("safe on this phone · sync paused")
                             .font(.system(.caption, design: .monospaced))
                             .foregroundStyle(Theme.notes)
                             .lineLimit(factLineLimit)
@@ -1358,6 +1381,7 @@ struct TodayView: View {
                     Image(systemName: "chevron.right")
                         .font(.system(.caption2, weight: .bold))
                         .foregroundStyle(Theme.textFaint)
+                        .accessibilityHidden(true)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
@@ -1371,6 +1395,7 @@ struct TodayView: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("brokenSyncAdvisory")
+            .accessibilityHint("Opens GitHub sync")
         }
     }
 

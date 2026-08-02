@@ -132,6 +132,14 @@ struct RootTabView: View {
     /// Post-install return from GitHub (the Setup-URL bounce, #23): present
     /// the connect step so the user just authorizes.
     @State private var showGitHubConnect = false
+    /// Today's broken-sync advisory (#509, Q19-A) presenting the sync tray
+    /// itself. Separate from `showGitHubConnect` because that one is the
+    /// post-authorize RETURN and opens on the connect step; this one opens
+    /// the tray at its top, which is where a reconnect starts anyway
+    /// (`GitHubSyncTray` seats a faulted connection on `.connect` on its
+    /// own) and where the disconnect and repo rows live if that's what the
+    /// person came for.
+    @State private var showSyncTray = false
     /// #155: the store couldn't be opened and was reset this launch. Read
     /// once at init (the flag is set during app init, before any view), so
     /// we tell the user rather than pretending nothing happened.
@@ -367,10 +375,18 @@ struct RootTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: .plusplusPastedShareLink)) { note in
             (note.object as? URL).map(openShareLink)
         }
-        // Today's broken-sync advisory asking for the drawer (#509, Q19-A).
-        // This layer owns the controller; RevealSurface raises the tray.
+        // Today's broken-sync advisory (#509, Q19-A). ⚠️ It presents the
+        // tray DIRECTLY rather than opening the drawer and asking
+        // `RevealSurface` to raise it (review). The drawer route needed a
+        // second receiver over there, a sleep long enough to clear the
+        // drawer's spring (a magic number Reduce Motion falsifies, since a
+        // reduced open finishes early), and a cross-layer write into that
+        // view's own presentation state — which its tray queue would fight
+        // if anything else were already up. One receiver, one sheet, and
+        // the user lands where the card promised instead of watching the
+        // app slide aside first.
         .onReceive(NotificationCenter.default.publisher(for: .plusplusRevealSyncTray)) { _ in
-            reveal.open()
+            showSyncTray = true
         }
         // Universal-link form of the same GitHub Setup-URL return
         // (https://plusplus.fit/github/…), for when it opens the app directly.
@@ -426,6 +442,9 @@ struct RootTabView: View {
         }
         .sheet(isPresented: $showGitHubConnect) {
             GitHubSyncTray(startAtConnect: true)
+        }
+        .sheet(isPresented: $showSyncTray) {
+            GitHubSyncTray()
         }
         // #155: never a silent wipe. If the store couldn't be opened and
         // was reset this launch, say so plainly (calm, no blame) and note

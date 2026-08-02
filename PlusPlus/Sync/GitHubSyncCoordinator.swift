@@ -103,6 +103,25 @@ final class GitHubSyncCoordinator {
 
     var isConnected: Bool { connection == .connected }
 
+    /// A connection attempt that failed and hasn't been retried — what the
+    /// drawer row paints red and calls "disconnected".
+    var isFaulted: Bool { connection == .disconnected && faulted }
+
+    /// ⚠️ A sync that WAS working and has broken — strictly narrower than
+    /// `isFaulted`, and the difference is the whole point (review, #509).
+    /// `setFault()` fires on ANY failed connect attempt that isn't a
+    /// `BootstrapError`: a dropped wifi during the device flow, an expired
+    /// code, a Cancel on github.com. Someone who tried once, failed, and
+    /// never came back is `faulted` forever — and cannot clear it, since
+    /// the tray only offers Disconnect while CONNECTED.
+    ///
+    /// Telling that person "sync stopped, your workouts are safe on this
+    /// phone" is a claim about a backup that never existed, pinned to the
+    /// app's home surface with no way to dismiss it. `lastSyncedAt` is the
+    /// honest gate: it is written only by a SUCCEEDED pass, so it answers
+    /// "was this ever working" and nothing else.
+    var isBackupBroken: Bool { isFaulted && lastSyncedAt != nil }
+
     var isSyncing: Bool {
         if case .syncing = activity { return true }
         return false

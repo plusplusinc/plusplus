@@ -270,19 +270,6 @@ struct RevealSurface: View {
         // reappears AND on foreground return (onAppear doesn't re-fire when the
         // app resumes to an already-visible drawer).
         .onAppear { health.refreshStatus() }
-        // The other half of the advisory's tap (#509, Q19-A). ⚠️ Deferred
-        // past the drawer's own spring: the trays are sheets on THIS view,
-        // and raising one while the app layer is still sliding aside
-        // presents over a moving surface. `RootTabView` starts the open in
-        // the same frame, so the wait is for its animation, not for a
-        // mount — this view is always in the hierarchy beneath the app, so
-        // unlike a cross-TAB landing there is no pending-slot problem.
-        .onReceive(NotificationCenter.default.publisher(for: .plusplusRevealSyncTray)) { _ in
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(360))
-                activeTray = .sync
-            }
-        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { health.refreshStatus() }
         }
@@ -295,7 +282,7 @@ struct RevealSurface: View {
         // clean never-connected install reads as neutral gray with no word, and
         // so does an unconfigured build (red gated on .disconnected, so a stale
         // fault flag can't paint it red).
-        let faulted = sync.connection == .disconnected && sync.faulted
+        let faulted = sync.isFaulted
         let dot: Color = connected ? Theme.accent : (faulted ? Theme.destructive : Theme.textFaint)
         // A pass in flight outranks the resting word (#509, b16): the row
         // read "connected" throughout a multi-second sync, so the one place
