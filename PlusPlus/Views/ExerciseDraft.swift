@@ -62,6 +62,22 @@ final class ExerciseDraft {
     /// choice must never be clobbered by the equipment-based prefill.
     var metricsTouched = false
     var selectedEquipment: Set<Equipment> = []
+    /// The authored attributes (#496), carried as the RESOLVED value the
+    /// user sees — an override if they set one, else what the catalog
+    /// says. `apply` stores only a value that genuinely differs from the
+    /// catalog, the same unstored-if-it-matches rule the profile and the
+    /// muscle groups use, so catalog authoring keeps reaching untouched
+    /// built-ins and exports stay lean.
+    var movementPattern: MovementPattern?
+    var mechanic: ExerciseMechanic?
+    var laterality: ExerciseLaterality?
+    /// What the catalog says for this exercise, captured at open. Decides
+    /// which picks are storable: where the catalog is silent the editor
+    /// offers "Not set", and where it speaks that option would be a lie
+    /// (storing nil there just means "follow the catalog" again).
+    var catalogPattern: MovementPattern?
+    var catalogMechanic: ExerciseMechanic?
+    var catalogLaterality: ExerciseLaterality?
     var notes = ""
     var videoURL = ""
     /// Default targets (#187). Optional — nil rows show "—" and fall back
@@ -92,6 +108,13 @@ final class ExerciseDraft {
         // suggestion — equipment changes must not rewrite it.
         metricsTouched = true
         selectedEquipment = Set(exercise.equipment)
+        movementPattern = exercise.movementPattern
+        mechanic = exercise.mechanic
+        laterality = exercise.laterality
+        let defaults = exercise.catalogAttributeDefaults
+        catalogPattern = defaults.pattern
+        catalogMechanic = defaults.mechanic
+        catalogLaterality = defaults.laterality
         notes = exercise.notes ?? ""
         videoURL = exercise.videoURL ?? ""
         defaultWeight = exercise.defaultWeight
@@ -133,6 +156,9 @@ final class ExerciseDraft {
             String(describing: paceReference),
             String(isOutdoor),
             selectedEquipment.map(\.name).sorted().joined(separator: ","),
+            movementPattern?.rawValue ?? "",
+            mechanic?.rawValue ?? "",
+            laterality?.rawValue ?? "",
             notes,
             videoURL,
             defaultWeight.map { String($0) } ?? "",
@@ -311,6 +337,14 @@ final class ExerciseDraft {
             : [muscleGroup]
         exercise.explicitMuscleGroups = muscleGroups == groupsFallback ? nil : muscleGroups
         exercise.equipment = selectedEquipment.sorted { $0.name < $1.name }
+        // Authored attributes (#496): an explicit pick equal to what the
+        // catalog already says stays UNSTORED, so a built-in keeps
+        // following its catalog row and only a real disagreement travels.
+        // A custom's catalog values are all nil, so anything it picks is
+        // stored and anything it clears is dropped.
+        exercise.movementPatternOverride = movementPattern == catalogPattern ? nil : movementPattern
+        exercise.mechanicOverride = mechanic == catalogMechanic ? nil : mechanic
+        exercise.lateralityOverride = laterality == catalogLaterality ? nil : laterality
         let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
         exercise.notes = trimmedNotes.isEmpty ? nil : trimmedNotes
         if case .valid(let url) = normalizedVideoURL {

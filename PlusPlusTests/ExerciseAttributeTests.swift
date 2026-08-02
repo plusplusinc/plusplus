@@ -116,6 +116,59 @@ struct ExerciseAttributeTests {
         #expect(try def("Pigeon Pose").laterality == .unilateral)
     }
 
+    // MARK: - Overrides (#496)
+
+    @Test("A custom's own attributes resolve, and answer the facets")
+    func customCarriesItsOwnAttributes() {
+        let custom = Exercise(name: "Probe Sandbag Toss", muscleGroup: .fullBody)
+        #expect(custom.movementPattern == nil)
+        custom.movementPatternOverride = .rotation
+        custom.mechanicOverride = .compound
+        custom.lateralityOverride = .unilateral
+        #expect(custom.movementPattern == .rotation)
+        #expect(custom.mechanic == .compound)
+        #expect(custom.laterality == .unilateral)
+        // The point of the issue: it stops dropping out of the facet.
+        var filters = CatalogFilterState()
+        filters.pattern = .rotation
+        #expect(filters.allows(custom))
+        filters.pattern = .hinge
+        #expect(!filters.allows(custom))
+    }
+
+    @Test("An override beats the catalog; clearing it follows the catalog again")
+    func overrideBeatsCatalog() throws {
+        let def = try #require(SeedData.builtInDefinition(named: "Deadlift"))
+        let deadlift = Exercise(name: def.name, muscleGroup: def.muscleGroup, exerciseType: def.exerciseType, isBuiltIn: true)
+        #expect(deadlift.movementPattern == .hinge)
+        deadlift.movementPatternOverride = .squat
+        #expect(deadlift.movementPattern == .squat)
+        deadlift.movementPatternOverride = nil
+        #expect(deadlift.movementPattern == .hinge, "nil follows the catalog, it does not mean none")
+        #expect(deadlift.catalogAttributeDefaults.pattern == .hinge)
+    }
+
+    @Test("The draft stores only a genuine disagreement with the catalog")
+    func draftStoresOnlyOverrides() throws {
+        let def = try #require(SeedData.builtInDefinition(named: "Deadlift"))
+        let deadlift = Exercise(name: def.name, muscleGroup: def.muscleGroup, exerciseType: def.exerciseType, isBuiltIn: true)
+
+        // Re-picking what the catalog already says writes nothing, so
+        // catalog authoring keeps reaching the row.
+        let agreeing = ExerciseDraft(from: deadlift)
+        agreeing.movementPattern = .hinge
+        agreeing.apply(to: deadlift)
+        #expect(deadlift.movementPatternOverride == nil)
+        #expect(deadlift.hasAttributeOverrides == false)
+
+        // A real disagreement is stored, and marks the row for export.
+        let disagreeing = ExerciseDraft(from: deadlift)
+        disagreeing.movementPattern = .carry
+        disagreeing.apply(to: deadlift)
+        #expect(deadlift.movementPatternOverride == .carry)
+        #expect(deadlift.hasAttributeOverrides)
+    }
+
     @Test("A built-in resolves its attributes through the catalog; a custom resolves nil")
     func modelResolution() throws {
         let def = try #require(SeedData.builtInDefinition(named: "Deadlift"))

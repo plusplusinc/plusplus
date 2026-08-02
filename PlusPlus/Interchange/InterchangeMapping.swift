@@ -23,6 +23,10 @@ import PlusPlusKit
 ///                    yours" basis that inLibrary used to carry)
 ///                    inLibrary → EXCLUDED (frozen legacy; the DTO field is kept for
 ///                    decode tolerance of older files but never written or read here)
+///                    movementPatternOverride·mechanicOverride·lateralityOverride
+///                    → EXPORTED (#496: ExerciseDTO.movementPattern/mechanic/laterality,
+///                    written only when the user overrode the catalog — the
+///                    muscleGroups rule, so an untouched built-in stays byte-identical)
 ///                    muscleGroupsData → EXPORTED (2026-07-28: ExerciseDTO.muscleGroups,
 ///                    written only when an EXPLICIT list exists — a built-in still
 ///                    following the catalog carries none, so catalog authoring keeps
@@ -141,7 +145,7 @@ enum InterchangeMapping {
             // stay out. (Membership `inLibrary` was the old basis; it's
             // frozen, and favorites are the curation now.)
             exercises: exercises
-                .filter { !$0.isBuiltIn || $0.isFavorite || $0.notes != nil || $0.videoURL != nil || $0.hasDefaultTargets || $0.metricsData != nil || $0.muscleGroupsData != nil }
+                .filter { !$0.isBuiltIn || $0.isFavorite || $0.notes != nil || $0.videoURL != nil || $0.hasDefaultTargets || $0.metricsData != nil || $0.muscleGroupsData != nil || $0.hasAttributeOverrides }
                 .map(makeDTO),
             routines: routines.map(makeDTO),
             sessions: sessions.map(makeDTO),
@@ -209,7 +213,13 @@ enum InterchangeMapping {
             // catalog authoring on the importing side. A one-element
             // explicit list IS written — that's a pruned built-in, and
             // dropping it would hand the secondaries back on restore.
-            muscleGroups: exercise.explicitMuscleGroups
+            muscleGroups: exercise.explicitMuscleGroups,
+            // Same explicit-state rule (#496): only a genuine override
+            // travels, so a built-in agreeing with its catalog row writes
+            // nothing and keeps following catalog authoring on restore.
+            movementPattern: exercise.movementPatternOverride,
+            mechanic: exercise.mechanicOverride,
+            laterality: exercise.lateralityOverride
         )
     }
 
@@ -384,6 +394,11 @@ enum InterchangeMapping {
                 // is frozen: parsed-and-ignored, never written back.
                 existing.isFavorite = dto.isFavorite ?? false
                 existing.defaultHeartRateTargetData = encodeHeartRate(dto.defaultHeartRateTarget)
+                // Wholesale like the rest: absent means "follow the
+                // catalog", never "keep mine" (#496).
+                existing.movementPatternOverride = dto.movementPattern
+                existing.mechanicOverride = dto.mechanic
+                existing.lateralityOverride = dto.laterality
                 summary.exercisesUpdated += 1
             } else {
                 let exercise = Exercise(
@@ -395,6 +410,9 @@ enum InterchangeMapping {
                     videoURL: dto.videoURL
                 )
                 exercise.explicitMuscleGroups = dto.muscleGroups
+                exercise.movementPatternOverride = dto.movementPattern
+                exercise.mechanicOverride = dto.mechanic
+                exercise.lateralityOverride = dto.laterality
                 exercise.defaultWeight = dto.defaultWeight
                 exercise.defaultReps = dto.defaultReps
                 exercise.defaultRepsUpper = dto.defaultRepsUpper

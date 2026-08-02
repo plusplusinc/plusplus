@@ -78,7 +78,10 @@ struct DocsConformanceTests {
             paceReference: .per100Meters,
             isOutdoor: true,
             extraDefaults: ["rpe": 8],
-            muscleGroups: [.chest, .triceps]
+            muscleGroups: [.chest, .triceps],
+            movementPattern: .horizontalPush,
+            mechanic: .compound,
+            laterality: .bilateral
         )
         let routine = RoutineDTO(
             name: "Probe", restSeconds: 90,
@@ -116,6 +119,7 @@ struct DocsConformanceTests {
             "restSecondsOverride", "equipmentLibraries", "weightStep",
             "isOutdoor", "distanceMeters", "movingSeconds", "elevationGainMeters",
             "muscleGroups", "paceReference",
+            "movementPattern", "mechanic", "laterality",
             "actualAverageHeartRate", "actualMaxHeartRate",
         ] {
             #expect(encoded.contains("\"\(field)\""), "\(field) missing from encoded DTO")
