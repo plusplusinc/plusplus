@@ -5,11 +5,11 @@ paths:
 
 # Tab bar, search, and scroll architecture
 
-Every ⚠️ is a law learned on device; the build number names the failing build.
-Don't re-try retired mechanisms — docs/DECISIONS.md and git hold the
-post-mortems. **(recheck: iOS 27)** marks an OS-26 bug: re-test on the next
-major SDK before assuming it still binds. Siblings: `design-grammar.md`,
-`app-surfaces.md`, `ui-interaction.md`.
+Every ⚠️ here is a law learned on device — the build number names the failing
+build. Don't re-try retired mechanisms; docs/DECISIONS.md and git history hold
+the post-mortems. A law tagged **(recheck: iOS 27)** encodes an OS-26 bug:
+re-test it on the next major SDK before assuming it still binds. Siblings: `design-grammar.md` (color/key/tag/copy laws),
+`app-surfaces.md` (what each screen is), `ui-interaction.md` (gesture laws).
 
 ## The tab bar
 
@@ -37,9 +37,9 @@ Search** (`Tab(role: .search)`).
   `GeometryReader` + `PreferenceKey`) anywhere in the TabView subtree breaks
   the search-role morph on FIRST activation (nav-diag 4e; recheck: iOS 27).
   Measure from `UIFont` metrics, or read geometry WITHOUT writing state
-  (`ScopeSegmentedControl`'s width). ⚠️ `OverflowCapsuleRow` was the last
-  offender and is a PURE READ now (a hidden capsule gives it height so the
-  reader can wrap it), TAG widths still `UIFont`.
+  (`ScopeSegmentedControl`'s width). ⚠️ Not `OverflowCapsuleRow` — it writes
+  `@State` from a `GeometryReader` and renders inside catalog rows, i.e.
+  inside this very subtree; only its TAG widths come from `UIFont`.
 - ⚠️ Because **a `Tab`'s content is its own view tree**, the four
   catalog-showing tabs are four live INSTANCES, so every broadcast needs one
   named owner: `ownsLandings` (`tabKey == scope.tab.rawValue`) makes the
@@ -54,8 +54,9 @@ Search** (`Tab(role: .search)`).
   the point — search opens on the catalog you were already in. The query is
   search's and dies with it.
 - ⚠️ **Scroll-position sync between a catalog tab and search is RETIRED**
-  (139): `.scrollPosition(id:)` doesn't take on a `List`, and the only other
-  route observes scroll GEOMETRY — the law above.
+  (tried in 139): `.scrollPosition(id:)` doesn't take on a `List` the way it
+  does on `ScrollView` + `scrollTargetLayout()`, and the remaining route
+  observes scroll GEOMETRY — the documented way to break the morph.
 
 ## One view: CatalogScopeView
 
@@ -63,8 +64,8 @@ Search** (`Tab(role: .search)`).
 **Routines** with search closed and scoping to **Routines** with it open land
 on the same screen: `CatalogScopeView`, one per `FindScope`. Search adds a
 QUERY, never a destination — `RootTabView` mounts the three and shows them on
-`tab` alone, keying nothing on `searching`. It replaced the four old tab/find
-views AND the pushed
+`tab` alone, keying nothing on `searching`. It replaced `RoutineListView` /
+`ExercisesTabView` / `EquipmentTabView` / `FindOrCreateView` AND the pushed
 `EquipmentCatalogScreen`; the same view serves as a `.tab` (own stack, query
 bound from the root because the field lives in the bar) and
 `.presented(setupMode:)` (pushed chrome + its own header field + an item
@@ -80,11 +81,11 @@ The in-kit checkmark carries membership there.
 ## The search surface
 
 The field is the NATIVE `.searchable` (2026-07-24, Dave — superseding the
-custom bottom-bar takeover), attached to the search `Tab`, above the surface's
-stack (166, law below); the search-role tab morphs the tab bar into the system
-field at the bottom, carrying the native clear (✕) and Cancel. The placeholder
-is per-scope (`FindScope.searchNoun` — "Search routines / exercises /
-equipment"), read from the root's `scope`.
+custom bottom-bar takeover), placed INSIDE the search tab's stack (placement
+B) so its prompt can read the scope; the search-role tab morphs the tab bar
+into the system field at the bottom, carrying the native clear (✕) and Cancel.
+The placeholder is per-scope (`FindScope.searchNoun` — "Search routines /
+exercises / equipment").
 
 - **It does NOT auto-focus on entry**: no
   `.tabViewSearchActivation(.searchTabSelection)`, so the keyboard rises only
@@ -93,28 +94,26 @@ equipment"), read from the root's `scope`.
   rise with the keyboard**, so auto-raising it on arrival buries the scope
   control at the moment you land on it (build 144). There is NO custom Done
   key: leaving is a normal tab tap.
-- ⚠️ **The iOS 26 morph bug** (recheck: iOS 27) is the state-write law above
-  seen from this end: the field falls back to the top `.navigationBarDrawer`
-  placement on FIRST activation instead of morphing (nav-diag 4e), and since
-  this surface hides the bar's TITLE the failure is NO visible field, not a top
-  bar. Kill the trigger at its source, don't revert.
-- ⚠️ **The field FLIES IN from the top right; cause UNKNOWN** (163-168).
-  RULED OUT BY EXPERIMENT, do not re-try: the subtree's layout-fed state
-  writes (165), `.searchable` inside vs outside the stack (166 — it attaches to
-  the first `NavigationStack` it finds either way), this surface's whole
-  navigation bar including `.avoidHidingContent` (167, stripped bare), and
-  `RevealContainer`'s full-app `.shadow` (168). PARKED for a Simulator or
-  iOS 27; read DECISIONS first — remote guessing cost four builds.
+- ⚠️ **The iOS 26 morph bug is live** (recheck: iOS 27): an
+  `.onGeometryChange` in the TabView
+  subtree (a sibling tab's probe) can make the field fall back to the top
+  `.navigationBarDrawer` placement on FIRST activation instead of morphing
+  (nav-diag 4e). Since this surface HIDES the nav bar's title, the failure is
+  NO visible field on first entry, not a top bar. #1 device check on the
+  shipping OS; if it recurs, kill the morph trigger at its source, don't
+  revert.
+- ⚠️ **Fly-in on activation: read #539 first** (163-168, four causes ruled out
+  by experiment and all reverted; the repro needs a TAB SWITCH).
 - **The SEARCH surface carries no title** (Dave, 2026-07-26): the scope
   control names the catalog, and a large title FLASHES on entry then collapses
   as search presents. `.navigationTitle("")` + `.inline` there; the other four
   roots keep `.large`. The bar itself stays — hiding it is what left
   `.searchable` with nowhere to fall back to.
 - ⚠️ **The bar's OTHER content needs
-  `.searchPresentationToolbarBehavior(.avoidHidingContent)`** or activating
-  search empties it — `.automatic` clears the bar to give search room, which
-  took the ++ key and kit switcher off the one surface you reach them from. It
-  travels down the environment, so it sits beside `.searchable` on the `Tab`.
+  `.searchPresentationToolbarBehavior(.avoidHidingContent)`** (iOS 17.1+) or
+  activating search empties it — the system's `.automatic` clears the bar to
+  give search room, which took the ++ key and kit switcher away on the one
+  surface you reach them from.
 - **Pushed catalogs, pickers, and sheets keep the expanding in-header field**
   (`HeaderSearchField`): a top-right magnifier expanding into a field spanning
   the row, an in-field `delete.left` CLEAR that keeps focus, and a separate
@@ -345,8 +344,9 @@ old hand rules policed.
   of the content with the line `.overlay(alignment: .bottom)` on it, so the
   line's bottom edge lands exactly on the content's top: above the first row,
   reserving nothing, clipped at rest. ⚠️ Plain alignment, not a custom guide (an
-  `alignmentGuide(.top) { $0[.bottom] }` overlay was NOT honoured, 154; two
-  earlier placements missed the gap entirely, 153). It is
+  `alignmentGuide(.top) { $0[.bottom] }` overlay was NOT honoured and collided
+  with the week tally, 154; two earlier placements missed the gap entirely,
+  153). It lives in the gap so it is
   visible only while the gap is open, and the system holds that open until
   the `refreshable` closure returns — the closure waits a beat before
   returning, a connected sync says "Syncing…" BEFORE the network, and

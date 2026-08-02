@@ -92,16 +92,13 @@ struct CatalogScopeView: View {
     private let tabKey: String
     /// The SEARCH tab's scope selection, and nothing else's.
     ///
-    /// ⚠️ The FIELD is no longer here — it moved back onto the `Tab` in
-    /// `RootTabView` (build 166). It lived inside this view's `NavigationStack`
-    /// from 2026-07-24 so `.searchScopes` would have a presentation to attach
-    /// to, and that was the ONLY reason; native scopes were retired the day
-    /// after (the scope control is the `.principal` toolbar row below), which
-    /// left the field owned by a navigation bar for no remaining benefit — and
-    /// a nav-bar-owned field is one iOS 26 has to RELOCATE into the tab bar's
-    /// morph, which is what Dave saw flying down the screen on 163 and 165.
-    /// This binding still marks the one instance that is the search surface:
-    /// it drives the scope control and the prompt's noun.
+    /// ⚠️ The field and the scope bar live INSIDE this view's `NavigationStack`,
+    /// not on the `Tab` in `RootTabView` (build 140 put them there and the scope
+    /// bar never rendered). `.searchScopes` needs `.searchable` on a view inside
+    /// a NAVIGATION CONTAINER; attached to `CatalogScopeView` from outside, the
+    /// modifier sits ABOVE this stack, so the field still morphed — the tab role
+    /// gives it that — but the scope bar had no search presentation to attach
+    /// to. Non-nil marks the one instance that owns both.
     private let searchScope: Binding<FindScope>?
     /// Picker mode only: a row tap (or a fresh create) hands the item back
     /// here instead of opening it.
@@ -407,10 +404,6 @@ struct CatalogScopeView: View {
                 .navigationTitle(isSearchSurface ? "" : scope.label)
                 .navigationBarTitleDisplayMode(isSearchSurface ? .inline : .large)
                 .toolbar {
-                    // Two sibling conditions rather than if/else: they are
-                    // mutually exclusive on `isSearchSurface`, and keeping them
-                    // separate is what let build 167 turn the search branch off
-                    // on its own without disturbing the other four roots.
                     if let searchScope {
                         // ⚠️ On the SEARCH surface the app owns the WHOLE bar
                         // row as one `.principal` item, rather than letting the
@@ -472,8 +465,7 @@ struct CatalogScopeView: View {
                         // shared glass — without this they nest inside a system
                         // capsule, the box-in-a-box that killed the accessory.
                         .sharedBackgroundVisibility(.hidden)
-                    }
-                    if !isSearchSurface {
+                    } else {
                         // Every other root: the system places the two keys, and
                         // the title sits between them.
                         ToolbarItem(placement: .topBarLeading) { AppMenuKey() }
@@ -490,9 +482,9 @@ struct CatalogScopeView: View {
                         .sharedBackgroundVisibility(.hidden)
                     }
                 }
-            // ⚠️ NO `.searchable` here. The system field is attached to the
-            // search TAB in `RootTabView`, above this stack — see `searchScope`
-            // for why it moved back out.
+            // The system field, on the SEARCH tab only, and INSIDE the stack —
+            // see `searchScope`.
+                .modifier(SearchPresentation(query: $boundQuery, scope: searchScope))
                 .navigationDestination(for: Exercise.self) { exercise in
                     ExerciseDetailScreen(exercise: exercise)
                 }
@@ -1695,7 +1687,44 @@ private extension FindOrCreateEngine.Result {
     }
 }
 
-// `SearchPresentation` is GONE (build 166). It attached `.searchable` inside
-// this view's `NavigationStack`, which is the placement that made the field a
-// navigation bar's to own and the system's to relocate. It now rides the
-// search `Tab` in `RootTabView`; the modifier had no other job.
+
+/// The system search field and the scope control, attached INSIDE a catalog
+/// tab's `NavigationStack` and only on the search tab.
+///
+/// A modifier so the branch lives in one place rather than forking the stack's
+/// body. The condition is safe to branch on because it is fixed per instance:
+/// `searchScope` is a `let` decided at init, so a given `CatalogScopeView`
+/// either always carries search or never does. Search presentation must not be
+/// re-created underneath itself, and this can't do that.
+private struct SearchPresentation: ViewModifier {
+    @Binding var query: String
+    /// Non-nil only on the search tab. Everywhere else this modifier is inert.
+    let scope: Binding<FindScope>?
+
+    func body(content: Content) -> some View {
+        if let scope {
+            content
+                // The scope control is NOT here — it's a `.principal`
+                // `ToolbarItem` on the navigation bar, between the ++ key and
+                // the kit switcher (see `tabBody`'s toolbar, and
+                // `ScopeSegmentedControl` for the five placements that came
+                // before it). ⚠️ NO `.searchScopes` either: on a bottom-aligned
+                // field morphed out of `Tab(role: .search)` the system's own
+                // scope bar renders exactly once per app run, at the top,
+                // nowhere near the field it scopes.
+                .searchable(text: $query, prompt: "Search \(scope.wrappedValue.searchNoun)")
+                // Keep the bar's OTHER content — the ++ key, the kit switcher,
+                // and now the scope control itself — while search is active
+                // (Dave, build 147). Activating search otherwise tells the
+                // navigation bar to clear its content and give search the room:
+                // the system's `.automatic` behaviour, and the same mechanism
+                // that emptied the top band on 143 before the title came off.
+                // Those keys are how you reach the drawer and change kit;
+                // losing them the moment you tap the field is a dead end, not a
+                // decluttering. ⚠️ Now LOAD-BEARING for the scope control too.
+                .searchPresentationToolbarBehavior(.avoidHidingContent)
+        } else {
+            content
+        }
+    }
+}

@@ -158,6 +158,21 @@ struct HealthStartPrimer: View {
                 .buttonStyle(.quietKey)
                 .disabled(connecting)
                 .accessibilityIdentifier("healthPrimerSkipButton")
+
+                // What "Not now" actually DOES, and the way back (#509,
+                // Q6-A). Declining doesn't defer the question — it turns
+                // the integration off (`HealthSyncCoordinator.disable()`
+                // above), so iOS will never re-ask on its own, and the
+                // copy hid that. ⚠️ It names the ++ KEY, not "the
+                // drawer" (Dave): the drawer is what the app calls that
+                // surface internally, and nothing on screen says it.
+                Text("Health stays off until you turn it back on from the ++ key, top left.")
+                    .font(.system(.caption))
+                    .foregroundStyle(Theme.textFaint)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 4)
             }
         }
         .padding(.horizontal, 28)

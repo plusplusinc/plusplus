@@ -70,6 +70,25 @@ final class CalendarSyncCoordinator {
         EKEventStore.authorizationStatus(for: .event) == .fullAccess
     }
 
+    /// True when iOS would still show its own permission sheet — the only
+    /// state in which offering the ask in-app can achieve anything (#509,
+    /// Q20-B). Once the OS has been answered, `requestFullAccessToEvents`
+    /// returns the standing verdict without prompting: a `.denied` user
+    /// tapping our offer would watch nothing happen, which is worse than
+    /// never being offered. `.writeOnly` counts as askable — full access
+    /// is a further grant iOS will still prompt for, and the reconcile
+    /// needs to READ the calendar to avoid duplicating events.
+    ///
+    /// ⚠️ This is a "would the ask work" probe, NOT "has PlusPlus asked".
+    /// `SetupState.calendarPrimerShown` answers that one; a Not-now user
+    /// stays `.notDetermined` forever and needs the app's own memory.
+    static var canRequestAccess: Bool {
+        switch EKEventStore.authorizationStatus(for: .event) {
+        case .notDetermined, .writeOnly: return true
+        default: return false
+        }
+    }
+
     // MARK: - User actions
 
     /// Turn the feature on: request access, then populate. Leaves the

@@ -65,6 +65,14 @@ struct ScheduleEditor: View {
     private let entrySchedule: RoutineSchedule
     private let entryStamp: Date?
 
+    /// The calendar offer (#509, Q20-B). `SetupState.calendarPrimerShown`
+    /// is the durable memory; this is the same answer for THIS editor, so
+    /// the card leaves the moment it is answered instead of at the next
+    /// mount (`UserDefaults` is not observable and would not re-render).
+    @State private var dismissedCalendarOffer = false
+    @State private var connectingCalendar = false
+    @State private var calendarSync = CalendarSyncCoordinator.shared
+
     init(routine: Routine) {
         self.routine = routine
         entrySchedule = routine.schedule
@@ -116,6 +124,7 @@ struct ScheduleEditor: View {
                     dayChips
                         .padding(.top, 18)
                     sharingSection
+                    calendarOffer
                 } else if scheduleMode == 2 {
                     frequencySteppers
                         .padding(.top, 16)
@@ -233,6 +242,119 @@ struct ScheduleEditor: View {
                     .padding(.vertical, 5)
                 }
             }
+        }
+    }
+
+    // MARK: - The calendar offer (#509, Q20-B)
+
+    /// The calendar ask, moved off the drawer's toggle to the moment it
+    /// first has something to offer: a routine that just got fixed
+    /// weekdays. Fixed weekdays are the ONLY schedule shape that becomes a
+    /// calendar event (`WorkoutCalendarPlan` builds a weekly recurrence
+    /// rule), which is why "every few days" never sees this.
+    ///
+    /// ⚠️ INLINE, not a sheet, and that is the whole design. `persistSchedule`
+    /// runs on every chip tap, so a modal would land on the FIRST day
+    /// someone picked and interrupt them picking the other two. It would
+    /// also be a sheet over a sheet — both hosts present this editor
+    /// modally — and resolving it on the editor's way out would be
+    /// dismiss-then-present in one transaction, the presentation-drop
+    /// class `HealthStartPrimer` documents. An offer that sits there and
+    /// waits costs nothing and asks nothing.
+    ///
+    /// ⚠️ Four gates, and each removes a way to lie. `calendarPrimerShown`
+    /// keeps it to once ever. `isEnabled` hides it when the calendar is
+    /// already on. `canRequestAccess` hides it from anyone iOS has already
+    /// answered, so the key can't do nothing when tapped. And it needs a
+    /// non-empty day set, since an empty one persists as `.unscheduled`.
+    /// ⚠️ Off under UI test, with the tips and the entrance flashes. The
+    /// calendar IS available on a simulator (unlike HealthKit, which
+    /// `HealthStartGate` gets its test exemption from for free), so the
+    /// offer would render inside the onboarding smoke flow — where its
+    /// primary key sits one tap from an OS permission dialog XCUITest
+    /// doesn't own.
+    private static let offersCalendar = !CommandLine.arguments.contains("--uitest-reset")
+
+    @ViewBuilder
+    private var calendarOffer: some View {
+        if Self.offersCalendar,
+           !dismissedCalendarOffer,
+           !scheduleDays.isEmpty,
+           !SetupState.calendarPrimerShown,
+           !calendarSync.isEnabled,
+           CalendarSyncCoordinator.canRequestAccess {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("These days can show up in your calendar.")
+                    .font(.system(.footnote, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                // Honest mechanism, once, where the offer is made: it says
+                // what appears and where, so nobody discovers a new
+                // calendar they didn't expect. The drawer's tray carries
+                // the same facts at more length for anyone who goes there.
+                Text("Each one becomes a recurring event in a \u{201C}++ Workouts\u{201D} calendar, with a link that starts the workout.")
+                    .font(.system(.caption))
+                    .foregroundStyle(Theme.textFaint)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    Button {
+                        guard !connectingCalendar else { return }
+                        connectingCalendar = true
+                        SetupState.markCalendarPrimerShown()
+                        Task { @MainActor in
+                            await calendarSync.enable(routines: allRoutines)
+                            connectingCalendar = false
+                            // On a grant the offer's own `isEnabled` gate
+                            // retires it. On a DENY it wouldn't — iOS keeps
+                            // the feature off — so retire it here too
+                            // rather than leave a key that has already had
+                            // its one answer.
+                            dismissedCalendarOffer = true
+                        }
+                    } label: {
+                        Text(connectingCalendar ? "Adding…" : "Add to calendar")
+                            .font(.system(.footnote, weight: .bold))
+                            .foregroundStyle(Theme.onPrimary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .padding(.horizontal, 14)
+                            .frame(minHeight: 40)
+                            .background(Theme.primaryFill, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+                    }
+                    .buttonStyle(.raisedPrimaryKey(cornerRadius: Theme.keyRadius))
+                    .disabled(connectingCalendar)
+                    .accessibilityIdentifier("calendarOfferAddButton")
+
+                    Button {
+                        SetupState.markCalendarPrimerShown()
+                        dismissedCalendarOffer = true
+                    } label: {
+                        Text("Not now")
+                            .font(.system(.footnote, weight: .semibold))
+                            .foregroundStyle(Theme.textSecondary)
+                            .lineLimit(1)
+                            .padding(.horizontal, 14)
+                            .frame(minHeight: 40)
+                            .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+                            .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.border))
+                    }
+                    .buttonStyle(.raisedKey(cornerRadius: Theme.keyRadius))
+                    .disabled(connectingCalendar)
+                    .accessibilityIdentifier("calendarOfferSkipButton")
+                    Spacer(minLength: 0)
+                }
+                // The way back, named the way the Health primer names it:
+                // the ++ KEY, which is what the screen actually shows.
+                Text("You can turn this on later from the ++ key, top left.")
+                    .font(.system(.caption))
+                    .foregroundStyle(Theme.textFaint)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+            .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.border))
+            .padding(.top, 20)
         }
     }
 

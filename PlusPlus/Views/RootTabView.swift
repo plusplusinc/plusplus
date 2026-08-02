@@ -129,9 +129,32 @@ struct RootTabView: View {
     /// A tapped share link whose payload couldn't be read — said out
     /// loud, never silently dropped (design review 2026-07-23).
     @State private var showShareLinkError = false
-    /// Post-install return from GitHub (the Setup-URL bounce, #23): present
-    /// the connect step so the user just authorizes.
-    @State private var showGitHubConnect = false
+    /// The GitHub tray, and WHICH door opened it. ⚠️ ONE `@State` behind
+    /// ONE `.sheet(item:)`, never two booleans behind two sheets (#509
+    /// review): a view can only present one sheet, so a second request
+    /// arriving while the first is up is silently dropped AND latches its
+    /// flag true — after which every later request is a no-op assignment
+    /// and the post-install auto-return is dead until relaunch.
+    ///
+    /// That is not a hypothetical ordering: the commonest repair for a
+    /// broken sync is re-installing the Sync App, `openInstall()` leaves
+    /// the app on purpose so the Setup URL can bounce back, and the bounce
+    /// lands while the tray the user opened from Today is still on screen.
+    /// As an item, a second request REPLACES the first instead of racing it.
+    /// `RevealSurface`'s two-sheet pair has a pending-queue for the same
+    /// reason; this one has a single slot, which is simpler and enough.
+    enum GitHubSheet: String, Identifiable {
+        /// Post-authorize return from github.com — opens on the connect step.
+        case connect
+        /// Today's broken-sync advisory, and any other plain entry: the tray
+        /// where it seats itself. That is decided by whether this device
+        /// holds a token, not by which door opened it (#509, Q18-A) — a
+        /// broken sync has none, so it lands on step 1, which is the only
+        /// thing that can help it.
+        case tray
+        var id: String { rawValue }
+    }
+    @State private var githubSheet: GitHubSheet?
     /// #155: the store couldn't be opened and was reset this launch. Read
     /// once at init (the flag is set during app init, before any view), so
     /// we tell the user rather than pretending nothing happened.
@@ -173,7 +196,7 @@ struct RootTabView: View {
         // The whole app rides inside the reveal drawer: tapping ++ slides
         // this TabView aside to uncover the app surface beneath it.
         RevealContainer(controller: reveal) {
-            appContent
+            routedAppContent
         }
         // Injected here so BOTH layers see it: the tabs report context,
         // the reveal surface (Operator) reads it.
@@ -184,6 +207,20 @@ struct RootTabView: View {
     /// it (the one-landing law), and that landing has to be VISIBLE — left
     /// searching, the entrance flash would play behind a filtered list.
     @MainActor
+    /// A share link from anywhere — a tapped URL or a pasted one (#509,
+    /// b17). One handler, so both entry points fail the same way.
+    private func openShareLink(_ url: URL) {
+        guard RoutineShareLink.isShareLink(url) else { return }
+        if let payload = try? RoutineShareLink.payload(from: url) {
+            shareImport = ShareImport(payload: payload)
+        } else {
+            // A raw plusplus://r#… link pasted in Messages/Notes has no
+            // viewer webpage to explain a bad payload — say it here instead
+            // of swallowing the tap (design review 2026-07-23).
+            showShareLinkError = true
+        }
+    }
+
     private func land(on newTab: AppTab) {
         query = ""
         tab = newTab
@@ -244,35 +281,14 @@ struct RootTabView: View {
             // bar this screen hides, which is why build 135 had no visible input
             // at all. Only THIS tab carries the field, for the same reason.
             Tab(value: AppTab.search, role: .search) {
-                // ⚠️ The FIELD is attached HERE, above the surface's
-                // `NavigationStack` — restored on build 166 after two builds of
-                // the field flying in from the top right (163, 165).
-                //
-                // It sat inside that stack from 2026-07-24, and the only reason
-                // was `.searchScopes`, which needs a presentation inside a
-                // navigation container. Native scopes were retired the very next
-                // day (the scope control is a `.principal` toolbar row now), so
-                // what remained was a field OWNED BY A NAVIGATION BAR on a
-                // surface whose whole point is the tab-bar morph. iOS 26 seats
-                // that field in the bar first — top trailing, where a collapsed
-                // search item goes — and then relocates it into the morph, which
-                // is precisely the flight across the screen Dave reported. Out
-                // here the tab owns it from the first frame and has nothing to
-                // relocate. Build 140 already recorded that the field morphs
-                // from this placement; only the scope bar ever needed the other.
+                // ⚠️ The field and the scope bar are NOT attached here. They go
+                // INSIDE `CatalogScopeView`'s own `NavigationStack` — see its
+                // `searchScope` note. Build 140 attached them out here and the
+                // scope bar never appeared: `.searchScopes` needs `.searchable`
+                // on a view inside a navigation container, and out here the
+                // modifier lands above that stack. The FIELD still morphed
+                // (the tab role does that), which is what made it look wired up.
                 catalog(scope, on: .search, searchScope: $scope)
-                    .searchable(text: $query, prompt: "Search \(scope.searchNoun)")
-                    // Keep the bar's OTHER content — the ++ key, the kit
-                    // switcher and the scope control — while search is active
-                    // (Dave, build 147). The system's `.automatic` behaviour
-                    // clears the bar to give search room, which is what emptied
-                    // the top band on 143. It travels DOWN the environment, so
-                    // attached out here it still governs the nav bar inside.
-                    //
-                    // ⚠️ Build 167 stripped this and the whole `.principal` row
-                    // and the field STILL flew in, which exonerates the bar:
-                    // don't spend another build emptying it.
-                    .searchPresentationToolbarBehavior(.avoidHidingContent)
             }
         }
         // ⚠️ NOTHING rides `tabViewBottomAccessory` any more. The scope control
@@ -343,6 +359,19 @@ struct RootTabView: View {
                 .transition(.opacity)
             }
         }
+    }
+
+    /// ⚠️ The URL/notification routing and every app-level presentation live
+    /// in their OWN `some View`, split off `appContent` (CI, 2026-08-02).
+    /// That chain is ~230 lines of modifiers on one expression and it went
+    /// over the type-checker's budget outright — "unable to type-check this
+    /// expression in reasonable time" — the moment the GitHub sheet became
+    /// an `item:` presentation with a ternary in its builder. Same budget
+    /// `TodayView.committedHistory` was extracted for. A `some View`
+    /// boundary is what keeps it checkable, so anything added here from now
+    /// on belongs BELOW this line, not above it.
+    private var routedAppContent: some View {
+        appContent
         // plusplus://r#… (and, once universal links land, the https
         // viewer URL) opens the import preview. A bad payload is
         // ignored — the viewer webpage is the place that explains.
@@ -355,7 +384,7 @@ struct RootTabView: View {
             // Post-install bounce from GitHub (plusplus://github/connected):
             // present the connect step, which auto-starts the device flow.
             if url.scheme == RoutineShareLink.appScheme, url.host == "github" {
-                showGitHubConnect = true
+                githubSheet = .connect
                 return
             }
             // A calendar event's start link (plusplus://start/<name>, #333):
@@ -366,24 +395,33 @@ struct RootTabView: View {
                 NotificationCenter.default.post(name: .plusplusStartRoutine, object: name)
                 return
             }
-            if RoutineShareLink.isShareLink(url) {
-                if let payload = try? RoutineShareLink.payload(from: url) {
-                    shareImport = ShareImport(payload: payload)
-                } else {
-                    // A raw plusplus://r#… link pasted in Messages/Notes has
-                    // no viewer webpage to explain a bad payload — say it
-                    // here instead of swallowing the tap (design review
-                    // 2026-07-23).
-                    showShareLinkError = true
-                }
-            }
+            openShareLink(url)
+        }
+        // The Data tray's paste (#509, b17) lands in the SAME handler a tap
+        // does — so an unreadable payload gets the one explanation that
+        // already exists rather than a second, quieter failure path.
+        .onReceive(NotificationCenter.default.publisher(for: .plusplusPastedShareLink)) { note in
+            (note.object as? URL).map(openShareLink)
+        }
+        // Today's broken-sync advisory (#509, Q19-A). ⚠️ It presents the
+        // tray DIRECTLY rather than opening the drawer and asking
+        // `RevealSurface` to raise it (review). The drawer route needed a
+        // second receiver over there, a sleep long enough to clear the
+        // drawer's spring (a magic number Reduce Motion falsifies, since a
+        // reduced open finishes early), and a cross-layer write into that
+        // view's own presentation state — which its tray queue would fight
+        // if anything else were already up. One receiver, one sheet, and
+        // the user lands where the card promised instead of watching the
+        // app slide aside first.
+        .onReceive(NotificationCenter.default.publisher(for: .plusplusOpenSyncTray)) { _ in
+            githubSheet = .tray
         }
         // Universal-link form of the same GitHub Setup-URL return
         // (https://plusplus.fit/github/…), for when it opens the app directly.
         .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
             guard let url = activity.webpageURL else { return }
             if url.path == "/github/connected" || url.path.hasPrefix("/github/") {
-                showGitHubConnect = true
+                githubSheet = .connect
             } else if let name = WorkoutCalendarLink.routineName(from: url) {
                 // https://plusplus.fit/start/<name> — the universal-link
                 // form of a calendar event's start link (#333).
@@ -430,8 +468,14 @@ struct RootTabView: View {
         } message: {
             Text("It may be incomplete or from a newer version of PlusPlus.")
         }
-        .sheet(isPresented: $showGitHubConnect) {
-            GitHubSyncTray(startAtConnect: true)
+        .sheet(item: $githubSheet) { which in
+            GitHubSyncTray(startAtConnect: which == .connect)
+                // The same ground the drawer's trays wear. This route is
+                // an everyday one from the home surface now, so a system
+                // sheet background here would be the one place the warm
+                // charcoal drops out (#509 review).
+                .presentationCornerRadius(Theme.sheetRadius + 2)
+                .presentationBackground(Theme.background)
         }
         // #155: never a silent wipe. If the store couldn't be opened and
         // was reset this launch, say so plainly (calm, no blame) and note

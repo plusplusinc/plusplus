@@ -48,6 +48,10 @@ struct RevealSurface: View {
     @State private var showingExporter = false
     @State private var exportDocument: InterchangeDocument?
     @State private var showingImporter = false
+    /// A share link pasted as TEXT (#509, b17). Queued like its siblings so
+    /// the import preview presents from the tray's `onDismiss` rather than
+    /// under a tray still tearing down.
+    @State private var pendingPaste = false
     @State private var importResultMessage: String?
     @State private var dataError: String?
 
@@ -99,6 +103,7 @@ struct RevealSurface: View {
             if let push = pendingPush { pendingPush = nil; activePush = push }
             else if pendingExport { pendingExport = false; prepareExport() }
             else if pendingImport { pendingImport = false; showingImporter = true }
+            else if pendingPaste { pendingPaste = false; pasteShareLink() }
         }) { tray in
             trayContent(tray)
                 .presentationDragIndicator(.visible)
@@ -277,9 +282,16 @@ struct RevealSurface: View {
         // clean never-connected install reads as neutral gray with no word, and
         // so does an unconfigured build (red gated on .disconnected, so a stale
         // fault flag can't paint it red).
-        let faulted = sync.connection == .disconnected && sync.faulted
+        let faulted = sync.isFaulted
         let dot: Color = connected ? Theme.accent : (faulted ? Theme.destructive : Theme.textFaint)
-        let secondary: String? = connected ? "connected" : (faulted ? "disconnected" : nil)
+        // A pass in flight outranks the resting word (#509, b16): the row
+        // read "connected" throughout a multi-second sync, so the one place
+        // that summarises sync never showed it doing anything. `isSyncing`
+        // was already surfaced inside the tray and on the pull; the summary
+        // was the gap.
+        let secondary: String? = sync.isSyncing
+            ? "Syncing…"
+            : (connected ? "connected" : (faulted ? "disconnected" : nil))
         return statusRow(
             dot: dot,
             icon: { Image("GitHubMark").resizable().scaledToFit().frame(width: 16, height: 16).accessibilityHidden(true) },
@@ -463,7 +475,8 @@ struct RevealSurface: View {
             // tray's onDismiss so it never races the tray's own dismissal.
             DataTray(
                 onExport: { pendingExport = true; activeTray = nil },
-                onImport: { pendingImport = true; activeTray = nil }
+                onImport: { pendingImport = true; activeTray = nil },
+                onPaste: { pendingPaste = true; activeTray = nil }
             )
         case .whatsNew:
             WhatsNewTray()
@@ -473,6 +486,29 @@ struct RevealSurface: View {
     }
 
     // MARK: - Actions
+
+    /// Read a share link off the clipboard and hand it to the one handler
+    /// that opens them (#509, b17). A link that arrives as TEXT — forwarded
+    /// in a message, copied out of a note — had nowhere to go: the app
+    /// opens `plusplus://r#…` on a TAP, and a string is not a tap.
+    ///
+    /// ⚠️ It posts rather than presenting: the import preview belongs to
+    /// `RootTabView`, and routing there means a bad payload gets the same
+    /// alert a bad tap does instead of a second, quieter failure. Nothing
+    /// on the clipboard, or something that isn't a link, is a silent no-op
+    /// — the user pressed a key labelled "paste a link", and telling them
+    /// their clipboard is empty helps nobody.
+    ///
+    /// Reading the pasteboard here is fine unprompted-banner-wise: it is an
+    /// explicit tap on a key that says what it will do.
+    private func pasteShareLink() {
+        let pasted = UIPasteboard.general.url
+            ?? UIPasteboard.general.string
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .flatMap(URL.init(string:))
+        guard let url = pasted, RoutineShareLink.isShareLink(url) else { return }
+        NotificationCenter.default.post(name: .plusplusPastedShareLink, object: url)
+    }
 
     private func openTray(_ tray: Tray) { activeTray = tray }
 
@@ -958,6 +994,7 @@ private struct SettingsTray: View {
 private struct DataTray: View {
     let onExport: () -> Void
     let onImport: () -> Void
+    let onPaste: () -> Void
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -973,6 +1010,8 @@ private struct DataTray: View {
                 // the file dialog to onDismiss; don't dismiss here too.
                 dataKey("Export data…", systemImage: "arrow.up.doc", action: onExport)
                 dataKey("Import data…", systemImage: "arrow.down.doc", action: onImport)
+                // A shared routine that arrived as text rather than a tap.
+                dataKey("Paste a link…", systemImage: "doc.on.clipboard", action: onPaste)
             }
             .padding(.top, 16)
             Spacer(minLength: 0)
