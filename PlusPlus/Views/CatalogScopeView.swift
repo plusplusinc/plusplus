@@ -928,11 +928,17 @@ struct CatalogScopeView: View {
             // slab to see on an empty stretch. ⚠️ On the SCROLLING CONTENT,
             // never a background on the bar — build 133's mistake.
             .scrollEdgeEffectStyle(.soft, for: .bottom)
-            // The front matter's counts, rebuilt only when what they count
-            // changes: arriving, switching scope, editing the kit, adding or
-            // deleting a catalog item. Never on a keystroke — a query hides
-            // the block, and the key it watches does not carry the query.
-            .task(id: frontMatterKey) { rebuildFrontMatter() }
+            // The front matter's counts. TWO triggers, and both are load
+            // bearing. `onAppear` covers arriving and RETURNING — every edit
+            // that moves a count (a muscle changed in the exercise editor, a
+            // renamed piece leaving its type bucket, a routine whose focus
+            // derives differently now) happens behind a pushed detail screen,
+            // and popping back re-appears this root. The key covers what
+            // changes while the list is up: kit membership, and catalog
+            // growth from the create row. Neither carries the query, so
+            // neither fires on a keystroke.
+            .onAppear { rebuildFrontMatter() }
+            .onChange(of: frontMatterKey) { rebuildFrontMatter() }
             // The arrival beat. Lifecycle-bound via `.task(id:)`: leaving or a
             // rapid second add cancels this in flight, and the throwing sleeps
             // bail in the catch WITHOUT clearing `newlyAdded`, so a superseding
@@ -1155,8 +1161,22 @@ struct CatalogScopeView: View {
         let routines: Int
     }
 
-    private var frontMatterKey: FrontMatterKey {
-        FrontMatterKey(
+    /// ⚠️ `nil` off the surfaces that can show the block, so nothing is
+    /// built where it can never be read. This is evaluated on every body
+    /// pass, and the search surface has a body pass per KEYSTROKE — a key
+    /// there would allocate a ~100-name `Set` per character for a block
+    /// that instance never renders.
+    ///
+    /// ⚠️ It tracks CARDINALITY, not content, so it cannot see an EDIT: a
+    /// muscle changed in the exercise editor moves a bucket without moving
+    /// any count in this key. That is what the `onAppear` rebuild is for —
+    /// every edit route leaves through a detail screen, and popping back to
+    /// this root re-appears it. Hashing the catalog's attributes here
+    /// instead would fault every relationship on every body pass, which is
+    /// the cost this whole design is arranged to avoid.
+    private var frontMatterKey: FrontMatterKey? {
+        guard mode.isTab, !isSearchSurface else { return nil }
+        return FrontMatterKey(
             scope: scope,
             kitNames: kitNames,
             exercises: allExercises.count,

@@ -40,6 +40,16 @@ final class SmokeTests: XCTestCase {
 
     /// Go to a catalog by its tab. The native search scope bar does the same
     /// job WHILE searching (`selectScope`); this is the resting way.
+    /// ⚠️ Matched on ANY element type, never `staticTexts`. The statement
+    /// renders as a plain `Text` while one kit exists and as `KitNamePhrase`
+    /// once a second does — and that is an `accessibilityElement(children:
+    /// .ignore)`, which flattens to `.other`. `--uitest-reset` leaves one
+    /// kit today, so a type-specific query would pass now and fail on an
+    /// unrelated change to the reset fixture.
+    private var frontPageStatement: XCUIElement {
+        app.descendants(matching: .any)["frontPageStatement"]
+    }
+
     private func goToCatalog(_ scope: String) {
         let key = tabButton(scope)
         XCTAssertTrue(key.waitForExistence(timeout: 10), "the \(scope) tab is in the bar")
@@ -512,7 +522,7 @@ final class SmokeTests: XCTestCase {
         // the fold and invisible to a lazy list. The front matter's return
         // IS the unfiltered state.
         XCTAssertTrue(
-            app.staticTexts["frontPageStatement"].waitForExistence(timeout: 5),
+            frontPageStatement.waitForExistence(timeout: 5),
             "clearing restores the unfiltered catalog, which leads with its front matter"
         )
         XCTAssertFalse(summary.exists, "the summary chip leaves with the filters")
@@ -527,7 +537,7 @@ final class SmokeTests: XCTestCase {
     func testCatalogFrontPageNarrowsAndReturns() throws {
         goToCatalog("exercises")
 
-        let statement = app.staticTexts["frontPageStatement"]
+        let statement = frontPageStatement
         XCTAssertTrue(statement.waitForExistence(timeout: 10), "an unnarrowed catalog leads with its reach")
 
         // Chest leads MuscleGroup.allCases, so its chip is on the first

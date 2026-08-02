@@ -188,7 +188,16 @@ struct CatalogFrontPage: View {
                 sentence("\(counted(inKit, of: total, .kit)) are in", tagged: true)
             }
         case .routines(let doable, let total, _):
-            sentence("\(counted(doable, of: total, .routines)) fit", tagged: true)
+            if doable == 0 {
+                // The same escape the other two scopes take, and the tab
+                // that needs it most: a fresh install's kit is empty until
+                // Today's setup step fills it, so "0 of 56 routines fit
+                // your kit" would open the surface with a subtraction
+                // against something nobody has been asked to build yet.
+                sentence("\(total) \(FindScope.routines.searchNoun(for: total)) in the catalog", tagged: false)
+            } else {
+                sentence("\(counted(doable, of: total, .routines)) fit", tagged: true)
+            }
         }
     }
 
@@ -271,6 +280,20 @@ struct CatalogFrontPage: View {
                         }
                     }
                 }
+                // ⚠️ `.plain`, never the default — the build-12 class
+                // (`catalogRow` carries the same warning, and every other
+                // control that is a row in THIS list declares a non-automatic
+                // style). Inside a `List`, row taps route into default-styled
+                // buttons anywhere in the row, and this row is a ~200 pt block
+                // that is mostly NOT chips: the statement, the caption, the
+                // section labels and the ragged end of every wrapped chip line.
+                // A tap on any of them would write a facet nobody chose, and
+                // since the block is self-dismissing the list would then narrow
+                // with no visible cause. `SelectableChip` brings all its own
+                // chrome, so plain looks identical. ⚠️ Here, not on the
+                // component: its other two call sites are in `ScrollView`s and
+                // rely on the automatic style's press fade.
+                .buttonStyle(.plain)
             }
         }
     }
