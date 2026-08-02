@@ -75,30 +75,6 @@ extension FindScope {
 /// bottom-aligned field), and it is NOT a `.bottomBar` item (that row is the
 /// one the search-role field expands into); see `ScopeSegmentedControl` for the
 /// whole account and the rules that survived seven builds of it.
-/// ⚠️ **TEMPORARY — build 167's diagnostic. Delete this type before merging.**
-///
-/// Three builds have tried to stop the search field flying in from the top
-/// right (163, 165, 166) and none moved it. 165 ruled out the layout-fed
-/// state-write class by experiment; 166 put `.searchable` back on the `Tab`
-/// and changed nothing, which is consistent with the reported SwiftUI
-/// behaviour that the modifier attaches to the first `NavigationStack` it
-/// finds regardless of where it is written.
-///
-/// What has never been tested is the search surface's own NAVIGATION BAR. It
-/// is the only one in the app that hands the system a full-width `.principal`
-/// row AND declares `.avoidHidingContent`, i.e. a bar that is both full and
-/// forbidden to clear. This flag strips both, leaving Apple's plain recipe, to
-/// answer one question: does the morph work when the bar is empty?
-///
-/// It is a bisect, not a design. `true` = vanilla probe (the search surface
-/// loses the ++ key, scope control and kit switcher); `false` = the shipped
-/// row, restored everywhere in one edit. If the probe comes back clean, the
-/// bar is the cause and the row gets redesigned; if the fly-in survives, the
-/// cause is outside this surface and no further build should touch it.
-enum SearchMorphProbe {
-    static let stripSearchBar = true
-}
-
 struct RootTabView: View {
 
     /// The Today tab's icon reflects whether there's anything to do today
@@ -293,13 +269,10 @@ struct RootTabView: View {
                     // the top band on 143. It travels DOWN the environment, so
                     // attached out here it still governs the nav bar inside.
                     //
-                    // ⚠️ Under the 167 probe there is nothing left in that bar
-                    // to protect, so it reverts to the system default — telling
-                    // the system it may NOT clear a bar is half of what the
-                    // probe is testing.
-                    .searchPresentationToolbarBehavior(
-                        SearchMorphProbe.stripSearchBar ? .automatic : .avoidHidingContent
-                    )
+                    // ⚠️ Build 167 stripped this and the whole `.principal` row
+                    // and the field STILL flew in, which exonerates the bar:
+                    // don't spend another build emptying it.
+                    .searchPresentationToolbarBehavior(.avoidHidingContent)
             }
         }
         // ⚠️ NOTHING rides `tabViewBottomAccessory` any more. The scope control

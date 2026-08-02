@@ -116,13 +116,54 @@ struct RevealContainer<Content: View>: View {
                     // so focus can't land on the hidden surface (a11y audit).
                     .accessibilityHidden(!controller.isOpen)
 
+                // ⚠️ **The card's shadow is a SIBLING behind the app, never a
+                // `.shadow` on the app itself** (build 168). A shadow modifier
+                // forces its subtree into an offscreen compositing group, and
+                // this subtree is the ENTIRE `TabView` — every tab, every
+                // navigation bar, and the system's own chrome animations. It
+                // was applied unconditionally, so the group existed even at
+                // rest, where `0.55 * f` is fully transparent and the shadow
+                // draws nothing at all: pure cost, invisible.
+                //
+                // What put it under suspicion is build 167's corner artifact
+                // (Dave): at the end of the search field's motion the field
+                // showed SQUARE corners for a frame and then snapped to
+                // rounded. A view losing its continuous corner curve for the
+                // length of an animation and regaining it at the end is what a
+                // rasterized snapshot looks like — the system animating a
+                // flattened copy rather than the live layer. This shadow was
+                // the only thing in the app rasterizing that whole subtree.
+                //
+                // Drawn as a sibling the read is identical: an opaque black
+                // card in the same shape at the same offset, entirely covered
+                // by the app on top of it, so only the blur spills past the
+                // edge. It exists only while the drawer is engaged, and it is
+                // a SIBLING rather than a wrapper for a load-bearing reason —
+                // branching around `content` would give the TabView a new
+                // identity every time the drawer opened, tearing down and
+                // rebuilding every tab.
+                if f > 0 {
+                    RoundedRectangle(cornerRadius: f * 34, style: .continuous)
+                        .fill(.black)
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .shadow(color: .black.opacity(0.55 * f), radius: 28, x: 0, y: 22)
+                        .offset(x: f * width * RevealController.travelFactor)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
+
                 // The app, on top — the whole TabView slides right as one
-                // layer (no scaling). Rounded left corners + a drop shadow
-                // give it the sliding-card read.
+                // layer (no scaling), with rounded left corners.
+                //
+                // ⚠️ The `.clipShape` STAYS, and it is the remaining mask on
+                // this subtree: it cannot be branched away for the identity
+                // reason above, and a shape-only clip is cheaper than a
+                // shadow's offscreen pass. If the corner artifact survives
+                // build 168, this is the next thing to test — and it needs a
+                // technique that does not wrap `content` in a conditional.
                 content
                     .overlay { closeScrim(fraction: f, width: width) }
                     .clipShape(RoundedRectangle(cornerRadius: f * 34, style: .continuous))
-                    .shadow(color: .black.opacity(0.55 * f), radius: 28, x: 0, y: 22)
                     .offset(x: f * width * RevealController.travelFactor)
                     // While the drawer is open the covered app is inert to
                     // VoiceOver; the surface beneath owns focus.

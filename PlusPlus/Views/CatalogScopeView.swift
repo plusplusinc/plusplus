@@ -385,11 +385,7 @@ struct CatalogScopeView: View {
         // search tab that pipeline already runs per keystroke, so the extra
         // passes are marginal; on a scrolling catalog the tab bar minimising
         // would have re-ranked the whole list mid-scroll for nothing.
-        //
-        // ⚠️ The 167 probe strips the row this measures for, so the reader has
-        // no consumer and goes with it — one less structural difference between
-        // this surface and the four that never misbehaved.
-        if isSearchSurface && !SearchMorphProbe.stripSearchBar {
+        if isSearchSurface {
             GeometryReader { proxy in
                 tabStack(barWidth: proxy.size.width)
             }
@@ -411,11 +407,11 @@ struct CatalogScopeView: View {
                 .navigationTitle(isSearchSurface ? "" : scope.label)
                 .navigationBarTitleDisplayMode(isSearchSurface ? .inline : .large)
                 .toolbar {
-                    // ⚠️ Two sibling conditions, not if/else: under the 167
-                    // probe the SEARCH surface emits NO toolbar items at all,
-                    // which is the state being tested. The other four roots are
-                    // untouched either way.
-                    if let searchScope, !SearchMorphProbe.stripSearchBar {
+                    // Two sibling conditions rather than if/else: they are
+                    // mutually exclusive on `isSearchSurface`, and keeping them
+                    // separate is what let build 167 turn the search branch off
+                    // on its own without disturbing the other four roots.
+                    if let searchScope {
                         // ⚠️ On the SEARCH surface the app owns the WHOLE bar
                         // row as one `.principal` item, rather than letting the
                         // system place three (Dave, build 150: make the control
