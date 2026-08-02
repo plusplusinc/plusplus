@@ -21,9 +21,8 @@ things a real tab bar does for free). `TabView` = **Today · Routines ·
 Exercises · Kit**.
 
 **The tab bar IS the scope control, searching or not.** The fifth
-`Tab(role: .search)` is GONE and search is a floating key above the bar
-(`CatalogSearchDock`, section below), which is what lets the tabs stay visible
-and usable mid-query. Everything the search tab needed — a hand-laid
+`Tab(role: .search)` is GONE and search is a native item in the TOP toolbar
+(section below), which is what lets the tabs stay visible and usable mid-query. Everything the search tab needed — a hand-laid
 `.principal` toolbar row, a title/spacing/margin exception set on one surface,
 and a ban on state-writing geometry reads across the whole subtree — went with
 it.
@@ -83,97 +82,67 @@ the ADD surface, and with tiers every quick-add lifts the row you just swiped
 to the top and shifts the rows under your thumb — worst in onboarding step 1.
 The in-kit checkmark carries membership there.
 
-## The search surface: a floating key above the tab bar
+## The search surface: a native item in the TOP toolbar
 
-**Search is a key pinned above the bar on the three catalog tabs, morphing in
-place into a field** (`CatalogSearchDock`, Dave 2026-08-02). Today has no key —
-a timeline of derived state has nothing to narrow.
+**Search is a minimized magnifier in the trailing toolbar group of the three
+catalog tabs, expanding in place into a field** (Dave, build 176: "search in
+the top bar like this, which I like"). Today has no search — a timeline of
+derived state has nothing to narrow.
 
-⚠️ **It mounts as a bottom `safeAreaInset` on `listBody`, INSIDE each catalog
-tab's `NavigationStack`.** Every word is load-bearing, and all three of these
-are why it is not somewhere else:
+⚠️ **The floating key ABOVE THE TAB BAR is RETIRED** (Dave, build 176: "we
+moved away from the custom floating-above-the-tab-bar thing"). `CatalogSearchDock`,
+its bottom `safeAreaInset` mount, its glass circle→capsule morph and every law
+that served them are DELETED, not deprecated. Do not reintroduce a dock: the
+whole reasoning chain behind it — rise with the keyboard, inset the last row,
+hide on push — exists only for a control that lives at the BOTTOM of the
+screen. A top-bar item has none of those problems, because a keyboard cannot
+cover the navigation bar and a bar item is not in the scroll.
 
-- **Inside the stack** it RISES WITH THE KEYBOARD. That is precisely what
-  `tabViewBottomAccessory` cannot do (137–139, 144) — and the accessory also
-  refuses app-authored animation (138), so the morph would die there too.
-- **A `safeAreaInset`, not an overlay**, so the list's scroll content is inset
-  and the last row clears the key. An overlay strands the final row under it.
-- **On the stack's ROOT content**, so it does not apply to
-  `navigationDestination` screens. That is how the key hides the moment you
-  push a detail — no flag, no at-root signal threaded from the root.
+⚠️ **Three modifiers, in Apple's order** (`.searchable` first, then
+`.searchToolbarBehavior`, per its own Discussion: "place this modifier after
+the searchable modifier that renders search in the toolbar"). Each is
+load-bearing:
+
+- **`placement: .toolbar`, STATED and never inferred.** With no placement the
+  call takes `.automatic`, which the system re-guesses on EVERY presentation:
+  build 175 opened correctly, closed, then re-opened as a FULL-WIDTH field that
+  pushed the ++ key and the kit switcher out of the bar (Dave: "as if the search
+  icon button thinks it needs to take up the full width of the toolbar because
+  there are no other toolbar items — though there are"). Naming the placement is
+  what makes it JOIN the trailing group instead of claiming the row. ⚠️ It is a
+  PREFERENCE, not a guarantee — Apple falls back to automatic when it cannot
+  satisfy one — so if the full-width state returns, this is where it starts.
+- **`.searchToolbarBehavior(.minimize)`** renders it as a magnifier rather than
+  an expanded field at rest. ⚠️ `.minimize`, NOT `.minimized`: Apple's own
+  Discussion sample writes a name that does not exist, and the declared type
+  property wins over the prose.
+- **`.searchPresentationToolbarBehavior(.avoidHidingContent)`** keeps the ++ key
+  and the kit switcher in the bar while search is active. Without it the system
+  clears the bar to make room — the build-143 emptying.
 
 **One query, one open state, both owned by `RootTabView`** and shared by all
-three catalogs. Typing on Routines and tapping Exercises KEEPS the query; a
-trip to Today (no key there) restores the open field on the way back. ⚠️ That
-does not break the "a stale invisible query reads as data loss" law, it
-satisfies it: the query is only ever hidden on a tab it could not have
-filtered, and it returns visible in an open field with its own clear key. The
-three things that clear it: the in-field `delete.left`, the collapse key, and
-`land(on:)` — a landing must also CLOSE search, or the entrance flash plays
-inside a filtered list.
+three catalogs. Typing on Routines and tapping Exercises KEEPS the query; a trip
+to Today restores the open field on the way back (`isPresented` is bound, which
+is what buys that). ⚠️ That does not break the "a stale invisible query reads as
+data loss" law, it satisfies it: the query is only ever hidden on a tab it could
+not have filtered, and it returns visible in an open field with its own clear
+key. `land(on:)` must still CLOSE search, or the entrance flash plays inside a
+filtered list.
 
-- **The accepted cost: the keyboard covers the tab bar**, so changing catalog
-  mid-query means dismissing it first (Dave's call, 2026-08-02 — the
-  alternative was scope glyphs inside the field, which rebuilds the control
-  this deleted). ⚠️ This makes each catalog's
-  `.scrollDismissesKeyboard(.immediately)` LOAD-BEARING, not incidental: it is
-  the only route back to the tabs. Do not weaken it to `.interactively`.
-- ⚠️ **It is the app's ONE Liquid Glass surface** (Dave, 2026-08-02): a glass
-  CIRCLE morphing into a glass CAPSULE, i.e. the native search-tab look it
-  replaced. Scoped by NEIGHBOUR — it floats above the system tab bar, which is
-  glass — and it does not generalize; the full exception with its three bent
-  laws is in design-grammar. `SearchFieldBody` takes a `glass:` pairing ONLY
-  here; its three other mounts keep the r11 opaque anatomy.
-- **The morph is therefore the SYSTEM's**: a `GlassEffectContainer` plus a
-  shared `glassEffectID`, the mechanism the search-role tab used to expand out
-  of the bar. ⚠️ Do NOT reach back for `matchedGeometryEffect` — it cannot
-  fluidly reshape glass and the two fight over the same geometry. ⚠️ Only the
-  MAGNIFIER shares the field's id; the ✕ carries its own, or the container gets
-  two candidate shapes for one surface in the same frame.
-- ⚠️ **The glass container morphs SHAPES, not CONTENTS** (build 172 shipped an
-  instant swap): each branch still needs its own `.transition(.opacity)`, or
-  the glyph and the field hard-cut inside a capsule that is morphing correctly
-  underneath them — which reads as no animation at all. Nothing fails loudly;
-  the morph is simply invisible behind a cut. It was lost converting from
-  `matchedGeometryEffect`, whose transitions were explicit.
-- ⚠️ **The dock declares `.animation(_:value: isOpen)` on ITSELF**, rather than
-  relying on `withAnimation` at the two call sites. `isOpen` is `RootTabView`
-  state reached through a binding, and the dock renders inside a
-  `.safeAreaInset` content closure two layers down — a transaction has to
-  survive both hops. Declaring it locally does not depend on that, and it also
-  covers `land(on:)` closing search from the root. Do not add `withAnimation`
-  back on top: two mechanisms on one state change gives a double-timed morph.
-- **No `.raisedKey()` on either dock key, and nothing to compensate for.** A
-  raised key is 48 pt (the style pads the bottom by its 4 pt travel for the
-  plate) against the field's height, which used to seat the field 2 pt low
-  beside it. Glass has no plate, every shape is one flat
-  `CatalogSearchDock.keySize`, and `.interactive()` supplies the press
-  response.
-- ⚠️ **The dock's keys need `.contentShape(Circle())`, OUTERMOST, and it is
-  the hit target** (build 171 shipped without it): a `.frame()` around an
-  `Image` is layout space, not content, and SwiftUI hit tests content — so the
-  ✕'s tappable area was the glyph's own strokes. Near-misses fell through to
-  the list ("as if it were pointer-events: none") or sideways onto the in-field
-  clear key, where the ✕ read as dead. ⚠️ `.glassEffect` does NOT restore it:
-  it is a rendering effect, and what made `HeaderIconButton` immune all along
-  is that it fills its frame with an opaque `.background(_:in:)` — a real view,
-  and hit-testable. Swapping the ground for glass took the hit target with it.
-- **The dock is BIGGER and NOT mono** (Dave, build 171: "a bit bigger, to match
-  native", "use the native font"). `keySize` 50 for both keys and the field's
-  height, glyphs at `.title3`, query text at plain `.system(.body)`. ⚠️ The
-  mono-is-DATA law still binds every other mount — a query typed into app
-  chrome is data; a query typed into a system-looking field is a system field.
-  Same scope-by-neighbour reasoning as the glass.
-- **It does NOT auto-focus on tab arrival** — the key is a key; the keyboard
-  rises when you tap it. The one-shot focus intent (#233) is armed by that tap
-  and consumed by the field's `onAppear`.
-- **Anatomy INSIDE the chrome is the app's single search grammar**
-  (`SearchFieldBody`): an in-field `delete.left` CLEAR
-  that empties the query and KEEPS focus, and a separate `xmark` COLLAPSE key
-  that clears and closes, landing exactly where the magnifier was. The same
-  body serves pushed catalogs, pickers and sheets through `HeaderSearchField`.
-  `xmark` is the COLLAPSE glyph, which is why design-grammar's no-✕ dismissal
-  law exists.
+- ⚠️ **The tab bar stays visible and usable while searching, and now genuinely
+  so.** The dock's accepted cost — the keyboard covers the tab bar, so changing
+  catalog mid-query meant dismissing it first — is GONE with the dock. The
+  field is at the top; the tabs are never underneath it. `.scrollDismissesKeyboard(.immediately)`
+  is still right on every catalog, but it is no longer the ONLY route back to
+  the tabs, so it is no longer load-bearing in that specific sense.
+- **The field, the Cancel and the clear glyph are the SYSTEM's.** ⚠️ That
+  retires, for this surface only, the app's `xmark`-means-collapse and
+  `delete.left`-means-clear laws — the system brings its own vocabulary and the
+  scope-by-neighbour rule says a system field wears it. `SearchFieldBody` still
+  serves the picker sheet, which is app-drawn chrome and keeps the r11 opaque
+  anatomy and the mono-is-DATA law.
+- **It does NOT auto-focus on tab arrival** — the magnifier is a control; the
+  keyboard rises when you tap it.
 - **Creation is the TOP list row, and the verb PREDICTS the tap**: **Create**
   (`New <object>` empty, `Create "<query>"` queried) COMMITS inline; **Add**
   OPENS something ("Add to routine…", the overview's "Add exercise"). All three

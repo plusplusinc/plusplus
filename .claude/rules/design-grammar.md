@@ -91,17 +91,15 @@ Siblings: `navigation.md` (tab bar, search, scope control, landings),
   sanctioned variant is `ConfigIconButton` (30 pt cap, r8, FLAT bordered — it
   configures a value in place, it doesn't commit or navigate; the radius
   scales with the cap). No other per-context corner variation.
-  ⚠️ **ONE scoped exception, and it is scoped by NEIGHBOUR** (Dave, 2026-08-02):
-  the floating search dock (`CatalogSearchDock`) is a Liquid Glass CIRCLE that
-  morphs into a glass CAPSULE — the native search-tab look it replaced. It
-  bends this law, the rounded-rects-not-capsules law below, and the
-  app-drawn-chrome-over-Liquid-Glass call from build 42, because it floats
-  directly above the system tab bar, which IS glass: it matches what it sits
-  against rather than chrome most of a screen away. **The exception does not
-  generalize.** It is the app's only glass surface; nothing else moves, and
-  `SearchFieldBody`'s three other mounts sit among app-drawn keys and keep the
-  r11 opaque anatomy. Before wearing glass anywhere else, ask what the thing is
-  NEXT TO — if the answer is app chrome, this precedent says use app chrome. ⚠️ **A raised
+  ⚠️ **The hand-built glass exception is GONE, and its RULE outlived it**
+  (Dave, build 176). `CatalogSearchDock` — a Liquid Glass circle morphing into
+  a capsule, floating above the tab bar — is deleted; search is a native item
+  in the top toolbar, so the app draws no glass at all any more. What the
+  exception was FOR still binds and is now the general law: **a control wears
+  what it SITS AGAINST.** In a system bar that means native, bare, and the
+  bar's own glass (the toolbar law above). In app-drawn chrome — sheets, trays,
+  the picker's field — it means the r11 opaque cap. Asking "what is this NEXT
+  TO" is the question; the dock was one answer to it, and a short-lived one. ⚠️ **A raised
   key's cap and its hit target are ONE rectangle** (build 161): `RaisedKeyStyle`
   plates the frame it is GIVEN, so a smaller cap inside a bigger hit frame draws
   the plate as a second box around it. Grow the frame, not the gap. Every "New …" / "Add …" /

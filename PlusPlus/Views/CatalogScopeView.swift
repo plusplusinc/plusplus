@@ -401,42 +401,49 @@ struct CatalogScopeView: View {
                         }
                     }
                 }
-                // ⚠️ THE NATIVE SEARCH UI (spike, 2026-08-02). `.searchable`
-                // on a view INSIDE the stack, then `.searchToolbarBehavior`
-                // AFTER it — Apple's documented order ("place this modifier
-                // after the searchable modifier that renders search in the
-                // toolbar"). On iPhone iOS 26 that yields a bottom-toolbar
-                // search field which `.minimize` renders as a button-like
-                // control when inactive: the floating search key, system-owned.
+                // ⚠️ **SEARCH IS A TOP-BAR ITEM** (Dave, build 176: "search in
+                // the top bar like this, which I like"). It rides the trailing
+                // toolbar group beside the kit switcher, in the same Liquid
+                // Glass capsule, as a minimized magnifier that expands into a
+                // field. ⚠️ This REPLACES the floating-key-above-the-tab-bar
+                // design (#543) outright — "we moved away from the custom
+                // floating-above-the-tab-bar thing" — so there is no dock, no
+                // `safeAreaInset`, and none of the keyboard-rise reasoning that
+                // placement needed. A top bar cannot be covered by a keyboard.
                 //
-                // ⚠️ It is `.minimize`, NOT `.minimized`. Apple's own Discussion
-                // sample writes `.minimized`, which does not exist — the
-                // declared type property on `SearchToolbarBehavior` is
-                // `minimize`. The declaration wins over the prose.
+                // Three modifiers, each load-bearing, and the ORDER is Apple's:
+                // `.searchable` first, `.searchToolbarBehavior` after it
+                // ("place this modifier after the searchable modifier that
+                // renders search in the toolbar").
                 //
-                // ⚠️ **`placement: .toolbar` is STATED, not inferred** (build
-                // 175: open search, close it, open it again, and the field came
-                // back at the TOP — in the navigation bar, above the large
-                // title, with the ++ key and kit switcher gone). The first
-                // activation landed in the bottom toolbar and every later one
-                // fell back. `.automatic` is a GUESS the system re-makes on
-                // each presentation, and `searchToolbarBehavior`'s own
-                // Discussion says to place it after "the searchable modifier
-                // that RENDERS SEARCH IN THE TOOLBAR" — the behavior modifier
-                // styles a toolbar field, it does not put one there. Asking for
-                // the placement is the documented way to be in the toolbar.
-                // ⚠️ Placement is still only a PREFERENCE: Apple states SwiftUI
-                // falls back to automatic when it cannot satisfy one, so this
-                // makes the request explicit rather than guaranteeing it.
+                // 1. `placement: .toolbar` — **STATED, never inferred.** With
+                //    no placement the call takes `.automatic`, a guess the
+                //    system re-makes on every presentation: build 175 opened
+                //    correctly, closed, and re-opened as a FULL-WIDTH field
+                //    that pushed the ++ key and the kit switcher out of the bar
+                //    entirely (Dave: "as if the search icon button thinks it
+                //    needs to take up the full width of the toolbar because
+                //    there are no other toolbar items — though there are").
+                //    Naming the placement is what makes it join the trailing
+                //    group instead of claiming the row. ⚠️ Placement is a
+                //    PREFERENCE — Apple falls back to automatic when it cannot
+                //    satisfy one — so this is a request that currently holds,
+                //    not a guarantee; if the full-width state ever returns,
+                //    this line is where it starts.
+                // 2. `.searchToolbarBehavior(.minimize)` — what renders it as a
+                //    magnifier rather than an expanded field at rest. ⚠️ It is
+                //    `.minimize`, NOT `.minimized`: Apple's own Discussion
+                //    sample writes a name that does not exist, and the declared
+                //    type property wins over the prose.
+                // 3. `.searchPresentationToolbarBehavior(.avoidHidingContent)`
+                //    — keeps the ++ key and the kit switcher in the bar while
+                //    search is active. Without it the system clears the bar to
+                //    make room, which is the build-143 emptying.
                 //
-                // `isPresented` is bound so open/closed still SURVIVES a tab
-                // switch and a trip to Today, which is the behaviour Dave
-                // chose; the query binding is unchanged, so one query still
-                // serves all three catalogs. ⚠️ If the top-placement relapse
-                // outlives this fix, the binding is the next suspect — a
-                // programmatic re-presentation is exactly what differs between
-                // the first activation and the ones that failed — and dropping
-                // it costs that carry-over behaviour.
+                // `isPresented` is bound so open/closed SURVIVES a tab switch
+                // and a trip to Today, which is the behaviour Dave chose; the
+                // query binding is unchanged, so one query serves all three
+                // catalogs.
                 .searchable(
                     text: $boundQuery,
                     isPresented: $searchOpen,

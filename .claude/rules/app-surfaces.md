@@ -20,10 +20,11 @@ both load when you touch view code; read them before changing what they govern.
 **Four tabs** on the native iOS 26 Liquid Glass `TabView` (`RootTabView`):
 **Today · Routines · Exercises · Kit**. The three catalog tabs all render the
 same `CatalogScopeView` — a tab picks which CATALOG, never which screen.
-**Search is a floating key pinned above the tab bar** on those three
-(`CatalogSearchDock`), morphing in place into a field; one query and one open
-state, root-owned and shared by all three, so the tab bar stays the only scope
-control. The container laws that constrain all of it (where the dock mounts and
+**Search is a native item in the TOP toolbar** on those three — a minimized
+magnifier in the trailing group beside the kit switcher, expanding in place
+into a field; one query and one open state, root-owned and shared by all three,
+so the tab bar stays the only scope control. (The floating key above the tab
+bar is RETIRED, build 176.) The container laws that constrain all of it (where the dock mounts and
 why, the retired search tab and its six scope-control placements) are in
 `navigation.md`; read them before changing anything in it.
 
@@ -46,8 +47,8 @@ MINE then CATALOG, a single-select facet row per scope (exercises kind/
 muscle/movement/mechanic/sides · kit type · routines focus/effort/style),
 PINNED as the list's one section header on tabs and as a top inset on
 presented/picker surfaces (laws in `navigation.md`), with the swipe law
-LEADING is curation / TRAILING is destructive. Each carries the floating search
-key above the tab bar, which hides on a pushed detail. A TAB with no query and
+LEADING is curation / TRAILING is destructive. Each carries search in its top
+toolbar. A TAB with no query and
 no facet leads with FRONT MATTER (`CatalogFrontPage`) above the whole list:
 what the scope and the kit come to, then the scope's axes as chips that
 write facets. Not the search tab, and never a replacement for the list
