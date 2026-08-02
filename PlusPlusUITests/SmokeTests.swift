@@ -50,8 +50,14 @@ final class SmokeTests: XCTestCase {
     /// The app's OWN search field, floating above the tab bar. A plain
     /// `textField` with an identifier, not a system `searchField` — the native
     /// `.searchable` element died with the search-role tab.
+    ///
+    /// ⚠️ Its identifier is the DOCK's own, distinct from the presented
+    /// catalog's header field (`catalogSearchField`). Both can be in the tree at
+    /// once — the drawer's "Edit your kit" presents over the Kit tab — and a
+    /// bare identifier lookup resolves to whichever the tree yields first, not
+    /// the front surface.
     private var searchField: XCUIElement {
-        app.textFields["catalogSearchField"].firstMatch
+        app.textFields["catalogDockSearchField"].firstMatch
     }
 
     /// Expand the floating search key on whichever catalog tab is showing.
@@ -68,7 +74,7 @@ final class SmokeTests: XCTestCase {
     /// Collapse the floating field. Clears the query and returns the key to
     /// where it was — the `xmark` COLLAPSE key, never a ✕ dismissal.
     private func closeSearch() {
-        let key = app.buttons["dismissSearchButton"]
+        let key = app.buttons["catalogDockCloseButton"]
         XCTAssertTrue(key.waitForExistence(timeout: 5), "the collapse key sits beside the field · \(buttonInventory())")
         key.tap()
     }

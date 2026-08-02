@@ -444,12 +444,16 @@ struct CatalogScopeView: View {
 
     /// Whether landings addressed to this scope belong to THIS instance.
     ///
-    /// The catalog tab that owns the scope is the answer, never "whichever
-    /// instance is showing it". It reads trivially now that each tab is its own
-    /// scope, and it stays because the SLOT mechanism behind it does not: both
-    /// slots survive an unbuilt tab, so the owner can consume late, on appear.
-    /// (It earned its keep when a search tab dialled to routines was a second
-    /// live instance showing the same rows.)
+    /// ⚠️ Read it for what it now IS: `mode.isTab`, written obliquely. Every
+    /// tab instance passes a matching `tabKey`/`scope` pair, so this is `true`
+    /// on all three and `false` only for presented/picker forms, whose `tabKey`
+    /// is `""` — i.e. **presented and picker surfaces do not consume arrivals**.
+    /// It earned its original phrasing when a search tab dialled to routines
+    /// was a SECOND live instance showing the same rows; if a second instance
+    /// of one scope ever returns, this needs to become a real test again rather
+    /// than inheriting the guarantee. The SLOT mechanism behind it is unchanged
+    /// and still load-bearing: both slots survive an unbuilt tab, so the owner
+    /// can consume late, on appear.
     private var ownsLandings: Bool { tabKey == scope.tab.rawValue }
 
     /// Push the routine an Operator outcome is steering to. The path resets
@@ -774,12 +778,19 @@ struct CatalogScopeView: View {
             // The floating search key, and the field it morphs into. ⚠️ It
             // mounts HERE — a bottom `safeAreaInset` on the stack's ROOT
             // content — for three separate reasons, all of them in
-            // `CatalogSearchDock`'s own note: inside the stack it rises with the
-            // keyboard (which `tabViewBottomAccessory` provably does not), an
-            // inset gives the list bottom clearance an overlay would not, and
-            // a root-content inset does not apply to `navigationDestination`
+            // `CatalogSearchDock`'s own note: a `safeAreaInset` rises with the
+            // keyboard (which `tabViewBottomAccessory` opts out of) AND gives
+            // the list bottom clearance an overlay would not, and a
+            // root-content inset does not apply to `navigationDestination`
             // screens, which is how the key hides on a pushed detail with no
             // at-root flag to thread.
+            //
+            // ⚠️ It attaches ABOVE `.scrollDismissesKeyboard`, so the dock's
+            // field is not in that environment. That is fine — the modifier
+            // configures the SCROLL VIEW, which resigns the first responder
+            // wherever it lives — but it is the one behaviour the whole
+            // "dismiss the keyboard to change tab" trade rests on, so it is a
+            // named device-pass check rather than an assumption.
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if mode.isTab {
                     CatalogSearchDock(

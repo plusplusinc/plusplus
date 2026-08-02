@@ -27,28 +27,15 @@ extension FindScope {
         }
     }
 
-    /// The scope a tab selects — `nil` for Today, which is a timeline of
-    /// derived state rather than a list of typed items and so has nothing to
-    /// narrow. Non-nil is exactly "this tab can be searched", which is what
-    /// gates the floating search key.
-    init?(tab: AppTab) {
-        switch tab {
-        case .routines: self = .routines
-        case .exercises: self = .exercises
-        case .equipment: self = .kit
-        case .today: return nil
-        }
-    }
 }
 
 /// v3 navigation root (#109): bottom tabs, creation contextual (each tab's
 /// header + creates its own thing); the FAB menu and the History destination
 /// are gone (Today's timeline subsumes history, #110).
 ///
-/// 2026-07-25: **the catalog tabs and the search scopes are the same three
-/// views.** Tapping Routines with search closed and scoping to Routines with it
-/// open land on one `CatalogScopeView` — search adds a query, it does not take
-/// you to a different screen. The older `RoutineListView` /
+/// 2026-07-25: **searching a catalog and browsing it are the same view.**
+/// Search adds a query to `CatalogScopeView`, it does not take you to a
+/// different screen. The older `RoutineListView` /
 /// `ExercisesTabView` / `EquipmentTabView` / `FindOrCreateView` are gone, their
 /// swipes, reorder and creates absorbed into that one surface (their facet
 /// chips deliberately were NOT — the three read alike now, and the field
@@ -110,12 +97,12 @@ struct RootTabView: View {
     /// collapse key, and `land(on:)`.
     @State private var query = ""
     @State private var searchOpen = false
-    // Scroll-position sync between a catalog tab and search is GONE (build 139
-    // shipped it; it did nothing on device). `.scrollPosition(id:)` does not
-    // take on a `List` the way it does on a `ScrollView` + `scrollTargetLayout`,
-    // and the remaining route observes scroll GEOMETRY, which is the documented
-    // way to break the search-role morph. Not worth that trade for a
-    // convenience — revisit only if the control moves off the TabView subtree.
+    // Scroll-position sync between catalog tabs is GONE (build 139 shipped it;
+    // it did nothing on device). `.scrollPosition(id:)` does not take on a
+    // `List` the way it does on a `ScrollView` + `scrollTargetLayout`, and the
+    // remaining route observes scroll GEOMETRY. The morph that geometry reads
+    // used to break died with the search tab, so the objection now is only that
+    // it cost a probe and bought nothing.
     /// The slide-to-reveal drawer behind the ++ key (replaces the pushed
     /// AppMenuScreen). Lives here, above the tabs' NavigationStacks, so it
     /// moves the whole TabView as one layer.
@@ -209,9 +196,6 @@ struct RootTabView: View {
         .environment(viewContext)
     }
 
-    /// A landing leaves search first: a create lands on the catalog that owns
-    /// it (the one-landing law), and that landing has to be VISIBLE — left
-    /// searching, the entrance flash would play behind a filtered list.
     @MainActor
     /// A share link from anywhere — a tapped URL or a pasted one (#509,
     /// b17). One handler, so both entry points fail the same way.
@@ -232,8 +216,14 @@ struct RootTabView: View {
     /// landing has to be VISIBLE — left searching, the flash would play on a
     /// row inside a filtered list, or on no row at all.
     private func land(on newTab: AppTab) {
-        query = ""
-        searchOpen = false
+        // Animated, because the landing may not change tab at all: creating an
+        // exercise from the create row ON the Exercises tab fires
+        // `.plusplusExerciseArrived`, so an unanimated assignment snaps the
+        // field shut in the frame before the entrance flash plays.
+        withAnimation(Theme.Anim.selection) {
+            query = ""
+            searchOpen = false
+        }
         tab = newTab
     }
 
