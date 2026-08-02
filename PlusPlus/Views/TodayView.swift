@@ -1355,7 +1355,7 @@ struct TodayView: View {
             strokeOverride: Theme.notes,
             dateline: "waiting",
             datelineColor: Theme.notes,
-            datelineAccessibilityLabel: "Waiting, needs attention"
+            datelineAccessibilityLabel: "Waiting"
         ) {
             Button {
                 NotificationCenter.default.post(name: .plusplusRevealSyncTray, object: nil)
@@ -1372,7 +1372,15 @@ struct TodayView: View {
                         // chevron that already says it — a card whose whole
                         // body is one button doesn't need the instruction
                         // spelled out, and VoiceOver gets it as a hint.
-                        Text("safe on this phone · sync paused")
+                        //
+                        // ⚠️ NOT "paused" (copy review): nobody paused this,
+                        // it broke, and the title one line up already says
+                        // stopped. And not "safe on this phone" either —
+                        // amber plus "nothing lost" carries the reassurance
+                        // without narrating where the bytes are. What the
+                        // second half buys is the part the title can't say:
+                        // this resumes, and reconnecting is what resumes it.
+                        Text("nothing lost · syncs when you reconnect")
                             .font(.system(.caption, design: .monospaced))
                             .foregroundStyle(Theme.notes)
                             .lineLimit(factLineLimit)
