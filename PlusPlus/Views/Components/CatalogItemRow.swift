@@ -311,7 +311,14 @@ struct EquipmentRowContent: View {
                         // TODAY, and saying so in a tag would read as a verdict
                         // on the piece instead of a fact about the kit.
                         if opensCount > 0 {
-                            CardTagCapsule(text: "opens \(opensCount)")
+                            // Sentence case, like every sibling data tag
+                            // ("Free weights", "Custom") — the row would
+                            // otherwise read "Free weights · opens 5".
+                            // ⚠️ And a spoken label with the NOUN: the tag it
+                            // replaced said "21 exercises" and described
+                            // itself; "opens 5" alone does not.
+                            CardTagCapsule(text: "Opens \(opensCount)")
+                                .accessibilityLabel("Opens \(opensCount) exercise\(opensCount == 1 ? "" : "s")")
                         }
                     } else if unlockedCount > 0 {
                         CardTagCapsule(text: "\(unlockedCount) exercise\(unlockedCount == 1 ? "" : "s")")

@@ -334,14 +334,6 @@ enum FindOrCreateEngine {
 
     // MARK: - Per-type collection
 
-    /// Mine first, then best match, then name.
-    ///
-    /// With NO query this becomes a stable partition on `mine` alone, which
-    /// preserves the caller's incoming order — and that order is meaningful:
-    /// routines arrive in the user's own `Routine.order` (which drag-reorder
-    /// writes), exercises and equipment arrive alphabetically from their
-    /// queries. Re-sorting by name here would silently discard a user's
-    /// routine ordering the moment their tab started rendering these sections.
     /// The kit scope's ordering. With a QUERY it is the standard ranker —
     /// what you typed decides. With NO query the CATALOG tier is ordered by
     /// what each piece would OPEN, most first, name as the tiebreak
@@ -374,6 +366,17 @@ enum FindOrCreateEngine {
         return mine + catalog
     }
 
+    /// Mine first, then best match, then name.
+    ///
+    /// With NO query this becomes a stable partition on `mine` alone, which
+    /// preserves the caller's incoming order — and that order is meaningful:
+    /// routines arrive in the user's own `Routine.order` (which drag-reorder
+    /// writes), exercises and equipment arrive alphabetically from their
+    /// queries. Re-sorting by name here would silently discard a user's
+    /// routine ordering the moment their tab started rendering these sections.
+    /// ⚠️ The kit scope goes through `rankEquipment` above instead, which
+    /// DOES re-sort its catalog half — read that one's contract, not this
+    /// one, for equipment.
     private static func rank(_ results: [Result], query: String) -> [Result] {
         guard !query.isEmpty else {
             return results.filter(\.mine) + results.filter { !$0.mine }

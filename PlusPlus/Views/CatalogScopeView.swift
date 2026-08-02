@@ -201,11 +201,21 @@ struct CatalogScopeView: View {
     /// the engine once, and the render path is the one place that cost is
     /// not affordable (the reason per-scope counts were retired).
     @State private var frontMatter: CatalogFrontMatter?
-    /// What each absent piece would OPEN, by equipment name (2026-08-02,
-    /// #251). Drives both the Kit catalog tier's order and its "opens N"
-    /// tag. Empty off the tab, which is what leaves the presented
-    /// equipment catalog its flat alphabetical run.
-    @State private var equipmentUnlocks: [String: Int] = [:]
+    /// The Kit catalog tier's ORDER, by what each absent piece would open
+    /// (2026-08-02, #251). ⚠️ Deliberately FROZEN for the visit: seeded on
+    /// appear and never re-seeded by a kit change. `unlocks` is a function
+    /// of the kit, so a single swipe-ADD changes the count of many OTHER
+    /// pieces — and the leading swipe commits membership in place, so a
+    /// live order would re-sort ~100 rows under the thumb that just
+    /// swiped, and the next swipe would land on a different piece than the
+    /// one it was aimed at. That is the exact complaint that made the
+    /// PRESENTED equipment catalog one flat alphabetical run
+    /// (navigation.md); the tab's version of it used to be one row moving
+    /// to MINE, and ordering by unlocks would have made it the whole tier.
+    /// Leaving the tab and coming back re-sorts, which is a moment nobody
+    /// is mid-gesture in. Empty off the tab, which is what leaves the
+    /// presented catalog alphabetical.
+    @State private var equipmentOrder: [String: Int] = [:]
 
     // MARK: - Derived state
 
@@ -284,7 +294,7 @@ struct CatalogScopeView: View {
             routines: displayedRoutines,
             templates: RoutineCatalog.all,
             kitNames: kitNames,
-            unlocks: equipmentUnlocks
+            unlocks: equipmentOrder
         )
     }
 
@@ -766,6 +776,7 @@ struct CatalogScopeView: View {
         // One relationship pass per render, shared by every equipment row's
         // "N exercises" capsule.
         let unlockedCounts = exerciseCountsByEquipment
+        let opensCounts = equipmentOpensCounts
         let collisions = self.collisions
         // HOISTED, and it matters: `outcome` is a computed property that runs
         // the whole rank-and-group pipeline, and the body reads its sections
@@ -817,7 +828,7 @@ struct CatalogScopeView: View {
                         case .results:
                             tierLabelRow(section)
                             ForEach(section.results) { result in
-                                resultRow(result, unlockedCounts: unlockedCounts)
+                                resultRow(result, unlockedCounts: unlockedCounts, opensCounts: opensCounts)
                             }
                             // Reorder is the routines tab's, and ONLY over your
                             // own doable ones with no query: a ranked or
@@ -839,7 +850,7 @@ struct CatalogScopeView: View {
                             }
                             if expandedMissing.contains(section.id) {
                                 ForEach(section.results) { result in
-                                    resultRow(result, unlockedCounts: unlockedCounts)
+                                    resultRow(result, unlockedCounts: unlockedCounts, opensCounts: opensCounts)
                                 }
                             }
                         case .unrated:
@@ -860,7 +871,7 @@ struct CatalogScopeView: View {
                             }
                             if expandedMissing.contains(section.id) {
                                 ForEach(section.results) { result in
-                                    resultRow(result, unlockedCounts: unlockedCounts)
+                                    resultRow(result, unlockedCounts: unlockedCounts, opensCounts: opensCounts)
                                 }
                             }
                         }
@@ -943,7 +954,7 @@ struct CatalogScopeView: View {
             // changes while the list is up: kit membership, and catalog
             // growth from the create row. Neither carries the query, so
             // neither fires on a keystroke.
-            .onAppear { rebuildDerivedCounts() }
+            .onAppear { rebuildDerivedCounts(reseedingOrder: true) }
             .onChange(of: frontMatterKey) { rebuildDerivedCounts() }
             // The arrival beat. Lifecycle-bound via `.task(id:)`: leaving or a
             // rapid second add cancels this in flight, and the throwing sleeps
@@ -1194,17 +1205,20 @@ struct CatalogScopeView: View {
     /// Built from a DEDICATED engine pass at empty query and no filters, so
     /// the counts state the whole catalog whatever the live query happens to
     /// be when the key changes.
-    private func rebuildDerivedCounts() {
+    private func rebuildDerivedCounts(reseedingOrder: Bool = false) {
         guard mode.isTab, !isSearchSurface else { return }
-        // What one absent piece would open — the Kit tier's order and its
-        // tags. One O(catalog) pass, on the same key as the front matter
-        // because it depends on exactly the same things.
-        equipmentUnlocks = scope == .kit
-            ? CatalogReachCalculator.unlocks(
-                allExercises.map(ExerciseFilterState.similarityFeatures),
-                kit: kitNames
-            )
-            : [:]
+        // ⚠️ The ORDER seed is taken on ARRIVAL only (see `equipmentOrder`),
+        // so a kit change never re-sorts the tier mid-swipe. The `opens N`
+        // TAGS are computed live in `listBody` instead, beside the
+        // exercise counts — a number on a row has to be true right now,
+        // even while the order it produced is deliberately holding still.
+        // ⚠️ Not on the null kit: it refuses every add
+        // (`EquipmentLibrary.setMembership` hard-guards it and the row has
+        // no ADD swipe), so ordering ~100 rows by what they would open
+        // would be a hundred propositions the surface cannot accept.
+        if reseedingOrder {
+            equipmentOrder = scope == .kit && !isBodyweightKit ? equipmentOpensCounts : [:]
+        }
         let outcome = FindOrCreateEngine.outcome(
             query: "",
             scope: scope,
@@ -1274,7 +1288,8 @@ struct CatalogScopeView: View {
     @ViewBuilder
     private func resultRow(
         _ result: FindOrCreateEngine.Result,
-        unlockedCounts: [PersistentIdentifier: Int]
+        unlockedCounts: [PersistentIdentifier: Int],
+        opensCounts: [String: Int]
     ) -> some View {
         Group {
             switch result.item {
@@ -1284,7 +1299,8 @@ struct CatalogScopeView: View {
                 equipmentRow(
                     equipment,
                     result: result,
-                    unlocked: unlockedCounts[equipment.persistentModelID] ?? 0
+                    unlocked: unlockedCounts[equipment.persistentModelID] ?? 0,
+                    opens: opensCounts[equipment.name]
                 )
             case .routine(let routine):
                 routineRow(routine, result: result)
@@ -1362,7 +1378,8 @@ struct CatalogScopeView: View {
     private func equipmentRow(
         _ equipment: Equipment,
         result: FindOrCreateEngine.Result,
-        unlocked: Int
+        unlocked: Int,
+        opens: Int?
     ) -> some View {
         let inKit = kitNames.contains(equipment.name)
         return catalogRow { open(result) } content: {
@@ -1374,7 +1391,13 @@ struct CatalogScopeView: View {
                 // first is a proposition about your kit, so only the
                 // CATALOG tier takes the opens count — and only where the
                 // ordering that count drives is live (the tab).
-                opensCount: (inKit || equipmentUnlocks.isEmpty) ? nil : (equipmentUnlocks[equipment.name] ?? 0),
+                // A piece you don't have answers "what would this do for
+                // me"; one you have answers "what is this for". Only the
+                // first is a proposition about your kit. ⚠️ It stays on
+                // under a QUERY, where the order has reverted to score
+                // ranking: the number is still true, it just stops being
+                // the reason the row is where it is.
+                opensCount: inKit ? nil : opens,
                 inKit: inKit ? true : nil,
                 nameHighlight: highlight(equipment.name)
             )
@@ -1501,6 +1524,21 @@ struct CatalogScopeView: View {
 
     /// One relationship pass per render (the equipment catalog's index
     /// pattern) so every equipment row's "N exercises" capsule doesn't rescan.
+    /// What each absent piece would open, RIGHT NOW. Live rather than
+    /// held in state: a number printed on a row has to be true when it is
+    /// read, and this is the one thing an equipment-relationship edit can
+    /// change without moving any count the rebuild key watches. One
+    /// O(catalog) pass on the kit scope only, beside the exercise counts
+    /// that already ride every render of this surface. The tier's ORDER is
+    /// a separate, deliberately frozen snapshot (`equipmentOrder`).
+    private var equipmentOpensCounts: [String: Int] {
+        guard scope == .kit, !isBodyweightKit else { return [:] }
+        return CatalogReachCalculator.unlocks(
+            allExercises.map(ExerciseFilterState.similarityFeatures),
+            kit: kitNames
+        )
+    }
+
     private var exerciseCountsByEquipment: [PersistentIdentifier: Int] {
         guard scope == .kit else { return [:] }
         var unlocked: [PersistentIdentifier: Int] = [:]

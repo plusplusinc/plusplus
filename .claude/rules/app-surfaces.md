@@ -13,8 +13,9 @@ and round-by-round history live in docs/DECISIONS.md under dated entries.
 Correct a claim here when the app changes; don't append a dated paragraph
 beside it. The laws that constrain these surfaces live in the sibling rules:
 **`design-grammar.md`** (color · keys · tags · motion · copy laws) and
-**`navigation.md`** (tab bar, search surface, scope control, landings) and
-**`today-rail.md`** (Today's band, rail, landmarks and pull) —
+**`navigation.md`** (tab bar, search surface, scope control, landings),
+**`catalog-scopes.md`** (what the catalog shows: scopes, tiers, facets, front
+matter) and **`today-rail.md`** (Today's band, rail, landmarks and pull) —
 both load when you touch view code; read them before changing what they govern.
 
 **Five tabs** on the native iOS 26 Liquid Glass `TabView` (`RootTabView`):
