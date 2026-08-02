@@ -233,7 +233,19 @@ this surface the control effectively is.
   and first-list-content (the chips scrolled away) — for the reason the Today
   band law states in full (`today-rail.md`: a pinned top inset costs the
   system large title, on a `List` and a `ScrollView` alike). PRESENTED and PICKER keep the pinned, opaque top
-  `safeAreaInset` (app-drawn chrome); no geometry probes anywhere. Typing
+  `safeAreaInset` (app-drawn chrome); no geometry probes anywhere.
+  ⚠️ **On the SEARCH surface that header starts in its PINNED seat**
+  (2026-08-02): a `.plain` List pads above its first section header and that
+  padding SCROLLS, so the row began 22 pt low and only arrived after 22 pt of
+  travel — and the nav bar's scrolled-under hairline was visible for exactly
+  that window, because the seated row's opaque band lands ON the line and
+  occludes it (the 4 pt you see under the line is `FacetChip`'s 44 pt hit
+  frame around its 36 pt cap). Closed with `listSectionSpacing(.custom(0))` +
+  `contentMargins(.top, 0, for: .scrollContent)`, both, gated to
+  `isSearchSurface`. ⚠️ Do NOT close it on the other four roots — the system
+  large title travels through that space. ⚠️ And do NOT reach for a top
+  `scrollEdgeEffectStyle` to kill the hairline: seating the row IS the fix,
+  and the line never draws at offset 0. Typing
   still reaches everything without chips: muscle groups, movement patterns
   and hidden synonyms (`CatalogSearchSynonyms` — "erg", "rdl", "trx") ride
   `ExerciseFilterState.searchHaystack` and the equipment scorer.

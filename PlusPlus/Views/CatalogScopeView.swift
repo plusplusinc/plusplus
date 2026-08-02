@@ -752,6 +752,12 @@ struct CatalogScopeView: View {
         let sections = displayed(outcome.sections)
         let shown = sections.reduce(0) { $0 + $1.count }
         let hiddenByFilters = outcome.hiddenByFilters
+        // The facet row's seat on the search surface — the law is on the two
+        // modifiers that consume these. Hoisted and explicitly typed so the
+        // ternaries never enter the `List`'s own inference (the type-check
+        // budget law, ui-interaction.md).
+        let headerSpacing: ListSectionSpacing = isSearchSurface ? .custom(0) : .default
+        let topContentMargin: CGFloat? = isSearchSurface ? 0 : nil
         return ScrollViewReader { proxy in
             List {
                 // ONE section holds the whole list, and on a TAB root its
@@ -862,6 +868,36 @@ struct CatalogScopeView: View {
                 }
             }
             .listStyle(.plain)
+            // ⚠️ On the SEARCH surface the facet row starts in its PINNED seat
+            // (Dave, 2026-08-02, from a three-shot scroll sequence — pixel
+            // measured at 3x). A `.plain` List puts its own top padding ABOVE
+            // the first section header, and that padding SCROLLS: the row sat
+            // ~22 pt low at rest and only reached its seat after 22 pt of
+            // travel. Two faults, one cause. (1) The gap: on a surface with no
+            // large title there is nothing for that space to hold, so the
+            // chips read as floating below the bar. (2) The hairline: the row
+            // pins with its top exactly on the navigation bar's scrolled-under
+            // edge (the 4 pt you see below the line is `FacetChip`'s 44 pt hit
+            // frame around its 36 pt cap — the same 4 pt #521 measured), so an
+            // OPAQUE pinned row occludes that line — but only once it has
+            // arrived. During those 22 pt the bar was in its scrolled state
+            // with nothing over it, which is the hairline blinking in and out.
+            // Seated from rest, the line is covered at every offset > 0 and
+            // the bar is in its edge state at 0, so it never draws.
+            //
+            // Both knobs, because the padding has been either one across
+            // releases and neither is observable from a Linux session: the
+            // section-header top padding (`listSectionSpacing`) and any
+            // default scroll-content top margin. Zeroing an absent one is a
+            // no-op.
+            //
+            // ⚠️ SEARCH ONLY. The other four roots wear the system LARGE
+            // title, and that title travels through this very space — closing
+            // it there would seat the chips against the bar and re-open the
+            // #521 class of large-title argument. `nil`/`.default` leaves them
+            // exactly as they shipped.
+            .listSectionSpacing(headerSpacing)
+            .contentMargins(.top, topContentMargin, for: .scrollContent)
             .scrollContentBackground(.hidden)
             .scrollDismissesKeyboard(.immediately)
             // PRESENTED and PICKER surfaces keep the facet row on a top
