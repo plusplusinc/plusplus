@@ -282,7 +282,7 @@ struct RevealSurface: View {
         // clean never-connected install reads as neutral gray with no word, and
         // so does an unconfigured build (red gated on .disconnected, so a stale
         // fault flag can't paint it red).
-        let faulted = sync.connection == .disconnected && sync.faulted
+        let faulted = sync.isFaulted
         let dot: Color = connected ? Theme.accent : (faulted ? Theme.destructive : Theme.textFaint)
         // A pass in flight outranks the resting word (#509, b16): the row
         // read "connected" throughout a multi-second sync, so the one place

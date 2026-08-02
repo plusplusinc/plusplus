@@ -68,6 +68,30 @@ enum SetupState {
         UserDefaults.standard.set(true, forKey: healthPrimerShownKey)
     }
 
+    // The Calendar offer (#509, Q20-B): the ask moved off the drawer's
+    // toggle and onto the first fixed-weekday schedule someone sets —
+    // the moment the feature has something to put in a calendar. Shown
+    // ONCE, whether they take it or not, because a standing offer on a
+    // screen people revisit is a nag. Its own flag for the same reason
+    // Health has one: `EKEventStore.authorizationStatus` answers "did
+    // iOS decide", never "did PlusPlus already offer", and the two come
+    // apart the moment someone says Not now.
+    //
+    // ⚠️ Not tied to store contents, and needs no backfill: the offer
+    // only ever appears on a NON-EMPTY weekday schedule, so an existing
+    // install meets it the next time it edits one — which is exactly
+    // when the offer is worth making. The drawer's toggle stays the
+    // second door for everyone else (Dave).
+    static let calendarPrimerShownKey = "calendarPrimerShown"
+
+    static var calendarPrimerShown: Bool {
+        UserDefaults.standard.bool(forKey: calendarPrimerShownKey)
+    }
+
+    static func markCalendarPrimerShown() {
+        UserDefaults.standard.set(true, forKey: calendarPrimerShownKey)
+    }
+
     /// Installs that already TRAINED on a pre-primer build had Health
     /// decided by the old welcome screen (or the live monitor's ask), so
     /// don't re-prime them: if the primer flag was never written and the

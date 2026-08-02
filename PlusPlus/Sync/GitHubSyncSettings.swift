@@ -26,6 +26,26 @@ enum GitHubSyncSettings {
         static let branch = "github.sync.branch"
         static let lastSynced = "github.sync.lastSyncedAt"
         static let faulted = "github.sync.faulted"
+        static let everSynced = "github.sync.everSynced"
+    }
+
+    /// Has a sync pass ever SUCCEEDED on this install (#509, Q19-A review)?
+    ///
+    /// ⚠️ It exists because `lastSynced` cannot answer that question at the
+    /// one moment anything needs it. The commonest way a live sync breaks is
+    /// an expired or revoked token, and that path calls `clearCoordinate()`
+    /// — which DELETES `lastSynced` in the same breath as it records the
+    /// fault. So "faulted and lastSyncedAt != nil" holds for the rest of the
+    /// process and is false forever after the next launch, which is exactly
+    /// backwards: Today's advisory would vanish precisely as local edits
+    /// started piling up un-pushed.
+    ///
+    /// This flag is written by the first successful pass and cleared ONLY by
+    /// a deliberate `disconnect()`. The fault path wants to keep the history;
+    /// the disconnect path is what erases it.
+    static var everSynced: Bool {
+        get { UserDefaults.standard.bool(forKey: Key.everSynced) }
+        set { UserDefaults.standard.set(newValue, forKey: Key.everSynced) }
     }
 
     /// The registered GitHub App client ID, or nil until the App exists.

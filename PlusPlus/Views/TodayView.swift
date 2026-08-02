@@ -1252,6 +1252,36 @@ struct TodayView: View {
                 anytimeCard
             }
         }
+        // A broken sync, said once, where you already are (#509, Q19-A).
+        // ⚠️ Moved UP from the bottom of this stack (review): under the
+        // carried-over lane it was an advisory a long timeline hides, and
+        // an advisory nobody scrolls to is the drawer's red dot again.
+        //
+        // ⚠️ But NOT first, which is where the review put it. First is the
+        // landing slot — the opening `scrollTo` seats whatever follows the
+        // week-ahead directly under the band, and navigation.md spends that
+        // slot on the ANYTIME row deliberately. Taking over the landing on
+        // every open until someone fixes their token is what an ALARM does,
+        // and design-grammar's amber law is explicit that this isn't one:
+        // nothing is lost, the edits are on the device, they push the
+        // moment the connection is repaired. Second is enough — it is on
+        // screen at landing either way, directly under the card it sits
+        // below, and it costs the rail's normal content nothing.
+        //
+        // ⚠️ Which is why it carries the ANYTIME row's own gate rather than
+        // trusting position (second review round): the anytime entry is
+        // conditional, so "second" was incidental, and in the one state that
+        // hides it — a fresh install still on setup step 1 — the advisory
+        // WAS first, in the landing slot, on a phone whose owner hasn't done
+        // anything yet. Reachable: restore onto a new phone, connect, pull a
+        // template-only repo, then break the connection. Sharing the gate
+        // makes the invariant structural: whenever this can render, the row
+        // above it rendered too. It costs a fresh install one setup step of
+        // silence, which is the right trade on the surface that is teaching
+        // them the app.
+        if sync.isBackupBroken, !setupActive || equipmentStepDone {
+            brokenSyncEntry
+        }
         // TODAY is ONE dated group (the build-161 restructure: dates pop
         // out of the cards, the node centers on the date row, cards hang
         // below). Every card of the day shares this one date row.
@@ -1291,6 +1321,101 @@ struct TodayView: View {
         // below — never as a green due, never dressed as today's date.
         if !missedEntries.isEmpty {
             carriedOverSection
+        }
+    }
+
+    /// An expired or revoked GitHub connection. It used to live ONLY as a
+    /// red dot in the drawer — a surface you might not open for weeks while
+    /// local edits piled up un-backed-up, which is the one thing a backup
+    /// failing quietly must not do.
+    ///
+    /// ⚠️ It is gated on `sync.isBackupBroken`, NOT on the drawer row's
+    /// `isFaulted` (review): `faulted` is set by any failed CONNECT attempt
+    /// — a dropped wifi mid-device-flow, an expired code, a Cancel on
+    /// github.com — so someone who tried sync once, failed, and never came
+    /// back would otherwise get a permanent card promising their workouts
+    /// were safe in a backup that never existed. `lastSyncedAt` is written
+    /// only by a pass that SUCCEEDED, so it is the honest gate. The drawer
+    /// row keeps the broader predicate on purpose: a red dot on a row you
+    /// went looking for is a status, not a claim.
+    ///
+    /// ⚠️ The dateline is a TIME, not a label (copy review): every rail
+    /// entry puts a temporal value in that slot — a date, "today",
+    /// "anytime" — so a categorical noun there reads as a rendering fault
+    /// rather than a class. "waiting" is also the literal truth: the
+    /// workouts are on the device waiting to go up. ("pending" was
+    /// proposed and is wrong in the other direction — a stopped
+    /// connection is not about to resume by itself.)
+    ///
+    /// ⚠️ The app's word is SYNC, not "backup" (copy review): the drawer
+    /// section, the tray's own copy and the coordinator all say sync.
+    /// "Backup" appears once, descriptively, inside the tray.
+    ///
+    /// ⚠️ AMBER, not red, and that is the whole judgment (design-grammar:
+    /// amber is advisory, never alarm). Nothing is lost — the edits are on
+    /// the device and will push the moment the connection is fixed — so an
+    /// alarm would be a lie about the stakes. It wears the carried-over
+    /// lane's exact idiom for the same reason: this is work waiting on
+    /// something, not work gone wrong.
+    ///
+    /// The anti-shame law governs PERFORMANCE, not plumbing; a backup that
+    /// stopped working is a fact about the app, not about the user, so
+    /// stating it plainly breaks nothing.
+    private var brokenSyncEntry: some View {
+        TimelineItem(
+            node: .inert,
+            strokeOverride: Theme.notes,
+            dateline: "waiting",
+            datelineColor: Theme.notes,
+            datelineAccessibilityLabel: "Waiting"
+        ) {
+            Button {
+                NotificationCenter.default.post(name: .plusplusOpenSyncTray, object: nil)
+            } label: {
+                HStack(alignment: .center, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("GitHub sync stopped")
+                            .font(.system(.body, weight: .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                            .lineLimit(2)
+                        // ⚠️ Metadata shape, like every other caption on the
+                        // rail (review): lowercase mono facts joined by "·",
+                        // not a sentence. "tap to reconnect" left with the
+                        // chevron that already says it — a card whose whole
+                        // body is one button doesn't need the instruction
+                        // spelled out, and VoiceOver gets it as a hint.
+                        //
+                        // ⚠️ NOT "paused" (copy review): nobody paused this,
+                        // it broke, and the title one line up already says
+                        // stopped. And not "safe on this phone" either —
+                        // amber plus "nothing lost" carries the reassurance
+                        // without narrating where the bytes are. What the
+                        // second half buys is the part the title can't say:
+                        // this resumes, and reconnecting is what resumes it.
+                        Text("nothing lost · syncs when you reconnect")
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(Theme.notes)
+                            .lineLimit(factLineLimit)
+                    }
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.right")
+                        .font(.system(.caption2, weight: .bold))
+                        .foregroundStyle(Theme.textFaint)
+                        .accessibilityHidden(true)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.surface.opacity(reduceTransparency ? 1 : 0.55), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.cardRadius)
+                        .strokeBorder(Theme.notesRing, lineWidth: 1)
+                )
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("brokenSyncAdvisory")
+            .accessibilityHint("Opens GitHub sync")
         }
     }
 
