@@ -1292,6 +1292,86 @@ struct TodayView: View {
         if !missedEntries.isEmpty {
             carriedOverSection
         }
+        // A broken sync, said once, where you already are (#509, Q19-A).
+        if syncIsBroken {
+            brokenSyncEntry
+        }
+    }
+
+    /// An expired or revoked GitHub connection. It used to live ONLY as a
+    /// red dot in the drawer — a surface you might not open for weeks while
+    /// local edits piled up un-backed-up, which is the one thing a backup
+    /// failing quietly must not do.
+    ///
+    /// ⚠️ The same predicate the drawer's row uses, deliberately: `faulted`
+    /// alone can be a stale flag, so it is gated on the connection actually
+    /// being down. Change one, change the other.
+    private var syncIsBroken: Bool {
+        sync.connection == .disconnected && sync.faulted
+    }
+
+    /// ⚠️ The dateline is a TIME, not a label (copy review): every rail
+    /// entry puts a temporal value in that slot — a date, "today",
+    /// "anytime" — so a categorical noun there reads as a rendering fault
+    /// rather than a class. "waiting" is also the literal truth: the
+    /// workouts are on the device waiting to go up. ("pending" was
+    /// proposed and is wrong in the other direction — a stopped
+    /// connection is not about to resume by itself.)
+    ///
+    /// ⚠️ The app's word is SYNC, not "backup" (copy review): the drawer
+    /// section, the tray's own copy and the coordinator all say sync.
+    /// "Backup" appears once, descriptively, inside the tray.
+    ///
+    /// ⚠️ AMBER, not red, and that is the whole judgment (design-grammar:
+    /// amber is advisory, never alarm). Nothing is lost — the edits are on
+    /// the device and will push the moment the connection is fixed — so an
+    /// alarm would be a lie about the stakes. It wears the carried-over
+    /// lane's exact idiom for the same reason: this is work waiting on
+    /// something, not work gone wrong.
+    ///
+    /// The anti-shame law governs PERFORMANCE, not plumbing; a backup that
+    /// stopped working is a fact about the app, not about the user, so
+    /// stating it plainly breaks nothing.
+    private var brokenSyncEntry: some View {
+        TimelineItem(
+            node: .inert,
+            strokeOverride: Theme.notes,
+            dateline: "waiting",
+            datelineColor: Theme.notes,
+            datelineAccessibilityLabel: "Waiting, needs attention"
+        ) {
+            Button {
+                NotificationCenter.default.post(name: .plusplusRevealSyncTray, object: nil)
+            } label: {
+                HStack(alignment: .center, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("GitHub sync stopped")
+                            .font(.system(.body, weight: .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                            .lineLimit(2)
+                        Text("your workouts are safe on this phone · tap to reconnect")
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(Theme.notes)
+                            .lineLimit(factLineLimit)
+                    }
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.right")
+                        .font(.system(.caption2, weight: .bold))
+                        .foregroundStyle(Theme.textFaint)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.surface.opacity(reduceTransparency ? 1 : 0.55), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.cardRadius)
+                        .strokeBorder(Theme.notesRing, lineWidth: 1)
+                )
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("brokenSyncAdvisory")
+        }
     }
 
     /// History's MONTH landmarks (#506, Q11-A): one flat newest-first run

@@ -367,6 +367,11 @@ struct RootTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: .plusplusPastedShareLink)) { note in
             (note.object as? URL).map(openShareLink)
         }
+        // Today's broken-sync advisory asking for the drawer (#509, Q19-A).
+        // This layer owns the controller; RevealSurface raises the tray.
+        .onReceive(NotificationCenter.default.publisher(for: .plusplusRevealSyncTray)) { _ in
+            reveal.open()
+        }
         // Universal-link form of the same GitHub Setup-URL return
         // (https://plusplus.fit/github/…), for when it opens the app directly.
         .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in

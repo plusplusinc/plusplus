@@ -10,6 +10,14 @@ import AppIntents
 extension Notification.Name {
     /// Posted by StartRoutineIntent with the routine name as `object`.
     static let plusplusStartRoutine = Notification.Name("plusplusStartRoutine")
+    /// Open the drawer on its GitHub tray, from outside the drawer (#509,
+    /// Q19-A). Today's broken-sync advisory is the first thing that ever
+    /// needed to: `openTray(.sync)` had exactly one caller, the drawer's own
+    /// row, so an advisory that says "tap to fix" had nowhere to send you.
+    /// BOTH layers listen — `RootTabView` owns the `RevealController` and
+    /// slides the app aside; `RevealSurface` owns `activeTray` and raises
+    /// the sheet. One post, two receivers, no plumbing between them.
+    static let plusplusRevealSyncTray = Notification.Name("plusplusRevealSyncTray")
     /// A share link that arrived as TEXT rather than as a tap (#509, b17):
     /// the Data tray's paste. Object is the `URL`. It routes into the same
     /// handler `onOpenURL` uses, so a bad payload gets the same explanation
