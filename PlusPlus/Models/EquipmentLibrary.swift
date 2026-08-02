@@ -86,7 +86,13 @@ extension EquipmentLibrary {
     /// catalog "Adding to" strip, the routine Kit chip) deliberately do NOT
     /// use this — a control always shows the raw name, since it needs a label
     /// even with a single kit.
-    static func activeNamePhrase(in libraries: [EquipmentLibrary], storedID: String?, generic: String = "your kit") -> String {
+    /// The generic possessive `activeNamePhrase` falls back to. Named
+    /// because callers have to TEST for it: a phrase that came back generic
+    /// finishes a sentence in plain words, while a phrase that came back a
+    /// NAME has to end the sentence and wear `KitTag` (KitNamePhrase's law).
+    static let genericNamePhrase = "your kit"
+
+    static func activeNamePhrase(in libraries: [EquipmentLibrary], storedID: String?, generic: String = genericNamePhrase) -> String {
         guard let activeKit = active(in: libraries, storedID: storedID) else { return generic }
         // The baked-in null kit is ALWAYS present, so it can't count toward
         // "more than one exists" — a user with a single real kit still reads
@@ -105,7 +111,7 @@ extension EquipmentLibrary {
     /// as a data tag; this is the escape for the ones that can't.
     static func activeKitPhrase(in libraries: [EquipmentLibrary], storedID: String?) -> String {
         let name = activeNamePhrase(in: libraries, storedID: storedID)
-        return name == "your kit" ? name : "the \(name) kit"
+        return name == genericNamePhrase ? name : "the \(name) kit"
     }
 
     /// Non-view resolution (SeedData's populate math, the importer).

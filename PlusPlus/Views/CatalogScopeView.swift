@@ -190,6 +190,11 @@ struct CatalogScopeView: View {
     /// so switching catalogs cannot carry invisible narrowing across; the
     /// summary chip keeps surviving state announced within a tab.
     @State private var filters = CatalogFilterState()
+    /// The front matter's counts (2026-08-02). Held in state and recomputed
+    /// on `frontMatterKey`, never derived in `listBody`: building it runs
+    /// the engine once, and the render path is the one place that cost is
+    /// not affordable (the reason per-scope counts were retired).
+    @State private var frontMatter: CatalogFrontMatter?
 
     // MARK: - Derived state
 
@@ -208,6 +213,12 @@ struct CatalogScopeView: View {
     }
 
     private var kitNames: Set<String> { activeLibrary?.memberNames ?? [] }
+
+    /// The active kit named for PROSE (the one-rule naming law): the generic
+    /// possessive until a second real kit exists, the raw name after.
+    private var kitNamePhrase: String {
+        EquipmentLibrary.activeNamePhrase(in: libraries, storedID: activeLibraryID)
+    }
 
     /// The baked-in null kit is immutable: nothing lands in it, so its rows
     /// carry no membership swipe.
@@ -683,21 +694,7 @@ struct CatalogScopeView: View {
                 // divider you read once, the chips are a control you reach
                 // for at any depth.
                 Section {
-                    // ⚠️ ABOVE the create row, and a plain row — not a
-                    // second pinned header (#507): the facet row is this
-                    // list's ONE header, and only one can pin. The
-                    // create row is the easy path to a near-duplicate,
-                    // so what the filters are HIDING has to be read
-                    // before it, not after.
-                    if !trimmedQuery.isEmpty, hiddenByFilters > 0 {
-                        hiddenByFiltersRow(hiddenByFilters)
-                    }
-                    if showsCreateRow(collisions) {
-                        createRow
-                    }
-                    if showsKitHint {
-                        kitHint
-                    }
+                    leadingRows(collisions: collisions, hiddenByFilters: hiddenByFilters)
                     ForEach(sections) { section in
                         switch section.kind {
                         case .results:
@@ -831,6 +828,17 @@ struct CatalogScopeView: View {
             // slab to see on an empty stretch. ⚠️ On the SCROLLING CONTENT,
             // never a background on the bar — build 133's mistake.
             .scrollEdgeEffectStyle(.soft, for: .bottom)
+            // The front matter's counts. TWO triggers, and both are load
+            // bearing. `onAppear` covers arriving and RETURNING — every edit
+            // that moves a count (a muscle changed in the exercise editor, a
+            // renamed piece leaving its type bucket, a routine whose focus
+            // derives differently now) happens behind a pushed detail screen,
+            // and popping back re-appears this root. The key covers what
+            // changes while the list is up: kit membership, and catalog
+            // growth from the create row. Neither carries the query, so
+            // neither fires on a keystroke.
+            .onAppear { rebuildFrontMatter() }
+            .onChange(of: frontMatterKey) { rebuildFrontMatter() }
             // The arrival beat. Lifecycle-bound via `.task(id:)`: leaving or a
             // rapid second add cancels this in flight, and the throwing sleeps
             // bail in the catch WITHOUT clearing `newlyAdded`, so a superseding
@@ -991,6 +999,109 @@ struct CatalogScopeView: View {
         .animation(Theme.Anim.standard, value: filters.isEmpty(for: scope))
         // OPAQUE — rows scroll under this band (the picker-field rule).
         .background(Theme.background)
+    }
+
+    /// Everything above the sections, in one `some View` boundary.
+    ///
+    /// ⚠️ Extracted 2026-08-02, and the reason is the law rather than taste:
+    /// a big `@ViewBuilder` stack has a TYPE-CHECK budget, `listBody` is one
+    /// expression, and the front matter was the fifth conditional branch in
+    /// this Section. The documented fix is a `some View` boundary before the
+    /// budget bites, not a smaller version of the branch that tips it
+    /// (ui-interaction.md; `RootTabView.appContent` paid for this once and
+    /// `TodayView.committedHistory` before it). Add below this split, not
+    /// back inside the Section.
+    ///
+    /// Order is load-bearing. ⚠️ The hidden-by-filters key sits ABOVE the
+    /// create row and stays a plain row, never a second pinned header
+    /// (#507): the facet row is this list's ONE header, and the create row
+    /// is the easy path to a near-duplicate, so what the filters are HIDING
+    /// has to be read before it. ⚠️ The front matter sits BELOW the create
+    /// row: creation is the top list row (navigation.md), and the whole
+    /// grouped list still follows the block rather than being replaced by it.
+    @ViewBuilder
+    private func leadingRows(collisions: FindOrCreateEngine.Collisions, hiddenByFilters: Int) -> some View {
+        if !trimmedQuery.isEmpty, hiddenByFilters > 0 {
+            hiddenByFiltersRow(hiddenByFilters)
+        }
+        if showsCreateRow(collisions) {
+            createRow
+        }
+        if showsKitHint {
+            kitHint
+        }
+        if showsFrontPage, let frontMatter {
+            CatalogFrontPage(matter: frontMatter, kitPhrase: kitNamePhrase, filters: $filters)
+        }
+    }
+
+    // MARK: - The front matter (2026-08-02)
+
+    /// Front matter shows on a TAB ROOT with nothing narrowing the list:
+    /// no query, no facet. Any of either hides it, which is what makes a
+    /// chip tap read as an answer rather than as a mode.
+    ///
+    /// ⚠️ The SEARCH tab is excluded (Dave's call). Search is a query
+    /// surface, and its facet row starts in its pinned seat under a
+    /// `listSectionSpacing(.custom(0))` + `contentMargins(.top, 0)` pair
+    /// that exists to close a 22 pt gap — putting a different block at the
+    /// top of that list is exactly the change that law was written after.
+    private var showsFrontPage: Bool {
+        mode.isTab && !isSearchSurface && trimmedQuery.isEmpty && filters.isEmpty(for: scope)
+    }
+
+    /// What the front matter's counts depend on. Membership is the whole
+    /// SET, not its count: swapping one piece for another moves every
+    /// doable number without changing how many pieces are in the kit.
+    private struct FrontMatterKey: Equatable {
+        let scope: FindScope
+        let kitNames: Set<String>
+        let exercises: Int
+        let equipment: Int
+        let routines: Int
+    }
+
+    /// ⚠️ `nil` off the surfaces that can show the block, so nothing is
+    /// built where it can never be read. This is evaluated on every body
+    /// pass, and the search surface has a body pass per KEYSTROKE — a key
+    /// there would allocate a ~100-name `Set` per character for a block
+    /// that instance never renders.
+    ///
+    /// ⚠️ It tracks CARDINALITY, not content, so it cannot see an EDIT: a
+    /// muscle changed in the exercise editor moves a bucket without moving
+    /// any count in this key. That is what the `onAppear` rebuild is for —
+    /// every edit route leaves through a detail screen, and popping back to
+    /// this root re-appears it. Hashing the catalog's attributes here
+    /// instead would fault every relationship on every body pass, which is
+    /// the cost this whole design is arranged to avoid.
+    private var frontMatterKey: FrontMatterKey? {
+        guard mode.isTab, !isSearchSurface else { return nil }
+        return FrontMatterKey(
+            scope: scope,
+            kitNames: kitNames,
+            exercises: allExercises.count,
+            equipment: allEquipment.count,
+            routines: routines.count
+        )
+    }
+
+    /// Built from a DEDICATED engine pass at empty query and no filters, so
+    /// the counts state the whole catalog whatever the live query happens to
+    /// be when the key changes.
+    private func rebuildFrontMatter() {
+        guard mode.isTab, !isSearchSurface else { return }
+        let outcome = FindOrCreateEngine.outcome(
+            query: "",
+            scope: scope,
+            filters: CatalogFilterState(),
+            exercises: allExercises,
+            equipment: allEquipment,
+            routines: routines,
+            templates: RoutineCatalog.all,
+            kitNames: kitNames
+        )
+        let built = CatalogFrontMatter.make(scope: scope, sections: outcome.sections, kitNames: kitNames)
+        frontMatter = built.isEmpty ? nil : built
     }
 
     /// The Kit scope shows the whole equipment catalog, so its list can never
