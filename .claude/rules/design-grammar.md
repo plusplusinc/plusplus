@@ -67,12 +67,28 @@ Siblings: `navigation.md` (tab bar, search, scope control, landings),
 - **RaisedKey press grammar**: every committing/navigating button is an opaque
   cap depressing onto a fixed base plate (4 pt standard / 3 pt quiet, 0.06 s
   ease-out); flat controls (chips, toggles, segments, rows) stay flat.
-  Custom key chrome everywhere — `pushedScreenChrome(...)` replaces system
-  toolbars on pushed screens. **Icon-only keys are 11-pt ROUNDED SQUARES
-  everywhere** (2026-07-19; the all-circles round and the sheet-corner
-  concentric experiment were both reverted by Dave — uneven concentric corners
-  read wrong): `HeaderIconButton`/`HeaderMenuKey`/`AppMenuKey`/Operator
-  send-stop use `RoundedRectangle(cornerRadius: 11)` + `.raisedKey()`. The one
+  ⚠️ **The app's chrome stops at the navigation bar** (Dave, 2026-08-02,
+  reversing the build-42 call for the TOOLBAR only): a key that lives in a
+  system `ToolbarItem` is NATIVE — a bare `Image` label, no frame, no ground,
+  no `.raisedKey()` — and the bar plates it, sizes it, tints it and gives it
+  the press feedback. `pushedScreenChrome` is the system bar too now (inline
+  title, `.navigationSubtitle`, `.searchable`), so the hand-drawn header band
+  is gone from every pushed screen. `HeaderKeyChrome` is the switch:
+  `HeaderIconButton`/`HeaderMenuKey`/`LibrarySwitcherKey` take `.toolbar` in a
+  bar and `.raised` everywhere else; `AppMenuKey` is toolbar-only and has no
+  raised variant at all. Its glyph keeps brand GREEN — the mark, not chrome.
+  ⚠️ **Tint is OPTIONAL and `nil` is the default on purpose**: a toolbar
+  control takes the BAR's tint unless the app means something by its colour
+  (the lit favourite star goes `Theme.accent`, because that is the user's own
+  data). ⚠️ And `.sharedBackgroundVisibility(.hidden)` came OFF every toolbar
+  key with the app-drawn ground — it existed to stop a raised cap nesting
+  inside the toolbar's shared glass (a box in a box), and a bare glyph WANTS
+  that glass. **Icon-only keys are 11-pt ROUNDED SQUARES
+  everywhere the app still draws them** (2026-07-19; the all-circles round and
+  the sheet-corner concentric experiment were both reverted by Dave — uneven
+  concentric corners read wrong): `HeaderIconButton`/`HeaderMenuKey` in sheets
+  and trays, plus Operator
+  send-stop, use `RoundedRectangle(cornerRadius: 11)` + `.raisedKey()`. The one
   sanctioned variant is `ConfigIconButton` (30 pt cap, r8, FLAT bordered — it
   configures a value in place, it doesn't commit or navigate; the radius
   scales with the cap). No other per-context corner variation.

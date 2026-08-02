@@ -23,15 +23,20 @@ struct HeaderIconButton: View {
     /// as its raw SF Symbol name, e.g. "slider horizontal 3").
     let accessibilityLabel: String
     var identifier: String?
-    /// Glyph tint; defaults to the neutral header ink. The favorite star
-    /// passes `Theme.accent` when lit (green = the user's own data).
-    var tint: Color = Theme.textSecondary
+    /// Glyph tint. ⚠️ OPTIONAL, and `nil` is the point: a toolbar control
+    /// should take the BAR's tint, so only a key that means something by its
+    /// colour passes one (the favourite star goes `Theme.accent` when lit —
+    /// green is the user's own data). In `.raised` chrome `nil` falls back to
+    /// the neutral header ink, which is what every app-drawn key wants.
+    var tint: Color?
     var chrome: HeaderKeyChrome = .raised
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             if chrome == .toolbar {
+                // Tint only when the app means something by it; otherwise the
+                // toolbar's own tint wins, which is the native behaviour.
                 // ⚠️ NO frame, background, overlay or `.raisedKey()`. The
                 // toolbar sizes and plates it, and it supplies the hit target
                 // that a bare glyph in a `.frame()` would NOT have on its own
@@ -39,10 +44,11 @@ struct HeaderIconButton: View {
                 // law bites only when the app draws the ground and then takes
                 // it away, which is exactly what this case avoids doing.
                 Image(systemName: systemImage)
+                    .foregroundStyle(tint ?? Color.accentColor)
             } else {
                 Image(systemName: systemImage)
                     .font(.system(.body, weight: .medium))
-                    .foregroundStyle(tint)
+                    .foregroundStyle(tint ?? Theme.textSecondary)
                     .frame(width: 44, height: 44)
                     .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
                     .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))

@@ -294,10 +294,13 @@ A **tab root** wears the SYSTEM navigation bar — `.navigationTitle` +
 leading `ToolbarItem` and the root's own accessory (the catalogs' kit
 switcher) as a trailing one — Today carries NONE: every start lives on the
 rail (the anytime card's sport keys + Train) or on a routine's own card.
-Both keys carry
-**`.sharedBackgroundVisibility(.hidden)`** — they bring their own raised-key
-chrome and would otherwise nest inside the toolbar's shared glass (a box in a
-box). **All three catalogs share that one chrome now** — the search surface's
+⚠️ **Both keys are NATIVE toolbar controls** (Dave, 2026-08-02): bare labels
+that take the toolbar's own plating, sizing and press feedback.
+`.sharedBackgroundVisibility(.hidden)` came off with the raised caps — it
+existed only to stop an app-drawn cap nesting inside the toolbar's shared glass
+(a box in a box), and a bare glyph wants that glass. The law and the
+`HeaderKeyChrome` switch behind it are in design-grammar.
+**All three catalogs share that one chrome now** — the search surface's
 hand-laid `.principal` row and its `""`/`.inline` title exception died with the
 tab (2026-08-02). ⚠️ **A tab root must NOT hide its navigation bar.** The
 original reason retired with `.searchable` (hiding it left the field with

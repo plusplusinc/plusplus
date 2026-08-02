@@ -18,73 +18,81 @@ private struct PushedScreenChrome<Trailing: View>: ViewModifier {
     let onBack: () -> Void
     let trailing: Trailing
 
-    /// Owned here so the title can hide while the shared `HeaderSearchField`
-    /// (which carries its own focus state) is expanded.
-    @State private var searchExpanded = false
-
     func body(content: Content) -> some View {
         content
-            .toolbar(.hidden, for: .navigationBar)
-            .safeAreaInset(edge: .top, spacing: 0) { header }
-            .fullWidthSwipeBack()
-            .onAppear {
-                // A pre-seeded query (owned-tab "Add <query>" threading)
-                // arrives with the field already open, so the active search
-                // is visible instead of hidden behind the magnifier.
-                if let search, !search.text.wrappedValue.isEmpty {
-                    searchExpanded = true
-                }
-            }
-    }
-
-    private var header: some View {
-        ZStack {
-            // The title centers on the SCREEN, not between whatever
-            // keys happen to flank it. Side padding must clear the
-            // WIDEST flanking group — two trailing keys are 98 pt —
-            // or a long name truncates with its ellipsis hidden UNDER
-            // a key cap (swift-reviewer math check).
-            if !searchExpanded {
-                VStack(spacing: 1) {
-                    Text(title)
-                        .font(.system(.subheadline, weight: .bold))
-                        .foregroundStyle(Theme.textPrimary)
-                        .lineLimit(1)
-                    if let subtitle {
-                        Text(subtitle)
-                            .font(.system(.caption2, design: .monospaced))
-                            .foregroundStyle(Theme.textFaint)
-                            .lineLimit(1)
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            // ⚠️ The app supplies the BACK button rather than inheriting the
+            // system's, and that is not a style preference. Two of these
+            // screens are sheet ROOTS in some hosts (the presented catalog is
+            // pushed by Today but sheeted by the drawer and by template
+            // detail), and a stack root has no system back button at all — so
+            // inheriting it would leave those hosts with nothing but the
+            // sheet's swipe-down. One leading item works in both shapes, and
+            // it keeps `onBack` running, which several of these screens use to
+            // commit a rename and drop focus.
+            //
+            // The COST, accepted: a fully native pushed screen shows a back
+            // button carrying the PREVIOUS screen's title. This shows a bare
+            // chevron. Revisit if these screens ever stop being sheet roots.
+            .navigationBarBackButtonHidden(true)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(action: onBack) {
+                        Image(systemName: "chevron.left")
                     }
+                    .accessibilityLabel("Back")
+                    .accessibilityIdentifier("backButton")
                 }
-                .padding(.horizontal, 100)
+                ToolbarItem(placement: .topBarTrailing) {
+                    // A single item holding the group: the call sites pass
+                    // one or two keys, and the toolbar spaces its own.
+                    HStack(spacing: 2) { trailing }
+                }
             }
+            .modifier(PushedSubtitle(subtitle: subtitle))
+            .modifier(PushedSearch(config: search))
+            // NOT part of the header — a gesture, and it works whether or not
+            // the bar is visible (#198 drives the navigation controller
+            // directly). Routine detail has carried both together since
+            // 2026-07-29, so the pairing is proven.
+            .fullWidthSwipeBack()
+    }
+}
 
-            HStack(spacing: 10) {
-                HeaderIconButton(systemImage: "chevron.left", accessibilityLabel: "Back", identifier: "backButton") {
-                    onBack()
-                }
-                if let search {
-                    // `HeaderSearchField` stays a SINGLE stable instance —
-                    // its Spacer + trailing keys are conditionalized around
-                    // it, NOT placed in a rival if/else arm. Splitting it
-                    // across two arms gave the collapsed and expanded copies
-                    // different identities, so the one-shot focus intent was
-                    // dropped on expand and the keyboard never rose (#233,
-                    // swift-reviewer catch 2026-07-18).
-                    if !searchExpanded { Spacer(minLength: 0) }
-                    HeaderSearchField(config: search, isExpanded: $searchExpanded)
-                    if !searchExpanded { trailing }
-                } else {
-                    Spacer(minLength: 0)
-                    trailing
-                }
-            }
+/// iOS 26's second title line, where a screen has one. Split out because the
+/// modifier is unavailable below 26 and returns a different concrete type.
+private struct PushedSubtitle: ViewModifier {
+    let subtitle: String?
+
+    func body(content: Content) -> some View {
+        if let subtitle {
+            content.navigationSubtitle(subtitle)
+        } else {
+            content
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 4)
-        .padding(.bottom, 8)
-        .background(Theme.background)
+    }
+}
+
+/// The presented catalog's field, now the SYSTEM's — the same `.searchable`
+/// the tab roots take, so every search surface in the app is one mechanism.
+/// ⚠️ `.searchToolbarBehavior(.minimize)` is deliberately NOT applied here:
+/// these screens have no tab bar under them, so the field belongs in the
+/// navigation bar where it lands by default.
+///
+/// ⚠️ `config.identifier` is DROPPED on this path — `.searchable` names its own
+/// element and takes no identifier. The field is reachable as
+/// `app.searchFields.firstMatch`, which is what the smoke tests already use;
+/// the identifier still matters to `SearchFieldBody`'s remaining mount.
+private struct PushedSearch: ViewModifier {
+    let config: HeaderSearchConfig?
+
+    func body(content: Content) -> some View {
+        if let config {
+            content.searchable(text: config.text, prompt: config.prompt)
+        } else {
+            content
+        }
     }
 }
 
@@ -96,58 +104,15 @@ struct HeaderSearchConfig {
     let identifier: String
 }
 
-/// The one expanding in-header search affordance (2026-07-18), factored
-/// out of `pushedScreenChrome` so pushed screens, tab roots, and sheets
-/// all share it. Collapsed it is the magnifier toggle key; expanded it is
-/// a field — magnifier + mono text + an in-field CLEAR key (`delete.left`,
-/// a backspace glyph deliberately NOT an ✕ so it never duplicates the
-/// collapse key) that empties the query and keeps you typing — plus a
-/// separate `xmark` COLLAPSE key. `isExpanded` is a binding so the host
-/// can hide its own title while the field is open; the one-shot focus
-/// intent (#233) and the keyboard state (#213) live here.
+/// The search-field BODY — the app's own field anatomy (surface fill,
+/// borderStrong stroke, r11, mono text, magnifier lead) with its in-field
+/// CLEAR key and focus plumbing.
 ///
-/// ✕ here means "collapse the search", never "close the surface": a
-/// sheet/tray dismisses with a text key, so the two never read alike.
-struct HeaderSearchField: View {
-    let config: HeaderSearchConfig
-    @Binding var isExpanded: Bool
-
-    /// One-shot focus intent, consumed by the field's onAppear — a focus
-    /// request made before the view exists is silently dropped, and an
-    /// unconditional onAppear re-summons the keyboard on pop-back (#233).
-    @State private var wantsFocus = false
-
-    var body: some View {
-        if isExpanded {
-            HStack(spacing: 10) {
-                field
-                // Closing the search is its own key, outside the field —
-                // separate from the in-field clear, so emptying the query
-                // and collapsing back to the icon are two distinct acts.
-                // Collapsing removes the field, whose onDisappear drops
-                // the keyboard (#213) — focus lives in SearchFieldBody now.
-                HeaderIconButton(systemImage: "xmark", accessibilityLabel: "Close search", identifier: "dismissSearchButton") {
-                    config.text.wrappedValue = ""
-                    withAnimation(Theme.Anim.standard) { isExpanded = false }
-                }
-            }
-        } else {
-            HeaderIconButton(systemImage: "magnifyingglass", accessibilityLabel: "Search", identifier: "\(config.identifier)Toggle") {
-                wantsFocus = true
-                withAnimation(Theme.Anim.standard) { isExpanded = true }
-            }
-        }
-    }
-
-    private var field: some View {
-        SearchFieldBody(config: config, wantsFocus: $wantsFocus)
-    }
-}
-
-/// The search-field BODY — the expanded visual (surface fill, borderStrong
-/// stroke, r11, mono text, magnifier lead) with the in-field CLEAR key and
-/// the focus plumbing — factored out of `HeaderSearchField` so the
-/// always-open Find-or-create field shares the exact anatomy. The one-shot
+/// ⚠️ ONE consumer left (spike, 2026-08-02): the PICKER sheet, whose field
+/// sits at the bottom within thumb reach. Every other search surface is the
+/// system's `.searchable` now — the tab roots, and the pushed catalog via
+/// `pushedScreenChrome`. `HeaderSearchField`, the magnifier that expanded into
+/// this, is deleted with them. The one-shot
 /// focus intent (#233) rides a binding: hosts arm it before the field
 /// exists (consumed in onAppear) OR while it is on screen (consumed in
 /// onChange — the "type a name first" refocus).
@@ -233,38 +198,54 @@ struct SearchFieldBody: View {
 }
 
 
-/// A trailing header key wrapping a Menu — `.menuStyle(.button)` routes
-/// the label through the raised-key ButtonStyle so menus press like
-/// every other key.
+/// A trailing header key wrapping a Menu — `.menuStyle(.button)` routes the
+/// label through the button style so menus press like every other key.
 struct HeaderMenuKey<Items: View>: View {
     let systemImage: String
     /// Spoken VoiceOver name for the menu (required).
     let accessibilityLabel: String
     var identifier: String?
+    var chrome: HeaderKeyChrome = .raised
     @ViewBuilder let items: () -> Items
 
     var body: some View {
         Menu {
             items()
         } label: {
-            Image(systemName: systemImage)
-                .font(.system(.body, weight: .medium))
-                .foregroundStyle(Theme.textSecondary)
-                .frame(width: 44, height: 44)
-                .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
-                .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
+            if chrome == .toolbar {
+                Image(systemName: systemImage)
+            } else {
+                Image(systemName: systemImage)
+                    .font(.system(.body, weight: .medium))
+                    .foregroundStyle(Theme.textSecondary)
+                    .frame(width: 44, height: 44)
+                    .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
+            }
         }
-        .menuStyle(.button)
-        .buttonStyle(.raisedKey())
+        .modifier(RaisedMenuUnlessToolbar(chrome: chrome))
         .accessibilityLabel(accessibilityLabel)
         .accessibilityIdentifier(identifier ?? systemImage)
     }
 }
 
+private struct RaisedMenuUnlessToolbar: ViewModifier {
+    let chrome: HeaderKeyChrome
+
+    func body(content: Content) -> some View {
+        if chrome == .toolbar {
+            content
+        } else {
+            content.menuStyle(.button).buttonStyle(.raisedKey())
+        }
+    }
+}
+
 extension View {
-    /// One call per pushed screen: hidden system bar, the custom key
-    /// header (back + centered title + optional search/trailing keys),
-    /// whole-surface swipe-back.
+    /// One call per pushed screen: the SYSTEM navigation bar with an inline
+    /// title, an app-supplied back item (see `PushedScreenChrome` for why),
+    /// native trailing keys, optional `.searchable`, and the whole-surface
+    /// swipe-back.
     func pushedScreenChrome<Trailing: View>(
         title: String,
         subtitle: String? = nil,

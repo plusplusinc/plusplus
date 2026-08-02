@@ -2482,7 +2482,7 @@ struct RoutineSettingsScreen: View {
             title: "Routine settings",
             onBack: { focusedField = nil; commitName(); dismiss() }
         ) {
-            HeaderMenuKey(systemImage: "ellipsis", accessibilityLabel: "Routine options", identifier: "routineSettingsMenu") {
+            HeaderMenuKey(systemImage: "ellipsis", accessibilityLabel: "Routine options", identifier: "routineSettingsMenu", chrome: .toolbar) {
                 Button("Delete routine", role: .destructive) {
                     focusedField = nil
                     confirmingDelete = true

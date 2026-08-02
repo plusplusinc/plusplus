@@ -220,11 +220,11 @@ struct ExerciseDetailScreen: View {
         }
         .background(Theme.background)
         .scrollDismissesKeyboard(.immediately)
-        // Custom key chrome (build-42 call). Membership + deletion
-        // live behind "…" (#231) — present, not primary, and named for
-        // what they touch; edit rides beside it as its own key. A
-        // built-in outside the library leaves nothing for the menu, so
-        // it hides instead of rendering empty (#265).
+        // Native toolbar keys (2026-08-02, reversing the build-42 custom
+        // chrome). Membership + deletion live behind "…" (#231) — present,
+        // not primary, and named for what they touch; edit rides beside it
+        // as its own key. A built-in outside the library leaves nothing for
+        // the menu, so it hides instead of rendering empty (#265).
         .pushedScreenChrome(title: "", onBack: { dismiss() }) {
             // Favorite is the curation now (whole catalog, 2026-07-17):
             // a star for everything, accent when lit. Removal/deletion of
@@ -234,15 +234,19 @@ struct ExerciseDetailScreen: View {
                 systemImage: exercise.isFavorite ? "star.fill" : "star",
                 accessibilityLabel: exercise.isFavorite ? "Unfavorite exercise" : "Favorite exercise",
                 identifier: "favoriteExerciseButton",
-                tint: exercise.isFavorite ? Theme.accent : Theme.textSecondary
+                // nil when unlit, so the star takes the toolbar's tint like
+                // every other control; accent when lit, because THAT is a fact
+                // about the user's own data.
+                tint: exercise.isFavorite ? Theme.accent : nil,
+                chrome: .toolbar
             ) {
                 exercise.isFavorite.toggle()
             }
-            HeaderIconButton(systemImage: "pencil", accessibilityLabel: "Edit exercise", identifier: "editExerciseButton") {
+            HeaderIconButton(systemImage: "pencil", accessibilityLabel: "Edit exercise", identifier: "editExerciseButton", chrome: .toolbar) {
                 showingEditor = true
             }
             if !exercise.isBuiltIn {
-                HeaderMenuKey(systemImage: "ellipsis", accessibilityLabel: "Exercise options", identifier: "exerciseDetailMenu") {
+                HeaderMenuKey(systemImage: "ellipsis", accessibilityLabel: "Exercise options", identifier: "exerciseDetailMenu", chrome: .toolbar) {
                     Button("Delete custom exercise", role: .destructive) {
                         showingDeleteConfirm = true
                     }
@@ -593,7 +597,7 @@ struct EquipmentDetailScreen: View {
         .scrollDismissesKeyboard(.immediately)
         .pushedScreenChrome(title: "", onBack: { dismiss() }) {
             if !equipment.isBuiltIn {
-                HeaderIconButton(systemImage: "pencil", accessibilityLabel: "Rename equipment", identifier: "renameEquipmentButton") {
+                HeaderIconButton(systemImage: "pencil", accessibilityLabel: "Rename equipment", identifier: "renameEquipmentButton", chrome: .toolbar) {
                     renameText = equipment.name
                     showingRename = true
                 }
@@ -601,7 +605,7 @@ struct EquipmentDetailScreen: View {
             // Membership is the toggle card now; the menu is only the
             // custom's destructive delete (built-ins have nothing here).
             if !equipment.isBuiltIn {
-                HeaderMenuKey(systemImage: "ellipsis", accessibilityLabel: "Equipment options", identifier: "equipmentDetailMenu") {
+                HeaderMenuKey(systemImage: "ellipsis", accessibilityLabel: "Equipment options", identifier: "equipmentDetailMenu", chrome: .toolbar) {
                     Button("Delete custom equipment", role: .destructive) {
                         confirmingDelete = true
                     }
