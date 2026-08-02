@@ -999,7 +999,11 @@ final class ChangeEngine {
     /// exact-or-unique-substring, so forgiveness here can never make
     /// the engine touch the wrong thing.
     private func closestText(_ query: String, in names: [String]) -> String {
-        var close = FuzzySearch.ranked(names, query: query) { $0 }
+        // Synonym-keyed (#497): a user who says "rdl" gets Romanian
+        // Deadlift SUGGESTED. Resolution above is untouched and stays
+        // exact-or-unique-substring, so a hidden term can never select a
+        // write target on its own.
+        var close = FuzzySearch.ranked(names, query: query) { CatalogSearchSynonyms.searchKey(for: $0) }
         let lowered = query.lowercased()
         if close.isEmpty {
             close = names.filter { candidate in

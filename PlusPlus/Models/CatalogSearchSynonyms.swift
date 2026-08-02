@@ -1,4 +1,5 @@
 import Foundation
+import PlusPlusKit
 
 /// Hidden search terms for built-in catalog names (2026-07-31): what
 /// people actually type when they mean an item whose canonical name
@@ -130,5 +131,62 @@ enum CatalogSearchSynonyms {
 
     static func equipmentTerms(named name: String) -> String {
         equipment[name] ?? ""
+    }
+
+    // MARK: - Fuzzy ranking beyond the catalog surfaces (#497)
+
+    /// A name plus its hidden terms, for any fuzzy ranking that should
+    /// answer what people TYPE rather than only what the catalog calls
+    /// things. Returns the bare name when nothing is known about it, so
+    /// it is safe to key on for mixed lists (routine and kit names pass
+    /// straight through). Both tables are consulted because a few names
+    /// are in each — "Jump Rope" is an exercise AND a piece of equipment.
+    /// ⚠️ For RANKING a visible list only (a digest, a suggestion run),
+    /// never for resolving one canonical name — see `bestMatch`, which
+    /// scores the name and the terms separately for that reason.
+    static func searchKey(for name: String) -> String {
+        let terms = hiddenTerms(for: name)
+        return terms.isEmpty ? name : "\(name) \(terms)"
+    }
+
+    /// `FuzzySearch.bestMatch` with the hidden terms in play — the same
+    /// one-canonical-name contract, now reachable by "rdl". Used by
+    /// Operator's READ paths; write-target resolution stays strict.
+    ///
+    /// ⚠️ This is a RESOLVER, not a ranker, and two things follow.
+    /// A BLANK query resolves to nothing (`FuzzySearch.bestMatch`'s own
+    /// guard): `ranked` passes items through unchanged when the query is
+    /// blank, so `.first` would attribute a stat to an arbitrary
+    /// exercise — a confidently wrong number.
+    /// And the name is scored SEPARATELY from the hidden terms, never
+    /// concatenated into one candidate: `FuzzySearch`'s coverage term
+    /// divides by the candidate's token count, so a glued haystack
+    /// PENALIZES a row for having synonyms. Concatenating made "bike"
+    /// resolve to Cycling over Assault Bike, and the number would have
+    /// been reported under the wrong name. A hidden-term hit is demoted
+    /// to 0.75 like every other tolerant match in the app, so a literal
+    /// hit always wins.
+    static func bestMatch(query: String, in candidates: [String]) -> String? {
+        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        var best: (name: String, score: Double)?
+        for candidate in candidates {
+            let literal = FuzzySearch.score(query: query, candidate: candidate)
+            let terms = hiddenTerms(for: candidate)
+            let hidden = terms.isEmpty
+                ? nil
+                : FuzzySearch.score(query: query, candidate: "\(candidate) \(terms)").map { $0 * 0.75 }
+            guard let score = [literal, hidden].compactMap({ $0 }).max() else { continue }
+            // Strictly greater keeps the incoming order on ties, matching
+            // `FuzzySearch.ranked`'s stability.
+            if best == nil || score > best!.score { best = (candidate, score) }
+        }
+        return best?.name
+    }
+
+    /// The hidden terms alone, "" when the tables know nothing.
+    private static func hiddenTerms(for name: String) -> String {
+        [exerciseTerms(named: name), equipmentTerms(named: name)]
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
     }
 }

@@ -398,7 +398,7 @@ struct FindOrCreateEngineTests {
         let world = makeWorld(context: context)
 
         var filters = CatalogFilterState()
-        filters.muscle = .biceps
+        filters.muscles = [.biceps]
         let sections = FindOrCreateEngine.sections(
             query: "", scope: .exercises, filters: filters,
             exercises: world.exercises, equipment: world.equipment,
@@ -407,7 +407,7 @@ struct FindOrCreateEngineTests {
         // Probe Curl files under biceps; the custom (core) and the rest drop.
         #expect(sections.flatMap(\.results).map(\.name) == ["Probe Curl"])
 
-        filters.muscle = .core
+        filters.muscles = [.core]
         let coreSections = FindOrCreateEngine.sections(
             query: "", scope: .exercises, filters: filters,
             exercises: world.exercises, equipment: world.equipment,
@@ -427,7 +427,7 @@ struct FindOrCreateEngineTests {
         let pool = world.exercises + [deadlift, lateralRaise]
 
         var filters = CatalogFilterState()
-        filters.pattern = .hinge
+        filters.patterns = [.hinge]
         let hinge = FindOrCreateEngine.sections(
             query: "", scope: .exercises, filters: filters,
             exercises: pool, equipment: world.equipment,
@@ -457,7 +457,7 @@ struct FindOrCreateEngineTests {
         try? context.save()
 
         var filters = CatalogFilterState()
-        filters.equipmentCategory = .cardio
+        filters.equipmentCategories = [.cardio]
         let sections = FindOrCreateEngine.sections(
             query: "", scope: .kit, filters: filters,
             exercises: [], equipment: [rower, barbell, custom],
@@ -472,7 +472,7 @@ struct FindOrCreateEngineTests {
         let world = makeWorld(context: context)
         // Probe Day contains Probe Curl (biceps) → derived focus Upper.
         var filters = CatalogFilterState()
-        filters.focus = .upper
+        filters.focuses = [.upper]
         let upper = FindOrCreateEngine.sections(
             query: "", scope: .routines, filters: filters,
             exercises: world.exercises, equipment: world.equipment,
@@ -487,7 +487,7 @@ struct FindOrCreateEngineTests {
         // the MINE tier of a from-scratch library. The authored
         // template answers and stays a normal result.
         filters = CatalogFilterState()
-        filters.effort = .moderate
+        filters.efforts = [.moderate]
         let moderate = FindOrCreateEngine.sections(
             query: "", scope: .routines, filters: filters,
             exercises: world.exercises, equipment: world.equipment,
@@ -510,8 +510,8 @@ struct FindOrCreateEngineTests {
         // Probe Day derives focus Upper (Probe Curl, biceps). Effort it
         // cannot answer; Lower it can, and fails.
         var filters = CatalogFilterState()
-        filters.effort = .moderate
-        filters.focus = .lower
+        filters.efforts = [.moderate]
+        filters.focuses = [.lower]
         let sections = FindOrCreateEngine.sections(
             query: "", scope: .routines, filters: filters,
             exercises: world.exercises, equipment: world.equipment,
@@ -538,7 +538,7 @@ struct FindOrCreateEngineTests {
         // Chest keeps Probe Press alone; the other three matched "probe"
         // and are exactly what the chip is holding back.
         var filters = CatalogFilterState()
-        filters.muscle = .chest
+        filters.muscles = [.chest]
         let narrowed = FindOrCreateEngine.outcome(
             query: "probe", scope: .exercises, filters: filters,
             exercises: world.exercises, equipment: world.equipment,
@@ -565,7 +565,7 @@ struct FindOrCreateEngineTests {
         #expect(reached == ["Probe Curl"])
 
         var filters = CatalogFilterState()
-        filters.muscle = .chest
+        filters.muscles = [.chest]
         let outcome = FindOrCreateEngine.outcome(
             query: "probe curl", scope: .exercises, filters: filters,
             exercises: world.exercises, equipment: world.equipment,
@@ -580,7 +580,7 @@ struct FindOrCreateEngineTests {
         let context = ModelContext(try makeContainer())
         let world = makeWorld(context: context)
         var filters = CatalogFilterState()
-        filters.muscle = .chest
+        filters.muscles = [.chest]
 
         let narrowed = FindOrCreateEngine.outcome(
             query: "probe", scope: .exercises, filters: filters,
@@ -603,7 +603,7 @@ struct FindOrCreateEngineTests {
         let context = ModelContext(try makeContainer())
         let world = makeWorld(context: context)
         var filters = CatalogFilterState()
-        filters.effort = .moderate
+        filters.efforts = [.moderate]
         let outcome = FindOrCreateEngine.outcome(
             query: "", scope: .routines, filters: filters,
             exercises: world.exercises, equipment: world.equipment,
@@ -622,7 +622,7 @@ struct FindOrCreateEngineTests {
         let context = ModelContext(try makeContainer())
         let world = makeWorld(context: context)
         var filters = CatalogFilterState()
-        filters.effort = .intense  // the fixture template is .moderate
+        filters.efforts = [.intense]  // the fixture template is .moderate
         let outcome = FindOrCreateEngine.outcome(
             query: "probe", scope: .routines, filters: filters,
             exercises: world.exercises, equipment: world.equipment,
@@ -639,7 +639,7 @@ struct FindOrCreateEngineTests {
         let world = makeWorld(context: context)
 
         var filters = CatalogFilterState()
-        filters.muscle = .chest
+        filters.muscles = [.chest]
         let sections = FindOrCreateEngine.sections(
             query: "probe", scope: .exercises, filters: filters,
             exercises: world.exercises, equipment: world.equipment,
@@ -655,9 +655,9 @@ struct FindOrCreateEngineTests {
     @Test("Facet bookkeeping: activeFacets, isEmpty, and clear are per scope")
     func facetBookkeeping() {
         var filters = CatalogFilterState()
-        filters.muscle = .chest
-        filters.pattern = .hinge
-        filters.equipmentCategory = .machines
+        filters.muscles = [.chest]
+        filters.patterns = [.hinge]
+        filters.equipmentCategories = [.machines]
         #expect(filters.activeFacets(for: .exercises).map(\.name) == ["Muscle", "Movement"])
         #expect(filters.activeFacets(for: .kit).map(\.value) == ["Machines"])
         #expect(filters.isEmpty(for: .routines))
@@ -665,6 +665,60 @@ struct FindOrCreateEngineTests {
         #expect(filters.isEmpty(for: .exercises))
         // Clearing one scope leaves the others alone.
         #expect(!filters.isEmpty(for: .kit))
+    }
+
+    // MARK: - Multi-select facets (#498)
+
+    @Test("Several values in one facet widen it; facets still narrow each other")
+    func multiSelectIsOrWithinAndAcross() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+
+        // Probe Curl is biceps, Probe Custom Move is core: either alone
+        // shows one row, both together show both. OR inside the facet.
+        var filters = CatalogFilterState()
+        filters.muscles = [.biceps, .core]
+        let both = FindOrCreateEngine.sections(
+            query: "", scope: .exercises, filters: filters,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines, templates: [], kitNames: world.kitNames
+        )
+        #expect(both.flatMap(\.results).map(\.name).sorted() == ["Probe Curl", "Probe Custom Move"])
+
+        // A second facet still ANDs: nothing is both of those muscles and
+        // a hinge (the Probe fixtures carry no catalog attributes at all).
+        filters.patterns = [.hinge]
+        let narrowed = FindOrCreateEngine.sections(
+            query: "", scope: .exercises, filters: filters,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines, templates: [], kitNames: world.kitNames
+        )
+        #expect(narrowed.flatMap(\.results).isEmpty)
+    }
+
+    @Test("An empty facet is off, never a filter that matches nothing")
+    func emptyFacetIsOff() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        var filters = CatalogFilterState()
+        filters.muscles = []
+        filters.patterns = []
+        #expect(filters.isEmpty(for: .exercises))
+        let sections = FindOrCreateEngine.sections(
+            query: "", scope: .exercises, filters: filters,
+            exercises: world.exercises, equipment: world.equipment,
+            routines: world.routines, templates: [], kitNames: world.kitNames
+        )
+        #expect(sections.flatMap(\.results).count == world.exercises.count)
+    }
+
+    @Test("The summary names every value in a multi-select facet")
+    func summaryNamesEveryValue() {
+        var filters = CatalogFilterState()
+        filters.muscles = [.chest, .biceps]
+        let facet = filters.activeFacets(for: .exercises).first { $0.name == "Muscle" }
+        // Sorted, so the popover reads the same on every render.
+        #expect(facet?.value == "Biceps, Chest")
     }
 
     @Test("A routine the kit can't do groups under the missing section")

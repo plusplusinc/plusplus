@@ -215,9 +215,14 @@ Siblings: `navigation.md` (tab bar, search, scope control, landings),
   2026-07-31** (Dave, reversing the 2026-07-25 retirement) as `FacetChip` +
   `FilterSummaryChip` (`Views/Components/FilterChips.swift`), REBUILT on that
   anatomy — ⚠️ the git-history versions wear the retired solid-blue fill; do
-  not copy them. Single-select Menus only (a multi-select is a list, not a
-  `Menu` — ui-interaction.md); the summarize-never-insta-clear law below has
-  its live consumer again. `MultiFacetChip`/`TrayFilterChip`/`SortChip`/
+  not copy them. **A facet with a real list of options is a TRAY**
+  (`FacetTrayChip` → `SheetPickList`, multi-select, #498); a BINARY facet
+  (mechanic, sides) keeps its single-select `FacetChip` Menu, because picking
+  both options says what picking neither says. Never a multi-select `Menu`
+  (ui-interaction.md). A chip states its own selection the way the row's
+  summary states the row's: the value when there is one, `name · N` when
+  there are several. The summarize-never-insta-clear law below has its live
+  consumer again. `MultiFacetChip`/`TrayFilterChip`/`SortChip`/
   `KitFilterChip` stay deleted — no sort, no kit facet. A **card data tag** is not a button — it
   shows a property, so it wears the soft `surfaceRaised` fill with NO stroke
   (a stroked tag reads as a button). That style is the shared

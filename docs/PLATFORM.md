@@ -415,6 +415,17 @@ Semantics worth writing down:
   list is therefore meaningful rather than noise: it says "this group, and
   not whatever the catalog would give me" — how a pruned built-in survives
   a round trip.
+- **Movement attributes** (additive to schema v1): an exercise may carry
+  `movementPattern` (`squat`, `hinge`, `lunge`, `horizontalPush`,
+  `verticalPush`, `horizontalPull`, `verticalPull`, `carry`, `rotation`,
+  `hold`, `jump`), `mechanic` (`compound`, `isolation`) and `laterality`
+  (`bilateral`, `unilateral`) — how the move files on a program, which is
+  what the app's catalog filters and its substitution ranker read. All
+  three follow the `muscleGroups` rule exactly: written only when the
+  exercise carries an EXPLICIT override, so an untouched built-in and
+  every pre-field file stay byte-identical, and absent means "resolve it
+  however you resolve them" rather than "none" (in the app, follow the
+  catalog). A custom's values are simply its own.
 - **Heart-rate targets** (additive to schema v1): an optional cardio
   prescription — guidance shown during execution, never a logged metric.
   Encoded as `{ "kind": "zone", "zone": 3 }` (zones 1–5) or

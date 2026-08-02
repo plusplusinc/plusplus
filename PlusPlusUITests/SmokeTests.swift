@@ -453,23 +453,28 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(app.buttons["startWorkoutButton"].waitForExistence(timeout: 5))
     }
 
-    /// The facet row (filtering returns, 2026-07-31): a muscle chip
-    /// narrows the Exercises catalog, the summary chip appears, and
-    /// Clear all restores the full list. First-screen elements only
-    /// (the lazy-list law) — and --uitest-reset PRE-FILLS the kit
-    /// (`populateLibrary`), so everything is doable and the narrowed
-    /// run is alphabetical from the top: assert early-alphabet rows
-    /// ("Bench Press" under Chest, "Arm Circles" after clearing),
-    /// never a P-row (the first run of this test failed exactly there).
+    /// The facet row (filtering returns, 2026-07-31; multi-select trays
+    /// #498): the muscle chip opens a tray, picking Chest narrows the
+    /// Exercises catalog, the summary chip appears, and Clear all
+    /// restores the full list. First-screen elements only (the lazy-list
+    /// law) — and --uitest-reset PRE-FILLS the kit (`populateLibrary`),
+    /// so everything is doable and the narrowed run is alphabetical from
+    /// the top: assert early-alphabet rows ("Bench Press" under Chest,
+    /// "Arm Circles" after clearing), never a P-row (an early run of
+    /// this test failed exactly there).
     func testExerciseFilterNarrowsAndClears() throws {
         goToCatalog("exercises")
 
         let muscleChip = app.buttons["facetMuscle"]
         XCTAssertTrue(muscleChip.waitForExistence(timeout: 10), "the facet row rides the catalog")
         muscleChip.tap()
-        let chest = app.buttons["Chest"]
-        XCTAssertTrue(chest.waitForExistence(timeout: 5), "the muscle menu offers Chest")
+        // A multi-select facet is a LIST in a tray, keyed by raw value.
+        let chest = app.buttons["pick-chest"]
+        XCTAssertTrue(chest.waitForExistence(timeout: 5), "the muscle tray offers Chest")
         chest.tap()
+        let done = app.buttons["Done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 5), "the tray closes on Done")
+        done.tap()
 
         XCTAssertTrue(app.staticTexts["Bench Press"].waitForExistence(timeout: 5), "a chest row survives the filter")
         snap("exercise-filter-chest")

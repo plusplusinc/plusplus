@@ -116,6 +116,13 @@ struct ExerciseEditorView: View {
             || Set(draft.selectedEquipment.map(\.name)) != Set(def.equipmentNames)
             || !draft.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             || !draft.videoURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            // The authored attributes are customization too (#496). Without
+            // this, changing only a built-in's pattern hid the revert key
+            // entirely — a row that exports as customized with nothing on
+            // screen saying so, and no way back.
+            || draft.movementPattern != def.movementPattern
+            || draft.mechanic != def.mechanic
+            || draft.laterality != def.laterality
     }
 
     private var existingNames: [String] {
@@ -331,6 +338,33 @@ struct ExerciseEditorView: View {
                         }
                     }
                     Text(muscleGroupCaption)
+                        .font(.system(.caption))
+                        .foregroundStyle(Theme.textFaint)
+                        .padding(.top, 6)
+
+                    SheetSectionLabel("MOVEMENT")
+                        .padding(.top, 24)
+                    VStack(spacing: 8) {
+                        NavigationSelectRow(
+                            title: "Pattern",
+                            selection: $draft.movementPattern,
+                            options: attributeOptions(MovementPattern.allCases, catalog: draft.catalogPattern) { $0.displayName },
+                            identifier: "movementPatternRow"
+                        )
+                        NavigationSelectRow(
+                            title: "Mechanic",
+                            selection: $draft.mechanic,
+                            options: attributeOptions(ExerciseMechanic.allCases, catalog: draft.catalogMechanic) { $0.displayName },
+                            identifier: "mechanicRow"
+                        )
+                        NavigationSelectRow(
+                            title: "Sides",
+                            selection: $draft.laterality,
+                            options: attributeOptions(ExerciseLaterality.allCases, catalog: draft.catalogLaterality) { $0.displayName },
+                            identifier: "lateralityRow"
+                        )
+                    }
+                    Text("How this move files on a program.")
                         .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
                         .padding(.top, 6)
@@ -564,11 +598,27 @@ struct ExerciseEditorView: View {
         .accessibilityLabel("Remove \(equipment.name)")
     }
 
+    /// Options for one authored-attribute row (#496). "Not set" is offered
+    /// ONLY where the catalog is silent — on a built-in that already files
+    /// as, say, a hinge, picking "Not set" would store nil, which means
+    /// "follow the catalog", which means hinge again. An option that
+    /// cannot stick is worse than an absent one.
+    private func attributeOptions<Value: Hashable>(
+        _ cases: [Value],
+        catalog: Value?,
+        label: (Value) -> String
+    ) -> [NavigationSelectRow<Value?>.Option] {
+        let real = cases.map { NavigationSelectRow<Value?>.Option(value: $0, label: label($0)) }
+        guard catalog == nil else { return real }
+        return [NavigationSelectRow<Value?>.Option(value: nil, label: "Not set")] + real
+    }
+
     /// MUSCLE GROUPS chip — the equipment chip's twin, so the editor's two
     /// multi-selects read as one thing. Tapping removes, except when it is
     /// the last one left: that chip is DISABLED and drops its ✕ rather than
     /// swallowing the tap, since a control that looks live and does nothing
     /// is the dead-tap class (build 76).
+
     private func muscleGroupChip(_ group: MuscleGroup) -> some View {
         let isLast = draft.muscleGroups.count == 1
         return Button {
@@ -695,6 +745,12 @@ struct ExerciseEditorView: View {
         draft.selectedEquipment = Set(allEquipment.filter { def.equipmentNames.contains($0.name) })
         draft.notes = ""
         draft.videoURL = ""
+        // "Restores the catalog definition" has to mean all of it: apply
+        // then writes these back as nil, so the row follows the catalog
+        // again instead of keeping a stale override nobody can see.
+        draft.movementPattern = def.movementPattern
+        draft.mechanic = def.mechanic
+        draft.laterality = def.laterality
     }
 
     private func save() {

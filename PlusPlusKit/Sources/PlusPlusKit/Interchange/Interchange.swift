@@ -83,6 +83,15 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
     /// whatever the catalog would give me." Read it through
     /// `resolvedMuscleGroups`, never raw.
     public var muscleGroups: [MuscleGroup]?
+    /// How this move files on a program (#496). All three follow the
+    /// `muscleGroups` rule exactly: written only when the exercise
+    /// carries an EXPLICIT override, so a built-in that agrees with the
+    /// catalog and every pre-field file stay byte-identical, and absent
+    /// means "resolve it however you resolve them" — for the app, follow
+    /// the catalog. A custom's are simply its own.
+    public var movementPattern: MovementPattern?
+    public var mechanic: ExerciseMechanic?
+    public var laterality: ExerciseLaterality?
 
     /// The full group list, however the file spelled it: the explicit
     /// `muscleGroups` when present, else the single `muscleGroup`. One
@@ -112,7 +121,10 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
         inLibrary: Bool? = nil,
         isFavorite: Bool? = nil,
         defaultHeartRateTarget: HeartRateTarget? = nil,
-        muscleGroups: [MuscleGroup]? = nil
+        muscleGroups: [MuscleGroup]? = nil,
+        movementPattern: MovementPattern? = nil,
+        mechanic: ExerciseMechanic? = nil,
+        laterality: ExerciseLaterality? = nil
     ) {
         self.name = name
         self.muscleGroup = muscleGroup
@@ -140,6 +152,9 @@ public struct ExerciseDTO: Codable, Equatable, Sendable {
         self.inLibrary = inLibrary
         self.isFavorite = isFavorite
         self.defaultHeartRateTarget = defaultHeartRateTarget
+        self.movementPattern = movementPattern
+        self.mechanic = mechanic
+        self.laterality = laterality
     }
 }
 

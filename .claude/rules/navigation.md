@@ -219,11 +219,15 @@ site is a native `Picker` (`.segmented` for short unit/mode toggles, a pushed
   grouped as its tab groups it**.
 - **All three scopes read alike: MINE then CATALOG, plus ONE facet row**
   (filtering returned 2026-07-31, reversing 2026-07-25) — the Kit tab means
-  "equipment, mine first", not "my kit". The row: single-select `FacetChip`
-  Menus per scope (exercises kind · muscle · movement · mechanic · sides; kit
-  type; routines focus · effort · style), state in `CatalogFilterState` —
-  ephemeral per `CatalogScopeView` INSTANCE, reset on scope change, applied in
-  `FindOrCreateEngine` so facets narrow and the query ranks.
+  "equipment, mine first", not "my kit". The row per scope: exercises kind ·
+  muscle · movement · mechanic · sides; kit type; routines focus · effort ·
+  style. State in `CatalogFilterState` — ephemeral per `CatalogScopeView`
+  INSTANCE, reset on scope change, applied in `FindOrCreateEngine` so facets
+  narrow and the query ranks. ⚠️ **Multi-select facets are SETS and compose OR
+  inside a facet, AND across them** (#498 — "chest or shoulders, and
+  compound"); an EMPTY set means the facet is off, never "match nothing". Only
+  the two binaries stay single-select optionals (see design-grammar for which
+  control each takes).
   ⚠️ **What a facet hides is NAMED, and counted in the pass that built the
   list** (#507): `FindOrCreateEngine.outcome` scores each candidate first and
   classifies by facet second, so an excluded MATCH is counted where it was

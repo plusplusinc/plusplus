@@ -64,6 +64,68 @@ public enum ExerciseType: String, Codable, Sendable {
     case duration
 }
 
+// MARK: - Authored attributes (catalog expansion 2026-07-31; moved into
+// Kit 2026-08-02 when the swap ranker and the interchange both needed
+// them). Pure value taxonomy, exactly like MuscleGroup: the app authors
+// them on its catalog table, the ranker scores them, the DTOs carry a
+// user's explicit override.
+
+/// The bucket a move files under on a program — what "hinge day" or
+/// "add a vertical pull" means. Authored on compound strength rows;
+/// isolation work may carry one where it genuinely reads as a pattern
+/// (a cable woodchopper is rotation), and cardio rows carry none
+/// (their identity is modality). The display name doubles as a hidden
+/// search term, so typing "hinge" surfaces the deadlifts.
+public enum MovementPattern: String, Codable, CaseIterable, Identifiable, Sendable {
+    case squat, hinge, lunge
+    case horizontalPush, verticalPush, horizontalPull, verticalPull
+    case carry, rotation, hold, jump
+
+    public var id: Self { self }
+
+    public var displayName: String {
+        switch self {
+        case .squat: "Squat"
+        case .hinge: "Hinge"
+        case .lunge: "Lunge"
+        case .horizontalPush: "Horizontal push"
+        case .verticalPush: "Vertical push"
+        case .horizontalPull: "Horizontal pull"
+        case .verticalPull: "Vertical pull"
+        case .carry: "Carry"
+        case .rotation: "Rotation"
+        case .hold: "Hold"
+        case .jump: "Jump"
+        }
+    }
+}
+
+/// Programming semantics, not strict joint-count: a compound is a
+/// multi-muscle movement you'd build a session around; an isolation is
+/// a single-focus accessory. Core flexion work (crunches, leg raises)
+/// files as isolation on that reading. nil = unclassified — the
+/// stretch/mobility/foam-roll rows, where the question doesn't apply.
+public enum ExerciseMechanic: String, Codable, CaseIterable, Identifiable, Sendable {
+    case compound, isolation
+
+    public var id: Self { self }
+
+    public var displayName: String { rawValue.capitalized }
+}
+
+/// Whether the work loads one side at a time. The authoring rule:
+/// unilateral means a SET belongs to a side (single-arm rows, split
+/// squats, suitcase carries, per-side stretches); a drill that merely
+/// alternates limbs within one set (dead bug, walking knee hug) stays
+/// bilateral.
+public enum ExerciseLaterality: String, Codable, CaseIterable, Identifiable, Sendable {
+    case bilateral, unilateral
+
+    public var id: Self { self }
+
+    public var displayName: String { rawValue.capitalized }
+}
+
 /// The movement family an exercise READS as. Originally just the figure
 /// icon on universal-search rows; it now also decides the Health activity
 /// type a finished workout is filed under and the noun one unit of work
