@@ -129,17 +129,30 @@ struct RootTabView: View {
     /// A tapped share link whose payload couldn't be read — said out
     /// loud, never silently dropped (design review 2026-07-23).
     @State private var showShareLinkError = false
-    /// Post-install return from GitHub (the Setup-URL bounce, #23): present
-    /// the connect step so the user just authorizes.
-    @State private var showGitHubConnect = false
-    /// Today's broken-sync advisory (#509, Q19-A) presenting the sync tray
-    /// itself. Separate from `showGitHubConnect` because that one is the
-    /// post-authorize RETURN and opens on the connect step; this one opens
-    /// the tray at its top, which is where a reconnect starts anyway
-    /// (`GitHubSyncTray` seats a faulted connection on `.connect` on its
-    /// own) and where the disconnect and repo rows live if that's what the
-    /// person came for.
-    @State private var showSyncTray = false
+    /// The GitHub tray, and WHICH door opened it. ⚠️ ONE `@State` behind
+    /// ONE `.sheet(item:)`, never two booleans behind two sheets (#509
+    /// review): a view can only present one sheet, so a second request
+    /// arriving while the first is up is silently dropped AND latches its
+    /// flag true — after which every later request is a no-op assignment
+    /// and the post-install auto-return is dead until relaunch.
+    ///
+    /// That is not a hypothetical ordering: the commonest repair for a
+    /// broken sync is re-installing the Sync App, `openInstall()` leaves
+    /// the app on purpose so the Setup URL can bounce back, and the bounce
+    /// lands while the tray the user opened from Today is still on screen.
+    /// As an item, a second request REPLACES the first instead of racing it.
+    /// `RevealSurface`'s two-sheet pair has a pending-queue for the same
+    /// reason; this one has a single slot, which is simpler and enough.
+    enum GitHubSheet: String, Identifiable {
+        /// Post-authorize return from github.com — opens on the connect step.
+        case connect
+        /// Today's broken-sync advisory, and any other plain entry: the tray
+        /// at its top, where a reconnect starts anyway (the tray seats a
+        /// faulted connection on `.connect` itself) and where Disconnect is.
+        case tray
+        var id: String { rawValue }
+    }
+    @State private var githubSheet: GitHubSheet?
     /// #155: the store couldn't be opened and was reset this launch. Read
     /// once at init (the flag is set during app init, before any view), so
     /// we tell the user rather than pretending nothing happened.
@@ -356,7 +369,7 @@ struct RootTabView: View {
             // Post-install bounce from GitHub (plusplus://github/connected):
             // present the connect step, which auto-starts the device flow.
             if url.scheme == RoutineShareLink.appScheme, url.host == "github" {
-                showGitHubConnect = true
+                githubSheet = .connect
                 return
             }
             // A calendar event's start link (plusplus://start/<name>, #333):
@@ -385,15 +398,15 @@ struct RootTabView: View {
         // if anything else were already up. One receiver, one sheet, and
         // the user lands where the card promised instead of watching the
         // app slide aside first.
-        .onReceive(NotificationCenter.default.publisher(for: .plusplusRevealSyncTray)) { _ in
-            showSyncTray = true
+        .onReceive(NotificationCenter.default.publisher(for: .plusplusOpenSyncTray)) { _ in
+            githubSheet = .tray
         }
         // Universal-link form of the same GitHub Setup-URL return
         // (https://plusplus.fit/github/…), for when it opens the app directly.
         .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
             guard let url = activity.webpageURL else { return }
             if url.path == "/github/connected" || url.path.hasPrefix("/github/") {
-                showGitHubConnect = true
+                githubSheet = .connect
             } else if let name = WorkoutCalendarLink.routineName(from: url) {
                 // https://plusplus.fit/start/<name> — the universal-link
                 // form of a calendar event's start link (#333).
@@ -440,11 +453,14 @@ struct RootTabView: View {
         } message: {
             Text("It may be incomplete or from a newer version of PlusPlus.")
         }
-        .sheet(isPresented: $showGitHubConnect) {
-            GitHubSyncTray(startAtConnect: true)
-        }
-        .sheet(isPresented: $showSyncTray) {
-            GitHubSyncTray()
+        .sheet(item: $githubSheet) { which in
+            GitHubSyncTray(startAtConnect: which == .connect)
+                // The same ground the drawer's trays wear. This route is
+                // an everyday one from the home surface now, so a system
+                // sheet background here would be the one place the warm
+                // charcoal drops out (#509 review).
+                .presentationCornerRadius(Theme.sheetRadius + 2)
+                .presentationBackground(Theme.background)
         }
         // #155: never a silent wipe. If the store couldn't be opened and
         // was reset this launch, say so plainly (calm, no blame) and note

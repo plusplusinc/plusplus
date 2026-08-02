@@ -1267,7 +1267,19 @@ struct TodayView: View {
         // moment the connection is repaired. Second is enough — it is on
         // screen at landing either way, directly under the card it sits
         // below, and it costs the rail's normal content nothing.
-        if sync.isBackupBroken {
+        //
+        // ⚠️ Which is why it carries the ANYTIME row's own gate rather than
+        // trusting position (second review round): the anytime entry is
+        // conditional, so "second" was incidental, and in the one state that
+        // hides it — a fresh install still on setup step 1 — the advisory
+        // WAS first, in the landing slot, on a phone whose owner hasn't done
+        // anything yet. Reachable: restore onto a new phone, connect, pull a
+        // template-only repo, then break the connection. Sharing the gate
+        // makes the invariant structural: whenever this can render, the row
+        // above it rendered too. It costs a fresh install one setup step of
+        // silence, which is the right trade on the surface that is teaching
+        // them the app.
+        if sync.isBackupBroken, !setupActive || equipmentStepDone {
             brokenSyncEntry
         }
         // TODAY is ONE dated group (the build-161 restructure: dates pop
@@ -1358,7 +1370,7 @@ struct TodayView: View {
             datelineAccessibilityLabel: "Waiting"
         ) {
             Button {
-                NotificationCenter.default.post(name: .plusplusRevealSyncTray, object: nil)
+                NotificationCenter.default.post(name: .plusplusOpenSyncTray, object: nil)
             } label: {
                 HStack(alignment: .center, spacing: 8) {
                     VStack(alignment: .leading, spacing: 3) {

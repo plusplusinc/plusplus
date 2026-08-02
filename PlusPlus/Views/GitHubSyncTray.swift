@@ -6,12 +6,25 @@ import PlusPlusKit
 /// The single GitHub sync surface (#23 flow redesign): one tray that carries
 /// the whole story instead of a status tray pushing a separate connect screen.
 ///
-/// Not connected, it runs a three-step wizard with exactly one enabled primary
-/// action at a time: create a repo, install the PlusPlus Sync App on it, then
-/// authorize this device. Connected, it offers only Disconnect. The post-install
-/// auto-return (`startAtConnect`) and a reconnect after a fault both drop the
-/// user straight on the authorize step, since the repo and App install already
-/// exist by then.
+/// Not connected, it runs a three-step wizard: **authorize this device, create
+/// a repo, install the PlusPlus Sync App on it.** Connected, it offers only
+/// Disconnect.
+///
+/// ⚠️ Authorize comes FIRST, and that reorder is the whole point (#509,
+/// Q18-A). The old order put it last, so create-repo and install were
+/// "Done? Continue" with nothing checking them and the first real
+/// verification ran only after the full device-flow round trip — whoever
+/// missed the install found out last, via a generic error, having already
+/// paid for the code entry. With a token in hand the install becomes
+/// checkable: step 3 asks GitHub, names the repo it found ("installed on
+/// owner/repo"), and gates Finish on that answer. It re-checks whenever the
+/// app comes back to the foreground, which is exactly when the user returns
+/// from installing.
+///
+/// Repo creation stays honor-system on purpose: the Contents-only App can
+/// only ever see repos it is installed on, so an uninstalled repo is
+/// invisible to us. The install check covers both — you cannot install on a
+/// repo that doesn't exist.
 struct GitHubSyncTray: View {
     /// Present already advanced to the authorize step. The post-install
     /// auto-return sets this: GitHub only bounces back after a completed
@@ -37,8 +50,25 @@ struct GitHubSyncTray: View {
     /// Direction of the last step change, so the slide transition reads
     /// right-to-left going forward and left-to-right going Back.
     @State private var advancing = true
+    /// Step 3's live install check and the task running it.
+    @State private var installCheck: InstallCheck = .idle
+    @State private var installCheckTask: Task<Void, Never>?
+    @State private var finishing = false
+    /// Re-check the install whenever the app returns from GitHub — the
+    /// install step opens EXTERNALLY, so coming back IS the moment the
+    /// answer changes.
+    @Environment(\.scenePhase) private var scenePhase
 
-    enum Step: Int { case createRepo = 1, install = 2, connect = 3 }
+    enum Step: Int { case authorize = 1, createRepo = 2, install = 3 }
+
+    /// The live verdict on step 3 (#509, Q18-A).
+    enum InstallCheck: Equatable {
+        case idle
+        case checking
+        case installed(GitHubRepoCoordinate)
+        case notInstalled
+        case failed(String)
+    }
 
     struct BrowserURL: Identifiable { let url: URL; var id: String { url.absoluteString } }
 
@@ -95,24 +125,50 @@ struct GitHubSyncTray: View {
                 await sync.sync(context: modelContext, units: units)
             }
         }
-        .sheet(item: $browser) { item in
+        // ⚠️ `onDismiss` matters as much as the scenePhase hook below, and
+        // is easy to miss: `openInstall()` falls back to the IN-APP browser
+        // on a device with no handler for the universal link, and that
+        // route never backgrounds the app — so scenePhase never fires and
+        // the verdict would sit stale behind a "Check again" the user has
+        // no reason to think they need.
+        .sheet(item: $browser, onDismiss: {
+            guard step == .install, !sync.isConnected else { return }
+            checkInstall()
+        }) { item in
             SafariView(url: item.url).ignoresSafeArea()
+        }
+        // The install step opens EXTERNALLY (`openInstall`), so returning to
+        // the app IS the moment the answer can have changed. Re-ask then,
+        // rather than making the user find "Check again".
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active, step == .install, !sync.isConnected else { return }
+            checkInstall()
         }
         .onAppear {
             guard !didInit else { return }
             didInit = true
-            // Reconnect (faulted) and the post-install return both belong on
-            // the authorize step: the repo and App install already exist, only
-            // this device's token is missing.
-            if startAtConnect || sync.faulted { step = .connect }
-            // Only the redirect auto-starts the flow; a manual reconnect waits
-            // for the user to tap the primary.
-            guard startAtConnect, case .disconnected = sync.connection, !isAuthorizing else { return }
-            startConnect()
+            // ⚠️ Where you land is decided by the TOKEN, not by which door
+            // opened the tray (#509, Q18-A). A device holding one is past
+            // step 1 whatever brought it here — the post-install bounce, a
+            // reconnect, or reopening a wizard abandoned halfway — and the
+            // install step can tell it in one request which of the
+            // remaining states it is actually in. Without a token there is
+            // exactly one thing to do, and it is step 1.
+            if sync.hasToken {
+                step = .install
+                checkInstall()
+            } else {
+                step = .authorize
+                // Only the post-install redirect auto-starts the flow; a
+                // manual reconnect waits for the user to tap the primary.
+                guard startAtConnect, case .disconnected = sync.connection, !isAuthorizing else { return }
+                startAuthorize()
+            }
         }
         .onDisappear {
             connectTask?.cancel()
             copyResetTask?.cancel()
+            installCheckTask?.cancel()
             sync.authorizingAborted()
         }
     }
@@ -177,13 +233,44 @@ struct GitHubSyncTray: View {
             // Back reverses.
             ZStack(alignment: .topLeading) {
                 switch step {
+                case .authorize: authorizeStep.transition(stepTransition)
                 case .createRepo: createRepoStep.transition(stepTransition)
                 case .install: installStep.transition(stepTransition)
-                case .connect: connectStep.transition(stepTransition)
                 }
             }
             .clipped()
             if let activityError { errorNote(activityError) }
+            abandonKey
+        }
+    }
+
+    /// The way OUT of a half-finished or broken connection (#509 review).
+    ///
+    /// ⚠️ Disconnect used to live only in `connectedActions`, so a fault
+    /// was a one-way door: `faulted` is cleared by a successful connect or
+    /// by `disconnect()`, and while faulted the tray shows this wizard,
+    /// which offered neither. Someone who deleted their repo, closed their
+    /// GitHub account, or simply changed their mind was left with a red
+    /// row in the drawer and an amber card on Today saying "reconnect",
+    /// with no way to say no. It only appears once there is something to
+    /// forget, so a first-time wizard never carries it.
+    @ViewBuilder
+    private var abandonKey: some View {
+        if sync.hasToken || sync.faulted {
+            Button(role: .destructive) {
+                installCheckTask?.cancel()
+                connectTask?.cancel()
+                installCheck = .idle
+                sync.disconnect()
+                step = .authorize
+            } label: {
+                Text("Stop syncing")
+                    .font(.system(.footnote, weight: .semibold))
+                    .foregroundStyle(Theme.destructive)
+            }
+            .accessibilityIdentifier("abandonGitHubButton")
+            .accessibilityHint("Forgets this connection and clears the token from this phone")
+            .padding(.top, 2)
         }
     }
 
@@ -194,11 +281,18 @@ struct GitHubSyncTray: View {
         )
     }
 
+    private var authorizeStep: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            primaryKey(title: "Connect this app", identifier: "connectGitHubButton") { startAuthorize() }
+            guidance("Authorize on GitHub first, so the next two steps can be checked for you.")
+        }
+    }
+
     private var createRepoStep: some View {
         VStack(alignment: .leading, spacing: 14) {
             primaryKey(title: "Create repo in GitHub", identifier: "createRepoButton") { openCreateRepo() }
             guidance("Make a new, empty repo to hold your training data.")
-            continueButton { advance(to: .install) }
+            continueButton(title: "Done? Continue") { advance(to: .install); checkInstall() }
         }
     }
 
@@ -206,15 +300,66 @@ struct GitHubSyncTray: View {
         VStack(alignment: .leading, spacing: 14) {
             primaryKey(title: "Install on GitHub", identifier: "installGitHubButton") { openInstall() }
             guidance("Install the PlusPlus Sync GitHub app to your repo.")
-            continueButton { advance(to: .connect) }
+            installVerdict
+            continueButton(title: finishing ? "Finishing\u{2026}" : "Finish", enabled: isInstalled && !finishing) {
+                finish()
+            }
         }
     }
 
-    private var connectStep: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            primaryKey(title: "Connect this app", identifier: "connectGitHubButton") { startConnect() }
-            guidance("Authorize on GitHub to link this iPhone to your repo.")
+    private var isInstalled: Bool {
+        if case .installed = installCheck { return true }
+        return false
+    }
+
+    /// What GitHub says, right now, about the install. The step's whole
+    /// reason for existing in this order (#509, Q18-A) — an answer here
+    /// costs one request and saves the device-flow round trip the old
+    /// order spent before finding out.
+    @ViewBuilder
+    private var installVerdict: some View {
+        switch installCheck {
+        case .idle, .checking:
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text("Checking GitHub\u{2026}")
+                    .font(.system(.caption))
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            .accessibilityElement(children: .combine)
+        case .installed(let repo):
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(.footnote, weight: .bold))
+                    .foregroundStyle(Theme.accent)
+                Text("installed on \(repo.owner)/\(repo.repo)")
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Installed on \(repo.owner) slash \(repo.repo)")
+            .accessibilityIdentifier("installVerified")
+        case .notInstalled:
+            recheckRow("Not installed yet. Install it above, then check again.")
+        case .failed(let message):
+            recheckRow(message)
         }
+    }
+
+    private func recheckRow(_ message: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(message)
+                .font(.system(.caption))
+                .foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("Check again") { checkInstall() }
+                .font(.system(.caption, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+                .accessibilityIdentifier("recheckInstallButton")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// Orientation + a way back through the steps (a fresh user who tapped
@@ -226,7 +371,7 @@ struct GitHubSyncTray: View {
                 .foregroundStyle(Theme.textFaint)
                 .kerning(0.5)
             Spacer()
-            if step != .createRepo {
+            if step != .authorize {
                 Button("Back") { goBack() }
                 .font(.system(.caption, weight: .semibold))
                 .foregroundStyle(Theme.textSecondary)
@@ -408,17 +553,18 @@ struct GitHubSyncTray: View {
         .accessibilityIdentifier(identifier)
     }
 
-    private func continueButton(_ action: @escaping () -> Void) -> some View {
+    private func continueButton(title: String, enabled: Bool = true, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text("Done? Continue")
+            Text(title)
                 .font(.system(.subheadline, weight: .semibold))
-                .foregroundStyle(Theme.textPrimary)
+                .foregroundStyle(enabled ? Theme.textPrimary : Theme.textFaint)
                 .lineLimit(1).minimumScaleFactor(0.6)
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: 44)
-                .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(Theme.borderStrong))
+                .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).strokeBorder(enabled ? Theme.borderStrong : Theme.border))
         }
         .buttonStyle(.plain)
+        .disabled(!enabled)
         .accessibilityIdentifier("continueStepButton")
     }
 
@@ -453,7 +599,7 @@ struct GitHubSyncTray: View {
     private func goBack() {
         withAnimation(Theme.Anim.selection) {
             advancing = false
-            step = Step(rawValue: step.rawValue - 1) ?? .createRepo
+            step = Step(rawValue: step.rawValue - 1) ?? .authorize
         }
     }
 
@@ -483,9 +629,52 @@ struct GitHubSyncTray: View {
         }
     }
 
-    private func startConnect() {
+    /// Step 1: the device flow alone. On a token it advances to step 2 —
+    /// the wizard's forward motion is the ANSWER arriving, not a Continue
+    /// the user taps on trust.
+    private func startAuthorize() {
         connectTask?.cancel()
-        connectTask = Task { await sync.connect() }
+        connectTask = Task {
+            let authorized = await sync.authorize()
+            guard !Task.isCancelled, authorized else { return }
+            advance(to: .createRepo)
+        }
+    }
+
+    /// Ask GitHub whether the Sync App is installed on a repo yet (#509,
+    /// Q18-A). Cheap (one request), safe to repeat, and the only thing
+    /// standing between the user and a Finish that works.
+    private func checkInstall() {
+        installCheckTask?.cancel()
+        guard sync.hasToken else { installCheck = .notInstalled; return }
+        installCheck = .checking
+        installCheckTask = Task {
+            do {
+                let repo = try await sync.installedRepository()
+                guard !Task.isCancelled else { return }
+                withAnimation(Theme.Anim.standard) {
+                    installCheck = repo.map(InstallCheck.installed) ?? .notInstalled
+                }
+            } catch {
+                guard !Task.isCancelled else { return }
+                // Deliberately not `describe(error)`: every failure here is
+                // "the question didn't get answered", and the action is the
+                // same one either way.
+                withAnimation(Theme.Anim.standard) {
+                    installCheck = .failed("Couldn't reach GitHub to check.")
+                }
+            }
+        }
+    }
+
+    /// Step 3's Finish: adopt the repo the check already named.
+    private func finish() {
+        guard !finishing else { return }
+        finishing = true
+        Task {
+            await sync.finishConnecting()
+            finishing = false
+        }
     }
 
     /// Prefer the GitHub app: `github.com/new` opens it directly IF it's
