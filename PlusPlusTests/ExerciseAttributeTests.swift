@@ -130,9 +130,9 @@ struct ExerciseAttributeTests {
         #expect(custom.laterality == .unilateral)
         // The point of the issue: it stops dropping out of the facet.
         var filters = CatalogFilterState()
-        filters.pattern = .rotation
+        filters.patterns = [.rotation]
         #expect(filters.allows(custom))
-        filters.pattern = .hinge
+        filters.patterns = [.hinge]
         #expect(!filters.allows(custom))
     }
 

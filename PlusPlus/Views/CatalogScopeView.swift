@@ -314,7 +314,11 @@ struct CatalogScopeView: View {
             // defaulted to Chest and landed outside the very facet you
             // were browsing. Only the muscle chip threads — no other
             // facet maps to a draft field.
-            ExerciseEditorView(prefillName: trimmedQuery, prefillMuscleGroup: filters.muscle) { exercise in
+            // One selected muscle is an intent worth prefilling; several
+            // is a browse, and picking one of them arbitrarily would be a
+            // guess (#498).
+            ExerciseEditorView(prefillName: trimmedQuery,
+                               prefillMuscleGroup: filters.muscles.count == 1 ? filters.muscles.first : nil) { exercise in
                 // The editor only INSERTS — save here so the id the landing
                 // (or the pick) keys on is permanent, not the temporary one an
                 // autosave would swap out from under it (swiftdata.md).
@@ -1062,18 +1066,20 @@ struct CatalogScopeView: View {
                     // Kind leads: the coarsest axis, and the reason the
                     // cardio push wanted a facet at all — every cardio
                     // exercise files under Full Body, so no other facet
-                    // reaches the cardio rows as a set (#475).
-                    FacetChip(name: "Kind", options: CatalogKind.allCases, display: \.label, selection: $filters.kind, identifier: "facetKind")
-                    FacetChip(name: "Muscle", options: MuscleGroup.allCases, display: \.displayName, selection: $filters.muscle, identifier: "facetMuscle")
-                    FacetChip(name: "Movement", options: MovementPattern.allCases, display: \.displayName, selection: $filters.pattern, identifier: "facetMovement")
+                    // reaches the cardio rows as a set (#475). The two
+                    // BINARY facets keep their Menus; everything with a
+                    // real list of options opens a tray (#498).
+                    FacetTrayChip(name: "Kind", options: CatalogKind.allCases, display: \.label, selection: $filters.kinds, identifier: "facetKind")
+                    FacetTrayChip(name: "Muscle", options: MuscleGroup.allCases, display: \.displayName, selection: $filters.muscles, identifier: "facetMuscle", searchPrompt: "Search muscle groups")
+                    FacetTrayChip(name: "Movement", options: MovementPattern.allCases, display: \.displayName, selection: $filters.patterns, identifier: "facetMovement", searchPrompt: "Search movements")
                     FacetChip(name: "Mechanic", options: ExerciseMechanic.allCases, display: \.displayName, selection: $filters.mechanic, identifier: "facetMechanic")
                     FacetChip(name: "Sides", options: ExerciseLaterality.allCases, display: \.displayName, selection: $filters.laterality, identifier: "facetSides")
                 case .kit:
-                    FacetChip(name: "Type", options: SeedData.EquipmentCategory.allCases, display: \.rawValue, selection: $filters.equipmentCategory, identifier: "facetType")
+                    FacetTrayChip(name: "Type", options: SeedData.EquipmentCategory.allCases, display: \.rawValue, selection: $filters.equipmentCategories, identifier: "facetType")
                 case .routines:
-                    FacetChip(name: "Focus", options: RoutineTemplate.Focus.allCases, display: \.rawValue, selection: $filters.focus, identifier: "facetFocus")
-                    FacetChip(name: "Effort", options: RoutineTemplate.Effort.allCases, display: \.rawValue, selection: $filters.effort, identifier: "facetEffort")
-                    FacetChip(name: "Style", options: RoutineTemplate.Style.allCases, display: \.rawValue, selection: $filters.style, identifier: "facetStyle")
+                    FacetTrayChip(name: "Focus", options: RoutineTemplate.Focus.allCases, display: \.rawValue, selection: $filters.focuses, identifier: "facetFocus")
+                    FacetTrayChip(name: "Effort", options: RoutineTemplate.Effort.allCases, display: \.rawValue, selection: $filters.efforts, identifier: "facetEffort")
+                    FacetTrayChip(name: "Style", options: RoutineTemplate.Style.allCases, display: \.rawValue, selection: $filters.styles, identifier: "facetStyle")
                 }
             }
             .padding(.horizontal, 16)
