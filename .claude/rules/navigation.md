@@ -103,8 +103,7 @@ exercises / equipment").
   shipping OS; if it recurs, kill the morph trigger at its source, don't
   revert.
 - ⚠️ **The activation fly-in is the OS's** (#539, closed): it reproduces in
-  Slack on the same iOS 27 beta. It cost four builds before anyone opened
-  another app.
+  Slack on the same iOS 27 beta, and cost four builds before anyone checked.
 - **The SEARCH surface carries no title** (Dave, 2026-07-26): the scope
   control names the catalog, and a large title FLASHES on entry then collapses
   as search presents. `.navigationTitle("")` + `.inline` there; the other four
