@@ -178,6 +178,70 @@ struct FindOrCreateEngineTests {
         #expect(sections[1].results.map(\.name) == ["Probe Bench"])
     }
 
+    // MARK: - Kit ordered by what a piece opens (#251, 2026-08-02)
+
+    @Test("With no query the CATALOG tier leads with what opens the most")
+    func kitCatalogOrdersByUnlocks() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        let rack = Equipment(name: "Probe Rack", isBuiltIn: true)
+        let rope = Equipment(name: "Probe Rope", isBuiltIn: true)
+        context.insert(rack)
+        context.insert(rope)
+        try? context.save()
+
+        // Alphabetically: Bench, Rack, Rope. By what each opens: Rack (2),
+        // Bench (1), Rope (0) — so the order proves it is not the alphabet.
+        let unlocks = ["Probe Rack": 2, "Probe Bench": 1]
+        let sections = FindOrCreateEngine.sections(
+            query: "", scope: .kit,
+            exercises: world.exercises, equipment: world.equipment + [rack, rope],
+            routines: world.routines, templates: [], kitNames: world.kitNames,
+            unlocks: unlocks
+        )
+        #expect(sections.map(\.title) == ["MINE", "CATALOG"])
+        #expect(sections[1].results.map(\.name) == ["Probe Rack", "Probe Bench", "Probe Rope"])
+        // MINE keeps its own order: what you have opens nothing.
+        #expect(sections[0].results.map(\.name) == ["Probe Barbell"])
+    }
+
+    @Test("An empty unlocks map leaves the incoming alphabetical order alone")
+    func noUnlocksMeansNoReorder() throws {
+        // This is what keeps the PRESENTED equipment catalog a flat
+        // alphabetical run: only the tab passes counts in.
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        let rack = Equipment(name: "Probe Rack", isBuiltIn: true)
+        context.insert(rack)
+        try? context.save()
+
+        let sections = FindOrCreateEngine.sections(
+            query: "", scope: .kit,
+            exercises: world.exercises, equipment: world.equipment + [rack],
+            routines: world.routines, templates: [], kitNames: world.kitNames
+        )
+        #expect(sections[1].results.map(\.name) == ["Probe Bench", "Probe Rack"])
+    }
+
+    @Test("A query ranks by score, never by what a piece opens")
+    func queryBeatsUnlockOrdering() throws {
+        let context = ModelContext(try makeContainer())
+        let world = makeWorld(context: context)
+        let rack = Equipment(name: "Probe Rack", isBuiltIn: true)
+        context.insert(rack)
+        try? context.save()
+
+        // Rack would lead on unlocks; the query is for the bench.
+        let sections = FindOrCreateEngine.sections(
+            query: "bench", scope: .kit,
+            exercises: world.exercises, equipment: world.equipment + [rack],
+            routines: world.routines, templates: [], kitNames: world.kitNames,
+            unlocks: ["Probe Rack": 99]
+        )
+        let names = sections.flatMap { $0.results.map(\.name) }
+        #expect(names.first == "Probe Bench")
+    }
+
     @Test("An added template leaves CATALOG by name")
     func addedTemplateLeavesCatalog() throws {
         let context = ModelContext(try makeContainer())

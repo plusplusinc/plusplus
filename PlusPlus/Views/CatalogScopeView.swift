@@ -201,6 +201,11 @@ struct CatalogScopeView: View {
     /// the engine once, and the render path is the one place that cost is
     /// not affordable (the reason per-scope counts were retired).
     @State private var frontMatter: CatalogFrontMatter?
+    /// What each absent piece would OPEN, by equipment name (2026-08-02,
+    /// #251). Drives both the Kit catalog tier's order and its "opens N"
+    /// tag. Empty off the tab, which is what leaves the presented
+    /// equipment catalog its flat alphabetical run.
+    @State private var equipmentUnlocks: [String: Int] = [:]
 
     // MARK: - Derived state
 
@@ -278,7 +283,8 @@ struct CatalogScopeView: View {
             equipment: allEquipment,
             routines: displayedRoutines,
             templates: RoutineCatalog.all,
-            kitNames: kitNames
+            kitNames: kitNames,
+            unlocks: equipmentUnlocks
         )
     }
 
@@ -937,8 +943,8 @@ struct CatalogScopeView: View {
             // changes while the list is up: kit membership, and catalog
             // growth from the create row. Neither carries the query, so
             // neither fires on a keystroke.
-            .onAppear { rebuildFrontMatter() }
-            .onChange(of: frontMatterKey) { rebuildFrontMatter() }
+            .onAppear { rebuildDerivedCounts() }
+            .onChange(of: frontMatterKey) { rebuildDerivedCounts() }
             // The arrival beat. Lifecycle-bound via `.task(id:)`: leaving or a
             // rapid second add cancels this in flight, and the throwing sleeps
             // bail in the catch WITHOUT clearing `newlyAdded`, so a superseding
@@ -1188,8 +1194,17 @@ struct CatalogScopeView: View {
     /// Built from a DEDICATED engine pass at empty query and no filters, so
     /// the counts state the whole catalog whatever the live query happens to
     /// be when the key changes.
-    private func rebuildFrontMatter() {
+    private func rebuildDerivedCounts() {
         guard mode.isTab, !isSearchSurface else { return }
+        // What one absent piece would open — the Kit tier's order and its
+        // tags. One O(catalog) pass, on the same key as the front matter
+        // because it depends on exactly the same things.
+        equipmentUnlocks = scope == .kit
+            ? CatalogReachCalculator.unlocks(
+                allExercises.map(ExerciseFilterState.similarityFeatures),
+                kit: kitNames
+            )
+            : [:]
         let outcome = FindOrCreateEngine.outcome(
             query: "",
             scope: scope,
@@ -1354,6 +1369,12 @@ struct CatalogScopeView: View {
             EquipmentRowContent(
                 equipment: equipment,
                 unlockedCount: unlocked,
+                // A piece you don't have answers "what would this do for
+                // me"; one you have answers "what is this for". Only the
+                // first is a proposition about your kit, so only the
+                // CATALOG tier takes the opens count — and only where the
+                // ordering that count drives is live (the tab).
+                opensCount: inKit || equipmentUnlocks.isEmpty ? nil : equipmentUnlocks[equipment.name] ?? 0,
                 inKit: inKit ? true : nil,
                 nameHighlight: highlight(equipment.name)
             )

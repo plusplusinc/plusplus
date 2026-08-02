@@ -291,6 +291,20 @@ this surface the control effectively is.
   were retired over. Chips state the axis value's CATALOG total, not its
   kit-doable subset: a doable count reads "Carry · 0" on a kit with no
   loadable gear, and the statement already carries the kit frame.
+- **The Kit scope's CATALOG tier is ordered by what a piece would OPEN**
+  (2026-08-02, #251): unlock count descending, name as the tiebreak, and the
+  row states it as an `opens N` tag in place of its "N exercises" one (MINE
+  rows keep that one — a piece you have answers what it is FOR, one you
+  don't answers what it would do for you; two numbers on a row is noise).
+  Counts come from `CatalogReachCalculator.unlocks`, the same function
+  `EquipmentDetailScreen`'s "+N" add beat reads, so the promise and the beat
+  can never disagree. ⚠️ **EMPTY QUERY ONLY** — a query still ranks by score.
+  ⚠️ It is a fixed principle on one tier, NOT a sort control returning by a
+  side door: `SortChip` stays deleted and nothing offers a choice of order.
+  ⚠️ The counts are passed IN as `[String: Int]`, computed once on the front
+  matter's key, never inside the scoring pass. An EMPTY map leaves the order
+  as it arrived, which is what keeps the PRESENTED equipment catalog its flat
+  alphabetical run: only the tab passes counts.
 - ⚠️ The next law is about CATALOG LIST rows, not detail screens. A pushed
   detail has always been a cross-reference graph (exercise → equipment →
   routine, `CatalogDetailViews`), and since 2026-08-02 exercise detail's

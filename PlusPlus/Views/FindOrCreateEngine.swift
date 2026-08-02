@@ -204,12 +204,14 @@ enum FindOrCreateEngine {
         equipment: [Equipment],
         routines: [Routine],
         templates: [RoutineTemplate],
-        kitNames: Set<String>
+        kitNames: Set<String>,
+        unlocks: [String: Int] = [:]
     ) -> [Section] {
         outcome(
             query: query, scope: scope, filters: filters,
             exercises: exercises, equipment: equipment,
-            routines: routines, templates: templates, kitNames: kitNames
+            routines: routines, templates: templates, kitNames: kitNames,
+            unlocks: unlocks
         ).sections
     }
 
@@ -239,7 +241,8 @@ enum FindOrCreateEngine {
         equipment: [Equipment],
         routines: [Routine],
         templates: [RoutineTemplate],
-        kitNames: Set<String>
+        kitNames: Set<String>,
+        unlocks: [String: Int] = [:]
     ) -> Outcome {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         switch scope {
@@ -256,7 +259,7 @@ enum FindOrCreateEngine {
                 hiddenByFilters: pass.hidden
             )
         case .kit:
-            let pass = equipmentResults(q, equipment: equipment, kitNames: kitNames, filters: filters)
+            let pass = equipmentResults(q, equipment: equipment, kitNames: kitNames, filters: filters, unlocks: unlocks)
             return Outcome(sections: grouped(pass.results), hiddenByFilters: pass.hidden)
         }
     }
@@ -339,6 +342,38 @@ enum FindOrCreateEngine {
     /// writes), exercises and equipment arrive alphabetically from their
     /// queries. Re-sorting by name here would silently discard a user's
     /// routine ordering the moment their tab started rendering these sections.
+    /// The kit scope's ordering. With a QUERY it is the standard ranker —
+    /// what you typed decides. With NO query the CATALOG tier is ordered by
+    /// what each piece would OPEN, most first, name as the tiebreak
+    /// (2026-08-02, #251).
+    ///
+    /// ⚠️ This is a fixed principle applied to one tier, NOT a sort control
+    /// coming back through a side door — `SortChip` stays deleted and
+    /// nothing on screen offers a choice of order. The alternative on the
+    /// table was a hand-curated common-first list, which goes stale the
+    /// moment the catalog grows; 102 alphabetical rows asking you to know
+    /// what a Landmine is before deciding whether you want one was the
+    /// thing being fixed.
+    ///
+    /// ⚠️ The MINE tier keeps its incoming alphabetical order. Ordering
+    /// what you already have by what it would open is meaningless — it
+    /// would all be zero.
+    ///
+    /// ⚠️ An EMPTY `unlocks` map leaves the order exactly as it arrived,
+    /// which is how the presented equipment catalog stays "one flat
+    /// alphabetical run" (navigation.md): only the tab passes counts in.
+    private static func rankEquipment(_ results: [Result], query: String, unlocks: [String: Int]) -> [Result] {
+        guard query.isEmpty, !unlocks.isEmpty else { return rank(results, query: query) }
+        let mine = results.filter(\.mine)
+        let catalog = results.filter { !$0.mine }.sorted { a, b in
+            let opensA = unlocks[a.name] ?? 0
+            let opensB = unlocks[b.name] ?? 0
+            if opensA != opensB { return opensA > opensB }
+            return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+        }
+        return mine + catalog
+    }
+
     private static func rank(_ results: [Result], query: String) -> [Result] {
         guard !query.isEmpty else {
             return results.filter(\.mine) + results.filter { !$0.mine }
@@ -378,7 +413,7 @@ enum FindOrCreateEngine {
         return Pass(results: rank(results, query: q), hidden: hidden)
     }
 
-    private static func equipmentResults(_ q: String, equipment: [Equipment], kitNames: Set<String>, filters: CatalogFilterState = CatalogFilterState()) -> Pass {
+    private static func equipmentResults(_ q: String, equipment: [Equipment], kitNames: Set<String>, filters: CatalogFilterState = CatalogFilterState(), unlocks: [String: Int] = [:]) -> Pass {
         var hidden = 0
         let results = equipment.compactMap { item -> Result? in
             guard !item.isDeleted else { return nil }
@@ -405,7 +440,7 @@ enum FindOrCreateEngine {
                 id: AnyHashable(item.persistentModelID)
             )
         }
-        return Pass(results: rank(results, query: q), hidden: hidden)
+        return Pass(results: rankEquipment(results, query: q, unlocks: unlocks), hidden: hidden)
     }
 
     private static func routineResults(

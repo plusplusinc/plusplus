@@ -124,6 +124,40 @@ public enum CatalogReachCalculator {
         )
     }
 
+    /// What ONE absent piece would open: for each piece the kit does not
+    /// hold, how many exercises it alone stands between you and.
+    ///
+    /// This is the fact the app has always been able to state and never
+    /// did — the kit knows exactly what it can do, and until now that only
+    /// ever GROUPED results. Keyed by equipment name, the identity the kit
+    /// matches on everywhere.
+    ///
+    /// ⚠️ The count is MARGINAL and truthful, never "everything that uses
+    /// this". A piece that is one of TWO things a move is missing scores
+    /// nothing for that move until the other arrives, so the numbers never
+    /// overclaim — the same rule `EquipmentDetailScreen`'s "+N" unlock
+    /// beat has always used, which is why that beat now reads from here
+    /// rather than counting for itself. Pieces already in the kit are
+    /// ABSENT from the map: they cannot open anything, and a zero would
+    /// invite a caller to print one.
+    ///
+    /// ⚠️ Single pieces only. A bench and a barbell together are worth more
+    /// than the sum of their entries, and nothing here says so — stating
+    /// that would make this a solver rather than a fact.
+    public static func unlocks(
+        _ catalog: [ExerciseSimilarityFeatures],
+        kit: Set<String>
+    ) -> [String: Int] {
+        var counts: [String: Int] = [:]
+        for features in catalog {
+            let missing = features.equipmentNames.subtracting(kit)
+            // Exactly one thing in the way: that piece is what opens it.
+            guard missing.count == 1, let only = missing.first else { continue }
+            counts[only, default: 0] += 1
+        }
+        return counts
+    }
+
     /// Buckets in the enum's own declaration order — a stable, authored
     /// order beats sorting by count, which would reshuffle the row every
     /// time the kit changed.

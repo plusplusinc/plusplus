@@ -264,6 +264,14 @@ struct ExerciseRowContent: View {
 struct EquipmentRowContent: View {
     let equipment: Equipment
     let unlockedCount: Int
+    /// What this piece would OPEN if it joined the active kit — the count
+    /// of exercises it alone stands in front of (2026-08-02). Set only on
+    /// the CATALOG tier, where "what would this do for me" is the question
+    /// the row exists to answer; a piece you already have takes
+    /// `unlockedCount` instead, which is a property of the piece rather
+    /// than a proposition about your kit. Two numbers on one row would be
+    /// noise, so it REPLACES rather than joins.
+    var opensCount: Int? = nil
     /// nil = don't show a membership glyph (the kit list, where every row is
     /// in the kit). true/false = show it when in the kit (the catalog).
     var inKit: Bool? = nil
@@ -297,7 +305,15 @@ struct EquipmentRowContent: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 HStack(spacing: 6) {
                     kindCapsule
-                    if unlockedCount > 0 {
+                    if let opensCount {
+                        // Silent at zero rather than "opens 0": a piece whose
+                        // users all need something else too opens nothing
+                        // TODAY, and saying so in a tag would read as a verdict
+                        // on the piece instead of a fact about the kit.
+                        if opensCount > 0 {
+                            CardTagCapsule(text: "opens \(opensCount)")
+                        }
+                    } else if unlockedCount > 0 {
                         CardTagCapsule(text: "\(unlockedCount) exercise\(unlockedCount == 1 ? "" : "s")")
                     }
                 }
