@@ -284,23 +284,25 @@ struct RoutineDetailView: View {
         .navigationTitle(routine.name)
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
-            // Both keys bring their own raised-key chrome, so they opt OUT of
-            // the toolbar's shared glass rather than nesting in a system
-            // capsule — the same call the tab roots make.
+            // ⚠️ NATIVE toolbar controls (2026-08-02, spike): `chrome: .toolbar`
+            // and no `.sharedBackgroundVisibility(.hidden)`, so both keys JOIN
+            // the toolbar's shared Liquid Glass instead of opting out of it with
+            // an app-drawn cap. The opt-out was right while the app plated its
+            // own keys — nesting a cap inside the system capsule is a box in a
+            // box — and it is wrong now that it doesn't. Same call on every tab
+            // root.
             if !routine.groups.isEmpty, shareURL != nil {
                 ToolbarItem(placement: .topBarTrailing) {
-                    HeaderIconButton(systemImage: "square.and.arrow.up", accessibilityLabel: "Share routine", identifier: "shareRoutineButton") {
+                    HeaderIconButton(systemImage: "square.and.arrow.up", accessibilityLabel: "Share routine", identifier: "shareRoutineButton", chrome: .toolbar) {
                         showingShareSheet = true
                     }
                 }
-                .sharedBackgroundVisibility(.hidden)
             }
             ToolbarItem(placement: .topBarTrailing) {
-                HeaderIconButton(systemImage: "slider.horizontal.3", accessibilityLabel: "Routine settings", identifier: "routineSettingsButton") {
+                HeaderIconButton(systemImage: "slider.horizontal.3", accessibilityLabel: "Routine settings", identifier: "routineSettingsButton", chrome: .toolbar) {
                     showingRoutineSettings = true
                 }
             }
-            .sharedBackgroundVisibility(.hidden)
         }
         .fullWidthSwipeBack()
         .sheet(isPresented: $showingShareSheet) {

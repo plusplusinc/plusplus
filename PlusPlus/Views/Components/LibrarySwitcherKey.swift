@@ -6,8 +6,10 @@ import PlusPlusKit
 ///
 /// A CONTROL, so it always shows the raw kit name even when there is only one
 /// (the one-rule naming law; prose uses `EquipmentLibrary.activeNamePhrase`).
-/// It rides the catalog tabs' navigation bar as a toolbar item that opts out of
-/// the toolbar's shared glass, since it brings its own key chrome.
+/// It rides TWO containers, and wears each one's chrome (2026-08-02): in the
+/// catalog tabs' navigation bar it is a plain toolbar control that joins the
+/// shared Liquid Glass, and on the PRESENTED catalog's app-drawn kit bar it
+/// keeps the raised cap, because that band is app chrome.
 ///
 /// (This file used to hold `CatalogTabHeader` — the hand-drawn tab-root header
 /// with the ++ key and large on-row title. That is DELETED as of 2026-07-26:
@@ -20,6 +22,7 @@ struct LibrarySwitcherKey: View {
     /// a future smoke test visiting more than one doesn't hit a multiple-match
     /// on a shared identifier (swift review).
     var identifier: String = "librarySwitcherButton"
+    var chrome: HeaderKeyChrome = .raised
     let action: () -> Void
 
     var body: some View {
@@ -43,12 +46,36 @@ struct LibrarySwitcherKey: View {
                     .font(.system(.caption2, weight: .bold))
                     .foregroundStyle(Theme.textFaint)
             }
-            .padding(.horizontal, 12)
-            .frame(height: 44)
-            .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
-            .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
+            // The toolbar plates and sizes its own controls; only the
+            // app-drawn bar needs a cap drawn for it.
+            .padding(.horizontal, chrome == .toolbar ? 0 : 12)
+            .frame(height: chrome == .toolbar ? nil : 44)
+            .background(switcherChrome)
         }
-        .buttonStyle(.raisedKey())
+        .modifier(RaisedUnlessToolbarKey(chrome: chrome))
         .accessibilityIdentifier(identifier)
+    }
+
+    @ViewBuilder
+    private var switcherChrome: some View {
+        if chrome == .raised {
+            RoundedRectangle(cornerRadius: Theme.keyRadius)
+                .fill(Theme.background)
+                .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
+        }
+    }
+}
+
+/// See `HeaderIconButton`'s twin: a `ButtonStyle` can't be applied
+/// conditionally inline, so the branch lives in a modifier.
+private struct RaisedUnlessToolbarKey: ViewModifier {
+    let chrome: HeaderKeyChrome
+
+    func body(content: Content) -> some View {
+        if chrome == .toolbar {
+            content
+        } else {
+            content.buttonStyle(.raisedKey())
+        }
     }
 }

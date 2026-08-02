@@ -521,11 +521,12 @@ struct TodayView: View {
             .navigationTitle("Today")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
-                // Both keys bring their own chrome, so they opt OUT of the
-                // toolbar's shared glass rather than nesting inside a system
-                // capsule — same as the catalog tabs.
+                // ⚠️ NATIVE (2026-08-02, spike): `AppMenuKey` is a bare glyph
+                // now and the item does NOT opt out of the toolbar's shared
+                // Liquid Glass. The old opt-out existed because the key drew
+                // its own cap, which would have nested inside the system
+                // capsule; with no cap there is nothing to nest.
                 ToolbarItem(placement: .topBarLeading) { AppMenuKey() }
-                    .sharedBackgroundVisibility(.hidden)
                 // ⚠️ NO trailing play key (Dave, build 159, retiring #266's
                 // tray with it): every start it offered has a first-class
                 // home — today's routine on its own card, the routine

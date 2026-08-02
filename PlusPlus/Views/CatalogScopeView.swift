@@ -380,17 +380,15 @@ struct CatalogScopeView: View {
                     // the search tab, so the row is too, and the system places
                     // these two the way it does on every other root.
                     ToolbarItem(placement: .topBarLeading) { AppMenuKey() }
-                        .sharedBackgroundVisibility(.hidden)
                     // The kit is CONTEXT on every catalog, never a filter
                     // chip: it decides which rows fall into the "require
                     // more equipment" group below.
                     ToolbarItem(placement: .topBarTrailing) {
-                        LibrarySwitcherKey(name: activeKitName, identifier: scope.switcherIdentifier) {
+                        LibrarySwitcherKey(name: activeKitName, identifier: scope.switcherIdentifier, chrome: .toolbar) {
                             libraryTrayReason = nil
                             showingLibraryTray = true
                         }
                     }
-                    .sharedBackgroundVisibility(.hidden)
                 }
                 // ⚠️ THE NATIVE SEARCH UI (spike, 2026-08-02). `.searchable`
                 // on a view INSIDE the stack, then `.searchToolbarBehavior`

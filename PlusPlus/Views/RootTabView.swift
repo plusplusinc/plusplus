@@ -480,21 +480,26 @@ struct HeaderGlyph: View {
 }
 
 /// The ++ wearing its key — every root header's top-left opens the app
-/// surface (Dave, build 44: "every root view, not just Today"). The glyph
-/// stays brand green — content is the brand, the key says "press me". It no
-/// longer pushes onto a tab's stack; it toggles the shared reveal drawer,
-/// which slides the whole app aside to uncover the surface beneath.
+/// surface (Dave, build 44: "every root view, not just Today"). It no longer
+/// pushes onto a tab's stack; it toggles the shared reveal drawer, which
+/// slides the whole app aside to uncover the surface beneath.
+///
+/// ⚠️ NATIVE as of 2026-08-02 (Dave: make the toolbar buttons native rather
+/// than the app's 3D key). It lives ONLY in the system navigation bar — both
+/// call sites are `ToolbarItem`s — so unlike `HeaderIconButton` and
+/// `LibrarySwitcherKey` it needs no raised variant at all. The toolbar plates
+/// it, sizes it and gives it the press feedback; the app supplies the glyph.
+///
+/// The glyph stays brand GREEN. That is not chrome, it is the mark — the one
+/// place the accent appears in the bar, and the reason it reads as a door
+/// rather than a system affordance.
 struct AppMenuKey: View {
     @Environment(RevealController.self) private var reveal
 
     var body: some View {
         Button { reveal.toggle() } label: {
             HeaderGlyph()
-                .frame(width: 44, height: 44)
-                .background(Theme.background, in: RoundedRectangle(cornerRadius: Theme.keyRadius))
-                .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius).strokeBorder(Theme.borderStrong))
         }
-        .buttonStyle(.raisedKey())
         .accessibilityLabel("Menu")
         .accessibilityHint(reveal.isOpen ? "Closes the menu" : "Opens the menu and settings")
         .accessibilityIdentifier("appMenuButton")
