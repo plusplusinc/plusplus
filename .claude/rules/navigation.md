@@ -291,6 +291,12 @@ this surface the control effectively is.
   were retired over. Chips state the axis value's CATALOG total, not its
   kit-doable subset: a doable count reads "Carry · 0" on a kit with no
   loadable gear, and the statement already carries the kit frame.
+- ⚠️ The next law is about CATALOG LIST rows, not detail screens. A pushed
+  detail has always been a cross-reference graph (exercise → equipment →
+  routine, `CatalogDetailViews`), and since 2026-08-02 exercise detail's
+  **NEAR THIS** section links exercise → exercise, self-recursively through
+  the same item destination. That is adjacency browsing on a detail screen,
+  not a scope switch in a list.
 - **Cross-scope discovery is the scope control itself** — never link rows,
   and per-scope result counts are GONE (2026-07-25: a glyph-only segment has
   nowhere to paint a number, and the central `matchCounts` costs a second
