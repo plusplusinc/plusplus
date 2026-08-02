@@ -63,7 +63,7 @@ No third-party dependencies without discussion first.
 > certain files → **.claude/rules/** (`paths:` frontmatter); a procedure → **.claude/skills/**.
 > The test for living here: would a session need it BEFORE knowing what it was about to touch?
 
-**Last updated:** 2026-08-01 · **Latest TestFlight build:** 166, from the search-morph BRANCH (#534, second attempt — 165 disproved the state-write diagnosis, so the field moved back onto the `Tab`; 160-164 from main, 159 from the cardio branch).
+**Last updated:** 2026-08-02 · **Latest TestFlight build:** 167, from the search-morph BRANCH (#534, a DIAGNOSTIC — the search surface's nav bar is stripped bare behind `SearchMorphProbe.stripSearchBar` to find out whether that bar is what bends the morph; 165 and 166 both failed to move it; 160-164 from main).
 ⚠️ Build number = workflow RUN number, not last-build+1 — check `actions_list` before writing a What's-New entry.
 
 **On main, awaiting Dave's device pass:** the queue lives in
