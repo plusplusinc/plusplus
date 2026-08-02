@@ -96,6 +96,13 @@ struct CatalogSearchDock: View {
             if isOpen {
                 openField
                     .zIndex(1)
+                    // ⚠️ The glass container morphs the SHAPES by id; it does
+                    // NOT transition the CONTENTS. Without these the glyph and
+                    // the field hard-cut inside a morphing capsule, which reads
+                    // as no animation at all (build 172 shipped exactly that —
+                    // the transitions were dropped in the rewrite from
+                    // `matchedGeometryEffect` and nothing failed loudly).
+                    .transition(.opacity)
             } else {
                 HStack(spacing: 0) {
                     // Trailing seat, so the key sits above the RIGHTMOST tab
@@ -109,6 +116,7 @@ struct CatalogSearchDock: View {
                         .allowsHitTesting(false)
                     searchKey
                 }
+                .transition(.opacity)
             }
         }
         .padding(.horizontal, 16)
@@ -117,6 +125,14 @@ struct CatalogSearchDock: View {
         // scroll edge effect keeps rows legible under it. A solid strip here
         // would be the full-width slab build 148 killed, one row higher.
         .padding(.bottom, 6)
+        // ⚠️ The animation is declared HERE, not left to a `withAnimation` at
+        // the two call sites. `isOpen` is `RootTabView` state reached through a
+        // binding, and this view renders inside a `.safeAreaInset` content
+        // closure two layers down — a transaction has to survive both hops to
+        // land. Declaring it locally, scoped to `isOpen`, does not depend on
+        // that. It also covers `land(on:)`, which closes search from the root
+        // when a create lands.
+        .animation(Theme.Anim.selection, value: isOpen)
     }
 
     private var openField: some View {
@@ -146,7 +162,10 @@ struct CatalogSearchDock: View {
     private var closeKey: some View {
         Button {
             query = ""
-            withAnimation(Theme.Anim.selection) { isOpen = false }
+            // No `withAnimation` — the dock declares `.animation(_:value:)` on
+            // `isOpen` itself, and two mechanisms on one state change is how
+            // you get a double-timed morph.
+            isOpen = false
         } label: {
             glassGlyph("xmark")
         }
@@ -169,7 +188,7 @@ struct CatalogSearchDock: View {
     private var searchKey: some View {
         Button {
             wantsFocus = true
-            withAnimation(Theme.Anim.selection) { isOpen = true }
+            isOpen = true
         } label: {
             glassGlyph("magnifyingglass")
         }

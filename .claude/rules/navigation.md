@@ -130,6 +130,19 @@ inside a filtered list.
   fluidly reshape glass and the two fight over the same geometry. ⚠️ Only the
   MAGNIFIER shares the field's id; the ✕ carries its own, or the container gets
   two candidate shapes for one surface in the same frame.
+- ⚠️ **The glass container morphs SHAPES, not CONTENTS** (build 172 shipped an
+  instant swap): each branch still needs its own `.transition(.opacity)`, or
+  the glyph and the field hard-cut inside a capsule that is morphing correctly
+  underneath them — which reads as no animation at all. Nothing fails loudly;
+  the morph is simply invisible behind a cut. It was lost converting from
+  `matchedGeometryEffect`, whose transitions were explicit.
+- ⚠️ **The dock declares `.animation(_:value: isOpen)` on ITSELF**, rather than
+  relying on `withAnimation` at the two call sites. `isOpen` is `RootTabView`
+  state reached through a binding, and the dock renders inside a
+  `.safeAreaInset` content closure two layers down — a transaction has to
+  survive both hops. Declaring it locally does not depend on that, and it also
+  covers `land(on:)` closing search from the root. Do not add `withAnimation`
+  back on top: two mechanisms on one state change gives a double-timed morph.
 - **No `.raisedKey()` on either dock key, and nothing to compensate for.** A
   raised key is 48 pt (the style pads the bottom by its 4 pt travel for the
   plate) against the field's height, which used to seat the field 2 pt low

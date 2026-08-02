@@ -67,7 +67,7 @@ No third-party dependencies without discussion first.
 ⚠️ Build number = workflow RUN number, not last-build+1 — check `actions_list` before writing a What's-New entry. It moves on a PARALLEL SESSION's dispatch from any branch, so a number read an hour ago is already stale (2026-08-02: 165–168 landed from a feature branch mid-round).
 
 **On main, awaiting Dave's device pass:** the queue lives in
-**docs/DEVICE-PASS.md** (26 items) — one line each, newest first, with the
+**docs/DEVICE-PASS.md** (27 items) — one line each, newest first, with the
 ⚠️ rider that says what to poke. It left this file on 2026-08-01: it is read
 by a different person at a different moment (Dave, at device-pass time) than
 the standing laws around it, and it was 8.4 KB of a 25 KB budget, growing by
