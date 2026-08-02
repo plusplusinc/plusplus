@@ -132,14 +132,30 @@ inside a filtered list.
   two candidate shapes for one surface in the same frame.
 - **No `.raisedKey()` on either dock key, and nothing to compensate for.** A
   raised key is 48 pt (the style pads the bottom by its 4 pt travel for the
-  plate) against the field's 44, which used to seat the field 2 pt low beside
-  it. Glass has no plate, every shape is a plain 44, and `.interactive()`
-  supplies the press response.
+  plate) against the field's height, which used to seat the field 2 pt low
+  beside it. Glass has no plate, every shape is one flat
+  `CatalogSearchDock.keySize`, and `.interactive()` supplies the press
+  response.
+- ⚠️ **The dock's keys need `.contentShape(Circle())`, OUTERMOST, and it is
+  the hit target** (build 171 shipped without it): a `.frame()` around an
+  `Image` is layout space, not content, and SwiftUI hit tests content — so the
+  ✕'s tappable area was the glyph's own strokes. Near-misses fell through to
+  the list ("as if it were pointer-events: none") or sideways onto the in-field
+  clear key, where the ✕ read as dead. ⚠️ `.glassEffect` does NOT restore it:
+  it is a rendering effect, and what made `HeaderIconButton` immune all along
+  is that it fills its frame with an opaque `.background(_:in:)` — a real view,
+  and hit-testable. Swapping the ground for glass took the hit target with it.
+- **The dock is BIGGER and NOT mono** (Dave, build 171: "a bit bigger, to match
+  native", "use the native font"). `keySize` 50 for both keys and the field's
+  height, glyphs at `.title3`, query text at plain `.system(.body)`. ⚠️ The
+  mono-is-DATA law still binds every other mount — a query typed into app
+  chrome is data; a query typed into a system-looking field is a system field.
+  Same scope-by-neighbour reasoning as the glass.
 - **It does NOT auto-focus on tab arrival** — the key is a key; the keyboard
   rises when you tap it. The one-shot focus intent (#233) is armed by that tap
   and consumed by the field's `onAppear`.
 - **Anatomy INSIDE the chrome is the app's single search grammar**
-  (`SearchFieldBody`): mono text, an in-field `delete.left` CLEAR
+  (`SearchFieldBody`): an in-field `delete.left` CLEAR
   that empties the query and KEEPS focus, and a separate `xmark` COLLAPSE key
   that clears and closes, landing exactly where the magnifier was. The same
   body serves pushed catalogs, pickers and sheets through `HeaderSearchField`.

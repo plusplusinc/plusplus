@@ -60,6 +60,13 @@ struct CatalogSearchDock: View {
     /// `SearchFieldBody` (the expanded half) defaults to it.
     static let chromeID = "catalogSearchChrome"
 
+    /// Key diameter, matching the field's own height so the open row sits on
+    /// one baseline. Sized UP from the app's 44 pt icon key (Dave, build 171:
+    /// "a bit bigger, to match native") — the system's bottom search field and
+    /// its separated circle are around this, and 50 also keeps the tap target
+    /// clear of the HIG floor at every Dynamic Type size.
+    static let keySize: CGFloat = 50
+
     /// The query, owned by `RootTabView` and shared by all three catalogs
     /// (Dave, 2026-08-02): typing "bench" on Routines and tapping Exercises
     /// keeps the query. Honest because the field is visible on every tab that
@@ -155,8 +162,8 @@ struct CatalogSearchDock: View {
     ///
     /// ⚠️ No `.raisedKey()`, and nothing to compensate for. A raised key is
     /// 48 pt tall (`RaisedKeyStyle` pads the bottom by its 4 pt travel to leave
-    /// room for the plate), which used to seat the 44 pt field 2 pt low beside
-    /// it. Glass has no plate, so every shape here is a plain 44 and the row
+    /// room for the plate), which used to seat the field low beside it. Glass
+    /// has no plate, so every shape here is one flat `Self.keySize` and the row
     /// lines up on its own. `.interactive()` supplies the press response the
     /// plate used to.
     private var searchKey: some View {
@@ -171,9 +178,23 @@ struct CatalogSearchDock: View {
         .accessibilityIdentifier("catalogSearchToggle")
     }
 
-    /// One 44 pt glass circle carrying a glyph — the dock's key anatomy, shared
-    /// by the magnifier and the collapse ✕ so they are visibly the same object
-    /// in two states.
+    /// One glass circle carrying a glyph — the dock's key anatomy, shared by
+    /// the magnifier and the collapse ✕ so they are visibly the same object in
+    /// two states. Sized to the system search field it imitates, which is why
+    /// it is `keySize` rather than the app's 44 pt icon key.
+    ///
+    /// ⚠️ **`.contentShape(Circle())` IS THE HIT TARGET, and it is not
+    /// optional** (Dave, build 171: taps on the ✕ "click whatever's behind it,
+    /// as if it were pointer-events: none"). A `.frame()` around an `Image` is
+    /// LAYOUT SPACE, not content, and SwiftUI hit tests the content — so
+    /// without this the tappable area is the glyph's own strokes and every
+    /// near-miss falls through to the list, or sideways onto the in-field
+    /// clear key, where it reads as "the ✕ does nothing". ⚠️ `.glassEffect`
+    /// does NOT restore it: it is a rendering effect, not a view, which is
+    /// exactly how `HeaderIconButton` differs — that one fills its frame with
+    /// an opaque `.background(_:in:)`, and a real background view IS
+    /// hit-testable. Swapping the opaque ground for glass silently took the
+    /// hit target with it.
     ///
     /// ⚠️ Only the MAGNIFIER carries the `glassEffectID`. The field takes the
     /// same id when open, so the pair morphs; giving the ✕ that id too would
@@ -181,10 +202,15 @@ struct CatalogSearchDock: View {
     /// candidate shapes for one surface.
     private func glassGlyph(_ systemImage: String) -> some View {
         Image(systemName: systemImage)
-            .font(.system(.body, weight: .medium))
+            .font(.system(.title3, weight: .medium))
             .foregroundStyle(Theme.textPrimary)
-            .frame(width: 44, height: 44)
+            .frame(width: Self.keySize, height: Self.keySize)
             .glassEffect(.regular.interactive(), in: Circle())
             .glassEffectID(systemImage == "magnifyingglass" ? Self.chromeID : "\(Self.chromeID)-close", in: morph)
+            // ⚠️ OUTERMOST, deliberately: `.contentShape` defines the hit
+            // region of the view it wraps, so applied under `.glassEffect` it
+            // could be re-composed away by whatever that adds. Last modifier
+            // means the finished circle is the hit target, full stop.
+            .contentShape(Circle())
     }
 }

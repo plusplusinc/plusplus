@@ -162,15 +162,30 @@ struct SearchFieldBody: View {
 
     @FocusState private var focused: Bool
 
+    /// ⚠️ The dock is bigger and NOT mono (Dave, 2026-08-02, on build 171):
+    /// it is imitating the system search field, which is body-sized system
+    /// type at roughly the tab bar's own height. The app's mono-is-DATA law
+    /// still binds every other mount — a query typed into app chrome is data,
+    /// a query typed into a system-looking field is a system field. Same
+    /// scope-by-neighbour reasoning as the glass itself.
+    private var isGlass: Bool { glass != nil }
+    private var height: CGFloat { isGlass ? 50 : 44 }
+    private var textFont: Font {
+        isGlass ? .system(.body) : .system(.footnote, design: .monospaced)
+    }
+    private var glyphFont: Font { isGlass ? .system(.body) : .system(.footnote) }
+    private var leadingInset: CGFloat { isGlass ? 16 : 13 }
+    private var trailingInset: CGFloat { isGlass ? 6 : 13 }
+
     var body: some View {
         let hasText = !config.text.wrappedValue.isEmpty
         return HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .font(.system(.footnote))
+                .font(glyphFont)
                 .foregroundStyle(Theme.textFaint)
                 .accessibilityHidden(true)
             TextField(config.prompt, text: config.text)
-                .font(.system(.footnote, design: .monospaced))
+                .font(textFont)
                 .autocorrectionDisabled()
                 .focused($focused)
                 .accessibilityIdentifier(config.identifier)
@@ -197,22 +212,30 @@ struct SearchFieldBody: View {
                     focused = true
                 } label: {
                     Image(systemName: "delete.left")
-                        .font(.system(.footnote))
+                        .font(glyphFont)
                         .foregroundStyle(Theme.textFaint)
-                        // A full 44 pt tap target (HIG floor); the glyph sits
+                        // A full-height tap target (HIG floor); the glyph sits
                         // at its trailing edge so it still reads near the
                         // field border, the tap area extending back over the
                         // text tail.
-                        .frame(width: 44, height: 44, alignment: .trailing)
+                        //
+                        // ⚠️ `.contentShape` is what makes the transparent part
+                        // of this frame tappable AT ALL — a `.frame()` around an
+                        // `Image` is layout space, not content, and SwiftUI hit
+                        // tests the content. The dock's ✕ shipped without it on
+                        // build 171 and its tappable area was the glyph's own
+                        // strokes; taps around it fell through to the list, or
+                        // landed on THIS key and read as "the ✕ does nothing".
+                        .frame(width: height, height: height, alignment: .trailing)
                         .contentShape(Rectangle())
                 }
                 .accessibilityLabel("Clear text")
                 .accessibilityIdentifier("clearSearchButton")
             }
         }
-        .padding(.leading, 13)
-        .padding(.trailing, hasText ? 10 : 13)
-        .frame(height: 44)
+        .padding(.leading, leadingInset)
+        .padding(.trailing, hasText ? trailingInset : leadingInset)
+        .frame(height: height)
         .frame(maxWidth: .infinity)
         .modifier(SearchFieldChrome(glass: glass))
     }
