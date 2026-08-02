@@ -59,6 +59,7 @@ struct ExerciseDetailScreen: View {
 
     @Query(sort: [SortDescriptor(\Routine.order), SortDescriptor(\Routine.createdAt, order: .reverse)])
     private var allRoutines: [Routine]
+    @Query(sort: \Exercise.name) private var allExercises: [Exercise]
     @Query(sort: \EquipmentLibrary.order) private var libraries: [EquipmentLibrary]
     @AppStorage(EquipmentLibrary.activeIDKey) private var activeLibraryID = ""
 
@@ -73,15 +74,173 @@ struct ExerciseDetailScreen: View {
     /// A routine created from here pushes immediately — the fluid-nav
     /// promise: create it with this exercise already inside, land in it.
     @State private var createdRoutine: IdentifiedUUID?
+    /// "Near this" starts capped. Ephemeral, and it takes an explicit
+    /// reset to stay that way: ⚠️ a `navigationDestination`'s SOURCE view
+    /// is not unmounted when it pushes, so pushing a neighbour and popping
+    /// back returns to the same live `@State`. Since a neighbour push is
+    /// now the dominant way to leave this screen, the fold is re-applied in
+    /// `onAppear` rather than left to a fresh instance that never comes.
+    @State private var showingAllNear = false
+    /// The prepared "Near this" rows. Rebuilt on `nearKey`, never derived
+    /// in the body.
+    @State private var nearRows: [NearRow] = []
 
     private enum PushTarget: Hashable {
         case equipment(Equipment)
         case routine(UUID)
+        /// Self-recursive: a "Near this" row pushes another exercise
+        /// detail. Legal because this screen is itself a path entry
+        /// (#291), and `.equipment` is the standing precedent for pushing
+        /// a model through this same item destination —
+        /// `EquipmentDetailScreen` already pushes back here, so the
+        /// exercise↔equipment cycle shipped long ago.
+        /// ⚠️ Inherited exposure, not introduced: `ExerciseEditorView.save()`
+        /// inserts a custom without a synchronous save, so a just-created
+        /// row can sit in `@Query` on a TEMPORARY `persistentModelID` for a
+        /// frame or two, and an item presentation keyed on it re-keys when
+        /// autosave lands (swiftdata.md). `CatalogScopeView`'s value
+        /// destination for `Exercise` has the same window.
+        case exercise(Exercise)
     }
 
     private var usedInRoutines: [Routine] {
         allRoutines.filter { routine in
             routine.sortedGroups.flatMap(\.sortedExercises).contains { $0.exercise === exercise }
+        }
+    }
+
+    // MARK: - Near this (2026-08-02)
+
+    /// How many neighbours show before the disclosure. Six rather than the
+    /// swap tray's eight: there the list IS the screen's job, here it is
+    /// the last section of a long one.
+    private static let nearVisibleLimit = 6
+
+    /// ⚠️ And how many the disclosure can ever reach. The pool is NOT
+    /// small: `swapSuggestions` returns every catalog move sharing ANY
+    /// muscle group with the origin, which is 167 for a Romanian Deadlift
+    /// and 248 for a Clean and Press. `crossRefBlock` is a plain `VStack`
+    /// inside a `ScrollView`, so nothing here is lazy — an unbounded
+    /// expansion would build 248 buttons and 247 dividers in one animated
+    /// body pass. The swap tray never had this problem because it caps at
+    /// 8 and its escape is a PUSH into the real, lazy catalog. The key's
+    /// label states the number it will actually add, so the bound is
+    /// visible rather than silent.
+    private static let nearExpandedLimit = 20
+
+    /// One prepared row. Built once per key, never per render: the
+    /// pipeline behind it walks the whole catalog and faults an equipment
+    /// relationship per candidate, and this screen is now pushed
+    /// RECURSIVELY — at depth 4, one favourite-star tap would otherwise
+    /// re-run it four times. Same reason the catalog's front matter holds
+    /// its counts in state (DECISIONS, 2026-08-02).
+    private struct NearRow: Identifiable {
+        let exercise: Exercise
+        let meta: String
+        var id: PersistentIdentifier { exercise.persistentModelID }
+    }
+
+    /// What the prepared rows depend on. The kit is the whole SET, not its
+    /// count: swapping one piece for another changes every row's caption.
+    private struct NearKey: Equatable {
+        let exercise: PersistentIdentifier
+        let kit: Set<String>
+        let catalog: Int
+    }
+
+    private var nearKey: NearKey {
+        NearKey(exercise: exercise.persistentModelID, kit: availableEquipmentNames, catalog: allExercises.count)
+    }
+
+    /// The catalog's neighbours, kit-doable first then similarity-ranked,
+    /// each with its caption already resolved. The ranking is the SAME call
+    /// the "Swap for…" tray makes — a second reader of that list, never a
+    /// second version of it, so the move that ranks as the best substitute
+    /// is also the first thing offered here.
+    ///
+    /// ⚠️ The kit set is read ONCE here. `availableEquipmentNames` sorts
+    /// the libraries and rebuilds a name `Set` on every call, so reading it
+    /// per row was the more expensive half of what this hoist removes.
+    private func rebuildNear() {
+        let kit = availableEquipmentNames
+        let origin = ExerciseFilterState.similarityFeatures(exercise)
+        nearRows = ExerciseFilterState
+            .swapSuggestions(for: exercise, in: allExercises, kit: kit)
+            .prefix(Self.nearExpandedLimit)
+            .map { NearRow(exercise: $0, meta: nearMeta($0, origin: origin, kit: kit)) }
+    }
+
+    /// One row's caption: WHY it is near, and what it would take. The
+    /// reason comes from the Kit classifier and the words are chosen here,
+    /// so the voice laws stay on this side of the boundary.
+    ///
+    /// ⚠️ Both halves stay short. `CrossRefRow.meta` is a one-line mono
+    /// caption sharing its row with the title, so a missing piece is NAMED
+    /// only when there is exactly one; past that it counts, in the app's
+    /// own countable word for equipment (#507). The exercise's own screen
+    /// is one tap away and names everything.
+    private func nearMeta(_ candidate: Exercise, origin: ExerciseSimilarityFeatures, kit: Set<String>) -> String {
+        let reason = ExerciseSimilarity.reasons(
+            candidate: ExerciseFilterState.similarityFeatures(candidate),
+            origin: origin
+        ).first
+        let missing = ExerciseFilterState.missingEquipment(for: candidate, available: kit)
+        let gearNote: String? = {
+            guard !missing.isEmpty else { return nil }
+            guard missing.count == 1 else {
+                return "needs \(missing.count) \(FindScope.kit.searchNoun(for: missing.count))"
+            }
+            return "needs \(missing[0].lowercased())"
+        }()
+        return [reason.map(Self.reasonLabel), gearNote].compactMap { $0 }.joined(separator: " · ")
+    }
+
+    /// The classifier's cases in this app's words. Lowercase, because a
+    /// mono metadata caption is lowercase everywhere else.
+    private static func reasonLabel(_ reason: SimilarityReason) -> String {
+        switch reason {
+        case .samePattern: "same pattern"
+        case .samePrimaryMuscle: "same muscle"
+        case .sameEquipment: "same equipment"
+        case .noEquipment: "no equipment"
+        case .sharedMuscle: "shares a muscle"
+        }
+    }
+
+    /// Walking the catalog by adjacency rather than by alphabet: the moves
+    /// nearest this one, each saying why it is near. It sits LAST, under
+    /// the routines flow, because it is browsing rather than an act on this
+    /// exercise. Absent entirely when there are no neighbours, which is a
+    /// real case for a custom filed under a group nothing else shares.
+    @ViewBuilder
+    private var nearThisSection: some View {
+        // A candidate deleted while this screen is up drops out here rather
+        // than waiting for the next rebuild — the rows are a snapshot now,
+        // and a snapshot can outlive one of its models.
+        let neighbours = nearRows.filter { !$0.exercise.isDeleted }
+        if !neighbours.isEmpty {
+            let shown = showingAllNear ? neighbours : Array(neighbours.prefix(Self.nearVisibleLimit))
+            SheetSectionLabel("NEAR THIS")
+                .padding(.top, 24)
+            crossRefBlock {
+                ForEach(Array(shown.enumerated()), id: \.element.id) { index, row in
+                    CrossRefRow(title: row.exercise.name, meta: row.meta) {
+                        path = .exercise(row.exercise)
+                    }
+                    if index < shown.count - 1 {
+                        Divider().overlay(Theme.border)
+                    }
+                }
+            }
+            if neighbours.count > Self.nearVisibleLimit, !showingAllNear {
+                QuietKey(
+                    label: "Show \(neighbours.count - Self.nearVisibleLimit) more",
+                    identifier: "showMoreNearThis"
+                ) {
+                    withAnimation(Theme.Anim.standard) { showingAllNear = true }
+                }
+                .padding(.top, 8)
+            }
         }
     }
 
@@ -213,6 +372,7 @@ struct ExerciseDetailScreen: View {
                         showingAddToRoutine = true
                     }
 
+                    nearThisSection
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 30)
@@ -253,6 +413,17 @@ struct ExerciseDetailScreen: View {
                 }
             }
         }
+        // Two triggers, the pattern the catalog's front matter established.
+        // `onAppear` covers arriving and RETURNING — an edit behind the
+        // editor sheet, or a pop back from a neighbour — and re-applies the
+        // fold, which a surviving source view would otherwise keep open.
+        // The key covers what moves while the screen is up: kit membership
+        // and catalog growth.
+        .onAppear {
+            showingAllNear = false
+            rebuildNear()
+        }
+        .onChange(of: nearKey) { rebuildNear() }
         .navigationDestination(item: $path) { target in
             switch target {
             case .equipment(let equipment): EquipmentDetailScreen(equipment: equipment)
@@ -260,6 +431,7 @@ struct ExerciseDetailScreen: View {
                 if let routine = modelContext.routine(uuid: uuid) {
                     RoutineDetailView(routine: routine)
                 }
+            case .exercise(let neighbour): ExerciseDetailScreen(exercise: neighbour)
             }
         }
         .navigationDestination(item: $createdRoutine) { ref in

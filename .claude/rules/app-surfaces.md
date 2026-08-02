@@ -47,8 +47,11 @@ muscle/movement/mechanic/sides · kit type · routines focus/effort/style),
 PINNED as the list's one section header on tabs and as a top inset on
 presented/picker surfaces (laws in `navigation.md`), with the swipe law
 LEADING is curation / TRAILING is destructive. Each carries the floating search
-key above the tab bar, which hides on a pushed detail. Routine detail keeps the
-superset rail.
+key above the tab bar, which hides on a pushed detail. A TAB with no query and
+no facet leads with FRONT MATTER (`CatalogFrontPage`) above the whole list:
+what the scope and the kit come to, then the scope's axes as chips that
+write facets. Not the search tab, and never a replacement for the list
+(laws in `navigation.md`). Routine detail keeps the superset rail. Exercise detail ends with **NEAR THIS**: the catalog's nearest moves, kit-doable first, each saying why it is near, pushing exercise detail recursively (`ExerciseSimilarity.reasons` + the swap tray's own `swapSuggestions`).
 
 **The drawer** — the top-left ++ key (and a leading-edge drag on any tab
 root) slides the whole app right, revealing `RevealSurface`: settings folded

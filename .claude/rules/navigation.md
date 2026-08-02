@@ -281,6 +281,35 @@ site is a native `Picker` (`.segmented` for short unit/mode toggles, a pushed
   Collapse state is ephemeral per-surface `@State`, reset on entry; a
   cross-tab arrival that needs gear expands the group so its entrance flash
   isn't on a hidden row.
+- **A tab root with nothing narrowing it leads with FRONT MATTER, and the
+  whole list still follows** (2026-08-02): no query and no facet on a
+  catalog TAB renders `CatalogFrontPage` above the sections — one statement
+  of what the scope and the kit come to, then the scope's axes as
+  `SelectableChip` runs (exercises muscle · movement; kit type; routines
+  focus). ⚠️ It PREPENDS, never replaces: the empty-query law above is
+  intact, which is what keeps routines' `.onMove` reachable (reorder is
+  empty-query-only, so a replacement would have no home for it), leaves the
+  missing-equipment disclosure alone, and keeps the facet row's pinned-header
+  seat. A chip WRITES a facet, so the block is self-dismissing — it is the
+  facet row spelled out, for the arrival where a chevron chip opening a tray
+  of unfamiliar words is no help. ⚠️ The search-TAB exclusion this law
+  shipped with is MOOT as of the floating key (2026-08-02): there is no
+  search tab to exclude, and "no query and no facet" already says it — a
+  query is what makes a catalog a query surface now, whichever tab it is
+  on. The reasoning it carried still binds: do not give the facet row a
+  competing top block. Counts come from a
+  DEDICATED `FindOrCreateEngine.outcome` pass at empty query held in `@State`
+  and rebuilt on a key (scope · kit MEMBERSHIP · catalog sizes), never
+  derived in `listBody` — a per-render count is the cost per-scope counts
+  were retired over. Chips state the axis value's CATALOG total, not its
+  kit-doable subset: a doable count reads "Carry · 0" on a kit with no
+  loadable gear, and the statement already carries the kit frame.
+- ⚠️ The next law is about CATALOG LIST rows, not detail screens. A pushed
+  detail has always been a cross-reference graph (exercise → equipment →
+  routine, `CatalogDetailViews`), and since 2026-08-02 exercise detail's
+  **NEAR THIS** section links exercise → exercise, self-recursively through
+  the same item destination. That is adjacency browsing on a detail screen,
+  not a scope switch in a list.
 - **Cross-scope discovery is the TAB BAR** — never link rows, and per-scope
   result counts are GONE (2026-07-25: the central `matchCounts` costs a second
   ranking pass per keystroke, and a `Tab` item is not a view the app can paint
