@@ -198,11 +198,6 @@ struct CatalogScopeView: View {
     /// so switching catalogs cannot carry invisible narrowing across; the
     /// summary chip keeps surviving state announced within a tab.
     @State private var filters = CatalogFilterState()
-    /// The front matter's counts (2026-08-02). Held in state and recomputed
-    /// on `frontMatterKey`, never derived in `listBody`: building it runs
-    /// the engine once, and the render path is the one place that cost is
-    /// not affordable (the reason per-scope counts were retired).
-    @State private var frontMatter: CatalogFrontMatter?
     /// The Kit catalog tier's ORDER, by what each absent piece would open
     /// (2026-08-02, #251). ⚠️ Deliberately FROZEN for the visit: seeded on
     /// appear and never re-seeded by a kit change. `unlocks` is a function
@@ -272,12 +267,6 @@ struct CatalogScopeView: View {
     }
 
     private var kitNames: Set<String> { activeLibrary?.memberNames ?? [] }
-
-    /// The active kit named for PROSE (the one-rule naming law): the generic
-    /// possessive until a second real kit exists, the raw name after.
-    private var kitNamePhrase: String {
-        EquipmentLibrary.activeNamePhrase(in: libraries, storedID: activeLibraryID)
-    }
 
     /// The baked-in null kit is immutable: nothing lands in it, so its rows
     /// carry no membership swipe.
@@ -460,6 +449,26 @@ struct CatalogScopeView: View {
                             showingLibraryTray = true
                         }
                     }
+                    // ⚠️ **The search field needs a DECLARED SLOT among the
+                    // other items, and this is it** (build 179). `.searchable`
+                    // alone puts a field in the bar but never says WHERE among
+                    // the items it goes, so the bar lays it out independently
+                    // of them — which is exactly Dave's read of five builds of
+                    // screenshots: "as if the search icon button thinks it
+                    // needs to take up the full width of the toolbar because
+                    // there are no other toolbar items (though there are)".
+                    // `DefaultToolbarItem(kind: .search, placement:)` is
+                    // Apple's own answer — its documented job is to
+                    // "reposition the default search item", allocating it a
+                    // slot in the toolbar's item layout beside real items.
+                    // Apple's sample interleaves it exactly like this, and an
+                    // Apple Forums thread reports the identical symptom (the
+                    // search item "suddenly expanded", iOS 26.1).
+                    //
+                    // ⚠️ It does NOT replace `.searchable` — that still owns
+                    // the text binding, the presentation and the prompt. This
+                    // only says where the control SITS.
+                    DefaultToolbarItem(kind: .search, placement: .topBarTrailing)
                 }
                 // ⚠️ **SEARCH IS A TOP-BAR ITEM** (Dave, build 176: "search in
                 // the top bar like this, which I like"). It rides the trailing
@@ -926,17 +935,11 @@ struct CatalogScopeView: View {
             // slab to see on an empty stretch. ⚠️ On the SCROLLING CONTENT,
             // never a background on the bar — build 133's mistake.
             .scrollEdgeEffectStyle(.soft, for: .bottom)
-            // The front matter's counts. TWO triggers, and both are load
-            // bearing. `onAppear` covers arriving and RETURNING — every edit
-            // that moves a count (a muscle changed in the exercise editor, a
-            // renamed piece leaving its type bucket, a routine whose focus
-            // derives differently now) happens behind a pushed detail screen,
-            // and popping back re-appears this root. The key covers what
-            // changes while the list is up: kit membership, and catalog
-            // growth from the create row. Neither carries the query, so
-            // neither fires on a keystroke.
-            .onAppear { rebuildDerivedCounts(reseedingOrder: true) }
-            .onChange(of: frontMatterKey) { rebuildDerivedCounts() }
+            // The Kit tier's order, seeded on ARRIVAL and deliberately not
+            // re-seeded while the list is up — a kit change must not re-sort
+            // rows under the thumb that just swiped (see
+            // `seedEquipmentOrder`). Leaving and returning re-sorts.
+            .onAppear { seedEquipmentOrder() }
             // The arrival beat. Lifecycle-bound via `.task(id:)`: leaving or a
             // rapid second add cancels this in flight, and the throwing sleeps
             // bail in the catch WITHOUT clearing `newlyAdded`, so a superseding
@@ -1114,9 +1117,7 @@ struct CatalogScopeView: View {
     /// create row and stays a plain row, never a second pinned header
     /// (#507): the facet row is this list's ONE header, and the create row
     /// is the easy path to a near-duplicate, so what the filters are HIDING
-    /// has to be read before it. ⚠️ The front matter sits BELOW the create
-    /// row: creation is the top list row (navigation.md), and the whole
-    /// grouped list still follows the block rather than being replaced by it.
+    /// has to be read before it.
     @ViewBuilder
     private func leadingRows(collisions: FindOrCreateEngine.Collisions, hiddenByFilters: Int) -> some View {
         if !trimmedQuery.isEmpty, hiddenByFilters > 0 {
@@ -1128,125 +1129,28 @@ struct CatalogScopeView: View {
         if showsKitHint {
             kitHint
         }
-        if showsFrontPage, let frontMatter {
-            CatalogFrontPage(matter: frontMatter, kitPhrase: kitNamePhrase, filters: $filters)
-        }
     }
 
-    // MARK: - The front matter (2026-08-02)
+    // MARK: - The Kit tier's order (#251)
 
-    /// Front matter shows on a TAB ROOT with nothing narrowing the list:
-    /// no query, no facet. Any of either hides it, which is what makes a
-    /// chip tap read as an answer rather than as a mode.
-    ///
-    /// ⚠️ The `!isSearchSurface` term this shipped with is GONE, and it did
-    /// not need replacing (2026-08-02, the floating-key merge). It excluded
-    /// the search TAB, which no longer exists — search is a QUERY on this
-    /// very instance now, so "no query" already excludes exactly what that
-    /// term excluded, on every tab. The seating pair it cited
-    /// (`listSectionSpacing(.custom(0))` + `contentMargins(.top, 0)`) went
-    /// with the tab too. ⚠️ What survives is the reason behind it: do not put
-    /// a second block above the facet row's pinned seat.
-    private var showsFrontPage: Bool {
-        mode.isTab && trimmedQuery.isEmpty && filters.isEmpty(for: scope)
-    }
-
-    /// What the front matter's counts depend on. Membership is the whole
-    /// SET, not its count: swapping one piece for another moves every
-    /// doable number without changing how many pieces are in the kit.
-    private struct FrontMatterKey: Equatable {
-        let scope: FindScope
-        let kitNames: Set<String>
-        let exercises: Int
-        let equipment: Int
-        let routines: Int
-    }
-
-    /// ⚠️ `nil` off the surfaces that can show the block, so nothing is
-    /// built where it can never be read. This is evaluated on every body
-    /// pass, and a body pass happens per KEYSTROKE while searching — a live
-    /// key there would allocate a ~100-name `Set` per character for a block
-    /// that is not on screen.
-    ///
-    /// ⚠️ **That guard used to be `!isSearchSurface` and it had to become
-    /// `trimmedQuery.isEmpty`** (2026-08-02, the floating-key merge), which
-    /// is a stronger requirement, not a looser one. Searching was its own TAB
-    /// — a different instance — so excluding that instance was enough to keep
-    /// the per-keystroke cost away. Typing now happens on THIS instance, so
-    /// dropping the term without replacing it would have put the `Set`
-    /// allocation back on every character of every catalog search. Keeping
-    /// `!isSearchSurface`'s spirit means gating on the QUERY.
-    ///
-    /// ⚠️ Deliberately NOT gated on `filters`: the counts are computed at
-    /// empty filters regardless, so a facet change cannot move them, and
-    /// gating there would rebuild the whole thing every time filters clear.
-    ///
-    /// ⚠️ It tracks CARDINALITY, not content, so it cannot see an EDIT: a
-    /// muscle changed in the exercise editor moves a bucket without moving
-    /// any count in this key. That is what the `onAppear` rebuild is for —
-    /// every edit route leaves through a detail screen, and popping back to
-    /// this root re-appears it. Hashing the catalog's attributes here
-    /// instead would fault every relationship on every body pass, which is
-    /// the cost this whole design is arranged to avoid.
-    private var frontMatterKey: FrontMatterKey? {
-        guard mode.isTab, trimmedQuery.isEmpty else { return nil }
-        return FrontMatterKey(
-            scope: scope,
-            kitNames: kitNames,
-            exercises: allExercises.count,
-            equipment: allEquipment.count,
-            routines: routines.count
-        )
-    }
-
-    /// Built from a DEDICATED engine pass at empty query and no filters, so
-    /// the counts state the whole catalog whatever the live query happens to
-    /// be when the key changes.
-    private func rebuildDerivedCounts(reseedingOrder: Bool = false) {
-        guard mode.isTab else { return }
-        // ⚠️ The ORDER seed is taken on ARRIVAL only (see `equipmentOrder`),
-        // so a kit change never re-sorts the tier mid-swipe. The `opens N`
-        // TAGS are computed live in `listBody` instead, beside the
-        // exercise counts — a number on a row has to be true right now,
-        // even while the order it produced is deliberately holding still.
-        // ⚠️ Not on the null kit: it refuses every add
-        // (`EquipmentLibrary.setMembership` hard-guards it and the row has
-        // no ADD swipe), so ordering ~100 rows by what they would open
-        // would be a hundred propositions the surface cannot accept.
-        if reseedingOrder {
-            equipmentOrder = scope == .kit && !isBodyweightKit ? equipmentOpensCounts : [:]
-        }
-        // ⚠️ **The QUERY gate starts here, not at the top, and the split is
-        // load-bearing** (2026-08-02, the top-bar search merge). This guard
-        // used to be `!isSearchSurface` at the head of the function, which was
-        // enough while searching was its own TAB — a different instance. Typing
-        // happens on THIS instance now, so the term had to become
-        // `trimmedQuery.isEmpty` or the front matter's ~100-name `Set` would be
-        // allocated on every keystroke of every catalog search.
-        //
-        // ⚠️ But putting it at the TOP would have skipped the ORDER SEED for
-        // anyone arriving on Kit with a query carried from another tab (one
-        // query serves all three), leaving that tier alphabetical until they
-        // left and came back — the seed is arrival-only by design. The seed is
-        // cheap (it reads a map `listBody` already computes); the engine pass
-        // below is not. So: reseed unconditionally on arrival, gate the pass.
-        //
-        // ⚠️ Below this line the guard must stay identical to
-        // `frontMatterKey`'s, or the onChange rebuilds into a view that cannot
-        // show the result — or skips a rebuild the key just asked for.
-        guard trimmedQuery.isEmpty else { return }
-        let outcome = FindOrCreateEngine.outcome(
-            query: "",
-            scope: scope,
-            filters: CatalogFilterState(),
-            exercises: allExercises,
-            equipment: allEquipment,
-            routines: routines,
-            templates: RoutineCatalog.all,
-            kitNames: kitNames
-        )
-        let built = CatalogFrontMatter.make(scope: scope, sections: outcome.sections, kitNames: kitNames)
-        frontMatter = built.isEmpty ? nil : built
+    /// Seed the Kit catalog tier's order from what each absent piece would
+    /// open. ⚠️ ON ARRIVAL ONLY (see `equipmentOrder`): `unlocks` is a
+    /// function of the kit, so a live order would re-sort the tier under the
+    /// thumb that just swipe-ADDed and put the next swipe on a different
+    /// row. The `Opens N` TAGS are computed live in `listBody` instead —
+    /// a number on a row has to be true right now, even while the order it
+    /// produced is deliberately holding still.
+    /// ⚠️ Not on the null kit: it refuses every add
+    /// (`EquipmentLibrary.setMembership` hard-guards it and the row has no
+    /// ADD swipe), so ordering ~100 rows by what they would open would be a
+    /// hundred propositions the surface cannot accept.
+    private func seedEquipmentOrder() {
+        // ⚠️ `!isSearchSurface` translated to `trimmedQuery.isEmpty` — search
+        // is no longer its own TAB, it is a QUERY on this very instance, and
+        // this whole ordering is empty-query-only anyway (the engine ranks by
+        // score once there is a query). Must match `equipmentOpensCounts`.
+        guard mode.isTab, trimmedQuery.isEmpty else { return }
+        equipmentOrder = scope == .kit && !isBodyweightKit ? equipmentOpensCounts : [:]
     }
 
     /// The Kit scope shows the whole equipment catalog, so its list can never
@@ -1405,14 +1309,11 @@ struct CatalogScopeView: View {
                 // A piece you don't have answers "what would this do for
                 // me"; one you have answers "what is this for". Only the
                 // first is a proposition about your kit, so only the
-                // CATALOG tier takes the opens count — and only where the
-                // ordering that count drives is live (the tab).
-                // A piece you don't have answers "what would this do for
-                // me"; one you have answers "what is this for". Only the
-                // first is a proposition about your kit. ⚠️ It stays on
-                // under a QUERY, where the order has reverted to score
-                // ranking: the number is still true, it just stops being
-                // the reason the row is where it is.
+                // CATALOG tier takes the opens count. ⚠️ It stays on under
+                // a QUERY, where the order has reverted to score ranking:
+                // the number is still true, it just stops being the reason
+                // the row is where it is. Which surfaces get it at all is
+                // `equipmentOpensCounts`' guard, not this line.
                 opensCount: inKit ? nil : opens,
                 inKit: inKit ? true : nil,
                 nameHighlight: highlight(equipment.name)
@@ -1547,9 +1448,26 @@ struct CatalogScopeView: View {
     /// O(catalog) pass on the kit scope only, beside the exercise counts
     /// that already ride every render of this surface. The tier's ORDER is
     /// a separate, deliberately frozen snapshot (`equipmentOrder`).
+    ///
+    /// ⚠️ Gated to the TAB, exactly like `seedEquipmentOrder` (2026-08-03).
+    /// `listBody` is shared by the presented and picker mounts, and the
+    /// PRESENTED equipment catalog is deliberately one flat alphabetical
+    /// run with no tiers — so an `Opens N` there replaced the "N exercises"
+    /// capsule on the ADD surface, where what a piece is FOR is the useful
+    /// property and a number that moves on every quick-add is the churn
+    /// that flat run exists to avoid. On SEARCH the tag had nothing behind
+    /// it either: that surface never orders by unlocks. Missing this guard
+    /// also ran a full catalog pass per keystroke.
     private var equipmentOpensCounts: [String: Int] {
-        guard scope == .kit, !isBodyweightKit else { return [:] }
-        return CatalogReachCalculator.unlocks(
+        // ⚠️ `!isSearchSurface` → `trimmedQuery.isEmpty` (the top-bar search
+        // round): search is a QUERY on this instance now, not a separate tab,
+        // and this map is read per RENDER — the guard is what keeps a full
+        // catalog pass off a body that runs per keystroke (#550's review found
+        // this guard missing and named that cost). Must match
+        // `seedEquipmentOrder`'s, or the order is seeded from a map the tags
+        // will not agree with.
+        guard mode.isTab, trimmedQuery.isEmpty, scope == .kit, !isBodyweightKit else { return [:] }
+        return KitUnlocks.byPiece(
             allExercises.map(ExerciseFilterState.similarityFeatures),
             kit: kitNames
         )
