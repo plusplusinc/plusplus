@@ -468,6 +468,13 @@ struct CatalogScopeView: View {
                     // ⚠️ It does NOT replace `.searchable` — that still owns
                     // the text binding, the presentation and the prompt. This
                     // only says where the control SITS.
+                    // ⚠️ **A `ToolbarSpacer` before the search item, so it is
+                    // its OWN group** (build 182, Dave's hypothesis). Apple's
+                    // sample has one and we never did. Without it the kit
+                    // switcher and the search item share a single group, so
+                    // when the bar sheds content during presentation the group
+                    // collapses onto the one item left and it fills the bar.
+                    ToolbarSpacer(.fixed, placement: .topBarTrailing)
                     DefaultToolbarItem(kind: .search, placement: .topBarTrailing)
                 }
                 // ⚠️ **SEARCH IS A TOP-BAR ITEM** (Dave, build 176: "search in
@@ -506,45 +513,11 @@ struct CatalogScopeView: View {
                 //    `.minimize`, NOT `.minimized`: Apple's own Discussion
                 //    sample writes a name that does not exist, and the declared
                 //    type property wins over the prose.
-                // ⚠️ There is NO `.searchPresentationToolbarBehavior` here any
-                //    more, and its absence is the point (build 177). See the
-                //    note above the modifier list.
+                // 3. `.searchPresentationToolbarBehavior(.avoidHidingContent)`
+                //    — see the note on the modifier itself. It was DELETED in
+                //    build 178 and restored in 182; the deletion is the single
+                //    costliest wrong turn in this whole round.
                 //
-                // `isPresented` is bound so open/closed SURVIVES a tab switch
-                // and a trip to Today, which is the behaviour Dave chose; the
-                // query binding is unchanged, so one query serves all three
-                // catalogs.
-                // ⚠️ **`.searchPresentationToolbarBehavior(.avoidHidingContent)`
-                // is DELETED (build 177), and removing it is the fix being
-                // tried.** Builds 175 and 177 both ended with the minimized
-                // search control at FULL WIDTH of the bar after an
-                // open/close/open cycle — the resting layout is correct on
-                // arrival and wrong afterwards, which makes it a
-                // PRESENTATION-CYCLE bug rather than a placement one.
-                //
-                // That modifier is **iOS 17.1**, from the era when search meant
-                // a classic navigation-bar field, and its documented job is to
-                // override the toolbar hiding parts of its content while search
-                // is presented. Pairing it with iOS 26's `.minimize` toolbar
-                // search asks two different presentation models to agree about
-                // what happens to the bar, and the residue is a control sized as
-                // if nothing else were in it — exactly Dave's read of the
-                // screenshot ("as if there are no other toolbar items, though
-                // there are").
-                //
-                // ⚠️ **Its ORIGINAL REASON HAS EXPIRED**, which is why deleting
-                // it is not a shot in the dark: it was added for the build-143
-                // bar emptying, and that happened with `Tab(role: .search)`, a
-                // mechanism this branch removed. It is the same shape as the
-                // three other graveyard entries that stopped binding inside
-                // #543's own diff — a guard kept long after the thing it
-                // guarded against was deleted.
-                //
-                // ⚠️ The ACCEPTED COST if this works: iOS hides bar content
-                // while search is presented, by design, so the ++ key and the
-                // kit switcher may disappear WHILE you are typing. That is the
-                // platform default and it is recoverable; a minimized control
-                // that is permanently the width of the screen is not.
                 // ⚠️ **NO `placement:` here, and its absence is deliberate**
                 // (build 181). `DefaultToolbarItem(kind: .search, …)` above IS
                 // the placement declaration — Apple's own sample passes none to
@@ -559,6 +532,23 @@ struct CatalogScopeView: View {
                     prompt: "Search \(scope.searchNoun)"
                 )
                 .searchToolbarBehavior(.minimize)
+                // ⚠️ **RESTORED (build 182), and removing it in 178 was my
+                // error.** Its Discussion is exact: "By default on iOS, a
+                // toolbar MAY HIDE PARTS OF ITS CONTENT when presenting search
+                // to focus on searching. You can override this behavior by
+                // providing a value of `avoidHidingContent`." That IS the
+                // symptom — the ++ key and the kit switcher are absent from
+                // every screenshot of the broken state, which is why the search
+                // control reads as though nothing else is in the bar.
+                //
+                // ⚠️ I dropped it reasoning that its purpose expired with
+                // `Tab(role: .search)`, because the build-143 emptying was
+                // recorded against that tab. The emptying is GENERIC iOS
+                // behaviour that the search tab merely happened to trigger
+                // first; the note conflated an instance with the rule. When a
+                // law cites one build, check whether the mechanism is general
+                // before retiring it with the feature that revealed it.
+                .searchPresentationToolbarBehavior(.avoidHidingContent)
                 .navigationDestination(for: Exercise.self) { exercise in
                     ExerciseDetailScreen(exercise: exercise)
                 }

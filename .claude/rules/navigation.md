@@ -141,8 +141,29 @@ load-bearing:
   an expanded field at rest. ⚠️ `.minimize`, NOT `.minimized`: Apple's own
   Discussion sample writes a name that does not exist, and the declared type
   property wins over the prose.
-- ⚠️ **`.searchPresentationToolbarBehavior(.avoidHidingContent)` is NOT here,
-  and it was REMOVED rather than never added** (build 177). Builds 175 and 177
+- ⚠️ **`.searchPresentationToolbarBehavior(.avoidHidingContent)` IS here, and
+  deleting it in build 178 was the costliest wrong turn of the round** (Dave,
+  build 181: "are items somehow getting removed from the toolbar?" — yes, by
+  design). Its Discussion is exact: "By default on iOS, a toolbar MAY HIDE
+  PARTS OF ITS CONTENT when presenting search to focus on searching." That is
+  the whole symptom: the ++ key and the kit switcher are absent from every
+  screenshot of the broken state, so the search control genuinely IS alone in
+  the bar and sizes accordingly. ⚠️ **The retirement reasoning was the trap.**
+  It was recorded against the build-143 emptying, which happened with
+  `Tab(role: .search)`, so it read as a guard that expired with that tab. The
+  emptying is GENERIC iOS behaviour the search tab merely triggered first —
+  an INSTANCE was written down as if it were the RULE. **When a law cites one
+  build, check whether the mechanism is general before retiring it alongside
+  the feature that revealed it.**
+- ⚠️ **A `ToolbarSpacer(.fixed)` sits between the kit switcher and the search
+  item** (build 182, Dave's other hypothesis). Apple's sample has one; we had
+  none. Without it the switcher and the search item share ONE group, so when
+  the bar sheds content the group collapses onto the single remaining item and
+  it fills the bar. The spacer makes search its own group, bounding its width.
+  ⚠️ The two faults compound — hidden neighbours AND no group boundary — which
+  is why fixing either alone left the symptom standing.
+- ⚠️ **HISTORICAL, kept because it was wrong** (build 177): this bullet used to
+  say the modifier was absent and should stay absent. Builds 175 and 177
   both ended with the minimized control at FULL WIDTH of the bar after an
   open/close/open cycle — correct on arrival, wrong after, i.e. a
   presentation-cycle fault, not a placement one. That modifier is **iOS 17.1**,
