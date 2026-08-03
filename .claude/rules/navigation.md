@@ -118,7 +118,17 @@ load-bearing:
   binding, the presentation and the prompt — this only says where the control
   SITS. **If a search control ever looks mis-sized in a bar that has other
   items, check for this declaration first.**
-- **`placement: .toolbar`, STATED and never inferred.** With no placement the
+- ⚠️ **`.searchable` takes NO `placement:` when `DefaultToolbarItem` is
+  present** (build 181). The default item IS the placement declaration, and
+  Apple's sample passes none; passing both declares the field into the toolbar
+  TWICE. ⚠️ **The wider lesson, which cost five device rounds:** every build
+  from 176 to 180 ADDED a modifier against the then-current symptom and none
+  removed one, so three overlapping declarations of the same thing accumulated
+  and each new "fix" was tested on top of the last one's residue. When a
+  control misbehaves, strip to the minimal declaration FIRST and add back, or
+  you are debugging a stack you built. The retired reasoning below is kept
+  because it explains what `.automatic` does, not because the argument belongs.
+- **What `placement: .toolbar` was for, RETIRED as an argument:** With no placement the
   call takes `.automatic`, which the system re-guesses on EVERY presentation:
   build 175 opened correctly, closed, then re-opened as a FULL-WIDTH field that
   pushed the ++ key and the kit switcher out of the bar (Dave: "as if the search

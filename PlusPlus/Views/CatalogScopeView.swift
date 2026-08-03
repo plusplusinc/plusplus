@@ -485,7 +485,9 @@ struct CatalogScopeView: View {
                 // ("place this modifier after the searchable modifier that
                 // renders search in the toolbar").
                 //
-                // 1. `placement: .toolbar` — **STATED, never inferred.** With
+                // 1. ⚠️ `placement:` is GONE (build 181) — see the note on the
+                //    call itself. Kept below because the REASONING still
+                //    explains what `.automatic` does. With
                 //    no placement the call takes `.automatic`, a guess the
                 //    system re-makes on every presentation: build 175 opened
                 //    correctly, closed, and re-opened as a FULL-WIDTH field
@@ -543,10 +545,17 @@ struct CatalogScopeView: View {
                 // kit switcher may disappear WHILE you are typing. That is the
                 // platform default and it is recoverable; a minimized control
                 // that is permanently the width of the screen is not.
+                // ⚠️ **NO `placement:` here, and its absence is deliberate**
+                // (build 181). `DefaultToolbarItem(kind: .search, …)` above IS
+                // the placement declaration — Apple's own sample passes none to
+                // `.searchable` when it uses that item, and passing both
+                // declares the field into the toolbar TWICE. `placement:
+                // .toolbar` was added in build 176 against the then-current
+                // symptom and should have been REPLACED by the default item in
+                // 180, not stacked under it.
                 .searchable(
                     text: $boundQuery,
                     isPresented: presentedBinding,
-                    placement: .toolbar,
                     prompt: "Search \(scope.searchNoun)"
                 )
                 .searchToolbarBehavior(.minimize)
