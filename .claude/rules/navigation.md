@@ -134,7 +134,23 @@ load-bearing:
   full-width control is not.
 
 **One query, one open state, both owned by `RootTabView`** and shared by all
-three catalogs. Typing on Routines and tapping Exercises KEEPS the query; a trip
+three catalogs.
+
+⚠️ **But the `isPresented` BINDING is gated on the tab being SELECTED, and that
+gate is the fix for the full-width control** (builds 175–178). A `Tab`'s
+content is its own view tree, so the three catalogs are three LIVE,
+simultaneously mounted instances — binding `isPresented` straight to the shared
+flag meant one tap told THREE `.searchable` modifiers in three navigation
+stacks to present at once. Only one is on screen; the other two presented and
+dismissed unseen, and the flag kept re-triggering them, which is why the FIRST
+activation looked right and every later one did not. `CatalogScopeView.presentedBinding`
+reads `isActive && searchOpen`, and its setter guards on `isActive` so a
+DESELECTING tab's automatic dismissal cannot clear the shared state. **The
+invariant: at most one searchable presented at a time.** ⚠️ Sharing the STATE
+was never the bug and is not what changed — open-ness still carries across a
+tab switch and a trip to Today. ⚠️ **This is the shape to suspect first** for
+anything odd in the tab bar or its toolbars: three live instances, one piece of
+shared state, and a modifier that acts on presentation rather than value. Typing on Routines and tapping Exercises KEEPS the query; a trip
 to Today restores the open field on the way back (`isPresented` is bound, which
 is what buys that). ⚠️ That does not break the "a stale invisible query reads as
 data loss" law, it satisfies it: the query is only ever hidden on a tab it could

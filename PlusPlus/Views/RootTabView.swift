@@ -241,7 +241,12 @@ struct RootTabView: View {
             scope: shown,
             query: $query,
             searchOpen: $searchOpen,
-            tab: appTab
+            tab: appTab,
+            // ⚠️ Only the SELECTED tab may PRESENT search. All three catalogs
+            // are mounted at once and share one `searchOpen`; without this the
+            // flag presented all three `.searchable`s together — see
+            // `CatalogScopeView.presentedBinding` for the full account.
+            isActive: tab == appTab
         )
     }
 

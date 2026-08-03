@@ -101,18 +101,24 @@ struct CatalogScopeView: View {
     /// Picker mode's sheet title ("Add exercise" / "Swap for…").
     private var pickerTitle = ""
 
-    /// A tab root: its own stack, the system bar, and the floating search dock.
+    /// Whether this tab is the SELECTED one. ⚠️ Load-bearing for search, not
+    /// cosmetic — see `presentedBinding`.
+    private let isActive: Bool
+
+    /// A tab root: its own stack, the system bar, and the toolbar's search.
     init(
         scope: FindScope,
         query: Binding<String>,
         searchOpen: Binding<Bool>,
-        tab: AppTab
+        tab: AppTab,
+        isActive: Bool
     ) {
         self.scope = scope
         self.mode = .tab
         self._boundQuery = query
         self._searchOpen = searchOpen
         self.tabKey = tab.rawValue
+        self.isActive = isActive
         self.onPick = nil
     }
 
@@ -123,6 +129,7 @@ struct CatalogScopeView: View {
         self._boundQuery = .constant("")
         self._searchOpen = .constant(false)
         self.tabKey = ""
+        self.isActive = false
         self.onPick = nil
     }
 
@@ -133,6 +140,7 @@ struct CatalogScopeView: View {
         self._boundQuery = .constant("")
         self._searchOpen = .constant(false)
         self.tabKey = ""
+        self.isActive = false
         self.onPick = onPick
         self.pickerTitle = title
     }
@@ -218,6 +226,42 @@ struct CatalogScopeView: View {
     }
 
     private var isPicking: Bool { mode == .picker }
+
+    /// The `isPresented` binding the toolbar's search actually gets, gated on
+    /// this tab being the SELECTED one.
+    ///
+    /// ⚠️ **This is the fix for the full-width search control** (builds
+    /// 175–178, Dave: "as if the search icon button thinks it needs to take up
+    /// the full width of the toolbar because there are no other toolbar items
+    /// — though there are"). `RootTabView` owns ONE `searchOpen` and hands the
+    /// same binding to all three catalogs, which is right for the STATE and
+    /// was wrong for the PRESENTATION: a `Tab`'s content is its own view tree
+    /// (navigation.md), so the three catalogs are three LIVE, simultaneously
+    /// mounted instances — and binding `isPresented` directly meant one tap
+    /// told THREE `.searchable` modifiers in three navigation stacks to
+    /// present at once. Only one is on screen; the other two presented and
+    /// dismissed unseen, and the shared flag kept re-triggering them. That is
+    /// why the FIRST activation looked right and every one after it did not.
+    ///
+    /// ⚠️ Read the getter as the invariant: **at most one searchable may be
+    /// presented at a time.** The setter's `isActive` guard is the other half
+    /// — when a tab deselects, SwiftUI dismisses its field and writes `false`
+    /// back; without the guard the OUTGOING tab would clear the shared state
+    /// and the incoming one would open closed.
+    ///
+    /// The behaviour Dave chose survives intact: `searchOpen` is still shared,
+    /// so open-ness carries across a tab switch and a trip to Today. Only the
+    /// PRESENTATION is per-tab, which is the part that was never meant to be
+    /// three-at-once.
+    private var presentedBinding: Binding<Bool> {
+        Binding(
+            get: { isActive && searchOpen },
+            set: { presenting in
+                guard isActive else { return }
+                searchOpen = presenting
+            }
+        )
+    }
 
     private var trimmedQuery: String {
         queryBinding.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -492,7 +536,7 @@ struct CatalogScopeView: View {
                 // that is permanently the width of the screen is not.
                 .searchable(
                     text: $boundQuery,
-                    isPresented: $searchOpen,
+                    isPresented: presentedBinding,
                     placement: .toolbar,
                     prompt: "Search \(scope.searchNoun)"
                 )
