@@ -451,15 +451,45 @@ struct CatalogScopeView: View {
                 //    `.minimize`, NOT `.minimized`: Apple's own Discussion
                 //    sample writes a name that does not exist, and the declared
                 //    type property wins over the prose.
-                // 3. `.searchPresentationToolbarBehavior(.avoidHidingContent)`
-                //    — keeps the ++ key and the kit switcher in the bar while
-                //    search is active. Without it the system clears the bar to
-                //    make room, which is the build-143 emptying.
+                // ⚠️ There is NO `.searchPresentationToolbarBehavior` here any
+                //    more, and its absence is the point (build 177). See the
+                //    note above the modifier list.
                 //
                 // `isPresented` is bound so open/closed SURVIVES a tab switch
                 // and a trip to Today, which is the behaviour Dave chose; the
                 // query binding is unchanged, so one query serves all three
                 // catalogs.
+                // ⚠️ **`.searchPresentationToolbarBehavior(.avoidHidingContent)`
+                // is DELETED (build 177), and removing it is the fix being
+                // tried.** Builds 175 and 177 both ended with the minimized
+                // search control at FULL WIDTH of the bar after an
+                // open/close/open cycle — the resting layout is correct on
+                // arrival and wrong afterwards, which makes it a
+                // PRESENTATION-CYCLE bug rather than a placement one.
+                //
+                // That modifier is **iOS 17.1**, from the era when search meant
+                // a classic navigation-bar field, and its documented job is to
+                // override the toolbar hiding parts of its content while search
+                // is presented. Pairing it with iOS 26's `.minimize` toolbar
+                // search asks two different presentation models to agree about
+                // what happens to the bar, and the residue is a control sized as
+                // if nothing else were in it — exactly Dave's read of the
+                // screenshot ("as if there are no other toolbar items, though
+                // there are").
+                //
+                // ⚠️ **Its ORIGINAL REASON HAS EXPIRED**, which is why deleting
+                // it is not a shot in the dark: it was added for the build-143
+                // bar emptying, and that happened with `Tab(role: .search)`, a
+                // mechanism this branch removed. It is the same shape as the
+                // three other graveyard entries that stopped binding inside
+                // #543's own diff — a guard kept long after the thing it
+                // guarded against was deleted.
+                //
+                // ⚠️ The ACCEPTED COST if this works: iOS hides bar content
+                // while search is presented, by design, so the ++ key and the
+                // kit switcher may disappear WHILE you are typing. That is the
+                // platform default and it is recoverable; a minimized control
+                // that is permanently the width of the screen is not.
                 .searchable(
                     text: $boundQuery,
                     isPresented: $searchOpen,
@@ -467,10 +497,6 @@ struct CatalogScopeView: View {
                     prompt: "Search \(scope.searchNoun)"
                 )
                 .searchToolbarBehavior(.minimize)
-                // Keeps the ++ key and the kit switcher while search is active
-                // — without it the system clears the bar to make room, which is
-                // the build-143 emptying. Still load-bearing.
-                .searchPresentationToolbarBehavior(.avoidHidingContent)
                 .navigationDestination(for: Exercise.self) { exercise in
                     ExerciseDetailScreen(exercise: exercise)
                 }

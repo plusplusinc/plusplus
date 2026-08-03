@@ -117,9 +117,21 @@ load-bearing:
   an expanded field at rest. ⚠️ `.minimize`, NOT `.minimized`: Apple's own
   Discussion sample writes a name that does not exist, and the declared type
   property wins over the prose.
-- **`.searchPresentationToolbarBehavior(.avoidHidingContent)`** keeps the ++ key
-  and the kit switcher in the bar while search is active. Without it the system
-  clears the bar to make room — the build-143 emptying.
+- ⚠️ **`.searchPresentationToolbarBehavior(.avoidHidingContent)` is NOT here,
+  and it was REMOVED rather than never added** (build 177). Builds 175 and 177
+  both ended with the minimized control at FULL WIDTH of the bar after an
+  open/close/open cycle — correct on arrival, wrong after, i.e. a
+  presentation-cycle fault, not a placement one. That modifier is **iOS 17.1**,
+  written for the classic navigation-bar field, and its job is to override the
+  toolbar hiding its content during search; pairing it with iOS 26's
+  `.minimize` toolbar search asks two presentation models to agree, and the
+  residue is a control sized as if the bar were empty. ⚠️ Its original reason
+  had already expired — it was added for the build-143 emptying, which happened
+  with `Tab(role: .search)`, deleted here. Same shape as the three other
+  graveyard entries that stopped binding inside #543's diff. **Accepted cost:**
+  iOS hides bar content while search is presented by design, so the ++ key and
+  kit switcher may vanish WHILE typing. That is recoverable; a permanently
+  full-width control is not.
 
 **One query, one open state, both owned by `RootTabView`** and shared by all
 three catalogs. Typing on Routines and tapping Exercises KEEPS the query; a trip
