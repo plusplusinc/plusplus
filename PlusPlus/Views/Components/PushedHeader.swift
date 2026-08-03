@@ -1,22 +1,31 @@
 import SwiftUI
 
-/// The pushed-screen chrome, Quiet Arcade edition (Dave's build-42
-/// call: our own keys over Liquid Glass, for the toolbar and search
-/// both). The system bar hides entirely; a custom header rides
-/// `safeAreaInset` — a 44 pt raised back key, the title (+ optional
-/// mono subtitle) truly centered, trailing raised keys, and on catalog
-/// surfaces a search key that expands into a field replacing the title
-/// (mock 06 — the expanded field carries an in-field clear, and
-/// closing is a separate key beside it). Supersedes #198's glass chevron and #233's toolbar
-/// search button; the full-width swipe-back is untouched — the #198
-/// pan drives the navigation controller directly and never depended
-/// on the bar being visible.
-private struct PushedScreenChrome<Trailing: View>: ViewModifier {
+/// The pushed-screen chrome, native edition (2026-08-02, reversing the
+/// build-42 custom-key call): a pushed screen wears the SYSTEM navigation
+/// bar — inline title, optional `.navigationSubtitle`, an app-supplied
+/// leading back item, the caller's own trailing toolbar content, and the
+/// system `.searchable` where the screen carries a field.
+///
+/// ⚠️ **This modifier declares the LEADING item only; trailing content is the
+/// CALLER's own `ToolbarContent`** (see the two `pushedScreenChrome`
+/// overloads), and that split is a bug fix, not a style. iOS 26 draws a Liquid
+/// Glass container around whatever a bar item holds — so a `ToolbarItem` that
+/// exists with EMPTY content renders as a fully-formed, perfectly round,
+/// completely blank BUTTON. This modifier used to emit one trailing item
+/// unconditionally, wrapping `trailing` in an `HStack`; four screens hand it
+/// nothing (`SessionDetailView`, `RoutineTemplateDetailScreen` and the
+/// presented catalog pass no trailing closure at all, and equipment detail's
+/// two keys are both behind `!equipment.isBuiltIn`, so every built-in piece
+/// hits it), and all four showed that empty button in the top-right. Build 177,
+/// Dave's screenshot of Barbell. Taking the trailing content as
+/// `ToolbarContent` rather than a `View` is what makes the fix structural: an
+/// `if` at the call site now omits the ITEM, where before it only emptied the
+/// item's contents. `sheetChrome` already had this right (`if let cancel`).
+private struct PushedScreenChrome: ViewModifier {
     let title: String
     var subtitle: String?
     var search: HeaderSearchConfig?
     let onBack: () -> Void
-    let trailing: Trailing
 
     func body(content: Content) -> some View {
         content
@@ -43,11 +52,6 @@ private struct PushedScreenChrome<Trailing: View>: ViewModifier {
                     }
                     .accessibilityLabel("Back")
                     .accessibilityIdentifier("backButton")
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    // A single item holding the group: the call sites pass
-                    // one or two keys, and the toolbar spaces its own.
-                    HStack(spacing: 2) { trailing }
                 }
             }
             .modifier(PushedSubtitle(subtitle: subtitle))
@@ -244,21 +248,39 @@ private struct RaisedMenuUnlessToolbar: ViewModifier {
 extension View {
     /// One call per pushed screen: the SYSTEM navigation bar with an inline
     /// title, an app-supplied back item (see `PushedScreenChrome` for why),
-    /// native trailing keys, optional `.searchable`, and the whole-surface
-    /// swipe-back.
-    func pushedScreenChrome<Trailing: View>(
+    /// optional `.searchable`, and the whole-surface swipe-back. This is the
+    /// overload for a screen with NO trailing keys — it attaches no trailing
+    /// item, which is the whole point (an empty one draws as a blank button).
+    func pushedScreenChrome(
         title: String,
         subtitle: String? = nil,
         search: HeaderSearchConfig? = nil,
-        onBack: @escaping () -> Void,
-        @ViewBuilder trailing: () -> Trailing = { EmptyView() }
+        onBack: @escaping () -> Void
     ) -> some View {
         modifier(PushedScreenChrome(
             title: title,
             subtitle: subtitle,
             search: search,
-            onBack: onBack,
-            trailing: trailing()
+            onBack: onBack
         ))
+    }
+
+    /// The same chrome, plus the screen's own trailing keys.
+    ///
+    /// ⚠️ `trailing` is `ToolbarContent`, so the call site writes its own
+    /// `ToolbarItem(placement: .topBarTrailing)` and puts any condition
+    /// AROUND it, never inside it. A `ToolbarItem` whose content evaluates to
+    /// nothing is still an item, and iOS 26 gives every item a Liquid Glass
+    /// container — an empty button. Toolbar modifiers compose, so this stacks
+    /// on the base chrome's leading item rather than replacing it.
+    func pushedScreenChrome<Trailing: ToolbarContent>(
+        title: String,
+        subtitle: String? = nil,
+        search: HeaderSearchConfig? = nil,
+        onBack: @escaping () -> Void,
+        @ToolbarContentBuilder trailing: () -> Trailing
+    ) -> some View {
+        pushedScreenChrome(title: title, subtitle: subtitle, search: search, onBack: onBack)
+            .toolbar(content: trailing)
     }
 }
