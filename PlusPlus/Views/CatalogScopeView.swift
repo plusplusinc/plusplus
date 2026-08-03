@@ -1116,9 +1116,7 @@ struct CatalogScopeView: View {
     /// create row and stays a plain row, never a second pinned header
     /// (#507): the facet row is this list's ONE header, and the create row
     /// is the easy path to a near-duplicate, so what the filters are HIDING
-    /// has to be read before it. ⚠️ The front matter sits BELOW the create
-    /// row: creation is the top list row (navigation.md), and the whole
-    /// grouped list still follows the block rather than being replaced by it.
+    /// has to be read before it.
     @ViewBuilder
     private func leadingRows(collisions: FindOrCreateEngine.Collisions, hiddenByFilters: Int) -> some View {
         if !trimmedQuery.isEmpty, hiddenByFilters > 0 {
@@ -1306,14 +1304,11 @@ struct CatalogScopeView: View {
                 // A piece you don't have answers "what would this do for
                 // me"; one you have answers "what is this for". Only the
                 // first is a proposition about your kit, so only the
-                // CATALOG tier takes the opens count — and only where the
-                // ordering that count drives is live (the tab).
-                // A piece you don't have answers "what would this do for
-                // me"; one you have answers "what is this for". Only the
-                // first is a proposition about your kit. ⚠️ It stays on
-                // under a QUERY, where the order has reverted to score
-                // ranking: the number is still true, it just stops being
-                // the reason the row is where it is.
+                // CATALOG tier takes the opens count. ⚠️ It stays on under
+                // a QUERY, where the order has reverted to score ranking:
+                // the number is still true, it just stops being the reason
+                // the row is where it is. Which surfaces get it at all is
+                // `equipmentOpensCounts`' guard, not this line.
                 opensCount: inKit ? nil : opens,
                 inKit: inKit ? true : nil,
                 nameHighlight: highlight(equipment.name)
@@ -1448,8 +1443,18 @@ struct CatalogScopeView: View {
     /// O(catalog) pass on the kit scope only, beside the exercise counts
     /// that already ride every render of this surface. The tier's ORDER is
     /// a separate, deliberately frozen snapshot (`equipmentOrder`).
+    ///
+    /// ⚠️ Gated to the TAB, exactly like `seedEquipmentOrder` (2026-08-03).
+    /// `listBody` is shared by the presented and picker mounts, and the
+    /// PRESENTED equipment catalog is deliberately one flat alphabetical
+    /// run with no tiers — so an `Opens N` there replaced the "N exercises"
+    /// capsule on the ADD surface, where what a piece is FOR is the useful
+    /// property and a number that moves on every quick-add is the churn
+    /// that flat run exists to avoid. On SEARCH the tag had nothing behind
+    /// it either: that surface never orders by unlocks. Missing this guard
+    /// also ran a full catalog pass per keystroke.
     private var equipmentOpensCounts: [String: Int] {
-        guard scope == .kit, !isBodyweightKit else { return [:] }
+        guard mode.isTab, !isSearchSurface, scope == .kit, !isBodyweightKit else { return [:] }
         return KitUnlocks.byPiece(
             allExercises.map(ExerciseFilterState.similarityFeatures),
             kit: kitNames

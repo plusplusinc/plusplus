@@ -73,6 +73,7 @@ struct ExerciseDetailScreen: View {
     /// A routine created from here pushes immediately — the fluid-nav
     /// promise: create it with this exercise already inside, land in it.
     @State private var createdRoutine: IdentifiedUUID?
+
     private enum PushTarget: Hashable {
         case equipment(Equipment)
         case routine(UUID)
