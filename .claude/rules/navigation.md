@@ -8,8 +8,8 @@ paths:
 Every ⚠️ here is a law learned on device — the build number names the failing
 build. Don't re-try retired mechanisms; docs/DECISIONS.md and git history hold
 the post-mortems. A law tagged **(recheck: iOS 27)** encodes an OS-26 bug:
-re-test it on the next major SDK before assuming it still binds. Siblings: `catalog-scopes.md` (what the catalog SHOWS: scopes, tiers, facets,
-front matter — split out 2026-08-02), `today-rail.md` (Today's band, rail,
+re-test it on the next major SDK before assuming it still binds. Siblings: `catalog-scopes.md` (what the catalog SHOWS: scopes, tiers,
+facets — split out 2026-08-02), `today-rail.md` (Today's band, rail,
 landmarks, pull — split out the same day), `design-grammar.md` (color/key/tag/copy laws),
 `app-surfaces.md` (what each screen is), `ui-interaction.md` (gesture laws).
 

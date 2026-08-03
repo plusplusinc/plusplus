@@ -168,17 +168,9 @@ struct CatalogFilterState: Equatable {
 
     /// Every routine can answer Focus: authored when template-born,
     /// derived from what it trains otherwise (`focusLabel`'s exact rule).
-    ///
-    /// Static and internal since 2026-08-02: the catalog's front matter
-    /// buckets routines by focus and has to bucket them the way the facet
-    /// narrows them, or the chip's count and the list it opens disagree.
-    static func resolvedFocus(_ routine: Routine) -> RoutineTemplate.Focus {
+    private func resolvedFocus(_ routine: Routine) -> RoutineTemplate.Focus {
         routine.catalogTemplate?.focus
             ?? RoutineTemplate.Focus.derived(fromMuscles: routine.muscleGroups, isCardio: routine.isCardio)
-    }
-
-    private func resolvedFocus(_ routine: Routine) -> RoutineTemplate.Focus {
-        Self.resolvedFocus(routine)
     }
 
     /// The same test with the two RATING facets skipped — what decides

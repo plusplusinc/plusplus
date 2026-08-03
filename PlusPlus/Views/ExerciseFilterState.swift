@@ -107,9 +107,9 @@ enum ExerciseFilterState {
     /// is not penalized for it — the ranker renormalizes over what it can
     /// actually compare.
     ///
-    /// Internal since 2026-08-02: the catalog's front matter counts reach
-    /// over the same bag (`CatalogReachCalculator`), and a second mapper
-    /// would be a second reading of what an exercise requires.
+    /// Internal since 2026-08-02: the Kit tier's unlock counts run over the
+    /// same bag (`KitUnlocks`), and a second mapper would be a second
+    /// reading of what an exercise requires.
     static func similarityFeatures(_ exercise: Exercise) -> ExerciseSimilarityFeatures {
         ExerciseSimilarityFeatures(
             muscleGroups: exercise.muscleGroups,
