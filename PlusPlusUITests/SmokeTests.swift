@@ -40,16 +40,6 @@ final class SmokeTests: XCTestCase {
 
     /// Go to a catalog by its tab. The native search scope bar does the same
     /// job WHILE searching (`selectScope`); this is the resting way.
-    /// ⚠️ Matched on ANY element type, never `staticTexts`. The statement
-    /// renders as a plain `Text` while one kit exists and as `KitNamePhrase`
-    /// once a second does — and that is an `accessibilityElement(children:
-    /// .ignore)`, which flattens to `.other`. `--uitest-reset` leaves one
-    /// kit today, so a type-specific query would pass now and fail on an
-    /// unrelated change to the reset fixture.
-    private var frontPageStatement: XCUIElement {
-        app.descendants(matching: .any)["frontPageStatement"]
-    }
-
     private func goToCatalog(_ scope: String) {
         let key = tabButton(scope)
         XCTAssertTrue(key.waitForExistence(timeout: 10), "the \(scope) tab is in the bar")
@@ -516,40 +506,9 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(clearAll.waitForExistence(timeout: 5), "the summary popover holds Clear all")
         clearAll.tap()
 
-        // ⚠️ NOT a row of the restored run any more (2026-08-02): with no
-        // query and no facet the list leads with the front matter, so the
-        // early-alphabet row this used to assert ("Arm Circles") is below
-        // the fold and invisible to a lazy list. The front matter's return
-        // IS the unfiltered state.
-        XCTAssertTrue(
-            frontPageStatement.waitForExistence(timeout: 5),
-            "clearing restores the unfiltered catalog, which leads with its front matter"
-        )
+        // A non-chest row near the top of the full run proves the clear.
+        XCTAssertTrue(app.staticTexts["Arm Circles"].waitForExistence(timeout: 5), "clearing restores the whole catalog")
         XCTAssertFalse(summary.exists, "the summary chip leaves with the filters")
-    }
-
-    /// The catalog's front matter (2026-08-02): with nothing narrowing the
-    /// list a catalog tab states its reach and offers its axes as chips,
-    /// and a chip writes the same facet the row's tray writes. Picking one
-    /// hides the block, which is the whole interaction — the front matter
-    /// is the facet row spelled out, so choosing from it gives way to the
-    /// list it just asked for.
-    func testCatalogFrontPageNarrowsAndReturns() throws {
-        goToCatalog("exercises")
-
-        let statement = frontPageStatement
-        XCTAssertTrue(statement.waitForExistence(timeout: 10), "an unnarrowed catalog leads with its reach")
-
-        // Chest leads MuscleGroup.allCases, so its chip is on the first
-        // screen (the lazy-list law applies to the chip run too).
-        let chestChip = app.buttons["frontPageChip-chest"]
-        XCTAssertTrue(chestChip.waitForExistence(timeout: 5), "the muscle axis offers Chest")
-        chestChip.tap()
-
-        XCTAssertTrue(app.staticTexts["Bench Press"].waitForExistence(timeout: 5), "the chip narrows to chest")
-        XCTAssertTrue(app.buttons["filterSummary"].waitForExistence(timeout: 5), "a chip write is a facet, so it summarizes")
-        XCTAssertFalse(statement.exists, "front matter gives way to the list it asked for")
-        snap("catalog-front-page-narrowed")
     }
 
     func testExecuteWorkoutAndSeeHistory() throws {
