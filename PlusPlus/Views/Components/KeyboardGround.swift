@@ -34,15 +34,17 @@ import SwiftUI
 /// header that carries no control. So this is always the SECOND exit — never
 /// ship it as the only one.
 ///
-/// ⚠️ **It only covers what it is attached to.** A header that is a SIBLING
-/// of the scroll needs its own copy; the scroll's exits do not reach it, and
-/// a blank header directly above a focused field is the most obvious empty
-/// place there is. `ExerciseEditorView` gives its `SheetHeader` one for
-/// exactly this reason. ⚠️ The `pushedScreenChrome` band is the KNOWN
-/// exception and does not have one: it arrives as a `safeAreaInset` from a
-/// component every pushed screen shares, so grounding it means either
-/// changing all of them or giving that component an opt-in hook. Deliberate,
-/// deferred, and the reason a pushed form's header does not answer a tap.
+/// ⚠️ **It only covers what it is attached to**, and as of 2026-08-02 there
+/// is nothing left in the app it can cover ABOVE a form. Every header —
+/// `pushedScreenChrome` and `sheetChrome` alike — is the SYSTEM navigation
+/// bar now, and a platform bar is not a view of ours, so it cannot carry a
+/// ground and never will. That is a real loss where it used to apply:
+/// `ExerciseEditorView`'s hand-drawn header was ~90 pt of the most
+/// conspicuous blank space in the sheet, directly above the field holding the
+/// keyboard, and it answered a tap. What remains is
+/// `.scrollDismissesKeyboard` (the load-bearing exit) plus a ground on the
+/// form's own CONTENT — which is exactly why the line above says this is
+/// always the SECOND exit and never the only one.
 ///
 /// Taps are not pans, so nothing here claims the scroll — `ui-interaction.md`'s
 /// claim-vs-does law is about drags.

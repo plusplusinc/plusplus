@@ -67,21 +67,47 @@ Siblings: `navigation.md` (tab bar, search, scope control, landings),
 - **RaisedKey press grammar**: every committing/navigating button is an opaque
   cap depressing onto a fixed base plate (4 pt standard / 3 pt quiet, 0.06 s
   ease-out); flat controls (chips, toggles, segments, rows) stay flat.
-  Custom key chrome everywhere — `pushedScreenChrome(...)` replaces system
-  toolbars on pushed screens. **Icon-only keys are 11-pt ROUNDED SQUARES
-  everywhere** (2026-07-19; the all-circles round and the sheet-corner
-  concentric experiment were both reverted by Dave — uneven concentric corners
-  read wrong): `HeaderIconButton`/`HeaderMenuKey`/`AppMenuKey`/Operator
-  send-stop use `RoundedRectangle(cornerRadius: 11)` + `.raisedKey()`. The one
+  ⚠️ **The app's chrome stops at the navigation bar** (Dave, 2026-08-02,
+  reversing the build-42 call for the TOOLBAR only): a key in a system
+  `ToolbarItem` is NATIVE — a bare `Image` label, no frame, no ground, no
+  `.raisedKey()` — and the bar plates, sizes, tints and presses it.
+  `pushedScreenChrome` AND `sheetChrome` are the system bar now, so no
+  hand-drawn header band survives anywhere. `HeaderKeyChrome` is the switch:
+  `HeaderIconButton`/`HeaderMenuKey`/`LibrarySwitcherKey` take `.toolbar` in a
+  bar, `.raised` everywhere else; `AppMenuKey` is toolbar-only with no raised
+  variant. Its glyph keeps brand GREEN — the mark, not chrome.
+  ⚠️ **Tint is OPTIONAL and `nil` is the default on purpose**: a toolbar
+  control takes the BAR's tint unless the app means something by its colour
+  (the lit favourite star goes `Theme.accent` — the user's own data).
+  ⚠️ `.sharedBackgroundVisibility(.hidden)` came OFF every toolbar key with the
+  app-drawn ground: it stopped a raised cap nesting inside the toolbar's shared
+  glass (a box in a box), and a bare glyph WANTS that glass.
+  ⚠️ An item holding NOTHING still draws that glass, as a blank round key —
+  when a trailing key is conditional, `ui-interaction.md` has the law.
+  **Icon-only keys are 11-pt ROUNDED SQUARES
+  everywhere the app still draws them** (2026-07-19; the all-circles round and
+  the sheet-corner concentric experiment were both reverted by Dave — uneven
+  concentric corners read wrong): `HeaderIconButton`/`HeaderMenuKey` in sheets
+  and trays, plus Operator
+  send-stop, use `RoundedRectangle(cornerRadius: 11)` + `.raisedKey()`. The one
   sanctioned variant is `ConfigIconButton` (30 pt cap, r8, FLAT bordered — it
   configures a value in place, it doesn't commit or navigate; the radius
-  scales with the cap). No other per-context corner variation. ⚠️ **A raised
+  scales with the cap). No other per-context corner variation.
+  ⚠️ **The hand-built glass exception is GONE, and its RULE outlived it**
+  (Dave, build 176). `CatalogSearchDock` — a Liquid Glass circle morphing into
+  a capsule, floating above the tab bar — is deleted; search is a native item
+  in the top toolbar, so the app draws no glass at all any more. What the
+  exception was FOR still binds and is now the general law: **a control wears
+  what it SITS AGAINST.** In a system bar that means native, bare, and the
+  bar's own glass (the toolbar law above). In app-drawn chrome — sheets, trays,
+  the picker's field — it means the r11 opaque cap. Asking "what is this NEXT
+  TO" is the question; the dock was one answer to it, and a short-lived one. ⚠️ **A raised
   key's cap and its hit target are ONE rectangle** (build 161): `RaisedKeyStyle`
   plates the frame it is GIVEN, so a smaller cap inside a bigger hit frame draws
   the plate as a second box around it. Grow the frame, not the gap. Every "New …" / "Add …" /
   "Create …" list row is the shared `CreateRow` (a green bordered raised key),
   so creation reads as a button, not floating text. Keys that carry TEXT keep
-  the rounded-rect pill: `QuietKey`, `LibrarySwitcherKey`, `SheetDismissKey`,
+  the rounded-rect pill: `QuietKey`, `LibrarySwitcherKey`,
   the primary action bars.
   ⚠️ **A key that ENDS the workout in one gesture SLIDES** (Q4, 2026-08-01):
   the single-effort commit key ("Finish workout" in the log and timer docks)
@@ -108,16 +134,29 @@ Siblings: `navigation.md` (tab bar, search, scope control, landings),
   beside `.raisedPrimaryKey`, not `.quietKey`'s 3 pt) so caps sit on one
   baseline; carry the quiet reading in fill, ink and type instead.
 - **Sheet dismissal and ✕**: ✕ means ONLY "collapse search", everywhere. A
-  sheet/tray NEVER dismisses with a ✕ — it uses a text `SheetDismissKey`
-  ("Cancel" to abandon edits, "Done" view-only). Full search-field anatomy and
-  the create/add verb grammar: `navigation.md`.
+  sheet/tray NEVER dismisses with a ✕ — it dismisses with a WORD ("Cancel" to
+  abandon edits or to leave a picker without picking, "Done" view-only). ⚠️
+  That law SURVIVED the native conversion; the control under it did not
+  (2026-08-02). **A sheet wears the SYSTEM navigation bar** via `sheetChrome`
+  — the same bar as a pushed screen: inline title, optional
+  `.navigationSubtitle`, Cancel LEADING (`.cancellationAction`), commit
+  TRAILING (`.confirmationAction`). `SheetHeader`/`SheetDismissKey` are
+  DELETED. Two visible changes, both chosen: Cancel moved left from beside the
+  commit, and the commit lost its green `primaryFill` capsule (the capsule
+  said "committing is an ACTION"; the bar says it with position and weight).
+  ⚠️ The HOST owns the `NavigationStack` and presentation modifiers stay
+  outside it (`ui-interaction.md`) — a `.navigationTitle` with no bar to land
+  in renders nothing, silently. ⚠️ No header can carry a `.keyboardGround` any
+  more; `SheetComponents.swift` and `KeyboardGround.swift` carry the rest.
+  Search-field anatomy and the create/add verbs: `navigation.md`.
 - **Pushed-screen titles follow the nature of the title** (2026-07-18): a
   **pushed utility/catalog screen** with a fixed label keeps the small
   centered `pushedScreenChrome` title; a **pushed detail screen showing a
   dynamic name** clears its chrome title (`title: ""`) and leads the body with
   a large left header wrapping to two lines (`.lineLimit(2)` + `.fixedSize` +
   `.isHeader`) — Exercise / Equipment / Template / Routine detail.
-  `SheetHeader` titles wrap to two lines. The record screen
+  A SHEET's title is the system bar's, so it does not wrap — where a sheet
+  needs a second line it takes a subtitle. The record screen
   (`SessionDetailView`) is the deliberate exception: centered title + mono
   subtitle, since routine names are short and the facts ride the subtitle.
   Tab-root chrome (system large-title bar) is `navigation.md`'s.
@@ -146,7 +185,14 @@ Siblings: `navigation.md` (tab bar, search, scope control, landings),
   card, 2026-08-01: a tapped key's CHROME grows into its config panel via
   `matchedGeometryEffect` on `Theme.Anim.selection`, content fading; never
   match content views — text reflows mid-flight — and never a measured
-  FLIP, which writes layout state where the morph law forbids it). Tempo
+  FLIP, which writes layout state where the morph law forbids it).
+  ⚠️ **A GLASS morph is the system's, not that recipe** (2026-08-02): the
+  search dock pairs a `GlassEffectContainer` with a shared `glassEffectID`,
+  which is the mechanism the search-role tab used to expand out of the bar.
+  `matchedGeometryEffect` cannot fluidly reshape glass, and running both makes
+  them fight over the same geometry. The rule follows the MATERIAL: app-drawn
+  chrome morphs with `matchedGeometryEffect`, glass morphs with
+  `glassEffectID`, and neither borrows the other's mechanism. Tempo
   lives in `Theme.Anim` tokens, never inline
   curves: `.selection` (snappy spring, front-loaded, no overshoot — an
   ease-out's decelerating tail made a sliding pill read muddy, 2026-07-12),
@@ -211,7 +257,9 @@ Siblings: `navigation.md` (tab bar, search, scope control, landings),
   `CardTagCapsule` (routine gear pills too). **Both tiers are ROUNDED
   RECTANGLES, not capsules** (2026-07-20): every interactive key is a rounded
   rect, so filter controls sit at `FilterChipShape.cornerRadius` (11) and data
-  tags at r6 — shape carries role by radius, control vs data. Data-tag text is
+  tags at r6 — shape carries role by radius, control vs data. (The search
+  dock's glass capsule is the one exception, scoped by neighbour — see the
+  icon-key law above.) Data-tag text is
   sentence-case, standard (non-mono) caption. ALL-CAPS mono stays reserved for
   section labels. The property a filter/sort controls appears as a
   `CardTagCapsule` on the cards it narrows, so the two connect. One item reads

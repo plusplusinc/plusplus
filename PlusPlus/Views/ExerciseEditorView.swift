@@ -151,42 +151,22 @@ struct ExerciseEditorView: View {
 
     var body: some View {
         // Self-contained NavigationStack so the two "+ Add" rows can PUSH
-        // their pick lists (the ScheduleTray / Voice-cues pattern): the
-        // root bar is hidden so SheetHeader stays the header, and only the
-        // pushed list wears a system bar — which is what buys the back
-        // swipe, the titled back button and the standard slide.
+        // their pick lists (the ScheduleTray / Voice-cues pattern). ⚠️ Its
+        // ROOT bar is visible as of 2026-08-02 — it is this sheet's header
+        // now, carrying Cancel, Save and the title, so the
+        // `.toolbar(.hidden, for: .navigationBar)` that used to keep
+        // `SheetHeader` in frame would hide all three.
+        //
+        // ⚠️ **The header's keyboard ground went with it, and that is a real
+        // loss, not a cleanup.** The hand-drawn band was ~90 pt of the most
+        // conspicuous blank space in the sheet, sitting directly above the
+        // field that holds the keyboard, and it answered a tap. A system
+        // navigation bar is not the app's view and cannot carry a ground.
+        // `.scrollDismissesKeyboard(.immediately)` on the form below is the
+        // remaining exit, plus the content's own ground — which is why
+        // ui-interaction.md's "always the SECOND exit" line matters here.
         NavigationStack {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(
-                title: editingExercise == nil ? "New exercise" : "Edit exercise",
-                subtitle: editingExercise?.name,
-                actionLabel: "Save",
-                actionEnabled: canSave,
-                actionIdentifier: "saveExerciseButton",
-                onCancel: {
-                    // Dirty drafts confirm (Dave, 2026-07-23) — the one
-                    // deliberate exception to Cancel-is-instant, matched
-                    // by the blocked swipe below (the Mail-compose
-                    // pattern). A clean sheet still closes instantly.
-                    // The keyboard goes first either way, so the discard
-                    // dialog doesn't arrive on top of it.
-                    focusedField = nil
-                    if isDirty {
-                        confirmingDiscard = true
-                    } else {
-                        dismiss()
-                    }
-                },
-                action: { save() }
-            )
-            .padding(.horizontal, 18)
-            // The header is a SIBLING of the scroll, so neither of the
-            // scroll's two exits reaches it — and it is ~90 pt of the most
-            // conspicuous blank space in the sheet, directly above the field
-            // that holds the keyboard. Tapping the obvious empty place has
-            // to work (swift-reviewer).
-            .keyboardGround(clearing: $focusedField)
-
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     SheetSectionLabel("NAME")
@@ -203,7 +183,7 @@ struct ExerciseEditorView: View {
                         // Relabels the key cap only: the soft keyboard's
                         // Return ends editing and this field has no
                         // `onSubmit`, so it commits nothing. (With a HARDWARE
-                        // keyboard, SheetHeader's Save carries
+                        // keyboard, the bar's Save carries
                         // `.keyboardShortcut(.defaultAction)` and Return is a
                         // candidate for it — deliberate there, and not this
                         // field's to override.)
@@ -483,7 +463,25 @@ struct ExerciseEditorView: View {
                 draft.defaultRepsUpper = newTarget.upper
             }
         }
-        .toolbar(.hidden, for: .navigationBar)
+        .sheetChrome(
+            title: editingExercise == nil ? "New exercise" : "Edit exercise",
+            subtitle: editingExercise?.name,
+            confirm: SheetAction("Save", identifier: "saveExerciseButton", isEnabled: canSave) { save() },
+            cancel: SheetAction("Cancel") {
+                // Dirty drafts confirm (Dave, 2026-07-23) — the one
+                // deliberate exception to Cancel-is-instant, matched by the
+                // blocked swipe below (the Mail-compose pattern). A clean
+                // sheet still closes instantly. The keyboard goes first
+                // either way, so the discard dialog doesn't arrive on top
+                // of it.
+                focusedField = nil
+                if isDirty {
+                    confirmingDiscard = true
+                } else {
+                    dismiss()
+                }
+            }
+        )
         }
         // Presentation-level modifiers sit OUTSIDE the NavigationStack, so
         // they address the sheet itself rather than its root screen.

@@ -63,18 +63,18 @@ No third-party dependencies without discussion first.
 > certain files → **.claude/rules/** (`paths:` frontmatter); a procedure → **.claude/skills/**.
 > The test for living here: would a session need it BEFORE knowing what it was about to touch?
 
-**Last updated:** 2026-08-02 · **Latest TestFlight build:** 169, from main (the whole decision-sheet run, #503–#509). ⚠️ 165–168 were dispatched from `claude/search-input-animation-bug-fdmdq5`, NOT main; 164 and 160–163 were.
+**Last updated:** 2026-08-02 · **Latest TestFlight build:** 174, from `claude/native-searchable-spike` (#545) — a SPIKE, not a merge candidate: it replaces the hand-built dock with native `.searchable` + `.searchToolbarBehavior(.minimize)`, to be compared on device against 173 and then one of the two kept. 173 is the merge candidate (#543, the hand-built dock with its morph restored); 172 was the same branch before that fix; 171 had the dock's dead ✕ hit region; 170 was pre-glass; 169 was main (the decision-sheet run, #503–#509). ⚠️ 165–168 came off `claude/search-input-animation-bug-fdmdq5`, also not main; 164 and 160–163 were.
 ⚠️ Build number = workflow RUN number, not last-build+1 — check `actions_list` before writing a What's-New entry. It moves on a PARALLEL SESSION's dispatch from any branch, so a number read an hour ago is already stale (2026-08-02: 165–168 landed from a feature branch mid-round).
 
 **On main, awaiting Dave's device pass:** the queue lives in
-**docs/DEVICE-PASS.md** (18 items) — one line each, newest first, with the
+**docs/DEVICE-PASS.md** (27 items) — one line each, newest first, with the
 ⚠️ rider that says what to poke. It left this file on 2026-08-01: it is read
 by a different person at a different moment (Dave, at device-pass time) than
 the standing laws around it, and it was 8.4 KB of a 25 KB budget, growing by
 one line per round with no drain until a build ships. **Read it before
 touching a surface it names**, and delete an item once it has been passed.
 
-**In flight:** nothing. The decision-sheet rounds (#503–#509) all landed on main 2026-08-01/02; the ONE build Dave asked for follows them (see the build line above). `LiveWorkoutSettings` (phone's own `HKWorkoutSession`) remains off by default.
+**In flight:** four tabs, the search TAB and its scope control deleted, one shared query — on TWO branches. `claude/native-searchable-spike` (#545) is the live direction: native `.searchable` as a TOP-toolbar item (Dave liked it on build 176) plus native toolbar keys, pushed headers and sheets. `claude/tabview-floating-search-krhbnz` (#543) is its base and holds the RETIRED hand-built floating dock; it is superseded on search, but the chrome conversion only exists on the spike, so closing #543 must not discard it. The decision-sheet rounds (#503–#509) all landed on main 2026-08-01/02; the ONE build Dave asked for follows them (see the build line above). `LiveWorkoutSettings` (phone's own `HKWorkoutSession`) remains off by default.
 
 **Org + license:** both repos live in the **plusplusinc** org, PUBLIC. App/repo **AGPL-3.0**; **PlusPlusKit + PlusPlusCLI are MIT** (the contract is meant for adoption). Actions minutes are free on public repos — macOS included.
 **Branch protection** (repository ruleset): merges to main require `test`, `kit-test`, `cli-test` to PASS on the head SHA; squash is the only merge method. A cancelled required check blocks merge until re-run; only push-triggered runs satisfy the ruleset (a green `workflow_dispatch` run does not). Docs-only pushes still run CI deliberately. ⚠️ `kit-test`'s FIRST step is the agent-doc size budget — 25 KB on CLAUDE.md, 24 KB per `.claude/rules/*.md` file (split by path scope when it binds, don't raise it — 2026-07-31), and a ~2 KB line-length cap on CLAUDE.md, every rules file AND docs/DEVICE-PASS.md (which takes the LINE cap only — a queue's length tracks outstanding work, not hygiene; docs/DECISIONS.md is exempt from both: append-only, its long entries are the record). It rides an already-required job so the budget binds without a ruleset change, which means kit-test can go red for a docs reason before Swift ever runs. See the ci-status skill.

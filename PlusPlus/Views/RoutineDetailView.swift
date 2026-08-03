@@ -237,10 +237,12 @@ struct RoutineDetailView: View {
     }
 
     private var detailContent: some View {
-        // ⚠️ A PURE width read (the ScopeSegmentedControl precedent): the
-        // value goes straight into this render's row heights and is never
-        // written to state — `onScrollGeometryChange`/`PreferenceKey` here
-        // would break the search-role morph (nav-diag 4e).
+        // A PURE width read: the value goes straight into this render's row
+        // heights and is never written to state. That distinction used to be a
+        // hard law — a layout observer anywhere in the TabView subtree broke
+        // `Tab(role: .search)`'s morph on first activation (nav-diag 4e) — and
+        // the search tab is gone as of 2026-08-02, so the ban has no consumer
+        // left. Reading without writing is still the cheaper habit; keep it.
         GeometryReader { geo in
             railList(width: geo.size.width)
         }
@@ -282,23 +284,25 @@ struct RoutineDetailView: View {
         .navigationTitle(routine.name)
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
-            // Both keys bring their own raised-key chrome, so they opt OUT of
-            // the toolbar's shared glass rather than nesting in a system
-            // capsule — the same call the tab roots make.
+            // ⚠️ NATIVE toolbar controls (2026-08-02, spike): `chrome: .toolbar`
+            // and no `.sharedBackgroundVisibility(.hidden)`, so both keys JOIN
+            // the toolbar's shared Liquid Glass instead of opting out of it with
+            // an app-drawn cap. The opt-out was right while the app plated its
+            // own keys — nesting a cap inside the system capsule is a box in a
+            // box — and it is wrong now that it doesn't. Same call on every tab
+            // root.
             if !routine.groups.isEmpty, shareURL != nil {
                 ToolbarItem(placement: .topBarTrailing) {
-                    HeaderIconButton(systemImage: "square.and.arrow.up", accessibilityLabel: "Share routine", identifier: "shareRoutineButton") {
+                    HeaderIconButton(systemImage: "square.and.arrow.up", accessibilityLabel: "Share routine", identifier: "shareRoutineButton", chrome: .toolbar) {
                         showingShareSheet = true
                     }
                 }
-                .sharedBackgroundVisibility(.hidden)
             }
             ToolbarItem(placement: .topBarTrailing) {
-                HeaderIconButton(systemImage: "slider.horizontal.3", accessibilityLabel: "Routine settings", identifier: "routineSettingsButton") {
+                HeaderIconButton(systemImage: "slider.horizontal.3", accessibilityLabel: "Routine settings", identifier: "routineSettingsButton", chrome: .toolbar) {
                     showingRoutineSettings = true
                 }
             }
-            .sharedBackgroundVisibility(.hidden)
         }
         .fullWidthSwipeBack()
         .sheet(isPresented: $showingShareSheet) {
@@ -394,16 +398,15 @@ struct RoutineDetailView: View {
                 )
                 .presentationDetents([.large])
             } else {
-                VStack(spacing: 0) {
-                    SheetHeader(title: "Exercise", actionLabel: "Done", closeOnly: true) {
-                        selectedExercise = nil
+                NavigationStack {
+                    VStack(spacing: 0) {
+                        Text("This exercise is no longer in the routine.")
+                            .font(.system(.footnote))
+                            .foregroundStyle(Theme.textFaint)
+                            .padding(.top, 24)
+                        Spacer(minLength: 0)
                     }
-                    .padding(.horizontal, 18)
-                    Text("This exercise is no longer in the routine.")
-                        .font(.system(.footnote))
-                        .foregroundStyle(Theme.textFaint)
-                        .padding(.top, 24)
-                    Spacer(minLength: 0)
+                    .sheetChrome(title: "Exercise", done: SheetAction("Done") { selectedExercise = nil })
                 }
                 .presentationBackground(Theme.background)
             }
@@ -1598,16 +1601,13 @@ private struct PausesTray: View {
     @State private var showingTransitionScrubber = false
 
     var body: some View {
+        NavigationStack {
         VStack(alignment: .leading, spacing: 0) {
-            // ⚠️ `SheetHeader` carries NO horizontal padding of its own — the
-            // tray supplies it, at 18, because the scrolling content below has
-            // to be full-bleed so rows clip at the sheet's edges rather than
-            // at a padded inset. Every other tray in the app does this; this
-            // one shipped without it (2026-07-29), which put the title flush
-            // against the sheet's left edge and ran "Done" off the right.
-            SheetHeader(title: "Pauses", closeOnly: true) { dismiss() }
-                .padding(.horizontal, 18)
-
+            // ⚠️ The header's own padding problem is GONE with the header
+            // (2026-08-02): the system bar insets its title and keys itself.
+            // The scrolling content below still supplies its own 18, and still
+            // has to, because it must be full-bleed so rows clip at the
+            // sheet's edges rather than at a padded inset.
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     MetricStepperRow(
@@ -1636,12 +1636,14 @@ private struct PausesTray: View {
                         .font(.system(.caption))
                         .foregroundStyle(Theme.textFaint)
                 }
-                // 18, matching the header above and every sibling tray.
+                // 18, matching every sibling tray.
                 .padding(.horizontal, 18)
                 .padding(.bottom, 30)
             }
         }
         .background(Theme.background)
+        .sheetChrome(title: "Pauses", done: SheetAction("Done") { dismiss() })
+        }
         .presentationDetents([.medium])
         .sheet(isPresented: $showingRestScrubber) {
             MetricWheelSheet(
@@ -2478,10 +2480,12 @@ struct RoutineSettingsScreen: View {
             title: "Routine settings",
             onBack: { focusedField = nil; commitName(); dismiss() }
         ) {
-            HeaderMenuKey(systemImage: "ellipsis", accessibilityLabel: "Routine options", identifier: "routineSettingsMenu") {
-                Button("Delete routine", role: .destructive) {
-                    focusedField = nil
-                    confirmingDelete = true
+            ToolbarItem(placement: .topBarTrailing) {
+                HeaderMenuKey(systemImage: "ellipsis", accessibilityLabel: "Routine options", identifier: "routineSettingsMenu", chrome: .toolbar) {
+                    Button("Delete routine", role: .destructive) {
+                        focusedField = nil
+                        confirmingDelete = true
+                    }
                 }
             }
         }

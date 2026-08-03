@@ -113,10 +113,8 @@ struct EquipmentResolveSheet: View {
 
     var body: some View {
         let res = resolution
+        NavigationStack {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "Equipment", closeOnly: true) { dismiss() }
-                .padding(.horizontal, 18)
-
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     Image(systemName: "exclamationmark.triangle.fill")
@@ -150,6 +148,8 @@ struct EquipmentResolveSheet: View {
                 .padding(.horizontal, 18)
                 .padding(.bottom, 28)
             }
+        }
+        .sheetChrome(title: "Equipment", done: SheetAction("Done") { dismiss() })
         }
         .presentationBackground(Theme.background)
         .presentationDetents([.large])
@@ -425,10 +425,8 @@ struct SwapMovesSheet: View {
     }
 
     var body: some View {
+        NavigationStack {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "Swap moves", closeOnly: true) { dismiss() }
-                .padding(.horizontal, 18)
-
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     Text("Pick a replacement for each move that needs \(item.lowercased()). These keep the same muscles with your kit.")
@@ -460,6 +458,8 @@ struct SwapMovesSheet: View {
             .buttonStyle(.raisedPrimaryKey(cornerRadius: Theme.keyRadius))
             .padding(.vertical, 10)
             .padding(.horizontal, 18)
+        }
+        .sheetChrome(title: "Swap moves", done: SheetAction("Done") { dismiss() })
         }
         .presentationBackground(Theme.background)
         .presentationDetents([.large])

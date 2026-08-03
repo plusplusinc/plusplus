@@ -40,17 +40,8 @@ struct ShareImportSheet: View {
     }
 
     var body: some View {
+        NavigationStack {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(
-                title: "Add routine",
-                subtitle: routine.name,
-                actionLabel: replacesExisting ? "Replace" : "Add",
-                actionIdentifier: "importSharedRoutineButton",
-                onCancel: { dismiss() },
-                action: { importRoutine() }
-            )
-            .padding(.horizontal, 18)
-
             Text("Someone sent you this. It came inside the link itself, nothing was uploaded.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textFaint)
@@ -103,6 +94,19 @@ struct ShareImportSheet: View {
                 .padding(.bottom, 16)
             }
 
+        }
+        // The one sheet in the app with a real two-button choice, so it is the
+        // one that visibly gains the native split: Cancel leading, the commit
+        // trailing, instead of both crowding the right.
+        .sheetChrome(
+            title: "Add routine",
+            subtitle: routine.name,
+            confirm: SheetAction(
+                replacesExisting ? "Replace" : "Add",
+                identifier: "importSharedRoutineButton"
+            ) { importRoutine() },
+            cancel: SheetAction("Cancel") { dismiss() }
+        )
         }
         .presentationBackground(Theme.background)
     }

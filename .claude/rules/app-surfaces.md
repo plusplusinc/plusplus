@@ -17,13 +17,15 @@ beside it. The laws that constrain these surfaces live in the sibling rules:
 **`catalog-scopes.md`** (what the catalog shows: scopes, tiers, facets) and **`today-rail.md`** (Today's band, rail, landmarks and pull) —
 both load when you touch view code; read them before changing what they govern.
 
-**Five tabs** on the native iOS 26 Liquid Glass `TabView` (`RootTabView`):
-**Today · Routines · Exercises · Kit · Search**. The last wears
-`Tab(role: .search)`, so the system separates it and gives it the bar→field
-morph. The three catalog tabs and the search tab all render the same
-`CatalogScopeView` — a tab picks which CATALOG, never which screen. The
-container laws that constrain that row (the `.principal` toolbar row, search
-scopes, the accessory's retirement, the morph's state-write rule) are in
+**Four tabs** on the native iOS 26 Liquid Glass `TabView` (`RootTabView`):
+**Today · Routines · Exercises · Kit**. The three catalog tabs all render the
+same `CatalogScopeView` — a tab picks which CATALOG, never which screen.
+**Search is a native item in the TOP toolbar** on those three — a minimized
+magnifier in the trailing group beside the kit switcher, expanding in place
+into a field; one query and one open state, root-owned and shared by all three,
+so the tab bar stays the only scope control. (The floating key above the tab
+bar is RETIRED, build 176.) The container laws that constrain all of it (where the dock mounts and
+why, the retired search tab and its six scope-control placements) are in
 `navigation.md`; read them before changing anything in it.
 
 **Today** — the unified timeline: scheduled work, carried-over work, and
@@ -45,7 +47,8 @@ MINE then CATALOG, a single-select facet row per scope (exercises kind/
 muscle/movement/mechanic/sides · kit type · routines focus/effort/style),
 PINNED as the list's one section header on tabs and as a top inset on
 presented/picker surfaces (laws in `navigation.md`), with the swipe law
-LEADING is curation / TRAILING is destructive. On Kit the CATALOG tier is ordered by what each
+LEADING is curation / TRAILING is destructive. Each carries search in its top
+toolbar. On Kit the CATALOG tier is ordered by what each
 piece would OPEN rather than by alphabet, stating it as an `Opens N` tag
 (laws in `catalog-scopes.md`). Routine detail keeps the superset rail.
 

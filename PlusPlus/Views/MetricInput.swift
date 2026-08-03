@@ -21,12 +21,14 @@ import PlusPlusKit
 /// back exactly what it opened with, and the left half of the tape is an
 /// honest "no upper bound" rather than a dead zone.
 ///
-/// It commits LIVE (on every scroll settle) behind a `closeOnly`
-/// `SheetHeader`, which is the same contract and the same top row as the
-/// metric picker beside it — before 2026-07-28 this was a plain system
-/// toolbar `Done` that alone decided whether the pick stuck, so two
-/// adjacent rows of the same defaults list disagreed about what the button
-/// in the corner meant.
+/// It commits LIVE (on every scroll settle) behind a leave-only `Done`, which
+/// is the same contract and the same top row as the metric picker beside it.
+/// ⚠️ Both are system nav bars again as of 2026-08-02 — the thing that made
+/// that wrong in 2026-07-28 was a system `Done` sitting among app-drawn sheet
+/// headers, so two adjacent rows of one defaults list disagreed about what the
+/// corner button meant. Every sheet is the system bar now, so the disagreement
+/// is gone. What has never changed is the CONTRACT: Done means "leave", and
+/// the pick has already stuck.
 struct RepTargetSheet: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -63,17 +65,8 @@ struct RepTargetSheet: View {
     }
 
     var body: some View {
+        NavigationStack {
         VStack(spacing: 16) {
-            SheetHeader(
-                title: "Reps",
-                actionLabel: "Done",
-                actionIdentifier: "closeRepTargetPicker",
-                closeOnly: true
-            ) {
-                dismiss()
-            }
-            .padding(.horizontal, 18)
-
             Text(target.display)
                 .font(.system(size: 44, weight: .semibold, design: .monospaced))
                 .foregroundStyle(Theme.textPrimary)
@@ -99,6 +92,14 @@ struct RepTargetSheet: View {
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .sheetChrome(
+            title: "Reps",
+            done: SheetAction("Done", identifier: "closeRepTargetPicker") { dismiss() }
+        )
+        }
+        // Heights UNCHANGED: a 44 pt inline bar is SHORTER than the 68 pt
+        // header it replaces (24 pt grabber clearance + a 44 pt button row),
+        // so both sizes gain slack rather than clipping. Device pass.
         .presentationDetents([.height(showsUpperBound ? 430 : 320)])
         .presentationBackground(Theme.background)
     }

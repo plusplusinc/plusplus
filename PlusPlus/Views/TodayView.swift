@@ -521,11 +521,12 @@ struct TodayView: View {
             .navigationTitle("Today")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
-                // Both keys bring their own chrome, so they opt OUT of the
-                // toolbar's shared glass rather than nesting inside a system
-                // capsule — same as the catalog tabs.
+                // ⚠️ NATIVE (2026-08-02, spike): `AppMenuKey` is a bare glyph
+                // now and the item does NOT opt out of the toolbar's shared
+                // Liquid Glass. The old opt-out existed because the key drew
+                // its own cap, which would have nested inside the system
+                // capsule; with no cap there is nothing to nest.
                 ToolbarItem(placement: .topBarLeading) { AppMenuKey() }
-                    .sharedBackgroundVisibility(.hidden)
                 // ⚠️ NO trailing play key (Dave, build 159, retiring #266's
                 // tray with it): every start it offered has a first-class
                 // home — today's routine on its own card, the routine
@@ -2240,13 +2241,16 @@ struct TodayView: View {
             // pushed off.
             //
             // This replaces a `Color.clear` spacer sized `viewport - stepHeight`
-            // from an `.onGeometryChange` probe on this row. That probe is the
+            // from an `.onGeometryChange` probe on this row. That probe was the
             // documented iOS 26 morph trigger (nav-diag 4e): a layout observer
-            // anywhere in the TabView subtree breaks `Tab(role: .search)`'s
-            // morph on FIRST activation, and since the catalog surface hides its
-            // nav bar the fallback placement has nowhere to render — the failure
-            // is no visible field at all. Build 126 shipped straight into it.
-            // The measurement is gone rather than moved.
+            // anywhere in the TabView subtree broke `Tab(role: .search)`'s morph
+            // on FIRST activation, and the catalog surface hid its nav bar, so
+            // the fallback placement had nowhere to render — no visible field at
+            // all. Build 126 shipped straight into it. ⚠️ The search tab is gone
+            // (2026-08-02) and with it that trigger, but the measurement stays
+            // deleted on its own merits: `UIFont` metrics answer this without a
+            // probe, and a probe here re-runs the whole timeline on every size
+            // change.
             .frame(minHeight: setupActive ? viewportHeight : 0, alignment: .top)
         }
     }
@@ -2828,11 +2832,11 @@ private struct ScheduleRoutineTray: View {
         // height all come from the system now.
         NavigationStack {
             VStack(alignment: .leading, spacing: 0) {
-                SheetHeader(title: "Schedule a routine", closeOnly: true) { dismiss() }
-                    .padding(.horizontal, 18)
                 picker
             }
-            .toolbar(.hidden, for: .navigationBar)
+            // ⚠️ The root bar is VISIBLE now (2026-08-02) — it IS the header,
+            // so hiding it takes the title and the Done key with it.
+            .sheetChrome(title: "Schedule a routine", done: SheetAction("Done") { dismiss() })
         }
         .presentationBackground(Theme.background)
         .presentationDetents([.medium, .large])

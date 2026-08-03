@@ -22,17 +22,8 @@ struct MascotDemoSheet: View {
     }
 
     var body: some View {
+        NavigationStack {
         VStack(spacing: 0) {
-            SheetHeader(
-                title: exerciseName,
-                subtitle: "form demo",
-                actionIdentifier: "closeMascotDemoSheet",
-                closeOnly: true
-            ) {
-                dismiss()
-            }
-            .padding(.horizontal, 20)
-
             MascotView(playback: playback, mode: .demo)
                 .frame(maxWidth: .infinity)
                 .frame(height: 340)
@@ -48,8 +39,15 @@ struct MascotDemoSheet: View {
             Spacer(minLength: 0)
         }
         .background(Theme.background)
+        .sheetChrome(
+            title: exerciseName,
+            subtitle: "form demo",
+            done: SheetAction("Done", identifier: "closeMascotDemoSheet") { dismiss() }
+        )
+        }
         // A downward orbit drag must never be claimed by the sheet's
-        // dismiss gesture; the ✕ key and Escape both close.
+        // dismiss gesture, so swipe-to-dismiss is off and the bar's Done is
+        // the way out (Escape too, via the key's shortcut).
         .interactiveDismissDisabled()
         .onAppear {
             // Frozen mode opens ON step 1 (pose, cues, and label agree

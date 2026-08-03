@@ -5,10 +5,12 @@ packages:
 options:
   bundleIdPrefix: com.davidcole
   deploymentTarget:
-    # 26.1 (Dave, 2026-07-25): `tabViewBottomAccessory(isEnabled:)` landed
-    # there, and it's the only form that removes the accessory's reserved
-    # space when it's off — without it every non-search tab would carry a
-    # blank strip above the tab bar.
+    # 26.1 (Dave, 2026-07-25): originally for `tabViewBottomAccessory(isEnabled:)`,
+    # the only form that removed the accessory's reserved space when off. That
+    # accessory is long gone (149) and so is the search tab it served
+    # (2026-08-02), but the floor stays: the search dock's Liquid Glass APIs
+    # (`glassEffect`, `GlassEffectContainer`, `glassEffectID`) need 26 anyway,
+    # and nothing asks for a lower target.
     iOS: "26.1"
     watchOS: "26.0"
 

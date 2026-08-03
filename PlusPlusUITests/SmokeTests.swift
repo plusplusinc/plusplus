@@ -32,63 +32,49 @@ final class SmokeTests: XCTestCase {
     }
 
     /// The chrome is the system's `TabView` bar, carrying Today · Routines ·
-    /// Exercises · Kit · Search (2026-07-26). The three catalog tabs and the
-    /// search tab all show the same screen; the tab only picks the scope.
+    /// Exercises · Kit (2026-08-02 — the SEARCH tab is gone). The three catalog
+    /// tabs all show the same screen; the tab only picks the scope.
     private func tabButton(_ tab: String) -> XCUIElement {
         app.tabBars.buttons[tab.capitalized]
     }
 
-    /// Go to a catalog by its tab. The native search scope bar does the same
-    /// job WHILE searching (`selectScope`); this is the resting way.
+    /// Go to a catalog by its tab. The tab bar is the ONLY scope control now,
+    /// searching or not — which is what killed the segmented `selectScope`
+    /// helper this file used to carry, and with it main's "the scope bar does
+    /// this WHILE searching" note.
     private func goToCatalog(_ scope: String) {
         let key = tabButton(scope)
         XCTAssertTrue(key.waitForExistence(timeout: 10), "the \(scope) tab is in the bar")
         key.tap()
     }
 
-    /// The NATIVE search field, expanded out of the search-role tab — a
-    /// `searchField` element, not a custom `textField` with an identifier.
+    /// The SYSTEM search field again (spike): `.searchable` renders a real
+    /// `searchField` element, so there is no app identifier to hit.
     private var searchField: XCUIElement {
         app.searchFields.firstMatch
     }
 
-    /// Open the catalogs (the separated search circle beside Today), which
-    /// morphs the bar into the field.
+    /// Expand the system's minimized search control on whichever catalog tab is
+    /// showing. ⚠️ It does NOT change tab: search narrows the catalog you are
+    /// already on, so the caller picks the scope first with `goToCatalog`.
     private func openSearch() {
-        let key = app.tabBars.buttons["Search"]
-        XCTAssertTrue(key.waitForExistence(timeout: 10))
+        // The minimized control is the system's, so match it by LABEL — there
+        // is no identifier the app can set on it.
+        let key = app.buttons["Search"].firstMatch
+        XCTAssertTrue(key.waitForExistence(timeout: 10), "the minimized search control sits in the bottom toolbar · \(buttonInventory())")
         key.tap()
         XCTAssertTrue(searchField.waitForExistence(timeout: 5))
     }
 
-    /// Pick a catalog on the segmented control in the search surface's
-    /// navigation bar. It exists only on the Search tab — off search the tab
-    /// bar is the scope control (`goToCatalog`).
-    ///
-    /// It's a native `Picker(.segmented)`, so its segments are the system's own
-    /// buttons; there are no app-set identifiers to hit. The segments are
-    /// GLYPHS (iOS segmented controls take a title or an image, never both), so
-    /// the word only reaches XCUITest through the `.accessibilityLabel` the
-    /// control sets — matched by CONTAINS, and falling back to POSITION if that
-    /// label doesn't propagate, since the scope order is fixed by
-    /// `FindScope.allCases` and a name miss here would otherwise read as "the
-    /// control is missing".
-    private func selectScope(_ scope: String) {
-        let control = app.segmentedControls.firstMatch
-        XCTAssertTrue(control.waitForExistence(timeout: 5), "the scope control rides the navigation bar on search")
-        let named = control.buttons
-            .matching(NSPredicate(format: "label CONTAINS[c] %@", scope))
+    /// Dismiss the system field. Its noun belongs to the platform (Cancel or
+    /// Close depending on release), so match either rather than asserting which
+    /// word Apple picked — the assertion is about LEAVING search.
+    private func closeSearch() {
+        let key = app.buttons
+            .matching(NSPredicate(format: "label IN {'Cancel', 'Close'} OR identifier IN {'Cancel', 'Close'}"))
             .firstMatch
-        if named.exists {
-            named.tap()
-            return
-        }
-        let order = ["routines", "exercises", "kit"]
-        guard let index = order.firstIndex(of: scope.lowercased()) else {
-            XCTFail("unknown scope \(scope)")
-            return
-        }
-        control.buttons.element(boundBy: index).tap()
+        XCTAssertTrue(key.waitForExistence(timeout: 5), "the system field's own dismiss · \(buttonInventory())")
+        key.tap()
     }
 
     // MARK: - Flows
@@ -341,33 +327,25 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         XCTAssertEqual(field.value as? String, "Bodyweight Basics")
 
-        // The native field's own Cancel clears the query; the catalog stays
-        // put, since the SCOPE — not the field — decides which one you're on.
-        // ⚠️ It is labelled **Close**, beside a "Clear text" key. The
-        // affordance is the SYSTEM's — the field is morphed out of the
-        // search-role tab — so its noun is not the app's to choose, and
-        // "Cancel" stopped matching when #452 reworked this surface. Both
-        // are accepted: the assertion is about leaving search, not about
-        // which word the platform picked.
-        let cancel = app.buttons
-            .matching(NSPredicate(format: "label IN {'Cancel', 'Close'} OR identifier IN {'Cancel', 'Close'}"))
-            .firstMatch
-        XCTAssertTrue(cancel.waitForExistence(timeout: 5), "the search field's own Close · \(buttonInventory())")
-        cancel.tap()
-        XCTAssertTrue(plus.waitForExistence(timeout: 5), "cancelling search returns the catalog · \(buttonInventory())")
+        // Collapsing clears the query and leaves you on the same catalog —
+        // the TAB decides which one you're on, and search never moved you.
+        // The affordance is the app's own `xmark` key now (2026-08-02), so it
+        // carries an identifier and there is no platform noun to guess at.
+        closeSearch()
+        XCTAssertTrue(plus.waitForExistence(timeout: 5), "collapsing search returns the catalog · \(buttonInventory())")
     }
 
-    /// The universal surface end to end: open search from the bar, switch to
-    /// the Exercises scope (one of the three tabs the field absorbed), create
-    /// a custom from the query, and land on the Exercises tab with the new row
-    /// present (the no-toasts landing grammar).
+    /// Search end to end: pick the Exercises catalog, open the floating field,
+    /// create a custom from the query, and land on the Exercises tab with the
+    /// new row present (the no-toasts landing grammar).
     func testUniversalSearchCreatesExercise() throws {
+        // The TAB is the scope control, searching or not (2026-08-02) — so
+        // the catalog is picked before the field opens, not on a segmented
+        // control inside it.
+        goToCatalog("exercises")
         openSearch()
         snap("find-or-create-open")
 
-        // While searching, the catalog is picked on the accessory's scope
-        // control rather than by leaving for another tab.
-        selectScope("exercises")
         let createRow = app.buttons["createExerciseRow"]
         XCTAssertTrue(createRow.waitForExistence(timeout: 5))
 

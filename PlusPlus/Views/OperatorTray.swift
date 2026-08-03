@@ -20,9 +20,8 @@ struct OperatorTray: View {
     @State private var detent: PresentationDetent = .large
 
     var body: some View {
+        NavigationStack {
         VStack(alignment: .leading, spacing: 0) {
-            header
-                .padding(.horizontal, 20)
             if controller.availability == .ready {
                 scrollTopBorder
                 transcript
@@ -37,6 +36,26 @@ struct OperatorTray: View {
             }
         }
         .background(Theme.surface)
+        // The status word rides the bar's second line — it is a fact about
+        // Operator, which is what a subtitle is for. ⚠️ It loses its mono
+        // face doing so: `navigationSubtitle` takes the system's type, and
+        // the mono-is-DATA law yields to the bar for the same reason the
+        // search field's did (scope by neighbour, design-grammar).
+        .sheetChrome(
+            title: "Operator",
+            subtitle: controller.availability.statusWord,
+            done: SheetAction("Done", identifier: "closeOperator") { dismiss() }
+        )
+        // The FACE, not a status dot — dots mean sync state (Dave, build-85
+        // round); readiness reads from the eyes' tint. A leading ornament, not
+        // a control, and not a `.principal` title view (navigation.md).
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                OperatorFaceGlyph(size: 22, ready: controller.availability == .ready)
+                    .accessibilityHidden(true)
+            }
+        }
+        }
         .presentationDetents([.medium, .large], selection: $detent)
         .presentationBackgroundInteraction(.enabled(upThrough: .medium))
         .onAppear {
@@ -52,33 +71,6 @@ struct OperatorTray: View {
             .fill(Theme.border)
             .frame(height: 1)
             .padding(.top, 6)
-    }
-
-    // MARK: - Header
-
-    private var header: some View {
-        HStack(alignment: .center, spacing: 9) {
-            // The face, not a status dot — dots mean sync state (Dave,
-            // build-85 round); readiness reads from the eyes' tint and
-            // the status word.
-            OperatorFaceGlyph(size: 26, ready: controller.availability == .ready)
-            Text("Operator")
-                .font(.system(.title3, weight: .bold))
-                .foregroundStyle(Theme.textPrimary)
-            if let word = controller.availability.statusWord {
-                Text(word)
-                    .font(.system(.caption2, design: .monospaced))
-                    .foregroundStyle(Theme.textFaint)
-            }
-            Spacer(minLength: 12)
-            // One dismissal vocabulary across every tray (2026-07-18): a
-            // text key, never a ✕ (✕ is the search-collapse glyph).
-            SheetDismissKey(label: "Done", identifier: "closeOperator") {
-                dismiss()
-            }
-        }
-        .padding(.top, 24)
-        .padding(.bottom, 6)
     }
 
     // MARK: - Transcript

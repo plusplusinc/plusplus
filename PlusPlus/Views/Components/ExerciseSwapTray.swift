@@ -39,12 +39,8 @@ struct ExerciseSwapTray: View {
     private var hasMore: Bool { suggestions.count > shown.count }
 
     var body: some View {
+        NavigationStack {
         VStack(spacing: 0) {
-            SheetHeader(title: "Swap for…", actionLabel: "Cancel", closeOnly: true) {
-                dismiss()
-            }
-            .padding(.horizontal, 18)
-
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     Text(intro)
@@ -98,6 +94,10 @@ struct ExerciseSwapTray: View {
                 .padding(.horizontal, 18)
                 .padding(.bottom, 20)
             }
+        }
+        // Leaving WITHOUT picking is a cancel — tapping a row is the action
+        // here — so the word rides the leading `.cancellationAction`.
+        .sheetChrome(title: "Swap for…", cancel: SheetAction("Cancel") { dismiss() })
         }
         .presentationBackground(Theme.background)
         .presentationDetents([.medium, .large])

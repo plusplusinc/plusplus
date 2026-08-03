@@ -124,9 +124,9 @@ screen is).
 - ⚠️ The next law is about CATALOG LIST rows, not detail screens. A pushed
   detail has always been a cross-reference graph (exercise → equipment →
   routine, `CatalogDetailViews`), and that is not a scope switch in a list.
-- **Cross-scope discovery is the scope control itself** — never link rows,
-  and per-scope result counts are GONE (2026-07-25: a glyph-only segment has
-  nowhere to paint a number, and the central `matchCounts` costs a second
-  ranking pass per keystroke). Prompts and empty states use
-  `FindScope.searchNoun`, not `label`.
+- **Cross-scope discovery is the TAB BAR** — never link rows, and per-scope
+  result counts are GONE (2026-07-25: the central `matchCounts` costs a second
+  ranking pass per keystroke, and a `Tab` item is not a view the app can paint
+  a number on anyway). Prompts and empty states use `FindScope.searchNoun`,
+  not `label`.
 

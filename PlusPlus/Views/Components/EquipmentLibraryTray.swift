@@ -41,10 +41,8 @@ struct EquipmentLibraryTray: View {
     }
 
     var body: some View {
+        NavigationStack {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "Kits", closeOnly: true, action: { dismiss() })
-                .padding(.horizontal, 18)
-
             // Why you're here, when the tray came as a redirect (#507,
             // b9). Advisory amber: it explains a detour, it is not an
             // alarm and not a failure.
@@ -138,6 +136,8 @@ struct EquipmentLibraryTray: View {
             }
 
             Spacer(minLength: 0)
+        }
+        .sheetChrome(title: "Kits", done: SheetAction("Done") { dismiss() })
         }
         .presentationBackground(Theme.background)
         .presentationDetents([.medium, .large])

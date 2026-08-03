@@ -754,17 +754,8 @@ struct HeartRateTargetSheet: View {
     }
 
     var body: some View {
+        NavigationStack {
         VStack(spacing: 0) {
-            SheetHeader(
-                title: "Target heart rate",
-                subtitle: "zones use your max hr · \(maxHeartRate) bpm",
-                actionIdentifier: "closeHeartRateTargetSheet",
-                closeOnly: true
-            ) {
-                dismiss()
-            }
-            .padding(.horizontal, 18)
-
             ScrollView {
                 VStack(spacing: 7) {
                     optionRow(label: "Off", caption: nil, detail: nil, isSelected: target == nil) {
@@ -820,6 +811,12 @@ struct HeartRateTargetSheet: View {
                 .padding(.top, 12)
                 .padding(.bottom, 20)
             }
+        }
+        .sheetChrome(
+            title: "Target heart rate",
+            subtitle: "zones use your max hr · \(maxHeartRate) bpm",
+            done: SheetAction("Done", identifier: "closeHeartRateTargetSheet") { dismiss() }
+        )
         }
         .presentationBackground(Theme.background)
         .presentationDetents([.appTall])

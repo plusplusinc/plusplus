@@ -220,31 +220,42 @@ struct ExerciseDetailScreen: View {
         }
         .background(Theme.background)
         .scrollDismissesKeyboard(.immediately)
-        // Custom key chrome (build-42 call). Membership + deletion
-        // live behind "…" (#231) — present, not primary, and named for
-        // what they touch; edit rides beside it as its own key. A
-        // built-in outside the library leaves nothing for the menu, so
-        // it hides instead of rendering empty (#265).
+        // Native toolbar keys (2026-08-02, reversing the build-42 custom
+        // chrome). Membership + deletion live behind "…" (#231) — present,
+        // not primary, and named for what they touch; edit rides beside it
+        // as its own key. A built-in outside the library leaves nothing for
+        // the menu, so it hides instead of rendering empty (#265).
         .pushedScreenChrome(title: "", onBack: { dismiss() }) {
-            // Favorite is the curation now (whole catalog, 2026-07-17):
-            // a star for everything, accent when lit. Removal/deletion of
-            // the old library membership is gone; only a custom keeps a
-            // destructive action.
-            HeaderIconButton(
-                systemImage: exercise.isFavorite ? "star.fill" : "star",
-                accessibilityLabel: exercise.isFavorite ? "Unfavorite exercise" : "Favorite exercise",
-                identifier: "favoriteExerciseButton",
-                tint: exercise.isFavorite ? Theme.accent : Theme.textSecondary
-            ) {
-                exercise.isFavorite.toggle()
-            }
-            HeaderIconButton(systemImage: "pencil", accessibilityLabel: "Edit exercise", identifier: "editExerciseButton") {
-                showingEditor = true
-            }
-            if !exercise.isBuiltIn {
-                HeaderMenuKey(systemImage: "ellipsis", accessibilityLabel: "Exercise options", identifier: "exerciseDetailMenu") {
-                    Button("Delete custom exercise", role: .destructive) {
-                        showingDeleteConfirm = true
+            // One item holding the group, and the group is never empty here —
+            // the star and the pencil are unconditional, so this screen can't
+            // hit the blank-button class equipment detail did.
+            ToolbarItem(placement: .topBarTrailing) {
+                HStack(spacing: 2) {
+                    // Favorite is the curation now (whole catalog, 2026-07-17):
+                    // a star for everything, accent when lit. Removal/deletion of
+                    // the old library membership is gone; only a custom keeps a
+                    // destructive action.
+                    HeaderIconButton(
+                        systemImage: exercise.isFavorite ? "star.fill" : "star",
+                        accessibilityLabel: exercise.isFavorite ? "Unfavorite exercise" : "Favorite exercise",
+                        identifier: "favoriteExerciseButton",
+                        // nil when unlit, so the star takes the toolbar's tint like
+                        // every other control; accent when lit, because THAT is a fact
+                        // about the user's own data.
+                        tint: exercise.isFavorite ? Theme.accent : nil,
+                        chrome: .toolbar
+                    ) {
+                        exercise.isFavorite.toggle()
+                    }
+                    HeaderIconButton(systemImage: "pencil", accessibilityLabel: "Edit exercise", identifier: "editExerciseButton", chrome: .toolbar) {
+                        showingEditor = true
+                    }
+                    if !exercise.isBuiltIn {
+                        HeaderMenuKey(systemImage: "ellipsis", accessibilityLabel: "Exercise options", identifier: "exerciseDetailMenu", chrome: .toolbar) {
+                            Button("Delete custom exercise", role: .destructive) {
+                                showingDeleteConfirm = true
+                            }
+                        }
                     }
                 }
             }
@@ -345,9 +356,8 @@ private struct AddToRoutineSheet: View {
     }
 
     var body: some View {
+        NavigationStack {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "Add to routine", subtitle: exercise.name, actionLabel: "Cancel", closeOnly: true) { dismiss() }
-                .padding(.horizontal, 18)
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     CreateRow(label: "New routine with \(exercise.name)", identifier: "newRoutineWithExercise") {
@@ -375,6 +385,14 @@ private struct AddToRoutineSheet: View {
                 .padding(.horizontal, 18)
                 .padding(.bottom, 24)
             }
+        }
+        // Picking a routine IS the action, so leaving without picking is a
+        // cancel and rides the leading placement.
+        .sheetChrome(
+            title: "Add to routine",
+            subtitle: exercise.name,
+            cancel: SheetAction("Cancel") { dismiss() }
+        )
         }
         .presentationBackground(Theme.background)
         .presentationDetents([.medium, .large])
@@ -592,18 +610,26 @@ struct EquipmentDetailScreen: View {
         .background(Theme.background)
         .scrollDismissesKeyboard(.immediately)
         .pushedScreenChrome(title: "", onBack: { dismiss() }) {
+            // ⚠️ The condition wraps the ITEM, not the item's contents, and
+            // that is the whole fix (build 177, Dave's Barbell screenshot).
+            // A built-in piece has nothing to put here — membership is the
+            // toggle card, and only a custom carries rename and the
+            // destructive delete — so the trailing item must not EXIST for
+            // one, or iOS 26 wraps its emptiness in Liquid Glass and the
+            // screen grows a blank round button. Rename and the menu stay
+            // one item so the two keys read as one group, as before.
             if !equipment.isBuiltIn {
-                HeaderIconButton(systemImage: "pencil", accessibilityLabel: "Rename equipment", identifier: "renameEquipmentButton") {
-                    renameText = equipment.name
-                    showingRename = true
-                }
-            }
-            // Membership is the toggle card now; the menu is only the
-            // custom's destructive delete (built-ins have nothing here).
-            if !equipment.isBuiltIn {
-                HeaderMenuKey(systemImage: "ellipsis", accessibilityLabel: "Equipment options", identifier: "equipmentDetailMenu") {
-                    Button("Delete custom equipment", role: .destructive) {
-                        confirmingDelete = true
+                ToolbarItem(placement: .topBarTrailing) {
+                    HStack(spacing: 2) {
+                        HeaderIconButton(systemImage: "pencil", accessibilityLabel: "Rename equipment", identifier: "renameEquipmentButton", chrome: .toolbar) {
+                            renameText = equipment.name
+                            showingRename = true
+                        }
+                        HeaderMenuKey(systemImage: "ellipsis", accessibilityLabel: "Equipment options", identifier: "equipmentDetailMenu", chrome: .toolbar) {
+                            Button("Delete custom equipment", role: .destructive) {
+                                confirmingDelete = true
+                            }
+                        }
                     }
                 }
             }

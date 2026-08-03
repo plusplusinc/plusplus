@@ -598,9 +598,8 @@ private struct HealthTray: View {
     }
 
     var body: some View {
+        NavigationStack {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "Apple Health", closeOnly: true, action: { dismiss() })
-
             Text("PlusPlus saves finished workouts to Health and reads heart rate to color your zones, and nothing else. Turning this off stops both on this iPhone. A workout you run from Apple Watch keeps its own Health access.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textSecondary)
@@ -643,6 +642,8 @@ private struct HealthTray: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 18)
+        .sheetChrome(title: "Apple Health", done: SheetAction("Done") { dismiss() })
+        }
         .presentationDetents([.medium, .large])
         // The grant only ever moves through the system sheet — re-read it
         // when we return from it (or from iOS Settings).
@@ -773,9 +774,8 @@ private struct CalendarTray: View {
     }
 
     var body: some View {
+        NavigationStack {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "Calendar sync", closeOnly: true, action: { dismiss() })
-
             VStack(alignment: .leading, spacing: 12) {
                 Toggle(isOn: enabledBinding) {
                     Text("Add scheduled workouts")
@@ -823,6 +823,8 @@ private struct CalendarTray: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 18)
+        .sheetChrome(title: "Calendar sync", done: SheetAction("Done") { dismiss() })
+        }
         .presentationDetents([.medium, .large])
     }
 }
@@ -847,13 +849,12 @@ private struct SettingsTray: View {
         // Explicit System / Light / Dark order (handoff), mapped back to
         // the enum's raw values.
         let order: [AppAppearance] = [.system, .light, .dark]
-        // Wrapped in a NavigationStack so the Voice cues push row can navigate;
-        // the root nav bar is hidden so SheetHeader stays the tray's header and
-        // only the pushed selection screen shows a (system) back bar.
+        // Wrapped in a NavigationStack so the Voice cues push row can navigate.
+        // ⚠️ The root bar is VISIBLE now (2026-08-02) — it IS the tray's header,
+        // so the `.toolbar(.hidden, for: .navigationBar)` that used to keep
+        // `SheetHeader` in frame would hide the title and the Done key with it.
         return NavigationStack {
           VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "Settings", closeOnly: true, action: { dismiss() })
-
             VStack(alignment: .leading, spacing: 7) {
                 SheetSectionLabel("APPEARANCE")
                 Picker("Appearance", selection: Binding(
@@ -963,7 +964,7 @@ private struct SettingsTray: View {
             Spacer(minLength: 0)
           }
           .padding(.horizontal, 18)
-          .toolbar(.hidden, for: .navigationBar)
+          .sheetChrome(title: "Settings", done: SheetAction("Done") { dismiss() })
         }
         .presentationDetents([.medium, .large])
     }
@@ -998,8 +999,8 @@ private struct DataTray: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
+        NavigationStack {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "Data", closeOnly: true, action: { dismiss() })
             Text("Interchange schema v\(Interchange.schemaVersion). Exercises + routines + history as JSON.")
                 .font(.system(.caption))
                 .foregroundStyle(Theme.textFaint)
@@ -1017,6 +1018,8 @@ private struct DataTray: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 18)
+        .sheetChrome(title: "Data", done: SheetAction("Done") { dismiss() })
+        }
         .presentationDetents([.medium])
     }
 
@@ -1046,9 +1049,8 @@ private struct WhatsNewTray: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
+        NavigationStack {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "What's new", closeOnly: true, action: { dismiss() })
-                .padding(.horizontal, 18)
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(WhatsNew.entries.enumerated()), id: \.offset) { index, entry in
@@ -1072,6 +1074,8 @@ private struct WhatsNewTray: View {
                 .padding(.horizontal, 18)
             }
         }
+        .sheetChrome(title: "What's new", done: SheetAction("Done") { dismiss() })
+        }
         .presentationDetents([.medium, .large])
     }
 }
@@ -1084,8 +1088,8 @@ private struct AboutTray: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
+        NavigationStack {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: "About", closeOnly: true, action: { dismiss() })
             Text("PlusPlus \(version) · build \(build)")
                 .font(.system(.caption, design: .monospaced, weight: .semibold))
                 .foregroundStyle(Theme.textSecondary)
@@ -1122,6 +1126,8 @@ private struct AboutTray: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 18)
+        .sheetChrome(title: "About", done: SheetAction("Done") { dismiss() })
+        }
         .presentationDetents([.medium, .large])
     }
 
