@@ -82,6 +82,8 @@ Siblings: `navigation.md` (tab bar, search, scope control, landings),
   ⚠️ `.sharedBackgroundVisibility(.hidden)` came OFF every toolbar key with the
   app-drawn ground: it stopped a raised cap nesting inside the toolbar's shared
   glass (a box in a box), and a bare glyph WANTS that glass.
+  ⚠️ An item holding NOTHING still draws that glass, as a blank round key —
+  when a trailing key is conditional, `ui-interaction.md` has the law.
   **Icon-only keys are 11-pt ROUNDED SQUARES
   everywhere the app still draws them** (2026-07-19; the all-circles round and
   the sheet-corner concentric experiment were both reverted by Dave — uneven
