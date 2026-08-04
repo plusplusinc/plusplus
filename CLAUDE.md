@@ -63,7 +63,7 @@ No third-party dependencies without discussion first.
 > certain files → **.claude/rules/** (`paths:` frontmatter); a procedure → **.claude/skills/**.
 > The test for living here: would a session need it BEFORE knowing what it was about to touch?
 
-**Last updated:** 2026-08-04 · **Latest TestFlight build:** 183, from `claude/app-nav-restructure-g1t8ih` (the nav experiment — NOT main, and not merged; it exists for Dave's device pass).
+**Last updated:** 2026-08-04 · **Latest TestFlight build:** 184, from `claude/app-nav-restructure-g1t8ih` (the nav experiment, round 2 — NOT main, and not merged; it exists for Dave's device pass). 183 was round 1 off the same branch.
 ⚠️ 170–182 came from `claude/native-searchable-spike`, a PARALLEL session — this line said 169 for two days while thirteen builds shipped, which is the staleness the rule below predicts. 169 and 164 and 160–163 were main; 165–168 were `claude/search-input-animation-bug-fdmdq5`.
 ⚠️ Build number = workflow RUN number, not last-build+1 — check `actions_list` before writing a What's-New entry. It moves on a PARALLEL SESSION's dispatch from any branch, so a number read an hour ago is already stale (2026-08-02: 165–168 landed from a feature branch mid-round).
 
@@ -75,7 +75,8 @@ the standing laws around it, and it was 8.4 KB of a 25 KB budget, growing by
 one line per round with no drain until a build ships. **Read it before
 touching a surface it names**, and delete an item once it has been passed.
 
-**In flight:** `claude/app-nav-restructure-g1t8ih` — the tab bar removed, two roots (Today · Search), a `DrawerNavList` at the top of the drawer, Today's floating search key, native `.searchScopes`. Dave's EXPERIMENT: do not merge until he says so; device pass is the verdict (docs/DECISIONS.md 2026-08-04).
+**In flight:** `claude/app-nav-restructure-g1t8ih` — tab bar removed, two roots behind FOUR drawer rows (Today · Routines · Exercises · Kit), Today's native `.bottomBar` search key, the catalog root's large title naming the scope, and `ScopeSegmentedControl` always visible in the list's pinned header. Dave's EXPERIMENT: do not merge until he says so; device pass is the verdict (docs/DECISIONS.md 2026-08-04, two entries).
+⚠️ It overlaps `claude/native-searchable-spike` (builds 170–182, a parallel session): that branch took search to the TOP bar, converted every toolbar key and sheet header to native chrome, and deleted `SheetHeader`. Reconciling the two is unresolved and is Dave's call.
 **Previously in flight:** nothing. The decision-sheet rounds (#503–#509) all landed on main 2026-08-01/02; the ONE build Dave asked for follows them (see the build line above). `LiveWorkoutSettings` (phone's own `HKWorkoutSession`) remains off by default.
 
 **Org + license:** both repos live in the **plusplusinc** org, PUBLIC. App/repo **AGPL-3.0**; **PlusPlusKit + PlusPlusCLI are MIT** (the contract is meant for adoption). Actions minutes are free on public repos — macOS included.
