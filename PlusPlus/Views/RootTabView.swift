@@ -224,6 +224,7 @@ struct RootTabView: View {
         // `OperatorChips` reads and those three strings are frozen.
         .onChange(of: tab, initial: true) { _, newTab in
             reveal.activeTab = newTab.rawValue
+            reveal.activeScope = scope.rawValue
             viewContext.tab = newTab == .today ? "today" : scope.contextKey
             viewContext.detail = nil
         }
@@ -281,6 +282,10 @@ struct RootTabView: View {
         // law is for, and the failure mode is a red `test` job a Linux
         // `swiftc -parse` cannot see.
         .onChange(of: scope) { _, newScope in
+            // The drawer's row highlight follows the scope even off the
+            // catalog root, so re-opening the drawer from Today still shows
+            // which catalog you would return to.
+            reveal.activeScope = newScope.rawValue
             guard tab == .search else { return }
             viewContext.tab = newScope.contextKey
             viewContext.detail = nil

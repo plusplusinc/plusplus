@@ -13,20 +13,20 @@ and round-by-round history live in docs/DECISIONS.md under dated entries.
 Correct a claim here when the app changes; don't append a dated paragraph
 beside it. The laws that constrain these surfaces live in the sibling rules:
 **`design-grammar.md`** (color · keys · tags · motion · copy laws) and
-**`navigation.md`** (tab bar, search surface, scope control, landings),
+**`navigation.md`** (surface list, search surface, scope control, landings),
 **`catalog-scopes.md`** (what the catalog shows: scopes, tiers, facets) and **`today-rail.md`** (Today's band, rail, landmarks and pull) —
 both load when you touch view code; read them before changing what they govern.
 
-**Two roots and NO tab bar** (`RootTabView`): **Today** and **Search**. The
-surface picker is a vertical list at the top of the reveal drawer
-(`DrawerNavList`), plus a floating search key bottom-right on Today. Routines,
-Exercises and Kit are the search surface's SCOPES, on a native scope bar under
-the field — they all render the same `CatalogScopeView`, and an empty query
-shows a scope's whole list, so a scope IS the catalog screen. It is still a
-`TabView` underneath, with the bar hidden, so both roots keep their push stack
-and scroll position. The container laws (the scope bar and its activation, the
-present-on-appear rule, the retired placements) are in `navigation.md`; read
-them before changing anything here.
+**Two roots and NO tab bar** (`RootTabView`): **Today** and the **catalog
+root**. The picker is a vertical list at the top of the reveal drawer
+(`DrawerNavList`): **Today · Routines · Exercises · Kit**, where the last three
+land on the ONE catalog root and differ only in the scope they dial. Today also
+carries a native bottom-bar search key, floating trailing, that goes to the
+catalog root with the scope you were last on. It is still a `TabView`
+underneath, with the bar hidden, so both roots keep their push stack and scroll
+position. Container laws (the always-visible scope control, the two-row pinned
+header, the no-programmatic-presentation rule, the retired placements) are in
+`navigation.md`; read them before changing anything here.
 
 **Today** — the unified timeline: scheduled work, carried-over work, and
 committed sessions on a DATE-FIRST rail (each entry's date on its own row,
@@ -54,7 +54,8 @@ OPEN rather than by alphabet, stating it as an `Opens N` tag (laws in
 
 **The drawer** — the top-left ++ key (and a leading-edge drag on either
 root) slides the whole app right, revealing `RevealSurface`: the surface list
-at the top (`DrawerNavList` — Today · Search), then settings folded inline
+at the top (`DrawerNavList` — Today · Routines · Exercises · Kit), then
+settings folded inline
 (appearance, units, GitHub / Health / calendar sync, the active kit as the
 hero card), Operator, and tiles opening trays (data, what's new, about).
 Mechanics in `ui-interaction.md`. ⚠️ It is the app's primary navigation now,

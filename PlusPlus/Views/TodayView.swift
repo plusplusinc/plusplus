@@ -516,30 +516,6 @@ struct TodayView: View {
                 }
             }
             .background(Theme.background)
-            // The floating search key (Dave, 2026-08-04). With the tab bar
-            // gone the bottom-right corner is free, and search needs a door
-            // that isn't "open the drawer first".
-            //
-            // ⚠️ An `.overlay`, NOT a `safeAreaInset`: an inset reserves a
-            // band across the FULL width for a single 44 pt key, which would
-            // push the timeline up by that much on a surface whose landing
-            // geometry is measured to the point (`today-rail.md`). It floats
-            // instead, and the `.soft` bottom scroll edge effect the rail
-            // already carries is what keeps rows from reading through it.
-            //
-            // It sits on the TRAILING edge, so it never contends with the
-            // reveal drawer's 16 pt leading-edge open strip.
-            .overlay(alignment: .bottomTrailing) {
-                HeaderIconButton(
-                    systemImage: "magnifyingglass",
-                    accessibilityLabel: "Search",
-                    identifier: "todaySearchButton"
-                ) {
-                    reveal.requestSurface(.search)
-                }
-                .padding(.trailing, 16)
-                .padding(.bottom, 12)
-            }
             // The SYSTEM navigation bar, like every other root as of
             // 2026-07-26 — Today's hand-rolled header is gone with the
             // catalogs'. Nothing forced it here (Today hosts no search field),
@@ -548,16 +524,50 @@ struct TodayView: View {
             .navigationTitle("Today")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
-                // Both keys bring their own chrome, so they opt OUT of the
+                // The ++ key brings its own chrome, so it opts OUT of the
                 // toolbar's shared glass rather than nesting inside a system
-                // capsule — same as the catalog tabs.
+                // capsule — same as the catalog root.
                 ToolbarItem(placement: .topBarLeading) { AppMenuKey() }
                     .sharedBackgroundVisibility(.hidden)
                 // ⚠️ NO trailing play key (Dave, build 159, retiring #266's
                 // tray with it): every start it offered has a first-class
                 // home — today's routine on its own card, the routine
-                // library on its tab, and the scratch start as the band's
-                // Train key. A second door to each is chrome, not access.
+                // library one drawer row away, and the scratch start as the
+                // band's Train key. A second door to each is chrome, not
+                // access.
+
+                // The search key, floating bottom-RIGHT (Dave, 2026-08-04:
+                // "the native search button, not a custom one").
+                //
+                // ⚠️ A `.bottomBar` `ToolbarItem` is the native way to float a
+                // control down there — iOS 26 renders bottom-bar items as
+                // Liquid Glass capsules over the content, which is the look
+                // asked for. The custom `HeaderIconButton` in an `.overlay`
+                // that this replaces was the app's raised-key chrome, right by
+                // design-grammar for app surfaces and wrong here: this is the
+                // system's bar, and a control wears what it SITS AGAINST.
+                //
+                // ⚠️ The `ToolbarSpacer` is what pushes it TRAILING. Without
+                // it a lone bottom-bar item centres, which is the standard
+                // miss — the parallel search branch shipped a build with
+                // exactly that ("add the missing ToolbarSpacer").
+                //
+                // ⚠️ NOT `DefaultToolbarItem(kind: .search)`. That reposits the
+                // system's OWN search item, which belongs to a `.searchable`
+                // on THIS view and activates search in place. This key
+                // NAVIGATES to the catalog root instead, so it is a plain
+                // button — and being a plain button is also why it cannot
+                // relapse the way a bottom-placed field does (build 175 on the
+                // parallel branch).
+                ToolbarSpacer(.flexible, placement: .bottomBar)
+                ToolbarItem(placement: .bottomBar) {
+                    Button {
+                        reveal.requestSurface(.search)
+                    } label: {
+                        Label("Search", systemImage: "magnifyingglass")
+                    }
+                    .accessibilityIdentifier("todaySearchButton")
+                }
             }
             .navigationDestination(for: RoutineRef.self) { ref in
                 // Resolve by stable uuid, not by pushing the @Model (whose

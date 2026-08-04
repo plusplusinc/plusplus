@@ -1,68 +1,29 @@
 import SwiftUI
 
-/// ⚠️ **NOT MOUNTED ANYWHERE (2026-08-04). Read this paragraph before the rest
-/// of the file, which describes the world it was written for.**
+/// The catalog scope picker: a native segmented control, ALWAYS VISIBLE, in the
+/// first row of the search root's pinned section header (Dave, 2026-08-04:
+/// "scope bar always visible"). Un-retired from the 2026-08-04 native-scopes
+/// round, and relocated — it spent 2026-07-26 to 2026-08-04 in the navigation
+/// bar's `.principal` slot.
 ///
-/// The shipping scope picker is native `.searchScopes(activation:
-/// .onSearchPresentation)` in `CatalogScopeView.SearchPresentation`. This file
-/// is kept, unused, as the fallback if that turns out to be wrong on device.
+/// ⚠️ **Why it is here and not native `.searchScopes`.** Native scopes belong to
+/// the search PRESENTATION: `.onSearchPresentation` draws them when search opens
+/// and takes them away when it closes, and there is no "always" activation. The
+/// only way to keep them up is to keep search presented, which collapses the
+/// large title — and the large title IS the heading that names the catalog
+/// (Dave, same round). The two requirements are jointly unsatisfiable natively,
+/// so the app draws the control and native `.searchScopes` is not used at all.
 ///
-/// The retirement below is REAL and still binds *on its own terms*: native
-/// scopes render once per app run **on a bottom-morphed field**. But the morph
-/// came from `Tab(role: .search)`, the tab bar is gone, and the field now takes
-/// its ordinary top placement — so the precondition the failure depended on no
-/// longer exists. That is the only kind of argument that reopens a retirement;
-/// see `navigation.md`. If a search-role tab ever returns, so does the
-/// retirement, and this file is what you mount.
+/// ⚠️ **Why the SECTION HEADER and not a top `safeAreaInset`.** A pinned top
+/// inset costs the system large title outright — no title at rest, a
+/// title-sized dead band, a hairline in both states (#521, build 162; the law
+/// is in `catalog-scopes.md` and `today-rail.md`). A section header lives
+/// inside the list's own layout, where the navigation bar never sees it, so
+/// the title behaves and the control still pins. It shares that one pin with
+/// the facet row: `.listStyle(.plain)` pins one header at a time, so both rows
+/// live in the same header rather than competing for it.
 ///
-/// ---
-///
-/// The catalog scope picker: a native segmented control living in the search
-/// surface's NAVIGATION BAR, in the principal slot between the ++ key and the
-/// kit switcher (Dave, 2026-07-26). That was the same row the other four tab
-/// roots put their title in — on that surface the control named the catalog, so
-/// it took the title's place rather than sitting under it.
-///
-/// It took seven builds and five placements to get here, because every
-/// system-owned container failed a different way. Recorded so nobody re-walks
-/// them:
-///
-/// - **`tabViewBottomAccessory` (137–139, 144).** Right position, wrong
-///   container: the accessory does NOT rise with the keyboard, so search's own
-///   keyboard buried the control — and on this surface the keyboard is up most
-///   of the time you'd want to change scope.
-/// - **Native `.searchScopes` (140–143).** The system's own answer, and it
-///   renders exactly ONCE per app run on a bottom-aligned field morphed out of
-///   a `Tab(role: .search)` — tried with `.onSearchPresentation`, with
-///   `.searchable` moved inside the navigation stack, with a real navigation
-///   bar under it, and with search activating on tab selection so every arrival
-///   is a fresh presentation. It also renders at the TOP, nowhere near the
-///   field it scopes.
-/// - **A `.bottomBar` `ToolbarItem` (145)** — the Photos Years/Months/All
-///   recipe (r/SwiftUI 1o2vdp4) — lands in the SAME ROW the search-role tab's
-///   field expands into, so it sits behind the field. Photos gets away with it
-///   because its search is a small BUTTON in that row, not a full-width field.
-///   The `.principal` slot has no such competition: the field expands out of
-///   the TAB BAR at the bottom, nowhere near the navigation bar.
-/// - **A TOP `safeAreaInset`, under the bar (147).** Correct, and one row too
-///   many: a band holding a control sat directly beneath a bar holding two
-///   keys, with nothing in the middle of it.
-///
-/// ⚠️ **`.searchPresentationToolbarBehavior(.avoidHidingContent)` on the search
-/// presentation is REQUIRED** — activating search otherwise tells the
-/// navigation bar to clear its content, which now takes the scope control with
-/// it, not just the keys.
-///
-/// The item also carries `.sharedBackgroundVisibility(.hidden)`, which is the
-/// documented escape for a toolbar item bringing its own background (a
-/// segmented control brings its own track, and the toolbar's shared glass would
-/// otherwise wrap it in a second shape — the box-in-a-box that killed the
-/// accessory). ⚠️ Unverified in the PRINCIPAL slot specifically: the shared
-/// background belongs to GROUPED bar items, and the title region may not be one
-/// — so if a double shape ever does appear here, this is not necessarily the
-/// lever. It matches the two keys either way.
-///
-/// **The rules that survived all of it, and that this obeys:**
+/// **The rules that survived seven builds of placement, and that this obeys:**
 /// - ⚠️ **Do NOT hand-roll the segmented control.** iOS 26's interactive
 ///   "bubbly" glass belongs to exactly two components, tab bars and segmented
 ///   controls, so an app-drawn one cannot look native however it is styled
@@ -70,37 +31,26 @@ import SwiftUI
 ///   Build 138 proved the corollary: app-authored animation does not survive
 ///   inside a system-owned container, so even the canonical
 ///   `matchedGeometryEffect` pill refused to travel on device.
-/// - **No `.controlSize(.large)`.** That was the Photos proportion for a
-///   control that owned a row to itself. A large segmented control is taller
-///   than the navigation bar it would now sit in, so the default size is the
-///   one that fits.
+/// - **WORDS now, not glyphs.** The glyph-only law was a WIDTH constraint of
+///   the `.principal` slot — three words could not fit beside the ++ key and a
+///   variable-width kit switcher, and a `UISegmentedControl` segment takes a
+///   title OR an image, never both (DTS, forums 816517). A full-width row in
+///   the list's header has room for all three, a word needs no
+///   `accessibilityLabel` to be spoken correctly, and the heading above says
+///   the same word — so the selected segment and the title agree.
 struct ScopeSegmentedControl: View {
     @Binding var scope: FindScope
+
+    var identifier: String = "catalogScopeControl"
 
     var body: some View {
         Picker("Catalog", selection: $scope) {
             ForEach(FindScope.allCases, id: \.self) { item in
-                // ⚠️ GLYPH ONLY, and not by preference — on iOS a segmented
-                // control CANNOT show an icon and a word in the same segment.
-                // `UISegmentedControl` gives each segment a title OR an image,
-                // never both (AppKit's `NSSegmentedControl` can; UIKit's can't),
-                // and SwiftUI inherits that: Apple DTS answered it directly on
-                // forums thread 816517 — `.titleAndIcon` on a segmented picker
-                // renders the title and drops the icon, and the HIG says pick
-                // one, don't mix. So "icons too" (Dave, 2026-07-26) means icons
-                // INSTEAD, and glyphs are the half that survives the bar: three
-                // words plus three symbols do not fit the principal slot beside
-                // the ++ key and a variable-width kit switcher, and a segmented
-                // control does not scroll — it truncates.
-                //
-                // Nothing is lost: these are the SAME symbols the tab bar uses
-                // for the same three scopes, so a scope reads identically in
-                // both places, and off search the tab bar carries the words.
-                // The explicit label is what VoiceOver reads — without it the
-                // system speaks the symbol name ("square stack").
-                Image(systemName: item.symbolName)
-                    .accessibilityLabel(Text(item.label))
-                    .tag(item)
+                // The scope's own word, which is also the heading above the
+                // list — see the WORDS note in this file's header for why the
+                // glyph-only law was a `.principal`-slot width constraint and
+                // does not bind in a full-width row.
+                Text(item.label).tag(item)
             }
         }
         .pickerStyle(.segmented)
@@ -114,8 +64,13 @@ struct ScopeSegmentedControl: View {
         // the pill either way. Build 146 dropped the tint reasoning the pill
         // would vanish into the row — which ignored that track.
         .tint(Theme.background)
-        // Chrome on a bar shared with two keys can't grow without bound. The
-        // search field is NOT capped — its text is the user's own.
+        // ⚠️ Still capped, and the reason MOVED rather than expired. In the
+        // bar it was "chrome sharing a row with two keys can't grow without
+        // bound"; here it is that a segmented control does not scroll or wrap,
+        // it TRUNCATES — so at accessibility sizes three words become three
+        // ellipses and the control stops naming anything. The search field is
+        // NOT capped: its text is the user's own.
         .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+        .accessibilityIdentifier(identifier)
     }
 }

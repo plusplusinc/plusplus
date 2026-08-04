@@ -35,6 +35,15 @@ final class RevealController {
     /// different questions and only looked alike while surfaces and catalogs
     /// were the same thing.
     var activeTab = "today"
+    /// The active CATALOG's raw value ("routines"/"exercises"/"kit"), mirrored
+    /// down beside `activeTab` so the drawer's three catalog rows can tell
+    /// which of them is current — they share a surface, so the surface key
+    /// alone would light all three (2026-08-04).
+    ///
+    /// ⚠️ `FindScope.rawValue`, NOT `contextKey`. This is a UI mirror with no
+    /// stored-data contract; `contextKey`'s frozen strings answer Operator's
+    /// question, and conflating them is the crossing `navigation.md` forbids.
+    var activeScope = FindScope.routines.rawValue
     /// Per-surface "is this root's NavigationStack at its root?", reported by
     /// each root view. Swipe-to-open is allowed only at a root, where there
     /// is no pushed screen whose full-width swipe-back the edge drag would

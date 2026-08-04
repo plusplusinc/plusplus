@@ -58,14 +58,26 @@ struct DrawerNavList: View {
                 label: "Today",
                 systemImage: todayStatus.systemImage,
                 surface: .today,
+                scope: nil,
                 identifier: "drawerNavToday"
             )
-            row(
-                label: "Search",
-                systemImage: "magnifyingglass",
-                surface: .search,
-                identifier: "drawerNavSearch"
-            )
+            // ⚠️ Three rows, ONE surface (Dave, 2026-08-04). They all land on
+            // the catalog root and differ only in the scope they dial — which
+            // is exactly what the three retired tabs did, since all three
+            // rendered one `CatalogScopeView` and an empty query has always
+            // shown a scope's whole list. The list says "Routines" because
+            // that is the destination a user has in mind; "Search" was the
+            // mechanism, and naming a mechanism is what made the earlier
+            // two-row version read oddly.
+            ForEach(FindScope.allCases, id: \.self) { scope in
+                row(
+                    label: scope.label,
+                    systemImage: scope.symbolName,
+                    surface: .search,
+                    scope: scope,
+                    identifier: "drawerNav\(scope.rawValue.capitalized)"
+                )
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
             dayToken += 1
@@ -76,9 +88,15 @@ struct DrawerNavList: View {
         label: String,
         systemImage: String,
         surface: AppTab,
+        scope: FindScope?,
         identifier: String
     ) -> some View {
+        // ⚠️ Selection is surface AND scope, because three rows share a
+        // surface. Keying on surface alone would light all three catalog rows
+        // at once. `activeScope` is the root's live scope, mirrored down the
+        // same way `activeTab` is.
         let isSelected = reveal.activeTab == surface.rawValue
+            && (scope == nil || scope?.rawValue == reveal.activeScope)
         return Button {
             // ⚠️ The request goes through the controller, not into the root's
             // state directly — this view sits BENEATH the app layer and cannot
@@ -86,7 +104,7 @@ struct DrawerNavList: View {
             // drawer, so the row does not close it itself: closing here would
             // race the landing and slide the app back over whichever surface
             // was still showing.
-            reveal.requestSurface(surface)
+            reveal.requestSurface(surface, scope: scope)
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: systemImage)

@@ -19,12 +19,17 @@ landmarks, pull — split out the same day), `design-grammar.md` (color/key/tag/
 
 ## The surface list (there is no tab bar)
 
-**The app has TWO roots, and the picker is a vertical list at the top of the
-reveal drawer** (Dave, 2026-08-04): **Today · Search** (`DrawerNavList`, in
-`Views/Components/`). Routines, Exercises and Kit are not missing from that
-list — they are the search surface's SCOPES. An empty query has always shown a
-scope's whole list and all three have rendered one `CatalogScopeView` since
-2026-07-25, so a scope tap lands on exactly the screen a tab tap used to.
+**The app has TWO roots and FOUR drawer rows** (Dave, 2026-08-04):
+`DrawerNavList` (`Views/Components/`) lists **Today · Routines · Exercises ·
+Kit**, and the last three all land on the ONE catalog root, differing only in
+the scope they dial. An empty query has always shown a scope's whole list and
+all three have rendered one `CatalogScopeView` since 2026-07-25, so a row lands
+on exactly the screen a tab tap used to.
+
+⚠️ **The list names DESTINATIONS, not the mechanism.** A two-row version
+(Today · Search) shipped in build 183 and was corrected the same day: "Search"
+is how you get there, "Routines" is what you wanted. The surface underneath is
+unchanged either way — only the rows differ.
 
 - ⚠️ **Still a `TabView`, with `.toolbar(.hidden, for: .tabBar)` on each
   root's content** — not a `switch` on the selection. A switch RE-MOUNTS, which
@@ -35,14 +40,17 @@ scope's whole list and all three have rendered one `CatalogScopeView` since
   documented iOS 26 no-op and visibility is the same family). Fallbacks in
   order if a residual bottom inset shows on device: move it inside each root's
   own `NavigationStack`, then the `switch`.
-- ⚠️ **Two different key strings, and they are NOT interchangeable.** The
-  reveal drawer's swipe gate keys on the SURFACE (`"today"`/`"search"`,
-  `reveal.activeTab`, matching what each root reports via `revealRoot(tab:)`).
-  Operator's view-context keys on the CATALOG (`FindScope.contextKey` →
-  `"routines"`/`"exercises"`/`"equipment"`). Those three are FROZEN: they were
+- ⚠️ **THREE key spaces, and they are NOT interchangeable.** The drawer's
+  swipe gate keys on the SURFACE (`"today"`/`"search"`, `reveal.activeTab`,
+  matching what each root reports via `revealRoot(tab:)`). The drawer's ROW
+  HIGHLIGHT additionally keys on `reveal.activeScope` (`FindScope.rawValue`),
+  because three rows share a surface and the surface key alone lights all
+  three. Operator's view-context keys on the CATALOG (`FindScope.contextKey` →
+  `"routines"`/`"exercises"`/`"equipment"`) — those three are FROZEN: they were
   `AppTab`'s raw values, `OperatorChips` is unit-tested against them, and
-  "equipment" is the frozen internal the vocabulary law names. They only ever
-  looked like one string because surfaces and catalogs used to be one thing.
+  "equipment" is the frozen internal the vocabulary law names. ⚠️ `rawValue`
+  and `contextKey` differ on exactly one scope (`kit` vs `equipment`), which is
+  what makes conflating them survive a casual read.
 - ⚠️ `OperatorDestination`'s case names (`exercisesTab`, `equipmentTab`) are
   PERSISTED thread data — the receipt round-trips them through Codable.
   Renaming them is a stored-data migration, not a refactor; the mapping to
@@ -109,32 +117,24 @@ B) so its prompt can read the scope. Since 2026-08-04 it takes its ORDINARY
 to `Tab(role: .search)` and that tab is gone. The placeholder is per-scope
 (`FindScope.searchNoun` — "Search routines / exercises / equipment").
 
-- ⚠️ **This surface PRESENTS search on appear** (`isPresented`, set in
-  `onAppear`, every time). Load-bearing, not eager:
-  `.searchScopes(activation: .onSearchPresentation)` draws the scope bar only
-  while search is presented, and the scope bar is the only way to change
-  catalog — unpresented, the surface shows one catalog with no route to the
-  other two. "Presented" is this root's RESTING state; an empty query is the
-  norm. Cancelling is not fought (it leaves the plain list with the field
-  above; tapping the field brings the scopes back), which is why the on-appear
-  set is unconditional.
-- ⚠️ **Presented, NOT focused.** `searchFieldFocused` is bound and set false
-  beside the presentation, so arriving does not raise the keyboard over the
-  list you asked to see. The old "never auto-focus" law
-  (no `.tabViewSearchActivation(.searchTabSelection)`, build 144) existed
-  because the bottom ACCESSORY did not rise with the keyboard and got buried;
-  a scope bar directly under the field cannot be buried that way, so the
-  keyboard is merely unwanted here, not fatal. **Whether presenting also
-  focuses is device-only** — that binding is the lever if it does.
-- **The SEARCH surface carries no title** (Dave, 2026-07-26): the scope bar
-  names the catalog, and a large title FLASHES on entry then collapses as
-  search presents. `.navigationTitle("")` + `.inline` there; Today keeps
-  `.large`. The bar itself stays — hiding it is what left `.searchable` with
-  nowhere to fall back to.
-- ⚠️ **Four stacked bands above the list** — nav bar, field, scope bar, pinned
-  facet row. Flagged, not yet judged; look at it on device before tuning. The
-  cheapest levers in order: hide the facet row while the query is empty, then
-  move the kit switcher into the drawer.
+- ⚠️ **NOTHING presents search programmatically, and that absence is
+  load-bearing** (2026-08-04, reversing the same day's `isPresented` round).
+  The field sits under the large title at rest, so it is unfocused with no
+  keyboard for free — Dave's "the search input should not be focused
+  immediately". The parallel `claude/native-searchable-spike` branch names a
+  programmatic binding as the prime suspect for its build-175 relapse: "a
+  programmatic re-presentation through a binding is exactly what differs
+  between the first activation (system-driven, correct) and the failures
+  (binding-driven)."
+- ⚠️ **No explicit `placement:` either.** `.navigationBarDrawer` is what
+  `.automatic` resolves to under a large title, and stating a preference the
+  system already satisfies only adds a promise it can abandon — placement is a
+  preference, not a guarantee.
+- **The LARGE TITLE is the heading, and it names the CATALOG** (Dave,
+  2026-08-04). It was dropped 2026-07-26 because a large title FLASHED on entry
+  then collapsed as search auto-presented; with no auto-presentation the flash
+  has no cause. Focusing the field collapses it, which is "the view heading
+  should get hidden" — system behaviour, not app code.
 - ⚠️ **The bar's OTHER content needs
   `.searchPresentationToolbarBehavior(.avoidHidingContent)`** (iOS 17.1+) or
   activating search empties it — the system's `.automatic` clears the bar to
@@ -171,53 +171,44 @@ to `Tab(role: .search)` and that tab is gone. The placeholder is per-scope
 
 ## The scope control
 
-**Scope selection is NATIVE `.searchScopes`, under the field** (2026-08-04),
-after SEVEN builds in six app-placed homes. It is also the app's whole catalog
-picker now — there is no resting way to change catalog that does not go
-through it.
+**Scope selection is `ScopeSegmentedControl`, ALWAYS VISIBLE, in the first row
+of the list's pinned section header** (Dave, 2026-08-04: "scope bar always
+visible"), after seven builds in six placements plus one round of native scopes.
 
-- ⚠️ **`activation: .onSearchPresentation`, never the `.automatic` default.**
-  On iOS the default reveals scopes on TEXT ENTRY, which would show the
-  catalog picker only after you had committed to searching one catalog —
-  backwards, now that the scope bar is how you change catalog at all. This
-  activation draws it the moment search presents, which is why the surface
-  presents on appear (law above).
-- ⚠️ **Why this is not a re-tried retired mechanism.** Native `.searchScopes`
-  WAS retired on 140–143: it rendered exactly ONCE per app run and at the TOP,
-  nowhere near the field. But that was a property of a BOTTOM-MORPHED field,
-  and the morph came from `Tab(role: .search)`. No tab bar, no morph, no
-  bottom field, no mismatch — the scope bar sits directly under the field in
-  its ordinary place. **The precondition changed; the observation was never
-  wrong.** If a search-role tab ever returns, so does the retirement.
-  ⚠️ Still the #1 device check: does the bar draw on EVERY presentation, not
-  just the first.
+- ⚠️ **Native `.searchScopes` cannot satisfy "always visible", and that is an
+  API fact rather than a preference.** Scopes belong to the search
+  PRESENTATION: `.onSearchPresentation` draws them when search opens and takes
+  them away when it closes, and there is no "always" activation. Keeping search
+  presented to keep them up collapses the large title, which is the heading
+  that names the catalog. The two requirements are jointly unsatisfiable
+  natively, so the app draws the control.
+- ⚠️ **The SECTION HEADER, never a top `safeAreaInset`.** A pinned top inset
+  costs the system large title outright — no title at rest, a title-sized dead
+  band, a hairline in both states (#521, build 162). A section header lives
+  inside the list's own layout where the navigation bar never sees it.
+- ⚠️ **ONE header holds BOTH rows** (scope, then facets). `.listStyle(.plain)`
+  pins exactly one header, so a second `Section` for the scope would steal the
+  pin at the first tier boundary. Both rows are opaque for the reason any
+  pinned header is: it occludes what travels under it.
 - **The segments carry WORDS** ("Routines · Exercises · Kit"). The glyph-only
   law was a WIDTH constraint of the retired `.principal` slot — a
-  `UISegmentedControl` segment takes a title OR an image, never both
-  (`.titleAndIcon` drops the icon; DTS-confirmed), and three words could not
-  fit beside the ++ key and a variable-width kit switcher. A full-width scope
-  bar has the room, and a word needs no `.accessibilityLabel` to be readable.
-  The smoke helper still falls back to POSITION, as insurance only.
-- ⚠️ **The bar's OTHER content still needs
-  `.searchPresentationToolbarBehavior(.avoidHidingContent)`** — the ++ key and
-  the kit switcher, on the one surface you reach them from.
-- **`ScopeSegmentedControl` is KEPT, unused, as the fallback.** Reconstructing
-  seven builds of placement work would be the expensive half of reverting; the
-  file is the cheap half of keeping the option.
-- **Retired app-placed homes, none to be re-tried on their old terms** —
-  they were all answers to "where does the scope control go when the field is
-  at the BOTTOM", a question that no longer exists (post-mortems:
-  docs/DECISIONS.md + git). ⚠️ `tabViewBottomAccessory` does not rise with the
-  keyboard (137–139, 144), and app-authored animation does not survive inside
-  it (139). ⚠️ A `.bottomBar` `ToolbarItem` lands in the SAME ROW the field
-  expands into (145) — Photos' recipe works only because its search is a small
-  button there. ⚠️ A TOP `safeAreaInset` under the bar (147) was one row too
-  many. ⚠️ The `.principal` row (150–169) needed a hand-measured width because
-  a principal item is a TITLE VIEW and UIKit centres it in the BAR, not
-  between the side items, so any side item made the two gaps asymmetric by its
-  own width.
-  ⚠️ **Do NOT hand-roll a segmented control** — iOS 26's interactive glass
-  belongs to tab bars and SEGMENTED CONTROLS alone.
+  `UISegmentedControl` segment takes a title OR an image, never both (DTS,
+  forums 816517) — and a full-width row has the room. The heading above says
+  the same word, so control and title agree. ⚠️ The Dynamic Type cap STAYS,
+  with a new reason: a segmented control does not scroll or wrap, it
+  TRUNCATES, so at accessibility sizes three words become three ellipses.
+- ⚠️ **Do NOT hand-roll it** — iOS 26's interactive glass belongs to tab bars
+  and SEGMENTED CONTROLS alone.
+- **Retired placements, none to be re-tried on their old terms** — they were
+  answers to "where does the scope control go when the field is at the BOTTOM",
+  a question that no longer exists. ⚠️ `tabViewBottomAccessory` does not rise
+  with the keyboard (137–139, 144), and app-authored animation does not survive
+  inside it (139). ⚠️ Native `.searchScopes` renders once per app run on a
+  bottom-morphed field (140–143). ⚠️ A `.bottomBar` `ToolbarItem` lands in the
+  SAME ROW the field expands into (145). ⚠️ A TOP `safeAreaInset` under the bar
+  (147) was one row too many. ⚠️ The `.principal` row (150–169) needed a
+  hand-measured width because a principal item is a TITLE VIEW that UIKit
+  centres in the BAR, not between the side items.
 - The custom `SegmentedTabs` was RETIRED (2026-07-24) — every other former
   segmented site is native `Picker` (`.segmented` for short unit/mode toggles,
   a pushed `NavigationSelectRow` for multi-word modes).

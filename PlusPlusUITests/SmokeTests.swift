@@ -70,25 +70,24 @@ final class SmokeTests: XCTestCase {
         row.tap()
     }
 
-    /// Go to a catalog. Two steps now, where a tab tap used to be one: the
-    /// search surface, then its scope. The surface presents search on arrival,
-    /// so the scope bar is already there.
+    /// Go to a catalog: one drawer row, which is what a tab tap used to be
+    /// (2026-08-04). The three catalog rows all land on the same root and
+    /// differ only in the scope they dial.
     private func goToCatalog(_ scope: String) {
-        openSearch()
-        selectScope(scope)
+        goToSurface("drawerNav\(scope.capitalized)")
     }
 
-    /// The NATIVE search field. Since the tab bar came out it takes its
-    /// ordinary `.navigationBarDrawer` placement rather than morphing out of a
-    /// search-role tab — still a `searchField` element, not a custom
-    /// `textField` with an identifier.
+    /// The NATIVE search field, sitting under the large title in its ordinary
+    /// `.navigationBarDrawer` placement — a `searchField` element, not a
+    /// custom `textField` with an identifier. ⚠️ It is NOT focused on arrival
+    /// and nothing presents it programmatically, so it exists at rest.
     private var searchField: XCUIElement {
         app.searchFields.firstMatch
     }
 
-    /// Open the catalogs. Today's floating key is the door under test because
-    /// it is the one a user reaches for; the drawer's Search row is the same
-    /// route and is covered by `testDrawerNavigatesBetweenSurfaces`.
+    /// Reach the catalog root. Today's native bottom-bar key is the door under
+    /// test because it is the one a user reaches for; the drawer's rows are
+    /// the same destination and are covered by `testDrawerNavigatesToCatalogs`.
     private func openSearch() {
         if searchField.exists { return }
         let key = app.buttons["todaySearchButton"]
@@ -96,19 +95,20 @@ final class SmokeTests: XCTestCase {
             key.tap()
         } else {
             // Not on Today — go the long way round.
-            goToSurface("drawerNavSearch")
+            goToSurface("drawerNavRoutines")
         }
-        XCTAssertTrue(searchField.waitForExistence(timeout: 5), "the search surface carries the system field")
+        XCTAssertTrue(searchField.waitForExistence(timeout: 5), "the catalog root carries the system field")
     }
 
-    /// Pick a catalog on the NATIVE search scope bar, under the field
-    /// (2026-08-04, replacing the app-placed `ScopeSegmentedControl`).
+    /// Pick a catalog on the app's `ScopeSegmentedControl`, first row of the
+    /// list's pinned header (2026-08-04). ALWAYS visible, whether or not
+    /// search is active — which is why this helper needs no search state.
     ///
-    /// It is still a segmented control, so its segments are the system's own
-    /// buttons with no app-set identifiers to hit — but they carry WORDS now
-    /// rather than glyphs, so the label match is the real path and the
-    /// positional fallback is only insurance. The scope order is fixed by
-    /// `FindScope.allCases`.
+    /// A native `Picker(.segmented)`, so its segments are the system's own
+    /// buttons; the CONTROL carries an identifier but its segments cannot. The
+    /// segments carry WORDS now rather than glyphs, so the label match is the
+    /// real path and the positional fallback is only insurance. Scope order is
+    /// fixed by `FindScope.allCases`.
     private func selectScope(_ scope: String) {
         let control = app.segmentedControls.firstMatch
         XCTAssertTrue(control.waitForExistence(timeout: 5), "the scope bar sits under the search field")
@@ -355,42 +355,42 @@ final class SmokeTests: XCTestCase {
     /// is an observable SLOT the root consumes and clears, so a mis-wired
     /// consumer leaves a row that highlights and does nothing. XCUITest can see
     /// that, unlike most of this change.
-    func testDrawerNavigatesBetweenSurfaces() throws {
-        // Today → Search, via the drawer.
-        goToSurface("drawerNavSearch")
-        XCTAssertTrue(
-            searchField.waitForExistence(timeout: 5),
-            "the Search row lands on the search surface · \(buttonInventory())"
-        )
-        // The scope bar is present WITHOUT typing — that is what
-        // `.onSearchPresentation` buys, and it is the whole reason the three
-        // catalog tabs could come out.
-        XCTAssertTrue(
-            app.segmentedControls.firstMatch.waitForExistence(timeout: 5),
-            "the scope bar draws on arrival, before any query"
-        )
-        snap("nav-search-surface")
-
-        // Every catalog is reachable from that one bar.
-        for scope in ["exercises", "kit", "routines"] {
-            selectScope(scope)
+    func testDrawerNavigatesToCatalogs() throws {
+        // Today → each catalog, by its own drawer row.
+        for scope in ["Routines", "Exercises", "Kit"] {
+            goToCatalog(scope)
+            // The heading names the catalog (Dave, 2026-08-04) — this is the
+            // assertion that proves the row dialled the right scope, since all
+            // three land on ONE surface.
+            XCTAssertTrue(
+                app.staticTexts[scope].waitForExistence(timeout: 5),
+                "the \(scope) row lands on a root whose heading says so"
+            )
+            // The scope control is visible AT REST, without touching search.
+            XCTAssertTrue(
+                app.segmentedControls.firstMatch.waitForExistence(timeout: 5),
+                "the scope bar is up before any query"
+            )
+            // The field exists and is NOT focused: no keyboard on arrival.
+            XCTAssertTrue(searchField.waitForExistence(timeout: 5), "the field sits under the heading")
+            XCTAssertFalse(app.keyboards.element.exists, "arriving must not raise the keyboard")
         }
+        snap("nav-catalog-root")
 
-        // Search → Today, via the drawer.
+        // The scope bar switches catalog without the drawer.
+        selectScope("routines")
+        XCTAssertTrue(
+            app.staticTexts["Routines"].waitForExistence(timeout: 5),
+            "the scope bar moves the heading with it"
+        )
+
+        // Back to Today, then out again via the NATIVE bottom-bar key.
         goToSurface("drawerNavToday")
-        XCTAssertTrue(
-            app.staticTexts["Today"].waitForExistence(timeout: 5),
-            "the Today row lands back on the timeline"
-        )
-
-        // Today → Search again, via the FLOATING key rather than the drawer.
+        XCTAssertTrue(app.staticTexts["Today"].waitForExistence(timeout: 5), "the Today row lands on the timeline")
         let key = app.buttons["todaySearchButton"]
-        XCTAssertTrue(key.waitForExistence(timeout: 5), "Today carries the floating search key")
+        XCTAssertTrue(key.waitForExistence(timeout: 5), "Today carries the search key")
         key.tap()
-        XCTAssertTrue(
-            searchField.waitForExistence(timeout: 5),
-            "the floating key is the same route as the drawer's Search row"
-        )
+        XCTAssertTrue(searchField.waitForExistence(timeout: 5), "the key is the same destination as the rows")
         snap("nav-drawer-and-key")
     }
 
