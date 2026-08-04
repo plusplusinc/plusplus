@@ -13,11 +13,17 @@ import PlusPlusKit
 enum FindScope: String, CaseIterable {
     case routines, exercises, kit
 
-    /// Operator's view-context key, and the reveal drawer's per-surface swipe
-    /// gate key. ⚠️ These three strings are FROZEN: they were `AppTab`'s raw
-    /// values, `OperatorChips` is unit-tested against them, and "equipment"
-    /// (never "kit") is the frozen internal the vocabulary law names. The tab
-    /// they came from is gone; the strings outlived it on purpose.
+    /// Operator's view-context key, and ONLY that. ⚠️ These three strings are
+    /// FROZEN: they were `AppTab`'s raw values, `OperatorChips` is unit-tested
+    /// against them, and "equipment" (never "kit") is the frozen internal the
+    /// vocabulary law names. The tab they came from is gone; the strings
+    /// outlived it on purpose.
+    ///
+    /// ⚠️ **NOT the reveal drawer's swipe-gate key.** That one keys on the
+    /// SURFACE (`AppTab.rawValue` → `RevealController.activeTab`, reported by
+    /// each root through `revealRoot(tab:)`), and crossing the two is the
+    /// mistake `navigation.md` names. They answer different questions and only
+    /// ever looked alike while surfaces and catalogs were the same thing.
     var contextKey: String {
         switch self {
         case .routines: return "routines"

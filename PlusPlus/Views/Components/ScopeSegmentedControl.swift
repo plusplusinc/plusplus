@@ -1,10 +1,27 @@
 import SwiftUI
 
+/// ⚠️ **NOT MOUNTED ANYWHERE (2026-08-04). Read this paragraph before the rest
+/// of the file, which describes the world it was written for.**
+///
+/// The shipping scope picker is native `.searchScopes(activation:
+/// .onSearchPresentation)` in `CatalogScopeView.SearchPresentation`. This file
+/// is kept, unused, as the fallback if that turns out to be wrong on device.
+///
+/// The retirement below is REAL and still binds *on its own terms*: native
+/// scopes render once per app run **on a bottom-morphed field**. But the morph
+/// came from `Tab(role: .search)`, the tab bar is gone, and the field now takes
+/// its ordinary top placement — so the precondition the failure depended on no
+/// longer exists. That is the only kind of argument that reopens a retirement;
+/// see `navigation.md`. If a search-role tab ever returns, so does the
+/// retirement, and this file is what you mount.
+///
+/// ---
+///
 /// The catalog scope picker: a native segmented control living in the search
 /// surface's NAVIGATION BAR, in the principal slot between the ++ key and the
-/// kit switcher (Dave, 2026-07-26). That is the same row the other four tab
-/// roots put their title in — on this surface the control names the catalog, so
-/// it takes the title's place rather than sitting under it.
+/// kit switcher (Dave, 2026-07-26). That was the same row the other four tab
+/// roots put their title in — on that surface the control named the catalog, so
+/// it took the title's place rather than sitting under it.
 ///
 /// It took seven builds and five placements to get here, because every
 /// system-owned container failed a different way. Recorded so nobody re-walks

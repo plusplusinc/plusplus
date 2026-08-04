@@ -101,7 +101,14 @@ struct DrawerNavList: View {
             .font(.system(.title3, weight: .semibold))
             .foregroundStyle(isSelected ? Theme.selectedInk : Theme.textPrimary)
             .padding(.horizontal, 12)
-            .frame(height: 48)
+            .padding(.vertical, 10)
+            // ⚠️ `minHeight`, never a fixed `height` — the `clipShape` below
+            // follows this frame, so a fixed one CROPS the label at
+            // accessibility text sizes (the app runs to `.accessibility5`), on
+            // the one control the whole app's navigation now goes through.
+            // Every other row-shaped control here uses a floor for the same
+            // reason; fixed heights are reserved for glyph and caption keys.
+            .frame(minHeight: 48)
             .background(isSelected ? Theme.selectedTint : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: Theme.keyRadius))
             .overlay(RoundedRectangle(cornerRadius: Theme.keyRadius)

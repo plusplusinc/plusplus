@@ -31,9 +31,11 @@ struct CatalogScopeView: View {
     /// Where this surface is mounted. The list is identical either way; the
     /// chrome, the search field, and the push mechanism differ.
     enum Mode: Equatable {
-        /// A tab root: owns a `NavigationStack` and the app's expanding header
-        /// search field. `query` still arrives as a binding, because the scope
-        /// picker that outlives this view lives in the tab bar's accessory.
+        /// The app's SEARCH root: owns a `NavigationStack`, the system search
+        /// field and the native scope bar. `query` still arrives as a binding
+        /// because it lives in `RootTabView`, where a landing can clear it.
+        /// (The case is still called `tab` because the mount is unchanged —
+        /// it is a `TabView` child with the bar hidden.)
         case tab
         /// Presented inside someone else's stack (a sheet, or Today's setup
         /// push) with the pushed-screen chrome and its own header field. This
@@ -75,22 +77,23 @@ struct CatalogScopeView: View {
     let scope: FindScope
     let mode: Mode
 
-    /// The query. In `.tab` mode it lives in the ROOT — the segmented scope
-    /// picker sits outside this view and switching scope must not lose what you
-    /// typed; in `.presented` mode the surface owns it.
+    /// The query. In `.tab` mode it lives in `RootTabView` — a landing has to
+    /// be able to clear it, and switching scope must not lose what you typed;
+    /// in `.presented` mode the surface owns it.
     @Binding private var boundQuery: String
-    // Per-scope match COUNTS are gone with the hand-drawn bar (2026-07-25):
-    // there are no scope labels in the chrome to paint them on. The segmented
-    // picker in the tab bar's accessory is the cross-scope affordance now.
-    /// Which tab root this is: the reveal drawer's per-tab swipe gate keys on
-    /// it, and so does `ownsLandings`.
+    // Per-scope match COUNTS stay gone (2026-07-25): there are no scope labels
+    // in the chrome to paint them on, and the central `matchCounts` cost a
+    // second ranking pass per keystroke. The scope bar is the cross-scope
+    // affordance.
+    /// Which root this is, as the reveal drawer's SURFACE key ("search").
     ///
-    /// That second job is load-bearing since the catalogs became tabs again
-    /// (2026-07-26): a `Tab`'s content is its own view tree, so the Routines tab
-    /// and a search tab dialled to routines are two live instances of this view.
-    /// Anything answering a broadcast has to name one of them.
+    /// ⚠️ One consumer now: `revealRoot(tab:)`'s per-surface swipe gate.
+    /// `ownsLandings` used to key on it too, back when five live instances of
+    /// this view meant every broadcast needed a named owner; one root instance
+    /// answers that question by existing. ⚠️ NOT Operator's view-context key —
+    /// that one names the CATALOG (`FindScope.contextKey`).
     private let tabKey: String
-    /// The SEARCH tab's scope selection, and nothing else's.
+    /// The search root's scope selection, and nothing else's.
     ///
     /// ⚠️ The field and the scope bar live INSIDE this view's `NavigationStack`,
     /// not on the `Tab` in `RootTabView` (build 140 put them there and the scope
@@ -480,26 +483,50 @@ struct CatalogScopeView: View {
         // GitHub. Native tabs fire `onDisappear` on a switch, so this is the
         // same close trigger every other surface uses.
         .syncsProgramOnClose()
-        // Changing scope is the search tab dialling the accessory — the same
-        // surface looking at something else, so it stays MOUNTED (an `.id(scope)`
-        // would rebuild it, which is exactly what stops a scope change feeling
-        // like one). Only what can't survive the change resets: a pushed detail
-        // belonging to the old catalog, and which groups were opened in it.
+        // Changing scope is the scope bar dialling a different catalog — the
+        // same surface looking at something else, so it stays MOUNTED (an
+        // `.id(scope)` would rebuild it, which is exactly what stops a scope
+        // change feeling like one). Only what can't survive the change resets:
+        // a pushed detail belonging to the old catalog, and which groups were
+        // opened in it.
         .onChange(of: scope) { _, _ in
             // ⚠️ Guarded, and it matters more than it looks. This fires on
-            // EVERY scope tap, and on the search tab those taps happen while a
-            // search presentation is live — inside the very NavigationStack
-            // `path` belongs to. Assigning an already-empty path still
-            // publishes a change and re-evaluates the stack, which is churn
-            // underneath the thing that must not be re-created beneath itself.
+            // EVERY scope tap, while a search presentation is live — inside
+            // the very NavigationStack `path` belongs to. Assigning an
+            // already-empty path still publishes a change and re-evaluates the
+            // stack, which is churn underneath the thing that must not be
+            // re-created beneath itself.
             if !path.isEmpty { path = NavigationPath() }
             if !expandedMissing.isEmpty { expandedMissing = [] }
             // Facets die with the scope they narrowed (same guard rule).
             if filters != CatalogFilterState() { filters = CatalogFilterState() }
+            // ⚠️ **THE THIRD DOOR, and it is the one this surface actually
+            // needs** (2026-08-04). With five tabs, a landing arrived at an
+            // instance whose scope was FIXED, so "consume on receive, or on
+            // appear" covered everything. With ONE instance whose scope moves,
+            // both doors are shut in the commonest case: the notification's
+            // publisher is keyed to the scope this view is showing RIGHT NOW
+            // (so an arrival for a different catalog is never delivered), and
+            // `land(on:scope:)` leaves `tab` untouched when the surface is
+            // already frontmost (so no `onAppear`). Without this the routine
+            // you just imported lands with no entrance flash, its slot stays
+            // set, and the flash plus a path reset fire on some later visit —
+            // verbatim the phantom `consumeArrival` documents as the reason it
+            // clears slots eagerly.
+            //
+            // ⚠️ Safe on a MANUAL scope tap for the same reason `onAppear` is:
+            // both consumers take-and-clear, and a slot only survives long
+            // enough to be seen here because this door exists.
+            consumeArrival()
+            consumeOperatorPush()
+            // Re-seed the frozen unlock order: dialling to Kit IS arriving on
+            // it, and `onAppear` cannot fire for a surface already on screen.
+            seedEquipmentOrder()
         }
-        // A cross-tab add lands HERE with the entrance flash — consumed on
-        // receive when this tab is already built, on appear when the landing is
-        // what brought it forward.
+        // A cross-surface add lands HERE with the entrance flash — on receive
+        // when this surface already shows that catalog, on the scope change
+        // when the landing dialled it, on appear when the landing is what
+        // brought the surface forward.
         .onReceive(NotificationCenter.default.publisher(for: scope.arrivalNotification)) { _ in
             consumeArrival()
         }
@@ -517,9 +544,22 @@ struct CatalogScopeView: View {
             consumeArrival()
             consumeOperatorPush()
         }
+        // ⚠️ Popping back to the root re-presents search, because a push
+        // deactivates the system presentation and writes `false` back through
+        // the binding — which would leave the root showing one catalog with no
+        // scope bar and no route to the other two. A no-op if the system kept
+        // it presented, so it is safe either way; the alternative was betting
+        // on undocumented UIKit behaviour on the surface's commonest path.
+        // Focus stays off for the same reason it does on arrival.
+        .onChange(of: path.isEmpty) { _, atRoot in
+            guard isSearchSurface, atRoot else { return }
+            searchPresented = true
+            searchFieldFocused = false
+        }
         // Operator's outcome navigation: a touched routine pushes by its stable
-        // uuid. Same two-door handoff as an arrival — the tab this lands on may
-        // not have been built yet when the notification goes out.
+        // uuid. Same handoff as an arrival — the surface this lands on may not
+        // have been built yet when the notification goes out, and its scope may
+        // still be the outgoing one when the notification is delivered.
         .onReceive(NotificationCenter.default.publisher(for: .plusplusOperatorShow)) { _ in
             consumeOperatorPush()
         }
@@ -1098,8 +1138,15 @@ struct CatalogScopeView: View {
     /// (`EquipmentLibrary.setMembership` hard-guards it and the row has no
     /// ADD swipe), so ordering ~100 rows by what they would open would be a
     /// hundred propositions the surface cannot accept.
+    /// ⚠️ **`!isSearchSurface` is GONE from this guard** (2026-08-04). It was
+    /// added on 2026-08-03 to mean "the Kit TAB, not the search tab" — and the
+    /// Kit tab no longer exists, so the same words now mean NEVER: the only
+    /// `.tab` mount left always carries a `searchScope`, which is what
+    /// `isSearchSurface` reads. Left in place it silently reverted #251 (the
+    /// tier fell back to alphabetical and every `Opens N` tag vanished) with
+    /// nothing in CI to see it.
     private func seedEquipmentOrder() {
-        guard mode.isTab, !isSearchSurface else { return }
+        guard mode.isTab else { return }
         equipmentOrder = scope == .kit && !isBodyweightKit ? equipmentOpensCounts : [:]
     }
 
@@ -1399,17 +1446,21 @@ struct CatalogScopeView: View {
     /// that already ride every render of this surface. The tier's ORDER is
     /// a separate, deliberately frozen snapshot (`equipmentOrder`).
     ///
-    /// ⚠️ Gated to the TAB, exactly like `seedEquipmentOrder` (2026-08-03).
+    /// ⚠️ Gated to the ROOT, exactly like `seedEquipmentOrder` (2026-08-03).
     /// `listBody` is shared by the presented and picker mounts, and the
     /// PRESENTED equipment catalog is deliberately one flat alphabetical
     /// run with no tiers — so an `Opens N` there replaced the "N exercises"
     /// capsule on the ADD surface, where what a piece is FOR is the useful
     /// property and a number that moves on every quick-add is the churn
-    /// that flat run exists to avoid. On SEARCH the tag had nothing behind
-    /// it either: that surface never orders by unlocks. Missing this guard
-    /// also ran a full catalog pass per keystroke.
+    /// that flat run exists to avoid. Missing this guard also ran a full
+    /// catalog pass per keystroke.
+    ///
+    /// ⚠️ The `!isSearchSurface` half is GONE (2026-08-04), for the reason
+    /// `seedEquipmentOrder` states in full: "not the search tab" and "the Kit
+    /// tab" stopped being different things, so the pair of guards had become
+    /// unsatisfiable and this returned `[:]` on every surface.
     private var equipmentOpensCounts: [String: Int] {
-        guard mode.isTab, !isSearchSurface, scope == .kit, !isBodyweightKit else { return [:] }
+        guard mode.isTab, scope == .kit, !isBodyweightKit else { return [:] }
         return KitUnlocks.byPiece(
             allExercises.map(ExerciseFilterState.similarityFeatures),
             kit: kitNames

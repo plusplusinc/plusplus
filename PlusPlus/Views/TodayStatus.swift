@@ -26,9 +26,10 @@ import PlusPlusKit
 /// - `.clear` — a plain calendar: today never had anything on it. A
 ///   rest day, nothing scheduled, no setup pending.
 ///
-/// Pure and shared: `RootTabView` reads it for the tab icon, which must
-/// stay live even when Today isn't the front tab, so it can't wait on
-/// `TodayView`'s body to publish it. The due math mirrors `TodayView`'s
+/// Pure and shared: `DrawerNavList` reads it for the Today ROW's icon
+/// (2026-08-04 — it drove the Today TAB's icon until the tab bar came out),
+/// so it can't wait on `TodayView`'s body to publish it: the drawer renders
+/// while Today may never have been on screen. The due math mirrors `TodayView`'s
 /// (same `dueState` call, same `scheduleAnchor`, same completion pairing)
 /// so the icon and the timeline can never disagree — the app-side
 /// precedent is `WeekPlan`, which likewise computes over `[Routine]` /

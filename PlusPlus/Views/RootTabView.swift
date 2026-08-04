@@ -11,9 +11,10 @@ import PlusPlusKit
 /// since 2026-07-25, so the search surface dialled to Routines *is* the
 /// Routines list. The scope bar is what a tab tap used to be.
 ///
-/// The type keeps its name so the diff stays reversible. `FindScope.contextKey`
-/// carries the three retired raw values on for Operator's view-context and the
-/// drawer's swipe gate.
+/// The type keeps its name so the diff stays reversible. Its raw values are the
+/// drawer's swipe-gate keys; `FindScope.contextKey` separately carries the
+/// three RETIRED raw values on for Operator's view-context. ⚠️ Two different
+/// key spaces — see the `onChange` pair below.
 enum AppTab: String, CaseIterable {
     case today, search
 
@@ -226,23 +227,6 @@ struct RootTabView: View {
             viewContext.tab = newTab == .today ? "today" : scope.contextKey
             viewContext.detail = nil
         }
-        // Dialling the scope bar is a destination change now, not a filter, so
-        // Operator's line follows it the way it used to follow a tab tap.
-        .onChange(of: scope) { _, newScope in
-            guard tab == .search else { return }
-            viewContext.tab = newScope.contextKey
-            viewContext.detail = nil
-        }
-        // The drawer's nav list, and Today's floating search key, both land
-        // here. A plain in-process slot rather than a notification: this view
-        // is always mounted, so there is nobody to miss the signal, and the
-        // controller already reaches both layers.
-        .onChange(of: reveal.requestedSurface) { _, request in
-            guard let request else { return }
-            land(on: request.surface, scope: request.scope)
-            reveal.requestedSurface = nil
-            reveal.close()
-        }
         // Operator's outcome navigation: the root switches surface and dials
         // the scope; the search root resolves and pushes (the
         // .plusplusStartRoutine pattern). The drawer closes too, so a
@@ -287,6 +271,30 @@ struct RootTabView: View {
     /// on belongs BELOW this line, not above it.
     private var routedAppContent: some View {
         appContent
+        // Dialling the scope bar is a destination change now, not a filter, so
+        // Operator's line follows it the way it used to follow a tab tap.
+        //
+        // ⚠️ BELOW the split, per the law above — the two `onChange`s this
+        // change added went in beside `onChange(of: tab)` first, which read
+        // naturally and broke the rule. `appContent` shed three `Tab` builders
+        // here, so it very likely had room; "very likely" is not what a budget
+        // law is for, and the failure mode is a red `test` job a Linux
+        // `swiftc -parse` cannot see.
+        .onChange(of: scope) { _, newScope in
+            guard tab == .search else { return }
+            viewContext.tab = newScope.contextKey
+            viewContext.detail = nil
+        }
+        // The drawer's nav list, and Today's floating search key, both land
+        // here. A plain in-process slot rather than a notification: this view
+        // is always mounted, so there is nobody to miss the signal, and the
+        // controller already reaches both layers.
+        .onChange(of: reveal.requestedSurface) { _, request in
+            guard let request else { return }
+            land(on: request.surface, scope: request.scope)
+            reveal.requestedSurface = nil
+            reveal.close()
+        }
         // plusplus://r#… (and, once universal links land, the https
         // viewer URL) opens the import preview. A bad payload is
         // ignored — the viewer webpage is the place that explains.
